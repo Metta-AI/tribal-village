@@ -287,11 +287,6 @@ proc drawVisualRanges*(alpha = 0.2) =
 proc drawFogOfWar*() =
   drawVisualRanges(alpha = 1.0)
 
-proc drawActions*() =
-  discard
-
-proc drawObservations*() =
-  discard
 
 proc drawAgentDecorations*() =
   for agent in env.agents:
