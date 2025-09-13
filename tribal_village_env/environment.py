@@ -1,9 +1,8 @@
 """
-Tribal Village Environment - Nim-based PufferLib integration.
+Tribal Village Environment - Direct pointer-based PufferLib integration.
 
-This module provides the TribalVillageEnv class that interfaces with the Nim
-shared library compiled from tribal_village.nim to provide a multi-agent
-reinforcement learning environment.
+This module provides the TribalVillageEnv class using direct pointer communication
+with the Nim shared library for zero-copy performance.
 """
 
 import ctypes
@@ -17,69 +16,63 @@ import pufferlib
 
 class TribalVillageEnv(pufferlib.PufferEnv):
     """
-    Tribal Village Environment - A multi-agent RL environment built with Nim.
+    Tribal Village Environment - Direct pointer-based integration.
 
-    This environment wraps the Nim-based tribal village game engine and provides
-    PufferLib compatibility for training RL agents.
+    Uses pre-allocated numpy arrays and direct pointer passing for efficient
+    communication with the Nim environment.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, buf=None):
         self.config = config or {}
 
-        # Default configuration
+        # Environment configuration
         self.max_steps = self.config.get('max_steps', 512)
-        self.ore_per_battery = self.config.get('ore_per_battery', 3)
-        self.batteries_per_heart = self.config.get('batteries_per_heart', 2)
-        self.enable_combat = self.config.get('enable_combat', True)
-        self.clippy_spawn_rate = self.config.get('clippy_spawn_rate', 0.1)
-        self.clippy_damage = self.config.get('clippy_damage', 10)
 
-        # Reward configuration
-        self.heart_reward = self.config.get('heart_reward', 1.0)
-        self.battery_reward = self.config.get('battery_reward', 0.5)
-        self.ore_reward = self.config.get('ore_reward', 0.1)
-        self.survival_penalty = self.config.get('survival_penalty', -0.01)
-        self.death_penalty = self.config.get('death_penalty', -1.0)
-
-        # Environment state
-        self.step_count = 0
-
-        # Load the Nim shared library first to get actual parameters
+        # Load the Nim shared library
         lib_path = Path(__file__).parent.parent / "libtribal_village.so"
         if not lib_path.exists():
             raise FileNotFoundError(f"Nim library not found at {lib_path}. Run ./build_lib.sh")
 
         self.lib = ctypes.CDLL(str(lib_path))
-
-        # Setup function signatures
         self._setup_ctypes_interface()
 
-        # Initialize the Nim environment to get actual parameters
+        # Initialize the Nim environment
         self.env_ptr = self.lib.tribal_village_create()
+        if not self.env_ptr:
+            raise RuntimeError("Failed to create Nim environment")
 
-        # Get actual parameters from Nim
+        # Get environment parameters
         self.max_tokens_per_agent = self.lib.tribal_village_get_max_tokens()
+        self.total_agents = self.lib.tribal_village_get_num_agents()
 
-        # For independent agent control, we'll control just one agent per env instance
-        # The config can specify which agent_id we control (default 0)
-        self.controlled_agent_id = self.config.get('agent_id', 0)
-        self.num_agents = 1  # Single agent per environment instance for PufferLib
+        # For PufferLib, we need single agent per environment
+        self.num_agents = 1
         self.agents = ["agent_0"]
         self.possible_agents = self.agents.copy()
 
-        # Define observation and action spaces with actual parameters BEFORE calling super()
-        # Token-based observations: (MAX_TOKENS_PER_AGENT, 3) where 3 = [coord_byte, layer, value]
+        # Define spaces BEFORE calling super()
         self.single_observation_space = spaces.Box(
             low=0, high=255,
             shape=(self.max_tokens_per_agent, 3),
             dtype=np.uint8
         )
+        self.single_action_space = spaces.MultiDiscrete([9, 8])  # [move_direction, action_type]
+        self.is_continuous = False
 
-        # Multi-discrete action space: [move_direction(9), action_type(8)]
-        self.single_action_space = spaces.MultiDiscrete([9, 8])
+        # Now call super()
+        super().__init__(buf)
 
-        # Now we can call super() with all required attributes set
-        super().__init__()
+        # Pre-allocate numpy arrays for zero-copy communication
+        # We allocate for all agents but only use what we need
+        self.observations = np.zeros((self.total_agents, self.max_tokens_per_agent, 3), dtype=np.uint8)
+        self.rewards = np.zeros(self.total_agents, dtype=np.float32)
+        self.terminals = np.zeros(self.total_agents, dtype=np.bool_)
+        self.truncations = np.zeros(self.total_agents, dtype=np.bool_)
+        self.actions_buffer = np.zeros((self.total_agents, 2), dtype=np.uint8)
+
+        # Environment state
+        self.step_count = 0
+        self.controlled_agent_id = self.config.get('agent_id', 0)
 
     def _setup_ctypes_interface(self):
         """Setup ctypes function signatures for the Nim library."""
@@ -92,99 +85,89 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self.lib.tribal_village_destroy.argtypes = [ctypes.c_void_p]
         self.lib.tribal_village_destroy.restype = None
 
-        # tribal_village_reset(env: pointer)
-        self.lib.tribal_village_reset.argtypes = [ctypes.c_void_p]
-        self.lib.tribal_village_reset.restype = None
+        # tribal_village_reset_and_get_obs(env: pointer, obs_ptr: int) -> int32
+        self.lib.tribal_village_reset_and_get_obs.argtypes = [ctypes.c_void_p, ctypes.c_int64]
+        self.lib.tribal_village_reset_and_get_obs.restype = ctypes.c_int32
 
-        # tribal_village_step(env: pointer, action0: int, action1: int)
-        self.lib.tribal_village_step.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
-        self.lib.tribal_village_step.restype = None
+        # tribal_village_step_with_pointers(env, actions_ptr, obs_ptr, rewards_ptr, terminals_ptr, truncations_ptr) -> int32
+        self.lib.tribal_village_step_with_pointers.argtypes = [
+            ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64,
+            ctypes.c_int64, ctypes.c_int64, ctypes.c_int64
+        ]
+        self.lib.tribal_village_step_with_pointers.restype = ctypes.c_int32
 
-        # tribal_village_get_observation(env: pointer, agent_id: int, buffer: array, max_tokens: int)
-        self.lib.tribal_village_get_observation.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int]
-        self.lib.tribal_village_get_observation.restype = ctypes.c_int
+        # tribal_village_get_num_agents() -> int32
+        self.lib.tribal_village_get_num_agents.argtypes = []
+        self.lib.tribal_village_get_num_agents.restype = ctypes.c_int32
 
-        # tribal_village_get_reward(env: pointer, agent_id: int) -> float
-        self.lib.tribal_village_get_reward.argtypes = [ctypes.c_void_p, ctypes.c_int]
-        self.lib.tribal_village_get_reward.restype = ctypes.c_float
-
-        # tribal_village_is_done(env: pointer, agent_id: int) -> bool
-        self.lib.tribal_village_is_done.argtypes = [ctypes.c_void_p, ctypes.c_int]
-        self.lib.tribal_village_is_done.restype = ctypes.c_int
-
-        # tribal_village_get_num_agents(env: pointer) -> int
-        self.lib.tribal_village_get_num_agents.argtypes = [ctypes.c_void_p]
-        self.lib.tribal_village_get_num_agents.restype = ctypes.c_int
-
-        # tribal_village_get_max_tokens() -> int
+        # tribal_village_get_max_tokens() -> int32
         self.lib.tribal_village_get_max_tokens.argtypes = []
-        self.lib.tribal_village_get_max_tokens.restype = ctypes.c_int
+        self.lib.tribal_village_get_max_tokens.restype = ctypes.c_int32
+
+        # tribal_village_is_done(env: pointer) -> int32
+        self.lib.tribal_village_is_done.argtypes = [ctypes.c_void_p]
+        self.lib.tribal_village_is_done.restype = ctypes.c_int32
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[Dict, Dict]:
-        """Reset the environment."""
+        """Reset the environment using direct pointer access."""
         self.step_count = 0
 
-        # Reset the Nim environment
-        self.lib.tribal_village_reset(self.env_ptr)
+        # Get pointer to observations buffer
+        obs_ptr = self.observations.ctypes.data_as(ctypes.c_void_p).value or 0
 
-        # Get initial observations
-        observations = self._get_observations()
-        info = {agent: {} for agent in self.agents}
+        # Reset environment and get observations in one call
+        success = self.lib.tribal_village_reset_and_get_obs(self.env_ptr, obs_ptr)
+        if not success:
+            raise RuntimeError("Failed to reset Nim environment")
+
+        # Extract observation for our controlled agent
+        agent_obs = self.observations[self.controlled_agent_id].copy()
+        observations = {"agent_0": agent_obs}
+        info = {"agent_0": {}}
 
         return observations, info
 
     def step(self, actions: Dict[str, np.ndarray]) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
-        """Step the environment forward."""
+        """Step the environment using direct pointer access."""
         self.step_count += 1
 
-        # Get action for our controlled agent
-        agent_action = actions.get("agent_0", np.array([0, 0]))  # default no-op
-        action0 = int(agent_action[0])  # move_direction
-        action1 = int(agent_action[1])  # action_type
+        # Clear actions buffer (all agents get no-op by default)
+        self.actions_buffer.fill(0)
 
-        # Step the Nim environment with this agent's actions
-        self.lib.tribal_village_step(self.env_ptr, action0, action1)
+        # Set action for our controlled agent
+        if "agent_0" in actions:
+            action = actions["agent_0"]
+            self.actions_buffer[self.controlled_agent_id, 0] = action[0]  # move_direction
+            self.actions_buffer[self.controlled_agent_id, 1] = action[1]  # action_type
 
-        # Get observations, rewards, and dones
-        observations = self._get_observations()
-        rewards = self._get_rewards()
-        terminated = self._get_terminated()
-        truncated = self._get_truncated()
-        infos = {agent: {} for agent in self.agents}
+        # Get pointers to all buffers
+        actions_ptr = self.actions_buffer.ctypes.data_as(ctypes.c_void_p).value or 0
+        obs_ptr = self.observations.ctypes.data_as(ctypes.c_void_p).value or 0
+        rewards_ptr = self.rewards.ctypes.data_as(ctypes.c_void_p).value or 0
+        terminals_ptr = self.terminals.ctypes.data_as(ctypes.c_void_p).value or 0
+        truncations_ptr = self.truncations.ctypes.data_as(ctypes.c_void_p).value or 0
+
+        # Step environment with all pointers
+        success = self.lib.tribal_village_step_with_pointers(
+            self.env_ptr, actions_ptr, obs_ptr, rewards_ptr, terminals_ptr, truncations_ptr
+        )
+        if not success:
+            raise RuntimeError("Failed to step Nim environment")
+
+        # Extract results for our controlled agent
+        agent_obs = self.observations[self.controlled_agent_id].copy()
+        agent_reward = float(self.rewards[self.controlled_agent_id])
+        agent_terminal = bool(self.terminals[self.controlled_agent_id])
+        agent_truncation = bool(self.truncations[self.controlled_agent_id]) or (self.step_count >= self.max_steps)
+
+        # Return results in PufferLib format
+        observations = {"agent_0": agent_obs}
+        rewards = {"agent_0": agent_reward}
+        terminated = {"agent_0": agent_terminal}
+        truncated = {"agent_0": agent_truncation}
+        infos = {"agent_0": {}}
 
         return observations, rewards, terminated, truncated, infos
-
-    def _get_observations(self) -> Dict[str, np.ndarray]:
-        """Get observations from the Nim environment."""
-        # Create buffer for our single controlled agent's observations
-        obs_buffer = (ctypes.c_uint8 * (self.max_tokens_per_agent * 3))()
-
-        # Get observations for our controlled agent
-        actual_tokens = self.lib.tribal_village_get_observation(
-            self.env_ptr, self.controlled_agent_id, obs_buffer, self.max_tokens_per_agent
-        )
-
-        # Convert to numpy and reshape
-        obs_array = np.ctypeslib.as_array(obs_buffer)
-        obs_array = obs_array.reshape(self.max_tokens_per_agent, 3)
-
-        # Return dict with our single agent's observations
-        return {"agent_0": obs_array.copy()}
-
-    def _get_rewards(self) -> Dict[str, float]:
-        """Get rewards from the Nim environment."""
-        reward = self.lib.tribal_village_get_reward(self.env_ptr, self.controlled_agent_id)
-        return {"agent_0": float(reward)}
-
-    def _get_terminated(self) -> Dict[str, bool]:
-        """Get termination status for each agent."""
-        is_done = self.lib.tribal_village_is_done(self.env_ptr, self.controlled_agent_id)
-        return {"agent_0": bool(is_done)}
-
-    def _get_truncated(self) -> Dict[str, bool]:
-        """Get truncation status (time limit reached)."""
-        is_truncated = self.step_count >= self.max_steps
-        return {"agent_0": is_truncated}
 
     def close(self):
         """Clean up the environment."""
