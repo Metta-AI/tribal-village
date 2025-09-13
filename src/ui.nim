@@ -72,11 +72,9 @@ proc drawFooter*(panel: Panel) =
   ):
     if play:
       play = false
-      echo "Paused"
     else:
       playSpeed = DefaultPlaySpeed
       play = true
-      echo "Playing"
   x += 32 + 10
 
   if drawIconButton(
