@@ -1,7 +1,7 @@
 import
   std/strformat,
   boxy, vmath, windy,
-  common, environment
+  common, environment, utils
 
 # Infection system constants
 const
@@ -347,5 +347,75 @@ proc drawSelection*() =
 
  
 
+template infoLine(key, value: string): string =
+  key & ": " & value & "\n"
+
 proc drawInfoText*() =
-  discard
+  var info = ""
+
+  if selection != nil:
+    case selection.kind
+    of Wall:
+      info = "Wall\n" & infoLine("pos", &"({selection.pos.x}, {selection.pos.y})")
+    of Agent:
+      info = "Agent\n" &
+        infoLine("agentId", $selection.agentId) &
+        infoLine("orientation", $selection.orientation) &
+        infoLine("ore", $selection.inventoryOre) &
+        infoLine("batteries", $selection.inventoryBattery) &
+        infoLine("water", $selection.inventoryWater) &
+        infoLine("wheat", $selection.inventoryWheat) &
+        infoLine("wood", $selection.inventoryWood) &
+        infoLine("spear", $selection.inventorySpear) &
+        infoLine("lantern", $selection.inventoryLantern) &
+        infoLine("armor", $selection.inventoryArmor) &
+        infoLine("bread", $selection.inventoryBread)
+    of Altar:
+      info = "Altar\n" &
+        infoLine("hearts", $selection.hearts) &
+        infoLine("cooldown", $selection.cooldown)
+    of Converter:
+      info = "Converter\n" &
+        infoLine("cooldown", $selection.cooldown) &
+        infoLine("ready", $(selection.cooldown == 0))
+    of Mine:
+      info = "Mine\n" &
+        infoLine("resources", $selection.resources) &
+        infoLine("cooldown", $selection.cooldown)
+    of Spawner:
+      info = "Spawner\n" &
+        infoLine("cooldown", $selection.cooldown) &
+        infoLine("spawn ready", $(selection.cooldown == 0))
+    of Clippy:
+      let status = if selection.hasClaimedTerritory: "planted (creep tumor)" else: "seeking territory"
+      info = "Clippy\n" &
+        infoLine("home", &"({selection.homeSpawner.x}, {selection.homeSpawner.y})") &
+        infoLine("status", status)
+    of Armory, Forge, ClayOven, WeavingLoom:
+      let name = case selection.kind
+        of Armory: "Armory"
+        of Forge: "Forge"
+        of ClayOven: "Clay Oven"
+        of WeavingLoom: "Weaving Loom"
+        else: "Building"
+      info = &"{name}\n" &
+        infoLine("pos", &"({selection.pos.x}, {selection.pos.y})") &
+        infoLine("cooldown", $selection.cooldown)
+    of PlantedLantern:
+      let healthStatus = if selection.lanternHealthy: "healthy" else: "destroyed"
+      info = "Planted Lantern\n" &
+        infoLine("pos", &"({selection.pos.x}, {selection.pos.y})") &
+        infoLine("teamId", $selection.teamId) &
+        infoLine("status", healthStatus)
+  else:
+    info = &"speed: {1/playSpeed:0.3f}\nstep: {env.currentStep}"
+
+  drawText(
+    bxy,
+    "info",
+    translate(vec2(10, 10)),
+    typeface,
+    info,
+    16,
+    color(1, 1, 1, 1)
+  )
