@@ -347,50 +347,62 @@ proc drawSelection*() =
 
  
 
-template infoLine(key, value: string): string =
-  key & ": " & value & "\n"
-
 proc drawInfoText*() =
   var info = ""
 
   if selection != nil:
     case selection.kind
     of Wall:
-      info = "Wall\n" & infoLine("pos", &"({selection.pos.x}, {selection.pos.y})")
+      info = &"""
+Wall
+  pos: ({selection.pos.x}, {selection.pos.y})
+      """
     of Agent:
-      info = "Agent\n" &
-        infoLine("agentId", $selection.agentId) &
-        infoLine("orientation", $selection.orientation) &
-        infoLine("ore", $selection.inventoryOre) &
-        infoLine("batteries", $selection.inventoryBattery) &
-        infoLine("water", $selection.inventoryWater) &
-        infoLine("wheat", $selection.inventoryWheat) &
-        infoLine("wood", $selection.inventoryWood) &
-        infoLine("spear", $selection.inventorySpear) &
-        infoLine("lantern", $selection.inventoryLantern) &
-        infoLine("armor", $selection.inventoryArmor) &
-        infoLine("bread", $selection.inventoryBread)
+      info = &"""
+Agent
+  agentId: {selection.agentId}
+  orientation: {selection.orientation}
+  ore: {selection.inventoryOre}
+  batteries: {selection.inventoryBattery}
+  water: {selection.inventoryWater}
+  wheat: {selection.inventoryWheat}
+  wood: {selection.inventoryWood}
+  spear: {selection.inventorySpear}
+  lantern: {selection.inventoryLantern}
+  armor: {selection.inventoryArmor}
+  bread: {selection.inventoryBread}
+      """
     of Altar:
-      info = "Altar\n" &
-        infoLine("hearts", $selection.hearts) &
-        infoLine("cooldown", $selection.cooldown)
+      info = &"""
+Altar
+  hearts: {selection.hearts}
+  cooldown: {selection.cooldown}
+      """
     of Converter:
-      info = "Converter\n" &
-        infoLine("cooldown", $selection.cooldown) &
-        infoLine("ready", $(selection.cooldown == 0))
+      info = &"""
+Converter
+  cooldown: {selection.cooldown}
+  ready: {selection.cooldown == 0}
+      """
     of Mine:
-      info = "Mine\n" &
-        infoLine("resources", $selection.resources) &
-        infoLine("cooldown", $selection.cooldown)
+      info = &"""
+Mine
+  resources: {selection.resources}
+  cooldown: {selection.cooldown}
+      """
     of Spawner:
-      info = "Spawner\n" &
-        infoLine("cooldown", $selection.cooldown) &
-        infoLine("spawn ready", $(selection.cooldown == 0))
+      info = &"""
+Spawner
+  cooldown: {selection.cooldown}
+  spawn ready: {selection.cooldown == 0}
+      """
     of Clippy:
       let status = if selection.hasClaimedTerritory: "planted (creep tumor)" else: "seeking territory"
-      info = "Clippy\n" &
-        infoLine("home", &"({selection.homeSpawner.x}, {selection.homeSpawner.y})") &
-        infoLine("status", status)
+      info = &"""
+Clippy
+  home: ({selection.homeSpawner.x}, {selection.homeSpawner.y})
+  status: {status}
+      """
     of Armory, Forge, ClayOven, WeavingLoom:
       let name = case selection.kind
         of Armory: "Armory"
@@ -398,17 +410,25 @@ proc drawInfoText*() =
         of ClayOven: "Clay Oven"
         of WeavingLoom: "Weaving Loom"
         else: "Building"
-      info = &"{name}\n" &
-        infoLine("pos", &"({selection.pos.x}, {selection.pos.y})") &
-        infoLine("cooldown", $selection.cooldown)
+      info = &"""
+{name}
+  pos: ({selection.pos.x}, {selection.pos.y})
+  cooldown: {selection.cooldown}
+      """
     of PlantedLantern:
       let healthStatus = if selection.lanternHealthy: "healthy" else: "destroyed"
-      info = "Planted Lantern\n" &
-        infoLine("pos", &"({selection.pos.x}, {selection.pos.y})") &
-        infoLine("teamId", $selection.teamId) &
-        infoLine("status", healthStatus)
+      info = &"""
+Planted Lantern
+  pos: ({selection.pos.x}, {selection.pos.y})
+  teamId: {selection.teamId}
+  status: {healthStatus}
+      """
   else:
-    info = &"speed: {1/playSpeed:0.3f}\nstep: {env.currentStep}"
+    info = &"""
+World
+  speed: {1/playSpeed:0.3f}
+  step: {env.currentStep}
+    """
 
   drawText(
     bxy,
