@@ -1,8 +1,8 @@
 """
-PufferLib wrapper for Tribal environment.
+PufferLib wrapper for Tribal Village environment.
 
-This module provides a PufferLib-compatible wrapper for the Nim-based tribal environment.
-It bridges the TribalGridEnv from the tribal bindings to work seamlessly with PufferLib
+This module provides a PufferLib-compatible wrapper for the Nim-based tribal village environment.
+It bridges the TribalVillageGridEnv from the tribal village bindings to work seamlessly with PufferLib
 as a third-party environment.
 """
 
@@ -11,27 +11,27 @@ import gymnasium as gym
 from typing import Any, Dict, Optional, Tuple, List
 
 
-class TribalPufferEnv:
+class TribalVillagePufferEnv:
     """
-    PufferLib wrapper for the Tribal environment.
+    PufferLib wrapper for the Tribal Village environment.
 
-    This wrapper adapts the Nim-based tribal environment to work with PufferLib's
+    This wrapper adapts the Nim-based tribal village environment to work with PufferLib's
     training infrastructure as a third-party environment. It handles the conversion
-    between PufferLib's expected interface and the tribal environment's native interface.
+    between PufferLib's expected interface and the tribal village environment's native interface.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, render_mode: Optional[str] = 'rgb_array', buf=None):
         """
-        Initialize the PufferLib-compatible tribal environment.
+        Initialize the PufferLib-compatible tribal village environment.
 
         Args:
-            config: Configuration dictionary for the tribal environment
+            config: Configuration dictionary for the tribal village environment
             render_mode: Rendering mode (default: 'rgb_array')
             buf: PufferLib buffer (not used in this implementation)
         """
-        # Import the tribal environment
+        # Import the tribal village environment
         try:
-            # Add the tribal bindings to the path
+            # Add the tribal village bindings to the path
             import sys
             from pathlib import Path
 
@@ -42,19 +42,19 @@ class TribalPufferEnv:
             if str(tribal_src_path) not in sys.path:
                 sys.path.insert(0, str(tribal_src_path))
 
-            from metta.tribal.tribal_genny import TribalGridEnv
+            from .tribal_village_genny import TribalVillageGridEnv
 
         except ImportError as e:
             raise ImportError(
-                f"Failed to import TribalGridEnv: {e}\n\n"
-                "This requires the tribal environment with bindings built. "
+                f"Failed to import TribalVillageGridEnv: {e}\n\n"
+                "This requires the tribal village environment with bindings built. "
                 "Run './build_bindings.sh' to build the bindings."
             )
 
-        # Create the tribal environment
-        self._tribal_env = TribalGridEnv(config=config, render_mode=render_mode)
+        # Create the tribal village environment
+        self._tribal_env = TribalVillageGridEnv(config=config, render_mode=render_mode)
 
-        # Set up gymnasium spaces based on the tribal environment
+        # Set up gymnasium spaces based on the tribal village environment
         self.single_observation_space = self._tribal_env.single_observation_space
         self.single_action_space = self._tribal_env.single_action_space
 
@@ -83,7 +83,7 @@ class TribalPufferEnv:
             observations: Dictionary mapping agent names to their observations
             infos: Dictionary containing environment information
         """
-        # Reset the tribal environment
+        # Reset the tribal village environment
         obs_array, info = self._tribal_env.reset(seed=seed)
 
         # Convert to PufferLib multi-agent format
@@ -113,7 +113,7 @@ class TribalPufferEnv:
         # Convert actions from dict format to array format expected by tribal env
         action_array = np.array([actions[agent] for agent in self.agents])
 
-        # Step the tribal environment
+        # Step the tribal village environment
         obs_array, rewards_array, terminals_array, truncations_array, info = self._tribal_env.step(action_array)
 
         # Convert back to PufferLib multi-agent format
@@ -171,16 +171,16 @@ class TribalPufferEnv:
         return self._render_mode
 
 
-def make_tribal_puffer_env(config: Optional[Dict[str, Any]] = None, render_mode: str = 'rgb_array', **kwargs) -> TribalPufferEnv:
+def make_tribal_village_puffer_env(config: Optional[Dict[str, Any]] = None, render_mode: str = 'rgb_array', **kwargs) -> TribalVillagePufferEnv:
     """
-    Factory function to create a TribalPufferEnv instance.
+    Factory function to create a TribalVillagePufferEnv instance.
 
     Args:
-        config: Configuration for the tribal environment
+        config: Configuration for the tribal village environment
         render_mode: Rendering mode
         **kwargs: Additional keyword arguments
 
     Returns:
-        Configured TribalPufferEnv instance
+        Configured TribalVillagePufferEnv instance
     """
-    return TribalPufferEnv(config=config, render_mode=render_mode)
+    return TribalVillagePufferEnv(config=config, render_mode=render_mode)

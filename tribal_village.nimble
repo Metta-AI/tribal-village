@@ -1,6 +1,6 @@
 version     = "0.1.0"
 author      = "Metta Team"
-description = "High-performance tribal environment for multi-agent RL"
+description = "High-performance tribal-village environment for multi-agent RL"
 license     = "MIT"
 
 srcDir = "src"

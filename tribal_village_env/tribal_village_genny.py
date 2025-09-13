@@ -1,5 +1,5 @@
 """
-Clean Tribal Environment - Auto-building with smart delegation.
+Clean Tribal Village Environment - Auto-building with smart delegation.
 
 This version automatically rebuilds bindings if needed and uses delegation
 patterns instead of verbose manual pass-through methods.
@@ -16,38 +16,35 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from pydantic import Field
 
-from metta.mettagrid.config import Config
+from pydantic import BaseModel as Config
 
-# Find tribal root directory - assume we're running from metta root
-_metta_root = Path.cwd()
-while _metta_root.name != "metta" and _metta_root.parent != _metta_root:
-    _metta_root = _metta_root.parent
-_tribal_dir = _metta_root / "tribal"
+# Find tribal village root directory
+_tribal_village_dir = Path(__file__).parent.parent
 
 
 def _ensure_bindings_available():
     """Auto-build tribal bindings if they don't exist or are stale."""
-    bindings_dir = _tribal_dir / "bindings" / "generated"
-    library_files = list(bindings_dir.glob("libtribal.*"))
+    bindings_dir = _tribal_village_dir / "bindings" / "generated"
+    library_files = list(bindings_dir.glob("libtribal_village.*"))
     python_binding = bindings_dir / "tribal.py"
 
     # Check if bindings exist
     if not library_files or not python_binding.exists():
-        _build_bindings(_tribal_dir)
+        _build_bindings(_tribal_village_dir)
 
     # Add to Python path
     sys.path.insert(0, str(bindings_dir))
 
 
-def _build_bindings(tribal_dir: Path):
+def _build_bindings(_tribal_village_dir: Path):
     """Build the tribal bindings using the build script."""
-    build_script = _tribal_dir / "build_bindings.sh"
+    build_script = _tribal_village_dir / "build_bindings.sh"
     if not build_script.exists():
         raise RuntimeError(f"Build script not found: {build_script}")
 
     result = subprocess.run(
         ["bash", str(build_script)],
-        cwd=_tribal_dir,
+        cwd=_tribal_village_dir,
         capture_output=True,
         text=True,
     )
@@ -61,7 +58,7 @@ _ensure_bindings_available()
 
 # Use the same import pattern as the original but simplified
 try:
-    bindings_file = _tribal_dir / "bindings" / "generated" / "tribal.py"
+    bindings_file = _tribal_village_dir / "bindings" / "generated" / "tribal.py"
     spec = importlib.util.spec_from_file_location("tribal", bindings_file)
     tribal = importlib.util.module_from_spec(spec)
     sys.modules["tribal"] = tribal  # Ensure the module is in sys.modules before loading
@@ -90,9 +87,9 @@ except ImportError as e:
     ) from e
 
 
-class TribalGridEnv:
+class TribalVillageGridEnv:
     """
-    Clean tribal environment wrapper with auto-building and smart delegation.
+    Clean tribal village environment wrapper with auto-building and smart delegation.
 
     Uses direct pointer access for zero-copy performance with minimal boilerplate.
     """
@@ -100,7 +97,7 @@ class TribalGridEnv:
     def __init__(
         self, config: Optional[Dict[str, Any]] = None, render_mode: Optional[str] = None, buf: Optional[Any] = None
     ):
-        """Initialize tribal environment."""
+        """Initialize tribal village environment."""
         # Set environment variable to signal Python training mode
         os.environ["TRIBAL_PYTHON_CONTROL"] = "1"
 
@@ -222,7 +219,7 @@ class TribalGridEnv:
 
 
 # Configuration Classes
-class TribalGameConfig(Config):
+class TribalVillageGameConfig(Config):
     max_steps: int = Field(default=2000, ge=0)
     ore_per_battery: int = Field(default=3)
     batteries_per_heart: int = Field(default=2)
@@ -240,17 +237,17 @@ class TribalGameConfig(Config):
         return MAP_AGENTS
 
 
-class TribalEnvConfig(Config):
-    environment_type: str = "tribal"
-    label: str = Field(default="tribal")
-    game: TribalGameConfig = Field(default_factory=TribalGameConfig)
+class TribalVillageEnvConfig(Config):
+    environment_type: str = "tribal_village"
+    label: str = Field(default="tribal_village")
+    game: TribalVillageGameConfig = Field(default_factory=TribalVillageGameConfig)
     desync_episodes: bool = Field(default=True)
     render_mode: Optional[str] = Field(default=None)
 
-    def create_environment(self, **kwargs) -> TribalGridEnv:
-        return TribalGridEnv({**self.game.__dict__, "render_mode": self.render_mode, **kwargs})
+    def create_environment(self, **kwargs) -> TribalVillageGridEnv:
+        return TribalVillageGridEnv({**self.game.__dict__, "render_mode": self.render_mode, **kwargs})
 
 
-def make_tribal_env(**config) -> TribalGridEnv:
-    """Create a tribal environment instance."""
-    return TribalGridEnv(config)
+def make_tribal_village_env(**config) -> TribalVillageGridEnv:
+    """Create a tribal village environment instance."""
+    return TribalVillageGridEnv(config)

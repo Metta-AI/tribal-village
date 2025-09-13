@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple test script for tribal PufferLib integration.
+Simple test script for tribal village PufferLib integration.
 """
 
 import sys
@@ -13,11 +13,11 @@ tribal_src_path = tribal_village_root / 'src'
 sys.path.insert(0, str(tribal_src_path))
 
 def test_direct_import():
-    """Test direct import of tribal environment."""
+    """Test direct import of tribal village environment."""
     print("=== Testing Direct Import ===")
     try:
-        from tribal_env import TribalPufferEnv
-        env = TribalPufferEnv()
+        from tribal_village_env import TribalVillagePufferEnv
+        env = TribalVillagePufferEnv()
         print(f"✓ Environment created: {env.num_agents} agents")
 
         obs, info = env.reset()
@@ -40,13 +40,13 @@ def test_package_import():
     """Test tribal_env package import."""
     print("\n=== Testing Package Import ===")
     try:
-        import tribal_env
+        import tribal_village_env
         print(f"✓ Package imported successfully")
-        print(f"  Version: {tribal_env.__version__}")
-        print(f"  Available: {tribal_env.__all__}")
+        print(f"  Version: {tribal_village_env.__version__}")
+        print(f"  Available: {tribal_village_env.__all__}")
 
         # Test factory function
-        env = tribal_env.make_tribal_puffer_env()
+        env = tribal_village_env.make_tribal_village_puffer_env()
         print(f"✓ Factory function works")
         print(f"  Agents: {env.num_agents}")
 
