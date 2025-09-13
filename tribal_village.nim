@@ -69,8 +69,6 @@ proc display() =
   drawTerrain()
   drawWalls()
   drawObjects()
-  drawActions()
-  drawObservations()
   drawAgentDecorations()
   if settings.showVisualRange:
     drawVisualRanges()

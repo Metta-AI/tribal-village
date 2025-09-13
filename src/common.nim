@@ -46,12 +46,7 @@ type
     showFogOfWar* = false
     showVisualRange* = true
     showGrid* = true
-    showResources* = true
     showObservations* = -1
-    lockFocus* = false
-    showAgentPaths* = false
-    showBuildingStatus* = true
-    enableInteraction* = true
     debugMode* = false
     showPerformanceStats* = false
     enableLogging* = true

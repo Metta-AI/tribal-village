@@ -1,53 +1,60 @@
-import std/[random, tables, times, math, os], vmath, chroma
+import std/[random, tables, times, math], vmath, chroma
 import terrain, objects, common
 export terrain, objects, common
 
 
 const
-  # Map layout constants
+  # Map Layout
   MapLayoutRoomsX* = 1
   MapLayoutRoomsY* = 1
   MapBorder* = 4
-  # Increase map size and target ~16:9 aspect by using 192x108 rooms
-  MapRoomWidth* = 192
+  MapRoomWidth* = 192  # 16:9 aspect ratio
   MapRoomHeight* = 108
   MapRoomBorder* = 0
-  
-  # Reward constants
-  RewardGetWater* = 0.001      # Collecting water from tiles
-  RewardGetWheat* = 0.001      # Harvesting wheat 
-  RewardGetWood* = 0.002       # Chopping wood (slightly higher as it's needed for spears)
-  RewardMineOre* = 0.003       # Mining ore (first step in battery chain)
-  RewardConvertOreToBattery* = 0.01   # Using converter to make batteries
-  RewardCraftSpear* = 0.01            # Using forge to craft spear
-  RewardCraftArmor* = 0.015           # Using armory to craft armor  
-  RewardCraftFood* = 0.012            # Using clay oven to craft food
-  RewardCraftCloth* = 0.012           # Using weaving loom to craft cloth
-  RewardDestroyClippy* = 0.1          # Destroying a clippy with spear
-  MapRoomObjectsAgents* = 15  # Total agents to spawn (will be distributed across villages)
-  MapRoomObjectsHouses* = 3  # Number of villages/houses to spawn
-  MapAgentsPerHouse* = 5  # Agents to spawn per house/village
-  MapRoomObjectsConverters* = 10  # Converters to process ore into batteries
-  MapRoomObjectsMines* = 20  # Mines to extract ore (2x generators)
+
+  # World Objects
+  MapRoomObjectsAgents* = 15
+  MapRoomObjectsHouses* = 3
+  MapAgentsPerHouse* = 5
+  MapRoomObjectsConverters* = 10
+  MapRoomObjectsMines* = 20
   MapRoomObjectsWalls* = 30
 
+  # Agent Parameters
   MapObjectAgentMaxInventory* = 5
   MapObjectAgentFreezeDuration* = 10
 
+  # Building Parameters
   MapObjectAltarInitialHearts* = 5
   MapObjectAltarCooldown* = 10
   MapObjectAltarRespawnCost* = 1
   MapObjectConverterCooldown* = 0
-
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
   MapObjectMineUseCost* = 0
-  SpawnerCooldown* = 13  # Steps between Clippy spawns (1/3 of original 40)
-  MinTintEpsilon* = 5   # Minimum tint threshold for visual effects
+
+  # Gameplay
+  SpawnerCooldown* = 13
+  MinTintEpsilon* = 5
+
+  # Observation System
   ObservationLayers* = 21
   ObservationWidth* = 11
   ObservationHeight* = 11
-  # Computed
+
+  # Reward System
+  RewardGetWater* = 0.001
+  RewardGetWheat* = 0.001
+  RewardGetWood* = 0.002
+  RewardMineOre* = 0.003
+  RewardConvertOreToBattery* = 0.01
+  RewardCraftSpear* = 0.01
+  RewardCraftArmor* = 0.015
+  RewardCraftFood* = 0.012
+  RewardCraftCloth* = 0.012
+  RewardDestroyClippy* = 0.1
+
+  # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
   MapWidth* = MapLayoutRoomsX * (MapRoomWidth + MapRoomBorder) + MapBorder
   MapHeight* = MapLayoutRoomsY * (MapRoomHeight + MapRoomBorder) + MapBorder
@@ -1106,18 +1113,6 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
   inc env.stats[id].actionPlant
 
 proc init(env: Environment) =
-  # Ensure placeholder sprites for missing inventory icons (wood, spear)
-  try:
-    let woodPath = "tribal/data/resources/wood.png"
-    let woodSrc = "tribal/data/resources/palm_fiber.png"
-    if (not fileExists(woodPath)) and fileExists(woodSrc):
-      copyFile(woodSrc, woodPath)
-    let spearPath = "tribal/data/resources/spear.png"
-    let spearSrc = "tribal/data/resources/laser.png"
-    if (not fileExists(spearPath)) and fileExists(spearSrc):
-      copyFile(spearSrc, spearPath)
-  except:
-    discard
   # Use current time for random seed to get different maps each time
   let seed = int(epochTime() * 1000)
   var r = initRand(seed)
