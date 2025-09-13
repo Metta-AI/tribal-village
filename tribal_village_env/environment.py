@@ -56,11 +56,16 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             shape=(self.max_tokens_per_agent, 3),
             dtype=np.uint8
         )
-        self.single_action_space = spaces.MultiDiscrete([9, 8])  # [move_direction, action_type]
+        self.single_action_space = spaces.MultiDiscrete([9, 8], dtype=np.int32)  # [move_direction, action_type]
         self.is_continuous = False
 
         # Now call super()
         super().__init__(buf)
+
+        # Set up joint action space like metta does
+        self.action_space = pufferlib.spaces.joint_space(self.single_action_space, self.num_agents)
+        if hasattr(self, 'actions'):
+            self.actions = self.actions.astype(np.int32)
 
         # Pre-allocate numpy arrays for zero-copy communication
         # We allocate for all agents but only use what we need
