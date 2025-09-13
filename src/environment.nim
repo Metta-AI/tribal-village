@@ -1121,7 +1121,6 @@ proc init(env: Environment) =
   # Use current time for random seed to get different maps each time
   let seed = int(epochTime() * 1000)
   var r = initRand(seed)
-  echo "Generating map with seed: ", seed
   
   # Initialize tile colors to base terrain colors (neutral gray-brown)
   for x in 0 ..< MapWidth:

@@ -35,10 +35,8 @@ proc display() =
 
   if window.buttonPressed[KeyN]:
     dec settings.showObservations
-    echo "showObservations: ", settings.showObservations
   if window.buttonPressed[KeyM]:
     inc settings.showObservations
-    echo "showObservations: ", settings.showObservations
   settings.showObservations = clamp(settings.showObservations, -1, 23)
 
   let now = epochTime()
@@ -109,23 +107,15 @@ for path in walkDirRec("data/"):
   if path.endsWith(".png"):
     inc totalFiles
 
-echo "📁 Found ", totalFiles, " PNG files to load"
 
 for path in walkDirRec("data/"):
   if path.endsWith(".png"):
     inc loadedCount
-    echo "Loading ", loadedCount, "/", totalFiles, ": ", path
-    
+
     try:
       bxy.addImage(path.replace("data/", "").replace(".png", ""), readImage(path))
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
-    
-    # Show progress every 50 files
-    if loadedCount mod 50 == 0:
-      echo "✅ Loaded ", loadedCount, "/", totalFiles, " assets..."
-
-echo "🎨 Asset loading complete! Loaded ", loadedCount, "/", totalFiles, " files"
 
 # Check for command line arguments to determine controller type
 var useExternalController = false
@@ -153,17 +143,13 @@ elif globalController != nil:
 else:
   # DEFAULT: Use built-in AI for standalone execution
   initGlobalController(BuiltinAI)
-  echo "🤖 Standalone mode: Initialized BuiltinAI controller - agents will move autonomously"
-  echo "   Use TRIBAL_PYTHON_CONTROL=1 environment variable to disable for Python training"
 
 # Check if external controller is active and start playing if so
 if isExternalControllerActive():
   play = true
-  echo "🎮 External controller detected - starting automatic play mode"
 
 when defined(emscripten):
   proc main() {.cdecl.} =
-    echo "draw frame"
     display()
     pollEvents()
   window.run(main)
