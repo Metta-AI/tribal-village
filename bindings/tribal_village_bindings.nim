@@ -1,9 +1,9 @@
-## Tribal Environment Python Bindings
-## Using genny to create clean Python API for tribal environment
+## Tribal Village Environment Python Bindings
+## Using genny to create clean Python API for tribal village environment
 
 import genny
-import ../src/tribal/environment
-import ../src/tribal/external_actions
+import ../src/environment
+import ../src/external_actions
 
 # Global error handling
 var lastError: ref Exception

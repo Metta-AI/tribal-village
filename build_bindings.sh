@@ -7,7 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "Building Tribal Environment Python Bindings..."
+echo "Building Tribal Village Environment Python Bindings..."
 echo "Working directory: $SCRIPT_DIR"
 
 # Create bindings directory
@@ -15,28 +15,28 @@ mkdir -p bindings/generated
 
 # Generate Python bindings using genny
 echo "Generating bindings..."
-nim r bindings/tribal_bindings.nim
+nim r bindings/tribal_village_bindings.nim
 
 # Build the shared library for the current platform
 echo "Building shared library..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
     nim c --app:lib --mm:arc --opt:speed \
         --outdir:bindings/generated \
-        --out:bindings/generated/libtribal.dylib \
-        bindings/tribal_bindings.nim
-    LIBNAME="libtribal.dylib"
+        --out:bindings/generated/libtribal_village.dylib \
+        bindings/tribal_village_bindings.nim
+    LIBNAME="libtribal_village.dylib"
 elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
     nim c --app:lib --mm:arc --opt:speed \
         --outdir:bindings/generated \
-        --out:bindings/generated/tribal.dll \
-        bindings/tribal_bindings.nim
-    LIBNAME="tribal.dll"
+        --out:bindings/generated/tribal_village.dll \
+        bindings/tribal_village_bindings.nim
+    LIBNAME="tribal_village.dll"
 else
     nim c --app:lib --mm:arc --opt:speed \
         --outdir:bindings/generated \
-        --out:bindings/generated/libtribal.so \
-        bindings/tribal_bindings.nim
-    LIBNAME="libtribal.so"
+        --out:bindings/generated/libtribal_village.so \
+        bindings/tribal_village_bindings.nim
+    LIBNAME="libtribal_village.so"
 fi
 
 echo "Built bindings/generated/$LIBNAME"

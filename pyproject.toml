@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tribal-env"
+name = "tribal-village-env"
 version = "0.1.0"
-description = "High-performance tribal environment for multi-agent RL built with Nim"
+description = "High-performance tribal-village environment for multi-agent RL built with Nim"
 authors = [{ name = "Metta Team", email = "team@metta-ai.com" }]
 requires-python = ">=3.11"
 license = "MIT"
@@ -32,13 +32,13 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["tribal_env*"]
+include = ["tribal_village_env*"]
 
 [tool.setuptools.package-data]
-"tribal_env" = ["py.typed"]
+"tribal_village_env" = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["tribal_env"]
+source = ["tribal_village_env"]
