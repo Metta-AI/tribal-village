@@ -5,19 +5,20 @@ Simple test script for tribal village PufferLib integration.
 
 import sys
 from pathlib import Path
-import numpy as np
 
 # Add the tribal src path for the standalone repo
 tribal_village_root = Path.cwd()
-tribal_src_path = tribal_village_root / 'src'
+tribal_src_path = tribal_village_root / "src"
 sys.path.insert(0, str(tribal_src_path))
+
 
 def test_direct_import():
     """Test direct import of tribal village environment."""
     print("=== Testing Direct Import ===")
     try:
-        from tribal_village_env import TribalVillagePufferEnv
-        env = TribalVillagePufferEnv()
+        from tribal_village_env import TribalVillageEnv
+
+        env = TribalVillageEnv()
         print(f"✓ Environment created: {env.num_agents} agents")
 
         obs, info = env.reset()
@@ -36,26 +37,30 @@ def test_direct_import():
         print(f"✗ Direct import failed: {e}")
         return False
 
+
 def test_package_import():
     """Test tribal_env package import."""
     print("\n=== Testing Package Import ===")
     try:
         import tribal_village_env
-        print(f"✓ Package imported successfully")
+
+        print("✓ Package imported successfully")
         print(f"  Version: {tribal_village_env.__version__}")
         print(f"  Available: {tribal_village_env.__all__}")
 
         # Test factory function
-        env = tribal_village_env.make_tribal_village_puffer_env()
-        print(f"✓ Factory function works")
+        env = tribal_village_env.make_tribal_village_env()
+        print("✓ Factory function works")
         print(f"  Agents: {env.num_agents}")
 
         return True
     except Exception as e:
         print(f"✗ Package import failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     direct_ok = test_direct_import()

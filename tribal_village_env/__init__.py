@@ -1,10 +1,10 @@
 """
-Tribal Village Environment Package
+Tribal Village Environment - Minimal PufferLib wrapper
 
-A multi-agent reinforcement learning environment built with Nim and integrated with PufferLib.
+This package provides a thin wrapper for the Nim-based tribal village environment
+to integrate with PufferLib. The core game logic is implemented in Nim.
 """
 
-from .tribal_village_puffer import TribalVillagePufferEnv, make_tribal_village_puffer_env
+from .environment import TribalVillageEnv, make_tribal_village_env
 
 __version__ = "0.1.0"
-__all__ = ["TribalVillagePufferEnv", "make_tribal_village_puffer_env"]
