@@ -38,7 +38,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 21
+  ObservationLayers* = 22  # Updated for AgentTeamLayer
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -88,6 +88,7 @@ type
     AltarReadyLayer = 18
     TintLayer = 19        # Unified tint layer for all environmental effects
     AgentInventoryBreadLayer = 20  # Bread baked from clay oven
+    AgentTeamLayer = 21   # Team ID (0, 1, 2 for teams; 255 for Clippies)
 
 
   ThingKind* = enum
@@ -339,6 +340,10 @@ proc updateObservations(env: Environment, agentId: int) =
         obs[9][x][y] = thing.inventoryArmor.uint8
         # Layer 20: AgentInventoryBreadLayer
         obs[20][x][y] = thing.inventoryBread.uint8
+        # Layer 21: AgentTeamLayer - Team ID relative to observing agent
+        let observingAgentTeam = agentId div MapAgentsPerHouse
+        let observedAgentTeam = thing.agentId div MapAgentsPerHouse
+        obs[21][x][y] = observedAgentTeam.uint8
 
       of Wall:
         # Layer 10: WallLayer (shifted due to lantern layer)
@@ -385,6 +390,8 @@ proc updateObservations(env: Environment, agentId: int) =
         obs[4][x][y] = 0  # No water
         obs[5][x][y] = 0  # No wheat
         obs[6][x][y] = 0  # No wood
+        # Layer 21: AgentTeamLayer - Clippies marked as hostile (255)
+        obs[21][x][y] = 255
       
       of Armory, Forge, ClayOven, WeavingLoom:
         # Corner buildings act like walls for observations
@@ -773,9 +780,6 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
   let target = env.getThing(targetPos)
   if isNil(target) or target.kind != Agent:
-    inc env.stats[id].actionInvalid
-    return
-  if not sameTeam(agent, target):
     inc env.stats[id].actionInvalid
     return
   var transferred = false
