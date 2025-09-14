@@ -96,3 +96,5 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+nimble.develop
+nimble.paths
