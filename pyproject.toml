@@ -27,5 +27,4 @@ where = ["."]
 include = ["tribal_village_env*"]
 
 [tool.setuptools.package-data]
-tribal_village_env = ["*.so"]
-"*" = ["*.so", "libtribal_village.so"]
+tribal_village_env = ["*.so", "libtribal_village.so"]

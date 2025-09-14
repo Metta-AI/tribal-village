@@ -28,10 +28,10 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         # Environment configuration
         self.max_steps = self.config.get('max_steps', 512)
 
-        # Load the Nim shared library
-        lib_path = Path(__file__).parent.parent / "libtribal_village.so"
+        # Load the Nim shared library from the installed package
+        lib_path = Path(__file__).parent / "libtribal_village.so"
         if not lib_path.exists():
-            raise FileNotFoundError(f"Nim library not found at {lib_path}. Run ./build_lib.sh")
+            raise FileNotFoundError(f"Nim library not found at {lib_path}. The tribal-village package was not properly installed.")
 
         self.lib = ctypes.CDLL(str(lib_path))
         self._setup_ctypes_interface()
@@ -45,9 +45,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self.max_tokens_per_agent = self.lib.tribal_village_get_max_tokens()
         self.total_agents = self.lib.tribal_village_get_num_agents()
 
-        # For PufferLib, we need single agent per environment
-        self.num_agents = 1
-        self.agents = ["agent_0"]
+        # PufferLib controls all agents
+        self.num_agents = self.total_agents
+        self.agents = [f"agent_{i}" for i in range(self.total_agents)]
         self.possible_agents = self.agents.copy()
 
         # Define spaces BEFORE calling super()
@@ -77,7 +77,6 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         # Environment state
         self.step_count = 0
-        self.controlled_agent_id = self.config.get('agent_id', 0)
 
     def _setup_ctypes_interface(self):
         """Setup ctypes function signatures for the Nim library."""
@@ -125,10 +124,12 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if not success:
             raise RuntimeError("Failed to reset Nim environment")
 
-        # Extract observation for our controlled agent
-        agent_obs = self.observations[self.controlled_agent_id].copy()
-        observations = {"agent_0": agent_obs}
-        info = {"agent_0": {}}
+        # Extract observations for all agents
+        observations = {}
+        info = {}
+        for i in range(self.num_agents):
+            observations[f"agent_{i}"] = self.observations[i].copy()
+            info[f"agent_{i}"] = {}
 
         return observations, info
 
@@ -139,11 +140,13 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         # Clear actions buffer (all agents get no-op by default)
         self.actions_buffer.fill(0)
 
-        # Set action for our controlled agent
-        if "agent_0" in actions:
-            action = actions["agent_0"]
-            self.actions_buffer[self.controlled_agent_id, 0] = action[0]  # move_direction
-            self.actions_buffer[self.controlled_agent_id, 1] = action[1]  # action_type
+        # Set actions for all controlled agents
+        for i in range(self.num_agents):
+            agent_key = f"agent_{i}"
+            if agent_key in actions:
+                action = actions[agent_key]
+                self.actions_buffer[i, 0] = action[0]  # move_direction
+                self.actions_buffer[i, 1] = action[1]  # action_type
 
         # Get pointers to all buffers
         actions_ptr = self.actions_buffer.ctypes.data_as(ctypes.c_void_p).value or 0
@@ -159,18 +162,20 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if not success:
             raise RuntimeError("Failed to step Nim environment")
 
-        # Extract results for our controlled agent
-        agent_obs = self.observations[self.controlled_agent_id].copy()
-        agent_reward = float(self.rewards[self.controlled_agent_id])
-        agent_terminal = bool(self.terminals[self.controlled_agent_id])
-        agent_truncation = bool(self.truncations[self.controlled_agent_id]) or (self.step_count >= self.max_steps)
+        # Extract results for all agents
+        observations = {}
+        rewards = {}
+        terminated = {}
+        truncated = {}
+        infos = {}
 
-        # Return results in PufferLib format
-        observations = {"agent_0": agent_obs}
-        rewards = {"agent_0": agent_reward}
-        terminated = {"agent_0": agent_terminal}
-        truncated = {"agent_0": agent_truncation}
-        infos = {"agent_0": {}}
+        for i in range(self.num_agents):
+            agent_key = f"agent_{i}"
+            observations[agent_key] = self.observations[i].copy()
+            rewards[agent_key] = float(self.rewards[i])
+            terminated[agent_key] = bool(self.terminals[i])
+            truncated[agent_key] = bool(self.truncations[i]) or (self.step_count >= self.max_steps)
+            infos[agent_key] = {}
 
         return observations, rewards, terminated, truncated, infos
 

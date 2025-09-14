@@ -67,7 +67,7 @@ var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 type
   ObservationName* = enum
-    AgentLayer = 0
+    AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Clippy
     AgentOrientationLayer = 1
     AgentInventoryOreLayer = 2
     AgentInventoryBatteryLayer = 3
