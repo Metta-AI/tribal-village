@@ -4,9 +4,17 @@ Multi-agent RL environment built in Nim with PufferLib integration. Features 15 
 
 ## Quick Start
 
+**Setup**
+```bash
+# Install Nim and Nimble
+curl https://nim-lang.org/choosenim/init.sh -sSf | sh
+# Install dependencies
+nimble install
+```
+
 **Standalone Game**
 ```bash
-nim r tribal_village.nim
+nim r -d:release tribal_village.nim
 ```
 
 **PufferLib Training**
