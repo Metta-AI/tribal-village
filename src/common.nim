@@ -127,8 +127,10 @@ const OrientationDeltas*: array[8, OrientationDelta] = [
   (x: 1, y: 1)     # SE (Southeast)
 ]
 
+{.push inline.}
 proc getOrientationDelta*(orient: Orientation): OrientationDelta =
   OrientationDeltas[ord(orient)]
+{.pop.}
 
 proc isDiagonal*(orient: Orientation): bool =
   ord(orient) >= ord(NW)
