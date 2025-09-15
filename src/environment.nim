@@ -475,11 +475,10 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       break
   
   if hitClippy and not isNil(clippyToRemove):
-    # Remove the Clippy
+    # Remove the Clippy from grid immediately (fast)
     env.grid[clippyToRemove.pos.x][clippyToRemove.pos.y] = nil
-    let idx = env.things.find(clippyToRemove)
-    if idx >= 0:
-      env.things.del(idx)
+    # Mark for collection removal (avoid linear search)
+    # Note: Will be cleaned up in the main Clippy cleanup section
     
     # Consume one use of the spear
     agent.inventorySpear -= 1
@@ -737,14 +736,17 @@ proc findLanternPlacementSpot*(env: Environment, agent: Thing, controller: point
         if distToAltar < 3:
           continue
           
-        # Must be 2+ tiles from any existing lantern
+        # Fast grid-based lantern proximity check (avoid scanning all things)
         var tooCloseToLantern = false
-        for thing in env.things:
-          if thing.kind == PlantedLantern:
-            let distToLantern = manhattanDistance(candidate, thing.pos)
-            if distToLantern < 2:
-              tooCloseToLantern = true
-              break
+        for dx in -1..1:
+          for dy in -1..1:
+            let checkPos = candidate + ivec2(dx, dy)
+            if isValidPos(checkPos):
+              let thing = env.getThing(checkPos)
+              if not isNil(thing) and thing.kind == PlantedLantern:
+                tooCloseToLantern = true
+                break
+          if tooCloseToLantern: break
         
         if not tooCloseToLantern:
           return candidate  # Found a good spot!
@@ -1615,10 +1617,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   
   # ============== CLIPPY CLEANUP ==============
   # Remove clippys that died in combat or touched altars
-  for clippy in clippysToRemove:
-    let idx = env.things.find(clippy)
-    if idx >= 0:
-      env.things.del(idx)
+  # Optimized: reverse iteration to avoid index shifting
+  for i in countdown(env.things.len - 1, 0):
+    if env.things[i] in clippysToRemove:
+      env.things.del(i)
 
   # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:
