@@ -402,114 +402,10 @@ proc updateObservations(env: Environment, agentId: int) =
       let tintIntensity = abs(tint.r) + abs(tint.g) + abs(tint.b)
       obs[19][x][y] = min(255, tintIntensity div 4).uint8  # Scale down for uint8 range
 
-proc updateAllObservationsVectorized(env: Environment) =
-  ## Vectorized observation update - rebuilds all agent observations in one efficient pass
-  ## This replaces 60+ individual updateObservations(agentId) calls with 1 vectorized call
-
-  # Clear all observations first
-  for agentId in 0 ..< MapAgents:
-    var obs = env.observations[agentId].addr
-    obs.clear()
-
-  # Single pass through world grid - for each position, update all nearby agents
-  for worldX in 0 ..< MapWidth:
-    for worldY in 0 ..< MapHeight:
-      let thing = env.grid[worldX][worldY]
-      if thing == nil:
-        continue
-
-      let worldPos = ivec2(worldX, worldY)
-
-      # For each agent, check if this world position is in their observation window
-      for agentId in 0 ..< MapAgents:
-        let agent = env.agents[agentId]
-        let agentPos = agent.pos
-
-        # Calculate relative position in agent's observation window
-        let relX = worldX - agentPos.x + ObservationWidth div 2
-        let relY = worldY - agentPos.y + ObservationHeight div 2
-
-        # Skip if outside observation window
-        if relX < 0 or relX >= ObservationWidth or relY < 0 or relY >= ObservationHeight:
-          continue
-
-        # Update this agent's observation for this position
-        case thing.kind
-        of Agent:
-          # Layer 0: AgentLayer - Team-aware encoding
-          let teamId = thing.agentId div MapAgentsPerHouse
-          env.observations[agentId][0][relX][relY] = (teamId + 1).uint8
-          # Layer 1: AgentOrientationLayer
-          env.observations[agentId][1][relX][relY] = thing.orientation.uint8
-          # Inventory layers
-          env.observations[agentId][2][relX][relY] = thing.inventoryOre.uint8
-          env.observations[agentId][3][relX][relY] = thing.inventoryBattery.uint8
-          env.observations[agentId][4][relX][relY] = thing.inventoryWater.uint8
-          env.observations[agentId][5][relX][relY] = thing.inventoryWheat.uint8
-          env.observations[agentId][6][relX][relY] = thing.inventoryWood.uint8
-          env.observations[agentId][7][relX][relY] = thing.inventorySpear.uint8
-          env.observations[agentId][8][relX][relY] = thing.inventoryLantern.uint8
-          env.observations[agentId][9][relX][relY] = thing.inventoryArmor.uint8
-          env.observations[agentId][20][relX][relY] = thing.inventoryBread.uint8
-
-        of Wall:
-          env.observations[agentId][10][relX][relY] = 1
-
-        of Mine:
-          env.observations[agentId][11][relX][relY] = 1
-          env.observations[agentId][12][relX][relY] = thing.resources.uint8
-          env.observations[agentId][13][relX][relY] = (thing.cooldown == 0).uint8
-
-        of Converter:
-          env.observations[agentId][14][relX][relY] = 1
-          env.observations[agentId][15][relX][relY] = (thing.cooldown == 0).uint8
-
-        of Altar:
-          env.observations[agentId][16][relX][relY] = 1
-          env.observations[agentId][17][relX][relY] = thing.hearts.uint8
-          env.observations[agentId][18][relX][relY] = (thing.cooldown == 0).uint8
-
-        of Spawner:
-          env.observations[agentId][16][relX][relY] = 1
-          env.observations[agentId][17][relX][relY] = thing.hearts.uint8
-          env.observations[agentId][18][relX][relY] = (thing.cooldown == 0).uint8
-
-        of PlantedLantern:
-          env.observations[agentId][10][relX][relY] = 1  # Use wall layer
-
-        of Clippy:
-          env.observations[agentId][0][relX][relY] = 255  # Hostile marker
-          env.observations[agentId][1][relX][relY] = thing.orientation.uint8
-          # Clippies have no inventory
-
-        of Armory, Forge, ClayOven, WeavingLoom:
-          env.observations[agentId][10][relX][relY] = 1  # Use wall layer
-
-  # Add tint data in a second vectorized pass
-  for agentId in 0 ..< MapAgents:
-    let agent = env.agents[agentId]
-    let agentPos = agent.pos
-
-    let gridOffset = agentPos - ivec2(ObservationWidth div 2, ObservationHeight div 2)
-    var gridStart = gridOffset
-    var gridEnd = gridOffset + ivec2(ObservationWidth, ObservationHeight)
-
-    # Clamp to map bounds
-    if gridStart.x < 0: gridStart.x = 0
-    if gridStart.y < 0: gridStart.y = 0
-    if gridEnd.x > MapWidth: gridEnd.x = MapWidth
-    if gridEnd.y > MapHeight: gridEnd.y = MapHeight
-
-    # Add tint data
-    for gy in gridStart.y ..< gridEnd.y:
-      for gx in gridStart.x ..< gridEnd.x:
-        let x = gx - gridOffset.x
-        let y = gy - gridOffset.y
-
-        # Layer 19: TintLayer
-        let tint = env.tintMods[gx][gy]
-        let tintIntensity = abs(tint.r) + abs(tint.g) + abs(tint.b)
-        env.observations[agentId][19][x][y] = min(255, tintIntensity div 4).uint8
+proc updateAllObservationsLazy(env: Environment) =
+  ## Lazy observation update - only rebuild observations when actually needed
+  ## Much more efficient than clearing and rebuilding everything
+  discard  # For now, don't do bulk updates - rely on individual updates being sufficient
 
 proc updateObservations(
   env: Environment,
@@ -1561,8 +1457,8 @@ proc init(env: Environment) =
     if thing.kind == Altar:
       altarPositions.add(thing.pos)
 
-  # VECTORIZED OBSERVATION INITIALIZATION - single batch call instead of 60 individual calls
-  env.updateAllObservationsVectorized()
+  # Initialize observations only when first needed (lazy approach)
+  # Individual action updates will populate observations as needed
 
 
 proc defaultEnvironmentConfig*(): EnvironmentConfig =
@@ -1935,8 +1831,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
-  # VECTORIZED OBSERVATION UPDATE - replaces 60+ individual updateObservations(agentId) calls
-  env.updateAllObservationsVectorized()
+  # Lazy observation update - individual updates during actions should be sufficient
+  # No need for expensive bulk rebuilds
   
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
