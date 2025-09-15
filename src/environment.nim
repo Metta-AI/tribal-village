@@ -701,6 +701,17 @@ proc generateRandomMapPosition(r: var Rand): IVec2 =
   ivec2(r.rand(MapBorder ..< MapWidth - MapBorder), r.rand(MapBorder ..< MapHeight - MapBorder))
 {.pop.}
 
+proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): seq[IVec2] =
+  ## Find empty positions around a center point within a given radius
+  result = @[]
+  for dx in -radius .. radius:
+    for dy in -radius .. radius:
+      if dx == 0 and dy == 0:
+        continue  # Skip the center position
+      let pos = ivec2(center.x + dx, center.y + dy)
+      if env.isValidEmptyPosition(pos):
+        result.add(pos)
+
 proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int): IVec2 =
   ## Find first empty position around center (no allocation)
   for dx in -radius .. radius:
@@ -776,8 +787,13 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   quit("Failed to find an empty position, map too full!")
 
 proc clearTintModifications(env: Environment) =
-  ## Fast clear all tint modifications (eliminate HashSet overhead)
-  env.tintMods.clear()  # Much faster than HashSet iteration
+  ## Clear only active tile modifications for performance
+  for pos in env.activeTiles.positions:
+    if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
+      env.tintMods[pos.x][pos.y] = TintModification(r: 0, g: 0, b: 0, intensity: 0)
+
+  # Clear the active set for next frame
+  env.activeTiles.positions.clear()
 
 proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
@@ -803,7 +819,7 @@ proc updateTintModifications(env: Environment) =
             let distance = abs(dx) + abs(dy)  # Manhattan distance
             let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
             
-            # No HashSet tracking needed - clear entire array each frame
+            env.activeTiles.positions.incl(creepPos)
             
             # Clippy creep effect (cool colors - half speed)
             env.tintMods[creepPos.x][creepPos.y].r += int16(-15 * creepIntensity * falloff)  # Reduce red (halved)
