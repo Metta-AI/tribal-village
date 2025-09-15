@@ -1,4 +1,4 @@
-import std/[random, tables, times, math], vmath, chroma
+import std/[random, tables, times, math, sets], vmath, chroma
 import terrain, objects, common
 export terrain, objects, common
 
@@ -161,8 +161,8 @@ type
   
   # Track active tiles for sparse processing
   ActiveTiles* = object
-    positions*: seq[IVec2]  # List of tiles with entities
-    count*: int             # Number of active tiles
+    positions*: HashSet[IVec2]  # Set of tiles with entities (auto-deduplicates)
+    count*: int                 # Number of active tiles
 
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
@@ -893,9 +893,8 @@ proc clearTintModifications(env: Environment) =
     if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
       env.tintMods[pos.x][pos.y] = TintModification(r: 0, g: 0, b: 0, intensity: 0)
   
-  # Clear the active list for next frame
-  env.activeTiles.positions.setLen(0)
-  env.activeTiles.count = 0
+  # Clear the active set for next frame
+  env.activeTiles.positions.clear()
 
 proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
@@ -921,8 +920,8 @@ proc updateTintModifications(env: Environment) =
             let distance = abs(dx) + abs(dy)  # Manhattan distance
             let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
             
-            env.activeTiles.positions.add(creepPos)
-            env.activeTiles.count += 1
+            env.activeTiles.positions.incl(creepPos)
+            # Count is now redundant with HashSet
             
             # Clippy creep effect (cool colors - half speed)
             env.tintMods[creepPos.x][creepPos.y].r += int16(-15 * creepIntensity * falloff)  # Reduce red (halved)
@@ -943,8 +942,7 @@ proc updateTintModifications(env: Environment) =
               let distance = abs(dx) + abs(dy)
               let falloff = max(1, 3 - distance)  # Stronger at center, weaker at edges
               
-              env.activeTiles.positions.add(agentPos)
-              env.activeTiles.count += 1
+              env.activeTiles.positions.incl(agentPos)
               
               # Agent warmth effect (1.25x stronger than original)
               env.tintMods[agentPos.x][agentPos.y].r += int16((tribeColor.r - 0.7) * 63 * falloff.float32)   # Quarter of 5x = 1.25x
@@ -953,8 +951,7 @@ proc updateTintModifications(env: Environment) =
         
     of Altar:
       # Reduce altar tint effect by 10x (minimal warm glow)
-      env.activeTiles.positions.add(pos)
-      env.activeTiles.count += 1
+      env.activeTiles.positions.incl(pos)
       env.tintMods[pos.x][pos.y].r += int16(5)   # Very minimal warm glow (10x reduction)
       env.tintMods[pos.x][pos.y].g += int16(5)
       env.tintMods[pos.x][pos.y].b += int16(2)
@@ -972,8 +969,7 @@ proc updateTintModifications(env: Environment) =
               let distance = abs(dx) + abs(dy)  # Manhattan distance
               let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
               
-              env.activeTiles.positions.add(tintPos)
-              env.activeTiles.count += 1
+              env.activeTiles.positions.incl(tintPos)
               
               # Lantern warm effect (spread team colors)
               env.tintMods[tintPos.x][tintPos.y].r += int16((teamColor.r - 0.7) * 50 * falloff.float32)
@@ -1105,7 +1101,7 @@ proc init(env: Environment) =
       env.baseTileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   
   # Initialize active tiles tracking
-  env.activeTiles.positions = @[]
+  env.activeTiles.positions = initHashSet[IVec2]()
   env.activeTiles.count = 0
   
   # Initialize terrain with all features
@@ -1550,8 +1546,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
             if dist <= 5:  # Within 5 tiles of spawner
               nearbyClippyCount += 1
         
-        # Spawn a new Clippy (no limit for now)
-        if true:
+        # Spawn a new Clippy with reasonable limits to prevent unbounded growth
+        let maxClippiesPerSpawner = 5  # Reasonable limit
+        if nearbyClippyCount < maxClippiesPerSpawner:
           # Find empty positions around spawner (simple approach)
           let emptyPositions = env.findEmptyPositionsAround(thing.pos, 2)
           if emptyPositions.len > 0:
@@ -1835,6 +1832,13 @@ proc reset*(env: Environment) =
   env.grid.clear()
   env.terrain.clear()
   env.observations.clear()
+  # Clear all tint modifications and active tiles
+  env.activeTiles.positions.clear()
+  env.activeTiles.count = 0
+  # Clear global colors that could accumulate
+  agentVillageColors.setLen(0)
+  teamColors.setLen(0)
+  altarColors.clear()
   env.init()
 
 # ============== COLOR MANAGEMENT ==============
