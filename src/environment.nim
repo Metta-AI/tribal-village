@@ -778,6 +778,7 @@ proc findLanternPlacementSpot*(env: Environment, agent: Thing, controller: point
 const
   TumorBranchRange = 5
   TumorBranchMinAge = 2
+  TumorBranchChance = 0.1
 
 proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
   ## Pick a random empty tile within the tumor's branching range
@@ -790,7 +791,19 @@ proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
       if max(abs(dx), abs(dy)) > TumorBranchRange:
         continue
       let candidate = ivec2(tumor.pos.x + dx, tumor.pos.y + dy)
-      if env.isValidEmptyPosition(candidate):
+      if not env.isValidEmptyPosition(candidate):
+        continue
+
+      var adjacentTumor = false
+      for adj in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+        let checkPos = candidate + adj
+        if not isValidPos(checkPos):
+          continue
+        let occupant = env.getThing(checkPos)
+        if not isNil(occupant) and occupant.kind == Tumor:
+          adjacentTumor = true
+          break
+      if not adjacentTumor:
         candidates.add(candidate)
 
   if candidates.len == 0:
@@ -823,7 +836,7 @@ proc clearTintModifications(env: Environment) =
   # Clear the active list for next frame
   env.activeTiles.positions.setLen(0)
 
-proc updateTintModifications*(env: Environment) =
+proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
   # Clear previous frame's modifications
   env.clearTintModifications()
@@ -914,7 +927,7 @@ proc updateTintModifications*(env: Environment) =
     else:
       discard
 
-proc applyTintModifications*(env: Environment) =
+proc applyTintModifications(env: Environment) =
   ## Apply tint modifications to entity positions and their surrounding areas
   
   # Apply modifications only to tiles touched this frame
@@ -1396,7 +1409,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     
     # Combat configuration
     enableCombat: true,
-    tumorSpawnRate: 1.0,
+    tumorSpawnRate: 0.1,
     tumorDamage: 1,
     
     # Reward configuration (only arena_basic_easy_shaped rewards active)
@@ -1524,6 +1537,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   for tumor in tumorsToProcess:
     tumor.turnsAlive += 1
     if tumor.turnsAlive < TumorBranchMinAge:
+      continue
+
+    if stepRng.rand(0.0 .. 1.0) >= TumorBranchChance:
       continue
 
     let branchPos = findTumorBranchTarget(tumor, env, stepRng)
