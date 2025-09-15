@@ -1332,7 +1332,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
   ## Create default environment configuration
   EnvironmentConfig(
     # Core game parameters
-    maxSteps: 2000,
+    maxSteps: 1000,
     
     # Resource configuration
     orePerBattery: 1,
@@ -1459,8 +1459,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       if thing.frozen > 0:
         thing.frozen -= 1
     elif thing.kind == Clippy:
-      # Collect clippies for processing in this same pass
-      clippysToProcess.add(thing)
+      # Only collect mobile clippies for processing (planted ones are static)
+      if not thing.hasClaimedTerritory:
+        clippysToProcess.add(thing)
 
   # ============== CLIPPY PROCESSING ==============
   # Add newly spawned clippys from spawners
