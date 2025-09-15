@@ -154,7 +154,7 @@ type
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     # Clippy:
     homeSpawner*: IVec2     # Position of clippy's home spawner
-    hasClaimedTerritory*: bool  # Whether this clippy has claimed territory and is stationary
+    hasClaimedTerritory*: bool  # Whether this clippy has already branched and is now inert
     turnsAlive*: int            # Number of turns this clippy has been alive
     
     # PlantedLantern:
@@ -357,7 +357,7 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
 
 
 proc createClippy(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
-  ## Create a new Clippy for creep spread behavior
+  ## Create a new Clippy seed that can branch once before turning inert
   Thing(
     kind: Clippy,
     pos: pos,
@@ -481,8 +481,9 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   if hitClippy and not isNil(clippyToRemove):
     # Remove the Clippy from grid immediately (fast)
     env.grid[clippyToRemove.pos.x][clippyToRemove.pos.y] = nil
-    # Mark for collection removal (avoid linear search)
-    # Note: Will be cleaned up in the main Clippy cleanup section
+    let idx = env.things.find(clippyToRemove)
+    if idx >= 0:
+      env.things.del(idx)
     
     # Consume one use of the spear
     agent.inventorySpear -= 1
@@ -772,10 +773,28 @@ proc findLanternPlacementSpot*(env: Environment, agent: Thing, controller: point
 # ============== CLIPPY CREEP SPREAD AI ==============
 
 
-proc getClippyMoveDirection(clippy: Thing, env: Environment, r: var Rand): IVec2 =
-  ## Simplified clippy behavior: random movement only
-  const dirs = [ivec2(0, -1), ivec2(0, 1), ivec2(-1, 0), ivec2(1, 0)]
-  return dirs[r.rand(0..<4)]
+const
+  ClippyBranchRange = 5
+  ClippyBranchMinAge = 2
+
+proc findClippyBranchTarget(clippy: Thing, env: Environment, r: var Rand): IVec2 =
+  ## Pick a random empty tile within the clippy's branching range
+  var candidates: seq[IVec2] = @[]
+
+  for dx in -ClippyBranchRange .. ClippyBranchRange:
+    for dy in -ClippyBranchRange .. ClippyBranchRange:
+      if dx == 0 and dy == 0:
+        continue
+      if max(abs(dx), abs(dy)) > ClippyBranchRange:
+        continue
+      let candidate = ivec2(clippy.pos.x + dx, clippy.pos.y + dy)
+      if env.isValidEmptyPosition(candidate):
+        candidates.add(candidate)
+
+  if candidates.len == 0:
+    return ivec2(-1, -1)
+
+  return candidates[r.rand(0 ..< candidates.len)]
 
 proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   # Try with moderate attempts first
@@ -812,8 +831,8 @@ proc updateTintModifications(env: Environment) =
     
     case thing.kind
     of Clippy:
-      # Clippies create creep spread in 5x5 area (stronger effect when planted)
-      let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
+      # Clippies create creep spread in 5x5 area (active tumors glow brighter)
+      let creepIntensity = if thing.hasClaimedTerritory: 1 else: 2
       
       for dx in -2 .. 2:
         for dy in -2 .. 2:
@@ -1300,7 +1319,9 @@ proc init(env: Environment) =
 
       let nearbyPositions = env.findEmptyPositionsAround(targetPos, 1)
       if nearbyPositions.len > 0:
-        env.add(createClippy(nearbyPositions[0], targetPos, r))
+        let spawnCount = min(3, nearbyPositions.len)
+        for i in 0 ..< spawnCount:
+          env.add(createClippy(nearbyPositions[i], targetPos, r))
       placed = true
       break
 
@@ -1315,7 +1336,9 @@ proc init(env: Environment) =
       ))
       let nearbyPositions = env.findEmptyPositionsAround(targetPos, 1)
       if nearbyPositions.len > 0:
-        env.add(createClippy(nearbyPositions[0], targetPos, r))
+        let spawnCount = min(3, nearbyPositions.len)
+        for i in 0 ..< spawnCount:
+          env.add(createClippy(nearbyPositions[i], targetPos, r))
 
   for i in 0 ..< MapRoomObjectsConverters:
     let pos = r.randomEmptyPos(env)
@@ -1447,11 +1470,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
             let checkPos = thing.pos + ivec2(dx, dy)
             if isValidPos(checkPos):
               let other = env.getThing(checkPos)
-              if not isNil(other) and other.kind == Clippy:
+              if not isNil(other) and other.kind == Clippy and not other.hasClaimedTerritory:
                 inc nearbyClippyCount
         
         # Spawn a new Clippy with reasonable limits to prevent unbounded growth
-        let maxClippiesPerSpawner = 5  # Reasonable limit
+        let maxClippiesPerSpawner = 3  # Keep only a few active clippies near the spawner
         if nearbyClippyCount < maxClippiesPerSpawner:
           # Find first empty position (no allocation)
           let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
@@ -1477,166 +1500,41 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
         clippysToProcess.add(thing)
 
   # ============== CLIPPY PROCESSING ==============
-  # Add newly spawned clippys from spawners
+  var newClippyBranches: seq[Thing] = @[]
+
+  for clippy in clippysToProcess:
+    clippy.turnsAlive += 1
+    if clippy.turnsAlive < ClippyBranchMinAge:
+      continue
+
+    let branchPos = findClippyBranchTarget(clippy, env, stepRng)
+    if branchPos.x < 0:
+      continue
+
+    let newClippy = createClippy(branchPos, clippy.homeSpawner, stepRng)
+
+    # Face both clippies toward the new branch direction for clarity
+    let dx = branchPos.x - clippy.pos.x
+    let dy = branchPos.y - clippy.pos.y
+    var branchOrientation: Orientation
+    if abs(dx) >= abs(dy):
+      branchOrientation = (if dx >= 0: Orientation.E else: Orientation.W)
+    else:
+      branchOrientation = (if dy >= 0: Orientation.S else: Orientation.N)
+
+    newClippy.orientation = branchOrientation
+    clippy.orientation = branchOrientation
+
+    # Queue the new clippy for insertion and mark parent as inert
+    newClippyBranches.add(newClippy)
+    clippy.hasClaimedTerritory = true
+    clippy.turnsAlive = 0
+
+  # Add newly spawned clippies from spawners and branching this step
   for newClippy in newClippysToSpawn:
     env.add(newClippy)
-  
-  # Clippies already collected in main loop above
-  
-  var clippysToRemove: seq[Thing] = @[]
-  
-  # Direct clippy movement processing (eliminate intermediate sequence)
-  for clippy in clippysToProcess:
-    let moveDir = getClippyMoveDirection(clippy, env, stepRng)
-    let newPos = clippy.pos + moveDir
-    
-    # Update clippy orientation based on movement direction
-    if moveDir != ivec2(0, 0):
-      clippy.orientation = 
-        if moveDir.x > 0: E
-        elif moveDir.x < 0: W
-        elif moveDir.y > 0: S
-        else: N
-    
-    # Check if new position is valid and empty
-    if env.isEmpty(newPos):
-      # Move the clippy
-      env.grid[clippy.pos.x][clippy.pos.y] = nil
-      clippy.pos = newPos
-      env.grid[clippy.pos.x][clippy.pos.y] = clippy
-      
-      # Heatmap is now updated in batch at end of step function
-    else:
-      # Check if we're trying to move onto an altar
-      let target = env.getThing(newPos)
-      if not isNil(target) and target.kind == Altar:
-        # Clippy reached an altar - damage it and disappear
-        if target.hearts > 0:
-          target.hearts = max(0, target.hearts - 1)  # Decrement altar's hearts but don't go below 0
-          env.updateObservations(AltarHeartsLayer, target.pos, target.hearts)
-        clippysToRemove.add(clippy)
-        env.grid[clippy.pos.x][clippy.pos.y] = nil
-  
-  # Optimized Clippy planting: use grid-based distance checking to avoid O(n²)
-  for i, clippy in clippysToProcess:
-    if clippy in clippysToRemove or clippy.hasClaimedTerritory:
-      continue
-
-    if env.terrain[clippy.pos.x][clippy.pos.y] != Water:
-      # Fast grid-based proximity check: just check the 4 adjacent positions
-      var canPlant = true
-      for dx in -1..1:
-        for dy in -1..1:
-          if dx == 0 and dy == 0: continue
-          let checkPos = clippy.pos + ivec2(dx, dy)
-          if isValidPos(checkPos):
-            let thing = env.getThing(checkPos)
-            if not isNil(thing) and thing.kind == Clippy and thing != clippy:
-              canPlant = false
-              break
-        if not canPlant: break
-
-      if canPlant:
-        clippy.hasClaimedTerritory = true
-  
-  # ============== CLIPPY COMBAT ==============
-  # Process combat between clippys and adjacent agents
-  for clippy in clippysToProcess:
-    # Skip if clippy is already marked for removal
-    if clippy in clippysToRemove:
-      continue
-    
-    # Check all 4 adjacent positions for agents
-    let adjacentPositions = @[
-      clippy.pos + ivec2(0, -1),  # North
-      clippy.pos + ivec2(0, 1),   # South
-      clippy.pos + ivec2(-1, 0),  # West
-      clippy.pos + ivec2(1, 0)    # East
-    ]
-    
-    for adjPos in adjacentPositions:
-      # Skip if position is out of bounds
-      if adjPos.x < 0 or adjPos.x >= MapWidth or adjPos.y < 0 or adjPos.y >= MapHeight:
-        continue
-      
-      let adjacentThing = env.getThing(adjPos)
-      if not isNil(adjacentThing) and adjacentThing.kind == Agent:
-        # Combat occurs! 50% chance agent dies, 100% chance clippy dies
-        let combatRoll = stepRng.rand(0.0 .. 1.0)
-        
-        # Clippy always dies in combat
-        if clippy notin clippysToRemove:
-          clippysToRemove.add(clippy)
-          env.grid[clippy.pos.x][clippy.pos.y] = nil
-        
-        # Check if agent can defend against the attack
-        let agentWouldDie = combatRoll < 0.5
-        var agentSurvived = false
-        
-        if agentWouldDie:
-          # Check defense items - only armor now (3 uses)
-          if adjacentThing.inventoryArmor > 0:
-            adjacentThing.inventoryArmor -= 1
-            agentSurvived = true
-        
-        # Only kill agent if they would die, have no defense, and combat is enabled
-        if agentWouldDie and not agentSurvived and env.config.enableCombat:
-          # Agent dies - mark for respawn at altar
-          adjacentThing.frozen = 999999  # Mark as dead (will be respawned)
-          env.terminated[adjacentThing.agentId] = 1.0
-          # Apply death penalty
-          adjacentThing.reward += env.config.deathPenalty
-          
-          # Clear the agent from its current position
-          env.grid[adjacentThing.pos.x][adjacentThing.pos.y] = nil
-          
-          # Clear inventory when agent dies
-        
-        # Break after first combat (clippy is already dead)
-        break
-      
-      # Check for lanterns adjacent to this clippy
-      elif not isNil(adjacentThing) and adjacentThing.kind == PlantedLantern:
-        # Lantern vs Clippy combat: 100% clippy dies, 25% lantern dies
-        if clippy notin clippysToRemove:
-          clippysToRemove.add(clippy)
-          env.grid[clippy.pos.x][clippy.pos.y] = nil
-        
-        # 25% chance lantern dies
-        let lanternRoll = stepRng.rand(0.0 .. 1.0)
-        if lanternRoll < 0.25:
-          # Lantern is destroyed - mark for respawn if possible
-          adjacentThing.lanternHealthy = false
-          
-          # Find the team's altar to consume a heart for respawn
-          if adjacentThing.teamId >= 0:
-            # Simple direct lookup using homeAltar (much faster than nested loops)
-            let teamStartId = adjacentThing.teamId * 5  # First agent of team
-            let teamAltar = if teamStartId < env.agents.len and env.agents[teamStartId].homeAltar.x >= 0:
-              env.getThing(env.agents[teamStartId].homeAltar)
-            else: nil
-            
-            if not isNil(teamAltar) and teamAltar.hearts > 0:
-              # Consume a heart to respawn lantern
-              teamAltar.hearts -= 1
-              env.updateObservations(AltarHeartsLayer, teamAltar.pos, teamAltar.hearts)
-              adjacentThing.lanternHealthy = true  # Respawn the lantern
-            else:
-              # No hearts available, remove the lantern permanently
-              let idx = env.things.find(adjacentThing)
-              if idx >= 0:
-                env.things.del(idx)
-              env.grid[adjacentThing.pos.x][adjacentThing.pos.y] = nil
-        
-        # Break after processing this lantern
-        break
-  
-  # ============== CLIPPY CLEANUP ==============
-  # Remove clippys that died in combat or touched altars
-  # Optimized: reverse iteration to avoid index shifting
-  for i in countdown(env.things.len - 1, 0):
-    if env.things[i] in clippysToRemove:
-      env.things.del(i)
+  for newClippy in newClippyBranches:
+    env.add(newClippy)
 
   # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:

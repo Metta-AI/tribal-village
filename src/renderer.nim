@@ -228,9 +228,13 @@ proc drawObjects*() =
             of E, NE, SE: "e"
             of W, NW, SW: "w"
           let baseImage = "agents/clippy.color." & spriteDir
-          
+          let tint = if thing.hasClaimedTerritory:
+            color(0.6, 0.6, 0.6, 1.0)
+          else:
+            color(1.0, 1.0, 1.0, 1.0)
+
           # Clippies just draw normally - they're the infection source so no overlay needed
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
+          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200, tint = tint)
         
         of Armory, Forge, ClayOven, WeavingLoom:
           let imageName = case thing.kind:
@@ -392,7 +396,7 @@ Spawner
   spawn ready: {selection.cooldown == 0}
       """
     of Clippy:
-      let status = if selection.hasClaimedTerritory: "planted (creep tumor)" else: "seeking territory"
+      let status = if selection.hasClaimedTerritory: "inert" else: "branching"
       info = &"""
 Clippy
   home: ({selection.homeSpawner.x}, {selection.homeSpawner.y})
