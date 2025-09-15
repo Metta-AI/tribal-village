@@ -35,7 +35,7 @@ config = {
     'ore_per_battery': 1,       # Ore needed to craft battery
     'batteries_per_heart': 1,   # Batteries needed for heart at altar
     'enable_combat': True,      # Enable tumor spawning and combat
-    'tumor_spawn_rate': 1.0,   # Tumor spawn frequency (0.0-1.0)
+    'tumor_spawn_rate': 0.1,   # Tumor spawn frequency (lower = slower spawns)
     'tumor_damage': 1,         # Damage tumors deal to agents
     'heart_reward': 1.0,        # Reward for heart crafting
     'ore_reward': 0.1,          # Reward for mining ore
