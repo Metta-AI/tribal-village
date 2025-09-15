@@ -27,7 +27,7 @@ proc getInfectionSprite*(entityType: string): string =
     return "agents/frozen"  # Ice cube overlay for static buildings
   of "terrain", "wheat", "tree":
     return "agents/frozen"  # Ice cube overlay for terrain features (walls excluded)
-  of "agent", "clippy", "spawner", "wall":
+  of "agent", "tumor", "spawner", "wall":
     return ""  # No overlays for dynamic entities and walls
   else:
     return ""  # Default: no overlay
@@ -220,7 +220,7 @@ proc drawObjects*() =
             if overlaySprite != "":
               bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
         
-        of Clippy:
+        of Tumor:
           # Map diagonal orientations to cardinal sprites
           let spriteDir = case thing.orientation:
             of N: "n"
@@ -228,12 +228,12 @@ proc drawObjects*() =
             of E, NE, SE: "e"
             of W, NW, SW: "w"
           let spritePrefix = if thing.hasClaimedTerritory:
-            "agents/clippy."
+            "agents/tumor."
           else:
-            "agents/clippy.color."
+            "agents/tumor.color."
           let baseImage = spritePrefix & spriteDir
 
-          # Clippies just draw normally - they're the infection source so no overlay needed
+          # Tumors draw directly with tint variations baked into the sprite
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
         
         of Armory, Forge, ClayOven, WeavingLoom:
@@ -395,10 +395,10 @@ Spawner
   cooldown: {selection.cooldown}
   spawn ready: {selection.cooldown == 0}
       """
-    of Clippy:
+    of Tumor:
       let status = if selection.hasClaimedTerritory: "inert" else: "branching"
       info = &"""
-Clippy
+Tumor
   home: ({selection.homeSpawner.x}, {selection.homeSpawner.y})
   status: {status}
       """

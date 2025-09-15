@@ -34,9 +34,9 @@ config = {
     'max_steps': 1000,          # Episode length
     'ore_per_battery': 1,       # Ore needed to craft battery
     'batteries_per_heart': 1,   # Batteries needed for heart at altar
-    'enable_combat': True,      # Enable Clippy spawning and combat
-    'clippy_spawn_rate': 1.0,   # Clippy spawn frequency (0.0-1.0)
-    'clippy_damage': 1,         # Damage Clippies deal to agents
+    'enable_combat': True,      # Enable Tumor spawning and combat
+    'tumor_spawn_rate': 1.0,   # Tumor spawn frequency (0.0-1.0)
+    'tumor_damage': 1,         # Damage Clippies deal to agents
     'heart_reward': 1.0,        # Reward for heart crafting
     'ore_reward': 0.1,          # Reward for mining ore
     'battery_reward': 0.8,      # Reward for crafting batteries
@@ -47,7 +47,7 @@ config = {
     'armor_reward': 0.0,        # Reward for crafting armor
     'food_reward': 0.0,         # Reward for crafting bread
     'cloth_reward': 0.0,        # Reward for crafting lanterns
-    'clippy_kill_reward': 0.0,  # Reward for killing Clippies
+    'tumor_kill_reward': 0.0,  # Reward for killing Clippies
     'survival_penalty': 0.0,    # Penalty per step (negative)
     'death_penalty': 0.0        # Penalty for agent death (negative)
 }
@@ -78,7 +78,7 @@ env = TribalVillageEnv(config=config)
 
 ### Observation Space
 21 layers, 11x11 grid per agent:
-- **Layer 0**: Team-aware agent presence (1=team0, 2=team1, 3=team2, 255=Clippy)
+- **Layer 0**: Team-aware agent presence (1=team0, 2=team1, 3=team2, 255=Tumor)
 - **Layers 1-9**: Agent orientation + inventories (ore, battery, water, wheat, wood, spear, lantern, armor)
 - **Layers 10-18**: Buildings (walls, mines, converters, altars) + status
 - **Layers 19-20**: Environmental effects + bread inventory
