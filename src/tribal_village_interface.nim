@@ -38,7 +38,7 @@ proc tribal_village_reset_and_get_obs(env: pointer, obs_ptr: int): int32 {.expor
     for agent_id in 0..<MapAgents:
       # Convert 3D observation to token format for this agent
       var token_count = 0
-      let max_tokens_per_agent = 2541  # From get_max_tokens
+      let max_tokens_per_agent = 256  # Sparse observations - much smaller than full grid
 
       for layer in 0..<ObservationLayers:
         for x in 0..<ObservationWidth:
@@ -48,11 +48,11 @@ proc tribal_village_reset_and_get_obs(env: pointer, obs_ptr: int): int32 {.expor
 
             let obs_value = globalEnv.observations[agent_id][layer][x][y]
             if obs_value > 0:  # Only include non-zero values as tokens
-              # coord_byte: encode x,y as single byte
-              let coord_byte = (x * ObservationHeight + y).uint8
+              # coord_byte: pack x,y in 4 bits each like metta (max 16x16)
+              let coord_byte = ((x and 0x0F) shl 4) or (y and 0x0F)
 
               # Write token as [coord_byte, layer, value]
-              obs_buffer[buffer_idx] = coord_byte
+              obs_buffer[buffer_idx] = coord_byte.uint8
               obs_buffer[buffer_idx + 1] = layer.uint8
               obs_buffer[buffer_idx + 2] = obs_value
               buffer_idx += 3
@@ -97,7 +97,7 @@ proc tribal_village_step_with_pointers(env: pointer, actions_ptr: int, obs_ptr: 
 
       for agent_id in 0..<MapAgents:
         var token_count = 0
-        let max_tokens_per_agent = 2541
+        let max_tokens_per_agent = 256
 
         for layer in 0..<ObservationLayers:
           for x in 0..<ObservationWidth:
@@ -107,8 +107,9 @@ proc tribal_village_step_with_pointers(env: pointer, actions_ptr: int, obs_ptr: 
 
               let obs_value = globalEnv.observations[agent_id][layer][x][y]
               if obs_value > 0:
-                let coord_byte = (x * ObservationHeight + y).uint8
-                obs_buffer[buffer_idx] = coord_byte
+                # coord_byte: pack x,y in 4 bits each like metta (max 16x16)
+                let coord_byte = ((x and 0x0F) shl 4) or (y and 0x0F)
+                obs_buffer[buffer_idx] = coord_byte.uint8
                 obs_buffer[buffer_idx + 1] = layer.uint8
                 obs_buffer[buffer_idx + 2] = obs_value
                 buffer_idx += 3
@@ -148,8 +149,9 @@ proc tribal_village_get_num_agents(): int32 {.exportc, dynlib.} =
   return MapAgents.int32
 
 proc tribal_village_get_max_tokens(): int32 {.exportc, dynlib.} =
-  ## Get the maximum tokens per agent
-  return (ObservationLayers * ObservationWidth * ObservationHeight).int32
+  ## Get the maximum tokens per agent (conservative estimate for sparse observations)
+  ## Most observations are sparse, so we don't need full grid size
+  return 256.int32  # Much smaller than 2541, but enough for typical sparse observations
 
 proc tribal_village_is_done(env: pointer): int32 {.exportc, dynlib.} =
   ## Check if environment episode is done
