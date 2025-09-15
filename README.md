@@ -1,6 +1,6 @@
 # Tribal Village Environment
 
-Multi-agent RL environment built in Nim with PufferLib integration. Features 60 agents across 12 teams competing for resources while fighting off hostile Clippies.
+Multi-agent RL environment built in Nim with PufferLib integration. Features 60 agents across 12 teams competing for resources while fighting off hostile tumors.
 
 <img width="2742" height="1628" alt="image" src="https://github.com/user-attachments/assets/a5992e9d-abdd-4d8b-ab83-efabd90e2bd5" />
 
@@ -34,9 +34,9 @@ config = {
     'max_steps': 1000,          # Episode length
     'ore_per_battery': 1,       # Ore needed to craft battery
     'batteries_per_heart': 1,   # Batteries needed for heart at altar
-    'enable_combat': True,      # Enable Tumor spawning and combat
+    'enable_combat': True,      # Enable tumor spawning and combat
     'tumor_spawn_rate': 1.0,   # Tumor spawn frequency (0.0-1.0)
-    'tumor_damage': 1,         # Damage Clippies deal to agents
+    'tumor_damage': 1,         # Damage tumors deal to agents
     'heart_reward': 1.0,        # Reward for heart crafting
     'ore_reward': 0.1,          # Reward for mining ore
     'battery_reward': 0.8,      # Reward for crafting batteries
@@ -47,7 +47,7 @@ config = {
     'armor_reward': 0.0,        # Reward for crafting armor
     'food_reward': 0.0,         # Reward for crafting bread
     'cloth_reward': 0.0,        # Reward for crafting lanterns
-    'tumor_kill_reward': 0.0,  # Reward for killing Clippies
+    'tumor_kill_reward': 0.0,  # Reward for clearing tumors
     'survival_penalty': 0.0,    # Penalty per step (negative)
     'death_penalty': 0.0        # Penalty for agent death (negative)
 }
@@ -59,13 +59,13 @@ env = TribalVillageEnv(config=config)
 **Map**: 192x108 grid with procedural terrain (rivers, wheat fields, tree groves)
 **Agents**: 60 agents in 12 teams of 5, each with specialized AI roles
 **Resources**: ore, batteries, water, wheat, wood, spear, lantern, armor, bread
-**Threats**: Autonomous Clippies that spawn and attack agents/buildings
+**Threats**: Autonomous tumors that spawn and expand across the map
 
 ### Core Gameplay Loop
 1. **Gather** resources (mine ore, harvest wheat, chop wood, collect water)
 2. **Craft** items using specialized buildings (forge spears, weave lanterns, etc.)
 3. **Cooperate** within teams and compete across teams
-4. **Defend** against Clippies using crafted spears
+4. **Defend** against tumors using crafted spears
 
 ## Controls
 

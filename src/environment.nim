@@ -481,6 +481,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   if hitTumor and not isNil(tumorToRemove):
     # Remove the Tumor from grid immediately (fast)
     env.grid[tumorToRemove.pos.x][tumorToRemove.pos.y] = nil
+    env.updateObservations(AgentLayer, tumorToRemove.pos, 0)
+    env.updateObservations(AgentOrientationLayer, tumorToRemove.pos, 0)
     let idx = env.things.find(tumorToRemove)
     if idx >= 0:
       env.things.del(idx)
