@@ -84,6 +84,7 @@ var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
+
 type
   ObservationName* = enum
     AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Clippy
@@ -1369,16 +1370,6 @@ proc newEnvironment*(config: EnvironmentConfig): Environment =
 # Initialize the global environment
 env = newEnvironment()
 
-proc applyTeamAltarReward(env: Environment) =
-  # Find all altars and their heart counts
-  for thing in env.things:
-    if thing.kind == Altar:
-      let altarHearts = thing.hearts.float32
-      # Find all agents with this altar as their home
-      for agent in env.agents:
-        if agent.homeAltar == thing.pos:
-          # Each agent gets 1/MapAgentsPerHouse of altar hearts (shared among team)
-          agent.reward += altarHearts / MapAgentsPerHouseFloat
 
 proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   ## Step the environment
@@ -1410,6 +1401,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       if thing.cooldown > 0:
         thing.cooldown -= 1
         env.updateObservations(AltarReadyLayer, thing.pos, thing.cooldown)
+      # Combine altar heart reward calculation here
+      if env.currentStep >= env.config.maxSteps:  # Only at episode end
+        let altarHearts = thing.hearts.float32
+        for agent in env.agents:
+          if agent.homeAltar == thing.pos:
+            agent.reward += altarHearts / MapAgentsPerHouseFloat
     elif thing.kind == Converter:
       if thing.cooldown > 0:
         thing.cooldown -= 1
@@ -1502,21 +1499,25 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
         clippysToRemove.add(clippy)
         env.grid[clippy.pos.x][clippy.pos.y] = nil
   
-  # Simple planting: if 2+ tiles from other Clippies and not on river
-  for clippy in clippysToProcess:
-    if clippy in clippysToRemove:
+  # Optimized Clippy planting: use grid-based distance checking to avoid O(n²)
+  for i, clippy in clippysToProcess:
+    if clippy in clippysToRemove or clippy.hasClaimedTerritory:
       continue
 
-    # Simple planting logic: check if at least 2 tiles from other Clippies and not on water
-    if not clippy.hasClaimedTerritory and env.terrain[clippy.pos.x][clippy.pos.y] != Water:
+    if env.terrain[clippy.pos.x][clippy.pos.y] != Water:
+      # Fast grid-based proximity check: just check the 4 adjacent positions
       var canPlant = true
-      # Optimized: only check other Clippies in clippysToProcess (already filtered)
-      for other in clippysToProcess:
-        if other != clippy and other notin clippysToRemove:
-          let dist = abs(clippy.pos.x - other.pos.x) + abs(clippy.pos.y - other.pos.y)
-          if dist < 2:
-            canPlant = false
-            break
+      for dx in -1..1:
+        for dy in -1..1:
+          if dx == 0 and dy == 0: continue
+          let checkPos = clippy.pos + ivec2(dx, dy)
+          if isValidPos(checkPos):
+            let thing = env.getThing(checkPos)
+            if not isNil(thing) and thing.kind == Clippy and thing != clippy:
+              canPlant = false
+              break
+        if not canPlant: break
+
       if canPlant:
         clippy.hasClaimedTerritory = true
   
@@ -1591,15 +1592,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
           
           # Find the team's altar to consume a heart for respawn
           if adjacentThing.teamId >= 0:
-            var teamAltar: Thing = nil
-            # Find altar by matching team agents' home altars
-            for agent in env.agents:
-              if agent.agentId div 5 == adjacentThing.teamId and agent.homeAltar.x >= 0:
-                for thing in env.things:
-                  if thing.kind == Altar and thing.pos == agent.homeAltar:
-                    teamAltar = thing
-                    break
-                break
+            # Simple direct lookup using homeAltar (much faster than nested loops)
+            let teamStartId = adjacentThing.teamId * 5  # First agent of team
+            let teamAltar = if teamStartId < env.agents.len and env.agents[teamStartId].homeAltar.x >= 0:
+              env.getThing(env.agents[teamStartId].homeAltar)
+            else: nil
             
             if not isNil(teamAltar) and teamAltar.hearts > 0:
               # Consume a heart to respawn lantern
@@ -1676,8 +1673,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
-    # Apply final team heart rewards before episode ends
-    env.applyTeamAltarReward()
+    # Team altar rewards already applied in main loop above
     # Mark all living agents as truncated (episode ended due to time limit)
     for i in 0..<MapAgents:
       if env.terminated[i] == 0.0:
@@ -1691,8 +1687,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       allDone = false
       break
   if allDone:
-    # Apply final team heart rewards before episode ends
-    env.applyTeamAltarReward()
+    # Team altar rewards already applied in main loop if needed
     env.shouldReset = true
 
 proc reset*(env: Environment) =

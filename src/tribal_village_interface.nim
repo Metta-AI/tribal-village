@@ -5,7 +5,7 @@ import environment, external_actions
 
 var globalEnv: Environment = nil
 
-proc tribal_village_create_fast(): pointer {.exportc, dynlib.} =
+proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
   try:
     let config = defaultEnvironmentConfig()
@@ -15,7 +15,7 @@ proc tribal_village_create_fast(): pointer {.exportc, dynlib.} =
   except:
     return nil
 
-proc tribal_village_reset_direct(
+proc tribal_village_reset_and_get_obs(
   env: pointer,
   obs_buffer: ptr UncheckedArray[uint8],    # [60, 21, 11, 11] direct
   rewards_buffer: ptr UncheckedArray[float32],
@@ -43,7 +43,7 @@ proc tribal_village_reset_direct(
   except:
     return 0
 
-proc tribal_village_step_direct(
+proc tribal_village_step_with_pointers(
   env: pointer,
   actions_buffer: ptr UncheckedArray[uint8],    # [60, 2] direct read
   obs_buffer: ptr UncheckedArray[uint8],        # [60, 21, 11, 11] direct write
@@ -79,7 +79,7 @@ proc tribal_village_step_direct(
   except:
     return 0
 
-proc tribal_village_get_num_agents_fast(): int32 {.exportc, dynlib.} =
+proc tribal_village_get_num_agents(): int32 {.exportc, dynlib.} =
   return MapAgents.int32
 
 proc tribal_village_get_obs_layers(): int32 {.exportc, dynlib.} =
@@ -90,3 +90,7 @@ proc tribal_village_get_obs_width(): int32 {.exportc, dynlib.} =
 
 proc tribal_village_get_obs_height(): int32 {.exportc, dynlib.} =
   return ObservationHeight.int32
+
+proc tribal_village_destroy(env: pointer) {.exportc, dynlib.} =
+  ## Clean up environment
+  globalEnv = nil
