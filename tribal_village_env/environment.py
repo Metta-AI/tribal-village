@@ -13,7 +13,7 @@ from gymnasium import spaces
 import pufferlib
 
 
-class TribalVillageFastEnv(pufferlib.PufferEnv):
+class TribalVillageEnv(pufferlib.PufferEnv):
     """
     Ultra-fast tribal village environment using direct buffer interface.
 
@@ -167,9 +167,9 @@ class TribalVillageFastEnv(pufferlib.PufferEnv):
             pass
 
 
-def make_tribal_village_fast_env(config: Optional[Dict[str, Any]] = None, **kwargs) -> TribalVillageFastEnv:
+def make_tribal_village_env(config: Optional[Dict[str, Any]] = None, **kwargs) -> TribalVillageEnv:
     """Factory function for ultra-fast tribal village environment."""
     if config is None:
         config = {}
     config.update(kwargs)
-    return TribalVillageFastEnv(config=config)
+    return TribalVillageEnv(config=config)
