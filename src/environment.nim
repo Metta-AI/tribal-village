@@ -757,10 +757,6 @@ proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 
 
-proc sameTeam(a, b: Thing): bool =
-  ## Agents are teammates if they share the same house index (agentId div MapAgentsPerHouse)
-  (a.agentId div MapAgentsPerHouse) == (b.agentId div MapAgentsPerHouse)
-
 proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Give items to adjacent teammate. Argument is direction (0..7)
   if argument > 7:
@@ -1147,21 +1143,39 @@ proc init(env: Environment) =
   let numHouses = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
   for i in 0 ..< numHouses:
-    # Use the new unified placement system
     let houseStruct = createHouse()
-    var gridPtr = cast[PlacementGrid](env.grid.addr)
-    var terrainPtr = env.terrain.addr
-    # Simplify: random placement anywhere valid (no corner preference)
-    let placementResult = findPlacement(gridPtr, terrainPtr, houseStruct, MapWidth, MapHeight, MapBorder, r, preferCorners = false)
-    
-    if placementResult.success:  # Valid location found
-      let elements = getStructureElements(houseStruct, placementResult.position)
+    var placed = false
+    var placementPosition: IVec2
+
+    # Simple random placement with collision avoidance
+    for attempt in 0 ..< 200:
+      let candidatePos = r.randomEmptyPos(env)
+      # Check if position has enough space for the 5x5 house
+      var canPlace = true
+      for dy in 0 ..< houseStruct.height:
+        for dx in 0 ..< houseStruct.width:
+          let checkX = candidatePos.x + dx
+          let checkY = candidatePos.y + dy
+          if checkX >= MapWidth or checkY >= MapHeight or
+             not env.isEmpty(ivec2(checkX, checkY)) or
+             env.terrain[checkX][checkY] == Water:
+            canPlace = false
+            break
+        if not canPlace: break
+
+      if canPlace:
+        placementPosition = candidatePos
+        placed = true
+        break
+
+    if placed:
+      let elements = getStructureElements(houseStruct, placementPosition)
       
       # Clear terrain within the house area to create a clearing
       for dy in 0 ..< houseStruct.height:
         for dx in 0 ..< houseStruct.width:
-          let clearX = placementResult.position.x + dx
-          let clearY = placementResult.position.y + dy
+          let clearX = placementPosition.x + dx
+          let clearY = placementPosition.y + dy
           if clearX >= 0 and clearX < MapWidth and clearY >= 0 and clearY < MapHeight:
             # Clear any terrain features (wheat, trees) but keep water
             if env.terrain[clearX][clearY] != Water:
@@ -1196,8 +1210,8 @@ proc init(env: Environment) =
       # Initialize base colors for house tiles to team color
       for dx in 0 ..< houseStruct.width:
         for dy in 0 ..< houseStruct.height:
-          let tileX = placementResult.position.x + dx
-          let tileY = placementResult.position.y + dy
+          let tileX = placementPosition.x + dx
+          let tileY = placementPosition.y + dy
           if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
             env.baseTileColors[tileX][tileY] = TileColor(
               r: villageColor.r,
@@ -1219,7 +1233,7 @@ proc init(env: Environment) =
       for y in 0 ..< houseStruct.height:
         for x in 0 ..< houseStruct.width:
           if y < houseStruct.layout.len and x < houseStruct.layout[y].len:
-            let worldPos = placementResult.position + ivec2(x.int32, y.int32)
+            let worldPos = placementPosition + ivec2(x.int32, y.int32)
             case houseStruct.layout[y][x]:
             of 'A':  # Armory at top-left
               env.add(Thing(
@@ -1319,9 +1333,10 @@ proc init(env: Environment) =
     
     totalAgentsSpawned += 1
 
-  # Random spawner placement with a simple minimum distance from villages
+  # Random spawner placement with minimum distance from villages and other spawners
   # Gather altar positions for distance checks
   var altarPositionsNow: seq[IVec2] = @[]
+  var spawnerPositions: seq[IVec2] = @[]
   for thing in env.things:
     if thing.kind == Altar:
       altarPositionsNow.add(thing.pos)
@@ -1361,11 +1376,19 @@ proc init(env: Environment) =
       if not areaValid:
         continue
 
-      # Enforce min distance from any altar (Euclidean squared)
+      # Enforce min distance from any altar and other spawners
       var okDistance = true
+      # Check distance from villages (altars)
       for ap in altarPositionsNow:
         let dx = int(targetPos.x) - int(ap.x)
         let dy = int(targetPos.y) - int(ap.y)
+        if dx*dx + dy*dy < minDist2:
+          okDistance = false
+          break
+      # Check distance from other spawners
+      for sp in spawnerPositions:
+        let dx = int(targetPos.x) - int(sp.x)
+        let dy = int(targetPos.y) - int(sp.y)
         if dx*dx + dy*dy < minDist2:
           okDistance = false
           break
@@ -1386,6 +1409,9 @@ proc init(env: Environment) =
         cooldown: 0,
         homeSpawner: targetPos
       ))
+
+      # Add this spawner position for future collision checks
+      spawnerPositions.add(targetPos)
 
       let nearbyPositions = env.findEmptyPositionsAround(targetPos, 1)
       if nearbyPositions.len > 0:
