@@ -1426,13 +1426,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
         thing.cooldown -= 1
       else:
         # Spawner is ready to spawn a Clippy
-        # Count nearby Clippys
+        # Fast grid-based nearby Clippy count (5-tile radius)
         var nearbyClippyCount = 0
-        for other in env.things:
-          if other.kind == Clippy:
-            let dist = manhattanDistance(other.pos, thing.pos)
-            if dist <= 5:  # Within 5 tiles of spawner
-              nearbyClippyCount += 1
+        for dx in -5..5:
+          for dy in -5..5:
+            let checkPos = thing.pos + ivec2(dx, dy)
+            if isValidPos(checkPos):
+              let other = env.getThing(checkPos)
+              if not isNil(other) and other.kind == Clippy:
+                inc nearbyClippyCount
         
         # Spawn a new Clippy with reasonable limits to prevent unbounded growth
         let maxClippiesPerSpawner = 5  # Reasonable limit
