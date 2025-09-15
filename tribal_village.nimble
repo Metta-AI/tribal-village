@@ -6,8 +6,6 @@ license     = "MIT"
 srcDir = "src"
 
 requires "nim >= 2.2.4"
-requires "genny >= 0.1.0"
-requires "nimpy >= 0.2.0"
 requires "pixie >= 5.0.0"
 requires "vmath >= 2.0.0"
 requires "chroma >= 0.2.7"
