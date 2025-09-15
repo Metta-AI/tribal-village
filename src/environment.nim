@@ -403,8 +403,8 @@ proc updateObservations(env: Environment, agentId: int) =
       obs[19][x][y] = min(255, tintIntensity div 4).uint8  # Scale down for uint8 range
 
 proc updateAllObservationsLazy(env: Environment) =
-  ## Bulk observation rebuild - more efficient than individual updates
-  ## Call this once per step instead of many individual updates
+  ## True lazy observation update - only called when absolutely necessary (like reset)
+  ## Avoid calling this during normal step operations
   for agentId in 0..<MapAgents:
     env.updateObservations(agentId)
 
@@ -414,12 +414,22 @@ proc updateObservations(
   pos: IVec2,
   value: int
 ) =
+  ## Optimized observation update - only update agents that can see this position
   let layerId = ord(layer)
+  let obsRadius = ObservationWidth div 2  # 5 tiles radius
+
+  # Only check agents within observation range of the changed position
   for agentId in 0 ..< MapAgents:
-    let x = pos.x - env.agents[agentId].pos.x + ObservationWidth div 2
-    let y = pos.y - env.agents[agentId].pos.y + ObservationHeight div 2
-    if x < 0 or x >= ObservationWidth or y < 0 or y >= ObservationHeight:
+    let agentPos = env.agents[agentId].pos
+    let dx = abs(pos.x - agentPos.x)
+    let dy = abs(pos.y - agentPos.y)
+
+    # Skip agents that can't see this position (major optimization)
+    if dx > obsRadius or dy > obsRadius:
       continue
+
+    let x = pos.x - agentPos.x + obsRadius
+    let y = pos.y - agentPos.y + obsRadius
     env.observations[agentId][layerId][x][y] = value.uint8
 
 
@@ -507,11 +517,16 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   if canMove:
     env.grid[agent.pos.x][agent.pos.y] = nil
+    # Clear old position and set new position
+    env.updateObservations(AgentLayer, agent.pos, 0)  # Clear old
     agent.pos = newPos
     agent.orientation = newOrientation
     env.grid[agent.pos.x][agent.pos.y] = agent
-    
-    # Observations will be updated in bulk at end of step
+
+    # Update observations for new position only
+    let teamId = agent.agentId div MapAgentsPerHouse
+    env.updateObservations(AgentLayer, agent.pos, teamId + 1)
+    env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
     inc env.stats[id].actionMove
   else:
     inc env.stats[id].actionInvalid
@@ -565,6 +580,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     
     # Consume one use of the spear
     agent.inventorySpear -= 1
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
     
     # Give reward for destroying Clippy
     agent.reward += env.config.clippyKillReward  # Moderate reward for defense
@@ -641,6 +657,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Mine:
     if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
       agent.inventoryOre += 1
+      env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
       thing.cooldown = MapObjectMineCooldown
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
       if agent.inventoryOre == 1: agent.reward += env.config.oreReward
@@ -651,6 +668,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBattery < MapObjectAgentMaxInventory:
       agent.inventoryOre -= 1
       agent.inventoryBattery += 1
+      env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
+      env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
       thing.cooldown = 0
       env.updateObservations(ConverterReadyLayer, thing.pos, 1)
       if agent.inventoryBattery == 1: agent.reward += env.config.batteryReward
@@ -697,6 +716,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Altar:
     if thing.cooldown == 0 and agent.inventoryBattery >= 1:
       agent.inventoryBattery -= 1
+      env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
       thing.hearts += 1
       thing.cooldown = MapObjectAltarCooldown
       env.updateObservations(AltarHeartsLayer, thing.pos, thing.hearts)
@@ -1781,8 +1801,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
-  # Batch observation update once per step - more efficient than individual updates
-  env.updateAllObservationsLazy()
+  # Incremental observation updates are more efficient - only update what changes
   
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
