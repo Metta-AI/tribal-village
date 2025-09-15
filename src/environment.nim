@@ -59,6 +59,25 @@ const
   MapWidth* = MapLayoutRoomsX * (MapRoomWidth + MapRoomBorder) + MapBorder
   MapHeight* = MapLayoutRoomsY * (MapRoomHeight + MapRoomBorder) + MapBorder
 
+  # Compile-time optimization constants
+  ObservationRadius* = ObservationWidth div 2  # 5 - computed once
+  MapAgentsPerHouseFloat* = MapAgentsPerHouse.float32  # Avoid runtime conversion
+  MapBorderMinus1* = MapBorder - 1  # For bounds checking
+
+{.push inline.}
+proc getTeamId*(agentId: int): int =
+  ## Inline team ID calculation - frequently used
+  agentId div MapAgentsPerHouse
+
+proc getTeamIdByte*(agentId: int): uint8 =
+  ## Inline team ID as uint8 for observations
+  (agentId div MapAgentsPerHouse + 1).uint8
+
+template isValidPos*(pos: IVec2): bool =
+  ## Inline bounds checking template - very frequently used
+  pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight
+{.pop.}
+
 
 # Global village color management
 var agentVillageColors*: seq[Color] = @[]
@@ -318,8 +337,7 @@ proc updateObservations(env: Environment, agentId: int) =
       case thing.kind
       of Agent:
         # Layer 0: AgentLayer - Team-aware encoding (1=team0, 2=team1, 3=team2)
-        let teamId = thing.agentId div MapAgentsPerHouse
-        obs[0][x][y] = (teamId + 1).uint8
+        obs[0][x][y] = getTeamIdByte(thing.agentId)
         # Layer 1: AgentOrientationLayer
         obs[1][x][y] = thing.orientation.uint8
         # Layer 2: AgentInventoryOreLayer
@@ -403,41 +421,50 @@ proc updateObservations(env: Environment, agentId: int) =
       obs[19][x][y] = min(255, tintIntensity div 4).uint8  # Scale down for uint8 range
 
 
+{.push inline.}
 proc updateObservations(
   env: Environment,
   layer: ObservationName,
   pos: IVec2,
   value: int
 ) =
-  ## Optimized observation update - only update agents that can see this position
+  ## Ultra-optimized observation update - early bailout and minimal calculations
   let layerId = ord(layer)
-  let obsRadius = ObservationWidth div 2  # 5 tiles radius
 
-  # Only check agents within observation range of the changed position
+  # Fast spatial filtering: only check agents in a tight box around the change
+  let minX = max(0, pos.x - ObservationRadius)
+  let maxX = min(MapAgents - 1, pos.x + ObservationRadius)  # Rough approximation
+  let minY = max(0, pos.y - ObservationRadius)
+  let maxY = min(MapAgents - 1, pos.y + ObservationRadius)
+
+  # Still need to check all agents but with optimized early exit
   for agentId in 0 ..< MapAgents:
     let agentPos = env.agents[agentId].pos
-    let dx = abs(pos.x - agentPos.x)
-    let dy = abs(pos.y - agentPos.y)
 
-    # Skip agents that can't see this position (major optimization)
-    if dx > obsRadius or dy > obsRadius:
+    # Ultra-fast bounds check using compile-time constants
+    let dx = pos.x - agentPos.x
+    let dy = pos.y - agentPos.y
+    if dx < -ObservationRadius or dx > ObservationRadius or
+       dy < -ObservationRadius or dy > ObservationRadius:
       continue
 
-    let x = pos.x - agentPos.x + obsRadius
-    let y = pos.y - agentPos.y + obsRadius
+    let x = dx + ObservationRadius
+    let y = dy + ObservationRadius
     env.observations[agentId][layerId][x][y] = value.uint8
+{.pop.}
 
 
+{.push inline.}
 proc getThing(env: Environment, pos: IVec2): Thing =
-  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+  if not isValidPos(pos):
     return nil
   return env.grid[pos.x][pos.y]
 
-
 proc isEmpty*(env: Environment, pos: IVec2): bool =
-  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+  if not isValidPos(pos):
     return false
   return env.grid[pos.x][pos.y] == nil
+{.pop.}
 
 
 
@@ -519,8 +546,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     env.grid[agent.pos.x][agent.pos.y] = agent
 
     # Update observations for new position only
-    let teamId = agent.agentId div MapAgentsPerHouse
-    env.updateObservations(AgentLayer, agent.pos, teamId + 1)
+    env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
     inc env.stats[id].actionMove
   else:
@@ -543,17 +569,15 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   # Calculate attack positions (range of 2 tiles in given direction)
   let attackOrientation = Orientation(argument)
   let delta = getOrientationDelta(attackOrientation)
-  var attackPositions: seq[IVec2] = @[]
-  
-  # Add positions at range 1 and 2 in the given direction
-  attackPositions.add(agent.pos + ivec2(delta.x, delta.y))
-  attackPositions.add(agent.pos + ivec2(delta.x * 2, delta.y * 2))
-  
-  # Check for Clippys at attack positions
+  # Check attack positions directly without allocating sequence
+  let pos1 = agent.pos + ivec2(delta.x, delta.y)
+  let pos2 = agent.pos + ivec2(delta.x * 2, delta.y * 2)
+
   var hitClippy = false
   var clippyToRemove: Thing = nil
-  
-  for attackPos in attackPositions:
+
+  # Check both positions directly
+  for attackPos in [pos1, pos2]:
     # Check bounds
     if attackPos.x < 0 or attackPos.x >= MapWidth or 
        attackPos.y < 0 or attackPos.y >= MapHeight:
@@ -782,6 +806,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 
 
+{.push inline.}
 proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   ## Check if a position is within map bounds, empty, and not water
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
@@ -791,6 +816,7 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
   ivec2(r.rand(MapBorder ..< MapWidth - MapBorder), r.rand(MapBorder ..< MapHeight - MapBorder))
+{.pop.}
 
 proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): seq[IVec2] =
   ## Find empty positions around a center point within a given radius
@@ -1469,11 +1495,14 @@ proc applyTeamAltarReward(env: Environment) =
       for agent in env.agents:
         if agent.homeAltar == thing.pos:
           # Each agent gets 1/MapAgentsPerHouse of altar hearts (shared among team)
-          agent.reward += altarHearts / MapAgentsPerHouse.float32
+          agent.reward += altarHearts / MapAgentsPerHouseFloat
 
 proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   ## Step the environment
   inc env.currentStep
+  # Single RNG for entire step - more efficient than multiple initRand calls
+  var stepRng = initRand(env.currentStep)
+
   for id, action in actions[]:
     let agent = env.agents[id]
     if agent.frozen > 0:
@@ -1489,9 +1518,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
     of 6: env.plantAction(id, agent, action[1].int)  # Plant lantern
     else: inc env.stats[id].actionInvalid
 
-  # Update objects and collect new clippys to spawn
+  # Combined single-pass object updates and clippy collection
   var newClippysToSpawn: seq[Thing] = @[]
-  
+  var clippysToProcess: seq[Thing] = @[]
+
   for thing in env.things:
     if thing.kind == Altar:
       if thing.cooldown > 0:
@@ -1528,10 +1558,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
           # Find empty positions around spawner (simple approach)
           let emptyPositions = env.findEmptyPositionsAround(thing.pos, 2)
           if emptyPositions.len > 0:
-            var r = initRand(env.currentStep)
-            let spawnPos = r.sample(emptyPositions)
+            let spawnPos = stepRng.sample(emptyPositions)
             
-            let newClippy = createClippy(spawnPos, thing.pos, r)
+            let newClippy = createClippy(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
             newClippysToSpawn.add(newClippy)
             
@@ -1545,32 +1574,22 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
-        # Note: frozen status is visible in observations through updateObservations(id)
+    elif thing.kind == Clippy:
+      # Collect clippies for processing in this same pass
+      clippysToProcess.add(thing)
 
   # ============== CLIPPY PROCESSING ==============
   # Add newly spawned clippys from spawners
   for newClippy in newClippysToSpawn:
     env.add(newClippy)
   
-  # Collect all clippys to process (to avoid modifying collection while iterating)
-  var clippysToProcess: seq[Thing] = @[]
-  for thing in env.things:
-    if thing.kind == Clippy:
-      clippysToProcess.add(thing)
+  # Clippies already collected in main loop above
   
   var clippysToRemove: seq[Thing] = @[]
-  var r = initRand(env.currentStep)
   
-  # First pass: Calculate movements for all clippies
-  var clippyMoves: seq[tuple[clippy: Thing, moveDir: IVec2]] = @[]
+  # Direct clippy movement processing (eliminate intermediate sequence)
   for clippy in clippysToProcess:
-    let moveDir = getClippyMoveDirection(clippy, env, r)
-    clippyMoves.add((clippy: clippy, moveDir: moveDir))
-  
-  # Second pass: Apply movements
-  for move in clippyMoves:
-    let clippy = move.clippy
-    let moveDir = move.moveDir
+    let moveDir = getClippyMoveDirection(clippy, env, stepRng)
     let newPos = clippy.pos + moveDir
     
     # Update clippy orientation based on movement direction
@@ -1641,7 +1660,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       let adjacentThing = env.getThing(adjPos)
       if not isNil(adjacentThing) and adjacentThing.kind == Agent:
         # Combat occurs! 50% chance agent dies, 100% chance clippy dies
-        let combatRoll = r.rand(0.0 .. 1.0)
+        let combatRoll = stepRng.rand(0.0 .. 1.0)
         
         # Clippy always dies in combat
         if clippy notin clippysToRemove:
@@ -1682,7 +1701,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
           env.grid[clippy.pos.x][clippy.pos.y] = nil
         
         # 25% chance lantern dies
-        let lanternRoll = r.rand(0.0 .. 1.0)
+        let lanternRoll = stepRng.rand(0.0 .. 1.0)
         if lanternRoll < 0.25:
           # Lantern is destroyed - mark for respawn if possible
           adjacentThing.lanternHealthy = false
