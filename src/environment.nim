@@ -402,11 +402,6 @@ proc updateObservations(env: Environment, agentId: int) =
       let tintIntensity = abs(tint.r) + abs(tint.g) + abs(tint.b)
       obs[19][x][y] = min(255, tintIntensity div 4).uint8  # Scale down for uint8 range
 
-proc updateAllObservationsLazy(env: Environment) =
-  ## True lazy observation update - only called when absolutely necessary (like reset)
-  ## Avoid calling this during normal step operations
-  for agentId in 0..<MapAgents:
-    env.updateObservations(agentId)
 
 proc updateObservations(
   env: Environment,
@@ -849,28 +844,9 @@ proc findLanternPlacementSpot*(env: Environment, agent: Thing, controller: point
 
 # ============== CLIPPY CREEP SPREAD AI ==============
 
-proc hasNearbyClippies(env: Environment, pos: IVec2, radius: int, excludeClippy: Thing = nil): bool =
-  ## Check if there are any clippies within radius tiles (observation window)
-  for dx in -radius .. radius:
-    for dy in -radius .. radius:
-      if dx == 0 and dy == 0:
-        continue  # Skip center position
-      
-      let checkPos = pos + ivec2(dx, dy)
-      if checkPos.x >= 0 and checkPos.x < MapWidth and checkPos.y >= 0 and checkPos.y < MapHeight:
-        let thing = env.getThing(checkPos)
-        if not isNil(thing) and thing.kind == Clippy and thing != excludeClippy:
-          return true
-  return false
 
 proc getClippyMoveDirection(clippy: Thing, env: Environment, r: var Rand): IVec2 =
-  ## Simple clippy behavior: stay put if planted, otherwise move randomly
-  
-  # If planted, don't move
-  if clippy.hasClaimedTerritory:
-    return ivec2(0, 0)
-  
-  # Move randomly to explore
+  ## Simplified clippy behavior: random movement only
   const dirs = [ivec2(0, -1), ivec2(0, 1), ivec2(-1, 0), ivec2(1, 0)]
   return dirs[r.rand(0..<4)]
 
@@ -1624,26 +1600,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
         clippysToRemove.add(clippy)
         env.grid[clippy.pos.x][clippy.pos.y] = nil
   
-  # Third pass: Handle planting decisions and age tracking
+  # Simple planting: if 2+ tiles from other Clippies and not on river
   for clippy in clippysToProcess:
-    # Skip if clippy is already marked for removal
     if clippy in clippysToRemove:
       continue
-    
-    # Increment age counter
-    clippy.turnsAlive += 1
-    
-    # Skip planting if already planted
-    if clippy.hasClaimedTerritory:
-      continue
-    
-    # Skip planting on first turn (turnsAlive == 1 since we just incremented)
-    if clippy.turnsAlive == 1:
-      continue
-    
-    # Plant if no nearby clippies in observation window (2-tile radius) and not on water
-    if not env.hasNearbyClippies(clippy.pos, 2, clippy) and env.terrain[clippy.pos.x][clippy.pos.y] != Water:
-      clippy.hasClaimedTerritory = true
+
+    # Simple planting logic: check if at least 2 tiles from other Clippies and not on water
+    if not clippy.hasClaimedTerritory and env.terrain[clippy.pos.x][clippy.pos.y] != Water:
+      var canPlant = true
+      # Optimized: only check other Clippies in clippysToProcess (already filtered)
+      for other in clippysToProcess:
+        if other != clippy and other notin clippysToRemove:
+          let dist = abs(clippy.pos.x - other.pos.x) + abs(clippy.pos.y - other.pos.y)
+          if dist < 2:
+            canPlant = false
+            break
+      if canPlant:
+        clippy.hasClaimedTerritory = true
   
   # ============== CLIPPY COMBAT ==============
   # Process combat between clippys and adjacent agents
@@ -1798,7 +1771,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
-  # Incremental observation updates are more efficient - only update what changes
   
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
@@ -1830,16 +1802,16 @@ proc reset*(env: Environment) =
   env.agents.setLen(0)
   env.stats.setLen(0)
   env.grid.clear()
-  env.terrain.clear()
   env.observations.clear()
-  # Clear all tint modifications and active tiles
-  env.activeTiles.positions.clear()
-  env.activeTiles.count = 0
+  # Clear the massive tintMods array to prevent accumulation
+  env.tintMods.clear()
   # Clear global colors that could accumulate
   agentVillageColors.setLen(0)
   teamColors.setLen(0)
   altarColors.clear()
-  env.init()
+  # Clear UI selection to prevent stale references
+  selection = nil
+  env.init()  # init() handles terrain, activeTiles, and tile colors
 
 # ============== COLOR MANAGEMENT ==============
 
