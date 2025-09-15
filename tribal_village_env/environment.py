@@ -55,15 +55,14 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         super().__init__(buf)
 
-        # Pre-allocate direct buffers (zero-copy communication)
-        self.obs_buffer = np.zeros(
-            (self.total_agents, self.obs_layers, self.obs_width, self.obs_height),
-            dtype=np.uint8
-        )
+        # PufferLib will set these buffers - don't allocate our own!
+        self.observations: np.ndarray
+        self.terminals: np.ndarray
+        self.truncations: np.ndarray
+        self.rewards: np.ndarray
+
+        # Only allocate actions buffer (input to environment)
         self.actions_buffer = np.zeros((self.total_agents, 2), dtype=np.uint8)
-        self.rewards_buffer = np.zeros(self.total_agents, dtype=np.float32)
-        self.terminals_buffer = np.zeros(self.total_agents, dtype=np.uint8)
-        self.truncations_buffer = np.zeros(self.total_agents, dtype=np.uint8)
 
         # Initialize environment
         self.env_ptr = self.lib.tribal_village_create_fast()
@@ -103,11 +102,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         """Ultra-fast reset using direct buffers."""
         self.step_count = 0
 
-        # Get buffer pointers
-        obs_ptr = self.obs_buffer.ctypes.data_as(ctypes.c_void_p)
-        rewards_ptr = self.rewards_buffer.ctypes.data_as(ctypes.c_void_p)
-        terminals_ptr = self.terminals_buffer.ctypes.data_as(ctypes.c_void_p)
-        truncations_ptr = self.truncations_buffer.ctypes.data_as(ctypes.c_void_p)
+        # Get PufferLib managed buffer pointers
+        obs_ptr = self.observations.ctypes.data_as(ctypes.c_void_p)
+        rewards_ptr = self.rewards.ctypes.data_as(ctypes.c_void_p)
+        terminals_ptr = self.terminals.ctypes.data_as(ctypes.c_void_p)
+        truncations_ptr = self.truncations.ctypes.data_as(ctypes.c_void_p)
 
         # Direct buffer reset - no conversions
         success = self.lib.tribal_village_reset_direct(
@@ -116,8 +115,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if not success:
             raise RuntimeError("Failed to reset Nim environment")
 
-        # Return observations as views (no copying!)
-        observations = {f"agent_{i}": self.obs_buffer[i] for i in range(self.num_agents)}
+        # Return observations as views of PufferLib buffers (no copying!)
+        observations = {f"agent_{i}": self.observations[i] for i in range(self.num_agents)}
         info = {f"agent_{i}": {} for i in range(self.num_agents)}
 
         return observations, info
@@ -137,12 +136,12 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 self.actions_buffer[i, 0] = action[0]
                 self.actions_buffer[i, 1] = action[1]
 
-        # Get buffer pointers
+        # Get PufferLib managed buffer pointers
         actions_ptr = self.actions_buffer.ctypes.data_as(ctypes.c_void_p)
-        obs_ptr = self.obs_buffer.ctypes.data_as(ctypes.c_void_p)
-        rewards_ptr = self.rewards_buffer.ctypes.data_as(ctypes.c_void_p)
-        terminals_ptr = self.terminals_buffer.ctypes.data_as(ctypes.c_void_p)
-        truncations_ptr = self.truncations_buffer.ctypes.data_as(ctypes.c_void_p)
+        obs_ptr = self.observations.ctypes.data_as(ctypes.c_void_p)
+        rewards_ptr = self.rewards.ctypes.data_as(ctypes.c_void_p)
+        terminals_ptr = self.terminals.ctypes.data_as(ctypes.c_void_p)
+        truncations_ptr = self.truncations.ctypes.data_as(ctypes.c_void_p)
 
         # Direct buffer step - no conversions
         success = self.lib.tribal_village_step_direct(
@@ -151,11 +150,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if not success:
             raise RuntimeError("Failed to step Nim environment")
 
-        # Return results as views (no copying!)
-        observations = {f"agent_{i}": self.obs_buffer[i] for i in range(self.num_agents)}
-        rewards = {f"agent_{i}": float(self.rewards_buffer[i]) for i in range(self.num_agents)}
-        terminated = {f"agent_{i}": bool(self.terminals_buffer[i]) for i in range(self.num_agents)}
-        truncated = {f"agent_{i}": bool(self.truncations_buffer[i]) or (self.step_count >= self.max_steps) for i in range(self.num_agents)}
+        # Return results as views of PufferLib buffers (no copying!)
+        observations = {f"agent_{i}": self.observations[i] for i in range(self.num_agents)}
+        rewards = {f"agent_{i}": float(self.rewards[i]) for i in range(self.num_agents)}
+        terminated = {f"agent_{i}": bool(self.terminals[i]) for i in range(self.num_agents)}
+        truncated = {f"agent_{i}": bool(self.truncations[i]) or (self.step_count >= self.max_steps) for i in range(self.num_agents)}
         infos = {f"agent_{i}": {} for i in range(self.num_agents)}
 
         return observations, rewards, terminated, truncated, infos
