@@ -55,10 +55,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         super().__init__(buf)
 
-        # Set up joint action space like metta does
+        # Set up joint action space for tribal-village
         self.action_space = pufferlib.spaces.joint_space(self.single_action_space, self.num_agents)
-        if hasattr(self, 'actions'):
-            self.actions = self.actions.astype(np.int32)
 
         # PufferLib will set these buffers - don't allocate our own!
         self.observations: np.ndarray
@@ -142,8 +140,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             agent_key = f"agent_{i}"
             if agent_key in actions:
                 action = actions[agent_key]
-                self.actions_buffer[i, 0] = np.uint8(action[0])  # Convert int32 -> uint8
-                self.actions_buffer[i, 1] = np.uint8(action[1])
+                self.actions_buffer[i, 0] = action[0]  # Direct assignment
+                self.actions_buffer[i, 1] = action[1]
 
         # Get PufferLib managed buffer pointers
         actions_ptr = self.actions_buffer.ctypes.data_as(ctypes.c_void_p)
