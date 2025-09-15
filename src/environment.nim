@@ -701,16 +701,16 @@ proc generateRandomMapPosition(r: var Rand): IVec2 =
   ivec2(r.rand(MapBorder ..< MapWidth - MapBorder), r.rand(MapBorder ..< MapHeight - MapBorder))
 {.pop.}
 
-proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): seq[IVec2] =
-  ## Find empty positions around a center point within a given radius
-  result = @[]
+proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int): IVec2 =
+  ## Find first empty position around center (no allocation)
   for dx in -radius .. radius:
     for dy in -radius .. radius:
       if dx == 0 and dy == 0:
         continue  # Skip the center position
       let pos = ivec2(center.x + dx, center.y + dy)
       if env.isValidEmptyPosition(pos):
-        result.add(pos)
+        return pos
+  return ivec2(-1, -1)  # No empty position found
 
 # ============== LANTERN PLACEMENT ==============
 
@@ -776,13 +776,8 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   quit("Failed to find an empty position, map too full!")
 
 proc clearTintModifications(env: Environment) =
-  ## Clear only active tile modifications for performance
-  for pos in env.activeTiles.positions:
-    if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
-      env.tintMods[pos.x][pos.y] = TintModification(r: 0, g: 0, b: 0, intensity: 0)
-  
-  # Clear the active set for next frame
-  env.activeTiles.positions.clear()
+  ## Fast clear all tint modifications (eliminate HashSet overhead)
+  env.tintMods.clear()  # Much faster than HashSet iteration
 
 proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
@@ -808,8 +803,7 @@ proc updateTintModifications(env: Environment) =
             let distance = abs(dx) + abs(dy)  # Manhattan distance
             let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
             
-            env.activeTiles.positions.incl(creepPos)
-            # Count is now redundant with HashSet
+            # No HashSet tracking needed - clear entire array each frame
             
             # Clippy creep effect (cool colors - half speed)
             env.tintMods[creepPos.x][creepPos.y].r += int16(-15 * creepIntensity * falloff)  # Reduce red (halved)
@@ -830,7 +824,7 @@ proc updateTintModifications(env: Environment) =
               let distance = abs(dx) + abs(dy)
               let falloff = max(1, 3 - distance)  # Stronger at center, weaker at edges
               
-              env.activeTiles.positions.incl(agentPos)
+              # No HashSet tracking needed
               
               # Agent warmth effect (1.25x stronger than original)
               env.tintMods[agentPos.x][agentPos.y].r += int16((tribeColor.r - 0.7) * 63 * falloff.float32)   # Quarter of 5x = 1.25x
@@ -839,7 +833,7 @@ proc updateTintModifications(env: Environment) =
         
     of Altar:
       # Reduce altar tint effect by 10x (minimal warm glow)
-      env.activeTiles.positions.incl(pos)
+      # No HashSet tracking needed
       env.tintMods[pos.x][pos.y].r += int16(5)   # Very minimal warm glow (10x reduction)
       env.tintMods[pos.x][pos.y].g += int16(5)
       env.tintMods[pos.x][pos.y].b += int16(2)
@@ -857,7 +851,7 @@ proc updateTintModifications(env: Environment) =
               let distance = abs(dx) + abs(dy)  # Manhattan distance
               let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
               
-              env.activeTiles.positions.incl(tintPos)
+              # No HashSet tracking needed
               
               # Lantern warm effect (spread team colors)
               env.tintMods[tintPos.x][tintPos.y].r += int16((teamColor.r - 0.7) * 50 * falloff.float32)
@@ -1439,10 +1433,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
         # Spawn a new Clippy with reasonable limits to prevent unbounded growth
         let maxClippiesPerSpawner = 5  # Reasonable limit
         if nearbyClippyCount < maxClippiesPerSpawner:
-          # Find empty positions around spawner (simple approach)
-          let emptyPositions = env.findEmptyPositionsAround(thing.pos, 2)
-          if emptyPositions.len > 0:
-            let spawnPos = stepRng.sample(emptyPositions)
+          # Find first empty position (no allocation)
+          let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
+          if spawnPos.x >= 0:
             
             let newClippy = createClippy(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
@@ -1644,11 +1637,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
         altar.hearts -= MapObjectAltarRespawnCost
         env.updateObservations(AltarHeartsLayer, altar.pos, altar.hearts)
         
-        # Find an empty position around the altar
-        let emptyPositions = env.findEmptyPositionsAround(altar.pos, 2)
-        if emptyPositions.len > 0:
+        # Find first empty position around altar (no allocation)
+        let respawnPos = env.findFirstEmptyPositionAround(altar.pos, 2)
+        if respawnPos.x >= 0:
           # Respawn the agent
-          agent.pos = emptyPositions[0]
+          agent.pos = respawnPos
           agent.inventoryOre = 0
           agent.inventoryBattery = 0
           agent.inventoryWater = 0
