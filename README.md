@@ -1,6 +1,6 @@
 # Tribal Village Environment
 
-Multi-agent RL environment built in Nim with PufferLib integration. Features 15 agents across 3 teams competing for resources while fighting off hostile Clippies.
+Multi-agent RL environment built in Nim with PufferLib integration. Features 60 agents across 12 teams competing for resources while fighting off hostile Clippies.
 
 ## Quick Start
 
@@ -23,10 +23,39 @@ nim r -d:release tribal_village.nim
 python -c "from tribal_village_env import TribalVillageEnv; env = TribalVillageEnv()"
 ```
 
+## Configuration
+
+The Python environment accepts a config dictionary to customize the Nim simulation:
+
+```python
+config = {
+    'max_steps': 512,           # Episode length
+    'ore_per_battery': 1,       # Ore needed to craft battery
+    'batteries_per_heart': 1,   # Batteries needed for heart at altar
+    'enable_combat': True,      # Enable Clippy spawning and combat
+    'clippy_spawn_rate': 1.0,   # Clippy spawn frequency (0.0-1.0)
+    'clippy_damage': 1,         # Damage Clippies deal to agents
+    'heart_reward': 1.0,        # Reward for heart crafting
+    'ore_reward': 0.1,          # Reward for mining ore
+    'battery_reward': 0.8,      # Reward for crafting batteries
+    'wood_reward': 0.0,         # Reward for chopping wood
+    'water_reward': 0.0,        # Reward for collecting water
+    'wheat_reward': 0.0,        # Reward for harvesting wheat
+    'spear_reward': 0.0,        # Reward for crafting spears
+    'armor_reward': 0.0,        # Reward for crafting armor
+    'food_reward': 0.0,         # Reward for crafting bread
+    'cloth_reward': 0.0,        # Reward for crafting lanterns
+    'clippy_kill_reward': 0.0,  # Reward for killing Clippies
+    'survival_penalty': 0.0,    # Penalty per step (negative)
+    'death_penalty': 0.0        # Penalty for agent death (negative)
+}
+env = TribalVillageEnv(config=config)
+```
+
 ## Game Overview
 
 **Map**: 192x108 grid with procedural terrain (rivers, wheat fields, tree groves)
-**Agents**: 15 agents in 3 teams of 5, each with specialized AI roles
+**Agents**: 60 agents in 12 teams of 5, each with specialized AI roles
 **Resources**: ore, batteries, water, wheat, wood, spear, lantern, armor, bread
 **Threats**: Autonomous Clippies that spawn and attack agents/buildings
 
@@ -59,7 +88,7 @@ Multi-discrete `[move_direction, action_type]`:
 
 ### Architecture
 - **Nim backend**: High-performance simulation and rendering
-- **Python wrapper**: PufferLib-compatible interface for all 15 agents
+- **Python wrapper**: PufferLib-compatible interface for all 60 agents
 - **Zero-copy communication**: Direct pointer passing for efficiency
 - **Web ready**: Emscripten support for WASM deployment
 

@@ -13,9 +13,9 @@ const
   MapRoomBorder* = 0
 
   # World Objects
-  MapRoomObjectsAgents* = 15
-  MapRoomObjectsHouses* = 3
+  MapRoomObjectsHouses* = 12
   MapAgentsPerHouse* = 5
+  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # 60 total agents
   MapRoomObjectsConverters* = 10
   MapRoomObjectsMines* = 20
   MapRoomObjectsWalls* = 30
@@ -1438,8 +1438,8 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     maxSteps: 2000,
     
     # Resource configuration
-    orePerBattery: 3,
-    batteriesPerHeart: 2,
+    orePerBattery: 1,
+    batteriesPerHeart: 1,
     
     # Combat configuration
     enableCombat: true,
