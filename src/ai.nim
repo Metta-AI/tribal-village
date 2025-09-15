@@ -9,7 +9,7 @@ type
   AgentRole* = enum
     AltarSpecialist      # Handles altar/battery workflow
     ArmorySpecialist     # Wood → Armor
-    ForgeSpecialist      # Wood → Spear → Hunt Clippies  
+    ForgeSpecialist      # Wood → Spear → Hunt Tumors  
     ClayOvenSpecialist   # Wheat → Bread
     WeavingLoomSpecialist # Wheat → Lantern → Plant
 
@@ -533,14 +533,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): arra
   of ForgeSpecialist:
     # Priority 1: Hunt clippies if we have spear using spiral search
     if agent.inventorySpear > 0:
-      let clippy = env.findNearestThingSpiral(state, Clippy, controller.rng)
-      if clippy != nil:
-        let dx = abs(clippy.pos.x - agent.pos.x)
-        let dy = abs(clippy.pos.y - agent.pos.y)
+      let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
+      if tumor != nil:
+        let dx = abs(tumor.pos.x - agent.pos.x)
+        let dy = abs(tumor.pos.y - agent.pos.y)
         if max(dx, dy) in [1'i32, 2'i32]:  # Spear attack range (chebyshev 1-2)
-          return saveStateAndReturn(controller, agentId, state, [2'u8, neighborDirIndex(agent.pos, clippy.pos).uint8])
+          return saveStateAndReturn(controller, agentId, state, [2'u8, neighborDirIndex(agent.pos, tumor.pos).uint8])
         else:
-          return saveStateAndReturn(controller, agentId, state, [1'u8, getMoveTowards(env, agent.pos, clippy.pos, controller.rng).uint8])
+          return saveStateAndReturn(controller, agentId, state, [1'u8, getMoveTowards(env, agent.pos, tumor.pos, controller.rng).uint8])
       else:
         # No clippies found, continue spiral search for hunting
         let nextSearchPos = getNextSpiralPoint(state, controller.rng)

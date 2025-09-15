@@ -61,12 +61,12 @@ const
   ForgeCooldown* = 5  # Cooldown after crafting
   SpearRange* = 2     # Attack range with spear (Manhattan distance)
   
-  ClippyAttackDamage* = 2
-  ClippySpeed* = 1
-  ClippyVisionRange* = 15  # Even further vision for plague-wave expansion
-  ClippyWanderPriority* = 3  # How many wander steps before checking for targets
-  ClippyAltarSearchRange* = 12  # Extended range for aggressive altar hunting
-  ClippyAgentChaseRange* = 10  # Will chase agents within this range
+  TumorAttackDamage* = 2
+  TumorSpeed* = 1
+  TumorVisionRange* = 15  # Even further vision for plague-wave expansion
+  TumorWanderPriority* = 3  # How many wander steps before checking for targets
+  TumorAltarSearchRange* = 12  # Extended range for aggressive altar hunting
+  TumorAgentChaseRange* = 10  # Will chase agents within this range
   
 
 proc createHouse*(): Structure =

@@ -52,7 +52,7 @@ const
   RewardCraftArmor* = 0.015
   RewardCraftFood* = 0.012
   RewardCraftCloth* = 0.012
-  RewardDestroyClippy* = 0.1
+  RewardDestroyTumor* = 0.1
 
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
@@ -91,7 +91,7 @@ var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 type
   ObservationName* = enum
-    AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Clippy
+    AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Tumor
     AgentOrientationLayer = 1
     AgentInventoryOreLayer = 2
     AgentInventoryBatteryLayer = 3
@@ -121,7 +121,7 @@ type
     Converter  # Converts ore to batteries
     Altar
     Spawner
-    Clippy
+    Tumor
     Armory
     Forge
     ClayOven
@@ -152,14 +152,14 @@ type
     inventoryBread*: int    # Bread baked from clay oven
     reward*: float32
     homeAltar*: IVec2      # Position of agent's home altar for respawning
-    # Clippy:
-    homeSpawner*: IVec2     # Position of clippy's home spawner
-    hasClaimedTerritory*: bool  # Whether this clippy has already branched and is now inert
-    turnsAlive*: int            # Number of turns this clippy has been alive
+    # Tumor:
+    homeSpawner*: IVec2     # Position of tumor's home spawner
+    hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
+    turnsAlive*: int            # Number of turns this tumor has been alive
     
     # PlantedLantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
-    lanternHealthy*: bool      # Whether lantern is active (not destroyed by clippy)
+    lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
     
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
@@ -200,8 +200,8 @@ type
     
     # Combat configuration
     enableCombat*: bool
-    clippySpawnRate*: float
-    clippyDamage*: int
+    tumorSpawnRate*: float
+    tumorDamage*: int
     
     # Reward configuration
     heartReward*: float
@@ -214,7 +214,7 @@ type
     armorReward*: float
     foodReward*: float
     clothReward*: float
-    clippyKillReward*: float
+    tumorKillReward*: float
     survivalPenalty*: float
     deathPenalty*: float
     
@@ -246,7 +246,7 @@ var
 
 # Frozen building detection
 proc isBuildingFrozen*(pos: IVec2, env: Environment): bool =
-  ## Enhanced check if a building is frozen due to clippy creep zone effect
+  ## Enhanced check if a building is frozen due to tumor creep zone effect
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return false
   
@@ -255,7 +255,7 @@ proc isBuildingFrozen*(pos: IVec2, env: Environment): bool =
   let basicCoolCheck = color.b > (color.r + color.g)
   
   # Additional saturation check: blue should be significantly high (close to max saturation)  
-  # This indicates prolonged presence in a clippy creep zone
+  # This indicates prolonged presence in a tumor creep zone
   let highSaturationCheck = color.b >= 1.0  # Blue component near maximum
   
   return basicCoolCheck and highSaturationCheck
@@ -290,7 +290,7 @@ proc render*(env: Environment): string =
             cell = "a"
           of Spawner:
             cell = "t"
-          of Clippy:
+          of Tumor:
             cell = "C"
           of Armory:
             cell = "A"
@@ -356,15 +356,15 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
 
 
 
-proc createClippy(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
-  ## Create a new Clippy seed that can branch once before turning inert
+proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
+  ## Create a new Tumor seed that can branch once before turning inert
   Thing(
-    kind: Clippy,
+    kind: Tumor,
     pos: pos,
     orientation: Orientation(r.rand(0..3)),
     homeSpawner: homeSpawner,
     hasClaimedTerritory: false,  # Start mobile, will plant when far enough from others
-    turnsAlive: 0                # New clippy hasn't lived any turns yet
+    turnsAlive: 0                # New tumor hasn't lived any turns yet
   )
 
 
@@ -461,8 +461,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   let pos1 = agent.pos + ivec2(delta.x, delta.y)
   let pos2 = agent.pos + ivec2(delta.x * 2, delta.y * 2)
 
-  var hitClippy = false
-  var clippyToRemove: Thing = nil
+  var hitTumor = false
+  var tumorToRemove: Thing = nil
 
   # Check both positions directly
   for attackPos in [pos1, pos2]:
@@ -471,17 +471,17 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
        attackPos.y < 0 or attackPos.y >= MapHeight:
       continue
     
-    # Check for Clippy at this position
+    # Check for Tumor at this position
     let target = env.getThing(attackPos)
-    if not isNil(target) and target.kind == Clippy:
-      clippyToRemove = target
-      hitClippy = true
+    if not isNil(target) and target.kind == Tumor:
+      tumorToRemove = target
+      hitTumor = true
       break
   
-  if hitClippy and not isNil(clippyToRemove):
-    # Remove the Clippy from grid immediately (fast)
-    env.grid[clippyToRemove.pos.x][clippyToRemove.pos.y] = nil
-    let idx = env.things.find(clippyToRemove)
+  if hitTumor and not isNil(tumorToRemove):
+    # Remove the Tumor from grid immediately (fast)
+    env.grid[tumorToRemove.pos.x][tumorToRemove.pos.y] = nil
+    let idx = env.things.find(tumorToRemove)
     if idx >= 0:
       env.things.del(idx)
     
@@ -489,8 +489,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     agent.inventorySpear -= 1
     env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
     
-    # Give reward for destroying Clippy
-    agent.reward += env.config.clippyKillReward  # Moderate reward for defense
+    # Give reward for destroying Tumor
+    agent.reward += env.config.tumorKillReward  # Moderate reward for defense
     
     inc env.stats[id].actionAttack
   else:
@@ -774,20 +774,20 @@ proc findLanternPlacementSpot*(env: Environment, agent: Thing, controller: point
 
 
 const
-  ClippyBranchRange = 5
-  ClippyBranchMinAge = 2
+  TumorBranchRange = 5
+  TumorBranchMinAge = 2
 
-proc findClippyBranchTarget(clippy: Thing, env: Environment, r: var Rand): IVec2 =
-  ## Pick a random empty tile within the clippy's branching range
+proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
+  ## Pick a random empty tile within the tumor's branching range
   var candidates: seq[IVec2] = @[]
 
-  for dx in -ClippyBranchRange .. ClippyBranchRange:
-    for dy in -ClippyBranchRange .. ClippyBranchRange:
+  for dx in -TumorBranchRange .. TumorBranchRange:
+    for dy in -TumorBranchRange .. TumorBranchRange:
       if dx == 0 and dy == 0:
         continue
-      if max(abs(dx), abs(dy)) > ClippyBranchRange:
+      if max(abs(dx), abs(dy)) > TumorBranchRange:
         continue
-      let candidate = ivec2(clippy.pos.x + dx, clippy.pos.y + dy)
+      let candidate = ivec2(tumor.pos.x + dx, tumor.pos.y + dy)
       if env.isValidEmptyPosition(candidate):
         candidates.add(candidate)
 
@@ -821,7 +821,7 @@ proc clearTintModifications(env: Environment) =
   # Clear the active list for next frame
   env.activeTiles.positions.setLen(0)
 
-proc updateTintModifications(env: Environment) =
+proc updateTintModifications*(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
   # Clear previous frame's modifications
   env.clearTintModifications()
@@ -841,8 +841,8 @@ proc updateTintModifications(env: Environment) =
     let baseY = pos.y.int
     
     case thing.kind
-    of Clippy:
-      # Clippies create creep spread in 5x5 area (stronger effect when planted)
+    of Tumor:
+      # Tumors create creep spread in 5x5 area (active seeds glow brighter)
       let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
       
       for dx in -2 .. 2:
@@ -855,7 +855,7 @@ proc updateTintModifications(env: Environment) =
             let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
             markActiveTile(tileX, tileY)
             
-            # Clippy creep effect with overflow protection
+            # Tumor creep effect with overflow protection
             safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
             safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
             safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
@@ -912,7 +912,7 @@ proc updateTintModifications(env: Environment) =
     else:
       discard
 
-proc applyTintModifications(env: Environment) =
+proc applyTintModifications*(env: Environment) =
   ## Apply tint modifications to entity positions and their surrounding areas
   
   # Apply modifications only to tiles touched this frame
@@ -1338,7 +1338,7 @@ proc init(env: Environment) =
       if nearbyPositions.len > 0:
         let spawnCount = min(3, nearbyPositions.len)
         for i in 0 ..< spawnCount:
-          env.add(createClippy(nearbyPositions[i], targetPos, r))
+          env.add(createTumor(nearbyPositions[i], targetPos, r))
       placed = true
       break
 
@@ -1355,7 +1355,7 @@ proc init(env: Environment) =
       if nearbyPositions.len > 0:
         let spawnCount = min(3, nearbyPositions.len)
         for i in 0 ..< spawnCount:
-          env.add(createClippy(nearbyPositions[i], targetPos, r))
+          env.add(createTumor(nearbyPositions[i], targetPos, r))
 
   for i in 0 ..< MapRoomObjectsConverters:
     let pos = r.randomEmptyPos(env)
@@ -1394,8 +1394,8 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     
     # Combat configuration
     enableCombat: true,
-    clippySpawnRate: 1.0,
-    clippyDamage: 1,
+    tumorSpawnRate: 1.0,
+    tumorDamage: 1,
     
     # Reward configuration (only arena_basic_easy_shaped rewards active)
     heartReward: 1.0,      # Arena: heart reward
@@ -1408,7 +1408,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     armorReward: 0.0,      # Disabled - not in arena
     foodReward: 0.0,       # Disabled - not in arena
     clothReward: 0.0,      # Disabled - not in arena
-    clippyKillReward: 0.0, # Disabled - not in arena
+    tumorKillReward: 0.0, # Disabled - not in arena
     survivalPenalty: -0.01,
     deathPenalty: -5.0
   )
@@ -1448,9 +1448,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
     of 6: env.plantAction(id, agent, action[1].int)  # Plant lantern
     else: inc env.stats[id].actionInvalid
 
-  # Combined single-pass object updates and clippy collection
-  var newClippysToSpawn: seq[Thing] = @[]
-  var clippysToProcess: seq[Thing] = @[]
+  # Combined single-pass object updates and tumor collection
+  var newTumorsToSpawn: seq[Thing] = @[]
+  var tumorsToProcess: seq[Thing] = @[]
 
   for thing in env.things:
     if thing.kind == Altar:
@@ -1479,79 +1479,128 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       if thing.cooldown > 0:
         thing.cooldown -= 1
       else:
-        # Spawner is ready to spawn a Clippy
-        # Fast grid-based nearby Clippy count (5-tile radius)
-        var nearbyClippyCount = 0
+        # Spawner is ready to spawn a Tumor
+        # Fast grid-based nearby Tumor count (5-tile radius)
+        var nearbyTumorCount = 0
         for dx in -5..5:
           for dy in -5..5:
             let checkPos = thing.pos + ivec2(dx, dy)
             if isValidPos(checkPos):
               let other = env.getThing(checkPos)
-              if not isNil(other) and other.kind == Clippy and not other.hasClaimedTerritory:
-                inc nearbyClippyCount
+              if not isNil(other) and other.kind == Tumor and not other.hasClaimedTerritory:
+                inc nearbyTumorCount
         
-        # Spawn a new Clippy with reasonable limits to prevent unbounded growth
-        let maxClippiesPerSpawner = 3  # Keep only a few active clippies near the spawner
-        if nearbyClippyCount < maxClippiesPerSpawner:
+        # Spawn a new Tumor with reasonable limits to prevent unbounded growth
+        let maxTumorsPerSpawner = 3  # Keep only a few active tumors near the spawner
+        if nearbyTumorCount < maxTumorsPerSpawner:
           # Find first empty position (no allocation)
           let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
           if spawnPos.x >= 0:
             
-            let newClippy = createClippy(spawnPos, thing.pos, stepRng)
+            let newTumor = createTumor(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
-            newClippysToSpawn.add(newClippy)
+            newTumorsToSpawn.add(newTumor)
             
             # Reset spawner cooldown based on spawn rate
             # Convert spawn rate (0.0-1.0) to cooldown steps (higher rate = lower cooldown)
-            let cooldown = if env.config.clippySpawnRate > 0.0:
-              max(1, int(20.0 / env.config.clippySpawnRate))  # Base 20 steps, scaled by rate
+            let cooldown = if env.config.tumorSpawnRate > 0.0:
+              max(1, int(20.0 / env.config.tumorSpawnRate))  # Base 20 steps, scaled by rate
             else:
               1000  # Very long cooldown if spawn disabled
             thing.cooldown = cooldown
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
-    elif thing.kind == Clippy:
+    elif thing.kind == Tumor:
       # Only collect mobile clippies for processing (planted ones are static)
       if not thing.hasClaimedTerritory:
-        clippysToProcess.add(thing)
+        tumorsToProcess.add(thing)
 
-  # ============== CLIPPY PROCESSING ==============
-  var newClippyBranches: seq[Thing] = @[]
+  # ============== TUMOR PROCESSING ==============
+  var newTumorBranches: seq[Thing] = @[]
 
-  for clippy in clippysToProcess:
-    clippy.turnsAlive += 1
-    if clippy.turnsAlive < ClippyBranchMinAge:
+  for tumor in tumorsToProcess:
+    tumor.turnsAlive += 1
+    if tumor.turnsAlive < TumorBranchMinAge:
       continue
 
-    let branchPos = findClippyBranchTarget(clippy, env, stepRng)
+    let branchPos = findTumorBranchTarget(tumor, env, stepRng)
     if branchPos.x < 0:
       continue
 
-    let newClippy = createClippy(branchPos, clippy.homeSpawner, stepRng)
+    let newTumor = createTumor(branchPos, tumor.homeSpawner, stepRng)
 
     # Face both clippies toward the new branch direction for clarity
-    let dx = branchPos.x - clippy.pos.x
-    let dy = branchPos.y - clippy.pos.y
+    let dx = branchPos.x - tumor.pos.x
+    let dy = branchPos.y - tumor.pos.y
     var branchOrientation: Orientation
     if abs(dx) >= abs(dy):
       branchOrientation = (if dx >= 0: Orientation.E else: Orientation.W)
     else:
       branchOrientation = (if dy >= 0: Orientation.S else: Orientation.N)
 
-    newClippy.orientation = branchOrientation
-    clippy.orientation = branchOrientation
+    newTumor.orientation = branchOrientation
+    tumor.orientation = branchOrientation
 
-    # Queue the new clippy for insertion and mark parent as inert
-    newClippyBranches.add(newClippy)
-    clippy.hasClaimedTerritory = true
-    clippy.turnsAlive = 0
+    # Queue the new tumor for insertion and mark parent as inert
+    newTumorBranches.add(newTumor)
+    tumor.hasClaimedTerritory = true
+    tumor.turnsAlive = 0
 
-  # Add newly spawned clippies from spawners and branching this step
-  for newClippy in newClippysToSpawn:
-    env.add(newClippy)
-  for newClippy in newClippyBranches:
-    env.add(newClippy)
+  # Add newly spawned tumors from spawners and branching this step
+  for newTumor in newTumorsToSpawn:
+    env.add(newTumor)
+  for newTumor in newTumorBranches:
+    env.add(newTumor)
+
+  # Resolve agent-tumor contact: agents adjacent in cardinal directions always clear the tumor
+  var tumorsToRemove: seq[Thing] = @[]
+
+  for thing in env.things:
+    if thing.kind != Tumor:
+      continue
+
+    let tumor = thing
+    let adjacentPositions = [
+      tumor.pos + ivec2(0, -1),
+      tumor.pos + ivec2(1, 0),
+      tumor.pos + ivec2(0, 1),
+      tumor.pos + ivec2(-1, 0)
+    ]
+
+    for adjPos in adjacentPositions:
+      if not isValidPos(adjPos):
+        continue
+
+      let occupant = env.getThing(adjPos)
+      if isNil(occupant) or occupant.kind != Agent:
+        continue
+
+      if tumor notin tumorsToRemove:
+        tumorsToRemove.add(tumor)
+        env.grid[tumor.pos.x][tumor.pos.y] = nil
+        env.updateObservations(AgentLayer, tumor.pos, 0)
+        env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
+
+      # Agent earns reward for clearing the tumor even if they perish
+      occupant.reward += env.config.tumorKillReward
+
+      # 33% chance the adjacent agent dies and must respawn
+      if stepRng.rand(0.0 .. 1.0) < (1.0 / 3.0):
+        occupant.frozen = 999999
+        env.terminated[occupant.agentId] = 1.0
+        occupant.reward += env.config.deathPenalty
+        env.grid[occupant.pos.x][occupant.pos.y] = nil
+        env.updateObservations(AgentLayer, occupant.pos, 0)
+        env.updateObservations(AgentOrientationLayer, occupant.pos, 0)
+
+      break
+
+  # Remove tumors cleared by agents this step
+  if tumorsToRemove.len > 0:
+    for i in countdown(env.things.len - 1, 0):
+      if env.things[i] in tumorsToRemove:
+        env.things.del(i)
 
   # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:
