@@ -76,6 +76,10 @@ proc getTeamIdByte*(agentId: int): uint8 =
 template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight
+
+template safeTintAdd*(tintMod: var int16, delta: int): void =
+  ## Safe tint accumulation with overflow protection
+  tintMod = max(-32000'i16, min(32000'i16, tintMod + delta.int16))
 {.pop.}
 
 
@@ -821,10 +825,10 @@ proc updateTintModifications(env: Environment) =
             
             env.activeTiles.positions.incl(creepPos)
             
-            # Clippy creep effect (cool colors - half speed)
-            env.tintMods[creepPos.x][creepPos.y].r += int16(-15 * creepIntensity * falloff)  # Reduce red (halved)
-            env.tintMods[creepPos.x][creepPos.y].g += int16(-8 * creepIntensity * falloff)   # Reduce green (halved)  
-            env.tintMods[creepPos.x][creepPos.y].b += int16(20 * creepIntensity * falloff)   # Increase blue (halved)
+            # Clippy creep effect with overflow protection
+            safeTintAdd(env.tintMods[creepPos.x][creepPos.y].r, -15 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[creepPos.x][creepPos.y].g, -8 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[creepPos.x][creepPos.y].b, 20 * creepIntensity * falloff)
       
     of Agent:
       # Agents create 5x stronger warmth in 3x3 area based on their tribe color
@@ -842,17 +846,17 @@ proc updateTintModifications(env: Environment) =
               
               # No HashSet tracking needed
               
-              # Agent warmth effect (1.25x stronger than original)
-              env.tintMods[agentPos.x][agentPos.y].r += int16((tribeColor.r - 0.7) * 63 * falloff.float32)   # Quarter of 5x = 1.25x
-              env.tintMods[agentPos.x][agentPos.y].g += int16((tribeColor.g - 0.65) * 63 * falloff.float32)  # Quarter of 5x = 1.25x 
-              env.tintMods[agentPos.x][agentPos.y].b += int16((tribeColor.b - 0.6) * 63 * falloff.float32)   # Quarter of 5x = 1.25x
+              # Agent warmth effect with overflow protection
+              safeTintAdd(env.tintMods[agentPos.x][agentPos.y].r, int((tribeColor.r - 0.7) * 63 * falloff.float32))
+              safeTintAdd(env.tintMods[agentPos.x][agentPos.y].g, int((tribeColor.g - 0.65) * 63 * falloff.float32))
+              safeTintAdd(env.tintMods[agentPos.x][agentPos.y].b, int((tribeColor.b - 0.6) * 63 * falloff.float32))
         
     of Altar:
       # Reduce altar tint effect by 10x (minimal warm glow)
       # No HashSet tracking needed
-      env.tintMods[pos.x][pos.y].r += int16(5)   # Very minimal warm glow (10x reduction)
-      env.tintMods[pos.x][pos.y].g += int16(5)
-      env.tintMods[pos.x][pos.y].b += int16(2)
+      safeTintAdd(env.tintMods[pos.x][pos.y].r, 5)
+      safeTintAdd(env.tintMods[pos.x][pos.y].g, 5)
+      safeTintAdd(env.tintMods[pos.x][pos.y].b, 2)
     
     of PlantedLantern:
       # Lanterns spread team colors in 5x5 area (similar to clippies but warm colors)
@@ -869,10 +873,10 @@ proc updateTintModifications(env: Environment) =
               
               # No HashSet tracking needed
               
-              # Lantern warm effect (spread team colors)
-              env.tintMods[tintPos.x][tintPos.y].r += int16((teamColor.r - 0.7) * 50 * falloff.float32)
-              env.tintMods[tintPos.x][tintPos.y].g += int16((teamColor.g - 0.65) * 50 * falloff.float32)  
-              env.tintMods[tintPos.x][tintPos.y].b += int16((teamColor.b - 0.6) * 50 * falloff.float32)
+              # Lantern warm effect with overflow protection
+              safeTintAdd(env.tintMods[tintPos.x][tintPos.y].r, int((teamColor.r - 0.7) * 50 * falloff.float32))
+              safeTintAdd(env.tintMods[tintPos.x][tintPos.y].g, int((teamColor.g - 0.65) * 50 * falloff.float32))
+              safeTintAdd(env.tintMods[tintPos.x][tintPos.y].b, int((teamColor.b - 0.6) * 50 * falloff.float32))
     
     else:
       discard
