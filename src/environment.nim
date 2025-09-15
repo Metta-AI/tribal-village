@@ -1475,6 +1475,17 @@ proc newEnvironment*(config: EnvironmentConfig): Environment =
 # Initialize the global environment
 env = newEnvironment()
 
+proc applyTeamAltarReward(env: Environment) =
+  # Find all altars and their heart counts
+  for thing in env.things:
+    if thing.kind == Altar:
+      let altarHearts = thing.hearts.float32
+      # Find all agents with this altar as their home
+      for agent in env.agents:
+        if agent.homeAltar == thing.pos:
+          # Each agent gets 1/MapAgentsPerHouse of altar hearts (shared among team)
+          agent.reward += altarHearts / MapAgentsPerHouse.float32
+
 proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   ## Step the environment
   inc env.currentStep
@@ -1792,6 +1803,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
+    # Apply final team heart rewards before episode ends
+    env.applyTeamAltarReward()
+    # Mark all living agents as truncated (episode ended due to time limit)
+    for i in 0..<MapAgents:
+      if env.terminated[i] == 0.0:
+        env.truncated[i] = 1.0
     env.shouldReset = true
   
   # Check if all agents are terminated/truncated
@@ -1801,6 +1818,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       allDone = false
       break
   if allDone:
+    # Apply final team heart rewards before episode ends
+    env.applyTeamAltarReward()
     env.shouldReset = true
 
 proc reset*(env: Environment) =
@@ -1815,22 +1834,6 @@ proc reset*(env: Environment) =
   env.terrain.clear()
   env.observations.clear()
   env.init()
-
-proc applyTeamAltarReward*(env: Environment) =
-  # Find all altars and their heart counts
-  for thing in env.things:
-    if thing.kind == Altar:
-      let altarHearts = thing.hearts.float32
-      # Find all agents with this altar as their home
-      for agent in env.agents:
-        if agent.homeAltar == thing.pos:
-          # Each agent gets reward equal to altar hearts
-          agent.reward += altarHearts
-          # Optional: Extra bonus if altar is well-defended (>5 hearts)
-          if altarHearts > 5:
-            agent.reward += (altarHearts - 5) * 0.5  # Bonus for surplus
-
-
 
 # ============== COLOR MANAGEMENT ==============
 
