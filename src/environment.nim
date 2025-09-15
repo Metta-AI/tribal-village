@@ -1,4 +1,4 @@
-import std/[random, tables, times, math, sets], vmath, chroma
+import std/[random, tables, times, math], vmath, chroma
 import terrain, objects, common
 export terrain, objects, common
 
@@ -185,8 +185,8 @@ type
   
   # Track active tiles for sparse processing
   ActiveTiles* = object
-    positions*: HashSet[IVec2]  # Set of tiles with entities (auto-deduplicates)
-    count*: int                 # Number of active tiles
+    positions*: seq[IVec2]  # Linear list of active tiles
+    flags*: array[MapWidth, array[MapHeight, bool]]  # Dedup mask per tile
 
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
@@ -812,42 +812,53 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 proc clearTintModifications(env: Environment) =
   ## Clear only active tile modifications for performance
   for pos in env.activeTiles.positions:
-    if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
-      env.tintMods[pos.x][pos.y] = TintModification(r: 0, g: 0, b: 0, intensity: 0)
+    let tileX = pos.x.int
+    let tileY = pos.y.int
+    if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+      env.tintMods[tileX][tileY] = TintModification(r: 0, g: 0, b: 0, intensity: 0)
+      env.activeTiles.flags[tileX][tileY] = false
 
-  # Clear the active set for next frame
-  env.activeTiles.positions.clear()
+  # Clear the active list for next frame
+  env.activeTiles.positions.setLen(0)
 
 proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
   # Clear previous frame's modifications
   env.clearTintModifications()
   
+  template markActiveTile(tileX, tileY: int) =
+    if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+      if not env.activeTiles.flags[tileX][tileY]:
+        env.activeTiles.flags[tileX][tileY] = true
+        env.activeTiles.positions.add(ivec2(tileX, tileY))
+  
   # Process all entities and mark their affected positions as active
   for thing in env.things:
     let pos = thing.pos
     if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
       continue
+    let baseX = pos.x.int
+    let baseY = pos.y.int
     
     case thing.kind
     of Clippy:
-      # Clippies create creep spread in 5x5 area (active tumors glow brighter)
-      let creepIntensity = if thing.hasClaimedTerritory: 1 else: 2
+      # Clippies create creep spread in 5x5 area (stronger effect when planted)
+      let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
       
       for dx in -2 .. 2:
         for dy in -2 .. 2:
-          let creepPos = ivec2(pos.x + dx, pos.y + dy)
-          if creepPos.x >= 0 and creepPos.x < MapWidth and creepPos.y >= 0 and creepPos.y < MapHeight:
+          let tileX = baseX + dx
+          let tileY = baseY + dy
+          if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
             # Distance-based falloff for more organic look
             let distance = abs(dx) + abs(dy)  # Manhattan distance
             let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
-            
-            env.activeTiles.positions.incl(creepPos)
+            markActiveTile(tileX, tileY)
             
             # Clippy creep effect with overflow protection
-            safeTintAdd(env.tintMods[creepPos.x][creepPos.y].r, -15 * creepIntensity * falloff)
-            safeTintAdd(env.tintMods[creepPos.x][creepPos.y].g, -8 * creepIntensity * falloff)
-            safeTintAdd(env.tintMods[creepPos.x][creepPos.y].b, 20 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
       
     of Agent:
       # Agents create 5x stronger warmth in 3x3 area based on their tribe color
@@ -857,25 +868,26 @@ proc updateTintModifications(env: Environment) =
         
         for dx in -1 .. 1:
           for dy in -1 .. 1:
-            let agentPos = ivec2(pos.x + dx, pos.y + dy)
-            if agentPos.x >= 0 and agentPos.x < MapWidth and agentPos.y >= 0 and agentPos.y < MapHeight:
+            let tileX = baseX + dx
+            let tileY = baseY + dy
+            if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
               # Distance-based falloff
               let distance = abs(dx) + abs(dy)
               let falloff = max(1, 3 - distance)  # Stronger at center, weaker at edges
-              
-              # No HashSet tracking needed
-              
+              markActiveTile(tileX, tileY)
+
               # Agent warmth effect with overflow protection
-              safeTintAdd(env.tintMods[agentPos.x][agentPos.y].r, int((tribeColor.r - 0.7) * 63 * falloff.float32))
-              safeTintAdd(env.tintMods[agentPos.x][agentPos.y].g, int((tribeColor.g - 0.65) * 63 * falloff.float32))
-              safeTintAdd(env.tintMods[agentPos.x][agentPos.y].b, int((tribeColor.b - 0.6) * 63 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].r, int((tribeColor.r - 0.7) * 63 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].g, int((tribeColor.g - 0.65) * 63 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].b, int((tribeColor.b - 0.6) * 63 * falloff.float32))
         
     of Altar:
       # Reduce altar tint effect by 10x (minimal warm glow)
       # No HashSet tracking needed
-      safeTintAdd(env.tintMods[pos.x][pos.y].r, 5)
-      safeTintAdd(env.tintMods[pos.x][pos.y].g, 5)
-      safeTintAdd(env.tintMods[pos.x][pos.y].b, 2)
+      markActiveTile(baseX, baseY)
+      safeTintAdd(env.tintMods[baseX][baseY].r, 5)
+      safeTintAdd(env.tintMods[baseX][baseY].g, 5)
+      safeTintAdd(env.tintMods[baseX][baseY].b, 2)
     
     of PlantedLantern:
       # Lanterns spread team colors in 5x5 area (similar to clippies but warm colors)
@@ -884,18 +896,18 @@ proc updateTintModifications(env: Environment) =
         
         for dx in -2 .. 2:
           for dy in -2 .. 2:
-            let tintPos = ivec2(pos.x + dx, pos.y + dy)
-            if tintPos.x >= 0 and tintPos.x < MapWidth and tintPos.y >= 0 and tintPos.y < MapHeight:
+            let tileX = baseX + dx
+            let tileY = baseY + dy
+            if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
               # Distance-based falloff for more organic look
               let distance = abs(dx) + abs(dy)  # Manhattan distance
               let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
-              
-              # No HashSet tracking needed
+              markActiveTile(tileX, tileY)
               
               # Lantern warm effect with overflow protection
-              safeTintAdd(env.tintMods[tintPos.x][tintPos.y].r, int((teamColor.r - 0.7) * 50 * falloff.float32))
-              safeTintAdd(env.tintMods[tintPos.x][tintPos.y].g, int((teamColor.g - 0.65) * 50 * falloff.float32))
-              safeTintAdd(env.tintMods[tintPos.x][tintPos.y].b, int((teamColor.b - 0.6) * 50 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].r, int((teamColor.r - 0.7) * 50 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].g, int((teamColor.g - 0.65) * 50 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].b, int((teamColor.b - 0.6) * 50 * falloff.float32))
     
     else:
       discard
@@ -903,31 +915,36 @@ proc updateTintModifications(env: Environment) =
 proc applyTintModifications(env: Environment) =
   ## Apply tint modifications to entity positions and their surrounding areas
   
-  # First, apply modifications to all tiles that have tint modifications
-  for tileX in 0 ..< MapWidth:
-    for tileY in 0 ..< MapHeight:
-      # Skip if tint modifications are below minimum threshold
-      if abs(env.tintMods[tileX][tileY].r) < MinTintEpsilon and abs(env.tintMods[tileX][tileY].g) < MinTintEpsilon and abs(env.tintMods[tileX][tileY].b) < MinTintEpsilon:
-        continue
-      
-      # Skip tinting on water tiles (rivers should remain clean)
-      if env.terrain[tileX][tileY] == Water:
-        continue
+  # Apply modifications only to tiles touched this frame
+  for pos in env.activeTiles.positions:
+    let tileX = pos.x.int
+    let tileY = pos.y.int
+    if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
+      continue
+
+    # Skip if tint modifications are below minimum threshold
+    let tint = env.tintMods[tileX][tileY]
+    if abs(tint.r) < MinTintEpsilon and abs(tint.g) < MinTintEpsilon and abs(tint.b) < MinTintEpsilon:
+      continue
     
-      # Get current color as integers (scaled by 1000 for precision)
-      var r = int(env.tileColors[tileX][tileY].r * 1000)
-      var g = int(env.tileColors[tileX][tileY].g * 1000)  
-      var b = int(env.tileColors[tileX][tileY].b * 1000)
-      
-      # Apply unified tint modifications
-      r += env.tintMods[tileX][tileY].r div 10  # 10% of the modification
-      g += env.tintMods[tileX][tileY].g div 10
-      b += env.tintMods[tileX][tileY].b div 10
-      
-      # Convert back to float with clamping
-      env.tileColors[tileX][tileY].r = min(max(r.float32 / 1000.0, 0.3), 1.2)
-      env.tileColors[tileX][tileY].g = min(max(g.float32 / 1000.0, 0.3), 1.2)
-      env.tileColors[tileX][tileY].b = min(max(b.float32 / 1000.0, 0.3), 1.2)
+    # Skip tinting on water tiles (rivers should remain clean)
+    if env.terrain[tileX][tileY] == Water:
+      continue
+  
+    # Get current color as integers (scaled by 1000 for precision)
+    var r = int(env.tileColors[tileX][tileY].r * 1000)
+    var g = int(env.tileColors[tileX][tileY].g * 1000)
+    var b = int(env.tileColors[tileX][tileY].b * 1000)
+    
+    # Apply unified tint modifications
+    r += tint.r div 10  # 10% of the modification
+    g += tint.g div 10
+    b += tint.b div 10
+    
+    # Convert back to float with clamping
+    env.tileColors[tileX][tileY].r = min(max(r.float32 / 1000.0, 0.3), 1.2)
+    env.tileColors[tileX][tileY].g = min(max(g.float32 / 1000.0, 0.3), 1.2)
+    env.tileColors[tileX][tileY].b = min(max(b.float32 / 1000.0, 0.3), 1.2)
   
   # Apply global decay to ALL tiles (but infrequently for performance)
   if env.currentStep mod 30 == 0 and env.currentStep > 0:
@@ -1022,8 +1039,8 @@ proc init(env: Environment) =
       env.baseTileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   
   # Initialize active tiles tracking
-  env.activeTiles.positions = initHashSet[IVec2]()
-  env.activeTiles.count = 0
+  env.activeTiles.positions.setLen(0)
+  env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   
   # Initialize terrain with all features
   initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
@@ -1618,6 +1635,8 @@ proc reset*(env: Environment) =
   env.observations.clear()
   # Clear the massive tintMods array to prevent accumulation
   env.tintMods.clear()
+  env.activeTiles.positions.setLen(0)
+  env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   # Clear global colors that could accumulate
   agentVillageColors.setLen(0)
   teamColors.setLen(0)

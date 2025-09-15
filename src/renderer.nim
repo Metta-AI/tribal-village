@@ -227,14 +227,14 @@ proc drawObjects*() =
             of S: "s"
             of E, NE, SE: "e"
             of W, NW, SW: "w"
-          let baseImage = "agents/clippy.color." & spriteDir
-          let tint = if thing.hasClaimedTerritory:
-            color(0.6, 0.6, 0.6, 1.0)
+          let spritePrefix = if thing.hasClaimedTerritory:
+            "agents/clippy."
           else:
-            color(1.0, 1.0, 1.0, 1.0)
+            "agents/clippy.color."
+          let baseImage = spritePrefix & spriteDir
 
           # Clippies just draw normally - they're the infection source so no overlay needed
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200, tint = tint)
+          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
         
         of Armory, Forge, ClayOven, WeavingLoom:
           let imageName = case thing.kind:
