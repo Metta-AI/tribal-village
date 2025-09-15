@@ -1,8 +1,7 @@
 ## Tribal Village C-Compatible Interface
 ## Direct pointer-based interface for zero-copy communication with Python
 
-import environment, external_actions, common
-import std/[json]
+import environment
 
 # Global environment instance
 var globalEnv: Environment = nil
