@@ -1,27 +1,19 @@
 #!/bin/bash
-# Build Tribal Village shared library with C interface
+# Build Tribal Village shared library with maximum performance
 
 set -e
 
-echo "Building Tribal Village shared library..."
-echo "Working directory: $(pwd)"
+echo "Building Tribal Village shared library (danger mode)..."
 
-# Build the shared library for the current platform
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    nim c --app:lib --mm:arc --opt:speed \
-        --out:libtribal_village.dylib \
-        src/tribal_village_interface.nim
-    echo "Built libtribal_village.dylib"
-elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
-    nim c --app:lib --mm:arc --opt:speed \
-        --out:tribal_village.dll \
-        src/tribal_village_interface.nim
-    echo "Built tribal_village.dll"
-else
-    nim c --app:lib --mm:arc --opt:speed \
-        --out:libtribal_village.so \
-        src/tribal_village_interface.nim
-    echo "Built libtribal_village.so"
-fi
+# Cross-platform shared library build
+case "$OSTYPE" in
+  darwin*)  EXT="dylib" ;;
+  msys*|cygwin*) EXT="dll" ;;
+  *) EXT="so" ;;
+esac
 
-echo "C-compatible shared library is ready!"
+nim c --app:lib --mm:arc --opt:speed -d:danger \
+    --out:libtribal_village.$EXT \
+    src/tribal_village_interface.nim
+
+echo "Built libtribal_village.$EXT with maximum optimization"

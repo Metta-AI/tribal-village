@@ -1,7 +1,7 @@
 ## Tribal Village C-Compatible Interface
 ## Direct pointer-based interface for zero-copy communication with Python
 
-import environment
+import environment, external_actions
 
 # Global environment instance
 var globalEnv: Environment = nil
@@ -12,6 +12,8 @@ proc tribal_village_create(): pointer {.exportc, dynlib.} =
   try:
     let config = defaultEnvironmentConfig()
     globalEnv = newEnvironment(config)
+    # Ensure PufferLib mode - disable built-in AI
+    initGlobalController(ExternalNN)
     return cast[pointer](globalEnv)
   except:
     return nil
