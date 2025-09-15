@@ -3,7 +3,7 @@
 
 set -e
 
-echo "Building Tribal Village shared library (danger mode)..."
+echo "Building Tribal Village shared library (ultra-fast direct buffers)..."
 
 # Cross-platform shared library build
 case "$OSTYPE" in
@@ -14,6 +14,6 @@ esac
 
 nim c --app:lib --mm:arc --opt:speed -d:danger \
     --out:libtribal_village.$EXT \
-    src/tribal_village_interface.nim
+    src/tribal_village_buffer_interface.nim
 
-echo "Built libtribal_village.$EXT with maximum optimization"
+echo "Built libtribal_village.$EXT with ultra-fast direct buffers"

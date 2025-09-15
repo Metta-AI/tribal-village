@@ -431,11 +431,7 @@ proc updateObservations(
   ## Ultra-optimized observation update - early bailout and minimal calculations
   let layerId = ord(layer)
 
-  # Fast spatial filtering: only check agents in a tight box around the change
-  let minX = max(0, pos.x - ObservationRadius)
-  let maxX = min(MapAgents - 1, pos.x + ObservationRadius)  # Rough approximation
-  let minY = max(0, pos.y - ObservationRadius)
-  let maxY = min(MapAgents - 1, pos.y + ObservationRadius)
+  # Ultra-fast observation update with minimal calculations
 
   # Still need to check all agents but with optimized early exit
   for agentId in 0 ..< MapAgents:
