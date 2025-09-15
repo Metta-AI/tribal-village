@@ -34,7 +34,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self._setup_ctypes_interface()
 
         # Get environment dimensions
-        self.total_agents = self.lib.tribal_village_get_num_agents_fast()
+        self.total_agents = self.lib.tribal_village_get_num_agents()
         self.obs_layers = self.lib.tribal_village_get_obs_layers()
         self.obs_width = self.lib.tribal_village_get_obs_width()
         self.obs_height = self.lib.tribal_village_get_obs_height()
@@ -65,7 +65,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self.actions_buffer = np.zeros((self.total_agents, 2), dtype=np.uint8)
 
         # Initialize environment
-        self.env_ptr = self.lib.tribal_village_create_fast()
+        self.env_ptr = self.lib.tribal_village_create()
         if not self.env_ptr:
             raise RuntimeError("Failed to create Nim environment")
 
@@ -74,26 +74,30 @@ class TribalVillageEnv(pufferlib.PufferEnv):
     def _setup_ctypes_interface(self):
         """Setup ctypes for direct buffer functions."""
 
-        # tribal_village_create_fast() -> pointer
-        self.lib.tribal_village_create_fast.argtypes = []
-        self.lib.tribal_village_create_fast.restype = ctypes.c_void_p
+        # tribal_village_create() -> pointer
+        self.lib.tribal_village_create.argtypes = []
+        self.lib.tribal_village_create.restype = ctypes.c_void_p
 
-        # tribal_village_reset_direct(env, obs_buf, rewards_buf, terminals_buf, truncations_buf) -> int32
-        self.lib.tribal_village_reset_direct.argtypes = [
+        # tribal_village_reset_and_get_obs(env, obs_buf, rewards_buf, terminals_buf, truncations_buf) -> int32
+        self.lib.tribal_village_reset_and_get_obs.argtypes = [
             ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
             ctypes.c_void_p, ctypes.c_void_p
         ]
-        self.lib.tribal_village_reset_direct.restype = ctypes.c_int32
+        self.lib.tribal_village_reset_and_get_obs.restype = ctypes.c_int32
 
-        # tribal_village_step_direct(env, actions_buf, obs_buf, rewards_buf, terminals_buf, truncations_buf) -> int32
-        self.lib.tribal_village_step_direct.argtypes = [
+        # tribal_village_step_with_pointers(env, actions_buf, obs_buf, rewards_buf, terminals_buf, truncations_buf) -> int32
+        self.lib.tribal_village_step_with_pointers.argtypes = [
             ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
             ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p
         ]
-        self.lib.tribal_village_step_direct.restype = ctypes.c_int32
+        self.lib.tribal_village_step_with_pointers.restype = ctypes.c_int32
+
+        # tribal_village_destroy(env) -> void
+        self.lib.tribal_village_destroy.argtypes = [ctypes.c_void_p]
+        self.lib.tribal_village_destroy.restype = None
 
         # Dimension getters
-        for func_name in ['tribal_village_get_num_agents_fast', 'tribal_village_get_obs_layers',
+        for func_name in ['tribal_village_get_num_agents', 'tribal_village_get_obs_layers',
                          'tribal_village_get_obs_width', 'tribal_village_get_obs_height']:
             getattr(self.lib, func_name).argtypes = []
             getattr(self.lib, func_name).restype = ctypes.c_int32
@@ -109,7 +113,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         truncations_ptr = self.truncations.ctypes.data_as(ctypes.c_void_p)
 
         # Direct buffer reset - no conversions
-        success = self.lib.tribal_village_reset_direct(
+        success = self.lib.tribal_village_reset_and_get_obs(
             self.env_ptr, obs_ptr, rewards_ptr, terminals_ptr, truncations_ptr
         )
         if not success:
@@ -144,7 +148,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         truncations_ptr = self.truncations.ctypes.data_as(ctypes.c_void_p)
 
         # Direct buffer step - no conversions
-        success = self.lib.tribal_village_step_direct(
+        success = self.lib.tribal_village_step_with_pointers(
             self.env_ptr, actions_ptr, obs_ptr, rewards_ptr, terminals_ptr, truncations_ptr
         )
         if not success:
@@ -162,8 +166,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
     def close(self):
         """Clean up the environment."""
         if hasattr(self, 'env_ptr') and self.env_ptr:
-            # Use existing destroy function
-            pass
+            self.lib.tribal_village_destroy(self.env_ptr)
+            self.env_ptr = None
 
 
 def make_tribal_village_env(config: Optional[Dict[str, Any]] = None, **kwargs) -> TribalVillageEnv:
