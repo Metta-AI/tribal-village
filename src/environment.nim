@@ -403,9 +403,10 @@ proc updateObservations(env: Environment, agentId: int) =
       obs[19][x][y] = min(255, tintIntensity div 4).uint8  # Scale down for uint8 range
 
 proc updateAllObservationsLazy(env: Environment) =
-  ## Lazy observation update - only rebuild observations when actually needed
-  ## Much more efficient than clearing and rebuilding everything
-  discard  # For now, don't do bulk updates - rely on individual updates being sufficient
+  ## Bulk observation rebuild - more efficient than individual updates
+  ## Call this once per step instead of many individual updates
+  for agentId in 0..<MapAgents:
+    env.updateObservations(agentId)
 
 proc updateObservations(
   env: Environment,
@@ -454,14 +455,6 @@ proc createClippy(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
 proc noopAction(env: Environment, id: int, agent: Thing) =
   inc env.stats[id].actionNoop
 
-proc clearAgentObservations(env: Environment, pos: IVec2) =
-  env.updateObservations(AgentLayer, pos, 0)
-  env.updateObservations(AgentOrientationLayer, pos, 0)
-  env.updateObservations(AgentInventoryOreLayer, pos, 0)
-  env.updateObservations(AgentInventoryBatteryLayer, pos, 0)
-  env.updateObservations(AgentInventoryWaterLayer, pos, 0)
-  env.updateObservations(AgentInventoryWheatLayer, pos, 0)
-  env.updateObservations(AgentInventoryWoodLayer, pos, 0)
 
 proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   if argument < 0 or argument > 7:
@@ -514,19 +507,11 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   if canMove:
     env.grid[agent.pos.x][agent.pos.y] = nil
-    env.clearAgentObservations(agent.pos)
     agent.pos = newPos
     agent.orientation = newOrientation
     env.grid[agent.pos.x][agent.pos.y] = agent
     
-    env.updateObservations(AgentLayer, agent.pos, 1)
-    env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-    env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-    env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
-    env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
-    env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    # REMOVED: expensive per-agent full grid rebuild
+    # Observations will be updated in bulk at end of step
     inc env.stats[id].actionMove
   else:
     inc env.stats[id].actionInvalid
@@ -580,7 +565,6 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     
     # Consume one use of the spear
     agent.inventorySpear -= 1
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
     
     # Give reward for destroying Clippy
     agent.reward += env.config.clippyKillReward  # Moderate reward for defense
@@ -614,7 +598,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if agent.inventoryWater < MapObjectAgentMaxInventory:
       agent.inventoryWater += 1
       env.terrain[targetPos.x][targetPos.y] = Empty
-      env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
       agent.reward += env.config.waterReward
       inc env.stats[id].actionUse
       return
@@ -625,7 +608,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if agent.inventoryWheat < MapObjectAgentMaxInventory:
       agent.inventoryWheat += 1
       env.terrain[targetPos.x][targetPos.y] = Empty
-      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       agent.reward += env.config.wheatReward
       inc env.stats[id].actionUse
       return
@@ -636,7 +618,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if agent.inventoryWood < MapObjectAgentMaxInventory:
       agent.inventoryWood += 1
       env.terrain[targetPos.x][targetPos.y] = Empty
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       agent.reward += env.config.woodReward
       inc env.stats[id].actionUse
       return
@@ -660,7 +641,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Mine:
     if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
       agent.inventoryOre += 1
-      env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
       thing.cooldown = MapObjectMineCooldown
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
       if agent.inventoryOre == 1: agent.reward += env.config.oreReward
@@ -671,8 +651,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBattery < MapObjectAgentMaxInventory:
       agent.inventoryOre -= 1
       agent.inventoryBattery += 1
-      env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-      env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
       thing.cooldown = 0
       env.updateObservations(ConverterReadyLayer, thing.pos, 1)
       if agent.inventoryBattery == 1: agent.reward += env.config.batteryReward
@@ -684,8 +662,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWood -= 1
       agent.inventorySpear = 5
       thing.cooldown = 5
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
       agent.reward += env.config.spearReward
       inc env.stats[id].actionUse
     else:
@@ -695,8 +671,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWheat -= 1
       agent.inventoryLantern = 1
       thing.cooldown = 15
-      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-      env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
       agent.reward += env.config.clothReward
       inc env.stats[id].actionUse
     else:
@@ -706,8 +680,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWood -= 1
       agent.inventoryArmor = 5
       thing.cooldown = 20
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-      env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
       agent.reward += env.config.armorReward
       inc env.stats[id].actionUse
     else:
@@ -717,8 +689,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWheat -= 1
       agent.inventoryBread += 1
       thing.cooldown = 10
-      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-      env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
       # No observation layer for bread; optional for UI later
       agent.reward += env.config.foodReward
       inc env.stats[id].actionUse
@@ -729,7 +699,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryBattery -= 1
       thing.hearts += 1
       thing.cooldown = MapObjectAltarCooldown
-      env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
       env.updateObservations(AltarHeartsLayer, thing.pos, thing.hearts)
       env.updateObservations(AltarReadyLayer, thing.pos, thing.cooldown)
       agent.reward += env.config.heartReward
@@ -781,7 +750,6 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
   if agent.inventoryArmor > 0 and target.inventoryArmor == 0:
     target.inventoryArmor = agent.inventoryArmor
     agent.inventoryArmor = 0
-    env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
     transferred = true
   # Otherwise give food if possible (no obs layer yet)
   elif agent.inventoryBread > 0 and target.inventoryBread < MapObjectAgentMaxInventory:
@@ -792,10 +760,6 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
   if transferred:
     inc env.stats[id].actionPut
     # Update observations for changed inventories
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-    env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
-    env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
-    env.updateObservations(AgentInventoryBreadLayer, target.pos, target.inventoryBread)
   else:
     inc env.stats[id].actionInvalid
 # ============== CLIPPY AI ==============
@@ -1103,7 +1067,6 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
   
   # Consume the lantern from agent's inventory
   agent.inventoryLantern = 0
-  env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
   
   # Give reward for planting
   agent.reward += env.config.clothReward * 0.5  # Half reward for planting
@@ -1703,7 +1666,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
           # Check defense items - only armor now (3 uses)
           if adjacentThing.inventoryArmor > 0:
             adjacentThing.inventoryArmor -= 1
-            env.updateObservations(AgentInventoryArmorLayer, adjacentThing.pos, adjacentThing.inventoryArmor)
             agentSurvived = true
         
         # Only kill agent if they would die, have no defense, and combat is enabled
@@ -1718,10 +1680,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
           env.grid[adjacentThing.pos.x][adjacentThing.pos.y] = nil
           
           # Clear inventory when agent dies
-          env.updateObservations(AgentInventoryBatteryLayer, adjacentThing.pos, 0)
-          env.updateObservations(AgentInventoryLanternLayer, adjacentThing.pos, 0)
-          env.updateObservations(AgentInventoryArmorLayer, adjacentThing.pos, 0)
-          env.updateObservations(AgentInventoryBreadLayer, adjacentThing.pos, 0)
         
         # Break after first combat (clippy is already dead)
         break
@@ -1810,14 +1768,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
           env.grid[agent.pos.x][agent.pos.y] = agent
           
           # Update observations
-          env.updateObservations(AgentLayer, agent.pos, 1)
-          env.updateObservations(AgentInventoryOreLayer, agent.pos, 0)
-          env.updateObservations(AgentInventoryBatteryLayer, agent.pos, 0)
-          env.updateObservations(AgentInventoryWaterLayer, agent.pos, 0)
-          env.updateObservations(AgentInventoryWheatLayer, agent.pos, 0)
-          env.updateObservations(AgentInventoryWoodLayer, agent.pos, 0)
-          env.updateObservations(AgentInventorySpearLayer, agent.pos, 0)
-          env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
           # REMOVED: expensive per-agent full grid rebuild
   
   # Apply per-step survival penalty to all living agents
@@ -1831,8 +1781,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
-  # Lazy observation update - individual updates during actions should be sufficient
-  # No need for expensive bulk rebuilds
+  # Batch observation update once per step - more efficient than individual updates
+  env.updateAllObservationsLazy()
   
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
