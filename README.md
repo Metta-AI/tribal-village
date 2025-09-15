@@ -29,7 +29,7 @@ The Python environment accepts a config dictionary to customize the Nim simulati
 
 ```python
 config = {
-    'max_steps': 512,           # Episode length
+    'max_steps': 1000,          # Episode length
     'ore_per_battery': 1,       # Ore needed to craft battery
     'batteries_per_heart': 1,   # Batteries needed for heart at altar
     'enable_combat': True,      # Enable Clippy spawning and combat
