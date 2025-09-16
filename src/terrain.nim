@@ -34,7 +34,7 @@ type
     cornerUsed*: int  # Which corner was used (0-3), or -1 if not a corner
 
 const
-  RiverWidth* = 4
+  RiverWidth* = 6
 
 proc inCornerReserve(x, y, mapWidth, mapHeight, mapBorder: int, reserve: int): bool =
   ## Returns true if the coordinate is within a reserved corner area
