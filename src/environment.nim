@@ -462,8 +462,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   let pos1 = agent.pos + ivec2(delta.x, delta.y)
   let pos2 = agent.pos + ivec2(delta.x * 2, delta.y * 2)
 
-  var hitTumor = false
-  var tumorToRemove: Thing = nil
+  var hitStructure = false
+  var structureToRemove: Thing = nil
 
   # Check both positions directly
   for attackPos in [pos1, pos2]:
@@ -472,19 +472,20 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
        attackPos.y < 0 or attackPos.y >= MapHeight:
       continue
     
-    # Check for Tumor at this position
+    # Check for Tumor or Spawner at this position
     let target = env.getThing(attackPos)
-    if not isNil(target) and target.kind == Tumor:
-      tumorToRemove = target
-      hitTumor = true
+    if not isNil(target) and target.kind in {Tumor, Spawner}:
+      structureToRemove = target
+      hitStructure = true
       break
   
-  if hitTumor and not isNil(tumorToRemove):
-    # Remove the Tumor from grid immediately (fast)
-    env.grid[tumorToRemove.pos.x][tumorToRemove.pos.y] = nil
-    env.updateObservations(AgentLayer, tumorToRemove.pos, 0)
-    env.updateObservations(AgentOrientationLayer, tumorToRemove.pos, 0)
-    let idx = env.things.find(tumorToRemove)
+  if hitStructure and not isNil(structureToRemove):
+    # Remove the structure from grid immediately (fast)
+    env.grid[structureToRemove.pos.x][structureToRemove.pos.y] = nil
+    if structureToRemove.kind == Tumor:
+      env.updateObservations(AgentLayer, structureToRemove.pos, 0)
+      env.updateObservations(AgentOrientationLayer, structureToRemove.pos, 0)
+    let idx = env.things.find(structureToRemove)
     if idx >= 0:
       env.things.del(idx)
     
@@ -492,8 +493,9 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     agent.inventorySpear -= 1
     env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
     
-    # Give reward for destroying Tumor
-    agent.reward += env.config.tumorKillReward  # Moderate reward for defense
+    # Give reward for destroying Tumor (spawners currently grant no reward)
+    if structureToRemove.kind == Tumor:
+      agent.reward += env.config.tumorKillReward  # Moderate reward for defense
     
     inc env.stats[id].actionAttack
   else:
@@ -1572,19 +1574,19 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   for newTumor in newTumorBranches:
     env.add(newTumor)
 
-  # Resolve agent-tumor contact: agents adjacent in cardinal directions always clear the tumor
-  var tumorsToRemove: seq[Thing] = @[]
+  # Resolve agent contact: agents adjacent in cardinal directions always clear tumors/spawners
+  var structuresToRemove: seq[Thing] = @[]
 
   for thing in env.things:
-    if thing.kind != Tumor:
+    if thing.kind notin {Tumor, Spawner}:
       continue
 
-    let tumor = thing
+    let structure = thing
     let adjacentPositions = [
-      tumor.pos + ivec2(0, -1),
-      tumor.pos + ivec2(1, 0),
-      tumor.pos + ivec2(0, 1),
-      tumor.pos + ivec2(-1, 0)
+      structure.pos + ivec2(0, -1),
+      structure.pos + ivec2(1, 0),
+      structure.pos + ivec2(0, 1),
+      structure.pos + ivec2(-1, 0)
     ]
 
     for adjPos in adjacentPositions:
@@ -1595,14 +1597,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       if isNil(occupant) or occupant.kind != Agent:
         continue
 
-      if tumor notin tumorsToRemove:
-        tumorsToRemove.add(tumor)
-        env.grid[tumor.pos.x][tumor.pos.y] = nil
-        env.updateObservations(AgentLayer, tumor.pos, 0)
-        env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
+      if structure notin structuresToRemove:
+        structuresToRemove.add(structure)
+        env.grid[structure.pos.x][structure.pos.y] = nil
+        if structure.kind == Tumor:
+          env.updateObservations(AgentLayer, structure.pos, 0)
+          env.updateObservations(AgentOrientationLayer, structure.pos, 0)
 
-      # Agent earns reward for clearing the tumor even if they perish
-      occupant.reward += env.config.tumorKillReward
+      # Tumor clears grant reward even if the agent perishes
+      if structure.kind == Tumor:
+        occupant.reward += env.config.tumorKillReward
 
       # 33% chance the adjacent agent dies and must respawn
       if stepRng.rand(0.0 .. 1.0) < (1.0 / 3.0):
@@ -1615,10 +1619,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
 
       break
 
-  # Remove tumors cleared by agents this step
-  if tumorsToRemove.len > 0:
+  # Remove structures cleared by agents this step
+  if structuresToRemove.len > 0:
     for i in countdown(env.things.len - 1, 0):
-      if env.things[i] in tumorsToRemove:
+      if env.things[i] in structuresToRemove:
         env.things.del(i)
 
   # Respawn dead agents at their altars
