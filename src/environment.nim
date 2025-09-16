@@ -181,7 +181,6 @@ type
   # Tint modification layers for efficient batch updates
   TintModification* = object
     r*, g*, b*: int16       # Delta values to add (scaled by 1000)
-    intensity*: int16       # Intensity delta (scaled by 1000)
   
   # Track active tiles for sparse processing
   ActiveTiles* = object
@@ -326,7 +325,8 @@ proc updateObservations(
   # Ultra-fast observation update with minimal calculations
 
   # Still need to check all agents but with optimized early exit
-  for agentId in 0 ..< MapAgents:
+  let agentCount = env.agents.len
+  for agentId in 0 ..< agentCount:
     let agentPos = env.agents[agentId].pos
 
     # Ultra-fast bounds check using compile-time constants
@@ -338,7 +338,8 @@ proc updateObservations(
 
     let x = dx + ObservationRadius
     let y = dy + ObservationRadius
-    env.observations[agentId][layerId][x][y] = value.uint8
+    var agentLayer = addr env.observations[agentId][layerId]
+    agentLayer[][x][y] = value.uint8
 {.pop.}
 
 
@@ -830,7 +831,7 @@ proc clearTintModifications(env: Environment) =
     let tileX = pos.x.int
     let tileY = pos.y.int
     if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-      env.tintMods[tileX][tileY] = TintModification(r: 0, g: 0, b: 0, intensity: 0)
+      env.tintMods[tileX][tileY] = TintModification(r: 0, g: 0, b: 0)
       env.activeTiles.flags[tileX][tileY] = false
 
   # Clear the active list for next frame
