@@ -21,7 +21,7 @@ nim r -d:release tribal_village.nim
 
 **PufferLib Training**
 ```bash
-./build_lib.sh  # Builds in danger mode for maximum performance
+nimble buildLib  # Builds in danger mode for maximum performance
 python -c "from tribal_village_env import TribalVillageEnv; env = TribalVillageEnv()"
 ```
 

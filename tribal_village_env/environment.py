@@ -25,8 +25,16 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self.config = config or {}
         self.max_steps = self.config.get('max_steps', 512)
 
-        # Load the optimized Nim library
-        lib_path = Path(__file__).parent / "libtribal_village.so"
+        # Load the optimized Nim library - cross-platform
+        import platform
+        if platform.system() == "Darwin":
+            lib_name = "libtribal_village.dylib"
+        elif platform.system() == "Windows":
+            lib_name = "libtribal_village.dll"
+        else:
+            lib_name = "libtribal_village.so"
+
+        lib_path = Path(__file__).parent.parent / lib_name
         if not lib_path.exists():
             raise FileNotFoundError(f"Nim library not found at {lib_path}")
 
