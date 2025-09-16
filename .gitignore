@@ -10,6 +10,9 @@ data/fidget/
 *.dylib
 *.dll
 *.so
+!tribal_village_env/libtribal_village.dylib
+!tribal_village_env/libtribal_village.dll
+!tribal_village_env/libtribal_village.so
 
 # Nim compilation artifacts
 *.out
