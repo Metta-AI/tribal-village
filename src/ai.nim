@@ -241,6 +241,52 @@ proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
 proc sameTeam(agentA, agentB: Thing): bool =
   (agentA.agentId div MapAgentsPerHouse) == (agentB.agentId div MapAgentsPerHouse)
 
+proc findAttackOpportunity(env: Environment, agent: Thing): int =
+  ## Return attack orientation index if a valid target is in reach, else -1.
+  ## Prefer the closest tumor; fall back to spawners or enemy agents if present.
+  let maxRange = (if agent.inventorySpear > 0: 2 else: 1)
+
+  for distance in 1 .. maxRange:
+    for dirIdx in 0 .. 7:
+      let delta = getOrientationDelta(Orientation(dirIdx))
+      let offset = ivec2(delta.x * distance, delta.y * distance)
+      let targetPos = agent.pos + offset
+      if targetPos.x < 0 or targetPos.x >= MapWidth or
+         targetPos.y < 0 or targetPos.y >= MapHeight:
+        continue
+
+      let occupant = env.grid[targetPos.x][targetPos.y]
+      if occupant != nil and occupant.kind == Tumor:
+        return dirIdx
+
+  for distance in 1 .. maxRange:
+    for dirIdx in 0 .. 7:
+      let delta = getOrientationDelta(Orientation(dirIdx))
+      let offset = ivec2(delta.x * distance, delta.y * distance)
+      let targetPos = agent.pos + offset
+      if targetPos.x < 0 or targetPos.x >= MapWidth or
+         targetPos.y < 0 or targetPos.y >= MapHeight:
+        continue
+
+      let occupant = env.grid[targetPos.x][targetPos.y]
+      if occupant != nil and occupant.kind == Spawner:
+        return dirIdx
+
+  for distance in 1 .. maxRange:
+    for dirIdx in 0 .. 7:
+      let delta = getOrientationDelta(Orientation(dirIdx))
+      let offset = ivec2(delta.x * distance, delta.y * distance)
+      let targetPos = agent.pos + offset
+      if targetPos.x < 0 or targetPos.x >= MapWidth or
+         targetPos.y < 0 or targetPos.y >= MapHeight:
+        continue
+
+      let occupant = env.grid[targetPos.x][targetPos.y]
+      if occupant != nil and occupant.kind == Agent and not sameTeam(agent, occupant):
+        return dirIdx
+
+  return -1
+
 type NeedType = enum
   NeedArmor
   NeedBread
@@ -421,6 +467,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): arra
   state.lastPosition = agent.pos
   # Anchor spiral search around current agent position each tick
   state.basePosition = agent.pos
+
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, [2'u8, attackDir.uint8])
 
   # Role-based decision making
   case state.role:
