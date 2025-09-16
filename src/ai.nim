@@ -246,18 +246,8 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Prefer the closest tumor; fall back to spawners or enemy agents if present.
   let maxRange = (if agent.inventorySpear > 0: 2 else: 1)
 
-  for distance in 1 .. maxRange:
-    for dirIdx in 0 .. 7:
-      let delta = getOrientationDelta(Orientation(dirIdx))
-      let offset = ivec2(delta.x * distance, delta.y * distance)
-      let targetPos = agent.pos + offset
-      if targetPos.x < 0 or targetPos.x >= MapWidth or
-         targetPos.y < 0 or targetPos.y >= MapHeight:
-        continue
-
-      let occupant = env.grid[targetPos.x][targetPos.y]
-      if occupant != nil and occupant.kind == Tumor:
-        return dirIdx
+  var spawnerDir = -1
+  var enemyDir = -1
 
   for distance in 1 .. maxRange:
     for dirIdx in 0 .. 7:
@@ -269,22 +259,20 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
         continue
 
       let occupant = env.grid[targetPos.x][targetPos.y]
-      if occupant != nil and occupant.kind == Spawner:
-        return dirIdx
-
-  for distance in 1 .. maxRange:
-    for dirIdx in 0 .. 7:
-      let delta = getOrientationDelta(Orientation(dirIdx))
-      let offset = ivec2(delta.x * distance, delta.y * distance)
-      let targetPos = agent.pos + offset
-      if targetPos.x < 0 or targetPos.x >= MapWidth or
-         targetPos.y < 0 or targetPos.y >= MapHeight:
+      if occupant == nil:
         continue
 
-      let occupant = env.grid[targetPos.x][targetPos.y]
-      if occupant != nil and occupant.kind == Agent and not sameTeam(agent, occupant):
+      if occupant.kind == Tumor:
         return dirIdx
+      elif occupant.kind == Spawner and spawnerDir < 0:
+        spawnerDir = dirIdx
+      elif occupant.kind == Agent and enemyDir < 0 and not sameTeam(agent, occupant):
+        enemyDir = dirIdx
 
+  if spawnerDir >= 0:
+    return spawnerDir
+  if enemyDir >= 0:
+    return enemyDir
   return -1
 
 type NeedType = enum

@@ -18,6 +18,9 @@ dependencies = [
     "pufferlib>=3.0.0",
 ]
 
+[tool.setuptools]
+include-package-data = true
+
 [project.urls]
 Homepage = "https://github.com/Metta-AI/tribal-village"
 Repository = "https://github.com/Metta-AI/tribal-village.git"
