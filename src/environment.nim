@@ -441,65 +441,114 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   else:
     inc env.stats[id].actionInvalid
 
-proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Attack with a spear if agent has one
-  ## argument: 0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE (direction to attack)
-  
-  # Check if agent has a spear
-  if agent.inventorySpear <= 0:
-    inc env.stats[id].actionInvalid
+proc transferAgentInventory(env: Environment, killer, victim: Thing) =
+  ## Move the victim's inventory to the killer before the victim dies
+  template moveAll(field: untyped, layer: ObservationName) =
+    if victim.field > 0:
+      killer.field += victim.field
+      victim.field = 0
+      env.updateObservations(layer, killer.pos, killer.field)
+
+  moveAll(inventoryOre, AgentInventoryOreLayer)
+  moveAll(inventoryBattery, AgentInventoryBatteryLayer)
+  moveAll(inventoryWater, AgentInventoryWaterLayer)
+  moveAll(inventoryWheat, AgentInventoryWheatLayer)
+  moveAll(inventoryWood, AgentInventoryWoodLayer)
+  moveAll(inventorySpear, AgentInventorySpearLayer)
+  moveAll(inventoryLantern, AgentInventoryLanternLayer)
+  moveAll(inventoryArmor, AgentInventoryArmorLayer)
+  moveAll(inventoryBread, AgentInventoryBreadLayer)
+
+proc killAgent(env: Environment, victim: Thing) =
+  ## Remove an agent from the board and mark for respawn
+  if victim.frozen >= 999999:
     return
-  
-  # Validate orientation argument
+
+  env.grid[victim.pos.x][victim.pos.y] = nil
+  env.updateObservations(AgentLayer, victim.pos, 0)
+  env.updateObservations(AgentOrientationLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryOreLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryBatteryLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
+  env.updateObservations(AgentInventorySpearLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
+
+  env.terminated[victim.agentId] = 1.0
+  victim.frozen = 999999
+  victim.reward += env.config.deathPenalty
+
+  victim.inventoryOre = 0
+  victim.inventoryBattery = 0
+  victim.inventoryWater = 0
+  victim.inventoryWheat = 0
+  victim.inventoryWood = 0
+  victim.inventorySpear = 0
+  victim.inventoryLantern = 0
+  victim.inventoryArmor = 0
+  victim.inventoryBread = 0
+
+proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Attack an entity in one of eight directions. Spears extend range to 2 tiles.
   if argument < 0 or argument > 7:
     inc env.stats[id].actionInvalid
     return
-  
-  # Calculate attack positions (range of 2 tiles in given direction)
+
   let attackOrientation = Orientation(argument)
   let delta = getOrientationDelta(attackOrientation)
-  # Check attack positions directly without allocating sequence
-  let pos1 = agent.pos + ivec2(delta.x, delta.y)
-  let pos2 = agent.pos + ivec2(delta.x * 2, delta.y * 2)
+  let hasSpear = agent.inventorySpear > 0
+  let maxRange = if hasSpear: 2 else: 1
 
-  var hitStructure = false
-  var structureToRemove: Thing = nil
+  var attackHit = false
 
-  # Check both positions directly
-  for attackPos in [pos1, pos2]:
-    # Check bounds
-    if attackPos.x < 0 or attackPos.x >= MapWidth or 
-       attackPos.y < 0 or attackPos.y >= MapHeight:
+  for distance in 1 .. maxRange:
+    let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+    if attackPos.x < 0 or attackPos.x >= MapWidth or attackPos.y < 0 or attackPos.y >= MapHeight:
       continue
-    
-    # Check for Tumor or Spawner at this position
+
     let target = env.getThing(attackPos)
-    if not isNil(target) and target.kind in {Tumor, Spawner}:
-      structureToRemove = target
-      hitStructure = true
+    if isNil(target):
+      continue
+
+    case target.kind
+    of Tumor:
+      env.grid[attackPos.x][attackPos.y] = nil
+      env.updateObservations(AgentLayer, attackPos, 0)
+      env.updateObservations(AgentOrientationLayer, attackPos, 0)
+      let idx = env.things.find(target)
+      if idx >= 0:
+        env.things.del(idx)
+      agent.reward += env.config.tumorKillReward
+      attackHit = true
+    of Spawner:
+      env.grid[attackPos.x][attackPos.y] = nil
+      let idx = env.things.find(target)
+      if idx >= 0:
+        env.things.del(idx)
+      attackHit = true
+    of Agent:
+      if target.agentId == agent.agentId:
+        continue
+      if getTeamId(target.agentId) == getTeamId(agent.agentId):
+        continue
+      env.transferAgentInventory(agent, target)
+      env.killAgent(target)
+      attackHit = true
+    else:
+      discard
+
+    if attackHit:
       break
-  
-  if hitStructure and not isNil(structureToRemove):
-    # Remove the structure from grid immediately (fast)
-    env.grid[structureToRemove.pos.x][structureToRemove.pos.y] = nil
-    if structureToRemove.kind == Tumor:
-      env.updateObservations(AgentLayer, structureToRemove.pos, 0)
-      env.updateObservations(AgentOrientationLayer, structureToRemove.pos, 0)
-    let idx = env.things.find(structureToRemove)
-    if idx >= 0:
-      env.things.del(idx)
-    
-    # Consume one use of the spear
-    agent.inventorySpear -= 1
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-    
-    # Give reward for destroying Tumor (spawners currently grant no reward)
-    if structureToRemove.kind == Tumor:
-      agent.reward += env.config.tumorKillReward  # Moderate reward for defense
-    
+
+  if attackHit:
+    if hasSpear:
+      agent.inventorySpear = max(0, agent.inventorySpear - 1)
+      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
     inc env.stats[id].actionAttack
   else:
-    # Attack missed or no valid target
     inc env.stats[id].actionInvalid
 
 proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
@@ -782,6 +831,7 @@ const
   TumorBranchRange = 5
   TumorBranchMinAge = 2
   TumorBranchChance = 0.1
+  TumorAdjacencyDeathChance = 1.0 / 3.0
 
 proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
   ## Pick a random empty tile within the tumor's branching range
@@ -1574,19 +1624,19 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
   for newTumor in newTumorBranches:
     env.add(newTumor)
 
-  # Resolve agent contact: agents adjacent in cardinal directions always clear tumors/spawners
-  var structuresToRemove: seq[Thing] = @[]
+  # Resolve agent contact: agents adjacent to tumors risk lethal creep
+  var tumorsToRemove: seq[Thing] = @[]
 
   for thing in env.things:
-    if thing.kind notin {Tumor, Spawner}:
+    if thing.kind != Tumor:
       continue
 
-    let structure = thing
+    let tumor = thing
     let adjacentPositions = [
-      structure.pos + ivec2(0, -1),
-      structure.pos + ivec2(1, 0),
-      structure.pos + ivec2(0, 1),
-      structure.pos + ivec2(-1, 0)
+      tumor.pos + ivec2(0, -1),
+      tumor.pos + ivec2(1, 0),
+      tumor.pos + ivec2(0, 1),
+      tumor.pos + ivec2(-1, 0)
     ]
 
     for adjPos in adjacentPositions:
@@ -1597,32 +1647,20 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       if isNil(occupant) or occupant.kind != Agent:
         continue
 
-      if structure notin structuresToRemove:
-        structuresToRemove.add(structure)
-        env.grid[structure.pos.x][structure.pos.y] = nil
-        if structure.kind == Tumor:
-          env.updateObservations(AgentLayer, structure.pos, 0)
-          env.updateObservations(AgentOrientationLayer, structure.pos, 0)
+      if stepRng.rand(0.0 .. 1.0) < TumorAdjacencyDeathChance:
+        if tumor notin tumorsToRemove:
+          tumorsToRemove.add(tumor)
+          env.grid[tumor.pos.x][tumor.pos.y] = nil
+          env.updateObservations(AgentLayer, tumor.pos, 0)
+          env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
 
-      # Tumor clears grant reward even if the agent perishes
-      if structure.kind == Tumor:
-        occupant.reward += env.config.tumorKillReward
+        env.killAgent(occupant)
+        break
 
-      # 33% chance the adjacent agent dies and must respawn
-      if stepRng.rand(0.0 .. 1.0) < (1.0 / 3.0):
-        occupant.frozen = 999999
-        env.terminated[occupant.agentId] = 1.0
-        occupant.reward += env.config.deathPenalty
-        env.grid[occupant.pos.x][occupant.pos.y] = nil
-        env.updateObservations(AgentLayer, occupant.pos, 0)
-        env.updateObservations(AgentOrientationLayer, occupant.pos, 0)
-
-      break
-
-  # Remove structures cleared by agents this step
-  if structuresToRemove.len > 0:
+  # Remove tumors cleared by lethal contact this step
+  if tumorsToRemove.len > 0:
     for i in countdown(env.things.len - 1, 0):
-      if env.things[i] in structuresToRemove:
+      if env.things[i] in tumorsToRemove:
         env.things.del(i)
 
   # Respawn dead agents at their altars

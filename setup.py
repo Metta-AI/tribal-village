@@ -24,28 +24,62 @@ class BuildNimLibrary:
         project_root = Path(__file__).parent
         build_script = project_root / "build_lib.sh"
 
-        if not build_script.exists():
-            raise RuntimeError(f"Build script not found: {build_script}")
+        # If a prebuilt library is already present, skip rebuilding.
+        prebuilt = None
+        for ext in (".so", ".dylib", ".dll"):
+            candidate = project_root / f"libtribal_village{ext}"
+            if candidate.exists():
+                prebuilt = candidate
+                break
 
-        # Run the build script
-        result = subprocess.run(
-            ["bash", str(build_script)],
-            cwd=project_root,
-            capture_output=True,
-            text=True
-        )
+        if prebuilt is not None:
+            print(f"Using existing Nim library at {prebuilt}")
+        elif build_script.exists():
+            # Run custom build script if provided
+            result = subprocess.run(
+                ["bash", str(build_script)],
+                cwd=project_root,
+                capture_output=True,
+                text=True
+            )
 
-        if result.returncode != 0:
-            raise RuntimeError(f"Failed to build Nim library: {result.stderr}")
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to build Nim library: {result.stderr}")
+        else:
+            # Fall back to Nimble build if script is absent
+            result = subprocess.run(
+                ["nimble", "buildLib"],
+                cwd=project_root,
+                capture_output=True,
+                text=True
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "Failed to build Nim library with Nimble. "
+                    f"stdout: {result.stdout}\nstderr: {result.stderr}"
+                )
 
         # Copy the built library to the Python package directory
-        lib_file = project_root / "libtribal_village.so"
-        if not lib_file.exists():
-            raise RuntimeError("Nim library was not created by build script")
+        lib_file = prebuilt
+        if lib_file is None:
+            for ext in (".so", ".dylib", ".dll"):
+                candidate = project_root / f"libtribal_village{ext}"
+                if candidate.exists():
+                    lib_file = candidate
+                    break
+
+        if lib_file is None:
+            raise RuntimeError("Nim library was not created by build step")
 
         package_dir = project_root / "tribal_village_env"
-        shutil.copy2(lib_file, package_dir / "libtribal_village.so")
-        print(f"Copied {lib_file} to {package_dir}")
+        target_name = "libtribal_village.so"
+        if lib_file.suffix == ".dylib":
+            target_name = "libtribal_village.dylib"
+        elif lib_file.suffix == ".dll":
+            target_name = "libtribal_village.dll"
+
+        shutil.copy2(lib_file, package_dir / target_name)
+        print(f"Copied {lib_file} to {package_dir / target_name}")
 
 
 class CustomBuildPy(build_py, BuildNimLibrary):

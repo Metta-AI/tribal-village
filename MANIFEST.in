@@ -1,4 +1,6 @@
 include *.so
+include *.dylib
+include *.dll
 include libtribal_village.so
 include LICENSE
 include README.md
