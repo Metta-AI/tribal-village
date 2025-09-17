@@ -1,5 +1,5 @@
 when defined(emscripten):
-  import emscripten/html5
+  import windy/platforms/emscripten/emdefs
 else:
   import std/[times]
 
