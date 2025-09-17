@@ -89,6 +89,21 @@ var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
+const WarmVillagePalette* = [
+  color(1.00, 0.20, 0.15, 1.0),  # fire red
+  color(0.95, 0.32, 0.10, 1.0),  # vermilion
+  color(1.00, 0.48, 0.00, 1.0),  # tangerine
+  color(1.00, 0.64, 0.05, 1.0),  # amber
+  color(1.00, 0.78, 0.15, 1.0),  # sunflower
+  color(1.00, 0.64, 0.38, 1.0),  # peach
+  color(0.98, 0.46, 0.34, 1.0),  # coral
+  color(0.93, 0.29, 0.28, 1.0),  # crimson rose
+  color(0.95, 0.35, 0.45, 1.0),  # watermelon
+  color(0.90, 0.23, 0.58, 1.0),  # hot magenta
+  color(0.88, 0.40, 0.18, 1.0),  # copper
+  color(0.97, 0.54, 0.22, 1.0)   # persimmon
+]
+
 
 type
   ObservationName* = enum
@@ -1174,20 +1189,23 @@ proc init(env: Environment) =
             if env.terrain[clearX][clearY] != Water:
               env.terrain[clearX][clearY] = Empty
       
-      # Generate a unique warm color for this village (reds, oranges, yellows)
-      # Create warm colors using RGB values directly
-      var villageColor: Color
-      case i mod 6:
-      of 0: villageColor = color(1.0, 0.4, 0.2, 1.0)    # Red-orange
-      of 1: villageColor = color(1.0, 0.6, 0.2, 1.0)    # Orange
-      of 2: villageColor = color(1.0, 0.8, 0.2, 1.0)    # Yellow-orange
-      of 3: villageColor = color(0.9, 0.3, 0.3, 1.0)    # Crimson
-      of 4: villageColor = color(1.0, 0.5, 0.4, 1.0)    # Coral
-      of 5: villageColor = color(0.8, 0.4, 0.6, 1.0)    # Warm pink
-      else: villageColor = color(1.0, 0.5, 0.3, 1.0)    # Default warm orange
+      # Generate a distinct warm color for this village (avoid cool/blue hues)
+      let paletteIndex = i mod WarmVillagePalette.len
+      let villageColor = WarmVillagePalette[paletteIndex]
 
-      # Store team color for lanterns
-      teamColors.add(villageColor)
+      # If we loop past the palette (more than 12 houses), nudge the hue slightly
+      # so repeats still look distinct while staying on the warm side.
+      var finalVillageColor = villageColor
+      if i >= WarmVillagePalette.len:
+        let tweak = min(0.15, float(i div WarmVillagePalette.len) * 0.05)
+        finalVillageColor = color(
+          clamp(villageColor.r + tweak, 0.0, 1.0),
+          clamp(villageColor.g + tweak * 0.3, 0.0, 1.0),
+          clamp(villageColor.b, 0.0, 1.0),
+          1.0
+        )
+
+      teamColors.add(finalVillageColor)
 
       # Spawn agents around this house
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
@@ -1198,7 +1216,7 @@ proc init(env: Environment) =
         pos: elements.center,
         hearts: MapObjectAltarInitialHearts  # Altar starts with default hearts
       ))
-      altarColors[elements.center] = villageColor  # Associate altar position with village color
+      altarColors[elements.center] = finalVillageColor  # Associate altar position with village color
       
       # Initialize base colors for house tiles to team color
       for dx in 0 ..< houseStruct.width:
@@ -1207,9 +1225,9 @@ proc init(env: Environment) =
           let tileY = placementPosition.y + dy
           if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
             env.baseTileColors[tileX][tileY] = TileColor(
-              r: villageColor.r,
-              g: villageColor.g,
-              b: villageColor.b,
+              r: finalVillageColor.r,
+              g: finalVillageColor.g,
+              b: finalVillageColor.b,
               intensity: 1.0
             )
             env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
@@ -1266,7 +1284,7 @@ proc init(env: Environment) =
           let agentId = totalAgentsSpawned
           
           # Store the village color for this agent
-          agentVillageColors[agentId] = villageColor
+          agentVillageColors[agentId] = finalVillageColor
           
           # Create the agent
           env.add(Thing(
