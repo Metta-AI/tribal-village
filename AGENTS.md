@@ -1,14 +1,14 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Core Nim: `tribal_village.nim` (entry), `src/` for modules like `environment.nim`, `ai.nim`, `renderer.nim`, `tribal_village_interface.nim`.
+- Core Nim: `tribal_village.nim` (entry), `src/` for modules like `environment.nim`, `ai.nim`, `tribal_village_interface.nim`.
 - Python wrapper: `tribal_village_env/` with `environment.py` loading the shared library.
 - Assets/data: `data/`.
 - Packaging/build: `tribal_village.nimble`, `pyproject.toml`, `setup.py`, `MANIFEST.in`.
 
 ## Build, Test, and Development Commands
 - Install Nim deps: `nimble install`
-- Run standalone game: `nim r -d:release tribal_village.nim`
+- Run headless demo: `nim r -d:release --nimcache:nimcache tribal_village.nim`
 - Build shared lib for Python: `nimble buildLib` (creates `libtribal_village.{so|dylib|dll}` in repo root). Ensure it is available at `tribal_village_env/libtribal_village.so` (rename/symlink on macOS): `ln -sf libtribal_village.dylib tribal_village_env/libtribal_village.so`.
 - Quick Python smoke test: `python -c "from tribal_village_env import TribalVillageEnv; TribalVillageEnv()"`
 - Editable install (after building the lib): `pip install -e .`
@@ -31,4 +31,4 @@
 
 ## Security & Configuration Tips
 - The Python wrapper loads `tribal_village_env/libtribal_village.so`; ensure the library exists and matches your platform.
-- Requires Nim 2.2.4+ and OpenGL for rendering. Python: 3.9+ with `numpy`, `gymnasium`, `pufferlib`.
+- Requires Nim 2.2.4+. Python: 3.9+ with `numpy`, `gymnasium`, `pufferlib`.

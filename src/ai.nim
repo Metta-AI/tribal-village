@@ -699,7 +699,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): arra
   
   # Save last position for next tick and return a default random move
   state.lastPosition = agent.pos
-      return saveStateAndReturn(controller, agentId, state, [1'u8, randIntInclusive(controller.rng, 0, 7).uint8])
+  return saveStateAndReturn(controller, agentId, state, [1'u8, randIntInclusive(controller.rng, 0, 7).uint8])
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller) =

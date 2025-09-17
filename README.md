@@ -97,7 +97,7 @@ Multi-discrete `[move_direction, action_type]`:
 ## Build
 
 - Native shared library for Python: `nimble buildLib`
-- Native desktop viewer: `nimble run`
+- Headless CLI run: `nim r -d:release --nimcache:nimcache tribal_village --render-every=25`
 - WebAssembly demo (requires Emscripten on PATH): `nimble wasm`
   - Outputs to `build/web/tribal_village.html`; serve via `python -m http.server 8000`
 
@@ -110,12 +110,11 @@ Multi-discrete `[move_direction, action_type]`:
 ## Files
 
 **Core**: `tribal_village.nim` (main), `src/environment.nim` (simulation), `src/ai.nim` (built-in agents)
-**Rendering**: `src/renderer.nim`, `src/ui.nim`, `src/controls.nim`
 **Integration**: `src/tribal_village_interface.nim` (C interface), `tribal_village_env/` (Python wrapper)
 **Build**: `build_lib.sh`, `tribal_village.nimble`
 
 ## Dependencies
 
-**Nim**: 2.2.4+ with boxy, windy, vmath, chroma packages
+**Nim**: 2.2.4+ with vmath, chroma packages
 **Python**: 3.8+ with gymnasium, numpy, pufferlib
-**System**: OpenGL for rendering
+**System**: none beyond a POSIX shell and compiler toolchain
