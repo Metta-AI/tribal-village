@@ -1,7 +1,7 @@
 import
   boxy, vmath, windy,
   common
-import std/[times, strformat]
+import std/strformat
 
 
 var
@@ -54,11 +54,11 @@ var
 
 proc startFrameTiming*() =
   ## Start timing a frame for performance monitoring
-  frameTimer = epochTime()
+  frameTimer = nowSeconds()
 
 proc endFrameTiming*() =
   ## End frame timing and update performance stats
-  lastFrameTime = epochTime() - frameTimer
+  lastFrameTime = nowSeconds() - frameTimer
   frameCount += 1
 
   # Rolling average over last 60 frames
@@ -78,11 +78,11 @@ proc getFrameTimeMS*(): float64 =
 proc debugLog*(msg: string) =
   ## Debug logging function (only outputs if debug mode enabled)
   if settings.enableLogging and settings.debugMode:
-    let timestamp = fmt"{epochTime():.3f}"
+    let timestamp = fmt"{nowSeconds():.3f}"
     echo fmt"[{timestamp}] DEBUG: {msg}"
 
 proc performanceLog*(operation: string, duration: float64) =
   ## Performance logging for operations
   if settings.enableLogging and settings.showPerformanceStats:
-    let timestamp = fmt"{epochTime():.3f}"
+    let timestamp = fmt"{nowSeconds():.3f}"
     echo fmt"[{timestamp}] PERF: {operation} took {duration * 1000.0:.2f}ms"

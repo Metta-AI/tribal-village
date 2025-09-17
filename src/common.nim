@@ -1,4 +1,9 @@
-import std/[times],
+when defined(emscripten):
+  import emscripten/html5
+else:
+  import std/[times]
+
+import
   boxy, windy, vmath
 
 type
@@ -51,6 +56,12 @@ type
     showPerformanceStats* = false
     enableLogging* = true
 
+proc nowSeconds*(): float64 =
+  when defined(emscripten):
+    emscripten_get_now() / 1000.0
+  else:
+    epochTime()
+
 var
   window*: Window
   rootArea*: Area
@@ -65,7 +76,7 @@ var
 
   play*: bool
   playSpeed*: float32 = 0.0625  # default to former middle speed (4x)
-  lastSimTime*: float64 = epochTime()
+  lastSimTime*: float64 = nowSeconds()
 
 const
   DefaultPlaySpeed* = 0.0625
