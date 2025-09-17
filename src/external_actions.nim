@@ -2,7 +2,7 @@
 ## Supports both external neural network control and built-in AI control
 ## Controller type is specified when creating the environment
 
-import std/times, std/os, std/strutils
+import std/os, std/strutils
 import environment, ai, common
 
 type
@@ -20,7 +20,7 @@ type
 # Global agent controller instance
 var globalController*: AgentController
 
-proc newBuiltinAIController*(seed: int = int(epochTime() * 1000)): AgentController =
+proc newBuiltinAIController*(seed: int = int(nowSeconds() * 1000)): AgentController =
   ## Create a new controller using built-in AI
   AgentController(
     controllerType: BuiltinAI,
@@ -36,7 +36,7 @@ proc newExternalNNController*(actionCallback: proc(): array[MapAgents, array[2, 
     externalActionCallback: actionCallback
   )
 
-proc initGlobalController*(controllerType: ControllerType, seed: int = int(epochTime() * 1000)) =
+proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSeconds() * 1000)) =
   ## Initialize the global controller with specified type
   case controllerType:
   of BuiltinAI:

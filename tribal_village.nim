@@ -1,4 +1,4 @@
-import std/[os, times, strutils],
+import std/[os, strutils],
   boxy, opengl, windy, vmath,
   src/environment, src/controls, src/common, src/panels, src/renderer, src/ui, src/external_actions
 
@@ -25,7 +25,7 @@ proc display() =
     if play:
       play = false
     else:
-      lastSimTime = epochTime()
+      lastSimTime = nowSeconds()
       simStep()
   if window.buttonPressed[KeyMinus] or window.buttonPressed[KeyLeftBracket]:
     playSpeed *= 0.5
@@ -42,7 +42,7 @@ proc display() =
     inc settings.showObservations
   settings.showObservations = clamp(settings.showObservations, -1, 23)
 
-  let now = epochTime()
+  let now = nowSeconds()
   while play and (lastSimTime + playSpeed < now):
     lastSimTime += playSpeed
     simStep()

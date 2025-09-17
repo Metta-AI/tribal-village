@@ -1,4 +1,4 @@
-import std/[random, tables, times, math], vmath, chroma
+import std/[random, tables, math], vmath, chroma
 import terrain, objects, common
 export terrain, objects, common
 
@@ -1097,7 +1097,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 proc init(env: Environment) =
   # Use current time for random seed to get different maps each time
-  let seed = int(epochTime() * 1000)
+  let seed = int(nowSeconds() * 1000)
   var r = initRand(seed)
   
   # Initialize tile colors to base terrain colors (neutral gray-brown)
