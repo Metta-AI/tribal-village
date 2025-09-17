@@ -28,6 +28,9 @@ task run, "Run the tribal village game":
 task lib, "Build shared library for PufferLib (alias for buildLib)":
   exec "nimble buildLib"
 
+task wasm, "Build Tribal Village WASM demo":
+  exec "bash scripts/build_tribal_village_web.sh"
+
 before install:
   exec "nimble buildLib"
 

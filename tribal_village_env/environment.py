@@ -23,6 +23,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
     def __init__(self, config: Optional[Dict[str, Any]] = None, buf=None):
         self.config = config or {}
         self.max_steps = self.config.get("max_steps", 512)
+        self._render_mode = self.config.get("render_mode", "rgb_array")
 
         # Load the optimized Nim library - cross-platform
         import platform
@@ -36,8 +37,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         package_dir = Path(__file__).resolve().parent
         candidate_paths = [
-            package_dir / lib_name,
             package_dir.parent / lib_name,
+            package_dir / lib_name,
         ]
 
         lib_path = next((path for path in candidate_paths if path.exists()), None)
@@ -53,6 +54,21 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self.obs_layers = self.lib.tribal_village_get_obs_layers()
         self.obs_width = self.lib.tribal_village_get_obs_width()
         self.obs_height = self.lib.tribal_village_get_obs_height()
+
+
+        # Map dims for full-map render
+        try:
+            self.map_width = int(self.lib.tribal_village_get_map_width())
+            self.map_height = int(self.lib.tribal_village_get_map_height())
+            self.render_scale = max(1, int(self.config.get("render_scale", 4)))
+            height = self.map_height * self.render_scale
+            width = self.map_width * self.render_scale
+            self._rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
+        except Exception:
+            self.map_width = None
+            self.map_height = None
+            self.render_scale = 1
+            self._rgb_frame = None
 
         # PufferLib controls all agents
         self.num_agents = self.total_agents
@@ -94,6 +110,52 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         self.step_count = 0
 
+
+    @property
+    def render_mode(self):
+        return self._render_mode
+
+    @render_mode.setter
+    def render_mode(self, value):
+        self._render_mode = value
+
+    def render(self):
+        """Render via Nim, avoiding duplication in Python.
+
+        - 'rgb_array': calls Nim RGB export and returns an HxWx3 uint8 array
+          of the full map (uses tile colors from the engine).
+        - 'ansi': calls Nim ASCII renderer and returns a string.
+        - otherwise: falls back to 'ansi'.
+        """
+        mode = getattr(self, "_render_mode", "ansi")
+
+        # Prefer native RGB if requested and available
+        if mode == "rgb_array" and getattr(self, "_rgb_frame", None) is not None:
+            ptr = self._rgb_frame.ctypes.data_as(ctypes.c_void_p)
+            width = int(self._rgb_frame.shape[1])
+            height = int(self._rgb_frame.shape[0])
+            try:
+                ok = self.lib.tribal_village_render_rgb(self.env_ptr, ptr, width, height)
+            except AttributeError:
+                ok = 0
+            if ok:
+                return self._rgb_frame
+            # fall through to ansi if RGB export missing
+
+
+        buf_size = int(self.config.get("ansi_buffer_size", 1_000_000))
+        cbuf = ctypes.create_string_buffer(buf_size)
+        try:
+            n_written = self.lib.tribal_village_render_ansi(
+                self.env_ptr, ctypes.cast(cbuf, ctypes.c_void_p), ctypes.c_int32(buf_size)
+            )
+        except AttributeError:
+            return "(render not available in Nim build)"
+
+        if n_written <= 0:
+            return ""
+        return cbuf.value.decode("utf-8", errors="replace")
+
     def _setup_ctypes_interface(self):
         """Setup ctypes for direct buffer functions."""
 
@@ -125,6 +187,30 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         # tribal_village_destroy(env) -> void
         self.lib.tribal_village_destroy.argtypes = [ctypes.c_void_p]
         self.lib.tribal_village_destroy.restype = None
+
+
+        # Map dimensions and RGB render
+        try:
+            self.lib.tribal_village_get_map_width.argtypes = []
+            self.lib.tribal_village_get_map_width.restype = ctypes.c_int32
+            self.lib.tribal_village_get_map_height.argtypes = []
+            self.lib.tribal_village_get_map_height.restype = ctypes.c_int32
+            self.lib.tribal_village_render_rgb.argtypes = [
+                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32
+            ]
+            self.lib.tribal_village_render_rgb.restype = ctypes.c_int32
+        except AttributeError:
+            pass
+
+
+        # tribal_village_render_ansi(env, out_buf, buf_len) -> int32
+        try:
+            self.lib.tribal_village_render_ansi.argtypes = [
+                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int32
+            ]
+            self.lib.tribal_village_render_ansi.restype = ctypes.c_int32
+        except AttributeError:
+            pass
 
         # Dimension getters
         for func_name in [
