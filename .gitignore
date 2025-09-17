@@ -69,6 +69,8 @@ __pycache__/
 *.pyo
 *.pyd
 build/
+# Emscripten local cache created by nimble wasm
+build/web/emscripten_cache/
 dist/
 .eggs/
 
