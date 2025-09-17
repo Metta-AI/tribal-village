@@ -12,7 +12,9 @@ nim c \
   --os:standalone \
   --threads:off \
   -d:release \
-  --panicoverride:panicoverride \
+  -d:nimNoDevRandom \
+  -d:nimNoGetRandom \
+  -d:nimNoSysrand \
   -d:emscripten \
   --passL:"-sUSE_GLFW=3" \
   --passL:"-sUSE_WEBGL2=1" \
