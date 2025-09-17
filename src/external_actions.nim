@@ -48,6 +48,8 @@ proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSe
       aiController: nil,
       externalActionCallback: nil
     )
+    # Start automatic play mode for external controller
+    play = true
 
 proc setExternalActionCallback*(callback: proc(): array[MapAgents, array[2, uint8]]) =
   ## Set the external action callback for neural network control

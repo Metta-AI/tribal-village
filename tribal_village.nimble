@@ -8,6 +8,8 @@ srcDir = "src"
 requires "nim >= 2.2.4"
 requires "vmath >= 2.0.0"
 requires "chroma >= 0.2.7"
+requires "boxy"
+requires "windy"
 
 task buildLib, "Build shared library for PufferLib":
   echo "Building Tribal Village shared library (ultra-fast direct buffers)..."
