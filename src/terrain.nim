@@ -1,5 +1,6 @@
 
-import std/[random, math], vmath
+import std/math, vmath
+import rng_compat
 
 type
   TerrainType* = enum
@@ -32,6 +33,10 @@ type
     position*: IVec2
     message*: string
     cornerUsed*: int  # Which corner was used (0-3), or -1 if not a corner
+
+template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
+template randExclusive(r: var Rand, a, b: int): int = randIntExclusive(r, a, b)
+template randChance(r: var Rand, p: float): bool = randFloat(r) < p
 
 const
   RiverWidth* = 6
@@ -82,7 +87,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   var startMin = max(mapBorder + RiverWidth + reserve, centerY - span)
   var startMax = min(mapHeight - mapBorder - RiverWidth - reserve, centerY + span)
   if startMin > startMax: swap(startMin, startMax)
-  var currentPos = toIVec2(mapBorder, r.rand(startMin .. startMax))
+  var currentPos = toIVec2(mapBorder, randInclusive(r, startMin, startMax))
   
   var hasFork = false
   var forkPoint: IVec2
@@ -92,7 +97,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         currentPos.y >= mapBorder and currentPos.y < mapHeight - mapBorder:
     riverPath.add(currentPos)
     
-    if not hasFork and riverPath.len > max(20, mapWidth div 8) and r.rand(1.0) < 0.5:
+    if not hasFork and riverPath.len > max(20, mapWidth div 8) and randChance(r, 0.5):
       hasFork = true
       forkPoint = currentPos
       
@@ -110,8 +115,8 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         secondaryPos.x += 1
         # Bias vertical move strongly toward edge, with small meander
         secondaryPos.y += secondaryDirection.y
-        if r.rand(1.0) < 0.15:
-          secondaryPos.y += r.sample(@[-1, 0, 1]).int32
+        if randChance(r, 0.15):
+          secondaryPos.y += sample(r, [-1, 0, 1]).int32
         if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
            secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
           if not inCornerReserve(secondaryPos.x, secondaryPos.y, mapWidth, mapHeight, mapBorder, reserve):
@@ -139,8 +144,8 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
           inc pushSteps
     
     currentPos.x += 1  # Always move right
-    if r.rand(1.0) < 0.3:
-      currentPos.y += r.sample(@[-1, 0, 0, 1]).int32  # Bias towards staying straight
+    if randChance(r, 0.3):
+      currentPos.y += sample(r, [-1, 0, 0, 1]).int32  # Bias towards staying straight
   
   # Place water tiles for main river (skip reserved corners)
   for pos in riverPath:
@@ -177,20 +182,20 @@ proc createTerrainCluster*(terrain: var TerrainGrid, centerX, centerY: int, size
           let dist = sqrt((dx * dx + dy * dy).float)
           if dist <= radius.float:
             let chance = baseDensity - (dist / radius.float) * falloffRate
-            if r.rand(1.0) < chance:
+            if randChance(r, chance):
               terrain[x][y] = terrainType
 
 
 proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   ## Generate clustered wheat fields; 4x previous count for larger maps
-  let numFields = r.rand(14..20) * 4
+  let numFields = randInclusive(r, 14, 20) * 4
   
   for i in 0 ..< numFields:
     # Try to place near water if possible
     var placed = false
     for attempt in 0 ..< 20:
-      let x = r.rand(mapBorder + 3 .. mapWidth - mapBorder - 3)
-      let y = r.rand(mapBorder + 3 .. mapHeight - mapBorder - 3)
+      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
       
       # Check if near water
       var nearWater = false
@@ -207,26 +212,26 @@ proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBord
       
       # Prefer locations near water, but accept any after some attempts
       if nearWater or attempt > 10:
-        let fieldSize = r.rand(3..10)  # Each field has 5-20 wheat tiles
+        let fieldSize = randInclusive(r, 3, 10)  # Each field has 5-20 wheat tiles
         terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
         placed = true
         break
     
     # Fallback: place anywhere if no good spot found
     if not placed:
-      let x = r.rand(mapBorder + 3 .. mapWidth - mapBorder - 3)
-      let y = r.rand(mapBorder + 3 .. mapHeight - mapBorder - 3)
-      let fieldSize = r.rand(3..10)
+      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+      let fieldSize = randInclusive(r, 3, 10)
       terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
 
 proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   ## Generate tree groves; 4x previous count for larger maps
-  let numGroves = r.rand(14..20) * 4
+  let numGroves = randInclusive(r, 14, 20) * 4
   
   for i in 0 ..< numGroves:
-    let x = r.rand(mapBorder + 3 .. mapWidth - mapBorder - 3)
-    let y = r.rand(mapBorder + 3 .. mapHeight - mapBorder - 3)
-    let groveSize = r.rand(3..10)  # Each grove has 3-10 trees
+    let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+    let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+    let groveSize = randInclusive(r, 3, 10)  # Each grove has 3-10 trees
     terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Tree, 0.8, 0.4, r)
 
 proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
@@ -257,7 +262,7 @@ proc placeRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
   var startMin = max(mapBorder + RiverWidth + reserve, centerY - span)
   var startMax = min(mapHeight - mapBorder - RiverWidth - reserve, centerY + span)
   if startMin > startMax: swap(startMin, startMax)
-  var currentPos = ivec2(mapBorder.int32, r.rand(startMin .. startMax).int32)
+  var currentPos = ivec2(mapBorder.int32, int32(randInclusive(r, startMin, startMax)))
   
   var hasFork = false
   var forkPoint: IVec2
@@ -268,7 +273,7 @@ proc placeRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
     result.add(currentPos)
     
     # Possible fork (scale with map width)
-    if not hasFork and result.len > max(20, mapWidth div 8) and r.rand(1.0) < 0.5:
+    if not hasFork and result.len > max(20, mapWidth div 8) and randChance(r, 0.5):
       hasFork = true
       forkPoint = currentPos
       
@@ -282,8 +287,8 @@ proc placeRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
       while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
         secondaryPos.x += 1
         secondaryPos.y += secondaryDirection.y
-        if r.rand(1.0) < 0.15:
-          secondaryPos.y += r.sample(@[-1, 0, 1]).int32
+        if randChance(r, 0.15):
+          secondaryPos.y += sample(r, [-1, 0, 1]).int32
         if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
            secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
           if not inCornerReserve(secondaryPos.x, secondaryPos.y, mapWidth, mapHeight, mapBorder, reserve):
@@ -312,8 +317,8 @@ proc placeRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
     
     # Move primarily right with meandering
     currentPos.x += 1
-    if r.rand(1.0) < 0.3:
-      currentPos.y += r.sample(@[-1, 0, 0, 1]).int32
+    if randChance(r, 0.3):
+      currentPos.y += sample(r, [-1, 0, 0, 1]).int32
   
   # Place water tiles for main river (skip reserved corners)
   for pos in result:
@@ -354,7 +359,7 @@ proc placeTerrainCluster*(terrain: var TerrainGrid, centerX, centerY, size: int,
           let dist = sqrt((dx * dx + dy * dy).float)
           if dist <= radius.float:
             let chance = density - (dist / radius.float) * 0.3
-            if r.rand(1.0) < chance:
+            if randChance(r, chance):
               terrain[x][y] = terrainType
 
 proc placeWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
@@ -365,8 +370,8 @@ proc placeWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder:
     
     # Try to place near water
     for attempt in 0 ..< 20:
-      let x = r.rand(mapBorder + 3 .. mapWidth - mapBorder - 3)
-      let y = r.rand(mapBorder + 3 .. mapHeight - mapBorder - 3)
+      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
       
       # Check proximity to water
       var nearWater = false
@@ -381,25 +386,25 @@ proc placeWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder:
         if nearWater: break
       
       if nearWater or attempt > 10:
-        let fieldSize = r.rand(5..20)
+        let fieldSize = randInclusive(r, 5, 20)
         placeTerrainCluster(terrain, x, y, fieldSize, Wheat, mapWidth, mapHeight, r, 0.9)
         placed = true
         break
     
     # Fallback placement
     if not placed:
-      let x = r.rand(mapBorder + 3 .. mapWidth - mapBorder - 3)
-      let y = r.rand(mapBorder + 3 .. mapHeight - mapBorder - 3)
-      let fieldSize = r.rand(5..20)
+      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+      let fieldSize = randInclusive(r, 5, 20)
       placeTerrainCluster(terrain, x, y, fieldSize, Wheat, mapWidth, mapHeight, r, 0.9)
 
 proc placeTreeGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand, numGroves = 32) =
   ## Place tree groves across the map
   for i in 0 ..< numGroves:
-    let x = r.rand(mapBorder + 3 .. mapWidth - mapBorder - 3)
-    let y = r.rand(mapBorder + 3 .. mapHeight - mapBorder - 3)
-    let groveSize = r.rand(5..20)
+    let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+    let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+    let groveSize = randInclusive(r, 5, 20)
     placeTerrainCluster(terrain, x, y, groveSize, Tree, mapWidth, mapHeight, r, 0.7)
 
 proc canPlaceAt*(grid: PlacementGrid, terrain: ptr TerrainGrid, 
@@ -491,15 +496,15 @@ proc findPlacement*(grid: PlacementGrid, terrain: ptr TerrainGrid,
     
     # Shuffle available corners for variety
     for i in countdown(availableCorners.len - 1, 1):
-      let j = r.rand(0 .. i)
+      let j = randInclusive(r, 0, i)
       swap(availableCorners[i], availableCorners[j])
     
     # Try each available corner region
     for region in availableCorners:
       # Random attempts first
       for attempt in 0 ..< max(maxAttempts div 3, 50):
-        let x = r.rand(region.minX ..< region.maxX)
-        let y = r.rand(region.minY ..< region.maxY)
+        let x = randExclusive(r, region.minX, region.maxX)
+        let y = randExclusive(r, region.minY, region.maxY)
         let pos = ivec2(x.int32, y.int32)
         if canPlaceAt(grid, terrain, pos, structure, mapWidth, mapHeight):
           return PlacementResult(success: true, position: pos, cornerUsed: region.id)
@@ -512,8 +517,8 @@ proc findPlacement*(grid: PlacementGrid, terrain: ptr TerrainGrid,
   
   # Try random placement (original behavior)
   for attempt in 0 ..< maxAttempts:
-    let x = r.rand(minX ..< maxX)
-    let y = r.rand(minY ..< maxY)
+    let x = randExclusive(r, minX, maxX)
+    let y = randExclusive(r, minY, maxY)
     let pos = ivec2(x.int32, y.int32)
     
     if canPlaceAt(grid, terrain, pos, structure, mapWidth, mapHeight):
@@ -556,8 +561,8 @@ proc findEmptyPosition*(grid: PlacementGrid, terrain: ptr TerrainGrid,
                        maxAttempts = 1000): IVec2 =
   ## Find any empty position on the map (for objects, agents, etc)
   for attempt in 0 ..< maxAttempts:
-    let x = r.rand(mapBorder ..< mapWidth - mapBorder)
-    let y = r.rand(mapBorder ..< mapHeight - mapBorder)
+    let x = randExclusive(r, mapBorder, mapWidth - mapBorder)
+    let y = randExclusive(r, mapBorder, mapHeight - mapBorder)
     
     if isNil(grid[x][y]) and terrain[x][y] != Water:
       return ivec2(x.int32, y.int32)

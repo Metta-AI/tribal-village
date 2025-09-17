@@ -1,4 +1,5 @@
-import std/[random, tables, math], vmath, chroma
+import std/[tables, math], vmath, chroma
+import rng_compat
 import terrain, objects, common
 export terrain, objects, common
 
@@ -362,7 +363,7 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   Thing(
     kind: Tumor,
     pos: pos,
-    orientation: Orientation(r.rand(0..3)),
+    orientation: Orientation(randIntInclusive(r, 0, 3)),
     homeSpawner: homeSpawner,
     hasClaimedTerritory: false,  # Start mobile, will plant when far enough from others
     turnsAlive: 0                # New tumor hasn't lived any turns yet
@@ -757,7 +758,10 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
-  ivec2(r.rand(MapBorder ..< MapWidth - MapBorder), r.rand(MapBorder ..< MapHeight - MapBorder))
+  ivec2(
+    int32(randIntExclusive(r, MapBorder, MapWidth - MapBorder)),
+    int32(randIntExclusive(r, MapBorder, MapHeight - MapBorder))
+  )
 {.pop.}
 
 proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): seq[IVec2] =
@@ -862,7 +866,7 @@ proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
   if candidates.len == 0:
     return ivec2(-1, -1)
 
-  return candidates[r.rand(0 ..< candidates.len)]
+  return candidates[randIntExclusive(r, 0, candidates.len)]
 
 proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   # Try with moderate attempts first
@@ -1269,7 +1273,7 @@ proc init(env: Environment) =
             kind: Agent,
             agentId: agentId,
             pos: agentPos,
-            orientation: Orientation(r.rand(0..3)),
+            orientation: Orientation(randIntInclusive(r, 0, 3)),
             homeAltar: elements.center,  # Link agent to their home altar
             inventoryOre: 0,
             inventoryBattery: 0,
@@ -1307,7 +1311,7 @@ proc init(env: Environment) =
       kind: Agent,
       agentId: agentId,
       pos: agentPos,
-      orientation: Orientation(r.rand(0..3)),
+      orientation: Orientation(randIntInclusive(r, 0, 3)),
       homeAltar: ivec2(-1, -1),  # No home altar for unaffiliated agents
       inventoryOre: 0,
       inventoryBattery: 0,
@@ -1592,7 +1596,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
     if tumor.turnsAlive < TumorBranchMinAge:
       continue
 
-    if stepRng.rand(0.0 .. 1.0) >= TumorBranchChance:
+    if randFloat(stepRng) >= TumorBranchChance:
       continue
 
     let branchPos = findTumorBranchTarget(tumor, env, stepRng)
@@ -1647,7 +1651,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, array[2, uint8]]) =
       if isNil(occupant) or occupant.kind != Agent:
         continue
 
-      if stepRng.rand(0.0 .. 1.0) < TumorAdjacencyDeathChance:
+      if randFloat(stepRng) < TumorAdjacencyDeathChance:
         if tumor notin tumorsToRemove:
           tumorsToRemove.add(tumor)
           env.grid[tumor.pos.x][tumor.pos.y] = nil

@@ -1,6 +1,7 @@
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
-import std/[random, tables]
+import std/tables
+import rng_compat
 import vmath
 import environment, common
 
@@ -340,7 +341,7 @@ proc getMoveTowards(env: Environment, fromPos, toPos: IVec2, rng: var Rand): int
       return altDir
   
   # All blocked, try random movement
-  return rng.rand(0..3)
+  return randIntInclusive(rng, 0, 3)
 
 
 proc decideAction*(controller: Controller, env: Environment, agentId: int): array[2, uint8] =
@@ -406,7 +407,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): arra
     # Choose an escape direction: prefer any empty cardinal, shuffled
     var dirs = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
     for i in countdown(dirs.len - 1, 1):
-      let j = controller.rng.rand(0..i)
+      let j = randIntInclusive(controller.rng, 0, i)
       let tmp = dirs[i]
       dirs[i] = dirs[j]
       dirs[j] = tmp
@@ -438,11 +439,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): arra
 
   # Small dithering chance to break deadlocks (higher for non-altar roles)
   let ditherChance = if state.role == AltarSpecialist: 0.10 else: 0.20
-  if controller.rng.rand(0.0..1.0) < ditherChance:
+  if randFloat(controller.rng) < ditherChance:
     var candidates = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
                        ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
     for i in countdown(candidates.len - 1, 1):
-      let j = controller.rng.rand(0..i)
+      let j = randIntInclusive(controller.rng, 0, i)
       let tmp = candidates[i]
       candidates[i] = candidates[j]
       candidates[j] = tmp
@@ -698,7 +699,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): arra
   
   # Save last position for next tick and return a default random move
   state.lastPosition = agent.pos
-  return saveStateAndReturn(controller, agentId, state, [1'u8, controller.rng.rand(0..7).uint8])
+      return saveStateAndReturn(controller, agentId, state, [1'u8, randIntInclusive(controller.rng, 0, 7).uint8])
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller) =

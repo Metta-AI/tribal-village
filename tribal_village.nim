@@ -78,8 +78,6 @@ proc display() =
 
   worldMapPanel.endPanAndZoom()
 
-  drawInfoText()
-
   worldMapPanel.endDraw()
 
 
