@@ -94,6 +94,19 @@ Multi-discrete `[move_direction, action_type]`:
 - **Zero-copy communication**: Direct pointer passing for efficiency
 - **Web ready**: Emscripten support for WASM deployment
 
+## Build
+
+- Native shared library for Python: `nimble buildLib`
+- Native desktop viewer: `nimble run`
+- WebAssembly demo (requires Emscripten on PATH): `nimble wasm`
+  - Outputs to `build/web/tribal_village.html`; serve via `python -m http.server 8000`
+
+### PufferLib Rendering
+
+- Python bindings default to `render_mode="rgb_array"` and stream full-map RGB frames via Nim.
+- Adjust `render_scale` in the env config (default 4) to control output resolution.
+- Set `render_mode="ansi"` for lightweight terminal output.
+
 ## Files
 
 **Core**: `tribal_village.nim` (main), `src/environment.nim` (simulation), `src/ai.nim` (built-in agents)

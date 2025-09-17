@@ -11,7 +11,6 @@ when not defined(emscripten):
 bxy = newBoxy()
 rootArea = Area(layout: Horizontal)
 worldMapPanel = Panel(panelType: WorldMap, name: "World Map")
-globalFooterPanel = Panel(panelType: GlobalFooter)
 
 rootArea.areas.add(Area(layout: Horizontal))
 rootArea.panels.add(worldMapPanel)
@@ -23,7 +22,11 @@ proc display() =
     common.mouseCapturedPanel = nil
   
   if window.buttonPressed[KeySpace]:
-    play = false
+    if play:
+      play = false
+    else:
+      lastSimTime = epochTime()
+      simStep()
   if window.buttonPressed[KeyMinus] or window.buttonPressed[KeyLeftBracket]:
     playSpeed *= 0.5
     playSpeed = clamp(playSpeed, 0.00001, 60.0)
@@ -43,16 +46,11 @@ proc display() =
   while play and (lastSimTime + playSpeed < now):
     lastSimTime += playSpeed
     simStep()
-  if window.buttonPressed[KeySpace]:
-    lastSimTime = now
-    simStep()
 
   bxy.beginFrame(window.size)
-  const RibbonHeight = 64
-  # Use full window minus footer for the world view; remove header/tabs/timeline
-  rootArea.rect = IRect(x: 0, y: 0, w: window.size.x, h: window.size.y - RibbonHeight)
+    # Use full window minus footer for the world view; remove header/tabs/timeline
+  rootArea.rect = IRect(x: 0, y: 0, w: window.size.x, h: window.size.y)
   rootArea.updatePanelsSizes()
-  globalFooterPanel.rect = IRect(x: 0, y: window.size.y - RibbonHeight, w: window.size.x, h: RibbonHeight)
 
 
 
@@ -84,10 +82,6 @@ proc display() =
 
   worldMapPanel.endDraw()
 
-
-  globalFooterPanel.beginDraw()
-  drawFooter(globalFooterPanel)
-  globalFooterPanel.endDraw()
 
 
   bxy.endFrame()
