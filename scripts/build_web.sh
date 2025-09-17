@@ -12,7 +12,6 @@ nim c \
   --os:standalone \
   --threads:off \
   -d:release \
-  --panicoverride:panicoverride \
   -d:nimNoDevRandom \
   -d:nimNoGetRandom \
   -d:nimNoSysrand \
