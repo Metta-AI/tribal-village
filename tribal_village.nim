@@ -1,6 +1,9 @@
 import std/[os, strutils],
-  boxy, opengl, windy, vmath,
-  src/environment, src/controls, src/common, src/panels, src/renderer, src/ui, src/external_actions
+  boxy, windy, vmath,
+  src/environment, src/controls, src/common, src/panels, src/renderer, src/external_actions
+
+when not defined(emscripten):
+  import opengl
 
 window = newWindow("Tribal Village", ivec2(1280, 800))
 makeContextCurrent(window)

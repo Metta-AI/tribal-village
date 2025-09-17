@@ -1,6 +1,6 @@
 import
   boxy, vmath, windy,
-  common, environment, utils
+  common, environment
 
 # Infection system constants
 const
