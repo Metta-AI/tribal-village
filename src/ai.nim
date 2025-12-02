@@ -539,6 +539,51 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, teammate.pos, controller.rng).uint8))
 
+    # Priority 1.5: Water nearby empty tiles next to wheat/trees to regrow resources
+    block watering:
+      let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
+      var wateringPos = ivec2(-1, -1)
+
+      # Prefer watering around wheat first, then trees
+      let wheatPos = env.findNearestTerrainSpiral(state, Wheat, controller.rng)
+      if wheatPos.x >= 0:
+        for d in dirs:
+          let nx = wheatPos.x + d.x
+          let ny = wheatPos.y + d.y
+          if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
+            if env.isEmpty(ivec2(nx, ny)) and env.terrain[nx][ny] == Empty:
+              wateringPos = ivec2(nx, ny)
+              break
+
+      if wateringPos.x < 0:
+        let treePos = env.findNearestTerrainSpiral(state, Tree, controller.rng)
+        if treePos.x >= 0:
+          for d in dirs:
+            let nx = treePos.x + d.x
+            let ny = treePos.y + d.y
+            if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
+              if env.isEmpty(ivec2(nx, ny)) and env.terrain[nx][ny] == Empty:
+                wateringPos = ivec2(nx, ny)
+                break
+
+      if wateringPos.x >= 0:
+        if agent.inventoryWater == 0:
+          let waterPos = env.findNearestTerrainSpiral(state, Water, controller.rng)
+          if waterPos.x >= 0:
+            let dx = abs(waterPos.x - agent.pos.x)
+            let dy = abs(waterPos.y - agent.pos.y)
+            if max(dx, dy) == 1'i32:
+              return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, waterPos).uint8))
+            else:
+              return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, waterPos, controller.rng).uint8))
+        else:
+          let dx = abs(wateringPos.x - agent.pos.x)
+          let dy = abs(wateringPos.y - agent.pos.y)
+          if max(dx, dy) == 1'i32:
+            return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, wateringPos).uint8))
+          else:
+            return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, wateringPos, controller.rng).uint8))
+
     # Priority 2: Craft armor if we have wood
     if agent.inventoryWood > 0:
       let armory = env.findNearestThingSpiral(state, Armory, controller.rng)
