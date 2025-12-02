@@ -91,6 +91,7 @@ var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 const WarmVillagePalette* = [
+  # Warm reds/oranges
   color(1.00, 0.20, 0.15, 1.0),  # fire red
   color(0.95, 0.32, 0.10, 1.0),  # vermilion
   color(1.00, 0.48, 0.00, 1.0),  # tangerine
@@ -102,7 +103,21 @@ const WarmVillagePalette* = [
   color(0.95, 0.35, 0.45, 1.0),  # watermelon
   color(0.90, 0.23, 0.58, 1.0),  # hot magenta
   color(0.88, 0.40, 0.18, 1.0),  # copper
-  color(0.97, 0.54, 0.22, 1.0)   # persimmon
+  color(0.97, 0.54, 0.22, 1.0),  # persimmon
+  # Earthy / muted greens
+  color(0.52, 0.70, 0.36, 1.0),  # olive jade
+  color(0.60, 0.75, 0.45, 1.0),  # moss
+  color(0.48, 0.62, 0.38, 1.0),  # forest dusk
+  # Cool accents for variety (still leaning warmish to stay readable)
+  color(0.40, 0.60, 0.78, 1.0),  # slate blue
+  color(0.48, 0.52, 0.82, 1.0),  # periwinkle
+  color(0.58, 0.36, 0.70, 1.0),  # muted purple
+  color(0.45, 0.40, 0.65, 1.0),  # twilight indigo
+  # Bright highlights for late teams
+  color(0.80, 0.90, 0.40, 1.0),  # chartreuse yellow-green
+  color(0.70, 0.85, 0.55, 1.0),  # spring green
+  color(0.85, 0.70, 0.35, 1.0),  # golden ochre
+  color(0.78, 0.55, 0.68, 1.0)   # dusty rose
 ]
 
 
