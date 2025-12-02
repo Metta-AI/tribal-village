@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import multiprocessing
+import os
 import platform
 from typing import Any, Optional
 
@@ -89,7 +90,8 @@ class FlattenVecEnv:
     def recv(self):
         result = self.inner.recv()
         if len(result) == 8:
-            o, r, d, t, ta, infos, env_ids, masks = result
+            o, r, d, t, _ta, infos, env_ids, masks = result
+            ta = _ta
         else:
             o, r, d, t, infos, env_ids, masks = result
             ta = None
@@ -125,7 +127,8 @@ def train(settings: dict[str, Any]) -> None:
 
     console = Console()
 
-    backend = pvector.Multiprocessing
+    backend_env = os.environ.get("TRIBAL_VECTOR_BACKEND", "").lower()
+    backend = pvector.Serial if backend_env == "serial" else pvector.Multiprocessing
     if platform.system() == "Darwin":
         multiprocessing.set_start_method("spawn", force=True)
 

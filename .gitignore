@@ -1,4 +1,3 @@
-train_dir/
 tribal_village
 src/tmp/
 src/mettascope.out
@@ -105,3 +104,4 @@ htmlcov/
 dmypy.json
 nimble.develop
 nimble.paths
+nim.cfg
