@@ -9,7 +9,7 @@ description = "Tribal Village - Multi-agent RL environment built with Nim"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Metta AI", email = "info@metta.ai" }]
-requires-python = ">=3.9"
+requires-python = ">=3.12,<3.13"
 dependencies = [
   "numpy>=1.20.0",
   "gymnasium>=0.29.0",
