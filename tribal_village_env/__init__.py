@@ -1,10 +1,6 @@
-"""
-Tribal Village Environment - Minimal PufferLib wrapper
+"""Python package exports for Tribal Village."""
 
-This package provides a thin wrapper for the Nim-based tribal village environment
-to integrate with PufferLib. The core game logic is implemented in Nim.
-"""
+from tribal_village_env.build import ensure_nim_library_current
+from tribal_village_env.environment import TribalVillageEnv, make_tribal_village_env
 
-from .environment import TribalVillageEnv, make_tribal_village_env
-
-__version__ = "0.1.0"
+__all__ = ["TribalVillageEnv", "make_tribal_village_env", "ensure_nim_library_current"]

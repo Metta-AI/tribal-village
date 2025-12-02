@@ -85,6 +85,15 @@ var
   followSelection*: bool = false
   mouseCaptured*: bool = false
   mouseCapturedPanel*: Panel = nil
+  mouseDownPos*: Vec2 = vec2(0, 0)
+
+proc logicalMousePos*(window: Window): Vec2 =
+  ## Mouse position in logical coordinates (accounts for HiDPI scaling).
+  window.mousePos.vec2 / window.contentScale
+
+proc logicalMouseDelta*(window: Window): Vec2 =
+  ## Mouse delta in logical coordinates (accounts for HiDPI scaling).
+  window.mouseDelta.vec2 / window.contentScale
 
 proc manhattanDistance*(a, b: IVec2): int =
   abs(a.x - b.x) + abs(a.y - b.y)
@@ -137,6 +146,16 @@ const OrientationDeltas*: array[8, OrientationDelta] = [
   (x: -1, y: 1),   # SW (Southwest)
   (x: 1, y: 1)     # SE (Southeast)
 ]
+
+const
+  ActionVerbCount* = 7
+  ActionArgumentCount* = 8
+
+proc encodeAction*(verb: uint8, argument: uint8): uint8 =
+  (verb.int * ActionArgumentCount + argument.int).uint8
+
+proc decodeAction*(value: uint8): tuple[verb: uint8, argument: uint8] =
+  (verb: (value.int div ActionArgumentCount).uint8, argument: (value.int mod ActionArgumentCount).uint8)
 
 {.push inline.}
 proc getOrientationDelta*(orient: Orientation): OrientationDelta =

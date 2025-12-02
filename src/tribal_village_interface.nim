@@ -28,6 +28,8 @@ proc tribal_village_reset_and_get_obs(
 
   try:
     globalEnv.reset()
+    if not globalEnv.observationsInitialized:
+      globalEnv.rebuildObservations()
 
     # Direct memory copy of observations (zero conversion)
     let obs_size = MapAgents * ObservationLayers * ObservationWidth * ObservationHeight
@@ -45,7 +47,7 @@ proc tribal_village_reset_and_get_obs(
 
 proc tribal_village_step_with_pointers(
   env: pointer,
-  actions_buffer: ptr UncheckedArray[uint8],    # [60, 2] direct read
+  actions_buffer: ptr UncheckedArray[uint8],    # [MapAgents] direct read
   obs_buffer: ptr UncheckedArray[uint8],        # [60, 21, 11, 11] direct write
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
@@ -57,10 +59,9 @@ proc tribal_village_step_with_pointers(
 
   try:
     # Read actions directly from buffer (no conversion)
-    var actions: array[MapAgents, array[2, uint8]]
+    var actions: array[MapAgents, uint8]
     for i in 0..<MapAgents:
-      actions[i][0] = actions_buffer[i * 2]
-      actions[i][1] = actions_buffer[i * 2 + 1]
+      actions[i] = actions_buffer[i]
 
     # Step environment
     globalEnv.step(unsafeAddr actions)
@@ -71,7 +72,11 @@ proc tribal_village_step_with_pointers(
 
     # Direct buffer writes (no dict conversion)
     for i in 0..<MapAgents:
-      rewards_buffer[i] = globalEnv.agents[i].reward
+      let agent = (if i < globalEnv.agents.len: globalEnv.agents[i] else: nil)
+      let reward = if agent.isNil: 0.0'f32 else: agent.reward
+      rewards_buffer[i] = reward
+      if not agent.isNil:
+        agent.reward = 0.0'f32
       terminals_buffer[i] = if globalEnv.terminated[i] > 0.0: 1 else: 0
       truncations_buffer[i] = if globalEnv.truncated[i] > 0.0: 1 else: 0
 
@@ -156,7 +161,7 @@ proc tribal_village_render_rgb(
               rByte = 0'u8
               gByte = 200'u8
               bByte = 200'u8
-            of Altar:
+            of assembler:
               rByte = 220'u8
               gByte = 0'u8
               bByte = 220'u8
