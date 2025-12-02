@@ -233,6 +233,7 @@ type
     tumorKillReward*: float
     survivalPenalty*: float
     deathPenalty*: float
+    waterGrowthChance*: float   # Chance that watering an empty tile spawns a plant
 
   Environment* = ref object
     currentStep*: int
@@ -645,7 +646,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Water:
     if agent.inventoryWater < MapObjectAgentMaxInventory:
       agent.inventoryWater += 1
-      env.terrain[targetPos.x][targetPos.y] = Empty
+      env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
       agent.reward += env.config.waterReward
       inc env.stats[id].actionUse
       return
@@ -673,6 +674,46 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionInvalid
       return
   of Empty:
+    # Water an empty tile adjacent to wheat or trees to encourage growth
+    if agent.inventoryWater > 0:
+      var sources: seq[TerrainType] = @[]
+      let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
+      for d in dirs:
+        let nx = targetPos.x + d.x
+        let ny = targetPos.y + d.y
+        if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
+          let t = env.terrain[nx][ny]
+          if t == Wheat or t == Tree:
+            sources.add(t)
+
+      if sources.len == 0:
+        inc env.stats[id].actionInvalid
+        return
+
+      # Consume one water and update observation
+      agent.inventoryWater = max(0, agent.inventoryWater - 1)
+      env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
+
+      # Visual feedback: slightly darker damp tile; decay system will fade it
+      env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.45, b: 0.4, intensity: 0.95)
+
+      # Deterministic RNG based on step/agent/pos
+      var rngSeed = env.currentStep * 7919 + id * 104729 + int(targetPos.x) * 31 + int(targetPos.y) * 17
+      var rng = initRand(rngSeed)
+
+      if randChance(rng, env.config.waterGrowthChance):
+        let chosen = sources[randIntInclusive(rng, 0, sources.len - 1)]
+        env.terrain[targetPos.x][targetPos.y] = chosen
+        # Fresh growth tint; also set base so decay holds the color
+        if chosen == Wheat:
+          env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.05)
+        else:
+          env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.7, b: 0.55, intensity: 1.05)
+        env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
+
+      inc env.stats[id].actionUse
+      return
+
     discard
 
   # Building use
@@ -1555,7 +1596,8 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     clothReward: 0.0,      # Disabled - not in arena
     tumorKillReward: 0.0, # Disabled - not in arena
     survivalPenalty: -0.01,
-    deathPenalty: -5.0
+    deathPenalty: -5.0,
+    waterGrowthChance: 0.25
   )
 
 proc newEnvironment*(): Environment =
