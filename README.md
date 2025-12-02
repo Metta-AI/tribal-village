@@ -18,7 +18,7 @@ curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-A
 /tmp/nimby use 2.2.6
 nimble install -y --depsOnly
 # Make the Python package importable from anywhere (editable install)
-uv pip install -e packages/tribal_village
+uv pip install -e .
 ```
 
 **Standalone Game**
@@ -45,8 +45,11 @@ nimble buildLib  # Builds in danger mode for maximum performance
 # Launch a quick sanity check (works from any directory once installed)
 python -c "from tribal_village_env import TribalVillageEnv; env = TribalVillageEnv()"
 
-# Run CoGames trainer without installing globally (uses local checkout)
-uv run --project packages/cogames --with ./packages/tribal_village \
+# Run CoGames trainer (cogames now installed via dependency). This uses the packaged copy:
+cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
+
+# Prefer to train against a local metta checkout (symlinked at ./metta)?
+uv run --project metta/packages/cogames --with . \
   cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
 
