@@ -94,17 +94,17 @@ class FlattenVecEnv:
             o, r, d, t, infos, env_ids, masks = result
             ta = None
 
-        o = np.asarray(o, copy=False).reshape(self.agents_per_batch, *self.single_observation_space.shape)
-        r = np.asarray(r, copy=False).reshape(self.agents_per_batch)
-        d = np.asarray(d, copy=False).reshape(self.agents_per_batch)
-        t = np.asarray(t, copy=False).reshape(self.agents_per_batch)
+        o = np.asarray(o).reshape(self.agents_per_batch, *self.single_observation_space.shape)
+        r = np.asarray(r).reshape(self.agents_per_batch)
+        d = np.asarray(d).reshape(self.agents_per_batch)
+        t = np.asarray(t).reshape(self.agents_per_batch)
         mask = (
-            np.asarray(masks, copy=False).reshape(self.agents_per_batch)
+            np.asarray(masks).reshape(self.agents_per_batch)
             if masks is not None
             else np.ones(self.agents_per_batch, dtype=bool)
         )
         env_ids = (
-            np.asarray(env_ids, copy=False).reshape(self.agents_per_batch)
+            np.asarray(env_ids).reshape(self.agents_per_batch)
             if env_ids is not None
             else np.arange(self.agents_per_batch, dtype=np.int32)
         )
