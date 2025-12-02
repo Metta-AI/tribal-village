@@ -16,6 +16,7 @@ dependencies = [
   "pufferlib-core>=3.0.0",
   "typer>=0.19.2",
   "rich>=13.7.0",
+  "cogames @ git+https://github.com/Metta-AI/metta.git#subdirectory=packages/cogames",
 ]
 
 [project.scripts]
