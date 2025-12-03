@@ -1185,7 +1185,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   # Calculate team ID directly from the planting agent's ID
-  var teamId = agent.agentId div 5
+  let teamId = getTeamId(agent.agentId)
 
   # Plant the lantern
   let lantern = Thing(
@@ -1361,8 +1361,8 @@ proc init(env: Environment) =
 
           let agentId = totalAgentsSpawned
 
-          # Store the village color for this agent
-          agentVillageColors[agentId] = villageColor
+          # Store the village color for this agent (shared by all agents of the house)
+          agentVillageColors[agentId] = teamColors[getTeamId(agentId)]
 
           # Create the agent
           env.add(Thing(
