@@ -1693,7 +1693,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       let x = pos.x
       let y = pos.y
       if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
-        env.actionTintFlags[x][y] = false
         continue
       let c = env.actionTintCountdown[x][y]
       if c > 0:
@@ -1701,9 +1700,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.actionTintCountdown[x][y] = next
         if next == 0:
           env.actionTintFlags[x][y] = false
-          env.tileColors[x][y] = env.baseTileColors[x][y]
-        else:
-          kept.add(pos)
+        kept.add(pos)
       else:
         env.actionTintFlags[x][y] = false
     env.actionTintPositions = kept

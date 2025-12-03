@@ -75,7 +75,7 @@ var
   settings* = Settings()
 
   play*: bool
-  playSpeed*: float32 = 0.0625  # default to former middle speed (4x)
+  playSpeed*: float32 = 0.25    # quadruple baseline speed
   lastSimTime*: float64 = nowSeconds()
 
 const
