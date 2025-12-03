@@ -234,6 +234,7 @@ type
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
+    shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     observations*: array[
       MapAgents,
       array[ObservationLayers,
@@ -583,6 +584,54 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     env.applySpearStrike(agent, attackOrientation)
   if agent.inventoryArmor > 0:
     env.applyShieldBand(agent, attackOrientation)
+    env.shieldCountdown[agent.agentId] = 2
+
+  # Spear: area strike (3 forward + diagonals)
+  if hasSpear:
+    var hit = false
+    proc applyDamageAt(pos: IVec2) =
+      if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+        return
+      let target = env.getThing(pos)
+      if isNil(target):
+        return
+      case target.kind
+      of Tumor:
+        env.grid[pos.x][pos.y] = nil
+        env.updateObservations(AgentLayer, pos, 0)
+        env.updateObservations(AgentOrientationLayer, pos, 0)
+        let idx = env.things.find(target)
+        if idx >= 0: env.things.del(idx)
+        agent.reward += env.config.tumorKillReward
+        hit = true
+      of Spawner:
+        env.grid[pos.x][pos.y] = nil
+        let idx = env.things.find(target)
+        if idx >= 0: env.things.del(idx)
+        hit = true
+      of Agent:
+        if target.agentId == agent.agentId: return
+        if getTeamId(target.agentId) == getTeamId(agent.agentId): return
+        env.transferAgentInventory(agent, target)
+        env.killAgent(target)
+        hit = true
+      else:
+        discard
+
+    let left = ivec2(-delta.y, delta.x)
+    let right = ivec2(delta.y, -delta.x)
+    for step in 1 .. 3:
+      applyDamageAt(agent.pos + ivec2(delta.x * step, delta.y * step))
+      applyDamageAt(agent.pos + ivec2(delta.x * step + left.x * step, delta.y * step + left.y * step))
+      applyDamageAt(agent.pos + ivec2(delta.x * step + right.x * step, delta.y * step + right.y * step))
+
+    if hit:
+      agent.inventorySpear = max(0, agent.inventorySpear - 1)
+      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+      inc env.stats[id].actionAttack
+    else:
+      inc env.stats[id].actionInvalid
+    return
 
   var attackHit = false
 
@@ -711,8 +760,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWater = max(0, agent.inventoryWater - 1)
       env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
 
-      # Visual feedback: slightly darker damp tile; decay system will fade it
-      env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.45, b: 0.4, intensity: 0.95)
+      # Visual feedback: slightly darker beige damp tile; decay system will fade it
+      env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.62, g: 0.57, b: 0.52, intensity: 1.0)
 
       # Deterministic RNG based on step/agent/pos
       var rngSeed = env.currentStep * 7919 + id * 104729 + int(targetPos.x) * 31 + int(targetPos.y) * 17
@@ -1245,6 +1294,7 @@ proc init(env: Environment) =
   # Clear action tints
   env.actionTintCountdown = default(ActionTintCountdown)
   env.actionTintColor = default(ActionTintColor)
+  env.shieldCountdown = default(array[MapAgents, int8])
 
   # Initialize terrain with all features
   initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
@@ -1634,6 +1684,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if next == 0:
           env.tileColors[x][y] = env.baseTileColors[x][y]
 
+  # Decay shields
+  for i in 0 ..< MapAgents:
+    if env.shieldCountdown[i] > 0:
+      env.shieldCountdown[i] = env.shieldCountdown[i] - 1
+
   inc env.currentStep
   # Single RNG for entire step - more efficient than multiple initRand calls
   var stepRng = initRand(env.currentStep)
@@ -1793,6 +1848,21 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
       let occupant = env.getThing(adjPos)
       if isNil(occupant) or occupant.kind != Agent:
+        continue
+
+      # Shield check: block death if shield active and tumor is in shield band
+      var blocked = false
+      if env.shieldCountdown[occupant.agentId] > 0:
+        let ori = occupant.orientation
+        let d = getOrientationDelta(ori)
+        let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
+        let forward = occupant.pos + ivec2(d.x, d.y)
+        for offset in -1 .. 1:
+          let shieldPos = forward + ivec2(perp.x * offset, perp.y * offset)
+          if shieldPos == tumor.pos:
+            blocked = true
+            break
+      if blocked:
         continue
 
       if randFloat(stepRng) < TumorAdjacencyDeathChance:
