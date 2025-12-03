@@ -244,13 +244,13 @@ var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 const WarmVillagePalette* = [
-  # Compact, distinct warm set (6 teams assumed), avoid cool hues to keep freeze logic clear
-  color(1.00, 0.25, 0.15, 1.0),  # fire red
-  color(1.00, 0.52, 0.12, 1.0),  # bright orange
-  color(0.95, 0.72, 0.22, 1.0),  # golden ochre
-  color(0.98, 0.58, 0.40, 1.0),  # warm peach
-  color(0.90, 0.44, 0.18, 1.0),  # copper clay
-  color(0.95, 0.35, 0.32, 1.0)   # hot coral
+  # Six high-contrast, warm-leaning team colors
+  color(0.98, 0.95, 0.90, 1.0),  # soft white
+  color(1.00, 0.90, 0.20, 1.0),  # bright yellow
+  color(1.00, 0.60, 0.10, 1.0),  # vivid orange
+  color(0.95, 0.28, 0.20, 1.0),  # strong red
+  color(0.85, 0.65, 0.18, 1.0),  # golden amber
+  color(0.70, 0.82, 0.35, 1.0)   # warm green
 ]
 
 var
@@ -1283,20 +1283,7 @@ proc init(env: Environment) =
       # Generate a distinct warm color for this village (avoid cool/blue hues)
       let paletteIndex = i mod WarmVillagePalette.len
       let villageColor = WarmVillagePalette[paletteIndex]
-
-      # If we loop past the palette (more than 12 houses), nudge the hue slightly
-      # so repeats still look distinct while staying on the warm side.
-      var finalVillageColor = villageColor
-      if i >= WarmVillagePalette.len:
-        let tweak = min(0.15, float(i div WarmVillagePalette.len) * 0.05)
-        finalVillageColor = color(
-          clamp(villageColor.r + tweak, 0.0, 1.0),
-          clamp(villageColor.g + tweak * 0.3, 0.0, 1.0),
-          clamp(villageColor.b, 0.0, 1.0),
-          1.0
-        )
-
-      teamColors.add(finalVillageColor)
+      teamColors.add(villageColor)
 
       # Spawn agents around this house
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
@@ -1307,7 +1294,7 @@ proc init(env: Environment) =
         pos: elements.center,
         hearts: MapObjectassemblerInitialHearts  # assembler starts with default hearts
       ))
-      assemblerColors[elements.center] = finalVillageColor  # Associate assembler position with village color
+      assemblerColors[elements.center] = villageColor  # Associate assembler position with village color
 
       # Initialize base colors for house tiles to team color
       for dx in 0 ..< houseStruct.width:
@@ -1316,9 +1303,9 @@ proc init(env: Environment) =
           let tileY = placementPosition.y + dy
           if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
             env.baseTileColors[tileX][tileY] = TileColor(
-              r: finalVillageColor.r,
-              g: finalVillageColor.g,
-              b: finalVillageColor.b,
+              r: villageColor.r,
+              g: villageColor.g,
+              b: villageColor.b,
               intensity: 1.0
             )
             env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
@@ -1375,7 +1362,7 @@ proc init(env: Environment) =
           let agentId = totalAgentsSpawned
 
           # Store the village color for this agent
-          agentVillageColors[agentId] = finalVillageColor
+          agentVillageColors[agentId] = villageColor
 
           # Create the agent
           env.add(Thing(
