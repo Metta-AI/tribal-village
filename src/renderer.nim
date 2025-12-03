@@ -239,9 +239,8 @@ proc drawObjects*() =
           else:
             "agents/tumor.color."
           let baseImage = spritePrefix & spriteDir
-          # Draw tumors with an ominous dark purple tint
-          let evilTint = color(0.28, 0.12, 0.38, 1.0)  # blackish purple
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200, tint = evilTint)
+          # Tumors draw directly with tint variations baked into the sprite
+          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
 
         of Armory, Forge, ClayOven, WeavingLoom:
           let imageName = case thing.kind:
@@ -350,4 +349,3 @@ proc drawSelection*() =
       angle = 0,
       scale = 1/200
     )
-
