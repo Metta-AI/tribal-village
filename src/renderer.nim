@@ -1,5 +1,5 @@
 import
-  boxy, vmath, windy,
+  boxy, vmath, windy, tables,
   common, environment
 
 # Infection system constants
@@ -304,32 +304,51 @@ proc drawAgentDecorations*() =
     if agent.frozen > 0:
       bxy.drawImage("agents/frozen", agent.pos.vec2, angle = 0, scale = 1/200)
 
-    # Inventory overlays (small icons above agent)
-    var overlays: seq[(string, int)] = @[]
-    if agent.inventoryOre > 0: overlays.add(("resources/ore", agent.inventoryOre))
-    if agent.inventoryBattery > 0: overlays.add(("resources/battery", agent.inventoryBattery))
-    if agent.inventoryWater > 0: overlays.add(("resources/water", agent.inventoryWater))
-    if agent.inventoryWheat > 0: overlays.add(("resources/wheat", agent.inventoryWheat))
-    if agent.inventoryBread > 0: overlays.add(("resources/bread", agent.inventoryBread))
-    if agent.inventoryArmor > 0: overlays.add(("resources/armor", agent.inventoryArmor))
-    # Fallback icons for missing sprites
-    if agent.inventoryLantern > 0: overlays.add(("objects/lantern", agent.inventoryLantern))
-    if agent.inventoryWood > 0: overlays.add(("resources/wood", agent.inventoryWood))
-    if agent.inventorySpear > 0: overlays.add(("resources/spear", agent.inventorySpear))
+    # Inventory overlays placed per-corner/edge for clarity
+    type OverlayItem = tuple[key: string, icon: string, count: int]
+    var overlays: seq[OverlayItem] = @[]
+    if agent.inventoryOre > 0: overlays.add((key: "nw", icon: "resources/ore", count: agent.inventoryOre))
+    if agent.inventoryBattery > 0: overlays.add((key: "n", icon: "resources/battery", count: agent.inventoryBattery))
+    if agent.inventoryWater > 0: overlays.add((key: "ne", icon: "resources/water", count: agent.inventoryWater))
+    if agent.inventoryWheat > 0: overlays.add((key: "sw", icon: "resources/wheat", count: agent.inventoryWheat))
+    if agent.inventoryBread > 0: overlays.add((key: "s", icon: "resources/bread", count: agent.inventoryBread))
+    if agent.inventoryArmor > 0: overlays.add((key: "se", icon: "resources/armor", count: agent.inventoryArmor))
+    if agent.inventoryLantern > 0: overlays.add((key: "w", icon: "objects/lantern", count: agent.inventoryLantern))
+    if agent.inventoryWood > 0: overlays.add((key: "e", icon: "resources/wood", count: agent.inventoryWood))
+    if agent.inventorySpear > 0: overlays.add((key: "c", icon: "resources/spear", count: agent.inventorySpear))
 
     if overlays.len == 0:
       continue
 
-    # Layout: row across top of tile
-    let maxIcons = 6
-    var xOffset = -0.38f
-    let step = 0.12f  # tighter spacing for even smaller icons
-    for (icon, count) in overlays:
-      let n = min(count, maxIcons)
+    let basePos = agent.pos.vec2
+    let iconScale = 1/320
+    let maxStack = 4
+    let stackStep = 0.08
+
+    # Anchor offsets per key
+    let anchor = toTable({
+      "nw": vec2(-0.40, -0.38),
+      "n":  vec2(0.00, -0.42),
+      "ne": vec2(0.40, -0.38),
+      "w":  vec2(-0.42, -0.05),
+      "c":  vec2(0.00, -0.05),
+      "e":  vec2(0.42, -0.05),
+      "sw": vec2(-0.40, 0.32),
+      "s":  vec2(0.00, 0.35),
+      "se": vec2(0.40, 0.32)
+    })
+
+    var stackCounts = initTable[string, int]()
+
+    for ov in overlays:
+      let off = anchor.getOrDefault(ov.key, vec2(0.0, -0.42))
+      var stackIdx = stackCounts.getOrDefault(ov.key, 0)
+      let n = min(ov.count, maxStack)
       for i in 0 ..< n:
-        let pos = agent.pos.vec2 + vec2(xOffset, -0.44)
-        bxy.drawImage(icon, pos, angle = 0, scale = 1/320)
-        xOffset += step
+        let pos = basePos + off + vec2(0.0, -stackIdx.float32 * stackStep)
+        bxy.drawImage(ov.icon, pos, angle = 0, scale = iconScale)
+        stackIdx += 1
+      stackCounts[ov.key] = stackIdx
 
 proc drawGrid*() =
   for x in 0 ..< MapWidth:
