@@ -13,6 +13,8 @@ const
   MapRoomHeight* = 108
   MapRoomBorder* = 0
 
+  AgentMaxHp* = 5
+
   # World Objects
   # Eight bases with six agents each -> 48 agents total (divisible by 12 and 16 for batching).
   MapRoomObjectsHouses* = 8
@@ -148,6 +150,8 @@ type
     inventoryArmor*: int    # Armor from armory (5-hit protection, tracks remaining uses)
     inventoryBread*: int    # Bread baked from clay oven
     reward*: float32
+    hp*: int
+    maxHp*: int
     homeassembler*: IVec2      # Position of agent's home assembler for respawning
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
@@ -187,6 +191,7 @@ type
   # Action tint overlay (short-lived highlights for combat/effects)
   ActionTintCountdown* = array[MapWidth, array[MapHeight, int8]]
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
+  ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
 
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
@@ -234,6 +239,8 @@ type
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
+    actionTintFlags*: ActionTintFlags
+    actionTintPositions*: seq[IVec2]
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     observations*: array[
       MapAgents,
@@ -556,6 +563,7 @@ proc killAgent(env: Environment, victim: Thing) =
 
   env.terminated[victim.agentId] = 1.0
   victim.frozen = 999999
+  victim.hp = 0
   victim.reward += env.config.deathPenalty
 
   victim.inventoryOre = 0
@@ -1294,6 +1302,8 @@ proc init(env: Environment) =
   # Clear action tints
   env.actionTintCountdown = default(ActionTintCountdown)
   env.actionTintColor = default(ActionTintColor)
+  env.actionTintFlags = default(ActionTintFlags)
+  env.actionTintPositions.setLen(0)
   env.shieldCountdown = default(array[MapAgents, int8])
 
   # Initialize terrain with all features
@@ -1456,6 +1466,8 @@ proc init(env: Environment) =
             inventoryLantern: 0,
             inventoryArmor: 0,
             frozen: 0,
+            hp: AgentMaxHp,
+            maxHp: AgentMaxHp
           ))
 
           totalAgentsSpawned += 1
@@ -1675,14 +1687,26 @@ env = newEnvironment()
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   # Decay short-lived action tints
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
+  if env.actionTintPositions.len > 0:
+    var kept: seq[IVec2] = @[]
+    for pos in env.actionTintPositions:
+      let x = pos.x
+      let y = pos.y
+      if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
+        env.actionTintFlags[x][y] = false
+        continue
       let c = env.actionTintCountdown[x][y]
       if c > 0:
         let next = c - 1
         env.actionTintCountdown[x][y] = next
         if next == 0:
+          env.actionTintFlags[x][y] = false
           env.tileColors[x][y] = env.baseTileColors[x][y]
+        else:
+          kept.add(pos)
+      else:
+        env.actionTintFlags[x][y] = false
+    env.actionTintPositions = kept
 
   # Decay shields
   for i in 0 ..< MapAgents:
@@ -1912,6 +1936,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.inventoryWood = 0
           agent.inventorySpear = 0
           agent.frozen = 0
+          agent.hp = agent.maxHp
           env.terminated[agentId] = 0.0
 
           # Update grid

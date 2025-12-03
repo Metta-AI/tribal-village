@@ -3,9 +3,11 @@
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8) =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return
-  env.tileColors[pos.x][pos.y] = tintColor
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
+  if not env.actionTintFlags[pos.x][pos.y]:
+    env.actionTintFlags[pos.x][pos.y] = true
+    env.actionTintPositions.add(pos)
 
 proc applyShieldBand(env: Environment, agent: Thing, orientation: Orientation) =
   ## 3-wide band directly in front of the agent
