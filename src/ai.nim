@@ -619,10 +619,17 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if agent.inventorySpear > 0:
       let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
       if tumor != nil:
-        let dx = abs(tumor.pos.x - agent.pos.x)
-        let dy = abs(tumor.pos.y - agent.pos.y)
-        if max(dx, dy) in [1'i32, 2'i32]:  # Spear attack range (chebyshev 1-2)
-          return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, neighborDirIndex(agent.pos, tumor.pos).uint8))
+        let dx = tumor.pos.x - agent.pos.x
+        let dy = tumor.pos.y - agent.pos.y
+        let dirVec = ivec2(sign(dx), sign(dy))
+        let orientIdx = vecToOrientation(dirVec)
+        let forward = getOrientationDelta(Orientation(orientIdx))
+        # In-front wedge: 1..3 forward, lateral <= forward step
+        let fStep = dx * forward.x + dy * forward.y
+        let perp = ivec2(-forward.y, forward.x)
+        let lateral = dx * perp.x + dy * perp.y
+        if fStep >= 1 and fStep <= 3 and abs(lateral) <= fStep:
+          return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, orientIdx.uint8))
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, tumor.pos, controller.rng).uint8))
       else:
