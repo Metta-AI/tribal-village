@@ -72,9 +72,13 @@ class FlattenVecEnv:
         ):
             setattr(self, attr, getattr(inner, attr, None))
 
-        self.agents_per_batch = getattr(inner, "agents_per_batch", getattr(inner, "num_agents", 1))
+        self.agents_per_batch = getattr(
+            inner, "agents_per_batch", getattr(inner, "num_agents", 1)
+        )
         self.num_agents = self.agents_per_batch
-        self.num_envs = getattr(inner, "num_envs", getattr(inner, "num_environments", None))
+        self.num_envs = getattr(
+            inner, "num_envs", getattr(inner, "num_environments", None)
+        )
 
     def async_reset(self, seed: int = 0) -> None:
         self.inner.async_reset(seed)
@@ -96,7 +100,9 @@ class FlattenVecEnv:
             o, r, d, t, infos, env_ids, masks = result
             ta = None
 
-        o = np.asarray(o).reshape(self.agents_per_batch, *self.single_observation_space.shape)
+        o = np.asarray(o).reshape(
+            self.agents_per_batch, *self.single_observation_space.shape
+        )
         r = np.asarray(r).reshape(self.agents_per_batch)
         d = np.asarray(d).reshape(self.agents_per_batch)
         t = np.asarray(t).reshape(self.agents_per_batch)
@@ -206,7 +212,9 @@ def train(settings: dict[str, Any]) -> None:
 
     driver_env = getattr(vecenv, "driver_env", None)
     if driver_env is None:
-        raise RuntimeError("Vectorized environment did not expose driver_env for shape inference.")
+        raise RuntimeError(
+            "Vectorized environment did not expose driver_env for shape inference."
+        )
 
     policy_env_info = TribalPolicyEnvInfo(
         observation_space=driver_env.single_observation_space,
@@ -216,13 +224,19 @@ def train(settings: dict[str, Any]) -> None:
 
     initial_weights_path = settings.get("initial_weights_path")
     resolved_initial_weights = (
-        resolve_policy_data_path(initial_weights_path) if initial_weights_path is not None else None
+        resolve_policy_data_path(initial_weights_path)
+        if initial_weights_path is not None
+        else None
     )
 
-    policy_spec = PolicySpec(class_path=settings["policy_class_path"], data_path=resolved_initial_weights)
+    policy_spec = PolicySpec(
+        class_path=settings["policy_class_path"], data_path=resolved_initial_weights
+    )
     policy = initialize_or_load_policy(policy_env_info, policy_spec)
     network = policy.network()
-    assert network is not None, f"Policy {settings['policy_class_path']} must be trainable (network() returned None)"
+    assert network is not None, (
+        f"Policy {settings['policy_class_path']} must be trainable (network() returned None)"
+    )
     network.to(settings["device"])
 
     use_rnn = getattr(policy, "is_recurrent", lambda: False)()
@@ -236,7 +250,9 @@ def train(settings: dict[str, Any]) -> None:
     optimizer = "adam"
     adam_eps = 1e-8
 
-    total_agents = max(1, getattr(vecenv, "num_agents", getattr(driver_env, "num_agents", 1)))
+    total_agents = max(
+        1, getattr(vecenv, "num_agents", getattr(driver_env, "num_agents", 1))
+    )
     num_workers = max(1, getattr(vecenv, "num_workers", num_workers))
 
     effective_agents_per_batch = agents_per_batch or total_agents
@@ -329,12 +345,16 @@ def train(settings: dict[str, Any]) -> None:
             )
 
         policy_shorthand = get_policy_class_shorthand(settings["policy_class_path"])
-        policy_arg = policy_shorthand if policy_shorthand else settings["policy_class_path"]
+        policy_arg = (
+            policy_shorthand if policy_shorthand else settings["policy_class_path"]
+        )
         policy_with_checkpoint = f"{policy_arg}:{final_checkpoint}"
 
         console.print()
         console.print("To continue training this policy:", style="bold")
-        console.print(f"  [yellow]cogames train-tribal -p {policy_with_checkpoint}[/yellow]")
+        console.print(
+            f"  [yellow]cogames train-tribal -p {policy_with_checkpoint}[/yellow]"
+        )
     else:
         console.print()
         console.print(

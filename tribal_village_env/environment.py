@@ -93,7 +93,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         super().__init__(buf)
 
         # Set up joint action space like metta does
-        self.action_space = pufferlib.spaces.joint_space(self.single_action_space, self.num_agents)
+        self.action_space = pufferlib.spaces.joint_space(
+            self.single_action_space, self.num_agents
+        )
         if hasattr(self, "actions"):
             self.actions = self.actions.astype(np.int32)
 
@@ -137,7 +139,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             width = int(self._rgb_frame.shape[1])
             height = int(self._rgb_frame.shape[0])
             try:
-                ok = self.lib.tribal_village_render_rgb(self.env_ptr, ptr, width, height)
+                ok = self.lib.tribal_village_render_rgb(
+                    self.env_ptr, ptr, width, height
+                )
             except AttributeError:
                 ok = 0
             if ok:
@@ -148,7 +152,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         cbuf = ctypes.create_string_buffer(buf_size)
         try:
             n_written = self.lib.tribal_village_render_ansi(
-                self.env_ptr, ctypes.cast(cbuf, ctypes.c_void_p), ctypes.c_int32(buf_size)
+                self.env_ptr,
+                ctypes.cast(cbuf, ctypes.c_void_p),
+                ctypes.c_int32(buf_size),
             )
         except AttributeError:
             return "(render not available in Nim build)"
@@ -209,7 +215,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         # tribal_village_render_ansi(env, out_buf, buf_len) -> int32
         try:
-            self.lib.tribal_village_render_ansi.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int32]
+            self.lib.tribal_village_render_ansi.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_int32,
+            ]
             self.lib.tribal_village_render_ansi.restype = ctypes.c_int32
         except AttributeError:
             pass
@@ -224,7 +234,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             getattr(self.lib, func_name).argtypes = []
             getattr(self.lib, func_name).restype = ctypes.c_int32
 
-    def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[Dict, Dict]:
+    def reset(
+        self, seed: Optional[int] = None, options: Optional[Dict] = None
+    ) -> Tuple[Dict, Dict]:
         """Ultra-fast reset using direct buffers."""
         self.step_count = 0
 
@@ -242,12 +254,16 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             raise RuntimeError("Failed to reset Nim environment")
 
         # Return observations as views of PufferLib buffers (no copying!)
-        observations = {f"agent_{i}": self.observations[i] for i in range(self.num_agents)}
+        observations = {
+            f"agent_{i}": self.observations[i] for i in range(self.num_agents)
+        }
         info = {f"agent_{i}": {} for i in range(self.num_agents)}
 
         return observations, info
 
-    def step(self, actions: Dict[str, np.ndarray]) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
+    def step(
+        self, actions: Dict[str, np.ndarray]
+    ) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
         """Ultra-fast step using direct buffers."""
         self.step_count += 1
 
@@ -283,11 +299,16 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             raise RuntimeError("Failed to step Nim environment")
 
         # Return results as views of PufferLib buffers (no copying!)
-        observations = {f"agent_{i}": self.observations[i] for i in range(self.num_agents)}
+        observations = {
+            f"agent_{i}": self.observations[i] for i in range(self.num_agents)
+        }
         rewards = {f"agent_{i}": float(self.rewards[i]) for i in range(self.num_agents)}
-        terminated = {f"agent_{i}": bool(self.terminals[i]) for i in range(self.num_agents)}
+        terminated = {
+            f"agent_{i}": bool(self.terminals[i]) for i in range(self.num_agents)
+        }
         truncated = {
-            f"agent_{i}": bool(self.truncations[i]) or (self.step_count >= self.max_steps)
+            f"agent_{i}": bool(self.truncations[i])
+            or (self.step_count >= self.max_steps)
             for i in range(self.num_agents)
         }
         infos = {f"agent_{i}": {} for i in range(self.num_agents)}
@@ -301,7 +322,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             self.env_ptr = None
 
 
-def make_tribal_village_env(config: Optional[Dict[str, Any]] = None, **kwargs) -> TribalVillageEnv:
+def make_tribal_village_env(
+    config: Optional[Dict[str, Any]] = None, **kwargs
+) -> TribalVillageEnv:
     """Factory function for ultra-fast tribal village environment."""
     if config is None:
         config = {}

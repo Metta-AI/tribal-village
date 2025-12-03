@@ -5,10 +5,16 @@ from typing import Any
 import numpy as np
 import torch
 from gymnasium import spaces
-from tribal_village_env.cogames.policy import TribalPolicyEnvInfo, TribalVillagePufferPolicy
+from tribal_village_env.cogames.policy import (
+    TribalPolicyEnvInfo,
+    TribalVillagePufferPolicy,
+)
 
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.policy.loader import discover_and_register_policies, resolve_policy_class_path
+from mettagrid.policy.loader import (
+    discover_and_register_policies,
+    resolve_policy_class_path,
+)
 from mettagrid.simulator.interface import AgentObservation, ObservationToken
 
 
@@ -34,7 +40,9 @@ def test_policy_short_name_registration():
 def test_policy_uses_agent_observation_tokens() -> None:
     obs_space = spaces.Box(0, 255, (2, 3), dtype=np.uint8)
     action_space = spaces.Discrete(2)
-    info = TribalPolicyEnvInfo(observation_space=obs_space, action_space=action_space, num_agents=1)
+    info = TribalPolicyEnvInfo(
+        observation_space=obs_space, action_space=action_space, num_agents=1
+    )
     policy = TribalVillagePufferPolicy(policy_env_info=info)
 
     class _StubNet(torch.nn.Module):
@@ -44,10 +52,16 @@ def test_policy_uses_agent_observation_tokens() -> None:
             self._num_actions = num_actions
             self.last_obs: torch.Tensor | None = None
 
-        def forward_eval(self, observations: torch.Tensor, state: Any = None) -> tuple[torch.Tensor, None]:
+        def forward_eval(
+            self, observations: torch.Tensor, state: Any = None
+        ) -> tuple[torch.Tensor, None]:
             self.last_obs = observations
             batch = observations.shape[0]
-            logits = torch.zeros((batch, self._num_actions), device=observations.device, dtype=torch.float32)
+            logits = torch.zeros(
+                (batch, self._num_actions),
+                device=observations.device,
+                dtype=torch.float32,
+            )
             return logits, None
 
     stub_net = _StubNet(num_actions=action_space.n)
@@ -73,5 +87,7 @@ def test_policy_uses_agent_observation_tokens() -> None:
     policy.step(obs)
 
     assert stub_net.last_obs is not None
-    expected = torch.tensor([[9.0, 8.0, 7.0], [6.0, 5.0, 4.0]], dtype=torch.float32) * (1.0 / 255.0)
+    expected = torch.tensor([[9.0, 8.0, 7.0], [6.0, 5.0, 4.0]], dtype=torch.float32) * (
+        1.0 / 255.0
+    )
     assert torch.allclose(stub_net.last_obs.squeeze(0), expected)

@@ -62,7 +62,9 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
         MultiAgentPolicy.__init__(self, policy_env_info)
         AgentPolicy.__init__(self, policy_env_info)
 
-        self._net = pufferlib.models.Default(policy_env_info.as_shim_env(), hidden_size=hidden_size)  # type: ignore[arg-type]
+        self._net = pufferlib.models.Default(
+            policy_env_info.as_shim_env(), hidden_size=hidden_size
+        )  # type: ignore[arg-type]
         if device is not None:
             self._net = self._net.to(torch.device(device))
 
@@ -108,7 +110,9 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
             for idx, token in enumerate(obs.tokens):
                 if idx >= num_tokens:
                     break
-                raw = torch.as_tensor(token.raw_token, device=self._device, dtype=obs_tensor.dtype)
+                raw = torch.as_tensor(
+                    token.raw_token, device=self._device, dtype=obs_tensor.dtype
+                )
                 obs_tensor[idx, : min(token_dim, raw.numel())] = raw[:token_dim]
         else:
             obs_tensor = torch.as_tensor(obs, device=self._device, dtype=torch.float32)

@@ -27,7 +27,9 @@ console = Console()
 
 # Attempt to register the PufferLib trainer if CoGames is installed locally.
 if attach_train_command is not None:
-    attach_train_command(app, command_name="train", require_cogames=False, console_fallback=console)
+    attach_train_command(
+        app, command_name="train", require_cogames=False, console_fallback=console
+    )
 
 
 def _project_root() -> Path:
@@ -77,11 +79,22 @@ def _run_ansi(steps: int, max_steps: Optional[int], random_actions: bool) -> Non
 
 def _options():
     return {
-        "render": typer.Option("gui", "--render", "-r", help="Render mode: gui (default) or ansi (text-only)"),
-        "steps": typer.Option(128, "--steps", "-s", help="Steps to run when using ANSI render", min=1),
-        "max_steps": typer.Option(None, "--max-steps", help="Override max steps in ANSI mode", min=1),
+        "render": typer.Option(
+            "gui",
+            "--render",
+            "-r",
+            help="Render mode: gui (default) or ansi (text-only)",
+        ),
+        "steps": typer.Option(
+            128, "--steps", "-s", help="Steps to run when using ANSI render", min=1
+        ),
+        "max_steps": typer.Option(
+            None, "--max-steps", help="Override max steps in ANSI mode", min=1
+        ),
         "random_actions": typer.Option(
-            True, "--random-actions/--no-random-actions", help="Use random actions in ANSI mode (otherwise no-op)"
+            True,
+            "--random-actions/--no-random-actions",
+            help="Use random actions in ANSI mode (otherwise no-op)",
         ),
     }
 
@@ -116,7 +129,13 @@ def root(
 ) -> None:
     """Default to play when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
-        ctx.invoke(play, render=render, steps=steps, max_steps=max_steps, random_actions=random_actions)
+        ctx.invoke(
+            play,
+            render=render,
+            steps=steps,
+            max_steps=max_steps,
+            random_actions=random_actions,
+        )
 
 
 if __name__ == "__main__":
