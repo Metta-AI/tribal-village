@@ -59,14 +59,18 @@ def _build_library(project_root: Path) -> Path:
     if result.returncode != 0:
         stdout = result.stdout.strip()
         stderr = result.stderr.strip()
-        raise RuntimeError(f"Failed to build Nim library (exit {result.returncode}). stdout: {stdout} stderr: {stderr}")
+        raise RuntimeError(
+            f"Failed to build Nim library (exit {result.returncode}). stdout: {stdout} stderr: {stderr}"
+        )
 
     for ext in (".dylib", ".dll", ".so"):
         candidate = project_root / f"libtribal_village{ext}"
         if candidate.exists():
             return candidate
 
-    raise RuntimeError("Build completed but libtribal_village.{so,dylib,dll} not found.")
+    raise RuntimeError(
+        "Build completed but libtribal_village.{so,dylib,dll} not found."
+    )
 
 
 def ensure_nim_library_current(verbose: bool = True) -> Path:
@@ -79,9 +83,13 @@ def ensure_nim_library_current(verbose: bool = True) -> Path:
 
     source_files = _collect_source_files(project_root)
     latest_source_mtime = _latest_mtime(source_files)
-    lib_mtime: Optional[float] = target_path.stat().st_mtime if target_path.exists() else None
+    lib_mtime: Optional[float] = (
+        target_path.stat().st_mtime if target_path.exists() else None
+    )
 
-    needs_rebuild = lib_mtime is None or (latest_source_mtime is not None and lib_mtime < latest_source_mtime)
+    needs_rebuild = lib_mtime is None or (
+        latest_source_mtime is not None and lib_mtime < latest_source_mtime
+    )
 
     if not needs_rebuild:
         return target_path
@@ -161,4 +169,6 @@ def _install_nim_deps(project_root: Path) -> None:
     if result.returncode != 0:
         stdout = result.stdout.strip()
         stderr = result.stderr.strip()
-        raise RuntimeError(f"nimby sync failed (exit {result.returncode}). stdout: {stdout} stderr: {stderr}")
+        raise RuntimeError(
+            f"nimby sync failed (exit {result.returncode}). stdout: {stdout} stderr: {stderr}"
+        )
