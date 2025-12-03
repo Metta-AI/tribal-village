@@ -97,6 +97,14 @@ proc drawTerrain*() =
       else:
         discard
 
+proc drawAttackOverlays*() =
+  for pos in env.actionTintPositions:
+    if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+      continue
+    if env.actionTintCountdown[pos.x][pos.y] > 0:
+      let c = env.actionTintColor[pos.x][pos.y]
+      bxy.drawImage("objects/floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 0.6))
+
 proc generateWallSprites(): seq[string] =
   result = newSeq[string](16)
   for i in 0 .. 15:
@@ -162,6 +170,7 @@ proc drawWalls*() =
                   angle = 0, scale = 1/200, tint = fillTint)
 
 proc drawObjects*() =
+  drawAttackOverlays()
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if env.grid[x][y] != nil:
@@ -303,6 +312,17 @@ proc drawAgentDecorations*() =
     # Frozen overlay
     if agent.frozen > 0:
       bxy.drawImage("agents/frozen", agent.pos.vec2, angle = 0, scale = 1/200)
+
+    # Health bar (5 segments)
+    if agent.maxHp > 0:
+      let segments = 5
+      let ratio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
+      let filled = int(ceil(ratio * segments.float32))
+      let baseOffset = vec2(-0.40, -0.55)
+      let segStep = 0.16
+      for i in 0 ..< segments:
+        let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
+        bxy.drawImage("objects/floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
 
     # Inventory overlays placed per-corner/edge for clarity
     type OverlayItem = tuple[key: string, icon: string, count: int]
