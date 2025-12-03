@@ -24,10 +24,10 @@ type
 
     pos*: Vec2
     vel*: Vec2
-    zoom*: float32 = 10
+    zoom*: float32 = 2.0      # start more zoomed in
     zoomVel*: float32
-    minZoom*: float32 = 3.5
-    maxZoom*: float32 = 100
+    minZoom*: float32 = 1.0   # modest zoom-out limit
+    maxZoom*: float32 = 40    # lower max zoom-in range
     scrollArea*: Rect
     hasMouse*: bool = false
     visible*: bool = true
