@@ -244,13 +244,13 @@ var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 const WarmVillagePalette* = [
-  # Six high-contrast, warm-leaning team colors
-  color(0.98, 0.95, 0.90, 1.0),  # soft white
-  color(1.00, 0.90, 0.20, 1.0),  # bright yellow
-  color(1.00, 0.60, 0.10, 1.0),  # vivid orange
-  color(0.95, 0.28, 0.20, 1.0),  # strong red
-  color(0.85, 0.65, 0.18, 1.0),  # golden amber
-  color(0.70, 0.82, 0.35, 1.0)   # warm green
+  # Wistia-inspired warm ramp (light yellow -> orange)
+  color(0.975, 0.961, 0.694, 1.0),  # #f9f5b1
+  color(0.975, 0.894, 0.537, 1.0),  # #f9e489
+  color(0.973, 0.824, 0.412, 1.0),  # #f8d269
+  color(0.965, 0.722, 0.337, 1.0),  # #f6b856
+  color(0.949, 0.573, 0.310, 1.0),  # #f2924f
+  color(0.925, 0.416, 0.278, 1.0)   # #ec6a47
 ]
 
 var
