@@ -85,41 +85,6 @@ template safeTintAdd*(tintMod: var int16, delta: int): void =
 {.pop.}
 
 
-# Global village color management
-var agentVillageColors*: seq[Color] = @[]
-var teamColors*: seq[Color] = @[]
-var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
-
-const WarmVillagePalette* = [
-  # Warm reds/oranges
-  color(1.00, 0.20, 0.15, 1.0),  # fire red
-  color(0.95, 0.32, 0.10, 1.0),  # vermilion
-  color(1.00, 0.48, 0.00, 1.0),  # tangerine
-  color(1.00, 0.64, 0.05, 1.0),  # amber
-  color(1.00, 0.78, 0.15, 1.0),  # sunflower
-  color(1.00, 0.64, 0.38, 1.0),  # peach
-  color(0.98, 0.46, 0.34, 1.0),  # coral
-  color(0.93, 0.29, 0.28, 1.0),  # crimson rose
-  color(0.95, 0.35, 0.45, 1.0),  # watermelon
-  color(0.90, 0.23, 0.58, 1.0),  # hot magenta
-  color(0.88, 0.40, 0.18, 1.0),  # copper
-  color(0.97, 0.54, 0.22, 1.0),  # persimmon
-  # Earthy / muted greens
-  color(0.52, 0.70, 0.36, 1.0),  # olive jade
-  color(0.60, 0.75, 0.45, 1.0),  # moss
-  color(0.48, 0.62, 0.38, 1.0),  # forest dusk
-  # Cool accents for variety (still leaning warmish to stay readable)
-  color(0.40, 0.60, 0.78, 1.0),  # slate blue
-  color(0.48, 0.52, 0.82, 1.0),  # periwinkle
-  color(0.58, 0.36, 0.70, 1.0),  # muted purple
-  color(0.45, 0.40, 0.65, 1.0),  # twilight indigo
-  # Bright highlights for late teams
-  color(0.80, 0.90, 0.40, 1.0),  # chartreuse yellow-green
-  color(0.70, 0.85, 0.55, 1.0),  # spring green
-  color(0.85, 0.70, 0.35, 1.0),  # golden ochre
-  color(0.78, 0.55, 0.68, 1.0)   # dusty rose
-]
-
 
 type
   ObservationName* = enum
@@ -272,6 +237,34 @@ type
     terminated*: array[MapAgents, float32]
     truncated*: array[MapAgents, float32]
     stats: seq[Stats]
+
+# Global village color management and palettes
+var agentVillageColors*: seq[Color] = @[]
+var teamColors*: seq[Color] = @[]
+var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
+const NeutralTileColor* = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
+
+const WarmVillagePalette* = [
+  # Light / medium (readable, non-purple)
+  color(0.98, 0.55, 0.20, 1.0),  # bright amber
+  color(0.78, 0.88, 0.48, 1.0),  # pale chartreuse
+  color(0.68, 0.85, 0.70, 1.0),  # mint jade
+  color(0.70, 0.82, 0.95, 1.0),  # soft sky
+  color(0.95, 0.70, 0.60, 1.0),  # peach blush
+  color(0.90, 0.82, 0.55, 1.0),  # golden wheat
+  color(0.85, 0.55, 0.15, 1.0),  # ochre
+  color(0.95, 0.40, 0.35, 1.0),  # coral
+  # Dark accents (contrast, still non-purple)
+  color(0.55, 0.18, 0.18, 1.0),  # oxblood
+  color(0.28, 0.42, 0.24, 1.0),  # forest moss
+  color(0.42, 0.28, 0.18, 1.0),  # burnt umber
+  color(0.30, 0.35, 0.40, 1.0),  # steel slate
+  color(0.25, 0.50, 0.55, 1.0),  # deep teal
+  # Bright highlights for extra teams
+  color(0.65, 0.90, 0.30, 1.0),  # kiwi lime
+  color(0.35, 0.75, 0.85, 1.0),  # aqua
+  color(0.88, 0.65, 0.10, 1.0)   # vivid gold
+]
 
 var
   env*: Environment  # Global environment instance
@@ -882,6 +875,17 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
   env.isEmpty(pos) and env.terrain[pos.x][pos.y] != Water
 
+proc isNearColor(a, b: TileColor, tol: float32): bool =
+  abs(a.r - b.r) <= tol and abs(a.g - b.g) <= tol and abs(a.b - b.b) <= tol
+
+proc isTumorSpreadable(env: Environment, pos: IVec2): bool =
+  ## Tumors can only spread onto neutral-looking ground (keeps them off team-colored tiles)
+  if not env.isValidEmptyPosition(pos):
+    return false
+  let baseC = env.baseTileColors[pos.x][pos.y]
+  let tintC = env.tileColors[pos.x][pos.y]
+  isNearColor(baseC, NeutralTileColor, 0.08) and isNearColor(tintC, NeutralTileColor, 0.15)
+
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
   ivec2(
@@ -974,7 +978,7 @@ proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
       if max(abs(dx), abs(dy)) > TumorBranchRange:
         continue
       let candidate = ivec2(tumor.pos.x + dx, tumor.pos.y + dy)
-      if not env.isValidEmptyPosition(candidate):
+      if not env.isTumorSpreadable(candidate):
         continue
 
       var adjacentTumor = false
@@ -1057,6 +1061,9 @@ proc updateTintModifications(env: Environment) =
             safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
             safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
             safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
+            # Force a purple-ish ground tint to visually mark creep tiles
+            if env.terrain[tileX][tileY] != Water:
+              env.tileColors[tileX][tileY] = TileColor(r: 0.45, g: 0.30, b: 0.55, intensity: 0.95)
 
     of Agent:
       # Agents create 5x stronger warmth in 3x3 area based on their tribe color
@@ -1106,6 +1113,11 @@ proc updateTintModifications(env: Environment) =
               safeTintAdd(env.tintMods[tileX][tileY].r, int((teamColor.r - 0.7) * 50 * falloff.float32))
               safeTintAdd(env.tintMods[tileX][tileY].g, int((teamColor.g - 0.65) * 50 * falloff.float32))
               safeTintAdd(env.tintMods[tileX][tileY].b, int((teamColor.b - 0.6) * 50 * falloff.float32))
+              # Lock in base/tile color to team color to mark territory (also blocks tumor spread there)
+              if env.terrain[tileX][tileY] != Water:
+                let tc = TileColor(r: teamColor.r, g: teamColor.g, b: teamColor.b, intensity: 1.0)
+                env.baseTileColors[tileX][tileY] = tc
+                env.tileColors[tileX][tileY] = tc
 
     else:
       discard
@@ -1708,7 +1720,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if nearbyTumorCount < maxTumorsPerSpawner:
           # Find first empty position (no allocation)
           let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
-          if spawnPos.x >= 0:
+          if spawnPos.x >= 0 and env.isTumorSpreadable(spawnPos):
 
             let newTumor = createTumor(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
