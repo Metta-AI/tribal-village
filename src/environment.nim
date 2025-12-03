@@ -242,28 +242,15 @@ type
 var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
-const NeutralTileColor* = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
 
 const WarmVillagePalette* = [
-  # Light / medium (readable, non-purple)
-  color(0.98, 0.55, 0.20, 1.0),  # bright amber
-  color(0.78, 0.88, 0.48, 1.0),  # pale chartreuse
-  color(0.68, 0.85, 0.70, 1.0),  # mint jade
-  color(0.70, 0.82, 0.95, 1.0),  # soft sky
-  color(0.95, 0.70, 0.60, 1.0),  # peach blush
-  color(0.90, 0.82, 0.55, 1.0),  # golden wheat
-  color(0.85, 0.55, 0.15, 1.0),  # ochre
-  color(0.95, 0.40, 0.35, 1.0),  # coral
-  # Dark accents (contrast, still non-purple)
-  color(0.55, 0.18, 0.18, 1.0),  # oxblood
-  color(0.28, 0.42, 0.24, 1.0),  # forest moss
-  color(0.42, 0.28, 0.18, 1.0),  # burnt umber
-  color(0.30, 0.35, 0.40, 1.0),  # steel slate
-  color(0.25, 0.50, 0.55, 1.0),  # deep teal
-  # Bright highlights for extra teams
-  color(0.65, 0.90, 0.30, 1.0),  # kiwi lime
-  color(0.35, 0.75, 0.85, 1.0),  # aqua
-  color(0.88, 0.65, 0.10, 1.0)   # vivid gold
+  # Compact, distinct warm set (6 teams assumed), avoid cool hues to keep freeze logic clear
+  color(1.00, 0.25, 0.15, 1.0),  # fire red
+  color(1.00, 0.52, 0.12, 1.0),  # bright orange
+  color(0.95, 0.72, 0.22, 1.0),  # golden ochre
+  color(0.98, 0.58, 0.40, 1.0),  # warm peach
+  color(0.90, 0.44, 0.18, 1.0),  # copper clay
+  color(0.95, 0.35, 0.32, 1.0)   # hot coral
 ]
 
 var
@@ -875,17 +862,6 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
   env.isEmpty(pos) and env.terrain[pos.x][pos.y] != Water
 
-proc isNearColor(a, b: TileColor, tol: float32): bool =
-  abs(a.r - b.r) <= tol and abs(a.g - b.g) <= tol and abs(a.b - b.b) <= tol
-
-proc isTumorSpreadable(env: Environment, pos: IVec2): bool =
-  ## Tumors can only spread onto neutral-looking ground (keeps them off team-colored tiles)
-  if not env.isValidEmptyPosition(pos):
-    return false
-  let baseC = env.baseTileColors[pos.x][pos.y]
-  let tintC = env.tileColors[pos.x][pos.y]
-  isNearColor(baseC, NeutralTileColor, 0.08) and isNearColor(tintC, NeutralTileColor, 0.15)
-
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
   ivec2(
@@ -978,7 +954,7 @@ proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
       if max(abs(dx), abs(dy)) > TumorBranchRange:
         continue
       let candidate = ivec2(tumor.pos.x + dx, tumor.pos.y + dy)
-      if not env.isTumorSpreadable(candidate):
+      if not env.isValidEmptyPosition(candidate):
         continue
 
       var adjacentTumor = false
@@ -1044,26 +1020,23 @@ proc updateTintModifications(env: Environment) =
 
     case thing.kind
     of Tumor:
-      # Tumors create creep spread in 5x5 area (active seeds glow brighter)
-      let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
+          # Tumors create creep spread in 5x5 area (active seeds glow brighter)
+          let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
 
-      for dx in -2 .. 2:
-        for dy in -2 .. 2:
-          let tileX = baseX + dx
-          let tileY = baseY + dy
-          if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-            # Distance-based falloff for more organic look
-            let distance = abs(dx) + abs(dy)  # Manhattan distance
-            let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
-            markActiveTile(tileX, tileY)
+          for dx in -2 .. 2:
+            for dy in -2 .. 2:
+              let tileX = baseX + dx
+              let tileY = baseY + dy
+              if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+                # Distance-based falloff for more organic look
+                let manDist = abs(dx) + abs(dy)  # Manhattan distance
+                let falloff = max(1, 5 - manDist)  # Stronger at center, weaker at edges (5x5 grid)
+                markActiveTile(tileX, tileY)
 
-            # Tumor creep effect with overflow protection
-            safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
-            safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
-            safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
-            # Force a purple-ish ground tint to visually mark creep tiles
-            if env.terrain[tileX][tileY] != Water:
-              env.tileColors[tileX][tileY] = TileColor(r: 0.45, g: 0.30, b: 0.55, intensity: 0.95)
+                # Tumor creep effect with overflow protection
+                safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
+                safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
+                safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
 
     of Agent:
       # Agents create 5x stronger warmth in 3x3 area based on their tribe color
@@ -1113,11 +1086,6 @@ proc updateTintModifications(env: Environment) =
               safeTintAdd(env.tintMods[tileX][tileY].r, int((teamColor.r - 0.7) * 50 * falloff.float32))
               safeTintAdd(env.tintMods[tileX][tileY].g, int((teamColor.g - 0.65) * 50 * falloff.float32))
               safeTintAdd(env.tintMods[tileX][tileY].b, int((teamColor.b - 0.6) * 50 * falloff.float32))
-              # Lock in base/tile color to team color to mark territory (also blocks tumor spread there)
-              if env.terrain[tileX][tileY] != Water:
-                let tc = TileColor(r: teamColor.r, g: teamColor.g, b: teamColor.b, intensity: 1.0)
-                env.baseTileColors[tileX][tileY] = tc
-                env.tileColors[tileX][tileY] = tc
 
     else:
       discard
@@ -1720,7 +1688,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if nearbyTumorCount < maxTumorsPerSpawner:
           # Find first empty position (no allocation)
           let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
-          if spawnPos.x >= 0 and env.isTumorSpreadable(spawnPos):
+          if spawnPos.x >= 0:
 
             let newTumor = createTumor(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
