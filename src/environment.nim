@@ -184,6 +184,10 @@ type
     positions*: seq[IVec2]  # Linear list of active tiles
     flags*: array[MapWidth, array[MapHeight, bool]]  # Dedup mask per tile
 
+  # Action tint overlay (short-lived highlights for combat/effects)
+  ActionTintCountdown* = array[MapWidth, array[MapHeight, int8]]
+  ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
+
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
   EnvironmentConfig* = object
@@ -228,6 +232,8 @@ type
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
+    actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
+    actionTintColor*: ActionTintColor
     observations*: array[
       MapAgents,
       array[ObservationLayers,
@@ -242,6 +248,9 @@ type
 var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
+
+include combat
+include equipment
 
 const WarmVillagePalette* = [
   # Wistia-inspired warm ramp (light yellow -> orange)
@@ -569,6 +578,12 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   let hasSpear = agent.inventorySpear > 0
   let maxRange = if hasSpear: 2 else: 1
 
+  # Special combat visuals
+  if hasSpear:
+    env.applySpearStrike(agent, attackOrientation)
+  if agent.inventoryArmor > 0:
+    env.applyShieldBand(agent, attackOrientation)
+
   var attackHit = false
 
   for distance in 1 .. maxRange:
@@ -669,6 +684,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionInvalid
       return
   of Empty:
+    # Heal burst: consume bread to heal allies around (visual only)
+    if agent.inventoryBread > 0:
+      agent.inventoryBread = max(0, agent.inventoryBread - 1)
+      env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+      env.applyHealBurst(agent)
+      inc env.stats[id].actionUse
+      return
     # Water an empty tile adjacent to wheat or trees to encourage growth
     if agent.inventoryWater > 0:
       var sources: seq[TerrainType] = @[]
@@ -1220,6 +1242,10 @@ proc init(env: Environment) =
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
 
+  # Clear action tints
+  env.actionTintCountdown = default(ActionTintCountdown)
+  env.actionTintColor = default(ActionTintColor)
+
   # Initialize terrain with all features
   initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
 
@@ -1598,6 +1624,16 @@ env = newEnvironment()
 
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
+  # Decay short-lived action tints
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      let c = env.actionTintCountdown[x][y]
+      if c > 0:
+        let next = c - 1
+        env.actionTintCountdown[x][y] = next
+        if next == 0:
+          env.tileColors[x][y] = env.baseTileColors[x][y]
+
   inc env.currentStep
   # Single RNG for entire step - more efficient than multiple initRand calls
   var stepRng = initRand(env.currentStep)
