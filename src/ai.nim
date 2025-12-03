@@ -201,6 +201,31 @@ proc chebyshevDist(a, b: IVec2): int32 =
   let dy = abs(a.y - b.y)
   return (if dx > dy: dx else: dy)
 
+proc isValidEmptyTile(env: Environment, pos: IVec2): bool =
+  pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight and
+  env.isEmpty(pos) and env.terrain[pos.x][pos.y] != Water
+
+proc getMoveAway(env: Environment, fromPos, threatPos: IVec2, rng: var Rand): int =
+  ## Pick a step that increases distance from the threat (chebyshev), prioritizing empty tiles.
+  var best: seq[IVec2] = @[]
+  var bestDist = int32(-1)
+  for dx in -1 .. 1:
+    for dy in -1 .. 1:
+      if dx == 0 and dy == 0: continue
+      let candidate = fromPos + ivec2(dx.int32, dy.int32)
+      if not isValidEmptyTile(env, candidate): continue
+      let dist = chebyshevDist(candidate, threatPos)
+      if dist > bestDist:
+        bestDist = dist
+        best.setLen(0)
+        best.add(candidate)
+      elif dist == bestDist:
+        best.add(candidate)
+  if best.len == 0:
+    return vecToOrientation(ivec2(0, -1))  # fallback north
+  let pick = sample(rng, best)
+  return vecToOrientation(pick - fromPos)
+
 proc findNearestLantern(env: Environment, pos: IVec2): tuple[pos: IVec2, found: bool, dist: int32] =
   var best = (pos: ivec2(0, 0), found: false, dist: int32.high)
   for t in env.things:
@@ -637,8 +662,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         let nextSearchPos = getNextSpiralPoint(state, controller.rng)
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
-    # Priority 2: Craft spear if we have wood
-    elif agent.inventoryWood > 0:
+    # Priority 2: If no spear and a nearby tumor (<=3), retreat away
+    let nearbyTumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
+    if nearbyTumor != nil and chebyshevDist(agent.pos, nearbyTumor.pos) <= 3:
+      let awayDir = getMoveAway(env, agent.pos, nearbyTumor.pos, controller.rng)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, awayDir.uint8))
+
+    # Priority 3: Craft spear if we have wood
+    if agent.inventoryWood > 0:
       let forge = env.findNearestThingSpiral(state, Forge, controller.rng)
       if forge != nil:
         let dx = abs(forge.pos.x - agent.pos.x)
