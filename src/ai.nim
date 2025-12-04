@@ -165,7 +165,8 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
   let endY = min(MapHeight - 1, pos.y + maxRadius)
   for x in startX..endX:
     for y in startY..endY:
-      if env.terrain[x][y] == Empty and env.fertile[x][y] == fertileNeeded and env.isEmpty(ivec2(x, y)):
+      let terrainOk = if fertileNeeded: env.terrain[x][y] == Fertile else: env.terrain[x][y] == Empty
+      if terrainOk and env.isEmpty(ivec2(x, y)):
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
           minDist = dist

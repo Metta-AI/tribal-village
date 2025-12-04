@@ -90,9 +90,10 @@ proc drawTerrain*() =
           let overlaySprite = getInfectionSprite("tree")
           if overlaySprite != "":
             bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+      of Fertile:
+        bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
       of Empty:
-        if env.fertile[x][y]:
-          bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
+        discard
       else:
         discard
 
