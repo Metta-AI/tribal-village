@@ -8,13 +8,21 @@ when not defined(emscripten):
 let baseWindowSize = ivec2(1280, 800)
 let largeWindowSize = ivec2(baseWindowSize.x * 2, baseWindowSize.y * 2)
 
-window = newWindow("Tribal Village", largeWindowSize)
-when not defined(emscripten):
-  # Default to fullscreen; fall back to the doubled window size if the platform rejects it.
-  try:
-    window.fullscreen = true
-  except:
-    discard
+proc pickInitialWindowSize(): IVec2 =
+  ## Choose a large window that fits on the primary screen
+  when defined(emscripten):
+    result = largeWindowSize
+  else:
+    let screens = windy.getScreens()
+    var target = largeWindowSize
+    for s in screens:
+      if s.primary:
+        let sz = s.size()
+        target = ivec2(min(target.x, sz.x), min(target.y, sz.y))
+        break
+    result = target
+
+window = newWindow("Tribal Village", pickInitialWindowSize())
 makeContextCurrent(window)
 
 when not defined(emscripten):
@@ -121,7 +129,8 @@ proc display() =
       let oldMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
       let oldWorldPoint = oldMat.inverse() * localMouse
 
-      let zoomFactor64 = pow(1.0 - zoomSensitivity, window.scrollDelta.y.float64)
+      # Scroll direction: wheel down (negative delta) should zoom OUT, so negate the delta in exponent.
+      let zoomFactor64 = pow(1.0 - zoomSensitivity, -window.scrollDelta.y.float64)
       let zoomFactor = zoomFactor64.float32
       worldMapPanel.zoom = clamp(worldMapPanel.zoom * zoomFactor, worldMapPanel.minZoom, worldMapPanel.maxZoom)
 

@@ -27,7 +27,7 @@ type
     zoom*: float32 = 2.0      # preferred default zoom
     zoomVel*: float32
     minZoom*: float32 = 2.0   # enforce same min as default
-    maxZoom*: float32 = 100   # original max zoom
+    maxZoom*: float32 = 8.0   # reduce maximum zoom-out
     scrollArea*: Rect
     hasMouse*: bool = false
     visible*: bool = true
