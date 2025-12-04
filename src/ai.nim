@@ -252,29 +252,6 @@ proc findNearestLantern(env: Environment, pos: IVec2): tuple[pos: IVec2, found: 
         best = (pos: t.pos, found: true, dist: d)
   return best
 
-proc findPlantDirWithSpacing(env: Environment, agentPos: IVec2, minSpacing: int32): int =
-  ## Find a planting direction whose target tile is at least minSpacing from all lanterns
-  for i in 0 .. 7:
-    let orientation = Orientation(i)
-    let dir = orientationToVec(orientation)
-    let target = agentPos + dir
-    if target.x < 0 or target.y < 0 or target.x >= MapWidth or target.y >= MapHeight:
-      continue
-    # Must be empty and not water
-    if not env.isEmpty(target):
-      continue
-    if env.terrain[target.x][target.y] == Water:
-      continue
-    var ok = true
-    for t in env.things:
-      if t.kind == PlantedLantern:
-        if chebyshevDist(target, t.pos) < minSpacing:
-          ok = false
-          break
-    if ok:
-      return i
-  return -1
-
 proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
   for t in env.things:
     if t.kind == PlantedLantern and chebyshevDist(agentPos, t.pos) == 1'i32:
@@ -528,7 +505,24 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     # Priority 1: Plant lantern if we have one
     if agent.inventoryLantern > 0:
       # Prefer planting at least 2 tiles from any existing lantern
-      let plantDir = findPlantDirWithSpacing(env, agent.pos, 2'i32)
+      var plantDir = -1
+      for i in 0 .. 7:
+        let dir = orientationToVec(Orientation(i))
+        let target = agent.pos + dir
+        if target.x < 0 or target.y < 0 or target.x >= MapWidth or target.y >= MapHeight:
+          continue
+        if not env.isEmpty(target):
+          continue
+        if env.terrain[target.x][target.y] == Water:
+          continue
+        var spaced = true
+        for t in env.things:
+          if t.kind == PlantedLantern and chebyshevDist(target, t.pos) < 2'i32:
+            spaced = false
+            break
+        if spaced:
+          plantDir = i
+          break
       if plantDir >= 0:
         return saveStateAndReturn(controller, agentId, state, encodeAction(6'u8, plantDir.uint8))
       # If no spot respects spacing, move away from nearest lantern and try later

@@ -7,13 +7,9 @@ const
   InfectionThreshold* = 0.05  # Blue tint threshold for infection
   PurpleOverlayStrength* = 0.6  # How strong the purple overlay is
 
-proc isCoolColor*(pos: IVec2): bool =
-  ## Enhanced check if a tile has cool colors and high saturation (creep zone effect)
-  return isBuildingFrozen(pos, env)
-
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
-  return if isCoolColor(pos): 1.0 else: 0.0
+  return if isBuildingFrozen(pos, env): 1.0 else: 0.0
 
 proc getInfectionSprite*(entityType: string): string =
   ## Get the appropriate infection overlay sprite for static environmental objects only

@@ -38,10 +38,6 @@ proc inCornerReserve(x, y, mapWidth, mapHeight, mapBorder: int, reserve: int): b
   let inBottomRight = (x >= right - rx and x < right) and (y >= bottom - ry and y < bottom)
   inTopLeft or inTopRight or inBottomLeft or inBottomRight
 
-proc toIVec2*(x, y: int): IVec2 =
-  result.x = x.int32
-  result.y = y.int32
-
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
 
@@ -54,7 +50,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   var startMin = max(mapBorder + RiverWidth + reserve, centerY - span)
   var startMax = min(mapHeight - mapBorder - RiverWidth - reserve, centerY + span)
   if startMin > startMax: swap(startMin, startMax)
-  var currentPos = toIVec2(mapBorder, randInclusive(r, startMin, startMax))
+  var currentPos = ivec2(mapBorder.int32, randInclusive(r, startMin, startMax).int32)
 
   var hasFork = false
   var forkPoint: IVec2
@@ -71,7 +67,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       let towardTop = int(forkPoint.y) - mapBorder
       let towardBottom = (mapHeight - mapBorder) - int(forkPoint.y)
       let dirY = (if towardTop < towardBottom: -1 else: 1)
-      var secondaryDirection = toIVec2(1, dirY)
+      var secondaryDirection = ivec2(1, dirY.int32)
 
       var secondaryPos = forkPoint
       let maxSteps = max(mapWidth * 2, mapHeight * 2)
@@ -115,7 +111,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   for pos in riverPath:
     for dx in -RiverWidth div 2 .. RiverWidth div 2:
       for dy in -RiverWidth div 2 .. RiverWidth div 2:
-        let waterPos = pos + toIVec2(dx, dy)
+        let waterPos = pos + ivec2(dx.int32, dy.int32)
         if waterPos.x >= 0 and waterPos.x < mapWidth and
            waterPos.y >= 0 and waterPos.y < mapHeight:
           if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
@@ -125,7 +121,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   for pos in secondaryPath:
     for dx in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
       for dy in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
-        let waterPos = pos + toIVec2(dx, dy)
+        let waterPos = pos + ivec2(dx.int32, dy.int32)
         if waterPos.x >= 0 and waterPos.x < mapWidth and
            waterPos.y >= 0 and waterPos.y < mapHeight:
           if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
