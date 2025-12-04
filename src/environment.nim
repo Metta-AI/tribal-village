@@ -252,8 +252,6 @@ type
     stats: seq[Stats]
 
 # Global village color management and palettes
-const FertileTileColor* = TileColor(r: 0.56, g: 0.60, b: 0.67, intensity: 1.0)  # Fixed watered/fertile tint
-
 var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
@@ -475,10 +473,8 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
 {.pop.}
 
 proc markFertile*(env: Environment, pos: IVec2) =
-  ## Mark a tile as fertile and give it the fixed watered tint
+  ## Mark a tile as fertile; keep existing base/tint so floor color stays consistent
   env.fertile[pos.x][pos.y] = true
-  env.tileColors[pos.x][pos.y] = FertileTileColor
-  env.baseTileColors[pos.x][pos.y] = FertileTileColor
 
 
 
