@@ -46,6 +46,11 @@ const
   ObservationWidth* = 11
   ObservationHeight* = 11
 
+  # Action tint observation codes (TintLayer values)
+  ActionTintAttack* = 1'u8   # red overlay when attacking
+  ActionTintShield* = 2'u8   # gold overlay when shielding (armor up)
+  ActionTintHeal* = 3'u8     # green overlay when healing
+
   # Reward System
   RewardGetWater* = 0.001
   RewardGetWheat* = 0.001
@@ -261,6 +266,10 @@ var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 include equipment
 
+# Forward declaration so combat helpers can update observations before the
+# inline definition later in the file.
+proc updateObservations(env: Environment, layer: ObservationName, pos: IVec2, value: int)
+
 const WarmVillagePalette* = [
   # Wistia-inspired warm ramp (light yellow -> orange)
   color(0.975, 0.961, 0.694, 1.0),  # #f9f5b1
@@ -272,11 +281,13 @@ const WarmVillagePalette* = [
 ]
 
 # Combat tint helpers (inlined from combat.nim)
-proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8) =
+proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
+  # Keep observation tint layer in sync so agents can “see” recent combat actions
+  env.updateObservations(TintLayer, pos, tintCode.int)
   if not env.actionTintFlags[pos.x][pos.y]:
     env.actionTintFlags[pos.x][pos.y] = true
     env.actionTintPositions.add(pos)
@@ -288,7 +299,7 @@ proc applyShieldBand(env: Environment, agent: Thing, orientation: Orientation) =
   let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
   for offset in -1 .. 1:
     let p = forward + ivec2(perp.x * offset, perp.y * offset)
-    env.applyActionTint(p, tint, 2)
+    env.applyActionTint(p, tint, 2, ActionTintShield)
 
 proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) =
   let d = getOrientationDelta(orientation)
@@ -296,9 +307,9 @@ proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) 
   let right = ivec2(d.y, -d.x)
   let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
   for step in 1 .. 3:
-    env.applyActionTint(agent.pos + ivec2(d.x * step, d.y * step), tint, 2)
-    env.applyActionTint(agent.pos + ivec2(d.x * step + left.x * step, d.y * step + left.y * step), tint, 2)
-    env.applyActionTint(agent.pos + ivec2(d.x * step + right.x * step, d.y * step + right.y * step), tint, 2)
+    env.applyActionTint(agent.pos + ivec2(d.x * step, d.y * step), tint, 2, ActionTintAttack)
+    env.applyActionTint(agent.pos + ivec2(d.x * step + left.x * step, d.y * step + left.y * step), tint, 2, ActionTintAttack)
+    env.applyActionTint(agent.pos + ivec2(d.x * step + right.x * step, d.y * step + right.y * step), tint, 2, ActionTintAttack)
 
 var
   env*: Environment  # Global environment instance
@@ -653,7 +664,7 @@ proc applyHealBurst(env: Environment, agent: Thing) =
   for dx in -1 .. 1:
     for dy in -1 .. 1:
       let p = agent.pos + ivec2(dx, dy)
-      env.applyActionTint(p, tint, 2)
+      env.applyActionTint(p, tint, 2, ActionTintHeal)
       let occ = env.getThing(p)
       if not occ.isNil and occ.kind == Agent and getTeamId(occ.agentId) == getTeamId(agent.agentId):
         discard env.applyAgentHeal(occ, 1)
@@ -1785,9 +1796,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.actionTintCountdown[x][y] = next
         if next == 0:
           env.actionTintFlags[x][y] = false
+          env.updateObservations(TintLayer, pos, 0)
         kept.add(pos)
       else:
         env.actionTintFlags[x][y] = false
+        env.updateObservations(TintLayer, pos, 0)
     env.actionTintPositions = kept
 
   # Decay shields
