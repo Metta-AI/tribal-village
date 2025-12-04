@@ -5,7 +5,16 @@ import std/[os, strutils],
 when not defined(emscripten):
   import opengl
 
-window = newWindow("Tribal Village", ivec2(1280, 800))
+let baseWindowSize = ivec2(1280, 800)
+let largeWindowSize = ivec2(baseWindowSize.x * 2, baseWindowSize.y * 2)
+
+window = newWindow("Tribal Village", largeWindowSize)
+when not defined(emscripten):
+  # Default to fullscreen; fall back to the doubled window size if the platform rejects it.
+  try:
+    window.fullscreen = true
+  except:
+    discard
 makeContextCurrent(window)
 
 when not defined(emscripten):
