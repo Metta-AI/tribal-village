@@ -1,4 +1,4 @@
-import std/[os, strutils],
+import std/[os, strutils, math],
   boxy, windy, vmath,
   src/environment, src/common, src/renderer, src/external_actions
 
@@ -35,7 +35,36 @@ worldMapPanel = Panel(panelType: WorldMap, name: "World Map")
 rootArea.areas.add(Area(layout: Horizontal))
 rootArea.panels.add(worldMapPanel)
 
+let mapCenter = vec2(
+  (MapWidth.float32 - 1.0'f32) / 2.0'f32,
+  (MapHeight.float32 - 1.0'f32) / 2.0'f32
+)
+
+var lastPanelSize = ivec2(0, 0)
+var lastContentScale: float32 = 0.0
+
 var actionsArray: array[MapAgents, uint8]
+
+proc fitMapToPanel(panelRect: IRect) =
+  ## Centers the map and chooses a zoom that fits the viewport when the window is resized.
+  let scaleF = window.contentScale.float32
+  let logicalW = panelRect.w.float32 / scaleF
+  let logicalH = panelRect.h.float32 / scaleF
+  if logicalW <= 0 or logicalH <= 0:
+    return
+
+  let padding = 0.92'f32  # Leave a small gutter so tiles do not touch the edge
+  let zoomForW = sqrt(logicalW / MapWidth.float32) * padding
+  let zoomForH = sqrt(logicalH / MapHeight.float32) * padding
+  let targetZoom = min(zoomForW, zoomForH).clamp(worldMapPanel.minZoom, worldMapPanel.maxZoom)
+  worldMapPanel.zoom = targetZoom
+
+  let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
+  worldMapPanel.pos = vec2(
+    logicalW / 2.0'f32 - mapCenter.x * zoomScale,
+    logicalH / 2.0'f32 - mapCenter.y * zoomScale
+  )
+  worldMapPanel.vel = vec2(0, 0)
 
 proc display() =
   # Handle mouse capture release
@@ -83,7 +112,15 @@ proc display() =
       updateArea(sub)
   updateArea(rootArea)
 
-  let panelRect = worldMapPanel.rect.rect
+  let panelRectInt = worldMapPanel.rect
+  let panelRect = panelRectInt.rect
+
+  if panelRectInt.w != lastPanelSize.x or
+     panelRectInt.h != lastPanelSize.y or
+     window.contentScale.float32 != lastContentScale:
+    fitMapToPanel(panelRectInt)
+    lastPanelSize = ivec2(panelRectInt.w, panelRectInt.h)
+    lastContentScale = window.contentScale.float32
 
   bxy.pushLayer()
   bxy.saveTransform()
