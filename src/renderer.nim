@@ -55,14 +55,7 @@ proc drawFloor*() =
       let finalG = min(tileColor.g * tileColor.intensity, 1.5)
       let finalB = min(tileColor.b * tileColor.intensity, 1.5)
 
-      if env.terrain[x][y] == Water:
-        let waterBlend = 0.7  # How much water color to keep
-        let r = finalR * (1.0 - waterBlend) + 0.3 * waterBlend
-        let g = finalG * (1.0 - waterBlend) + 0.5 * waterBlend
-        let b = finalB * (1.0 - waterBlend) + 0.8 * waterBlend
-        bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(r, g, b, 1.0))
-      else:
-        bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
+      bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
@@ -178,6 +171,8 @@ proc drawObjects*() =
         case thing.kind
         of Wall:
           discard
+        of WaterTile:
+          bxy.drawImage("objects/water", pos.vec2, angle = 0, scale = 1/200)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
