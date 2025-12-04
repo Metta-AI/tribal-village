@@ -66,11 +66,7 @@ proc drawFloor*() =
         let b = finalB * (1.0 - waterBlend) + 0.8 * waterBlend
         bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(r, g, b, 1.0))
       else:
-        # Always draw the base floor first
         bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
-        if env.fertile[x][y]:
-          # Overlay earth texture on fertile tiles; alpha lets base floor show through
-          bxy.drawImage("objects/earth", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(1.0, 1.0, 1.0, 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
@@ -96,6 +92,10 @@ proc drawTerrain*() =
             bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
       else:
         discard
+
+      # Overlay earth for fertile ground (only on empty terrain)
+      if env.fertile[x][y] and env.terrain[x][y] == Empty:
+        bxy.drawImage("objects/earth", pos.vec2, angle = 0, scale = 1/200)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
