@@ -95,9 +95,6 @@ proc logicalMouseDelta*(window: Window): Vec2 =
   ## Mouse delta in logical coordinates (accounts for HiDPI scaling).
   window.mouseDelta.vec2 / window.contentScale
 
-proc manhattanDistance*(a, b: IVec2): int =
-  abs(a.x - b.x) + abs(a.y - b.y)
-
 proc irect*(x, y, w, h: int): IRect =
   ## Utility function to create IRect from coordinates
   result.x = x
@@ -118,11 +115,6 @@ proc rect*(irect: IRect): Rect =
   result.y = irect.y.float32
   result.w = irect.w.float32
   result.h = irect.h.float32
-
-proc euclideanDistance*(a, b: IVec2): float =
-  let dx = (a.x - b.x).float
-  let dy = (a.y - b.y).float
-  sqrt(dx * dx + dy * dy)
 
 type
   OrientationDelta* = tuple[x, y: int]
@@ -162,20 +154,6 @@ proc getOrientationDelta*(orient: Orientation): OrientationDelta =
   OrientationDeltas[ord(orient)]
 {.pop.}
 
-proc isDiagonal*(orient: Orientation): bool =
-  ord(orient) >= ord(NW)
-
-proc getOpposite*(orient: Orientation): Orientation =
-  case orient
-  of N: S
-  of S: N
-  of W: E
-  of E: W
-  of NW: SE
-  of NE: SW
-  of SW: NE
-  of SE: NW
-
 proc orientationToVec*(orientation: Orientation): IVec2 =
   case orientation
   of N: result = ivec2(0, -1)
@@ -190,21 +168,3 @@ proc orientationToVec*(orientation: Orientation): IVec2 =
 proc ivec2*(x, y: int): IVec2 =
   result.x = x.int32
   result.y = y.int32
-
-proc getDirectionTo*(fromPos, toPos: IVec2): IVec2 =
-  let dx = toPos.x - fromPos.x
-  let dy = toPos.y - fromPos.y
-  
-  result.x = if dx > 0: 1 elif dx < 0: -1 else: 0
-  result.y = if dy > 0: 1 elif dy < 0: -1 else: 0
-
-proc relativeLocation*(orientation: Orientation, distance, offset: int): IVec2 =
-  case orientation
-  of N: ivec2(-offset, -distance)
-  of S: ivec2(offset, distance)
-  of E: ivec2(distance, -offset)
-  of W: ivec2(-distance, offset)
-  of NW: ivec2(-distance - offset, -distance + offset)
-  of NE: ivec2(distance - offset, -distance - offset)
-  of SW: ivec2(-distance + offset, distance + offset)
-  of SE: ivec2(distance + offset, distance - offset)

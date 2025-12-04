@@ -788,7 +788,3 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 proc updateController*(controller: Controller) =
   # No complex state to update - keep it simple
   discard
-
-proc resetController*(controller: Controller) =
-  ## Reset AI controller state to prevent accumulation between episodes
-  controller.agents.clear()

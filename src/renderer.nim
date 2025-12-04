@@ -15,10 +15,6 @@ proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
   return if isCoolColor(pos): 1.0 else: 0.0
 
-proc isInfected*(pos: IVec2): bool =
-  ## Check if a position has enough blue/purple tint to be frozen
-  return getInfectionLevel(pos) >= 1.0
-
 proc getInfectionSprite*(entityType: string): string =
   ## Get the appropriate infection overlay sprite for static environmental objects only
   case entityType:
