@@ -205,12 +205,21 @@ proc drawObjects*() =
 
         of assembler:
           let baseImage = "objects/altar"  # Visual centerpiece for each village
+          let assemblerTint = getassemblerColor(pos)
+          # Subtle ground tint so altars start with their team shade visible.
+          bxy.drawImage(
+            "objects/floor",
+            pos.vec2,
+            angle = 0,
+            scale = 1/200,
+            tint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 0.35)
+          )
           bxy.drawImage(
             baseImage,
             pos.vec2,
             angle = 0,
             scale = 1/200,
-            tint = getassemblerColor(pos)
+            tint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 1.0)
           )
           if infected:
             # Add infection overlay sprite
@@ -380,6 +389,55 @@ proc drawGrid*() =
         scale = 1/200
       )
 
+proc drawAssemblerHearts*(assemblerThing: Thing) =
+  ## Render the current heart count above an assembler (altar).
+  let hearts = if assemblerThing.hearts > 0: assemblerThing.hearts else: 0
+  let tint = getassemblerColor(assemblerThing.pos)
+  let basePos = assemblerThing.pos.vec2
+  let heartScale = 1/320
+  let spacing = 0.22
+  let perRow = 6
+  let maxHeartsToDraw = 12
+  let baseOffsetY = -0.72
+
+  # Show a faded placeholder when out of hearts so the click still gives feedback.
+  if hearts == 0:
+    let fadedTint = color(tint.r, tint.g, tint.b, 0.35)
+    bxy.drawImage("ui/heart", basePos + vec2(0.0, baseOffsetY), angle = 0, scale = heartScale, tint = fadedTint)
+    return
+
+  let drawCount = min(hearts, maxHeartsToDraw)
+  for i in 0 ..< drawCount:
+    let row = i div perRow
+    let col = i mod perRow
+    let rowCount = min(perRow, drawCount - row * perRow)
+    let rowOffsetX = -spacing * (rowCount.float32 - 1.0) * 0.5
+    let offset = vec2(rowOffsetX + col.float32 * spacing, baseOffsetY - row.float32 * 0.24)
+    bxy.drawImage("ui/heart", basePos + offset, angle = 0, scale = heartScale, tint = tint)
+
+  # Compact indicator when there are more hearts than we render individually.
+  if hearts > drawCount:
+    let lastRow = (drawCount - 1) div perRow
+    let plusPos = basePos + vec2(
+      spacing * (min(perRow, drawCount) - 1).float32 * 0.5 + 0.18,
+      baseOffsetY - lastRow.float32 * 0.24
+    )
+    let boxSize = 0.28
+    bxy.drawRect(
+      rect(plusPos.x - boxSize / 2, plusPos.y - boxSize / 2, boxSize, boxSize),
+      color(0, 0, 0, 0.65)
+    )
+    let barThickness = 0.06
+    let barLength = 0.16
+    bxy.drawRect(
+      rect(plusPos.x - barLength / 2, plusPos.y - barThickness / 2, barLength, barThickness),
+      tint
+    )
+    bxy.drawRect(
+      rect(plusPos.x - barThickness / 2, plusPos.y - barLength / 2, barThickness, barLength),
+      tint
+    )
+
 proc drawSelection*() =
   if selection != nil:
     bxy.drawImage(
@@ -388,3 +446,5 @@ proc drawSelection*() =
       angle = 0,
       scale = 1/200
     )
+    if selection.kind == assembler:
+      drawAssemblerHearts(selection)
