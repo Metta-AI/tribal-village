@@ -90,12 +90,11 @@ proc drawTerrain*() =
           let overlaySprite = getInfectionSprite("tree")
           if overlaySprite != "":
             bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+      of Empty:
+        if env.fertile[x][y]:
+          bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
       else:
         discard
-
-      # Overlay fertile texture on fertile ground (only on empty terrain)
-      if env.fertile[x][y] and env.terrain[x][y] == Empty:
-        bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
@@ -204,7 +203,7 @@ proc drawObjects*() =
           )
 
         of assembler:
-          let baseImage = "objects/assembler"
+          let baseImage = "objects/altar"  # Visual centerpiece for each village
           bxy.drawImage(
             baseImage,
             pos.vec2,

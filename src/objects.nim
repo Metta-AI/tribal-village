@@ -13,7 +13,7 @@ proc createHouse*(): Structure =
   result.layout = @[
     @['A', '#', '.', '#', 'F'],  # Top row with Armory (top-left), Forge (top-right)
     @['#', ' ', ' ', ' ', '#'],  # Second row
-    @['.', ' ', 'a', ' ', '.'],  # Middle row with assembler and E/W entrances
+    @['.', ' ', 'a', ' ', '.'],  # Center altar (respawn hearts) with E/W entrances
     @['#', ' ', ' ', ' ', '#'],  # Fourth row
     @['C', '#', '.', '#', 'W']   # Bottom row with Clay Oven (bottom-left), Weaving Loom (bottom-right)
   ]
