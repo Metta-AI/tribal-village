@@ -122,6 +122,7 @@ type
     ClayOven
     WeavingLoom
     PlantedLantern  # Planted lanterns that spread team colors
+    WaterTile       # Static water tiles rendered as Things
 
   Thing* = ref object
     kind*: ThingKind
@@ -189,6 +190,9 @@ type
   ActionTintCountdown* = array[MapWidth, array[MapHeight, int8]]
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
+
+const
+  BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
 
 type
   # Configuration structure for environment - ONLY runtime parameters
@@ -296,12 +300,6 @@ proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) 
     env.applyActionTint(agent.pos + ivec2(d.x * step + left.x * step, d.y * step + left.y * step), tint, 2)
     env.applyActionTint(agent.pos + ivec2(d.x * step + right.x * step, d.y * step + right.y * step), tint, 2)
 
-proc applyHealBurst(env: Environment, agent: Thing) =
-  let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
-  for dx in -1 .. 1:
-    for dy in -1 .. 1:
-      env.applyActionTint(agent.pos + ivec2(dx, dy), tint, 2)
-
 var
   env*: Environment  # Global environment instance
   selection*: Thing  # Currently selected entity for UI interaction
@@ -346,6 +344,8 @@ proc render*(env: Environment): string =
             cell = "A"
           of Wall:
             cell = "#"
+          of WaterTile:
+            cell = "~"
           of Mine:
             cell = "m"
           of Converter:
@@ -455,7 +455,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Armory, Forge, ClayOven, WeavingLoom, PlantedLantern:
+    of Armory, Forge, ClayOven, WeavingLoom, PlantedLantern, WaterTile:
       discard
 
   env.observationsInitialized = true
@@ -475,8 +475,8 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Restore a tile to the default floor color
-  env.tileColors[pos.x][pos.y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
-  env.baseTileColors[pos.x][pos.y] = env.tileColors[pos.x][pos.y]
+  env.tileColors[pos.x][pos.y] = BaseTileColorDefault
+  env.baseTileColors[pos.x][pos.y] = BaseTileColorDefault
 
 
 
@@ -615,6 +615,49 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.inventoryArmor = 0
   victim.inventoryBread = 0
 
+# Apply damage to an agent; respects armor and only freezes when HP <= 0.
+# Returns true if the agent died this call.
+proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
+  if target.isNil or amount <= 0:
+    return false
+
+  var remaining = amount
+  if target.inventoryArmor > 0:
+    let absorbed = min(remaining, target.inventoryArmor)
+    target.inventoryArmor -= absorbed
+    remaining -= absorbed
+    env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
+
+  if remaining > 0:
+    target.hp = max(0, target.hp - remaining)
+
+  if target.hp <= 0:
+    if attacker != nil:
+      env.transferAgentInventory(attacker, target)
+    env.killAgent(target)
+    return true
+
+  return false
+
+# Heal an agent up to its max HP. Returns the amount actually healed.
+proc applyAgentHeal(env: Environment, target: Thing, amount: int): int =
+  if target.isNil or amount <= 0:
+    return 0
+  let before = target.hp
+  target.hp = min(target.maxHp, target.hp + amount)
+  result = target.hp - before
+
+# Heal burst around an agent (used when consuming bread)
+proc applyHealBurst(env: Environment, agent: Thing) =
+  let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
+  for dx in -1 .. 1:
+    for dy in -1 .. 1:
+      let p = agent.pos + ivec2(dx, dy)
+      env.applyActionTint(p, tint, 2)
+      let occ = env.getThing(p)
+      if not occ.isNil and occ.kind == Agent and getTeamId(occ.agentId) == getTeamId(agent.agentId):
+        discard env.applyAgentHeal(occ, 1)
+
 # Centralized zero-HP handling so agents instantly freeze/die when drained
 proc enforceZeroHpDeaths(env: Environment) =
   for agent in env.agents:
@@ -667,8 +710,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       of Agent:
         if target.agentId == agent.agentId: return
         if getTeamId(target.agentId) == getTeamId(agent.agentId): return
-        env.transferAgentInventory(agent, target)
-        env.killAgent(target)
+        discard env.applyAgentDamage(target, 1, agent)
         hit = true
       else:
         discard
@@ -720,8 +762,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         continue
       if getTeamId(target.agentId) == getTeamId(agent.agentId):
         continue
-      env.transferAgentInventory(agent, target)
-      env.killAgent(target)
+      discard env.applyAgentDamage(target, 1, agent)
       attackHit = true
     else:
       discard
@@ -798,7 +839,12 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
   of Empty:
-    # Heal burst: consume bread to heal allies around (visual only)
+    # Terrain actions only apply if the tile is unoccupied
+    if not env.isEmpty(targetPos):
+      inc env.stats[id].actionInvalid
+      return
+
+    # Heal burst: consume bread to heal nearby allied agents (and self) for 1 HP
     if agent.inventoryBread > 0:
       agent.inventoryBread = max(0, agent.inventoryBread - 1)
       env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
@@ -812,6 +858,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
       # Create fertile terrain for future planting
       env.terrain[targetPos.x][targetPos.y] = Fertile
+      env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+      env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
       env.updateObservations(TintLayer, targetPos, 0)  # ensure obs consistency
 
       inc env.stats[id].actionUse
@@ -1298,8 +1346,8 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
     env.terrain[targetPos.x][targetPos.y] = Tree
-    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.7, b: 0.55, intensity: 1.0)
-    env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
+    env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
   else:
     if agent.inventoryWheat <= 0:
       inc env.stats[id].actionInvalid
@@ -1307,8 +1355,8 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
     env.terrain[targetPos.x][targetPos.y] = Wheat
-    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.0)
-    env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
+    env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
 
   # Consuming fertility (terrain replaced above)
   inc env.stats[id].actionPlantResource
@@ -1321,8 +1369,8 @@ proc init(env: Environment) =
   # Initialize tile colors to base terrain colors (neutral gray-brown)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      env.tileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
-      env.baseTileColors[x][y] = env.tileColors[x][y]
+      env.tileColors[x][y] = BaseTileColorDefault
+      env.baseTileColors[x][y] = BaseTileColorDefault
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
@@ -1337,6 +1385,12 @@ proc init(env: Environment) =
 
   # Initialize terrain with all features
   initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
+
+  # Spawn water tiles as Things for rendering/collision clarity
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.terrain[x][y] == Water:
+        env.add(Thing(kind: WaterTile, pos: ivec2(x.int32, y.int32)))
 
   if MapBorder > 0:
     for x in 0 ..< MapWidth:
@@ -1394,6 +1448,7 @@ proc init(env: Environment) =
             # Clear any terrain features (wheat, trees) but keep water
             if env.terrain[clearX][clearY] != Water:
               env.terrain[clearX][clearY] = Empty
+              env.resetTileColor(ivec2(clearX.int32, clearY.int32))
 
       # Generate a distinct warm color for this village (avoid cool/blue hues)
       let paletteIndex = i mod WarmVillagePalette.len
@@ -1608,6 +1663,7 @@ proc init(env: Environment) =
           if clearPos.x >= 0 and clearPos.x < MapWidth and clearPos.y >= 0 and clearPos.y < MapHeight:
             if env.terrain[clearPos.x][clearPos.y] != Water:
               env.terrain[clearPos.x][clearPos.y] = Empty
+              env.resetTileColor(clearPos)
 
       env.add(Thing(
         kind: Spawner,
@@ -1920,14 +1976,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         continue
 
       if randFloat(stepRng) < TumorAdjacencyDeathChance:
-        if tumor notin tumorsToRemove:
+        let killed = env.applyAgentDamage(occupant, 1)
+        if killed and tumor notin tumorsToRemove:
           tumorsToRemove.add(tumor)
           env.grid[tumor.pos.x][tumor.pos.y] = nil
           env.updateObservations(AgentLayer, tumor.pos, 0)
           env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
-
-        env.killAgent(occupant)
-        break
+        if killed:
+          break
 
   # Remove tumors cleared by lethal contact this step
   if tumorsToRemove.len > 0:
