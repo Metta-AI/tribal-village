@@ -1298,7 +1298,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
     env.terrain[targetPos.x][targetPos.y] = Tree
-    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.7, b: 0.55, intensity: 1.05)
+    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.7, b: 0.55, intensity: 1.0)
     env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
   else:
     if agent.inventoryWheat <= 0:
@@ -1307,7 +1307,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
     env.terrain[targetPos.x][targetPos.y] = Wheat
-    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.05)
+    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.0)
     env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
 
   # Consuming fertility (terrain replaced above)
@@ -1322,7 +1322,7 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.tileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
-      env.baseTileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
+      env.baseTileColors[x][y] = env.tileColors[x][y]
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
@@ -2059,5 +2059,14 @@ proc generateEntityColor*(entityType: string, id: int, fallbackColor: Color = co
     return fallbackColor
 
 proc getassemblerColor*(pos: IVec2): Color =
-  ## Get assembler color by position, with white fallback
-  assemblerColors.getOrDefault(pos, color(1.0, 1.0, 1.0, 1.0))
+  ## Get assembler color by position, with white fallback.
+  ## Falls back to the base tile color so assemblers start visibly tinted even
+  ## before any dynamic color updates run.
+  if assemblerColors.hasKey(pos):
+    return assemblerColors[pos]
+
+  if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
+    let base = env.baseTileColors[pos.x][pos.y]
+    return color(base.r, base.g, base.b, 1.0)
+
+  color(1.0, 1.0, 1.0, 1.0)
