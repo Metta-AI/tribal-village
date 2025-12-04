@@ -28,14 +28,6 @@ proc newBuiltinAIController*(seed: int = int(nowSeconds() * 1000)): AgentControl
     externalActionCallback: nil
   )
 
-proc newExternalNNController*(actionCallback: proc(): array[MapAgents, uint8]): AgentController =
-  ## Create a new controller using external neural network
-  AgentController(
-    controllerType: ExternalNN,
-    aiController: nil,
-    externalActionCallback: actionCallback
-  )
-
 proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSeconds() * 1000)) =
   ## Initialize the global controller with specified type
   case controllerType:
@@ -110,16 +102,3 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
       echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
       echo "Python environment must call setExternalActionsFromPython() to provide actions!"
       raise newException(ValueError, "ExternalNN controller has no actions - Python communication failed!")
-
-proc getControllerType*(): ControllerType =
-  ## Get the current controller type
-  if globalController != nil:
-    return globalController.controllerType
-  else:
-    return BuiltinAI  # Default
-
-proc isExternalControllerActive*(): bool =
-  ## Check if external neural network controller is active
-  return globalController != nil and 
-         globalController.controllerType == ExternalNN and
-         globalController.externalActionCallback != nil

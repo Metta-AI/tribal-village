@@ -73,10 +73,6 @@ proc getTeamId*(agentId: int): int =
   ## Inline team ID calculation - frequently used
   agentId div MapAgentsPerHouse
 
-proc getTeamIdByte*(agentId: int): uint8 =
-  ## Inline team ID as uint8 for observations
-  (agentId div MapAgentsPerHouse + 1).uint8
-
 template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight
@@ -193,6 +189,7 @@ type
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
 
+type
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
   EnvironmentConfig* = object
@@ -257,7 +254,6 @@ var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
-include combat
 include equipment
 
 const WarmVillagePalette* = [
@@ -269,6 +265,41 @@ const WarmVillagePalette* = [
   color(0.949, 0.573, 0.310, 1.0),  # #f2924f
   color(0.925, 0.416, 0.278, 1.0)   # #ec6a47
 ]
+
+# Combat tint helpers (inlined from combat.nim)
+proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8) =
+  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+    return
+  env.actionTintColor[pos.x][pos.y] = tintColor
+  env.actionTintCountdown[pos.x][pos.y] = duration
+  if not env.actionTintFlags[pos.x][pos.y]:
+    env.actionTintFlags[pos.x][pos.y] = true
+    env.actionTintPositions.add(pos)
+
+proc applyShieldBand(env: Environment, agent: Thing, orientation: Orientation) =
+  let d = getOrientationDelta(orientation)
+  let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
+  let forward = agent.pos + ivec2(d.x, d.y)
+  let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
+  for offset in -1 .. 1:
+    let p = forward + ivec2(perp.x * offset, perp.y * offset)
+    env.applyActionTint(p, tint, 2)
+
+proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) =
+  let d = getOrientationDelta(orientation)
+  let left = ivec2(-d.y, d.x)
+  let right = ivec2(d.y, -d.x)
+  let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
+  for step in 1 .. 3:
+    env.applyActionTint(agent.pos + ivec2(d.x * step, d.y * step), tint, 2)
+    env.applyActionTint(agent.pos + ivec2(d.x * step + left.x * step, d.y * step + left.y * step), tint, 2)
+    env.applyActionTint(agent.pos + ivec2(d.x * step + right.x * step, d.y * step + right.y * step), tint, 2)
+
+proc applyHealBurst(env: Environment, agent: Thing) =
+  let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
+  for dx in -1 .. 1:
+    for dy in -1 .. 1:
+      env.applyActionTint(agent.pos + ivec2(dx, dy), tint, 2)
 
 var
   env*: Environment  # Global environment instance
@@ -970,50 +1001,6 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
       if env.isValidEmptyPosition(pos):
         return pos
   return ivec2(-1, -1)  # No empty position found
-
-# ============== LANTERN PLACEMENT ==============
-
-proc findLanternPlacementSpot*(env: Environment, agent: Thing, controller: pointer): IVec2 =
-  ## Find a good spot to place a lantern (7+ tiles from assembler, 2+ tiles from other lanterns)
-  let homeassembler = agent.homeassembler
-
-  # Search in expanding rings around the agent
-  for radius in 1 .. 15:
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        if abs(dx) != radius and abs(dy) != radius:
-          continue  # Only check perimeter of ring
-
-        let candidate = agent.pos + ivec2(dx, dy)
-
-        # Must be valid empty position
-        if not env.isValidEmptyPosition(candidate):
-          continue
-
-        # Must be 3+ tiles from home assembler (reduced for testing)
-        let distToassembler = manhattanDistance(candidate, homeassembler)
-        if distToassembler < 3:
-          continue
-
-        # Fast grid-based lantern proximity check (avoid scanning all things)
-        var tooCloseToLantern = false
-        for dx in -1..1:
-          for dy in -1..1:
-            let checkPos = candidate + ivec2(dx, dy)
-            if isValidPos(checkPos):
-              let thing = env.getThing(checkPos)
-              if not isNil(thing) and thing.kind == PlantedLantern:
-                tooCloseToLantern = true
-                break
-          if tooCloseToLantern: break
-
-        if not tooCloseToLantern:
-          return candidate  # Found a good spot!
-
-  # No good spot found
-  return ivec2(-1, -1)
-
-# ============== CLIPPY CREEP SPREAD AI ==============
 
 
 const
