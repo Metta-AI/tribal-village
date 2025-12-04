@@ -93,9 +93,9 @@ proc drawTerrain*() =
       else:
         discard
 
-      # Overlay earth for fertile ground (only on empty terrain)
+      # Overlay fertile texture on fertile ground (only on empty terrain)
       if env.fertile[x][y] and env.terrain[x][y] == Empty:
-        bxy.drawImage("objects/earth", pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:

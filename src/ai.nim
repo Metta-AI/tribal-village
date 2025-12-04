@@ -400,6 +400,24 @@ proc getMoveTowards(env: Environment, fromPos, toPos: IVec2, rng: var Rand): int
   # All blocked, try random movement
   return randIntInclusive(rng, 0, 3)
 
+proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+  ## If carrying wood/wheat and a fertile tile is nearby, plant; otherwise move toward it.
+  if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
+    let fertilePos = findNearestFertile(env, agent.pos)
+    if fertilePos.x >= 0:
+      let dx = abs(fertilePos.x - agent.pos.x)
+      let dy = abs(fertilePos.y - agent.pos.y)
+      if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
+        let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
+        let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
+        return (true, saveStateAndReturn(controller, agentId, state,
+                 encodeAction(7'u8, plantArg.uint8)))
+      else:
+        return (true, saveStateAndReturn(controller, agentId, state,
+                 encodeAction(1'u8, getMoveTowards(env, agent.pos, fertilePos, controller.rng).uint8)))
+  return (false, 0'u8)
+
 
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
@@ -553,8 +571,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let step = agent.pos + ivec2((if dx != 0: dx div abs(dx) else: 0'i32), (if dy != 0: dy div abs(dy) else: 0'i32))
       return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, neighborDirIndex(agent.pos, step).uint8))
 
+    # Priority 2.25: Use fertile tiles while holding raw resources
+    block fertilePlanting:
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
+
     # Priority 3: Craft lantern if we have wheat
-    elif agent.inventoryWheat > 0:
+    if agent.inventoryWheat > 0:
       let loom = env.findNearestThingSpiral(state, WeavingLoom, controller.rng)
       if loom != nil:
         let dx = abs(loom.pos.x - agent.pos.x)
@@ -598,17 +622,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 1.25: Plant resources onto fertile tiles
     block plantingResources:
-      if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
-        let fertilePos = findNearestFertile(env, agent.pos)
-        if fertilePos.x >= 0:
-          let dx = abs(fertilePos.x - agent.pos.x)
-          let dy = abs(fertilePos.y - agent.pos.y)
-          if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
-            let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
-            let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
-            return saveStateAndReturn(controller, agentId, state, encodeAction(7'u8, plantArg.uint8))
-          else:
-            return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, fertilePos, controller.rng).uint8))
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
 
     # Priority 1.5: Water nearby empty tiles to create fertile ground
     block watering:
@@ -693,6 +709,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 3: Craft spear if we have wood
     if agent.inventoryWood > 0:
+      # Use fertile ground to replant wood before crafting
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
+
       let forge = env.findNearestThingSpiral(state, Forge, controller.rng)
       if forge != nil:
         let dx = abs(forge.pos.x - agent.pos.x)
@@ -731,6 +752,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 2: Craft bread if we have wheat
     if agent.inventoryWheat > 0:
+      # Replant wheat on fertile tiles to expand supply
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
+
       let oven = env.findNearestThingSpiral(state, ClayOven, controller.rng)
       if oven != nil:
         let dx = abs(oven.pos.x - agent.pos.x)
