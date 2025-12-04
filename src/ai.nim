@@ -155,6 +155,38 @@ proc findNearestTerrain(env: Environment, pos: IVec2, terrain: TerrainType): IVe
           minDist = dist
           result = terrainPos
 
+proc findNearestFertile(env: Environment, pos: IVec2, maxRadius: int = 8): IVec2 =
+  ## Find the closest fertile tile that is empty and plantable
+  result = ivec2(-1, -1)
+  var minDist = 999999
+  let startX = max(0, pos.x - maxRadius)
+  let endX = min(MapWidth - 1, pos.x + maxRadius)
+  let startY = max(0, pos.y - maxRadius)
+  let endY = min(MapHeight - 1, pos.y + maxRadius)
+  for x in startX..endX:
+    for y in startY..endY:
+      if env.fertile[x][y] and env.terrain[x][y] == Empty and env.isEmpty(ivec2(x, y)):
+        let dist = abs(x - pos.x) + abs(y - pos.y)
+        if dist < minDist:
+          minDist = dist
+          result = ivec2(x.int32, y.int32)
+
+proc findNearestEmptyTile(env: Environment, pos: IVec2, maxRadius: int = 8): IVec2 =
+  ## Find an empty, non-water tile to water
+  result = ivec2(-1, -1)
+  var minDist = 999999
+  let startX = max(0, pos.x - maxRadius)
+  let endX = min(MapWidth - 1, pos.x + maxRadius)
+  let startY = max(0, pos.y - maxRadius)
+  let endY = min(MapHeight - 1, pos.y + maxRadius)
+  for x in startX..endX:
+    for y in startY..endY:
+      if env.terrain[x][y] == Empty and not env.fertile[x][y] and env.isEmpty(ivec2(x, y)):
+        let dist = abs(x - pos.x) + abs(y - pos.y)
+        if dist < minDist:
+          minDist = dist
+          result = ivec2(x.int32, y.int32)
+
 proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: TerrainType, rng: var Rand): IVec2 =
   ## Find terrain using spiral search pattern
   # First check from current spiral search position
@@ -564,32 +596,23 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, teammate.pos, controller.rng).uint8))
 
-    # Priority 1.5: Water nearby empty tiles next to wheat/trees to regrow resources
+    # Priority 1.25: Plant resources onto fertile tiles
+    block plantingResources:
+      if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
+        let fertilePos = findNearestFertile(env, agent.pos)
+        if fertilePos.x >= 0:
+          let dx = abs(fertilePos.x - agent.pos.x)
+          let dy = abs(fertilePos.y - agent.pos.y)
+          if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
+            let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
+            let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
+            return saveStateAndReturn(controller, agentId, state, encodeAction(7'u8, plantArg.uint8))
+          else:
+            return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, fertilePos, controller.rng).uint8))
+
+    # Priority 1.5: Water nearby empty tiles to create fertile ground
     block watering:
-      let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
-      var wateringPos = ivec2(-1, -1)
-
-      # Prefer watering around wheat first, then trees
-      let wheatPos = env.findNearestTerrainSpiral(state, Wheat, controller.rng)
-      if wheatPos.x >= 0:
-        for d in dirs:
-          let nx = wheatPos.x + d.x
-          let ny = wheatPos.y + d.y
-          if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
-            if env.isEmpty(ivec2(nx, ny)) and env.terrain[nx][ny] == Empty:
-              wateringPos = ivec2(nx, ny)
-              break
-
-      if wateringPos.x < 0:
-        let treePos = env.findNearestTerrainSpiral(state, Tree, controller.rng)
-        if treePos.x >= 0:
-          for d in dirs:
-            let nx = treePos.x + d.x
-            let ny = treePos.y + d.y
-            if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
-              if env.isEmpty(ivec2(nx, ny)) and env.terrain[nx][ny] == Empty:
-                wateringPos = ivec2(nx, ny)
-                break
+      let wateringPos = findNearestEmptyTile(env, agent.pos, 8)
 
       if wateringPos.x >= 0:
         if agent.inventoryWater == 0:
