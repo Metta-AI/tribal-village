@@ -155,8 +155,8 @@ proc findNearestTerrain(env: Environment, pos: IVec2, terrain: TerrainType): IVe
           minDist = dist
           result = terrainPos
 
-proc findNearestFertile(env: Environment, pos: IVec2, maxRadius: int = 8): IVec2 =
-  ## Find the closest fertile tile that is empty and plantable
+proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadius: int = 8): IVec2 =
+  ## Find nearest empty, non-water tile matching fertile flag
   result = ivec2(-1, -1)
   var minDist = 999999
   let startX = max(0, pos.x - maxRadius)
@@ -165,23 +165,7 @@ proc findNearestFertile(env: Environment, pos: IVec2, maxRadius: int = 8): IVec2
   let endY = min(MapHeight - 1, pos.y + maxRadius)
   for x in startX..endX:
     for y in startY..endY:
-      if env.fertile[x][y] and env.terrain[x][y] == Empty and env.isEmpty(ivec2(x, y)):
-        let dist = abs(x - pos.x) + abs(y - pos.y)
-        if dist < minDist:
-          minDist = dist
-          result = ivec2(x.int32, y.int32)
-
-proc findNearestEmptyTile(env: Environment, pos: IVec2, maxRadius: int = 8): IVec2 =
-  ## Find an empty, non-water tile to water
-  result = ivec2(-1, -1)
-  var minDist = 999999
-  let startX = max(0, pos.x - maxRadius)
-  let endX = min(MapWidth - 1, pos.x + maxRadius)
-  let startY = max(0, pos.y - maxRadius)
-  let endY = min(MapHeight - 1, pos.y + maxRadius)
-  for x in startX..endX:
-    for y in startY..endY:
-      if env.terrain[x][y] == Empty and not env.fertile[x][y] and env.isEmpty(ivec2(x, y)):
+      if env.terrain[x][y] == Empty and env.fertile[x][y] == fertileNeeded and env.isEmpty(ivec2(x, y)):
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
           minDist = dist
@@ -404,7 +388,7 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
   ## If carrying wood/wheat and a fertile tile is nearby, plant; otherwise move toward it.
   if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
-    let fertilePos = findNearestFertile(env, agent.pos)
+    let fertilePos = findNearestEmpty(env, agent.pos, true)
     if fertilePos.x >= 0:
       let dx = abs(fertilePos.x - agent.pos.x)
       let dy = abs(fertilePos.y - agent.pos.y)
@@ -628,7 +612,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 1.5: Water nearby empty tiles to create fertile ground
     block watering:
-      let wateringPos = findNearestEmptyTile(env, agent.pos, 8)
+      let wateringPos = findNearestEmpty(env, agent.pos, false, 8)
 
       if wateringPos.x >= 0:
         if agent.inventoryWater == 0:

@@ -476,6 +476,11 @@ proc markFertile*(env: Environment, pos: IVec2) =
   ## Mark a tile as fertile; keep existing base/tint so floor color stays consistent
   env.fertile[pos.x][pos.y] = true
 
+proc resetTileColor*(env: Environment, pos: IVec2) =
+  ## Restore a tile to the default floor color
+  env.tileColors[pos.x][pos.y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
+  env.baseTileColors[pos.x][pos.y] = env.tileColors[pos.x][pos.y]
+
 
 
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
@@ -612,6 +617,14 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.inventoryLantern = 0
   victim.inventoryArmor = 0
   victim.inventoryBread = 0
+
+# Centralized zero-HP handling so agents instantly freeze/die when drained
+proc enforceZeroHpDeaths(env: Environment) =
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    if env.terminated[agent.agentId] == 0.0 and agent.hp <= 0:
+      env.killAgent(agent)
 
 proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Attack an entity in one of eight directions. Spears extend range to 2 tiles.
@@ -762,6 +775,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
       agent.inventoryWheat += gain
       env.terrain[targetPos.x][targetPos.y] = Empty
+      env.resetTileColor(targetPos)
       agent.reward += env.config.wheatReward
       env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       inc env.stats[id].actionUse
@@ -774,6 +788,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
       agent.inventoryWood += gain
       env.terrain[targetPos.x][targetPos.y] = Empty
+      env.resetTileColor(targetPos)
       agent.reward += env.config.woodReward
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       inc env.stats[id].actionUse
@@ -1072,23 +1087,23 @@ proc updateTintModifications(env: Environment) =
 
     case thing.kind
     of Tumor:
-          # Tumors create creep spread in 5x5 area (active seeds glow brighter)
-          let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
+      # Tumors create creep spread in 5x5 area (active seeds glow brighter)
+      let creepIntensity = if thing.hasClaimedTerritory: 2 else: 1
 
-          for dx in -2 .. 2:
-            for dy in -2 .. 2:
-              let tileX = baseX + dx
-              let tileY = baseY + dy
-              if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-                # Distance-based falloff for more organic look
-                let manDist = abs(dx) + abs(dy)  # Manhattan distance
-                let falloff = max(1, 5 - manDist)  # Stronger at center, weaker at edges (5x5 grid)
-                markActiveTile(tileX, tileY)
+      for dx in -2 .. 2:
+        for dy in -2 .. 2:
+          let tileX = baseX + dx
+          let tileY = baseY + dy
+          if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+            # Distance-based falloff for more organic look
+            let manDist = abs(dx) + abs(dy)  # Manhattan distance
+            let falloff = max(1, 5 - manDist)  # Stronger at center, weaker at edges (5x5 grid)
+            markActiveTile(tileX, tileY)
 
-                # Tumor creep effect with overflow protection
-                safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
-                safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
-                safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
+            # Tumor creep effect with overflow protection
+            safeTintAdd(env.tintMods[tileX][tileY].r, -15 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[tileX][tileY].g, -8 * creepIntensity * falloff)
+            safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
 
     of Agent:
       # Agents create 5x stronger warmth in 3x3 area based on their tribe color
@@ -1113,7 +1128,6 @@ proc updateTintModifications(env: Environment) =
 
     of assembler:
       # Reduce assembler tint effect by 10x (minimal warm glow)
-      # No HashSet tracking needed
       markActiveTile(baseX, baseY)
       safeTintAdd(env.tintMods[baseX][baseY].r, 5)
       safeTintAdd(env.tintMods[baseX][baseY].g, 5)
@@ -1394,7 +1408,7 @@ proc init(env: Environment) =
       # Spawn agents around this house
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
 
-      # Add the assembler with initial hearts and house bounds
+      # Add the altar (assembler) with initial hearts and house bounds
       env.add(Thing(
         kind: assembler,
         pos: elements.center,
@@ -1730,6 +1744,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if env.shieldCountdown[i] > 0:
       env.shieldCountdown[i] = env.shieldCountdown[i] - 1
 
+  # Remove any agents that already hit zero HP so they can't act this step
+  env.enforceZeroHpDeaths()
+
   inc env.currentStep
   # Single RNG for entire step - more efficient than multiple initRand calls
   var stepRng = initRand(env.currentStep)
@@ -1922,6 +1939,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for i in countdown(env.things.len - 1, 0):
       if env.things[i] in tumorsToRemove:
         env.things.del(i)
+
+  # Catch any agents that were reduced to zero HP during the step
+  env.enforceZeroHpDeaths()
 
   # Respawn dead agents at their assemblers
   for agentId in 0 ..< MapAgents:
