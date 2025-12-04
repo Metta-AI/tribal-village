@@ -140,7 +140,7 @@ const OrientationDeltas*: array[8, OrientationDelta] = [
 ]
 
 const
-  ActionVerbCount* = 7
+  ActionVerbCount* = 8  # Added plant-resource action (verb 7)
   ActionArgumentCount* = 8
 
 proc encodeAction*(verb: uint8, argument: uint8): uint8 =

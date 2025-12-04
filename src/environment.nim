@@ -170,6 +170,7 @@ type
     actionSwap*: int     # Action 4: SWAP
     actionPlant*: int    # Action 6: PLANT lantern
     actionPut*: int      # Action 5: GIVE to teammate
+    actionPlantResource*: int  # Action 7: Plant wheat/tree onto fertile tile
 
   TileColor* = object
     r*, g*, b*: float32      # RGB color components
@@ -233,6 +234,7 @@ type
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
+    fertile*: array[MapWidth, array[MapHeight, bool]]  # Watered tiles that can accept planting
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
@@ -250,6 +252,8 @@ type
     stats: seq[Stats]
 
 # Global village color management and palettes
+const FertileTileColor* = TileColor(r: 0.56, g: 0.60, b: 0.67, intensity: 1.0)  # Fixed watered/fertile tint
+
 var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
@@ -469,6 +473,12 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
     return false
   return env.grid[pos.x][pos.y] == nil
 {.pop.}
+
+proc markFertile*(env: Environment, pos: IVec2) =
+  ## Mark a tile as fertile and give it the fixed watered tint
+  env.fertile[pos.x][pos.y] = true
+  env.tileColors[pos.x][pos.y] = FertileTileColor
+  env.baseTileColors[pos.x][pos.y] = FertileTileColor
 
 
 
@@ -753,9 +763,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       return
   of Wheat:
     if agent.inventoryWheat < MapObjectAgentMaxInventory:
-      agent.inventoryWheat += 1
+      let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
+      agent.inventoryWheat += gain
       env.terrain[targetPos.x][targetPos.y] = Empty
       agent.reward += env.config.wheatReward
+      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       inc env.stats[id].actionUse
       return
     else:
@@ -763,9 +775,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       return
   of Tree:
     if agent.inventoryWood < MapObjectAgentMaxInventory:
-      agent.inventoryWood += 1
+      let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
+      agent.inventoryWood += gain
       env.terrain[targetPos.x][targetPos.y] = Empty
       agent.reward += env.config.woodReward
+      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       inc env.stats[id].actionUse
       return
     else:
@@ -781,40 +795,16 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       return
     # Water an empty tile adjacent to wheat or trees to encourage growth
     if agent.inventoryWater > 0:
-      var sources: seq[TerrainType] = @[]
-      let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
-      for d in dirs:
-        let nx = targetPos.x + d.x
-        let ny = targetPos.y + d.y
-        if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
-          let t = env.terrain[nx][ny]
-          if t == Wheat or t == Tree:
-            sources.add(t)
-
-      if sources.len == 0:
+      # Only allow watering empty, non-water tiles that are not occupied
+      if not env.isEmpty(targetPos):
         inc env.stats[id].actionInvalid
         return
 
-      # Consume one water and update observation
       agent.inventoryWater = max(0, agent.inventoryWater - 1)
       env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
 
-      # Visual feedback: slightly darker beige damp tile; decay system will fade it
-      env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.62, g: 0.57, b: 0.52, intensity: 1.0)
-
-      # Deterministic RNG based on step/agent/pos
-      var rngSeed = env.currentStep * 7919 + id * 104729 + int(targetPos.x) * 31 + int(targetPos.y) * 17
-      var rng = initRand(rngSeed)
-
-      if randChance(rng, env.config.waterGrowthChance):
-        let chosen = sources[randIntInclusive(rng, 0, sources.len - 1)]
-        env.terrain[targetPos.x][targetPos.y] = chosen
-        # Fresh growth tint; also set base so decay holds the color
-        if chosen == Wheat:
-          env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.05)
-        else:
-          env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.7, b: 0.55, intensity: 1.05)
-        env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
+      # Fixed fertile visual + flag; used later for manual planting
+      env.markFertile(targetPos)
 
       inc env.stats[id].actionUse
       return
@@ -1271,6 +1261,52 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   inc env.stats[id].actionPlant
 
+proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile
+  if argument < 0 or argument >= 8:
+    inc env.stats[id].actionInvalid
+    return
+
+  let plantingTree = argument >= 4
+  let dirIndex = if plantingTree: argument - 4 else: argument
+  let orientation = Orientation(dirIndex)
+  let delta = getOrientationDelta(orientation)
+  let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
+
+  # Bounds and occupancy checks
+  if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
+    inc env.stats[id].actionInvalid
+    return
+  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water:
+    inc env.stats[id].actionInvalid
+    return
+  if not env.fertile[targetPos.x][targetPos.y]:
+    inc env.stats[id].actionInvalid
+    return
+
+  if plantingTree:
+    if agent.inventoryWood <= 0:
+      inc env.stats[id].actionInvalid
+      return
+    agent.inventoryWood = max(0, agent.inventoryWood - 1)
+    env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+    env.terrain[targetPos.x][targetPos.y] = Tree
+    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.55, g: 0.7, b: 0.55, intensity: 1.05)
+    env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
+  else:
+    if agent.inventoryWheat <= 0:
+      inc env.stats[id].actionInvalid
+      return
+    agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
+    env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+    env.terrain[targetPos.x][targetPos.y] = Wheat
+    env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.05)
+    env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
+
+  # Consuming fertility
+  env.fertile[targetPos.x][targetPos.y] = false
+  inc env.stats[id].actionPlantResource
+
 proc init(env: Environment) =
   # Use current time for random seed to get different maps each time
   let seed = int(nowSeconds() * 1000)
@@ -1281,6 +1317,7 @@ proc init(env: Environment) =
     for y in 0 ..< MapHeight:
       env.tileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
       env.baseTileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
+      env.fertile[x][y] = false
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
@@ -1725,6 +1762,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of 4: env.swapAction(id, agent, argument)
     of 5: env.putAction(id, agent, argument)  # Give to teammate
     of 6: env.plantAction(id, agent, argument)  # Plant lantern
+    of 7: env.plantResourceAction(id, agent, argument)  # Plant wheat/tree on fertile tile
     else: inc env.stats[id].actionInvalid
 
   # Combined single-pass object updates and tumor collection
