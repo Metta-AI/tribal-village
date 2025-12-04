@@ -65,11 +65,12 @@ proc drawFloor*() =
         let g = finalG * (1.0 - waterBlend) + 0.5 * waterBlend
         let b = finalB * (1.0 - waterBlend) + 0.8 * waterBlend
         bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(r, g, b, 1.0))
-      elif env.fertile[x][y]:
-        # Fertile tiles use the dedicated earth texture and ignore underlying tint drift
-        bxy.drawImage("objects/earth", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(1.0, 1.0, 1.0, 1.0))
       else:
+        # Always draw the base floor first
         bxy.drawImage("objects/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
+        if env.fertile[x][y]:
+          # Overlay earth texture on fertile tiles; alpha lets base floor show through
+          bxy.drawImage("objects/earth", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(1.0, 1.0, 1.0, 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
