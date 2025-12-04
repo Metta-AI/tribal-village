@@ -234,7 +234,6 @@ type
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
-    fertile*: array[MapWidth, array[MapHeight, bool]]  # Watered tiles that can accept planting
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
@@ -335,6 +334,8 @@ proc render*(env: Environment): string =
         cell = "."
       of Tree:
         cell = "T"
+      of Fertile:
+        cell = "f"
       of Empty:
         cell = " "
       # Then override with objects if present
@@ -471,10 +472,6 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
     return false
   return env.grid[pos.x][pos.y] == nil
 {.pop.}
-
-proc markFertile*(env: Environment, pos: IVec2) =
-  ## Mark a tile as fertile; keep existing base/tint so floor color stays consistent
-  env.fertile[pos.x][pos.y] = true
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Restore a tile to the default floor color
@@ -796,6 +793,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     else:
       inc env.stats[id].actionInvalid
       return
+  of Fertile:
+    # Nothing to harvest directly from fertile soil
+    inc env.stats[id].actionInvalid
+    return
   of Empty:
     # Heal burst: consume bread to heal allies around (visual only)
     if agent.inventoryBread > 0:
@@ -806,16 +807,12 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       return
     # Water an empty tile adjacent to wheat or trees to encourage growth
     if agent.inventoryWater > 0:
-      # Only allow watering empty, non-water tiles that are not occupied
-      if not env.isEmpty(targetPos):
-        inc env.stats[id].actionInvalid
-        return
-
       agent.inventoryWater = max(0, agent.inventoryWater - 1)
       env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
 
-      # Fixed fertile visual + flag; used later for manual planting
-      env.markFertile(targetPos)
+      # Create fertile terrain for future planting
+      env.terrain[targetPos.x][targetPos.y] = Fertile
+      env.updateObservations(TintLayer, targetPos, 0)  # ensure obs consistency
 
       inc env.stats[id].actionUse
       return
@@ -1290,7 +1287,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water:
     inc env.stats[id].actionInvalid
     return
-  if not env.fertile[targetPos.x][targetPos.y]:
+  if env.terrain[targetPos.x][targetPos.y] != Fertile:
     inc env.stats[id].actionInvalid
     return
 
@@ -1313,8 +1310,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     env.tileColors[targetPos.x][targetPos.y] = TileColor(r: 0.8, g: 0.72, b: 0.55, intensity: 1.05)
     env.baseTileColors[targetPos.x][targetPos.y] = env.tileColors[targetPos.x][targetPos.y]
 
-  # Consuming fertility
-  env.fertile[targetPos.x][targetPos.y] = false
+  # Consuming fertility (terrain replaced above)
   inc env.stats[id].actionPlantResource
 
 proc init(env: Environment) =
@@ -1327,7 +1323,6 @@ proc init(env: Environment) =
     for y in 0 ..< MapHeight:
       env.tileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
       env.baseTileColors[x][y] = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
-      env.fertile[x][y] = false
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)

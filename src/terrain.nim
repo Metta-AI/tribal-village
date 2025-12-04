@@ -7,6 +7,7 @@ type
     Water
     Wheat
     Tree
+    Fertile
 
   TerrainGrid* = array[256, array[256, TerrainType]]
 
