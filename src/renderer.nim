@@ -92,7 +92,9 @@ proc drawAttackOverlays*() =
       continue
     if env.actionTintCountdown[pos.x][pos.y] > 0:
       let c = env.actionTintColor[pos.x][pos.y]
-      bxy.drawImage("objects/floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 0.6))
+      # Render the short-lived action overlay fully opaque so it sits above the
+      # normal tint layer and clearly masks the underlying tile color.
+      bxy.drawImage("objects/floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
 
 proc generateWallSprites(): seq[string] =
   result = newSeq[string](16)
@@ -211,6 +213,18 @@ proc drawObjects*() =
             angle = 0,
             scale = 1/200,
             tint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 1.0)
+          )
+          # Always show current heart count above the altar using stacked overlay style.
+          drawStackedOverlay(
+            basePos = thing.pos.vec2,
+            anchor = vec2(0.0, -0.60),
+            icon = "ui/heart",
+            count = thing.hearts,
+            tint = assemblerTint,
+            iconScale = 1/320,
+            maxStack = 5,
+            stackStep = 0.09,
+            fadedWhenZero = true
           )
           if infected:
             # Add infection overlay sprite
@@ -345,17 +359,17 @@ proc drawAgentDecorations*() =
     let maxStack = 4
     let stackStep = 0.08
 
-    # Anchor offsets per key
+    # Anchor offsets per key (keep corners near tile corners, bottom row pushed lower)
     let anchor = toTable({
-      "nw": vec2(-0.40, -0.38),
-      "n":  vec2(0.00, -0.42),
-      "ne": vec2(0.40, -0.38),
-      "w":  vec2(-0.42, -0.05),
-      "c":  vec2(0.00, -0.05),
-      "e":  vec2(0.42, -0.05),
-      "sw": vec2(-0.40, 0.32),
-      "s":  vec2(0.00, 0.35),
-      "se": vec2(0.40, 0.32)
+      "nw": vec2(-0.40, -0.48),
+      "n":  vec2(0.00, -0.52),
+      "ne": vec2(0.40, -0.48),
+      "w":  vec2(-0.48, -0.06),
+      "c":  vec2(0.00, -0.06),
+      "e":  vec2(0.48, -0.06),
+      "sw": vec2(-0.40, 0.52),
+      "s":  vec2(0.00, 0.56),
+      "se": vec2(0.40, 0.52)
     })
 
     var stackCounts = initTable[string, int]()
@@ -380,46 +394,31 @@ proc drawGrid*() =
         scale = 1/200
       )
 
-proc drawAssemblerHearts*(assemblerThing: Thing) =
-  ## Render the current heart count above an assembler (altar).
-  let hearts = if assemblerThing.hearts > 0: assemblerThing.hearts else: 0
-  let tint = getassemblerColor(assemblerThing.pos)
-  let basePos = assemblerThing.pos.vec2
-  let heartScale = 1/320
-  let spacing = 0.22
-  let perRow = 6
-  let maxHeartsToDraw = 12
-  let baseOffsetY = -0.72
-
-  # Show a faded placeholder when out of hearts so the click still gives feedback.
-  if hearts == 0:
-    let fadedTint = color(tint.r, tint.g, tint.b, 0.35)
-    bxy.drawImage("ui/heart", basePos + vec2(0.0, baseOffsetY), angle = 0, scale = heartScale, tint = fadedTint)
+proc drawStackedOverlay*(basePos: Vec2, anchor: Vec2, icon: string, count: int, tint: Color,
+                         iconScale: float32 = 1/320, maxStack: int = 5, stackStep: float32 = 0.09,
+                         fadedWhenZero = false) =
+  ## Small helper to render a stacked icon overlay (matches agent resource style).
+  let amt = max(0, count)
+  if amt == 0:
+    if fadedWhenZero:
+      let fadedTint = color(tint.r, tint.g, tint.b, 0.35)
+      bxy.drawImage(icon, basePos + anchor, angle = 0, scale = iconScale, tint = fadedTint)
     return
 
-  let drawCount = min(hearts, maxHeartsToDraw)
+  let drawCount = min(amt, maxStack)
   for i in 0 ..< drawCount:
-    let row = i div perRow
-    let col = i mod perRow
-    let rowCount = min(perRow, drawCount - row * perRow)
-    let rowOffsetX = -spacing * (rowCount.float32 - 1.0) * 0.5
-    let offset = vec2(rowOffsetX + col.float32 * spacing, baseOffsetY - row.float32 * 0.24)
-    bxy.drawImage("ui/heart", basePos + offset, angle = 0, scale = heartScale, tint = tint)
+    let pos = basePos + anchor + vec2(0.0, -i.float32 * stackStep)
+    bxy.drawImage(icon, pos, angle = 0, scale = iconScale, tint = tint)
 
-  # Compact indicator when there are more hearts than we render individually.
-  if hearts > drawCount:
-    let lastRow = (drawCount - 1) div perRow
-    let plusPos = basePos + vec2(
-      spacing * (min(perRow, drawCount) - 1).float32 * 0.5 + 0.18,
-      baseOffsetY - lastRow.float32 * 0.24
-    )
-    let boxSize = 0.28
+  if amt > drawCount:
+    let plusPos = basePos + anchor + vec2(0.14, - (drawCount - 1).float32 * stackStep)
+    let boxSize = 0.26
     bxy.drawRect(
       rect(plusPos.x - boxSize / 2, plusPos.y - boxSize / 2, boxSize, boxSize),
       color(0, 0, 0, 0.65)
     )
-    let barThickness = 0.06
-    let barLength = 0.16
+    let barThickness = 0.055
+    let barLength = 0.15
     bxy.drawRect(
       rect(plusPos.x - barLength / 2, plusPos.y - barThickness / 2, barLength, barThickness),
       tint
@@ -437,5 +436,3 @@ proc drawSelection*() =
       angle = 0,
       scale = 1/200
     )
-    if selection.kind == assembler:
-      drawAssemblerHearts(selection)
