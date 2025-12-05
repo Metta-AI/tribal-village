@@ -836,7 +836,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
       agent.inventoryWheat += gain
       env.terrain[targetPos.x][targetPos.y] = Empty
-      env.resetTileColor(targetPos)
       agent.reward += env.config.wheatReward
       env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       inc env.stats[id].actionUse
@@ -849,7 +848,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
       agent.inventoryWood += gain
       env.terrain[targetPos.x][targetPos.y] = Empty
-      env.resetTileColor(targetPos)
       agent.reward += env.config.woodReward
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       inc env.stats[id].actionUse
