@@ -8,12 +8,12 @@ import environment, common
 type
   # Simple agent roles - one per team member
   AgentRole* = enum
-    assemblerSpecialist      # Handles assembler/battery workflow
-    ArmorySpecialist     # Wood → Armor
-    ForgeSpecialist      # Wood → Spear → Hunt Tumors
-    ClayOvenSpecialist   # Wheat → Bread
-    WeavingLoomSpecialist # Wheat → Lantern → Plant
-    PlanterSpecialist     # Creates fertile ground and plants wheat/trees
+    Hearter    # Handles assembler/battery workflow
+    Armorer    # Wood -> Armor
+    Hunter     # Wood -> Spear -> Hunt Tumors
+    Baker      # Wheat -> Bread
+    Lighter    # Wheat -> Lantern -> Plant
+    Farmer     # Creates fertile ground and plants wheat/trees
 
   # Minimal state tracking with spiral search
   AgentState = object
@@ -404,13 +404,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Initialize agent role if needed (per-house pattern, 6 agents per house)
   if agentId notin controller.agents:
     let role = case agentId mod MapAgentsPerHouse:  # MapAgentsPerHouse = 6
-      of 0: assemblerSpecialist
-      of 1: ArmorySpecialist
-      of 2: ForgeSpecialist
-      of 3: ClayOvenSpecialist
-      of 4: WeavingLoomSpecialist
-      of 5: PlanterSpecialist
-      else: assemblerSpecialist
+      of 0: Hearter
+      of 1: Armorer
+      of 2: Hunter
+      of 3: Baker
+      of 4: Lighter
+      of 5: Farmer
+      else: Hearter
 
     controller.agents[agentId] = AgentState(
       role: role,
@@ -489,7 +489,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.stuckCounter = 0
 
   # Small dithering chance to break deadlocks (higher for non-assembler roles)
-  let ditherChance = if state.role == assemblerSpecialist: 0.10 else: 0.20
+  let ditherChance = if state.role == Hearter: 0.10 else: 0.20
   if randFloat(controller.rng) < ditherChance:
     var candidates = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
                        ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
@@ -515,7 +515,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Role-based decision making
   case state.role:
 
-  of WeavingLoomSpecialist:
+  of Lighter:
     # Priority 1: Plant lantern if we have one
     if agent.inventoryLantern > 0:
       # Prefer planting at least 2 tiles from any existing lantern
@@ -594,7 +594,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         let nextSearchPos = getNextSpiralPoint(state, controller.rng)
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
-  of ArmorySpecialist:
+  of Armorer:
     # Priority 1: If we have armor, deliver it to teammates who need it
     if agent.inventoryArmor > 0:
       let teammate = findNearestTeammateNeeding(env, agent, NeedArmor)
@@ -636,7 +636,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         let nextSearchPos = getNextSpiralPoint(state, controller.rng)
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
-  of ForgeSpecialist:
+  of Hunter:
     # Priority 1: Hunt clippies if we have spear using spiral search
     if agent.inventorySpear > 0:
       let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
@@ -694,7 +694,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         let nextSearchPos = getNextSpiralPoint(state, controller.rng)
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
-  of PlanterSpecialist:
+  of Farmer:
     let targetFertile = 10
     let fertileCount = countFertileEmpty(env, agent.pos, 8)
 
@@ -753,7 +753,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     let nextSearchPos = getNextSpiralPoint(state, controller.rng)
     return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
-  of ClayOvenSpecialist:
+  of Baker:
     # Priority 1: If carrying food, deliver to teammates needing it
     if agent.inventoryBread > 0:
       let teammate = findNearestTeammateNeeding(env, agent, NeedBread)
@@ -794,7 +794,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         let nextSearchPos = getNextSpiralPoint(state, controller.rng)
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
-  of assemblerSpecialist:
+  of Hearter:
     # Handle ore → battery → assembler workflow
     if agent.inventoryBattery > 0:
       # Find assembler and deposit battery
