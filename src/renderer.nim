@@ -396,15 +396,15 @@ proc drawAgentDecorations*() =
     # Inventory overlays placed per-corner/edge for clarity
     type OverlayItem = tuple[key: string, icon: string, count: int]
     var overlays: seq[OverlayItem] = @[]
-    if agent.inventoryOre > 0: overlays.add((key: "nw", icon: "resources/ore", count: agent.inventoryOre))
-    if agent.inventoryBattery > 0: overlays.add((key: "n", icon: "resources/battery", count: agent.inventoryBattery))
-    if agent.inventoryWater > 0: overlays.add((key: "ne", icon: "resources/water", count: agent.inventoryWater))
+    if agent.inventoryOre > 0: overlays.add((key: "s", icon: "resources/ore", count: agent.inventoryOre))
+    if agent.inventoryBattery > 0: overlays.add((key: "c", icon: "resources/battery", count: agent.inventoryBattery))
+    if agent.inventoryWater > 0: overlays.add((key: "n", icon: "resources/water", count: agent.inventoryWater))
     if agent.inventoryWheat > 0: overlays.add((key: "sw", icon: "resources/wheat", count: agent.inventoryWheat))
-    if agent.inventoryBread > 0: overlays.add((key: "s", icon: "resources/bread", count: agent.inventoryBread))
-    if agent.inventoryArmor > 0: overlays.add((key: "se", icon: "resources/armor", count: agent.inventoryArmor))
-    if agent.inventoryLantern > 0: overlays.add((key: "w", icon: "objects/lantern", count: agent.inventoryLantern))
-    if agent.inventoryWood > 0: overlays.add((key: "e", icon: "resources/wood", count: agent.inventoryWood))
-    if agent.inventorySpear > 0: overlays.add((key: "c", icon: "resources/spear", count: agent.inventorySpear))
+    if agent.inventoryBread > 0: overlays.add((key: "w", icon: "resources/bread", count: agent.inventoryBread))
+    if agent.inventoryArmor > 0: overlays.add((key: "nw", icon: "resources/armor", count: agent.inventoryArmor))
+    if agent.inventoryLantern > 0: overlays.add((key: "e", icon: "objects/lantern", count: agent.inventoryLantern))
+    if agent.inventoryWood > 0: overlays.add((key: "se", icon: "resources/wood", count: agent.inventoryWood))
+    if agent.inventorySpear > 0: overlays.add((key: "ne", icon: "resources/spear", count: agent.inventorySpear))
 
     if overlays.len == 0:
       continue
@@ -414,17 +414,17 @@ proc drawAgentDecorations*() =
     let maxStack = 4
     let stackStep = 0.08
 
-    # Anchor offsets per key (keep corners near tile corners, bottom row pushed lower)
+    # Anchor offsets per key (corners cling to tile corners; edges sit mid-height)
     let anchor = toTable({
-      "nw": vec2(-0.40, -0.48),
-      "n":  vec2(0.00, -0.52),
-      "ne": vec2(0.40, -0.48),
-      "w":  vec2(-0.48, -0.06),
-      "c":  vec2(0.00, -0.06),
-      "e":  vec2(0.48, 0.44),
-      "sw": vec2(-0.40, 0.44),
-      "s":  vec2(0.00, 0.56),
-      "se": vec2(0.40, 0.52)
+      "nw": vec2(-0.56, -0.56),
+      "n":  vec2(-0.08, -0.63),
+      "ne": vec2(0.40, -0.56),
+      "w":  vec2(-0.63, -0.08),
+      "c":  vec2(0.00, 0.00),
+      "e":  vec2(0.47, -0.08),
+      "sw": vec2(-0.56, 0.40),
+      "s":  vec2(-0.08, 0.47),
+      "se": vec2(0.40, 0.40)
     })
 
     var stackCounts = initTable[string, int]()
