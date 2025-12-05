@@ -1416,12 +1416,6 @@ proc init(env: Environment) =
   # Initialize terrain with all features
   initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
 
-  # Spawn water tiles as Things for rendering/collision clarity
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      if env.terrain[x][y] == Water:
-        env.add(Thing(kind: WaterTile, pos: ivec2(x.int32, y.int32)))
-
   if MapBorder > 0:
     for x in 0 ..< MapWidth:
       for j in 0 ..< MapBorder:

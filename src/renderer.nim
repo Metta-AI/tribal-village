@@ -6,6 +6,13 @@ import
 const
   InfectionThreshold* = 0.05  # Blue tint threshold for infection
   PurpleOverlayStrength* = 0.6  # How strong the purple overlay is
+  HeartPlusThreshold = 10          # Switch to compact heart counter after this many
+  HeartCountFontPath = "data/fonts/Inter-Regular.ttf"
+  HeartCountFontSize: float32 = 28
+  HeartCountPadding = 6
+
+var
+  heartCountImages: Table[int, string] = initTable[int, string]()
 
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
@@ -130,6 +137,41 @@ proc drawStackedOverlay*(basePos: Vec2, anchor: Vec2, icon: string, count: int, 
       tint
     )
 
+proc ensureHeartCountLabel(count: int): string =
+  ## Cache a simple "x N" label for large heart counts so we can reuse textures.
+  if count <= 0:
+    return ""
+
+  if count in heartCountImages:
+    return heartCountImages[count]
+
+  let text = "x " & $count
+
+  # First pass to measure how large the label needs to be.
+  var measureCtx = newContext(1, 1)
+  measureCtx.font = HeartCountFontPath
+  measureCtx.fontSize = HeartCountFontSize
+  measureCtx.textBaseline = TopBaseline
+  let metrics = measureCtx.measureText(text)
+
+  let padding = HeartCountPadding
+  let labelWidth = max(1, metrics.width.int + padding * 2)
+  let labelHeight = max(1, measureCtx.fontSize.int + padding * 2)
+
+  # Render the text into a fresh image.
+  var ctx = newContext(labelWidth, labelHeight)
+  ctx.font = HeartCountFontPath
+  ctx.fontSize = HeartCountFontSize
+  ctx.textBaseline = TopBaseline
+  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillText(text, vec2(padding.float32, padding.float32))
+
+  let key = "ui/heart_count/" & $count
+  bxy.addImage(key, ctx.image, genMipmaps = false)
+  heartCountImages[count] = key
+
+  result = key
+
 proc generateWallSprites(): seq[string] =
   result = newSeq[string](16)
   for i in 0 .. 15:
@@ -197,6 +239,12 @@ proc drawWalls*() =
 proc drawObjects*() =
   drawAttackOverlays()
 
+  # Draw water from terrain so agents can occupy those tiles while keeping visuals.
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.terrain[x][y] == Water:
+        bxy.drawImage("objects/water", ivec2(x, y).vec2, angle = 0, scale = 1/200)
+
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if env.grid[x][y] != nil:
@@ -259,28 +307,17 @@ proc drawObjects*() =
             let fadedTint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 0.35)
             bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
           else:
-            let drawCount = min(amt, 5)
-            for i in 0 ..< drawCount:
-              let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
-              bxy.drawImage("ui/heart", posHeart, angle = 0, scale = heartScale, tint = assemblerTint)
-
-            if amt > drawCount:
-              let plusPos = thing.pos.vec2 + heartAnchor + vec2(heartStep * drawCount.float32, 0.0)
-              let boxSize = 0.26
-              bxy.drawRect(
-                rect(plusPos.x - boxSize / 2, plusPos.y - boxSize / 2, boxSize, boxSize),
-                color(0, 0, 0, 0.65)
-              )
-              let barThickness = 0.055
-              let barLength = 0.15
-              bxy.drawRect(
-                rect(plusPos.x - barLength / 2, plusPos.y - barThickness / 2, barLength, barThickness),
-                assemblerTint
-              )
-              bxy.drawRect(
-                rect(plusPos.x - barThickness / 2, plusPos.y - barLength / 2, barThickness, barLength),
-                assemblerTint
-              )
+            if amt <= HeartPlusThreshold:
+              let drawCount = amt
+              for i in 0 ..< drawCount:
+                let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
+                bxy.drawImage("ui/heart", posHeart, angle = 0, scale = heartScale, tint = assemblerTint)
+            else:
+              # Compact: single heart with a count label for large totals
+              bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = assemblerTint)
+              let labelKey = ensureHeartCountLabel(amt)
+              let labelPos = thing.pos.vec2 + heartAnchor + vec2(heartStep * 1.2, -0.015)
+              bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = assemblerTint)
           if infected:
             # Add infection overlay sprite
             let overlaySprite = getInfectionSprite("assembler")
