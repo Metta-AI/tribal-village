@@ -516,41 +516,43 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   case state.role:
 
   of Lighter:
-    # Priority 1: Plant lantern if we have one
+    # Priority 1: Plant lanterns outward in rings from home assembler
     if agent.inventoryLantern > 0:
-      # Prefer planting at least 2 tiles from any existing lantern
-      var plantDir = -1
-      for i in 0 .. 7:
-        let dir = orientationToVec(Orientation(i))
-        let target = agent.pos + dir
-        if target.x < 0 or target.y < 0 or target.x >= MapWidth or target.y >= MapHeight:
-          continue
-        if not env.isEmpty(target):
-          continue
-        if env.terrain[target.x][target.y] == Water:
-          continue
-        var spaced = true
-        for t in env.things:
-          if t.kind == PlantedLantern and chebyshevDist(target, t.pos) < 2'i32:
-            spaced = false
+      # Determine home center (agent.homeassembler); if unset, use agent.pos
+      let center = if agent.homeassembler.x >= 0: agent.homeassembler else: agent.pos
+
+      # Compute current preferred ring radius: smallest R where no plantable tile found yet; start at 3
+      var planted = false
+      let maxR = 12  # don't search too far per step
+      for radius in 3 .. maxR:
+        # scan the ring (Chebyshev distance == radius) around center
+        var bestDir = -1
+        for i in 0 .. 7:
+          let dir = orientationToVec(Orientation(i))
+          let target = agent.pos + dir
+          let dist = max(abs(target.x - center.x), abs(target.y - center.y))
+          if dist != radius: continue
+          if target.x < 0 or target.x >= MapWidth or target.y < 0 or target.y >= MapHeight:
+            continue
+          if not env.isEmpty(target):
+            continue
+          if env.terrain[target.x][target.y] == Water:
+            continue
+          var spaced = true
+          for t in env.things:
+            if t.kind == PlantedLantern and chebyshevDist(target, t.pos) < 3'i32:
+              spaced = false
+              break
+          if spaced:
+            bestDir = i
             break
-        if spaced:
-          plantDir = i
-          break
-      if plantDir >= 0:
-        return saveStateAndReturn(controller, agentId, state, encodeAction(6'u8, plantDir.uint8))
-      # If no spot respects spacing, move away from nearest lantern and try later
-      let near = findNearestLantern(env, agent.pos)
-      if near.found and near.dist <= 2'i32:
-        # Step away from the nearest lantern
-        let away = agent.pos + ivec2(
-          (if agent.pos.x > near.pos.x: 1'i32 elif agent.pos.x < near.pos.x: -1'i32 else: 0'i32),
-          (if agent.pos.y > near.pos.y: 1'i32 elif agent.pos.y < near.pos.y: -1'i32 else: 0'i32)
-        )
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, neighborDirIndex(agent.pos, away).uint8))
-      # Fallback: keep searching/roaming
-      let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+        if bestDir >= 0:
+          planted = true
+          return saveStateAndReturn(controller, agentId, state, encodeAction(6'u8, bestDir.uint8))
+
+      # If no ring slot found, step outward to expand search radius next tick
+      let awayFromCenter = getMoveAway(env, agent.pos, center, controller.rng)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, awayFromCenter.uint8))
 
     # Priority 2: If adjacent to an existing lantern without one to plant, push it further away
     elif isAdjacentToLantern(env, agent.pos):
