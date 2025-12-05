@@ -530,15 +530,25 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     let blocker = env.getThing(newPos)
     if not isNil(blocker) and blocker.kind == PlantedLantern:
       var relocated = false
+      # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
+      template spacingOk(newPos: IVec2): bool =
+        var ok = true
+        for t in env.things:
+          if t.kind == PlantedLantern and t != blocker:
+            let dist = max(abs(t.pos.x - newPos.x), abs(t.pos.y - newPos.y))
+            if dist < 3'i32:
+              ok = false
+              break
+        ok
       # Preferred push positions in move direction
       let ahead1 = ivec2(newPos.x + delta.x, newPos.y + delta.y)
       let ahead2 = ivec2(newPos.x + delta.x * 2, newPos.y + delta.y * 2)
-      if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water:
+      if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water and spacingOk(ahead2):
         env.grid[blocker.pos.x][blocker.pos.y] = nil
         blocker.pos = ahead2
         env.grid[blocker.pos.x][blocker.pos.y] = blocker
         relocated = true
-      elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water:
+      elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water and spacingOk(ahead1):
         env.grid[blocker.pos.x][blocker.pos.y] = nil
         blocker.pos = ahead1
         env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -550,7 +560,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
             if dx == 0 and dy == 0: continue
             let alt = ivec2(newPos.x + dx, newPos.y + dy)
             if alt.x < 0 or alt.y < 0 or alt.x >= MapWidth or alt.y >= MapHeight: continue
-            if env.isEmpty(alt) and env.terrain[alt.x][alt.y] != Water:
+            if env.isEmpty(alt) and env.terrain[alt.x][alt.y] != Water and spacingOk(alt):
               env.grid[blocker.pos.x][blocker.pos.y] = nil
               blocker.pos = alt
               env.grid[blocker.pos.x][blocker.pos.y] = blocker
