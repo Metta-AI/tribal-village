@@ -666,8 +666,10 @@ proc applyHealBurst(env: Environment, agent: Thing) =
       let p = agent.pos + ivec2(dx, dy)
       env.applyActionTint(p, tint, 2, ActionTintHeal)
       let occ = env.getThing(p)
-      if not occ.isNil and occ.kind == Agent and getTeamId(occ.agentId) == getTeamId(agent.agentId):
-        discard env.applyAgentHeal(occ, 1)
+      if not occ.isNil and occ.kind == Agent:
+        let healAmt = occ.maxHp - occ.hp
+        if healAmt > 0:
+          discard env.applyAgentHeal(occ, healAmt)
 
 # Centralized zero-HP handling so agents instantly freeze/die when drained
 proc enforceZeroHpDeaths(env: Environment) =
