@@ -12,7 +12,7 @@ proc pickInitialWindowSize(): IVec2 =
   ## Choose a large window that fits on the primary screen
   when defined(emscripten):
     result = largeWindowSize
-  else:
+  elif compiles(windy.getScreens()):
     let screens = windy.getScreens()
     var target = largeWindowSize
     for s in screens:
@@ -21,6 +21,9 @@ proc pickInitialWindowSize(): IVec2 =
         target = ivec2(min(target.x, sz.x), min(target.y, sz.y))
         break
     result = target
+  else:
+    # Linux windy backend does not yet expose getScreens; use a safe default.
+    result = baseWindowSize
 
 window = newWindow("Tribal Village", pickInitialWindowSize())
 makeContextCurrent(window)
