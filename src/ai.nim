@@ -388,14 +388,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if agent.frozen > 0:
     return encodeAction(0'u8, 0'u8)
 
-  # Initialize agent role if needed
+  # Initialize agent role if needed (per-house pattern, 6 agents per house)
   if agentId notin controller.agents:
-    let role = case agentId mod 5:
+    let role = case agentId mod MapAgentsPerHouse:  # MapAgentsPerHouse = 6
       of 0: assemblerSpecialist
       of 1: ArmorySpecialist
       of 2: ForgeSpecialist
       of 3: ClayOvenSpecialist
       of 4: WeavingLoomSpecialist
+      of 5: ForgeSpecialist   # Extra attacker per house for pressure/defense
       else: assemblerSpecialist
 
     controller.agents[agentId] = AgentState(
@@ -599,12 +600,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, teammate.pos, controller.rng).uint8))
 
-    # Priority 1.25: Plant resources onto fertile tiles
-    block plantingResources:
-      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
-      if didPlant:
-        return act
-
     # Priority 1.5: Water nearby empty tiles to create fertile ground
     block watering:
       let wateringPos = findNearestEmpty(env, agent.pos, false, 8)
@@ -637,10 +632,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, armory.pos).uint8))
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, armory.pos, controller.rng).uint8))
-      else:
-        # No armory found, continue spiral search
-        let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+
+      # No armory found; try planting after failed crafting attempt
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
+
+      let nextSearchPos = getNextSpiralPoint(state, controller.rng)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
     # Priority 3: Collect wood using spiral search
     else:
@@ -688,11 +687,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 3: Craft spear if we have wood
     if agent.inventoryWood > 0:
-      # Use fertile ground to replant wood before crafting
-      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
-      if didPlant:
-        return act
-
       let forge = env.findNearestThingSpiral(state, Forge, controller.rng)
       if forge != nil:
         let dx = abs(forge.pos.x - agent.pos.x)
@@ -702,7 +696,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, forge.pos, controller.rng).uint8))
 
-    # Priority 3: Collect wood using spiral search
+      # No forge found; try planting after failed crafting attempt
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
+
+      let nextSearchPos = getNextSpiralPoint(state, controller.rng)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+
+    # Priority 4: Collect wood using spiral search
     else:
       let treePos = env.findNearestTerrainSpiral(state, Tree, controller.rng)
       if treePos.x >= 0:
@@ -731,11 +733,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 2: Craft bread if we have wheat
     if agent.inventoryWheat > 0:
-      # Replant wheat on fertile tiles to expand supply
-      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
-      if didPlant:
-        return act
-
       let oven = env.findNearestThingSpiral(state, ClayOven, controller.rng)
       if oven != nil:
         let dx = abs(oven.pos.x - agent.pos.x)
@@ -744,10 +741,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, oven.pos).uint8))
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, oven.pos, controller.rng).uint8))
-      else:
-        # No oven found, continue spiral search
-        let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+
+      # No oven found; try planting after failed baking attempt
+      let (didPlant, act) = tryPlantOnFertile(controller, env, agent, agentId, state)
+      if didPlant:
+        return act
+
+      let nextSearchPos = getNextSpiralPoint(state, controller.rng)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
 
     # Priority 3: Collect wheat using spiral search
     else:
