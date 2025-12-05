@@ -273,12 +273,24 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
 
 proc applyShieldBand(env: Environment, agent: Thing, orientation: Orientation) =
   let d = getOrientationDelta(orientation)
-  let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
-  let forward = agent.pos + ivec2(d.x, d.y)
   let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
-  for offset in -1 .. 1:
-    let p = forward + ivec2(perp.x * offset, perp.y * offset)
-    env.applyActionTint(p, tint, 2, ActionTintShield)
+
+  # Diagonal orientations should “wrap the corner”: cover the forward diagonal tile
+  # plus the two adjacent cardinals (one step in x, one step in y).
+  if abs(d.x) == 1 and abs(d.y) == 1:
+    let diagPos = agent.pos + ivec2(d.x, d.y)
+    let xPos = agent.pos + ivec2(d.x, 0)
+    let yPos = agent.pos + ivec2(0, d.y)
+    env.applyActionTint(diagPos, tint, 2, ActionTintShield)
+    env.applyActionTint(xPos, tint, 2, ActionTintShield)
+    env.applyActionTint(yPos, tint, 2, ActionTintShield)
+  else:
+    # Cardinal facing: keep a 3-wide band centered on the forward tile
+    let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
+    let forward = agent.pos + ivec2(d.x, d.y)
+    for offset in -1 .. 1:
+      let p = forward + ivec2(perp.x * offset, perp.y * offset)
+      env.applyActionTint(p, tint, 2, ActionTintShield)
 
 proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) =
   let d = getOrientationDelta(orientation)
@@ -286,9 +298,11 @@ proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) 
   let right = ivec2(d.y, -d.x)
   let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
   for step in 1 .. 3:
-    env.applyActionTint(agent.pos + ivec2(d.x * step, d.y * step), tint, 2, ActionTintAttack)
-    env.applyActionTint(agent.pos + ivec2(d.x * step + left.x * step, d.y * step + left.y * step), tint, 2, ActionTintAttack)
-    env.applyActionTint(agent.pos + ivec2(d.x * step + right.x * step, d.y * step + right.y * step), tint, 2, ActionTintAttack)
+    let forward = agent.pos + ivec2(d.x * step, d.y * step)
+    env.applyActionTint(forward, tint, 2, ActionTintAttack)
+    # Keep spear width contiguous: side tiles offset by 1 perpendicular, not scaled by range.
+    env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
+    env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
 
 var
   env*: Environment  # Global environment instance
@@ -720,9 +734,11 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     let left = ivec2(-delta.y, delta.x)
     let right = ivec2(delta.y, -delta.x)
     for step in 1 .. 3:
-      applyDamageAt(agent.pos + ivec2(delta.x * step, delta.y * step))
-      applyDamageAt(agent.pos + ivec2(delta.x * step + left.x * step, delta.y * step + left.y * step))
-      applyDamageAt(agent.pos + ivec2(delta.x * step + right.x * step, delta.y * step + right.y * step))
+      let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+      applyDamageAt(forward)
+      # Keep spear width contiguous (no skipping): lateral offset is fixed 1 tile.
+      applyDamageAt(forward + left)
+      applyDamageAt(forward + right)
 
     if hit:
       agent.inventorySpear = max(0, agent.inventorySpear - 1)
