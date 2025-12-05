@@ -253,7 +253,7 @@ proc drawObjects*() =
           # Hearts row uses the same small icons/spacing as agent inventory overlays.
           let heartAnchor = vec2(-0.48, -0.64)
           let heartStep = 0.12
-          let heartScale: float32 = 1/160
+          let heartScale: float32 = 1/80
           let amt = max(0, thing.hearts)
           if amt == 0:
             let fadedTint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 0.35)
@@ -421,8 +421,8 @@ proc drawAgentDecorations*() =
       "ne": vec2(0.40, -0.48),
       "w":  vec2(-0.48, -0.06),
       "c":  vec2(0.00, -0.06),
-      "e":  vec2(0.48, -0.06),
-      "sw": vec2(-0.40, 0.52),
+      "e":  vec2(0.48, 0.44),
+      "sw": vec2(-0.40, 0.44),
       "s":  vec2(0.00, 0.56),
       "se": vec2(0.40, 0.52)
     })
