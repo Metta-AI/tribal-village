@@ -165,74 +165,71 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
     def _setup_ctypes_interface(self):
         """Setup ctypes for direct buffer functions."""
-
-        # tribal_village_create() -> pointer
-        self.lib.tribal_village_create.argtypes = []
-        self.lib.tribal_village_create.restype = ctypes.c_void_p
-
-        # tribal_village_reset_and_get_obs(env, obs_buf, rewards_buf, terminals_buf, truncations_buf) -> int32
-        self.lib.tribal_village_reset_and_get_obs.argtypes = [
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
+        func_specs = [
+            # required
+            ("tribal_village_create", [], ctypes.c_void_p, False),
+            (
+                "tribal_village_reset_and_get_obs",
+                [
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                ],
+                ctypes.c_int32,
+                False,
+            ),
+            (
+                "tribal_village_step_with_pointers",
+                [
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                ],
+                ctypes.c_int32,
+                False,
+            ),
+            ("tribal_village_destroy", [ctypes.c_void_p], None, False),
+            ("tribal_village_get_num_agents", [], ctypes.c_int32, False),
+            ("tribal_village_get_obs_layers", [], ctypes.c_int32, False),
+            ("tribal_village_get_obs_width", [], ctypes.c_int32, False),
+            ("tribal_village_get_obs_height", [], ctypes.c_int32, False),
+            # optional
+            ("tribal_village_get_map_width", [], ctypes.c_int32, True),
+            ("tribal_village_get_map_height", [], ctypes.c_int32, True),
+            (
+                "tribal_village_render_rgb",
+                [
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_int32,
+                    ctypes.c_int32,
+                ],
+                ctypes.c_int32,
+                True,
+            ),
+            (
+                "tribal_village_render_ansi",
+                [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int32],
+                ctypes.c_int32,
+                True,
+            ),
         ]
-        self.lib.tribal_village_reset_and_get_obs.restype = ctypes.c_int32
 
-        # tribal_village_step_with_pointers(env, actions_buf, obs_buf,
-        #                                   rewards_buf, terminals_buf,
-        #                                   truncations_buf) -> int32
-        self.lib.tribal_village_step_with_pointers.argtypes = [
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-        ]
-        self.lib.tribal_village_step_with_pointers.restype = ctypes.c_int32
-
-        # tribal_village_destroy(env) -> void
-        self.lib.tribal_village_destroy.argtypes = [ctypes.c_void_p]
-        self.lib.tribal_village_destroy.restype = None
-
-        # Map dimensions and RGB render
-        try:
-            self.lib.tribal_village_get_map_width.argtypes = []
-            self.lib.tribal_village_get_map_width.restype = ctypes.c_int32
-            self.lib.tribal_village_get_map_height.argtypes = []
-            self.lib.tribal_village_get_map_height.restype = ctypes.c_int32
-            self.lib.tribal_village_render_rgb.argtypes = [
-                ctypes.c_void_p,
-                ctypes.c_void_p,
-                ctypes.c_int32,
-                ctypes.c_int32,
-            ]
-            self.lib.tribal_village_render_rgb.restype = ctypes.c_int32
-        except AttributeError:
-            pass
-
-        # tribal_village_render_ansi(env, out_buf, buf_len) -> int32
-        try:
-            self.lib.tribal_village_render_ansi.argtypes = [
-                ctypes.c_void_p,
-                ctypes.c_void_p,
-                ctypes.c_int32,
-            ]
-            self.lib.tribal_village_render_ansi.restype = ctypes.c_int32
-        except AttributeError:
-            pass
-
-        # Dimension getters
-        for func_name in [
-            "tribal_village_get_num_agents",
-            "tribal_village_get_obs_layers",
-            "tribal_village_get_obs_width",
-            "tribal_village_get_obs_height",
-        ]:
-            getattr(self.lib, func_name).argtypes = []
-            getattr(self.lib, func_name).restype = ctypes.c_int32
+        for name, argtypes, restype, optional in func_specs:
+            func = getattr(self.lib, name, None)
+            if func is None:
+                if optional:
+                    continue
+                raise AttributeError(f"Required symbol missing: {name}")
+            if argtypes is not None:
+                func.argtypes = argtypes
+            if restype is not None:
+                func.restype = restype
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict] = None
