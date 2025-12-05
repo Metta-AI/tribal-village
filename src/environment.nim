@@ -35,7 +35,6 @@ const
   MapObjectConverterCooldown* = 0
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
-  MapObjectMineUseCost* = 0
 
   # Gameplay
   SpawnerCooldown* = 13
@@ -51,18 +50,6 @@ const
   ActionTintShield* = 2'u8   # gold overlay when shielding (armor up)
   ActionTintHeal* = 3'u8     # green overlay when healing
 
-  # Reward System
-  RewardGetWater* = 0.001
-  RewardGetWheat* = 0.001
-  RewardGetWood* = 0.002
-  RewardMineOre* = 0.003
-  RewardConvertOreToBattery* = 0.01
-  RewardCraftSpear* = 0.01
-  RewardCraftArmor* = 0.015
-  RewardCraftFood* = 0.012
-  RewardCraftCloth* = 0.012
-  RewardDestroyTumor* = 0.1
-
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
   MapWidth* = MapLayoutRoomsX * (MapRoomWidth + MapRoomBorder) + MapBorder
@@ -71,7 +58,6 @@ const
   # Compile-time optimization constants
   ObservationRadius* = ObservationWidth div 2  # 5 - computed once
   MapAgentsPerHouseFloat* = MapAgentsPerHouse.float32  # Avoid runtime conversion
-  MapBorderMinus1* = MapBorder - 1  # For bounds checking
 
 {.push inline.}
 proc getTeamId*(agentId: int): int =
@@ -206,14 +192,8 @@ type
     # Core game parameters
     maxSteps*: int
 
-    # Resource configuration
-    orePerBattery*: int
-    batteriesPerHeart*: int
-
     # Combat configuration
-    enableCombat*: bool
     tumorSpawnRate*: float
-    tumorDamage*: int
 
     # Reward configuration
     heartReward*: float
@@ -229,7 +209,6 @@ type
     tumorKillReward*: float
     survivalPenalty*: float
     deathPenalty*: float
-    waterGrowthChance*: float   # Chance that watering an empty tile spawns a plant
 
   Environment* = ref object
     currentStep*: int
@@ -1753,14 +1732,8 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     # Core game parameters
     maxSteps: 1000,
 
-    # Resource configuration
-    orePerBattery: 1,
-    batteriesPerHeart: 1,
-
     # Combat configuration
-    enableCombat: true,
     tumorSpawnRate: 0.1,
-    tumorDamage: 1,
 
     # Reward configuration (only arena_basic_easy_shaped rewards active)
     heartReward: 1.0,      # Arena: heart reward
@@ -1775,8 +1748,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     clothReward: 0.0,      # Disabled - not in arena
     tumorKillReward: 0.0, # Disabled - not in arena
     survivalPenalty: -0.01,
-    deathPenalty: -5.0,
-    waterGrowthChance: 0.25
+    deathPenalty: -5.0
   )
 
 proc newEnvironment*(): Environment =
