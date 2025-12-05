@@ -6,7 +6,7 @@ import
 const
   InfectionThreshold* = 0.05  # Blue tint threshold for infection
   PurpleOverlayStrength* = 0.6  # How strong the purple overlay is
-  HeartPlusThreshold = 10          # Switch to compact heart counter after this many
+  HeartPlusThreshold = 9           # Switch to compact heart counter after this many
   HeartCountFontPath = "data/fonts/Inter-Regular.ttf"
   HeartCountFontSize: float32 = 28
   HeartCountPadding = 6
@@ -163,11 +163,11 @@ proc ensureHeartCountLabel(count: int): string =
   ctx.font = HeartCountFontPath
   ctx.fontSize = HeartCountFontSize
   ctx.textBaseline = TopBaseline
-  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillStyle.color = color(0, 0, 0, 1)
   ctx.fillText(text, vec2(padding.float32, padding.float32))
 
   let key = "ui/heart_count/" & $count
-  bxy.addImage(key, ctx.image, genMipmaps = false)
+  bxy.addImage(key, ctx.image, mipmaps = false)
   heartCountImages[count] = key
 
   result = key
