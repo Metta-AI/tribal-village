@@ -196,6 +196,7 @@ proc drawWalls*() =
 
 proc drawObjects*() =
   drawAttackOverlays()
+
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if env.grid[x][y] != nil:
@@ -248,18 +249,38 @@ proc drawObjects*() =
             scale = 1/200,
             tint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 1.0)
           )
-          # Always show current heart count above the altar using stacked overlay style.
-          drawStackedOverlay(
-            basePos = thing.pos.vec2,
-            anchor = vec2(0.0, -0.60),
-            icon = "ui/heart",
-            count = thing.hearts,
-            tint = assemblerTint,
-            iconScale = 1/320,
-            maxStack = 5,
-            stackStep = 0.09,
-            fadedWhenZero = true
-          )
+
+          # Hearts row uses the same small icons/spacing as agent inventory overlays.
+          let heartAnchor = vec2(-0.48, -0.64)
+          let heartStep = 0.12
+          let heartScale: float32 = 1/160
+          let amt = max(0, thing.hearts)
+          if amt == 0:
+            let fadedTint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 0.35)
+            bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
+          else:
+            let drawCount = min(amt, 5)
+            for i in 0 ..< drawCount:
+              let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
+              bxy.drawImage("ui/heart", posHeart, angle = 0, scale = heartScale, tint = assemblerTint)
+
+            if amt > drawCount:
+              let plusPos = thing.pos.vec2 + heartAnchor + vec2(heartStep * drawCount.float32, 0.0)
+              let boxSize = 0.26
+              bxy.drawRect(
+                rect(plusPos.x - boxSize / 2, plusPos.y - boxSize / 2, boxSize, boxSize),
+                color(0, 0, 0, 0.65)
+              )
+              let barThickness = 0.055
+              let barLength = 0.15
+              bxy.drawRect(
+                rect(plusPos.x - barLength / 2, plusPos.y - barThickness / 2, barLength, barThickness),
+                assemblerTint
+              )
+              bxy.drawRect(
+                rect(plusPos.x - barThickness / 2, plusPos.y - barLength / 2, barThickness, barLength),
+                assemblerTint
+              )
           if infected:
             # Add infection overlay sprite
             let overlaySprite = getInfectionSprite("assembler")

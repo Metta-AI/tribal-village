@@ -928,6 +928,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWood -= 1
       agent.inventorySpear = 5
       thing.cooldown = 5
+      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
       agent.reward += env.config.spearReward
       inc env.stats[id].actionUse
     else:
@@ -937,6 +939,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWheat -= 1
       agent.inventoryLantern = 1
       thing.cooldown = 15
+      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+      env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
       agent.reward += env.config.clothReward
       inc env.stats[id].actionUse
     else:
@@ -946,6 +950,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWood -= 1
       agent.inventoryArmor = 5
       thing.cooldown = 20
+      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+      env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
       agent.reward += env.config.armorReward
       inc env.stats[id].actionUse
     else:
@@ -955,6 +961,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.inventoryWheat -= 1
       agent.inventoryBread += 1
       thing.cooldown = 10
+      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+      env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
       # No observation layer for bread; optional for UI later
       agent.reward += env.config.foodReward
       inc env.stats[id].actionUse
@@ -1027,6 +1035,10 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
   if transferred:
     inc env.stats[id].actionPut
     # Update observations for changed inventories
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+    env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+    env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
+    env.updateObservations(AgentInventoryBreadLayer, target.pos, target.inventoryBread)
   else:
     inc env.stats[id].actionInvalid
 # ============== CLIPPY AI ==============

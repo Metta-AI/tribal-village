@@ -301,23 +301,17 @@ for i in 1..paramCount():
     useExternalController = true
     # Command line: Requested external controller mode
 
-# Check environment variable for Python training control
-let pythonControlMode = existsEnv("TRIBAL_PYTHON_CONTROL") or existsEnv("TRIBAL_EXTERNAL_CONTROL")
+# Decide controller source.
+# Priority: explicit CLI flag --> env vars --> fallback to built-in AI.
+let envExternal = existsEnv("TRIBAL_PYTHON_CONTROL") or existsEnv("TRIBAL_EXTERNAL_CONTROL")
 
-# Initialize controller - prioritize external control, then existing controller, then default to BuiltinAI
-if useExternalController or pythonControlMode:
+if useExternalController:
   initGlobalController(ExternalNN)
-  if pythonControlMode:
-    # Environment variable: Using external NN controller for Python training
-    discard  # Python mode uses external controller
-  else:
-    # Command line: Using external NN controller
-    discard
+elif envExternal:
+  initGlobalController(ExternalNN)
 elif globalController != nil:
-  # Keeping existing controller
-  discard
+  discard  # keep existing
 else:
-  # DEFAULT: Use built-in AI for standalone execution
   initGlobalController(BuiltinAI)
 
 # Check if external controller is active and start playing if so
