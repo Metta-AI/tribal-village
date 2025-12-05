@@ -508,6 +508,17 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Anchor spiral search around current agent position each tick
   state.basePosition = agent.pos
 
+  # Emergency self-heal: eat bread if below half HP (applies to all roles)
+  if agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp:
+    let healDirs = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),  # cardinals first
+                     ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)] # diagonals
+    for d in healDirs:
+      let target = agent.pos + d
+      if isValidEmptyTile(env, target):
+        return saveStateAndReturn(
+          controller, agentId, state,
+          encodeAction(3'u8, neighborDirIndex(agent.pos, target).uint8))
+
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
