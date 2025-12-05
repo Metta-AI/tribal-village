@@ -862,31 +862,28 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
   of Empty:
-    # Terrain actions only apply if the tile is unoccupied
-    if not env.isEmpty(targetPos):
-      inc env.stats[id].actionInvalid
-      return
+    # Only treat as terrain if the tile has no occupying Thing; otherwise fall through to building logic.
+    if env.isEmpty(targetPos):
+      # Heal burst: consume bread to heal nearby allied agents (and self) for 1 HP
+      if agent.inventoryBread > 0:
+        agent.inventoryBread = max(0, agent.inventoryBread - 1)
+        env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+        env.applyHealBurst(agent)
+        inc env.stats[id].actionUse
+        return
+      # Water an empty tile adjacent to wheat or trees to encourage growth
+      if agent.inventoryWater > 0:
+        agent.inventoryWater = max(0, agent.inventoryWater - 1)
+        env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
 
-    # Heal burst: consume bread to heal nearby allied agents (and self) for 1 HP
-    if agent.inventoryBread > 0:
-      agent.inventoryBread = max(0, agent.inventoryBread - 1)
-      env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
-      env.applyHealBurst(agent)
-      inc env.stats[id].actionUse
-      return
-    # Water an empty tile adjacent to wheat or trees to encourage growth
-    if agent.inventoryWater > 0:
-      agent.inventoryWater = max(0, agent.inventoryWater - 1)
-      env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
+        # Create fertile terrain for future planting
+        env.terrain[targetPos.x][targetPos.y] = Fertile
+        env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+        env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+        env.updateObservations(TintLayer, targetPos, 0)  # ensure obs consistency
 
-      # Create fertile terrain for future planting
-      env.terrain[targetPos.x][targetPos.y] = Fertile
-      env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
-      env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
-      env.updateObservations(TintLayer, targetPos, 0)  # ensure obs consistency
-
-      inc env.stats[id].actionUse
-      return
+        inc env.stats[id].actionUse
+        return
 
     discard
 
