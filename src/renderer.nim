@@ -14,6 +14,11 @@ const
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
 
+template configureHeartFont(ctx: var Context) =
+  ctx.font = HeartCountFontPath
+  ctx.fontSize = HeartCountFontSize
+  ctx.textBaseline = TopBaseline
+
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
   return if isBuildingFrozen(pos, env): 1.0 else: 0.0
@@ -51,6 +56,11 @@ proc useSelections*() =
         if thing != nil:
           selection = thing
 
+proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
+  ## Tiny helper to reduce repeated overlay checks.
+  if infected and overlaySprite.len > 0:
+    bxy.drawImage(overlaySprite, pos, angle = 0, scale = 1/200)
+
 proc drawFloor*() =
   # Draw the floor tiles everywhere first as the base layer
   for x in 0 ..< MapWidth:
@@ -74,18 +84,10 @@ proc drawTerrain*() =
       case env.terrain[x][y]
       of Wheat:
         bxy.drawImage("objects/wheat_field", pos.vec2, angle = 0, scale = 1/200)
-        if infected:
-          # Add infection overlay sprite to infected wheat
-          let overlaySprite = getInfectionSprite("wheat")
-          if overlaySprite != "":
-            bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+        drawOverlayIf(infected, getInfectionSprite("wheat"), pos.vec2)
       of Tree:
         bxy.drawImage("objects/palm_tree", pos.vec2, angle = 0, scale = 1/200)
-        if infected:
-          # Add infection overlay sprite to infected trees
-          let overlaySprite = getInfectionSprite("tree")
-          if overlaySprite != "":
-            bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+        drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
       of Fertile:
         bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
       of Empty:
@@ -149,9 +151,7 @@ proc ensureHeartCountLabel(count: int): string =
 
   # First pass to measure how large the label needs to be.
   var measureCtx = newContext(1, 1)
-  measureCtx.font = HeartCountFontPath
-  measureCtx.fontSize = HeartCountFontSize
-  measureCtx.textBaseline = TopBaseline
+  configureHeartFont(measureCtx)
   let metrics = measureCtx.measureText(text)
 
   let padding = HeartCountPadding
@@ -160,9 +160,7 @@ proc ensureHeartCountLabel(count: int): string =
 
   # Render the text into a fresh image.
   var ctx = newContext(labelWidth, labelHeight)
-  ctx.font = HeartCountFontPath
-  ctx.fontSize = HeartCountFontSize
-  ctx.textBaseline = TopBaseline
+  configureHeartFont(ctx)
   ctx.fillStyle.color = color(0, 0, 0, 1)
   ctx.fillText(text, vec2(padding.float32, padding.float32))
 
@@ -239,11 +237,14 @@ proc drawWalls*() =
 proc drawObjects*() =
   drawAttackOverlays()
 
+  let drawWaterTile = proc(pos: Vec2) =
+    bxy.drawImage("objects/water", pos, angle = 0, scale = 1/200)
+
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if env.terrain[x][y] == Water:
-        bxy.drawImage("objects/water", ivec2(x, y).vec2, angle = 0, scale = 1/200)
+        drawWaterTile(ivec2(x, y).vec2)
 
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -257,7 +258,7 @@ proc drawObjects*() =
         of Wall:
           discard
         of WaterTile:
-          bxy.drawImage("objects/water", pos.vec2, angle = 0, scale = 1/200)
+          drawWaterTile(pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
@@ -316,31 +317,22 @@ proc drawObjects*() =
               # Compact: single heart with a count label for large totals
               bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = assemblerTint)
               let labelKey = ensureHeartCountLabel(amt)
-              let labelPos = thing.pos.vec2 + heartAnchor + vec2(heartStep * 1.2, -0.015)
+              # Offset roughly half a tile to the right for clearer separation from the icon.
+              let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
               bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = assemblerTint)
           if infected:
-            # Add infection overlay sprite
-            let overlaySprite = getInfectionSprite("assembler")
-            if overlaySprite != "":
-              bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+            drawOverlayIf(true, getInfectionSprite("assembler"), pos.vec2)
 
         of Converter:
           let baseImage = "objects/converter"
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            # Add infection overlay sprite
-            let overlaySprite = getInfectionSprite("converter")
-            if overlaySprite != "":
-              bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+          drawOverlayIf(infected, getInfectionSprite("converter"), pos.vec2)
 
         of Mine, Spawner:
           let imageName = if thing.kind == Mine: "objects/mine" else: "objects/spawner"
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
           if infected and thing.kind == Mine:
-            # Only mines get infection overlays, not spawners
-            let overlaySprite = getInfectionSprite("mine")
-            if overlaySprite != "":
-              bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+            drawOverlayIf(true, getInfectionSprite("mine"), pos.vec2)
 
         of Tumor:
           # Map diagonal orientations to cardinal sprites
@@ -367,16 +359,13 @@ proc drawObjects*() =
 
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
           if infected:
-            # Add infection overlay sprite
             let overlayType = case thing.kind:
               of Armory: "armory"
               of Forge: "forge"
               of ClayOven: "clay_oven"
               of WeavingLoom: "weaving_loom"
               else: "building"
-            let overlaySprite = getInfectionSprite(overlayType)
-            if overlaySprite != "":
-              bxy.drawImage(overlaySprite, pos.vec2, angle = 0, scale = 1/200)
+            drawOverlayIf(true, getInfectionSprite(overlayType), pos.vec2)
 
         of PlantedLantern:
           # Draw lantern using a simple image with team color tint

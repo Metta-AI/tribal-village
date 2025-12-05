@@ -5,6 +5,23 @@ import environment, external_actions
 
 var globalEnv: Environment = nil
 
+const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
+  # Matches previous hardcoded RGB choices for renderer export.
+  (r: 255'u8, g: 255'u8, b: 0'u8),    # Agent
+  (r: 96'u8,  g: 96'u8,  b: 96'u8),   # Wall
+  (r: 184'u8, g: 134'u8, b: 11'u8),   # Mine
+  (r: 0'u8,   g: 200'u8, b: 200'u8),  # Converter
+  (r: 220'u8, g: 0'u8,   b: 220'u8),  # assembler
+  (r: 255'u8, g: 170'u8, b: 0'u8),    # Spawner
+  (r: 160'u8, g: 32'u8,  b: 240'u8),  # Tumor
+  (r: 255'u8, g: 120'u8, b: 40'u8),   # Armory
+  (r: 255'u8, g: 80'u8,  b: 0'u8),    # Forge
+  (r: 255'u8, g: 180'u8, b: 120'u8),  # ClayOven
+  (r: 0'u8,   g: 180'u8, b: 255'u8),  # WeavingLoom
+  (r: 255'u8, g: 240'u8, b: 128'u8),  # PlantedLantern
+  (r: 0'u8,   g: 140'u8, b: 255'u8)   # WaterTile (not previously distinct)
+]
+
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
   try:
@@ -140,57 +157,10 @@ proc tribal_village_render_rgb(
 
           let thing = globalEnv.grid[x][y]
           if thing != nil:
-            case thing.kind
-            of Agent:
-              rByte = 255'u8
-              gByte = 255'u8
-              bByte = 0'u8
-            of Tumor:
-              rByte = 160'u8
-              gByte = 32'u8
-              bByte = 240'u8
-            of Wall:
-              rByte = 96'u8
-              gByte = 96'u8
-              bByte = 96'u8
-            of Mine:
-              rByte = 184'u8
-              gByte = 134'u8
-              bByte = 11'u8
-            of Converter:
-              rByte = 0'u8
-              gByte = 200'u8
-              bByte = 200'u8
-            of assembler:
-              rByte = 220'u8
-              gByte = 0'u8
-              bByte = 220'u8
-            of Spawner:
-              rByte = 255'u8
-              gByte = 170'u8
-              bByte = 0'u8
-            of Armory:
-              rByte = 255'u8
-              gByte = 120'u8
-              bByte = 40'u8
-            of Forge:
-              rByte = 255'u8
-              gByte = 80'u8
-              bByte = 0'u8
-            of ClayOven:
-              rByte = 255'u8
-              gByte = 180'u8
-              bByte = 120'u8
-            of WeavingLoom:
-              rByte = 0'u8
-              gByte = 180'u8
-              bByte = 255'u8
-            of PlantedLantern:
-              rByte = 255'u8
-              gByte = 240'u8
-              bByte = 128'u8
-            else:
-              discard
+            let tint = thingRenderColors[thing.kind]
+            rByte = tint.r
+            gByte = tint.g
+            bByte = tint.b
 
           let xBase = rowBase + x * scaleX * 3
           for sx in 0 ..< scaleX:
