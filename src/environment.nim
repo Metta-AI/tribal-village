@@ -304,6 +304,13 @@ proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) 
     env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
     env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
 
+# Utility to tick a building cooldown and update its ready observation if provided.
+proc tickCooldown(env: Environment, thing: Thing, readyLayer: ObservationName = TintLayer, updateLayer = false) =
+  if thing.cooldown > 0:
+    dec thing.cooldown
+    if updateLayer:
+      env.updateObservations(readyLayer, thing.pos, thing.cooldown)
+
 var
   env*: Environment  # Global environment instance
   selection*: Thing  # Currently selected entity for UI interaction
@@ -582,9 +589,12 @@ proc transferAgentInventory(env: Environment, killer, victim: Thing) =
   ## Move the victim's inventory to the killer before the victim dies
   template moveAll(field: untyped, layer: ObservationName) =
     if victim.field > 0:
-      killer.field += victim.field
-      victim.field = 0
-      env.updateObservations(layer, killer.pos, killer.field)
+      let capacity = max(0, MapObjectAgentMaxInventory - killer.field)
+      let gained = min(victim.field, capacity)
+      if gained > 0:
+        killer.field += gained
+        env.updateObservations(layer, killer.pos, killer.field)
+      victim.field = 0  # drop any overflow on the ground (currently unused)
 
   moveAll(inventoryOre, AgentInventoryOreLayer)
   moveAll(inventoryBattery, AgentInventoryBatteryLayer)
@@ -670,7 +680,7 @@ proc applyHealBurst(env: Environment, agent: Thing) =
       env.applyActionTint(p, tint, 2, ActionTintHeal)
       let occ = env.getThing(p)
       if not occ.isNil and occ.kind == Agent:
-        let healAmt = occ.maxHp - occ.hp
+        let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)
         if healAmt > 0:
           discard env.applyAgentHeal(occ, healAmt)
 
@@ -916,7 +926,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Forge:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventorySpear == 0:
       agent.inventoryWood -= 1
-      agent.inventorySpear = 5
+      agent.inventorySpear = SpearCharges
       thing.cooldown = 5
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
@@ -938,7 +948,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Armory:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventoryArmor == 0:
       agent.inventoryWood -= 1
-      agent.inventoryArmor = 5
+      agent.inventoryArmor = ArmorPoints
       thing.cooldown = 20
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
@@ -1859,17 +1869,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if agent.homeassembler == thing.pos:
             agent.reward += assemblerHearts / MapAgentsPerHouseFloat
     elif thing.kind == Converter:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-        env.updateObservations(ConverterReadyLayer, thing.pos, thing.cooldown)
+      env.tickCooldown(thing, ConverterReadyLayer, true)
     elif thing.kind == Mine:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-        env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
+      env.tickCooldown(thing, MineReadyLayer, true)
     elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom}:
       # All production buildings have simple cooldown
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
+      env.tickCooldown(thing)
     elif thing.kind == Spawner:
       if thing.cooldown > 0:
         thing.cooldown -= 1
