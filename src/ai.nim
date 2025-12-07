@@ -271,41 +271,84 @@ proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
       return true
   return false
 
+proc spearAttackDir(agent: Thing, targetPos: IVec2): int =
+  ## Determine orientation to hit a target with spear wedge (range 1..3, width 1).
+  let dx = targetPos.x - agent.pos.x
+  let dy = targetPos.y - agent.pos.y
+  if dx == 0 and dy == 0:
+    return -1
+
+  let dirVec = ivec2(
+    (if dx > 0'i32: 1'i32 elif dx < 0'i32: -1'i32 else: 0'i32),
+    (if dy > 0'i32: 1'i32 elif dy < 0'i32: -1'i32 else: 0'i32)
+  )
+  let dirIdx = vecToOrientation(dirVec)
+  let forward = getOrientationDelta(Orientation(dirIdx))
+  let fStep = dx * forward.x + dy * forward.y
+  if fStep < 1 or fStep > 3:
+    return -1
+
+  let perp = ivec2(-forward.y, forward.x)
+  let lateral = dx * perp.x + dy * perp.y
+  if abs(lateral) <= fStep:
+    return dirIdx
+  return -1
+
 proc sameTeam(agentA, agentB: Thing): bool =
   (agentA.agentId div MapAgentsPerHouse) == (agentB.agentId div MapAgentsPerHouse)
 
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Prefer the closest tumor; fall back to spawners or enemy agents if present.
-  let maxRange = (if agent.inventorySpear > 0: 2 else: 1)
-
   var spawnerDir = -1
+  var spawnerDist = int.high
   var enemyDir = -1
+  var enemyDist = int.high
 
-  for distance in 1 .. maxRange:
-    for dirIdx in 0 .. 7:
-      let delta = getOrientationDelta(Orientation(dirIdx))
-      let offset = ivec2(delta.x * distance, delta.y * distance)
-      let targetPos = agent.pos + offset
-      if targetPos.x < 0 or targetPos.x >= MapWidth or
-         targetPos.y < 0 or targetPos.y >= MapHeight:
+  if agent.inventorySpear > 0:
+    # Use wedge-aware spear targeting first.
+    for thing in env.things:
+      if thing.kind notin {Tumor, Spawner, Agent}:
         continue
-
-      let occupant = env.grid[targetPos.x][targetPos.y]
-      if occupant == nil:
+      if thing.kind == Agent and sameTeam(agent, thing):
         continue
-
-      if occupant.kind == Tumor:
+      let dirIdx = spearAttackDir(agent, thing.pos)
+      if dirIdx < 0:
+        continue
+      let dist = int(chebyshevDist(agent.pos, thing.pos))
+      if thing.kind == Tumor:
         return dirIdx
-      elif occupant.kind == Spawner and spawnerDir < 0:
+      elif thing.kind == Spawner and dist < spawnerDist:
+        spawnerDist = dist
         spawnerDir = dirIdx
-      elif occupant.kind == Agent and enemyDir < 0 and not sameTeam(agent, occupant):
+      elif thing.kind == Agent and dist < enemyDist:
+        enemyDist = dist
         enemyDir = dirIdx
+    if spawnerDir >= 0:
+      return spawnerDir
+    if enemyDir >= 0:
+      return enemyDir
 
-  if spawnerDir >= 0:
-    return spawnerDir
-  if enemyDir >= 0:
-    return enemyDir
+  # Fallback for non-spear attacks: 1-tile direct neighbors.
+  for dirIdx in 0 .. 7:
+    let delta = getOrientationDelta(Orientation(dirIdx))
+    let targetPos = agent.pos + ivec2(delta.x, delta.y)
+    if targetPos.x < 0 or targetPos.x >= MapWidth or
+       targetPos.y < 0 or targetPos.y >= MapHeight:
+      continue
+    let occupant = env.grid[targetPos.x][targetPos.y]
+    if occupant == nil:
+      continue
+
+    if occupant.kind == Tumor:
+      return dirIdx
+    elif occupant.kind == Spawner and spawnerDir < 0:
+      spawnerDir = dirIdx
+    elif occupant.kind == Agent and enemyDir < 0 and not sameTeam(agent, occupant):
+      enemyDir = dirIdx
+
+  if spawnerDir >= 0: return spawnerDir
+  if enemyDir >= 0: return enemyDir
   return -1
 
 type NeedType = enum
@@ -654,16 +697,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if agent.inventorySpear > 0:
       let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
       if tumor != nil:
-        let dx = tumor.pos.x - agent.pos.x
-        let dy = tumor.pos.y - agent.pos.y
-        let dirVec = ivec2(sign(dx), sign(dy))
-        let orientIdx = vecToOrientation(dirVec)
-        let forward = getOrientationDelta(Orientation(orientIdx))
-        # In-front wedge: 1..3 forward, lateral <= forward step
-        let fStep = dx * forward.x + dy * forward.y
-        let perp = ivec2(-forward.y, forward.x)
-        let lateral = dx * perp.x + dy * perp.y
-        if fStep >= 1 and fStep <= 3 and abs(lateral) <= fStep:
+        let orientIdx = spearAttackDir(agent, tumor.pos)
+        if orientIdx >= 0:
           return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, orientIdx.uint8))
         else:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, tumor.pos, controller.rng).uint8))
