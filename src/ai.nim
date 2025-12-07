@@ -297,8 +297,11 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
     for thing in env.things:
       if thing.kind notin {Tumor, Spawner, Agent}:
         continue
-      if thing.kind == Agent and sameTeam(agent, thing):
-        continue
+      if thing.kind == Agent:
+        if thing.frozen > 0:
+          continue
+        if sameTeam(agent, thing):
+          continue
       let dirIdx = spearAttackDir(agent.pos, thing.pos)
       if dirIdx < 0:
         continue
@@ -335,7 +338,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
       return dirIdx
     elif occupant.kind == Spawner and bestSpawner.dir < 0:
       bestSpawner = (dirIdx, 1)
-    elif occupant.kind == Agent and bestEnemy.dir < 0 and not sameTeam(agent, occupant):
+    elif occupant.kind == Agent and bestEnemy.dir < 0 and occupant.frozen == 0 and not sameTeam(agent, occupant):
       bestEnemy = (dirIdx, 1)
 
   if bestSpawner.dir >= 0: return bestSpawner.dir
