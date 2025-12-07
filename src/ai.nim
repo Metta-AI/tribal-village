@@ -266,28 +266,22 @@ proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
       return true
   return false
 
-proc spearAttackDir(agent: Thing, targetPos: IVec2): int {.inline.} =
-  ## Determine orientation to hit a target with spear wedge (range 1..3, width 1).
-  let dx = targetPos.x - agent.pos.x
-  let dy = targetPos.y - agent.pos.y
-  if dx == 0 and dy == 0:
-    return -1
-
-  let dirVec = ivec2(
-    (if dx > 0'i32: 1'i32 elif dx < 0'i32: -1'i32 else: 0'i32),
-    (if dy > 0'i32: 1'i32 elif dy < 0'i32: -1'i32 else: 0'i32)
-  )
-  let dirIdx = vecToOrientation(dirVec)
-  let forward = getOrientationDelta(Orientation(dirIdx))
-  let fStep = dx * forward.x + dy * forward.y
-  if fStep < 1 or fStep > 3:
-    return -1
-
-  let perp = ivec2(-forward.y, forward.x)
-  let lateral = dx * perp.x + dy * perp.y
-  if abs(lateral) <= fStep:
-    return dirIdx
-  return -1
+proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
+  ## Pick an orientation whose spear wedge covers the target (matches attackAction pattern).
+  var bestDir = -1
+  var bestStep = int.high
+  for dirIdx in 0 .. 7:
+    let d = getOrientationDelta(Orientation(dirIdx))
+    let left = ivec2(-d.y, d.x)
+    let right = ivec2(d.y, -d.x)
+    for step in 1 .. 3:
+      let forward = agentPos + ivec2(d.x * step, d.y * step)
+      if forward == targetPos or forward + left == targetPos or forward + right == targetPos:
+        if step < bestStep:
+          bestStep = step
+          bestDir = dirIdx
+        break
+  return bestDir
 
 proc sameTeam(agentA, agentB: Thing): bool =
   (agentA.agentId div MapAgentsPerHouse) == (agentB.agentId div MapAgentsPerHouse)
@@ -295,34 +289,36 @@ proc sameTeam(agentA, agentB: Thing): bool =
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Prefer the closest tumor; fall back to spawners or enemy agents if present.
-  var spawnerDir = -1
-  var spawnerDist = int.high
-  var enemyDir = -1
-  var enemyDist = int.high
+  var bestTumor = (dir: -1, dist: int.high)
+  var bestSpawner = (dir: -1, dist: int.high)
+  var bestEnemy = (dir: -1, dist: int.high)
 
   if agent.inventorySpear > 0:
-    # Use wedge-aware spear targeting first.
     for thing in env.things:
       if thing.kind notin {Tumor, Spawner, Agent}:
         continue
       if thing.kind == Agent and sameTeam(agent, thing):
         continue
-      let dirIdx = spearAttackDir(agent, thing.pos)
+      let dirIdx = spearAttackDir(agent.pos, thing.pos)
       if dirIdx < 0:
         continue
       let dist = int(chebyshevDist(agent.pos, thing.pos))
-      if thing.kind == Tumor:
-        return dirIdx
-      elif thing.kind == Spawner and dist < spawnerDist:
-        spawnerDist = dist
-        spawnerDir = dirIdx
-      elif thing.kind == Agent and dist < enemyDist:
-        enemyDist = dist
-        enemyDir = dirIdx
-    if spawnerDir >= 0:
-      return spawnerDir
-    if enemyDir >= 0:
-      return enemyDir
+      case thing.kind
+      of Tumor:
+        if dist < bestTumor.dist:
+          bestTumor = (dirIdx, dist)
+      of Spawner:
+        if dist < bestSpawner.dist:
+          bestSpawner = (dirIdx, dist)
+      of Agent:
+        if dist < bestEnemy.dist:
+          bestEnemy = (dirIdx, dist)
+      else:
+        discard
+
+    if bestTumor.dir >= 0: return bestTumor.dir
+    if bestSpawner.dir >= 0: return bestSpawner.dir
+    if bestEnemy.dir >= 0: return bestEnemy.dir
 
   # Fallback for non-spear attacks: 1-tile direct neighbors.
   for dirIdx in 0 .. 7:
@@ -337,13 +333,13 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
 
     if occupant.kind == Tumor:
       return dirIdx
-    elif occupant.kind == Spawner and spawnerDir < 0:
-      spawnerDir = dirIdx
-    elif occupant.kind == Agent and enemyDir < 0 and not sameTeam(agent, occupant):
-      enemyDir = dirIdx
+    elif occupant.kind == Spawner and bestSpawner.dir < 0:
+      bestSpawner = (dirIdx, 1)
+    elif occupant.kind == Agent and bestEnemy.dir < 0 and not sameTeam(agent, occupant):
+      bestEnemy = (dirIdx, 1)
 
-  if spawnerDir >= 0: return spawnerDir
-  if enemyDir >= 0: return enemyDir
+  if bestSpawner.dir >= 0: return bestSpawner.dir
+  if bestEnemy.dir >= 0: return bestEnemy.dir
   return -1
 
 type NeedType = enum
@@ -691,7 +687,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if agent.inventorySpear > 0:
       let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
       if tumor != nil:
-        let orientIdx = spearAttackDir(agent, tumor.pos)
+        let orientIdx = spearAttackDir(agent.pos, tumor.pos)
         if orientIdx >= 0:
           return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, orientIdx.uint8))
         else:
