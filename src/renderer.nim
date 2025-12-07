@@ -4,8 +4,6 @@ import
 
 # Infection system constants
 const
-  InfectionThreshold* = 0.05  # Blue tint threshold for infection
-  PurpleOverlayStrength* = 0.6  # How strong the purple overlay is
   HeartPlusThreshold = 9           # Switch to compact heart counter after this many
   HeartCountFontPath = "data/fonts/Inter-Regular.ttf"
   HeartCountFontSize: float32 = 28
@@ -104,40 +102,6 @@ proc drawAttackOverlays*() =
       # Render the short-lived action overlay fully opaque so it sits above the
       # normal tint layer and clearly masks the underlying tile color.
       bxy.drawImage("objects/floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
-
-proc drawStackedOverlay*(basePos: Vec2, anchor: Vec2, icon: string, count: int, tint: Color,
-                         iconScale: float32 = 1/320, maxStack: int = 5, stackStep: float32 = 0.09,
-                         fadedWhenZero = false) =
-  ## Small helper to render a stacked icon overlay (matches agent resource style).
-  let amt = max(0, count)
-  if amt == 0:
-    if fadedWhenZero:
-      let fadedTint = color(tint.r, tint.g, tint.b, 0.35)
-      bxy.drawImage(icon, basePos + anchor, angle = 0, scale = iconScale, tint = fadedTint)
-    return
-
-  let drawCount = min(amt, maxStack)
-  for i in 0 ..< drawCount:
-    let pos = basePos + anchor + vec2(0.0, -i.float32 * stackStep)
-    bxy.drawImage(icon, pos, angle = 0, scale = iconScale, tint = tint)
-
-  if amt > drawCount:
-    let plusPos = basePos + anchor + vec2(0.14, - (drawCount - 1).float32 * stackStep)
-    let boxSize = 0.26
-    bxy.drawRect(
-      rect(plusPos.x - boxSize / 2, plusPos.y - boxSize / 2, boxSize, boxSize),
-      color(0, 0, 0, 0.65)
-    )
-    let barThickness = 0.055
-    let barLength = 0.15
-    bxy.drawRect(
-      rect(plusPos.x - barLength / 2, plusPos.y - barThickness / 2, barLength, barThickness),
-      tint
-    )
-    bxy.drawRect(
-      rect(plusPos.x - barThickness / 2, plusPos.y - barLength / 2, barThickness, barLength),
-      tint
-    )
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -257,8 +221,6 @@ proc drawObjects*() =
         case thing.kind
         of Wall:
           discard
-        of WaterTile:
-          drawWaterTile(pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:

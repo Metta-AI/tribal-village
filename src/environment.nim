@@ -113,7 +113,6 @@ type
     ClayOven
     WeavingLoom
     PlantedLantern  # Planted lanterns that spread team colors
-    WaterTile       # Static water tiles rendered as Things
 
   Thing* = ref object
     kind*: ThingKind
@@ -355,8 +354,6 @@ proc render*(env: Environment): string =
             cell = "A"
           of Wall:
             cell = "#"
-          of WaterTile:
-            cell = "~"
           of Mine:
             cell = "m"
           of Converter:
@@ -466,7 +463,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Armory, Forge, ClayOven, WeavingLoom, PlantedLantern, WaterTile:
+    of Armory, Forge, ClayOven, WeavingLoom, PlantedLantern:
       discard
 
   env.observationsInitialized = true
