@@ -18,8 +18,7 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   (r: 255'u8, g: 80'u8,  b: 0'u8),    # Forge
   (r: 255'u8, g: 180'u8, b: 120'u8),  # ClayOven
   (r: 0'u8,   g: 180'u8, b: 255'u8),  # WeavingLoom
-  (r: 255'u8, g: 240'u8, b: 128'u8),  # PlantedLantern
-  (r: 0'u8,   g: 140'u8, b: 255'u8)   # WaterTile (not previously distinct)
+  (r: 255'u8, g: 240'u8, b: 128'u8)   # PlantedLantern
 ]
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
