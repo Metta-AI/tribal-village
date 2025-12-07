@@ -44,7 +44,6 @@ type
     selectedPanelNum*: int
     panels*: seq[Panel]
     minSize*: float32 = 100.0
-    resizable*: bool = true
 
 
   Settings* = object
@@ -52,9 +51,6 @@ type
     showVisualRange* = true
     showGrid* = true
     showObservations* = -1
-    debugMode* = false
-    showPerformanceStats* = false
-    enableLogging* = true
 
 proc nowSeconds*(): float64 =
   when defined(emscripten):
