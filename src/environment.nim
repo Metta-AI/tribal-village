@@ -26,18 +26,15 @@ const
 
   # Agent Parameters
   MapObjectAgentMaxInventory* = 5
-  MapObjectAgentFreezeDuration* = 10
 
   # Building Parameters
   MapObjectassemblerInitialHearts* = 5
   MapObjectassemblerCooldown* = 10
   MapObjectassemblerRespawnCost* = 1
-  MapObjectConverterCooldown* = 0
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
 
   # Gameplay
-  SpawnerCooldown* = 13
   MinTintEpsilon* = 5
 
   # Observation System
@@ -380,9 +377,9 @@ proc render*(env: Environment): string =
 
 
 proc clear[T](s: var openarray[T]) =
+  ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   let p = cast[pointer](s[0].addr)
   zeroMem(p, s.len * sizeof(T))
-
 
 
 {.push inline.}
