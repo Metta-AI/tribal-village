@@ -18,7 +18,6 @@ type
   # Minimal state tracking with spiral search
   AgentState = object
     role: AgentRole
-    initialized: bool
     # Spiral search state
     spiralStepsInArc: int
     spiralArcsCompleted: int
@@ -37,15 +36,11 @@ type
     rng*: Rand
     agents: Table[int, AgentState]
 
-# Global controller instance for compatibility
-var globalSimpleController: Controller
-
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
     agents: initTable[int, AgentState]()
   )
-  globalSimpleController = result
 
 # Helper proc to save state and return action
 proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState, action: uint8): uint8 =
@@ -271,7 +266,7 @@ proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
       return true
   return false
 
-proc spearAttackDir(agent: Thing, targetPos: IVec2): int =
+proc spearAttackDir(agent: Thing, targetPos: IVec2): int {.inline.} =
   ## Determine orientation to hit a target with spear wedge (range 1..3, width 1).
   let dx = targetPos.x - agent.pos.x
   let dy = targetPos.y - agent.pos.y
@@ -457,7 +452,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     controller.agents[agentId] = AgentState(
       role: role,
-      initialized: true,
       spiralStepsInArc: 0,
       spiralArcsCompleted: 0,
       basePosition: agent.pos,
