@@ -27,10 +27,8 @@ type
     zoomVel*: float32
     minZoom*: float32 = 2.0   # enforce same min as default
     maxZoom*: float32 = 8.0   # reduce maximum zoom-out
-    scrollArea*: Rect
     hasMouse*: bool = false
     visible*: bool = true
-    focused*: bool = false
 
   AreaLayout* = enum
     Horizontal
@@ -40,9 +38,7 @@ type
     layout*: AreaLayout
     rect*: IRect
     areas*: seq[Area]
-    selectedPanelNum*: int
     panels*: seq[Panel]
-    minSize*: float32 = 100.0
 
 
   Settings* = object
