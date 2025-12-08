@@ -14,8 +14,6 @@ type
   Structure* = object
     width*, height*: int
     centerPos*: IVec2
-    needsBuffer*: bool
-    bufferSize*: int
     layout*: seq[seq[char]]
 
 template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)

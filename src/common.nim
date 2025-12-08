@@ -15,7 +15,6 @@ type
 
   PanelType* = enum
     WorldMap
-    GlobalFooter
 
   Panel* = ref object
     panelType*: PanelType

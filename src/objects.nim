@@ -7,8 +7,6 @@ proc createHouse*(): Structure =
   result.width = 5
   result.height = 5
   result.centerPos = ivec2(2, 2)
-  result.needsBuffer = false
-  result.bufferSize = 0
 
   result.layout = @[
     @['A', '#', '.', '#', 'F'],  # Top row with Armory (top-left), Forge (top-right)
@@ -23,5 +21,3 @@ proc createSpawner*(): Structure =
   result.width = 3
   result.height = 3
   result.centerPos = ivec2(1, 1)
-  result.needsBuffer = false
-  result.bufferSize = 0
