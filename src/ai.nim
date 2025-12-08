@@ -498,6 +498,11 @@ proc harvestTerrain(controller: Controller, env: Environment, agent: Thing, agen
   let nextSearchPos = getNextSpiralPoint(state, controller.rng)
   (true, controller.moveTo(env, agent, agentId, state, nextSearchPos))
 
+proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                    state: var AgentState): uint8 =
+  let nextSearchPos = getNextSpiralPoint(state, controller.rng)
+  controller.moveTo(env, agent, agentId, state, nextSearchPos)
+
 
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
@@ -730,8 +735,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, tumor.pos, controller.rng).uint8))
       else:
         # No clippies found, continue spiral search for hunting
-        let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+        return controller.moveNextSearch(env, agent, agentId, state)
 
     # Priority 2: If no spear and a nearby tumor (<=3), retreat away
     let nearbyTumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
@@ -776,8 +780,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           else:
             return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, wateringPos, controller.rng).uint8))
 
-      let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+      return controller.moveNextSearch(env, agent, agentId, state)
 
     # Step 2: Plant on fertile tiles if holding resources
     block planting:
@@ -797,8 +800,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         return act
 
     # Step 4: If stocked but couldn't plant (no fertile nearby), roam to expand search
-    let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+      return controller.moveNextSearch(env, agent, agentId, state)
 
   of Baker:
     # Priority 1: If carrying food, deliver to teammates needing it
@@ -830,43 +832,26 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       # Find assembler and deposit battery
       for thing in env.things:
         if thing.kind == assembler and thing.pos == agent.homeassembler:
-          let dx = abs(thing.pos.x - agent.pos.x)
-          let dy = abs(thing.pos.y - agent.pos.y)
-          if max(dx, dy) == 1'i32:
-            return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, thing.pos).uint8))
-          else:
-            return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, thing.pos, controller.rng).uint8))
+          return controller.useOrApproach(env, agent, agentId, state, thing.pos)
 
     elif agent.inventoryOre > 0:
       # Find converter and make battery using spiral search
       let converterThing = env.findNearestThingSpiral(state, Converter, controller.rng)
       if converterThing != nil:
-        let dx = abs(converterThing.pos.x - agent.pos.x)
-        let dy = abs(converterThing.pos.y - agent.pos.y)
-        if max(dx, dy) == 1'i32:
-          # Converter uses GET to consume ore and produce battery
-          return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, converterThing.pos).uint8))
-        else:
-          return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, converterThing.pos, controller.rng).uint8))
+        # Converter uses GET to consume ore and produce battery
+        return controller.useOrApproach(env, agent, agentId, state, converterThing.pos)
       else:
         # No converter found, continue spiral search
-        let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+        return controller.moveNextSearch(env, agent, agentId, state)
 
     else:
       # Find mine and collect ore using spiral search
       let mine = env.findNearestThingSpiral(state, Mine, controller.rng)
       if mine != nil:
-        let dx = abs(mine.pos.x - agent.pos.x)
-        let dy = abs(mine.pos.y - agent.pos.y)
-        if max(dx, dy) == 1'i32:
-          return saveStateAndReturn(controller, agentId, state, encodeAction(3'u8, neighborDirIndex(agent.pos, mine.pos).uint8))
-        else:
-          return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, mine.pos, controller.rng).uint8))
+        return controller.useOrApproach(env, agent, agentId, state, mine.pos)
       else:
         # No mine found, continue spiral search
-        let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+        return controller.moveNextSearch(env, agent, agentId, state)
 
   # Save last position for next tick and return a default random move
   state.lastPosition = agent.pos
