@@ -503,6 +503,32 @@ proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agen
   let nextSearchPos = getNextSpiralPoint(state, controller.rng)
   controller.moveTo(env, agent, agentId, state, nextSearchPos)
 
+proc findLanternRingSlot(env: Environment, agent: Thing, center: IVec2): int =
+  ## Find a valid direction to plant a lantern on the current ring, else -1.
+  for i in 0 .. 7:
+    let dir = orientationToVec(Orientation(i))
+    let target = agent.pos + dir
+    let dist = max(abs(target.x - center.x), abs(target.y - center.y))
+    if target.x < 0 or target.x >= MapWidth or target.y < 0 or target.y >= MapHeight:
+      continue
+    if not env.isEmpty(target) or env.terrain[target.x][target.y] == Water:
+      continue
+    var spaced = true
+    for t in env.things:
+      if t.kind == PlantedLantern and chebyshevDist(target, t.pos) < 3'i32:
+        spaced = false
+        break
+    if spaced and dist >= 3:
+      return i
+  return -1
+
+proc deliverHomeBattery(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+  for thing in env.things:
+    if thing.kind == assembler and thing.pos == agent.homeassembler:
+      return (true, controller.useOrApproach(env, agent, agentId, state, thing.pos))
+  (false, 0'u8)
+
 
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
@@ -642,32 +668,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let center = if agent.homeassembler.x >= 0: agent.homeassembler else: agent.pos
 
       # Compute current preferred ring radius: smallest R where no plantable tile found yet; start at 3
-      var planted = false
       let maxR = 12  # don't search too far per step
       for radius in 3 .. maxR:
-        # scan the ring (Chebyshev distance == radius) around center
-        var bestDir = -1
-        for i in 0 .. 7:
-          let dir = orientationToVec(Orientation(i))
-          let target = agent.pos + dir
-          let dist = max(abs(target.x - center.x), abs(target.y - center.y))
-          if dist != radius: continue
-          if target.x < 0 or target.x >= MapWidth or target.y < 0 or target.y >= MapHeight:
-            continue
-          if not env.isEmpty(target):
-            continue
-          if env.terrain[target.x][target.y] == Water:
-            continue
-          var spaced = true
-          for t in env.things:
-            if t.kind == PlantedLantern and chebyshevDist(target, t.pos) < 3'i32:
-              spaced = false
-              break
-          if spaced:
-            bestDir = i
-            break
-        if bestDir >= 0:
-          planted = true
+        let bestDir = env.findLanternRingSlot(agent, center)
+        if bestDir >= 0 and max(abs((agent.pos + orientationToVec(Orientation(bestDir))).x - center.x),
+                                abs((agent.pos + orientationToVec(Orientation(bestDir))).y - center.y)) == radius:
           return saveStateAndReturn(controller, agentId, state, encodeAction(6'u8, bestDir.uint8))
 
       # If no ring slot found, step outward to expand search radius next tick
@@ -830,9 +835,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     # Handle ore → battery → assembler workflow
     if agent.inventoryBattery > 0:
       # Find assembler and deposit battery
-      for thing in env.things:
-        if thing.kind == assembler and thing.pos == agent.homeassembler:
-          return controller.useOrApproach(env, agent, agentId, state, thing.pos)
+      let (didDeliver, act) = controller.deliverHomeBattery(env, agent, agentId, state)
+      if didDeliver:
+        return act
 
     elif agent.inventoryOre > 0:
       # Find converter and make battery using spiral search
