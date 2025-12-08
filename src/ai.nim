@@ -722,8 +722,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, tumor.pos, controller.rng).uint8))
       else:
         # No clippies found, continue spiral search for hunting
-        let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+        return controller.moveNextSearch(env, agent, agentId, state)
 
     # Priority 2: If no spear and a nearby tumor (<=3), retreat away
     let nearbyTumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
@@ -766,8 +765,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           else:
             return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, wateringPos, controller.rng).uint8))
 
-      let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+      return controller.moveNextSearch(env, agent, agentId, state)
 
     # Step 2: Plant on fertile tiles if holding resources
     block planting:
@@ -785,8 +783,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       if did: return act
 
     # Step 4: If stocked but couldn't plant (no fertile nearby), roam to expand search
-    let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, getMoveTowards(env, agent.pos, nextSearchPos, controller.rng).uint8))
+    return controller.moveNextSearch(env, agent, agentId, state)
 
   of Baker:
     # Priority 1: If carrying food, deliver to teammates needing it
