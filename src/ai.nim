@@ -69,6 +69,11 @@ proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
   of 3: offset.x -= distance  # West
   else: discard
 
+proc clampToPlayable(pos: IVec2): IVec2 {.inline.} =
+  ## Keep positions inside the playable area (inside border walls).
+  result.x = min(MapWidth - MapBorder - 1, max(MapBorder, pos.x))
+  result.y = min(MapHeight - MapBorder - 1, max(MapBorder, pos.y))
+
 proc getNextSpiralPoint(state: var AgentState, rng: var Rand): IVec2 =
   ## Generate next position in expanding spiral search pattern
   # Track current position in spiral
@@ -107,7 +112,7 @@ proc getNextSpiralPoint(state: var AgentState, rng: var Rand): IVec2 =
 
   # Calculate next position
   applyDirectionOffset(totalOffset, direction, 1)
-  result = state.basePosition + totalOffset
+  result = clampToPlayable(state.basePosition + totalOffset)
 
 proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
   result = nil
@@ -378,7 +383,36 @@ proc isPassable(env: Environment, pos: IVec2): bool =
 
 proc getMoveTowards(env: Environment, fromPos, toPos: IVec2, rng: var Rand): int =
   ## Get a movement direction towards target, with obstacle avoidance
-  let primaryDir = getCardinalDirIndex(fromPos, toPos)
+  let clampedTarget = clampToPlayable(toPos)
+  if clampedTarget == fromPos:
+    # Target is outside playable bounds; push back inward toward the widest margin.
+    let directions = [
+      ivec2(0, -1),  # 0: North
+      ivec2(0, 1),   # 1: South
+      ivec2(-1, 0),  # 2: West
+      ivec2(1, 0),   # 3: East
+      ivec2(-1, -1), # 4: NW
+      ivec2(1, -1),  # 5: NE
+      ivec2(-1, 1),  # 6: SW
+      ivec2(1, 1)    # 7: SE
+    ]
+    var bestDir = -1
+    var bestMargin = -1
+    for idx, d in directions:
+      let np = fromPos + d
+      if not isPassable(env, np):
+        continue
+      let marginX = min(np.x - MapBorder, (MapWidth - MapBorder - 1) - np.x)
+      let marginY = min(np.y - MapBorder, (MapHeight - MapBorder - 1) - np.y)
+      let margin = min(marginX, marginY)
+      if margin > bestMargin:
+        bestMargin = margin
+        bestDir = idx
+    if bestDir >= 0:
+      return bestDir
+    return randIntInclusive(rng, 0, 3)
+
+  let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
 
   # Try primary direction first
   let directions = [
