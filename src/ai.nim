@@ -302,6 +302,11 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
     for thing in env.things:
       if thing.kind notin {Tumor, Spawner, Agent}:
         continue
+      # Safety: skip stale things whose grid entry was already cleared (can happen after destruction
+      # but before env.things is pruned). Without this, agents may attack an empty tile where the
+      # object used to live.
+      if env.getThing(thing.pos) != thing:
+        continue
       if thing.kind == Agent:
         if thing.frozen > 0:
           continue
