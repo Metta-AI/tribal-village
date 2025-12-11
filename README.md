@@ -5,54 +5,48 @@ resources while fighting off hostile tumors.
 
 <img width="2742" height="1628" alt="image" src="https://github.com/user-attachments/assets/a5992e9d-abdd-4d8b-ab83-efabd90e2bd5" />
 
-## Quick Start
+## Quick Start (just do this)
 
-Follow these steps to get both the Nim viewer and Python environment running locally.
+1) Tooling  
+Install Nim 2.2.x via nimby and have Python 3.9+ with `pip` plus OpenGL libs.
+```bash
+curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-ARM64 -o /tmp/nimby
+chmod +x /tmp/nimby
+/tmp/nimby use 2.2.6
+```
 
-**1) Toolchain**
-
-- Nim 2.2.4+ (with nimble). Example nimby install (macOS ARM shown):
-  ```bash
-  curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-ARM64 -o /tmp/nimby
-  chmod +x /tmp/nimby
-  /tmp/nimby use 2.2.6
-  ```
-- Python 3.9+ with `pip`; OpenGL libs for rendering.
-
-**2) Sync Nim dependencies**
-
+2) Pull Nim deps  
 ```bash
 nimby sync -g nimby.lock
 ```
 
-**3) Build and run the Nim viewer**
-
+3) Build + run the viewer  
 ```bash
 nim r -d:release tribal_village.nim
 ```
 
-**4) Build the Python shared library**
-
+4) Build the Python shared lib and place it  
 ```bash
 nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim
-# macOS: rename/symlink to libtribal_village.dylib if your loader expects it
-mv libtribal_village.so tribal_village_env/libtribal_village.so
+mv libtribal_village.so tribal_village_env/libtribal_village.so   # on macOS rename to .dylib if needed
 ```
 
-**5) Install the Python package (editable) + smoke test**
-
+5) Install the Python package and sanity check  
 ```bash
 pip install -e .
 python - <<'PY'
 from tribal_village_env import TribalVillageEnv
-env = TribalVillageEnv()
-env.reset()
-print("tribal_village_env OK")
+print(TribalVillageEnv().reset()[0].shape)
 PY
 ```
 
-**6) Train or roll out via PufferLib**
+6) Play right away  
+```bash
+tribal-village play --render gui          # desktop viewer
+tribal-village play --render ansi --steps 50  # quick text run
+```
 
+7) Train with CoGames/PufferLib  
 ```bash
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
