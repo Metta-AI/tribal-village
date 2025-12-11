@@ -7,68 +7,55 @@ resources while fighting off hostile tumors.
 
 ## Quick Start
 
-**Setup**
+Follow these steps to get both the Nim viewer and Python environment running locally.
 
-Install Tribal Village
+**1) Toolchain**
 
-- Prereqs: Nim 2.2.4+ (with nimble), Python 3.9+, pip, and OpenGL libs for rendering.
-- Fetch deps: nimby sync -g nimby.lock
-- Run the game (standalone): nim r -d:release tribal_village.nim
-- Build Python-shared lib (Linux):
-  nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim
-- macOS note: rename/symlink the output to libtribal_village.dylib if required by the loader.
-- Place the built library at tribal_village_env/libtribal_village.so (or .dylib on macOS).
-- Editable Python install: pip install -e .
-- Quick smoke test (Python): python -c "from tribal_village_env import TribalVillageEnv; TribalVillageEnv()"
-- Play from Nim after changes: nim r tribal_village.nim
-- Next step: take a few step() calls in Python to ensure the env responds.
+- Nim 2.2.4+ (with nimble). Example nimby install (macOS ARM shown):
+  ```bash
+  curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-ARM64 -o /tmp/nimby
+  chmod +x /tmp/nimby
+  /tmp/nimby use 2.2.6
+  ```
+- Python 3.9+ with `pip`; OpenGL libs for rendering.
+
+**2) Sync Nim dependencies**
 
 ```bash
-# Install Nim via nimby
-#   macOS ARM: nimby-macOS-ARM64
-#   macOS x64: nimby-macOS-X64
-#   Linux x64: nimby-Linux-X64
-curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-ARM64 -o /tmp/nimby && chmod +x /tmp/nimby
-/tmp/nimby use 2.2.6
-nimby sync -g nimby.lock  # install Nim deps into ~/.nimby/pkgs and write nim.cfg
-# Make the Python package importable from anywhere (editable install)
-uv pip install -e packages/tribal_village
+nimby sync -g nimby.lock
 ```
 
-**Standalone Game**
+**3) Build and run the Nim viewer**
 
 ```bash
 nim r -d:release tribal_village.nim
 ```
 
-**Play via CLI (wraps build + launch)**
+**4) Build the Python shared library**
 
 ```bash
-# GUI render (launches Nim viewer)
-uv run --project packages/tribal_village tribal-village play --render gui
-
-# Text-only render with random actions for a short run
-uv run --project packages/tribal_village tribal-village play --render ansi --steps 50
+nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim
+# macOS: rename/symlink to libtribal_village.dylib if your loader expects it
+mv libtribal_village.so tribal_village_env/libtribal_village.so
 ```
 
-**PufferLib Training**
+**5) Install the Python package (editable) + smoke test**
 
 ```bash
-# Ensure the shared library is up to date
-nimble buildLib
-# Launch a quick sanity check (works from any directory once installed)
-python -c "from tribal_village_env import TribalVillageEnv; env = TribalVillageEnv()"
+pip install -e .
+python - <<'PY'
+from tribal_village_env import TribalVillageEnv
+env = TribalVillageEnv()
+env.reset()
+print("tribal_village_env OK")
+PY
+```
 
-# Run CoGames trainer (cogames comes from dependency in this project)
+**6) Train or roll out via PufferLib**
+
+```bash
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
-
-# Prefer to train against a local metta checkout (symlinked at ./metta)?
-uv run --project metta/packages/cogames --with . \
-  cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
-
-> Prefer avoiding a global editable install? Use `uv run --project packages/tribal_village python -c "..."` to execute
-> one-off commands against this package with its local dependencies instead.
 
 ## Configuration
 
