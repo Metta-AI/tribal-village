@@ -9,6 +9,20 @@ resources while fighting off hostile tumors.
 
 **Setup**
 
+Install Tribal Village
+
+- Prereqs: Nim 2.2.4+ (with nimble), Python 3.9+, pip, and OpenGL libs for rendering.
+- Fetch deps: nimby sync -g nimby.lock
+- Run the game (standalone): nim r -d:release tribal_village.nim
+- Build Python-shared lib (Linux):
+  nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim
+- macOS note: rename/symlink the output to libtribal_village.dylib if required by the loader.
+- Place the built library at tribal_village_env/libtribal_village.so (or .dylib on macOS).
+- Editable Python install: pip install -e .
+- Quick smoke test (Python): python -c "from tribal_village_env import TribalVillageEnv; TribalVillageEnv()"
+- Play from Nim after changes: nim r tribal_village.nim
+- Next step: take a few step() calls in Python to ensure the env responds.
+
 ```bash
 # Install Nim via nimby
 #   macOS ARM: nimby-macOS-ARM64
