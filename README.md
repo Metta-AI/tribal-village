@@ -1,43 +1,44 @@
 # Tribal Village Environment
 
-Multi‑agent RL environment written in Nim with a Python wrapper (PufferLib compatible). Sixty agents (8 teams) compete
-for resources while hostile tumors spread a freezing “clippy” tint across the map.
+Multi‑agent RL playground in Nim with a Python wrapper (PufferLib compatible). Sixty agents (8 teams) compete for
+resources while hostile tumors spread a freezing “clippy” tint across the map. Code: https://github.com/Metta-AI/tribal-village
 
 <img width="2932" height="1578" alt="image" src="https://github.com/user-attachments/assets/b1736191-ff85-48fa-b5cf-f47e441fd118" />
 
 ## Quick Start (prioritized)
 
-**Prereqs**: Nim 2.2.x (via nimby), Python 3.12.x (matches `pyproject.toml`), `pip`, OpenGL libs.
+**You’ll need**: Nim 2.2.x (via nimby), Python 3.12.x, `pip`, OpenGL libs.
 
-1) Install Nim toolchain + deps  
+1. Install Nim with nimby + sync deps
+
 ```bash
-curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-ARM64 -o /tmp/nimby
-chmod +x /tmp/nimby
-/tmp/nimby use 2.2.6
-nimby sync -g nimby.lock
+curl -L https://github.com/treeform/nimby/releases/download/0.1.13/nimby-macOS-ARM64 -o ./nimby
+chmod +x ./nimby
+./nimby use 2.2.6
+./nimby sync -g nimby.lock
 ```
 
-2) Editable Python install + smoke test (CLI will build the Nim lib if missing)  
+2. Install Python wrapper (editable) + quick smoke test
+
 ```bash
 pip install -e .
-python - <<'PY'
-from tribal_village_env import TribalVillageEnv
-print(TribalVillageEnv().reset()[0].shape)
-PY
+python -c "import tribal_village_env; print('import ok')"
 ```
 
-3) Play via CLI (preferred)  
+3. Play via CLI (builds/refreshes the Nim lib if missing)
+
 ```bash
 tribal-village play --render gui               # desktop viewer (builds/refreshes Nim lib automatically)
-tribal-village play --render ansi --steps 50   # quick text run
 ```
 
-4) (Optional) Run the Nim viewer directly  
+4. Optional: run the Nim viewer directly
+
 ```bash
 nim r -d:release tribal_village.nim
 ```
 
-5) Train with CoGames / PufferLib  
+5. Train with CoGames / PufferLib
+
 ```bash
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
@@ -74,9 +75,14 @@ env = TribalVillageEnv(config=config)
 ## Game Overview
 
 - Map: 192x108 grid, procedural rivers/fields/trees.
-- Agents: 60 agents (8 teams, 5 per team) with simple built‑ins.
+- Agents: 60 agents (8 teams, 5 per team).
 - Resources: ore, batteries, water, wheat, wood, spears, lanterns, armor, bread.
 - Threats: tumors spread dark clippy tint; frozen tiles/objects cannot be harvested or used until thawed.
+- Coalition touches we enjoyed while building it:
+  - Territory control via lanterns
+  - Tiny async loops (e.g., craft 5x armor from wood and hand off to teammates)
+  - Tank / DPS / healer roles that synergize in combat
+  - Hearts power respawns for your squad
 
 ### Core Gameplay Loop
 
