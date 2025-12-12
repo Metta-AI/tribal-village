@@ -1,4 +1,4 @@
-import std/[tables, math], vmath, chroma
+import std/tables, vmath, chroma
 import rng_compat
 import terrain, objects, common
 export terrain, objects, common
@@ -1437,6 +1437,7 @@ proc init(env: Environment) =
   # Spawn houses with their assemblers, walls, and associated agents (tribes)
   let numHouses = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
+  var houseCenters: seq[IVec2] = @[]
   for i in 0 ..< numHouses:
     let houseStruct = createHouse()
     var placed = false
@@ -1457,6 +1458,17 @@ proc init(env: Environment) =
             canPlace = false
             break
         if not canPlace: break
+
+      # Keep houses spaced apart (Chebyshev) to avoid crowding
+      if canPlace:
+        const MinHouseSpacing = 18
+        let candidateCenter = candidatePos + houseStruct.centerPos
+        for c in houseCenters:
+          let dx = abs(c.x - candidateCenter.x)
+          let dy = abs(c.y - candidateCenter.y)
+          if max(dx, dy) < MinHouseSpacing:
+            canPlace = false
+            break
 
       if canPlace:
         placementPosition = candidatePos
@@ -1491,6 +1503,7 @@ proc init(env: Environment) =
         pos: elements.center,
         hearts: MapObjectassemblerInitialHearts  # assembler starts with default hearts
       ))
+      houseCenters.add(elements.center)
       assemblerColors[elements.center] = villageColor  # Associate assembler position with village color
 
       # Initialize base colors for house tiles to team color
