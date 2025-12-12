@@ -5,6 +5,7 @@ type
   TerrainType* = enum
     Empty
     Water
+    Bridge
     Wheat
     Tree
     Fertile
@@ -124,6 +125,90 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
            waterPos.y >= 0 and waterPos.y < mapHeight:
           if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
             terrain[waterPos.x][waterPos.y] = Water
+
+  # Place bridges across the river and any tributary branch.
+  # Bridges are three tiles wide (east-west) and span slightly beyond river width north-south.
+  proc placeBridgeMain(t: var TerrainGrid, center: IVec2) =
+    let startY = max(mapBorder, int(center.y) - (RiverWidth div 2 + 1))
+    let endY = min(mapHeight - mapBorder - 1, int(center.y) + (RiverWidth div 2 + 1))
+    let baseX = max(mapBorder, min(mapWidth - mapBorder - 3, int(center.x) - 1))
+    for dx in 0 .. 2:
+      for y in startY .. endY:
+        if not inCornerReserve(baseX + dx, y, mapWidth, mapHeight, mapBorder, reserve):
+          t[baseX + dx][y] = Bridge
+
+  # Branch bridges run horizontally (east-west span) across the tributary.
+  proc placeBridgeBranch(t: var TerrainGrid, center: IVec2) =
+    let startX = max(mapBorder, int(center.x) - (RiverWidth div 2 + 1))
+    let endX = min(mapWidth - mapBorder - 1, int(center.x) + (RiverWidth div 2 + 1))
+    let baseY = max(mapBorder, min(mapHeight - mapBorder - 3, int(center.y) - 1))
+    for dy in 0 .. 2:
+      for x in startX .. endX:
+        if not inCornerReserve(x, baseY + dy, mapWidth, mapHeight, mapBorder, reserve):
+          t[x][baseY + dy] = Bridge
+
+  var mainCandidates: seq[IVec2] = @[]
+  for pos in riverPath:
+    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
+       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
+       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+      mainCandidates.add(pos)
+
+  var branchCandidates: seq[IVec2] = @[]
+  for pos in secondaryPath:
+    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
+       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
+       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+      branchCandidates.add(pos)
+
+  let hasBranch = secondaryPath.len > 0
+  let desiredBridges = max(randInclusive(r, 4, 5), (if hasBranch: 3 else: 0))
+
+  var placed: seq[IVec2] = @[]
+  template placeFrom(cands: seq[IVec2], useBranch: bool) =
+    if cands.len > 0:
+      let center = cands[cands.len div 2]
+      if useBranch:
+        placeBridgeBranch(terrain, center)
+      else:
+        placeBridgeMain(terrain, center)
+      placed.add(center)
+
+  if hasBranch:
+    let forkIdx = riverPath.find(forkPoint)
+    if forkIdx >= 0:
+      let upstream = if forkIdx > 0: mainCandidates[0 ..< min(forkIdx, mainCandidates.len)] else: @[]
+      let downstream = if forkIdx < mainCandidates.len: mainCandidates[min(forkIdx, mainCandidates.len-1) ..< mainCandidates.len] else: @[]
+      placeFrom(upstream, false)
+      placeFrom(branchCandidates, true)
+      placeFrom(downstream, false)
+
+  # Fill remaining bridges by spreading along main river first, then branch.
+  proc uniqueAdd(pos: IVec2, list: var seq[IVec2]) =
+    for p in list:
+      if p == pos: return
+    list.add(pos)
+
+  var remaining = desiredBridges - placed.len
+  if remaining > 0 and mainCandidates.len > 0:
+    let stride = max(1, mainCandidates.len div (remaining + 1))
+    var idx = stride
+    while remaining > 0 and idx < mainCandidates.len:
+      let center = mainCandidates[idx]
+      uniqueAdd(center, placed)
+      placeBridgeMain(terrain, center)
+      dec remaining
+      idx += stride
+
+  if remaining > 0 and branchCandidates.len > 0:
+    let stride = max(1, branchCandidates.len div (remaining + 1))
+    var idx = stride
+    while remaining > 0 and idx < branchCandidates.len:
+      let center = branchCandidates[idx]
+      uniqueAdd(center, placed)
+      placeBridgeBranch(terrain, center)
+      dec remaining
+      idx += stride
 
 proc createTerrainCluster*(terrain: var TerrainGrid, centerX, centerY: int, size: int,
                           mapWidth, mapHeight: int, terrainType: TerrainType,

@@ -181,7 +181,8 @@ type
 const
   BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
-  ClippyFullTint* = TileColor(r: 0.3'f32, g: 0.3'f32, b: 1.2'f32, intensity: 1.0'f32)
+  # Single source of truth for the clippy/creep tint; also used for freeze detection.
+  ClippyTint* = TileColor(r: 0.25'f32, g: 0.25'f32, b: 1.05'f32, intensity: 1.0'f32)
   ClippyTintTolerance* = 0.02'f32
 
 type
@@ -249,13 +250,15 @@ include equipment
 proc updateObservations(env: Environment, layer: ObservationName, pos: IVec2, value: int)
 
 const WarmVillagePalette* = [
-  # Wistia-inspired warm ramp (light yellow -> orange)
-  color(0.975, 0.961, 0.694, 1.0),  # #f9f5b1
-  color(0.975, 0.894, 0.537, 1.0),  # #f9e489
-  color(0.973, 0.824, 0.412, 1.0),  # #f8d269
-  color(0.965, 0.722, 0.337, 1.0),  # #f6b856
-  color(0.949, 0.573, 0.310, 1.0),  # #f2924f
-  color(0.925, 0.416, 0.278, 1.0)   # #ec6a47
+  # Eight evenly spaced team colors around the wheel (clippy stays separate as the 9th color)
+  color(0.920, 0.270, 0.320, 1.0),  # team 0: vivid red          (#eb4551)
+  color(0.950, 0.620, 0.070, 1.0),  # team 1: amber-orange       (#f29e12)
+  color(0.650, 0.790, 0.340, 1.0),  # team 2: yellow-green       (#a6c957)
+  color(0.200, 0.800, 0.640, 1.0),  # team 3: turquoise          (#33cca4)
+  color(0.000, 0.650, 0.810, 1.0),  # team 4: cyan-blue          (#00a6ce)
+  color(0.320, 0.680, 0.900, 1.0),  # team 5: light cerulean     (#51aedd)
+  color(0.620, 0.360, 0.980, 1.0),  # team 6: softer violet      (#9e5cf9)
+  color(0.900, 0.330, 0.760, 1.0)   # team 7: magenta-pink       (#e755c2)
 ]
 
 # Combat tint helpers (inlined from combat.nim)
@@ -317,9 +320,9 @@ var
 # Frozen detection (terrain & buildings share the same tint-based check)
 proc matchesClippyTint(color: TileColor): bool =
   ## Frozen only when the tile tint fully matches the clippy tint.
-  abs(color.r - ClippyFullTint.r) <= ClippyTintTolerance and
-  abs(color.g - ClippyFullTint.g) <= ClippyTintTolerance and
-  abs(color.b - ClippyFullTint.b) <= ClippyTintTolerance
+  abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
+  abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
+  abs(color.b - ClippyTint.b) <= ClippyTintTolerance
 
 proc isTileFrozen*(pos: IVec2, env: Environment): bool =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
@@ -342,6 +345,8 @@ proc render*(env: Environment): string =
       var cell = " "
       # First check terrain
       case env.terrain[x][y]
+      of Bridge:
+        cell = "="
       of Water:
         cell = "~"
       of Wheat:
@@ -525,6 +530,11 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   var newPos = agent.pos
   newPos.x += int32(delta.x)
   newPos.y += int32(delta.y)
+
+  # Prevent moving onto water tiles (bridges remain walkable).
+  if env.terrain[newPos.x][newPos.y] == Water:
+    inc env.stats[id].actionInvalid
+    return
 
   let newOrientation = moveOrientation
   # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
@@ -834,6 +844,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   # Terrain use first
   case env.terrain[targetPos.x][targetPos.y]:
+  of Bridge:
+    # Bridges are walkable and have no direct interaction
+    inc env.stats[id].actionInvalid
+    return
   of Water:
     if agent.inventoryWater < MapObjectAgentMaxInventory:
       agent.inventoryWater += 1
