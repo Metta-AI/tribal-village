@@ -86,6 +86,8 @@ proc drawTerrain*() =
       of Tree:
         bxy.drawImage("objects/palm_tree", pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
+      of Bridge:
+        bxy.drawImage("objects/bridge", pos.vec2, angle = 0, scale = 1/200)
       of Fertile:
         bxy.drawImage("objects/fertile", pos.vec2, angle = 0, scale = 1/200)
       of Empty:
