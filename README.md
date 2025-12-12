@@ -17,18 +17,7 @@ chmod +x /tmp/nimby
 nimby sync -g nimby.lock
 ```
 
-2) Run the Nim viewer (desktop game)  
-```bash
-nim r -d:release tribal_village.nim
-```
-
-3) Build the Python shared library and drop it where the wrapper expects it  
-```bash
-nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim
-mv libtribal_village.so tribal_village_env/libtribal_village.so   # macOS: rename to .dylib if needed
-```
-
-4) Editable Python install + smoke test  
+2) Editable Python install + smoke test (CLI will build the Nim lib if missing)  
 ```bash
 pip install -e .
 python - <<'PY'
@@ -37,13 +26,18 @@ print(TribalVillageEnv().reset()[0].shape)
 PY
 ```
 
-5) Play via CLI (wraps build + launch)  
+3) Play via CLI (preferred)  
 ```bash
-tribal-village play --render gui               # desktop viewer
+tribal-village play --render gui               # desktop viewer (builds/refreshes Nim lib automatically)
 tribal-village play --render ansi --steps 50   # quick text run
 ```
 
-6) Train with CoGames / PufferLib  
+4) (Optional) Run the Nim viewer directly  
+```bash
+nim r -d:release tribal_village.nim
+```
+
+5) Train with CoGames / PufferLib  
 ```bash
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
