@@ -28,8 +28,9 @@ python -c "import tribal_village_env; print('import ok')"
 3. Play via CLI (builds/refreshes the Nim lib if missing)
 
 ```bash
-tribal-village play # hold the spacebar to step the environment
-# this runs: nim r -d:release tribal_village.nim
+tribal-village play
+# this play command actually runs: nim r -d:release tribal_village.nim
+# make sure to hold the spacebar to step the environment
 ```
 
 4. Train with CoGames / PufferLib
