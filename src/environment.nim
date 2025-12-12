@@ -181,10 +181,9 @@ type
 const
   BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
-  # Single source of truth for the clippy/creep tint; also used for freeze detection.
-  # Push darker/black-ish while staying within tint clamps.
-  ClippyTint* = TileColor(r: 0.20'f32, g: 0.20'f32, b: 0.90'f32, intensity: 0.65'f32)
-  ClippyTintTolerance* = 0.08'f32
+  # Single source of truth for the clippy/creep tint; aligned to clamp limits so tiles can actually reach it.
+  ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
+  ClippyTintTolerance* = 0.06'f32
 
 type
   # Configuration structure for environment - ONLY runtime parameters
