@@ -182,8 +182,9 @@ const
   BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
   # Single source of truth for the clippy/creep tint; also used for freeze detection.
-  ClippyTint* = TileColor(r: 0.25'f32, g: 0.25'f32, b: 1.05'f32, intensity: 1.0'f32)
-  ClippyTintTolerance* = 0.02'f32
+  # As dark as clamp limits allow while keeping the freeze match attainable.
+  ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
+  ClippyTintTolerance* = 0.05'f32
 
 type
   # Configuration structure for environment - ONLY runtime parameters
@@ -250,15 +251,15 @@ include equipment
 proc updateObservations(env: Environment, layer: ObservationName, pos: IVec2, value: int)
 
 const WarmVillagePalette* = [
-  # Eight evenly spaced team colors around the wheel (clippy stays separate as the 9th color)
-  color(0.920, 0.270, 0.320, 1.0),  # team 0: vivid red          (#eb4551)
-  color(0.950, 0.620, 0.070, 1.0),  # team 1: amber-orange       (#f29e12)
-  color(0.650, 0.790, 0.340, 1.0),  # team 2: yellow-green       (#a6c957)
-  color(0.200, 0.800, 0.640, 1.0),  # team 3: turquoise          (#33cca4)
-  color(0.000, 0.650, 0.810, 1.0),  # team 4: cyan-blue          (#00a6ce)
-  color(0.320, 0.680, 0.900, 1.0),  # team 5: light cerulean     (#51aedd)
-  color(0.620, 0.360, 0.980, 1.0),  # team 6: softer violet      (#9e5cf9)
-  color(0.900, 0.330, 0.760, 1.0)   # team 7: magenta-pink       (#e755c2)
+  # Eight bright, evenly spaced tints (similar brightness, varied hue; away from clippy purple)
+  color(0.910, 0.420, 0.420, 1.0),  # team 0: soft red        (#e86b6b)
+  color(0.940, 0.650, 0.420, 1.0),  # team 1: soft orange     (#f0a86b)
+  color(0.940, 0.820, 0.420, 1.0),  # team 2: soft yellow     (#f0d56b)
+  color(0.640, 0.820, 0.460, 1.0),  # team 3: soft lime       (#a3d273)
+  color(0.420, 0.820, 0.640, 1.0),  # team 4: soft mint       (#6ad2a3)
+  color(0.420, 0.720, 0.940, 1.0),  # team 5: soft sky        (#6ab8f0)
+  color(0.560, 0.600, 0.950, 1.0),  # team 6: soft periwinkle (#8f99f2)
+  color(0.930, 0.560, 0.820, 1.0)   # team 7: soft pink       (#ed8fD1)
 ]
 
 # Combat tint helpers (inlined from combat.nim)
@@ -2133,25 +2134,19 @@ proc reset*(env: Environment) =
 
 proc generateEntityColor*(entityType: string, id: int, fallbackColor: Color = color(0.5, 0.5, 0.5, 1.0)): Color =
   ## Unified color generation for all entity types
-  ## Uses golden angle for optimal color distribution
+  ## Uses deterministic palette indexing; no random sampling.
   case entityType:
   of "agent":
     if id >= 0 and id < agentVillageColors.len:
       return agentVillageColors[id]
-    # Fallback using mathematical constants for variety
-    let f = id.float32
-    return color(
-      f * PI mod 1.0,
-      f * math.E mod 1.0,
-      f * sqrt(2.0) mod 1.0,
-      1.0
-    )
+    let teamId = getTeamId(id)
+    if teamId >= 0 and teamId < teamColors.len:
+      return teamColors[teamId]
+    return fallbackColor
   of "village":
-    # Warm colors for villages using golden angle
-    let hue = (id.float32 * 137.5) mod 360.0 / 360.0
-    let saturation = 0.7 + (id.float32 * 0.13) mod 0.3
-    let lightness = 0.5 + (id.float32 * 0.17) mod 0.2
-    return color(hue, saturation, lightness, 1.0)
+    if id >= 0 and id < teamColors.len:
+      return teamColors[id]
+    return fallbackColor
   else:
     return fallbackColor
 
