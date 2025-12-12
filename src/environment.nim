@@ -255,7 +255,7 @@ const WarmVillagePalette* = [
   color(0.940, 0.650, 0.420, 1.0),  # team 1: soft orange     (#f0a86b)
   color(0.940, 0.820, 0.420, 1.0),  # team 2: soft yellow     (#f0d56b)
   color(0.600, 0.840, 0.500, 1.0),  # team 3: soft olive-lime (#99d680)
-  color(0.360, 0.820, 0.600, 1.0),  # team 4: soft seafoam    (#5ccf99)
+  color(0.780, 0.380, 0.880, 1.0),  # team 4: warm magenta    (#c763e0)
   color(0.420, 0.720, 0.940, 1.0),  # team 5: soft sky        (#6ab8f0)
   color(0.870, 0.870, 0.870, 1.0),  # team 6: light gray      (#dedede)
   color(0.930, 0.560, 0.820, 1.0)   # team 7: soft pink       (#ed8fd1)
