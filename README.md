@@ -3,7 +3,7 @@
 Multi‑agent RL environment written in Nim with a Python wrapper (PufferLib compatible). Sixty agents (8 teams) compete
 for resources while hostile tumors spread a freezing “clippy” tint across the map.
 
-<img width="2742" height="1628" alt="image" src="https://github.com/user-attachments/assets/a5992e9d-abdd-4d8b-ab83-efabd90e2bd5" />
+<img width="2932" height="1578" alt="image" src="https://github.com/user-attachments/assets/b1736191-ff85-48fa-b5cf-f47e441fd118" />
 
 ## Quick Start (prioritized)
 
