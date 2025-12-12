@@ -1180,6 +1180,21 @@ proc updateTintModifications(env: Environment) =
         env.activeTiles.flags[tileX][tileY] = true
         env.activeTiles.positions.add(ivec2(tileX, tileY))
 
+  # Helper: add team tint in a radius with simple Manhattan falloff
+  proc addTintArea(baseX, baseY: int, color: Color, radius: int, scale: int) =
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let tileX = baseX + dx
+        let tileY = baseY + dy
+        if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+          let dist = abs(dx) + abs(dy)
+          let falloff = max(1, radius * 2 + 1 - dist)
+          markActiveTile(tileX, tileY)
+          let strength = scale.float32 * falloff.float32
+          safeTintAdd(env.tintMods[tileX][tileY].r, int((color.r - 0.7) * strength))
+          safeTintAdd(env.tintMods[tileX][tileY].g, int((color.g - 0.65) * strength))
+          safeTintAdd(env.tintMods[tileX][tileY].b, int((color.b - 0.6) * strength))
+
   # Process all entities and mark their affected positions as active
   for thing in env.things:
     let pos = thing.pos
@@ -1209,52 +1224,13 @@ proc updateTintModifications(env: Environment) =
             safeTintAdd(env.tintMods[tileX][tileY].b, 20 * creepIntensity * falloff)
 
     of Agent:
-      # Agents create 5x stronger warmth in 3x3 area based on their tribe color
       let tribeId = thing.agentId
       if tribeId < agentVillageColors.len:
-        let tribeColor = agentVillageColors[tribeId]
-
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            let tileX = baseX + dx
-            let tileY = baseY + dy
-            if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-              # Distance-based falloff
-              let distance = abs(dx) + abs(dy)
-              let falloff = max(1, 3 - distance)  # Stronger at center, weaker at edges
-              markActiveTile(tileX, tileY)
-
-              # Agent warmth effect with overflow protection (3x stronger -> scale 180)
-              safeTintAdd(env.tintMods[tileX][tileY].r, int((tribeColor.r - 0.7) * 180 * falloff.float32))
-              safeTintAdd(env.tintMods[tileX][tileY].g, int((tribeColor.g - 0.65) * 180 * falloff.float32))
-              safeTintAdd(env.tintMods[tileX][tileY].b, int((tribeColor.b - 0.6) * 180 * falloff.float32))
-
-    of assembler:
-      # Reduce assembler tint effect by 10x (minimal warm glow)
-      markActiveTile(baseX, baseY)
-      safeTintAdd(env.tintMods[baseX][baseY].r, 5)
-      safeTintAdd(env.tintMods[baseX][baseY].g, 5)
-      safeTintAdd(env.tintMods[baseX][baseY].b, 2)
+        addTintArea(baseX, baseY, agentVillageColors[tribeId], radius = 2, scale = 90)
 
     of PlantedLantern:
-      # Lanterns spread team colors in 5x5 area (similar to clippies but warm colors)
       if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < teamColors.len:
-        let teamColor = teamColors[thing.teamId]
-
-        for dx in -2 .. 2:
-          for dy in -2 .. 2:
-            let tileX = baseX + dx
-            let tileY = baseY + dy
-            if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-              # Distance-based falloff for more organic look
-              let distance = abs(dx) + abs(dy)  # Manhattan distance
-              let falloff = max(1, 5 - distance)  # Stronger at center, weaker at edges (5x5 grid)
-              markActiveTile(tileX, tileY)
-
-              # Lantern warm effect with overflow protection
-              safeTintAdd(env.tintMods[tileX][tileY].r, int((teamColor.r - 0.7) * 50 * falloff.float32))
-              safeTintAdd(env.tintMods[tileX][tileY].g, int((teamColor.g - 0.65) * 50 * falloff.float32))
-              safeTintAdd(env.tintMods[tileX][tileY].b, int((teamColor.b - 0.6) * 50 * falloff.float32))
+        addTintArea(baseX, baseY, teamColors[thing.teamId], radius = 2, scale = 60)
 
     else:
       discard

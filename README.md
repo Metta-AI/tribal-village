@@ -1,37 +1,34 @@
 # Tribal Village Environment
 
-Multi-agent RL environment built in Nim with PufferLib integration. Features 60 agents across 12 teams competing for
-resources while fighting off hostile tumors.
+Multi‑agent RL environment written in Nim with a Python wrapper (PufferLib compatible). Sixty agents (8 teams) compete
+for resources while hostile tumors spread a freezing “clippy” tint across the map.
 
 <img width="2742" height="1628" alt="image" src="https://github.com/user-attachments/assets/a5992e9d-abdd-4d8b-ab83-efabd90e2bd5" />
 
-## Quick Start (just do this)
+## Quick Start (prioritized)
 
-1) Tooling  
-Install Nim 2.2.x via nimby and have Python 3.9+ with `pip` plus OpenGL libs.
+**Prereqs**: Nim 2.2.x (via nimby), Python 3.12.x (matches `pyproject.toml`), `pip`, OpenGL libs.
+
+1) Install Nim toolchain + deps  
 ```bash
 curl -L https://github.com/treeform/nimby/releases/download/0.1.11/nimby-macOS-ARM64 -o /tmp/nimby
 chmod +x /tmp/nimby
 /tmp/nimby use 2.2.6
-```
-
-2) Pull Nim deps  
-```bash
 nimby sync -g nimby.lock
 ```
 
-3) Build + run the viewer  
+2) Run the Nim viewer (desktop game)  
 ```bash
 nim r -d:release tribal_village.nim
 ```
 
-4) Build the Python shared lib and place it  
+3) Build the Python shared library and drop it where the wrapper expects it  
 ```bash
 nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim
-mv libtribal_village.so tribal_village_env/libtribal_village.so   # on macOS rename to .dylib if needed
+mv libtribal_village.so tribal_village_env/libtribal_village.so   # macOS: rename to .dylib if needed
 ```
 
-5) Install the Python package and sanity check  
+4) Editable Python install + smoke test  
 ```bash
 pip install -e .
 python - <<'PY'
@@ -40,20 +37,20 @@ print(TribalVillageEnv().reset()[0].shape)
 PY
 ```
 
-6) Play right away  
+5) Play via CLI (wraps build + launch)  
 ```bash
-tribal-village play --render gui          # desktop viewer
-tribal-village play --render ansi --steps 50  # quick text run
+tribal-village play --render gui               # desktop viewer
+tribal-village play --render ansi --steps 50   # quick text run
 ```
 
-7) Train with CoGames/PufferLib  
+6) Train with CoGames / PufferLib  
 ```bash
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
 
-## Configuration
+## Configuration (Python)
 
-The Python environment accepts a config dictionary to customize the Nim simulation:
+Pass a config dict to tweak the simulation:
 
 ```python
 config = {
@@ -82,9 +79,10 @@ env = TribalVillageEnv(config=config)
 
 ## Game Overview
 
-**Map**: 192x108 grid with procedural terrain (rivers, wheat fields, tree groves) **Agents**: 60 agents in 12 teams of
-5, each with specialized AI roles **Resources**: ore, batteries, water, wheat, wood, spear, lantern, armor, bread
-**Threats**: Autonomous tumors that spawn and expand across the map
+- Map: 192x108 grid, procedural rivers/fields/trees.
+- Agents: 60 agents (8 teams, 5 per team) with simple built‑ins.
+- Resources: ore, batteries, water, wheat, wood, spears, lanterns, armor, bread.
+- Threats: tumors spread dark clippy tint; frozen tiles/objects cannot be harvested or used until thawed.
 
 ### Core Gameplay Loop
 
@@ -95,8 +93,10 @@ env = TribalVillageEnv(config=config)
 
 ## Controls
 
-**Agent Selection**: Click agents to view inventory overlay in top-left **Movement**: Arrow keys/WASD for cardinal, QEZC
-for diagonal **Actions**: U (use/craft), P (special action) **Global**: Space (pause), +/- (speed), Mouse (pan/zoom)
+**Select**: click agent (inventory overlay top-left)  
+**Move**: Arrow keys / WASD (cardinal), QEZC (diagonal)  
+**Act**: U (use/craft), P (special)  
+**Global**: Space (pause), +/- (speed), mouse (pan/zoom)
 
 ## Technical Details
 
@@ -125,12 +125,9 @@ Multi-discrete `[move_direction, action_type]`:
 
 ## Build
 
-- Native shared library for Python:
-  `uv run --project packages/tribal_village python -c "from tribal_village_env.build import ensure_nim_library_current; ensure_nim_library_current()"`
+- Native shared library for Python: `nim c --app:lib ... src/tribal_village_interface.nim` (see Quick Start step 3)
 - Native desktop viewer: `nim r -d:release tribal_village.nim`
-- WebAssembly demo (requires Emscripten on PATH):\
-  `nim c --app:gui --threads:off --gc:arc --exceptions:goto --os:linux --cpu:wasm32 --cc:clang --nimcache:build/web/nimcache --listCmd -d:release -d:emscripten -d:nimNoDevRandom -d:nimNoGetRandom -d:nimNoSysrand --passL:"--shell-file=scripts/shell_minimal.html" --passL:"--preload-file data" --passL:"-sUSE_GLFW=3" --passL:"-sUSE_WEBGL2=1" --passL:"-sASYNCIFY" --passL:"-sALLOW_MEMORY_GROWTH" --passL:"-sINITIAL_MEMORY=512MB" --passL:"-sFULL_ES3=1" --passL:"-sGL_ENABLE_GET_PROC_ADDRESS=1" --passL:"-sERROR_ON_UNDEFINED_SYMBOLS=0" -o:build/web/tribal_village.html tribal_village.nim`\
-  - Outputs to `build/web/tribal_village.html`; serve via `python -m http.server 8000`
+- WebAssembly demo (requires Emscripten): command in `scripts/` section below; outputs `build/web/tribal_village.html`
 
 ### PufferLib Rendering
 
@@ -140,11 +137,13 @@ Multi-discrete `[move_direction, action_type]`:
 
 ## Files
 
-**Core**: `tribal_village.nim` (main), `src/environment.nim` (simulation), `src/ai.nim` (built-in agents) **Rendering**:
-`src/renderer.nim`, `src/ui.nim`, `src/controls.nim` **Integration**: `src/tribal_village_interface.nim` (C interface),
-`tribal_village_env/` (Python wrapper) **Build**: `nimby.lock`, `tribal_village.nimble`
+**Core**: `tribal_village.nim` (entry), `src/environment.nim` (simulation), `src/ai.nim` (built-ins)  
+**Rendering**: `src/renderer.nim`, `src/ui.nim`, `src/controls.nim`  
+**Integration**: `src/tribal_village_interface.nim` (C interface), `tribal_village_env/` (Python wrapper)  
+**Build**: `nimby.lock`, `tribal_village.nimble`
 
 ## Dependencies
 
-**Nim**: 2.2.4+ with boxy, windy, vmath, chroma packages **Python**: 3.8+ with gymnasium, numpy, pufferlib **System**:
-OpenGL for rendering
+**Nim**: 2.2.x with boxy, windy, vmath, chroma (installed via `nimby sync -g nimby.lock`)  
+**Python**: 3.12.x with gymnasium, numpy, pufferlib (pulled via `pip install -e .`)  
+**System**: OpenGL for rendering
