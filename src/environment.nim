@@ -180,6 +180,9 @@ type
 
 const
   BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
+  # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
+  ClippyFullTint* = TileColor(r: 0.3'f32, g: 0.3'f32, b: 1.2'f32, intensity: 1.0'f32)
+  ClippyTintTolerance* = 0.02'f32
 
 type
   # Configuration structure for environment - ONLY runtime parameters
@@ -311,21 +314,27 @@ var
   env*: Environment  # Global environment instance
   selection*: Thing  # Currently selected entity for UI interaction
 
-# Frozen building detection
-proc isBuildingFrozen*(pos: IVec2, env: Environment): bool =
-  ## Enhanced check if a building is frozen due to tumor creep zone effect
+# Frozen detection (terrain & buildings share the same tint-based check)
+proc matchesClippyTint(color: TileColor): bool =
+  ## Frozen only when the tile tint fully matches the clippy tint.
+  abs(color.r - ClippyFullTint.r) <= ClippyTintTolerance and
+  abs(color.g - ClippyFullTint.g) <= ClippyTintTolerance and
+  abs(color.b - ClippyFullTint.b) <= ClippyTintTolerance
+
+proc isTileFrozen*(pos: IVec2, env: Environment): bool =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return false
+  return matchesClippyTint(env.tileColors[pos.x][pos.y])
 
-  let color = env.tileColors[pos.x][pos.y]
-  # Cool colors have more blue than red+green combined
-  let basicCoolCheck = color.b > (color.r + color.g)
+proc isBuildingFrozen*(pos: IVec2, env: Environment): bool =
+  ## Backwards-compatible alias for frozen detection on buildings.
+  return isTileFrozen(pos, env)
 
-  # Additional saturation check: blue should be significantly high (close to max saturation)
-  # This indicates prolonged presence in a tumor creep zone
-  let highSaturationCheck = color.b >= 1.0  # Blue component near maximum
-
-  return basicCoolCheck and highSaturationCheck
+proc isThingFrozen*(thing: Thing, env: Environment): bool =
+  ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
+  if thing.frozen > 0:
+    return true
+  return isTileFrozen(thing.pos, env)
 
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
@@ -818,6 +827,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
 
+  # Frozen tiles are non-interactable (terrain or things sitting on them)
+  if isTileFrozen(targetPos, env):
+    inc env.stats[id].actionInvalid
+    return
+
   # Terrain use first
   case env.terrain[targetPos.x][targetPos.y]:
   of Water:
@@ -889,8 +903,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   if isNil(thing):
     inc env.stats[id].actionInvalid
     return
-  # Prevent using frozen buildings
-  if isBuildingFrozen(targetPos, env):
+  # Prevent interacting with frozen objects/buildings
+  if isThingFrozen(thing, env):
     inc env.stats[id].actionInvalid
     return
 
@@ -988,7 +1002,7 @@ proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
   if target == nil:
     inc env.stats[id].actionInvalid
     return
-  if target.kind == Agent and target.frozen > 0:
+  if target.kind == Agent and not isThingFrozen(target, env):
     var temp = agent.pos
     agent.pos = target.pos
     target.pos = temp
@@ -1011,7 +1025,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
   let target = env.getThing(targetPos)
-  if isNil(target) or target.kind != Agent:
+  if isNil(target) or target.kind != Agent or isThingFrozen(target, env):
     inc env.stats[id].actionInvalid
     return
   var transferred = false
@@ -1195,10 +1209,10 @@ proc updateTintModifications(env: Environment) =
               let falloff = max(1, 3 - distance)  # Stronger at center, weaker at edges
               markActiveTile(tileX, tileY)
 
-              # Agent warmth effect with overflow protection
-              safeTintAdd(env.tintMods[tileX][tileY].r, int((tribeColor.r - 0.7) * 63 * falloff.float32))
-              safeTintAdd(env.tintMods[tileX][tileY].g, int((tribeColor.g - 0.65) * 63 * falloff.float32))
-              safeTintAdd(env.tintMods[tileX][tileY].b, int((tribeColor.b - 0.6) * 63 * falloff.float32))
+              # Agent warmth effect with overflow protection (3x stronger -> scale 180)
+              safeTintAdd(env.tintMods[tileX][tileY].r, int((tribeColor.r - 0.7) * 180 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].g, int((tribeColor.g - 0.65) * 180 * falloff.float32))
+              safeTintAdd(env.tintMods[tileX][tileY].b, int((tribeColor.b - 0.6) * 180 * falloff.float32))
 
     of assembler:
       # Reduce assembler tint effect by 10x (minimal warm glow)
@@ -1320,7 +1334,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   # Check if position is empty and not water
-  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water:
+  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
 
@@ -1361,7 +1375,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
     inc env.stats[id].actionInvalid
     return
-  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water:
+  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
   if env.terrain[targetPos.x][targetPos.y] != Fertile:
