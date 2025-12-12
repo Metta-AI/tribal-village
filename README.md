@@ -29,15 +29,10 @@ python -c "import tribal_village_env; print('import ok')"
 
 ```bash
 tribal-village play # hold the spacebar to step the environment
+# this runs: nim r -d:release tribal_village.nim
 ```
 
-or
-
-```bash
-nim r -d:release tribal_village.nim
-```
-
-5. Train with CoGames / PufferLib
+4. Train with CoGames / PufferLib
 
 ```bash
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
