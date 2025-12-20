@@ -3,6 +3,53 @@
 
 import environment, external_actions
 
+type
+  ## C-compatible environment config passed from Python.
+  ## Use NaN for float fields (or <=0 for maxSteps) to keep Nim defaults.
+  CEnvironmentConfig* = object
+    maxSteps*: int32
+    tumorSpawnRate*: float32
+    heartReward*: float32
+    oreReward*: float32
+    batteryReward*: float32
+    woodReward*: float32
+    waterReward*: float32
+    wheatReward*: float32
+    spearReward*: float32
+    armorReward*: float32
+    foodReward*: float32
+    clothReward*: float32
+    tumorKillReward*: float32
+    survivalPenalty*: float32
+    deathPenalty*: float32
+
+proc isNan32(x: float32): bool {.inline.} =
+  x != x
+
+proc applyConfig(cfg: CEnvironmentConfig): EnvironmentConfig =
+  result = defaultEnvironmentConfig()
+  if cfg.maxSteps > 0:
+    result.maxSteps = cfg.maxSteps.int
+
+  template applyFloat(field: untyped, value: float32) =
+    if not isNan32(value):
+      result.field = value.float
+
+  applyFloat(tumorSpawnRate, cfg.tumorSpawnRate)
+  applyFloat(heartReward, cfg.heartReward)
+  applyFloat(oreReward, cfg.oreReward)
+  applyFloat(batteryReward, cfg.batteryReward)
+  applyFloat(woodReward, cfg.woodReward)
+  applyFloat(waterReward, cfg.waterReward)
+  applyFloat(wheatReward, cfg.wheatReward)
+  applyFloat(spearReward, cfg.spearReward)
+  applyFloat(armorReward, cfg.armorReward)
+  applyFloat(foodReward, cfg.foodReward)
+  applyFloat(clothReward, cfg.clothReward)
+  applyFloat(tumorKillReward, cfg.tumorKillReward)
+  applyFloat(survivalPenalty, cfg.survivalPenalty)
+  applyFloat(deathPenalty, cfg.deathPenalty)
+
 var globalEnv: Environment = nil
 
 const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
@@ -30,6 +77,20 @@ proc tribal_village_create(): pointer {.exportc, dynlib.} =
     return cast[pointer](globalEnv)
   except:
     return nil
+
+proc tribal_village_set_config(
+  env: pointer,
+  cfg: ptr CEnvironmentConfig
+): int32 {.exportc, dynlib.} =
+  ## Update runtime config (rewards, spawn rates, max steps) from Python.
+  if globalEnv == nil or cfg.isNil:
+    return 0
+  try:
+    discard env
+    globalEnv.config = applyConfig(cfg[])
+    return 1
+  except:
+    return 0
 
 proc tribal_village_reset_and_get_obs(
   env: pointer,

@@ -44,7 +44,7 @@ cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-wor
 
 ## Configuration (Python)
 
-Pass a config dict to the Python wrapper (rendering + episode truncation):
+Pass a config dict to the Python wrapper (rendering + gameplay tuning):
 
 ```python
 config = {
@@ -52,12 +52,25 @@ config = {
     'render_mode': 'rgb_array', # or 'ansi'
     'render_scale': 4,          # RGB scale factor (full-map render)
     'ansi_buffer_size': 1_000_000,
+    # Nim gameplay tuning (optional)
+    'tumor_spawn_rate': 0.1,
+    'heart_reward': 1.0,
+    'ore_reward': 0.1,
+    'battery_reward': 0.8,
+    'wood_reward': 0.0,
+    'water_reward': 0.0,
+    'wheat_reward': 0.0,
+    'spear_reward': 0.0,
+    'armor_reward': 0.0,
+    'food_reward': 0.0,
+    'cloth_reward': 0.0,
+    'tumor_kill_reward': 0.0,
+    'survival_penalty': -0.01,
+    'death_penalty': -5.0,
 }
 env = TribalVillageEnv(config=config)
 ```
-
-Gameplay tuning (spawn rate, rewards, etc.) currently lives in Nim
-(`defaultEnvironmentConfig` in `src/environment.nim`) and is not yet wired through the Python wrapper.
+These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ## Game Overview
 

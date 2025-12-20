@@ -5,6 +5,7 @@ Eliminates ALL conversion overhead by using direct numpy buffer communication.
 """
 
 import ctypes
+import math
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -16,6 +17,26 @@ import pufferlib
 ACTION_VERB_COUNT = 8
 ACTION_ARGUMENT_COUNT = 8
 ACTION_SPACE_SIZE = ACTION_VERB_COUNT * ACTION_ARGUMENT_COUNT
+
+
+class NimConfig(ctypes.Structure):
+    _fields_ = [
+        ("max_steps", ctypes.c_int32),
+        ("tumor_spawn_rate", ctypes.c_float),
+        ("heart_reward", ctypes.c_float),
+        ("ore_reward", ctypes.c_float),
+        ("battery_reward", ctypes.c_float),
+        ("wood_reward", ctypes.c_float),
+        ("water_reward", ctypes.c_float),
+        ("wheat_reward", ctypes.c_float),
+        ("spear_reward", ctypes.c_float),
+        ("armor_reward", ctypes.c_float),
+        ("food_reward", ctypes.c_float),
+        ("cloth_reward", ctypes.c_float),
+        ("tumor_kill_reward", ctypes.c_float),
+        ("survival_penalty", ctypes.c_float),
+        ("death_penalty", ctypes.c_float),
+    ]
 
 
 class TribalVillageEnv(pufferlib.PufferEnv):
@@ -113,6 +134,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if not self.env_ptr:
             raise RuntimeError("Failed to create Nim environment")
 
+        self._apply_nim_config()
+
         self.step_count = 0
 
     @property
@@ -165,9 +188,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
     def _setup_ctypes_interface(self):
         """Setup ctypes for direct buffer functions."""
+        config_ptr = ctypes.POINTER(NimConfig)
         func_specs = [
             # required
             ("tribal_village_create", [], ctypes.c_void_p, False),
+            ("tribal_village_set_config", [ctypes.c_void_p, config_ptr], ctypes.c_int32, False),
             (
                 "tribal_village_reset_and_get_obs",
                 [
@@ -230,6 +255,39 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 func.argtypes = argtypes
             if restype is not None:
                 func.restype = restype
+
+    def _nim_float(self, key: str) -> float:
+        value = self.config.get(key)
+        if value is None:
+            return math.nan
+        return float(value)
+
+    def _build_nim_config(self) -> NimConfig:
+        return NimConfig(
+            max_steps=int(self.max_steps),
+            tumor_spawn_rate=self._nim_float("tumor_spawn_rate"),
+            heart_reward=self._nim_float("heart_reward"),
+            ore_reward=self._nim_float("ore_reward"),
+            battery_reward=self._nim_float("battery_reward"),
+            wood_reward=self._nim_float("wood_reward"),
+            water_reward=self._nim_float("water_reward"),
+            wheat_reward=self._nim_float("wheat_reward"),
+            spear_reward=self._nim_float("spear_reward"),
+            armor_reward=self._nim_float("armor_reward"),
+            food_reward=self._nim_float("food_reward"),
+            cloth_reward=self._nim_float("cloth_reward"),
+            tumor_kill_reward=self._nim_float("tumor_kill_reward"),
+            survival_penalty=self._nim_float("survival_penalty"),
+            death_penalty=self._nim_float("death_penalty"),
+        )
+
+    def _apply_nim_config(self) -> None:
+        if not hasattr(self.lib, "tribal_village_set_config"):
+            return
+        cfg = self._build_nim_config()
+        ok = self.lib.tribal_village_set_config(self.env_ptr, ctypes.byref(cfg))
+        if ok != 1:
+            raise RuntimeError("Failed to apply Nim environment config")
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict] = None
