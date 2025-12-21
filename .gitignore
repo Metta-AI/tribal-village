@@ -1,6 +1,7 @@
 metta
 tribal_village
 PufferLib
+resources
 src/tmp/
 src/mettascope.out
 bindings/generated/
@@ -67,6 +68,7 @@ tribal_replay_*.tribal
 examples/tribal_replay_*.tribal
 examples/*.tmp
 train_dir/
+experiments/
 
 # Python package build artifacts
 *.egg-info/
