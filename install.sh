@@ -16,6 +16,7 @@ fi
 source "$VENV_DIR/bin/activate"
 
 echo "==> Installing Python package (editable)"
+python -m ensurepip --upgrade >/dev/null 2>&1 || true
 python -m pip install --upgrade pip
 python -m pip install -e .
 
