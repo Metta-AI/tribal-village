@@ -18,8 +18,8 @@ const
   # World Objects
   # Eight bases with six agents each -> 48 agents total (divisible by 12 and 16 for batching).
   MapRoomObjectsHouses* = 8
-  MapAgentsPerHouse* = 6
-  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # 48 total agents
+  MapAgentsPerHouse* = 20
+  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
   MapRoomObjectsConverters* = 10
   MapRoomObjectsMines* = 20
   MapRoomObjectsWalls* = 30
@@ -438,6 +438,8 @@ proc rebuildObservations*(env: Environment) =
   # Populate agent-centric layers (presence, orientation, inventory).
   for agent in env.agents:
     if agent.isNil:
+      continue
+    if not isValidPos(agent.pos):
       continue
     let teamValue = getTeamId(agent.agentId) + 1
     env.updateObservations(AgentLayer, agent.pos, teamValue)
@@ -1324,7 +1326,8 @@ proc add(env: Environment, thing: Thing) =
   if thing.kind == Agent:
     env.agents.add(thing)
     env.stats.add(Stats())
-  env.grid[thing.pos.x][thing.pos.y] = thing
+  if isValidPos(thing.pos):
+    env.grid[thing.pos.x][thing.pos.y] = thing
 
 proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Plant lantern at agent's current position - argument specifies direction (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
@@ -1524,8 +1527,9 @@ proc init(env: Environment) =
       teamColors.add(villageColor)
       let teamId = teamColors.len - 1
 
-      # Spawn agents around this house
+      # Spawn agent slots for this house (one active, the rest dormant)
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
+      let baseAgentId = i * MapAgentsPerHouse
 
       # Add the altar (assembler) with initial hearts and house bounds
       env.add(Thing(
@@ -1596,20 +1600,26 @@ proc init(env: Environment) =
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
 
         for j in 0 ..< agentsForThisHouse:
-          var agentPos: IVec2
-          if j < nearbyPositions.len:
-            # Use nearby positions
-            agentPos = nearbyPositions[j]
-          else:
-            # Fallback to random
-            agentPos = r.randomEmptyPos(env)
-
-          let agentId = totalAgentsSpawned
+          let agentId = baseAgentId + j
 
           # Store the village color for this agent (shared by all agents of the house)
           agentVillageColors[agentId] = teamColors[getTeamId(agentId)]
 
-          # Create the agent
+          var agentPos = ivec2(-1, -1)
+          var frozen = 999999
+          var hp = 0
+          if j == 0:
+            if nearbyPositions.len > 0:
+              agentPos = nearbyPositions[0]
+            else:
+              agentPos = r.randomEmptyPos(env)
+            frozen = 0
+            hp = AgentMaxHp
+            env.terminated[agentId] = 0.0
+          else:
+            env.terminated[agentId] = 1.0
+
+          # Create the agent slot (only the first is placed immediately)
           env.add(Thing(
             kind: Agent,
             agentId: agentId,
@@ -1624,8 +1634,8 @@ proc init(env: Environment) =
             inventorySpear: 0,
             inventoryLantern: 0,
             inventoryArmor: 0,
-            frozen: 0,
-            hp: AgentMaxHp,
+            frozen: frozen,
+            hp: hp,
             maxHp: AgentMaxHp
           ))
 
