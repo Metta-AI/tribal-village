@@ -1,5 +1,6 @@
 import
   boxy, vmath, windy, tables,
+  std/[algorithm, math],
   common, environment
 
 # Infection system constants
@@ -394,51 +395,43 @@ proc drawAgentDecorations*() =
         let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
         bxy.drawImage("objects/floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
 
-    # Inventory overlays placed per-corner/edge for clarity
-    type OverlayItem = tuple[key: string, icon: string, count: int]
+    # Inventory overlays placed radially, ordered by item name.
+    type OverlayItem = object
+      name: string
+      icon: string
+      count: int
+
     var overlays: seq[OverlayItem] = @[]
-    if agent.inventoryOre > 0: overlays.add((key: "s", icon: "resources/ore", count: agent.inventoryOre))
-    if agent.inventoryBattery > 0: overlays.add((key: "c", icon: "resources/battery", count: agent.inventoryBattery))
-    if agent.inventoryWater > 0: overlays.add((key: "n", icon: "resources/water", count: agent.inventoryWater))
-    if agent.inventoryWheat > 0: overlays.add((key: "sw", icon: "resources/wheat", count: agent.inventoryWheat))
-    if agent.inventoryBread > 0: overlays.add((key: "w", icon: "resources/bread", count: agent.inventoryBread))
-    if agent.inventoryArmor > 0: overlays.add((key: "nw", icon: "resources/armor", count: agent.inventoryArmor))
-    if agent.inventoryLantern > 0: overlays.add((key: "e", icon: "objects/lantern", count: agent.inventoryLantern))
-    if agent.inventoryWood > 0: overlays.add((key: "se", icon: "resources/wood", count: agent.inventoryWood))
-    if agent.inventorySpear > 0: overlays.add((key: "ne", icon: "resources/spear", count: agent.inventorySpear))
+    if agent.inventoryArmor > 0: overlays.add(OverlayItem(name: "armor", icon: "resources/armor", count: agent.inventoryArmor))
+    if agent.inventoryBattery > 0: overlays.add(OverlayItem(name: "battery", icon: "resources/battery", count: agent.inventoryBattery))
+    if agent.inventoryBread > 0: overlays.add(OverlayItem(name: "bread", icon: "resources/bread", count: agent.inventoryBread))
+    if agent.inventoryLantern > 0: overlays.add(OverlayItem(name: "lantern", icon: "objects/lantern", count: agent.inventoryLantern))
+    if agent.inventoryOre > 0: overlays.add(OverlayItem(name: "ore", icon: "resources/ore", count: agent.inventoryOre))
+    if agent.inventorySpear > 0: overlays.add(OverlayItem(name: "spear", icon: "resources/spear", count: agent.inventorySpear))
+    if agent.inventoryWater > 0: overlays.add(OverlayItem(name: "water", icon: "resources/water", count: agent.inventoryWater))
+    if agent.inventoryWheat > 0: overlays.add(OverlayItem(name: "wheat", icon: "resources/wheat", count: agent.inventoryWheat))
+    if agent.inventoryWood > 0: overlays.add(OverlayItem(name: "wood", icon: "resources/wood", count: agent.inventoryWood))
 
     if overlays.len == 0:
       continue
 
+    overlays.sort(proc(a, b: OverlayItem): int = cmp(a.name, b.name))
+
     let basePos = agent.pos.vec2
     let iconScale = 1/320
     let maxStack = 4
-    let stackStep = 0.08
+    let stackStep = 0.10
+    let baseRadius = 0.58
+    let startAngle = 135.0  # degrees, top-left from positive X axis
+    let step = 360.0 / overlays.len.float32
 
-    # Anchor offsets per key (corners cling to tile corners; edges sit mid-height)
-    let anchor = toTable({
-      "nw": vec2(-0.56, -0.56),
-      "n":  vec2(-0.08, -0.63),
-      "ne": vec2(0.40, -0.56),
-      "w":  vec2(-0.63, -0.08),
-      "c":  vec2(0.00, 0.00),
-      "e":  vec2(0.47, -0.08),
-      "sw": vec2(-0.56, 0.40),
-      "s":  vec2(-0.08, 0.47),
-      "se": vec2(0.40, 0.40)
-    })
-
-    var stackCounts = initTable[string, int]()
-
-    for ov in overlays:
-      let off = anchor.getOrDefault(ov.key, vec2(0.0, -0.42))
-      var stackIdx = stackCounts.getOrDefault(ov.key, 0)
+    for i, ov in overlays:
+      let angle = degToRad(startAngle - step * i.float32)
+      let dir = vec2(cos(angle).float32, -sin(angle).float32)
       let n = min(ov.count, maxStack)
-      for i in 0 ..< n:
-        let pos = basePos + off + vec2(0.0, -stackIdx.float32 * stackStep)
+      for j in 0 ..< n:
+        let pos = basePos + dir * (baseRadius + stackStep * j.float32)
         bxy.drawImage(ov.icon, pos, angle = 0, scale = iconScale)
-        stackIdx += 1
-      stackCounts[ov.key] = stackIdx
 
 proc drawGrid*() =
   for x in 0 ..< MapWidth:
