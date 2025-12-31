@@ -110,6 +110,10 @@ type
     Forge
     ClayOven
     WeavingLoom
+    Bed
+    Chair
+    Table
+    Statue
     PlantedLantern  # Planted lanterns that spread team colors
 
   Thing* = ref object
@@ -385,6 +389,14 @@ proc render*(env: Environment): string =
             cell = "O"
           of WeavingLoom:
             cell = "W"
+          of Bed:
+            cell = "B"
+          of Chair:
+            cell = "H"
+          of Table:
+            cell = "T"
+          of Statue:
+            cell = "S"
           of PlantedLantern:
             cell = "L"
           break
@@ -478,7 +490,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Armory, Forge, ClayOven, WeavingLoom, PlantedLantern:
+    of Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, PlantedLantern:
       discard
 
   env.observationsInitialized = true
@@ -1591,6 +1603,26 @@ proc init(env: Environment) =
             of 'W':  # Weaving Loom at bottom-right
               env.add(Thing(
                 kind: WeavingLoom,
+                pos: worldPos,
+              ))
+            of 'B':  # Bed
+              env.add(Thing(
+                kind: Bed,
+                pos: worldPos,
+              ))
+            of 'H':  # Chair (throne)
+              env.add(Thing(
+                kind: Chair,
+                pos: worldPos,
+              ))
+            of 'T':  # Table
+              env.add(Thing(
+                kind: Table,
+                pos: worldPos,
+              ))
+            of 'S':  # Statue
+              env.add(Thing(
+                kind: Statue,
                 pos: worldPos,
               ))
             else:
