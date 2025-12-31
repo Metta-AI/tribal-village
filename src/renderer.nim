@@ -200,6 +200,17 @@ proc drawWalls*() =
     bxy.drawImage("objects/wall.fill", fillPos.vec2 + vec2(0.5, 0.3),
                   angle = 0, scale = 1/200, tint = fillTint)
 
+proc drawDoors*() =
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      let pos = ivec2(x, y)
+      if not env.hasDoor(pos):
+        continue
+      let teamId = env.getDoorTeam(pos)
+      let base = if teamId >= 0 and teamId < teamColors.len: teamColors[teamId] else: color(0.8, 0.8, 0.8, 1.0)
+      let tint = color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
+      bxy.drawImage("objects/wall", pos.vec2, angle = 0, scale = 1/200, tint = tint)
+
 proc drawObjects*() =
   drawAttackOverlays()
 

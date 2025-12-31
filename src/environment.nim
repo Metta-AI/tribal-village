@@ -1,7 +1,7 @@
 import std/tables, vmath, chroma
 import rng_compat
-import terrain, objects, common
-export terrain, objects, common
+import terrain, objects, workshop, common
+export terrain, objects, workshop, common
 
 
 const
@@ -31,6 +31,7 @@ const
   MapObjectassemblerInitialHearts* = 5
   MapObjectassemblerCooldown* = 10
   MapObjectassemblerRespawnCost* = 1
+  MapObjectassemblerAutoSpawnThreshold* = 5
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
 
@@ -218,6 +219,7 @@ type
     things*: seq[Thing]
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]
+    doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
     terrain*: TerrainGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
@@ -490,12 +492,32 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
   if not isValidPos(pos):
     return false
   return env.grid[pos.x][pos.y] == nil
+
+proc hasDoor*(env: Environment, pos: IVec2): bool =
+  if not isValidPos(pos):
+    return false
+  return env.doorTeams[pos.x][pos.y] >= 0
+
+proc getDoorTeam*(env: Environment, pos: IVec2): int =
+  if not isValidPos(pos):
+    return -1
+  return env.doorTeams[pos.x][pos.y].int
+
+proc canAgentPassDoor(env: Environment, agent: Thing, pos: IVec2): bool =
+  if not env.hasDoor(pos):
+    return true
+  return env.getDoorTeam(pos) == getTeamId(agent.agentId)
 {.pop.}
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Restore a tile to the default floor color
   env.tileColors[pos.x][pos.y] = BaseTileColorDefault
   env.baseTileColors[pos.x][pos.y] = BaseTileColorDefault
+
+proc clearDoors(env: Environment) =
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      env.doorTeams[x][y] = -1
 
 
 
@@ -536,6 +558,10 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
 
+  if not env.canAgentPassDoor(agent, newPos):
+    inc env.stats[id].actionInvalid
+    return
+
   let newOrientation = moveOrientation
   # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
   var canMove = env.isEmpty(newPos)
@@ -556,12 +582,12 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
       # Preferred push positions in move direction
       let ahead1 = ivec2(newPos.x + delta.x, newPos.y + delta.y)
       let ahead2 = ivec2(newPos.x + delta.x * 2, newPos.y + delta.y * 2)
-      if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water and spacingOk(ahead2):
+      if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water and spacingOk(ahead2):
         env.grid[blocker.pos.x][blocker.pos.y] = nil
         blocker.pos = ahead2
         env.grid[blocker.pos.x][blocker.pos.y] = blocker
         relocated = true
-      elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water and spacingOk(ahead1):
+      elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water and spacingOk(ahead1):
         env.grid[blocker.pos.x][blocker.pos.y] = nil
         blocker.pos = ahead1
         env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -573,7 +599,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
             if dx == 0 and dy == 0: continue
             let alt = ivec2(newPos.x + dx, newPos.y + dy)
             if alt.x < 0 or alt.y < 0 or alt.x >= MapWidth or alt.y >= MapHeight: continue
-            if env.isEmpty(alt) and env.terrain[alt.x][alt.y] != Water and spacingOk(alt):
+            if env.isEmpty(alt) and not env.hasDoor(alt) and env.terrain[alt.x][alt.y] != Water and spacingOk(alt):
               env.grid[blocker.pos.x][blocker.pos.y] = nil
               blocker.pos = alt
               env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -888,7 +914,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
   of Empty:
     # Only treat as terrain if the tile has no occupying Thing; otherwise fall through to building logic.
-    if env.isEmpty(targetPos):
+    if env.isEmpty(targetPos) and not env.hasDoor(targetPos):
       # Heal burst: consume bread to heal nearby allied agents (and self) for 1 HP
       if agent.inventoryBread > 0:
         agent.inventoryBread = max(0, agent.inventoryBread - 1)
@@ -1073,7 +1099,7 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   ## Check if a position is within map bounds, empty, and not water
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
   pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
-  env.isEmpty(pos) and env.terrain[pos.x][pos.y] != Water
+  env.isEmpty(pos) and not env.hasDoor(pos) and env.terrain[pos.x][pos.y] != Water
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
@@ -1324,7 +1350,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   # Check if position is empty and not water
-  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
 
@@ -1365,7 +1391,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
     inc env.stats[id].actionInvalid
     return
-  if not env.isEmpty(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
   if env.terrain[targetPos.x][targetPos.y] != Fertile:
@@ -1405,6 +1431,9 @@ proc init(env: Environment) =
       env.tileColors[x][y] = BaseTileColorDefault
       env.baseTileColors[x][y] = BaseTileColorDefault
 
+  # Clear door grid
+  env.clearDoors()
+
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
@@ -1439,14 +1468,14 @@ proc init(env: Environment) =
   var totalAgentsSpawned = 0
   var houseCenters: seq[IVec2] = @[]
   for i in 0 ..< numHouses:
-    let houseStruct = createHouse()
+    let houseStruct = createVillage()
     var placed = false
     var placementPosition: IVec2
 
     # Simple random placement with collision avoidance
     for attempt in 0 ..< 200:
       let candidatePos = r.randomEmptyPos(env)
-      # Check if position has enough space for the 5x5 house
+      # Check if position has enough space for the village footprint
       var canPlace = true
       for dy in 0 ..< houseStruct.height:
         for dx in 0 ..< houseStruct.width:
@@ -1461,7 +1490,7 @@ proc init(env: Environment) =
 
       # Keep houses spaced apart (Chebyshev) to avoid crowding
       if canPlace:
-        const MinHouseSpacing = 18
+        const MinHouseSpacing = 22
         let candidateCenter = candidatePos + houseStruct.centerPos
         for c in houseCenters:
           let dx = abs(c.x - candidateCenter.x)
@@ -1493,6 +1522,7 @@ proc init(env: Environment) =
       let paletteIndex = i mod WarmVillagePalette.len
       let villageColor = WarmVillagePalette[paletteIndex]
       teamColors.add(villageColor)
+      let teamId = teamColors.len - 1
 
       # Spawn agents around this house
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
@@ -1526,6 +1556,11 @@ proc init(env: Environment) =
           kind: Wall,
           pos: wallPos,
         ))
+
+      # Add the doors (team-colored, passable only to that team)
+      for doorPos in elements.doors:
+        if doorPos.x >= 0 and doorPos.x < MapWidth and doorPos.y >= 0 and doorPos.y < MapHeight:
+          env.doorTeams[doorPos.x][doorPos.y] = teamId.int16
 
       # Add the corner buildings from the house layout
       # Parse the house structure to find corner buildings
@@ -1598,7 +1633,7 @@ proc init(env: Environment) =
           if totalAgentsSpawned >= MapRoomObjectsAgents:
             break
 
-      # Note: Entrances are left empty (no walls placed there)
+      # Note: Door gaps are placed instead of walls for defendable entrances
 
   # Now place additional random walls after villages to avoid blocking corner placement
   for i in 0 ..< MapRoomObjectsWalls:
@@ -2037,8 +2072,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           assemblerThing = thing
           break
 
-      # Respawn if assembler exists and has hearts
-      if not isNil(assemblerThing) and assemblerThing.hearts > 0:
+      # Respawn if assembler exists and has hearts above the auto-spawn threshold
+      if not isNil(assemblerThing) and assemblerThing.hearts > MapObjectassemblerAutoSpawnThreshold:
         # Deduct a heart from the assembler
         assemblerThing.hearts -= MapObjectassemblerRespawnCost
         env.updateObservations(assemblerHeartsLayer, assemblerThing.pos, assemblerThing.hearts)
