@@ -250,6 +250,7 @@ proc display() =
   drawFloor()
   drawTerrain()
   drawWalls()
+  drawDoors()
   drawObjects()
   drawAgentDecorations()
   if settings.showVisualRange:

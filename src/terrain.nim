@@ -285,6 +285,7 @@ proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],
+    doors: seq[IVec2],
     floors: seq[IVec2],
     assemblers: seq[IVec2],
     forges: seq[IVec2],
@@ -295,6 +296,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
   ] =
   ## Extract tiles for placing a structure
   result.walls = @[]
+  result.doors = @[]
   result.floors = @[]
   result.assemblers = @[]
   result.forges = @[]
@@ -309,6 +311,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       let pos = ivec2(topLeft.x + x.int32, topLeft.y + y.int32)
       case cell
       of '#': result.walls.add(pos)
+      of 'D': result.doors.add(pos)
       of '.': result.floors.add(pos)
       of 'a': result.assemblers.add(pos)
       of 'F': result.forges.add(pos)

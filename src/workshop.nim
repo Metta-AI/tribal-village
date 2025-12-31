@@ -1,0 +1,29 @@
+import vmath, terrain
+
+export terrain.Structure
+
+const
+  WorkshopWallChar* = '#'
+  WorkshopFloorChar* = '.'
+  WorkshopDoorChar* = 'D'
+  WorkshopAltarChar* = 'a'
+  WorkshopArmoryChar* = 'A'
+  WorkshopForgeChar* = 'F'
+  WorkshopClayOvenChar* = 'C'
+  WorkshopWeavingLoomChar* = 'W'
+
+proc createVillage*(): Structure =
+  ## Village layout with enclosed walls, interior workshops, and door gaps.
+  result.width = 7
+  result.height = 7
+  result.centerPos = ivec2(3, 3)
+
+  result.layout = @[
+    @['#', '#', '#', '#', '#', '#', '#'],
+    @['#', 'A', '.', '.', '.', 'F', '#'],
+    @['#', '.', '.', '.', '.', '.', '#'],
+    @['D', '.', '.', 'a', '.', '.', 'D'],
+    @['#', '.', '.', '.', '.', '.', '#'],
+    @['#', 'C', '.', '.', '.', 'W', '#'],
+    @['#', '#', '#', '#', '#', '#', '#']
+  ]
