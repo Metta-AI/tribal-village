@@ -382,11 +382,71 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
 
 proc isPassable(env: Environment, pos: IVec2): bool =
   ## Consider lantern tiles passable for movement planning
-  if env.isEmpty(pos): return true
-  for t in env.things:
-    if t.pos == pos and t.kind == PlantedLantern:
-      return true
-  return false
+  if not isValidPos(pos):
+    return false
+  let occupant = env.grid[pos.x][pos.y]
+  if occupant == nil:
+    return true
+  return occupant.kind == PlantedLantern
+
+proc nextStepToward(env: Environment, fromPos, targetPos: IVec2): int =
+  ## BFS for the next step toward a target, falling back to -1 if no path found.
+  let directions = [
+    ivec2(0, -1),  # 0: North
+    ivec2(0, 1),   # 1: South
+    ivec2(-1, 0),  # 2: West
+    ivec2(1, 0),   # 3: East
+    ivec2(-1, -1), # 4: NW
+    ivec2(1, -1),  # 5: NE
+    ivec2(-1, 1),  # 6: SW
+    ivec2(1, 1)    # 7: SE
+  ]
+
+  # Determine goal tiles: target if passable, otherwise any passable neighbor.
+  var goals: seq[IVec2] = @[]
+  if isPassable(env, targetPos):
+    goals.add(targetPos)
+  else:
+    for d in directions:
+      let candidate = targetPos + d
+      if isValidPos(candidate) and isPassable(env, candidate):
+        goals.add(candidate)
+
+  if goals.len == 0:
+    return -1
+  for g in goals:
+    if g == fromPos:
+      return -1
+
+  var visited: array[MapWidth, array[MapHeight, bool]]
+  var firstDir: array[MapWidth, array[MapHeight, int8]]
+  var queue: seq[IVec2] = @[fromPos]
+  visited[fromPos.x][fromPos.y] = true
+  var head = 0
+
+  while head < queue.len:
+    let current = queue[head]
+    inc head
+    for dirIdx in 0 .. 7:
+      let nextPos = current + directions[dirIdx]
+      if not isValidPos(nextPos):
+        continue
+      if visited[nextPos.x][nextPos.y]:
+        continue
+      if not isPassable(env, nextPos):
+        continue
+
+      visited[nextPos.x][nextPos.y] = true
+      let dirFromStart = if current == fromPos: dirIdx.int8 else: firstDir[current.x][current.y]
+      firstDir[nextPos.x][nextPos.y] = dirFromStart
+
+      for g in goals:
+        if nextPos == g:
+          return int(dirFromStart)
+
+      queue.add(nextPos)
+
+  return -1
 
 proc getMoveTowards(env: Environment, fromPos, toPos: IVec2, rng: var Rand): int =
   ## Get a movement direction towards target, with obstacle avoidance
@@ -418,6 +478,10 @@ proc getMoveTowards(env: Environment, fromPos, toPos: IVec2, rng: var Rand): int
     if bestDir >= 0:
       return bestDir
     return randIntInclusive(rng, 0, 3)
+
+  let pathDir = nextStepToward(env, fromPos, clampedTarget)
+  if pathDir >= 0:
+    return pathDir
 
   let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
 
