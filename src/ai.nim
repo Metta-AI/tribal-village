@@ -509,16 +509,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if agent.frozen > 0:
     return encodeAction(0'u8, 0'u8)
 
-  # Initialize agent role if needed (per-house pattern, 6 agents per house)
+  # Initialize agent role if needed (per-house pattern with one guaranteed Hearter)
   if agentId notin controller.agents:
-    let role = case agentId mod MapAgentsPerHouse:  # MapAgentsPerHouse = 6
-      of 0: Hearter
-      of 1: Armorer
-      of 2: Hunter
-      of 3: Baker
-      of 4: Lighter
-      of 5: Farmer
-      else: Hearter
+    let role =
+      if agentId mod MapAgentsPerHouse == 0:
+        Hearter
+      else:
+        sample(controller.rng, [Hearter, Armorer, Hunter, Baker, Lighter, Farmer])
 
     controller.agents[agentId] = AgentState(
       role: role,
