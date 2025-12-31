@@ -1780,13 +1780,45 @@ proc init(env: Environment) =
       pos: pos,
     ))
 
-  for i in 0 ..< MapRoomObjectsMines:
-    let pos = r.randomEmptyPos(env)
+  # Mines spawn in small clusters (3-5 nodes) for higher local density.
+  var minesPlaced = 0
+  while minesPlaced < MapRoomObjectsMines:
+    let remaining = MapRoomObjectsMines - minesPlaced
+    let clusterSize = min(remaining, randIntInclusive(r, 3, 5))
+    let center = r.randomEmptyPos(env)
+
     env.add(Thing(
       kind: Mine,
-      pos: pos,
+      pos: center,
       resources: MapObjectMineInitialResources,
     ))
+    inc minesPlaced
+
+    if minesPlaced >= MapRoomObjectsMines:
+      break
+
+    var candidates = env.findEmptyPositionsAround(center, 1)
+    if candidates.len < clusterSize - 1:
+      let extra = env.findEmptyPositionsAround(center, 2)
+      for pos in extra:
+        var exists = false
+        for c in candidates:
+          if c == pos:
+            exists = true
+            break
+        if not exists:
+          candidates.add(pos)
+
+    let toPlace = min(clusterSize - 1, candidates.len)
+    for i in 0 ..< toPlace:
+      env.add(Thing(
+        kind: Mine,
+        pos: candidates[i],
+        resources: MapObjectMineInitialResources,
+      ))
+      inc minesPlaced
+      if minesPlaced >= MapRoomObjectsMines:
+        break
 
   # Initialize assembler locations for all spawners
   var assemblerPositions: seq[IVec2] = @[]
