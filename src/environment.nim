@@ -34,6 +34,7 @@ const
   MapObjectassemblerAutoSpawnThreshold* = 5
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
+  DoorMaxHearts* = 5
 
   # Gameplay
   MinTintEpsilon* = 5
@@ -224,6 +225,7 @@ type
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]
     doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
+    doorHearts*: array[MapWidth, array[MapHeight, int8]]
     terrain*: TerrainGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
@@ -532,6 +534,7 @@ proc clearDoors(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.doorTeams[x][y] = -1
+      env.doorHearts[x][y] = 0
 
 
 
@@ -755,6 +758,30 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   let delta = getOrientationDelta(attackOrientation)
   let hasSpear = agent.inventorySpear > 0
   let maxRange = if hasSpear: 2 else: 1
+  let attackerTeam = getTeamId(agent.agentId)
+
+  proc tryDamageDoor(pos: IVec2): bool =
+    if not env.hasDoor(pos):
+      return false
+    if env.getDoorTeam(pos) == attackerTeam:
+      return false
+    if env.doorHearts[pos.x][pos.y] > 0:
+      env.doorHearts[pos.x][pos.y] = env.doorHearts[pos.x][pos.y] - 1
+      if env.doorHearts[pos.x][pos.y] <= 0:
+        env.doorHearts[pos.x][pos.y] = 0
+        env.doorTeams[pos.x][pos.y] = -1
+    return true
+
+  proc claimAssembler(assemblerThing: Thing) =
+    let oldTeam = assemblerThing.teamId
+    assemblerThing.teamId = attackerTeam
+    if attackerTeam >= 0 and attackerTeam < teamColors.len:
+      assemblerColors[assemblerThing.pos] = teamColors[attackerTeam]
+    if oldTeam >= 0:
+      for x in 0 ..< MapWidth:
+        for y in 0 ..< MapHeight:
+          if env.doorTeams[x][y] == oldTeam.int16:
+            env.doorTeams[x][y] = attackerTeam.int16
 
   # Special combat visuals
   if hasSpear:
@@ -768,6 +795,9 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     var hit = false
     proc applyDamageAt(pos: IVec2) =
       if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+        return
+      if tryDamageDoor(pos):
+        hit = true
         return
       let target = env.getThing(pos)
       if isNil(target):
@@ -791,6 +821,14 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         if getTeamId(target.agentId) == getTeamId(agent.agentId): return
         discard env.applyAgentDamage(target, 1, agent)
         hit = true
+      of assembler:
+        if target.teamId == attackerTeam:
+          return
+        target.hearts = max(0, target.hearts - 1)
+        env.updateObservations(assemblerHeartsLayer, target.pos, target.hearts)
+        hit = true
+        if target.hearts == 0:
+          claimAssembler(target)
       else:
         discard
 
@@ -817,6 +855,10 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
     if attackPos.x < 0 or attackPos.x >= MapWidth or attackPos.y < 0 or attackPos.y >= MapHeight:
       continue
+
+    if tryDamageDoor(attackPos):
+      attackHit = true
+      break
 
     let target = env.getThing(attackPos)
     if isNil(target):
@@ -845,6 +887,14 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         continue
       discard env.applyAgentDamage(target, 1, agent)
       attackHit = true
+    of assembler:
+      if target.teamId == attackerTeam:
+        continue
+      target.hearts = max(0, target.hearts - 1)
+      env.updateObservations(assemblerHeartsLayer, target.pos, target.hearts)
+      attackHit = true
+      if target.hearts == 0:
+        claimAssembler(target)
     else:
       discard
 
@@ -1547,7 +1597,8 @@ proc init(env: Environment) =
       env.add(Thing(
         kind: assembler,
         pos: elements.center,
-        hearts: MapObjectassemblerInitialHearts  # assembler starts with default hearts
+        hearts: MapObjectassemblerInitialHearts,  # assembler starts with default hearts
+        teamId: teamId
       ))
       houseCenters.add(elements.center)
       assemblerColors[elements.center] = villageColor  # Associate assembler position with village color
@@ -1577,6 +1628,7 @@ proc init(env: Environment) =
       for doorPos in elements.doors:
         if doorPos.x >= 0 and doorPos.x < MapWidth and doorPos.y >= 0 and doorPos.y < MapHeight:
           env.doorTeams[doorPos.x][doorPos.y] = teamId.int16
+          env.doorHearts[doorPos.x][doorPos.y] = DoorMaxHearts.int8
 
       # Add the corner buildings from the house layout
       # Parse the house structure to find corner buildings
