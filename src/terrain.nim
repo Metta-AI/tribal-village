@@ -292,6 +292,10 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     armories: seq[IVec2],
     clayOvens: seq[IVec2],
     weavingLooms: seq[IVec2],
+    beds: seq[IVec2],
+    chairs: seq[IVec2],
+    tables: seq[IVec2],
+    statues: seq[IVec2],
     center: IVec2
   ] =
   ## Extract tiles for placing a structure
@@ -303,6 +307,10 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
   result.armories = @[]
   result.clayOvens = @[]
   result.weavingLooms = @[]
+  result.beds = @[]
+  result.chairs = @[]
+  result.tables = @[]
+  result.statues = @[]
 
   result.center = topLeft + structure.centerPos
 
@@ -318,4 +326,8 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       of 'A': result.armories.add(pos)
       of 'C': result.clayOvens.add(pos)
       of 'W': result.weavingLooms.add(pos)
+      of 'B': result.beds.add(pos)
+      of 'H': result.chairs.add(pos)
+      of 'T': result.tables.add(pos)
+      of 'S': result.statues.add(pos)
       else: discard

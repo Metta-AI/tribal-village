@@ -343,6 +343,18 @@ proc drawObjects*() =
               else: "building"
             drawOverlayIf(true, getInfectionSprite(overlayType), pos.vec2)
 
+        of Bed, Chair, Table, Statue:
+          let (imageName, tint) = case thing.kind:
+            of Bed: ("objects/armory", color(0.75, 0.65, 0.85, 1.0))
+            of Chair: ("objects/armory", color(0.85, 0.75, 0.6, 1.0))
+            of Table: ("objects/forge", color(0.8, 0.65, 0.45, 1.0))
+            of Statue: ("objects/altar", color(0.65, 0.65, 0.65, 1.0))
+            else: ("objects/armory", color(1.0, 1.0, 1.0, 1.0))
+
+          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = tint)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
         of PlantedLantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing
