@@ -505,7 +505,7 @@ proc getDoorTeam*(env: Environment, pos: IVec2): int =
     return -1
   return env.doorTeams[pos.x][pos.y].int
 
-proc canAgentPassDoor(env: Environment, agent: Thing, pos: IVec2): bool =
+proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   if not env.hasDoor(pos):
     return true
   return env.getDoorTeam(pos) == getTeamId(agent.agentId)
