@@ -1,5 +1,15 @@
 proc decideBrewer(controller: Controller, env: Environment, agent: Thing,
                  agentId: int, state: var AgentState): uint8 =
+  # Priority 1: Brew drinks when carrying growth + water
+  if getInv(agent, ItemPlantGrowth) > 0 and agent.inventoryWater > 0:
+    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, ClayOven)
+    if did: return act
+
+  # Priority 2: Gather plant growth from bushes
+  if getInv(agent, ItemPlantGrowth) < MapObjectAgentMaxInventory:
+    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Bush)
+    if did: return act
+
   let wateringPos = findNearestEmpty(env, agent.pos, false, 8)
   if agent.inventoryWater == 0:
     let waterPos = env.findNearestTerrainSpiral(state, Water, controller.rng)
