@@ -245,12 +245,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if respawnPos.x >= 0:
           # Respawn the agent
           agent.pos = respawnPos
-          agent.inventoryOre = 0
-          agent.inventoryBar = 0
-          agent.inventoryWater = 0
-          agent.inventoryWheat = 0
-          agent.inventoryWood = 0
-          agent.inventorySpear = 0
+          agent.inventory = emptyInventory()
           agent.frozen = 0
           agent.hp = agent.maxHp
           env.terminated[agentId] = 0.0
@@ -260,6 +255,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           # Update observations
           # REMOVED: expensive per-agent full grid rebuild
+          env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
+          env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+          for key in ObservedItemKeys:
+            env.updateAgentInventoryObs(agent, key)
 
   # Apply per-step survival penalty to all living agents
   if env.config.survivalPenalty != 0.0:
