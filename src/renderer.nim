@@ -361,6 +361,11 @@ proc drawObjects*() =
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
+        of WatchTower:
+          bxy.drawImage("objects/watchtower", pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
         of PlantedLantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing

@@ -13,16 +13,26 @@ const
   TerrainWheatVal = cast[TerrainType](3)
   TerrainTreeVal = cast[TerrainType](4)
   TerrainFertileVal = cast[TerrainType](5)
+  TerrainRoadVal = cast[TerrainType](6)
 
 type
   # Simple agent roles - one per team member
   AgentRole* = enum
-    Hearter    # Handles assembler/battery workflow
-    Armorer    # Wood -> Armor
-    Hunter     # Wood -> Spear -> Hunt Tumors
-    Baker      # TerrainWheatVal -> Bread
-    Lighter    # TerrainWheatVal -> Lantern -> Plant
-    Farmer     # Creates fertile ground and plants wheat/trees
+    Hearter     # Handles assembler/battery workflow
+    Armorer     # Wood -> Armor
+    Hunter      # Wood -> Spear -> Hunt Tumors
+    Baker       # TerrainWheatVal -> Bread
+    Lighter     # TerrainWheatVal -> Lantern -> Plant
+    Farmer      # Creates fertile ground and plants wheat/trees
+    Builder     # Builds watchtowers and roads
+    Miner       # Mines ore and keeps converters fed
+    Smelter     # Converts ore to batteries
+    Guard       # Patrols near home and engages threats
+    Medic       # Bakes bread and distributes it
+    Scout       # Explores outward and probes the map
+    Carpenter   # Harvests wood and lays roads near home
+    Mason       # Builds watchtowers for perimeter coverage
+    Brewer      # Collects water and creates fertile tiles
 
   # Minimal state tracking with spiral search
   AgentState = object
@@ -39,6 +49,7 @@ type
     escapeMode: bool
     escapeStepsRemaining: int
     escapeDirection: IVec2
+    builderHasTower: bool
 
   # Simple controller
   Controller* = ref object
