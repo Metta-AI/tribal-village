@@ -28,12 +28,16 @@ proc init(env: Environment) =
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
   env.applyBiomeBaseColors()
 
-  # Convert terrain trees into blocking tree objects.
+  # Convert forest/palm terrain into blocking tree objects.
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
       let pos = ivec2(x.int32, y.int32)
-      if env.isEmpty(pos) and env.terrain[x][y] in {Tree, Palm}:
-        let variant = if env.terrain[x][y] == Palm: TreeVariantPalm else: TreeVariantPine
+      if not env.isEmpty(pos):
+        continue
+      let isPalm = env.terrain[x][y] == Palm
+      let isForestTree = env.terrain[x][y] == Tree and env.biomes[x][y] == BiomeForestType
+      if isPalm or isForestTree:
+        let variant = if isPalm: TreeVariantPalm else: TreeVariantPine
         env.terrain[x][y] = Empty
         env.add(Thing(kind: TreeObject, pos: ivec2(x.int32, y.int32), treeVariant: variant))
 

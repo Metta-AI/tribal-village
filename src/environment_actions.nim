@@ -746,7 +746,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of TreeObject:
     let hasAxe = getInv(agent, ItemAxe) > 0
     if agent.inventoryWood < MapObjectAgentMaxInventory:
-      let baseGain = if hasAxe: 2 else: 1
+      let baseGain =
+        if hasAxe:
+          if thing.treeVariant == TreeVariantPine: 5 else: 2
+        else:
+          1
       let gain = min(baseGain, MapObjectAgentMaxInventory - agent.inventoryWood)
       agent.inventoryWood = agent.inventoryWood + gain
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
