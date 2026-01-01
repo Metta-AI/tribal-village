@@ -66,11 +66,11 @@ var
   settings* = Settings()
 
   play*: bool = true
-  playSpeed*: float32 = 0.0625  # faster default playback
+  playSpeed*: float32 = 0.03125  # even faster default playback
   lastSimTime*: float64 = nowSeconds()
 
 const
-  DefaultPlaySpeed* = 0.0625
+  DefaultPlaySpeed* = 0.03125
 
 var
   followSelection*: bool = false
