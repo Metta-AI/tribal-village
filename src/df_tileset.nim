@@ -181,9 +181,10 @@ proc generateDfViewAssets*() =
         let tile = extractTile(sheet, entry.tileIndex)
         let scaled = scaleNearest(tile, TargetSize, TargetSize)
         let outPath = MapDir / "road.png"
-        createDir(parentDir(outPath))
-        writeFile(outPath, encodePng(scaled))
-        inc created
+        if not fileExists(outPath):
+          createDir(parentDir(outPath))
+          writeFile(outPath, encodePng(scaled))
+          inc created
   else:
     if "road" notin missing:
       missing.add("road")
