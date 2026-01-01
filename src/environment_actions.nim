@@ -258,6 +258,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   of "Mill": kind = Mill
   of "LumberCamp": kind = LumberCamp
   of "MiningCamp": kind = MiningCamp
+  of "Farm": kind = Farm
   of "PlantedLantern": kind = PlantedLantern
   else:
     return false
@@ -330,6 +331,8 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.barrelCapacity = BarrelCapacity
   of Mill, LumberCamp, MiningCamp:
     placed.barrelCapacity = BarrelCapacity
+  of Farm:
+    placed.barrelCapacity = BarrelCapacity
   of PlantedLantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
@@ -345,6 +348,21 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   else:
     discard
   env.add(placed)
+  if kind == Farm:
+    let offsets = [
+      ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
+      ivec2(-1, 0), ivec2(1, 0),
+      ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
+    ]
+    for offset in offsets:
+      let farmPos = placed.pos + offset
+      if not isValidPos(farmPos):
+        continue
+      if not env.isEmpty(farmPos) or env.hasDoor(farmPos) or isBlockedTerrain(env.terrain[farmPos.x][farmPos.y]) or isTileFrozen(farmPos, env):
+        continue
+      if env.terrain[farmPos.x][farmPos.y] == Empty:
+        env.terrain[farmPos.x][farmPos.y] = Wheat
+        env.resetTileColor(farmPos)
   case kind
   of Wall:
     env.updateObservations(WallLayer, pos, 1)
@@ -948,6 +966,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of MiningCamp:
     if env.useStorageBuilding(agent, thing, @[ItemOre, ItemBoulder, ItemRough]):
+      used = true
+  of Farm:
+    if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
       used = true
   else:
     discard
