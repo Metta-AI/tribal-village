@@ -1,5 +1,6 @@
 import std/math, vmath
 import rng_compat
+import biome_forest, biome_desert, biome_caves, biome_city, biome_plains, biome_common
 
 type
   TerrainType* = enum
@@ -22,6 +23,24 @@ type
     centerPos*: IVec2
     layout*: seq[seq[char]]
 
+type
+  BiomeKind* = enum
+    BiomeForest
+    BiomeDesert
+    BiomeCaves
+    BiomeCity
+    BiomePlains
+
+const
+  UseBiomeTerrain* = true
+  BaseBiome* = BiomeForest
+  BiomeForestTerrain* = Tree
+  BiomeDesertTerrain* = Fertile
+  BiomeCavesTerrain* = Tree
+  BiomePlainsTerrain* = Fertile
+  BiomeCityBlockTerrain* = Tree
+  BiomeCityRoadTerrain* = Road
+
 const
   TerrainEmpty* = TerrainType.Empty
   TerrainWater* = TerrainType.Water
@@ -39,6 +58,34 @@ template randChance(r: var Rand, p: float): bool = randFloat(r) < p
 
 const
   RiverWidth* = 6
+
+proc applyMaskToTerrain(terrain: var TerrainGrid, mask: MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                        terrainType: TerrainType) =
+  for x in mapBorder ..< mapWidth - mapBorder:
+    for y in mapBorder ..< mapHeight - mapBorder:
+      if mask[x][y] and terrain[x][y] == Empty:
+        terrain[x][y] = terrainType
+
+proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  var mask: MaskGrid
+  case BaseBiome:
+  of BiomeForest:
+    buildBiomeForestMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeForestConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeForestTerrain)
+  of BiomeDesert:
+    buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeDesertTerrain)
+  of BiomeCaves:
+    buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeCavesTerrain)
+  of BiomeCity:
+    var roadMask: MaskGrid
+    buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeCityBlockTerrain)
+    applyMaskToTerrain(terrain, roadMask, mapWidth, mapHeight, mapBorder, BiomeCityRoadTerrain)
+  of BiomePlains:
+    buildBiomePlainsMask(mask, mapWidth, mapHeight, mapBorder, r, BiomePlainsConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomePlainsTerrain)
 
 proc inCornerReserve(x, y, mapWidth, mapHeight, mapBorder: int, reserve: int): bool =
   ## Returns true if the coordinate is within a reserved corner area
@@ -339,9 +386,15 @@ proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
   ## Initialize terrain with all features
   var r = initRand(seed)
 
+  if mapWidth > terrain.len or mapHeight > terrain[0].len:
+    raise newException(ValueError, "Map size exceeds TerrainGrid bounds")
+
   for x in 0 ..< mapWidth:
     for y in 0 ..< mapHeight:
       terrain[x][y] = Empty
+
+  if UseBiomeTerrain:
+    applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, r)
 
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
   terrain.generateWheatFields(mapWidth, mapHeight, mapBorder, r)
