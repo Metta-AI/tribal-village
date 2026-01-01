@@ -2,6 +2,7 @@ metta
 tribal_village
 PufferLib
 resources
+gemset/
 src/tmp/
 src/mettascope.out
 bindings/generated/

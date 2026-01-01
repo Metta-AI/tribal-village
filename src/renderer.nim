@@ -86,17 +86,17 @@ proc drawTerrain*() =
 
       case env.terrain[x][y]
       of Wheat:
-        bxy.drawImage("map/wheat", pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("wheat"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("wheat"), pos.vec2)
       of Tree:
-        bxy.drawImage("map/tree", pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("tree"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
       of Bridge:
-        bxy.drawImage("map/bridge", pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("bridge"), pos.vec2, angle = 0, scale = 1/200)
       of Road:
-        bxy.drawImage("map/road", pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("road"), pos.vec2, angle = 0, scale = 1/200)
       of Fertile:
-        bxy.drawImage("map/fertile", pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("fertile"), pos.vec2, angle = 0, scale = 1/200)
       of Empty:
         discard
       else:
@@ -263,7 +263,7 @@ proc drawObjects*() =
           )
 
         of assembler:
-          let baseImage = "map/assembler"  # Visual centerpiece for each village
+          let baseImage = mapSpriteKey("assembler")  # Visual centerpiece for each village
           let assemblerTint = getassemblerColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
@@ -306,12 +306,15 @@ proc drawObjects*() =
             drawOverlayIf(true, getInfectionSprite("assembler"), pos.vec2)
 
         of Converter:
-          let baseImage = "map/converter"
+          let baseImage = mapSpriteKey("converter")
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
           drawOverlayIf(infected, getInfectionSprite("converter"), pos.vec2)
 
         of Mine, Spawner:
-          let imageName = if thing.kind == Mine: "map/mine" else: "map/spawner"
+          let imageName = if thing.kind == Mine:
+            mapSpriteKey("mine")
+          else:
+            mapSpriteKey("spawner")
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
           if infected and thing.kind == Mine:
             drawOverlayIf(true, getInfectionSprite("mine"), pos.vec2)
@@ -333,10 +336,10 @@ proc drawObjects*() =
 
         of Armory, Forge, ClayOven, WeavingLoom:
           let imageName = case thing.kind:
-            of Armory: "map/armory"
-            of Forge: "map/forge"
-            of ClayOven: "map/clay_oven"
-            of WeavingLoom: "map/weaving_loom"
+            of Armory: mapSpriteKey("armory")
+            of Forge: mapSpriteKey("forge")
+            of ClayOven: mapSpriteKey("clay_oven")
+            of WeavingLoom: mapSpriteKey("weaving_loom")
             else: ""
 
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
@@ -357,18 +360,18 @@ proc drawObjects*() =
 
         of Bed, Chair, Table, Statue:
           let imageName = case thing.kind:
-            of Bed: "map/bed"
-            of Chair: "map/chair"
-            of Table: "map/table"
-            of Statue: "map/statue"
-            else: "map/bed"
+            of Bed: mapSpriteKey("bed")
+            of Chair: mapSpriteKey("chair")
+            of Table: mapSpriteKey("table")
+            of Statue: mapSpriteKey("statue")
+            else: mapSpriteKey("bed")
 
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
         of WatchTower:
-          bxy.drawImage("map/watchtower", pos.vec2, angle = 0, scale = 1/200)
+          bxy.drawImage(mapSpriteKey("watchtower"), pos.vec2, angle = 0, scale = 1/200)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
@@ -377,10 +380,10 @@ proc drawObjects*() =
           let lantern = thing
           if lantern.lanternHealthy and lantern.teamId >= 0 and lantern.teamId < teamColors.len:
             let teamColor = teamColors[lantern.teamId]
-            bxy.drawImage("map/lantern", pos.vec2, angle = 0, scale = 1/200, tint = teamColor)
+            bxy.drawImage(mapSpriteKey("lantern"), pos.vec2, angle = 0, scale = 1/200, tint = teamColor)
           else:
             # Unhealthy or unassigned lantern - draw as gray
-            bxy.drawImage("map/lantern", pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
+            bxy.drawImage(mapSpriteKey("lantern"), pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -466,7 +469,7 @@ proc drawGrid*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       bxy.drawImage(
-        "view/grid",
+        "ui/grid",
         ivec2(x, y).vec2,
         angle = 0,
         scale = 1/200
@@ -475,7 +478,7 @@ proc drawGrid*() =
 proc drawSelection*() =
   if selection != nil:
     bxy.drawImage(
-      "selection",
+      "ui/selection",
       selection.pos.vec2,
       angle = 0,
       scale = 1/200

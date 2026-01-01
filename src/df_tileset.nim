@@ -12,6 +12,7 @@ const
   TargetSize = 256
   MapDir = "data/map"
   InventoryDir = "data/inventory"
+  ForceDfTokens = ["DOOR"]
 
 type
   OverrideEntry = object
@@ -117,7 +118,7 @@ proc generateDfViewAssets*() =
       MapDir / (token.toLowerAscii & ".png")
     else:
       InventoryDir / (token.toLowerAscii & ".png")
-    if fileExists(outPath):
+    if fileExists(outPath) and token notin ForceDfTokens:
       continue
 
     var lookupToken = token
