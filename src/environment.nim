@@ -9,8 +9,8 @@ const
   MapLayoutRoomsX* = 1
   MapLayoutRoomsY* = 1
   MapBorder* = 4
-  MapRoomWidth* = 192  # 16:9 aspect ratio
-  MapRoomHeight* = 108
+  MapRoomWidth* = 288  # 16:10 aspect ratio (1.5x 192x120)
+  MapRoomHeight* = 180
   MapRoomBorder* = 0
 
   AgentMaxHp* = 5
