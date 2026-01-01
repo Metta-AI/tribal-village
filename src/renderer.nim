@@ -410,6 +410,8 @@ proc drawObjects*() =
         of Cow:
           let cowSprite = if thing.orientation == Orientation.E: mapSpriteKey("cow_r") else: mapSpriteKey("cow")
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
+        of Skeleton:
+          bxy.drawImage(mapSpriteKey("skeleton"), pos.vec2, angle = 0, scale = 1/200)
 
         of Armory, Forge, ClayOven, WeavingLoom:
           let imageName = case thing.kind:
@@ -633,6 +635,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Spawner: "Spawner"
       of Tumor: "Tumor"
       of Cow: "Cow"
+      of Skeleton: "Skeleton"
       of Armory: "Armory"
       of Forge: "Forge"
       of ClayOven: "Clay Oven"
