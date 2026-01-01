@@ -12,6 +12,7 @@ const
 
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
+  infoLabelImages: Table[string, string] = initTable[string, string]()
   doorSpriteKey* = "map/wall"
 
 proc setDoorSprite*(key: string) =
@@ -21,6 +22,40 @@ template configureHeartFont(ctx: var Context) =
   ctx.font = HeartCountFontPath
   ctx.fontSize = HeartCountFontSize
   ctx.textBaseline = TopBaseline
+
+const
+  InfoLabelFontPath = HeartCountFontPath
+  InfoLabelFontSize: float32 = 18
+  InfoLabelPadding = 6
+
+template configureInfoLabelFont(ctx: var Context) =
+  ctx.font = InfoLabelFontPath
+  ctx.fontSize = InfoLabelFontSize
+  ctx.textBaseline = TopBaseline
+
+proc ensureInfoLabel(text: string): string =
+  if text.len == 0:
+    return ""
+  if text in infoLabelImages:
+    return infoLabelImages[text]
+
+  var measureCtx = newContext(1, 1)
+  configureInfoLabelFont(measureCtx)
+  let metrics = measureCtx.measureText(text)
+  let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
+  let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
+
+  var ctx = newContext(labelWidth, labelHeight)
+  configureInfoLabelFont(ctx)
+  ctx.fillStyle.color = color(0, 0, 0, 0.6)
+  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
+
+  let key = "ui/selection_label/" & text.replace(" ", "_").replace("/", "_")
+  bxy.addImage(key, ctx.image, mipmaps = false)
+  infoLabelImages[text] = key
+  result = key
 
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
@@ -55,6 +90,7 @@ proc useSelections*() =
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < MapWidth and
          gridPos.y >= 0 and gridPos.y < MapHeight:
+        selectedPos = gridPos
         let thing = env.grid[gridPos.x][gridPos.y]
         if thing != nil:
           selection = thing
@@ -523,3 +559,52 @@ proc drawSelection*() =
       angle = 0,
       scale = 1/200
     )
+
+proc drawSelectionLabel*(panelRect: IRect) =
+  if selectedPos.x < 0 or selectedPos.x >= MapWidth or
+     selectedPos.y < 0 or selectedPos.y >= MapHeight:
+    return
+
+  var label = ""
+  let thing = env.grid[selectedPos.x][selectedPos.y]
+  if thing != nil:
+    label = case thing.kind
+      of Agent: "Agent"
+      of Wall: "Wall"
+      of Mine: "Mine"
+      of Converter: "Converter"
+      of assembler: "Altar"
+      of Spawner: "Spawner"
+      of Tumor: "Tumor"
+      of Armory: "Armory"
+      of Forge: "Forge"
+      of ClayOven: "Clay Oven"
+      of WeavingLoom: "Weaving Loom"
+      of Bed: "Bed"
+      of Chair: "Chair"
+      of Table: "Table"
+      of Statue: "Statue"
+      of WatchTower: "Watch Tower"
+      of Barrel: "Barrel"
+      of PlantedLantern: "Lantern"
+  elif env.hasDoor(selectedPos):
+    label = "Door"
+  else:
+    label = case env.terrain[selectedPos.x][selectedPos.y]
+      of Water: "Water"
+      of Bridge: "Bridge"
+      of Wheat: "Wheat"
+      of Tree: "Tree"
+      of Fertile: "Fertile"
+      of Road: "Road"
+      of Rock: "Rock"
+      of Gem: "Gem"
+      of Bush: "Bush"
+      of Animal: "Animal"
+      of Empty: "Empty"
+
+  let key = ensureInfoLabel(label)
+  if key.len == 0:
+    return
+  let pos = vec2(panelRect.x.float32 + 8, panelRect.y.float32 + 8)
+  bxy.drawImage(key, pos, angle = 0, scale = 1)
