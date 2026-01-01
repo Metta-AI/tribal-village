@@ -35,6 +35,8 @@ const
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
   DoorMaxHearts* = 5
+  RoadWoodCost* = 1
+  WatchTowerWoodCost* = 2
 
   # Gameplay
   MinTintEpsilon* = 5
@@ -115,6 +117,7 @@ type
     Chair
     Table
     Statue
+    WatchTower
     PlantedLantern  # Planted lanterns that spread team colors
 
   Thing* = ref object
@@ -401,6 +404,8 @@ proc render*(env: Environment): string =
             cell = "T"
           of Statue:
             cell = "S"
+          of WatchTower:
+            cell = "^"
           of PlantedLantern:
             cell = "L"
           break
@@ -494,7 +499,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, PlantedLantern:
+    of Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, PlantedLantern:
       discard
 
   env.observationsInitialized = true
