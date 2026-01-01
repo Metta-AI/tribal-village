@@ -31,10 +31,10 @@ const
   MapObjectAgentMaxInventory* = 5
 
   # Building Parameters
-  MapObjectassemblerInitialHearts* = 5
-  MapObjectassemblerCooldown* = 10
-  MapObjectassemblerRespawnCost* = 1
-  MapObjectassemblerAutoSpawnThreshold* = 5
+  MapObjectAltarInitialHearts* = 5
+  MapObjectAltarCooldown* = 10
+  MapObjectAltarRespawnCost* = 1
+  MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
@@ -99,9 +99,9 @@ type
     MineReadyLayer = 13
     ConverterLayer = 14  # Renamed from Converter
     ConverterReadyLayer = 15
-    assemblerLayer = 16
-    assemblerHeartsLayer = 17  # Hearts for respawning
-    assemblerReadyLayer = 18
+    altarLayer = 16
+    altarHeartsLayer = 17  # Hearts for respawning
+    altarReadyLayer = 18
     TintLayer = 19        # Unified tint layer for all environmental effects
     AgentInventoryBreadLayer = 20  # Bread baked from clay oven
 
@@ -112,7 +112,7 @@ type
     TreeObject
     Mine
     Converter  # Smelts ore into bars
-    assembler
+    Altar
     Spawner
     Tumor
     Cow
@@ -154,7 +154,7 @@ type
     reward*: float32
     hp*: int
     maxHp*: int
-    homeassembler*: IVec2      # Position of agent's home assembler for respawning
+    homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
@@ -168,7 +168,7 @@ type
     # TreeObject:
     treeVariant*: TreeVariant
 
-    # Spawner: (no longer needs assembler targeting for new creep spread behavior)
+    # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
   Stats* = ref object
     # Agent Stats - simplified actions:
@@ -279,7 +279,7 @@ type
 # Global village color management and palettes
 var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
-var assemblerColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
+var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
 include equipment
 
@@ -513,7 +513,7 @@ proc render*(env: Environment): string =
             cell = "m"
           of Converter:
             cell = "g"
-          of assembler:
+          of Altar:
             cell = "a"
           of Spawner:
             cell = "t"
@@ -642,10 +642,10 @@ proc rebuildObservations*(env: Environment) =
     of Converter:
       env.updateObservations(ConverterLayer, thing.pos, 1)
       env.updateObservations(ConverterReadyLayer, thing.pos, thing.cooldown)
-    of assembler:
-      env.updateObservations(assemblerLayer, thing.pos, 1)
-      env.updateObservations(assemblerHeartsLayer, thing.pos, getInv(thing, ItemHearts))
-      env.updateObservations(assemblerReadyLayer, thing.pos, thing.cooldown)
+    of Altar:
+      env.updateObservations(altarLayer, thing.pos, 1)
+      env.updateObservations(altarHeartsLayer, thing.pos, getInv(thing, ItemHearts))
+      env.updateObservations(altarReadyLayer, thing.pos, thing.cooldown)
     of Spawner:
       discard  # No dedicated observation layer for spawners.
     of Tumor:
@@ -853,12 +853,12 @@ proc generateEntityColor*(entityType: string, id: int, fallbackColor: Color = co
   else:
     return fallbackColor
 
-proc getassemblerColor*(pos: IVec2): Color =
-  ## Get assembler color by position, with white fallback.
-  ## Falls back to the base tile color so assemblers start visibly tinted even
+proc getAltarColor*(pos: IVec2): Color =
+  ## Get altar color by position, with white fallback.
+  ## Falls back to the base tile color so altars start visibly tinted even
   ## before any dynamic color updates run.
-  if assemblerColors.hasKey(pos):
-    return assemblerColors[pos]
+  if altarColors.hasKey(pos):
+    return altarColors[pos]
 
   if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
     let base = env.baseTileColors[pos.x][pos.y]

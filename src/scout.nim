@@ -1,6 +1,6 @@
 proc decideScout(controller: Controller, env: Environment, agent: Thing,
-                agentId: int, state: var AgentState): uint8 =
-  let home = agent.homeassembler
+                 agentId: int, state: var AgentState): uint8 =
+  let home = agent.homeAltar
   let hasHome = home.x >= 0
 
   let threat = env.findNearestThingSpiral(state, Tumor, controller.rng)

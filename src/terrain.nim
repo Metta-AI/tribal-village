@@ -725,7 +725,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],
     doors: seq[IVec2],
     floors: seq[IVec2],
-    assemblers: seq[IVec2],
+    altars: seq[IVec2],
     forges: seq[IVec2],
     armories: seq[IVec2],
     clayOvens: seq[IVec2],
@@ -741,7 +741,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: @[],
     doors: @[],
     floors: @[],
-    assemblers: @[],
+    altars: @[],
     forges: @[],
     armories: @[],
     clayOvens: @[],
@@ -760,7 +760,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       of '#': result.walls.add(pos)
       of 'D': result.doors.add(pos)
       of '.': result.floors.add(pos)
-      of 'a': result.assemblers.add(pos)
+      of 'a': result.altars.add(pos)
       of 'F': result.forges.add(pos)
       of 'A': result.armories.add(pos)
       of 'C': result.clayOvens.add(pos)
