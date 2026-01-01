@@ -9,13 +9,20 @@ type
     Wheat
     Tree
     Fertile
-
   TerrainGrid* = array[256, array[256, TerrainType]]
 
   Structure* = object
     width*, height*: int
     centerPos*: IVec2
     layout*: seq[seq[char]]
+
+const
+  TerrainEmpty* = TerrainType.Empty
+  TerrainWater* = TerrainType.Water
+  TerrainBridge* = TerrainType.Bridge
+  TerrainWheat* = TerrainType.Wheat
+  TerrainTree* = TerrainType.Tree
+  TerrainFertile* = TerrainType.Fertile
 
 template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
 template randChance(r: var Rand, p: float): bool = randFloat(r) < p

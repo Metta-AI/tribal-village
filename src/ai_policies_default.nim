@@ -1,5 +1,4 @@
-# This file is included by src/ai/policies.nim
-# This file is included by src/ai.nim
+# This file is included by src/ai_policies.nim
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 
@@ -151,7 +150,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
             continue
           if env.hasDoor(target):
             continue
-          if env.terrain[target.x][target.y] == TerrainType.Water:
+          if env.terrain[target.x][target.y] == Water:
             continue
           var spaced = true
           for t in env.things:
@@ -188,7 +187,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 3: Collect wheat using spiral search
     else:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, TerrainType.Wheat)
+      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
       if did: return act
 
   of Armorer:
@@ -211,7 +210,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 3: Collect wood using spiral search
     else:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, TerrainType.Tree)
+      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
       if did: return act
 
   of Hunter:
@@ -241,7 +240,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 4: Collect wood using spiral search
     else:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, TerrainType.Tree)
+      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
       if did: return act
 
   of Farmer:
@@ -253,7 +252,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let wateringPos = findNearestEmpty(env, agent.pos, false, 8)
       if wateringPos.x >= 0:
         if agent.inventoryWater == 0:
-          let waterPos = env.findNearestTerrainSpiral(state, TerrainType.Water, controller.rng)
+          let waterPos = env.findNearestTerrainSpiral(state, Water, controller.rng)
           if waterPos.x >= 0:
             let dx = abs(waterPos.x - agent.pos.x)
             let dy = abs(waterPos.y - agent.pos.y)
@@ -279,11 +278,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Step 3: Gather resources to plant (wood then wheat)
     if agent.inventoryWood == 0:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, TerrainType.Tree)
+      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
       if did: return act
 
     if agent.inventoryWheat == 0:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, TerrainType.Wheat)
+      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
       if did: return act
 
     # Step 4: If stocked but couldn't plant (no fertile nearby), roam to expand search
@@ -308,7 +307,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Priority 3: Collect wheat using spiral search
     else:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, TerrainType.Wheat)
+      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
       if did: return act
 
   of Hearter:

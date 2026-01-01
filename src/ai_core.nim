@@ -4,7 +4,15 @@
 import std/[tables, sets, algorithm]
 import rng_compat
 import vmath
-import environment, common, terrain
+import ./environment, common, terrain
+
+const
+  TerrainEmptyVal = cast[TerrainType](0)
+  TerrainWaterVal = cast[TerrainType](1)
+  TerrainBridgeVal = cast[TerrainType](2)
+  TerrainWheatVal = cast[TerrainType](3)
+  TerrainTreeVal = cast[TerrainType](4)
+  TerrainFertileVal = cast[TerrainType](5)
 
 type
   # Simple agent roles - one per team member
@@ -12,8 +20,8 @@ type
     Hearter    # Handles assembler/battery workflow
     Armorer    # Wood -> Armor
     Hunter     # Wood -> Spear -> Hunt Tumors
-    Baker      # TerrainType.Wheat -> Bread
-    Lighter    # TerrainType.Wheat -> Lantern -> Plant
+    Baker      # TerrainWheatVal -> Bread
+    Lighter    # TerrainWheatVal -> Lantern -> Plant
     Farmer     # Creates fertile ground and plants wheat/trees
 
   # Minimal state tracking with spiral search
@@ -167,8 +175,8 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
   let endY = min(MapHeight - 1, pos.y + maxRadius)
   for x in startX..endX:
     for y in startY..endY:
-      let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainType.Fertile else: env.terrain[x][y] == TerrainType.Empty
-      if terrainOk and env.isEmpty(ivec2(x, y)) and not env.hasDoor(ivec2(x, y)):
+      let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainFertileVal else: env.terrain[x][y] == TerrainEmptyVal
+      if terrainOk and env.isEmpty(ivec2(x, y)) and env.doorTeams[x][y] < 0:
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
           minDist = dist
@@ -183,7 +191,7 @@ proc countFertileEmpty(env: Environment, center: IVec2, radius: int = 8): int =
   result = 0
   for x in startX..endX:
     for y in startY..endY:
-      if env.terrain[x][y] == TerrainType.Fertile and env.isEmpty(ivec2(x, y)):
+      if env.terrain[x][y] == TerrainFertileVal and env.isEmpty(ivec2(x, y)):
         inc result
 
 proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: TerrainType, rng: var Rand): IVec2 =
@@ -234,7 +242,7 @@ proc chebyshevDist(a, b: IVec2): int32 =
 
 proc isValidEmptyTile(env: Environment, agent: Thing, pos: IVec2): bool =
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight and
-  env.isEmpty(pos) and env.terrain[pos.x][pos.y] != TerrainType.Water and env.canAgentPassDoor(agent, pos)
+  env.isEmpty(pos) and env.terrain[pos.x][pos.y] != TerrainWaterVal and env.canAgentPassDoor(agent, pos)
 
 proc getMoveAway(env: Environment, agent: Thing, fromPos, threatPos: IVec2, rng: var Rand): int =
   ## Pick a step that increases distance from the threat (chebyshev), prioritizing empty tiles.
@@ -385,7 +393,7 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   ## Consider lantern tiles passable for movement planning and respect doors/water.
   if not isValidPos(pos):
     return false
-  if env.terrain[pos.x][pos.y] == TerrainType.Water:
+  if env.terrain[pos.x][pos.y] == TerrainWaterVal:
     return false
   if not env.canAgentPassDoor(agent, pos):
     return false
