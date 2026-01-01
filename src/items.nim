@@ -1,6 +1,29 @@
 ## Item catalog and container definitions for future stockpile/storage work.
 ## This keeps the "what exists" separate from game logic.
 
+import std/tables
+
+type
+  ItemKey* = string
+  Inventory* = Table[ItemKey, int]
+
+const
+  ItemNone* = ""
+  ItemOre* = "ore"
+  ItemBattery* = "battery"
+  ItemWater* = "water"
+  ItemWheat* = "wheat"
+  ItemWood* = "wood"
+  ItemSpear* = "spear"
+  ItemLantern* = "lantern"
+  ItemArmor* = "armor"
+  ItemBread* = "bread"
+  ItemHearts* = "hearts"
+  ItemThingPrefix* = "thing:"
+
+proc emptyInventory*(): Inventory =
+  initTable[ItemKey, int]()
+
 type
   ItemKind* = enum
     ItemNone
