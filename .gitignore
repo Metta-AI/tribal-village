@@ -111,3 +111,5 @@ nimble.develop
 nimble.paths
 nim.cfg
 .envrc
+
+.DS_Store
