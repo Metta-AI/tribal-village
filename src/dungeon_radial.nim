@@ -64,3 +64,40 @@ proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
         continue
       if mask[x][y] and randFloat(r) < 0.08:
         mask[x][y] = false
+
+  # Ensure at least one corridor reaches the zone boundary so the dungeon
+  # connects back to the rest of the map.
+  let dir = randIntInclusive(r, 0, 3)
+  case dir
+  of 0: # North
+    for y in countdown(cy, zoneY):
+      for ox in -armWidth .. armWidth:
+        let gx = cx + ox
+        if gx < zoneX or gx >= zoneX + zoneW:
+          continue
+        if gx >= 0 and gx < mapWidth and y >= 0 and y < mapHeight:
+          mask[gx][y] = true
+  of 1: # South
+    for y in cy ..< zoneY + zoneH:
+      for ox in -armWidth .. armWidth:
+        let gx = cx + ox
+        if gx < zoneX or gx >= zoneX + zoneW:
+          continue
+        if gx >= 0 and gx < mapWidth and y >= 0 and y < mapHeight:
+          mask[gx][y] = true
+  of 2: # West
+    for x in countdown(cx, zoneX):
+      for oy in -armWidth .. armWidth:
+        let gy = cy + oy
+        if gy < zoneY or gy >= zoneY + zoneH:
+          continue
+        if x >= 0 and x < mapWidth and gy >= 0 and gy < mapHeight:
+          mask[x][gy] = true
+  else: # East
+    for x in cx ..< zoneX + zoneW:
+      for oy in -armWidth .. armWidth:
+        let gy = cy + oy
+        if gy < zoneY or gy >= zoneY + zoneH:
+          continue
+        if x >= 0 and x < mapWidth and gy >= 0 and gy < mapHeight:
+          mask[x][gy] = true
