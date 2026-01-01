@@ -1,6 +1,7 @@
 import std/math, vmath
 import rng_compat
 import biome_forest, biome_desert, biome_caves, biome_city, biome_plains, biome_common
+import dungeon_maze, dungeon_radial
 
 type
   TerrainType* = enum
@@ -27,6 +28,10 @@ type
     BiomeCity
     BiomePlains
 
+  DungeonKind* = enum
+    DungeonMaze
+    DungeonRadial
+
 const
   UseBiomeTerrain* = true
   BaseBiome* = BiomeForest
@@ -36,6 +41,19 @@ const
   BiomePlainsTerrain* = Fertile
   BiomeCityBlockTerrain* = Tree
   BiomeCityRoadTerrain* = Road
+  UseBiomeZones* = true
+  UseDungeonZones* = true
+  BiomeZoneDivisor* = 12000
+  DungeonZoneDivisor* = 20000
+  BiomeZoneMinCount* = 2
+  BiomeZoneMaxCount* = 6
+  DungeonZoneMinCount* = 1
+  DungeonZoneMaxCount* = 4
+  BiomeZoneMaxFraction* = 0.22
+  DungeonZoneMaxFraction* = 0.18
+  ZoneMinSize* = 12
+  DungeonTerrainWall* = Tree
+  DungeonTerrainPath* = Road
 
 const
   TerrainEmpty* = TerrainType.Empty
@@ -51,12 +69,103 @@ template randChance(r: var Rand, p: float): bool = randFloat(r) < p
 const
   RiverWidth* = 6
 
+type
+  ZoneRect = object
+    x, y, w, h: int
+
 proc applyMaskToTerrain(terrain: var TerrainGrid, mask: MaskGrid, mapWidth, mapHeight, mapBorder: int,
                         terrainType: TerrainType) =
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:
       if mask[x][y] and terrain[x][y] == Empty:
         terrain[x][y] = terrainType
+
+proc applyMaskToTerrainRect(terrain: var TerrainGrid, mask: MaskGrid, zone: ZoneRect,
+                            mapWidth, mapHeight, mapBorder: int, terrainType: TerrainType,
+                            overwrite = false) =
+  let x0 = max(mapBorder, zone.x)
+  let y0 = max(mapBorder, zone.y)
+  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
+  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  if x1 <= x0 or y1 <= y0:
+    return
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      if mask[x][y]:
+        if overwrite or terrain[x][y] == Empty:
+          terrain[x][y] = terrainType
+
+proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[float]): T =
+  var total = 0.0
+  for w in weights:
+    total += max(0.0, w)
+  if total <= 0.0:
+    return options[0]
+  let roll = randFloat(r) * total
+  var accum = 0.0
+  for i, w in weights:
+    accum += max(0.0, w)
+    if roll <= accum:
+      return options[i]
+  options[^1]
+
+proc randomZone(r: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: float): ZoneRect =
+  let maxW = max(ZoneMinSize, int(min(mapWidth.float * maxFraction, mapWidth.float / 2)))
+  let maxH = max(ZoneMinSize, int(min(mapHeight.float * maxFraction, mapHeight.float / 2)))
+  let w = randIntInclusive(r, ZoneMinSize, maxW)
+  let h = randIntInclusive(r, ZoneMinSize, maxH)
+  let xMax = max(mapBorder, mapWidth - mapBorder - w)
+  let yMax = max(mapBorder, mapHeight - mapBorder - h)
+  let x = randIntInclusive(r, mapBorder, xMax)
+  let y = randIntInclusive(r, mapBorder, yMax)
+  ZoneRect(x: x, y: y, w: w, h: h)
+
+proc zoneCount(area: int, divisor: int, minCount: int, maxCount: int): int =
+  let raw = max(1, area div divisor)
+  clamp(raw, minCount, maxCount)
+
+proc applyBiomeZones(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  let count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
+  let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains]
+  let weights = [1.0, 1.0, 0.6, 0.6, 1.0]
+  for _ in 0 ..< count:
+    let zone = randomZone(r, mapWidth, mapHeight, mapBorder, BiomeZoneMaxFraction)
+    let biome = pickWeighted(r, kinds, weights)
+    var mask: MaskGrid
+    case biome:
+    of BiomeForest:
+      buildBiomeForestMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeForestConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomeForestTerrain, overwrite = true)
+    of BiomeDesert:
+      buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomeDesertTerrain, overwrite = true)
+    of BiomeCaves:
+      buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomeCavesTerrain, overwrite = true)
+    of BiomeCity:
+      var roadMask: MaskGrid
+      buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomeCityBlockTerrain, overwrite = true)
+      applyMaskToTerrainRect(terrain, roadMask, zone, mapWidth, mapHeight, mapBorder, BiomeCityRoadTerrain, overwrite = true)
+    of BiomePlains:
+      buildBiomePlainsMask(mask, mapWidth, mapHeight, mapBorder, r, BiomePlainsConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomePlainsTerrain, overwrite = true)
+
+proc applyDungeonZones(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  let count = zoneCount(mapWidth * mapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+  let kinds = [DungeonMaze, DungeonRadial]
+  let weights = [1.0, 0.6]
+  for _ in 0 ..< count:
+    let zone = randomZone(r, mapWidth, mapHeight, mapBorder, DungeonZoneMaxFraction)
+    let dungeon = pickWeighted(r, kinds, weights)
+    var mask: MaskGrid
+    case dungeon:
+    of DungeonMaze:
+      buildDungeonMazeMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, DungeonTerrainWall, overwrite = true)
+    of DungeonRadial:
+      buildDungeonRadialMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, DungeonTerrainWall, overwrite = true)
 
 proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var mask: MaskGrid
@@ -340,6 +449,10 @@ proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
 
   if UseBiomeTerrain:
     applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, r)
+  if UseBiomeZones:
+    applyBiomeZones(terrain, mapWidth, mapHeight, mapBorder, r)
+  if UseDungeonZones:
+    applyDungeonZones(terrain, mapWidth, mapHeight, mapBorder, r)
 
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
   terrain.generateWheatFields(mapWidth, mapHeight, mapBorder, r)
