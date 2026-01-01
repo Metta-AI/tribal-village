@@ -10,7 +10,8 @@ type
     Tree
     Fertile
     Road
-  TerrainGrid* = array[256, array[256, TerrainType]]
+  ## Sized to comfortably exceed current MapWidth/MapHeight.
+  TerrainGrid* = array[512, array[512, TerrainType]]
 
   Structure* = object
     width*, height*: int
