@@ -144,6 +144,7 @@ type
     hp*: int
     maxHp*: int
     homeassembler*: IVec2      # Position of agent's home assembler for respawning
+    herdId*: int               # Cow herd grouping id
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
