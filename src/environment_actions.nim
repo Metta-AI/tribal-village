@@ -274,6 +274,17 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, TreeObject, Cow, assembler, Stump}:
     return false
+  if thing.kind == Skeleton:
+    for itemKey, count in thing.inventory.pairs:
+      let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
+      if capacity < count:
+        return false
+    for itemKey, count in thing.inventory.pairs:
+      setInv(agent, itemKey, getInv(agent, itemKey) + count)
+      env.updateAgentInventoryObs(agent, itemKey)
+    removeThing(env, thing)
+    return true
+
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)
   if current >= MapObjectAgentMaxInventory:
@@ -396,8 +407,8 @@ proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
   if victim.frozen >= 999999:
     return
-
-  env.grid[victim.pos.x][victim.pos.y] = nil
+  let deathPos = victim.pos
+  env.grid[deathPos.x][deathPos.y] = nil
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryOreLayer, victim.pos, 0)
@@ -414,6 +425,19 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.frozen = 999999
   victim.hp = 0
   victim.reward += env.config.deathPenalty
+  var hasItems = false
+  for key, count in victim.inventory.pairs:
+    if count > 0:
+      hasItems = true
+      break
+  if hasItems and isValidPos(deathPos):
+    var dropInv = emptyInventory()
+    for key, count in victim.inventory.pairs:
+      if count > 0:
+        dropInv[key] = count
+    let skeleton = Thing(kind: Skeleton, pos: deathPos)
+    skeleton.inventory = dropInv
+    env.add(skeleton)
 
   victim.inventory = emptyInventory()
 
@@ -434,8 +458,6 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     target.hp = max(0, target.hp - remaining)
 
   if target.hp <= 0:
-    if attacker != nil:
-      env.transferAgentInventory(attacker, target)
     env.killAgent(target)
     return true
 
