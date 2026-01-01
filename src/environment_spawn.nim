@@ -86,11 +86,11 @@ proc init(env: Environment) =
     let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
     for i in 0 ..< count:
       let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
-      # Tint the dungeon zone background with a soft edge blend.
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
       let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
       let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
+      # Tint the dungeon zone background with a soft edge blend.
       for x in x0 ..< x1:
         for y in y0 ..< y1:
           env.biomes[x][y] = BiomeDungeonType
@@ -109,10 +109,6 @@ proc init(env: Environment) =
       of DungeonRadial:
         buildDungeonRadialMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
 
-      let x0 = max(MapBorder, zone.x)
-      let y0 = max(MapBorder, zone.y)
-      let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
-      let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
       for x in x0 ..< x1:
         for y in y0 ..< y1:
           let shouldWall = if dungeonKind == DungeonRadial:
