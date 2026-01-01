@@ -130,7 +130,7 @@ proc drawTerrain*() =
         bxy.drawImage(mapSpriteKey("tree"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
       of Palm:
-        bxy.drawImage(mapSpriteKey("tree"), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("palm"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
       of Bridge:
         bxy.drawImage(mapSpriteKey("bridge"), pos.vec2, angle = 0, scale = 1/200)
@@ -300,7 +300,7 @@ proc drawObjects*() =
           discard
         of TreeObject:
           let treeSprite = if thing.treeVariant == TreeVariantPalm:
-            mapSpriteKey("tree")
+            mapSpriteKey("palm")
           else:
             mapSpriteKey("pine")
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)

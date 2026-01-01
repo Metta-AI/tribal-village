@@ -205,7 +205,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject, Cow}:
+  if thing.kind in {Agent, Tumor, TreeObject, Cow, assembler}:
     return false
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)
