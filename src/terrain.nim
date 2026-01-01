@@ -172,10 +172,24 @@ proc applyBiomeMaskToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, mask:
     for y in y0 ..< y1:
       if not mask[x][y]:
         continue
-      if terrain[x][y] == Empty or randChance(r, blendChance):
+      if terrain[x][y] == Empty or terrainType == Dune or randChance(r, blendChance):
         terrain[x][y] = terrainType
       if biomes[x][y] == baseBiomeType or randChance(r, blendChance):
         biomes[x][y] = biomeType
+
+proc fillTerrainInZone(terrain: var TerrainGrid, zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
+                       terrainType: TerrainType, overwriteWater = false) =
+  let x0 = max(mapBorder, zone.x)
+  let y0 = max(mapBorder, zone.y)
+  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
+  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  if x1 <= x0 or y1 <= y0:
+    return
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      if not overwriteWater and terrain[x][y] == Water:
+        continue
+      terrain[x][y] = terrainType
 
 proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[float]): T =
   var total = 0.0
@@ -234,6 +248,8 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyBiomeMaskToZone(terrain, biomes, mask, zone, mapWidth, mapHeight, mapBorder,
         BiomeForestTerrain, BiomeForestType, baseBiomeType, r, blendChance)
     of BiomeDesert:
+      # Fill the desert zone with sand, then layer dunes as impassable obstacles.
+      fillTerrainInZone(terrain, zone, mapWidth, mapHeight, mapBorder, TerrainSand)
       buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zone, mapWidth, mapHeight, mapBorder,
         BiomeDesertTerrain, BiomeDesertType, baseBiomeType, r, blendChance)
