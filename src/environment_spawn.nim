@@ -35,6 +35,21 @@ proc init(env: Environment) =
         env.terrain[x][y] = Empty
         env.add(Thing(kind: TreeObject, pos: ivec2(x.int32, y.int32)))
 
+  # Convert city blocks into walls (roads remain passable).
+  for x in MapBorder ..< MapWidth - MapBorder:
+    for y in MapBorder ..< MapHeight - MapBorder:
+      if env.biomes[x][y] != BiomeCityType:
+        continue
+      if env.terrain[x][y] != BiomeCityBlockTerrain:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      if env.hasDoor(pos):
+        continue
+      if not env.isEmpty(pos):
+        continue
+      env.terrain[x][y] = Empty
+      env.add(Thing(kind: Wall, pos: pos))
+
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
     type ZoneRect = object
@@ -73,7 +88,8 @@ proc init(env: Environment) =
           env.baseTileColors[x][y] = color
           env.tileColors[x][y] = color
       var mask: MaskGrid
-      case pickDungeon(r):
+      let dungeonKind = pickDungeon(r)
+      case dungeonKind:
       of DungeonMaze:
         buildDungeonMazeMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
       of DungeonRadial:
@@ -85,7 +101,11 @@ proc init(env: Environment) =
       let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
       for x in x0 ..< x1:
         for y in y0 ..< y1:
-          if not mask[x][y]:
+          let shouldWall = if dungeonKind == DungeonRadial:
+            not mask[x][y]  # radial mask encodes corridors; invert for walls
+          else:
+            mask[x][y]
+          if not shouldWall:
             continue
           if env.terrain[x][y] == Water:
             continue
