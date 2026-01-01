@@ -631,20 +631,21 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     center: IVec2
   ] =
   ## Extract tiles for placing a structure
-  result.walls = @[]
-  result.doors = @[]
-  result.floors = @[]
-  result.assemblers = @[]
-  result.forges = @[]
-  result.armories = @[]
-  result.clayOvens = @[]
-  result.weavingLooms = @[]
-  result.beds = @[]
-  result.chairs = @[]
-  result.tables = @[]
-  result.statues = @[]
-
-  result.center = topLeft + structure.centerPos
+  result = (
+    walls: @[],
+    doors: @[],
+    floors: @[],
+    assemblers: @[],
+    forges: @[],
+    armories: @[],
+    clayOvens: @[],
+    weavingLooms: @[],
+    beds: @[],
+    chairs: @[],
+    tables: @[],
+    statues: @[],
+    center: topLeft + structure.centerPos
+  )
 
   for y, row in structure.layout:
     for x, cell in row:
