@@ -1,7 +1,7 @@
 import std/tables, vmath, chroma
 import rng_compat
-import terrain, objects, workshop, common
-export terrain, objects, workshop, common
+import terrain, objects, workshop, items, common
+export terrain, objects, workshop, items, common
 
 
 const
@@ -32,6 +32,7 @@ const
   MapObjectassemblerCooldown* = 10
   MapObjectassemblerRespawnCost* = 1
   MapObjectassemblerAutoSpawnThreshold* = 5
+  BarrelCapacity* = 50
   MapObjectMineCooldown* = 5
   MapObjectMineInitialResources* = 30
   DoorMaxHearts* = 5
@@ -118,6 +119,7 @@ type
     Table
     Statue
     WatchTower
+    Barrel
     PlantedLantern  # Planted lanterns that spread team colors
 
   Thing* = ref object
@@ -142,6 +144,10 @@ type
     inventoryLantern*: int  # Lanterns from weaving loom (plantable team markers)
     inventoryArmor*: int    # Armor from armory (5-hit protection, tracks remaining uses)
     inventoryBread*: int    # Bread baked from clay oven
+    # Barrel:
+    barrelKind*: ItemKind
+    barrelCount*: int
+    barrelCapacity*: int
     reward*: float32
     hp*: int
     maxHp*: int
@@ -396,6 +402,8 @@ proc render*(env: Environment): string =
             cell = "O"
           of WeavingLoom:
             cell = "W"
+          of Barrel:
+            cell = "b"
           of Bed:
             cell = "B"
           of Chair:
@@ -499,7 +507,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, PlantedLantern:
+    of Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, Barrel, PlantedLantern:
       discard
 
   env.observationsInitialized = true
@@ -541,6 +549,61 @@ proc clearDoors(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.doorTeams[x][y] = -1
+
+proc agentItemCount*(agent: Thing, kind: ItemKind): int =
+  case kind
+  of Ore: agent.inventoryOre
+  of Battery: agent.inventoryBattery
+  of Water: agent.inventoryWater
+  of Wheat: agent.inventoryWheat
+  of Wood: agent.inventoryWood
+  of Spear: agent.inventorySpear
+  of Lantern: agent.inventoryLantern
+  of Armor: agent.inventoryArmor
+  of Bread: agent.inventoryBread
+  else: 0
+
+proc setAgentItem*(agent: Thing, kind: ItemKind, value: int) =
+  case kind
+  of Ore: agent.inventoryOre = value
+  of Battery: agent.inventoryBattery = value
+  of Water: agent.inventoryWater = value
+  of Wheat: agent.inventoryWheat = value
+  of Wood: agent.inventoryWood = value
+  of Spear: agent.inventorySpear = value
+  of Lantern: agent.inventoryLantern = value
+  of Armor: agent.inventoryArmor = value
+  of Bread: agent.inventoryBread = value
+  else: discard
+
+proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
+  case kind
+  of Ore: env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
+  of Battery: env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
+  of Water: env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
+  of Wheat: env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+  of Wood: env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+  of Spear: env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+  of Lantern: env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
+  of Armor: env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+  of Bread: env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+  else: discard
+
+proc agentMostHeldItem(agent: Thing): tuple[kind: ItemKind, count: int] =
+  ## Pick the item with the highest count to deposit into an empty barrel.
+  result = (kind: ItemNone, count: 0)
+  template consider(kind: ItemKind, count: int) =
+    if count > result.count:
+      result = (kind: kind, count: count)
+  consider(Ore, agent.inventoryOre)
+  consider(Battery, agent.inventoryBattery)
+  consider(Water, agent.inventoryWater)
+  consider(Wheat, agent.inventoryWheat)
+  consider(Wood, agent.inventoryWood)
+  consider(Spear, agent.inventorySpear)
+  consider(Lantern, agent.inventoryLantern)
+  consider(Armor, agent.inventoryArmor)
+  consider(Bread, agent.inventoryBread)
       env.doorHearts[x][y] = 0
 
 
