@@ -7,17 +7,18 @@ import vmath
 import ./environment, common, terrain
 
 const
-  TerrainEmptyVal = cast[TerrainType](0)
-  TerrainWaterVal = cast[TerrainType](1)
-  TerrainBridgeVal = cast[TerrainType](2)
-  TerrainWheatVal = cast[TerrainType](3)
-  TerrainTreeVal = cast[TerrainType](4)
-  TerrainFertileVal = cast[TerrainType](5)
-  TerrainRoadVal = cast[TerrainType](6)
-  TerrainRockVal = cast[TerrainType](7)
-  TerrainGemVal = cast[TerrainType](8)
-  TerrainBushVal = cast[TerrainType](9)
-  TerrainAnimalVal = cast[TerrainType](10)
+  TerrainEmptyVal = TerrainType.Empty
+  TerrainWaterVal = TerrainType.Water
+  TerrainBridgeVal = TerrainType.Bridge
+  TerrainWheatVal = TerrainType.Wheat
+  TerrainTreeVal = TerrainType.Tree
+  TerrainFertileVal = TerrainType.Fertile
+  TerrainRoadVal = TerrainType.Road
+  TerrainRockVal = TerrainType.Rock
+  TerrainGemVal = TerrainType.Gem
+  TerrainBushVal = TerrainType.Bush
+  TerrainAnimalVal = TerrainType.Animal
+  TerrainDuneVal = TerrainType.Dune
 
 type
   # Simple agent roles - one per team member
@@ -258,7 +259,7 @@ proc chebyshevDist(a, b: IVec2): int32 =
 
 proc isValidEmptyTile(env: Environment, agent: Thing, pos: IVec2): bool =
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight and
-  env.isEmpty(pos) and env.terrain[pos.x][pos.y] != TerrainWaterVal and env.canAgentPassDoor(agent, pos)
+  env.isEmpty(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]) and env.canAgentPassDoor(agent, pos)
 
 proc getMoveAway(env: Environment, agent: Thing, fromPos, threatPos: IVec2, rng: var Rand): int =
   ## Pick a step that increases distance from the threat (chebyshev), prioritizing empty tiles.
@@ -409,7 +410,7 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   ## Consider lantern tiles passable for movement planning and respect doors/water.
   if not isValidPos(pos):
     return false
-  if env.terrain[pos.x][pos.y] == TerrainWaterVal:
+  if isBlockedTerrain(env.terrain[pos.x][pos.y]):
     return false
   if not env.canAgentPassDoor(agent, pos):
     return false

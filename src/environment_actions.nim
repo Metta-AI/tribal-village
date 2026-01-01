@@ -75,8 +75,8 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   step1.x += int32(delta.x)
   step1.y += int32(delta.y)
 
-  # Prevent moving onto water tiles (bridges remain walkable).
-  if env.terrain[step1.x][step1.y] == Water:
+  # Prevent moving onto blocked terrain (bridges remain walkable).
+  if isBlockedTerrain(env.terrain[step1.x][step1.y]):
     inc env.stats[id].actionInvalid
     return
 
@@ -108,12 +108,12 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     # Preferred push positions in move direction
     let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
     let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
-    if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water and spacingOk(ahead2):
+    if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
       env.grid[blocker.pos.x][blocker.pos.y] = nil
       blocker.pos = ahead2
       env.grid[blocker.pos.x][blocker.pos.y] = blocker
       relocated = true
-    elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water and spacingOk(ahead1):
+    elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
       env.grid[blocker.pos.x][blocker.pos.y] = nil
       blocker.pos = ahead1
       env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -125,7 +125,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
           if dx == 0 and dy == 0: continue
           let alt = ivec2(pos.x + dx, pos.y + dy)
           if alt.x < 0 or alt.y < 0 or alt.x >= MapWidth or alt.y >= MapHeight: continue
-          if env.isEmpty(alt) and not env.hasDoor(alt) and env.terrain[alt.x][alt.y] != Water and spacingOk(alt):
+          if env.isEmpty(alt) and not env.hasDoor(alt) and not isBlockedTerrain(env.terrain[alt.x][alt.y]) and spacingOk(alt):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = alt
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -142,7 +142,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   # Roads accelerate movement in the direction of entry.
   if env.terrain[step1.x][step1.y] == Road:
     let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
-    if isValidPos(step2) and env.terrain[step2.x][step2.y] != Water and env.canAgentPassDoor(agent, step2):
+    if isValidPos(step2) and not isBlockedTerrain(env.terrain[step2.x][step2.y]) and env.canAgentPassDoor(agent, step2):
       if canEnter(step2):
         finalPos = step2
 
@@ -955,7 +955,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
   let target = env.getThing(targetPos)
   if isNil(target):
-    if env.isEmpty(targetPos) and not env.hasDoor(targetPos) and env.terrain[targetPos.x][targetPos.y] != Water and not isTileFrozen(targetPos, env):
+    if env.isEmpty(targetPos) and not env.hasDoor(targetPos) and not isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) and not isTileFrozen(targetPos, env):
       let carriedThing = firstThingItem(agent)
       if carriedThing != ItemNone:
         if placeThingFromKey(env, agent, carriedThing, targetPos):
@@ -1017,10 +1017,10 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 {.push inline.}
 proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
-  ## Check if a position is within map bounds, empty, and not water
+  ## Check if a position is within map bounds, empty, and not blocked terrain
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
   pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
-  env.isEmpty(pos) and not env.hasDoor(pos) and env.terrain[pos.x][pos.y] != Water
+  env.isEmpty(pos) and not env.hasDoor(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y])
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
@@ -1269,7 +1269,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   # Check if position is empty and not water
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
 
@@ -1327,7 +1327,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
     inc env.stats[id].actionInvalid
     return
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or env.terrain[targetPos.x][targetPos.y] == Water or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
   if env.terrain[targetPos.x][targetPos.y] != Fertile:

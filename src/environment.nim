@@ -480,6 +480,8 @@ proc render*(env: Environment): string =
         cell = "g"
       of Cactus:
         cell = "c"
+      of Dune:
+        cell = "d"
       of Stalagmite:
         cell = "s"
       of Empty:

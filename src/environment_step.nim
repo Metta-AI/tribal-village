@@ -173,7 +173,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
       if desired != ivec2(0, 0):
         let nextPos = thing.pos + desired
-        if isValidPos(nextPos) and not env.hasDoor(nextPos) and env.terrain[nextPos.x][nextPos.y] != Water and env.isEmpty(nextPos):
+        if isValidPos(nextPos) and not env.hasDoor(nextPos) and not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
           env.grid[thing.pos.x][thing.pos.y] = nil
           thing.pos = nextPos
           env.grid[nextPos.x][nextPos.y] = thing

@@ -18,7 +18,7 @@ proc decideLighter(controller: Controller, env: Environment, agent: Thing,
           continue
         if env.hasDoor(target):
           continue
-        if env.terrain[target.x][target.y] == Water:
+        if isBlockedTerrain(env.terrain[target.x][target.y]):
           continue
         var spaced = true
         for t in env.things:

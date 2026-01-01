@@ -22,6 +22,7 @@ type
     Animal
     Grass
     Cactus
+    Dune
     Stalagmite
     Palm
   ## Sized to comfortably exceed current MapWidth/MapHeight.
@@ -59,7 +60,7 @@ const
   UseBiomeTerrain* = true
   BaseBiome* = BiomePlains
   BiomeForestTerrain* = Tree
-  BiomeDesertTerrain* = Cactus
+  BiomeDesertTerrain* = Dune
   BiomeCavesTerrain* = Stalagmite
   BiomePlainsTerrain* = Grass
   BiomeCityBlockTerrain* = Rock
@@ -104,7 +105,11 @@ const
   TerrainAnimal* = TerrainType.Animal
   TerrainGrass* = TerrainType.Grass
   TerrainCactus* = TerrainType.Cactus
+  TerrainDune* = TerrainType.Dune
   TerrainStalagmite* = TerrainType.Stalagmite
+
+template isBlockedTerrain*(terrain: TerrainType): bool =
+  terrain in {Water, Dune}
 
 template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
 template randChance(r: var Rand, p: float): bool = randFloat(r) < p
