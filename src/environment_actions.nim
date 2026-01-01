@@ -162,6 +162,22 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
     env.updateAgentInventoryObs(agent, itemKey)
   setInv(agent, key, current + 1)
   env.updateAgentInventoryObs(agent, key)
+  case thing.kind
+  of Wall:
+    env.updateObservations(WallLayer, thing.pos, 0)
+  of Mine:
+    env.updateObservations(MineLayer, thing.pos, 0)
+    env.updateObservations(MineResourceLayer, thing.pos, 0)
+    env.updateObservations(MineReadyLayer, thing.pos, 0)
+  of Converter:
+    env.updateObservations(ConverterLayer, thing.pos, 0)
+    env.updateObservations(ConverterReadyLayer, thing.pos, 0)
+  of assembler:
+    env.updateObservations(assemblerLayer, thing.pos, 0)
+    env.updateObservations(assemblerHeartsLayer, thing.pos, 0)
+    env.updateObservations(assemblerReadyLayer, thing.pos, 0)
+  else:
+    discard
   if isValidPos(thing.pos):
     env.grid[thing.pos.x][thing.pos.y] = nil
   let idx = env.things.find(thing)
@@ -207,6 +223,22 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   else:
     discard
   env.add(placed)
+  case kind
+  of Wall:
+    env.updateObservations(WallLayer, pos, 1)
+  of Mine:
+    env.updateObservations(MineLayer, pos, 1)
+    env.updateObservations(MineResourceLayer, pos, placed.resources)
+    env.updateObservations(MineReadyLayer, pos, placed.cooldown)
+  of Converter:
+    env.updateObservations(ConverterLayer, pos, 1)
+    env.updateObservations(ConverterReadyLayer, pos, placed.cooldown)
+  of assembler:
+    env.updateObservations(assemblerLayer, pos, 1)
+    env.updateObservations(assemblerHeartsLayer, pos, placed.hearts)
+    env.updateObservations(assemblerReadyLayer, pos, placed.cooldown)
+  else:
+    discard
   if kind == assembler:
     let teamId = placed.teamId
     if teamId >= 0 and teamId < teamColors.len:
