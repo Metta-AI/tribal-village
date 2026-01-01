@@ -127,7 +127,7 @@ proc drawTerrain*() =
         bxy.drawImage(mapSpriteKey("wheat"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("wheat"), pos.vec2)
       of Tree:
-        bxy.drawImage(mapSpriteKey("tree"), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("pine"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
       of Palm:
         bxy.drawImage(mapSpriteKey("palm"), pos.vec2, angle = 0, scale = 1/200)
