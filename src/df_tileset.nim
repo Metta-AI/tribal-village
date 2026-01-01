@@ -10,6 +10,8 @@ const
   TileSize = 24
   TilesPerRow = 16
   TargetSize = 256
+  MapDir = "data/map"
+  InventoryDir = "data/inventory"
 
 type
   OverrideEntry = object
@@ -56,7 +58,7 @@ proc parseOverrides(lines: seq[string], tilesets: Table[int, string]): Table[str
       continue
     var tilesetIdx = -1
     var tileIndex = -1
-    for i in 0 ..< parts.len - 1:
+    for i in countdown(parts.len - 1, 0):
       if not isDigitsOnly(parts[i]):
         continue
       let value = parseInt(parts[i])
@@ -67,6 +69,8 @@ proc parseOverrides(lines: seq[string], tilesets: Table[int, string]): Table[str
           tilesetIdx = value
           tileIndex = parseInt(parts[j])
           break
+      if tilesetIdx != -1:
+        break
     if tilesetIdx == -1 or tileIndex == -1:
       continue
     if token notin result:
@@ -109,11 +113,10 @@ proc generateDfViewAssets*() =
 
   for def in DfTokenCatalog:
     let token = def.token
-    let assetKey = if def.placement == DfBuilding:
-      "objects/" & token.toLowerAscii
+    let outPath = if def.placement == DfBuilding:
+      MapDir / (token.toLowerAscii & ".png")
     else:
-      "items/" & token.toLowerAscii
-    let outPath = "data/" & assetKey & ".png"
+      InventoryDir / (token.toLowerAscii & ".png")
     if fileExists(outPath):
       continue
 
@@ -161,6 +164,28 @@ proc generateDfViewAssets*() =
     createDir(parentDir(outPath))
     writeFile(outPath, encodePng(scaled))
     inc created
+
+  # Replace the road sprite with a constructed floor tile when available.
+  if "ConstructedFloor" in overrides:
+    let entry = overrides["ConstructedFloor"]
+    if entry.tilesetIdx in tilesets:
+      let sheetPath = tilesets[entry.tilesetIdx]
+      if fileExists(sheetPath):
+        let sheet = if entry.tilesetIdx in sheetCache:
+          sheetCache[entry.tilesetIdx]
+        else:
+          let img = readImage(sheetPath)
+          sheetCache[entry.tilesetIdx] = img
+          img
+        let tile = extractTile(sheet, entry.tileIndex)
+        let scaled = scaleNearest(tile, TargetSize, TargetSize)
+        let outPath = MapDir / "road.png"
+        createDir(parentDir(outPath))
+        writeFile(outPath, encodePng(scaled))
+        inc created
+  else:
+    if "road" notin missing:
+      missing.add("road")
 
   if created > 0:
     echo "DF tileset: generated ", created, " sprites"
