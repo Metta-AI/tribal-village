@@ -1,6 +1,6 @@
 import std/[os, strutils, math],
   boxy, windy, vmath,
-  src/environment, src/common, src/renderer, src/external_actions
+  src/environment, src/common, src/renderer, src/external_actions, src/df_tileset
 
 when not defined(emscripten):
   import opengl
@@ -273,6 +273,11 @@ proc display() =
   window.swapBuffers()
   inc frame
 
+
+# Build any missing DF tileset sprites before loading assets.
+generateDfViewAssets()
+if fileExists("data/objects/door.png"):
+  setDoorSprite("objects/door")
 
 # Build the atlas with progress feedback and error handling.
 echo "🎨 Loading tribal assets..."

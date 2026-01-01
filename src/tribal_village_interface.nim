@@ -11,7 +11,7 @@ type
     tumorSpawnRate*: float32
     heartReward*: float32
     oreReward*: float32
-    batteryReward*: float32
+    barReward*: float32
     woodReward*: float32
     waterReward*: float32
     wheatReward*: float32
@@ -38,7 +38,7 @@ proc applyConfig(cfg: CEnvironmentConfig): EnvironmentConfig =
   applyFloat(tumorSpawnRate, cfg.tumorSpawnRate)
   applyFloat(heartReward, cfg.heartReward)
   applyFloat(oreReward, cfg.oreReward)
-  applyFloat(batteryReward, cfg.batteryReward)
+  applyFloat(barReward, cfg.barReward)
   applyFloat(woodReward, cfg.woodReward)
   applyFloat(waterReward, cfg.waterReward)
   applyFloat(wheatReward, cfg.wheatReward)
