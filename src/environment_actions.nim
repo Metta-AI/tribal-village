@@ -102,24 +102,21 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 proc transferAgentInventory(env: Environment, killer, victim: Thing) =
   ## Move the victim's inventory to the killer before the victim dies
-  template moveAll(field: untyped, layer: ObservationName) =
-    if victim.field > 0:
-      let capacity = max(0, MapObjectAgentMaxInventory - killer.field)
-      let gained = min(victim.field, capacity)
-      if gained > 0:
-        killer.field += gained
-        env.updateObservations(layer, killer.pos, killer.field)
-      victim.field = 0  # drop any overflow on the ground (currently unused)
+  var keys: seq[ItemKey] = @[]
+  for key, count in victim.inventory.pairs:
+    if count > 0:
+      keys.add(key)
 
-  moveAll(inventoryOre, AgentInventoryOreLayer)
-  moveAll(inventoryBar, AgentInventoryBarLayer)
-  moveAll(inventoryWater, AgentInventoryWaterLayer)
-  moveAll(inventoryWheat, AgentInventoryWheatLayer)
-  moveAll(inventoryWood, AgentInventoryWoodLayer)
-  moveAll(inventorySpear, AgentInventorySpearLayer)
-  moveAll(inventoryLantern, AgentInventoryLanternLayer)
-  moveAll(inventoryArmor, AgentInventoryArmorLayer)
-  moveAll(inventoryBread, AgentInventoryBreadLayer)
+  for key in keys:
+    let count = getInv(victim, key)
+    if count <= 0:
+      continue
+    let capacity = max(0, MapObjectAgentMaxInventory - getInv(killer, key))
+    let moved = min(count, capacity)
+    if moved > 0:
+      setInv(killer, key, getInv(killer, key) + moved)
+      env.updateAgentInventoryObs(killer, key)
+    setInv(victim, key, 0)  # drop any overflow on the ground (currently unused)
 
 proc thingKey(kind: ThingKind): ItemKey =
   ItemThingPrefix & $kind
@@ -239,15 +236,7 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.hp = 0
   victim.reward += env.config.deathPenalty
 
-  victim.inventoryOre = 0
-  victim.inventoryBar = 0
-  victim.inventoryWater = 0
-  victim.inventoryWheat = 0
-  victim.inventoryWood = 0
-  victim.inventorySpear = 0
-  victim.inventoryLantern = 0
-  victim.inventoryArmor = 0
-  victim.inventoryBread = 0
+  victim.inventory = emptyInventory()
 
 # Apply damage to an agent; respects armor and only freezes when HP <= 0.
 # Returns true if the agent died this call.
@@ -486,57 +475,57 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
 
-  # Terrain use first
-  case env.terrain[targetPos.x][targetPos.y]:
-  of Bridge:
-    # Bridges are walkable and have no direct interaction
-    inc env.stats[id].actionInvalid
-    return
-  of Road:
-    # Roads are for movement only
-    inc env.stats[id].actionInvalid
-    return
-  of Water:
-    if agent.inventoryWater < MapObjectAgentMaxInventory:
-      agent.inventoryWater += 1
-      env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
-      agent.reward += env.config.waterReward
-      inc env.stats[id].actionUse
-      return
-    else:
+  let thing = env.getThing(targetPos)
+  if isNil(thing):
+    # Terrain use only when no Thing occupies the tile.
+    case env.terrain[targetPos.x][targetPos.y]:
+    of Bridge:
+      # Bridges are walkable and have no direct interaction
       inc env.stats[id].actionInvalid
       return
-  of Wheat:
-    if agent.inventoryWheat < MapObjectAgentMaxInventory:
-      let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
-      agent.inventoryWheat += gain
-      env.terrain[targetPos.x][targetPos.y] = Empty
-      agent.reward += env.config.wheatReward
-      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-      inc env.stats[id].actionUse
-      return
-    else:
+    of Road:
+      # Roads are for movement only
       inc env.stats[id].actionInvalid
       return
-  of Tree:
-    if agent.inventoryWood < MapObjectAgentMaxInventory:
-      let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
-      agent.inventoryWood += gain
-      env.terrain[targetPos.x][targetPos.y] = Empty
-      agent.reward += env.config.woodReward
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-      inc env.stats[id].actionUse
-      return
-    else:
+    of Water:
+      if agent.inventoryWater < MapObjectAgentMaxInventory:
+        agent.inventoryWater += 1
+        env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
+        agent.reward += env.config.waterReward
+        inc env.stats[id].actionUse
+        return
       inc env.stats[id].actionInvalid
       return
-  of Fertile:
-    # Nothing to harvest directly from fertile soil
-    inc env.stats[id].actionInvalid
-    return
-  of Empty:
-    # Only treat as terrain if the tile has no occupying Thing; otherwise fall through to building logic.
-    if env.isEmpty(targetPos) and not env.hasDoor(targetPos):
+    of Wheat:
+      if agent.inventoryWheat < MapObjectAgentMaxInventory:
+        let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
+        agent.inventoryWheat += gain
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        agent.reward += env.config.wheatReward
+        env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
+    of Tree:
+      if agent.inventoryWood < MapObjectAgentMaxInventory:
+        let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
+        agent.inventoryWood += gain
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        agent.reward += env.config.woodReward
+        env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
+    of Fertile:
+      # Nothing to harvest directly from fertile soil
+      inc env.stats[id].actionInvalid
+      return
+    of Empty:
+      if env.hasDoor(targetPos):
+        inc env.stats[id].actionInvalid
+        return
       # Heal burst: consume bread to heal nearby allied agents (and self) for 1 HP
       if agent.inventoryBread > 0:
         agent.inventoryBread = max(0, agent.inventoryBread - 1)
@@ -544,6 +533,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.applyHealBurst(agent)
         inc env.stats[id].actionUse
         return
+      # Place any carried Thing onto the empty tile.
+      let carriedThing = firstThingItem(agent)
+      if carriedThing != ItemNone:
+        if placeThingFromKey(env, agent, carriedThing, targetPos):
+          setInv(agent, carriedThing, getInv(agent, carriedThing) - 1)
+          env.updateAgentInventoryObs(agent, carriedThing)
+          inc env.stats[id].actionUse
+          return
       # Build a barrel on an empty tile using wood (only if not carrying water)
       if agent.inventoryWood > 0 and agent.inventoryWater == 0:
         agent.inventoryWood = max(0, agent.inventoryWood - 1)
@@ -578,19 +575,19 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         ))
         inc env.stats[id].actionUse
         return
-
-    discard
+      inc env.stats[id].actionInvalid
+      return
+    else:
+      inc env.stats[id].actionInvalid
+      return
 
   # Building use
-  let thing = env.getThing(targetPos)
-  if isNil(thing):
-    inc env.stats[id].actionInvalid
-    return
   # Prevent interacting with frozen objects/buildings
   if isThingFrozen(thing, env):
     inc env.stats[id].actionInvalid
     return
 
+  var used = false
   case thing.kind:
   of Mine:
     if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
@@ -599,9 +596,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       thing.cooldown = MapObjectMineCooldown
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
       if agent.inventoryOre == 1: agent.reward += env.config.oreReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of Converter:
     if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       agent.inventoryOre -= 1
@@ -611,9 +606,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       thing.cooldown = 0
       env.updateObservations(ConverterReadyLayer, thing.pos, 1)
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of Forge:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventorySpear == 0:
       agent.inventoryWood -= 1
@@ -622,9 +615,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
       agent.reward += env.config.spearReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of WeavingLoom:
     if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
       agent.inventoryWheat -= 1
@@ -633,9 +624,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
       agent.reward += env.config.clothReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of Armory:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventoryArmor == 0:
       agent.inventoryWood -= 1
@@ -644,9 +633,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
       env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
       agent.reward += env.config.armorReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of ClayOven:
     if thing.cooldown == 0 and agent.inventoryWheat > 0:
       agent.inventoryWheat -= 1
@@ -656,9 +643,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
       # No observation layer for bread; optional for UI later
       agent.reward += env.config.foodReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of assembler:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
       agent.inventoryBar -= 1
@@ -668,9 +653,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(assemblerHeartsLayer, thing.pos, thing.hearts)
       env.updateObservations(assemblerReadyLayer, thing.pos, thing.cooldown)
       agent.reward += env.config.heartReward
-      inc env.stats[id].actionUse
-    else:
-      inc env.stats[id].actionInvalid
+      used = true
   of Barrel:
     var barrel = thing
     if barrel.inventory.len > 0:
@@ -680,41 +663,42 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         storedKey = key
         storedCount = count
         break
-      if storedKey.len == 0:
-        inc env.stats[id].actionInvalid
-        return
-      let agentCount = getInv(agent, storedKey)
-      let barrelSpace = max(0, barrel.barrelCapacity - storedCount)
-      if agentCount > 0 and barrelSpace > 0:
-        let moved = min(agentCount, barrelSpace)
-        setInv(agent, storedKey, agentCount - moved)
-        setInv(barrel, storedKey, storedCount + moved)
-        env.updateAgentInventoryObs(agent, storedKey)
-        inc env.stats[id].actionUse
-      else:
-        let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
-        if capacityLeft <= 0:
-          inc env.stats[id].actionInvalid
-          return
-        let moved = min(storedCount, capacityLeft)
-        if moved <= 0:
-          inc env.stats[id].actionInvalid
-          return
-        setInv(agent, storedKey, agentCount + moved)
-        let remaining = storedCount - moved
-        setInv(barrel, storedKey, remaining)
-        env.updateAgentInventoryObs(agent, storedKey)
-        inc env.stats[id].actionUse
+      if storedKey.len > 0:
+        let agentCount = getInv(agent, storedKey)
+        let barrelSpace = max(0, barrel.barrelCapacity - storedCount)
+        if agentCount > 0 and barrelSpace > 0:
+          let moved = min(agentCount, barrelSpace)
+          setInv(agent, storedKey, agentCount - moved)
+          setInv(barrel, storedKey, storedCount + moved)
+          env.updateAgentInventoryObs(agent, storedKey)
+          used = true
+        else:
+          let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
+          if capacityLeft > 0:
+            let moved = min(storedCount, capacityLeft)
+            if moved > 0:
+              setInv(agent, storedKey, agentCount + moved)
+              let remaining = storedCount - moved
+              setInv(barrel, storedKey, remaining)
+              env.updateAgentInventoryObs(agent, storedKey)
+              used = true
     else:
       let choice = agentMostHeldItem(agent)
-      if choice.count <= 0 or choice.key == ItemNone:
-        inc env.stats[id].actionInvalid
-        return
-      let moved = min(choice.count, barrel.barrelCapacity)
-      setInv(agent, choice.key, choice.count - moved)
-      setInv(barrel, choice.key, moved)
-      env.updateAgentInventoryObs(agent, choice.key)
-      inc env.stats[id].actionUse
+      if choice.count > 0 and choice.key != ItemNone:
+        let moved = min(choice.count, barrel.barrelCapacity)
+        setInv(agent, choice.key, choice.count - moved)
+        setInv(barrel, choice.key, moved)
+        env.updateAgentInventoryObs(agent, choice.key)
+        used = true
+  else:
+    discard
+
+  if not used:
+    if tryPickupThing(env, agent, thing):
+      used = true
+
+  if used:
+    inc env.stats[id].actionUse
   else:
     inc env.stats[id].actionInvalid
 
@@ -752,7 +736,18 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
   let target = env.getThing(targetPos)
-  if isNil(target) or target.kind != Agent or isThingFrozen(target, env):
+  if isNil(target):
+    if env.isEmpty(targetPos) and not env.hasDoor(targetPos) and env.terrain[targetPos.x][targetPos.y] != Water and not isTileFrozen(targetPos, env):
+      let carriedThing = firstThingItem(agent)
+      if carriedThing != ItemNone:
+        if placeThingFromKey(env, agent, carriedThing, targetPos):
+          setInv(agent, carriedThing, getInv(agent, carriedThing) - 1)
+          env.updateAgentInventoryObs(agent, carriedThing)
+          inc env.stats[id].actionPut
+          return
+    inc env.stats[id].actionInvalid
+    return
+  if target.kind != Agent or isThingFrozen(target, env):
     inc env.stats[id].actionInvalid
     return
   var transferred = false
@@ -767,13 +762,34 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     agent.inventoryBread -= giveAmt
     target.inventoryBread += giveAmt
     transferred = true
+  else:
+    var bestKey = ItemNone
+    var bestCount = 0
+    for key, count in agent.inventory.pairs:
+      if count <= 0:
+        continue
+      let capacity = MapObjectAgentMaxInventory - getInv(target, key)
+      if capacity <= 0:
+        continue
+      if count > bestCount:
+        bestKey = key
+        bestCount = count
+    if bestKey != ItemNone and bestCount > 0:
+      let capacity = max(0, MapObjectAgentMaxInventory - getInv(target, bestKey))
+      if capacity > 0:
+        let moved = min(bestCount, capacity)
+        setInv(agent, bestKey, bestCount - moved)
+        setInv(target, bestKey, getInv(target, bestKey) + moved)
+        env.updateAgentInventoryObs(agent, bestKey)
+        env.updateAgentInventoryObs(target, bestKey)
+        transferred = true
   if transferred:
     inc env.stats[id].actionPut
     # Update observations for changed inventories
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-    env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
-    env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
-    env.updateObservations(AgentInventoryBreadLayer, target.pos, target.inventoryBread)
+    env.updateAgentInventoryObs(agent, ItemArmor)
+    env.updateAgentInventoryObs(agent, ItemBread)
+    env.updateAgentInventoryObs(target, ItemArmor)
+    env.updateAgentInventoryObs(target, ItemBread)
   else:
     inc env.stats[id].actionInvalid
 # ============== CLIPPY AI ==============
