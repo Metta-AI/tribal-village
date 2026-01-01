@@ -1,6 +1,6 @@
 import std/math, vmath
 import rng_compat
-import biome_forest, biome_desert, biome_caves, biome_city, biome_plains, biome_common
+import biome_forest, biome_desert, biome_caves, biome_city, biome_plains, biome_snow, biome_common
 import dungeon_maze, dungeon_radial
 
 const
@@ -26,6 +26,7 @@ type
     Stalagmite
     Palm
     Sand
+    Snow
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[MaxTerrainSize, array[MaxTerrainSize, TerrainType]]
 
@@ -41,6 +42,7 @@ type
     BiomeCaves
     BiomeCity
     BiomePlains
+    BiomeSnow
 
   BiomeType* = enum
     BiomeNone
@@ -49,6 +51,7 @@ type
     BiomeCavesType
     BiomeCityType
     BiomePlainsType
+    BiomeSnowType
     BiomeDungeonType
 
   BiomeGrid* = array[MaxTerrainSize, array[MaxTerrainSize, BiomeType]]
@@ -64,6 +67,7 @@ const
   BiomeDesertTerrain* = Sand
   BiomeCavesTerrain* = Stalagmite
   BiomePlainsTerrain* = Grass
+  BiomeSnowTerrain* = Snow
   BiomeCityBlockTerrain* = Rock
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
@@ -110,9 +114,10 @@ const
   TerrainDune* = TerrainType.Dune
   TerrainStalagmite* = TerrainType.Stalagmite
   TerrainSand* = TerrainType.Sand
+  TerrainSnow* = TerrainType.Snow
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
-  terrain in {Water, Dune, Stalagmite}
+  terrain in {Water, Dune, Stalagmite, Snow}
 
 template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
 template randChance(r: var Rand, p: float): bool = randFloat(r) < p
@@ -223,14 +228,15 @@ proc zoneCount(area: int, divisor: int, minCount: int, maxCount: int): int =
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
   let count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
-  let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains]
-  let weights = [1.0, 1.0, 0.6, 0.6, 1.0]
+  let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow]
+  let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8]
   let baseBiomeType = case BaseBiome:
     of BiomeForest: BiomeForestType
     of BiomeDesert: BiomeDesertType
     of BiomeCaves: BiomeCavesType
     of BiomeCity: BiomeCityType
     of BiomePlains: BiomePlainsType
+    of BiomeSnow: BiomeSnowType
   var seqIdx = randIntInclusive(r, 0, kinds.len - 1)
   let blendChance = 0.35
   for _ in 0 ..< count:
@@ -252,11 +258,18 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       fillTerrainInZone(terrain, zone, mapWidth, mapHeight, mapBorder, TerrainSand)
       buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeDesertTerrain, BiomeDesertType, baseBiomeType, r, blendChance)
+        TerrainDune, BiomeDesertType, baseBiomeType, r, blendChance)
     of BiomeCaves:
       buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zone, mapWidth, mapHeight, mapBorder,
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, blendChance)
+    of BiomeSnow:
+      # Fill with snow, then add clustered accents for texture.
+      fillTerrainInZone(terrain, zone, mapWidth, mapHeight, mapBorder, TerrainSnow)
+      buildBiomeSnowMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSnowConfig())
+      let snowBlend = max(blendChance, 0.75)
+      applyBiomeMaskToZone(terrain, biomes, mask, zone, mapWidth, mapHeight, mapBorder,
+        BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, snowBlend)
     of BiomeCity:
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
@@ -305,6 +318,9 @@ proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   of BiomePlains:
     buildBiomePlainsMask(mask, mapWidth, mapHeight, mapBorder, r, BiomePlainsConfig())
     applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomePlainsTerrain)
+  of BiomeSnow:
+    buildBiomeSnowMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSnowConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeSnowTerrain)
 
 proc inCornerReserve(x, y, mapWidth, mapHeight, mapBorder: int, reserve: int): bool =
   ## Returns true if the coordinate is within a reserved corner area
@@ -677,6 +693,7 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
     of BiomeCaves: BiomeCavesType
     of BiomeCity: BiomeCityType
     of BiomePlains: BiomePlainsType
+    of BiomeSnow: BiomeSnowType
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:
       biomes[x][y] = baseBiomeType

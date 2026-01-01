@@ -202,6 +202,7 @@ const
   BiomeColorCity = TileColor(r: 0.62, g: 0.62, b: 0.66, intensity: 1.0)
   BiomeColorPlains = TileColor(r: 0.55, g: 0.70, b: 0.50, intensity: 1.0)
   BiomeColorDungeon = TileColor(r: 0.40, g: 0.36, b: 0.48, intensity: 0.9)
+  BiomeColorSnow = TileColor(r: 0.93, g: 0.95, b: 0.98, intensity: 1.0)
   WheatBaseColor = TileColor(r: 0.88, g: 0.78, b: 0.48, intensity: 1.05)
   PalmBaseColor = TileColor(r: 0.70, g: 0.78, b: 0.52, intensity: 1.0)
   WheatBaseBlend = 0.65'f32
@@ -373,12 +374,13 @@ proc isThingFrozen*(thing: Thing, env: Environment): bool =
 
 proc biomeBaseColor*(biome: BiomeType): TileColor =
   case biome:
-  of BiomeForestType: BiomeColorForest
-  of BiomeDesertType: BiomeColorDesert
-  of BiomeCavesType: BiomeColorCaves
-  of BiomeCityType: BiomeColorCity
-  of BiomePlainsType: BiomeColorPlains
-  of BiomeDungeonType: BiomeColorDungeon
+    of BiomeForestType: BiomeColorForest
+    of BiomeDesertType: BiomeColorDesert
+    of BiomeCavesType: BiomeColorCaves
+    of BiomeCityType: BiomeColorCity
+    of BiomePlainsType: BiomeColorPlains
+    of BiomeSnowType: BiomeColorSnow
+    of BiomeDungeonType: BiomeColorDungeon
   else: BaseTileColorDefault
 
 proc baseColorForPos(env: Environment, pos: IVec2): TileColor =
@@ -485,6 +487,8 @@ proc render*(env: Environment): string =
         cell = "d"
       of Sand:
         cell = "s"
+      of Snow:
+        cell = "n"
       of Stalagmite:
         cell = "m"
       of Empty:
