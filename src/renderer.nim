@@ -150,6 +150,8 @@ proc drawTerrain*() =
         bxy.drawImage(mapSpriteKey("grass"), pos.vec2, angle = 0, scale = 1/200)
       of Cactus:
         bxy.drawImage(mapSpriteKey("cactus"), pos.vec2, angle = 0, scale = 1/200)
+      of Dune:
+        bxy.drawImage(mapSpriteKey("dune"), pos.vec2, angle = 0, scale = 1/200)
       of Stalagmite:
         bxy.drawImage(mapSpriteKey("stalagmite"), pos.vec2, angle = 0, scale = 1/200)
       of Empty:
@@ -626,6 +628,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Animal: "Animal"
       of Grass: "Grass"
       of Cactus: "Cactus"
+      of Dune: "Dune"
       of Stalagmite: "Stalagmite"
       of Empty: "Empty"
 

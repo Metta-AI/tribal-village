@@ -170,7 +170,7 @@ proc init(env: Environment) =
           let checkY = candidatePos.y + dy
           if checkX >= MapWidth or checkY >= MapHeight or
              not env.isEmpty(ivec2(checkX, checkY)) or
-             env.terrain[checkX][checkY] == Water:
+             isBlockedTerrain(env.terrain[checkX][checkY]):
             canPlace = false
             break
         if not canPlace: break
@@ -200,8 +200,8 @@ proc init(env: Environment) =
           let clearX = placementPosition.x + dx
           let clearY = placementPosition.y + dy
           if clearX >= 0 and clearX < MapWidth and clearY >= 0 and clearY < MapHeight:
-            # Clear any terrain features (wheat, trees) but keep water
-            if env.terrain[clearX][clearY] != Water:
+            # Clear any terrain features (wheat, trees) but keep blocked terrain
+            if not isBlockedTerrain(env.terrain[clearX][clearY]):
               env.terrain[clearX][clearY] = Empty
               env.resetTileColor(ivec2(clearX.int32, clearY.int32))
 
@@ -405,7 +405,7 @@ proc init(env: Environment) =
           if checkPos.x < 0 or checkPos.x >= MapWidth or checkPos.y < 0 or checkPos.y >= MapHeight:
             areaValid = false
             break
-          if not env.isEmpty(checkPos) or env.terrain[checkPos.x][checkPos.y] == Water:
+          if not env.isEmpty(checkPos) or isBlockedTerrain(env.terrain[checkPos.x][checkPos.y]):
             areaValid = false
             break
         if not areaValid:
@@ -438,7 +438,7 @@ proc init(env: Environment) =
         for dy in -(spawnerStruct.height div 2) .. (spawnerStruct.height div 2):
           let clearPos = targetPos + ivec2(dx, dy)
           if clearPos.x >= 0 and clearPos.x < MapWidth and clearPos.y >= 0 and clearPos.y < MapHeight:
-            if env.terrain[clearPos.x][clearPos.y] != Water:
+            if not isBlockedTerrain(env.terrain[clearPos.x][clearPos.y]):
               env.terrain[clearPos.x][clearPos.y] = Empty
               env.resetTileColor(clearPos)
 
