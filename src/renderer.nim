@@ -97,6 +97,14 @@ proc drawTerrain*() =
         bxy.drawImage(mapSpriteKey("road"), pos.vec2, angle = 0, scale = 1/200)
       of Fertile:
         bxy.drawImage(mapSpriteKey("fertile"), pos.vec2, angle = 0, scale = 1/200)
+      of Rock:
+        bxy.drawImage(mapSpriteKey("boulder"), pos.vec2, angle = 0, scale = 1/200)
+      of Gem:
+        bxy.drawImage(mapSpriteKey("rough"), pos.vec2, angle = 0, scale = 1/200)
+      of Bush:
+        bxy.drawImage(mapSpriteKey("plant_growth"), pos.vec2, angle = 0, scale = 1/200)
+      of Animal:
+        bxy.drawImage(mapSpriteKey("meat"), pos.vec2, angle = 0, scale = 1/200)
       of Empty:
         discard
       else:
@@ -464,6 +472,10 @@ proc drawAgentDecorations*() =
         of "Wall": return mapSpriteKey("wall")
         of "PlantedLantern": return mapSpriteKey("lantern")
         else: return mapSpriteKey("floor")
+      let invKey = "inventory/" & key
+      let mapKey = "map/" & key
+      if assetExists(invKey) or assetExists(mapKey):
+        return inventorySpriteKey(key)
       return mapSpriteKey("floor")
 
     var overlays: seq[OverlayItem] = @[]
