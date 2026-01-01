@@ -374,13 +374,13 @@ proc isThingFrozen*(thing: Thing, env: Environment): bool =
 
 proc biomeBaseColor*(biome: BiomeType): TileColor =
   case biome:
-    of BiomeForestType: BiomeColorForest
-    of BiomeDesertType: BiomeColorDesert
-    of BiomeCavesType: BiomeColorCaves
-    of BiomeCityType: BiomeColorCity
-    of BiomePlainsType: BiomeColorPlains
-    of BiomeSnowType: BiomeColorSnow
-    of BiomeDungeonType: BiomeColorDungeon
+  of BiomeForestType: BiomeColorForest
+  of BiomeDesertType: BiomeColorDesert
+  of BiomeCavesType: BiomeColorCaves
+  of BiomeCityType: BiomeColorCity
+  of BiomePlainsType: BiomeColorPlains
+  of BiomeSnowType: BiomeColorSnow
+  of BiomeDungeonType: BiomeColorDungeon
   else: BaseTileColorDefault
 
 proc baseColorForPos(env: Environment, pos: IVec2): TileColor =
