@@ -130,6 +130,7 @@ type
     LumberCamp
     MiningCamp
     Farm
+    Stump
     PlantedLantern  # Planted lanterns that spread team colors
 
   TreeVariant* = enum
@@ -537,6 +538,8 @@ proc render*(env: Environment): string =
             cell = "n"
           of Farm:
             cell = "f"
+          of Stump:
+            cell = "u"
           of Bed:
             cell = "B"
           of Chair:
@@ -645,7 +648,7 @@ proc rebuildObservations*(env: Environment) =
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
     of Cow, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower,
-       Barrel, Mill, LumberCamp, MiningCamp, Farm, PlantedLantern:
+       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern:
       discard
 
   env.observationsInitialized = true

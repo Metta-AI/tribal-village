@@ -450,6 +450,11 @@ proc drawObjects*() =
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
+        of Stump:
+          bxy.drawImage(mapSpriteKey("stump"), pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
         of Bed, Chair, Table, Statue:
           let imageName = case thing.kind:
             of Bed: mapSpriteKey("bed")
@@ -554,6 +559,7 @@ proc drawAgentDecorations*() =
         of "LumberCamp": return mapSpriteKey("cabinet")
         of "MiningCamp": return mapSpriteKey("smelter")
         of "Farm": return mapSpriteKey("farm")
+        of "Stump": return mapSpriteKey("stump")
         of "Mine": return mapSpriteKey("mine")
         of "Converter": return mapSpriteKey("converter")
         of "assembler": return mapSpriteKey("assembler")
@@ -641,6 +647,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of LumberCamp: "Lumber Camp"
       of MiningCamp: "Mining Camp"
       of Farm: "Farm"
+      of Stump: "Stump"
       of PlantedLantern: "Lantern"
   elif env.hasDoor(selectedPos):
     label = "Door"
