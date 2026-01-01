@@ -495,6 +495,7 @@ proc drawAgentDecorations*() =
       if key == ItemLantern: return inventorySpriteKey("lantern")
       if key == ItemArmor: return inventorySpriteKey("armor")
       if key == ItemBread: return inventorySpriteKey("bread")
+      if key == ItemMilk: return inventorySpriteKey("liquid_misc")
       if key == ItemHearts: return "ui/heart"
       if key.startsWith(ItemThingPrefix):
         let kindName = key[ItemThingPrefix.len .. ^1]
