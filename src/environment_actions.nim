@@ -449,6 +449,19 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.applyHealBurst(agent)
         inc env.stats[id].actionUse
         return
+      # Build a barrel on an empty tile using wood (only if not carrying water)
+      if agent.inventoryWood > 0 and agent.inventoryWater == 0:
+        agent.inventoryWood = max(0, agent.inventoryWood - 1)
+        env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+        env.add(Thing(
+          kind: Barrel,
+          pos: targetPos,
+          barrelKind: ItemNone,
+          barrelCount: 0,
+          barrelCapacity: BarrelCapacity
+        ))
+        inc env.stats[id].actionUse
+        return
       # Water an empty tile adjacent to wheat or trees to encourage growth
       if agent.inventoryWater > 0:
         agent.inventoryWater = max(0, agent.inventoryWater - 1)
@@ -565,6 +578,44 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionUse
     else:
       inc env.stats[id].actionInvalid
+  of Barrel:
+    var barrel = thing
+    if barrel.barrelCount > 0 and barrel.barrelKind != ItemNone:
+      let kind = barrel.barrelKind
+      let agentCount = agentItemCount(agent, kind)
+      let barrelSpace = max(0, barrel.barrelCapacity - barrel.barrelCount)
+      if agentCount > 0 and barrelSpace > 0:
+        let moved = min(agentCount, barrelSpace)
+        setAgentItem(agent, kind, agentCount - moved)
+        barrel.barrelCount += moved
+        env.updateAgentInventoryObs(agent, kind)
+        inc env.stats[id].actionUse
+      else:
+        let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
+        if capacityLeft <= 0:
+          inc env.stats[id].actionInvalid
+          return
+        let moved = min(barrel.barrelCount, capacityLeft)
+        if moved <= 0:
+          inc env.stats[id].actionInvalid
+          return
+        setAgentItem(agent, kind, agentCount + moved)
+        barrel.barrelCount -= moved
+        if barrel.barrelCount == 0:
+          barrel.barrelKind = ItemNone
+        env.updateAgentInventoryObs(agent, kind)
+        inc env.stats[id].actionUse
+    else:
+      let choice = agentMostHeldItem(agent)
+      if choice.count <= 0 or choice.kind == ItemNone:
+        inc env.stats[id].actionInvalid
+        return
+      let moved = min(choice.count, barrel.barrelCapacity)
+      setAgentItem(agent, choice.kind, choice.count - moved)
+      barrel.barrelKind = choice.kind
+      barrel.barrelCount = moved
+      env.updateAgentInventoryObs(agent, choice.kind)
+      inc env.stats[id].actionUse
   else:
     inc env.stats[id].actionInvalid
 

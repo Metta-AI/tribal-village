@@ -345,6 +345,13 @@ proc drawObjects*() =
               else: "building"
             drawOverlayIf(true, getInfectionSprite(overlayType), pos.vec2)
 
+        of Barrel:
+          # Placeholder sprite: reuse armory art with a wood tint.
+          let barrelTint = color(0.62, 0.46, 0.28, 1.0)
+          bxy.drawImage("objects/armory", pos.vec2, angle = 0, scale = 1/200, tint = barrelTint)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
         of Bed, Chair, Table, Statue:
           let imageName = case thing.kind:
             of Bed: "objects/bed"
