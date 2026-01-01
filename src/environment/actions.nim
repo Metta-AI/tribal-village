@@ -11,80 +11,92 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   let moveOrientation = Orientation(argument)
   let delta = getOrientationDelta(moveOrientation)
 
-  var newPos = agent.pos
-  newPos.x += int32(delta.x)
-  newPos.y += int32(delta.y)
+  var step1 = agent.pos
+  step1.x += int32(delta.x)
+  step1.y += int32(delta.y)
 
   # Prevent moving onto water tiles (bridges remain walkable).
-  if env.terrain[newPos.x][newPos.y] == Water:
+  if env.terrain[step1.x][step1.y] == Water:
     inc env.stats[id].actionInvalid
     return
 
-  if not env.canAgentPassDoor(agent, newPos):
+  if not env.canAgentPassDoor(agent, step1):
     inc env.stats[id].actionInvalid
     return
 
   let newOrientation = moveOrientation
   # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
-  var canMove = env.isEmpty(newPos)
-  if not canMove:
-    let blocker = env.getThing(newPos)
-    if not isNil(blocker) and blocker.kind == PlantedLantern:
-      var relocated = false
-      # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
-      template spacingOk(newPos: IVec2): bool =
-        var ok = true
-        for t in env.things:
-          if t.kind == PlantedLantern and t != blocker:
-            let dist = max(abs(t.pos.x - newPos.x), abs(t.pos.y - newPos.y))
-            if dist < 3'i32:
-              ok = false
-              break
-        ok
-      # Preferred push positions in move direction
-      let ahead1 = ivec2(newPos.x + delta.x, newPos.y + delta.y)
-      let ahead2 = ivec2(newPos.x + delta.x * 2, newPos.y + delta.y * 2)
-      if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water and spacingOk(ahead2):
-        env.grid[blocker.pos.x][blocker.pos.y] = nil
-        blocker.pos = ahead2
-        env.grid[blocker.pos.x][blocker.pos.y] = blocker
-        relocated = true
-      elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water and spacingOk(ahead1):
-        env.grid[blocker.pos.x][blocker.pos.y] = nil
-        blocker.pos = ahead1
-        env.grid[blocker.pos.x][blocker.pos.y] = blocker
-        relocated = true
-      # Fallback to any adjacent empty tile around the lantern
-      if not relocated:
-        for dy in -1 .. 1:
-          for dx in -1 .. 1:
-            if dx == 0 and dy == 0: continue
-            let alt = ivec2(newPos.x + dx, newPos.y + dy)
-            if alt.x < 0 or alt.y < 0 or alt.x >= MapWidth or alt.y >= MapHeight: continue
-            if env.isEmpty(alt) and not env.hasDoor(alt) and env.terrain[alt.x][alt.y] != Water and spacingOk(alt):
-              env.grid[blocker.pos.x][blocker.pos.y] = nil
-              blocker.pos = alt
-              env.grid[blocker.pos.x][blocker.pos.y] = blocker
-              relocated = true
-              break
-          if relocated: break
-      if relocated:
-        canMove = true
+  proc canEnter(pos: IVec2): bool =
+    var canMove = env.isEmpty(pos)
+    if canMove:
+      return true
+    let blocker = env.getThing(pos)
+    if isNil(blocker) or blocker.kind != PlantedLantern:
+      return false
 
-  if canMove:
-    env.grid[agent.pos.x][agent.pos.y] = nil
-    # Clear old position and set new position
-    env.updateObservations(AgentLayer, agent.pos, 0)  # Clear old
-    agent.pos = newPos
-    agent.orientation = newOrientation
-    env.grid[agent.pos.x][agent.pos.y] = agent
+    var relocated = false
+    # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
+    template spacingOk(nextPos: IVec2): bool =
+      var ok = true
+      for t in env.things:
+        if t.kind == PlantedLantern and t != blocker:
+          let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
+          if dist < 3'i32:
+            ok = false
+            break
+      ok
+    # Preferred push positions in move direction
+    let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
+    let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
+    if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and env.terrain[ahead2.x][ahead2.y] != Water and spacingOk(ahead2):
+      env.grid[blocker.pos.x][blocker.pos.y] = nil
+      blocker.pos = ahead2
+      env.grid[blocker.pos.x][blocker.pos.y] = blocker
+      relocated = true
+    elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and env.terrain[ahead1.x][ahead1.y] != Water and spacingOk(ahead1):
+      env.grid[blocker.pos.x][blocker.pos.y] = nil
+      blocker.pos = ahead1
+      env.grid[blocker.pos.x][blocker.pos.y] = blocker
+      relocated = true
+    # Fallback to any adjacent empty tile around the lantern
+    if not relocated:
+      for dy in -1 .. 1:
+        for dx in -1 .. 1:
+          if dx == 0 and dy == 0: continue
+          let alt = ivec2(pos.x + dx, pos.y + dy)
+          if alt.x < 0 or alt.y < 0 or alt.x >= MapWidth or alt.y >= MapHeight: continue
+          if env.isEmpty(alt) and not env.hasDoor(alt) and env.terrain[alt.x][alt.y] != Water and spacingOk(alt):
+            env.grid[blocker.pos.x][blocker.pos.y] = nil
+            blocker.pos = alt
+            env.grid[blocker.pos.x][blocker.pos.y] = blocker
+            relocated = true
+            break
+        if relocated: break
+    return relocated
 
-    # Update observations for new position only
-    env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
-    env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-    inc env.stats[id].actionMove
-  else:
+  var finalPos = step1
+  if not canEnter(step1):
     inc env.stats[id].actionInvalid
+    return
+
+  # Roads accelerate movement in the direction of entry.
+  if env.terrain[step1.x][step1.y] == Road:
+    let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
+    if isValidPos(step2) and env.terrain[step2.x][step2.y] != Water and env.canAgentPassDoor(agent, step2):
+      if canEnter(step2):
+        finalPos = step2
+
+  env.grid[agent.pos.x][agent.pos.y] = nil
+  # Clear old position and set new position
+  env.updateObservations(AgentLayer, agent.pos, 0)  # Clear old
+  agent.pos = finalPos
+  agent.orientation = newOrientation
+  env.grid[agent.pos.x][agent.pos.y] = agent
+
+  # Update observations for new position only
+  env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+  inc env.stats[id].actionMove
 
 proc transferAgentInventory(env: Environment, killer, victim: Thing) =
   ## Move the victim's inventory to the killer before the victim dies
@@ -842,11 +854,6 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
 
-  # Check if agent has a lantern
-  if agent.inventoryLantern <= 0:
-    inc env.stats[id].actionInvalid
-    return
-
   # Calculate target position based on orientation argument
   let plantOrientation = Orientation(argument)
   let delta = getOrientationDelta(plantOrientation)
@@ -864,26 +871,44 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
 
-  # Calculate team ID directly from the planting agent's ID
-  let teamId = getTeamId(agent.agentId)
+  if agent.inventoryLantern > 0:
+    # Calculate team ID directly from the planting agent's ID
+    let teamId = getTeamId(agent.agentId)
 
-  # Plant the lantern
-  let lantern = Thing(
-    kind: PlantedLantern,
-    pos: targetPos,
-    teamId: teamId,
-    lanternHealthy: true
-  )
+    # Plant the lantern
+    let lantern = Thing(
+      kind: PlantedLantern,
+      pos: targetPos,
+      teamId: teamId,
+      lanternHealthy: true
+    )
 
-  env.add(lantern)
+    env.add(lantern)
 
-  # Consume the lantern from agent's inventory
-  agent.inventoryLantern = 0
+    # Consume the lantern from agent's inventory
+    agent.inventoryLantern = 0
 
-  # Give reward for planting
-  agent.reward += env.config.clothReward * 0.5  # Half reward for planting
+    # Give reward for planting
+    agent.reward += env.config.clothReward * 0.5  # Half reward for planting
 
-  inc env.stats[id].actionPlant
+    inc env.stats[id].actionPlant
+  elif agent.inventoryWood > 0:
+    # Build a road tile on empty terrain
+    if env.terrain[targetPos.x][targetPos.y] != Empty:
+      inc env.stats[id].actionInvalid
+      return
+
+    agent.inventoryWood = max(0, agent.inventoryWood - 1)
+    env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+
+    env.terrain[targetPos.x][targetPos.y] = Road
+    env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.updateObservations(TintLayer, targetPos, 0)
+
+    inc env.stats[id].actionPlant
+  else:
+    inc env.stats[id].actionInvalid
 
 proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile
@@ -929,4 +954,3 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
 
   # Consuming fertility (terrain replaced above)
   inc env.stats[id].actionPlantResource
-

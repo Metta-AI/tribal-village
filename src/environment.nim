@@ -363,6 +363,8 @@ proc render*(env: Environment): string =
         cell = "T"
       of Fertile:
         cell = "f"
+      of Road:
+        cell = "r"
       of Empty:
         cell = " "
       # Then override with objects if present
