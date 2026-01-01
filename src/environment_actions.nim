@@ -696,8 +696,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
         # Create fertile terrain for future planting
         env.terrain[targetPos.x][targetPos.y] = Fertile
-        env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
-        env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+        env.resetTileColor(targetPos)
         env.updateObservations(TintLayer, targetPos, 0)  # ensure obs consistency
 
         inc env.stats[id].actionUse
@@ -1283,8 +1282,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
 
     env.terrain[targetPos.x][targetPos.y] = Road
-    env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
-    env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.resetTileColor(targetPos)
     env.updateObservations(TintLayer, targetPos, 0)
 
     inc env.stats[id].actionPlant
@@ -1321,8 +1319,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
     env.terrain[targetPos.x][targetPos.y] = Empty
-    env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
-    env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.resetTileColor(targetPos)
     env.add(Thing(
       kind: TreeObject,
       pos: targetPos
@@ -1334,8 +1331,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
     env.terrain[targetPos.x][targetPos.y] = Wheat
-    env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
-    env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.resetTileColor(targetPos)
 
   # Consuming fertility (terrain replaced above)
   inc env.stats[id].actionPlantResource
