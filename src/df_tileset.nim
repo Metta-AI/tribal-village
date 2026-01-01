@@ -67,8 +67,6 @@ proc parseOverrides(lines: seq[string], tilesets: Table[int, string]): Table[str
           tilesetIdx = value
           tileIndex = parseInt(parts[j])
           break
-      if tilesetIdx != -1:
-        break
     if tilesetIdx == -1 or tileIndex == -1:
       continue
     if token notin result:

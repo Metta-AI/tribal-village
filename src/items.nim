@@ -5,7 +5,7 @@ type
   ItemKind* = enum
     ItemNone
     Ore
-    Battery
+    Bar
     Water
     Wheat
     Wood

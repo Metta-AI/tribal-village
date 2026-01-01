@@ -549,11 +549,12 @@ proc clearDoors(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.doorTeams[x][y] = -1
+      env.doorHearts[x][y] = 0
 
 proc agentItemCount*(agent: Thing, kind: ItemKind): int =
   case kind
   of Ore: agent.inventoryOre
-  of Battery: agent.inventoryBattery
+  of Bar: agent.inventoryBar
   of Water: agent.inventoryWater
   of Wheat: agent.inventoryWheat
   of Wood: agent.inventoryWood
@@ -566,7 +567,7 @@ proc agentItemCount*(agent: Thing, kind: ItemKind): int =
 proc setAgentItem*(agent: Thing, kind: ItemKind, value: int) =
   case kind
   of Ore: agent.inventoryOre = value
-  of Battery: agent.inventoryBattery = value
+  of Bar: agent.inventoryBar = value
   of Water: agent.inventoryWater = value
   of Wheat: agent.inventoryWheat = value
   of Wood: agent.inventoryWood = value
@@ -579,7 +580,7 @@ proc setAgentItem*(agent: Thing, kind: ItemKind, value: int) =
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
   case kind
   of Ore: env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-  of Battery: env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
+  of Bar: env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
   of Water: env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
   of Wheat: env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
   of Wood: env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
@@ -592,11 +593,11 @@ proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
 proc agentMostHeldItem(agent: Thing): tuple[kind: ItemKind, count: int] =
   ## Pick the item with the highest count to deposit into an empty barrel.
   result = (kind: ItemNone, count: 0)
-  template consider(kind: ItemKind, count: int) =
-    if count > result.count:
-      result = (kind: kind, count: count)
+  template consider(itemKind: ItemKind, qty: int) =
+    if qty > result.count:
+      result = (kind: itemKind, count: qty)
   consider(Ore, agent.inventoryOre)
-  consider(Battery, agent.inventoryBattery)
+  consider(Bar, agent.inventoryBar)
   consider(Water, agent.inventoryWater)
   consider(Wheat, agent.inventoryWheat)
   consider(Wood, agent.inventoryWood)
@@ -604,10 +605,6 @@ proc agentMostHeldItem(agent: Thing): tuple[kind: ItemKind, count: int] =
   consider(Lantern, agent.inventoryLantern)
   consider(Armor, agent.inventoryArmor)
   consider(Bread, agent.inventoryBread)
-      env.doorHearts[x][y] = 0
-
-
-
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   ## Create a new Tumor seed that can branch once before turning inert
   Thing(
