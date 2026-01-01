@@ -187,6 +187,12 @@ type
 
 const
   BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
+  BiomeColorForest = TileColor(r: 0.45, g: 0.60, b: 0.40, intensity: 1.0)
+  BiomeColorDesert = TileColor(r: 0.78, g: 0.70, b: 0.45, intensity: 1.0)
+  BiomeColorCaves = TileColor(r: 0.45, g: 0.50, b: 0.58, intensity: 0.95)
+  BiomeColorCity = TileColor(r: 0.62, g: 0.62, b: 0.66, intensity: 1.0)
+  BiomeColorPlains = TileColor(r: 0.55, g: 0.70, b: 0.50, intensity: 1.0)
+  BiomeColorDungeon = TileColor(r: 0.40, g: 0.36, b: 0.48, intensity: 0.9)
   # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
   # Single source of truth for the clippy/creep tint; aligned to clamp limits so tiles can actually reach it.
   ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
@@ -228,6 +234,7 @@ type
     doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
     doorHearts*: array[MapWidth, array[MapHeight, int8]]
     terrain*: TerrainGrid
+    biomes*: BiomeGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
@@ -348,6 +355,28 @@ proc isThingFrozen*(thing: Thing, env: Environment): bool =
   if thing.frozen > 0:
     return true
   return isTileFrozen(thing.pos, env)
+
+proc biomeBaseColor*(biome: BiomeType): TileColor =
+  case biome:
+  of BiomeForestType: BiomeColorForest
+  of BiomeDesertType: BiomeColorDesert
+  of BiomeCavesType: BiomeColorCaves
+  of BiomeCityType: BiomeColorCity
+  of BiomePlainsType: BiomeColorPlains
+  of BiomeDungeonType: BiomeColorDungeon
+  else: BaseTileColorDefault
+
+proc baseColorForPos(env: Environment, pos: IVec2): TileColor =
+  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+    return BaseTileColorDefault
+  biomeBaseColor(env.biomes[pos.x][pos.y])
+
+proc applyBiomeBaseColors*(env: Environment) =
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      let color = biomeBaseColor(env.biomes[x][y])
+      env.baseTileColors[x][y] = color
+      env.tileColors[x][y] = color
 
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
@@ -550,9 +579,10 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
 {.pop.}
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
-  ## Restore a tile to the default floor color
-  env.tileColors[pos.x][pos.y] = BaseTileColorDefault
-  env.baseTileColors[pos.x][pos.y] = BaseTileColorDefault
+  ## Restore a tile to the biome base color
+  let color = env.baseColorForPos(pos)
+  env.tileColors[pos.x][pos.y] = color
+  env.baseTileColors[pos.x][pos.y] = color
 
 proc clearDoors(env: Environment) =
   for x in 0 ..< MapWidth:

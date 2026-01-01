@@ -25,7 +25,8 @@ proc init(env: Environment) =
   env.shieldCountdown = default(array[MapAgents, int8])
 
   # Initialize terrain with all features
-  initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
+  initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
+  env.applyBiomeBaseColors()
 
   # Convert terrain trees into blocking tree objects.
   for x in MapBorder ..< MapWidth - MapBorder:
@@ -64,6 +65,13 @@ proc init(env: Environment) =
     let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
     for i in 0 ..< count:
       let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
+      # Tint the dungeon zone background.
+      for x in max(MapBorder, zone.x) ..< min(MapWidth - MapBorder, zone.x + zone.w):
+        for y in max(MapBorder, zone.y) ..< min(MapHeight - MapBorder, zone.y + zone.h):
+          env.biomes[x][y] = BiomeDungeonType
+          let color = biomeBaseColor(BiomeDungeonType)
+          env.baseTileColors[x][y] = color
+          env.tileColors[x][y] = color
       var mask: MaskGrid
       case pickDungeon(r):
       of DungeonMaze:
