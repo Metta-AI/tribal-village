@@ -112,7 +112,7 @@ proc transferAgentInventory(env: Environment, killer, victim: Thing) =
       victim.field = 0  # drop any overflow on the ground (currently unused)
 
   moveAll(inventoryOre, AgentInventoryOreLayer)
-  moveAll(inventoryBattery, AgentInventoryBatteryLayer)
+  moveAll(inventoryBar, AgentInventoryBarLayer)
   moveAll(inventoryWater, AgentInventoryWaterLayer)
   moveAll(inventoryWheat, AgentInventoryWheatLayer)
   moveAll(inventoryWood, AgentInventoryWoodLayer)
@@ -130,7 +130,7 @@ proc killAgent(env: Environment, victim: Thing) =
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryOreLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryBatteryLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
@@ -145,7 +145,7 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.reward += env.config.deathPenalty
 
   victim.inventoryOre = 0
-  victim.inventoryBattery = 0
+  victim.inventoryBar = 0
   victim.inventoryWater = 0
   victim.inventoryWheat = 0
   victim.inventoryWood = 0
@@ -497,14 +497,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     else:
       inc env.stats[id].actionInvalid
   of Converter:
-    if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBattery < MapObjectAgentMaxInventory:
+    if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       agent.inventoryOre -= 1
-      agent.inventoryBattery += 1
+      agent.inventoryBar += 1
       env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-      env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
+      env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.cooldown = 0
       env.updateObservations(ConverterReadyLayer, thing.pos, 1)
-      if agent.inventoryBattery == 1: agent.reward += env.config.batteryReward
+      if agent.inventoryBar == 1: agent.reward += env.config.barReward
       inc env.stats[id].actionUse
     else:
       inc env.stats[id].actionInvalid
@@ -554,9 +554,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     else:
       inc env.stats[id].actionInvalid
   of assembler:
-    if thing.cooldown == 0 and agent.inventoryBattery >= 1:
-      agent.inventoryBattery -= 1
-      env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
+    if thing.cooldown == 0 and agent.inventoryBar >= 1:
+      agent.inventoryBar -= 1
+      env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.hearts += 1
       thing.cooldown = MapObjectassemblerCooldown
       env.updateObservations(assemblerHeartsLayer, thing.pos, thing.hearts)

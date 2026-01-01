@@ -81,7 +81,7 @@ type
     AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Tumor
     AgentOrientationLayer = 1
     AgentInventoryOreLayer = 2
-    AgentInventoryBatteryLayer = 3
+    AgentInventoryBarLayer = 3
     AgentInventoryWaterLayer = 4
     AgentInventoryWheatLayer = 5
     AgentInventoryWoodLayer = 6
@@ -105,7 +105,7 @@ type
     Agent
     Wall
     Mine
-    Converter  # Converts ore to batteries
+    Converter  # Smelts ore into bars
     assembler
     Spawner
     Tumor
@@ -134,7 +134,7 @@ type
     agentId*: int
     orientation*: Orientation
     inventoryOre*: int      # Ore from mines
-    inventoryBattery*: int  # Batteries from converters
+    inventoryBar*: int      # Bars from converters
     inventoryWater*: int    # Water from water tiles
     inventoryWheat*: int    # Wheat from wheat tiles
     inventoryWood*: int     # Wood from tree tiles
@@ -207,7 +207,7 @@ type
     # Reward configuration
     heartReward*: float
     oreReward*: float
-    batteryReward*: float
+    barReward*: float
     woodReward*: float
     waterReward*: float
     wheatReward*: float
@@ -466,7 +466,7 @@ proc rebuildObservations*(env: Environment) =
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
     env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-    env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
+    env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
     env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
