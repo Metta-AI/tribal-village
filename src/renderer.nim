@@ -108,12 +108,16 @@ proc drawFloor*() =
     for y in 0 ..< MapHeight:
 
       let tileColor = env.tileColors[x][y]
+      let floorSprite = case env.biomes[x][y]
+        of BiomeCavesType: "map/cave_floor"
+        of BiomeDungeonType: "map/dungeon_floor"
+        else: "map/floor"
 
       let finalR = min(tileColor.r * tileColor.intensity, 1.5)
       let finalG = min(tileColor.g * tileColor.intensity, 1.5)
       let finalB = min(tileColor.b * tileColor.intensity, 1.5)
 
-      bxy.drawImage("map/floor", ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
+      bxy.drawImage(floorSprite, ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:

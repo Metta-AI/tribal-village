@@ -68,6 +68,7 @@ const
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
+  UseSequentialBiomeZones* = true
   UseLegacyTreeClusters* = true
   UsePalmGroves* = true
   WheatFieldClusterBase* = 14
@@ -191,9 +192,15 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
   let count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains]
   let weights = [1.0, 1.0, 0.6, 0.6, 1.0]
+  var seqIdx = randIntInclusive(r, 0, kinds.len - 1)
   for _ in 0 ..< count:
     let zone = randomZone(r, mapWidth, mapHeight, mapBorder, BiomeZoneMaxFraction)
-    let biome = pickWeighted(r, kinds, weights)
+    let biome = if UseSequentialBiomeZones:
+      let selected = kinds[seqIdx mod kinds.len]
+      inc seqIdx
+      selected
+    else:
+      pickWeighted(r, kinds, weights)
     var mask: MaskGrid
     case biome:
     of BiomeForest:
