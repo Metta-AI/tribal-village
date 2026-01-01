@@ -321,6 +321,7 @@ proc tickCooldown(env: Environment, thing: Thing, readyLayer: ObservationName = 
 var
   env*: Environment  # Global environment instance
   selection*: Thing  # Currently selected entity for UI interaction
+  selectedPos*: IVec2 = ivec2(-1, -1)  # Last clicked tile for UI label
 
 # Frozen detection (terrain & buildings share the same tint-based check)
 proc matchesClippyTint(color: TileColor): bool =
