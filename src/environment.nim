@@ -361,6 +361,14 @@ proc render*(env: Environment): string =
         cell = "f"
       of Road:
         cell = "r"
+      of Rock:
+        cell = "R"
+      of Gem:
+        cell = "G"
+      of Bush:
+        cell = "b"
+      of Animal:
+        cell = "a"
       of Empty:
         cell = " "
       # Then override with objects if present
