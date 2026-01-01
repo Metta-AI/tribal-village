@@ -15,7 +15,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         Hearter
       else:
         sample(controller.rng, [Hearter, Armorer, Hunter, Baker, Lighter, Farmer,
-          Builder, Miner, Smelter, Guard, Medic, Scout, Carpenter, Mason, Brewer, Dairy])
+          Builder, Miner, Guard, Medic, Scout])
 
     controller.agents[agentId] = AgentState(
       role: role,
@@ -138,14 +138,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   of Farmer: return decideFarmer(controller, env, agent, agentId, state)
   of Builder: return decideBuilder(controller, env, agent, agentId, state)
   of Miner: return decideMiner(controller, env, agent, agentId, state)
-  of Smelter: return decideSmelter(controller, env, agent, agentId, state)
   of Guard: return decideGuard(controller, env, agent, agentId, state)
   of Medic: return decideMedic(controller, env, agent, agentId, state)
   of Scout: return decideScout(controller, env, agent, agentId, state)
-  of Carpenter: return decideCarpenter(controller, env, agent, agentId, state)
-  of Mason: return decideMason(controller, env, agent, agentId, state)
-  of Brewer: return decideBrewer(controller, env, agent, agentId, state)
-  of Dairy: return decideDairy(controller, env, agent, agentId, state)
 
   # Fallback random move
   state.lastPosition = agent.pos
