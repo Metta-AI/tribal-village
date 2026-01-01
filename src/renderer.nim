@@ -140,13 +140,21 @@ proc drawTerrain*() =
       of Bush:
         bxy.drawImage(mapSpriteKey("bush"), pos.vec2, angle = 0, scale = 1/200)
       of Animal:
-        bxy.drawImage(mapSpriteKey("animal"), pos.vec2, angle = 0, scale = 1/200)
+        let key = mapSpriteKey("animal")
+        let sprite = if assetExists(key): key else: "map/floor"
+        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
       of Grass:
-        bxy.drawImage(mapSpriteKey("grass"), pos.vec2, angle = 0, scale = 1/200)
+        let key = mapSpriteKey("grass")
+        let sprite = if assetExists(key): key else: "map/floor"
+        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
       of Cactus:
-        bxy.drawImage(mapSpriteKey("cactus"), pos.vec2, angle = 0, scale = 1/200)
+        let key = mapSpriteKey("cactus")
+        let sprite = if assetExists(key): key else: "map/floor"
+        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
       of Stalagmite:
-        bxy.drawImage(mapSpriteKey("stalagmite"), pos.vec2, angle = 0, scale = 1/200)
+        let key = mapSpriteKey("stalagmite")
+        let sprite = if assetExists(key): key else: "map/floor"
+        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
       of Empty:
         discard
       else:
@@ -618,6 +626,9 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Gem: "Gem"
       of Bush: "Bush"
       of Animal: "Animal"
+      of Grass: "Grass"
+      of Cactus: "Cactus"
+      of Stalagmite: "Stalagmite"
       of Empty: "Empty"
 
   let key = ensureInfoLabel(label)
