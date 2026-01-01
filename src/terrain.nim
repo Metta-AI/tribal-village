@@ -158,6 +158,20 @@ proc applyBiomeToZone(biomes: var BiomeGrid, zone: ZoneRect, mapWidth, mapHeight
     for y in y0 ..< y1:
       biomes[x][y] = biome
 
+proc fillTerrainInZone(terrain: var TerrainGrid, zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
+                       terrainType: TerrainType, overwriteWater = false) =
+  let x0 = max(mapBorder, zone.x)
+  let y0 = max(mapBorder, zone.y)
+  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
+  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  if x1 <= x0 or y1 <= y0:
+    return
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      if not overwriteWater and terrain[x][y] == Water:
+        continue
+      terrain[x][y] = terrainType
+
 proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[float]): T =
   var total = 0.0
   for w in weights:
@@ -208,8 +222,10 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomeForestTerrain, overwrite = true)
       applyBiomeToZone(biomes, zone, mapWidth, mapHeight, mapBorder, BiomeForestType)
     of BiomeDesert:
+      # Fill the desert zone with sand, then layer dunes as impassable obstacles.
+      fillTerrainInZone(terrain, zone, mapWidth, mapHeight, mapBorder, TerrainSand)
       buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
-      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, BiomeDesertTerrain, overwrite = true)
+      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, TerrainDune, overwrite = true)
       applyBiomeToZone(biomes, zone, mapWidth, mapHeight, mapBorder, BiomeDesertType)
     of BiomeCaves:
       buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
