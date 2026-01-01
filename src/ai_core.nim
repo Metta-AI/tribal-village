@@ -18,7 +18,7 @@ const
 type
   # Simple agent roles - one per team member
   AgentRole* = enum
-    Hearter     # Handles assembler/battery workflow
+    Hearter     # Handles assembler/bar workflow
     Armorer     # Wood -> Armor
     Hunter      # Wood -> Spear -> Hunt Tumors
     Baker       # TerrainWheatVal -> Bread

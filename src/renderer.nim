@@ -422,7 +422,7 @@ proc drawAgentDecorations*() =
 
     var overlays: seq[OverlayItem] = @[]
     if agent.inventoryArmor > 0: overlays.add(OverlayItem(name: "armor", icon: "resources/armor", count: agent.inventoryArmor))
-    if agent.inventoryBattery > 0: overlays.add(OverlayItem(name: "battery", icon: "resources/battery", count: agent.inventoryBattery))
+    if agent.inventoryBar > 0: overlays.add(OverlayItem(name: "bar", icon: "resources/bar", count: agent.inventoryBar))
     if agent.inventoryBread > 0: overlays.add(OverlayItem(name: "bread", icon: "resources/bread", count: agent.inventoryBread))
     if agent.inventoryLantern > 0: overlays.add(OverlayItem(name: "lantern", icon: "objects/lantern", count: agent.inventoryLantern))
     if agent.inventoryOre > 0: overlays.add(OverlayItem(name: "ore", icon: "resources/ore", count: agent.inventoryOre))
