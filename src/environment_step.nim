@@ -181,6 +181,26 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             thing.orientation = Orientation.W
           elif desired.x > 0:
             thing.orientation = Orientation.E
+    elif thing.kind == Farm:
+      if thing.cooldown > 0:
+        thing.cooldown -= 1
+      elif randFloat(stepRng) < 0.5:
+        let offsets = [
+          ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
+          ivec2(-1, 0), ivec2(1, 0),
+          ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
+        ]
+        let start = randIntInclusive(stepRng, 0, offsets.len - 1)
+        for i in 0 ..< offsets.len:
+          let idx = (start + i) mod offsets.len
+          let pos = thing.pos + offsets[idx]
+          if not isValidPos(pos):
+            continue
+          if env.isEmpty(pos) and not env.hasDoor(pos) and env.terrain[pos.x][pos.y] == Empty and not isTileFrozen(pos, env):
+            env.terrain[pos.x][pos.y] = Wheat
+            env.resetTileColor(pos)
+            break
+        thing.cooldown = 10
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
