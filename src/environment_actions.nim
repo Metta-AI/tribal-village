@@ -204,7 +204,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject}:
+  if thing.kind in {Agent, Tumor, TreeObject, Cow}:
     return false
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)
@@ -806,6 +806,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
       # No observation layer for bread; optional for UI later
       agent.reward += env.config.foodReward
+      used = true
+  of Cow:
+    if env.giveFirstAvailable(agent, [ItemMeat, ItemSkinTanned, ItemCheese, ItemGlob, ItemCorpse, ItemRemains]):
+      env.grid[thing.pos.x][thing.pos.y] = nil
+      let idx = env.things.find(thing)
+      if idx >= 0:
+        env.things.del(idx)
       used = true
     elif thing.cooldown == 0:
       if env.tryCraftAtStation(agent, StationOven, thing):

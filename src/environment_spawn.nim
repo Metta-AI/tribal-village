@@ -483,6 +483,32 @@ proc init(env: Environment) =
       if minesPlaced >= MapRoomObjectsMines:
         break
 
+  # Cows spawn in herds (3-6) across open terrain.
+  var cowsPlaced = 0
+  while cowsPlaced < MapRoomObjectsCows:
+    let remaining = MapRoomObjectsCows - cowsPlaced
+    let herdSize = min(remaining, randIntInclusive(r, 3, 6))
+    let center = r.randomEmptyPos(env)
+    if env.terrain[center.x][center.y] != Empty:
+      continue
+    var herdPositions = env.findEmptyPositionsAround(center, 2)
+    herdPositions.insert(center, 0)
+    var filtered: seq[IVec2] = @[]
+    for pos in herdPositions:
+      if env.terrain[pos.x][pos.y] == Empty:
+        filtered.add(pos)
+    let toPlace = min(herdSize, filtered.len)
+    for i in 0 ..< toPlace:
+      let cow = Thing(
+        kind: Cow,
+        pos: filtered[i],
+        orientation: Orientation.W
+      )
+      env.add(cow)
+      inc cowsPlaced
+      if cowsPlaced >= MapRoomObjectsCows:
+        break
+
   # Initialize assembler locations for all spawners
   var assemblerPositions: seq[IVec2] = @[]
   for thing in env.things:

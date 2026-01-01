@@ -386,6 +386,10 @@ proc drawObjects*() =
           # Tumors draw directly with tint variations baked into the sprite
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
 
+        of Cow:
+          let cowSprite = if thing.orientation == Orientation.E: "cow_r" else: "cow"
+          bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
+
         of Armory, Forge, ClayOven, WeavingLoom:
           let imageName = case thing.kind:
             of Armory: mapSpriteKey("armory")
