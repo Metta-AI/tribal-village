@@ -127,6 +127,9 @@ proc drawTerrain*() =
       of Tree:
         bxy.drawImage(mapSpriteKey("tree"), pos.vec2, angle = 0, scale = 1/200)
         drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
+      of Palm:
+        bxy.drawImage(mapSpriteKey("tree"), pos.vec2, angle = 0, scale = 1/200)
+        drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
       of Bridge:
         bxy.drawImage(mapSpriteKey("bridge"), pos.vec2, angle = 0, scale = 1/200)
       of Road:
@@ -292,7 +295,11 @@ proc drawObjects*() =
         of Wall:
           discard
         of TreeObject:
-          bxy.drawImage(mapSpriteKey("pine"), pos.vec2, angle = 0, scale = 1/200)
+          let treeSprite = if thing.treeVariant == TreeVariantPalm:
+            mapSpriteKey("tree")
+          else:
+            mapSpriteKey("pine")
+          bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
           if infected:
             drawOverlayIf(true, getInfectionSprite("tree"), pos.vec2)
         of Agent:
@@ -608,6 +615,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Bridge: "Bridge"
       of Wheat: "Wheat"
       of Tree: "Tree"
+      of Palm: "Palm"
       of Fertile: "Fertile"
       of Road: "Road"
       of Rock: "Rock"
