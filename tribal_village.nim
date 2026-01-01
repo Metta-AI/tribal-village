@@ -284,11 +284,15 @@ var totalFiles = 0
 
 # Count total PNG files first
 for path in walkDirRec("data/"):
+  if path.startsWith("data/df_view/"):
+    continue
   if path.endsWith(".png"):
     inc totalFiles
 
 
 for path in walkDirRec("data/"):
+  if path.startsWith("data/df_view/"):
+    continue
   if path.endsWith(".png"):
     inc loadedCount
 
