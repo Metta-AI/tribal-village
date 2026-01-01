@@ -27,7 +27,7 @@ const
   InfoLabelFontPath = HeartCountFontPath
   InfoLabelFontSize: float32 = 54
   InfoLabelPadding = 18
-  InfoLabelInset = 50
+  InfoLabelInset = 100
 
 template configureInfoLabelFont(ctx: var Context) =
   ctx.font = InfoLabelFontPath
