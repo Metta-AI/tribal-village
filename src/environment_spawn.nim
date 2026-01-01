@@ -45,8 +45,12 @@ proc init(env: Environment) =
       let pos = ivec2(x.int32, y.int32)
       if env.hasDoor(pos):
         continue
-      if not env.isEmpty(pos):
-        continue
+      let existing = env.getThing(pos)
+      if existing != nil:
+        if existing.kind == TreeObject:
+          removeThing(env, existing)
+        else:
+          continue
       env.terrain[x][y] = Empty
       env.add(Thing(kind: Wall, pos: pos))
 
