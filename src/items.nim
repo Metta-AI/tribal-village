@@ -2,6 +2,19 @@
 ## This keeps the "what exists" separate from game logic.
 
 type
+  ItemKind* = enum
+    ItemNone
+    Ore
+    Battery
+    Water
+    Wheat
+    Wood
+    Spear
+    Lantern
+    Armor
+    Bread
+    Hearts
+
   ItemCategory* = enum
     Ammo
     AnimalCaged
