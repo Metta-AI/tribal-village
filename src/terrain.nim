@@ -14,7 +14,6 @@ type
     Bridge
     Wheat
     Tree
-    Palm
     Fertile
     Road
     Rock
@@ -24,6 +23,7 @@ type
     Grass
     Cactus
     Stalagmite
+    Palm
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[MaxTerrainSize, array[MaxTerrainSize, TerrainType]]
 
