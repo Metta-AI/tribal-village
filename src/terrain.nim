@@ -25,6 +25,7 @@ type
     Dune
     Stalagmite
     Palm
+    Sand
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[MaxTerrainSize, array[MaxTerrainSize, TerrainType]]
 
@@ -60,7 +61,7 @@ const
   UseBiomeTerrain* = true
   BaseBiome* = BiomePlains
   BiomeForestTerrain* = Tree
-  BiomeDesertTerrain* = Dune
+  BiomeDesertTerrain* = Sand
   BiomeCavesTerrain* = Stalagmite
   BiomePlainsTerrain* = Grass
   BiomeCityBlockTerrain* = Rock
@@ -107,6 +108,7 @@ const
   TerrainCactus* = TerrainType.Cactus
   TerrainDune* = TerrainType.Dune
   TerrainStalagmite* = TerrainType.Stalagmite
+  TerrainSand* = TerrainType.Sand
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain in {Water, Dune}
