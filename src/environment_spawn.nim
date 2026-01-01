@@ -90,6 +90,7 @@ proc init(env: Environment) =
       let y0 = max(MapBorder, zone.y)
       let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
       let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
+
       # Tint the dungeon zone background with a soft edge blend.
       for x in x0 ..< x1:
         for y in y0 ..< y1:
