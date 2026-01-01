@@ -93,7 +93,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.escapeMode = false
     state.stuckCounter = 0
 
-  # Small dithering chance to break deadlocks (higher for non-assembler roles)
+  # Small dithering chance to break deadlocks (higher for non-altar roles)
   let ditherChance = if state.role == Hearter: 0.10 else: 0.20
   if randFloat(controller.rng) < ditherChance:
     var candidates = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),

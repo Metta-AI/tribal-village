@@ -66,7 +66,7 @@ proc getInfectionLevel*(pos: IVec2): float32 =
 proc getInfectionSprite*(entityType: string): string =
   ## Get the appropriate infection overlay sprite for static environmental objects only
   case entityType:
-  of "building", "mine", "converter", "assembler", "armory", "forge", "clay_oven", "weaving_loom":
+  of "building", "mine", "converter", "altar", "armory", "forge", "clay_oven", "weaving_loom":
     return "agents/frozen"  # Ice cube overlay for static buildings
   of "terrain", "wheat", "tree":
     return "agents/frozen"  # Ice cube overlay for terrain features (walls excluded)
@@ -335,23 +335,23 @@ proc drawObjects*() =
             tint = generateEntityColor("agent", agent.agentId)
           )
 
-        of assembler:
-          let baseImage = mapSpriteKey("assembler")  # Visual centerpiece for each village
-          let assemblerTint = getassemblerColor(pos)
+        of Altar:
+          let baseImage = mapSpriteKey("altar")  # Visual centerpiece for each village
+          let altarTint = getAltarColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
             "map/floor",
             pos.vec2,
             angle = 0,
             scale = 1/200,
-            tint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 0.35)
+            tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
           )
           bxy.drawImage(
             baseImage,
             pos.vec2,
             angle = 0,
             scale = 1/200,
-            tint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 1.0)
+            tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0)
           )
 
           # Hearts row uses the same small icons/spacing as agent inventory overlays.
@@ -360,23 +360,23 @@ proc drawObjects*() =
           let heartScale: float32 = 1/80
           let amt = max(0, thing.hearts)
           if amt == 0:
-            let fadedTint = color(assemblerTint.r, assemblerTint.g, assemblerTint.b, 0.35)
+            let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
             bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
           else:
             if amt <= HeartPlusThreshold:
               let drawCount = amt
               for i in 0 ..< drawCount:
                 let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
-                bxy.drawImage("ui/heart", posHeart, angle = 0, scale = heartScale, tint = assemblerTint)
+                bxy.drawImage("ui/heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
             else:
               # Compact: single heart with a count label for large totals
-              bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = assemblerTint)
+              bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
               let labelKey = ensureHeartCountLabel(amt)
               # Offset roughly half a tile to the right for clearer separation from the icon.
               let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
-              bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = assemblerTint)
+              bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = altarTint)
           if infected:
-            drawOverlayIf(true, getInfectionSprite("assembler"), pos.vec2)
+            drawOverlayIf(true, getInfectionSprite("altar"), pos.vec2)
 
         of Converter:
           let baseImage = mapSpriteKey("converter")
@@ -564,7 +564,7 @@ proc drawAgentDecorations*() =
         of "Stump": return mapSpriteKey("stump")
         of "Mine": return mapSpriteKey("mine")
         of "Converter": return mapSpriteKey("converter")
-        of "assembler": return mapSpriteKey("assembler")
+        of "Altar": return mapSpriteKey("altar")
         of "Spawner": return mapSpriteKey("spawner")
         of "Wall": return mapSpriteKey("wall")
         of "PlantedLantern": return mapSpriteKey("lantern")
@@ -631,7 +631,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of TreeObject: "Tree"
       of Mine: "Mine"
       of Converter: "Converter"
-      of assembler: "Altar"
+      of Altar: "Altar"
       of Spawner: "Spawner"
       of Tumor: "Tumor"
       of Cow: "Cow"

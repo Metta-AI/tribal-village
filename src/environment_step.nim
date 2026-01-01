@@ -87,16 +87,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       cowDrift[herdId] = ivec2(0, 0)
 
   for thing in env.things:
-    if thing.kind == assembler:
+    if thing.kind == Altar:
       if thing.cooldown > 0:
         thing.cooldown -= 1
-        env.updateObservations(assemblerReadyLayer, thing.pos, thing.cooldown)
-      # Combine assembler heart reward calculation here
+        env.updateObservations(altarReadyLayer, thing.pos, thing.cooldown)
+      # Combine altar heart reward calculation here
       if env.currentStep >= env.config.maxSteps:  # Only at episode end
-        let assemblerHearts = thing.hearts.float32
+        let altarHearts = thing.hearts.float32
         for agent in env.agents:
-          if agent.homeassembler == thing.pos:
-            agent.reward += assemblerHearts / MapAgentsPerHouseFloat
+          if agent.homeAltar == thing.pos:
+            agent.reward += altarHearts / MapAgentsPerHouseFloat
     elif thing.kind == Converter:
       env.tickCooldown(thing, ConverterReadyLayer, true)
     elif thing.kind == Mine:
@@ -306,27 +306,27 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
 
-  # Respawn dead agents at their assemblers
+  # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:
     let agent = env.agents[agentId]
 
-    # Check if agent is dead and has a home assembler
-    if env.terminated[agentId] == 1.0 and agent.homeassembler.x >= 0:
-      # Find the assembler
-      var assemblerThing: Thing = nil
+    # Check if agent is dead and has a home altar
+    if env.terminated[agentId] == 1.0 and agent.homeAltar.x >= 0:
+      # Find the altar
+      var altarThing: Thing = nil
       for thing in env.things:
-        if thing.kind == ThingKind.assembler and thing.pos == agent.homeassembler:
-          assemblerThing = thing
+        if thing.kind == ThingKind.Altar and thing.pos == agent.homeAltar:
+          altarThing = thing
           break
 
-      # Respawn if assembler exists and has hearts above the auto-spawn threshold
-      if not isNil(assemblerThing) and assemblerThing.hearts > MapObjectassemblerAutoSpawnThreshold:
-        # Deduct a heart from the assembler
-        assemblerThing.hearts = assemblerThing.hearts - MapObjectassemblerRespawnCost
-        env.updateObservations(assemblerHeartsLayer, assemblerThing.pos, assemblerThing.hearts)
+      # Respawn if altar exists and has hearts above the auto-spawn threshold
+      if not isNil(altarThing) and altarThing.hearts > MapObjectAltarAutoSpawnThreshold:
+        # Deduct a heart from the altar
+        altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
+        env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
 
-        # Find first empty position around assembler (no allocation)
-        let respawnPos = env.findFirstEmptyPositionAround(assemblerThing.pos, 2)
+        # Find first empty position around altar (no allocation)
+        let respawnPos = env.findFirstEmptyPositionAround(altarThing.pos, 2)
         if respawnPos.x >= 0:
           # Respawn the agent
           agent.pos = respawnPos
@@ -359,7 +359,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
-    # Team assembler rewards already applied in main loop above
+    # Team altar rewards already applied in main loop above
     # Mark all living agents as truncated (episode ended due to time limit)
     for i in 0..<MapAgents:
       if env.terminated[i] == 0.0:
@@ -373,7 +373,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       allDone = false
       break
   if allDone:
-    # Team assembler rewards already applied in main loop if needed
+    # Team altar rewards already applied in main loop if needed
     env.shouldReset = true
 
 proc reset*(env: Environment) =
@@ -394,7 +394,7 @@ proc reset*(env: Environment) =
   # Clear global colors that could accumulate
   agentVillageColors.setLen(0)
   teamColors.setLen(0)
-  assemblerColors.clear()
+  altarColors.clear()
   # Clear UI selection to prevent stale references
   selection = nil
   env.init()  # init() handles terrain, activeTiles, and tile colors

@@ -1,9 +1,9 @@
 proc decideHearter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
-  # Handle ore → bar → assembler workflow
+  # Handle ore → bar → altar workflow
   if agent.inventoryBar > 0:
     for thing in env.things:
-      if thing.kind == assembler and thing.pos == agent.homeassembler:
+      if thing.kind == Altar and thing.pos == agent.homeAltar:
         let dx = abs(thing.pos.x - agent.pos.x)
         let dy = abs(thing.pos.y - agent.pos.y)
         if max(dx, dy) == 1'i32:
