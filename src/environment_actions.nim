@@ -279,7 +279,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   var remaining = amount
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
-    target.inventoryArmor -= absorbed
+    target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
     remaining -= absorbed
     env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
 
@@ -521,7 +521,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       return
     of Water:
       if agent.inventoryWater < MapObjectAgentMaxInventory:
-        agent.inventoryWater += 1
+        agent.inventoryWater = agent.inventoryWater + 1
         env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
         agent.reward += env.config.waterReward
         inc env.stats[id].actionUse
@@ -531,7 +531,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     of Wheat:
       if agent.inventoryWheat < MapObjectAgentMaxInventory:
         let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
-        agent.inventoryWheat += gain
+        agent.inventoryWheat = agent.inventoryWheat + gain
         env.terrain[targetPos.x][targetPos.y] = Empty
         agent.reward += env.config.wheatReward
         env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
@@ -542,7 +542,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     of Tree:
       if agent.inventoryWood < MapObjectAgentMaxInventory:
         let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
-        agent.inventoryWood += gain
+        agent.inventoryWood = agent.inventoryWood + gain
         env.terrain[targetPos.x][targetPos.y] = Empty
         agent.reward += env.config.woodReward
         env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
@@ -623,7 +623,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   case thing.kind:
   of Mine:
     if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
-      agent.inventoryOre += 1
+      agent.inventoryOre = agent.inventoryOre + 1
       env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
       thing.cooldown = MapObjectMineCooldown
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
@@ -631,8 +631,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of Converter:
     if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
-      agent.inventoryOre -= 1
-      agent.inventoryBar += 1
+      agent.inventoryOre = agent.inventoryOre - 1
+      agent.inventoryBar = agent.inventoryBar + 1
       env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.cooldown = 0
@@ -641,7 +641,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of Forge:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventorySpear == 0:
-      agent.inventoryWood -= 1
+      agent.inventoryWood = agent.inventoryWood - 1
       agent.inventorySpear = SpearCharges
       thing.cooldown = 5
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
@@ -650,7 +650,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of WeavingLoom:
     if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
-      agent.inventoryWheat -= 1
+      agent.inventoryWheat = agent.inventoryWheat - 1
       agent.inventoryLantern = 1
       thing.cooldown = 15
       env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
@@ -659,7 +659,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of Armory:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventoryArmor == 0:
-      agent.inventoryWood -= 1
+      agent.inventoryWood = agent.inventoryWood - 1
       agent.inventoryArmor = ArmorPoints
       thing.cooldown = 20
       env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
@@ -668,8 +668,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of ClayOven:
     if thing.cooldown == 0 and agent.inventoryWheat > 0:
-      agent.inventoryWheat -= 1
-      agent.inventoryBread += 1
+      agent.inventoryWheat = agent.inventoryWheat - 1
+      agent.inventoryBread = agent.inventoryBread + 1
       thing.cooldown = 10
       env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
@@ -678,9 +678,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of assembler:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
-      agent.inventoryBar -= 1
+      agent.inventoryBar = agent.inventoryBar - 1
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
-      thing.hearts += 1
+      thing.hearts = thing.hearts + 1
       thing.cooldown = MapObjectassemblerCooldown
       env.updateObservations(assemblerHeartsLayer, thing.pos, thing.hearts)
       env.updateObservations(assemblerReadyLayer, thing.pos, thing.cooldown)
@@ -791,8 +791,8 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
   # Otherwise give food if possible (no obs layer yet)
   elif agent.inventoryBread > 0 and target.inventoryBread < MapObjectAgentMaxInventory:
     let giveAmt = min(agent.inventoryBread, MapObjectAgentMaxInventory - target.inventoryBread)
-    agent.inventoryBread -= giveAmt
-    target.inventoryBread += giveAmt
+    agent.inventoryBread = agent.inventoryBread - giveAmt
+    target.inventoryBread = target.inventoryBread + giveAmt
     transferred = true
   else:
     var bestKey = ItemNone
