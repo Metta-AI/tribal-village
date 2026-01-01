@@ -1,9 +1,9 @@
 # This file is included by ai_policies_default before role files.
 
 proc isOutOfSight(agent: Thing): bool =
-  ## Out of sight if beyond observation radius from home assembler.
-  agent.homeassembler.x < 0 or
-    chebyshevDist(agent.pos, agent.homeassembler) > ObservationRadius.int32
+  ## Out of sight if beyond observation radius from home altar.
+  agent.homeAltar.x < 0 or
+    chebyshevDist(agent.pos, agent.homeAltar) > ObservationRadius.int32
 
 proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec2 =
   ## Find an empty adjacent tile for building, preferring the provided direction.
