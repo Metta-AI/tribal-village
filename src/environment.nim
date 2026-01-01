@@ -536,6 +536,7 @@ proc clearDoors(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.doorTeams[x][y] = -1
+      env.doorHearts[x][y] = 0
 
 proc getInv*(thing: Thing, key: ItemKey): int =
   if key.len == 0:
@@ -586,10 +587,6 @@ proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
   for key, count in agent.inventory.pairs:
     if count > result.count:
       result = (key: key, count: count)
-      env.doorHearts[x][y] = 0
-
-
-
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   ## Create a new Tumor seed that can branch once before turning inert
   Thing(
