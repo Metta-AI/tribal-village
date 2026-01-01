@@ -16,6 +16,9 @@ type
     Gem
     Bush
     Animal
+    Grass
+    Cactus
+    Stalagmite
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[512, array[512, TerrainType]]
 
@@ -51,10 +54,10 @@ const
   UseBiomeTerrain* = true
   BaseBiome* = BiomePlains
   BiomeForestTerrain* = Tree
-  BiomeDesertTerrain* = Fertile
-  BiomeCavesTerrain* = Tree
-  BiomePlainsTerrain* = Fertile
-  BiomeCityBlockTerrain* = Tree
+  BiomeDesertTerrain* = Cactus
+  BiomeCavesTerrain* = Stalagmite
+  BiomePlainsTerrain* = Grass
+  BiomeCityBlockTerrain* = Rock
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
@@ -82,6 +85,9 @@ const
   TerrainGem* = TerrainType.Gem
   TerrainBush* = TerrainType.Bush
   TerrainAnimal* = TerrainType.Animal
+  TerrainGrass* = TerrainType.Grass
+  TerrainCactus* = TerrainType.Cactus
+  TerrainStalagmite* = TerrainType.Stalagmite
 
 template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
 template randChance(r: var Rand, p: float): bool = randFloat(r) < p

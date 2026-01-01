@@ -134,13 +134,19 @@ proc drawTerrain*() =
       of Fertile:
         bxy.drawImage(mapSpriteKey("fertile"), pos.vec2, angle = 0, scale = 1/200)
       of Rock:
-        bxy.drawImage(mapSpriteKey("boulder"), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("rock"), pos.vec2, angle = 0, scale = 1/200)
       of Gem:
-        bxy.drawImage(mapSpriteKey("rough"), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("gem"), pos.vec2, angle = 0, scale = 1/200)
       of Bush:
-        bxy.drawImage(mapSpriteKey("plant_growth"), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("bush"), pos.vec2, angle = 0, scale = 1/200)
       of Animal:
-        bxy.drawImage(mapSpriteKey("meat"), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("animal"), pos.vec2, angle = 0, scale = 1/200)
+      of Grass:
+        bxy.drawImage(mapSpriteKey("grass"), pos.vec2, angle = 0, scale = 1/200)
+      of Cactus:
+        bxy.drawImage(mapSpriteKey("cactus"), pos.vec2, angle = 0, scale = 1/200)
+      of Stalagmite:
+        bxy.drawImage(mapSpriteKey("stalagmite"), pos.vec2, angle = 0, scale = 1/200)
       of Empty:
         discard
       else:
