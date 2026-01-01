@@ -460,6 +460,16 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
         inc env.stats[id].actionUse
         return
+      # Build a watchtower on an empty tile
+      if agent.inventoryWood >= WatchTowerWoodCost:
+        agent.inventoryWood = max(0, agent.inventoryWood - WatchTowerWoodCost)
+        env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+        env.add(Thing(
+          kind: WatchTower,
+          pos: targetPos
+        ))
+        inc env.stats[id].actionUse
+        return
 
     discard
 
@@ -896,13 +906,13 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     agent.reward += env.config.clothReward * 0.5  # Half reward for planting
 
     inc env.stats[id].actionPlant
-  elif agent.inventoryWood > 0:
+  elif agent.inventoryWood >= RoadWoodCost:
     # Build a road tile on empty terrain
     if env.terrain[targetPos.x][targetPos.y] != Empty:
       inc env.stats[id].actionInvalid
       return
 
-    agent.inventoryWood = max(0, agent.inventoryWood - 1)
+    agent.inventoryWood = max(0, agent.inventoryWood - RoadWoodCost)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
 
     env.terrain[targetPos.x][targetPos.y] = Road
