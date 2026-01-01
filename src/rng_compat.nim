@@ -8,9 +8,7 @@ type
     state: uint64
 
 proc initRand*(seed: int): Rand =
-  var s = uint64(seed)
-  if s == 0:
-    s = DefaultSeed
+  let s = if seed == 0: DefaultSeed else: uint64(seed)
   result.state = s
 
 proc mix(state: uint64): uint64 =
