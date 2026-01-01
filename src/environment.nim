@@ -82,7 +82,7 @@ type
     AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Tumor
     AgentOrientationLayer = 1
     AgentInventoryOreLayer = 2
-    AgentInventoryBarLayer = 3
+    AgentInventoryBatteryLayer = 3
     AgentInventoryWaterLayer = 4
     AgentInventoryWheatLayer = 5
     AgentInventoryWoodLayer = 6
@@ -127,26 +127,13 @@ type
     pos*: IVec2
     id*: int
     layer*: int
-    hearts*: int  # For assemblers only - used for respawning agents
-    resources*: int  # For mines - remaining ore
     cooldown*: int
     frozen*: int
 
     # Agent:
     agentId*: int
     orientation*: Orientation
-    inventoryOre*: int      # Ore from mines
-    inventoryBar*: int      # Bars from converters
-    inventoryWater*: int    # Water from water tiles
-    inventoryWheat*: int    # Wheat from wheat tiles
-    inventoryWood*: int     # Wood from tree tiles
-    inventorySpear*: int    # Spears crafted from forge
-    inventoryLantern*: int  # Lanterns from weaving loom (plantable team markers)
-    inventoryArmor*: int    # Armor from armory (5-hit protection, tracks remaining uses)
-    inventoryBread*: int    # Bread baked from clay oven
-    # Barrel:
-    barrelKind*: ItemKind
-    barrelCount*: int
+    inventory*: Inventory
     barrelCapacity*: int
     reward*: float32
     hp*: int
@@ -473,15 +460,15 @@ proc rebuildObservations*(env: Environment) =
     let teamValue = getTeamId(agent.agentId) + 1
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-    env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-    env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
-    env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
-    env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-    env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-    env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+    env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
+    env.updateObservations(AgentInventoryBatteryLayer, agent.pos, getInv(agent, ItemBattery))
+    env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, ItemWater))
+    env.updateObservations(AgentInventoryWheatLayer, agent.pos, getInv(agent, ItemWheat))
+    env.updateObservations(AgentInventoryWoodLayer, agent.pos, getInv(agent, ItemWood))
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, getInv(agent, ItemSpear))
+    env.updateObservations(AgentInventoryLanternLayer, agent.pos, getInv(agent, ItemLantern))
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, getInv(agent, ItemArmor))
+    env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, ItemBread))
 
   # Populate environment object layers.
   for thing in env.things:
@@ -550,60 +537,55 @@ proc clearDoors(env: Environment) =
     for y in 0 ..< MapHeight:
       env.doorTeams[x][y] = -1
 
-proc agentItemCount*(agent: Thing, kind: ItemKind): int =
-  case kind
-  of Ore: agent.inventoryOre
-  of Battery: agent.inventoryBattery
-  of Water: agent.inventoryWater
-  of Wheat: agent.inventoryWheat
-  of Wood: agent.inventoryWood
-  of Spear: agent.inventorySpear
-  of Lantern: agent.inventoryLantern
-  of Armor: agent.inventoryArmor
-  of Bread: agent.inventoryBread
-  else: 0
+proc getInv*(thing: Thing, key: ItemKey): int =
+  if key.len == 0:
+    return 0
+  if thing.inventory.hasKey(key):
+    return thing.inventory[key]
+  0
 
-proc setAgentItem*(agent: Thing, kind: ItemKind, value: int) =
-  case kind
-  of Ore: agent.inventoryOre = value
-  of Battery: agent.inventoryBattery = value
-  of Water: agent.inventoryWater = value
-  of Wheat: agent.inventoryWheat = value
-  of Wood: agent.inventoryWood = value
-  of Spear: agent.inventorySpear = value
-  of Lantern: agent.inventoryLantern = value
-  of Armor: agent.inventoryArmor = value
-  of Bread: agent.inventoryBread = value
-  else: discard
+proc setInv*(thing: Thing, key: ItemKey, value: int) =
+  if key.len == 0:
+    return
+  if value <= 0:
+    if thing.inventory.hasKey(key):
+      thing.inventory.del(key)
+  else:
+    thing.inventory[key] = value
 
-proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
-  case kind
-  of Ore: env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-  of Battery: env.updateObservations(AgentInventoryBatteryLayer, agent.pos, agent.inventoryBattery)
-  of Water: env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
-  of Wheat: env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-  of Wood: env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-  of Spear: env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-  of Lantern: env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
-  of Armor: env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-  of Bread: env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
-  else: discard
+proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
+  if key.len == 0 or delta == 0:
+    return getInv(thing, key)
+  let newVal = getInv(thing, key) + delta
+  setInv(thing, key, newVal)
+  newVal
 
-proc agentMostHeldItem(agent: Thing): tuple[kind: ItemKind, count: int] =
+proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
+  if key == ItemOre:
+    env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, key))
+  elif key == ItemBattery:
+    env.updateObservations(AgentInventoryBatteryLayer, agent.pos, getInv(agent, key))
+  elif key == ItemWater:
+    env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, key))
+  elif key == ItemWheat:
+    env.updateObservations(AgentInventoryWheatLayer, agent.pos, getInv(agent, key))
+  elif key == ItemWood:
+    env.updateObservations(AgentInventoryWoodLayer, agent.pos, getInv(agent, key))
+  elif key == ItemSpear:
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, getInv(agent, key))
+  elif key == ItemLantern:
+    env.updateObservations(AgentInventoryLanternLayer, agent.pos, getInv(agent, key))
+  elif key == ItemArmor:
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, getInv(agent, key))
+  elif key == ItemBread:
+    env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, key))
+
+proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
   ## Pick the item with the highest count to deposit into an empty barrel.
-  result = (kind: ItemNone, count: 0)
-  template consider(kind: ItemKind, count: int) =
+  result = (key: ItemNone, count: 0)
+  for key, count in agent.inventory.pairs:
     if count > result.count:
-      result = (kind: kind, count: count)
-  consider(Ore, agent.inventoryOre)
-  consider(Battery, agent.inventoryBattery)
-  consider(Water, agent.inventoryWater)
-  consider(Wheat, agent.inventoryWheat)
-  consider(Wood, agent.inventoryWood)
-  consider(Spear, agent.inventorySpear)
-  consider(Lantern, agent.inventoryLantern)
-  consider(Armor, agent.inventoryArmor)
-  consider(Bread, agent.inventoryBread)
+      result = (key: key, count: count)
       env.doorHearts[x][y] = 0
 
 
