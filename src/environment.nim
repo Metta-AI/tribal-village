@@ -497,6 +497,8 @@ proc rebuildObservations*(env: Environment) =
       discard  # Already handled above.
     of Wall:
       env.updateObservations(WallLayer, thing.pos, 1)
+    of TreeObject:
+      discard  # No dedicated observation layer for trees.
     of Mine:
       env.updateObservations(MineLayer, thing.pos, 1)
       env.updateObservations(MineResourceLayer, thing.pos, getInv(thing, ItemOre))
