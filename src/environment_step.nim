@@ -116,6 +116,29 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             else:
               1000  # Very long cooldown if spawn disabled
             thing.cooldown = cooldown
+    elif thing.kind == Cow:
+      if randFloat(stepRng) < 0.35:
+        let dirs = [ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1)]
+        let start = randIntExclusive(stepRng, 0, dirs.len)
+        for i in 0 ..< dirs.len:
+          let d = dirs[(start + i) mod dirs.len]
+          let nextPos = thing.pos + d
+          if not isValidPos(nextPos):
+            continue
+          if env.hasDoor(nextPos):
+            continue
+          if env.terrain[nextPos.x][nextPos.y] == Water:
+            continue
+          if not env.isEmpty(nextPos):
+            continue
+          env.grid[thing.pos.x][thing.pos.y] = nil
+          thing.pos = nextPos
+          env.grid[nextPos.x][nextPos.y] = thing
+          if d.x < 0:
+            thing.orientation = Orientation.W
+          elif d.x > 0:
+            thing.orientation = Orientation.E
+          break
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1

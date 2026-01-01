@@ -23,6 +23,7 @@ const
   MapRoomObjectsConverters* = 10
   MapRoomObjectsMines* = 20
   MapRoomObjectsWalls* = 30
+  MapRoomObjectsCows* = 24
 
   # Agent Parameters
   MapObjectAgentMaxInventory* = 5
@@ -111,6 +112,7 @@ type
     assembler
     Spawner
     Tumor
+    Cow
     Armory
     Forge
     ClayOven
@@ -393,6 +395,8 @@ proc render*(env: Environment): string =
             cell = "t"
           of Tumor:
             cell = "C"
+          of Cow:
+            cell = "o"
           of Armory:
             cell = "A"
           of Forge:
