@@ -21,6 +21,18 @@ const
   ItemHearts* = "hearts"
   ItemThingPrefix* = "thing:"
 
+  ObservedItemKeys* = [
+    ItemOre,
+    ItemBattery,
+    ItemWater,
+    ItemWheat,
+    ItemWood,
+    ItemSpear,
+    ItemLantern,
+    ItemArmor,
+    ItemBread
+  ]
+
 proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
 
@@ -28,7 +40,7 @@ type
   ItemKind* = enum
     ItemNone
     Ore
-    Battery
+    Bar
     Water
     Wheat
     Wood
