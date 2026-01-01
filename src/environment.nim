@@ -1,4 +1,4 @@
-import std/[algorithm, tables], vmath, chroma
+import std/[algorithm, strutils, tables], vmath, chroma
 import rng_compat
 import terrain, objects, workshop, items, common
 export terrain, objects, workshop, items, common
