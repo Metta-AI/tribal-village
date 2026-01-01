@@ -243,7 +243,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   of "Wall": kind = Wall
   of "Mine": kind = Mine
   of "Converter": kind = Converter
-  of "assembler": kind = assembler
+  of "Altar": kind = Altar
   of "Spawner": kind = Spawner
   of "Armory": kind = Armory
   of "Forge": kind = Forge
@@ -265,7 +265,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject, Cow, assembler}:
+  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar}:
     return false
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)
@@ -290,10 +290,10 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   of Converter:
     env.updateObservations(ConverterLayer, thing.pos, 0)
     env.updateObservations(ConverterReadyLayer, thing.pos, 0)
-  of assembler:
-    env.updateObservations(assemblerLayer, thing.pos, 0)
-    env.updateObservations(assemblerHeartsLayer, thing.pos, 0)
-    env.updateObservations(assemblerReadyLayer, thing.pos, 0)
+  of Altar:
+    env.updateObservations(altarLayer, thing.pos, 0)
+    env.updateObservations(altarHeartsLayer, thing.pos, 0)
+    env.updateObservations(altarReadyLayer, thing.pos, 0)
   else:
     discard
   removeThing(env, thing)
@@ -305,8 +305,8 @@ proc removeThing(env: Environment, thing: Thing) =
   let idx = env.things.find(thing)
   if idx >= 0:
     env.things.del(idx)
-  if thing.kind == assembler and assemblerColors.hasKey(thing.pos):
-    assemblerColors.del(thing.pos)
+  if thing.kind == Altar and altarColors.hasKey(thing.pos):
+    altarColors.del(thing.pos)
 
 proc firstThingItem(agent: Thing): ItemKey =
   var keys: seq[ItemKey] = @[]
@@ -336,7 +336,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   of PlantedLantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
-  of assembler:
+  of Altar:
     placed.teamId = getTeamId(agent.agentId)
     placed.inventory = emptyInventory()
     placed.hearts = 0
@@ -373,16 +373,16 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   of Converter:
     env.updateObservations(ConverterLayer, pos, 1)
     env.updateObservations(ConverterReadyLayer, pos, placed.cooldown)
-  of assembler:
-    env.updateObservations(assemblerLayer, pos, 1)
-    env.updateObservations(assemblerHeartsLayer, pos, placed.hearts)
-    env.updateObservations(assemblerReadyLayer, pos, placed.cooldown)
+  of Altar:
+    env.updateObservations(altarLayer, pos, 1)
+    env.updateObservations(altarHeartsLayer, pos, placed.hearts)
+    env.updateObservations(altarReadyLayer, pos, placed.cooldown)
   else:
     discard
-  if kind == assembler:
+  if kind == Altar:
     let teamId = placed.teamId
     if teamId >= 0 and teamId < teamColors.len:
-      assemblerColors[pos] = teamColors[teamId]
+      altarColors[pos] = teamColors[teamId]
   true
 
 proc killAgent(env: Environment, victim: Thing) =
@@ -487,11 +487,11 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.doorTeams[pos.x][pos.y] = -1
     return true
 
-  proc claimAssembler(assemblerThing: Thing) =
-    let oldTeam = assemblerThing.teamId
-    assemblerThing.teamId = attackerTeam
+  proc claimAltar(altarThing: Thing) =
+    let oldTeam = altarThing.teamId
+    altarThing.teamId = attackerTeam
     if attackerTeam >= 0 and attackerTeam < teamColors.len:
-      assemblerColors[assemblerThing.pos] = teamColors[attackerTeam]
+      altarColors[altarThing.pos] = teamColors[attackerTeam]
     if oldTeam >= 0:
       for x in 0 ..< MapWidth:
         for y in 0 ..< MapHeight:
@@ -536,14 +536,14 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         if getTeamId(target.agentId) == getTeamId(agent.agentId): return
         discard env.applyAgentDamage(target, 1, agent)
         hit = true
-      of assembler:
+      of Altar:
         if target.teamId == attackerTeam:
           return
         target.hearts = max(0, target.hearts - 1)
-        env.updateObservations(assemblerHeartsLayer, target.pos, target.hearts)
+        env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
         hit = true
         if target.hearts == 0:
-          claimAssembler(target)
+          claimAltar(target)
       else:
         discard
 
@@ -602,14 +602,14 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         continue
       discard env.applyAgentDamage(target, 1, agent)
       attackHit = true
-    of assembler:
+    of Altar:
       if target.teamId == attackerTeam:
         continue
       target.hearts = max(0, target.hearts - 1)
-      env.updateObservations(assemblerHeartsLayer, target.pos, target.hearts)
+      env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
       attackHit = true
       if target.hearts == 0:
-        claimAssembler(target)
+        claimAltar(target)
     else:
       discard
 
@@ -945,14 +945,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.cooldown == 0:
       if env.tryCraftAtStation(agent, StationStatue, thing):
         used = true
-  of assembler:
+  of Altar:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
       agent.inventoryBar = agent.inventoryBar - 1
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.hearts = thing.hearts + 1
-      thing.cooldown = MapObjectassemblerCooldown
-      env.updateObservations(assemblerHeartsLayer, thing.pos, thing.hearts)
-      env.updateObservations(assemblerReadyLayer, thing.pos, thing.cooldown)
+      thing.cooldown = MapObjectAltarCooldown
+      env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
+      env.updateObservations(altarReadyLayer, thing.pos, thing.cooldown)
       agent.reward += env.config.heartReward
       used = true
   of Barrel:

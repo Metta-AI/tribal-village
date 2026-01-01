@@ -1,6 +1,6 @@
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                    agentId: int, state: var AgentState): uint8 =
-  let home = agent.homeassembler
+  let home = agent.homeAltar
   let hasHome = home.x >= 0
 
   if not state.builderHasTower:

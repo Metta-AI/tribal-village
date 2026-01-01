@@ -130,8 +130,8 @@ proc init(env: Environment) =
   # Clear and prepare village colors arrays
   agentVillageColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
   teamColors.setLen(0)  # Clear team colors
-  assemblerColors.clear()  # Clear assembler colors from previous game
-  # Spawn houses with their assemblers, walls, and associated agents (tribes)
+  altarColors.clear()  # Clear altar colors from previous game
+  # Spawn houses with their altars, walls, and associated agents (tribes)
   let numHouses = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
   var houseCenters: seq[IVec2] = @[]
@@ -196,17 +196,17 @@ proc init(env: Environment) =
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
       let baseAgentId = i * MapAgentsPerHouse
 
-      # Add the altar (assembler) with initial hearts and house bounds
+      # Add the altar with initial hearts and house bounds
       let altar = Thing(
-        kind: assembler,
+        kind: Altar,
         pos: elements.center,
         teamId: teamId
       )
       altar.inventory = emptyInventory()
-      altar.hearts = MapObjectassemblerInitialHearts
+      altar.hearts = MapObjectAltarInitialHearts
       env.add(altar)
       houseCenters.add(elements.center)
-      assemblerColors[elements.center] = villageColor  # Associate assembler position with village color
+      altarColors[elements.center] = villageColor  # Associate altar position with village color
 
       # Initialize base colors for house tiles to team color
       for dx in 0 ..< houseStruct.width:
@@ -285,7 +285,7 @@ proc init(env: Environment) =
             else:
               discard
       if agentsForThisHouse > 0:
-        # Get nearby positions around the assembler
+        # Get nearby positions around the altar
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
 
         for j in 0 ..< agentsForThisHouse:
@@ -314,7 +314,7 @@ proc init(env: Environment) =
             agentId: agentId,
             pos: agentPos,
             orientation: Orientation(randIntInclusive(r, 0, 3)),
-            homeassembler: elements.center,  # Link agent to their home assembler
+            homeAltar: elements.center,  # Link agent to their home altar
             frozen: frozen,
             hp: hp,
             maxHp: AgentMaxHp
@@ -346,19 +346,19 @@ proc init(env: Environment) =
       agentId: agentId,
       pos: agentPos,
       orientation: Orientation(randIntInclusive(r, 0, 3)),
-      homeassembler: ivec2(-1, -1),  # No home assembler for unaffiliated agents
+      homeAltar: ivec2(-1, -1),  # No home altar for unaffiliated agents
       frozen: 0,
     ))
 
     totalAgentsSpawned += 1
 
   # Random spawner placement with minimum distance from villages and other spawners
-  # Gather assembler positions for distance checks
-  var assemblerPositionsNow: seq[IVec2] = @[]
+  # Gather altar positions for distance checks
+  var altarPositionsNow: seq[IVec2] = @[]
   var spawnerPositions: seq[IVec2] = @[]
   for thing in env.things:
-    if thing.kind == assembler:
-      assemblerPositionsNow.add(thing.pos)
+    if thing.kind == Altar:
+      altarPositionsNow.add(thing.pos)
 
   let numSpawners = numHouses
   let minDist = 20  # tiles; simple guard so spawner isn't extremely close to a village
@@ -395,10 +395,10 @@ proc init(env: Environment) =
       if not areaValid:
         continue
 
-      # Enforce min distance from any assembler and other spawners
+      # Enforce min distance from any altar and other spawners
       var okDistance = true
-      # Check distance from villages (assemblers)
-      for ap in assemblerPositionsNow:
+      # Check distance from villages (altars)
+      for ap in altarPositionsNow:
         let dx = int(targetPos.x) - int(ap.x)
         let dy = int(targetPos.y) - int(ap.y)
         if dx*dx + dy*dy < minDist2:
@@ -554,11 +554,11 @@ proc init(env: Environment) =
         break
     inc herdId
 
-  # Initialize assembler locations for all spawners
-  var assemblerPositions: seq[IVec2] = @[]
+  # Initialize altar locations for all spawners
+  var altarPositions: seq[IVec2] = @[]
   for thing in env.things:
-    if thing.kind == assembler:
-      assemblerPositions.add(thing.pos)
+    if thing.kind == Altar:
+      altarPositions.add(thing.pos)
 
   # Initialize observations only when first needed (lazy approach)
   # Individual action updates will populate observations as needed

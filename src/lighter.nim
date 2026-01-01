@@ -1,8 +1,8 @@
 proc decideLighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
-  # Priority 1: Plant lanterns outward in rings from home assembler
+  # Priority 1: Plant lanterns outward in rings from home altar
   if agent.inventoryLantern > 0:
-    let center = if agent.homeassembler.x >= 0: agent.homeassembler else: agent.pos
+    let center = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
 
     let maxR = 12
     for radius in 3 .. maxR:
