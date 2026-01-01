@@ -2,6 +2,8 @@
 proc noopAction(env: Environment, id: int, agent: Thing) =
   inc env.stats[id].actionNoop
 
+proc add(env: Environment, thing: Thing)
+
 
 proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   if argument < 0 or argument > 7:
