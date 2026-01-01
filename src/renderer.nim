@@ -140,21 +140,13 @@ proc drawTerrain*() =
       of Bush:
         bxy.drawImage(mapSpriteKey("bush"), pos.vec2, angle = 0, scale = 1/200)
       of Animal:
-        let key = mapSpriteKey("animal")
-        let sprite = if assetExists(key): key else: "map/floor"
-        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("cow"), pos.vec2, angle = 0, scale = 1/200)
       of Grass:
-        let key = mapSpriteKey("grass")
-        let sprite = if assetExists(key): key else: "map/floor"
-        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("grass"), pos.vec2, angle = 0, scale = 1/200)
       of Cactus:
-        let key = mapSpriteKey("cactus")
-        let sprite = if assetExists(key): key else: "map/floor"
-        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("cactus"), pos.vec2, angle = 0, scale = 1/200)
       of Stalagmite:
-        let key = mapSpriteKey("stalagmite")
-        let sprite = if assetExists(key): key else: "map/floor"
-        bxy.drawImage(sprite, pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(mapSpriteKey("stalagmite"), pos.vec2, angle = 0, scale = 1/200)
       of Empty:
         discard
       else:
@@ -531,11 +523,7 @@ proc drawAgentDecorations*() =
         of "Wall": return mapSpriteKey("wall")
         of "PlantedLantern": return mapSpriteKey("lantern")
         else: return mapSpriteKey("floor")
-      let invKey = "inventory/" & key
-      let mapKey = "map/" & key
-      if assetExists(invKey) or assetExists(mapKey):
-        return inventorySpriteKey(key)
-      return mapSpriteKey("floor")
+      return inventorySpriteKey(key)
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
