@@ -4,6 +4,63 @@ proc noopAction(env: Environment, id: int, agent: Thing) =
 
 proc add(env: Environment, thing: Thing)
 
+proc canCarry(agent: Thing, key: ItemKey, count: int = 1): bool =
+  getInv(agent, key) + count <= MapObjectAgentMaxInventory
+
+proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
+  if count <= 0 or not agent.canCarry(key, count):
+    return false
+  setInv(agent, key, getInv(agent, key) + count)
+  env.updateAgentInventoryObs(agent, key)
+  true
+
+proc giveFirstAvailable(env: Environment, agent: Thing, keys: openArray[ItemKey]): bool =
+  for key in keys:
+    if agent.canCarry(key, 1):
+      return env.giveItem(agent, key, 1)
+  false
+
+proc stationForThing(kind: ThingKind): CraftStation =
+  case kind
+  of Forge: StationForge
+  of Armory: StationArmory
+  of WeavingLoom: StationLoom
+  of ClayOven: StationOven
+  of Table: StationTable
+  of Chair: StationChair
+  of Bed: StationBed
+  of Statue: StationStatue
+  else: StationTable
+
+proc canApplyRecipe(agent: Thing, recipe: CraftRecipe): bool =
+  for input in recipe.inputs:
+    if getInv(agent, input.key) < input.count:
+      return false
+  for output in recipe.outputs:
+    if getInv(agent, output.key) + output.count > MapObjectAgentMaxInventory:
+      return false
+  true
+
+proc applyRecipe(env: Environment, agent: Thing, recipe: CraftRecipe) =
+  for input in recipe.inputs:
+    setInv(agent, input.key, getInv(agent, input.key) - input.count)
+    env.updateAgentInventoryObs(agent, input.key)
+  for output in recipe.outputs:
+    setInv(agent, output.key, getInv(agent, output.key) + output.count)
+    env.updateAgentInventoryObs(agent, output.key)
+
+proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
+  for recipe in CraftRecipes:
+    if recipe.station != station:
+      continue
+    if not canApplyRecipe(agent, recipe):
+      continue
+    env.applyRecipe(agent, recipe)
+    if stationThing != nil:
+      stationThing.cooldown = max(1, recipe.cooldown)
+    return true
+  false
+
 
 proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   if argument < 0 or argument > 7:
@@ -526,6 +583,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         agent.reward += env.config.waterReward
         inc env.stats[id].actionUse
         return
+      if env.giveItem(agent, ItemFishRaw):
+        inc env.stats[id].actionUse
+        return
       inc env.stats[id].actionInvalid
       return
     of Wheat:
@@ -537,6 +597,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
         inc env.stats[id].actionUse
         return
+      if env.giveFirstAvailable(agent, [ItemSeeds, ItemPlant]):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
       inc env.stats[id].actionInvalid
       return
     of Tree:
@@ -546,6 +610,40 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.terrain[targetPos.x][targetPos.y] = Empty
         agent.reward += env.config.woodReward
         env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+        inc env.stats[id].actionUse
+        return
+      if env.giveItem(agent, ItemBranch):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
+    of Rock:
+      if env.giveFirstAvailable(agent, [ItemBoulder, ItemRock]):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
+    of Gem:
+      if env.giveItem(agent, ItemRough):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
+    of Bush:
+      if env.giveFirstAvailable(agent, [ItemPlantGrowth, ItemSeeds, ItemPlant]):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
+    of Animal:
+      if env.giveFirstAvailable(agent, [ItemMeat, ItemSkinTanned, ItemTotem, ItemCorpse,
+                                        ItemCorpsePiece, ItemRemains, ItemGlob, ItemVermin,
+                                        ItemPet, ItemEgg]):
+        env.terrain[targetPos.x][targetPos.y] = Empty
         inc env.stats[id].actionUse
         return
       inc env.stats[id].actionInvalid
@@ -648,6 +746,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
       agent.reward += env.config.spearReward
       used = true
+    elif thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationForge, thing):
+        used = true
   of WeavingLoom:
     if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
       agent.inventoryWheat = agent.inventoryWheat - 1
@@ -657,6 +758,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
       agent.reward += env.config.clothReward
       used = true
+    elif thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationLoom, thing):
+        used = true
   of Armory:
     if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventoryArmor == 0:
       agent.inventoryWood = agent.inventoryWood - 1
@@ -666,6 +770,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
       agent.reward += env.config.armorReward
       used = true
+    elif thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationArmory, thing):
+        used = true
   of ClayOven:
     if thing.cooldown == 0 and agent.inventoryWheat > 0:
       agent.inventoryWheat = agent.inventoryWheat - 1
@@ -676,6 +783,25 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       # No observation layer for bread; optional for UI later
       agent.reward += env.config.foodReward
       used = true
+    elif thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationOven, thing):
+        used = true
+  of Table:
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationTable, thing):
+        used = true
+  of Chair:
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationChair, thing):
+        used = true
+  of Bed:
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationBed, thing):
+        used = true
+  of Statue:
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationStatue, thing):
+        used = true
   of assembler:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
       agent.inventoryBar = agent.inventoryBar - 1

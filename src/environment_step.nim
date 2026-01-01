@@ -80,7 +80,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.tickCooldown(thing, ConverterReadyLayer, true)
     elif thing.kind == Mine:
       env.tickCooldown(thing, MineReadyLayer, true)
-    elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom}:
+    elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom, Table, Chair, Bed, Statue}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
     elif thing.kind == Spawner:
