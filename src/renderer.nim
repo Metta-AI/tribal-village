@@ -579,11 +579,13 @@ proc drawSelectionLabel*(panelRect: IRect) =
     label = case thing.kind
       of Agent: "Agent"
       of Wall: "Wall"
+      of TreeObject: "Tree"
       of Mine: "Mine"
       of Converter: "Converter"
       of assembler: "Altar"
       of Spawner: "Spawner"
       of Tumor: "Tumor"
+      of Cow: "Cow"
       of Armory: "Armory"
       of Forge: "Forge"
       of ClayOven: "Clay Oven"

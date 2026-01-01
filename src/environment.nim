@@ -1,6 +1,7 @@
 import std/[algorithm, strutils, tables], vmath, chroma
 import rng_compat
 import terrain, objects, workshop, items, common, biome_common
+import dungeon_maze, dungeon_radial
 export terrain, objects, workshop, items, common
 
 
@@ -514,7 +515,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, Barrel, PlantedLantern:
+    of Cow, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, Barrel, PlantedLantern:
       discard
 
   env.observationsInitialized = true

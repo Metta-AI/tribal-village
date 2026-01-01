@@ -3,6 +3,7 @@ proc noopAction(env: Environment, id: int, agent: Thing) =
   inc env.stats[id].actionNoop
 
 proc add(env: Environment, thing: Thing)
+proc removeThing(env: Environment, thing: Thing)
 
 proc canCarry(agent: Thing, key: ItemKey, count: int = 1): bool =
   getInv(agent, key) + count <= MapObjectAgentMaxInventory
