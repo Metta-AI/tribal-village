@@ -632,6 +632,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         return
       inc env.stats[id].actionInvalid
       return
+    of Stalagmite:
+      if env.giveFirstAvailable(agent, [ItemBoulder, ItemRock]):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
     of Gem:
       if env.giveItem(agent, ItemRough):
         env.terrain[targetPos.x][targetPos.y] = Empty
@@ -646,6 +653,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         return
       inc env.stats[id].actionInvalid
       return
+    of Cactus:
+      if env.giveFirstAvailable(agent, [ItemPlantGrowth, ItemSeeds, ItemPlant]):
+        env.terrain[targetPos.x][targetPos.y] = Empty
+        inc env.stats[id].actionUse
+        return
+      inc env.stats[id].actionInvalid
+      return
     of Animal:
       if env.giveFirstAvailable(agent, [ItemMeat, ItemSkinTanned, ItemTotem, ItemCorpse,
                                         ItemCorpsePiece, ItemRemains, ItemGlob, ItemVermin,
@@ -653,6 +667,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.terrain[targetPos.x][targetPos.y] = Empty
         inc env.stats[id].actionUse
         return
+      inc env.stats[id].actionInvalid
+      return
+    of Grass:
+      # Decorative ground cover only
       inc env.stats[id].actionInvalid
       return
     of Fertile:

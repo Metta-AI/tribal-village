@@ -404,6 +404,12 @@ proc render*(env: Environment): string =
         cell = "b"
       of Animal:
         cell = "a"
+      of Grass:
+        cell = "g"
+      of Cactus:
+        cell = "c"
+      of Stalagmite:
+        cell = "s"
       of Empty:
         cell = " "
       # Then override with objects if present
