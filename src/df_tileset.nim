@@ -122,6 +122,8 @@ proc generateDfViewAssets*() =
     var lookupToken = token
     if lookupToken notin overrides:
       lookupToken = case token
+        of "BOULDER": "ROCK"
+        of "PLANT_GROWTH": "PLANT"
         of "VERMIN": "CORPSE"
         of "PET": "CAGE"
         of "DRINK": "GOBLET"
