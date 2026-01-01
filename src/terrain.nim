@@ -14,6 +14,7 @@ type
     Bridge
     Wheat
     Tree
+    Palm
     Fertile
     Road
     Rock
@@ -66,6 +67,16 @@ const
   UseBiomeZones* = true
   UseDungeonZones* = true
   UseLegacyTreeClusters* = false
+  UsePalmGroves* = true
+  WheatFieldClusterBase* = 14
+  WheatFieldClusterRange* = 6
+  WheatFieldClusterScale* = 7
+  TreeGroveClusterBase* = 14
+  TreeGroveClusterRange* = 6
+  TreeGroveClusterScale* = 7
+  PalmGroveClusterBase* = 6
+  PalmGroveClusterRange* = 4
+  PalmGroveClusterScale* = 3
   BiomeZoneDivisor* = 7000
   DungeonZoneDivisor* = 11000
   BiomeZoneMinCount* = 4
@@ -84,6 +95,7 @@ const
   TerrainBridge* = TerrainType.Bridge
   TerrainWheat* = TerrainType.Wheat
   TerrainTree* = TerrainType.Tree
+  TerrainPalm* = TerrainType.Palm
   TerrainFertile* = TerrainType.Fertile
   TerrainRock* = TerrainType.Rock
   TerrainGem* = TerrainType.Gem
@@ -442,7 +454,8 @@ proc createTerrainCluster*(terrain: var TerrainGrid, centerX, centerY: int, size
 
 proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   ## Generate clustered wheat fields; boosted count for richer biomes
-  let numFields = randInclusive(r, 14, 20) * 7
+  let numFields = randInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
+    WheatFieldClusterScale
 
   for i in 0 ..< numFields:
     var placed = false
@@ -476,13 +489,44 @@ proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBord
 
 proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   ## Generate tree groves; boosted count for richer biomes
-  let numGroves = randInclusive(r, 14, 20) * 7
+  let numGroves = randInclusive(r, TreeGroveClusterBase, TreeGroveClusterBase + TreeGroveClusterRange) *
+    TreeGroveClusterScale
 
   for i in 0 ..< numGroves:
     let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
     let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
     let groveSize = randInclusive(r, 3, 10)
     terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Tree, 0.8, 0.4, r)
+
+proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  let numGroves = randInclusive(r, PalmGroveClusterBase, PalmGroveClusterBase + PalmGroveClusterRange) *
+    PalmGroveClusterScale
+  for i in 0 ..< numGroves:
+    var placed = false
+    for attempt in 0 ..< 16:
+      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+      var nearWater = false
+      for dx in -5 .. 5:
+        for dy in -5 .. 5:
+          let checkX = x + dx
+          let checkY = y + dy
+          if checkX >= 0 and checkX < mapWidth and checkY >= 0 and checkY < mapHeight:
+            if terrain[checkX][checkY] == Water:
+              nearWater = true
+              break
+        if nearWater:
+          break
+      if nearWater or attempt > 10:
+        let groveSize = randInclusive(r, 3, 8)
+        terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Palm, 0.85, 0.4, r)
+        placed = true
+        break
+    if not placed:
+      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+      let groveSize = randInclusive(r, 3, 8)
+      terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Palm, 0.85, 0.4, r)
 
 proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let clusters = max(16, mapWidth div 25)
@@ -562,6 +606,8 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
 
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
   terrain.generateWheatFields(mapWidth, mapHeight, mapBorder, r)
+  if UsePalmGroves:
+    terrain.generatePalmGroves(mapWidth, mapHeight, mapBorder, r)
   if UseLegacyTreeClusters:
     terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
   terrain.generateRockOutcrops(mapWidth, mapHeight, mapBorder, r)
