@@ -13,7 +13,7 @@ proc clearMask*(mask: var MaskGrid, mapWidth, mapHeight: int, value = false) =
       mask[x][y] = value
 
 proc expandMask(mask: MaskGrid, mapWidth, mapHeight: int): MaskGrid =
-  var out: MaskGrid
+  var outMask: MaskGrid
   for x in 0 ..< mapWidth:
     for y in 0 ..< mapHeight:
       if not mask[x][y]:
@@ -25,8 +25,8 @@ proc expandMask(mask: MaskGrid, mapWidth, mapHeight: int): MaskGrid =
           let nx = x + dx
           let ny = y + dy
           if nx >= 0 and nx < mapWidth and ny >= 0 and ny < mapHeight:
-            out[nx][ny] = true
-  out
+            outMask[nx][ny] = true
+  outMask
 
 proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, depth: int, r: var Rand) =
   if depth <= 0 or prob <= 0.0:
