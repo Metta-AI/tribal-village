@@ -264,6 +264,7 @@ proc display() =
   bxy.restoreTransform()
 
   bxy.restoreTransform()
+  drawSelectionLabel(panelRectInt)
   bxy.pushLayer()
   bxy.drawRect(rect = panelRect, color = color(1, 0, 0, 1.0))
   bxy.popLayer(blendMode = MaskBlend)
