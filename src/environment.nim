@@ -116,6 +116,7 @@ type
     Spawner
     Tumor
     Cow
+    Skeleton
     Armory
     Forge
     ClayOven
@@ -515,6 +516,8 @@ proc render*(env: Environment): string =
             cell = "C"
           of Cow:
             cell = "o"
+          of Skeleton:
+            cell = "x"
           of Armory:
             cell = "A"
           of Forge:
@@ -632,7 +635,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Cow, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, Barrel, PlantedLantern:
+    of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, Barrel, PlantedLantern:
       discard
 
   env.observationsInitialized = true

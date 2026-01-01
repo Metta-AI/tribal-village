@@ -63,6 +63,7 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   (r: 255'u8, g: 170'u8, b: 0'u8),    # Spawner
   (r: 160'u8, g: 32'u8,  b: 240'u8),  # Tumor
   (r: 230'u8, g: 230'u8, b: 230'u8),  # Cow
+  (r: 210'u8, g: 210'u8, b: 210'u8),  # Skeleton
   (r: 255'u8, g: 120'u8, b: 40'u8),   # Armory
   (r: 255'u8, g: 80'u8,  b: 0'u8),    # Forge
   (r: 255'u8, g: 180'u8, b: 120'u8),  # ClayOven
