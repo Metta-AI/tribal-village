@@ -108,12 +108,14 @@ proc init(env: Environment) =
       let baseAgentId = i * MapAgentsPerHouse
 
       # Add the altar (assembler) with initial hearts and house bounds
-      env.add(Thing(
+      let altar = Thing(
         kind: assembler,
         pos: elements.center,
-        hearts: MapObjectassemblerInitialHearts,  # assembler starts with default hearts
         teamId: teamId
-      ))
+      )
+      altar.inventory = emptyInventory()
+      altar.hearts = MapObjectassemblerInitialHearts
+      env.add(altar)
       houseCenters.add(elements.center)
       assemblerColors[elements.center] = villageColor  # Associate assembler position with village color
 
@@ -224,14 +226,6 @@ proc init(env: Environment) =
             pos: agentPos,
             orientation: Orientation(randIntInclusive(r, 0, 3)),
             homeassembler: elements.center,  # Link agent to their home assembler
-            inventoryOre: 0,
-            inventoryBar: 0,
-            inventoryWater: 0,
-            inventoryWheat: 0,
-            inventoryWood: 0,
-            inventorySpear: 0,
-            inventoryLantern: 0,
-            inventoryArmor: 0,
             frozen: frozen,
             hp: hp,
             maxHp: AgentMaxHp
@@ -264,14 +258,6 @@ proc init(env: Environment) =
       pos: agentPos,
       orientation: Orientation(randIntInclusive(r, 0, 3)),
       homeassembler: ivec2(-1, -1),  # No home assembler for unaffiliated agents
-      inventoryOre: 0,
-      inventoryBar: 0,
-      inventoryWater: 0,
-      inventoryWheat: 0,
-      inventoryWood: 0,
-      inventorySpear: 0,
-      inventoryLantern: 0,
-      inventoryArmor: 0,
       frozen: 0,
     ))
 
@@ -395,11 +381,13 @@ proc init(env: Environment) =
     let clusterSize = min(remaining, randIntInclusive(r, 3, 5))
     let center = r.randomEmptyPos(env)
 
-    env.add(Thing(
+    let mine = Thing(
       kind: Mine,
-      pos: center,
-      resources: MapObjectMineInitialResources,
-    ))
+      pos: center
+    )
+    mine.inventory = emptyInventory()
+    mine.resources = MapObjectMineInitialResources
+    env.add(mine)
     inc minesPlaced
 
     if minesPlaced >= MapRoomObjectsMines:
@@ -419,11 +407,13 @@ proc init(env: Environment) =
 
     let toPlace = min(clusterSize - 1, candidates.len)
     for i in 0 ..< toPlace:
-      env.add(Thing(
+      let mine = Thing(
         kind: Mine,
-        pos: candidates[i],
-        resources: MapObjectMineInitialResources,
-      ))
+        pos: candidates[i]
+      )
+      mine.inventory = emptyInventory()
+      mine.resources = MapObjectMineInitialResources
+      env.add(mine)
       inc minesPlaced
       if minesPlaced >= MapRoomObjectsMines:
         break

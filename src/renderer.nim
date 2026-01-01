@@ -1,6 +1,6 @@
 import
   boxy, vmath, windy, tables,
-  std/[algorithm, math],
+  std/[algorithm, math, strutils],
   common, environment
 
 # Infection system constants
@@ -431,16 +431,43 @@ proc drawAgentDecorations*() =
       icon: string
       count: int
 
+    proc iconForItem(key: ItemKey): string =
+      if key == ItemOre: return "resources/ore"
+      if key == ItemBar: return "resources/bar"
+      if key == ItemWater: return "resources/water"
+      if key == ItemWheat: return "resources/wheat"
+      if key == ItemWood: return "resources/wood"
+      if key == ItemSpear: return "resources/spear"
+      if key == ItemLantern: return "objects/lantern"
+      if key == ItemArmor: return "resources/armor"
+      if key == ItemBread: return "resources/bread"
+      if key == ItemHearts: return "ui/heart"
+      if key.startsWith(ItemThingPrefix):
+        let kindName = key[ItemThingPrefix.len .. ^1]
+        case kindName
+        of "Armory": return "objects/armory"
+        of "Forge": return "objects/forge"
+        of "ClayOven": return "objects/clay_oven"
+        of "WeavingLoom": return "objects/weaving_loom"
+        of "Bed": return "objects/bed"
+        of "Chair": return "objects/chair"
+        of "Table": return "objects/table"
+        of "Statue": return "objects/statue"
+        of "WatchTower": return "objects/watchtower"
+        of "Barrel": return "objects/armory"
+        of "Mine": return "objects/mine"
+        of "Converter": return "objects/converter"
+        of "assembler": return "objects/altar"
+        of "Spawner": return "objects/spawner"
+        of "Wall": return "objects/wall"
+        else: return "objects/floor"
+      return "objects/floor"
+
     var overlays: seq[OverlayItem] = @[]
-    if agent.inventoryArmor > 0: overlays.add(OverlayItem(name: "armor", icon: "resources/armor", count: agent.inventoryArmor))
-    if agent.inventoryBar > 0: overlays.add(OverlayItem(name: "bar", icon: "resources/bar", count: agent.inventoryBar))
-    if agent.inventoryBread > 0: overlays.add(OverlayItem(name: "bread", icon: "resources/bread", count: agent.inventoryBread))
-    if agent.inventoryLantern > 0: overlays.add(OverlayItem(name: "lantern", icon: "objects/lantern", count: agent.inventoryLantern))
-    if agent.inventoryOre > 0: overlays.add(OverlayItem(name: "ore", icon: "resources/ore", count: agent.inventoryOre))
-    if agent.inventorySpear > 0: overlays.add(OverlayItem(name: "spear", icon: "resources/spear", count: agent.inventorySpear))
-    if agent.inventoryWater > 0: overlays.add(OverlayItem(name: "water", icon: "resources/water", count: agent.inventoryWater))
-    if agent.inventoryWheat > 0: overlays.add(OverlayItem(name: "wheat", icon: "resources/wheat", count: agent.inventoryWheat))
-    if agent.inventoryWood > 0: overlays.add(OverlayItem(name: "wood", icon: "resources/wood", count: agent.inventoryWood))
+    for key, count in agent.inventory.pairs:
+      if count <= 0:
+        continue
+      overlays.add(OverlayItem(name: key, icon: iconForItem(key), count: count))
 
     if overlays.len == 0:
       continue
