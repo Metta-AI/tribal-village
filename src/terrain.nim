@@ -38,7 +38,7 @@ type
 
 const
   UseBiomeTerrain* = true
-  BaseBiome* = BiomeForest
+  BaseBiome* = BiomePlains
   BiomeForestTerrain* = Tree
   BiomeDesertTerrain* = Fertile
   BiomeCavesTerrain* = Tree
@@ -47,6 +47,7 @@ const
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
+  UseLegacyTreeClusters* = false
   BiomeZoneDivisor* = 12000
   DungeonZoneDivisor* = 20000
   BiomeZoneMinCount* = 2
@@ -506,12 +507,11 @@ proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
     applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, r)
   if UseBiomeZones:
     applyBiomeZones(terrain, mapWidth, mapHeight, mapBorder, r)
-  if UseDungeonZones:
-    applyDungeonZones(terrain, mapWidth, mapHeight, mapBorder, r)
 
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
   terrain.generateWheatFields(mapWidth, mapHeight, mapBorder, r)
-  terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
+  if UseLegacyTreeClusters:
+    terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
   terrain.generateRockOutcrops(mapWidth, mapHeight, mapBorder, r)
   terrain.generateGemVeins(mapWidth, mapHeight, mapBorder, r)
   terrain.generateBushes(mapWidth, mapHeight, mapBorder, r)

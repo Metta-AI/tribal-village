@@ -5,7 +5,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
 
   if not state.builderHasTower:
     if agent.inventoryWood < WatchTowerWoodCost:
-      let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
+      let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
       if did: return act
 
     if hasHome and not isOutOfSight(agent):
@@ -24,7 +24,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
 
   # After tower is built, lay a road back toward home.
   if agent.inventoryWood < RoadWoodCost:
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
+    let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
     if did: return act
 
   if hasHome:

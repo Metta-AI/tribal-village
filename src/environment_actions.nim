@@ -204,7 +204,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor}:
+  if thing.kind in {Agent, Tumor, TreeObject}:
     return false
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)
@@ -235,6 +235,10 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
     env.updateObservations(assemblerReadyLayer, thing.pos, 0)
   else:
     discard
+  removeThing(env, thing)
+  true
+
+proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
     env.grid[thing.pos.x][thing.pos.y] = nil
   let idx = env.things.find(thing)
@@ -242,7 +246,6 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
     env.things.del(idx)
   if thing.kind == assembler and assemblerColors.hasKey(thing.pos):
     assemblerColors.del(thing.pos)
-  true
 
 proc firstThingItem(agent: Thing): ItemKey =
   var keys: seq[ItemKey] = @[]
@@ -604,6 +607,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionInvalid
       return
     of Tree:
+      if getInv(agent, ItemAxe) <= 0:
+        inc env.stats[id].actionInvalid
+        return
       if agent.inventoryWood < MapObjectAgentMaxInventory:
         let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
         agent.inventoryWood = agent.inventoryWood + gain
@@ -719,6 +725,24 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   var used = false
   case thing.kind:
+  of TreeObject:
+    let hasAxe = getInv(agent, ItemAxe) > 0
+    if agent.inventoryWood < MapObjectAgentMaxInventory:
+      let baseGain = if hasAxe: 2 else: 1
+      let gain = min(baseGain, MapObjectAgentMaxInventory - agent.inventoryWood)
+      agent.inventoryWood = agent.inventoryWood + gain
+      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+      agent.reward += env.config.woodReward
+      if hasAxe:
+        removeThing(env, thing)
+      used = true
+    elif env.giveItem(agent, ItemBranch):
+      if hasAxe:
+        removeThing(env, thing)
+      used = true
+    else:
+      inc env.stats[id].actionInvalid
+      return
   of Mine:
     if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
       agent.inventoryOre = agent.inventoryOre + 1
@@ -1281,9 +1305,13 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
       return
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    env.terrain[targetPos.x][targetPos.y] = Tree
+    env.terrain[targetPos.x][targetPos.y] = Empty
     env.tileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
     env.baseTileColors[targetPos.x][targetPos.y] = BaseTileColorDefault
+    env.add(Thing(
+      kind: TreeObject,
+      pos: targetPos
+    ))
   else:
     if agent.inventoryWheat <= 0:
       inc env.stats[id].actionInvalid
