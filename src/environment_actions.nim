@@ -395,6 +395,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     # Bridges are walkable and have no direct interaction
     inc env.stats[id].actionInvalid
     return
+  of Road:
+    # Roads are for movement only
+    inc env.stats[id].actionInvalid
+    return
   of Water:
     if agent.inventoryWater < MapObjectAgentMaxInventory:
       agent.inventoryWater += 1
