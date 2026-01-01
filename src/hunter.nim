@@ -17,6 +17,11 @@ proc decideHunter(controller: Controller, env: Environment, agent: Thing,
     let awayDir = getMoveAway(env, agent, agent.pos, nearbyTumor.pos, controller.rng)
     return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, awayDir.uint8))
 
+  # Priority 3: Hunt wildlife for meat/leather when available
+  if getInv(agent, ItemMeat) < MapObjectAgentMaxInventory:
+    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Animal)
+    if did: return act
+
   # Priority 3: Craft spear if we have wood
   if agent.inventoryWood > 0:
     let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, Forge)

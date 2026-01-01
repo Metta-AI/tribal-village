@@ -12,6 +12,10 @@ proc decideCarpenter(controller: Controller, env: Environment, agent: Thing,
     if dist > ObservationRadius.int32:
       return controller.buildRoadToward(env, agent, agentId, state, home)
 
+  if agent.inventoryWood > 0:
+    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, Table)
+    if did: return act
+
   let buildPos = findAdjacentBuildTile(env, agent.pos, ivec2(0, 0))
   if buildPos.x >= 0:
     return saveStateAndReturn(controller, agentId, state,

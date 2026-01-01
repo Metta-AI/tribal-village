@@ -12,6 +12,10 @@ type
     Tree
     Fertile
     Road
+    Rock
+    Gem
+    Bush
+    Animal
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[512, array[512, TerrainType]]
 
@@ -62,6 +66,10 @@ const
   TerrainWheat* = TerrainType.Wheat
   TerrainTree* = TerrainType.Tree
   TerrainFertile* = TerrainType.Fertile
+  TerrainRock* = TerrainType.Rock
+  TerrainGem* = TerrainType.Gem
+  TerrainBush* = TerrainType.Bush
+  TerrainAnimal* = TerrainType.Animal
 
 template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
 template randChance(r: var Rand, p: float): bool = randFloat(r) < p
@@ -436,6 +444,53 @@ proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     let groveSize = randInclusive(r, 3, 10)
     terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Tree, 0.8, 0.4, r)
 
+proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  let clusters = max(6, mapWidth div 40)
+  for i in 0 ..< clusters:
+    let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
+    let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
+    let size = randInclusive(r, 3, 7)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Rock, 0.85, 0.35, r)
+
+proc generateGemVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  let clusters = max(3, mapWidth div 80)
+  for i in 0 ..< clusters:
+    let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
+    let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
+    let size = randInclusive(r, 2, 4)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gem, 0.7, 0.5, r)
+
+proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  for i in 0 ..< 12:
+    var attempts = 0
+    var placed = false
+    while attempts < 12 and not placed:
+      inc attempts
+      let x = randInclusive(r, mapBorder + 2, mapWidth - mapBorder - 2)
+      let y = randInclusive(r, mapBorder + 2, mapHeight - mapBorder - 2)
+      var nearWater = false
+      for dx in -4 .. 4:
+        for dy in -4 .. 4:
+          let checkX = x + dx
+          let checkY = y + dy
+          if checkX >= 0 and checkX < mapWidth and checkY >= 0 and checkY < mapHeight:
+            if terrain[checkX][checkY] == Water:
+              nearWater = true
+              break
+        if nearWater:
+          break
+      if nearWater or attempts >= 10:
+        let size = randInclusive(r, 3, 7)
+        terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Bush, 0.75, 0.45, r)
+        placed = true
+
+proc generateAnimals*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  for i in 0 ..< 10:
+    let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
+    let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
+    let size = randInclusive(r, 2, 4)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Animal, 0.6, 0.6, r)
+
 proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
   ## Initialize terrain with all features
   var r = initRand(seed)
@@ -457,6 +512,10 @@ proc initTerrain*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
   terrain.generateWheatFields(mapWidth, mapHeight, mapBorder, r)
   terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
+  terrain.generateRockOutcrops(mapWidth, mapHeight, mapBorder, r)
+  terrain.generateGemVeins(mapWidth, mapHeight, mapBorder, r)
+  terrain.generateBushes(mapWidth, mapHeight, mapBorder, r)
+  terrain.generateAnimals(mapWidth, mapHeight, mapBorder, r)
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],

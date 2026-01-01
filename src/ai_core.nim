@@ -14,6 +14,10 @@ const
   TerrainTreeVal = cast[TerrainType](4)
   TerrainFertileVal = cast[TerrainType](5)
   TerrainRoadVal = cast[TerrainType](6)
+  TerrainRockVal = cast[TerrainType](7)
+  TerrainGemVal = cast[TerrainType](8)
+  TerrainBushVal = cast[TerrainType](9)
+  TerrainAnimalVal = cast[TerrainType](10)
 
 type
   # Simple agent roles - one per team member
@@ -26,7 +30,7 @@ type
     Farmer      # Creates fertile ground and plants wheat/trees
     Builder     # Builds watchtowers and roads
     Miner       # Mines ore and keeps converters fed
-    Smelter     # Converts ore to batteries
+    Smelter     # Converts ore to bars
     Guard       # Patrols near home and engages threats
     Medic       # Bakes bread and distributes it
     Scout       # Explores outward and probes the map
