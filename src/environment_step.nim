@@ -117,6 +117,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               1000  # Very long cooldown if spawn disabled
             thing.cooldown = cooldown
     elif thing.kind == Cow:
+      if thing.cooldown > 0:
+        thing.cooldown -= 1
       if randFloat(stepRng) < 0.35:
         let dirs = [ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1)]
         let start = randIntExclusive(stepRng, 0, dirs.len)
