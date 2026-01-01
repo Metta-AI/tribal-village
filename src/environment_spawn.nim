@@ -88,6 +88,8 @@ proc init(env: Environment) =
         DungeonRadial
 
     let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    var dungeonWalls: MaskGrid
+    dungeonWalls.clearMask(MapWidth, MapHeight)
     for i in 0 ..< count:
       let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
       let x0 = max(MapBorder, zone.x)
@@ -120,20 +122,28 @@ proc init(env: Environment) =
             not mask[x][y]  # radial mask encodes corridors; invert for walls
           else:
             mask[x][y]
-          if not shouldWall:
+          if shouldWall and not isBlockedTerrain(env.terrain[x][y]):
+            dungeonWalls[x][y] = true
+
+    # Soften dungeon edges so they blend into surrounding biomes.
+    ditherEdges(dungeonWalls, MapWidth, MapHeight, 0.08, 3, r)
+
+    for x in MapBorder ..< MapWidth - MapBorder:
+      for y in MapBorder ..< MapHeight - MapBorder:
+        if not dungeonWalls[x][y]:
+          continue
+        if env.terrain[x][y] == Water:
+          continue
+        let pos = ivec2(x.int32, y.int32)
+        if env.hasDoor(pos):
+          continue
+        let existing = env.getThing(pos)
+        if existing != nil:
+          if existing.kind == TreeObject:
+            removeThing(env, existing)
+          else:
             continue
-          if env.terrain[x][y] == Water:
-            continue
-          let pos = ivec2(x.int32, y.int32)
-          if env.hasDoor(pos):
-            continue
-          let existing = env.getThing(pos)
-          if existing != nil:
-            if existing.kind == TreeObject:
-              removeThing(env, existing)
-            else:
-              continue
-          env.add(Thing(kind: Wall, pos: pos))
+        env.add(Thing(kind: Wall, pos: pos))
 
   if MapBorder > 0:
     for x in 0 ..< MapWidth:
