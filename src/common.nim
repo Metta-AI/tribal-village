@@ -65,7 +65,7 @@ var
 
   settings* = Settings()
 
-  play*: bool
+  play*: bool = true
   playSpeed*: float32 = 0.25    # quadruple baseline speed
   lastSimTime*: float64 = nowSeconds()
 
