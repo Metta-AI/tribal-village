@@ -799,24 +799,31 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.tryCraftAtStation(agent, StationArmory, thing):
         used = true
   of ClayOven:
-    if thing.cooldown == 0 and agent.inventoryWheat > 0:
-      agent.inventoryWheat = agent.inventoryWheat - 1
-      agent.inventoryBread = agent.inventoryBread + 1
-      thing.cooldown = 10
-      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-      env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
-      # No observation layer for bread; optional for UI later
-      agent.reward += env.config.foodReward
-      used = true
-  of Cow:
-    if env.giveFirstAvailable(agent, [ItemMeat, ItemSkinTanned, ItemCheese, ItemGlob, ItemCorpse, ItemRemains]):
-      env.grid[thing.pos.x][thing.pos.y] = nil
-      let idx = env.things.find(thing)
-      if idx >= 0:
-        env.things.del(idx)
-      used = true
-    elif thing.cooldown == 0:
+    if thing.cooldown == 0:
       if env.tryCraftAtStation(agent, StationOven, thing):
+        used = true
+      elif agent.inventoryWheat > 0:
+        agent.inventoryWheat = agent.inventoryWheat - 1
+        agent.inventoryBread = agent.inventoryBread + 1
+        thing.cooldown = 10
+        env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+        env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+        # No observation layer for bread; optional for UI later
+        agent.reward += env.config.foodReward
+        used = true
+  of Cow:
+    if agent.inventorySpear > 0 and getInv(agent, ItemMilk) == 0:
+      if env.giveItem(agent, ItemMeat):
+        agent.inventorySpear = max(0, agent.inventorySpear - 1)
+        env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+        env.grid[thing.pos.x][thing.pos.y] = nil
+        let idx = env.things.find(thing)
+        if idx >= 0:
+          env.things.del(idx)
+        used = true
+    elif thing.cooldown == 0:
+      if env.giveItem(agent, ItemMilk):
+        thing.cooldown = CowMilkCooldown
         used = true
   of Table:
     if thing.cooldown == 0:

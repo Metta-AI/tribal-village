@@ -37,6 +37,7 @@ type
     Carpenter   # Harvests wood and lays roads near home
     Mason       # Builds watchtowers for perimeter coverage
     Brewer      # Collects water and creates fertile tiles
+    Dairy       # Milks cows and bakes enriched bread
 
   # Minimal state tracking with spiral search
   AgentState = object
