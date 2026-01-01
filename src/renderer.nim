@@ -286,11 +286,7 @@ proc drawObjects*() =
         of Wall:
           discard
         of TreeObject:
-          let treeSprite = if assetExists("map/pine") or assetExists("inventory/pine"):
-            mapSpriteKey("pine")
-          else:
-            mapSpriteKey("tree")
-          bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
+          bxy.drawImage(mapSpriteKey("pine"), pos.vec2, angle = 0, scale = 1/200)
           if infected:
             drawOverlayIf(true, getInfectionSprite("tree"), pos.vec2)
         of Agent:
@@ -387,7 +383,7 @@ proc drawObjects*() =
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
 
         of Cow:
-          let cowSprite = if thing.orientation == Orientation.E: "cow_r" else: "cow"
+          let cowSprite = if thing.orientation == Orientation.E: mapSpriteKey("cow_r") else: mapSpriteKey("cow")
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
 
         of Armory, Forge, ClayOven, WeavingLoom:
