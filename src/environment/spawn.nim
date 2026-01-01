@@ -1,0 +1,479 @@
+# This file is included by src/environment.nim
+proc init(env: Environment) =
+  # Use current time for random seed to get different maps each time
+  let seed = int(nowSeconds() * 1000)
+  var r = initRand(seed)
+
+  # Initialize tile colors to base terrain colors (neutral gray-brown)
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      env.tileColors[x][y] = BaseTileColorDefault
+      env.baseTileColors[x][y] = BaseTileColorDefault
+
+  # Clear door grid
+  env.clearDoors()
+
+  # Initialize active tiles tracking
+  env.activeTiles.positions.setLen(0)
+  env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+
+  # Clear action tints
+  env.actionTintCountdown = default(ActionTintCountdown)
+  env.actionTintColor = default(ActionTintColor)
+  env.actionTintFlags = default(ActionTintFlags)
+  env.actionTintPositions.setLen(0)
+  env.shieldCountdown = default(array[MapAgents, int8])
+
+  # Initialize terrain with all features
+  initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
+
+  if MapBorder > 0:
+    for x in 0 ..< MapWidth:
+      for j in 0 ..< MapBorder:
+        env.add(Thing(kind: Wall, pos: ivec2(x, j)))
+        env.add(Thing(kind: Wall, pos: ivec2(x, MapHeight - j - 1)))
+    for y in 0 ..< MapHeight:
+      for j in 0 ..< MapBorder:
+        env.add(Thing(kind: Wall, pos: ivec2(j, y)))
+        env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
+
+  # Agents will now spawn with their villages/houses below
+  # Clear and prepare village colors arrays
+  agentVillageColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
+  teamColors.setLen(0)  # Clear team colors
+  assemblerColors.clear()  # Clear assembler colors from previous game
+  # Spawn houses with their assemblers, walls, and associated agents (tribes)
+  let numHouses = MapRoomObjectsHouses
+  var totalAgentsSpawned = 0
+  var houseCenters: seq[IVec2] = @[]
+  for i in 0 ..< numHouses:
+    let houseStruct = createVillage()
+    var placed = false
+    var placementPosition: IVec2
+
+    # Simple random placement with collision avoidance
+    for attempt in 0 ..< 200:
+      let candidatePos = r.randomEmptyPos(env)
+      # Check if position has enough space for the village footprint
+      var canPlace = true
+      for dy in 0 ..< houseStruct.height:
+        for dx in 0 ..< houseStruct.width:
+          let checkX = candidatePos.x + dx
+          let checkY = candidatePos.y + dy
+          if checkX >= MapWidth or checkY >= MapHeight or
+             not env.isEmpty(ivec2(checkX, checkY)) or
+             env.terrain[checkX][checkY] == Water:
+            canPlace = false
+            break
+        if not canPlace: break
+
+      # Keep houses spaced apart (Chebyshev) to avoid crowding
+      if canPlace:
+        const MinHouseSpacing = 22
+        let candidateCenter = candidatePos + houseStruct.centerPos
+        for c in houseCenters:
+          let dx = abs(c.x - candidateCenter.x)
+          let dy = abs(c.y - candidateCenter.y)
+          if max(dx, dy) < MinHouseSpacing:
+            canPlace = false
+            break
+
+      if canPlace:
+        placementPosition = candidatePos
+        placed = true
+        break
+
+    if placed:
+      let elements = getStructureElements(houseStruct, placementPosition)
+
+      # Clear terrain within the house area to create a clearing
+      for dy in 0 ..< houseStruct.height:
+        for dx in 0 ..< houseStruct.width:
+          let clearX = placementPosition.x + dx
+          let clearY = placementPosition.y + dy
+          if clearX >= 0 and clearX < MapWidth and clearY >= 0 and clearY < MapHeight:
+            # Clear any terrain features (wheat, trees) but keep water
+            if env.terrain[clearX][clearY] != Water:
+              env.terrain[clearX][clearY] = Empty
+              env.resetTileColor(ivec2(clearX.int32, clearY.int32))
+
+      # Generate a distinct warm color for this village (avoid cool/blue hues)
+      let paletteIndex = i mod WarmVillagePalette.len
+      let villageColor = WarmVillagePalette[paletteIndex]
+      teamColors.add(villageColor)
+      let teamId = teamColors.len - 1
+
+      # Spawn agent slots for this house (one active, the rest dormant)
+      let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
+      let baseAgentId = i * MapAgentsPerHouse
+
+      # Add the altar (assembler) with initial hearts and house bounds
+      env.add(Thing(
+        kind: assembler,
+        pos: elements.center,
+        hearts: MapObjectassemblerInitialHearts,  # assembler starts with default hearts
+        teamId: teamId
+      ))
+      houseCenters.add(elements.center)
+      assemblerColors[elements.center] = villageColor  # Associate assembler position with village color
+
+      # Initialize base colors for house tiles to team color
+      for dx in 0 ..< houseStruct.width:
+        for dy in 0 ..< houseStruct.height:
+          let tileX = placementPosition.x + dx
+          let tileY = placementPosition.y + dy
+          if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+            env.baseTileColors[tileX][tileY] = TileColor(
+              r: villageColor.r,
+              g: villageColor.g,
+              b: villageColor.b,
+              intensity: 1.0
+            )
+            env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
+
+      # Add the walls
+      for wallPos in elements.walls:
+        env.add(Thing(
+          kind: Wall,
+          pos: wallPos,
+        ))
+
+      # Add the doors (team-colored, passable only to that team)
+      for doorPos in elements.doors:
+        if doorPos.x >= 0 and doorPos.x < MapWidth and doorPos.y >= 0 and doorPos.y < MapHeight:
+          env.doorTeams[doorPos.x][doorPos.y] = teamId.int16
+          env.doorHearts[doorPos.x][doorPos.y] = DoorMaxHearts.int8
+
+      # Add the corner buildings from the house layout
+      # Parse the house structure to find corner buildings
+      for y in 0 ..< houseStruct.height:
+        for x in 0 ..< houseStruct.width:
+          if y < houseStruct.layout.len and x < houseStruct.layout[y].len:
+            let worldPos = placementPosition + ivec2(x.int32, y.int32)
+            case houseStruct.layout[y][x]:
+            of 'A':  # Armory at top-left
+              env.add(Thing(
+                kind: Armory,
+                pos: worldPos,
+              ))
+            of 'F':  # Forge at top-right
+              env.add(Thing(
+                kind: Forge,
+                pos: worldPos,
+              ))
+            of 'C':  # Clay Oven at bottom-left
+              env.add(Thing(
+                kind: ClayOven,
+                pos: worldPos,
+              ))
+            of 'W':  # Weaving Loom at bottom-right
+              env.add(Thing(
+                kind: WeavingLoom,
+                pos: worldPos,
+              ))
+            of 'B':  # Bed
+              env.add(Thing(
+                kind: Bed,
+                pos: worldPos,
+              ))
+            of 'H':  # Chair (throne)
+              env.add(Thing(
+                kind: Chair,
+                pos: worldPos,
+              ))
+            of 'T':  # Table
+              env.add(Thing(
+                kind: Table,
+                pos: worldPos,
+              ))
+            of 'S':  # Statue
+              env.add(Thing(
+                kind: Statue,
+                pos: worldPos,
+              ))
+            else:
+              discard
+      if agentsForThisHouse > 0:
+        # Get nearby positions around the assembler
+        let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
+
+        for j in 0 ..< agentsForThisHouse:
+          let agentId = baseAgentId + j
+
+          # Store the village color for this agent (shared by all agents of the house)
+          agentVillageColors[agentId] = teamColors[getTeamId(agentId)]
+
+          var agentPos = ivec2(-1, -1)
+          var frozen = 999999
+          var hp = 0
+          if j == 0:
+            if nearbyPositions.len > 0:
+              agentPos = nearbyPositions[0]
+            else:
+              agentPos = r.randomEmptyPos(env)
+            frozen = 0
+            hp = AgentMaxHp
+            env.terminated[agentId] = 0.0
+          else:
+            env.terminated[agentId] = 1.0
+
+          # Create the agent slot (only the first is placed immediately)
+          env.add(Thing(
+            kind: Agent,
+            agentId: agentId,
+            pos: agentPos,
+            orientation: Orientation(randIntInclusive(r, 0, 3)),
+            homeassembler: elements.center,  # Link agent to their home assembler
+            inventoryOre: 0,
+            inventoryBattery: 0,
+            inventoryWater: 0,
+            inventoryWheat: 0,
+            inventoryWood: 0,
+            inventorySpear: 0,
+            inventoryLantern: 0,
+            inventoryArmor: 0,
+            frozen: frozen,
+            hp: hp,
+            maxHp: AgentMaxHp
+          ))
+
+          totalAgentsSpawned += 1
+          if totalAgentsSpawned >= MapRoomObjectsAgents:
+            break
+
+      # Note: Door gaps are placed instead of walls for defendable entrances
+
+  # Now place additional random walls after villages to avoid blocking corner placement
+  for i in 0 ..< MapRoomObjectsWalls:
+    let pos = r.randomEmptyPos(env)
+    env.add(Thing(kind: Wall, pos: pos))
+
+  # If there are still agents to spawn (e.g., if not enough houses), spawn them randomly
+  # They will get a neutral color
+  let neutralColor = color(0.5, 0.5, 0.5, 1.0)  # Gray for unaffiliated agents
+  while totalAgentsSpawned < MapRoomObjectsAgents:
+    let agentPos = r.randomEmptyPos(env)
+    let agentId = totalAgentsSpawned
+
+    # Store neutral color for agents without a village
+    agentVillageColors[agentId] = neutralColor
+
+    env.add(Thing(
+      kind: Agent,
+      agentId: agentId,
+      pos: agentPos,
+      orientation: Orientation(randIntInclusive(r, 0, 3)),
+      homeassembler: ivec2(-1, -1),  # No home assembler for unaffiliated agents
+      inventoryOre: 0,
+      inventoryBattery: 0,
+      inventoryWater: 0,
+      inventoryWheat: 0,
+      inventoryWood: 0,
+      inventorySpear: 0,
+      inventoryLantern: 0,
+      inventoryArmor: 0,
+      frozen: 0,
+    ))
+
+    totalAgentsSpawned += 1
+
+  # Random spawner placement with minimum distance from villages and other spawners
+  # Gather assembler positions for distance checks
+  var assemblerPositionsNow: seq[IVec2] = @[]
+  var spawnerPositions: seq[IVec2] = @[]
+  for thing in env.things:
+    if thing.kind == assembler:
+      assemblerPositionsNow.add(thing.pos)
+
+  let numSpawners = numHouses
+  let minDist = 20  # tiles; simple guard so spawner isn't extremely close to a village
+  let minDist2 = minDist * minDist
+
+  for i in 0 ..< numSpawners:
+    let spawnerStruct = createSpawner()
+    var placed = false
+    var targetPos: IVec2
+
+    for attempt in 0 ..< 200:
+      targetPos = r.randomEmptyPos(env)
+      # Keep within borders allowing spawner bounds
+      if targetPos.x < MapBorder + spawnerStruct.width div 2 or
+         targetPos.x >= MapWidth - MapBorder - spawnerStruct.width div 2 or
+         targetPos.y < MapBorder + spawnerStruct.height div 2 or
+         targetPos.y >= MapHeight - MapBorder - spawnerStruct.height div 2:
+        continue
+
+      # Check simple area clear (3x3)
+      var areaValid = true
+      for dx in -(spawnerStruct.width div 2) .. (spawnerStruct.width div 2):
+        for dy in -(spawnerStruct.height div 2) .. (spawnerStruct.height div 2):
+          let checkPos = targetPos + ivec2(dx, dy)
+          if checkPos.x < 0 or checkPos.x >= MapWidth or checkPos.y < 0 or checkPos.y >= MapHeight:
+            areaValid = false
+            break
+          if not env.isEmpty(checkPos) or env.terrain[checkPos.x][checkPos.y] == Water:
+            areaValid = false
+            break
+        if not areaValid:
+          break
+
+      if not areaValid:
+        continue
+
+      # Enforce min distance from any assembler and other spawners
+      var okDistance = true
+      # Check distance from villages (assemblers)
+      for ap in assemblerPositionsNow:
+        let dx = int(targetPos.x) - int(ap.x)
+        let dy = int(targetPos.y) - int(ap.y)
+        if dx*dx + dy*dy < minDist2:
+          okDistance = false
+          break
+      # Check distance from other spawners
+      for sp in spawnerPositions:
+        let dx = int(targetPos.x) - int(sp.x)
+        let dy = int(targetPos.y) - int(sp.y)
+        if dx*dx + dy*dy < minDist2:
+          okDistance = false
+          break
+      if not okDistance:
+        continue
+
+      # Clear terrain and place spawner
+      for dx in -(spawnerStruct.width div 2) .. (spawnerStruct.width div 2):
+        for dy in -(spawnerStruct.height div 2) .. (spawnerStruct.height div 2):
+          let clearPos = targetPos + ivec2(dx, dy)
+          if clearPos.x >= 0 and clearPos.x < MapWidth and clearPos.y >= 0 and clearPos.y < MapHeight:
+            if env.terrain[clearPos.x][clearPos.y] != Water:
+              env.terrain[clearPos.x][clearPos.y] = Empty
+              env.resetTileColor(clearPos)
+
+      env.add(Thing(
+        kind: Spawner,
+        pos: targetPos,
+        cooldown: 0,
+        homeSpawner: targetPos
+      ))
+
+      # Add this spawner position for future collision checks
+      spawnerPositions.add(targetPos)
+
+      let nearbyPositions = env.findEmptyPositionsAround(targetPos, 1)
+      if nearbyPositions.len > 0:
+        let spawnCount = min(3, nearbyPositions.len)
+        for i in 0 ..< spawnCount:
+          env.add(createTumor(nearbyPositions[i], targetPos, r))
+      placed = true
+      break
+
+    # If we fail to satisfy distance after attempts, place anywhere random
+    if not placed:
+      targetPos = r.randomEmptyPos(env)
+      env.add(Thing(
+        kind: Spawner,
+        pos: targetPos,
+        cooldown: 0,
+        homeSpawner: targetPos
+      ))
+      let nearbyPositions = env.findEmptyPositionsAround(targetPos, 1)
+      if nearbyPositions.len > 0:
+        let spawnCount = min(3, nearbyPositions.len)
+        for i in 0 ..< spawnCount:
+          env.add(createTumor(nearbyPositions[i], targetPos, r))
+
+  for i in 0 ..< MapRoomObjectsConverters:
+    let pos = r.randomEmptyPos(env)
+    env.add(Thing(
+      kind: Converter,
+      pos: pos,
+    ))
+
+  # Mines spawn in small clusters (3-5 nodes) for higher local density.
+  var minesPlaced = 0
+  while minesPlaced < MapRoomObjectsMines:
+    let remaining = MapRoomObjectsMines - minesPlaced
+    let clusterSize = min(remaining, randIntInclusive(r, 3, 5))
+    let center = r.randomEmptyPos(env)
+
+    env.add(Thing(
+      kind: Mine,
+      pos: center,
+      resources: MapObjectMineInitialResources,
+    ))
+    inc minesPlaced
+
+    if minesPlaced >= MapRoomObjectsMines:
+      break
+
+    var candidates = env.findEmptyPositionsAround(center, 1)
+    if candidates.len < clusterSize - 1:
+      let extra = env.findEmptyPositionsAround(center, 2)
+      for pos in extra:
+        var exists = false
+        for c in candidates:
+          if c == pos:
+            exists = true
+            break
+        if not exists:
+          candidates.add(pos)
+
+    let toPlace = min(clusterSize - 1, candidates.len)
+    for i in 0 ..< toPlace:
+      env.add(Thing(
+        kind: Mine,
+        pos: candidates[i],
+        resources: MapObjectMineInitialResources,
+      ))
+      inc minesPlaced
+      if minesPlaced >= MapRoomObjectsMines:
+        break
+
+  # Initialize assembler locations for all spawners
+  var assemblerPositions: seq[IVec2] = @[]
+  for thing in env.things:
+    if thing.kind == assembler:
+      assemblerPositions.add(thing.pos)
+
+  # Initialize observations only when first needed (lazy approach)
+  # Individual action updates will populate observations as needed
+
+
+proc defaultEnvironmentConfig*(): EnvironmentConfig =
+  ## Create default environment configuration
+  EnvironmentConfig(
+    # Core game parameters
+    maxSteps: 1000,
+
+    # Combat configuration
+    tumorSpawnRate: 0.1,
+
+    # Reward configuration (only arena_basic_easy_shaped rewards active)
+    heartReward: 1.0,      # Arena: heart reward
+    oreReward: 0.1,        # Arena: ore mining reward
+    batteryReward: 0.8,    # Arena: battery crafting reward
+    woodReward: 0.0,       # Disabled - not in arena
+    waterReward: 0.0,      # Disabled - not in arena
+    wheatReward: 0.0,      # Disabled - not in arena
+    spearReward: 0.0,      # Disabled - not in arena
+    armorReward: 0.0,      # Disabled - not in arena
+    foodReward: 0.0,       # Disabled - not in arena
+    clothReward: 0.0,      # Disabled - not in arena
+    tumorKillReward: 0.0, # Disabled - not in arena
+    survivalPenalty: -0.01,
+    deathPenalty: -5.0
+  )
+
+proc newEnvironment*(): Environment =
+  ## Create a new environment with default configuration
+  result = Environment(config: defaultEnvironmentConfig())
+  result.init()
+
+proc newEnvironment*(config: EnvironmentConfig): Environment =
+  ## Create a new environment with custom configuration
+  result = Environment(config: config)
+  result.init()
+
+# Initialize the global environment
+env = newEnvironment()
+
+
