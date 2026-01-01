@@ -27,6 +27,71 @@ proc init(env: Environment) =
   # Initialize terrain with all features
   initTerrain(env.terrain, MapWidth, MapHeight, MapBorder, seed)
 
+  # Convert terrain trees into blocking tree objects.
+  for x in MapBorder ..< MapWidth - MapBorder:
+    for y in MapBorder ..< MapHeight - MapBorder:
+      if env.terrain[x][y] == Tree and env.isEmpty(ivec2(x, y)):
+        env.terrain[x][y] = Empty
+        env.add(Thing(kind: TreeObject, pos: ivec2(x.int32, y.int32)))
+
+  # Add sparse dungeon walls using procedural dungeon masks.
+  if UseDungeonZones:
+    type ZoneRect = object
+      x, y, w, h: int
+
+    proc zoneCount(area, divisor, minCount, maxCount: int): int =
+      let raw = max(1, area div divisor)
+      max(min(raw, maxCount), minCount)
+
+    proc randomZone(rng: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: float): ZoneRect =
+      let maxW = max(ZoneMinSize, int(min(mapWidth.float * maxFraction, mapWidth.float / 2)))
+      let maxH = max(ZoneMinSize, int(min(mapHeight.float * maxFraction, mapHeight.float / 2)))
+      let w = randIntInclusive(rng, ZoneMinSize, maxW)
+      let h = randIntInclusive(rng, ZoneMinSize, maxH)
+      let xMax = max(mapBorder, mapWidth - mapBorder - w)
+      let yMax = max(mapBorder, mapHeight - mapBorder - h)
+      let x = randIntInclusive(rng, mapBorder, xMax)
+      let y = randIntInclusive(rng, mapBorder, yMax)
+      ZoneRect(x: x, y: y, w: w, h: h)
+
+    proc pickDungeon(rng: var Rand): DungeonKind =
+      let roll = randFloat(rng)
+      if roll < 0.62:
+        DungeonMaze
+      else:
+        DungeonRadial
+
+    let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    for i in 0 ..< count:
+      let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
+      var mask: MaskGrid
+      case pickDungeon(r):
+      of DungeonMaze:
+        buildDungeonMazeMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
+      of DungeonRadial:
+        buildDungeonRadialMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
+
+      let x0 = max(MapBorder, zone.x)
+      let y0 = max(MapBorder, zone.y)
+      let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
+      let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
+      for x in x0 ..< x1:
+        for y in y0 ..< y1:
+          if not mask[x][y]:
+            continue
+          if env.terrain[x][y] == Water:
+            continue
+          let pos = ivec2(x.int32, y.int32)
+          if env.hasDoor(pos):
+            continue
+          let existing = env.getThing(pos)
+          if existing != nil:
+            if existing.kind == TreeObject:
+              removeThing(env, existing)
+            else:
+              continue
+          env.add(Thing(kind: Wall, pos: pos))
+
   if MapBorder > 0:
     for x in 0 ..< MapWidth:
       for j in 0 ..< MapBorder:

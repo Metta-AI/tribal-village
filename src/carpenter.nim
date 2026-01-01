@@ -4,7 +4,7 @@ proc decideCarpenter(controller: Controller, env: Environment, agent: Thing,
   let hasHome = home.x >= 0
 
   if agent.inventoryWood < RoadWoodCost:
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
+    let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
     if did: return act
 
   if hasHome:

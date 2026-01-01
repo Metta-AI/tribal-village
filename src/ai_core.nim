@@ -632,3 +632,10 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
   if pos.x >= 0:
     return (true, controller.useOrMove(env, agent, agentId, state, pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc findAndHarvestThing(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                         state: var AgentState, kind: ThingKind): tuple[did: bool, action: uint8] =
+  let thing = env.findNearestThingSpiral(state, kind, controller.rng)
+  if thing != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, thing.pos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))

@@ -28,6 +28,6 @@ proc decideHunter(controller: Controller, env: Environment, agent: Thing,
     if did: return act
 
   # Priority 4: Collect wood
-  let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
+  let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
   if did: return act
   return controller.moveNextSearch(env, agent, agentId, state)

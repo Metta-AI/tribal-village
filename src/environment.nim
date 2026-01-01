@@ -105,6 +105,7 @@ type
   ThingKind* = enum
     Agent
     Wall
+    TreeObject
     Mine
     Converter  # Smelts ore into bars
     assembler
@@ -379,6 +380,8 @@ proc render*(env: Environment): string =
             cell = "A"
           of Wall:
             cell = "#"
+          of TreeObject:
+            cell = "T"
           of Mine:
             cell = "m"
           of Converter:

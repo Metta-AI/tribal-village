@@ -36,7 +36,7 @@ proc decideFarmer(controller: Controller, env: Environment, agent: Thing,
 
   # Step 3: Gather resources to plant (wood then wheat)
   if agent.inventoryWood == 0:
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Tree)
+    let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
     if did: return act
 
   if agent.inventoryWheat == 0:

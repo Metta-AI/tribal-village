@@ -15,6 +15,7 @@ const
   ItemWheat* = "wheat"
   ItemWood* = "wood"
   ItemSpear* = "spear"
+  ItemAxe* = "axe"
   ItemLantern* = "lantern"
   ItemArmor* = "armor"
   ItemBread* = "bread"
@@ -644,6 +645,7 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
 
   # Forge: metalworking and mechanisms.
   addRecipe(recipes, "weapon", StationForge, @[(ItemBar, 1)], @[("weapon", 1)], 8)
+  addRecipe(recipes, "axe", StationForge, @[(ItemBar, 1), (ItemWood, 1)], @[(ItemAxe, 1)], 8)
   addRecipe(recipes, "armor_metal", StationForge, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
   addRecipe(recipes, "helm", StationForge, @[(ItemBar, 1)], @[("helm", 1)], 8)
   addRecipe(recipes, "shield_metal", StationForge, @[(ItemBar, 1)], @[("shield", 1)], 8)

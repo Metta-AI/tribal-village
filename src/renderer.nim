@@ -249,6 +249,14 @@ proc drawObjects*() =
         case thing.kind
         of Wall:
           discard
+        of TreeObject:
+          let treeSprite = if assetExists("map/pine") or assetExists("inventory/pine"):
+            mapSpriteKey("pine")
+          else:
+            mapSpriteKey("tree")
+          bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("tree"), pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
