@@ -23,6 +23,7 @@ const
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
   MapRoomObjectsConverters* = 10
   MapRoomObjectsMines* = 20
+  MapRoomObjectsMineClusters* = 6
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
 
@@ -127,6 +128,10 @@ type
     Barrel
     PlantedLantern  # Planted lanterns that spread team colors
 
+  TreeVariant* = enum
+    TreeVariantPine
+    TreeVariantPalm
+
   Thing* = ref object
     kind*: ThingKind
     pos*: IVec2
@@ -152,6 +157,9 @@ type
     # PlantedLantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
+
+    # TreeObject:
+    treeVariant*: TreeVariant
 
     # Spawner: (no longer needs assembler targeting for new creep spread behavior)
 
@@ -193,6 +201,12 @@ const
   BiomeColorCity = TileColor(r: 0.62, g: 0.62, b: 0.66, intensity: 1.0)
   BiomeColorPlains = TileColor(r: 0.55, g: 0.70, b: 0.50, intensity: 1.0)
   BiomeColorDungeon = TileColor(r: 0.40, g: 0.36, b: 0.48, intensity: 0.9)
+  WheatBaseColor = TileColor(r: 0.88, g: 0.78, b: 0.48, intensity: 1.05)
+  PalmBaseColor = TileColor(r: 0.70, g: 0.78, b: 0.52, intensity: 1.0)
+  WheatBaseBlend = 0.65'f32
+  PalmBaseBlend = 0.55'f32
+  BiomeBlendPasses = 2
+  BiomeBlendNeighborWeight = 0.18'f32
   # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
   # Single source of truth for the clippy/creep tint; aligned to clamp limits so tiles can actually reach it.
   ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
@@ -369,14 +383,69 @@ proc biomeBaseColor*(biome: BiomeType): TileColor =
 proc baseColorForPos(env: Environment, pos: IVec2): TileColor =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return BaseTileColorDefault
-  biomeBaseColor(env.biomes[pos.x][pos.y])
+  env.baseTileColors[pos.x][pos.y]
+
+proc blendTileColor(a, b: TileColor, t: float32): TileColor =
+  let tClamped = max(0.0'f32, min(1.0'f32, t))
+  TileColor(
+    r: a.r * (1.0 - tClamped) + b.r * tClamped,
+    g: a.g * (1.0 - tClamped) + b.g * tClamped,
+    b: a.b * (1.0 - tClamped) + b.b * tClamped,
+    intensity: a.intensity * (1.0 - tClamped) + b.intensity * tClamped
+  )
+
+proc smoothBaseColors(colors: var array[MapWidth, array[MapHeight, TileColor]], passes: int) =
+  if passes <= 0:
+    return
+  var temp: array[MapWidth, array[MapHeight, TileColor]]
+  let centerWeight = 1.0'f32
+  let neighborWeight = BiomeBlendNeighborWeight
+  for _ in 0 ..< passes:
+    for x in 0 ..< MapWidth:
+      for y in 0 ..< MapHeight:
+        var sumR = colors[x][y].r * centerWeight
+        var sumG = colors[x][y].g * centerWeight
+        var sumB = colors[x][y].b * centerWeight
+        var sumI = colors[x][y].intensity * centerWeight
+        var total = centerWeight
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            if dx == 0 and dy == 0:
+              continue
+            let nx = x + dx
+            let ny = y + dy
+            if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
+              continue
+            let c = colors[nx][ny]
+            sumR += c.r * neighborWeight
+            sumG += c.g * neighborWeight
+            sumB += c.b * neighborWeight
+            sumI += c.intensity * neighborWeight
+            total += neighborWeight
+        temp[x][y] = TileColor(
+          r: sumR / total,
+          g: sumG / total,
+          b: sumB / total,
+          intensity: sumI / total
+        )
+    colors = temp
 
 proc applyBiomeBaseColors*(env: Environment) =
+  var colors: array[MapWidth, array[MapHeight, TileColor]]
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      let color = biomeBaseColor(env.biomes[x][y])
-      env.baseTileColors[x][y] = color
-      env.tileColors[x][y] = color
+      var color = biomeBaseColor(env.biomes[x][y])
+      case env.terrain[x][y]:
+      of Wheat:
+        color = blendTileColor(color, WheatBaseColor, WheatBaseBlend)
+      of Palm:
+        color = blendTileColor(color, PalmBaseColor, PalmBaseBlend)
+      else:
+        discard
+      colors[x][y] = color
+  smoothBaseColors(colors, BiomeBlendPasses)
+  env.baseTileColors = colors
+  env.tileColors = colors
 
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
@@ -392,6 +461,8 @@ proc render*(env: Environment): string =
         cell = "."
       of Tree:
         cell = "T"
+      of Palm:
+        cell = "P"
       of Fertile:
         cell = "f"
       of Road:
