@@ -53,7 +53,7 @@ proc fitMapToPanel(panelRect: IRect) =
   if logicalW <= 0 or logicalH <= 0:
     return
 
-  let padding = 0.92'f32  # Leave a small gutter so tiles do not touch the edge
+  let padding = 1.0'f32  # Zoom in one more notch
   let zoomForW = sqrt(logicalW / MapWidth.float32) * padding
   let zoomForH = sqrt(logicalH / MapHeight.float32) * padding
   let targetZoom = min(zoomForW, zoomForH).clamp(worldMapPanel.minZoom, worldMapPanel.maxZoom)
@@ -166,8 +166,8 @@ proc display() =
       let oldMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
       let oldWorldPoint = oldMat.inverse() * localMouse
 
-      # Scroll direction: wheel down (negative delta) should zoom OUT, so negate the delta in exponent.
-      let zoomFactor64 = pow(1.0 - zoomSensitivity, -window.scrollDelta.y.float64)
+      # Scroll direction: wheel down (negative delta) zooms IN; wheel up zooms OUT.
+      let zoomFactor64 = pow(1.0 - zoomSensitivity, window.scrollDelta.y.float64)
       let zoomFactor = zoomFactor64.float32
       worldMapPanel.zoom = clamp(worldMapPanel.zoom * zoomFactor, worldMapPanel.minZoom, worldMapPanel.maxZoom)
 
