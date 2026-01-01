@@ -88,24 +88,15 @@ proc logicalMouseDelta*(window: Window): Vec2 =
 
 proc irect*(x, y, w, h: int): IRect =
   ## Utility function to create IRect from coordinates
-  result.x = x
-  result.y = y
-  result.w = w
-  result.h = h
+  IRect(x: x, y: y, w: w, h: h)
 
 proc irect*(rect: Rect): IRect =
   ## Convert floating point Rect to integer IRect
-  result.x = rect.x.int
-  result.y = rect.y.int
-  result.w = rect.w.int
-  result.h = rect.h.int
+  IRect(x: rect.x.int, y: rect.y.int, w: rect.w.int, h: rect.h.int)
 
 proc rect*(irect: IRect): Rect =
   ## Convert integer IRect to floating point Rect
-  result.x = irect.x.float32
-  result.y = irect.y.float32
-  result.w = irect.w.float32
-  result.h = irect.h.float32
+  Rect(x: irect.x.float32, y: irect.y.float32, w: irect.w.float32, h: irect.h.float32)
 
 type
   OrientationDelta* = tuple[x, y: int]
