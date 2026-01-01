@@ -25,9 +25,7 @@ proc buildBiomeDesertMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:
       let xr = x.float * cosT + y.float * sinT
-      var modv = fmod(xr, period.float)
-      if modv < 0:
-        modv += period.float
+      var modv = xr - floor(xr / period.float) * period.float
       if modv < width.float:
         mask[x][y] = true
       if mask[x][y] and randFloat(r) < cfg.noiseProb:

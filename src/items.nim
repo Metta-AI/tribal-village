@@ -599,9 +599,9 @@ let
 
 proc initCraftRecipes*(): seq[CraftRecipe] =
   result = @[]
-  template addRecipe(id: string, station: CraftStation, inputs, outputs: seq[ItemAmount], cooldown: int = 8) =
+  proc addRecipe(id: string, station: CraftStation, inputs, outputs: seq[ItemAmount], cooldown: int = 8) =
     result.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: cooldown))
-  template thingItem(name: string): ItemKey =
+  proc thingItem(name: string): ItemKey =
     ItemThingPrefix & name
 
   # Table/workbench: wood, stone, and gem crafts.
