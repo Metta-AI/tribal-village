@@ -1,7 +1,7 @@
 ## Ultra-Fast Direct Buffer Interface
 ## Zero-copy numpy buffer communication - no conversions
 
-import environment, external_actions
+import ./environment, external_actions
 
 type
   ## C-compatible environment config passed from Python.
