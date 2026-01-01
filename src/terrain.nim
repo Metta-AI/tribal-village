@@ -121,8 +121,8 @@ const
   RiverWidth* = 6
 
 type
-  ZoneRect = object
-    x, y, w, h: int
+  ZoneRect* = object
+    x*, y*, w*, h*: int
 
 proc applyMaskToTerrain(terrain: var TerrainGrid, mask: MaskGrid, mapWidth, mapHeight, mapBorder: int,
                         terrainType: TerrainType) =
@@ -186,7 +186,7 @@ proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[floa
       return options[i]
   options[^1]
 
-proc randomZone(r: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: float): ZoneRect =
+proc randomZone*(r: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: float): ZoneRect =
   let maxW = max(ZoneMinSize, int(min(mapWidth.float * maxFraction, mapWidth.float / 2)))
   let maxH = max(ZoneMinSize, int(min(mapHeight.float * maxFraction, mapHeight.float / 2)))
   let w = randIntInclusive(r, ZoneMinSize, maxW)
@@ -197,9 +197,22 @@ proc randomZone(r: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: f
   let y = randIntInclusive(r, mapBorder, yMax)
   ZoneRect(x: x, y: y, w: w, h: h)
 
-proc zoneCount(area: int, divisor: int, minCount: int, maxCount: int): int =
+proc zoneCount*(area: int, divisor: int, minCount: int, maxCount: int): int =
   let raw = max(1, area div divisor)
   clamp(raw, minCount, maxCount)
+
+proc pickDungeonKind*(r: var Rand): DungeonKind =
+  let kinds = [DungeonMaze, DungeonRadial]
+  let weights = [1.0, 0.6]
+  pickWeighted(r, kinds, weights)
+
+proc buildDungeonMask*(mask: var MaskGrid, mapWidth, mapHeight: int, zone: ZoneRect,
+                       r: var Rand, kind: DungeonKind) =
+  case kind:
+  of DungeonMaze:
+    buildDungeonMazeMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
+  of DungeonRadial:
+    buildDungeonRadialMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
 
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
@@ -244,19 +257,13 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
 
 proc applyDungeonZones(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let count = zoneCount(mapWidth * mapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
-  let kinds = [DungeonMaze, DungeonRadial]
-  let weights = [1.0, 0.6]
   for _ in 0 ..< count:
     let zone = randomZone(r, mapWidth, mapHeight, mapBorder, DungeonZoneMaxFraction)
-    let dungeon = pickWeighted(r, kinds, weights)
     var mask: MaskGrid
-    case dungeon:
-    of DungeonMaze:
-      buildDungeonMazeMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
-      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, DungeonTerrainWall, overwrite = true)
-    of DungeonRadial:
-      buildDungeonRadialMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
-      applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder, DungeonTerrainWall, overwrite = true)
+    let dungeon = pickDungeonKind(r)
+    buildDungeonMask(mask, mapWidth, mapHeight, zone, r, dungeon)
+    applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder,
+      DungeonTerrainWall, overwrite = true)
 
 proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var mask: MaskGrid

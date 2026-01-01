@@ -62,31 +62,6 @@ proc init(env: Environment) =
 
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
-    type ZoneRect = object
-      x, y, w, h: int
-
-    proc zoneCount(area, divisor, minCount, maxCount: int): int =
-      let raw = max(1, area div divisor)
-      max(min(raw, maxCount), minCount)
-
-    proc randomZone(rng: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: float): ZoneRect =
-      let maxW = max(ZoneMinSize, int(min(mapWidth.float * maxFraction, mapWidth.float / 2)))
-      let maxH = max(ZoneMinSize, int(min(mapHeight.float * maxFraction, mapHeight.float / 2)))
-      let w = randIntInclusive(rng, ZoneMinSize, maxW)
-      let h = randIntInclusive(rng, ZoneMinSize, maxH)
-      let xMax = max(mapBorder, mapWidth - mapBorder - w)
-      let yMax = max(mapBorder, mapHeight - mapBorder - h)
-      let x = randIntInclusive(rng, mapBorder, xMax)
-      let y = randIntInclusive(rng, mapBorder, yMax)
-      ZoneRect(x: x, y: y, w: w, h: h)
-
-    proc pickDungeon(rng: var Rand): DungeonKind =
-      let roll = randFloat(rng)
-      if roll < 0.62:
-        DungeonMaze
-      else:
-        DungeonRadial
-
     let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
     for i in 0 ..< count:
       let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
@@ -107,12 +82,8 @@ proc init(env: Environment) =
           env.baseTileColors[x][y] = blended
           env.tileColors[x][y] = blended
       var mask: MaskGrid
-      let dungeonKind = pickDungeon(r)
-      case dungeonKind:
-      of DungeonMaze:
-        buildDungeonMazeMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
-      of DungeonRadial:
-        buildDungeonRadialMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
+      let dungeonKind = pickDungeonKind(r)
+      buildDungeonMask(mask, MapWidth, MapHeight, zone, r, dungeonKind)
 
       for x in x0 ..< x1:
         for y in y0 ..< y1:
