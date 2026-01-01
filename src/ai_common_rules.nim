@@ -2,9 +2,8 @@
 
 proc isOutOfSight(agent: Thing): bool =
   ## Out of sight if beyond observation radius from home assembler.
-  if agent.homeassembler.x < 0:
-    return true
-  chebyshevDist(agent.pos, agent.homeassembler) > ObservationRadius.int32
+  agent.homeassembler.x < 0 or
+    chebyshevDist(agent.pos, agent.homeassembler) > ObservationRadius.int32
 
 proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec2 =
   ## Find an empty adjacent tile for building, preferring the provided direction.

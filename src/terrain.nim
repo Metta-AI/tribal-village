@@ -66,7 +66,7 @@ const
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
-  UseLegacyTreeClusters* = false
+  UseLegacyTreeClusters* = true
   UsePalmGroves* = true
   WheatFieldClusterBase* = 14
   WheatFieldClusterRange* = 6
@@ -477,16 +477,18 @@ proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBord
           break
 
       if nearWater or attempt > 10:
-        let fieldSize = randInclusive(r, 3, 10)
+        let fieldSize = randInclusive(r, 5, 12)
         terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
+        terrain.createTerrainCluster(x, y, fieldSize + 1, mapWidth, mapHeight, Wheat, 0.5, 0.3, r)
         placed = true
         break
 
     if not placed:
       let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
       let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-      let fieldSize = randInclusive(r, 3, 10)
+      let fieldSize = randInclusive(r, 5, 12)
       terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
+      terrain.createTerrainCluster(x, y, fieldSize + 1, mapWidth, mapHeight, Wheat, 0.5, 0.3, r)
 
 proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   ## Generate tree groves; boosted count for richer biomes
@@ -632,20 +634,21 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     center: IVec2
   ] =
   ## Extract tiles for placing a structure
-  result.walls = @[]
-  result.doors = @[]
-  result.floors = @[]
-  result.assemblers = @[]
-  result.forges = @[]
-  result.armories = @[]
-  result.clayOvens = @[]
-  result.weavingLooms = @[]
-  result.beds = @[]
-  result.chairs = @[]
-  result.tables = @[]
-  result.statues = @[]
-
-  result.center = topLeft + structure.centerPos
+  result = (
+    walls: @[],
+    doors: @[],
+    floors: @[],
+    assemblers: @[],
+    forges: @[],
+    armories: @[],
+    clayOvens: @[],
+    weavingLooms: @[],
+    beds: @[],
+    chairs: @[],
+    tables: @[],
+    statues: @[],
+    center: topLeft + structure.centerPos
+  )
 
   for y, row in structure.layout:
     for x, cell in row:

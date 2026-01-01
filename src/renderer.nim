@@ -27,7 +27,8 @@ const
   InfoLabelFontPath = HeartCountFontPath
   InfoLabelFontSize: float32 = 54
   InfoLabelPadding = 18
-  InfoLabelInset = 100
+  InfoLabelInsetX = 100
+  InfoLabelInsetY = 50
 
 template configureInfoLabelFont(ctx: var Context) =
   ctx.font = InfoLabelFontPath
@@ -631,6 +632,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
   let key = ensureInfoLabel(label)
   if key.len == 0:
     return
-  let pos = vec2(panelRect.x.float32 + 8 + InfoLabelInset.float32,
-    panelRect.y.float32 + 8 + InfoLabelInset.float32)
+  let pos = vec2(panelRect.x.float32 + 8 + InfoLabelInsetX.float32,
+    panelRect.y.float32 + 8 + InfoLabelInsetY.float32)
   bxy.drawImage(key, pos, angle = 0, scale = 1)

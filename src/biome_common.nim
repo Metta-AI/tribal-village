@@ -77,9 +77,6 @@ proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, dep
       break
     frontier = nextFrontier
 
-  if depth <= 0:
-    return
-
   for x in 0 ..< mapWidth:
     for y in 0 ..< mapHeight:
       let d = dist[x][y]
