@@ -127,6 +127,10 @@ type
     Statue
     WatchTower
     Barrel
+    Mill
+    LumberCamp
+    MiningCamp
+    Farm
     PlantedLantern  # Planted lanterns that spread team colors
 
   TreeVariant* = enum
@@ -528,6 +532,14 @@ proc render*(env: Environment): string =
             cell = "W"
           of Barrel:
             cell = "b"
+          of Mill:
+            cell = "M"
+          of LumberCamp:
+            cell = "l"
+          of MiningCamp:
+            cell = "n"
+          of Farm:
+            cell = "f"
           of Bed:
             cell = "B"
           of Chair:
@@ -635,7 +647,8 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower, Barrel, PlantedLantern:
+    of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower,
+       Barrel, Mill, LumberCamp, MiningCamp, Farm, PlantedLantern:
       discard
 
   env.observationsInitialized = true

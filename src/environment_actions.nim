@@ -21,6 +21,62 @@ proc giveFirstAvailable(env: Environment, agent: Thing, keys: openArray[ItemKey]
       return env.giveItem(agent, key, 1)
   false
 
+proc storageKeyAllowed(key: ItemKey, allowed: openArray[ItemKey]): bool =
+  if allowed.len == 0:
+    return true
+  for allowedKey in allowed:
+    if key == allowedKey:
+      return true
+  false
+
+proc selectAllowedItem(agent: Thing, allowed: openArray[ItemKey]): tuple[key: ItemKey, count: int] =
+  result = (key: ItemNone, count: 0)
+  if allowed.len == 0:
+    return agentMostHeldItem(agent)
+  for key in allowed:
+    let count = getInv(agent, key)
+    if count > result.count:
+      result = (key: key, count: count)
+
+proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed: openArray[ItemKey]): bool =
+  if storage.inventory.len > 0:
+    var storedKey = ItemNone
+    var storedCount = 0
+    for key, count in storage.inventory.pairs:
+      if count > 0:
+        storedKey = key
+        storedCount = count
+        break
+    if storedKey.len == 0 or not storageKeyAllowed(storedKey, allowed):
+      return false
+    let agentCount = getInv(agent, storedKey)
+    let storageSpace = max(0, storage.barrelCapacity - storedCount)
+    if agentCount > 0 and storageSpace > 0:
+      let moved = min(agentCount, storageSpace)
+      setInv(agent, storedKey, agentCount - moved)
+      setInv(storage, storedKey, storedCount + moved)
+      env.updateAgentInventoryObs(agent, storedKey)
+      return true
+    let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
+    if capacityLeft > 0:
+      let moved = min(storedCount, capacityLeft)
+      if moved > 0:
+        setInv(agent, storedKey, agentCount + moved)
+        let remaining = storedCount - moved
+        setInv(storage, storedKey, remaining)
+        env.updateAgentInventoryObs(agent, storedKey)
+        return true
+    return false
+
+  let choice = selectAllowedItem(agent, allowed)
+  if choice.count > 0 and choice.key != ItemNone:
+    let moved = min(choice.count, storage.barrelCapacity)
+    setInv(agent, choice.key, choice.count - moved)
+    setInv(storage, choice.key, moved)
+    env.updateAgentInventoryObs(agent, choice.key)
+    return true
+  false
+
 proc stationForThing(kind: ThingKind): CraftStation =
   case kind
   of Forge: StationForge
@@ -199,6 +255,10 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   of "Statue": kind = Statue
   of "WatchTower": kind = WatchTower
   of "Barrel": kind = Barrel
+  of "Mill": kind = Mill
+  of "LumberCamp": kind = LumberCamp
+  of "MiningCamp": kind = MiningCamp
+  of "Farm": kind = Farm
   of "PlantedLantern": kind = PlantedLantern
   else:
     return false
@@ -280,6 +340,10 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   case kind
   of Barrel:
     placed.barrelCapacity = BarrelCapacity
+  of Mill, LumberCamp, MiningCamp:
+    placed.barrelCapacity = BarrelCapacity
+  of Farm:
+    placed.barrelCapacity = BarrelCapacity
   of PlantedLantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
@@ -295,6 +359,21 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   else:
     discard
   env.add(placed)
+  if kind == Farm:
+    let offsets = [
+      ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
+      ivec2(-1, 0), ivec2(1, 0),
+      ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
+    ]
+    for offset in offsets:
+      let farmPos = placed.pos + offset
+      if not isValidPos(farmPos):
+        continue
+      if not env.isEmpty(farmPos) or env.hasDoor(farmPos) or isBlockedTerrain(env.terrain[farmPos.x][farmPos.y]) or isTileFrozen(farmPos, env):
+        continue
+      if env.terrain[farmPos.x][farmPos.y] == Empty:
+        env.terrain[farmPos.x][farmPos.y] = Wheat
+        env.resetTileColor(farmPos)
   case kind
   of Wall:
     env.updateObservations(WallLayer, pos, 1)
@@ -899,41 +978,20 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       agent.reward += env.config.heartReward
       used = true
   of Barrel:
-    var barrel = thing
-    if barrel.inventory.len > 0:
-      var storedKey = ItemNone
-      var storedCount = 0
-      for key, count in barrel.inventory.pairs:
-        storedKey = key
-        storedCount = count
-        break
-      if storedKey.len > 0:
-        let agentCount = getInv(agent, storedKey)
-        let barrelSpace = max(0, barrel.barrelCapacity - storedCount)
-        if agentCount > 0 and barrelSpace > 0:
-          let moved = min(agentCount, barrelSpace)
-          setInv(agent, storedKey, agentCount - moved)
-          setInv(barrel, storedKey, storedCount + moved)
-          env.updateAgentInventoryObs(agent, storedKey)
-          used = true
-        else:
-          let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
-          if capacityLeft > 0:
-            let moved = min(storedCount, capacityLeft)
-            if moved > 0:
-              setInv(agent, storedKey, agentCount + moved)
-              let remaining = storedCount - moved
-              setInv(barrel, storedKey, remaining)
-              env.updateAgentInventoryObs(agent, storedKey)
-              used = true
-    else:
-      let choice = agentMostHeldItem(agent)
-      if choice.count > 0 and choice.key != ItemNone:
-        let moved = min(choice.count, barrel.barrelCapacity)
-        setInv(agent, choice.key, choice.count - moved)
-        setInv(barrel, choice.key, moved)
-        env.updateAgentInventoryObs(agent, choice.key)
-        used = true
+    if env.useStorageBuilding(agent, thing, @[]):
+      used = true
+  of Mill:
+    if env.useStorageBuilding(agent, thing, @[ItemWheat]):
+      used = true
+  of LumberCamp:
+    if env.useStorageBuilding(agent, thing, @[ItemWood, ItemBranch]):
+      used = true
+  of MiningCamp:
+    if env.useStorageBuilding(agent, thing, @[ItemOre, ItemBoulder, ItemRough]):
+      used = true
+  of Farm:
+    if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
+      used = true
   else:
     discard
 
