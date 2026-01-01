@@ -673,6 +673,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       # Decorative ground cover only
       inc env.stats[id].actionInvalid
       return
+    of Sand, Snow, Dune:
+      # Decorative/blocked ground cover only
+      inc env.stats[id].actionInvalid
+      return
     of Fertile:
       # Nothing to harvest directly from fertile soil
       inc env.stats[id].actionInvalid
