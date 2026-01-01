@@ -91,9 +91,9 @@ const
   BiomeZoneMaxCount* = 12
   DungeonZoneMinCount* = 4
   DungeonZoneMaxCount* = 9
-  BiomeZoneMaxFraction* = 0.22
-  DungeonZoneMaxFraction* = 0.18
-  ZoneMinSize* = 12
+  BiomeZoneMaxFraction* = 0.44
+  DungeonZoneMaxFraction* = 0.36
+  ZoneMinSize* = 18
   DungeonTerrainWall* = Tree
   DungeonTerrainPath* = Road
 
