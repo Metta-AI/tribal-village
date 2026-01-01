@@ -39,6 +39,7 @@ const
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
   WatchTowerWoodCost* = 2
+  CowMilkCooldown* = 25
 
   # Gameplay
   MinTintEpsilon* = 5

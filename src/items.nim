@@ -19,6 +19,7 @@ const
   ItemLantern* = "lantern"
   ItemArmor* = "armor"
   ItemBread* = "bread"
+  ItemMilk* = "milk"
   ItemBoulder* = "boulder"
   ItemBlocks* = "blocks"
   ItemRough* = "rough"
@@ -683,12 +684,13 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "cloth", StationLoom, @[(ItemThread, 1)], @[(ItemCloth, 1)], 6)
 
   # Oven: food, drink, and milling.
+  addRecipe(recipes, "bread_milk", StationOven, @[(ItemMilk, 1), (ItemWheat, 1)], @[(ItemBread, 2)], 8)
   addRecipe(recipes, "food_plant", StationOven, @[(ItemPlantGrowth, 1)], @[(ItemFood, 1)], 6)
   addRecipe(recipes, "food_meat", StationOven, @[(ItemMeat, 1)], @[(ItemFood, 1)], 6)
   addRecipe(recipes, "fish", StationOven, @[(ItemFishRaw, 1)], @[(ItemFish, 1)], 6)
   addRecipe(recipes, "drink", StationOven, @[(ItemPlantGrowth, 1), (ItemWater, 1)], @[(ItemDrink, 1)], 6)
   addRecipe(recipes, "powder", StationOven, @[(ItemPlant, 1)], @[(ItemPowder, 1)], 6)
-  addRecipe(recipes, "cheese", StationOven, @[(ItemPlant, 1)], @[(ItemCheese, 1)], 6)
+  addRecipe(recipes, "cheese", StationOven, @[(ItemMilk, 1), (ItemWheat, 1)], @[(ItemCheese, 1)], 6)
   addRecipe(recipes, "glob", StationOven, @[(ItemMeat, 1)], @[(ItemGlob, 1)], 6)
   addRecipe(recipes, "liquid_misc", StationOven, @[(ItemWater, 1)], @[("liquid_misc", 1)], 6)
 
