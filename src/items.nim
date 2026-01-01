@@ -596,6 +596,15 @@ let
     GameStructureDef(id: "watchtower", displayName: "Watch Tower",
       buildCost: @["wood x2"],
       uses: "Outpost for builders; extends territory reach."),
+    GameStructureDef(id: "mill", displayName: "Mill",
+      buildCost: @["wood x2", "stone x1"],
+      uses: "Wheat storage and farming hub."),
+    GameStructureDef(id: "lumber_camp", displayName: "Lumber Camp",
+      buildCost: @["wood x2"],
+      uses: "Wood storage for nearby harvesting."),
+    GameStructureDef(id: "mining_camp", displayName: "Mining Camp",
+      buildCost: @["wood x2", "stone x1"],
+      uses: "Ore/stone storage for mining runs."),
     GameStructureDef(id: "bed", displayName: "Bed",
       buildCost: @["wood"], uses: "Resting furniture."),
     GameStructureDef(id: "chair", displayName: "Chair",
@@ -618,6 +627,9 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "table", StationTable, @[(ItemWood, 2)], @[(thingItem("Table"), 1)], 10)
   addRecipe(recipes, "statue", StationTable, @[(ItemBoulder, 2)], @[(thingItem("Statue"), 1)], 12)
   addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
+  addRecipe(recipes, "mill", StationTable, @[(ItemWood, 2), (ItemBoulder, 1)], @[(thingItem("Mill"), 1)], 12)
+  addRecipe(recipes, "lumber_camp", StationTable, @[(ItemWood, 2)], @[(thingItem("LumberCamp"), 1)], 10)
+  addRecipe(recipes, "mining_camp", StationTable, @[(ItemWood, 2), (ItemBoulder, 1)], @[(thingItem("MiningCamp"), 1)], 12)
   addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
   addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
   addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)

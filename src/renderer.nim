@@ -435,6 +435,21 @@ proc drawObjects*() =
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
+        of Mill, LumberCamp, MiningCamp:
+          let imageName = case thing.kind:
+            of Mill: mapSpriteKey("millstone")
+            of LumberCamp: mapSpriteKey("cabinet")
+            of MiningCamp: mapSpriteKey("smelter")
+            else: mapSpriteKey("floor")
+          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
+        of Farm:
+          bxy.drawImage(mapSpriteKey("farm"), pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
         of Bed, Chair, Table, Statue:
           let imageName = case thing.kind:
             of Bed: mapSpriteKey("bed")
@@ -535,6 +550,10 @@ proc drawAgentDecorations*() =
         of "Statue": return mapSpriteKey("statue")
         of "WatchTower": return mapSpriteKey("watchtower")
         of "Barrel": return mapSpriteKey("barrel")
+        of "Mill": return mapSpriteKey("millstone")
+        of "LumberCamp": return mapSpriteKey("cabinet")
+        of "MiningCamp": return mapSpriteKey("smelter")
+        of "Farm": return mapSpriteKey("farm")
         of "Mine": return mapSpriteKey("mine")
         of "Converter": return mapSpriteKey("converter")
         of "assembler": return mapSpriteKey("assembler")
@@ -618,6 +637,10 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Statue: "Statue"
       of WatchTower: "Watch Tower"
       of Barrel: "Barrel"
+      of Mill: "Mill"
+      of LumberCamp: "Lumber Camp"
+      of MiningCamp: "Mining Camp"
+      of Farm: "Farm"
       of PlantedLantern: "Lantern"
   elif env.hasDoor(selectedPos):
     label = "Door"
