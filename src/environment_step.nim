@@ -65,6 +65,27 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
 
+  var cowHerds: Table[int, tuple[count: int, sumX: int, sumY: int]] = initTable[int, tuple[count: int, sumX: int, sumY: int]]()
+  var cowDrift: Table[int, IVec2] = initTable[int, IVec2]()
+
+  for thing in env.things:
+    if thing.kind == Cow:
+      let herd = thing.herdId
+      let acc = cowHerds.getOrDefault(herd, (count: 0, sumX: 0, sumY: 0))
+      cowHerds[herd] = (count: acc.count + 1, sumX: acc.sumX + thing.pos.x.int, sumY: acc.sumY + thing.pos.y.int)
+
+  for herdId in cowHerds.keys:
+    if randFloat(stepRng) < 0.35:
+      let dirIdx = randIntInclusive(stepRng, 0, 3)
+      let drift = case dirIdx
+        of 0: ivec2(-1, 0)
+        of 1: ivec2(1, 0)
+        of 2: ivec2(0, -1)
+        else: ivec2(0, 1)
+      cowDrift[herdId] = drift
+    else:
+      cowDrift[herdId] = ivec2(0, 0)
+
   for thing in env.things:
     if thing.kind == assembler:
       if thing.cooldown > 0:
@@ -119,28 +140,47 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif thing.kind == Cow:
       if thing.cooldown > 0:
         thing.cooldown -= 1
-      if randFloat(stepRng) < 0.35:
-        let dirs = [ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1)]
-        let start = randIntExclusive(stepRng, 0, dirs.len)
-        for i in 0 ..< dirs.len:
-          let d = dirs[(start + i) mod dirs.len]
-          let nextPos = thing.pos + d
-          if not isValidPos(nextPos):
-            continue
-          if env.hasDoor(nextPos):
-            continue
-          if env.terrain[nextPos.x][nextPos.y] == Water:
-            continue
-          if not env.isEmpty(nextPos):
-            continue
+      let herdAcc = cowHerds.getOrDefault(thing.herdId, (count: 1, sumX: thing.pos.x.int, sumY: thing.pos.y.int))
+      let center = ivec2((herdAcc.sumX div herdAcc.count).int32, (herdAcc.sumY div herdAcc.count).int32)
+      let drift = cowDrift.getOrDefault(thing.herdId, ivec2(0, 0))
+      let herdTarget = if drift.x != 0 or drift.y != 0:
+        center + drift * 2
+      else:
+        center
+      let dist = max(abs(herdTarget.x - thing.pos.x), abs(herdTarget.y - thing.pos.y))
+
+      proc stepToward(fromPos, toPos: IVec2): IVec2 =
+        let dx = toPos.x - fromPos.x
+        let dy = toPos.y - fromPos.y
+        if dx == 0 and dy == 0:
+          return ivec2(0, 0)
+        if abs(dx) >= abs(dy):
+          return ivec2((if dx > 0: 1 else: -1), 0)
+        return ivec2(0, (if dy > 0: 1 else: -1))
+
+      var desired = ivec2(0, 0)
+      if dist > 1:
+        desired = stepToward(thing.pos, herdTarget)
+      elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.6:
+        desired = stepToward(thing.pos, herdTarget)
+      elif randFloat(stepRng) < 0.08:
+        let dirIdx = randIntInclusive(stepRng, 0, 3)
+        desired = case dirIdx
+          of 0: ivec2(-1, 0)
+          of 1: ivec2(1, 0)
+          of 2: ivec2(0, -1)
+          else: ivec2(0, 1)
+
+      if desired != ivec2(0, 0):
+        let nextPos = thing.pos + desired
+        if isValidPos(nextPos) and not env.hasDoor(nextPos) and env.terrain[nextPos.x][nextPos.y] != Water and env.isEmpty(nextPos):
           env.grid[thing.pos.x][thing.pos.y] = nil
           thing.pos = nextPos
           env.grid[nextPos.x][nextPos.y] = thing
-          if d.x < 0:
+          if desired.x < 0:
             thing.orientation = Orientation.W
-          elif d.x > 0:
+          elif desired.x > 0:
             thing.orientation = Orientation.E
-          break
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1

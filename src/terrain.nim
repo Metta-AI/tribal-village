@@ -66,12 +66,12 @@ const
   UseBiomeZones* = true
   UseDungeonZones* = true
   UseLegacyTreeClusters* = false
-  BiomeZoneDivisor* = 12000
-  DungeonZoneDivisor* = 20000
-  BiomeZoneMinCount* = 2
-  BiomeZoneMaxCount* = 6
-  DungeonZoneMinCount* = 1
-  DungeonZoneMaxCount* = 4
+  BiomeZoneDivisor* = 8000
+  DungeonZoneDivisor* = 14000
+  BiomeZoneMinCount* = 3
+  BiomeZoneMaxCount* = 8
+  DungeonZoneMinCount* = 2
+  DungeonZoneMaxCount* = 6
   BiomeZoneMaxFraction* = 0.22
   DungeonZoneMaxFraction* = 0.18
   ZoneMinSize* = 12
@@ -441,8 +441,8 @@ proc createTerrainCluster*(terrain: var TerrainGrid, centerX, centerY: int, size
               terrain[x][y] = terrainType
 
 proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  ## Generate clustered wheat fields; 4x previous count for larger maps
-  let numFields = randInclusive(r, 14, 20) * 4
+  ## Generate clustered wheat fields; boosted count for richer biomes
+  let numFields = randInclusive(r, 14, 20) * 6
 
   for i in 0 ..< numFields:
     var placed = false
@@ -475,8 +475,8 @@ proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBord
       terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
 
 proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  ## Generate tree groves; 4x previous count for larger maps
-  let numGroves = randInclusive(r, 14, 20) * 4
+  ## Generate tree groves; boosted count for richer biomes
+  let numGroves = randInclusive(r, 14, 20) * 6
 
   for i in 0 ..< numGroves:
     let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
@@ -485,7 +485,7 @@ proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Tree, 0.8, 0.4, r)
 
 proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  let clusters = max(6, mapWidth div 40)
+  let clusters = max(12, mapWidth div 30)
   for i in 0 ..< clusters:
     let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
     let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
@@ -493,7 +493,7 @@ proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBor
     terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Rock, 0.85, 0.35, r)
 
 proc generateGemVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  let clusters = max(3, mapWidth div 80)
+  let clusters = max(6, mapWidth div 60)
   for i in 0 ..< clusters:
     let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
     let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
@@ -501,7 +501,7 @@ proc generateGemVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder:
     terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gem, 0.7, 0.5, r)
 
 proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  for i in 0 ..< 12:
+  for i in 0 ..< 24:
     var attempts = 0
     var placed = false
     while attempts < 12 and not placed:
@@ -525,7 +525,7 @@ proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: i
         placed = true
 
 proc generateAnimals*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  for i in 0 ..< 10:
+  for i in 0 ..< 18:
     let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
     let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
     let size = randInclusive(r, 2, 4)
