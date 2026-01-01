@@ -516,11 +516,20 @@ proc init(env: Environment) =
         break
 
   # Cows spawn in herds (5-10) across open terrain.
+  const MinHerdSize = 5
+  const MaxHerdSize = 10
   var cowsPlaced = 0
   var herdId = 0
   while cowsPlaced < MapRoomObjectsCows:
     let remaining = MapRoomObjectsCows - cowsPlaced
-    let herdSize = min(remaining, randIntInclusive(r, 5, 10))
+    var herdSize: int
+    if remaining <= MaxHerdSize:
+      herdSize = remaining
+    else:
+      herdSize = randIntInclusive(r, MinHerdSize, MaxHerdSize)
+      let remainder = remaining - herdSize
+      if remainder > 0 and remainder < MinHerdSize:
+        herdSize -= (MinHerdSize - remainder)
     let center = r.randomEmptyPos(env)
     if env.terrain[center.x][center.y] != Empty:
       continue
