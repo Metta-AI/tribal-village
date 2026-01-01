@@ -483,8 +483,10 @@ proc render*(env: Environment): string =
         cell = "c"
       of Dune:
         cell = "d"
-      of Stalagmite:
+      of Sand:
         cell = "s"
+      of Stalagmite:
+        cell = "m"
       of Empty:
         cell = " "
       # Then override with objects if present
