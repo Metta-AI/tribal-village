@@ -607,7 +607,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         return
       inc env.stats[id].actionInvalid
       return
-    of Tree:
+    of Tree, Palm:
       if getInv(agent, ItemAxe) <= 0:
         inc env.stats[id].actionInvalid
         return
@@ -1340,7 +1340,8 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     env.resetTileColor(targetPos)
     env.add(Thing(
       kind: TreeObject,
-      pos: targetPos
+      pos: targetPos,
+      treeVariant: TreeVariantPine
     ))
   else:
     if agent.inventoryWheat <= 0:

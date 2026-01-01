@@ -67,37 +67,20 @@ proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
 
   # Ensure at least one corridor reaches the zone boundary so the dungeon
   # connects back to the rest of the map.
-  let dir = randIntInclusive(r, 0, 3)
-  case dir
-  of 0: # North
-    for y in countdown(cy, zoneY):
-      for ox in -armWidth .. armWidth:
-        let gx = cx + ox
-        if gx < zoneX or gx >= zoneX + zoneW:
-          continue
-        if gx >= 0 and gx < mapWidth and y >= 0 and y < mapHeight:
-          mask[gx][y] = true
-  of 1: # South
-    for y in cy ..< zoneY + zoneH:
-      for ox in -armWidth .. armWidth:
-        let gx = cx + ox
-        if gx < zoneX or gx >= zoneX + zoneW:
-          continue
-        if gx >= 0 and gx < mapWidth and y >= 0 and y < mapHeight:
-          mask[gx][y] = true
-  of 2: # West
-    for x in countdown(cx, zoneX):
-      for oy in -armWidth .. armWidth:
-        let gy = cy + oy
-        if gy < zoneY or gy >= zoneY + zoneH:
-          continue
-        if x >= 0 and x < mapWidth and gy >= 0 and gy < mapHeight:
-          mask[x][gy] = true
-  else: # East
-    for x in cx ..< zoneX + zoneW:
-      for oy in -armWidth .. armWidth:
-        let gy = cy + oy
-        if gy < zoneY or gy >= zoneY + zoneH:
-          continue
-        if x >= 0 and x < mapWidth and gy >= 0 and gy < mapHeight:
-          mask[x][gy] = true
+  let dirs = [(dx: 0, dy: -1), (dx: 0, dy: 1), (dx: -1, dy: 0), (dx: 1, dy: 0)]
+  let dir = dirs[randIntInclusive(r, 0, dirs.high)]
+  let maxStep =
+    if dir.dx == 1: (zoneX + zoneW - 1) - cx
+    elif dir.dx == -1: cx - zoneX
+    elif dir.dy == 1: (zoneY + zoneH - 1) - cy
+    else: cy - zoneY
+  for step in 0 .. maxStep:
+    let x = cx + dir.dx * step
+    let y = cy + dir.dy * step
+    for off in -armWidth .. armWidth:
+      let gx = x + (if dir.dy == 0: 0 else: off)
+      let gy = y + (if dir.dx == 0: 0 else: off)
+      if gx < zoneX or gx >= zoneX + zoneW or gy < zoneY or gy >= zoneY + zoneH:
+        continue
+      if gx >= 0 and gx < mapWidth and gy >= 0 and gy < mapHeight:
+        mask[gx][gy] = true

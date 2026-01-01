@@ -31,9 +31,11 @@ proc init(env: Environment) =
   # Convert terrain trees into blocking tree objects.
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
-      if env.terrain[x][y] == Tree and env.isEmpty(ivec2(x, y)):
+      let pos = ivec2(x.int32, y.int32)
+      if env.isEmpty(pos) and env.terrain[x][y] in {Tree, Palm}:
+        let variant = if env.terrain[x][y] == Palm: TreeVariantPalm else: TreeVariantPine
         env.terrain[x][y] = Empty
-        env.add(Thing(kind: TreeObject, pos: ivec2(x.int32, y.int32)))
+        env.add(Thing(kind: TreeObject, pos: ivec2(x.int32, y.int32), treeVariant: variant))
 
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
@@ -84,13 +86,21 @@ proc init(env: Environment) =
     let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
     for i in 0 ..< count:
       let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
-      # Tint the dungeon zone background.
-      for x in max(MapBorder, zone.x) ..< min(MapWidth - MapBorder, zone.x + zone.w):
-        for y in max(MapBorder, zone.y) ..< min(MapHeight - MapBorder, zone.y + zone.h):
+      # Tint the dungeon zone background with a soft edge blend.
+      let x0 = max(MapBorder, zone.x)
+      let y0 = max(MapBorder, zone.y)
+      let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
+      let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
+      for x in x0 ..< x1:
+        for y in y0 ..< y1:
           env.biomes[x][y] = BiomeDungeonType
-          let color = biomeBaseColor(BiomeDungeonType)
-          env.baseTileColors[x][y] = color
-          env.tileColors[x][y] = color
+          let edge = min(min(x - x0, x1 - 1 - x), min(y - y0, y1 - 1 - y))
+          let t = min(1.0'f32, max(0.0'f32, edge.float32 / 4.0))
+          let dungeonColor = biomeBaseColor(BiomeDungeonType)
+          let base = env.baseTileColors[x][y]
+          let blended = blendTileColor(base, dungeonColor, t)
+          env.baseTileColors[x][y] = blended
+          env.tileColors[x][y] = blended
       var mask: MaskGrid
       let dungeonKind = pickDungeon(r)
       case dungeonKind:
@@ -473,9 +483,16 @@ proc init(env: Environment) =
 
   # Mines spawn in small clusters (3-5 nodes) for higher local density.
   var minesPlaced = 0
-  while minesPlaced < MapRoomObjectsMines:
+  let clusterCount = max(1, min(MapRoomObjectsMineClusters, MapRoomObjectsMines))
+  for clusterIndex in 0 ..< clusterCount:
     let remaining = MapRoomObjectsMines - minesPlaced
-    let clusterSize = min(remaining, randIntInclusive(r, 3, 5))
+    if remaining <= 0:
+      break
+    let clustersLeft = clusterCount - clusterIndex
+    let maxCluster = min(5, remaining)
+    let minCluster = if remaining >= 3: 3 else: 1
+    let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
+    let clusterSize = max(1, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
     let center = r.randomEmptyPos(env)
 
     let mine = Thing(
