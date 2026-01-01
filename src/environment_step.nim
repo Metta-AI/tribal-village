@@ -237,7 +237,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Respawn if assembler exists and has hearts above the auto-spawn threshold
       if not isNil(assemblerThing) and assemblerThing.hearts > MapObjectassemblerAutoSpawnThreshold:
         # Deduct a heart from the assembler
-        assemblerThing.hearts -= MapObjectassemblerRespawnCost
+        assemblerThing.hearts = assemblerThing.hearts - MapObjectassemblerRespawnCost
         env.updateObservations(assemblerHeartsLayer, assemblerThing.pos, assemblerThing.hearts)
 
         # Find first empty position around assembler (no allocation)
