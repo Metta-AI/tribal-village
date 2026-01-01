@@ -1,6 +1,6 @@
 proc decideSmelter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
-  if agent.inventoryBattery > 0:
+  if agent.inventoryBar > 0:
     let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, assembler)
     if did: return act
 

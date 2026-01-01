@@ -12,6 +12,10 @@ const
 
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
+  doorSpriteKey* = "objects/wall"
+
+proc setDoorSprite*(key: string) =
+  doorSpriteKey = key
 
 template configureHeartFont(ctx: var Context) =
   ctx.font = HeartCountFontPath
@@ -212,7 +216,7 @@ proc drawDoors*() =
       let teamId = env.getDoorTeam(pos)
       let base = if teamId >= 0 and teamId < teamColors.len: teamColors[teamId] else: color(0.8, 0.8, 0.8, 1.0)
       let tint = color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
-      bxy.drawImage("objects/wall", pos.vec2, angle = 0, scale = 1/200, tint = tint)
+      bxy.drawImage(doorSpriteKey, pos.vec2, angle = 0, scale = 1/200, tint = tint)
 
 proc drawObjects*() =
   drawAttackOverlays()
@@ -429,7 +433,7 @@ proc drawAgentDecorations*() =
 
     var overlays: seq[OverlayItem] = @[]
     if agent.inventoryArmor > 0: overlays.add(OverlayItem(name: "armor", icon: "resources/armor", count: agent.inventoryArmor))
-    if agent.inventoryBattery > 0: overlays.add(OverlayItem(name: "battery", icon: "resources/battery", count: agent.inventoryBattery))
+    if agent.inventoryBar > 0: overlays.add(OverlayItem(name: "bar", icon: "resources/bar", count: agent.inventoryBar))
     if agent.inventoryBread > 0: overlays.add(OverlayItem(name: "bread", icon: "resources/bread", count: agent.inventoryBread))
     if agent.inventoryLantern > 0: overlays.add(OverlayItem(name: "lantern", icon: "objects/lantern", count: agent.inventoryLantern))
     if agent.inventoryOre > 0: overlays.add(OverlayItem(name: "ore", icon: "resources/ore", count: agent.inventoryOre))

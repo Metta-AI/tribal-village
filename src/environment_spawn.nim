@@ -225,7 +225,7 @@ proc init(env: Environment) =
             orientation: Orientation(randIntInclusive(r, 0, 3)),
             homeassembler: elements.center,  # Link agent to their home assembler
             inventoryOre: 0,
-            inventoryBattery: 0,
+            inventoryBar: 0,
             inventoryWater: 0,
             inventoryWheat: 0,
             inventoryWood: 0,
@@ -265,7 +265,7 @@ proc init(env: Environment) =
       orientation: Orientation(randIntInclusive(r, 0, 3)),
       homeassembler: ivec2(-1, -1),  # No home assembler for unaffiliated agents
       inventoryOre: 0,
-      inventoryBattery: 0,
+      inventoryBar: 0,
       inventoryWater: 0,
       inventoryWheat: 0,
       inventoryWood: 0,
@@ -450,7 +450,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     # Reward configuration (only arena_basic_easy_shaped rewards active)
     heartReward: 1.0,      # Arena: heart reward
     oreReward: 0.1,        # Arena: ore mining reward
-    batteryReward: 0.8,    # Arena: battery crafting reward
+    barReward: 0.8,        # Arena: bar smelting reward
     woodReward: 0.0,       # Disabled - not in arena
     waterReward: 0.0,      # Disabled - not in arena
     wheatReward: 0.0,      # Disabled - not in arena
@@ -475,5 +475,3 @@ proc newEnvironment*(config: EnvironmentConfig): Environment =
 
 # Initialize the global environment
 env = newEnvironment()
-
-

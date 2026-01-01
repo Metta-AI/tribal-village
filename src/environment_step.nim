@@ -246,7 +246,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # Respawn the agent
           agent.pos = respawnPos
           agent.inventoryOre = 0
-          agent.inventoryBattery = 0
+          agent.inventoryBar = 0
           agent.inventoryWater = 0
           agent.inventoryWheat = 0
           agent.inventoryWood = 0
@@ -314,4 +314,3 @@ proc reset*(env: Environment) =
   # Clear UI selection to prevent stale references
   selection = nil
   env.init()  # init() handles terrain, activeTiles, and tile colors
-

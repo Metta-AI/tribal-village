@@ -1,7 +1,7 @@
 proc decideHearter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
-  # Handle ore → battery → assembler workflow
-  if agent.inventoryBattery > 0:
+  # Handle ore → bar → assembler workflow
+  if agent.inventoryBar > 0:
     for thing in env.things:
       if thing.kind == assembler and thing.pos == agent.homeassembler:
         let dx = abs(thing.pos.x - agent.pos.x)
