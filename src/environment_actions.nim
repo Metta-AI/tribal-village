@@ -77,6 +77,13 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
     return true
   false
 
+proc dropStump(env: Environment, pos: IVec2, woodCount: int) =
+  let stump = Thing(kind: Stump, pos: pos)
+  stump.inventory = emptyInventory()
+  if woodCount > 0:
+    setInv(stump, ItemWood, woodCount)
+  env.add(stump)
+
 proc stationForThing(kind: ThingKind): CraftStation =
   case kind
   of Forge: StationForge
@@ -265,7 +272,7 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject, Cow, assembler}:
+  if thing.kind in {Agent, Tumor, TreeObject, Cow, assembler, Stump}:
     return false
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)
@@ -828,7 +835,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   case thing.kind:
   of TreeObject:
     let hasAxe = getInv(agent, ItemAxe) > 0
-    if agent.inventoryWood < MapObjectAgentMaxInventory:
+    if hasAxe and thing.treeVariant == TreeVariantPine:
+      removeThing(env, thing)
+      env.dropStump(thing.pos, 5)
+      used = true
+    elif agent.inventoryWood < MapObjectAgentMaxInventory:
       let baseGain =
         if hasAxe:
           if thing.treeVariant == TreeVariantPine: 5 else: 2
@@ -848,6 +859,19 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     else:
       inc env.stats[id].actionInvalid
       return
+  of Stump:
+    let stored = getInv(thing, ItemWood)
+    if stored > 0:
+      let capacity = MapObjectAgentMaxInventory - getInv(agent, ItemWood)
+      if capacity > 0:
+        let moved = min(stored, capacity)
+        setInv(agent, ItemWood, getInv(agent, ItemWood) + moved)
+        setInv(thing, ItemWood, stored - moved)
+        env.updateAgentInventoryObs(agent, ItemWood)
+        agent.reward += env.config.woodReward
+        if getInv(thing, ItemWood) == 0:
+          removeThing(env, thing)
+        used = true
   of Mine:
     if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
       agent.inventoryOre = agent.inventoryOre + 1
