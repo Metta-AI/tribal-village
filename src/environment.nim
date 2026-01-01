@@ -82,7 +82,7 @@ type
     AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Tumor
     AgentOrientationLayer = 1
     AgentInventoryOreLayer = 2
-    AgentInventoryBatteryLayer = 3
+    AgentInventoryBarLayer = 3
     AgentInventoryWaterLayer = 4
     AgentInventoryWheatLayer = 5
     AgentInventoryWoodLayer = 6
@@ -461,7 +461,7 @@ proc rebuildObservations*(env: Environment) =
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
     env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
-    env.updateObservations(AgentInventoryBatteryLayer, agent.pos, getInv(agent, ItemBattery))
+    env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, ItemBar))
     env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, ItemWater))
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, getInv(agent, ItemWheat))
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, getInv(agent, ItemWood))
@@ -564,8 +564,8 @@ proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   if key == ItemOre:
     env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, key))
-  elif key == ItemBattery:
-    env.updateObservations(AgentInventoryBatteryLayer, agent.pos, getInv(agent, key))
+  elif key == ItemBar:
+    env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, key))
   elif key == ItemWater:
     env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, key))
   elif key == ItemWheat:
@@ -587,6 +587,72 @@ proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
   for key, count in agent.inventory.pairs:
     if count > result.count:
       result = (key: key, count: count)
+
+proc hearts*(thing: Thing): int =
+  getInv(thing, ItemHearts)
+
+proc `hearts=`*(thing: Thing, value: int) =
+  setInv(thing, ItemHearts, value)
+
+proc resources*(thing: Thing): int =
+  getInv(thing, ItemOre)
+
+proc `resources=`*(thing: Thing, value: int) =
+  setInv(thing, ItemOre, value)
+
+proc inventoryOre*(agent: Thing): int =
+  getInv(agent, ItemOre)
+
+proc `inventoryOre=`*(agent: Thing, value: int) =
+  setInv(agent, ItemOre, value)
+
+proc inventoryBar*(agent: Thing): int =
+  getInv(agent, ItemBar)
+
+proc `inventoryBar=`*(agent: Thing, value: int) =
+  setInv(agent, ItemBar, value)
+
+proc inventoryWater*(agent: Thing): int =
+  getInv(agent, ItemWater)
+
+proc `inventoryWater=`*(agent: Thing, value: int) =
+  setInv(agent, ItemWater, value)
+
+proc inventoryWheat*(agent: Thing): int =
+  getInv(agent, ItemWheat)
+
+proc `inventoryWheat=`*(agent: Thing, value: int) =
+  setInv(agent, ItemWheat, value)
+
+proc inventoryWood*(agent: Thing): int =
+  getInv(agent, ItemWood)
+
+proc `inventoryWood=`*(agent: Thing, value: int) =
+  setInv(agent, ItemWood, value)
+
+proc inventorySpear*(agent: Thing): int =
+  getInv(agent, ItemSpear)
+
+proc `inventorySpear=`*(agent: Thing, value: int) =
+  setInv(agent, ItemSpear, value)
+
+proc inventoryLantern*(agent: Thing): int =
+  getInv(agent, ItemLantern)
+
+proc `inventoryLantern=`*(agent: Thing, value: int) =
+  setInv(agent, ItemLantern, value)
+
+proc inventoryArmor*(agent: Thing): int =
+  getInv(agent, ItemArmor)
+
+proc `inventoryArmor=`*(agent: Thing, value: int) =
+  setInv(agent, ItemArmor, value)
+
+proc inventoryBread*(agent: Thing): int =
+  getInv(agent, ItemBread)
+
+proc `inventoryBread=`*(agent: Thing, value: int) =
+  setInv(agent, ItemBread, value)
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   ## Create a new Tumor seed that can branch once before turning inert
   Thing(

@@ -121,6 +121,101 @@ proc transferAgentInventory(env: Environment, killer, victim: Thing) =
   moveAll(inventoryArmor, AgentInventoryArmorLayer)
   moveAll(inventoryBread, AgentInventoryBreadLayer)
 
+proc thingKey(kind: ThingKind): ItemKey =
+  ItemThingPrefix & $kind
+
+proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
+  if not key.startsWith(ItemThingPrefix):
+    return false
+  let name = key[ItemThingPrefix.len .. ^1]
+  case name
+  of "Wall": kind = Wall
+  of "Mine": kind = Mine
+  of "Converter": kind = Converter
+  of "assembler": kind = assembler
+  of "Spawner": kind = Spawner
+  of "Armory": kind = Armory
+  of "Forge": kind = Forge
+  of "ClayOven": kind = ClayOven
+  of "WeavingLoom": kind = WeavingLoom
+  of "Bed": kind = Bed
+  of "Chair": kind = Chair
+  of "Table": kind = Table
+  of "Statue": kind = Statue
+  of "WatchTower": kind = WatchTower
+  of "Barrel": kind = Barrel
+  of "PlantedLantern": kind = PlantedLantern
+  else:
+    return false
+  true
+
+proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
+  if thing.kind in {Agent, Tumor}:
+    return false
+  let key = thingKey(thing.kind)
+  let current = getInv(agent, key)
+  if current >= MapObjectAgentMaxInventory:
+    return false
+  for itemKey, count in thing.inventory.pairs:
+    let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
+    if capacity < count:
+      return false
+  for itemKey, count in thing.inventory.pairs:
+    setInv(agent, itemKey, getInv(agent, itemKey) + count)
+    env.updateAgentInventoryObs(agent, itemKey)
+  setInv(agent, key, current + 1)
+  env.updateAgentInventoryObs(agent, key)
+  if isValidPos(thing.pos):
+    env.grid[thing.pos.x][thing.pos.y] = nil
+  let idx = env.things.find(thing)
+  if idx >= 0:
+    env.things.del(idx)
+  if thing.kind == assembler and assemblerColors.hasKey(thing.pos):
+    assemblerColors.del(thing.pos)
+  true
+
+proc firstThingItem(agent: Thing): ItemKey =
+  var keys: seq[ItemKey] = @[]
+  for key, count in agent.inventory.pairs:
+    if count > 0 and key.startsWith(ItemThingPrefix):
+      keys.add(key)
+  if keys.len == 0:
+    return ItemNone
+  keys.sort()
+  keys[0]
+
+proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
+  var kind: ThingKind
+  if not parseThingKey(key, kind):
+    return false
+  let placed = Thing(
+    kind: kind,
+    pos: pos
+  )
+  case kind
+  of Barrel:
+    placed.barrelCapacity = BarrelCapacity
+  of PlantedLantern:
+    placed.teamId = getTeamId(agent.agentId)
+    placed.lanternHealthy = true
+  of assembler:
+    placed.teamId = getTeamId(agent.agentId)
+    placed.inventory = emptyInventory()
+    placed.hearts = 0
+  of Spawner:
+    placed.homeSpawner = pos
+  of Mine:
+    placed.inventory = emptyInventory()
+    placed.resources = MapObjectMineInitialResources
+  else:
+    discard
+  env.add(placed)
+  if kind == assembler:
+    let teamId = placed.teamId
+    if teamId >= 0 and teamId < teamColors.len:
+      assemblerColors[pos] = teamColors[teamId]
+  true
+
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
   if victim.frozen >= 999999:
@@ -456,8 +551,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.add(Thing(
           kind: Barrel,
           pos: targetPos,
-          barrelKind: ItemNone,
-          barrelCount: 0,
           barrelCapacity: BarrelCapacity
         ))
         inc env.stats[id].actionUse
@@ -580,41 +673,47 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionInvalid
   of Barrel:
     var barrel = thing
-    if barrel.barrelCount > 0 and barrel.barrelKind != ItemNone:
-      let kind = barrel.barrelKind
-      let agentCount = agentItemCount(agent, kind)
-      let barrelSpace = max(0, barrel.barrelCapacity - barrel.barrelCount)
+    if barrel.inventory.len > 0:
+      var storedKey = ItemNone
+      var storedCount = 0
+      for key, count in barrel.inventory.pairs:
+        storedKey = key
+        storedCount = count
+        break
+      if storedKey.len == 0:
+        inc env.stats[id].actionInvalid
+        return
+      let agentCount = getInv(agent, storedKey)
+      let barrelSpace = max(0, barrel.barrelCapacity - storedCount)
       if agentCount > 0 and barrelSpace > 0:
         let moved = min(agentCount, barrelSpace)
-        setAgentItem(agent, kind, agentCount - moved)
-        barrel.barrelCount += moved
-        env.updateAgentInventoryObs(agent, kind)
+        setInv(agent, storedKey, agentCount - moved)
+        setInv(barrel, storedKey, storedCount + moved)
+        env.updateAgentInventoryObs(agent, storedKey)
         inc env.stats[id].actionUse
       else:
         let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
         if capacityLeft <= 0:
           inc env.stats[id].actionInvalid
           return
-        let moved = min(barrel.barrelCount, capacityLeft)
+        let moved = min(storedCount, capacityLeft)
         if moved <= 0:
           inc env.stats[id].actionInvalid
           return
-        setAgentItem(agent, kind, agentCount + moved)
-        barrel.barrelCount -= moved
-        if barrel.barrelCount == 0:
-          barrel.barrelKind = ItemNone
-        env.updateAgentInventoryObs(agent, kind)
+        setInv(agent, storedKey, agentCount + moved)
+        let remaining = storedCount - moved
+        setInv(barrel, storedKey, remaining)
+        env.updateAgentInventoryObs(agent, storedKey)
         inc env.stats[id].actionUse
     else:
       let choice = agentMostHeldItem(agent)
-      if choice.count <= 0 or choice.kind == ItemNone:
+      if choice.count <= 0 or choice.key == ItemNone:
         inc env.stats[id].actionInvalid
         return
       let moved = min(choice.count, barrel.barrelCapacity)
-      setAgentItem(agent, choice.kind, choice.count - moved)
-      barrel.barrelKind = choice.kind
-      barrel.barrelCount = moved
-      env.updateAgentInventoryObs(agent, choice.kind)
+      setInv(agent, choice.key, choice.count - moved)
+      setInv(barrel, choice.key, moved)
+      env.updateAgentInventoryObs(agent, choice.key)
       inc env.stats[id].actionUse
   else:
     inc env.stats[id].actionInvalid
@@ -908,6 +1007,8 @@ proc applyTintModifications(env: Environment) =
           env.tileColors[x][y].intensity = env.tileColors[x][y].intensity * decay + baseIntensity * (1.0 - decay)
 
 proc add(env: Environment, thing: Thing) =
+  if thing.inventory.len == 0:
+    thing.inventory = emptyInventory()
   env.things.add(thing)
   if thing.kind == Agent:
     env.agents.add(thing)

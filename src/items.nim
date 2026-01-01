@@ -10,7 +10,7 @@ type
 const
   ItemNone* = ""
   ItemOre* = "ore"
-  ItemBattery* = "battery"
+  ItemBar* = "bar"
   ItemWater* = "water"
   ItemWheat* = "wheat"
   ItemWood* = "wood"
@@ -23,7 +23,7 @@ const
 
   ObservedItemKeys* = [
     ItemOre,
-    ItemBattery,
+    ItemBar,
     ItemWater,
     ItemWheat,
     ItemWood,
@@ -37,19 +37,6 @@ proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
 
 type
-  ItemKind* = enum
-    ItemNone
-    Ore
-    Bar
-    Water
-    Wheat
-    Wood
-    Spear
-    Lantern
-    Armor
-    Bread
-    Hearts
-
   ItemCategory* = enum
     Ammo
     AnimalCaged
