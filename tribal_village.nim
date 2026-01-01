@@ -1,6 +1,6 @@
 import std/[os, strutils, math],
   boxy, windy, vmath,
-  src/environment, src/common, src/renderer, src/external_actions, src/df_tileset
+  src/environment, src/common, src/renderer, src/external_actions, src/df_tileset, src/assets
 
 when not defined(emscripten):
   import opengl
@@ -276,8 +276,6 @@ proc display() =
 
 # Build any missing DF tileset sprites before loading assets.
 generateDfViewAssets()
-if fileExists("data/objects/door.png"):
-  setDoorSprite("objects/door")
 
 # Build the atlas with progress feedback and error handling.
 echo "🎨 Loading tribal assets..."
@@ -295,9 +293,13 @@ for path in walkDirRec("data/"):
     inc loadedCount
 
     try:
-      bxy.addImage(path.replace("data/", "").replace(".png", ""), readImage(path))
+      let key = path.replace("data/", "").replace(".png", "")
+      bxy.addImage(key, readImage(path))
+      rememberAssetKey(key)
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
+
+setDoorSprite(mapSpriteKey("door"))
 
 # Check for command line arguments to determine controller type
 var useExternalController = false
