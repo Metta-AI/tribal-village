@@ -23,9 +23,9 @@ type
 
     pos*: Vec2
     vel*: Vec2
-    zoom*: float32 = 2.0      # preferred default zoom
+    zoom*: float32 = 1.25     # preferred default zoom (start further out)
     zoomVel*: float32
-    minZoom*: float32 = 2.0   # enforce same min as default
+    minZoom*: float32 = 1.0   # allow further zoom-out
     maxZoom*: float32 = 8.0   # reduce maximum zoom-out
     hasMouse*: bool = false
     visible*: bool = true
@@ -66,7 +66,7 @@ var
   settings* = Settings()
 
   play*: bool = true
-  playSpeed*: float32 = 0.25    # quadruple baseline speed
+  playSpeed*: float32 = 0.0625  # faster default playback
   lastSimTime*: float64 = nowSeconds()
 
 const
