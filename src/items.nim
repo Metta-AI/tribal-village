@@ -152,6 +152,13 @@ type
     outputs*: seq[ItemAmount]
     cooldown*: int
 
+proc addRecipe*(recipes: var seq[CraftRecipe], id: string, station: CraftStation,
+                inputs, outputs: seq[ItemAmount], cooldown: int = 8) =
+  recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: cooldown))
+
+proc thingItem*(name: string): ItemKey =
+  ItemThingPrefix & name
+
 const
   ## One example per stockpile category (DF-inspired).
   ExampleItems*: seq[ItemDef] = @[
@@ -598,108 +605,106 @@ let
   ]
 
 proc initCraftRecipes*(): seq[CraftRecipe] =
-  result = @[]
-  proc addRecipe(id: string, station: CraftStation, inputs, outputs: seq[ItemAmount], cooldown: int = 8) =
-    result.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: cooldown))
-  proc thingItem(name: string): ItemKey =
-    ItemThingPrefix & name
+  var recipes: seq[CraftRecipe] = @[]
 
   # Table/workbench: wood, stone, and gem crafts.
-  addRecipe("blocks", StationTable, @[(ItemBoulder, 1)], @[(ItemBlocks, 1)], 6)
-  addRecipe("door_wood", StationTable, @[(ItemWood, 1)], @[("door", 1)], 6)
-  addRecipe("floodgate", StationTable, @[(ItemBlocks, 1)], @[("floodgate", 1)], 6)
-  addRecipe("bed", StationTable, @[(ItemWood, 2)], @[(thingItem("Bed"), 1)], 10)
-  addRecipe("chair", StationTable, @[(ItemWood, 1)], @[(thingItem("Chair"), 1)], 8)
-  addRecipe("table", StationTable, @[(ItemWood, 2)], @[(thingItem("Table"), 1)], 10)
-  addRecipe("statue", StationTable, @[(ItemBoulder, 2)], @[(thingItem("Statue"), 1)], 12)
-  addRecipe("barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
-  addRecipe("bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
-  addRecipe("box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
-  addRecipe("bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)
-  addRecipe("cabinet", StationTable, @[(ItemWood, 2)], @[("cabinet", 1)], 8)
-  addRecipe("toy", StationTable, @[(ItemWood, 1)], @[("toy", 1)], 5)
-  addRecipe("instrument", StationTable, @[(ItemWood, 1)], @[("instrument", 1)], 6)
-  addRecipe("cage", StationTable, @[(ItemWood, 2)], @[("cage", 1)], 8)
-  addRecipe("animaltrap", StationTable, @[(ItemWood, 1)], @[("animaltrap", 1)], 6)
-  addRecipe("armorstand_wood", StationTable, @[(ItemWood, 2)], @[("armorstand", 1)], 8)
-  addRecipe("weaponrack_wood", StationTable, @[(ItemWood, 2)], @[("weaponrack", 1)], 8)
-  addRecipe("coffin", StationTable, @[(ItemBoulder, 2)], @[("coffin", 1)], 10)
-  addRecipe("hatch_cover", StationTable, @[(ItemBoulder, 1)], @[("hatch_cover", 1)], 6)
-  addRecipe("grate_stone", StationTable, @[(ItemBoulder, 1)], @[("grate", 1)], 6)
-  addRecipe("quern", StationTable, @[(ItemBoulder, 1)], @[("quern", 1)], 6)
-  addRecipe("millstone", StationTable, @[(ItemBoulder, 2)], @[("millstone", 1)], 8)
-  addRecipe("slab", StationTable, @[(ItemBoulder, 1)], @[("slab", 1)], 6)
-  addRecipe("rock", StationTable, @[(ItemBoulder, 1)], @[(ItemRock, 1)], 4)
-  addRecipe("smallgem", StationTable, @[(ItemRough, 1)], @[(ItemSmallGem, 1)], 6)
-  addRecipe("gem", StationTable, @[(ItemSmallGem, 1)], @[(ItemGem, 1)], 6)
-  addRecipe("figurine", StationTable, @[(ItemBoulder, 1)], @[("figurine", 1)], 6)
-  addRecipe("window", StationTable, @[(ItemPowder, 1)], @[("window", 1)], 6)
-  addRecipe("tool_wood", StationTable, @[(ItemWood, 1)], @[("tool", 1)], 6)
-  addRecipe("catapultparts", StationTable, @[(ItemWood, 2), (ItemBar, 1)], @[("catapultparts", 1)], 10)
-  addRecipe("ballistaparts", StationTable, @[(ItemWood, 2), (ItemBar, 1)], @[("ballistaparts", 1)], 10)
-  addRecipe("siegeammo", StationTable, @[(ItemWood, 1), (ItemBar, 1)], @[("siegeammo", 1)], 8)
+  addRecipe(recipes, "blocks", StationTable, @[(ItemBoulder, 1)], @[(ItemBlocks, 1)], 6)
+  addRecipe(recipes, "door_wood", StationTable, @[(ItemWood, 1)], @[("door", 1)], 6)
+  addRecipe(recipes, "floodgate", StationTable, @[(ItemBlocks, 1)], @[("floodgate", 1)], 6)
+  addRecipe(recipes, "bed", StationTable, @[(ItemWood, 2)], @[(thingItem("Bed"), 1)], 10)
+  addRecipe(recipes, "chair", StationTable, @[(ItemWood, 1)], @[(thingItem("Chair"), 1)], 8)
+  addRecipe(recipes, "table", StationTable, @[(ItemWood, 2)], @[(thingItem("Table"), 1)], 10)
+  addRecipe(recipes, "statue", StationTable, @[(ItemBoulder, 2)], @[(thingItem("Statue"), 1)], 12)
+  addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
+  addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
+  addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
+  addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)
+  addRecipe(recipes, "cabinet", StationTable, @[(ItemWood, 2)], @[("cabinet", 1)], 8)
+  addRecipe(recipes, "toy", StationTable, @[(ItemWood, 1)], @[("toy", 1)], 5)
+  addRecipe(recipes, "instrument", StationTable, @[(ItemWood, 1)], @[("instrument", 1)], 6)
+  addRecipe(recipes, "cage", StationTable, @[(ItemWood, 2)], @[("cage", 1)], 8)
+  addRecipe(recipes, "animaltrap", StationTable, @[(ItemWood, 1)], @[("animaltrap", 1)], 6)
+  addRecipe(recipes, "armorstand_wood", StationTable, @[(ItemWood, 2)], @[("armorstand", 1)], 8)
+  addRecipe(recipes, "weaponrack_wood", StationTable, @[(ItemWood, 2)], @[("weaponrack", 1)], 8)
+  addRecipe(recipes, "coffin", StationTable, @[(ItemBoulder, 2)], @[("coffin", 1)], 10)
+  addRecipe(recipes, "hatch_cover", StationTable, @[(ItemBoulder, 1)], @[("hatch_cover", 1)], 6)
+  addRecipe(recipes, "grate_stone", StationTable, @[(ItemBoulder, 1)], @[("grate", 1)], 6)
+  addRecipe(recipes, "quern", StationTable, @[(ItemBoulder, 1)], @[("quern", 1)], 6)
+  addRecipe(recipes, "millstone", StationTable, @[(ItemBoulder, 2)], @[("millstone", 1)], 8)
+  addRecipe(recipes, "slab", StationTable, @[(ItemBoulder, 1)], @[("slab", 1)], 6)
+  addRecipe(recipes, "rock", StationTable, @[(ItemBoulder, 1)], @[(ItemRock, 1)], 4)
+  addRecipe(recipes, "smallgem", StationTable, @[(ItemRough, 1)], @[(ItemSmallGem, 1)], 6)
+  addRecipe(recipes, "gem", StationTable, @[(ItemSmallGem, 1)], @[(ItemGem, 1)], 6)
+  addRecipe(recipes, "figurine", StationTable, @[(ItemBoulder, 1)], @[("figurine", 1)], 6)
+  addRecipe(recipes, "window", StationTable, @[(ItemPowder, 1)], @[("window", 1)], 6)
+  addRecipe(recipes, "tool_wood", StationTable, @[(ItemWood, 1)], @[("tool", 1)], 6)
+  addRecipe(recipes, "catapultparts", StationTable, @[(ItemWood, 2), (ItemBar, 1)], @[("catapultparts", 1)], 10)
+  addRecipe(recipes, "ballistaparts", StationTable, @[(ItemWood, 2), (ItemBar, 1)], @[("ballistaparts", 1)], 10)
+  addRecipe(recipes, "siegeammo", StationTable, @[(ItemWood, 1), (ItemBar, 1)], @[("siegeammo", 1)], 8)
 
   # Forge: metalworking and mechanisms.
-  addRecipe("weapon", StationForge, @[(ItemBar, 1)], @[("weapon", 1)], 8)
-  addRecipe("armor_metal", StationForge, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
-  addRecipe("helm", StationForge, @[(ItemBar, 1)], @[("helm", 1)], 8)
-  addRecipe("shield_metal", StationForge, @[(ItemBar, 1)], @[("shield", 1)], 8)
-  addRecipe("chain", StationForge, @[(ItemBar, 1)], @[("chain", 1)], 6)
-  addRecipe("anvil", StationForge, @[(ItemBar, 2)], @[("anvil", 1)], 10)
-  addRecipe("ammo", StationForge, @[(ItemBar, 1)], @[("ammo", 1)], 6)
-  addRecipe("ballistaarrowhead", StationForge, @[(ItemBar, 1)], @[("ballistaarrowhead", 1)], 6)
-  addRecipe("trapparts", StationForge, @[(ItemBar, 1)], @[("trapparts", 1)], 6)
-  addRecipe("trapcomp", StationForge, @[(ItemBar, 1)], @[("trapcomp", 1)], 6)
-  addRecipe("pipe_section", StationForge, @[(ItemBar, 1)], @[("pipe_section", 1)], 6)
-  addRecipe("coin", StationForge, @[(ItemBar, 1)], @[("coin", 1)], 6)
-  addRecipe("goblet", StationForge, @[(ItemBar, 1)], @[("goblet", 1)], 6)
-  addRecipe("flask", StationForge, @[(ItemBar, 1)], @[("flask", 1)], 6)
-  addRecipe("scepter", StationForge, @[(ItemBar, 1)], @[("scepter", 1)], 8)
-  addRecipe("crown", StationForge, @[(ItemBar, 1)], @[("crown", 1)], 8)
-  addRecipe("ring", StationForge, @[(ItemBar, 1)], @[("ring", 1)], 6)
-  addRecipe("earring", StationForge, @[(ItemBar, 1)], @[("earring", 1)], 6)
-  addRecipe("bracelet", StationForge, @[(ItemBar, 1)], @[("bracelet", 1)], 6)
-  addRecipe("amulet", StationForge, @[(ItemBar, 1), (ItemGem, 1)], @[("amulet", 1)], 8)
-  addRecipe("armorstand_metal", StationForge, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
-  addRecipe("weaponrack_metal", StationForge, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
-  addRecipe("tool_metal", StationForge, @[(ItemBar, 1)], @[("tool", 1)], 6)
+  addRecipe(recipes, "weapon", StationForge, @[(ItemBar, 1)], @[("weapon", 1)], 8)
+  addRecipe(recipes, "armor_metal", StationForge, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
+  addRecipe(recipes, "helm", StationForge, @[(ItemBar, 1)], @[("helm", 1)], 8)
+  addRecipe(recipes, "shield_metal", StationForge, @[(ItemBar, 1)], @[("shield", 1)], 8)
+  addRecipe(recipes, "chain", StationForge, @[(ItemBar, 1)], @[("chain", 1)], 6)
+  addRecipe(recipes, "anvil", StationForge, @[(ItemBar, 2)], @[("anvil", 1)], 10)
+  addRecipe(recipes, "ammo", StationForge, @[(ItemBar, 1)], @[("ammo", 1)], 6)
+  addRecipe(recipes, "ballistaarrowhead", StationForge, @[(ItemBar, 1)], @[("ballistaarrowhead", 1)], 6)
+  addRecipe(recipes, "trapparts", StationForge, @[(ItemBar, 1)], @[("trapparts", 1)], 6)
+  addRecipe(recipes, "trapcomp", StationForge, @[(ItemBar, 1)], @[("trapcomp", 1)], 6)
+  addRecipe(recipes, "pipe_section", StationForge, @[(ItemBar, 1)], @[("pipe_section", 1)], 6)
+  addRecipe(recipes, "coin", StationForge, @[(ItemBar, 1)], @[("coin", 1)], 6)
+  addRecipe(recipes, "goblet", StationForge, @[(ItemBar, 1)], @[("goblet", 1)], 6)
+  addRecipe(recipes, "flask", StationForge, @[(ItemBar, 1)], @[("flask", 1)], 6)
+  addRecipe(recipes, "scepter", StationForge, @[(ItemBar, 1)], @[("scepter", 1)], 8)
+  addRecipe(recipes, "crown", StationForge, @[(ItemBar, 1)], @[("crown", 1)], 8)
+  addRecipe(recipes, "ring", StationForge, @[(ItemBar, 1)], @[("ring", 1)], 6)
+  addRecipe(recipes, "earring", StationForge, @[(ItemBar, 1)], @[("earring", 1)], 6)
+  addRecipe(recipes, "bracelet", StationForge, @[(ItemBar, 1)], @[("bracelet", 1)], 6)
+  addRecipe(recipes, "amulet", StationForge, @[(ItemBar, 1), (ItemGem, 1)], @[("amulet", 1)], 8)
+  addRecipe(recipes, "armorstand_metal", StationForge, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
+  addRecipe(recipes, "weaponrack_metal", StationForge, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
+  addRecipe(recipes, "tool_metal", StationForge, @[(ItemBar, 1)], @[("tool", 1)], 6)
 
   # Armory: leather/cloth gear.
-  addRecipe("armor_leather", StationArmory, @[(ItemSkinTanned, 1)], @[(ItemArmor, 1)], 8)
-  addRecipe("shoes", StationArmory, @[(ItemSkinTanned, 1)], @[("shoes", 1)], 6)
-  addRecipe("gloves", StationArmory, @[(ItemSkinTanned, 1)], @[("gloves", 1)], 6)
-  addRecipe("pants", StationArmory, @[(ItemCloth, 1)], @[("pants", 1)], 6)
-  addRecipe("backpack", StationArmory, @[(ItemCloth, 1)], @[("backpack", 1)], 6)
-  addRecipe("quiver", StationArmory, @[(ItemSkinTanned, 1)], @[("quiver", 1)], 6)
-  addRecipe("shield_wood", StationArmory, @[(ItemWood, 1)], @[("shield", 1)], 6)
+  addRecipe(recipes, "armor_leather", StationArmory, @[(ItemSkinTanned, 1)], @[(ItemArmor, 1)], 8)
+  addRecipe(recipes, "shoes", StationArmory, @[(ItemSkinTanned, 1)], @[("shoes", 1)], 6)
+  addRecipe(recipes, "gloves", StationArmory, @[(ItemSkinTanned, 1)], @[("gloves", 1)], 6)
+  addRecipe(recipes, "pants", StationArmory, @[(ItemCloth, 1)], @[("pants", 1)], 6)
+  addRecipe(recipes, "backpack", StationArmory, @[(ItemCloth, 1)], @[("backpack", 1)], 6)
+  addRecipe(recipes, "quiver", StationArmory, @[(ItemSkinTanned, 1)], @[("quiver", 1)], 6)
+  addRecipe(recipes, "shield_wood", StationArmory, @[(ItemWood, 1)], @[("shield", 1)], 6)
 
   # Loom: fiber processing.
-  addRecipe("thread", StationLoom, @[(ItemPlant, 1)], @[(ItemThread, 1)], 6)
-  addRecipe("cloth", StationLoom, @[(ItemThread, 1)], @[(ItemCloth, 1)], 6)
+  addRecipe(recipes, "thread", StationLoom, @[(ItemPlant, 1)], @[(ItemThread, 1)], 6)
+  addRecipe(recipes, "cloth", StationLoom, @[(ItemThread, 1)], @[(ItemCloth, 1)], 6)
 
   # Oven: food, drink, and milling.
-  addRecipe("food_plant", StationOven, @[(ItemPlantGrowth, 1)], @[(ItemFood, 1)], 6)
-  addRecipe("food_meat", StationOven, @[(ItemMeat, 1)], @[(ItemFood, 1)], 6)
-  addRecipe("fish", StationOven, @[(ItemFishRaw, 1)], @[(ItemFish, 1)], 6)
-  addRecipe("drink", StationOven, @[(ItemPlantGrowth, 1), (ItemWater, 1)], @[(ItemDrink, 1)], 6)
-  addRecipe("powder", StationOven, @[(ItemPlant, 1)], @[(ItemPowder, 1)], 6)
-  addRecipe("cheese", StationOven, @[(ItemPlant, 1)], @[(ItemCheese, 1)], 6)
-  addRecipe("glob", StationOven, @[(ItemMeat, 1)], @[(ItemGlob, 1)], 6)
-  addRecipe("liquid_misc", StationOven, @[(ItemWater, 1)], @[("liquid_misc", 1)], 6)
+  addRecipe(recipes, "food_plant", StationOven, @[(ItemPlantGrowth, 1)], @[(ItemFood, 1)], 6)
+  addRecipe(recipes, "food_meat", StationOven, @[(ItemMeat, 1)], @[(ItemFood, 1)], 6)
+  addRecipe(recipes, "fish", StationOven, @[(ItemFishRaw, 1)], @[(ItemFish, 1)], 6)
+  addRecipe(recipes, "drink", StationOven, @[(ItemPlantGrowth, 1), (ItemWater, 1)], @[(ItemDrink, 1)], 6)
+  addRecipe(recipes, "powder", StationOven, @[(ItemPlant, 1)], @[(ItemPowder, 1)], 6)
+  addRecipe(recipes, "cheese", StationOven, @[(ItemPlant, 1)], @[(ItemCheese, 1)], 6)
+  addRecipe(recipes, "glob", StationOven, @[(ItemMeat, 1)], @[(ItemGlob, 1)], 6)
+  addRecipe(recipes, "liquid_misc", StationOven, @[(ItemWater, 1)], @[("liquid_misc", 1)], 6)
 
   # Chair: writing and records.
-  addRecipe("sheet", StationChair, @[(ItemPlant, 1)], @[(ItemSheet, 1)], 6)
-  addRecipe("book", StationChair, @[(ItemSheet, 1)], @[(ItemBook, 1)], 8)
+  addRecipe(recipes, "sheet", StationChair, @[(ItemPlant, 1)], @[(ItemSheet, 1)], 6)
+  addRecipe(recipes, "book", StationChair, @[(ItemSheet, 1)], @[(ItemBook, 1)], 8)
 
   # Bed: medical support.
-  addRecipe("splint", StationBed, @[(ItemWood, 1)], @[("splint", 1)], 6)
-  addRecipe("crutch", StationBed, @[(ItemWood, 1)], @[("crutch", 1)], 6)
-  addRecipe("orthopedic_cast", StationBed, @[(ItemCloth, 1)], @[("orthopedic_cast", 1)], 6)
-  addRecipe("traction_bench", StationBed, @[(ItemWood, 1), (ItemBar, 1)], @[("traction_bench", 1)], 8)
+  addRecipe(recipes, "splint", StationBed, @[(ItemWood, 1)], @[("splint", 1)], 6)
+  addRecipe(recipes, "crutch", StationBed, @[(ItemWood, 1)], @[("crutch", 1)], 6)
+  addRecipe(recipes, "orthopedic_cast", StationBed, @[(ItemCloth, 1)], @[("orthopedic_cast", 1)], 6)
+  addRecipe(recipes, "traction_bench", StationBed, @[(ItemWood, 1), (ItemBar, 1)], @[("traction_bench", 1)], 8)
 
   # Statue: memorial crafts.
-  addRecipe("totem", StationStatue, @[(ItemRemains, 1)], @[(ItemTotem, 1)], 6)
-  addRecipe("corpsepiece", StationStatue, @[(ItemCorpse, 1)], @[(ItemCorpsePiece, 1)], 6)
-  addRecipe("remains", StationStatue, @[(ItemCorpsePiece, 1)], @[(ItemRemains, 1)], 6)
+  addRecipe(recipes, "totem", StationStatue, @[(ItemRemains, 1)], @[(ItemTotem, 1)], 6)
+  addRecipe(recipes, "corpsepiece", StationStatue, @[(ItemCorpse, 1)], @[(ItemCorpsePiece, 1)], 6)
+  addRecipe(recipes, "remains", StationStatue, @[(ItemCorpsePiece, 1)], @[(ItemRemains, 1)], 6)
+
+  recipes
 
 let CraftRecipes*: seq[CraftRecipe] = initCraftRecipes()
