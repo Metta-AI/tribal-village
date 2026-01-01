@@ -440,7 +440,8 @@ proc applyBiomeBaseColors*(env: Environment) =
       of Wheat:
         color = blendTileColor(color, WheatBaseColor, WheatBaseBlend)
       of Palm:
-        color = blendTileColor(color, PalmBaseColor, PalmBaseBlend)
+        # Treat palm groves as desert oases for ground color.
+        color = BiomeColorDesert
       else:
         discard
       colors[x][y] = color
