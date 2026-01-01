@@ -445,6 +445,8 @@ proc updateObservations(
   env.observationsInitialized = true
 {.pop.}
 
+proc getInv*(thing: Thing, key: ItemKey): int
+
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state when needed.
@@ -481,14 +483,14 @@ proc rebuildObservations*(env: Environment) =
       env.updateObservations(WallLayer, thing.pos, 1)
     of Mine:
       env.updateObservations(MineLayer, thing.pos, 1)
-      env.updateObservations(MineResourceLayer, thing.pos, thing.resources)
+      env.updateObservations(MineResourceLayer, thing.pos, getInv(thing, ItemOre))
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
     of Converter:
       env.updateObservations(ConverterLayer, thing.pos, 1)
       env.updateObservations(ConverterReadyLayer, thing.pos, thing.cooldown)
     of assembler:
       env.updateObservations(assemblerLayer, thing.pos, 1)
-      env.updateObservations(assemblerHeartsLayer, thing.pos, thing.hearts)
+      env.updateObservations(assemblerHeartsLayer, thing.pos, getInv(thing, ItemHearts))
       env.updateObservations(assemblerReadyLayer, thing.pos, thing.cooldown)
     of Spawner:
       discard  # No dedicated observation layer for spawners.
