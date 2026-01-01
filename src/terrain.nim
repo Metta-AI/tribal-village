@@ -523,6 +523,17 @@ proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorde
       if nearWater or attempt > 10:
         let groveSize = randInclusive(r, 3, 8)
         terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Palm, 0.85, 0.4, r)
+        let oasisW = randInclusive(r, 3, 5)
+        let oasisH = randInclusive(r, 3, 5)
+        let x0 = x - (oasisW div 2)
+        let y0 = y - (oasisH div 2)
+        for ox in 0 ..< oasisW:
+          for oy in 0 ..< oasisH:
+            let px = x0 + ox
+            let py = y0 + oy
+            if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
+              continue
+            terrain[px][py] = Water
         placed = true
         break
     if not placed:
@@ -530,6 +541,17 @@ proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorde
       let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
       let groveSize = randInclusive(r, 3, 8)
       terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Palm, 0.85, 0.4, r)
+      let oasisW = randInclusive(r, 3, 5)
+      let oasisH = randInclusive(r, 3, 5)
+      let x0 = x - (oasisW div 2)
+      let y0 = y - (oasisH div 2)
+      for ox in 0 ..< oasisW:
+        for oy in 0 ..< oasisH:
+          let px = x0 + ox
+          let py = y0 + oy
+          if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
+            continue
+          terrain[px][py] = Water
 
 proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let clusters = max(16, mapWidth div 25)
