@@ -161,6 +161,18 @@ if __name__ == "__main__":
         help="Skip outputs that already exist when batch generating.",
     )
     parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="Start index for batch generation (0-based).",
+    )
+    parser.add_argument(
+        "--max-items",
+        type=int,
+        default=None,
+        help="Maximum number of items to generate in a batch.",
+    )
+    parser.add_argument(
         "--tile-size",
         type=int,
         default=None,
@@ -185,7 +197,12 @@ if __name__ == "__main__":
             output_dir = os.path.dirname(args.batch_prompts) or "."
         os.makedirs(output_dir, exist_ok=True)
         failures = []
-        for filename, prompt in _load_batch_prompts(args.batch_prompts):
+        entries = list(_load_batch_prompts(args.batch_prompts))
+        start_index = max(0, args.start_index)
+        end_index = len(entries)
+        if args.max_items is not None:
+            end_index = min(end_index, start_index + max(0, args.max_items))
+        for filename, prompt in entries[start_index:end_index]:
             out_path = os.path.join(output_dir, filename)
             if args.skip_existing and os.path.exists(out_path):
                 continue
