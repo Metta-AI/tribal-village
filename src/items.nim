@@ -9,7 +9,9 @@ type
 
 const
   ItemNone* = ""
-  ItemOre* = "ore"
+  ItemGold* = "gold"
+  ItemStone* = "stone"
+  ItemOre* = ItemGold # Legacy alias (gold ore)
   ItemBar* = "bar"
   ItemWater* = "water"
   ItemWheat* = "wheat"
@@ -55,6 +57,7 @@ const
 
   ObservedItemKeys* = [
     ItemOre,
+    ItemStone,
     ItemBar,
     ItemWater,
     ItemWheat,
@@ -64,6 +67,43 @@ const
     ItemArmor,
     ItemBread
   ]
+
+type
+  StockpileResource* = enum
+    ResourceFood
+    ResourceWood
+    ResourceGold
+    ResourceStone
+    ResourceWater
+
+proc isFoodItem*(key: ItemKey): bool =
+  key in {
+    ItemWheat,
+    ItemBread,
+    ItemMeat,
+    ItemFishRaw,
+    ItemFish,
+    ItemPlant,
+    ItemPlantGrowth,
+    ItemMilk,
+    ItemCheese,
+    ItemDrink,
+    ItemFood,
+    ItemEgg
+  }
+
+proc isStockpileResourceKey*(key: ItemKey): bool =
+  key in {ItemWood, ItemOre, ItemStone, ItemWater} or isFoodItem(key)
+
+proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
+  if isFoodItem(key):
+    return ResourceFood
+  case key
+  of ItemWood: ResourceWood
+  of ItemOre: ResourceGold
+  of ItemStone: ResourceStone
+  of ItemWater: ResourceWater
+  else: ResourceFood
 
 proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
@@ -593,17 +633,23 @@ let
     GameStructureDef(id: "road", displayName: "Road",
       buildCost: @["wood x1"],
       uses: "Movement booster: entering pushes the agent two tiles forward."),
+    GameStructureDef(id: "house", displayName: "House",
+      buildCost: @["wood x2"],
+      uses: "Population cap increase."),
+    GameStructureDef(id: "town_center", displayName: "Town Center",
+      buildCost: @["wood x4", "stone x2"],
+      uses: "Primary drop-off and villager spawn."),
     GameStructureDef(id: "watchtower", displayName: "Watch Tower",
       buildCost: @["wood x2"],
       uses: "Outpost for builders; extends territory reach."),
     GameStructureDef(id: "mill", displayName: "Mill",
-      buildCost: @["wood x2", "stone x1"],
+      buildCost: @["wood x2"],
       uses: "Wheat storage and farming hub."),
     GameStructureDef(id: "lumber_camp", displayName: "Lumber Camp",
       buildCost: @["wood x2"],
       uses: "Wood storage for nearby harvesting."),
     GameStructureDef(id: "mining_camp", displayName: "Mining Camp",
-      buildCost: @["wood x2", "stone x1"],
+      buildCost: @["wood x2"],
       uses: "Ore/stone storage for mining runs."),
     GameStructureDef(id: "farm", displayName: "Farm",
       buildCost: @["wood x2", "wheat x1"],
@@ -630,10 +676,11 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "table", StationTable, @[(ItemWood, 2)], @[(thingItem("Table"), 1)], 10)
   addRecipe(recipes, "statue", StationTable, @[(ItemBoulder, 2)], @[(thingItem("Statue"), 1)], 12)
   addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
-  addRecipe(recipes, "mill", StationTable, @[(ItemWood, 2), (ItemBoulder, 1)], @[(thingItem("Mill"), 1)], 12)
+  addRecipe(recipes, "mill", StationTable, @[(ItemWood, 2)], @[(thingItem("Mill"), 1)], 12)
   addRecipe(recipes, "lumber_camp", StationTable, @[(ItemWood, 2)], @[(thingItem("LumberCamp"), 1)], 10)
-  addRecipe(recipes, "mining_camp", StationTable, @[(ItemWood, 2), (ItemBoulder, 1)], @[(thingItem("MiningCamp"), 1)], 12)
+  addRecipe(recipes, "mining_camp", StationTable, @[(ItemWood, 2)], @[(thingItem("MiningCamp"), 1)], 12)
   addRecipe(recipes, "farm", StationTable, @[(ItemWood, 2), (ItemWheat, 1)], @[(thingItem("Farm"), 1)], 10)
+  addRecipe(recipes, "house", StationTable, @[(ItemWood, 2)], @[(thingItem("House"), 1)], 10)
   addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
   addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
   addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)

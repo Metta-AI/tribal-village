@@ -388,7 +388,14 @@ proc drawObjects*() =
             mapSpriteKey("mine")
           else:
             mapSpriteKey("spawner")
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          if thing.kind == Mine:
+            let mineTint = if thing.mineKind == MineStone:
+              color(0.78, 0.78, 0.85, 1.0)
+            else:
+              color(1.10, 0.92, 0.55, 1.0)
+            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
+          else:
+            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
           if infected and thing.kind == Mine:
             drawOverlayIf(true, getInfectionSprite("mine"), pos.vec2)
 
@@ -430,6 +437,15 @@ proc drawObjects*() =
               of WeavingLoom: "weaving_loom"
               else: "building"
             drawOverlayIf(true, getInfectionSprite(overlayType), pos.vec2)
+
+        of TownCenter, House:
+          let imageName = case thing.kind:
+            of TownCenter: mapSpriteKey("assembler")
+            of House: mapSpriteKey("bed")
+            else: mapSpriteKey("assembler")
+          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
         of Barrel:
           let imageName = mapSpriteKey("barrel")
@@ -534,6 +550,7 @@ proc drawAgentDecorations*() =
 
     proc iconForItem(key: ItemKey): string =
       if key == ItemOre: return inventorySpriteKey("ore")
+      if key == ItemStone: return inventorySpriteKey("block")
       if key == ItemBar: return inventorySpriteKey("bar")
       if key == ItemWater: return inventorySpriteKey("water")
       if key == ItemWheat: return inventorySpriteKey("wheat")
@@ -561,6 +578,8 @@ proc drawAgentDecorations*() =
         of "LumberCamp": return mapSpriteKey("cabinet")
         of "MiningCamp": return mapSpriteKey("smelter")
         of "Farm": return mapSpriteKey("farm")
+        of "TownCenter": return mapSpriteKey("assembler")
+        of "House": return mapSpriteKey("bed")
         of "Stump": return mapSpriteKey("stump")
         of "Mine": return mapSpriteKey("mine")
         of "Converter": return mapSpriteKey("converter")
@@ -626,10 +645,11 @@ proc drawSelectionLabel*(panelRect: IRect) =
   let thing = env.grid[selectedPos.x][selectedPos.y]
   if thing != nil:
     label = case thing.kind
-      of Agent: "Agent"
+      of Agent: "Villager"
       of Wall: "Wall"
       of TreeObject: "Tree"
-      of Mine: "Mine"
+      of Mine:
+        if thing.mineKind == MineStone: "Stone Mine" else: "Gold Mine"
       of Converter: "Converter"
       of Altar: "Altar"
       of Spawner: "Spawner"
@@ -650,6 +670,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of LumberCamp: "Lumber Camp"
       of MiningCamp: "Mining Camp"
       of Farm: "Farm"
+      of TownCenter: "Town Center"
+      of House: "House"
       of Stump: "Stump"
       of PlantedLantern: "Lantern"
   elif env.hasDoor(selectedPos):

@@ -306,12 +306,41 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
 
+  # Precompute team population and pop caps (Town Centers + Houses)
+  var teamPopCounts: array[MapRoomObjectsHouses, int]
+  var teamPopCaps: array[MapRoomObjectsHouses, int]
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    if env.terminated[agent.agentId] != 0.0:
+      continue
+    let teamId = getTeamId(agent.agentId)
+    if teamId >= 0 and teamId < MapRoomObjectsHouses:
+      inc teamPopCounts[teamId]
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.teamId < 0 or thing.teamId >= MapRoomObjectsHouses:
+      continue
+    case thing.kind
+    of TownCenter:
+      teamPopCaps[thing.teamId] += TownCenterPopCap
+    of House:
+      teamPopCaps[thing.teamId] += HousePopCap
+    else:
+      discard
+
   # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:
     let agent = env.agents[agentId]
 
     # Check if agent is dead and has a home altar
     if env.terminated[agentId] == 1.0 and agent.homeAltar.x >= 0:
+      let teamId = getTeamId(agent.agentId)
+      if teamId < 0 or teamId >= MapRoomObjectsHouses:
+        continue
+      if teamPopCounts[teamId] >= teamPopCaps[teamId]:
+        continue
       # Find the altar
       var altarThing: Thing = nil
       for thing in env.things:
@@ -337,6 +366,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           # Update grid
           env.grid[agent.pos.x][agent.pos.y] = agent
+          inc teamPopCounts[teamId]
 
           # Update observations
           # REMOVED: expensive per-agent full grid rebuild

@@ -13,6 +13,9 @@ proc init(env: Environment) =
   # Clear door grid
   env.clearDoors()
 
+  # Reset team stockpiles
+  env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
+
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
@@ -282,6 +285,12 @@ proc init(env: Environment) =
                 kind: Statue,
                 pos: worldPos,
               ))
+            of 'N':  # Town Center
+              env.add(Thing(
+                kind: TownCenter,
+                pos: worldPos,
+                teamId: teamId
+              ))
             else:
               discard
       if agentsForThisHouse > 0:
@@ -475,6 +484,7 @@ proc init(env: Environment) =
     let minCluster = if remaining >= 3: 3 else: 1
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(1, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
+    let mineKind = if randFloat(r) < 0.5: MineGold else: MineStone
     let center = r.randomEmptyPos(env)
 
     let mine = Thing(
@@ -482,6 +492,7 @@ proc init(env: Environment) =
       pos: center
     )
     mine.inventory = emptyInventory()
+    mine.mineKind = mineKind
     mine.resources = MapObjectMineInitialResources
     env.add(mine)
     inc minesPlaced
@@ -508,6 +519,7 @@ proc init(env: Environment) =
         pos: candidates[i]
       )
       mine.inventory = emptyInventory()
+      mine.mineKind = mineKind
       mine.resources = MapObjectMineInitialResources
       env.add(mine)
       inc minesPlaced
