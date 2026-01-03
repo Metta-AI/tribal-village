@@ -10,8 +10,8 @@ const
   TileSize = 24
   TilesPerRow = 16
   TargetSize = 256
-  MapDir = "data/map"
-  InventoryDir = "data/inventory"
+  MapDir = "data"
+  InventoryDir = "data"
   ForceDfTokens = ["DOOR"]
 
 type
