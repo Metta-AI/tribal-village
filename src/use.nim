@@ -101,13 +101,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if thing.resources <= 0:
         inc env.stats[id].actionInvalid
         return
-      let resourceKey = if thing.mineKind == MineStone: ItemStone else: ItemOre
+      let resourceKey = if thing.mineKind == MineStone: ItemStone else: ItemGold
       if env.giveItem(agent, resourceKey):
         thing.resources = thing.resources - 1
         env.updateObservations(MineResourceLayer, thing.pos, thing.resources)
         thing.cooldown = MapObjectMineCooldown
         env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
-        if resourceKey == ItemOre and getInv(agent, resourceKey) == 1:
+        if resourceKey == ItemGold and getInv(agent, resourceKey) == 1:
           agent.reward += env.config.oreReward
         used = true
         if thing.resources <= 0:
@@ -116,17 +116,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.updateObservations(MineReadyLayer, thing.pos, 0)
           removeThing(env, thing)
   of Magma:  # Magma smelting
-    if thing.cooldown == 0 and getInv(agent, ItemOre) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
-      setInv(agent, ItemOre, getInv(agent, ItemOre) - 1)
+    if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
+      setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
       agent.inventoryBar = agent.inventoryBar + 1
-      env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
+      env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, ItemGold))
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.cooldown = 0
       env.updateObservations(MagmaReadyLayer, thing.pos, 1)
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
-      used = true
-  of Forge:
-    if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
       used = true
   of WeavingLoom:
     if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
@@ -189,7 +186,22 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if env.useStorageBuilding(agent, thing, @[]):
       used = true
   of Blacksmith:
-    if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationBlacksmith, thing):
+        used = true
+      elif env.tryBlacksmithService(agent, thing):
+        used = true
+  of Table:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationTable, thing):
+      used = true
+  of Chair:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationChair, thing):
+      used = true
+  of Bed:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationBed, thing):
+      used = true
+  of Statue:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationStatue, thing):
       used = true
   of TownCenter:
     if thing.teamId == getTeamId(agent.agentId):
