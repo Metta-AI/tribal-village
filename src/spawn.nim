@@ -1,4 +1,15 @@
 # This file is included by src/environment.nim
+proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
+  ## Create a new Tumor seed that can branch once before turning inert
+  Thing(
+    kind: Tumor,
+    pos: pos,
+    orientation: Orientation(randIntInclusive(r, 0, 3)),
+    homeSpawner: homeSpawner,
+    hasClaimedTerritory: false,  # Start mobile, will plant when far enough from others
+    turnsAlive: 0                # New tumor hasn't lived any turns yet
+  )
+
 proc init(env: Environment) =
   # Use current time for random seed to get different maps each time
   let seed = int(nowSeconds() * 1000)
