@@ -125,47 +125,14 @@ proc drawTerrain*() =
       let pos = ivec2(x, y)
       let infectionLevel = getInfectionLevel(pos)
       let infected = infectionLevel >= 1.0
-
-      case env.terrain[x][y]
-      of Wheat:
-        bxy.drawImage(mapSpriteKey("wheat"), pos.vec2, angle = 0, scale = 1/200)
-        drawOverlayIf(infected, getInfectionSprite("wheat"), pos.vec2)
-      of Tree:
-        bxy.drawImage(mapSpriteKey("pine"), pos.vec2, angle = 0, scale = 1/200)
-        drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
-      of Palm:
-        bxy.drawImage(mapSpriteKey("palm"), pos.vec2, angle = 0, scale = 1/200)
-        drawOverlayIf(infected, getInfectionSprite("tree"), pos.vec2)
-      of Bridge:
-        bxy.drawImage(mapSpriteKey("bridge"), pos.vec2, angle = 0, scale = 1/200)
-      of Road:
-        bxy.drawImage(mapSpriteKey("road"), pos.vec2, angle = 0, scale = 1/200)
-      of Fertile:
-        bxy.drawImage(mapSpriteKey("fertile"), pos.vec2, angle = 0, scale = 1/200)
-      of Rock:
-        bxy.drawImage(mapSpriteKey("rock"), pos.vec2, angle = 0, scale = 1/200)
-      of Gem:
-        bxy.drawImage(mapSpriteKey("gem"), pos.vec2, angle = 0, scale = 1/200)
-      of Bush:
-        bxy.drawImage(mapSpriteKey("bush"), pos.vec2, angle = 0, scale = 1/200)
-      of Animal:
-        bxy.drawImage(mapSpriteKey("cow"), pos.vec2, angle = 0, scale = 1/200)
-      of Grass:
-        bxy.drawImage(mapSpriteKey("grass"), pos.vec2, angle = 0, scale = 1/200)
-      of Cactus:
-        bxy.drawImage(mapSpriteKey("cactus"), pos.vec2, angle = 0, scale = 1/200)
-      of Dune:
-        bxy.drawImage(mapSpriteKey("dune"), pos.vec2, angle = 0, scale = 1/200)
-      of Sand:
-        bxy.drawImage(mapSpriteKey("sand"), pos.vec2, angle = 0, scale = 1/200)
-      of Snow:
-        bxy.drawImage(mapSpriteKey("snow"), pos.vec2, angle = 0, scale = 1/200)
-      of Stalagmite:
-        bxy.drawImage(mapSpriteKey("stalagmite"), pos.vec2, angle = 0, scale = 1/200)
-      of Empty:
-        discard
-      else:
-        discard
+      let terrain = env.terrain[x][y]
+      if terrain == Water:
+        continue
+      let def = terrainDef(terrain)
+      if def.spriteKey.len > 0:
+        bxy.drawImage(mapSpriteKey(def.spriteKey), pos.vec2, angle = 0, scale = 1/200)
+      if infected and def.infectionKey.len > 0:
+        drawOverlayIf(true, getInfectionSprite(def.infectionKey), pos.vec2)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
@@ -312,8 +279,9 @@ proc drawObjects*() =
           else:
             mapSpriteKey("pine")
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("tree"), pos.vec2)
+          let overlayKey = thingDef(TreeObject).infectionKey
+          if infected and overlayKey.len > 0:
+            drawOverlayIf(true, getInfectionSprite(overlayKey), pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
@@ -378,26 +346,16 @@ proc drawObjects*() =
           if infected:
             drawOverlayIf(true, getInfectionSprite("altar"), pos.vec2)
 
-        of Converter:
-          let baseImage = mapSpriteKey("converter")
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
-          drawOverlayIf(infected, getInfectionSprite("converter"), pos.vec2)
-
-        of Mine, Spawner:
-          let imageName = if thing.kind == Mine:
-            mapSpriteKey("mine")
+        of Mine:
+          let imageName = mapSpriteKey(thingDef(Mine).spriteKey)
+          let mineTint = if thing.mineKind == MineStone:
+            color(0.78, 0.78, 0.85, 1.0)
           else:
-            mapSpriteKey("spawner")
-          if thing.kind == Mine:
-            let mineTint = if thing.mineKind == MineStone:
-              color(0.78, 0.78, 0.85, 1.0)
-            else:
-              color(1.10, 0.92, 0.55, 1.0)
-            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
-          else:
-            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected and thing.kind == Mine:
-            drawOverlayIf(true, getInfectionSprite("mine"), pos.vec2)
+            color(1.10, 0.92, 0.55, 1.0)
+          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
+          let overlayKey = thingDef(Mine).infectionKey
+          if infected and overlayKey.len > 0:
+            drawOverlayIf(true, getInfectionSprite(overlayKey), pos.vec2)
 
         of Tumor:
           # Map diagonal orientations to cardinal sprites
@@ -417,96 +375,6 @@ proc drawObjects*() =
         of Cow:
           let cowSprite = if thing.orientation == Orientation.E: mapSpriteKey("cow_r") else: mapSpriteKey("cow")
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
-        of Skeleton:
-          bxy.drawImage(mapSpriteKey("skeleton"), pos.vec2, angle = 0, scale = 1/200)
-
-        of Armory, Forge, ClayOven, WeavingLoom:
-          let imageName = case thing.kind:
-            of Armory: mapSpriteKey("armory")
-            of Forge: mapSpriteKey("forge")
-            of ClayOven: mapSpriteKey("clay_oven")
-            of WeavingLoom: mapSpriteKey("weaving_loom")
-            else: ""
-
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            let overlayType = case thing.kind:
-              of Armory: "armory"
-              of Forge: "forge"
-              of ClayOven: "clay_oven"
-              of WeavingLoom: "weaving_loom"
-              else: "building"
-            drawOverlayIf(true, getInfectionSprite(overlayType), pos.vec2)
-
-        of TownCenter, House:
-          let imageName = case thing.kind:
-            of TownCenter: mapSpriteKey("town_center")
-            of House: mapSpriteKey("house")
-            else: mapSpriteKey("town_center")
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery, University, Castle:
-          let imageName = case thing.kind:
-            of Barracks: mapSpriteKey("barracks")
-            of ArcheryRange: mapSpriteKey("archery_range")
-            of Stable: mapSpriteKey("stable")
-            of SiegeWorkshop: mapSpriteKey("siege_workshop")
-            of Blacksmith: mapSpriteKey("blacksmith")
-            of Market: mapSpriteKey("market")
-            of Dock: mapSpriteKey("dock")
-            of Monastery: mapSpriteKey("monastery")
-            of University: mapSpriteKey("university")
-            of Castle: mapSpriteKey("castle")
-            else: mapSpriteKey("floor")
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of Barrel:
-          let imageName = mapSpriteKey("barrel")
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of Mill, LumberCamp, MiningCamp:
-          let imageName = case thing.kind:
-            of Mill: mapSpriteKey("millstone")
-            of LumberCamp: mapSpriteKey("cabinet")
-            of MiningCamp: mapSpriteKey("smelter")
-            else: mapSpriteKey("floor")
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of Farm:
-          bxy.drawImage(mapSpriteKey("farm"), pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of Stump:
-          bxy.drawImage(mapSpriteKey("stump"), pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of Bed, Chair, Table, Statue:
-          let imageName = case thing.kind:
-            of Bed: mapSpriteKey("bed")
-            of Chair: mapSpriteKey("chair")
-            of Table: mapSpriteKey("table")
-            of Statue: mapSpriteKey("statue")
-            else: mapSpriteKey("bed")
-
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
-        of WatchTower:
-          bxy.drawImage(mapSpriteKey("watchtower"), pos.vec2, angle = 0, scale = 1/200)
-          if infected:
-            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
-
         of PlantedLantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing
@@ -516,6 +384,12 @@ proc drawObjects*() =
           else:
             # Unhealthy or unassigned lantern - draw as gray
             bxy.drawImage(mapSpriteKey("lantern"), pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
+        else:
+          let def = thingDef(thing.kind)
+          if def.spriteKey.len > 0:
+            bxy.drawImage(mapSpriteKey(def.spriteKey), pos.vec2, angle = 0, scale = 1/200)
+          if infected and def.infectionKey.len > 0:
+            drawOverlayIf(true, getInfectionSprite(def.infectionKey), pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -671,8 +545,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
   if thing != nil:
-    label = case thing.kind
-      of Agent:
+    label =
+      if thing.kind == Agent:
         case thing.unitClass
         of UnitVillager: "Villager"
         of UnitManAtArms: "Man-at-Arms"
@@ -681,66 +555,14 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of UnitKnight: "Knight"
         of UnitMonk: "Monk"
         of UnitSiege: "Siege"
-      of Wall: "Wall"
-      of TreeObject: "Tree"
-      of Mine:
+      elif thing.kind == Mine:
         if thing.mineKind == MineStone: "Stone Mine" else: "Gold Mine"
-      of Converter: "Converter"
-      of Altar: "Altar"
-      of Spawner: "Spawner"
-      of Tumor: "Tumor"
-      of Cow: "Cow"
-      of Skeleton: "Skeleton"
-      of Armory: "Armory"
-      of Forge: "Forge"
-      of ClayOven: "Clay Oven"
-      of WeavingLoom: "Weaving Loom"
-      of Bed: "Bed"
-      of Chair: "Chair"
-      of Table: "Table"
-      of Statue: "Statue"
-      of WatchTower: "Watch Tower"
-      of Barrel: "Barrel"
-      of Mill: "Mill"
-      of LumberCamp: "Lumber Camp"
-      of MiningCamp: "Mining Camp"
-      of Farm: "Farm"
-      of TownCenter: "Town Center"
-      of House: "House"
-      of Barracks: "Barracks"
-      of ArcheryRange: "Archery Range"
-      of Stable: "Stable"
-      of SiegeWorkshop: "Siege Workshop"
-      of Blacksmith: "Blacksmith"
-      of Market: "Market"
-      of Dock: "Dock"
-      of Monastery: "Monastery"
-      of University: "University"
-      of Castle: "Castle"
-      of Stump: "Stump"
-      of PlantedLantern: "Lantern"
+      else:
+        thingDisplayName(thing.kind)
   elif env.hasDoor(selectedPos):
     label = "Door"
   else:
-    label = case env.terrain[selectedPos.x][selectedPos.y]
-      of Water: "Water"
-      of Bridge: "Bridge"
-      of Wheat: "Wheat"
-      of Tree: "Tree"
-      of Palm: "Palm"
-      of Fertile: "Fertile"
-      of Road: "Road"
-      of Rock: "Rock"
-      of Gem: "Gem"
-      of Bush: "Bush"
-      of Animal: "Animal"
-      of Grass: "Grass"
-      of Cactus: "Cactus"
-      of Dune: "Dune"
-      of Sand: "Sand"
-      of Snow: "Snow"
-      of Stalagmite: "Stalagmite"
-      of Empty: "Empty"
+    label = terrainDisplayName(env.terrain[selectedPos.x][selectedPos.y])
 
   let key = ensureInfoLabel(label)
   if key.len == 0:
