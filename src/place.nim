@@ -18,6 +18,42 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
       return true
   false
 
+proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
+  case kind
+  of Wall:
+    env.updateObservations(WallLayer, pos, 0)
+  of Mine:
+    env.updateObservations(MineLayer, pos, 0)
+    env.updateObservations(MineResourceLayer, pos, 0)
+    env.updateObservations(MineReadyLayer, pos, 0)
+  of Converter:
+    env.updateObservations(ConverterLayer, pos, 0)
+    env.updateObservations(ConverterReadyLayer, pos, 0)
+  of Altar:
+    env.updateObservations(altarLayer, pos, 0)
+    env.updateObservations(altarHeartsLayer, pos, 0)
+    env.updateObservations(altarReadyLayer, pos, 0)
+  else:
+    discard
+
+proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: Thing) =
+  case kind
+  of Wall:
+    env.updateObservations(WallLayer, pos, 1)
+  of Mine:
+    env.updateObservations(MineLayer, pos, 1)
+    env.updateObservations(MineResourceLayer, pos, placed.resources)
+    env.updateObservations(MineReadyLayer, pos, placed.cooldown)
+  of Converter:
+    env.updateObservations(ConverterLayer, pos, 1)
+    env.updateObservations(ConverterReadyLayer, pos, placed.cooldown)
+  of Altar:
+    env.updateObservations(altarLayer, pos, 1)
+    env.updateObservations(altarHeartsLayer, pos, placed.hearts)
+    env.updateObservations(altarReadyLayer, pos, placed.cooldown)
+  else:
+    discard
+
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
@@ -59,22 +95,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
     env.updateAgentInventoryObs(agent, itemKey)
   setInv(agent, key, current + 1)
   env.updateAgentInventoryObs(agent, key)
-  case thing.kind
-  of Wall:
-    env.updateObservations(WallLayer, thing.pos, 0)
-  of Mine:
-    env.updateObservations(MineLayer, thing.pos, 0)
-    env.updateObservations(MineResourceLayer, thing.pos, 0)
-    env.updateObservations(MineReadyLayer, thing.pos, 0)
-  of Converter:
-    env.updateObservations(ConverterLayer, thing.pos, 0)
-    env.updateObservations(ConverterReadyLayer, thing.pos, 0)
-  of Altar:
-    env.updateObservations(altarLayer, thing.pos, 0)
-    env.updateObservations(altarHeartsLayer, thing.pos, 0)
-    env.updateObservations(altarReadyLayer, thing.pos, 0)
-  else:
-    discard
+  env.updateThingObsOnRemove(thing.kind, thing.pos)
   removeThing(env, thing)
   true
 
@@ -154,22 +175,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
       if env.terrain[farmPos.x][farmPos.y] == Empty:
         env.terrain[farmPos.x][farmPos.y] = Wheat
         env.resetTileColor(farmPos)
-  case kind
-  of Wall:
-    env.updateObservations(WallLayer, pos, 1)
-  of Mine:
-    env.updateObservations(MineLayer, pos, 1)
-    env.updateObservations(MineResourceLayer, pos, placed.resources)
-    env.updateObservations(MineReadyLayer, pos, placed.cooldown)
-  of Converter:
-    env.updateObservations(ConverterLayer, pos, 1)
-    env.updateObservations(ConverterReadyLayer, pos, placed.cooldown)
-  of Altar:
-    env.updateObservations(altarLayer, pos, 1)
-    env.updateObservations(altarHeartsLayer, pos, placed.hearts)
-    env.updateObservations(altarReadyLayer, pos, placed.cooldown)
-  else:
-    discard
+  env.updateThingObsOnAdd(kind, pos, placed)
   if kind == Altar:
     let teamId = placed.teamId
     if teamId >= 0 and teamId < teamColors.len:
