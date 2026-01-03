@@ -122,6 +122,14 @@ const
   ZoneBlobLobesMax* = 3
   ZoneBlobLobeOffset* = 0.7
   ZoneBlobAnisotropy* = 0.45
+  ZoneBlobBiteCountMin* = 1
+  ZoneBlobBiteCountMax* = 4
+  ZoneBlobBiteScaleMin* = 0.28
+  ZoneBlobBiteScaleMax* = 0.7
+  ZoneBlobBiteAngleMin* = 0.35
+  ZoneBlobBiteAngleMax* = 0.75
+  ZoneBlobJaggedPasses* = 2
+  ZoneBlobJaggedProb* = 0.18
   ZoneBlobDitherProb* = 0.12
   ZoneBlobDitherDepth* = 4
   DungeonTerrainWall* = Tree
@@ -352,6 +360,66 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
           break
       if inside:
         mask[x][y] = true
+
+  let baseRadius = max(2, min(rx, ry))
+  let biteCount = randInclusive(r, ZoneBlobBiteCountMin, ZoneBlobBiteCountMax)
+  for _ in 0 ..< biteCount:
+    var bx = randInclusive(r, x0, x1 - 1)
+    var by = randInclusive(r, y0, y1 - 1)
+    var attempts = 0
+    while attempts < 10 and not mask[bx][by]:
+      bx = randInclusive(r, x0, x1 - 1)
+      by = randInclusive(r, y0, y1 - 1)
+      inc attempts
+    if not mask[bx][by]:
+      continue
+    let biteMin = max(2, int(baseRadius.float * ZoneBlobBiteScaleMin))
+    let biteMax = max(biteMin, int(baseRadius.float * ZoneBlobBiteScaleMax))
+    let biteRadius = randInclusive(r, biteMin, biteMax)
+    let biteAngle = randFloat(r) * 2.0 * PI
+    let biteSpread = (ZoneBlobBiteAngleMin + randFloat(r) *
+      (ZoneBlobBiteAngleMax - ZoneBlobBiteAngleMin)) * PI
+    let minX = max(x0, bx - biteRadius)
+    let maxX = min(x1 - 1, bx + biteRadius)
+    let minY = max(y0, by - biteRadius)
+    let maxY = min(y1 - 1, by + biteRadius)
+    for x in minX .. maxX:
+      for y in minY .. maxY:
+        if not mask[x][y]:
+          continue
+        let dx = x - bx
+        let dy = y - by
+        if dx * dx + dy * dy > biteRadius * biteRadius:
+          continue
+        var ang = arctan2(dy.float, dx.float) - biteAngle
+        while ang > PI:
+          ang -= 2.0 * PI
+        while ang < -PI:
+          ang += 2.0 * PI
+        if abs(ang) <= biteSpread:
+          mask[x][y] = false
+
+  for _ in 0 ..< ZoneBlobJaggedPasses:
+    var nextMask = mask
+    for x in x0 ..< x1:
+      for y in y0 ..< y1:
+        if not mask[x][y]:
+          continue
+        var edge = false
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            if dx == 0 and dy == 0:
+              continue
+            let nx = x + dx
+            let ny = y + dy
+            if nx < x0 or nx >= x1 or ny < y0 or ny >= y1 or not mask[nx][ny]:
+              edge = true
+              break
+          if edge:
+            break
+        if edge and randChance(r, ZoneBlobJaggedProb):
+          nextMask[x][y] = false
+    mask = nextMask
 
   mask[cx][cy] = true
   ditherEdges(mask, mapWidth, mapHeight, ZoneBlobDitherProb, ZoneBlobDitherDepth, r)
