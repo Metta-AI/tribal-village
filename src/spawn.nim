@@ -651,11 +651,13 @@ proc init(env: Environment) =
     let center = r.randomEmptyPos(env)
     if env.terrain[center.x][center.y] != Empty:
       continue
+    if env.biomes[center.x][center.y] == BiomeDungeonType:
+      continue
     var herdPositions = env.findEmptyPositionsAround(center, 3)
     herdPositions.insert(center, 0)
     var filtered: seq[IVec2] = @[]
     for pos in herdPositions:
-      if env.terrain[pos.x][pos.y] == Empty:
+      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
         filtered.add(pos)
     if filtered.len < 5:
       continue
