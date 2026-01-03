@@ -11,5 +11,6 @@ include "grid"
 include "inventory"
 
 include "actions"
+include "connect"
 include "spawn"
 include "step"
