@@ -726,79 +726,6 @@ proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let numGroves = randInclusive(r, PalmGroveClusterBase, PalmGroveClusterBase + PalmGroveClusterRange) *
     PalmGroveClusterScale
-  proc canPlacePalm(t: TerrainType): bool =
-    t in {Empty, Sand, Grass, Fertile, Dune}
-
-  proc placePalmCluster(cx, cy, size: int) =
-    let radius = (size.float / 2.0).int
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        let x = cx + dx
-        let y = cy + dy
-        if x < mapBorder or x >= mapWidth - mapBorder or y < mapBorder or y >= mapHeight - mapBorder:
-          continue
-        let dist = sqrt((dx * dx + dy * dy).float)
-        if dist <= radius.float:
-          let chance = 0.85 - (dist / radius.float) * 0.4
-          if randChance(r, chance) and terrain[x][y] != Water and canPlacePalm(terrain[x][y]):
-            terrain[x][y] = Palm
-
-  proc carveOasis(cx, cy: int) =
-    let oasisW = randInclusive(r, 3, 5)
-    let oasisH = randInclusive(r, 3, 5)
-    let rx = max(1, oasisW div 2)
-    let ry = max(1, oasisH div 2)
-    for ox in -(rx + 1) .. (rx + 1):
-      for oy in -(ry + 1) .. (ry + 1):
-        let px = cx + ox
-        let py = cy + oy
-        if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
-          continue
-        let dx = ox.float / rx.float
-        let dy = oy.float / ry.float
-        let dist = dx * dx + dy * dy
-        let noise = (randFloat(r) - 0.5) * 0.35
-        if dist <= 1.0 + noise:
-          terrain[px][py] = Water
-
-    # Add a couple of short rivulets for a more natural oasis edge.
-    let rivulets = randInclusive(r, 1, 2)
-    for _ in 0 ..< rivulets:
-      var pos = ivec2(cx.int32, cy.int32)
-      let steps = randInclusive(r, 4, 10)
-      for _ in 0 ..< steps:
-        let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
-                             ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
-        pos += dir
-        if pos.x < mapBorder.int32 or pos.x >= (mapWidth - mapBorder).int32 or
-           pos.y < mapBorder.int32 or pos.y >= (mapHeight - mapBorder).int32:
-          break
-        terrain[pos.x][pos.y] = Water
-
-    # Ring palms around water so oases look lush.
-    for ox in -(rx + 2) .. (rx + 2):
-      for oy in -(ry + 2) .. (ry + 2):
-        let px = cx + ox
-        let py = cy + oy
-        if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
-          continue
-        if terrain[px][py] == Water:
-          continue
-        var nearWater = false
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            let nx = px + dx
-            let ny = py + dy
-            if nx < mapBorder or nx >= mapWidth - mapBorder or ny < mapBorder or ny >= mapHeight - mapBorder:
-              continue
-            if terrain[nx][ny] == Water:
-              nearWater = true
-              break
-          if nearWater:
-            break
-        if nearWater and randChance(r, 0.7) and canPlacePalm(terrain[px][py]):
-          terrain[px][py] = Palm
-
   for i in 0 ..< numGroves:
     var placed = false
     for attempt in 0 ..< 16:
@@ -817,16 +744,142 @@ proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorde
           break
       if nearWater or attempt > 10:
         let groveSize = randInclusive(r, 3, 8)
-        placePalmCluster(x, y, groveSize)
-        carveOasis(x, y)
+        let radius = (groveSize.float / 2.0).int
+        for dx in -radius .. radius:
+          for dy in -radius .. radius:
+            let gx = x + dx
+            let gy = y + dy
+            if gx < mapBorder or gx >= mapWidth - mapBorder or gy < mapBorder or gy >= mapHeight - mapBorder:
+              continue
+            let dist = sqrt((dx * dx + dy * dy).float)
+            if dist <= radius.float:
+              let chance = 0.85 - (dist / radius.float) * 0.4
+              if randChance(r, chance) and terrain[gx][gy] != Water and terrain[gx][gy] in {Empty, Sand, Grass, Fertile, Dune}:
+                terrain[gx][gy] = Palm
+
+        let oasisW = randInclusive(r, 3, 5)
+        let oasisH = randInclusive(r, 3, 5)
+        let rx = max(1, oasisW div 2)
+        let ry = max(1, oasisH div 2)
+        for ox in -(rx + 1) .. (rx + 1):
+          for oy in -(ry + 1) .. (ry + 1):
+            let px = x + ox
+            let py = y + oy
+            if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
+              continue
+            let dx = ox.float / rx.float
+            let dy = oy.float / ry.float
+            let dist = dx * dx + dy * dy
+            let noise = (randFloat(r) - 0.5) * 0.35
+            if dist <= 1.0 + noise:
+              terrain[px][py] = Water
+
+        let rivulets = randInclusive(r, 1, 2)
+        for _ in 0 ..< rivulets:
+          var pos = ivec2(x.int32, y.int32)
+          let steps = randInclusive(r, 4, 10)
+          for _ in 0 ..< steps:
+            let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
+                                 ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
+            pos += dir
+            if pos.x < mapBorder.int32 or pos.x >= (mapWidth - mapBorder).int32 or
+               pos.y < mapBorder.int32 or pos.y >= (mapHeight - mapBorder).int32:
+              break
+            terrain[pos.x][pos.y] = Water
+
+        for ox in -(rx + 2) .. (rx + 2):
+          for oy in -(ry + 2) .. (ry + 2):
+            let px = x + ox
+            let py = y + oy
+            if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
+              continue
+            if terrain[px][py] == Water:
+              continue
+            var nearWater = false
+            for dx in -1 .. 1:
+              for dy in -1 .. 1:
+                let nx = px + dx
+                let ny = py + dy
+                if nx < mapBorder or nx >= mapWidth - mapBorder or ny < mapBorder or ny >= mapHeight - mapBorder:
+                  continue
+                if terrain[nx][ny] == Water:
+                  nearWater = true
+                  break
+              if nearWater:
+                break
+            if nearWater and randChance(r, 0.7) and terrain[px][py] in {Empty, Sand, Grass, Fertile, Dune}:
+              terrain[px][py] = Palm
         placed = true
         break
     if not placed:
       let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
       let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
       let groveSize = randInclusive(r, 3, 8)
-      placePalmCluster(x, y, groveSize)
-      carveOasis(x, y)
+      let radius = (groveSize.float / 2.0).int
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          let gx = x + dx
+          let gy = y + dy
+          if gx < mapBorder or gx >= mapWidth - mapBorder or gy < mapBorder or gy >= mapHeight - mapBorder:
+            continue
+          let dist = sqrt((dx * dx + dy * dy).float)
+          if dist <= radius.float:
+            let chance = 0.85 - (dist / radius.float) * 0.4
+            if randChance(r, chance) and terrain[gx][gy] != Water and terrain[gx][gy] in {Empty, Sand, Grass, Fertile, Dune}:
+              terrain[gx][gy] = Palm
+
+      let oasisW = randInclusive(r, 3, 5)
+      let oasisH = randInclusive(r, 3, 5)
+      let rx = max(1, oasisW div 2)
+      let ry = max(1, oasisH div 2)
+      for ox in -(rx + 1) .. (rx + 1):
+        for oy in -(ry + 1) .. (ry + 1):
+          let px = x + ox
+          let py = y + oy
+          if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
+            continue
+          let dx = ox.float / rx.float
+          let dy = oy.float / ry.float
+          let dist = dx * dx + dy * dy
+          let noise = (randFloat(r) - 0.5) * 0.35
+          if dist <= 1.0 + noise:
+            terrain[px][py] = Water
+
+      let rivulets = randInclusive(r, 1, 2)
+      for _ in 0 ..< rivulets:
+        var pos = ivec2(x.int32, y.int32)
+        let steps = randInclusive(r, 4, 10)
+        for _ in 0 ..< steps:
+          let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
+                               ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
+          pos += dir
+          if pos.x < mapBorder.int32 or pos.x >= (mapWidth - mapBorder).int32 or
+             pos.y < mapBorder.int32 or pos.y >= (mapHeight - mapBorder).int32:
+            break
+          terrain[pos.x][pos.y] = Water
+
+      for ox in -(rx + 2) .. (rx + 2):
+        for oy in -(ry + 2) .. (ry + 2):
+          let px = x + ox
+          let py = y + oy
+          if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
+            continue
+          if terrain[px][py] == Water:
+            continue
+          var nearWater = false
+          for dx in -1 .. 1:
+            for dy in -1 .. 1:
+              let nx = px + dx
+              let ny = py + dy
+              if nx < mapBorder or nx >= mapWidth - mapBorder or ny < mapBorder or ny >= mapHeight - mapBorder:
+                continue
+              if terrain[nx][ny] == Water:
+                nearWater = true
+                break
+            if nearWater:
+              break
+          if nearWater and randChance(r, 0.7) and terrain[px][py] in {Empty, Sand, Grass, Fertile, Dune}:
+            terrain[px][py] = Palm
 
 proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let clusters = max(16, mapWidth div 25)
