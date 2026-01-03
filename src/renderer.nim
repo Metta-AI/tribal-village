@@ -6,14 +6,14 @@ import
 # Infection system constants
 const
   HeartPlusThreshold = 9           # Switch to compact heart counter after this many
-  HeartCountFontPath = "data/fonts/Inter-Regular.ttf"
+  HeartCountFontPath = "data/Inter-Regular.ttf"
   HeartCountFontSize: float32 = 28
   HeartCountPadding = 6
 
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
   infoLabelImages: Table[string, string] = initTable[string, string]()
-  doorSpriteKey* = "map/wall"
+  doorSpriteKey* = "wall"
 
 proc setDoorSprite*(key: string) =
   doorSpriteKey = key
@@ -54,7 +54,7 @@ proc ensureInfoLabel(text: string): string =
   ctx.fillStyle.color = color(1, 1, 1, 1)
   ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
 
-  let key = "ui/selection_label/" & text.replace(" ", "_").replace("/", "_")
+  let key = "selection_label/" & text.replace(" ", "_").replace("/", "_")
   bxy.addImage(key, ctx.image, mipmaps = false)
   infoLabelImages[text] = key
   result = key
@@ -67,9 +67,9 @@ proc getInfectionSprite*(entityType: string): string =
   ## Get the appropriate infection overlay sprite for static environmental objects only
   case entityType:
   of "building", "mine", "converter", "altar", "armory", "forge", "clay_oven", "weaving_loom":
-    return "agents/frozen"  # Ice cube overlay for static buildings
+    return "frozen"  # Ice cube overlay for static buildings
   of "terrain", "wheat", "tree":
-    return "agents/frozen"  # Ice cube overlay for terrain features (walls excluded)
+    return "frozen"  # Ice cube overlay for terrain features (walls excluded)
   of "agent", "tumor", "spawner", "wall":
     return ""  # No overlays for dynamic entities and walls
   else:
@@ -109,9 +109,9 @@ proc drawFloor*() =
 
       let tileColor = env.tileColors[x][y]
       let floorSprite = case env.biomes[x][y]
-        of BiomeCavesType: "map/cave_floor"
-        of BiomeDungeonType: "map/dungeon_floor"
-        else: "map/floor"
+        of BiomeCavesType: "cave_floor"
+        of BiomeDungeonType: "dungeon_floor"
+        else: "floor"
 
       let finalR = min(tileColor.r * tileColor.intensity, 1.5)
       let finalG = min(tileColor.g * tileColor.intensity, 1.5)
@@ -175,7 +175,7 @@ proc drawAttackOverlays*() =
       let c = env.actionTintColor[pos.x][pos.y]
       # Render the short-lived action overlay fully opaque so it sits above the
       # normal tint layer and clearly masks the underlying tile color.
-      bxy.drawImage("map/floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
+      bxy.drawImage("floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -202,7 +202,7 @@ proc ensureHeartCountLabel(count: int): string =
   ctx.fillStyle.color = color(0, 0, 0, 1)
   ctx.fillText(text, vec2(padding.float32, padding.float32))
 
-  let key = "ui/heart_count/" & $count
+  let key = "heart_count/" & $count
   bxy.addImage(key, ctx.image, mipmaps = false)
   heartCountImages[count] = key
 
@@ -218,9 +218,9 @@ proc generateWallSprites(): seq[string] =
     if (i and 1) != 0: suffix.add("e")
 
     if suffix.len > 0:
-      result[i] = "map/wall." & suffix
+      result[i] = "wall." & suffix
     else:
-      result[i] = "map/wall"
+      result[i] = "wall"
 
 const wallSprites = generateWallSprites()
 
@@ -269,7 +269,7 @@ proc drawWalls*() =
   for fillPos in wallFills:
     let brightness = 0.3  # Fixed wall fill brightness
     let fillTint = color(brightness, brightness, brightness, 1.0)
-    bxy.drawImage("map/wall.fill", fillPos.vec2 + vec2(0.5, 0.3),
+    bxy.drawImage("wall.fill", fillPos.vec2 + vec2(0.5, 0.3),
                   angle = 0, scale = 1/200, tint = fillTint)
 
 proc drawDoors*() =
@@ -287,7 +287,7 @@ proc drawObjects*() =
   drawAttackOverlays()
 
   let drawWaterTile = proc(pos: Vec2) =
-    bxy.drawImage("map/water", pos, angle = 0, scale = 1/200)
+    bxy.drawImage("water", pos, angle = 0, scale = 1/200)
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
   for x in 0 ..< MapWidth:
@@ -317,14 +317,14 @@ proc drawObjects*() =
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
-            of N: "agents/agent.n"
-            of S: "agents/agent.s"
-            of E: "agents/agent.e"
-            of W: "agents/agent.w"
-            of NW: "agents/agent.w"  # Use west sprite for NW
-            of NE: "agents/agent.e"  # Use east sprite for NE
-            of SW: "agents/agent.w"  # Use west sprite for SW
-            of SE: "agents/agent.e"  # Use east sprite for SE
+            of N: "agent.n"
+            of S: "agent.s"
+            of E: "agent.e"
+            of W: "agent.w"
+            of NW: "agent.w"  # Use west sprite for NW
+            of NE: "agent.e"  # Use east sprite for NE
+            of SW: "agent.w"  # Use west sprite for SW
+            of SE: "agent.e"  # Use east sprite for SE
 
           # Draw agent sprite with normal coloring (no infection overlay for agents)
           bxy.drawImage(
@@ -340,7 +340,7 @@ proc drawObjects*() =
           let altarTint = getAltarColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
-            "map/floor",
+            "floor",
             pos.vec2,
             angle = 0,
             scale = 1/200,
@@ -361,16 +361,16 @@ proc drawObjects*() =
           let amt = max(0, thing.hearts)
           if amt == 0:
             let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
-            bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
+            bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
           else:
             if amt <= HeartPlusThreshold:
               let drawCount = amt
               for i in 0 ..< drawCount:
                 let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
-                bxy.drawImage("ui/heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
+                bxy.drawImage("heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
             else:
               # Compact: single heart with a count label for large totals
-              bxy.drawImage("ui/heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
+              bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
               let labelKey = ensureHeartCountLabel(amt)
               # Offset roughly half a tile to the right for clearer separation from the icon.
               let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
@@ -407,9 +407,9 @@ proc drawObjects*() =
             of E, NE, SE: "e"
             of W, NW, SW: "w"
           let spritePrefix = if thing.hasClaimedTerritory:
-            "agents/tumor."
+            "tumor."
           else:
-            "agents/tumor.color."
+            "tumor.color."
           let baseImage = spritePrefix & spriteDir
           # Tumors draw directly with tint variations baked into the sprite
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
@@ -546,7 +546,7 @@ proc drawAgentDecorations*() =
   for agent in env.agents:
     # Frozen overlay
     if agent.frozen > 0:
-      bxy.drawImage("agents/frozen", agent.pos.vec2, angle = 0, scale = 1/200)
+      bxy.drawImage("frozen", agent.pos.vec2, angle = 0, scale = 1/200)
 
     # Health bar (5 segments)
     if agent.maxHp > 0:
@@ -557,7 +557,7 @@ proc drawAgentDecorations*() =
       let segStep = 0.16
       for i in 0 ..< segments:
         let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
-        bxy.drawImage("map/floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
+        bxy.drawImage("floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
 
     # Inventory overlays placed radially, ordered by item name.
     type OverlayItem = object
@@ -569,15 +569,15 @@ proc drawAgentDecorations*() =
       if key == ItemOre: return inventorySpriteKey("ore")
       if key == ItemStone: return inventorySpriteKey("block")
       if key == ItemBar: return inventorySpriteKey("bar")
-      if key == ItemWater: return inventorySpriteKey("water")
-      if key == ItemWheat: return inventorySpriteKey("wheat")
+      if key == ItemWater: return inventorySpriteKey("droplet")
+      if key == ItemWheat: return inventorySpriteKey("bushel")
       if key == ItemWood: return inventorySpriteKey("wood")
       if key == ItemSpear: return inventorySpriteKey("spear")
       if key == ItemLantern: return inventorySpriteKey("lantern")
       if key == ItemArmor: return inventorySpriteKey("armor")
       if key == ItemBread: return inventorySpriteKey("bread")
       if key == ItemMilk: return inventorySpriteKey("liquid_misc")
-      if key == ItemHearts: return "ui/heart"
+      if key == ItemHearts: return "heart"
       if key.startsWith(ItemThingPrefix):
         let kindName = key[ItemThingPrefix.len .. ^1]
         case kindName
@@ -648,7 +648,7 @@ proc drawGrid*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       bxy.drawImage(
-        "ui/grid",
+        "grid",
         ivec2(x, y).vec2,
         angle = 0,
         scale = 1/200
@@ -657,7 +657,7 @@ proc drawGrid*() =
 proc drawSelection*() =
   if selection != nil:
     bxy.drawImage(
-      "ui/selection",
+      "selection",
       selection.pos.vec2,
       angle = 0,
       scale = 1/200
