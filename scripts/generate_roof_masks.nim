@@ -1,5 +1,6 @@
-import std/[os, strutils]
+import std/os
 import pixie
+import pixie/fileformats/png
 
 const RoofMaskSprites = [
   "house",
