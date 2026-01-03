@@ -79,7 +79,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   var used = false
   case thing.kind:
-  of TreeObject:
+  of Pine, Palm:
     removeThing(env, thing)
     env.dropStump(thing.pos, 5)
     used = true

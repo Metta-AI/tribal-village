@@ -26,7 +26,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     if canMove:
       return true
     let blocker = env.getThing(pos)
-    if isNil(blocker) or blocker.kind != PlantedLantern:
+    if isNil(blocker) or blocker.kind != Lantern:
       return false
 
     var relocated = false
@@ -34,7 +34,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     template spacingOk(nextPos: IVec2): bool =
       var ok = true
       for t in env.things:
-        if t.kind == PlantedLantern and t != blocker:
+        if t.kind == Lantern and t != blocker:
           let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
           if dist < 3'i32:
             ok = false
@@ -112,4 +112,3 @@ proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
     # REMOVED: expensive per-agent full grid rebuilds
   else:
     inc env.stats[id].actionInvalid
-

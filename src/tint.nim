@@ -69,7 +69,7 @@ proc updateTintModifications(env: Environment) =
       if tribeId < agentVillageColors.len:
         addTintArea(baseX, baseY, agentVillageColors[tribeId], radius = 2, scale = 90)
 
-    of PlantedLantern:
+    of Lantern:
       if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < teamColors.len:
         addTintArea(baseX, baseY, teamColors[thing.teamId], radius = 2, scale = 60)
 
@@ -134,4 +134,3 @@ proc applyTintModifications(env: Environment) =
         let baseIntensity = env.baseTileColors[x][y].intensity
         if abs(env.tileColors[x][y].intensity - baseIntensity) > 0.01:
           env.tileColors[x][y].intensity = env.tileColors[x][y].intensity * decay + baseIntensity * (1.0 - decay)
-

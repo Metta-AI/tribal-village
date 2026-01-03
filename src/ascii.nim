@@ -3,7 +3,8 @@ proc thingAsciiChar*(kind: ThingKind): char =
   case kind:
   of Agent: '@'
   of Wall: '#'
-  of TreeObject: 't'
+  of Pine: 't'
+  of Palm: 'P'
   of Mine: 'M'
   of Magma: 'v'
   of Altar: 'a'
@@ -26,7 +27,7 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of MiningCamp: 'G'
   of Farm: 'f'
   of Stump: 'p'
-  of PlantedLantern: 'l'
+  of Lantern: 'l'
   of TownCenter: 'N'
   of House: 'h'
   of Barracks: 'r'
@@ -72,8 +73,10 @@ proc render*(env: Environment): string =
             cell = "A"
           of Wall:
             cell = "#"
-          of TreeObject:
+          of Pine:
             cell = "T"
+          of Palm:
+            cell = "P"
           of Mine:
             cell = "m"
           of Magma:
@@ -118,7 +121,7 @@ proc render*(env: Environment): string =
             cell = "S"
           of Outpost:
             cell = "^"
-          of PlantedLantern:
+          of Lantern:
             cell = "L"
           of TownCenter:
             cell = "N"

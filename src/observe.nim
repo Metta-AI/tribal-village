@@ -72,7 +72,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # Already handled above.
     of Wall:
       env.updateObservations(WallLayer, thing.pos, 1)
-    of TreeObject:
+    of Pine, Palm:
       discard  # No dedicated observation layer for trees.
     of Mine:
       env.updateObservations(MineLayer, thing.pos, 1)
@@ -90,7 +90,7 @@ proc rebuildObservations*(env: Environment) =
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
     of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, Outpost,
-       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern, TownCenter, House,
+       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, Lantern, TownCenter, House,
        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
        University, Castle:
       discard

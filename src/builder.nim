@@ -9,7 +9,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       if agent.inventoryWood > 0:
         let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, TownCenter)
         if did: return act
-      let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+      let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
       if did: return act
 
     if hasHome and not isOutOfSight(agent):
@@ -31,7 +31,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if agent.inventoryWood > 0:
       let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, TownCenter)
       if did: return act
-    let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+    let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
     if did: return act
 
   if hasHome:
