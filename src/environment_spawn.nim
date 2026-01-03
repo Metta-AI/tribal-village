@@ -65,19 +65,26 @@ proc init(env: Environment) =
     let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
     var dungeonWalls: MaskGrid
     dungeonWalls.clearMask(MapWidth, MapHeight)
-    for i in 0 ..< count:
-      let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
+    let zones = evenlyDistributedZones(r, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction)
+    for zone in zones:
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
       let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
       let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
 
+      var zoneMask: MaskGrid
+      buildZoneBlobMask(zoneMask, MapWidth, MapHeight, MapBorder, zone, r)
+
       # Tint the dungeon zone background with a soft edge blend.
+      let dungeonBlendDepth = 4
       for x in x0 ..< x1:
         for y in y0 ..< y1:
+          if not zoneMask[x][y]:
+            continue
           env.biomes[x][y] = BiomeDungeonType
-          let edge = min(min(x - x0, x1 - 1 - x), min(y - y0, y1 - 1 - y))
-          let t = min(1.0'f32, max(0.0'f32, edge.float32 / 4.0))
+          let edge = maskEdgeDistance(zoneMask, MapWidth, MapHeight, x, y, dungeonBlendDepth)
+          let t = if dungeonBlendDepth <= 0: 1.0'f32 else:
+            min(1.0'f32, max(0.0'f32, edge.float32 / dungeonBlendDepth.float32))
           let dungeonColor = biomeBaseColor(BiomeDungeonType)
           let base = env.baseTileColors[x][y]
           let blended = blendTileColor(base, dungeonColor, t)
@@ -89,6 +96,8 @@ proc init(env: Environment) =
 
       for x in x0 ..< x1:
         for y in y0 ..< y1:
+          if not zoneMask[x][y]:
+            continue
           let shouldWall = if dungeonKind == DungeonRadial:
             not mask[x][y]  # radial mask encodes corridors; invert for walls
           else:
