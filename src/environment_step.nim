@@ -363,7 +363,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.pos = respawnPos
           agent.inventory = emptyInventory()
           agent.frozen = 0
-          env.applyUnitClass(agent, UnitVillager)
+          applyUnitClass(agent, UnitVillager)
           env.terminated[agentId] = 0.0
 
           # Update grid
