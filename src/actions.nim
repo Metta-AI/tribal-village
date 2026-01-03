@@ -488,7 +488,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
   of Armory, Forge, TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith,
-     Market, Dock, Monastery, University, Castle:
+     Market, Dock, Monastery, University, Castle, Outpost:
     placed.teamId = getTeamId(agent.agentId)
   of Altar:
     placed.teamId = getTeamId(agent.agentId)

@@ -15,7 +15,7 @@ type
     Baker       # TerrainWheat -> Bread
     Lighter     # TerrainWheat -> Lantern -> Plant
     Farmer      # Creates fertile ground and plants wheat/trees
-    Builder     # Builds watchtowers and roads
+    Builder     # Builds outposts and roads
     Miner       # Mines ore and keeps converters fed
     Guard       # Patrols near home and engages threats
     Medic       # Bakes bread and distributes it
@@ -36,7 +36,7 @@ type
     escapeMode: bool
     escapeStepsRemaining: int
     escapeDirection: IVec2
-    builderHasTower: bool
+    builderHasOutpost: bool
 
   # Simple controller
   Controller* = ref object

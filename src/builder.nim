@@ -3,7 +3,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let home = agent.homeAltar
   let hasHome = home.x >= 0
 
-  if not state.builderHasTower:
+  if not state.builderHasOutpost:
     if agent.inventoryWood < OutpostWoodCost:
       let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
       if did: return act
@@ -16,13 +16,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     let dy = if hasHome and agent.pos.y != home.y: (if agent.pos.y > home.y: 1'i32 else: -1'i32) else: 0'i32
     let buildPos = findAdjacentBuildTile(env, agent.pos, ivec2(dx, dy))
     if buildPos.x >= 0:
-      state.builderHasTower = true
+      state.builderHasOutpost = true
       return saveStateAndReturn(controller, agentId, state,
         encodeAction(3'u8, neighborDirIndex(agent.pos, buildPos).uint8))
 
     return controller.moveNextSearch(env, agent, agentId, state)
 
-  # After tower is built, craft road kits at the siege workshop and lay them toward home.
+  # After outpost is built, craft road kits at the siege workshop and lay them toward home.
   let roadKey = ItemThingPrefix & "Road"
   if getInv(agent, roadKey) == 0:
     if agent.inventoryWood == 0:

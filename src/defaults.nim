@@ -29,7 +29,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       escapeMode: false,
       escapeStepsRemaining: 0,
       escapeDirection: ivec2(0, -1),
-      builderHasTower: false
+      builderHasOutpost: false
     )
 
   var state = controller.agents[agentId]
