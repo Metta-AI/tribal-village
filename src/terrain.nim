@@ -106,11 +106,11 @@ const
   PalmGroveClusterScale* = 3
   # Slightly higher biome/dungeon density for richer maps.
   BiomeZoneDivisor* = 5500
-  DungeonZoneDivisor* = 9000
+  DungeonZoneDivisor* = 6500
   BiomeZoneMinCount* = 5
   BiomeZoneMaxCount* = 12
   DungeonZoneMinCount* = 4
-  DungeonZoneMaxCount* = 9
+  DungeonZoneMaxCount* = 14
   BiomeZoneMaxFraction* = 0.52
   DungeonZoneMaxFraction* = 0.28
   ZoneMinSize* = 18
