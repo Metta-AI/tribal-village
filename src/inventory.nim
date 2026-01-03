@@ -145,62 +145,20 @@ proc resources*(thing: Thing): int =
 proc `resources=`*(thing: Thing, value: int) =
   thing.mineResources = value
 
-proc inventoryOre*(agent: Thing): int =
-  getInv(agent, ItemOre)
+template defineInventoryAccessors(name, key: untyped) =
+  proc `name`*(agent: Thing): int =
+    getInv(agent, key)
 
-proc `inventoryOre=`*(agent: Thing, value: int) =
-  setInv(agent, ItemOre, value)
+  proc `name=`*(agent: Thing, value: int) =
+    setInv(agent, key, value)
 
-proc inventoryStone*(agent: Thing): int =
-  getInv(agent, ItemStone)
-
-proc `inventoryStone=`*(agent: Thing, value: int) =
-  setInv(agent, ItemStone, value)
-
-proc inventoryBar*(agent: Thing): int =
-  getInv(agent, ItemBar)
-
-proc `inventoryBar=`*(agent: Thing, value: int) =
-  setInv(agent, ItemBar, value)
-
-proc inventoryWater*(agent: Thing): int =
-  getInv(agent, ItemWater)
-
-proc `inventoryWater=`*(agent: Thing, value: int) =
-  setInv(agent, ItemWater, value)
-
-proc inventoryWheat*(agent: Thing): int =
-  getInv(agent, ItemWheat)
-
-proc `inventoryWheat=`*(agent: Thing, value: int) =
-  setInv(agent, ItemWheat, value)
-
-proc inventoryWood*(agent: Thing): int =
-  getInv(agent, ItemWood)
-
-proc `inventoryWood=`*(agent: Thing, value: int) =
-  setInv(agent, ItemWood, value)
-
-proc inventorySpear*(agent: Thing): int =
-  getInv(agent, ItemSpear)
-
-proc `inventorySpear=`*(agent: Thing, value: int) =
-  setInv(agent, ItemSpear, value)
-
-proc inventoryLantern*(agent: Thing): int =
-  getInv(agent, ItemLantern)
-
-proc `inventoryLantern=`*(agent: Thing, value: int) =
-  setInv(agent, ItemLantern, value)
-
-proc inventoryArmor*(agent: Thing): int =
-  getInv(agent, ItemArmor)
-
-proc `inventoryArmor=`*(agent: Thing, value: int) =
-  setInv(agent, ItemArmor, value)
-
-proc inventoryBread*(agent: Thing): int =
-  getInv(agent, ItemBread)
-
-proc `inventoryBread=`*(agent: Thing, value: int) =
-  setInv(agent, ItemBread, value)
+defineInventoryAccessors(inventoryOre, ItemOre)
+defineInventoryAccessors(inventoryStone, ItemStone)
+defineInventoryAccessors(inventoryBar, ItemBar)
+defineInventoryAccessors(inventoryWater, ItemWater)
+defineInventoryAccessors(inventoryWheat, ItemWheat)
+defineInventoryAccessors(inventoryWood, ItemWood)
+defineInventoryAccessors(inventorySpear, ItemSpear)
+defineInventoryAccessors(inventoryLantern, ItemLantern)
+defineInventoryAccessors(inventoryArmor, ItemArmor)
+defineInventoryAccessors(inventoryBread, ItemBread)

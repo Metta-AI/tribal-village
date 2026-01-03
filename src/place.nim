@@ -122,7 +122,7 @@ proc firstThingItem(agent: Thing): ItemKey =
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
-    if env.terrain[pos.x][pos.y] notin {Empty, Snow}:
+    if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow}:
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)

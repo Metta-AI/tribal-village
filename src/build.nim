@@ -72,7 +72,7 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
       return false
     let terrain = env.terrain[pos.x][pos.y]
-    terrain in {Empty, Snow}
+    terrain in {Empty, Grass, Sand, Snow}
 
   var offsets: seq[IVec2] = @[]
   proc addOffset(offset: IVec2) =
