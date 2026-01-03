@@ -118,6 +118,10 @@ const
   BiomeZoneGridJitter* = 0.35
   BiomeZoneCellFill* = 0.95
   ZoneBlobNoise* = 0.35
+  ZoneBlobLobesMin* = 1
+  ZoneBlobLobesMax* = 3
+  ZoneBlobLobeOffset* = 0.7
+  ZoneBlobAnisotropy* = 0.45
   ZoneBlobDitherProb* = 0.12
   ZoneBlobDitherDepth* = 4
   DungeonTerrainWall* = Tree
@@ -311,14 +315,42 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
   let cy = (y0 + y1 - 1) div 2
   let rx = max(2, (x1 - x0) div 2)
   let ry = max(2, (y1 - y0) div 2)
+  let lobeCount = randInclusive(r, ZoneBlobLobesMin, ZoneBlobLobesMax)
+  var lobes: seq[tuple[cx, cy, rx, ry: float]] = @[]
+  let baseStretch = max(0.35, 1.0 + (randFloat(r) * 2.0 - 1.0) * ZoneBlobAnisotropy)
+  lobes.add((
+    cx: cx.float,
+    cy: cy.float,
+    rx: max(2.0, rx.float * baseStretch),
+    ry: max(2.0, ry.float / baseStretch)
+  ))
+  if lobeCount > 1:
+    let minRadius = min(rx.float, ry.float)
+    for _ in 1 ..< lobeCount:
+      let angle = randFloat(r) * 2.0 * PI
+      let offset = (0.35 + 0.55 * randFloat(r)) * minRadius * ZoneBlobLobeOffset
+      let stretch = max(0.35, 1.0 + (randFloat(r) * 2.0 - 1.0) * ZoneBlobAnisotropy)
+      let lrx = max(2.0, rx.float * (0.45 + 0.55 * randFloat(r)) * stretch)
+      let lry = max(2.0, ry.float * (0.45 + 0.55 * randFloat(r)) / stretch)
+      lobes.add((
+        cx: cx.float + cos(angle) * offset,
+        cy: cy.float + sin(angle) * offset,
+        rx: lrx,
+        ry: lry
+      ))
 
   for x in x0 ..< x1:
     for y in y0 ..< y1:
-      let dx = (x - cx).float / rx.float
-      let dy = (y - cy).float / ry.float
-      let dist = dx * dx + dy * dy
       let noise = (randFloat(r) - 0.5) * ZoneBlobNoise
-      if dist <= 1.0 + noise:
+      var inside = false
+      for lobe in lobes:
+        let dx = (x.float - lobe.cx) / lobe.rx
+        let dy = (y.float - lobe.cy) / lobe.ry
+        let dist = dx * dx + dy * dy
+        if dist <= 1.0 + noise:
+          inside = true
+          break
+      if inside:
         mask[x][y] = true
 
   mask[cx][cy] = true
