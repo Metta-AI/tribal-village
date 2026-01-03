@@ -149,10 +149,6 @@ type
     Forge
     ClayOven
     WeavingLoom
-    Bed
-    Chair
-    Table
-    Statue
     Outpost
     Barrel
     Mill

@@ -303,30 +303,6 @@ proc init(env: Environment) =
                 pos: worldPos,
                 teamId: teamId
               ))
-            of StructureBedChar:  # Bed
-              env.add(Thing(
-                kind: Bed,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureChairChar:  # Chair (throne)
-              env.add(Thing(
-                kind: Chair,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureTableChar:  # Table
-              env.add(Thing(
-                kind: Table,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureStatueChar:  # Statue
-              env.add(Thing(
-                kind: Statue,
-                pos: worldPos,
-                teamId: teamId
-              ))
             of StructureTownCenterChar:  # Town Center
               env.add(Thing(
                 kind: TownCenter,

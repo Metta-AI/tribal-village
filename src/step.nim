@@ -102,9 +102,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.tickCooldown(thing, MagmaReadyLayer, true)
     elif thing.kind == Mine:
       env.tickCooldown(thing, MineReadyLayer, true)
-    elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom, Table, Chair, Bed, Statue,
-                        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market,
-                        Dock, Monastery, University, Castle, TownCenter, House}:
+    elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom, Barracks, ArcheryRange, Stable,
+                        SiegeWorkshop, Blacksmith, Market, Dock, Monastery, University, Castle,
+                        TownCenter, House}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
     elif thing.kind == Spawner:
