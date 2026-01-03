@@ -641,7 +641,7 @@ proc init(env: Environment) =
           candidates.add(pos)
 
     let toPlace = min(clusterSize - 1, candidates.len)
-    for i in 0 ..< toPlace:
+  for i in 0 ..< toPlace:
       let mine = Thing(
         kind: Mine,
         pos: candidates[i]
@@ -653,6 +653,9 @@ proc init(env: Environment) =
       inc minesPlaced
       if minesPlaced >= MapRoomObjectsMines:
         break
+
+  # Ensure the world is a single connected component after terrain and structures.
+  env.makeConnected()
 
   # Cows spawn in herds (5-10) across open terrain.
   const MinHerdSize = 5
