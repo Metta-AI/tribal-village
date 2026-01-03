@@ -110,7 +110,11 @@ proc toSnakeCase(name: string): string =
       result.add(ch)
 
 proc thingSpriteKey(kind: ThingKind): string =
-  toSnakeCase($kind)
+  case kind
+  of Farm:
+    "farm_tile"
+  else:
+    toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
@@ -129,9 +133,9 @@ proc drawFloor*() =
 
       let tileColor = env.tileColors[x][y]
       let floorSprite = case env.biomes[x][y]
-        of BiomeCavesType: "cave_floor"
-        of BiomeDungeonType: "dungeon_floor"
-        else: "floor"
+        of BiomeCavesType: "cave_tile"
+        of BiomeDungeonType: "dungeon_tile"
+        else: "floor_tile"
 
       let finalR = min(tileColor.r * tileColor.intensity, 1.5)
       let finalG = min(tileColor.g * tileColor.intensity, 1.5)
@@ -151,7 +155,7 @@ proc drawTerrain*() =
       var spriteKey = ""
       case terrain
       of Bridge:
-        spriteKey = "bridge"
+        spriteKey = "bridge_tile"
       of Wheat:
         spriteKey = "wheat"
       of Tree:
@@ -161,7 +165,7 @@ proc drawTerrain*() =
       of Fertile:
         spriteKey = "fertile"
       of Road:
-        spriteKey = "road"
+        spriteKey = "road_tile"
       of Rock:
         spriteKey = "rock"
       of Gem:
@@ -179,9 +183,9 @@ proc drawTerrain*() =
       of Stalagmite:
         spriteKey = "stalagmite"
       of Sand:
-        spriteKey = "sand"
+        spriteKey = "sand_tile"
       of Snow:
-        spriteKey = "snow"
+        spriteKey = "snow_tile"
       of Empty, Water:
         discard
       if spriteKey.len > 0:
@@ -197,7 +201,7 @@ proc drawAttackOverlays*() =
       let c = env.actionTintColor[pos.x][pos.y]
       # Render the short-lived action overlay fully opaque so it sits above the
       # normal tint layer and clearly masks the underlying tile color.
-      bxy.drawImage("floor", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
+      bxy.drawImage("floor_tile", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -309,7 +313,7 @@ proc drawObjects*() =
   drawAttackOverlays()
 
   let drawWaterTile = proc(pos: Vec2) =
-    bxy.drawImage("water", pos, angle = 0, scale = 1/200)
+    bxy.drawImage("water_tile", pos, angle = 0, scale = 1/200)
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
   for x in 0 ..< MapWidth:
@@ -359,7 +363,7 @@ proc drawObjects*() =
           let altarTint = getAltarColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
-            "floor",
+            "floor_tile",
             pos.vec2,
             angle = 0,
             scale = 1/200,
@@ -483,7 +487,7 @@ proc drawAgentDecorations*() =
       let segStep = 0.16
       for i in 0 ..< segments:
         let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
-        bxy.drawImage("floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
+        bxy.drawImage("floor_tile", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
 
     # Inventory overlays placed radially, ordered by item name.
     type OverlayItem = object
@@ -544,7 +548,7 @@ proc drawGrid*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       bxy.drawImage(
-        "grid",
+        "grid_tile",
         ivec2(x, y).vec2,
         angle = 0,
         scale = 1/200
