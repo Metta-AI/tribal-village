@@ -15,6 +15,7 @@ const
   WorkshopChairChar* = 'H'
   WorkshopTableChar* = 'T'
   WorkshopStatueChar* = 'S'
+  WorkshopTownCenterChar* = 'N'
 
 proc createVillage*(): Structure =
   ## Village layout with enclosed walls, interior workshops, and door gaps.
@@ -24,7 +25,7 @@ proc createVillage*(): Structure =
     centerPos: ivec2(5, 5),
     layout: @[
       @['#', '#', '#', '#', '#', 'D', '#', '#', '#', '#', '#'],
-      @['#', '.', '.', '.', '.', '.', '.', '.', '.', '.', '#'],
+      @['#', '.', '.', '.', '.', 'N', '.', '.', '.', '.', '#'],
       @['#', '.', 'A', '.', '.', '.', '.', '.', 'F', '.', '#'],
       @['#', '.', '.', 'B', '.', '.', '.', 'T', '.', '.', '#'],
       @['#', '.', '.', '.', '.', '.', '.', '.', '.', '.', '#'],

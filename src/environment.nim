@@ -42,12 +42,15 @@ const
   RoadWoodCost* = 1
   WatchTowerWoodCost* = 2
   CowMilkCooldown* = 25
+  ResourceCarryCapacity* = 5
+  TownCenterPopCap* = 5
+  HousePopCap* = 5
 
   # Gameplay
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 21
+  ObservationLayers* = 22
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -104,7 +107,12 @@ type
     altarReadyLayer = 18
     TintLayer = 19        # Unified tint layer for all environmental effects
     AgentInventoryBreadLayer = 20  # Bread baked from clay oven
+    AgentInventoryStoneLayer = 21  # Stone (AoE2 resource)
 
+
+  MineResourceKind* = enum
+    MineGold
+    MineStone
 
   ThingKind* = enum
     Agent
@@ -133,6 +141,8 @@ type
     Farm
     Stump
     PlantedLantern  # Planted lanterns that spread team colors
+    TownCenter
+    House
 
   TreeVariant* = enum
     TreeVariantPine
@@ -167,6 +177,10 @@ type
 
     # TreeObject:
     treeVariant*: TreeVariant
+
+    # Mine:
+    mineKind*: MineResourceKind
+    mineResources*: int
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
@@ -246,6 +260,9 @@ type
     survivalPenalty*: float
     deathPenalty*: float
 
+  TeamStockpile* = object
+    counts*: array[StockpileResource, int]
+
   Environment* = ref object
     currentStep*: int
     config*: EnvironmentConfig  # Configuration for this environment
@@ -256,6 +273,7 @@ type
     grid*: array[MapWidth, array[MapHeight, Thing]]
     doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
     doorHearts*: array[MapWidth, array[MapHeight, int8]]
+    teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
@@ -616,6 +634,10 @@ proc render*(env: Environment): string =
             cell = "^"
           of PlantedLantern:
             cell = "L"
+          of TownCenter:
+            cell = "N"
+          of House:
+            cell = "h"
           break
       result.add(cell)
     result.add("\n")
@@ -676,6 +698,7 @@ proc rebuildObservations*(env: Environment) =
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
     env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
+    env.updateObservations(AgentInventoryStoneLayer, agent.pos, getInv(agent, ItemStone))
     env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, ItemBar))
     env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, ItemWater))
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, getInv(agent, ItemWheat))
@@ -698,7 +721,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for trees.
     of Mine:
       env.updateObservations(MineLayer, thing.pos, 1)
-      env.updateObservations(MineResourceLayer, thing.pos, getInv(thing, ItemOre))
+      env.updateObservations(MineResourceLayer, thing.pos, thing.resources)
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
     of Converter:
       env.updateObservations(ConverterLayer, thing.pos, 1)
@@ -712,7 +735,7 @@ proc rebuildObservations*(env: Environment) =
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
     of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower,
-       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern:
+       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern, TownCenter, House:
       discard
 
   env.observationsInitialized = true
@@ -783,6 +806,8 @@ proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   if key == ItemOre:
     env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, key))
+  elif key == ItemStone:
+    env.updateObservations(AgentInventoryStoneLayer, agent.pos, getInv(agent, key))
   elif key == ItemBar:
     env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, key))
   elif key == ItemWater:
@@ -800,6 +825,63 @@ proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   elif key == ItemBread:
     env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, key))
 
+proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
+  if teamId < 0 or teamId >= env.teamStockpiles.len:
+    return 0
+  env.teamStockpiles[teamId].counts[res]
+
+proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
+  if teamId < 0 or teamId >= env.teamStockpiles.len:
+    return
+  if amount <= 0:
+    return
+  env.teamStockpiles[teamId].counts[res] += amount
+
+proc canSpendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  if teamId < 0 or teamId >= env.teamStockpiles.len:
+    return false
+  for cost in costs:
+    if cost.count <= 0:
+      continue
+    if env.teamStockpiles[teamId].counts[cost.res] < cost.count:
+      return false
+  true
+
+proc spendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  if not env.canSpendStockpile(teamId, costs):
+    return false
+  for cost in costs:
+    if cost.count <= 0:
+      continue
+    env.teamStockpiles[teamId].counts[cost.res] -= cost.count
+  true
+
+proc teamPopulation*(env: Environment, teamId: int): int =
+  result = 0
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    if env.terminated[agent.agentId] != 0.0:
+      continue
+    if getTeamId(agent.agentId) == teamId:
+      inc result
+
+proc teamPopCap*(env: Environment, teamId: int): int =
+  var cap = 0
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.teamId != teamId:
+      continue
+    case thing.kind
+    of TownCenter:
+      cap += TownCenterPopCap
+    of House:
+      cap += HousePopCap
+    else:
+      discard
+  cap
+
 proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
   ## Pick the item with the highest count to deposit into an empty barrel.
   result = (key: ItemNone, count: 0)
@@ -814,16 +896,22 @@ proc `hearts=`*(thing: Thing, value: int) =
   setInv(thing, ItemHearts, value)
 
 proc resources*(thing: Thing): int =
-  getInv(thing, ItemOre)
+  thing.mineResources
 
 proc `resources=`*(thing: Thing, value: int) =
-  setInv(thing, ItemOre, value)
+  thing.mineResources = value
 
 proc inventoryOre*(agent: Thing): int =
   getInv(agent, ItemOre)
 
 proc `inventoryOre=`*(agent: Thing, value: int) =
   setInv(agent, ItemOre, value)
+
+proc inventoryStone*(agent: Thing): int =
+  getInv(agent, ItemStone)
+
+proc `inventoryStone=`*(agent: Thing, value: int) =
+  setInv(agent, ItemStone, value)
 
 proc inventoryBar*(agent: Thing): int =
   getInv(agent, ItemBar)

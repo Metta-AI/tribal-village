@@ -5,7 +5,20 @@ proc noopAction(env: Environment, id: int, agent: Thing) =
 proc add(env: Environment, thing: Thing)
 proc removeThing(env: Environment, thing: Thing)
 
+proc resourceCarryTotal(agent: Thing): int =
+  result = 0
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      result += count
+
+proc resourceCarryCapacityLeft(agent: Thing): int =
+  max(0, ResourceCarryCapacity - resourceCarryTotal(agent))
+
 proc canCarry(agent: Thing, key: ItemKey, count: int = 1): bool =
+  if count <= 0:
+    return true
+  if isStockpileResourceKey(key):
+    return resourceCarryTotal(agent) + count <= ResourceCarryCapacity
   getInv(agent, key) + count <= MapObjectAgentMaxInventory
 
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
@@ -57,7 +70,11 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
       setInv(storage, storedKey, storedCount + moved)
       env.updateAgentInventoryObs(agent, storedKey)
       return true
-    let capacityLeft = max(0, MapObjectAgentMaxInventory - agentCount)
+    let capacityLeft =
+      if isStockpileResourceKey(storedKey):
+        resourceCarryCapacityLeft(agent)
+      else:
+        max(0, MapObjectAgentMaxInventory - agentCount)
     if capacityLeft > 0:
       let moved = min(storedCount, capacityLeft)
       if moved > 0:
@@ -76,6 +93,29 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
     env.updateAgentInventoryObs(agent, choice.key)
     return true
   false
+
+proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileResource]): bool =
+  let teamId = getTeamId(agent.agentId)
+  var depositKeys: seq[ItemKey] = @[]
+  for key, count in agent.inventory.pairs:
+    if count <= 0:
+      continue
+    if not isStockpileResourceKey(key):
+      continue
+    let res = stockpileResourceForItem(key)
+    if res in allowed:
+      depositKeys.add(key)
+  if depositKeys.len == 0:
+    return false
+  for key in depositKeys:
+    let count = getInv(agent, key)
+    if count <= 0:
+      continue
+    let res = stockpileResourceForItem(key)
+    env.addToStockpile(teamId, res, count)
+    setInv(agent, key, 0)
+    env.updateAgentInventoryObs(agent, key)
+  true
 
 proc dropStump(env: Environment, pos: IVec2, woodCount: int) =
   let stump = Thing(kind: Stump, pos: pos)
@@ -96,9 +136,21 @@ proc stationForThing(kind: ThingKind): CraftStation =
   of Statue: StationStatue
   else: StationTable
 
-proc canApplyRecipe(agent: Thing, recipe: CraftRecipe): bool =
+proc recipeUsesStockpile(recipe: CraftRecipe): bool =
+  for output in recipe.outputs:
+    if output.key.startsWith(ItemThingPrefix):
+      return true
+  false
+
+proc canApplyRecipe(env: Environment, agent: Thing, recipe: CraftRecipe): bool =
+  let useStockpile = recipeUsesStockpile(recipe)
+  let teamId = getTeamId(agent.agentId)
   for input in recipe.inputs:
-    if getInv(agent, input.key) < input.count:
+    if useStockpile and isStockpileResourceKey(input.key):
+      let res = stockpileResourceForItem(input.key)
+      if env.stockpileCount(teamId, res) < input.count:
+        return false
+    elif getInv(agent, input.key) < input.count:
       return false
   for output in recipe.outputs:
     if getInv(agent, output.key) + output.count > MapObjectAgentMaxInventory:
@@ -106,7 +158,17 @@ proc canApplyRecipe(agent: Thing, recipe: CraftRecipe): bool =
   true
 
 proc applyRecipe(env: Environment, agent: Thing, recipe: CraftRecipe) =
+  let useStockpile = recipeUsesStockpile(recipe)
+  let teamId = getTeamId(agent.agentId)
+  if useStockpile:
+    var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+    for input in recipe.inputs:
+      if isStockpileResourceKey(input.key):
+        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+    discard env.spendStockpile(teamId, costs)
   for input in recipe.inputs:
+    if useStockpile and isStockpileResourceKey(input.key):
+      continue
     setInv(agent, input.key, getInv(agent, input.key) - input.count)
     env.updateAgentInventoryObs(agent, input.key)
   for output in recipe.outputs:
@@ -117,7 +179,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
   for recipe in CraftRecipes:
     if recipe.station != station:
       continue
-    if not canApplyRecipe(agent, recipe):
+    if not canApplyRecipe(env, agent, recipe):
       continue
     env.applyRecipe(agent, recipe)
     if stationThing != nil:
@@ -232,7 +294,11 @@ proc transferAgentInventory(env: Environment, killer, victim: Thing) =
     let count = getInv(victim, key)
     if count <= 0:
       continue
-    let capacity = max(0, MapObjectAgentMaxInventory - getInv(killer, key))
+    let capacity =
+      if isStockpileResourceKey(key):
+        resourceCarryCapacityLeft(killer)
+      else:
+        max(0, MapObjectAgentMaxInventory - getInv(killer, key))
     let moved = min(count, capacity)
     if moved > 0:
       setInv(killer, key, getInv(killer, key) + moved)
@@ -267,18 +333,26 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   of "MiningCamp": kind = MiningCamp
   of "Farm": kind = Farm
   of "PlantedLantern": kind = PlantedLantern
+  of "TownCenter": kind = TownCenter
+  of "House": kind = House
   else:
     return false
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, Stump}:
+  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, TownCenter, House, Stump}:
     return false
   if thing.kind == Skeleton:
+    var resourceNeeded = 0
     for itemKey, count in thing.inventory.pairs:
-      let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
-      if capacity < count:
-        return false
+      if isStockpileResourceKey(itemKey):
+        resourceNeeded += count
+      else:
+        let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
+        if capacity < count:
+          return false
+    if resourceNeeded > resourceCarryCapacityLeft(agent):
+      return false
     for itemKey, count in thing.inventory.pairs:
       setInv(agent, itemKey, getInv(agent, itemKey) + count)
       env.updateAgentInventoryObs(agent, itemKey)
@@ -289,10 +363,16 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   let current = getInv(agent, key)
   if current >= MapObjectAgentMaxInventory:
     return false
+  var resourceNeeded = 0
   for itemKey, count in thing.inventory.pairs:
-    let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
-    if capacity < count:
-      return false
+    if isStockpileResourceKey(itemKey):
+      resourceNeeded += count
+    else:
+      let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
+      if capacity < count:
+        return false
+  if resourceNeeded > resourceCarryCapacityLeft(agent):
+    return false
   for itemKey, count in thing.inventory.pairs:
     setInv(agent, itemKey, getInv(agent, itemKey) + count)
     env.updateAgentInventoryObs(agent, itemKey)
@@ -354,6 +434,8 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   of PlantedLantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
+  of TownCenter, House:
+    placed.teamId = getTeamId(agent.agentId)
   of Altar:
     placed.teamId = getTeamId(agent.agentId)
     placed.inventory = emptyInventory()
@@ -362,6 +444,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.homeSpawner = pos
   of Mine:
     placed.inventory = emptyInventory()
+    placed.mineKind = MineGold
     placed.resources = MapObjectMineInitialResources
   else:
     discard
@@ -412,6 +495,7 @@ proc killAgent(env: Environment, victim: Thing) =
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryOreLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
@@ -689,9 +773,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionInvalid
       return
     of Water:
-      if agent.inventoryWater < MapObjectAgentMaxInventory:
-        agent.inventoryWater = agent.inventoryWater + 1
-        env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
+      if env.giveItem(agent, ItemWater):
         agent.reward += env.config.waterReward
         inc env.stats[id].actionUse
         return
@@ -701,14 +783,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       inc env.stats[id].actionInvalid
       return
     of Wheat:
-      if agent.inventoryWheat < MapObjectAgentMaxInventory:
-        let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWheat)
-        agent.inventoryWheat = agent.inventoryWheat + gain
-        env.terrain[targetPos.x][targetPos.y] = Empty
-        agent.reward += env.config.wheatReward
-        env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-        inc env.stats[id].actionUse
-        return
+      let carryLeft = resourceCarryCapacityLeft(agent)
+      if carryLeft > 0:
+        let gain = min(2, carryLeft)
+        if env.giveItem(agent, ItemWheat, gain):
+          env.terrain[targetPos.x][targetPos.y] = Empty
+          agent.reward += env.config.wheatReward
+          inc env.stats[id].actionUse
+          return
       if env.giveFirstAvailable(agent, [ItemSeeds, ItemPlant]):
         env.terrain[targetPos.x][targetPos.y] = Empty
         inc env.stats[id].actionUse
@@ -719,14 +801,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if getInv(agent, ItemAxe) <= 0:
         inc env.stats[id].actionInvalid
         return
-      if agent.inventoryWood < MapObjectAgentMaxInventory:
-        let gain = min(2, MapObjectAgentMaxInventory - agent.inventoryWood)
-        agent.inventoryWood = agent.inventoryWood + gain
-        env.terrain[targetPos.x][targetPos.y] = Empty
-        agent.reward += env.config.woodReward
-        env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-        inc env.stats[id].actionUse
-        return
+      let carryLeft = resourceCarryCapacityLeft(agent)
+      if carryLeft > 0:
+        let gain = min(2, carryLeft)
+        if env.giveItem(agent, ItemWood, gain):
+          env.terrain[targetPos.x][targetPos.y] = Empty
+          agent.reward += env.config.woodReward
+          inc env.stats[id].actionUse
+          return
       if env.giveItem(agent, ItemBranch):
         env.terrain[targetPos.x][targetPos.y] = Empty
         inc env.stats[id].actionUse
@@ -861,30 +943,31 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       removeThing(env, thing)
       env.dropStump(thing.pos, 5)
       used = true
-    elif agent.inventoryWood < MapObjectAgentMaxInventory:
+    else:
       let baseGain =
         if hasAxe:
           if thing.treeVariant == TreeVariantPine: 5 else: 2
         else:
           1
-      let gain = min(baseGain, MapObjectAgentMaxInventory - agent.inventoryWood)
-      agent.inventoryWood = agent.inventoryWood + gain
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-      agent.reward += env.config.woodReward
-      if hasAxe:
-        removeThing(env, thing)
-      used = true
-    elif env.giveItem(agent, ItemBranch):
-      if hasAxe:
-        removeThing(env, thing)
-      used = true
-    else:
-      inc env.stats[id].actionInvalid
-      return
+      let carryLeft = resourceCarryCapacityLeft(agent)
+      if carryLeft > 0:
+        let gain = min(baseGain, carryLeft)
+        if env.giveItem(agent, ItemWood, gain):
+          agent.reward += env.config.woodReward
+          if hasAxe:
+            removeThing(env, thing)
+          used = true
+      if not used and env.giveItem(agent, ItemBranch):
+        if hasAxe:
+          removeThing(env, thing)
+        used = true
+      if not used:
+        inc env.stats[id].actionInvalid
+        return
   of Stump:
     let stored = getInv(thing, ItemWood)
     if stored > 0:
-      let capacity = MapObjectAgentMaxInventory - getInv(agent, ItemWood)
+      let capacity = resourceCarryCapacityLeft(agent)
       if capacity > 0:
         let moved = min(stored, capacity)
         setInv(agent, ItemWood, getInv(agent, ItemWood) + moved)
@@ -895,18 +978,29 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           removeThing(env, thing)
         used = true
   of Mine:
-    if thing.cooldown == 0 and agent.inventoryOre < MapObjectAgentMaxInventory:
-      agent.inventoryOre = agent.inventoryOre + 1
-      env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
-      thing.cooldown = MapObjectMineCooldown
-      env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
-      if agent.inventoryOre == 1: agent.reward += env.config.oreReward
-      used = true
+    if thing.cooldown == 0:
+      if thing.resources <= 0:
+        inc env.stats[id].actionInvalid
+        return
+      let resourceKey = if thing.mineKind == MineStone: ItemStone else: ItemOre
+      if env.giveItem(agent, resourceKey):
+        thing.resources = thing.resources - 1
+        env.updateObservations(MineResourceLayer, thing.pos, thing.resources)
+        thing.cooldown = MapObjectMineCooldown
+        env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
+        if resourceKey == ItemOre and getInv(agent, resourceKey) == 1:
+          agent.reward += env.config.oreReward
+        used = true
+        if thing.resources <= 0:
+          env.updateObservations(MineLayer, thing.pos, 0)
+          env.updateObservations(MineResourceLayer, thing.pos, 0)
+          env.updateObservations(MineReadyLayer, thing.pos, 0)
+          removeThing(env, thing)
   of Converter:
-    if thing.cooldown == 0 and agent.inventoryOre > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
-      agent.inventoryOre = agent.inventoryOre - 1
+    if thing.cooldown == 0 and getInv(agent, ItemOre) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
+      setInv(agent, ItemOre, getInv(agent, ItemOre) - 1)
       agent.inventoryBar = agent.inventoryBar + 1
-      env.updateObservations(AgentInventoryOreLayer, agent.pos, agent.inventoryOre)
+      env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.cooldown = 0
       env.updateObservations(ConverterReadyLayer, thing.pos, 1)
@@ -1004,14 +1098,23 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Barrel:
     if env.useStorageBuilding(agent, thing, @[]):
       used = true
+  of TownCenter:
+    if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone, ResourceWater}):
+      used = true
   of Mill:
-    if env.useStorageBuilding(agent, thing, @[ItemWheat]):
+    if env.useDropoffBuilding(agent, {ResourceFood}):
+      used = true
+    elif env.useStorageBuilding(agent, thing, @[ItemWheat]):
       used = true
   of LumberCamp:
-    if env.useStorageBuilding(agent, thing, @[ItemWood, ItemBranch]):
+    if env.useDropoffBuilding(agent, {ResourceWood}):
+      used = true
+    elif env.useStorageBuilding(agent, thing, @[ItemBranch]):
       used = true
   of MiningCamp:
-    if env.useStorageBuilding(agent, thing, @[ItemOre, ItemBoulder, ItemRough]):
+    if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
+      used = true
+    elif env.useStorageBuilding(agent, thing, @[ItemBoulder, ItemRough]):
       used = true
   of Farm:
     if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
@@ -1083,25 +1186,35 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     agent.inventoryArmor = 0
     transferred = true
   # Otherwise give food if possible (no obs layer yet)
-  elif agent.inventoryBread > 0 and target.inventoryBread < MapObjectAgentMaxInventory:
-    let giveAmt = min(agent.inventoryBread, MapObjectAgentMaxInventory - target.inventoryBread)
-    agent.inventoryBread = agent.inventoryBread - giveAmt
-    target.inventoryBread = target.inventoryBread + giveAmt
-    transferred = true
+  elif agent.inventoryBread > 0:
+    let capacity = resourceCarryCapacityLeft(target)
+    let giveAmt = min(agent.inventoryBread, capacity)
+    if giveAmt > 0:
+      agent.inventoryBread = agent.inventoryBread - giveAmt
+      target.inventoryBread = target.inventoryBread + giveAmt
+      transferred = true
   else:
     var bestKey = ItemNone
     var bestCount = 0
     for key, count in agent.inventory.pairs:
       if count <= 0:
         continue
-      let capacity = MapObjectAgentMaxInventory - getInv(target, key)
+      let capacity =
+        if isStockpileResourceKey(key):
+          resourceCarryCapacityLeft(target)
+        else:
+          MapObjectAgentMaxInventory - getInv(target, key)
       if capacity <= 0:
         continue
       if count > bestCount:
         bestKey = key
         bestCount = count
     if bestKey != ItemNone and bestCount > 0:
-      let capacity = max(0, MapObjectAgentMaxInventory - getInv(target, bestKey))
+      let capacity =
+        if isStockpileResourceKey(bestKey):
+          resourceCarryCapacityLeft(target)
+        else:
+          max(0, MapObjectAgentMaxInventory - getInv(target, bestKey))
       if capacity > 0:
         let moved = min(bestCount, capacity)
         setInv(agent, bestKey, bestCount - moved)
