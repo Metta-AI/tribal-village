@@ -247,7 +247,7 @@ type
 const
   BaseTileColorDefault = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   BiomeColorForest = TileColor(r: 0.45, g: 0.60, b: 0.40, intensity: 1.0)
-  BiomeColorDesert = TileColor(r: 0.78, g: 0.70, b: 0.45, intensity: 1.0)
+  BiomeColorDesert = TileColor(r: 0.98, g: 0.90, b: 0.25, intensity: 1.05)
   BiomeColorCaves = TileColor(r: 0.45, g: 0.50, b: 0.58, intensity: 0.95)
   BiomeColorCity = TileColor(r: 0.62, g: 0.62, b: 0.66, intensity: 1.0)
   BiomeColorPlains = TileColor(r: 0.55, g: 0.70, b: 0.50, intensity: 1.0)
