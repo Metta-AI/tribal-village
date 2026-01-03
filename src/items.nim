@@ -11,7 +11,6 @@ const
   ItemNone* = ""
   ItemGold* = "gold"
   ItemStone* = "stone"
-  ItemOre* = ItemGold # Legacy alias (gold ore)
   ItemBar* = "bar"
   ItemWater* = "water"
   ItemWheat* = "wheat"
@@ -56,7 +55,7 @@ const
   ItemThingPrefix* = "thing:"
 
   ObservedItemKeys* = [
-    ItemOre,
+    ItemGold,
     ItemStone,
     ItemBar,
     ItemWater,
@@ -86,7 +85,7 @@ proc isFoodItem*(key: ItemKey): bool =
 
 proc isStockpileResourceKey*(key: ItemKey): bool =
   case key
-  of ItemWood, ItemOre, ItemStone, ItemWater:
+  of ItemWood, ItemGold, ItemStone, ItemWater:
     true
   else:
     isFoodItem(key)
@@ -96,7 +95,7 @@ proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
     return ResourceFood
   case key
   of ItemWood: ResourceWood
-  of ItemOre: ResourceGold
+  of ItemGold: ResourceGold
   of ItemStone: ResourceStone
   of ItemWater: ResourceWater
   else: ResourceFood
