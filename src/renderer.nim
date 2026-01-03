@@ -453,7 +453,7 @@ proc drawAgentDecorations*() =
 
     proc iconForItem(key: ItemKey): string =
       if key == ItemOre: return inventorySpriteKey("ore")
-      if key == ItemStone: return inventorySpriteKey("block")
+      if key == ItemStone: return inventorySpriteKey("blocks")
       if key == ItemBar: return inventorySpriteKey("bar")
       if key == ItemWater: return inventorySpriteKey("droplet")
       if key == ItemWheat: return inventorySpriteKey("bushel")
