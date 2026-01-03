@@ -55,7 +55,7 @@ config = {
     # Nim gameplay tuning (optional)
     'tumor_spawn_rate': 0.1,
     'heart_reward': 1.0,
-    'ore_reward': 0.1,
+    'ore_reward': 0.1,  # gold mining reward
     'bar_reward': 0.8,
     'wood_reward': 0.0,
     'water_reward': 0.0,
@@ -76,7 +76,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 - Map: 192x108 grid, procedural rivers/fields/trees.
 - Agents: 48 agents (8 teams, 6 per team).
-- Resources: ore, batteries, water, wheat, wood, spears, lanterns, armor, bread.
+- Resources: gold, batteries, water, wheat, wood, spears, lanterns, armor, bread.
 - Threats: tumors spread dark clippy tint; frozen tiles/objects cannot be harvested or used until thawed.
 - Coalition touches we enjoyed while building it:
   - Territory control via lanterns
@@ -86,7 +86,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ### Core Gameplay Loop
 
-1. **Gather** resources (mine ore, harvest wheat, chop wood, collect water)
+1. **Gather** resources (mine gold, harvest wheat, chop wood, collect water)
 2. **Craft** items using specialized buildings (forge spears, weave lanterns, etc.)
 3. **Cooperate** within teams and compete across teams
 4. **Defend** against tumors using crafted spears
@@ -105,7 +105,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 21 layers, 11x11 grid per agent:
 
 - **Layer 0**: Team-aware agent presence (1..8=teams, 255=Tumor)
-- **Layers 1-9**: Agent orientation + inventories (ore, bar, water, wheat, wood, spear, lantern, armor)
+- **Layers 1-9**: Agent orientation + inventories (gold, bar, water, wheat, wood, spear, lantern, armor)
 - **Layers 10-18**: Walls/mines/magma/altars + ready/resource status
 - **Layers 19-20**: Action tint (combat/heal/freeze) + bread inventory
 
