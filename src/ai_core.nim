@@ -6,28 +6,14 @@ import rng_compat
 import vmath
 import ./environment, common, terrain
 
-const
-  TerrainEmptyVal = TerrainType.Empty
-  TerrainWaterVal = TerrainType.Water
-  TerrainBridgeVal = TerrainType.Bridge
-  TerrainWheatVal = TerrainType.Wheat
-  TerrainTreeVal = TerrainType.Tree
-  TerrainFertileVal = TerrainType.Fertile
-  TerrainRoadVal = TerrainType.Road
-  TerrainRockVal = TerrainType.Rock
-  TerrainGemVal = TerrainType.Gem
-  TerrainBushVal = TerrainType.Bush
-  TerrainAnimalVal = TerrainType.Animal
-  TerrainDuneVal = TerrainType.Dune
-
 type
   # Simple agent roles - one per team member
   AgentRole* = enum
     Hearter     # Handles altar/bar workflow
     Armorer     # Wood -> Armor
     Hunter      # Wood -> Spear -> Hunt Tumors
-    Baker       # TerrainWheatVal -> Bread
-    Lighter     # TerrainWheatVal -> Lantern -> Plant
+    Baker       # TerrainWheat -> Bread
+    Lighter     # TerrainWheat -> Lantern -> Plant
     Farmer      # Creates fertile ground and plants wheat/trees
     Builder     # Builds watchtowers and roads
     Miner       # Mines ore and keeps converters fed
@@ -187,7 +173,7 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
   let endY = min(MapHeight - 1, pos.y + maxRadius)
   for x in startX..endX:
     for y in startY..endY:
-      let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainFertileVal else: env.terrain[x][y] == TerrainEmptyVal
+      let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainType.Fertile else: env.terrain[x][y] == TerrainType.Empty
       if terrainOk and env.isEmpty(ivec2(x, y)) and env.doorTeams[x][y] < 0:
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
@@ -203,7 +189,7 @@ proc countFertileEmpty(env: Environment, center: IVec2, radius: int = 8): int =
   result = 0
   for x in startX..endX:
     for y in startY..endY:
-      if env.terrain[x][y] == TerrainFertileVal and env.isEmpty(ivec2(x, y)):
+      if env.terrain[x][y] == TerrainType.Fertile and env.isEmpty(ivec2(x, y)):
         inc result
 
 proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: TerrainType, rng: var Rand): IVec2 =

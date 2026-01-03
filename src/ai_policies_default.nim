@@ -142,11 +142,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   of Medic: return decideMedic(controller, env, agent, agentId, state)
   of Scout: return decideScout(controller, env, agent, agentId, state)
 
-  # Fallback random move
-  state.lastPosition = agent.pos
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, randIntInclusive(controller.rng, 0, 7).uint8))
-
 # Compatibility function for updateController
 proc updateController*(controller: Controller) =
   # No complex state to update - keep it simple
