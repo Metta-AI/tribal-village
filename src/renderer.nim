@@ -110,7 +110,9 @@ proc toSnakeCase(name: string): string =
       result.add(ch)
 
 proc thingSpriteKey(kind: ThingKind): string =
-  toSnakeCase($kind)
+  case kind
+  of Converter: "magma"
+  else: toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
@@ -583,7 +585,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
         case thing.kind
         of Wall: "Wall"
         of TreeObject: "Tree"
-        of Converter: "Converter"
+        of Converter: "Magma Pool"
         of Altar: "Altar"
         of Spawner: "Spawner"
         of Tumor: "Tumor"

@@ -555,12 +555,50 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, r))
 
-  for i in 0 ..< MapRoomObjectsConverters:
-    let pos = r.randomEmptyPos(env)
+  # Magma pools (converter) spawn in small clusters like mines.
+  var poolsPlaced = 0
+  let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, MapRoomObjectsConverters))
+  for clusterIndex in 0 ..< magmaClusterCount:
+    let remaining = MapRoomObjectsConverters - poolsPlaced
+    if remaining <= 0:
+      break
+    let clustersLeft = magmaClusterCount - clusterIndex
+    let maxCluster = min(4, remaining)
+    let minCluster = if remaining >= 2: 2 else: 1
+    let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
+    let clusterSize = max(1, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
+    let center = r.randomEmptyPos(env)
+
     env.add(Thing(
       kind: Converter,
-      pos: pos,
+      pos: center,
     ))
+    inc poolsPlaced
+
+    if poolsPlaced >= MapRoomObjectsConverters:
+      break
+
+    var candidates = env.findEmptyPositionsAround(center, 1)
+    if candidates.len < clusterSize - 1:
+      let extra = env.findEmptyPositionsAround(center, 2)
+      for pos in extra:
+        var exists = false
+        for c in candidates:
+          if c == pos:
+            exists = true
+            break
+        if not exists:
+          candidates.add(pos)
+
+    let toPlace = min(clusterSize - 1, candidates.len)
+    for i in 0 ..< toPlace:
+      env.add(Thing(
+        kind: Converter,
+        pos: candidates[i],
+      ))
+      inc poolsPlaced
+      if poolsPlaced >= MapRoomObjectsConverters:
+        break
 
   # Mines spawn in small clusters (3-5 nodes) for higher local density.
   var minesPlaced = 0
