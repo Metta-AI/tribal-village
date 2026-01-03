@@ -224,7 +224,7 @@ type
     actionSwap*: int     # Action 4: SWAP
     actionPlant*: int    # Action 6: PLANT lantern
     actionPut*: int      # Action 5: GIVE to teammate
-    actionBuild*: int    # Action 8-10: BUILD (eco/military/support)
+    actionBuild*: int    # Action 8: BUILD
     actionPlantResource*: int  # Action 7: Plant wheat/tree onto fertile tile
 
   TileColor* = object

@@ -11,7 +11,7 @@ proc buildCostsForKey(key: ItemKey): seq[tuple[res: StockpileResource, count: in
       return costs
   @[]
 
-let BuildEconomyChoices*: array[8, ItemKey] = [
+let BuildChoices*: array[ActionArgumentCount, ItemKey] = [
   thingItem("House"),
   thingItem("TownCenter"),
   thingItem("Mill"),
@@ -19,10 +19,7 @@ let BuildEconomyChoices*: array[8, ItemKey] = [
   thingItem("MiningCamp"),
   thingItem("Farm"),
   thingItem("Dock"),
-  thingItem("Market")
-]
-
-let BuildMilitaryChoices*: array[8, ItemKey] = [
+  thingItem("Market"),
   thingItem("Barracks"),
   thingItem("ArcheryRange"),
   thingItem("Stable"),
@@ -30,10 +27,7 @@ let BuildMilitaryChoices*: array[8, ItemKey] = [
   thingItem("Castle"),
   thingItem("Outpost"),
   thingItem("Wall"),
-  thingItem("Road")
-]
-
-let BuildSupportChoices*: array[8, ItemKey] = [
+  thingItem("Road"),
   thingItem("Blacksmith"),
   thingItem("Monastery"),
   thingItem("University"),
@@ -41,11 +35,15 @@ let BuildSupportChoices*: array[8, ItemKey] = [
   thingItem("ClayOven"),
   thingItem("WeavingLoom"),
   thingItem("Table"),
+  thingItem("Bed"),
+  thingItem("Chair"),
+  thingItem("Statue"),
+  thingItem("Barrel"),
   ItemNone
 ]
 
 proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
-                      choices: array[8, ItemKey]) =
+                      choices: array[ActionArgumentCount, ItemKey]) =
   if argument < 0 or argument >= choices.len:
     inc env.stats[id].actionInvalid
     return
