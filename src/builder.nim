@@ -4,7 +4,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let hasHome = home.x >= 0
 
   if not state.builderHasTower:
-    if agent.inventoryWood < WatchTowerWoodCost:
+    if agent.inventoryWood < OutpostWoodCost:
       let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
       if did: return act
 
