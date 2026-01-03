@@ -124,18 +124,6 @@ proc dropStump(env: Environment, pos: IVec2, woodCount: int) =
     setInv(stump, ItemWood, woodCount)
   env.add(stump)
 
-proc stationForThing(kind: ThingKind): CraftStation =
-  case kind
-  of Forge: StationForge
-  of Armory: StationArmory
-  of WeavingLoom: StationLoom
-  of ClayOven: StationOven
-  of Table: StationTable
-  of Chair: StationChair
-  of Bed: StationBed
-  of Statue: StationStatue
-  else: StationTable
-
 proc recipeUsesStockpile(recipe: CraftRecipe): bool =
   for output in recipe.outputs:
     if output.key.startsWith(ItemThingPrefix):
@@ -282,28 +270,6 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
   env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   inc env.stats[id].actionMove
-
-proc transferAgentInventory(env: Environment, killer, victim: Thing) =
-  ## Move the victim's inventory to the killer before the victim dies
-  var keys: seq[ItemKey] = @[]
-  for key, count in victim.inventory.pairs:
-    if count > 0:
-      keys.add(key)
-
-  for key in keys:
-    let count = getInv(victim, key)
-    if count <= 0:
-      continue
-    let capacity =
-      if isStockpileResourceKey(key):
-        resourceCarryCapacityLeft(killer)
-      else:
-        max(0, MapObjectAgentMaxInventory - getInv(killer, key))
-    let moved = min(count, capacity)
-    if moved > 0:
-      setInv(killer, key, getInv(killer, key) + moved)
-      env.updateAgentInventoryObs(killer, key)
-    setInv(victim, key, 0)  # drop any overflow on the ground (currently unused)
 
 proc thingKey(kind: ThingKind): ItemKey =
   ItemThingPrefix & $kind
@@ -925,10 +891,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         return
       inc env.stats[id].actionInvalid
       return
-    else:
-      inc env.stats[id].actionInvalid
-      return
-
   # Building use
   # Prevent interacting with frozen objects/buildings
   if isThingFrozen(thing, env):

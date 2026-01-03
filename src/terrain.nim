@@ -346,6 +346,8 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
     var zoneMask: MaskGrid
     buildZoneBlobMask(zoneMask, mapWidth, mapHeight, mapBorder, zone, r)
     case biome:
+    of BiomeBase:
+      discard
     of BiomeForest:
       buildBiomeForestMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeForestConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
