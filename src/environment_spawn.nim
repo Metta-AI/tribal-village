@@ -268,41 +268,49 @@ proc init(env: Environment) =
               env.add(Thing(
                 kind: Armory,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureForgeChar:  # Forge at top-right
               env.add(Thing(
                 kind: Forge,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureClayOvenChar:  # Clay Oven at bottom-left
               env.add(Thing(
                 kind: ClayOven,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureWeavingLoomChar:  # Weaving Loom at bottom-right
               env.add(Thing(
                 kind: WeavingLoom,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureBedChar:  # Bed
               env.add(Thing(
                 kind: Bed,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureChairChar:  # Chair (throne)
               env.add(Thing(
                 kind: Chair,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureTableChar:  # Table
               env.add(Thing(
                 kind: Table,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureStatueChar:  # Statue
               env.add(Thing(
                 kind: Statue,
                 pos: worldPos,
+                teamId: teamId
               ))
             of StructureTownCenterChar:  # Town Center
               env.add(Thing(
