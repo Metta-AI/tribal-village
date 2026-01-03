@@ -30,7 +30,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.giveItem(agent, ItemWater):
         agent.reward += env.config.waterReward
         used = true
-      elif env.giveItem(agent, ItemFishRaw):
+      elif env.giveItem(agent, ItemFish):
         used = true
     of Wheat:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward) or
@@ -41,12 +41,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     of Rock, Stalagmite:
       used = env.tryGiveFirstAndClear(agent, targetPos, [ItemBoulder, ItemRock])
     of Gem:
-      used = env.tryGiveAndClear(agent, targetPos, ItemRough)
+      used = env.tryGiveAndClear(agent, targetPos, ItemRock)
     of Bush, Cactus:
-      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemPlantGrowth, ItemSeeds, ItemPlant])
+      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemSeeds, ItemPlant])
     of Animal:
-      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemMeat, ItemSkinTanned, ItemTotem, ItemCorpse,
-        ItemCorpsePiece, ItemRemains, ItemGlob, ItemVermin, ItemPet, ItemEgg])
+      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemMeat, ItemCorpse, ItemEgg])
     of Empty:
       if env.hasDoor(targetPos):
         used = false
@@ -211,11 +210,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
         used = true
-      if not used and env.useStorageBuilding(agent, thing, @[ItemBoulder, ItemRough]):
+      if not used and env.useStorageBuilding(agent, thing, @[ItemBoulder]):
         used = true
   of Farm:
     if thing.teamId == getTeamId(agent.agentId):
-      if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
+      if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant]):
         used = true
   of Dock:
     if thing.teamId == getTeamId(agent.agentId):
