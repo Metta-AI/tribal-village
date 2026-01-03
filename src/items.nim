@@ -720,6 +720,7 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "monastery", StationTable, @[(ItemWood, 9)], @[(thingItem("Monastery"), 1)], 12)
   addRecipe(recipes, "university", StationTable, @[(ItemWood, 10)], @[(thingItem("University"), 1)], 14)
   addRecipe(recipes, "castle", StationTable, @[(ItemStone, 33)], @[(thingItem("Castle"), 1)], 20)
+  addRecipe(recipes, "outpost", StationTable, @[(ItemWood, 1)], @[(thingItem("Outpost"), 1)], 8)
   addRecipe(recipes, "armory", StationTable, @[(ItemWood, 4)], @[(thingItem("Armory"), 1)], 12)
   addRecipe(recipes, "clay_oven", StationTable, @[(ItemWood, 4)], @[(thingItem("ClayOven"), 1)], 12)
   addRecipe(recipes, "weaving_loom", StationTable, @[(ItemWood, 3)], @[(thingItem("WeavingLoom"), 1)], 12)
