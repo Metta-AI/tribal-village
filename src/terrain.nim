@@ -73,6 +73,7 @@ const
   UseBiomeZones* = true
   UseDungeonZones* = true
   UseSequentialBiomeZones* = true
+  UseSequentialDungeonZones* = true
   UseLegacyTreeClusters* = true
   UsePalmGroves* = true
   WheatFieldClusterBase* = 14
