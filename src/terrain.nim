@@ -322,9 +322,11 @@ proc buildDungeonMask*(mask: var MaskGrid, mapWidth, mapHeight: int, zone: ZoneR
 
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
-  let count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
+  var count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow]
   let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8]
+  if UseSequentialBiomeZones:
+    count = max(count, kinds.len)
   let baseBiomeType = baseBiomeType()
   var seqIdx = randIntInclusive(r, 0, kinds.len - 1)
   let edgeChance = 0.25

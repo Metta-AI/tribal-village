@@ -62,10 +62,14 @@ proc init(env: Environment) =
 
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
-    let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    let dungeonKinds = [DungeonMaze, DungeonRadial]
+    var count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    if UseSequentialDungeonZones:
+      count = max(count, dungeonKinds.len)
     var dungeonWalls: MaskGrid
     dungeonWalls.clearMask(MapWidth, MapHeight)
     let zones = evenlyDistributedZones(r, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction)
+    var seqIdx = randIntInclusive(r, 0, dungeonKinds.len - 1)
     for zone in zones:
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
@@ -91,7 +95,12 @@ proc init(env: Environment) =
           env.baseTileColors[x][y] = blended
           env.tileColors[x][y] = blended
       var mask: MaskGrid
-      let dungeonKind = pickDungeonKind(r)
+      let dungeonKind = if UseSequentialDungeonZones:
+        let selected = dungeonKinds[seqIdx mod dungeonKinds.len]
+        inc seqIdx
+        selected
+      else:
+        pickDungeonKind(r)
       buildDungeonMask(mask, MapWidth, MapHeight, zone, r, dungeonKind)
 
       for x in x0 ..< x1:
