@@ -111,8 +111,8 @@ const
   BiomeZoneMaxCount* = 12
   DungeonZoneMinCount* = 4
   DungeonZoneMaxCount* = 9
-  BiomeZoneMaxFraction* = 0.44
-  DungeonZoneMaxFraction* = 0.36
+  BiomeZoneMaxFraction* = 0.52
+  DungeonZoneMaxFraction* = 0.28
   ZoneMinSize* = 18
   BiomeBlendDepth* = 6
   BiomeZoneGridJitter* = 0.35
