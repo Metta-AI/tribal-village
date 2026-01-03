@@ -1083,11 +1083,11 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
 
 
 
-include "environment_actions"
+include "actions"
 
-include "environment_spawn"
+include "spawn"
 
-include "environment_step"
+include "step"
 
 # ============== COLOR MANAGEMENT ==============
 
