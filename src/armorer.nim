@@ -8,10 +8,11 @@ proc decideArmorer(controller: Controller, env: Environment, agent: Thing,
     if barracks != nil:
       return controller.useOrMove(env, agent, agentId, state, barracks.pos)
 
-  # Priority 2: Trigger blacksmith upgrades when available.
-  let blacksmith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-  if blacksmith != nil:
-    return controller.useOrMove(env, agent, agentId, state, blacksmith.pos)
+  # Priority 2: Visit armory for shields.
+  if agent.inventoryArmor < ArmorPoints:
+    let armory = env.findNearestFriendlyThingSpiral(state, teamId, Armory, controller.rng)
+    if armory != nil:
+      return controller.useOrMove(env, agent, agentId, state, armory.pos)
 
   # Priority 3: Drop off any carried wood for the team stockpile.
   if agent.inventoryWood > 0:

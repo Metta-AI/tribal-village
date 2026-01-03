@@ -146,11 +146,6 @@ proc tryBlacksmithService(env: Environment, agent: Thing, building: Thing): bool
       agent.inventorySpear = SpearCharges
       env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
       serviced = true
-  if agent.inventoryArmor < ArmorPoints:
-    if env.spendStockpile(teamId, @[(res: ResourceGold, count: 1)]):
-      agent.inventoryArmor = ArmorPoints
-      env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-      serviced = true
   if serviced:
     building.cooldown = 8
   serviced
@@ -451,7 +446,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   of PlantedLantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
-  of TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith,
+  of Armory, Forge, TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith,
      Market, Dock, Monastery, University, Castle:
     placed.teamId = getTeamId(agent.agentId)
   of Altar:
@@ -1091,17 +1086,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
       used = true
   of Forge:
-    if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventorySpear == 0:
-      agent.inventoryWood = agent.inventoryWood - 1
-      agent.inventorySpear = SpearCharges
-      thing.cooldown = 5
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-      agent.reward += env.config.spearReward
+    if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
       used = true
-    elif thing.cooldown == 0:
-      if env.tryCraftAtStation(agent, StationForge, thing):
-        used = true
   of WeavingLoom:
     if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
       agent.inventoryWheat = agent.inventoryWheat - 1
@@ -1115,16 +1101,12 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.tryCraftAtStation(agent, StationLoom, thing):
         used = true
   of Armory:
-    if thing.cooldown == 0 and agent.inventoryWood > 0 and agent.inventoryArmor == 0:
-      agent.inventoryWood = agent.inventoryWood - 1
-      agent.inventoryArmor = ArmorPoints
-      thing.cooldown = 20
-      env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-      env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-      agent.reward += env.config.armorReward
-      used = true
-    elif thing.cooldown == 0:
-      if env.tryCraftAtStation(agent, StationArmory, thing):
+    if thing.teamId == getTeamId(agent.agentId) and thing.cooldown == 0 and agent.inventoryArmor < ArmorPoints:
+      if env.spendStockpile(thing.teamId, @[(res: ResourceWood, count: 1)]):
+        agent.inventoryArmor = ArmorPoints
+        thing.cooldown = 20
+        env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+        agent.reward += env.config.armorReward
         used = true
   of ClayOven:
     if thing.cooldown == 0:
