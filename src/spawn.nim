@@ -285,9 +285,9 @@ proc init(env: Environment) =
                 pos: worldPos,
                 teamId: teamId
               ))
-            of StructureForgeChar:  # Blacksmith at top-right (replaces forge)
+            of StructureForgeChar:  # Forge
               env.add(Thing(
-                kind: Blacksmith,
+                kind: Forge,
                 pos: worldPos,
                 teamId: teamId
               ))
@@ -555,7 +555,7 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, r))
 
-  # Magma pools (converter) spawn in small clusters like mines.
+  # Magma pools spawn in small clusters like mines.
   var poolsPlaced = 0
   let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, MapRoomObjectsMagmaPools))
   for clusterIndex in 0 ..< magmaClusterCount:

@@ -198,7 +198,7 @@ type
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
     turnsAlive*: int            # Number of turns this tumor has been alive
 
-    # Lantern:
+    # PlantedLantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
 
