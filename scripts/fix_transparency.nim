@@ -13,7 +13,7 @@ const SkipOpaque = [
   "sand",
   "snow",
   "grass",
-  "fertile",
+  "fertile_tile",
   "dune",
   "road",
   "cave_floor",
