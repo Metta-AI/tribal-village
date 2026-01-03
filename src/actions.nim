@@ -942,14 +942,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.resetTileColor(targetPos)
           env.updateObservations(TintLayer, targetPos, 0)
           used = true
-        if not used and agent.inventoryWood >= WatchTowerWoodCost:
-          agent.inventoryWood = max(0, agent.inventoryWood - WatchTowerWoodCost)
-          env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-          env.add(Thing(
-            kind: WatchTower,
-            pos: targetPos
-          ))
-          used = true
+        # Building placement is handled by placing carried thing items.
     of Bridge, Fertile, Road, Grass, Dune, Sand, Snow:
       used = false
 

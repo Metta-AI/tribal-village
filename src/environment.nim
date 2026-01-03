@@ -39,7 +39,7 @@ const
   MapObjectMineInitialResources* = 30
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
-  WatchTowerWoodCost* = 1
+  OutpostWoodCost* = 1
   CowMilkCooldown* = 25
   ResourceCarryCapacity* = 5
   TownCenterPopCap* = 5
@@ -157,7 +157,7 @@ type
     Chair
     Table
     Statue
-    WatchTower
+    Outpost
     Barrel
     Mill
     LumberCamp
@@ -350,7 +350,7 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of Chair: 'H'
   of Table: 'T'
   of Statue: 'S'
-  of WatchTower: '^'
+  of Outpost: '^'
   of Barrel: 'b'
   of Mill: 'm'
   of LumberCamp: 'L'
@@ -689,7 +689,7 @@ proc render*(env: Environment): string =
             cell = "T"
           of Statue:
             cell = "S"
-          of WatchTower:
+          of Outpost:
             cell = "^"
           of PlantedLantern:
             cell = "L"
@@ -813,7 +813,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower,
+    of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, Outpost,
        Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern, TownCenter, House,
        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
        University, Castle:
