@@ -968,31 +968,12 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   case thing.kind:
   of TreeObject:
     let hasAxe = getInv(agent, ItemAxe) > 0
-    if hasAxe and thing.treeVariant == TreeVariantPine:
-      removeThing(env, thing)
-      env.dropStump(thing.pos, 5)
-      used = true
-    else:
-      let baseGain =
-        if hasAxe:
-          if thing.treeVariant == TreeVariantPine: 5 else: 2
-        else:
-          1
-      let carryLeft = resourceCarryCapacityLeft(agent)
-      if carryLeft > 0:
-        let gain = min(baseGain, carryLeft)
-        if env.giveItem(agent, ItemWood, gain):
-          agent.reward += env.config.woodReward
-          if hasAxe:
-            removeThing(env, thing)
-          used = true
-      if not used and env.giveItem(agent, ItemBranch):
-        if hasAxe:
-          removeThing(env, thing)
-        used = true
-      if not used:
-        inc env.stats[id].actionInvalid
-        return
+    if not hasAxe:
+      inc env.stats[id].actionInvalid
+      return
+    removeThing(env, thing)
+    env.dropStump(thing.pos, 5)
+    used = true
   of Stump:
     let stored = getInv(thing, ItemWood)
     if stored > 0:
