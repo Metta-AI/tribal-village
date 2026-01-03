@@ -388,6 +388,45 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       let snowEdgeChance = max(edgeChance, 0.55)
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, snowEdgeChance)
+      # Add sparse snowy pine clusters and boulder outcrops for more visual interest.
+      var pineMask: MaskGrid
+      let pineCfg = BiomeForestConfig(
+        clumpiness: 1,
+        seedProb: 0.012,
+        growthProb: 0.45,
+        neighborThreshold: 3,
+        ditherEdges: true,
+        ditherProb: 0.18,
+        ditherDepth: 3
+      )
+      buildBiomeForestMask(pineMask, mapWidth, mapHeight, mapBorder, r, pineCfg)
+      let (px0, py0, px1, py1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
+      for x in px0 ..< px1:
+        for y in py0 ..< py1:
+          if terrain[x][y] == Water:
+            pineMask[x][y] = false
+      applyBiomeMaskToZone(terrain, biomes, pineMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        Tree, BiomeSnowType, baseBiomeType, r, 0.2, blendDepth = 2)
+
+      var boulderMask: MaskGrid
+      let boulderCfg = BiomeSnowConfig(
+        clusterPeriod: 16,
+        clusterMinRadius: 1,
+        clusterMaxRadius: 2,
+        clusterFill: 0.45,
+        clusterProb: 0.35,
+        jitter: 3,
+        ditherEdges: false,
+        ditherProb: 0.0,
+        ditherDepth: 0
+      )
+      buildBiomeSnowMask(boulderMask, mapWidth, mapHeight, mapBorder, r, boulderCfg)
+      for x in px0 ..< px1:
+        for y in py0 ..< py1:
+          if terrain[x][y] == Water:
+            boulderMask[x][y] = false
+      applyBiomeMaskToZone(terrain, biomes, boulderMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        Rock, BiomeSnowType, baseBiomeType, r, 0.15, blendDepth = 1)
     of BiomeCity:
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())

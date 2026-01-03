@@ -38,7 +38,7 @@ proc init(env: Environment) =
       if not env.isEmpty(pos):
         continue
       let isPalm = env.terrain[x][y] == Palm
-      let isForestTree = env.terrain[x][y] == Tree and env.biomes[x][y] == BiomeForestType
+      let isForestTree = env.terrain[x][y] == Tree and env.biomes[x][y] in {BiomeForestType, BiomeSnowType}
       if isPalm or isForestTree:
         let variant = if isPalm: TreeVariantPalm else: TreeVariantPine
         env.terrain[x][y] = Empty
