@@ -555,7 +555,7 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, r))
 
-  # Magma pools spawn in small clusters like mines.
+  # Magma spawns in small clusters like mines.
   var poolsPlaced = 0
   let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, MapRoomObjectsMagmaPools))
   for clusterIndex in 0 ..< magmaClusterCount:

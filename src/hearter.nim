@@ -1,6 +1,6 @@
 proc decideHearter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
-  # Handle ore → magma pool → bar → altar workflow
+  # Handle ore → magma → bar → altar workflow
   if agent.inventoryBar > 0:
     for thing in env.things:
       if thing.kind == Altar and thing.pos == agent.homeAltar:

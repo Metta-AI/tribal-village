@@ -139,7 +139,7 @@ type
     Pine
     Palm
     Mine
-    Magma  # Magma pool that smelts ore into bars
+    Magma  # Smelts ore into bars
     Altar
     Spawner
     Tumor
