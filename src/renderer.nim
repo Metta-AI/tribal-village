@@ -138,11 +138,50 @@ proc drawTerrain*() =
       let terrain = env.terrain[x][y]
       if terrain == Water:
         continue
-      let def = terrainDef(terrain)
-      if def.spriteKey.len > 0:
-        bxy.drawImage(mapSpriteKey(def.spriteKey), pos.vec2, angle = 0, scale = 1/200)
-      if infected and def.infectionKey.len > 0:
-        drawOverlayIf(true, getInfectionSprite(def.infectionKey), pos.vec2)
+      var spriteKey = ""
+      var infectionKey = ""
+      case terrain
+      of Bridge:
+        spriteKey = "bridge"
+      of Wheat:
+        spriteKey = "wheat"
+        infectionKey = "wheat"
+      of Tree:
+        spriteKey = "pine"
+        infectionKey = "tree"
+      of Palm:
+        spriteKey = "palm"
+        infectionKey = "tree"
+      of Fertile:
+        spriteKey = "fertile"
+      of Road:
+        spriteKey = "road"
+      of Rock:
+        spriteKey = "rock"
+      of Gem:
+        spriteKey = "gem"
+      of Bush:
+        spriteKey = "bush"
+      of Animal:
+        spriteKey = "cow"
+      of Grass:
+        spriteKey = "grass"
+      of Cactus:
+        spriteKey = "cactus"
+      of Dune:
+        spriteKey = "dune"
+      of Stalagmite:
+        spriteKey = "stalagmite"
+      of Sand:
+        spriteKey = "sand"
+      of Snow:
+        spriteKey = "snow"
+      of Empty, Water:
+        discard
+      if spriteKey.len > 0:
+        bxy.drawImage(mapSpriteKey(spriteKey), pos.vec2, angle = 0, scale = 1/200)
+      if infected and infectionKey.len > 0:
+        drawOverlayIf(true, getInfectionSprite(infectionKey), pos.vec2)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
@@ -289,7 +328,7 @@ proc drawObjects*() =
           else:
             mapSpriteKey("pine")
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
-          let overlayKey = thingDef(TreeObject).infectionKey
+          let overlayKey = "tree"
           if infected and overlayKey.len > 0:
             drawOverlayIf(true, getInfectionSprite(overlayKey), pos.vec2)
         of Agent:
@@ -357,13 +396,13 @@ proc drawObjects*() =
             drawOverlayIf(true, getInfectionSprite("altar"), pos.vec2)
 
         of Mine:
-          let imageName = mapSpriteKey(thingDef(Mine).spriteKey)
+          let imageName = mapSpriteKey("mine")
           let mineTint = if thing.mineKind == MineStone:
             color(0.78, 0.78, 0.85, 1.0)
           else:
             color(1.10, 0.92, 0.55, 1.0)
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
-          let overlayKey = thingDef(Mine).infectionKey
+          let overlayKey = "mine"
           if infected and overlayKey.len > 0:
             drawOverlayIf(true, getInfectionSprite(overlayKey), pos.vec2)
 
@@ -395,13 +434,106 @@ proc drawObjects*() =
             # Unhealthy or unassigned lantern - draw as gray
             bxy.drawImage(mapSpriteKey("lantern"), pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
         else:
-          let def = thingDef(thing.kind)
-          if def.spriteKey.len > 0:
-            let imageName = mapSpriteKey(def.spriteKey)
+          var spriteKey = ""
+          var infectionKey = ""
+          case thing.kind
+          of Converter:
+            spriteKey = "converter"
+            infectionKey = "converter"
+          of Spawner:
+            spriteKey = "spawner"
+            infectionKey = "spawner"
+          of Skeleton:
+            spriteKey = "skeleton"
+          of Armory:
+            spriteKey = "armory"
+            infectionKey = "armory"
+          of Forge:
+            spriteKey = "forge"
+            infectionKey = "forge"
+          of ClayOven:
+            spriteKey = "clay_oven"
+            infectionKey = "clay_oven"
+          of WeavingLoom:
+            spriteKey = "weaving_loom"
+            infectionKey = "weaving_loom"
+          of Bed:
+            spriteKey = "bed"
+            infectionKey = "building"
+          of Chair:
+            spriteKey = "chair"
+            infectionKey = "building"
+          of Table:
+            spriteKey = "table"
+            infectionKey = "building"
+          of Statue:
+            spriteKey = "statue"
+            infectionKey = "building"
+          of WatchTower:
+            spriteKey = "watchtower"
+            infectionKey = "building"
+          of Barrel:
+            spriteKey = "barrel"
+            infectionKey = "building"
+          of Mill:
+            spriteKey = "millstone"
+            infectionKey = "building"
+          of LumberCamp:
+            spriteKey = "cabinet"
+            infectionKey = "building"
+          of MiningCamp:
+            spriteKey = "smelter"
+            infectionKey = "building"
+          of Farm:
+            spriteKey = "farm"
+            infectionKey = "building"
+          of Stump:
+            spriteKey = "stump"
+            infectionKey = "building"
+          of TownCenter:
+            spriteKey = "town_center"
+            infectionKey = "building"
+          of House:
+            spriteKey = "house"
+            infectionKey = "building"
+          of Barracks:
+            spriteKey = "barracks"
+            infectionKey = "building"
+          of ArcheryRange:
+            spriteKey = "archery_range"
+            infectionKey = "building"
+          of Stable:
+            spriteKey = "stable"
+            infectionKey = "building"
+          of SiegeWorkshop:
+            spriteKey = "siege_workshop"
+            infectionKey = "building"
+          of Blacksmith:
+            spriteKey = "blacksmith"
+            infectionKey = "building"
+          of Market:
+            spriteKey = "market"
+            infectionKey = "building"
+          of Dock:
+            spriteKey = "dock"
+            infectionKey = "building"
+          of Monastery:
+            spriteKey = "monastery"
+            infectionKey = "building"
+          of University:
+            spriteKey = "university"
+            infectionKey = "building"
+          of Castle:
+            spriteKey = "castle"
+            infectionKey = "building"
+          else:
+            discard
+          if spriteKey.len > 0:
+            let imageName = mapSpriteKey(spriteKey)
             bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
             drawRoofTint(imageName, pos.vec2, thing.teamId)
-          if infected and def.infectionKey.len > 0:
-            drawOverlayIf(true, getInfectionSprite(def.infectionKey), pos.vec2)
+          if infected and infectionKey.len > 0:
+            drawOverlayIf(true, getInfectionSprite(infectionKey), pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -570,11 +702,76 @@ proc drawSelectionLabel*(panelRect: IRect) =
       elif thing.kind == Mine:
         if thing.mineKind == MineStone: "Stone Mine" else: "Gold Mine"
       else:
-        thingDisplayName(thing.kind)
+        case thing.kind
+        of Wall: "Wall"
+        of TreeObject: "Tree"
+        of Converter: "Converter"
+        of Altar: "Altar"
+        of Spawner: "Spawner"
+        of Tumor: "Tumor"
+        of Cow: "Cow"
+        of Skeleton: "Skeleton"
+        of Armory: "Armory"
+        of Forge: "Forge"
+        of ClayOven: "Clay Oven"
+        of WeavingLoom: "Weaving Loom"
+        of Bed: "Bed"
+        of Chair: "Chair"
+        of Table: "Table"
+        of Statue: "Statue"
+        of WatchTower: "Watch Tower"
+        of Barrel: "Barrel"
+        of Mill: "Mill"
+        of LumberCamp: "Lumber Camp"
+        of MiningCamp: "Mining Camp"
+        of Farm: "Farm"
+        of Stump: "Stump"
+        of PlantedLantern: "Lantern"
+        of TownCenter: "Town Center"
+        of House: "House"
+        of Barracks: "Barracks"
+        of ArcheryRange: "Archery Range"
+        of Stable: "Stable"
+        of SiegeWorkshop: "Siege Workshop"
+        of Blacksmith: "Blacksmith"
+        of Market: "Market"
+        of Dock: "Dock"
+        of Monastery: "Monastery"
+        of University: "University"
+        of Castle: "Castle"
+        of Agent:
+          case thing.unitClass
+          of UnitVillager: "Villager"
+          of UnitManAtArms: "Man-at-Arms"
+          of UnitArcher: "Archer"
+          of UnitScout: "Scout"
+          of UnitKnight: "Knight"
+          of UnitMonk: "Monk"
+          of UnitSiege: "Siege"
+        of Mine:
+          if thing.mineKind == MineStone: "Stone Mine" else: "Gold Mine"
   elif env.hasDoor(selectedPos):
     label = "Door"
   else:
-    label = terrainDisplayName(env.terrain[selectedPos.x][selectedPos.y])
+    label = case env.terrain[selectedPos.x][selectedPos.y]
+      of Empty: "Empty"
+      of Water: "Water"
+      of Bridge: "Bridge"
+      of Wheat: "Wheat"
+      of Tree: "Tree"
+      of Fertile: "Fertile"
+      of Road: "Road"
+      of Rock: "Rock"
+      of Gem: "Gem"
+      of Bush: "Bush"
+      of Animal: "Animal"
+      of Grass: "Grass"
+      of Cactus: "Cactus"
+      of Dune: "Dune"
+      of Stalagmite: "Stalagmite"
+      of Palm: "Palm"
+      of Sand: "Sand"
+      of Snow: "Snow"
 
   let key = ensureInfoLabel(label)
   if key.len == 0:

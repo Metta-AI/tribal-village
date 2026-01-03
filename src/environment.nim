@@ -220,11 +220,6 @@ type
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
-  ThingDef* = object
-    spriteKey*: string
-    displayName*: string
-    infectionKey*: string
-
   Stats* = ref object
     # Agent Stats - simplified actions:
     actionInvalid*: int
@@ -273,53 +268,6 @@ const
   # Single source of truth for the clippy/creep tint; aligned to clamp limits so tiles can actually reach it.
   ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
   ClippyTintTolerance* = 0.06'f32
-
-let ThingDefs* = [
-  ThingKind.Agent: ThingDef(spriteKey: "", displayName: "Villager", infectionKey: ""),
-  ThingKind.Wall: ThingDef(spriteKey: "wall", displayName: "Wall", infectionKey: ""),
-  ThingKind.TreeObject: ThingDef(spriteKey: "", displayName: "Tree", infectionKey: "tree"),
-  ThingKind.Mine: ThingDef(spriteKey: "mine", displayName: "Mine", infectionKey: "mine"),
-  ThingKind.Converter: ThingDef(spriteKey: "converter", displayName: "Converter", infectionKey: "converter"),
-  ThingKind.Altar: ThingDef(spriteKey: "altar", displayName: "Altar", infectionKey: "altar"),
-  ThingKind.Spawner: ThingDef(spriteKey: "spawner", displayName: "Spawner", infectionKey: "spawner"),
-  ThingKind.Tumor: ThingDef(spriteKey: "", displayName: "Tumor", infectionKey: ""),
-  ThingKind.Cow: ThingDef(spriteKey: "cow", displayName: "Cow", infectionKey: ""),
-  ThingKind.Skeleton: ThingDef(spriteKey: "skeleton", displayName: "Skeleton", infectionKey: ""),
-  ThingKind.Armory: ThingDef(spriteKey: "armory", displayName: "Armory", infectionKey: "armory"),
-  ThingKind.Forge: ThingDef(spriteKey: "forge", displayName: "Forge", infectionKey: "forge"),
-  ThingKind.ClayOven: ThingDef(spriteKey: "clay_oven", displayName: "Clay Oven", infectionKey: "clay_oven"),
-  ThingKind.WeavingLoom: ThingDef(spriteKey: "weaving_loom", displayName: "Weaving Loom", infectionKey: "weaving_loom"),
-  ThingKind.Bed: ThingDef(spriteKey: "bed", displayName: "Bed", infectionKey: "building"),
-  ThingKind.Chair: ThingDef(spriteKey: "chair", displayName: "Chair", infectionKey: "building"),
-  ThingKind.Table: ThingDef(spriteKey: "table", displayName: "Table", infectionKey: "building"),
-  ThingKind.Statue: ThingDef(spriteKey: "statue", displayName: "Statue", infectionKey: "building"),
-  ThingKind.WatchTower: ThingDef(spriteKey: "watchtower", displayName: "Watch Tower", infectionKey: "building"),
-  ThingKind.Barrel: ThingDef(spriteKey: "barrel", displayName: "Barrel", infectionKey: "building"),
-  ThingKind.Mill: ThingDef(spriteKey: "millstone", displayName: "Mill", infectionKey: "building"),
-  ThingKind.LumberCamp: ThingDef(spriteKey: "cabinet", displayName: "Lumber Camp", infectionKey: "building"),
-  ThingKind.MiningCamp: ThingDef(spriteKey: "smelter", displayName: "Mining Camp", infectionKey: "building"),
-  ThingKind.Farm: ThingDef(spriteKey: "farm", displayName: "Farm", infectionKey: "building"),
-  ThingKind.Stump: ThingDef(spriteKey: "stump", displayName: "Stump", infectionKey: "building"),
-  ThingKind.PlantedLantern: ThingDef(spriteKey: "lantern", displayName: "Lantern", infectionKey: ""),
-  ThingKind.TownCenter: ThingDef(spriteKey: "town_center", displayName: "Town Center", infectionKey: "building"),
-  ThingKind.House: ThingDef(spriteKey: "house", displayName: "House", infectionKey: "building"),
-  ThingKind.Barracks: ThingDef(spriteKey: "barracks", displayName: "Barracks", infectionKey: "building"),
-  ThingKind.ArcheryRange: ThingDef(spriteKey: "archery_range", displayName: "Archery Range", infectionKey: "building"),
-  ThingKind.Stable: ThingDef(spriteKey: "stable", displayName: "Stable", infectionKey: "building"),
-  ThingKind.SiegeWorkshop: ThingDef(spriteKey: "siege_workshop", displayName: "Siege Workshop", infectionKey: "building"),
-  ThingKind.Blacksmith: ThingDef(spriteKey: "blacksmith", displayName: "Blacksmith", infectionKey: "building"),
-  ThingKind.Market: ThingDef(spriteKey: "market", displayName: "Market", infectionKey: "building"),
-  ThingKind.Dock: ThingDef(spriteKey: "dock", displayName: "Dock", infectionKey: "building"),
-  ThingKind.Monastery: ThingDef(spriteKey: "monastery", displayName: "Monastery", infectionKey: "building"),
-  ThingKind.University: ThingDef(spriteKey: "university", displayName: "University", infectionKey: "building"),
-  ThingKind.Castle: ThingDef(spriteKey: "castle", displayName: "Castle", infectionKey: "building")
-]
-
-proc thingDef*(kind: ThingKind): ThingDef {.inline.} =
-  ThingDefs[kind]
-
-proc thingDisplayName*(kind: ThingKind): string {.inline.} =
-  ThingDefs[kind].displayName
 
 type
   # Configuration structure for environment - ONLY runtime parameters
@@ -670,7 +618,25 @@ proc render*(env: Environment): string =
     for x in 0 ..< MapWidth:
       var cell = " "
       # First check terrain
-      cell = $terrainGlyph(env.terrain[x][y])
+      cell = case env.terrain[x][y]
+        of Empty: " "
+        of Water: "~"
+        of Bridge: "="
+        of Wheat: "."
+        of Tree: "T"
+        of Fertile: "f"
+        of Road: "r"
+        of Rock: "R"
+        of Gem: "G"
+        of Bush: "b"
+        of Animal: "a"
+        of Grass: "g"
+        of Cactus: "c"
+        of Dune: "d"
+        of Stalagmite: "m"
+        of Palm: "P"
+        of Sand: "s"
+        of Snow: "n"
       # Then override with objects if present
       for thing in env.things:
         if thing.pos.x == x and thing.pos.y == y:

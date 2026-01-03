@@ -67,120 +67,6 @@ proc tryHarvestWithCarry(env: Environment, agent: Thing, pos: IVec2, key: ItemKe
     return true
   false
 
-type
-  TerrainUseKind = enum
-    TerrainUseInvalid
-    TerrainUseWater
-    TerrainUseWheat
-    TerrainUseTree
-    TerrainUseRock
-    TerrainUseGem
-    TerrainUsePlant
-    TerrainUseAnimal
-    TerrainUseEmpty
-
-const TerrainUseMap = [
-  TerrainType.Empty: TerrainUseEmpty,
-  TerrainType.Water: TerrainUseWater,
-  TerrainType.Bridge: TerrainUseInvalid,
-  TerrainType.Wheat: TerrainUseWheat,
-  TerrainType.Tree: TerrainUseTree,
-  TerrainType.Fertile: TerrainUseInvalid,
-  TerrainType.Road: TerrainUseInvalid,
-  TerrainType.Rock: TerrainUseRock,
-  TerrainType.Gem: TerrainUseGem,
-  TerrainType.Bush: TerrainUsePlant,
-  TerrainType.Animal: TerrainUseAnimal,
-  TerrainType.Grass: TerrainUseInvalid,
-  TerrainType.Cactus: TerrainUsePlant,
-  TerrainType.Dune: TerrainUseInvalid,
-  TerrainType.Stalagmite: TerrainUseRock,
-  TerrainType.Palm: TerrainUseTree,
-  TerrainType.Sand: TerrainUseInvalid,
-  TerrainType.Snow: TerrainUseInvalid
-]
-
-type
-  StationDef = object
-    kind: ThingKind
-    station: CraftStation
-
-  TrainDef = object
-    kind: ThingKind
-    unitClass: AgentUnitClass
-    costs: seq[tuple[res: StockpileResource, count: int]]
-    cooldown: int
-
-  DropoffDef = object
-    kind: ThingKind
-    resources: set[StockpileResource]
-    storageItems: seq[ItemKey]
-    requireTeamDropoff: bool
-    requireTeamStorage: bool
-
-let StationDefs = [
-  StationDef(kind: Table, station: StationTable),
-  StationDef(kind: Chair, station: StationChair),
-  StationDef(kind: Bed, station: StationBed),
-  StationDef(kind: Statue, station: StationStatue)
-]
-
-let TrainDefs = @[
-  TrainDef(kind: Barracks, unitClass: UnitManAtArms, costs: @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)], cooldown: 8),
-  TrainDef(kind: ArcheryRange, unitClass: UnitArcher, costs: @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)], cooldown: 8),
-  TrainDef(kind: Stable, unitClass: UnitScout, costs: @[(res: ResourceFood, count: 3)], cooldown: 8),
-  TrainDef(kind: SiegeWorkshop, unitClass: UnitSiege, costs: @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], cooldown: 10),
-  TrainDef(kind: Monastery, unitClass: UnitMonk, costs: @[(res: ResourceGold, count: 2)], cooldown: 10),
-  TrainDef(kind: Castle, unitClass: UnitKnight, costs: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)], cooldown: 12)
-]
-
-let DropoffDefs = @[
-  DropoffDef(kind: TownCenter, resources: {ResourceFood, ResourceWood, ResourceGold, ResourceStone},
-    storageItems: @[], requireTeamDropoff: true, requireTeamStorage: false),
-  DropoffDef(kind: Mill, resources: {ResourceFood}, storageItems: @[ItemWheat],
-    requireTeamDropoff: true, requireTeamStorage: false),
-  DropoffDef(kind: LumberCamp, resources: {ResourceWood}, storageItems: @[ItemBranch],
-    requireTeamDropoff: true, requireTeamStorage: false),
-  DropoffDef(kind: MiningCamp, resources: {ResourceGold, ResourceStone}, storageItems: @[ItemBoulder, ItemRough],
-    requireTeamDropoff: true, requireTeamStorage: false),
-  DropoffDef(kind: Farm, resources: {}, storageItems: @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth],
-    requireTeamDropoff: false, requireTeamStorage: true),
-  DropoffDef(kind: Dock, resources: {ResourceFood}, storageItems: @[],
-    requireTeamDropoff: true, requireTeamStorage: false)
-]
-
-proc tryUseStationDef(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.cooldown != 0:
-    return false
-  for def in StationDefs:
-    if thing.kind == def.kind:
-      return env.tryCraftAtStation(agent, def.station, thing)
-  false
-
-proc tryUseTrainingDef(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.cooldown != 0:
-    return false
-  for def in TrainDefs:
-    if thing.kind == def.kind:
-      return env.tryTrainUnit(agent, thing, def.unitClass, def.costs, def.cooldown)
-  false
-
-proc tryUseDropoffDef(env: Environment, agent: Thing, thing: Thing): bool =
-  let teamId = getTeamId(agent.agentId)
-  for def in DropoffDefs:
-    if thing.kind != def.kind:
-      continue
-    if def.resources.len > 0:
-      if not def.requireTeamDropoff or thing.teamId == teamId:
-        if env.useDropoffBuilding(agent, def.resources):
-          return true
-    if def.storageItems.len > 0:
-      if not def.requireTeamStorage or thing.teamId == teamId:
-        if env.useStorageBuilding(agent, thing, def.storageItems):
-          return true
-    return false
-  false
-
 proc storageKeyAllowed(key: ItemKey, allowed: openArray[ItemKey]): bool =
   if allowed.len == 0:
     return true
@@ -994,30 +880,30 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   if isNil(thing):
     # Terrain use only when no Thing occupies the tile.
     var used = false
-    case TerrainUseMap[env.terrain[targetPos.x][targetPos.y]]:
-    of TerrainUseWater:
+    case env.terrain[targetPos.x][targetPos.y]:
+    of Water:
       if env.giveItem(agent, ItemWater):
         agent.reward += env.config.waterReward
         used = true
       elif env.giveItem(agent, ItemFishRaw):
         used = true
-    of TerrainUseWheat:
+    of Wheat:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward) or
         env.tryGiveFirstAndClear(agent, targetPos, [ItemSeeds, ItemPlant])
-    of TerrainUseTree:
+    of Tree, Palm:
       if getInv(agent, ItemAxe) > 0:
         used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
           env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
-    of TerrainUseRock:
+    of Rock, Stalagmite:
       used = env.tryGiveFirstAndClear(agent, targetPos, [ItemBoulder, ItemRock])
-    of TerrainUseGem:
+    of Gem:
       used = env.tryGiveAndClear(agent, targetPos, ItemRough)
-    of TerrainUsePlant:
+    of Bush, Cactus:
       used = env.tryGiveFirstAndClear(agent, targetPos, [ItemPlantGrowth, ItemSeeds, ItemPlant])
-    of TerrainUseAnimal:
+    of Animal:
       used = env.tryGiveFirstAndClear(agent, targetPos, [ItemMeat, ItemSkinTanned, ItemTotem, ItemCorpse,
         ItemCorpsePiece, ItemRemains, ItemGlob, ItemVermin, ItemPet, ItemEgg])
-    of TerrainUseEmpty:
+    of Empty:
       if env.hasDoor(targetPos):
         used = false
       elif agent.inventoryBread > 0:
@@ -1056,7 +942,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
             pos: targetPos
           ))
           used = true
-    of TerrainUseInvalid:
+    of Bridge, Fertile, Road, Grass, Dune, Sand, Snow:
       used = false
 
     if used:
@@ -1207,6 +1093,76 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Blacksmith:
     if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
       used = true
+  of Table:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationTable, thing):
+      used = true
+  of Chair:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationChair, thing):
+      used = true
+  of Bed:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationBed, thing):
+      used = true
+  of Statue:
+    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationStatue, thing):
+      used = true
+  of TownCenter:
+    if thing.teamId == getTeamId(agent.agentId):
+      if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone}):
+        used = true
+  of Mill:
+    if thing.teamId == getTeamId(agent.agentId):
+      if env.useDropoffBuilding(agent, {ResourceFood}):
+        used = true
+      if not used and env.useStorageBuilding(agent, thing, @[ItemWheat]):
+        used = true
+  of LumberCamp:
+    if thing.teamId == getTeamId(agent.agentId):
+      if env.useDropoffBuilding(agent, {ResourceWood}):
+        used = true
+      if not used and env.useStorageBuilding(agent, thing, @[ItemBranch]):
+        used = true
+  of MiningCamp:
+    if thing.teamId == getTeamId(agent.agentId):
+      if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
+        used = true
+      if not used and env.useStorageBuilding(agent, thing, @[ItemBoulder, ItemRough]):
+        used = true
+  of Farm:
+    if thing.teamId == getTeamId(agent.agentId):
+      if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
+        used = true
+  of Dock:
+    if thing.teamId == getTeamId(agent.agentId):
+      if env.useDropoffBuilding(agent, {ResourceFood}):
+        used = true
+  of Barracks:
+    if thing.cooldown == 0:
+      if env.tryTrainUnit(agent, thing, UnitManAtArms,
+          @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)], 8):
+        used = true
+  of ArcheryRange:
+    if thing.cooldown == 0:
+      if env.tryTrainUnit(agent, thing, UnitArcher,
+          @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)], 8):
+        used = true
+  of Stable:
+    if thing.cooldown == 0:
+      if env.tryTrainUnit(agent, thing, UnitScout, @[(res: ResourceFood, count: 3)], 8):
+        used = true
+  of SiegeWorkshop:
+    if thing.cooldown == 0:
+      if env.tryTrainUnit(agent, thing, UnitSiege,
+          @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], 10):
+        used = true
+  of Monastery:
+    if thing.cooldown == 0:
+      if env.tryTrainUnit(agent, thing, UnitMonk, @[(res: ResourceGold, count: 2)], 10):
+        used = true
+  of Castle:
+    if thing.cooldown == 0:
+      if env.tryTrainUnit(agent, thing, UnitKnight,
+          @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)], 12):
+        used = true
   of University:
     discard
   of Market:
@@ -1214,11 +1170,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   else:
     discard
-
-  if not used:
-    if env.tryUseStationDef(agent, thing) or env.tryUseTrainingDef(agent, thing) or
-       env.tryUseDropoffDef(agent, thing):
-      used = true
 
   if not used:
     if tryPickupThing(env, agent, thing):
