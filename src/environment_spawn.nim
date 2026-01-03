@@ -264,47 +264,47 @@ proc init(env: Environment) =
           if y < houseStruct.layout.len and x < houseStruct.layout[y].len:
             let worldPos = placementPosition + ivec2(x.int32, y.int32)
             case houseStruct.layout[y][x]:
-            of 'A':  # Armory at top-left
+            of StructureArmoryChar:  # Armory at top-left
               env.add(Thing(
                 kind: Armory,
                 pos: worldPos,
               ))
-            of 'F':  # Forge at top-right
+            of StructureForgeChar:  # Forge at top-right
               env.add(Thing(
                 kind: Forge,
                 pos: worldPos,
               ))
-            of 'C':  # Clay Oven at bottom-left
+            of StructureClayOvenChar:  # Clay Oven at bottom-left
               env.add(Thing(
                 kind: ClayOven,
                 pos: worldPos,
               ))
-            of 'W':  # Weaving Loom at bottom-right
+            of StructureWeavingLoomChar:  # Weaving Loom at bottom-right
               env.add(Thing(
                 kind: WeavingLoom,
                 pos: worldPos,
               ))
-            of 'B':  # Bed
+            of StructureBedChar:  # Bed
               env.add(Thing(
                 kind: Bed,
                 pos: worldPos,
               ))
-            of 'H':  # Chair (throne)
+            of StructureChairChar:  # Chair (throne)
               env.add(Thing(
                 kind: Chair,
                 pos: worldPos,
               ))
-            of 'T':  # Table
+            of StructureTableChar:  # Table
               env.add(Thing(
                 kind: Table,
                 pos: worldPos,
               ))
-            of 'S':  # Statue
+            of StructureStatueChar:  # Statue
               env.add(Thing(
                 kind: Statue,
                 pos: worldPos,
               ))
-            of 'N':  # Town Center
+            of StructureTownCenterChar:  # Town Center
               env.add(Thing(
                 kind: TownCenter,
                 pos: worldPos,
