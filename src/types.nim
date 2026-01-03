@@ -14,7 +14,8 @@ const
   MapRoomObjectsHouses* = 8
   MapAgentsPerHouse* = 20
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
-  MapRoomObjectsConverters* = 10
+  MapRoomObjectsConverters* = 10  # Magma pools
+  MapRoomObjectsMagmaClusters* = 4
   MapRoomObjectsMines* = 20
   MapRoomObjectsMineClusters* = 6
   MapRoomObjectsWalls* = 30
@@ -137,7 +138,7 @@ type
     Wall
     TreeObject
     Mine
-    Converter  # Smelts ore into bars
+    Converter  # Magma pool that smelts ore into bars
     Altar
     Spawner
     Tumor

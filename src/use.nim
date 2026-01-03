@@ -115,7 +115,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.updateObservations(MineResourceLayer, thing.pos, 0)
           env.updateObservations(MineReadyLayer, thing.pos, 0)
           removeThing(env, thing)
-  of Converter:
+  of Converter:  # Magma pool smelting
     if thing.cooldown == 0 and getInv(agent, ItemOre) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemOre, getInv(agent, ItemOre) - 1)
       agent.inventoryBar = agent.inventoryBar + 1
