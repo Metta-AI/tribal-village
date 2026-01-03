@@ -15,6 +15,7 @@ proc init(env: Environment) =
 
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
+  env.teamUpgrades = default(array[MapRoomObjectsHouses, TeamUpgrades])
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
@@ -344,7 +345,9 @@ proc init(env: Environment) =
             homeAltar: elements.center,  # Link agent to their home altar
             frozen: frozen,
             hp: hp,
-            maxHp: AgentMaxHp
+            maxHp: AgentMaxHp,
+            attackDamage: VillagerAttackDamage,
+            unitClass: UnitVillager
           ))
 
           totalAgentsSpawned += 1
@@ -375,6 +378,10 @@ proc init(env: Environment) =
       orientation: Orientation(randIntInclusive(r, 0, 3)),
       homeAltar: ivec2(-1, -1),  # No home altar for unaffiliated agents
       frozen: 0,
+      hp: AgentMaxHp,
+      maxHp: AgentMaxHp,
+      attackDamage: VillagerAttackDamage,
+      unitClass: UnitVillager,
     ))
 
     totalAgentsSpawned += 1

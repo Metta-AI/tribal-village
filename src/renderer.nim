@@ -440,9 +440,26 @@ proc drawObjects*() =
 
         of TownCenter, House:
           let imageName = case thing.kind:
-            of TownCenter: mapSpriteKey("assembler")
-            of House: mapSpriteKey("bed")
-            else: mapSpriteKey("assembler")
+            of TownCenter: mapSpriteKey("town_center")
+            of House: mapSpriteKey("house")
+            else: mapSpriteKey("town_center")
+          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          if infected:
+            drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
+
+        of Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery, University, Castle:
+          let imageName = case thing.kind:
+            of Barracks: mapSpriteKey("barracks")
+            of ArcheryRange: mapSpriteKey("archery_range")
+            of Stable: mapSpriteKey("stable")
+            of SiegeWorkshop: mapSpriteKey("siege_workshop")
+            of Blacksmith: mapSpriteKey("blacksmith")
+            of Market: mapSpriteKey("market")
+            of Dock: mapSpriteKey("dock")
+            of Monastery: mapSpriteKey("monastery")
+            of University: mapSpriteKey("university")
+            of Castle: mapSpriteKey("castle")
+            else: mapSpriteKey("floor")
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
@@ -578,8 +595,18 @@ proc drawAgentDecorations*() =
         of "LumberCamp": return mapSpriteKey("cabinet")
         of "MiningCamp": return mapSpriteKey("smelter")
         of "Farm": return mapSpriteKey("farm")
-        of "TownCenter": return mapSpriteKey("assembler")
-        of "House": return mapSpriteKey("bed")
+        of "TownCenter": return mapSpriteKey("town_center")
+        of "House": return mapSpriteKey("house")
+        of "Barracks": return mapSpriteKey("barracks")
+        of "ArcheryRange": return mapSpriteKey("archery_range")
+        of "Stable": return mapSpriteKey("stable")
+        of "SiegeWorkshop": return mapSpriteKey("siege_workshop")
+        of "Blacksmith": return mapSpriteKey("blacksmith")
+        of "Market": return mapSpriteKey("market")
+        of "Dock": return mapSpriteKey("dock")
+        of "Monastery": return mapSpriteKey("monastery")
+        of "University": return mapSpriteKey("university")
+        of "Castle": return mapSpriteKey("castle")
         of "Stump": return mapSpriteKey("stump")
         of "Mine": return mapSpriteKey("mine")
         of "Converter": return mapSpriteKey("converter")
@@ -672,6 +699,16 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Farm: "Farm"
       of TownCenter: "Town Center"
       of House: "House"
+      of Barracks: "Barracks"
+      of ArcheryRange: "Archery Range"
+      of Stable: "Stable"
+      of SiegeWorkshop: "Siege Workshop"
+      of Blacksmith: "Blacksmith"
+      of Market: "Market"
+      of Dock: "Dock"
+      of Monastery: "Monastery"
+      of University: "University"
+      of Castle: "Castle"
       of Stump: "Stump"
       of PlantedLantern: "Lantern"
   elif env.hasDoor(selectedPos):

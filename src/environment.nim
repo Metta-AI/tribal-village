@@ -44,6 +44,22 @@ const
   ResourceCarryCapacity* = 5
   TownCenterPopCap* = 5
   HousePopCap* = 5
+  VillagerAttackDamage* = 1
+  ManAtArmsAttackDamage* = 2
+  ArcherAttackDamage* = 1
+  ScoutAttackDamage* = 1
+  KnightAttackDamage* = 2
+  MonkAttackDamage* = 0
+  SiegeAttackDamage* = 3
+  VillagerMaxHp* = AgentMaxHp
+  ManAtArmsMaxHp* = 7
+  ArcherMaxHp* = 4
+  ScoutMaxHp* = 6
+  KnightMaxHp* = 8
+  MonkMaxHp* = 4
+  SiegeMaxHp* = 10
+  ArcherBaseRange* = 3
+  SiegeBaseRange* = 2
 
   # Gameplay
   MinTintEpsilon* = 5
@@ -113,6 +129,15 @@ type
     MineGold
     MineStone
 
+  AgentUnitClass* = enum
+    UnitVillager
+    UnitManAtArms
+    UnitArcher
+    UnitScout
+    UnitKnight
+    UnitMonk
+    UnitSiege
+
   ThingKind* = enum
     Agent
     Wall
@@ -142,6 +167,16 @@ type
     PlantedLantern  # Planted lanterns that spread team colors
     TownCenter
     House
+    Barracks
+    ArcheryRange
+    Stable
+    SiegeWorkshop
+    Blacksmith
+    Market
+    Dock
+    Monastery
+    University
+    Castle
 
   TreeVariant* = enum
     TreeVariantPine
@@ -163,6 +198,8 @@ type
     reward*: float32
     hp*: int
     maxHp*: int
+    attackDamage*: int
+    unitClass*: AgentUnitClass
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
     # Tumor:
@@ -257,6 +294,11 @@ type
     survivalPenalty*: float
     deathPenalty*: float
 
+  TeamUpgrades* = object
+    attackBonus*: int
+    armorBonus*: int
+    rangeBonus*: int
+
   TeamStockpile* = object
     counts*: array[StockpileResource, int]
 
@@ -271,6 +313,7 @@ type
     doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
     doorHearts*: array[MapWidth, array[MapHeight, int8]]
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
+    teamUpgrades*: array[MapRoomObjectsHouses, TeamUpgrades]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
@@ -636,6 +679,26 @@ proc render*(env: Environment): string =
             cell = "N"
           of House:
             cell = "h"
+          of Barracks:
+            cell = "B"
+          of ArcheryRange:
+            cell = "R"
+          of Stable:
+            cell = "S"
+          of SiegeWorkshop:
+            cell = "G"
+          of Blacksmith:
+            cell = "K"
+          of Market:
+            cell = "M"
+          of Dock:
+            cell = "D"
+          of Monastery:
+            cell = "O"
+          of University:
+            cell = "U"
+          of Castle:
+            cell = "C"
           break
       result.add(cell)
     result.add("\n")
@@ -733,7 +796,9 @@ proc rebuildObservations*(env: Environment) =
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
     of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, WatchTower,
-       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern, TownCenter, House:
+       Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, PlantedLantern, TownCenter, House,
+       Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
+       University, Castle:
       discard
 
   env.observationsInitialized = true
@@ -853,6 +918,32 @@ proc spendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[res: 
       continue
     env.teamStockpiles[teamId].counts[cost.res] -= cost.count
   true
+
+proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
+  agent.unitClass = unitClass
+  case unitClass
+  of UnitVillager:
+    agent.maxHp = VillagerMaxHp
+    agent.attackDamage = VillagerAttackDamage
+  of UnitManAtArms:
+    agent.maxHp = ManAtArmsMaxHp
+    agent.attackDamage = ManAtArmsAttackDamage
+  of UnitArcher:
+    agent.maxHp = ArcherMaxHp
+    agent.attackDamage = ArcherAttackDamage
+  of UnitScout:
+    agent.maxHp = ScoutMaxHp
+    agent.attackDamage = ScoutAttackDamage
+  of UnitKnight:
+    agent.maxHp = KnightMaxHp
+    agent.attackDamage = KnightAttackDamage
+  of UnitMonk:
+    agent.maxHp = MonkMaxHp
+    agent.attackDamage = MonkAttackDamage
+  of UnitSiege:
+    agent.maxHp = SiegeMaxHp
+    agent.attackDamage = SiegeAttackDamage
+  agent.hp = agent.maxHp
 
 proc teamPopulation*(env: Environment, teamId: int): int =
   result = 0
