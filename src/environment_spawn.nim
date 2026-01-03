@@ -65,33 +65,51 @@ proc init(env: Environment) =
 
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
-    let count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    let dungeonKinds = [DungeonMaze, DungeonRadial]
+    var count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    if UseSequentialDungeonZones:
+      count = max(count, dungeonKinds.len)
     var dungeonWalls: MaskGrid
     dungeonWalls.clearMask(MapWidth, MapHeight)
-    for i in 0 ..< count:
-      let zone = randomZone(r, MapWidth, MapHeight, MapBorder, DungeonZoneMaxFraction)
+    let zones = evenlyDistributedZones(r, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction)
+    var seqIdx = randIntInclusive(r, 0, dungeonKinds.len - 1)
+    for zone in zones:
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
       let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
       let y1 = min(MapHeight - MapBorder, zone.y + zone.h)
 
+      var zoneMask: MaskGrid
+      buildZoneBlobMask(zoneMask, MapWidth, MapHeight, MapBorder, zone, r)
+
       # Tint the dungeon zone background with a soft edge blend.
+      let dungeonBlendDepth = 4
       for x in x0 ..< x1:
         for y in y0 ..< y1:
+          if not zoneMask[x][y]:
+            continue
           env.biomes[x][y] = BiomeDungeonType
-          let edge = min(min(x - x0, x1 - 1 - x), min(y - y0, y1 - 1 - y))
-          let t = min(1.0'f32, max(0.0'f32, edge.float32 / 4.0))
+          let edge = maskEdgeDistance(zoneMask, MapWidth, MapHeight, x, y, dungeonBlendDepth)
+          let t = if dungeonBlendDepth <= 0: 1.0'f32 else:
+            min(1.0'f32, max(0.0'f32, edge.float32 / dungeonBlendDepth.float32))
           let dungeonColor = biomeBaseColor(BiomeDungeonType)
           let base = env.baseTileColors[x][y]
           let blended = blendTileColor(base, dungeonColor, t)
           env.baseTileColors[x][y] = blended
           env.tileColors[x][y] = blended
       var mask: MaskGrid
-      let dungeonKind = pickDungeonKind(r)
+      let dungeonKind = if UseSequentialDungeonZones:
+        let selected = dungeonKinds[seqIdx mod dungeonKinds.len]
+        inc seqIdx
+        selected
+      else:
+        pickDungeonKind(r)
       buildDungeonMask(mask, MapWidth, MapHeight, zone, r, dungeonKind)
 
       for x in x0 ..< x1:
         for y in y0 ..< y1:
+          if not zoneMask[x][y]:
+            continue
           let shouldWall = if dungeonKind == DungeonRadial:
             not mask[x][y]  # radial mask encodes corridors; invert for walls
           else:
