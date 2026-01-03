@@ -58,9 +58,19 @@ proc createVillage*(): Structure =
   for i in 1 .. (ringDist - 1):
     ring.add(ivec2((-ringDist + i).int32, (-i).int32))
 
-  for idx in 0 ..< min(ring.len, buildingChars.len):
-    let pos = center + ring[idx]
-    layout[pos.y][pos.x] = buildingChars[idx]
+  proc isGateFront(pos: IVec2): bool =
+    (pos.x == center.x and (pos.y == center.y - ringDist or pos.y == center.y + ringDist)) or
+    (pos.y == center.y and (pos.x == center.x - ringDist or pos.x == center.x + ringDist))
+
+  var placed = 0
+  for offset in ring:
+    if placed >= buildingChars.len:
+      break
+    let pos = center + offset
+    if isGateFront(pos):
+      continue
+    layout[pos.y][pos.x] = buildingChars[placed]
+    inc placed
 
   result = Structure(
     width: size,
