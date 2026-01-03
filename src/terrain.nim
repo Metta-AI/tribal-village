@@ -37,6 +37,7 @@ type
 
 type
   BiomeKind* = enum
+    BiomeBase
     BiomeForest
     BiomeDesert
     BiomeCaves
@@ -46,6 +47,7 @@ type
 
   BiomeType* = enum
     BiomeNone
+    BiomeBaseType
     BiomeForestType
     BiomeDesertType
     BiomeCavesType
@@ -62,7 +64,7 @@ type
 
 const
   UseBiomeTerrain* = true
-  BaseBiome* = BiomePlains
+  BaseBiome* = BiomeBase
   BiomeForestTerrain* = Tree
   BiomeDesertTerrain* = Sand
   BiomeCavesTerrain* = Stalagmite
@@ -154,6 +156,7 @@ proc canApplyBiome(currentBiome, biomeType, baseBiomeType: BiomeType): bool =
 
 proc baseBiomeType*(): BiomeType =
   case BaseBiome:
+  of BiomeBase: BiomeBaseType
   of BiomeForest: BiomeForestType
   of BiomeDesert: BiomeDesertType
   of BiomeCaves: BiomeCavesType
@@ -207,7 +210,7 @@ proc applyBiomeMaskToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, mask:
       if randChance(r, chance):
         biomes[x][y] = biomeType
 
-proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: BiomeGrid, zoneMask: MaskGrid,
+proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
                              zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
                              terrainType: TerrainType, biomeType: BiomeType,
                              baseBiomeType: BiomeType, r: var Rand, edgeChance: float,
@@ -227,6 +230,7 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: BiomeGrid, zoneMa
       let chance = blendChanceForDistance(edgeDist, blendDepth, edgeChance)
       if randChance(r, chance):
         terrain[x][y] = terrainType
+        biomes[x][y] = biomeType
 
 proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[float]): T =
   var total = 0.0
@@ -380,6 +384,8 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
 proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var mask: MaskGrid
   case BaseBiome:
+  of BiomeBase:
+    discard
   of BiomeForest:
     buildBiomeForestMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeForestConfig())
     applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeForestTerrain)
