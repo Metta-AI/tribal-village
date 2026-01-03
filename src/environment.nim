@@ -346,11 +346,6 @@ type
     survivalPenalty*: float
     deathPenalty*: float
 
-  TeamUpgrades* = object
-    attackBonus*: int
-    armorBonus*: int
-    rangeBonus*: int
-
   TeamStockpile* = object
     counts*: array[StockpileResource, int]
 
@@ -365,7 +360,6 @@ type
     doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
     doorHearts*: array[MapWidth, array[MapHeight, int8]]
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
-    teamUpgrades*: array[MapRoomObjectsHouses, TeamUpgrades]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
