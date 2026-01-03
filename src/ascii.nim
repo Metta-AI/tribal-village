@@ -5,7 +5,7 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of Wall: '#'
   of TreeObject: 't'
   of Mine: 'M'
-  of Converter: 'v'
+  of Magma: 'v'
   of Altar: 'a'
   of Spawner: 'Z'
   of Tumor: 'X'
@@ -76,7 +76,7 @@ proc render*(env: Environment): string =
             cell = "T"
           of Mine:
             cell = "m"
-          of Converter:
+          of Magma:
             cell = "v"
           of Altar:
             cell = "a"

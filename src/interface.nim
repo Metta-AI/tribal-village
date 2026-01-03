@@ -58,7 +58,7 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   (r: 96'u8,  g: 96'u8,  b: 96'u8),   # Wall
   (r: 34'u8,  g: 139'u8, b: 34'u8),   # TreeObject
   (r: 184'u8, g: 134'u8, b: 11'u8),   # Mine
-  (r: 0'u8,   g: 200'u8, b: 200'u8),  # Magma pool (converter)
+  (r: 0'u8,   g: 200'u8, b: 200'u8),  # Magma pool
   (r: 220'u8, g: 0'u8,   b: 220'u8),  # altar
   (r: 255'u8, g: 170'u8, b: 0'u8),    # Spawner
   (r: 160'u8, g: 32'u8,  b: 240'u8),  # Tumor
