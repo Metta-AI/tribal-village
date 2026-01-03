@@ -126,7 +126,7 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
     return false
   if not env.spendStockpile(teamId, costs):
     return false
-  env.applyUnitClass(agent, unitClass)
+  applyUnitClass(agent, unitClass)
   if agent.inventorySpear > 0:
     agent.inventorySpear = 0
     env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
@@ -361,42 +361,11 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   if not key.startsWith(ItemThingPrefix):
     return false
   let name = key[ItemThingPrefix.len .. ^1]
-  case name
-  of "Wall": kind = Wall
-  of "Mine": kind = Mine
-  of "Converter": kind = Converter
-  of "Altar": kind = Altar
-  of "Spawner": kind = Spawner
-  of "Armory": kind = Armory
-  of "Forge": kind = Forge
-  of "ClayOven": kind = ClayOven
-  of "WeavingLoom": kind = WeavingLoom
-  of "Bed": kind = Bed
-  of "Chair": kind = Chair
-  of "Table": kind = Table
-  of "Statue": kind = Statue
-  of "WatchTower": kind = WatchTower
-  of "Barrel": kind = Barrel
-  of "Mill": kind = Mill
-  of "LumberCamp": kind = LumberCamp
-  of "MiningCamp": kind = MiningCamp
-  of "Farm": kind = Farm
-  of "PlantedLantern": kind = PlantedLantern
-  of "TownCenter": kind = TownCenter
-  of "House": kind = House
-  of "Barracks": kind = Barracks
-  of "ArcheryRange": kind = ArcheryRange
-  of "Stable": kind = Stable
-  of "SiegeWorkshop": kind = SiegeWorkshop
-  of "Blacksmith": kind = Blacksmith
-  of "Market": kind = Market
-  of "Dock": kind = Dock
-  of "Monastery": kind = Monastery
-  of "University": kind = University
-  of "Castle": kind = Castle
-  else:
-    return false
-  true
+  for candidate in ThingKind:
+    if $candidate == name:
+      kind = candidate
+      return true
+  false
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, TownCenter, House, Barracks,
