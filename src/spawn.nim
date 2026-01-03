@@ -213,6 +213,9 @@ proc init(env: Environment) =
           let clearX = placementPosition.x + dx
           let clearY = placementPosition.y + dy
           if clearX >= 0 and clearX < MapWidth and clearY >= 0 and clearY < MapHeight:
+            if dy < houseStruct.layout.len and dx < houseStruct.layout[dy].len:
+              if houseStruct.layout[dy][dx] == ' ':
+                continue
             # Clear any terrain features (wheat, trees) but keep blocked terrain
             if not isBlockedTerrain(env.terrain[clearX][clearY]):
               env.terrain[clearX][clearY] = Empty
@@ -246,6 +249,9 @@ proc init(env: Environment) =
           let tileX = placementPosition.x + dx
           let tileY = placementPosition.y + dy
           if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+            if dy < houseStruct.layout.len and dx < houseStruct.layout[dy].len:
+              if houseStruct.layout[dy][dx] == ' ':
+                continue
             env.baseTileColors[tileX][tileY] = TileColor(
               r: villageColor.r,
               g: villageColor.g,
@@ -267,8 +273,7 @@ proc init(env: Environment) =
           env.doorTeams[doorPos.x][doorPos.y] = teamId.int16
           env.doorHearts[doorPos.x][doorPos.y] = DoorMaxHearts.int8
 
-      # Add the corner buildings from the house layout
-      # Parse the house structure to find corner buildings
+      # Add the interior buildings from the layout
       for y in 0 ..< houseStruct.height:
         for x in 0 ..< houseStruct.width:
           if y < houseStruct.layout.len and x < houseStruct.layout[y].len:
@@ -325,6 +330,48 @@ proc init(env: Environment) =
             of StructureTownCenterChar:  # Town Center
               env.add(Thing(
                 kind: TownCenter,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureBarracksChar:  # Barracks
+              env.add(Thing(
+                kind: Barracks,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureArcheryRangeChar:  # Archery Range
+              env.add(Thing(
+                kind: ArcheryRange,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureStableChar:  # Stable
+              env.add(Thing(
+                kind: Stable,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureSiegeWorkshopChar:  # Siege Workshop
+              env.add(Thing(
+                kind: SiegeWorkshop,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureMarketChar:  # Market
+              env.add(Thing(
+                kind: Market,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureDockChar:  # Dock
+              env.add(Thing(
+                kind: Dock,
+                pos: worldPos,
+                teamId: teamId
+              ))
+            of StructureUniversityChar:  # University
+              env.add(Thing(
+                kind: University,
                 pos: worldPos,
                 teamId: teamId
               ))

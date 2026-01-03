@@ -51,6 +51,13 @@ const
   StructureTableChar* = 'T'
   StructureStatueChar* = 'S'
   StructureTownCenterChar* = 'N'
+  StructureBarracksChar* = 'R'
+  StructureArcheryRangeChar* = 'G'
+  StructureStableChar* = 'P'
+  StructureSiegeWorkshopChar* = 'I'
+  StructureMarketChar* = 'M'
+  StructureDockChar* = 'K'
+  StructureUniversityChar* = 'U'
 
 type
   BiomeKind* = enum
