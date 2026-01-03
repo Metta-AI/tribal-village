@@ -470,7 +470,7 @@ proc drawObjects*() =
             spriteKey = "statue"
             infectionKey = "building"
           of WatchTower:
-            spriteKey = "watchtower"
+            spriteKey = "outpost"
             infectionKey = "building"
           of Barrel:
             spriteKey = "barrel"
@@ -607,7 +607,9 @@ proc drawAgentDecorations*() =
         of "Chair": return "chair"
         of "Table": return "table"
         of "Statue": return "statue"
-        of "WatchTower": return "watchtower"
+        of "WatchTower": return "outpost"
+        of "Wall": return "wall"
+        of "Road": return "road"
         of "Barrel": return "barrel"
         of "Mill": return "millstone"
         of "LumberCamp": return "cabinet"
@@ -719,7 +721,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Chair: "Chair"
         of Table: "Table"
         of Statue: "Statue"
-        of WatchTower: "Watch Tower"
+      of WatchTower: "Outpost"
         of Barrel: "Barrel"
         of Mill: "Mill"
         of LumberCamp: "Lumber Camp"

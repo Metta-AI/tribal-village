@@ -182,6 +182,7 @@ type
     StationChair
     StationBed
     StationStatue
+    StationSiegeWorkshop
 
   CraftRecipe* = object
     id*: string
@@ -630,55 +631,55 @@ let
       buildCost: @["wood x1"],
       uses: "Movement booster: entering pushes the agent two tiles forward."),
     GameStructureDef(id: "house", displayName: "House",
-      buildCost: @["wood x2"],
+      buildCost: @["wood x1"],
       uses: "Population cap increase."),
     GameStructureDef(id: "town_center", displayName: "Town Center",
-      buildCost: @["wood x4", "stone x2"],
+      buildCost: @["wood x14"],
       uses: "Primary drop-off and villager spawn."),
     GameStructureDef(id: "barracks", displayName: "Barracks",
-      buildCost: @["wood x3"],
+      buildCost: @["wood x9"],
       uses: "Trains infantry."),
     GameStructureDef(id: "archery_range", displayName: "Archery Range",
-      buildCost: @["wood x3"],
+      buildCost: @["wood x9"],
       uses: "Trains archers."),
     GameStructureDef(id: "stable", displayName: "Stable",
-      buildCost: @["wood x4"],
+      buildCost: @["wood x9"],
       uses: "Trains cavalry."),
     GameStructureDef(id: "siege_workshop", displayName: "Siege Workshop",
-      buildCost: @["wood x4", "stone x2"],
-      uses: "Trains siege units."),
+      buildCost: @["wood x10"],
+      uses: "Trains siege units and crafts roads/walls."),
     GameStructureDef(id: "blacksmith", displayName: "Blacksmith",
-      buildCost: @["wood x3", "stone x1"],
-      uses: "Upgrades attack and armor."),
+      buildCost: @["wood x8"],
+      uses: "Services spears for Man-at-Arms."),
     GameStructureDef(id: "market", displayName: "Market",
-      buildCost: @["wood x3"],
+      buildCost: @["wood x9"],
       uses: "Trades resources for gold."),
     GameStructureDef(id: "dock", displayName: "Dock",
-      buildCost: @["wood x3"],
+      buildCost: @["wood x8"],
       uses: "Naval access and fishing."),
     GameStructureDef(id: "monastery", displayName: "Monastery",
-      buildCost: @["wood x2", "gold x2"],
+      buildCost: @["wood x9"],
       uses: "Trains monks."),
     GameStructureDef(id: "university", displayName: "University",
-      buildCost: @["wood x3", "stone x2"],
-      uses: "Upgrades range."),
+      buildCost: @["wood x10"],
+      uses: "Research hub."),
     GameStructureDef(id: "castle", displayName: "Castle",
-      buildCost: @["stone x6", "wood x2"],
+      buildCost: @["stone x33"],
       uses: "Stronghold and elite units."),
-    GameStructureDef(id: "watchtower", displayName: "Watch Tower",
-      buildCost: @["wood x2"],
+    GameStructureDef(id: "outpost", displayName: "Outpost",
+      buildCost: @["wood x1"],
       uses: "Outpost for builders; extends territory reach."),
     GameStructureDef(id: "mill", displayName: "Mill",
-      buildCost: @["wood x2"],
+      buildCost: @["wood x5"],
       uses: "Wheat storage and farming hub."),
     GameStructureDef(id: "lumber_camp", displayName: "Lumber Camp",
-      buildCost: @["wood x2"],
+      buildCost: @["wood x5"],
       uses: "Wood storage for nearby harvesting."),
     GameStructureDef(id: "mining_camp", displayName: "Mining Camp",
-      buildCost: @["wood x2"],
+      buildCost: @["wood x5"],
       uses: "Ore/stone storage for mining runs."),
     GameStructureDef(id: "farm", displayName: "Farm",
-      buildCost: @["wood x2"],
+      buildCost: @["wood x3"],
       uses: "Creates nearby farm tiles for harvesting wheat."),
     GameStructureDef(id: "bed", displayName: "Bed",
       buildCost: @["wood"], uses: "Resting furniture."),
@@ -719,6 +720,12 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "monastery", StationTable, @[(ItemWood, 9)], @[(thingItem("Monastery"), 1)], 12)
   addRecipe(recipes, "university", StationTable, @[(ItemWood, 10)], @[(thingItem("University"), 1)], 14)
   addRecipe(recipes, "castle", StationTable, @[(ItemStone, 33)], @[(thingItem("Castle"), 1)], 20)
+  addRecipe(recipes, "armory", StationTable, @[(ItemWood, 4)], @[(thingItem("Armory"), 1)], 12)
+  addRecipe(recipes, "clay_oven", StationTable, @[(ItemWood, 4)], @[(thingItem("ClayOven"), 1)], 12)
+  addRecipe(recipes, "weaving_loom", StationTable, @[(ItemWood, 3)], @[(thingItem("WeavingLoom"), 1)], 12)
+  # Siege workshop crafts for walls/roads (1/20 AoE2 scale).
+  addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemStone, 1)], @[(thingItem("Wall"), 1)], 6)
+  addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)], 4)
   addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
   addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
   addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)
