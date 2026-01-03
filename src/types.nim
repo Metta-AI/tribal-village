@@ -160,7 +160,7 @@ type
     MiningCamp
     Farm
     Stump
-    Lantern  # Planted lanterns that spread team colors
+    Lantern  # Lanterns that spread team colors
     TownCenter
     House
     Barracks
