@@ -274,48 +274,33 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   if not env.spendStockpile(teamId, costs):
     return false
   applyUnitClass(agent, unitClass)
-  if agent.inventorySpear > 0:
+  if unitClass == UnitManAtArms:
+    agent.inventorySpear = SpearCharges
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+  elif agent.inventorySpear > 0:
     agent.inventorySpear = 0
     env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-  if unitClass in {UnitManAtArms, UnitKnight, UnitSiege}:
-    agent.inventoryArmor = ArmorPoints
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-  elif agent.inventoryArmor > 0:
-    agent.inventoryArmor = 0
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
   building.cooldown = cooldown
   true
 
-proc tryBlacksmithUpgrade(env: Environment, agent: Thing, building: Thing): bool =
+proc tryBlacksmithService(env: Environment, agent: Thing, building: Thing): bool =
   let teamId = getTeamId(agent.agentId)
   if building.teamId != teamId:
     return false
-  if teamId < 0 or teamId >= env.teamUpgrades.len:
-    return false
-  if env.teamUpgrades[teamId].attackBonus < 2:
-    if env.spendStockpile(teamId, @[(res: ResourceFood, count: 2), (res: ResourceGold, count: 1)]):
-      inc env.teamUpgrades[teamId].attackBonus
-      building.cooldown = 10
-      return true
-  if env.teamUpgrades[teamId].armorBonus < 2:
-    if env.spendStockpile(teamId, @[(res: ResourceFood, count: 2), (res: ResourceStone, count: 1)]):
-      inc env.teamUpgrades[teamId].armorBonus
-      building.cooldown = 10
-      return true
-  false
-
-proc tryUniversityUpgrade(env: Environment, agent: Thing, building: Thing): bool =
-  let teamId = getTeamId(agent.agentId)
-  if building.teamId != teamId:
-    return false
-  if teamId < 0 or teamId >= env.teamUpgrades.len:
-    return false
-  if env.teamUpgrades[teamId].rangeBonus < 2:
-    if env.spendStockpile(teamId, @[(res: ResourceFood, count: 2), (res: ResourceStone, count: 2)]):
-      inc env.teamUpgrades[teamId].rangeBonus
-      building.cooldown = 12
-      return true
-  false
+  var serviced = false
+  if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
+    if env.spendStockpile(teamId, @[(res: ResourceWood, count: 1)]):
+      agent.inventorySpear = SpearCharges
+      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+      serviced = true
+  if agent.inventoryArmor < ArmorPoints:
+    if env.spendStockpile(teamId, @[(res: ResourceGold, count: 1)]):
+      agent.inventoryArmor = ArmorPoints
+      env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+      serviced = true
+  if serviced:
+    building.cooldown = 8
+  serviced
 
 proc tryMarketTrade(env: Environment, agent: Thing, building: Thing): bool =
   let teamId = getTeamId(agent.agentId)
@@ -712,9 +697,6 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     return false
 
   var remaining = amount
-  let teamId = getTeamId(target.agentId)
-  if teamId >= 0 and teamId < env.teamUpgrades.len:
-    remaining = max(0, remaining - env.teamUpgrades[teamId].armorBonus)
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
@@ -768,12 +750,11 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   let attackOrientation = Orientation(argument)
   let delta = getOrientationDelta(attackOrientation)
   let attackerTeam = getTeamId(agent.agentId)
-  let teamBonus = if attackerTeam >= 0 and attackerTeam < env.teamUpgrades.len: env.teamUpgrades[attackerTeam] else: TeamUpgrades()
-  let baseDamage = agent.attackDamage + teamBonus.attackBonus
+  let baseDamage = agent.attackDamage
   let damageAmount = max(1, baseDamage)
   let rangedRange = case agent.unitClass
-    of UnitArcher: ArcherBaseRange + teamBonus.rangeBonus
-    of UnitSiege: SiegeBaseRange + teamBonus.rangeBonus
+    of UnitArcher: ArcherBaseRange
+    of UnitSiege: SiegeBaseRange
     else: 0
   let hasSpear = agent.inventorySpear > 0 and rangedRange == 0
   let maxRange = if hasSpear: 2 else: 1
@@ -1242,11 +1223,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if env.useStorageBuilding(agent, thing, @[]):
       used = true
   of Blacksmith:
-    if thing.cooldown == 0 and env.tryBlacksmithUpgrade(agent, thing):
+    if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
       used = true
   of University:
-    if thing.cooldown == 0 and env.tryUniversityUpgrade(agent, thing):
-      used = true
+    discard
   of Market:
     if thing.cooldown == 0 and env.tryMarketTrade(agent, thing):
       used = true

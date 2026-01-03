@@ -15,7 +15,6 @@ proc init(env: Environment) =
 
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
-  env.teamUpgrades = default(array[MapRoomObjectsHouses, TeamUpgrades])
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)

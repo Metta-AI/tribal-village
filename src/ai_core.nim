@@ -346,12 +346,9 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   if agent.unitClass == UnitMonk:
     return -1
 
-  let teamId = getTeamId(agent.agentId)
-  let rangeBonus =
-    if teamId >= 0 and teamId < env.teamUpgrades.len: env.teamUpgrades[teamId].rangeBonus else: 0
   let rangedRange = case agent.unitClass
-    of UnitArcher: ArcherBaseRange + rangeBonus
-    of UnitSiege: SiegeBaseRange + rangeBonus
+    of UnitArcher: ArcherBaseRange
+    of UnitSiege: SiegeBaseRange
     else: 0
 
   if rangedRange > 0:
