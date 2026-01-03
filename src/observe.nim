@@ -89,7 +89,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Cow, Skeleton, Armory, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, Outpost,
+    of Cow, Skeleton, Armory, ClayOven, WeavingLoom, Outpost,
        Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, Lantern, TownCenter, House,
        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
        University, Castle:
