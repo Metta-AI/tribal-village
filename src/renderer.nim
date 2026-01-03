@@ -672,7 +672,15 @@ proc drawSelectionLabel*(panelRect: IRect) =
   let thing = env.grid[selectedPos.x][selectedPos.y]
   if thing != nil:
     label = case thing.kind
-      of Agent: "Villager"
+      of Agent:
+        case thing.unitClass
+        of UnitVillager: "Villager"
+        of UnitManAtArms: "Man-at-Arms"
+        of UnitArcher: "Archer"
+        of UnitScout: "Scout"
+        of UnitKnight: "Knight"
+        of UnitMonk: "Monk"
+        of UnitSiege: "Siege"
       of Wall: "Wall"
       of TreeObject: "Tree"
       of Mine:
