@@ -304,7 +304,7 @@ for path in walkDirRec("data/"):
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
 
-setDoorSprite(mapSpriteKey("door"))
+setDoorSprite("door")
 
 # Check for command line arguments to determine controller type
 var useExternalController = false
