@@ -22,7 +22,7 @@ proc decideLighter(controller: Controller, env: Environment, agent: Thing,
           continue
         var spaced = true
         for t in env.things:
-          if t.kind == PlantedLantern and chebyshevDist(target, t.pos) < 3'i32:
+          if t.kind == Lantern and chebyshevDist(target, t.pos) < 3'i32:
             spaced = false
             break
         if spaced:

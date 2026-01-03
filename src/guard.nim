@@ -27,6 +27,6 @@ proc decideGuard(controller: Controller, env: Environment, agent: Thing,
       return saveStateAndReturn(controller, agentId, state,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, tumor.pos, controller.rng).uint8))
 
-  let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+  let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
   if did: return act
   return controller.moveNextSearch(env, agent, agentId, state)

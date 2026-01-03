@@ -56,7 +56,8 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   # Matches previous hardcoded RGB choices for renderer export.
   (r: 255'u8, g: 255'u8, b: 0'u8),    # Agent
   (r: 96'u8,  g: 96'u8,  b: 96'u8),   # Wall
-  (r: 34'u8,  g: 139'u8, b: 34'u8),   # TreeObject
+  (r: 34'u8,  g: 139'u8, b: 34'u8),   # Pine
+  (r: 60'u8,  g: 160'u8, b: 80'u8),   # Palm
   (r: 184'u8, g: 134'u8, b: 11'u8),   # Mine
   (r: 0'u8,   g: 200'u8, b: 200'u8),  # Magma pool (converter)
   (r: 220'u8, g: 0'u8,   b: 220'u8),  # altar
@@ -79,7 +80,7 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   (r: 120'u8, g: 120'u8, b: 120'u8),  # MiningCamp
   (r: 120'u8, g: 200'u8, b: 120'u8),  # Farm
   (r: 110'u8, g: 85'u8,  b: 55'u8),   # Stump
-  (r: 255'u8, g: 240'u8, b: 128'u8),  # PlantedLantern
+  (r: 255'u8, g: 240'u8, b: 128'u8),  # Lantern
   (r: 190'u8, g: 180'u8, b: 140'u8),  # TownCenter
   (r: 170'u8, g: 140'u8, b: 110'u8),  # House
   (r: 160'u8, g: 90'u8,  b: 60'u8),   # Barracks

@@ -131,6 +131,19 @@ proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
         minDist = dist
         result = thing
 
+proc findNearestThingAny(env: Environment, pos: IVec2, kinds: openArray[ThingKind]): Thing =
+  result = nil
+  var minDist = 999999
+  var allowed: set[ThingKind] = {}
+  for kind in kinds:
+    allowed.incl(kind)
+  for thing in env.things:
+    if thing.kind in allowed:
+      let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
+      if dist < minDist and dist < 30:
+        minDist = dist
+        result = thing
+
 proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
   result = nil
   var minDist = 999999
@@ -159,6 +172,22 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
 
   # Search from new spiral position
   result = findNearestThing(env, nextSearchPos, kind)
+  return result
+
+proc findNearestThingSpiral(env: Environment, state: var AgentState, kinds: openArray[ThingKind],
+                            rng: var Rand): Thing =
+  ## Spiral search for the nearest of several kinds.
+  result = findNearestThingAny(env, state.lastSearchPosition, kinds)
+  if result != nil:
+    return result
+
+  result = findNearestThingAny(env, state.basePosition, kinds)
+  if result != nil:
+    return result
+
+  let nextSearchPos = getNextSpiralPoint(state, rng)
+  state.lastSearchPosition = nextSearchPos
+  result = findNearestThingAny(env, nextSearchPos, kinds)
   return result
 
 proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, teamId: int,
@@ -298,7 +327,7 @@ proc getMoveAway(env: Environment, agent: Thing, fromPos, threatPos: IVec2, rng:
 proc findNearestLantern(env: Environment, pos: IVec2): tuple[pos: IVec2, found: bool, dist: int32] =
   var best = (pos: ivec2(0, 0), found: false, dist: int32.high)
   for t in env.things:
-    if t.kind == PlantedLantern:
+    if t.kind == Lantern:
       let d = chebyshevDist(pos, t.pos)
       if d < best.dist:
         best = (pos: t.pos, found: true, dist: d)
@@ -306,7 +335,7 @@ proc findNearestLantern(env: Environment, pos: IVec2): tuple[pos: IVec2, found: 
 
 proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
   for t in env.things:
-    if t.kind == PlantedLantern and chebyshevDist(agentPos, t.pos) == 1'i32:
+    if t.kind == Lantern and chebyshevDist(agentPos, t.pos) == 1'i32:
       return true
   return false
 
@@ -472,7 +501,7 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   let occupant = env.grid[pos.x][pos.y]
   if occupant == nil:
     return true
-  return occupant.kind == PlantedLantern
+  return occupant.kind == Lantern
 
 proc nextStepToward(env: Environment, agent: Thing, fromPos, targetPos: IVec2): int =
   ## A* for the next step toward a target, falling back to -1 if no path found.
@@ -693,6 +722,13 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
 proc findAndHarvestThing(controller: Controller, env: Environment, agent: Thing, agentId: int,
                          state: var AgentState, kind: ThingKind): tuple[did: bool, action: uint8] =
   let thing = env.findNearestThingSpiral(state, kind, controller.rng)
+  if thing != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, thing.pos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc findAndHarvestThings(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                          state: var AgentState, kinds: openArray[ThingKind]): tuple[did: bool, action: uint8] =
+  let thing = env.findNearestThingSpiral(state, kinds, controller.rng)
   if thing != nil:
     return (true, controller.useOrMove(env, agent, agentId, state, thing.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
