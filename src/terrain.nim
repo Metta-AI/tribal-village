@@ -1,10 +1,10 @@
 import std/math, vmath
-import rng_compat
-import biome_forest, biome_desert, biome_caves, biome_city, biome_plains, biome_snow, biome_common
-import dungeon_maze, dungeon_radial
+import entropy
+import forest, desert, caves, city, plains, snow, biome
+import maze, radial
 
 const
-  # Keep in sync with biome_common.nim's MaxBiomeSize.
+  # Keep in sync with biome.nim's MaxBiomeSize.
   MaxTerrainSize* = 512
 
 type

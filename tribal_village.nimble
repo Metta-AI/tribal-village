@@ -15,7 +15,7 @@ import std/[os, strformat, strutils]
 
 proc buildShared(ext: string) =
   let cmd = "nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village." &
-            ext & " src/tribal_village_interface.nim"
+            ext & " src/interface.nim"
   exec cmd
 
 task buildLib, "Build shared library for PufferLib (nimby-friendly)":

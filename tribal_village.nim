@@ -1,6 +1,6 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
-  src/environment, src/common, src/renderer, src/external_actions, src/df_tileset, src/assets
+  src/environment, src/common, src/renderer, src/external, src/tileset, src/assets
 
 when not defined(emscripten):
   import opengl

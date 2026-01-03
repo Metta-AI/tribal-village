@@ -2,7 +2,7 @@
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
 import std/[tables, sets, algorithm]
-import rng_compat
+import entropy
 import vmath
 import ./environment, common, terrain
 
