@@ -165,7 +165,7 @@ proc drawTerrain*() =
       of Rock:
         spriteKey = "rock"
       of Gem:
-        spriteKey = "gem"
+        spriteKey = "rock"
       of Bush:
         spriteKey = "bush"
       of Animal:
