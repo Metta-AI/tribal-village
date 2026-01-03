@@ -252,11 +252,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Resolve agent contact: agents adjacent to tumors risk lethal creep
   var tumorsToRemove: seq[Thing] = @[]
 
-  for thing in env.things:
-    if thing.kind != Tumor:
+  let thingCount = env.things.len
+  for i in 0 ..< thingCount:
+    let tumor = env.things[i]
+    if tumor.kind != Tumor:
       continue
-
-    let tumor = thing
     let adjacentPositions = [
       tumor.pos + ivec2(0, -1),
       tumor.pos + ivec2(1, 0),
