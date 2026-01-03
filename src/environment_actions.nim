@@ -221,6 +221,8 @@ proc dropStump(env: Environment, pos: IVec2, woodCount: int) =
   env.add(stump)
 
 proc recipeUsesStockpile(recipe: CraftRecipe): bool =
+  if recipe.station == StationSiegeWorkshop:
+    return false
   for output in recipe.outputs:
     if output.key.startsWith(ItemThingPrefix):
       return true
@@ -1157,10 +1159,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
   of SiegeWorkshop:
     if thing.cooldown == 0:
-      if env.tryTrainUnit(agent, thing, UnitSiege,
-          @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], 10):
+      if env.tryCraftAtStation(agent, StationSiegeWorkshop, thing):
         used = true
-      elif env.tryCraftAtStation(agent, StationSiegeWorkshop, thing):
+      elif env.tryTrainUnit(agent, thing, UnitSiege,
+          @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], 10):
         used = true
   of Monastery:
     if thing.cooldown == 0:
@@ -1572,22 +1574,20 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     agent.reward += env.config.clothReward * 0.5  # Half reward for planting
 
     inc env.stats[id].actionPlant
-  elif agent.inventoryWood >= RoadWoodCost:
-    # Build a road tile on empty terrain
+  else:
+    let roadKey = ItemThingPrefix & "Road"
+    if getInv(agent, roadKey) <= 0:
+      inc env.stats[id].actionInvalid
+      return
     if env.terrain[targetPos.x][targetPos.y] != Empty:
       inc env.stats[id].actionInvalid
       return
-
-    agent.inventoryWood = max(0, agent.inventoryWood - RoadWoodCost)
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-
+    setInv(agent, roadKey, getInv(agent, roadKey) - 1)
+    env.updateAgentInventoryObs(agent, roadKey)
     env.terrain[targetPos.x][targetPos.y] = Road
     env.resetTileColor(targetPos)
     env.updateObservations(TintLayer, targetPos, 0)
-
     inc env.stats[id].actionPlant
-  else:
-    inc env.stats[id].actionInvalid
 
 proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile
