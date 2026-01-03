@@ -2,6 +2,13 @@ proc decideGuard(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): uint8 =
   let home = agent.homeAltar
   let hasHome = home.x >= 0
+  let teamId = getTeamId(agent.agentId)
+
+  # Train into a basic melee unit when possible.
+  if agent.unitClass == UnitVillager:
+    let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
+    if barracks != nil:
+      return controller.useOrMove(env, agent, agentId, state, barracks.pos)
 
   if hasHome and chebyshevDist(agent.pos, home) > (ObservationRadius.int32 * 2):
     return saveStateAndReturn(controller, agentId, state,
@@ -19,10 +26,6 @@ proc decideGuard(controller: Controller, env: Environment, agent: Thing,
         return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, orientIdx.uint8))
       return saveStateAndReturn(controller, agentId, state,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, tumor.pos, controller.rng).uint8))
-
-  if agent.inventoryWood > 0:
-    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, Forge)
-    if did: return act
 
   let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
   if did: return act

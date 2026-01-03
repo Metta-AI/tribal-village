@@ -181,6 +181,8 @@ proc tryMarketTrade(env: Environment, agent: Thing, building: Thing): bool =
     if not isStockpileResourceKey(key):
       continue
     let res = stockpileResourceForItem(key)
+    if res == ResourceWater:
+      continue
     if res == ResourceGold:
       env.addToStockpile(teamId, ResourceFood, count)
       setInv(agent, key, 0)
@@ -1232,7 +1234,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of TownCenter:
     if thing.teamId == getTeamId(agent.agentId) and
-       env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone, ResourceWater}):
+       env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone}):
       used = true
   of Mill:
     if thing.teamId == getTeamId(agent.agentId) and

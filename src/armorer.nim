@@ -1,23 +1,27 @@
 proc decideArmorer(controller: Controller, env: Environment, agent: Thing,
                    agentId: int, state: var AgentState): uint8 =
-  # Priority 1: If we have armor, deliver it to teammates who need it
-  if agent.inventoryArmor > 0:
-    let teammate = findNearestTeammateNeeding(env, agent, NeedArmor)
-    if teammate != nil:
-      let dx = abs(teammate.pos.x - agent.pos.x)
-      let dy = abs(teammate.pos.y - agent.pos.y)
-      if max(dx, dy) == 1'i32:
-        return saveStateAndReturn(controller, agentId, state,
-          encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8))
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
+  let teamId = getTeamId(agent.agentId)
 
-  # Priority 2: Craft armor if we have wood
+  # Priority 1: Train into a melee unit if still a villager.
+  if agent.unitClass == UnitVillager:
+    let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
+    if barracks != nil:
+      return controller.useOrMove(env, agent, agentId, state, barracks.pos)
+
+  # Priority 2: Trigger blacksmith upgrades when available.
+  let blacksmith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+  if blacksmith != nil:
+    return controller.useOrMove(env, agent, agentId, state, blacksmith.pos)
+
+  # Priority 3: Drop off any carried wood for the team stockpile.
   if agent.inventoryWood > 0:
-    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, Armory)
-    if did: return act
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
 
-  # Priority 3: Collect wood
+  # Priority 4: Collect wood for stockpile.
   let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
   if did: return act
   return controller.moveNextSearch(env, agent, agentId, state)
