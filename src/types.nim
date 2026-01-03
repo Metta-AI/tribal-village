@@ -14,7 +14,7 @@ const
   MapRoomObjectsHouses* = 8
   MapAgentsPerHouse* = 20
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
-  MapRoomObjectsConverters* = 10  # Magma pools
+  MapRoomObjectsMagmaPools* = 10
   MapRoomObjectsMagmaClusters* = 4
   MapRoomObjectsMines* = 20
   MapRoomObjectsMineClusters* = 6
@@ -110,8 +110,8 @@ type
     MineLayer = 11
     MineResourceLayer = 12
     MineReadyLayer = 13
-    ConverterLayer = 14  # Renamed from Converter
-    ConverterReadyLayer = 15
+    MagmaLayer = 14
+    MagmaReadyLayer = 15
     altarLayer = 16
     altarHeartsLayer = 17  # Hearts for respawning
     altarReadyLayer = 18
@@ -139,7 +139,7 @@ type
     Pine
     Palm
     Mine
-    Converter  # Magma pool that smelts ore into bars
+    Magma  # Magma pool that smelts ore into bars
     Altar
     Spawner
     Tumor

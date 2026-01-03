@@ -285,9 +285,9 @@ proc init(env: Environment) =
                 pos: worldPos,
                 teamId: teamId
               ))
-            of StructureForgeChar:  # Blacksmith at top-right (replaces forge)
+            of StructureForgeChar:  # Forge
               env.add(Thing(
-                kind: Blacksmith,
+                kind: Forge,
                 pos: worldPos,
                 teamId: teamId
               ))
@@ -555,11 +555,11 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, r))
 
-  # Magma pools (converter) spawn in small clusters like mines.
+  # Magma pools spawn in small clusters like mines.
   var poolsPlaced = 0
-  let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, MapRoomObjectsConverters))
+  let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, MapRoomObjectsMagmaPools))
   for clusterIndex in 0 ..< magmaClusterCount:
-    let remaining = MapRoomObjectsConverters - poolsPlaced
+    let remaining = MapRoomObjectsMagmaPools - poolsPlaced
     if remaining <= 0:
       break
     let clustersLeft = magmaClusterCount - clusterIndex
@@ -570,12 +570,12 @@ proc init(env: Environment) =
     let center = r.randomEmptyPos(env)
 
     env.add(Thing(
-      kind: Converter,
+      kind: Magma,
       pos: center,
     ))
     inc poolsPlaced
 
-    if poolsPlaced >= MapRoomObjectsConverters:
+    if poolsPlaced >= MapRoomObjectsMagmaPools:
       break
 
     var candidates = env.findEmptyPositionsAround(center, 1)
@@ -593,11 +593,11 @@ proc init(env: Environment) =
     let toPlace = min(clusterSize - 1, candidates.len)
     for i in 0 ..< toPlace:
       env.add(Thing(
-        kind: Converter,
+        kind: Magma,
         pos: candidates[i],
       ))
       inc poolsPlaced
-      if poolsPlaced >= MapRoomObjectsConverters:
+      if poolsPlaced >= MapRoomObjectsMagmaPools:
         break
 
   # Mines spawn in small clusters (3-5 nodes) for higher local density.

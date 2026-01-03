@@ -115,14 +115,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.updateObservations(MineResourceLayer, thing.pos, 0)
           env.updateObservations(MineReadyLayer, thing.pos, 0)
           removeThing(env, thing)
-  of Converter:  # Magma pool smelting
+  of Magma:  # Magma pool smelting
     if thing.cooldown == 0 and getInv(agent, ItemOre) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemOre, getInv(agent, ItemOre) - 1)
       agent.inventoryBar = agent.inventoryBar + 1
       env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.cooldown = 0
-      env.updateObservations(ConverterReadyLayer, thing.pos, 1)
+      env.updateObservations(MagmaReadyLayer, thing.pos, 1)
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
       used = true
   of Forge:

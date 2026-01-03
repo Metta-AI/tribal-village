@@ -26,9 +26,9 @@ proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
     env.updateObservations(MineLayer, pos, 0)
     env.updateObservations(MineResourceLayer, pos, 0)
     env.updateObservations(MineReadyLayer, pos, 0)
-  of Converter:
-    env.updateObservations(ConverterLayer, pos, 0)
-    env.updateObservations(ConverterReadyLayer, pos, 0)
+  of Magma:
+    env.updateObservations(MagmaLayer, pos, 0)
+    env.updateObservations(MagmaReadyLayer, pos, 0)
   of Altar:
     env.updateObservations(altarLayer, pos, 0)
     env.updateObservations(altarHeartsLayer, pos, 0)
@@ -44,9 +44,9 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
     env.updateObservations(MineLayer, pos, 1)
     env.updateObservations(MineResourceLayer, pos, placed.resources)
     env.updateObservations(MineReadyLayer, pos, placed.cooldown)
-  of Converter:
-    env.updateObservations(ConverterLayer, pos, 1)
-    env.updateObservations(ConverterReadyLayer, pos, placed.cooldown)
+  of Magma:
+    env.updateObservations(MagmaLayer, pos, 1)
+    env.updateObservations(MagmaReadyLayer, pos, placed.cooldown)
   of Altar:
     env.updateObservations(altarLayer, pos, 1)
     env.updateObservations(altarHeartsLayer, pos, placed.hearts)
@@ -59,7 +59,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
                     University, Castle, Stump, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair,
                     Table, Statue, Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Wall,
-                    Mine, Converter, Lantern}:
+                    Mine, Magma, Lantern}:
     return false
   if thing.kind == Skeleton:
     var resourceNeeded = 0
