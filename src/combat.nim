@@ -128,6 +128,48 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         for y in 0 ..< MapHeight:
           if env.doorTeams[x][y] == oldTeam.int16:
             env.doorTeams[x][y] = attackerTeam.int16
+  
+  proc tryHitAt(pos: IVec2): bool =
+    if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+      return false
+    if tryDamageDoor(pos):
+      return true
+    let target = env.getThing(pos)
+    if isNil(target):
+      return false
+    case target.kind
+    of Tumor:
+      env.grid[pos.x][pos.y] = nil
+      env.updateObservations(AgentLayer, pos, 0)
+      env.updateObservations(AgentOrientationLayer, pos, 0)
+      let idx = env.things.find(target)
+      if idx >= 0:
+        env.things.del(idx)
+      agent.reward += env.config.tumorKillReward
+      return true
+    of Spawner:
+      env.grid[pos.x][pos.y] = nil
+      let idx = env.things.find(target)
+      if idx >= 0:
+        env.things.del(idx)
+      return true
+    of Agent:
+      if target.agentId == agent.agentId:
+        return false
+      if getTeamId(target.agentId) == attackerTeam:
+        return false
+      discard env.applyAgentDamage(target, damageAmount, agent)
+      return true
+    of Altar:
+      if target.teamId == attackerTeam:
+        return false
+      target.hearts = max(0, target.hearts - 1)
+      env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
+      if target.hearts == 0:
+        claimAltar(target)
+      return true
+    else:
+      return false
 
   if agent.unitClass == UnitMonk:
     let healPos = agent.pos + ivec2(delta.x, delta.y)
@@ -144,48 +186,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     var attackHit = false
     for distance in 1 .. rangedRange:
       let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
-      if attackPos.x < 0 or attackPos.x >= MapWidth or attackPos.y < 0 or attackPos.y >= MapHeight:
-        continue
-      if tryDamageDoor(attackPos):
+      if tryHitAt(attackPos):
         attackHit = true
-        break
-      let target = env.getThing(attackPos)
-      if isNil(target):
-        continue
-      case target.kind
-      of Tumor:
-        env.grid[attackPos.x][attackPos.y] = nil
-        env.updateObservations(AgentLayer, attackPos, 0)
-        env.updateObservations(AgentOrientationLayer, attackPos, 0)
-        let idx = env.things.find(target)
-        if idx >= 0:
-          env.things.del(idx)
-        agent.reward += env.config.tumorKillReward
-        attackHit = true
-      of Spawner:
-        env.grid[attackPos.x][attackPos.y] = nil
-        let idx = env.things.find(target)
-        if idx >= 0:
-          env.things.del(idx)
-        attackHit = true
-      of Agent:
-        if target.agentId == agent.agentId:
-          continue
-        if getTeamId(target.agentId) == attackerTeam:
-          continue
-        discard env.applyAgentDamage(target, damageAmount, agent)
-        attackHit = true
-      of Altar:
-        if target.teamId == attackerTeam:
-          continue
-        target.hearts = max(0, target.hearts - 1)
-        env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
-        attackHit = true
-        if target.hearts == 0:
-          claimAltar(target)
-      else:
-        discard
-      if attackHit:
         break
     if attackHit:
       inc env.stats[id].actionAttack
@@ -203,53 +205,17 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   # Spear: area strike (3 forward + diagonals)
   if hasSpear:
     var hit = false
-    proc applyDamageAt(pos: IVec2) =
-      if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
-        return
-      if tryDamageDoor(pos):
-        hit = true
-        return
-      let target = env.getThing(pos)
-      if isNil(target):
-        return
-      case target.kind
-      of Tumor:
-        env.grid[pos.x][pos.y] = nil
-        env.updateObservations(AgentLayer, pos, 0)
-        env.updateObservations(AgentOrientationLayer, pos, 0)
-        let idx = env.things.find(target)
-        if idx >= 0: env.things.del(idx)
-        agent.reward += env.config.tumorKillReward
-        hit = true
-      of Spawner:
-        env.grid[pos.x][pos.y] = nil
-        let idx = env.things.find(target)
-        if idx >= 0: env.things.del(idx)
-        hit = true
-      of Agent:
-        if target.agentId == agent.agentId: return
-        if getTeamId(target.agentId) == getTeamId(agent.agentId): return
-        discard env.applyAgentDamage(target, damageAmount, agent)
-        hit = true
-      of Altar:
-        if target.teamId == attackerTeam:
-          return
-        target.hearts = max(0, target.hearts - 1)
-        env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
-        hit = true
-        if target.hearts == 0:
-          claimAltar(target)
-      else:
-        discard
-
     let left = ivec2(-delta.y, delta.x)
     let right = ivec2(delta.y, -delta.x)
     for step in 1 .. 3:
       let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
-      applyDamageAt(forward)
+      if tryHitAt(forward):
+        hit = true
       # Keep spear width contiguous (no skipping): lateral offset is fixed 1 tile.
-      applyDamageAt(forward + left)
-      applyDamageAt(forward + right)
+      if tryHitAt(forward + left):
+        hit = true
+      if tryHitAt(forward + right):
+        hit = true
 
     if hit:
       agent.inventorySpear = max(0, agent.inventorySpear - 1)
@@ -263,52 +229,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   for distance in 1 .. maxRange:
     let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
-    if attackPos.x < 0 or attackPos.x >= MapWidth or attackPos.y < 0 or attackPos.y >= MapHeight:
-      continue
-
-    if tryDamageDoor(attackPos):
+    if tryHitAt(attackPos):
       attackHit = true
-      break
-
-    let target = env.getThing(attackPos)
-    if isNil(target):
-      continue
-
-    case target.kind
-    of Tumor:
-      env.grid[attackPos.x][attackPos.y] = nil
-      env.updateObservations(AgentLayer, attackPos, 0)
-      env.updateObservations(AgentOrientationLayer, attackPos, 0)
-      let idx = env.things.find(target)
-      if idx >= 0:
-        env.things.del(idx)
-      agent.reward += env.config.tumorKillReward
-      attackHit = true
-    of Spawner:
-      env.grid[attackPos.x][attackPos.y] = nil
-      let idx = env.things.find(target)
-      if idx >= 0:
-        env.things.del(idx)
-      attackHit = true
-    of Agent:
-      if target.agentId == agent.agentId:
-        continue
-      if getTeamId(target.agentId) == getTeamId(agent.agentId):
-        continue
-      discard env.applyAgentDamage(target, damageAmount, agent)
-      attackHit = true
-    of Altar:
-      if target.teamId == attackerTeam:
-        continue
-      target.hearts = max(0, target.hearts - 1)
-      env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
-      attackHit = true
-      if target.hearts == 0:
-        claimAltar(target)
-    else:
-      discard
-
-    if attackHit:
       break
 
   if attackHit:
@@ -318,4 +240,3 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionAttack
   else:
     inc env.stats[id].actionInvalid
-
