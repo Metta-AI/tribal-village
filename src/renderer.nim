@@ -581,7 +581,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Wall: "Wall"
         of Pine: "Pine"
         of Palm: "Palm"
-        of Magma: "Magma Pool"
+        of Magma: "Magma"
         of Altar: "Altar"
         of Spawner: "Spawner"
         of Tumor: "Tumor"

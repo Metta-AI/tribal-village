@@ -106,7 +106,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 - **Layer 0**: Team-aware agent presence (1..8=teams, 255=Tumor)
 - **Layers 1-9**: Agent orientation + inventories (ore, bar, water, wheat, wood, spear, lantern, armor)
-- **Layers 10-18**: Walls/mines/magma pools/altars + ready/resource status
+- **Layers 10-18**: Walls/mines/magma/altars + ready/resource status
 - **Layers 19-20**: Action tint (combat/heal/freeze) + bread inventory
 
 ### Action Space
