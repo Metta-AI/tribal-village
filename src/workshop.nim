@@ -33,7 +33,7 @@ proc createVillage*(): Structure =
   let buildingChars = @[
     StructureTownCenterChar,
     StructureArmoryChar,
-    StructureForgeChar,
+    StructureBlacksmithChar,
     StructureClayOvenChar,
     StructureWeavingLoomChar,
     StructureBedChar,

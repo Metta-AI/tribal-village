@@ -173,7 +173,7 @@ type
   ItemAmount* = tuple[key: ItemKey, count: int]
 
   CraftStation* = enum
-    StationForge
+    StationBlacksmith
     StationArmory
     StationLoom
     StationOven
@@ -752,31 +752,31 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "ballistaparts", StationTable, @[(ItemWood, 2), (ItemBar, 1)], @[("ballistaparts", 1)], 10)
   addRecipe(recipes, "siegeammo", StationTable, @[(ItemWood, 1), (ItemBar, 1)], @[("siegeammo", 1)], 8)
 
-  # Forge: metalworking and mechanisms.
-  addRecipe(recipes, "axe", StationForge, @[(ItemBar, 1), (ItemWood, 1)], @[(ItemAxe, 1)], 8)
-  addRecipe(recipes, "weapon", StationForge, @[(ItemBar, 1)], @[("weapon", 1)], 8)
-  addRecipe(recipes, "armor_metal", StationForge, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
-  addRecipe(recipes, "helm", StationForge, @[(ItemBar, 1)], @[("helm", 1)], 8)
-  addRecipe(recipes, "shield_metal", StationForge, @[(ItemBar, 1)], @[("shield", 1)], 8)
-  addRecipe(recipes, "chain", StationForge, @[(ItemBar, 1)], @[("chain", 1)], 6)
-  addRecipe(recipes, "anvil", StationForge, @[(ItemBar, 2)], @[("anvil", 1)], 10)
-  addRecipe(recipes, "ammo", StationForge, @[(ItemBar, 1)], @[("ammo", 1)], 6)
-  addRecipe(recipes, "ballistaarrowhead", StationForge, @[(ItemBar, 1)], @[("ballistaarrowhead", 1)], 6)
-  addRecipe(recipes, "trapparts", StationForge, @[(ItemBar, 1)], @[("trapparts", 1)], 6)
-  addRecipe(recipes, "trapcomp", StationForge, @[(ItemBar, 1)], @[("trapcomp", 1)], 6)
-  addRecipe(recipes, "pipe_section", StationForge, @[(ItemBar, 1)], @[("pipe_section", 1)], 6)
-  addRecipe(recipes, "coin", StationForge, @[(ItemBar, 1)], @[("coin", 1)], 6)
-  addRecipe(recipes, "goblet", StationForge, @[(ItemBar, 1)], @[("goblet", 1)], 6)
-  addRecipe(recipes, "flask", StationForge, @[(ItemBar, 1)], @[("flask", 1)], 6)
-  addRecipe(recipes, "scepter", StationForge, @[(ItemBar, 1)], @[("scepter", 1)], 8)
-  addRecipe(recipes, "crown", StationForge, @[(ItemBar, 1)], @[("crown", 1)], 8)
-  addRecipe(recipes, "ring", StationForge, @[(ItemBar, 1)], @[("ring", 1)], 6)
-  addRecipe(recipes, "earring", StationForge, @[(ItemBar, 1)], @[("earring", 1)], 6)
-  addRecipe(recipes, "bracelet", StationForge, @[(ItemBar, 1)], @[("bracelet", 1)], 6)
-  addRecipe(recipes, "amulet", StationForge, @[(ItemBar, 1), (ItemGem, 1)], @[("amulet", 1)], 8)
-  addRecipe(recipes, "armorstand_metal", StationForge, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
-  addRecipe(recipes, "weaponrack_metal", StationForge, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
-  addRecipe(recipes, "tool_metal", StationForge, @[(ItemBar, 1)], @[("tool", 1)], 6)
+  # Blacksmith: metalworking and mechanisms.
+  addRecipe(recipes, "axe", StationBlacksmith, @[(ItemBar, 1), (ItemWood, 1)], @[(ItemAxe, 1)], 8)
+  addRecipe(recipes, "weapon", StationBlacksmith, @[(ItemBar, 1)], @[("weapon", 1)], 8)
+  addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
+  addRecipe(recipes, "helm", StationBlacksmith, @[(ItemBar, 1)], @[("helm", 1)], 8)
+  addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[("shield", 1)], 8)
+  addRecipe(recipes, "chain", StationBlacksmith, @[(ItemBar, 1)], @[("chain", 1)], 6)
+  addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[("anvil", 1)], 10)
+  addRecipe(recipes, "ammo", StationBlacksmith, @[(ItemBar, 1)], @[("ammo", 1)], 6)
+  addRecipe(recipes, "ballistaarrowhead", StationBlacksmith, @[(ItemBar, 1)], @[("ballistaarrowhead", 1)], 6)
+  addRecipe(recipes, "trapparts", StationBlacksmith, @[(ItemBar, 1)], @[("trapparts", 1)], 6)
+  addRecipe(recipes, "trapcomp", StationBlacksmith, @[(ItemBar, 1)], @[("trapcomp", 1)], 6)
+  addRecipe(recipes, "pipe_section", StationBlacksmith, @[(ItemBar, 1)], @[("pipe_section", 1)], 6)
+  addRecipe(recipes, "coin", StationBlacksmith, @[(ItemBar, 1)], @[("coin", 1)], 6)
+  addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[("goblet", 1)], 6)
+  addRecipe(recipes, "flask", StationBlacksmith, @[(ItemBar, 1)], @[("flask", 1)], 6)
+  addRecipe(recipes, "scepter", StationBlacksmith, @[(ItemBar, 1)], @[("scepter", 1)], 8)
+  addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[("crown", 1)], 8)
+  addRecipe(recipes, "ring", StationBlacksmith, @[(ItemBar, 1)], @[("ring", 1)], 6)
+  addRecipe(recipes, "earring", StationBlacksmith, @[(ItemBar, 1)], @[("earring", 1)], 6)
+  addRecipe(recipes, "bracelet", StationBlacksmith, @[(ItemBar, 1)], @[("bracelet", 1)], 6)
+  addRecipe(recipes, "amulet", StationBlacksmith, @[(ItemBar, 1), (ItemGem, 1)], @[("amulet", 1)], 8)
+  addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
+  addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
+  addRecipe(recipes, "tool_metal", StationBlacksmith, @[(ItemBar, 1)], @[("tool", 1)], 6)
 
   # Armory: leather/cloth gear.
   addRecipe(recipes, "armor_leather", StationArmory, @[(ItemSkinTanned, 1)], @[(ItemArmor, 1)], 8)

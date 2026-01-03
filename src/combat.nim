@@ -6,7 +6,7 @@ proc killAgent(env: Environment, victim: Thing) =
   env.grid[deathPos.x][deathPos.y] = nil
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryOreLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryGoldLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)

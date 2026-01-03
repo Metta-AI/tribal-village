@@ -43,7 +43,7 @@ const
   StructureDoorChar* = 'D'
   StructureAltarChar* = 'a'
   StructureArmoryChar* = 'A'
-  StructureForgeChar* = 'F'
+  StructureBlacksmithChar* = 'F'
   StructureClayOvenChar* = 'C'
   StructureWeavingLoomChar* = 'W'
   StructureBedChar* = 'B'
@@ -1155,7 +1155,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     doors: seq[IVec2],
     floors: seq[IVec2],
     altars: seq[IVec2],
-    forges: seq[IVec2],
+    blacksmiths: seq[IVec2],
     armories: seq[IVec2],
     clayOvens: seq[IVec2],
     weavingLooms: seq[IVec2],
@@ -1171,7 +1171,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     doors: @[],
     floors: @[],
     altars: @[],
-    forges: @[],
+    blacksmiths: @[],
     armories: @[],
     clayOvens: @[],
     weavingLooms: @[],
@@ -1190,7 +1190,7 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       of StructureDoorChar: result.doors.add(pos)
       of StructureFloorChar: result.floors.add(pos)
       of StructureAltarChar: result.altars.add(pos)
-      of StructureForgeChar: result.forges.add(pos)
+      of StructureBlacksmithChar: result.blacksmiths.add(pos)
       of StructureArmoryChar: result.armories.add(pos)
       of StructureClayOvenChar: result.clayOvens.add(pos)
       of StructureWeavingLoomChar: result.weavingLooms.add(pos)
