@@ -23,6 +23,6 @@ proc decideArmorer(controller: Controller, env: Environment, agent: Thing,
       return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
 
   # Priority 4: Collect wood for stockpile.
-  let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+  let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
   if did: return act
   return controller.moveNextSearch(env, agent, agentId, state)

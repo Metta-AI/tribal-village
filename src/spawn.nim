@@ -51,9 +51,9 @@ proc init(env: Environment) =
       let isPalm = env.terrain[x][y] == Palm
       let isForestTree = env.terrain[x][y] == Tree and env.biomes[x][y] in {BiomeForestType, BiomeSnowType}
       if isPalm or isForestTree:
-        let variant = if isPalm: TreeVariantPalm else: TreeVariantPine
         env.terrain[x][y] = Empty
-        env.add(Thing(kind: TreeObject, pos: ivec2(x.int32, y.int32), treeVariant: variant))
+        let treeKind = if isPalm: Palm else: Pine
+        env.add(Thing(kind: treeKind, pos: ivec2(x.int32, y.int32)))
 
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
@@ -67,7 +67,7 @@ proc init(env: Environment) =
         continue
       let existing = env.getThing(pos)
       if existing != nil:
-        if existing.kind == TreeObject:
+        if existing.kind in {Pine, Palm}:
           removeThing(env, existing)
         else:
           continue
@@ -142,7 +142,7 @@ proc init(env: Environment) =
           continue
         let existing = env.getThing(pos)
         if existing != nil:
-          if existing.kind == TreeObject:
+          if existing.kind in {Pine, Palm}:
             removeThing(env, existing)
           else:
             continue

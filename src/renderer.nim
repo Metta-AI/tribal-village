@@ -328,11 +328,8 @@ proc drawObjects*() =
         case thing.kind
         of Wall:
           discard
-        of TreeObject:
-          let treeSprite = if thing.treeVariant == TreeVariantPalm:
-            "palm"
-          else:
-            "pine"
+        of Pine, Palm:
+          let treeSprite = thingSpriteKey(thing.kind)
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
           if infected:
             drawOverlayIf(true, "frozen", pos.vec2)
@@ -428,7 +425,7 @@ proc drawObjects*() =
         of Cow:
           let cowSprite = if thing.orientation == Orientation.E: "cow_r" else: "cow"
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
-        of PlantedLantern:
+        of Lantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing
           if lantern.lanternHealthy and lantern.teamId >= 0 and lantern.teamId < teamColors.len:
@@ -582,7 +579,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
       else:
         case thing.kind
         of Wall: "Wall"
-        of TreeObject: "Tree"
+        of Pine: "Pine"
+        of Palm: "Palm"
         of Magma: "Magma Pool"
         of Altar: "Altar"
         of Spawner: "Spawner"
@@ -604,7 +602,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of MiningCamp: "Mining Camp"
         of Farm: "Farm"
         of Stump: "Stump"
-        of PlantedLantern: "Lantern"
+        of Lantern: "Lantern"
         of TownCenter: "Town Center"
         of House: "House"
         of Barracks: "Barracks"

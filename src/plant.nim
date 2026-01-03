@@ -27,7 +27,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
 
     # Plant the lantern
     let lantern = Thing(
-      kind: PlantedLantern,
+      kind: Lantern,
       pos: targetPos,
       teamId: teamId,
       lanternHealthy: true
@@ -77,9 +77,8 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     env.terrain[targetPos.x][targetPos.y] = Empty
     env.resetTileColor(targetPos)
     env.add(Thing(
-      kind: TreeObject,
-      pos: targetPos,
-      treeVariant: TreeVariantPine
+      kind: Pine,
+      pos: targetPos
     ))
   else:
     if agent.inventoryWheat <= 0:
