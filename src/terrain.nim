@@ -46,10 +46,6 @@ const
   StructureBlacksmithChar* = 'F'
   StructureClayOvenChar* = 'C'
   StructureWeavingLoomChar* = 'W'
-  StructureBedChar* = 'B'
-  StructureChairChar* = 'H'
-  StructureTableChar* = 'T'
-  StructureStatueChar* = 'S'
   StructureTownCenterChar* = 'N'
   StructureBarracksChar* = 'R'
   StructureArcheryRangeChar* = 'G'
@@ -1159,10 +1155,6 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     armories: seq[IVec2],
     clayOvens: seq[IVec2],
     weavingLooms: seq[IVec2],
-    beds: seq[IVec2],
-    chairs: seq[IVec2],
-    tables: seq[IVec2],
-    statues: seq[IVec2],
     center: IVec2
   ] =
   ## Extract tiles for placing a structure
@@ -1175,10 +1167,6 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     armories: @[],
     clayOvens: @[],
     weavingLooms: @[],
-    beds: @[],
-    chairs: @[],
-    tables: @[],
-    statues: @[],
     center: topLeft + structure.centerPos
   )
 
@@ -1194,10 +1182,6 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       of StructureArmoryChar: result.armories.add(pos)
       of StructureClayOvenChar: result.clayOvens.add(pos)
       of StructureWeavingLoomChar: result.weavingLooms.add(pos)
-      of StructureBedChar: result.beds.add(pos)
-      of StructureChairChar: result.chairs.add(pos)
-      of StructureTableChar: result.tables.add(pos)
-      of StructureStatueChar: result.statues.add(pos)
       else: discard
 
 proc terrainAsciiChar*(terrain: TerrainType): char =

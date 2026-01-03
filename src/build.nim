@@ -34,10 +34,6 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = [
   thingItem("Armory"),
   thingItem("ClayOven"),
   thingItem("WeavingLoom"),
-  thingItem("Table"),
-  thingItem("Bed"),
-  thingItem("Chair"),
-  thingItem("Statue"),
   thingItem("Barrel"),
   ItemNone
 ]
