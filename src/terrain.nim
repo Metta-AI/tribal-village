@@ -142,33 +142,6 @@ proc applyMaskToTerrain(terrain: var TerrainGrid, mask: MaskGrid, mapWidth, mapH
       if mask[x][y] and terrain[x][y] == Empty:
         terrain[x][y] = terrainType
 
-proc applyMaskToTerrainRect(terrain: var TerrainGrid, mask: MaskGrid, zone: ZoneRect,
-                            mapWidth, mapHeight, mapBorder: int, terrainType: TerrainType,
-                            overwrite = false) =
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
-  if x1 <= x0 or y1 <= y0:
-    return
-  for x in x0 ..< x1:
-    for y in y0 ..< y1:
-      if mask[x][y]:
-        if overwrite or terrain[x][y] == Empty:
-          terrain[x][y] = terrainType
-
-proc applyBiomeToZone(biomes: var BiomeGrid, zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
-                      biome: BiomeType) =
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
-  if x1 <= x0 or y1 <= y0:
-    return
-  for x in x0 ..< x1:
-    for y in y0 ..< y1:
-      biomes[x][y] = biome
-
 proc blendChanceForDistance(dist, depth: int, edgeChance: float): float =
   if depth <= 0:
     return 1.0
@@ -205,7 +178,6 @@ proc applyBiomeMaskToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, mask:
   let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
   if x1 <= x0 or y1 <= y0:
     return
-  let clippedZone = ZoneRect(x: x0, y: y0, w: x1 - x0, h: y1 - y0)
   for x in x0 ..< x1:
     for y in y0 ..< y1:
       if not zoneMask[x][y] or not mask[x][y]:
@@ -232,7 +204,6 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: BiomeGrid, zoneMa
   let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
   if x1 <= x0 or y1 <= y0:
     return
-  let clippedZone = ZoneRect(x: x0, y: y0, w: x1 - x0, h: y1 - y0)
   for x in x0 ..< x1:
     for y in y0 ..< y1:
       if not overwriteWater and terrain[x][y] == Water:
@@ -245,20 +216,6 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: BiomeGrid, zoneMa
       let chance = blendChanceForDistance(edgeDist, blendDepth, edgeChance)
       if randChance(r, chance):
         terrain[x][y] = terrainType
-
-proc fillTerrainInZone(terrain: var TerrainGrid, zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
-                       terrainType: TerrainType, overwriteWater = false) =
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
-  if x1 <= x0 or y1 <= y0:
-    return
-  for x in x0 ..< x1:
-    for y in y0 ..< y1:
-      if not overwriteWater and terrain[x][y] == Water:
-        continue
-      terrain[x][y] = terrainType
 
 proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[float]): T =
   var total = 0.0
@@ -273,17 +230,6 @@ proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[floa
     if roll <= accum:
       return options[i]
   options[^1]
-
-proc randomZone*(r: var Rand, mapWidth, mapHeight, mapBorder: int, maxFraction: float): ZoneRect =
-  let maxW = max(ZoneMinSize, int(min(mapWidth.float * maxFraction, mapWidth.float / 2)))
-  let maxH = max(ZoneMinSize, int(min(mapHeight.float * maxFraction, mapHeight.float / 2)))
-  let w = randIntInclusive(r, ZoneMinSize, maxW)
-  let h = randIntInclusive(r, ZoneMinSize, maxH)
-  let xMax = max(mapBorder, mapWidth - mapBorder - w)
-  let yMax = max(mapBorder, mapHeight - mapBorder - h)
-  let x = randIntInclusive(r, mapBorder, xMax)
-  let y = randIntInclusive(r, mapBorder, yMax)
-  ZoneRect(x: x, y: y, w: w, h: h)
 
 proc evenlyDistributedZones*(r: var Rand, mapWidth, mapHeight, mapBorder: int, count: int,
                              maxFraction: float): seq[ZoneRect] =
@@ -426,16 +372,6 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       buildBiomePlainsMask(mask, mapWidth, mapHeight, mapBorder, r, BiomePlainsConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomePlainsTerrain, BiomePlainsType, baseBiomeType, r, edgeChance)
-
-proc applyDungeonZones(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  let count = zoneCount(mapWidth * mapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
-  let zones = evenlyDistributedZones(r, mapWidth, mapHeight, mapBorder, count, DungeonZoneMaxFraction)
-  for zone in zones:
-    var mask: MaskGrid
-    let dungeon = pickDungeonKind(r)
-    buildDungeonMask(mask, mapWidth, mapHeight, zone, r, dungeon)
-    applyMaskToTerrainRect(terrain, mask, zone, mapWidth, mapHeight, mapBorder,
-      DungeonTerrainWall, overwrite = true)
 
 proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var mask: MaskGrid
