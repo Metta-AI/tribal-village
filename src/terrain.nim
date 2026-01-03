@@ -95,6 +95,11 @@ const
   DungeonZoneMaxFraction* = 0.36
   ZoneMinSize* = 18
   BiomeBlendDepth* = 6
+  BiomeZoneGridJitter* = 0.35
+  BiomeZoneCellFill* = 0.95
+  ZoneBlobNoise* = 0.35
+  ZoneBlobDitherProb* = 0.12
+  ZoneBlobDitherDepth* = 4
   DungeonTerrainWall* = Tree
   DungeonTerrainPath* = Road
 
@@ -423,60 +428,77 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   if startMin > startMax: swap(startMin, startMax)
   var currentPos = ivec2(mapBorder.int32, randInclusive(r, startMin, startMax).int32)
 
-  var hasFork = false
-  var forkPoint: IVec2
-  var secondaryPath: seq[IVec2] = @[]
-
   while currentPos.x >= mapBorder and currentPos.x < mapWidth - mapBorder and
         currentPos.y >= mapBorder and currentPos.y < mapHeight - mapBorder:
     riverPath.add(currentPos)
 
-    if not hasFork and riverPath.len > max(20, mapWidth div 8) and randChance(r, 0.5):
-      hasFork = true
-      forkPoint = currentPos
-
-      let towardTop = int(forkPoint.y) - mapBorder
-      let towardBottom = (mapHeight - mapBorder) - int(forkPoint.y)
-      let dirY = (if towardTop < towardBottom: -1 else: 1)
-      var secondaryDirection = ivec2(1, dirY.int32)
-
-      var secondaryPos = forkPoint
-      let maxSteps = max(mapWidth * 2, mapHeight * 2)
-      var steps = 0
-      while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
-        secondaryPos.x += 1
-        secondaryPos.y += secondaryDirection.y
-        if randChance(r, 0.15):
-          secondaryPos.y += sample(r, [-1, 0, 1]).int32
-        if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
-           secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
-          if not inCornerReserve(secondaryPos.x, secondaryPos.y, mapWidth, mapHeight, mapBorder, reserve):
-            secondaryPath.add(secondaryPos)
-        else:
-          break
-        inc steps
-      # Ensure the branch touches the edge vertically with a short vertical run
-      var tip = secondaryPos
-      var pushSteps = 0
-      let maxPush = mapHeight
-      if dirY < 0:
-        while tip.y > mapBorder and pushSteps < maxPush:
-          dec tip.y
-          if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
-            if not inCornerReserve(tip.x, tip.y, mapWidth, mapHeight, mapBorder, reserve):
-              secondaryPath.add(tip)
-          inc pushSteps
-      else:
-        while tip.y < mapHeight - mapBorder and pushSteps < maxPush:
-          inc tip.y
-          if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
-            if not inCornerReserve(tip.x, tip.y, mapWidth, mapHeight, mapBorder, reserve):
-              secondaryPath.add(tip)
-          inc pushSteps
-
     currentPos.x += 1  # Always move right
     if randChance(r, 0.3):
       currentPos.y += sample(r, [-1, 0, 0, 1]).int32  # Bias towards staying straight
+
+  proc buildBranch(start: IVec2, dirY: int): seq[IVec2] =
+    var path: seq[IVec2] = @[]
+    var secondaryPos = start
+    let maxSteps = max(mapWidth * 2, mapHeight * 2)
+    var steps = 0
+    while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
+      secondaryPos.x += 1
+      secondaryPos.y += dirY.int32
+      if randChance(r, 0.15):
+        secondaryPos.y += sample(r, [-1, 0, 1]).int32
+      if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
+         secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
+        if not inCornerReserve(secondaryPos.x, secondaryPos.y, mapWidth, mapHeight, mapBorder, reserve):
+          path.add(secondaryPos)
+      else:
+        break
+      inc steps
+    # Ensure the branch touches the edge vertically with a short vertical run
+    var tip = secondaryPos
+    var pushSteps = 0
+    let maxPush = mapHeight
+    if dirY < 0:
+      while tip.y > mapBorder and pushSteps < maxPush:
+        dec tip.y
+        if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
+          if not inCornerReserve(tip.x, tip.y, mapWidth, mapHeight, mapBorder, reserve):
+            path.add(tip)
+        inc pushSteps
+    else:
+      while tip.y < mapHeight - mapBorder and pushSteps < maxPush:
+        inc tip.y
+        if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
+          if not inCornerReserve(tip.x, tip.y, mapWidth, mapHeight, mapBorder, reserve):
+            path.add(tip)
+        inc pushSteps
+    path
+
+  var branchUpPath: seq[IVec2] = @[]
+  var branchDownPath: seq[IVec2] = @[]
+  var forkUp: IVec2
+  var forkDown: IVec2
+  var forkUpIdx = -1
+  var forkDownIdx = -1
+  var forkCandidates: seq[IVec2] = @[]
+  for pos in riverPath:
+    if pos.y > mapBorder + RiverWidth + 2 and pos.y < mapHeight - mapBorder - RiverWidth - 2 and
+       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+      forkCandidates.add(pos)
+  if forkCandidates.len > 0:
+    let upIdx = forkCandidates.len div 3
+    let downIdx = max(upIdx + 1, (forkCandidates.len * 2) div 3)
+    forkUp = forkCandidates[upIdx]
+    forkDown = forkCandidates[min(downIdx, forkCandidates.len - 1)]
+  elif riverPath.len > 0:
+    let upIdx = riverPath.len div 3
+    let downIdx = max(upIdx + 1, (riverPath.len * 2) div 3)
+    forkUp = riverPath[upIdx]
+    forkDown = riverPath[min(downIdx, riverPath.len - 1)]
+  if riverPath.len > 0:
+    forkUpIdx = riverPath.find(forkUp)
+    forkDownIdx = riverPath.find(forkDown)
+    branchUpPath = buildBranch(forkUp, -1)
+    branchDownPath = buildBranch(forkDown, 1)
 
   # Place water tiles for main river (skip reserved corners)
   for pos in riverPath:
@@ -488,8 +510,16 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
           if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
             terrain[waterPos.x][waterPos.y] = Water
 
-  # Place water tiles for secondary branch (skip reserved corners)
-  for pos in secondaryPath:
+  # Place water tiles for tributary branches (skip reserved corners)
+  for pos in branchUpPath:
+    for dx in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
+      for dy in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
+        let waterPos = pos + ivec2(dx.int32, dy.int32)
+        if waterPos.x >= 0 and waterPos.x < mapWidth and
+           waterPos.y >= 0 and waterPos.y < mapHeight:
+          if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
+            terrain[waterPos.x][waterPos.y] = Water
+  for pos in branchDownPath:
     for dx in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
       for dy in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
         let waterPos = pos + ivec2(dx.int32, dy.int32)
@@ -526,15 +556,22 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
        not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
       mainCandidates.add(pos)
 
-  var branchCandidates: seq[IVec2] = @[]
-  for pos in secondaryPath:
+  var branchUpCandidates: seq[IVec2] = @[]
+  for pos in branchUpPath:
     if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
        pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
        not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
-      branchCandidates.add(pos)
+      branchUpCandidates.add(pos)
 
-  let hasBranch = secondaryPath.len > 0
-  let desiredBridges = max(randInclusive(r, 4, 5), (if hasBranch: 3 else: 0))
+  var branchDownCandidates: seq[IVec2] = @[]
+  for pos in branchDownPath:
+    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
+       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
+       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+      branchDownCandidates.add(pos)
+
+  let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
+  let desiredBridges = max(randInclusive(r, 4, 5), (if hasBranch: 3 else: 0)) * 2
 
   var placed: seq[IVec2] = @[]
   template placeFrom(cands: seq[IVec2], useBranch: bool) =
@@ -547,12 +584,15 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       placed.add(center)
 
   if hasBranch:
-    let forkIdx = riverPath.find(forkPoint)
-    if forkIdx >= 0:
-      let upstream = if forkIdx > 0: mainCandidates[0 ..< min(forkIdx, mainCandidates.len)] else: @[]
-      let downstream = if forkIdx < mainCandidates.len: mainCandidates[min(forkIdx, mainCandidates.len-1) ..< mainCandidates.len] else: @[]
+    if forkUpIdx >= 0:
+      let upstream = if forkUpIdx > 0: mainCandidates[0 ..< min(forkUpIdx, mainCandidates.len)] else: @[]
       placeFrom(upstream, false)
-      placeFrom(branchCandidates, true)
+    if branchUpCandidates.len > 0:
+      placeFrom(branchUpCandidates, true)
+    if branchDownCandidates.len > 0:
+      placeFrom(branchDownCandidates, true)
+    if forkDownIdx >= 0 and forkDownIdx < mainCandidates.len:
+      let downstream = mainCandidates[min(forkDownIdx, mainCandidates.len - 1) ..< mainCandidates.len]
       placeFrom(downstream, false)
 
   # Fill remaining bridges by spreading along main river first, then branch.
@@ -572,11 +612,21 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       dec remaining
       idx += stride
 
-  if remaining > 0 and branchCandidates.len > 0:
-    let stride = max(1, branchCandidates.len div (remaining + 1))
+  if remaining > 0 and branchUpCandidates.len > 0:
+    let stride = max(1, branchUpCandidates.len div (remaining + 1))
     var idx = stride
-    while remaining > 0 and idx < branchCandidates.len:
-      let center = branchCandidates[idx]
+    while remaining > 0 and idx < branchUpCandidates.len:
+      let center = branchUpCandidates[idx]
+      uniqueAdd(center, placed)
+      placeBridgeBranch(terrain, center)
+      dec remaining
+      idx += stride
+
+  if remaining > 0 and branchDownCandidates.len > 0:
+    let stride = max(1, branchDownCandidates.len div (remaining + 1))
+    var idx = stride
+    while remaining > 0 and idx < branchDownCandidates.len:
+      let center = branchDownCandidates[idx]
       uniqueAdd(center, placed)
       placeBridgeBranch(terrain, center)
       dec remaining
