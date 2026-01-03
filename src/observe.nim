@@ -78,9 +78,9 @@ proc rebuildObservations*(env: Environment) =
       env.updateObservations(MineLayer, thing.pos, 1)
       env.updateObservations(MineResourceLayer, thing.pos, thing.mineResources)
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
-    of Converter:
-      env.updateObservations(ConverterLayer, thing.pos, 1)
-      env.updateObservations(ConverterReadyLayer, thing.pos, thing.cooldown)
+    of Magma:
+      env.updateObservations(MagmaLayer, thing.pos, 1)
+      env.updateObservations(MagmaReadyLayer, thing.pos, thing.cooldown)
     of Altar:
       env.updateObservations(altarLayer, thing.pos, 1)
       env.updateObservations(altarHeartsLayer, thing.pos, getInv(thing, ItemHearts))
@@ -96,4 +96,3 @@ proc rebuildObservations*(env: Environment) =
       discard
 
   env.observationsInitialized = true
-
