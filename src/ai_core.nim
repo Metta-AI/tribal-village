@@ -131,6 +131,16 @@ proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
         minDist = dist
         result = thing
 
+proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
+  result = nil
+  var minDist = 999999
+  for thing in env.things:
+    if thing.kind == kind and thing.teamId == teamId:
+      let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
+      if dist < minDist and dist < 30:
+        minDist = dist
+        result = thing
+
 proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: ThingKind, rng: var Rand): Thing =
   ## Find nearest thing using spiral search pattern - more systematic than random search
   # First check immediate area around current position
@@ -151,6 +161,22 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
   result = findNearestThing(env, nextSearchPos, kind)
   return result
 
+proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, teamId: int,
+                                    kind: ThingKind, rng: var Rand): Thing =
+  ## Find nearest team-owned thing using spiral search pattern
+  result = findNearestFriendlyThing(env, state.lastSearchPosition, teamId, kind)
+  if result != nil:
+    return result
+
+  result = findNearestFriendlyThing(env, state.basePosition, teamId, kind)
+  if result != nil:
+    return result
+
+  let nextSearchPos = getNextSpiralPoint(state, rng)
+  state.lastSearchPosition = nextSearchPos
+  result = findNearestFriendlyThing(env, nextSearchPos, teamId, kind)
+  return result
+
 proc findNearestTerrain(env: Environment, pos: IVec2, terrain: TerrainType): IVec2 =
   result = ivec2(-1, -1)
   var minDist = 999999
@@ -162,6 +188,18 @@ proc findNearestTerrain(env: Environment, pos: IVec2, terrain: TerrainType): IVe
         if dist < minDist:
           minDist = dist
           result = terrainPos
+
+proc hasFoodCargo(agent: Thing): bool =
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isFoodItem(key):
+      return true
+  false
+
+proc hasStockpileCargo(agent: Thing): bool =
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      return true
+  false
 
 proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadius: int = 8): IVec2 =
   ## Find nearest empty, non-water tile matching fertile flag
@@ -304,6 +342,51 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   var bestTumor = (dir: -1, dist: int.high)
   var bestSpawner = (dir: -1, dist: int.high)
   var bestEnemy = (dir: -1, dist: int.high)
+
+  if agent.unitClass == UnitMonk:
+    return -1
+
+  let teamId = getTeamId(agent.agentId)
+  let rangeBonus =
+    if teamId >= 0 and teamId < env.teamUpgrades.len: env.teamUpgrades[teamId].rangeBonus else: 0
+  let rangedRange = case agent.unitClass
+    of UnitArcher: ArcherBaseRange + rangeBonus
+    of UnitSiege: SiegeBaseRange + rangeBonus
+    else: 0
+
+  if rangedRange > 0:
+    for dirIdx in 0 .. 7:
+      let delta = getOrientationDelta(Orientation(dirIdx))
+      for distance in 1 .. rangedRange:
+        let targetPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+        if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
+          continue
+        let target = env.grid[targetPos.x][targetPos.y]
+        if target == nil:
+          continue
+        if target.kind == Agent and (target.frozen > 0 or sameTeam(agent, target)):
+          continue
+        let dist = int(chebyshevDist(agent.pos, target.pos))
+        case target.kind
+        of Tumor:
+          if dist < bestTumor.dist:
+            bestTumor = (dirIdx, dist)
+          break
+        of Spawner:
+          if dist < bestSpawner.dist:
+            bestSpawner = (dirIdx, dist)
+          break
+        of Agent:
+          if dist < bestEnemy.dist:
+            bestEnemy = (dirIdx, dist)
+          break
+        else:
+          discard
+          break
+
+    if bestTumor.dir >= 0: return bestTumor.dir
+    if bestSpawner.dir >= 0: return bestSpawner.dir
+    if bestEnemy.dir >= 0: return bestEnemy.dir
 
   if agent.inventorySpear > 0:
     for thing in env.things:

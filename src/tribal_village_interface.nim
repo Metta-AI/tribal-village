@@ -79,7 +79,19 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   (r: 120'u8, g: 120'u8, b: 120'u8),  # MiningCamp
   (r: 120'u8, g: 200'u8, b: 120'u8),  # Farm
   (r: 110'u8, g: 85'u8,  b: 55'u8),   # Stump
-  (r: 255'u8, g: 240'u8, b: 128'u8)   # PlantedLantern
+  (r: 255'u8, g: 240'u8, b: 128'u8),  # PlantedLantern
+  (r: 190'u8, g: 180'u8, b: 140'u8),  # TownCenter
+  (r: 170'u8, g: 140'u8, b: 110'u8),  # House
+  (r: 160'u8, g: 90'u8,  b: 60'u8),   # Barracks
+  (r: 140'u8, g: 120'u8, b: 180'u8),  # ArcheryRange
+  (r: 120'u8, g: 90'u8,  b: 60'u8),   # Stable
+  (r: 120'u8, g: 120'u8, b: 160'u8),  # SiegeWorkshop
+  (r: 90'u8,  g: 90'u8,  b: 90'u8),   # Blacksmith
+  (r: 200'u8, g: 170'u8, b: 120'u8),  # Market
+  (r: 80'u8,  g: 140'u8, b: 200'u8),  # Dock
+  (r: 220'u8, g: 200'u8, b: 120'u8),  # Monastery
+  (r: 140'u8, g: 160'u8, b: 200'u8),  # University
+  (r: 120'u8, g: 120'u8, b: 120'u8)   # Castle
 ]
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
@@ -108,7 +120,7 @@ proc tribal_village_set_config(
 
 proc tribal_village_reset_and_get_obs(
   env: pointer,
-  obs_buffer: ptr UncheckedArray[uint8],    # [60, 21, 11, 11] direct
+  obs_buffer: ptr UncheckedArray[uint8],    # [60, 22, 11, 11] direct
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
   truncations_buffer: ptr UncheckedArray[uint8]
@@ -139,7 +151,7 @@ proc tribal_village_reset_and_get_obs(
 proc tribal_village_step_with_pointers(
   env: pointer,
   actions_buffer: ptr UncheckedArray[uint8],    # [MapAgents] direct read
-  obs_buffer: ptr UncheckedArray[uint8],        # [60, 21, 11, 11] direct write
+  obs_buffer: ptr UncheckedArray[uint8],        # [60, 22, 11, 11] direct write
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
   truncations_buffer: ptr UncheckedArray[uint8]
