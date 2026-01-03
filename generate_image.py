@@ -1,7 +1,8 @@
 import argparse
 import os
 from io import BytesIO
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Sequence, Tuple
 
 from google import genai
 from google.genai.types import GenerateContentConfig, Modality
@@ -103,6 +104,23 @@ def generate_image(
     image.save(output_file)
     print(f"Image generated and saved to {output_file}")
 
+def _load_batch_prompts(path: str) -> Sequence[Tuple[str, str]]:
+    lines = Path(path).read_text().splitlines()
+    entries = []
+    for idx, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "\t" not in line:
+            raise ValueError(f"{path}:{idx}: expected tab-separated 'filename\\tprompt'")
+        name, prompt = line.split("\t", 1)
+        name = name.strip()
+        prompt = prompt.strip()
+        if not name or not prompt:
+            raise ValueError(f"{path}:{idx}: empty filename or prompt")
+        entries.append((name, prompt))
+    return entries
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-id", type=str, help="Your GCP project ID.")
@@ -126,6 +144,23 @@ if __name__ == "__main__":
         help="The output file name.",
     )
     parser.add_argument(
+        "--batch-prompts",
+        type=str,
+        default=None,
+        help="Path to a TSV file of filename<TAB>prompt for batch generation.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory for batch generation (defaults to prompt file directory).",
+    )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip outputs that already exist when batch generating.",
+    )
+    parser.add_argument(
         "--tile-size",
         type=int,
         default=None,
@@ -144,13 +179,42 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    generate_image(
-        prompt=args.prompt,
-        output_file=args.output_file,
-        model=args.model,
-        project_id=args.project_id,
-        location=args.location,
-        tile_size=args.tile_size,
-        key_out_background=args.key_out_background,
-        key_out_threshold=args.key_out_threshold,
-    )
+    if args.batch_prompts:
+        output_dir = args.output_dir
+        if not output_dir:
+            output_dir = os.path.dirname(args.batch_prompts) or "."
+        os.makedirs(output_dir, exist_ok=True)
+        failures = []
+        for filename, prompt in _load_batch_prompts(args.batch_prompts):
+            out_path = os.path.join(output_dir, filename)
+            if args.skip_existing and os.path.exists(out_path):
+                continue
+            try:
+                generate_image(
+                    prompt=prompt,
+                    output_file=out_path,
+                    model=args.model,
+                    project_id=args.project_id,
+                    location=args.location,
+                    tile_size=args.tile_size,
+                    key_out_background=args.key_out_background,
+                    key_out_threshold=args.key_out_threshold,
+                )
+            except Exception as exc:
+                failures.append((filename, str(exc)))
+        if failures:
+            print("Batch complete with errors:")
+            for filename, err in failures:
+                print(f"- {filename}: {err}")
+            raise SystemExit(1)
+    else:
+        generate_image(
+            prompt=args.prompt,
+            output_file=args.output_file,
+            model=args.model,
+            project_id=args.project_id,
+            location=args.location,
+            tile_size=args.tile_size,
+            key_out_background=args.key_out_background,
+            key_out_threshold=args.key_out_threshold,
+        )
