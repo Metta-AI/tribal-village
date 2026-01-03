@@ -35,6 +35,22 @@ type
     centerPos*: IVec2
     layout*: seq[seq[char]]
 
+const
+  # Structure layout ASCII schema (typeable characters).
+  StructureWallChar* = '#'
+  StructureFloorChar* = '.'
+  StructureDoorChar* = 'D'
+  StructureAltarChar* = 'a'
+  StructureArmoryChar* = 'A'
+  StructureForgeChar* = 'F'
+  StructureClayOvenChar* = 'C'
+  StructureWeavingLoomChar* = 'W'
+  StructureBedChar* = 'B'
+  StructureChairChar* = 'H'
+  StructureTableChar* = 'T'
+  StructureStatueChar* = 'S'
+  StructureTownCenterChar* = 'N'
+
 type
   BiomeKind* = enum
     BiomeBase
@@ -876,16 +892,38 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     for x, cell in row:
       let pos = ivec2(topLeft.x + x.int32, topLeft.y + y.int32)
       case cell
-      of '#': result.walls.add(pos)
-      of 'D': result.doors.add(pos)
-      of '.': result.floors.add(pos)
-      of 'a': result.altars.add(pos)
-      of 'F': result.forges.add(pos)
-      of 'A': result.armories.add(pos)
-      of 'C': result.clayOvens.add(pos)
-      of 'W': result.weavingLooms.add(pos)
-      of 'B': result.beds.add(pos)
-      of 'H': result.chairs.add(pos)
-      of 'T': result.tables.add(pos)
-      of 'S': result.statues.add(pos)
+      of StructureWallChar: result.walls.add(pos)
+      of StructureDoorChar: result.doors.add(pos)
+      of StructureFloorChar: result.floors.add(pos)
+      of StructureAltarChar: result.altars.add(pos)
+      of StructureForgeChar: result.forges.add(pos)
+      of StructureArmoryChar: result.armories.add(pos)
+      of StructureClayOvenChar: result.clayOvens.add(pos)
+      of StructureWeavingLoomChar: result.weavingLooms.add(pos)
+      of StructureBedChar: result.beds.add(pos)
+      of StructureChairChar: result.chairs.add(pos)
+      of StructureTableChar: result.tables.add(pos)
+      of StructureStatueChar: result.statues.add(pos)
       else: discard
+
+proc terrainAsciiChar*(terrain: TerrainType): char =
+  ## ASCII schema for terrain tiles (typeable characters).
+  case terrain:
+  of Empty: ' '
+  of Water: '~'
+  of Bridge: '='
+  of Wheat: '"'
+  of Tree: 'Y'
+  of Fertile: ':'
+  of Road: '+'
+  of Rock: 'R'
+  of Gem: '*'
+  of Bush: '%'
+  of Animal: '&'
+  of Grass: ','
+  of Cactus: '!'
+  of Dune: '^'
+  of Stalagmite: 'I'
+  of Palm: 'P'
+  of Sand: '.'
+  of Snow: '_'

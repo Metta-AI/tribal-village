@@ -335,6 +335,48 @@ type
     truncated*: array[MapAgents, float32]
     stats: seq[Stats]
 
+proc thingAsciiChar*(kind: ThingKind): char =
+  ## ASCII schema for map objects (typeable characters).
+  case kind:
+  of Agent: '@'
+  of Wall: '#'
+  of TreeObject: 't'
+  of Mine: 'M'
+  of Converter: 'V'
+  of Altar: 'a'
+  of Spawner: 'Z'
+  of Tumor: 'X'
+  of Cow: 'w'
+  of Skeleton: 'K'
+  of Armory: 'A'
+  of Forge: 'F'
+  of ClayOven: 'C'
+  of WeavingLoom: 'W'
+  of Bed: 'B'
+  of Chair: 'H'
+  of Table: 'T'
+  of Statue: 'S'
+  of WatchTower: '^'
+  of Barrel: 'b'
+  of Mill: 'm'
+  of LumberCamp: 'L'
+  of MiningCamp: 'G'
+  of Farm: 'f'
+  of Stump: 'p'
+  of PlantedLantern: 'l'
+  of TownCenter: 'N'
+  of House: 'h'
+  of Barracks: 'r'
+  of ArcheryRange: 'g'
+  of Stable: 's'
+  of SiegeWorkshop: 'i'
+  of Blacksmith: 'k'
+  of Market: 'e'
+  of Dock: 'd'
+  of Monastery: 'y'
+  of University: 'u'
+  of Castle: 'c'
+
 # Global village color management and palettes
 var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]

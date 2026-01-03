@@ -2,21 +2,6 @@ import vmath, terrain
 
 export terrain.Structure
 
-const
-  WorkshopWallChar* = '#'
-  WorkshopFloorChar* = '.'
-  WorkshopDoorChar* = 'D'
-  WorkshopAltarChar* = 'a'
-  WorkshopArmoryChar* = 'A'
-  WorkshopForgeChar* = 'F'
-  WorkshopClayOvenChar* = 'C'
-  WorkshopWeavingLoomChar* = 'W'
-  WorkshopBedChar* = 'B'
-  WorkshopChairChar* = 'H'
-  WorkshopTableChar* = 'T'
-  WorkshopStatueChar* = 'S'
-  WorkshopTownCenterChar* = 'N'
-
 proc createVillage*(): Structure =
   ## Village layout with enclosed walls, interior workshops, and door gaps.
   result = Structure(
