@@ -213,6 +213,7 @@ const
   PalmBaseColor = TileColor(r: 0.70, g: 0.78, b: 0.52, intensity: 1.0)
   WheatBaseBlend = 0.65'f32
   PalmBaseBlend = 0.55'f32
+  BiomeEdgeBlendRadius = 6
   BiomeBlendPasses = 2
   BiomeBlendNeighborWeight = 0.18'f32
   # Tiles at peak clippy tint (fully saturated creep hue) count as frozen.
@@ -403,6 +404,66 @@ proc blendTileColor(a, b: TileColor, t: float32): TileColor =
     intensity: a.intensity * (1.0 - tClamped) + b.intensity * tClamped
   )
 
+proc biomeEdgeBlendColor(biomes: BiomeGrid, x, y: int, radius: int): TileColor =
+  let baseBiome = biomes[x][y]
+  let baseColor = biomeBaseColor(baseBiome)
+  if radius <= 0 or baseBiome == BiomeNone:
+    return baseColor
+
+  var minDist = radius + 1
+  var sumR = 0.0'f32
+  var sumG = 0.0'f32
+  var sumB = 0.0'f32
+  var sumI = 0.0'f32
+  var count = 0
+
+  for dx in -radius .. radius:
+    let nx = x + dx
+    if nx < 0 or nx >= MapWidth:
+      continue
+    for dy in -radius .. radius:
+      if dx == 0 and dy == 0:
+        continue
+      let ny = y + dy
+      if ny < 0 or ny >= MapHeight:
+        continue
+      let dist = max(abs(dx), abs(dy))
+      if dist > radius:
+        continue
+      let otherBiome = biomes[nx][ny]
+      if otherBiome == baseBiome or otherBiome == BiomeNone:
+        continue
+      let otherColor = biomeBaseColor(otherBiome)
+      if dist < minDist:
+        minDist = dist
+        sumR = otherColor.r
+        sumG = otherColor.g
+        sumB = otherColor.b
+        sumI = otherColor.intensity
+        count = 1
+      elif dist == minDist:
+        sumR += otherColor.r
+        sumG += otherColor.g
+        sumB += otherColor.b
+        sumI += otherColor.intensity
+        inc count
+
+  if count == 0 or minDist > radius:
+    return baseColor
+
+  let invCount = 1.0'f32 / count.float32
+  let neighborColor = TileColor(
+    r: sumR * invCount,
+    g: sumG * invCount,
+    b: sumB * invCount,
+    intensity: sumI * invCount
+  )
+
+  let raw = 1.0'f32 - (float32(minDist - 1) / float32(radius))
+  let clamped = max(0.0'f32, min(1.0'f32, raw))
+  let t = clamped * clamped * (3.0'f32 - 2.0'f32 * clamped)
+  blendTileColor(baseColor, neighborColor, t)
+
 proc smoothBaseColors(colors: var array[MapWidth, array[MapHeight, TileColor]], passes: int) =
   if passes <= 0:
     return
@@ -443,7 +504,7 @@ proc applyBiomeBaseColors*(env: Environment) =
   var colors: array[MapWidth, array[MapHeight, TileColor]]
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      var color = biomeBaseColor(env.biomes[x][y])
+      var color = biomeEdgeBlendColor(env.biomes, x, y, BiomeEdgeBlendRadius)
       case env.terrain[x][y]:
       of Wheat:
         color = blendTileColor(color, WheatBaseColor, WheatBaseBlend)
