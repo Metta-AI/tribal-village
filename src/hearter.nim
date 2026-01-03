@@ -1,6 +1,6 @@
 proc decideHearter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
-  # Handle ore → bar → altar workflow
+  # Handle ore → magma pool → bar → altar workflow
   if agent.inventoryBar > 0:
     for thing in env.things:
       if thing.kind == Altar and thing.pos == agent.homeAltar:
@@ -13,15 +13,15 @@ proc decideHearter(controller: Controller, env: Environment, agent: Thing,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, thing.pos, controller.rng).uint8))
 
   elif agent.inventoryOre > 0:
-    let converterThing = env.findNearestThingSpiral(state, Converter, controller.rng)
-    if converterThing != nil:
-      let dx = abs(converterThing.pos.x - agent.pos.x)
-      let dy = abs(converterThing.pos.y - agent.pos.y)
+    let magmaPool = env.findNearestThingSpiral(state, Converter, controller.rng)
+    if magmaPool != nil:
+      let dx = abs(magmaPool.pos.x - agent.pos.x)
+      let dy = abs(magmaPool.pos.y - agent.pos.y)
       if max(dx, dy) == 1'i32:
         return saveStateAndReturn(controller, agentId, state,
-          encodeAction(3'u8, neighborDirIndex(agent.pos, converterThing.pos).uint8))
+          encodeAction(3'u8, neighborDirIndex(agent.pos, magmaPool.pos).uint8))
       return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, converterThing.pos, controller.rng).uint8))
+        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, magmaPool.pos, controller.rng).uint8))
 
     let nextSearchPos = getNextSpiralPoint(state, controller.rng)
     return saveStateAndReturn(controller, agentId, state,
