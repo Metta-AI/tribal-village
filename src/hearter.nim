@@ -12,7 +12,7 @@ proc decideHearter(controller: Controller, env: Environment, agent: Thing,
         return saveStateAndReturn(controller, agentId, state,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, thing.pos, controller.rng).uint8))
 
-  elif agent.inventoryOre > 0:
+  elif agent.inventoryGold > 0:
     let magmaPool = env.findNearestThingSpiral(state, Magma, controller.rng)
     if magmaPool != nil:
       let dx = abs(magmaPool.pos.x - agent.pos.x)

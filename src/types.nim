@@ -98,7 +98,7 @@ type
   ObservationName* = enum
     AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Tumor
     AgentOrientationLayer = 1
-    AgentInventoryOreLayer = 2
+    AgentInventoryGoldLayer = 2
     AgentInventoryBarLayer = 3
     AgentInventoryWaterLayer = 4
     AgentInventoryWheatLayer = 5
@@ -139,14 +139,13 @@ type
     Pine
     Palm
     Mine
-    Magma  # Smelts ore into bars
+    Magma  # Smelts gold into bars
     Altar
     Spawner
     Tumor
     Cow
     Skeleton
     Armory
-    Forge
     ClayOven
     WeavingLoom
     Bed
