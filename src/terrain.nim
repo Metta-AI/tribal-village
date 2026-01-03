@@ -151,6 +151,22 @@ proc blendChanceForDistance(dist, depth: int, edgeChance: float): float =
 proc canApplyBiome(currentBiome, biomeType, baseBiomeType: BiomeType): bool =
   currentBiome == BiomeNone or currentBiome == baseBiomeType or currentBiome == biomeType
 
+proc baseBiomeType*(): BiomeType =
+  case BaseBiome:
+  of BiomeForest: BiomeForestType
+  of BiomeDesert: BiomeDesertType
+  of BiomeCaves: BiomeCavesType
+  of BiomeCity: BiomeCityType
+  of BiomePlains: BiomePlainsType
+  of BiomeSnow: BiomeSnowType
+
+proc zoneBounds(zone: ZoneRect, mapWidth, mapHeight, mapBorder: int): tuple[x0, y0, x1, y1: int] =
+  let x0 = max(mapBorder, zone.x)
+  let y0 = max(mapBorder, zone.y)
+  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
+  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  (x0: x0, y0: y0, x1: x1, y1: y1)
+
 proc maskEdgeDistance*(mask: MaskGrid, mapWidth, mapHeight: int, x, y, maxDepth: int): int =
   if not mask[x][y]:
     return 0
@@ -172,10 +188,7 @@ proc applyBiomeMaskToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, mask:
                           zoneMask: MaskGrid, zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
                           terrainType: TerrainType, biomeType: BiomeType, baseBiomeType: BiomeType,
                           r: var Rand, edgeChance: float, blendDepth: int = BiomeBlendDepth) =
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
   if x1 <= x0 or y1 <= y0:
     return
   for x in x0 ..< x1:
@@ -198,10 +211,7 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: BiomeGrid, zoneMa
                              terrainType: TerrainType, biomeType: BiomeType,
                              baseBiomeType: BiomeType, r: var Rand, edgeChance: float,
                              blendDepth: int = BiomeBlendDepth, overwriteWater = false) =
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
   if x1 <= x0 or y1 <= y0:
     return
   for x in x0 ..< x1:
@@ -272,10 +282,7 @@ proc evenlyDistributedZones*(r: var Rand, mapWidth, mapHeight, mapBorder: int, c
 proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
                         zone: ZoneRect, r: var Rand) =
   mask.clearMask(mapWidth, mapHeight)
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
   if x1 <= x0 or y1 <= y0:
     return
   let cx = (x0 + x1 - 1) div 2
@@ -317,13 +324,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
   let count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow]
   let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8]
-  let baseBiomeType = case BaseBiome:
-    of BiomeForest: BiomeForestType
-    of BiomeDesert: BiomeDesertType
-    of BiomeCaves: BiomeCavesType
-    of BiomeCity: BiomeCityType
-    of BiomePlains: BiomePlainsType
-    of BiomeSnow: BiomeSnowType
+  let baseBiomeType = baseBiomeType()
   var seqIdx = randIntInclusive(r, 0, kinds.len - 1)
   let edgeChance = 0.25
   let zones = evenlyDistributedZones(r, mapWidth, mapHeight, mapBorder, count, BiomeZoneMaxFraction)
@@ -807,13 +808,7 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
       biomes[x][y] = BiomeNone
 
   # Set base biome background across the playable area.
-  let baseBiomeType = case BaseBiome:
-    of BiomeForest: BiomeForestType
-    of BiomeDesert: BiomeDesertType
-    of BiomeCaves: BiomeCavesType
-    of BiomeCity: BiomeCityType
-    of BiomePlains: BiomePlainsType
-    of BiomeSnow: BiomeSnowType
+  let baseBiomeType = baseBiomeType()
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:
       biomes[x][y] = baseBiomeType
