@@ -16,11 +16,6 @@ proc decideMiner(controller: Controller, env: Environment, agent: Thing,
     if mine != nil:
       return controller.useOrMove(env, agent, agentId, state, mine.pos)
 
-  # Work raw stone and gems into crafts when carrying them.
-  if getInv(agent, ItemBoulder) > 0 or getInv(agent, ItemRough) > 0:
-    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, Table)
-    if did: return act
-
   # Harvest rock and gem terrain when available.
   if getInv(agent, ItemBoulder) < MapObjectAgentMaxInventory:
     let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Rock)

@@ -493,7 +493,7 @@ proc drawAgentDecorations*() =
 
     proc iconForItem(key: ItemKey): string =
       case key
-      of ItemGold: "ore"
+      of ItemGold: "gold"
       of ItemStone: "blocks"
       of ItemWater: "droplet"
       of ItemWheat: "bushel"
@@ -588,12 +588,12 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Cow: "Cow"
         of Skeleton: "Skeleton"
         of Armory: "Armory"
-        of ClayOven: "Clay Oven"
-        of WeavingLoom: "Weaving Loom"
         of Bed: "Bed"
         of Chair: "Chair"
         of Table: "Table"
         of Statue: "Statue"
+        of ClayOven: "Clay Oven"
+        of WeavingLoom: "Weaving Loom"
         of Outpost: "Outpost"
         of Barrel: "Barrel"
         of Mill: "Mill"

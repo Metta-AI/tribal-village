@@ -13,12 +13,12 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of Cow: 'w'
   of Skeleton: 'K'
   of Armory: 'A'
-  of ClayOven: 'C'
-  of WeavingLoom: 'W'
   of Bed: 'B'
   of Chair: 'H'
   of Table: 'T'
   of Statue: 'S'
+  of ClayOven: 'C'
+  of WeavingLoom: 'W'
   of Outpost: '^'
   of Barrel: 'b'
   of Mill: 'm'
@@ -92,6 +92,14 @@ proc render*(env: Environment): string =
             cell = "x"
           of Armory:
             cell = "A"
+          of Bed:
+            cell = "B"
+          of Chair:
+            cell = "H"
+          of Table:
+            cell = "T"
+          of Statue:
+            cell = "S"
           of ClayOven:
             cell = "O"
           of WeavingLoom:
@@ -108,14 +116,6 @@ proc render*(env: Environment): string =
             cell = "f"
           of Stump:
             cell = "u"
-          of Bed:
-            cell = "B"
-          of Chair:
-            cell = "H"
-          of Table:
-            cell = "T"
-          of Statue:
-            cell = "S"
           of Outpost:
             cell = "^"
           of Lantern:

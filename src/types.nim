@@ -270,7 +270,7 @@ type
 
     # Reward configuration
     heartReward*: float
-    oreReward*: float
+    oreReward*: float # Gold mining reward
     barReward*: float
     woodReward*: float
     waterReward*: float
