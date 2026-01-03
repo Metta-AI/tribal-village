@@ -22,9 +22,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
 
     return controller.moveNextSearch(env, agent, agentId, state)
 
-  # After tower is built, lay a road back toward home.
-  if agent.inventoryWood < RoadWoodCost:
-    let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+  # After tower is built, craft road kits at the siege workshop and lay them toward home.
+  let roadKey = ItemThingPrefix & "Road"
+  if getInv(agent, roadKey) == 0:
+    if agent.inventoryWood == 0:
+      let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+      if did: return act
+    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, SiegeWorkshop)
     if did: return act
 
   if hasHome:
