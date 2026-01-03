@@ -180,14 +180,14 @@ proc generateDfViewAssets*() =
           img
         let tile = extractTile(sheet, entry.tileIndex)
         let scaled = scaleNearest(tile, TargetSize, TargetSize)
-        let outPath = MapDir / "road.png"
+        let outPath = MapDir / "road_tile.png"
         if not fileExists(outPath):
           createDir(parentDir(outPath))
           writeFile(outPath, encodePng(scaled))
           inc created
   else:
-    if "road" notin missing:
-      missing.add("road")
+    if "road_tile" notin missing:
+      missing.add("road_tile")
 
   if created > 0:
     echo "DF tileset: generated ", created, " sprites"
