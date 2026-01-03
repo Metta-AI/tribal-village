@@ -1,6 +1,6 @@
-# This file is included by src/ai_policies.nim
-include "ai_common_rules"
-include "ai_role_includes"
+# This file is included by src/policies.nim
+include "rules"
+include "roles"
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 

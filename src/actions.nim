@@ -899,9 +899,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward) or
         env.tryGiveFirstAndClear(agent, targetPos, [ItemSeeds, ItemPlant])
     of Tree, Palm:
-      if getInv(agent, ItemAxe) > 0:
-        used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
-          env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
+        env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
     of Rock, Stalagmite:
       used = env.tryGiveFirstAndClear(agent, targetPos, [ItemBoulder, ItemRock])
     of Gem:
@@ -960,32 +959,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   var used = false
   case thing.kind:
   of TreeObject:
-    let hasAxe = getInv(agent, ItemAxe) > 0
-    if hasAxe and thing.treeVariant == TreeVariantPine:
-      removeThing(env, thing)
-      env.dropStump(thing.pos, 5)
-      used = true
-    else:
-      let baseGain =
-        if hasAxe:
-          if thing.treeVariant == TreeVariantPine: 5 else: 2
-        else:
-          1
-      let carryLeft = resourceCarryCapacityLeft(agent)
-      if carryLeft > 0:
-        let gain = min(baseGain, carryLeft)
-        if env.giveItem(agent, ItemWood, gain):
-          agent.reward += env.config.woodReward
-          if hasAxe:
-            removeThing(env, thing)
-          used = true
-      if not used and env.giveItem(agent, ItemBranch):
-        if hasAxe:
-          removeThing(env, thing)
-        used = true
-      if not used:
-        inc env.stats[id].actionInvalid
-        return
+    removeThing(env, thing)
+    env.dropStump(thing.pos, 5)
+    used = true
   of Stump:
     let stored = getInv(thing, ItemWood)
     if stored > 0:

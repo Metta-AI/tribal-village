@@ -1,4 +1,4 @@
-import rng_compat
+import entropy
 
 const
   # Keep in sync with terrain.nim's MaxTerrainSize.

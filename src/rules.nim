@@ -1,4 +1,4 @@
-# This file is included by ai_policies_default before role files.
+# This file is included by defaults before role files.
 
 proc isOutOfSight(agent: Thing): bool =
   ## Out of sight if beyond observation radius from home altar.
