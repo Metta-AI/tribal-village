@@ -1,7 +1,6 @@
 import std/[algorithm, strutils, tables], vmath, chroma
 import rng_compat
 import terrain, objects, workshop, items, common, biome_common
-import dungeon_maze, dungeon_radial
 export terrain, objects, workshop, items, common
 
 
@@ -224,9 +223,7 @@ const
   BiomeColorDungeon = TileColor(r: 0.40, g: 0.36, b: 0.48, intensity: 0.9)
   BiomeColorSnow = TileColor(r: 0.93, g: 0.95, b: 0.98, intensity: 1.0)
   WheatBaseColor = TileColor(r: 0.88, g: 0.78, b: 0.48, intensity: 1.05)
-  PalmBaseColor = TileColor(r: 0.70, g: 0.78, b: 0.52, intensity: 1.0)
   WheatBaseBlend = 0.65'f32
-  PalmBaseBlend = 0.55'f32
   BiomeEdgeBlendRadius = 6
   BiomeBlendPasses = 2
   BiomeBlendNeighborWeight = 0.18'f32
@@ -722,7 +719,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for trees.
     of Mine:
       env.updateObservations(MineLayer, thing.pos, 1)
-      env.updateObservations(MineResourceLayer, thing.pos, thing.resources)
+      env.updateObservations(MineResourceLayer, thing.pos, thing.mineResources)
       env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
     of Converter:
       env.updateObservations(ConverterLayer, thing.pos, 1)

@@ -77,23 +77,19 @@ type
     ResourceWater
 
 proc isFoodItem*(key: ItemKey): bool =
-  key in {
-    ItemWheat,
-    ItemBread,
-    ItemMeat,
-    ItemFishRaw,
-    ItemFish,
-    ItemPlant,
-    ItemPlantGrowth,
-    ItemMilk,
-    ItemCheese,
-    ItemDrink,
-    ItemFood,
-    ItemEgg
-  }
+  case key
+  of ItemWheat, ItemBread, ItemMeat, ItemFishRaw, ItemFish, ItemPlant, ItemPlantGrowth,
+     ItemMilk, ItemCheese, ItemDrink, ItemFood, ItemEgg:
+    true
+  else:
+    false
 
 proc isStockpileResourceKey*(key: ItemKey): bool =
-  key in {ItemWood, ItemOre, ItemStone, ItemWater} or isFoodItem(key)
+  case key
+  of ItemWood, ItemOre, ItemStone, ItemWater:
+    true
+  else:
+    isFoodItem(key)
 
 proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
   if isFoodItem(key):
