@@ -27,6 +27,12 @@ type
     Palm
     Sand
     Snow
+
+  TerrainDef* = object
+    spriteKey*: string
+    displayName*: string
+    glyph*: char
+    infectionKey*: string
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[MaxTerrainSize, array[MaxTerrainSize, TerrainType]]
 
@@ -140,6 +146,36 @@ const
   TerrainStalagmite* = TerrainType.Stalagmite
   TerrainSand* = TerrainType.Sand
   TerrainSnow* = TerrainType.Snow
+
+let TerrainDefs* = [
+  TerrainType.Empty: TerrainDef(spriteKey: "", displayName: "Empty", glyph: ' ', infectionKey: ""),
+  TerrainType.Water: TerrainDef(spriteKey: "water", displayName: "Water", glyph: '~', infectionKey: ""),
+  TerrainType.Bridge: TerrainDef(spriteKey: "bridge", displayName: "Bridge", glyph: '=', infectionKey: ""),
+  TerrainType.Wheat: TerrainDef(spriteKey: "wheat", displayName: "Wheat", glyph: '.', infectionKey: "wheat"),
+  TerrainType.Tree: TerrainDef(spriteKey: "pine", displayName: "Tree", glyph: 'T', infectionKey: "tree"),
+  TerrainType.Fertile: TerrainDef(spriteKey: "fertile", displayName: "Fertile", glyph: 'f', infectionKey: ""),
+  TerrainType.Road: TerrainDef(spriteKey: "road", displayName: "Road", glyph: 'r', infectionKey: ""),
+  TerrainType.Rock: TerrainDef(spriteKey: "rock", displayName: "Rock", glyph: 'R', infectionKey: ""),
+  TerrainType.Gem: TerrainDef(spriteKey: "gem", displayName: "Gem", glyph: 'G', infectionKey: ""),
+  TerrainType.Bush: TerrainDef(spriteKey: "bush", displayName: "Bush", glyph: 'b', infectionKey: ""),
+  TerrainType.Animal: TerrainDef(spriteKey: "cow", displayName: "Animal", glyph: 'a', infectionKey: ""),
+  TerrainType.Grass: TerrainDef(spriteKey: "grass", displayName: "Grass", glyph: 'g', infectionKey: ""),
+  TerrainType.Cactus: TerrainDef(spriteKey: "cactus", displayName: "Cactus", glyph: 'c', infectionKey: ""),
+  TerrainType.Dune: TerrainDef(spriteKey: "dune", displayName: "Dune", glyph: 'd', infectionKey: ""),
+  TerrainType.Stalagmite: TerrainDef(spriteKey: "stalagmite", displayName: "Stalagmite", glyph: 'm', infectionKey: ""),
+  TerrainType.Palm: TerrainDef(spriteKey: "palm", displayName: "Palm", glyph: 'P', infectionKey: "tree"),
+  TerrainType.Sand: TerrainDef(spriteKey: "sand", displayName: "Sand", glyph: 's', infectionKey: ""),
+  TerrainType.Snow: TerrainDef(spriteKey: "snow", displayName: "Snow", glyph: 'n', infectionKey: "")
+]
+
+proc terrainDef*(terrain: TerrainType): TerrainDef {.inline.} =
+  TerrainDefs[terrain]
+
+proc terrainDisplayName*(terrain: TerrainType): string {.inline.} =
+  TerrainDefs[terrain].displayName
+
+proc terrainGlyph*(terrain: TerrainType): char {.inline.} =
+  TerrainDefs[terrain].glyph
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain in {Water, Dune, Stalagmite, Snow}
