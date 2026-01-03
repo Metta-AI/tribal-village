@@ -3,7 +3,7 @@ import vmath, terrain
 export terrain.Structure
 
 proc createVillage*(): Structure =
-  ## Diamond town layout with walls and distinct interior buildings.
+  ## Square town layout with walls, gates, and edge buildings.
   const size = 11
   const radius = 5
   let center = ivec2(radius, radius)
@@ -15,25 +15,22 @@ proc createVillage*(): Structure =
 
   for y in 0 ..< size:
     for x in 0 ..< size:
-      let dx = x - center.x
-      let dy = y - center.y
-      let dist = abs(dx) + abs(dy)
-      if dist == radius:
+      if x == 0 or y == 0 or x == size - 1 or y == size - 1:
         layout[y][x] = StructureWallChar
-      elif dist < radius:
+      else:
         layout[y][x] = StructureFloorChar
 
-  layout[center.y - radius][center.x] = StructureDoorChar
-  layout[center.y + radius][center.x] = StructureDoorChar
-  layout[center.y][center.x - radius] = StructureDoorChar
-  layout[center.y][center.x + radius] = StructureDoorChar
+  layout[0][center.x] = StructureDoorChar
+  layout[size - 1][center.x] = StructureDoorChar
+  layout[center.y][0] = StructureDoorChar
+  layout[center.y][size - 1] = StructureDoorChar
 
   layout[center.y][center.x] = StructureAltarChar
 
   let buildingChars = @[
     StructureTownCenterChar,
     StructureArmoryChar,
-    StructureForgeChar,
+    StructureBlacksmithChar,
     StructureClayOvenChar,
     StructureWeavingLoomChar,
     StructureBarracksChar,
@@ -45,22 +42,38 @@ proc createVillage*(): Structure =
     StructureUniversityChar
   ]
 
-  let ringDist = radius - 1
-  let ringDistI32 = ringDist.int32
-  var ring: seq[IVec2] = @[]
-  ring.add(ivec2(0'i32, -ringDistI32))
-  for i in 1 .. ringDist:
-    ring.add(ivec2(i.int32, (-ringDist + i).int32))
-  for i in 1 .. ringDist:
-    ring.add(ivec2((ringDist - i).int32, i.int32))
-  for i in 1 .. ringDist:
-    ring.add(ivec2((-i).int32, (ringDist - i).int32))
-  for i in 1 .. (ringDist - 1):
-    ring.add(ivec2((-ringDist + i).int32, (-i).int32))
+  let innerMin = 1
+  let innerMax = size - 2
+  proc isGateFront(pos: IVec2): bool =
+    (pos.x == center.x and (pos.y == innerMin or pos.y == innerMax)) or
+    (pos.y == center.y and (pos.x == innerMin or pos.x == innerMax))
 
-  for idx in 0 ..< min(ring.len, buildingChars.len):
-    let pos = center + ring[idx]
-    layout[pos.y][pos.x] = buildingChars[idx]
+  var edgePositions: seq[IVec2] = @[]
+  var x = innerMin
+  while x <= innerMax:
+    edgePositions.add(ivec2(x.int32, innerMin.int32))
+    x += 2
+  var y = innerMin + 2
+  while y <= innerMax - 2:
+    edgePositions.add(ivec2(innerMax.int32, y.int32))
+    y += 2
+  x = innerMax
+  while x >= innerMin:
+    edgePositions.add(ivec2(x.int32, innerMax.int32))
+    x -= 2
+  y = innerMax - 2
+  while y >= innerMin + 2:
+    edgePositions.add(ivec2(innerMin.int32, y.int32))
+    y -= 2
+
+  var placed = 0
+  for pos in edgePositions:
+    if placed >= buildingChars.len:
+      break
+    if pos == center or isGateFront(pos):
+      continue
+    layout[pos.y][pos.x] = buildingChars[placed]
+    inc placed
 
   result = Structure(
     width: size,

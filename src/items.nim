@@ -11,7 +11,6 @@ const
   ItemNone* = ""
   ItemGold* = "gold"
   ItemStone* = "stone"
-  ItemOre* = ItemGold # Legacy alias (gold ore)
   ItemBar* = "bar"
   ItemWater* = "water"
   ItemWheat* = "wheat"
@@ -56,7 +55,7 @@ const
   ItemThingPrefix* = "thing:"
 
   ObservedItemKeys* = [
-    ItemOre,
+    ItemGold,
     ItemStone,
     ItemBar,
     ItemWater,
@@ -86,7 +85,7 @@ proc isFoodItem*(key: ItemKey): bool =
 
 proc isStockpileResourceKey*(key: ItemKey): bool =
   case key
-  of ItemWood, ItemOre, ItemStone, ItemWater:
+  of ItemWood, ItemGold, ItemStone, ItemWater:
     true
   else:
     isFoodItem(key)
@@ -96,7 +95,7 @@ proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
     return ResourceFood
   case key
   of ItemWood: ResourceWood
-  of ItemOre: ResourceGold
+  of ItemGold: ResourceGold
   of ItemStone: ResourceStone
   of ItemWater: ResourceWater
   else: ResourceFood
@@ -174,7 +173,7 @@ type
   ItemAmount* = tuple[key: ItemKey, count: int]
 
   CraftStation* = enum
-    StationForge
+    StationBlacksmith
     StationArmory
     StationLoom
     StationOven
@@ -226,8 +225,8 @@ const
       maxStack: 5, isContainer: false, containerKind: ContainerNone, notes: "Refuse"),
     ItemDef(id: "sheet_parchment", displayName: "Parchment sheet", category: Sheets,
       maxStack: 10, isContainer: false, containerKind: ContainerNone, notes: "Writing material"),
-    ItemDef(id: "stone_hematite_ore", displayName: "Hematite ore", category: StoneOre,
-      maxStack: 5, isContainer: false, containerKind: ContainerNone, notes: "Ore/stone"),
+    ItemDef(id: "stone_hematite", displayName: "Hematite stone", category: StoneOre,
+      maxStack: 5, isContainer: false, containerKind: ContainerNone, notes: "Stone"),
     ItemDef(id: "weapon_iron_axe", displayName: "Iron axe", category: Weapons,
       maxStack: 1, isContainer: false, containerKind: ContainerNone, notes: "Weapon"),
     ItemDef(id: "wood_log", displayName: "Log", category: Wood,
@@ -439,7 +438,7 @@ const
 let
   ## Describes what each DF token item/building is used for, with typical inputs/outputs.
   DfTokenBehaviors*: seq[DfTokenBehavior] = @[
-    DfTokenBehavior(token: "BAR", inputs: @["smelted ore"], outputs: @["metal bars"],
+    DfTokenBehavior(token: "BAR", inputs: @["smelted gold"], outputs: @["metal bars"],
       uses: "Base metal material for tools, weapons, and constructions."),
     DfTokenBehavior(token: "SMALLGEM", inputs: @["cut rough gem"], outputs: @["small cut gem"],
       uses: "Jewelry and trade goods."),
@@ -739,31 +738,31 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "ballistaparts", StationTable, @[(ItemWood, 2), (ItemBar, 1)], @[("ballistaparts", 1)], 10)
   addRecipe(recipes, "siegeammo", StationTable, @[(ItemWood, 1), (ItemBar, 1)], @[("siegeammo", 1)], 8)
 
-  # Forge: metalworking and mechanisms.
-  addRecipe(recipes, "axe", StationForge, @[(ItemBar, 1), (ItemWood, 1)], @[(ItemAxe, 1)], 8)
-  addRecipe(recipes, "weapon", StationForge, @[(ItemBar, 1)], @[("weapon", 1)], 8)
-  addRecipe(recipes, "armor_metal", StationForge, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
-  addRecipe(recipes, "helm", StationForge, @[(ItemBar, 1)], @[("helm", 1)], 8)
-  addRecipe(recipes, "shield_metal", StationForge, @[(ItemBar, 1)], @[("shield", 1)], 8)
-  addRecipe(recipes, "chain", StationForge, @[(ItemBar, 1)], @[("chain", 1)], 6)
-  addRecipe(recipes, "anvil", StationForge, @[(ItemBar, 2)], @[("anvil", 1)], 10)
-  addRecipe(recipes, "ammo", StationForge, @[(ItemBar, 1)], @[("ammo", 1)], 6)
-  addRecipe(recipes, "ballistaarrowhead", StationForge, @[(ItemBar, 1)], @[("ballistaarrowhead", 1)], 6)
-  addRecipe(recipes, "trapparts", StationForge, @[(ItemBar, 1)], @[("trapparts", 1)], 6)
-  addRecipe(recipes, "trapcomp", StationForge, @[(ItemBar, 1)], @[("trapcomp", 1)], 6)
-  addRecipe(recipes, "pipe_section", StationForge, @[(ItemBar, 1)], @[("pipe_section", 1)], 6)
-  addRecipe(recipes, "coin", StationForge, @[(ItemBar, 1)], @[("coin", 1)], 6)
-  addRecipe(recipes, "goblet", StationForge, @[(ItemBar, 1)], @[("goblet", 1)], 6)
-  addRecipe(recipes, "flask", StationForge, @[(ItemBar, 1)], @[("flask", 1)], 6)
-  addRecipe(recipes, "scepter", StationForge, @[(ItemBar, 1)], @[("scepter", 1)], 8)
-  addRecipe(recipes, "crown", StationForge, @[(ItemBar, 1)], @[("crown", 1)], 8)
-  addRecipe(recipes, "ring", StationForge, @[(ItemBar, 1)], @[("ring", 1)], 6)
-  addRecipe(recipes, "earring", StationForge, @[(ItemBar, 1)], @[("earring", 1)], 6)
-  addRecipe(recipes, "bracelet", StationForge, @[(ItemBar, 1)], @[("bracelet", 1)], 6)
-  addRecipe(recipes, "amulet", StationForge, @[(ItemBar, 1), (ItemGem, 1)], @[("amulet", 1)], 8)
-  addRecipe(recipes, "armorstand_metal", StationForge, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
-  addRecipe(recipes, "weaponrack_metal", StationForge, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
-  addRecipe(recipes, "tool_metal", StationForge, @[(ItemBar, 1)], @[("tool", 1)], 6)
+  # Blacksmith: metalworking and mechanisms.
+  addRecipe(recipes, "axe", StationBlacksmith, @[(ItemBar, 1), (ItemWood, 1)], @[(ItemAxe, 1)], 8)
+  addRecipe(recipes, "weapon", StationBlacksmith, @[(ItemBar, 1)], @[("weapon", 1)], 8)
+  addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
+  addRecipe(recipes, "helm", StationBlacksmith, @[(ItemBar, 1)], @[("helm", 1)], 8)
+  addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[("shield", 1)], 8)
+  addRecipe(recipes, "chain", StationBlacksmith, @[(ItemBar, 1)], @[("chain", 1)], 6)
+  addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[("anvil", 1)], 10)
+  addRecipe(recipes, "ammo", StationBlacksmith, @[(ItemBar, 1)], @[("ammo", 1)], 6)
+  addRecipe(recipes, "ballistaarrowhead", StationBlacksmith, @[(ItemBar, 1)], @[("ballistaarrowhead", 1)], 6)
+  addRecipe(recipes, "trapparts", StationBlacksmith, @[(ItemBar, 1)], @[("trapparts", 1)], 6)
+  addRecipe(recipes, "trapcomp", StationBlacksmith, @[(ItemBar, 1)], @[("trapcomp", 1)], 6)
+  addRecipe(recipes, "pipe_section", StationBlacksmith, @[(ItemBar, 1)], @[("pipe_section", 1)], 6)
+  addRecipe(recipes, "coin", StationBlacksmith, @[(ItemBar, 1)], @[("coin", 1)], 6)
+  addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[("goblet", 1)], 6)
+  addRecipe(recipes, "flask", StationBlacksmith, @[(ItemBar, 1)], @[("flask", 1)], 6)
+  addRecipe(recipes, "scepter", StationBlacksmith, @[(ItemBar, 1)], @[("scepter", 1)], 8)
+  addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[("crown", 1)], 8)
+  addRecipe(recipes, "ring", StationBlacksmith, @[(ItemBar, 1)], @[("ring", 1)], 6)
+  addRecipe(recipes, "earring", StationBlacksmith, @[(ItemBar, 1)], @[("earring", 1)], 6)
+  addRecipe(recipes, "bracelet", StationBlacksmith, @[(ItemBar, 1)], @[("bracelet", 1)], 6)
+  addRecipe(recipes, "amulet", StationBlacksmith, @[(ItemBar, 1), (ItemGem, 1)], @[("amulet", 1)], 8)
+  addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
+  addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
+  addRecipe(recipes, "tool_metal", StationBlacksmith, @[(ItemBar, 1)], @[("tool", 1)], 6)
 
   # Armory: leather/cloth gear.
   addRecipe(recipes, "armor_leather", StationArmory, @[(ItemSkinTanned, 1)], @[(ItemArmor, 1)], 8)

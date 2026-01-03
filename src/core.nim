@@ -16,7 +16,7 @@ type
     Lighter     # TerrainWheat -> Lantern -> Plant
     Farmer      # Creates fertile ground and plants wheat/trees
     Builder     # Builds outposts and roads
-    Miner       # Mines ore and keeps magma fed
+    Miner       # Mines gold and keeps magma fed
     Guard       # Patrols near home and engages threats
     Medic       # Bakes bread and distributes it
     Scout       # Explores outward and probes the map

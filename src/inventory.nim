@@ -22,8 +22,8 @@ proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
   newVal
 
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
-  if key == ItemOre:
-    env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, key))
+  if key == ItemGold:
+    env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, key))
   elif key == ItemStone:
     env.updateObservations(AgentInventoryStoneLayer, agent.pos, getInv(agent, key))
   elif key == ItemBar:
@@ -152,7 +152,7 @@ template defineInventoryAccessors(name, key: untyped) =
   proc `name=`*(agent: Thing, value: int) =
     setInv(agent, key, value)
 
-defineInventoryAccessors(inventoryOre, ItemOre)
+defineInventoryAccessors(inventoryGold, ItemGold)
 defineInventoryAccessors(inventoryStone, ItemStone)
 defineInventoryAccessors(inventoryBar, ItemBar)
 defineInventoryAccessors(inventoryWater, ItemWater)
