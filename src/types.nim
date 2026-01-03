@@ -135,7 +135,8 @@ type
   ThingKind* = enum
     Agent
     Wall
-    TreeObject
+    Pine
+    Palm
     Mine
     Converter  # Smelts ore into bars
     Altar
@@ -158,7 +159,7 @@ type
     MiningCamp
     Farm
     Stump
-    PlantedLantern  # Planted lanterns that spread team colors
+    Lantern  # Planted lanterns that spread team colors
     TownCenter
     House
     Barracks
@@ -171,10 +172,6 @@ type
     Monastery
     University
     Castle
-
-  TreeVariant* = enum
-    TreeVariantPine
-    TreeVariantPalm
 
   Thing* = ref object
     kind*: ThingKind
@@ -201,12 +198,9 @@ type
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
     turnsAlive*: int            # Number of turns this tumor has been alive
 
-    # PlantedLantern:
+    # Lantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
-
-    # TreeObject:
-    treeVariant*: TreeVariant
 
     # Mine:
     mineKind*: MineResourceKind
