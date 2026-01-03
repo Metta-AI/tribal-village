@@ -115,7 +115,7 @@ proc thingSpriteKey(kind: ThingKind): string =
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
   of Mine, Magma, Altar, Armory, ClayOven, WeavingLoom,
-     Bed, Chair, Table, Statue, Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump,
+     Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump,
      TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
      Monastery, University, Castle:
     true
@@ -588,10 +588,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Cow: "Cow"
         of Skeleton: "Skeleton"
         of Armory: "Armory"
-        of Bed: "Bed"
-        of Chair: "Chair"
-        of Table: "Table"
-        of Statue: "Statue"
         of ClayOven: "Clay Oven"
         of WeavingLoom: "Weaving Loom"
         of Outpost: "Outpost"

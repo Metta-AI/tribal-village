@@ -191,18 +191,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
       elif env.tryBlacksmithService(agent, thing):
         used = true
-  of Table:
-    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationTable, thing):
-      used = true
-  of Chair:
-    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationChair, thing):
-      used = true
-  of Bed:
-    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationBed, thing):
-      used = true
-  of Statue:
-    if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationStatue, thing):
-      used = true
   of TownCenter:
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone}):
