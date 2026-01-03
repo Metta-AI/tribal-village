@@ -460,6 +460,12 @@ proc firstThingItem(agent: Thing): ItemKey =
   keys[0]
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
+  if key == ItemThingPrefix & "Road":
+    if env.terrain[pos.x][pos.y] != Empty:
+      return false
+    env.terrain[pos.x][pos.y] = Road
+    env.resetTileColor(pos)
+    return true
   var kind: ThingKind
   if not parseThingKey(key, kind):
     return false
@@ -1153,6 +1159,8 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.cooldown == 0:
       if env.tryTrainUnit(agent, thing, UnitSiege,
           @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], 10):
+        used = true
+      elif env.tryCraftAtStation(agent, StationSiegeWorkshop, thing):
         used = true
   of Monastery:
     if thing.cooldown == 0:

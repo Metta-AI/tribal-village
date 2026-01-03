@@ -39,7 +39,7 @@ const
   MapObjectMineInitialResources* = 30
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
-  WatchTowerWoodCost* = 2
+  WatchTowerWoodCost* = 1
   CowMilkCooldown* = 25
   ResourceCarryCapacity* = 5
   TownCenterPopCap* = 5
