@@ -2,9 +2,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                    agentId: int, state: var AgentState): uint8 =
   let home = agent.homeAltar
   let hasHome = home.x >= 0
+  let teamId = getTeamId(agent.agentId)
 
   if not state.builderHasOutpost:
-    if agent.inventoryWood < OutpostWoodCost:
+    if env.stockpileCount(teamId, ResourceWood) < OutpostWoodCost:
+      if agent.inventoryWood > 0:
+        let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, TownCenter)
+        if did: return act
       let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
       if did: return act
 
@@ -18,17 +22,16 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if buildPos.x >= 0:
       state.builderHasOutpost = true
       return saveStateAndReturn(controller, agentId, state,
-        encodeAction(3'u8, neighborDirIndex(agent.pos, buildPos).uint8))
+        encodeAction(8'u8, BuildIndexOutpost.uint8))
 
     return controller.moveNextSearch(env, agent, agentId, state)
 
-  # After outpost is built, craft road kits at the siege workshop and lay them toward home.
-  let roadKey = ItemThingPrefix & "Road"
-  if getInv(agent, roadKey) == 0:
-    if agent.inventoryWood == 0:
-      let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
+  # After outpost is built, build roads toward home (stockpile-backed).
+  if env.stockpileCount(teamId, ResourceWood) == 0:
+    if agent.inventoryWood > 0:
+      let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, TownCenter)
       if did: return act
-    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, SiegeWorkshop)
+    let (did, act) = controller.findAndHarvestThing(env, agent, agentId, state, TreeObject)
     if did: return act
 
   if hasHome:

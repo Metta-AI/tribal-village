@@ -43,19 +43,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
 
     inc env.stats[id].actionPlant
   else:
-    let roadKey = ItemThingPrefix & "Road"
-    if getInv(agent, roadKey) <= 0:
-      inc env.stats[id].actionInvalid
-      return
-    if env.terrain[targetPos.x][targetPos.y] != Empty:
-      inc env.stats[id].actionInvalid
-      return
-    setInv(agent, roadKey, getInv(agent, roadKey) - 1)
-    env.updateAgentInventoryObs(agent, roadKey)
-    env.terrain[targetPos.x][targetPos.y] = Road
-    env.resetTileColor(targetPos)
-    env.updateObservations(TintLayer, targetPos, 0)
-    inc env.stats[id].actionPlant
+    inc env.stats[id].actionInvalid
 
 proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile

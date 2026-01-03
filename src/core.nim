@@ -195,12 +195,6 @@ proc hasFoodCargo(agent: Thing): bool =
       return true
   false
 
-proc hasStockpileCargo(agent: Thing): bool =
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      return true
-  false
-
 proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadius: int = 8): IVec2 =
   ## Find nearest empty, non-water tile matching fertile flag
   result = ivec2(-1, -1)
