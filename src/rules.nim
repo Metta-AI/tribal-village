@@ -22,7 +22,7 @@ proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec
       continue
     if not env.isEmpty(candidate):
       continue
-    if env.terrain[candidate.x][candidate.y] notin {TerrainEmpty, TerrainSnow}:
+    if env.terrain[candidate.x][candidate.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow}:
       continue
     if isTileFrozen(candidate, env):
       continue
@@ -35,7 +35,7 @@ proc buildRoadToward(controller: Controller, env: Environment, agent: Thing,
   let dirIdx = neighborDirIndex(agent.pos, targetPos)
   let step = agent.pos + orientationToVec(Orientation(dirIdx))
   if agent.orientation == Orientation(dirIdx) and isValidPos(step) and env.isEmpty(step) and
-     not env.hasDoor(step) and env.terrain[step.x][step.y] in {TerrainEmpty, TerrainSnow} and
+     not env.hasDoor(step) and env.terrain[step.x][step.y] in {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow} and
      not isTileFrozen(step, env):
     return saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, BuildIndexRoad.uint8))
   return saveStateAndReturn(controller, agentId, state,
