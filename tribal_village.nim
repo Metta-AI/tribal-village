@@ -1,5 +1,5 @@
 import std/[os, strutils, math],
-  boxy, windy, vmath,
+  boxy, windy, vmath, pixie,
   src/environment, src/common, src/renderer, src/external_actions, src/df_tileset, src/assets
 
 when not defined(emscripten):
@@ -275,6 +275,44 @@ proc display() =
   inc frame
 
 
+const RoofMaskSprites = [
+  "house",
+  "town_center",
+  "barracks",
+  "archery_range",
+  "stable",
+  "siege_workshop",
+  "blacksmith",
+  "market",
+  "dock",
+  "monastery",
+  "university",
+  "castle"
+]
+
+proc isRoofMaskSprite(key: string): bool =
+  for name in RoofMaskSprites:
+    if key == name:
+      return true
+  false
+
+proc buildRoofMask(src: Image, outCount: var int): Image =
+  ## Generate a mask where red roof pixels become white (to be tinted by team).
+  result = newImage(src.width, src.height)
+  outCount = 0
+  let maxY = int(src.height.float * 0.7)
+  for y in 0 ..< src.height:
+    if y > maxY:
+      continue
+    for x in 0 ..< src.width:
+      let c = src[x, y]
+      if c.a <= 0.01:
+        continue
+      let redDominant = c.r > 0.45 and c.r > c.g + 0.12 and c.r > c.b + 0.12
+      if redDominant:
+        result[x, y] = rgba(1.0, 1.0, 1.0, c.a)
+        inc outCount
+
 # Build any missing DF tileset sprites before loading assets.
 generateDfViewAssets()
 
@@ -299,8 +337,16 @@ for path in walkDirRec("data/"):
 
     try:
       let key = path.replace("data/", "").replace(".png", "")
-      bxy.addImage(key, readImage(path))
+      let img = readImage(path)
+      bxy.addImage(key, img)
       rememberAssetKey(key)
+      if isRoofMaskSprite(key):
+        var maskCount = 0
+        let mask = buildRoofMask(img, maskCount)
+        if maskCount > 0:
+          let roofKey = "roofmask." & key
+          bxy.addImage(roofKey, mask)
+          rememberAssetKey(roofKey)
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
 

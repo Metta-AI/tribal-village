@@ -102,6 +102,16 @@ proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
   if infected and overlaySprite.len > 0:
     bxy.drawImage(overlaySprite, pos, angle = 0, scale = 1/200)
 
+proc drawRoofTint(spriteKey: string, pos: Vec2, teamId: int) =
+  ## Apply village color tint to roof mask overlays when available.
+  if teamId < 0 or teamId >= teamColors.len:
+    return
+  let maskKey = "roofmask." & spriteKey
+  if not assetExists(maskKey):
+    return
+  let tint = teamColors[teamId]
+  bxy.drawImage(maskKey, pos, angle = 0, scale = 1/200, tint = tint)
+
 proc drawFloor*() =
   # Draw the floor tiles everywhere first as the base layer
   for x in 0 ..< MapWidth:
@@ -429,6 +439,7 @@ proc drawObjects*() =
             else: ""
 
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected:
             let overlayType = case thing.kind:
               of Armory: "armory"
@@ -444,6 +455,7 @@ proc drawObjects*() =
             of House: mapSpriteKey("house")
             else: mapSpriteKey("town_center")
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
@@ -461,6 +473,7 @@ proc drawObjects*() =
             of Castle: mapSpriteKey("castle")
             else: mapSpriteKey("floor")
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
@@ -477,11 +490,13 @@ proc drawObjects*() =
             of MiningCamp: mapSpriteKey("smelter")
             else: mapSpriteKey("floor")
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
         of Farm:
           bxy.drawImage(mapSpriteKey("farm"), pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(mapSpriteKey("farm"), pos.vec2, thing.teamId)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
@@ -499,11 +514,13 @@ proc drawObjects*() =
             else: mapSpriteKey("bed")
 
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
         of WatchTower:
           bxy.drawImage(mapSpriteKey("watchtower"), pos.vec2, angle = 0, scale = 1/200)
+          drawRoofTint(mapSpriteKey("watchtower"), pos.vec2, thing.teamId)
           if infected:
             drawOverlayIf(true, getInfectionSprite("building"), pos.vec2)
 
