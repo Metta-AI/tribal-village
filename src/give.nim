@@ -11,14 +11,6 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
   let target = env.getThing(targetPos)
   if isNil(target):
-    if env.isEmpty(targetPos) and not env.hasDoor(targetPos) and not isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) and not isTileFrozen(targetPos, env):
-      let carriedThing = firstThingItem(agent)
-      if carriedThing != ItemNone:
-        if placeThingFromKey(env, agent, carriedThing, targetPos):
-          setInv(agent, carriedThing, getInv(agent, carriedThing) - 1)
-          env.updateAgentInventoryObs(agent, carriedThing)
-          inc env.stats[id].actionPut
-          return
     inc env.stats[id].actionInvalid
     return
   if target.kind != Agent or isThingFrozen(target, env):
