@@ -285,9 +285,9 @@ proc init(env: Environment) =
                 pos: worldPos,
                 teamId: teamId
               ))
-            of StructureForgeChar:  # Forge
+            of StructureBlacksmithChar:  # Blacksmith
               env.add(Thing(
-                kind: Forge,
+                kind: Blacksmith,
                 pos: worldPos,
                 teamId: teamId
               ))
@@ -694,7 +694,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
 
     # Reward configuration (only arena_basic_easy_shaped rewards active)
     heartReward: 1.0,      # Arena: heart reward
-    oreReward: 0.1,        # Arena: ore mining reward
+    oreReward: 0.1,        # Arena: gold mining reward
     barReward: 0.8,        # Arena: bar smelting reward
     woodReward: 0.0,       # Disabled - not in arena
     waterReward: 0.0,      # Disabled - not in arena
