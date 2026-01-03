@@ -7,9 +7,3 @@ proc rememberAssetKey*(key: string) =
 
 proc assetExists*(key: string): bool =
   key in assetKeys
-
-proc mapSpriteKey*(name: string): string =
-  name
-
-proc inventorySpriteKey*(name: string): string =
-  name

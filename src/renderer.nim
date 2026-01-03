@@ -179,7 +179,7 @@ proc drawTerrain*() =
       of Empty, Water:
         discard
       if spriteKey.len > 0:
-        bxy.drawImage(mapSpriteKey(spriteKey), pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = 1/200)
       if infected and infectionKey.len > 0:
         drawOverlayIf(true, getInfectionSprite(infectionKey), pos.vec2)
 
@@ -324,9 +324,9 @@ proc drawObjects*() =
           discard
         of TreeObject:
           let treeSprite = if thing.treeVariant == TreeVariantPalm:
-            mapSpriteKey("palm")
+            "palm"
           else:
-            mapSpriteKey("pine")
+            "pine"
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
           let overlayKey = "tree"
           if infected and overlayKey.len > 0:
@@ -353,7 +353,7 @@ proc drawObjects*() =
           )
 
         of Altar:
-          let baseImage = mapSpriteKey("altar")  # Visual centerpiece for each village
+          let baseImage = "altar"  # Visual centerpiece for each village
           let altarTint = getAltarColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
@@ -396,7 +396,7 @@ proc drawObjects*() =
             drawOverlayIf(true, getInfectionSprite("altar"), pos.vec2)
 
         of Mine:
-          let imageName = mapSpriteKey("mine")
+          let imageName = "mine"
           let mineTint = if thing.mineKind == MineStone:
             color(0.78, 0.78, 0.85, 1.0)
           else:
@@ -422,17 +422,17 @@ proc drawObjects*() =
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
 
         of Cow:
-          let cowSprite = if thing.orientation == Orientation.E: mapSpriteKey("cow_r") else: mapSpriteKey("cow")
+          let cowSprite = if thing.orientation == Orientation.E: "cow_r" else: "cow"
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
         of PlantedLantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing
           if lantern.lanternHealthy and lantern.teamId >= 0 and lantern.teamId < teamColors.len:
             let teamColor = teamColors[lantern.teamId]
-            bxy.drawImage(mapSpriteKey("lantern"), pos.vec2, angle = 0, scale = 1/200, tint = teamColor)
+            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = 1/200, tint = teamColor)
           else:
             # Unhealthy or unassigned lantern - draw as gray
-            bxy.drawImage(mapSpriteKey("lantern"), pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
+            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
         else:
           var spriteKey = ""
           var infectionKey = ""
@@ -529,7 +529,7 @@ proc drawObjects*() =
           else:
             discard
           if spriteKey.len > 0:
-            let imageName = mapSpriteKey(spriteKey)
+            let imageName = spriteKey
             bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
             drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected and infectionKey.len > 0:
@@ -584,56 +584,56 @@ proc drawAgentDecorations*() =
       count: int
 
     proc iconForItem(key: ItemKey): string =
-      if key == ItemOre: return inventorySpriteKey("ore")
-      if key == ItemStone: return inventorySpriteKey("blocks")
-      if key == ItemBar: return inventorySpriteKey("bar")
-      if key == ItemWater: return inventorySpriteKey("droplet")
-      if key == ItemWheat: return inventorySpriteKey("bushel")
-      if key == ItemWood: return inventorySpriteKey("wood")
-      if key == ItemSpear: return inventorySpriteKey("spear")
-      if key == ItemLantern: return inventorySpriteKey("lantern")
-      if key == ItemArmor: return inventorySpriteKey("armor")
-      if key == ItemBread: return inventorySpriteKey("bread")
-      if key == ItemMilk: return inventorySpriteKey("liquid_misc")
+      if key == ItemOre: return "ore"
+      if key == ItemStone: return "blocks"
+      if key == ItemBar: return "bar"
+      if key == ItemWater: return "droplet"
+      if key == ItemWheat: return "bushel"
+      if key == ItemWood: return "wood"
+      if key == ItemSpear: return "spear"
+      if key == ItemLantern: return "lantern"
+      if key == ItemArmor: return "armor"
+      if key == ItemBread: return "bread"
+      if key == ItemMilk: return "liquid_misc"
       if key == ItemHearts: return "heart"
       if key.startsWith(ItemThingPrefix):
         let kindName = key[ItemThingPrefix.len .. ^1]
         case kindName
-        of "Armory": return mapSpriteKey("armory")
-        of "Forge": return mapSpriteKey("forge")
-        of "ClayOven": return mapSpriteKey("clay_oven")
-        of "WeavingLoom": return mapSpriteKey("weaving_loom")
-        of "Bed": return mapSpriteKey("bed")
-        of "Chair": return mapSpriteKey("chair")
-        of "Table": return mapSpriteKey("table")
-        of "Statue": return mapSpriteKey("statue")
-        of "WatchTower": return mapSpriteKey("watchtower")
-        of "Barrel": return mapSpriteKey("barrel")
-        of "Mill": return mapSpriteKey("millstone")
-        of "LumberCamp": return mapSpriteKey("cabinet")
-        of "MiningCamp": return mapSpriteKey("smelter")
-        of "Farm": return mapSpriteKey("farm")
-        of "TownCenter": return mapSpriteKey("town_center")
-        of "House": return mapSpriteKey("house")
-        of "Barracks": return mapSpriteKey("barracks")
-        of "ArcheryRange": return mapSpriteKey("archery_range")
-        of "Stable": return mapSpriteKey("stable")
-        of "SiegeWorkshop": return mapSpriteKey("siege_workshop")
-        of "Blacksmith": return mapSpriteKey("blacksmith")
-        of "Market": return mapSpriteKey("market")
-        of "Dock": return mapSpriteKey("dock")
-        of "Monastery": return mapSpriteKey("monastery")
-        of "University": return mapSpriteKey("university")
-        of "Castle": return mapSpriteKey("castle")
-        of "Stump": return mapSpriteKey("stump")
-        of "Mine": return mapSpriteKey("mine")
-        of "Converter": return mapSpriteKey("converter")
-        of "Altar": return mapSpriteKey("altar")
-        of "Spawner": return mapSpriteKey("spawner")
-        of "Wall": return mapSpriteKey("wall")
-        of "PlantedLantern": return mapSpriteKey("lantern")
-        else: return mapSpriteKey("floor")
-      return inventorySpriteKey(key)
+        of "Armory": return "armory"
+        of "Forge": return "forge"
+        of "ClayOven": return "clay_oven"
+        of "WeavingLoom": return "weaving_loom"
+        of "Bed": return "bed"
+        of "Chair": return "chair"
+        of "Table": return "table"
+        of "Statue": return "statue"
+        of "WatchTower": return "watchtower"
+        of "Barrel": return "barrel"
+        of "Mill": return "millstone"
+        of "LumberCamp": return "cabinet"
+        of "MiningCamp": return "smelter"
+        of "Farm": return "farm"
+        of "TownCenter": return "town_center"
+        of "House": return "house"
+        of "Barracks": return "barracks"
+        of "ArcheryRange": return "archery_range"
+        of "Stable": return "stable"
+        of "SiegeWorkshop": return "siege_workshop"
+        of "Blacksmith": return "blacksmith"
+        of "Market": return "market"
+        of "Dock": return "dock"
+        of "Monastery": return "monastery"
+        of "University": return "university"
+        of "Castle": return "castle"
+        of "Stump": return "stump"
+        of "Mine": return "mine"
+        of "Converter": return "converter"
+        of "Altar": return "altar"
+        of "Spawner": return "spawner"
+        of "Wall": return "wall"
+        of "PlantedLantern": return "lantern"
+        else: return "floor"
+      return key
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
