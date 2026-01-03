@@ -179,9 +179,6 @@ type
     StationLoom
     StationOven
     StationTable
-    StationChair
-    StationBed
-    StationStatue
     StationSiegeWorkshop
 
   CraftRecipe* = object
@@ -681,14 +678,7 @@ let
     GameStructureDef(id: "farm", displayName: "Farm",
       buildCost: @["wood x3"],
       uses: "Creates nearby farm tiles for harvesting wheat."),
-    GameStructureDef(id: "bed", displayName: "Bed",
-      buildCost: @["wood"], uses: "Resting furniture."),
-    GameStructureDef(id: "chair", displayName: "Chair",
-      buildCost: @["wood/stone"], uses: "Seating furniture."),
-    GameStructureDef(id: "table", displayName: "Table",
-      buildCost: @["wood/stone"], uses: "Dining/work surface."),
-    GameStructureDef(id: "statue", displayName: "Statue",
-      buildCost: @["stone/metal"], uses: "Decorative/morale structure.")
+    # Furniture structures removed (bed/chair/table/statue).
   ]
 
 proc initCraftRecipes*(): seq[CraftRecipe] =
@@ -698,10 +688,6 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "blocks", StationTable, @[(ItemBoulder, 1)], @[(ItemBlocks, 1)], 6)
   addRecipe(recipes, "door_wood", StationTable, @[(ItemWood, 1)], @[("door", 1)], 6)
   addRecipe(recipes, "floodgate", StationTable, @[(ItemBlocks, 1)], @[("floodgate", 1)], 6)
-  addRecipe(recipes, "bed", StationTable, @[(ItemWood, 2)], @[(thingItem("Bed"), 1)], 10)
-  addRecipe(recipes, "chair", StationTable, @[(ItemWood, 1)], @[(thingItem("Chair"), 1)], 8)
-  addRecipe(recipes, "table", StationTable, @[(ItemWood, 2)], @[(thingItem("Table"), 1)], 10)
-  addRecipe(recipes, "statue", StationTable, @[(ItemBoulder, 2)], @[(thingItem("Statue"), 1)], 12)
   addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
   # AoE2-inspired building costs scaled to ~1/20 (house = 1 wood baseline).
   addRecipe(recipes, "mill", StationTable, @[(ItemWood, 5)], @[(thingItem("Mill"), 1)], 12)
@@ -802,21 +788,6 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "cheese", StationOven, @[(ItemMilk, 1), (ItemWheat, 1)], @[(ItemCheese, 1)], 6)
   addRecipe(recipes, "glob", StationOven, @[(ItemMeat, 1)], @[(ItemGlob, 1)], 6)
   addRecipe(recipes, "liquid_misc", StationOven, @[(ItemWater, 1)], @[("liquid_misc", 1)], 6)
-
-  # Chair: writing and records.
-  addRecipe(recipes, "sheet", StationChair, @[(ItemPlant, 1)], @[(ItemSheet, 1)], 6)
-  addRecipe(recipes, "book", StationChair, @[(ItemSheet, 1)], @[(ItemBook, 1)], 8)
-
-  # Bed: medical support.
-  addRecipe(recipes, "splint", StationBed, @[(ItemWood, 1)], @[("splint", 1)], 6)
-  addRecipe(recipes, "crutch", StationBed, @[(ItemWood, 1)], @[("crutch", 1)], 6)
-  addRecipe(recipes, "orthopedic_cast", StationBed, @[(ItemCloth, 1)], @[("orthopedic_cast", 1)], 6)
-  addRecipe(recipes, "traction_bench", StationBed, @[(ItemWood, 1), (ItemBar, 1)], @[("traction_bench", 1)], 8)
-
-  # Statue: memorial crafts.
-  addRecipe(recipes, "totem", StationStatue, @[(ItemRemains, 1)], @[(ItemTotem, 1)], 6)
-  addRecipe(recipes, "corpsepiece", StationStatue, @[(ItemCorpse, 1)], @[(ItemCorpsePiece, 1)], 6)
-  addRecipe(recipes, "remains", StationStatue, @[(ItemCorpsePiece, 1)], @[(ItemRemains, 1)], 6)
 
   recipes
 
