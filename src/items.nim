@@ -635,6 +635,36 @@ let
     GameStructureDef(id: "town_center", displayName: "Town Center",
       buildCost: @["wood x4", "stone x2"],
       uses: "Primary drop-off and villager spawn."),
+    GameStructureDef(id: "barracks", displayName: "Barracks",
+      buildCost: @["wood x3"],
+      uses: "Trains infantry."),
+    GameStructureDef(id: "archery_range", displayName: "Archery Range",
+      buildCost: @["wood x3"],
+      uses: "Trains archers."),
+    GameStructureDef(id: "stable", displayName: "Stable",
+      buildCost: @["wood x4"],
+      uses: "Trains cavalry."),
+    GameStructureDef(id: "siege_workshop", displayName: "Siege Workshop",
+      buildCost: @["wood x4", "stone x2"],
+      uses: "Trains siege units."),
+    GameStructureDef(id: "blacksmith", displayName: "Blacksmith",
+      buildCost: @["wood x3", "stone x1"],
+      uses: "Upgrades attack and armor."),
+    GameStructureDef(id: "market", displayName: "Market",
+      buildCost: @["wood x3"],
+      uses: "Trades resources for gold."),
+    GameStructureDef(id: "dock", displayName: "Dock",
+      buildCost: @["wood x3"],
+      uses: "Naval access and fishing."),
+    GameStructureDef(id: "monastery", displayName: "Monastery",
+      buildCost: @["wood x2", "gold x2"],
+      uses: "Trains monks."),
+    GameStructureDef(id: "university", displayName: "University",
+      buildCost: @["wood x3", "stone x2"],
+      uses: "Upgrades range."),
+    GameStructureDef(id: "castle", displayName: "Castle",
+      buildCost: @["stone x6", "wood x2"],
+      uses: "Stronghold and elite units."),
     GameStructureDef(id: "watchtower", displayName: "Watch Tower",
       buildCost: @["wood x2"],
       uses: "Outpost for builders; extends territory reach."),
@@ -648,7 +678,7 @@ let
       buildCost: @["wood x2"],
       uses: "Ore/stone storage for mining runs."),
     GameStructureDef(id: "farm", displayName: "Farm",
-      buildCost: @["wood x2", "wheat x1"],
+      buildCost: @["wood x2"],
       uses: "Creates nearby farm tiles for harvesting wheat."),
     GameStructureDef(id: "bed", displayName: "Bed",
       buildCost: @["wood"], uses: "Resting furniture."),
@@ -675,8 +705,19 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "mill", StationTable, @[(ItemWood, 2)], @[(thingItem("Mill"), 1)], 12)
   addRecipe(recipes, "lumber_camp", StationTable, @[(ItemWood, 2)], @[(thingItem("LumberCamp"), 1)], 10)
   addRecipe(recipes, "mining_camp", StationTable, @[(ItemWood, 2)], @[(thingItem("MiningCamp"), 1)], 12)
-  addRecipe(recipes, "farm", StationTable, @[(ItemWood, 2), (ItemWheat, 1)], @[(thingItem("Farm"), 1)], 10)
+  addRecipe(recipes, "farm", StationTable, @[(ItemWood, 2)], @[(thingItem("Farm"), 1)], 10)
   addRecipe(recipes, "house", StationTable, @[(ItemWood, 2)], @[(thingItem("House"), 1)], 10)
+  addRecipe(recipes, "town_center", StationTable, @[(ItemWood, 4), (ItemStone, 2)], @[(thingItem("TownCenter"), 1)], 16)
+  addRecipe(recipes, "barracks", StationTable, @[(ItemWood, 3)], @[(thingItem("Barracks"), 1)], 12)
+  addRecipe(recipes, "archery_range", StationTable, @[(ItemWood, 3)], @[(thingItem("ArcheryRange"), 1)], 12)
+  addRecipe(recipes, "stable", StationTable, @[(ItemWood, 4)], @[(thingItem("Stable"), 1)], 12)
+  addRecipe(recipes, "siege_workshop", StationTable, @[(ItemWood, 4), (ItemStone, 2)], @[(thingItem("SiegeWorkshop"), 1)], 14)
+  addRecipe(recipes, "blacksmith", StationTable, @[(ItemWood, 3), (ItemStone, 1)], @[(thingItem("Blacksmith"), 1)], 12)
+  addRecipe(recipes, "market", StationTable, @[(ItemWood, 3)], @[(thingItem("Market"), 1)], 12)
+  addRecipe(recipes, "dock", StationTable, @[(ItemWood, 3)], @[(thingItem("Dock"), 1)], 12)
+  addRecipe(recipes, "monastery", StationTable, @[(ItemWood, 2), (ItemOre, 2)], @[(thingItem("Monastery"), 1)], 12)
+  addRecipe(recipes, "university", StationTable, @[(ItemWood, 3), (ItemStone, 2)], @[(thingItem("University"), 1)], 14)
+  addRecipe(recipes, "castle", StationTable, @[(ItemStone, 6), (ItemWood, 2)], @[(thingItem("Castle"), 1)], 20)
   addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
   addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
   addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)

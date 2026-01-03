@@ -117,6 +117,87 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
     env.updateAgentInventoryObs(agent, key)
   true
 
+proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: AgentUnitClass,
+                  costs: openArray[tuple[res: StockpileResource, count: int]], cooldown: int): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent.agentId)
+  if building.teamId != teamId:
+    return false
+  if not env.spendStockpile(teamId, costs):
+    return false
+  env.applyUnitClass(agent, unitClass)
+  if agent.inventorySpear > 0:
+    agent.inventorySpear = 0
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+  if unitClass in {UnitManAtArms, UnitKnight, UnitSiege}:
+    agent.inventoryArmor = ArmorPoints
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+  elif agent.inventoryArmor > 0:
+    agent.inventoryArmor = 0
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+  building.cooldown = cooldown
+  true
+
+proc tryBlacksmithUpgrade(env: Environment, agent: Thing, building: Thing): bool =
+  let teamId = getTeamId(agent.agentId)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= env.teamUpgrades.len:
+    return false
+  if env.teamUpgrades[teamId].attackBonus < 2:
+    if env.spendStockpile(teamId, @[(res: ResourceFood, count: 2), (res: ResourceGold, count: 1)]):
+      inc env.teamUpgrades[teamId].attackBonus
+      building.cooldown = 10
+      return true
+  if env.teamUpgrades[teamId].armorBonus < 2:
+    if env.spendStockpile(teamId, @[(res: ResourceFood, count: 2), (res: ResourceStone, count: 1)]):
+      inc env.teamUpgrades[teamId].armorBonus
+      building.cooldown = 10
+      return true
+  false
+
+proc tryUniversityUpgrade(env: Environment, agent: Thing, building: Thing): bool =
+  let teamId = getTeamId(agent.agentId)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= env.teamUpgrades.len:
+    return false
+  if env.teamUpgrades[teamId].rangeBonus < 2:
+    if env.spendStockpile(teamId, @[(res: ResourceFood, count: 2), (res: ResourceStone, count: 2)]):
+      inc env.teamUpgrades[teamId].rangeBonus
+      building.cooldown = 12
+      return true
+  false
+
+proc tryMarketTrade(env: Environment, agent: Thing, building: Thing): bool =
+  let teamId = getTeamId(agent.agentId)
+  if building.teamId != teamId:
+    return false
+  var traded = false
+  for key, count in agent.inventory.pairs:
+    if count <= 0:
+      continue
+    if not isStockpileResourceKey(key):
+      continue
+    let res = stockpileResourceForItem(key)
+    if res == ResourceGold:
+      env.addToStockpile(teamId, ResourceFood, count)
+      setInv(agent, key, 0)
+      env.updateAgentInventoryObs(agent, key)
+      traded = true
+    else:
+      let gained = count div 2
+      if gained > 0:
+        env.addToStockpile(teamId, ResourceGold, gained)
+        setInv(agent, key, count mod 2)
+        env.updateAgentInventoryObs(agent, key)
+        traded = true
+  if traded:
+    building.cooldown = 6
+    return true
+  false
+
 proc dropStump(env: Environment, pos: IVec2, woodCount: int) =
   let stump = Thing(kind: Stump, pos: pos)
   stump.inventory = emptyInventory()
@@ -301,12 +382,24 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   of "PlantedLantern": kind = PlantedLantern
   of "TownCenter": kind = TownCenter
   of "House": kind = House
+  of "Barracks": kind = Barracks
+  of "ArcheryRange": kind = ArcheryRange
+  of "Stable": kind = Stable
+  of "SiegeWorkshop": kind = SiegeWorkshop
+  of "Blacksmith": kind = Blacksmith
+  of "Market": kind = Market
+  of "Dock": kind = Dock
+  of "Monastery": kind = Monastery
+  of "University": kind = University
+  of "Castle": kind = Castle
   else:
     return false
   true
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, TownCenter, House, Stump}:
+  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, TownCenter, House, Barracks,
+                    ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
+                    University, Castle, Stump}:
     return false
   if thing.kind == Skeleton:
     var resourceNeeded = 0
@@ -395,12 +488,15 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.barrelCapacity = BarrelCapacity
   of Mill, LumberCamp, MiningCamp:
     placed.barrelCapacity = BarrelCapacity
+    placed.teamId = getTeamId(agent.agentId)
   of Farm:
     placed.barrelCapacity = BarrelCapacity
+    placed.teamId = getTeamId(agent.agentId)
   of PlantedLantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
-  of TownCenter, House:
+  of TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith,
+     Market, Dock, Monastery, University, Castle:
     placed.teamId = getTeamId(agent.agentId)
   of Altar:
     placed.teamId = getTeamId(agent.agentId)
@@ -498,6 +594,9 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     return false
 
   var remaining = amount
+  let teamId = getTeamId(target.agentId)
+  if teamId >= 0 and teamId < env.teamUpgrades.len:
+    remaining = max(0, remaining - env.teamUpgrades[teamId].armorBonus)
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
@@ -550,9 +649,16 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   let attackOrientation = Orientation(argument)
   let delta = getOrientationDelta(attackOrientation)
-  let hasSpear = agent.inventorySpear > 0
-  let maxRange = if hasSpear: 2 else: 1
   let attackerTeam = getTeamId(agent.agentId)
+  let teamBonus = if attackerTeam >= 0 and attackerTeam < env.teamUpgrades.len: env.teamUpgrades[attackerTeam] else: TeamUpgrades()
+  let baseDamage = agent.attackDamage + teamBonus.attackBonus
+  let damageAmount = max(1, baseDamage)
+  let rangedRange = case agent.unitClass
+    of UnitArcher: ArcherBaseRange + teamBonus.rangeBonus
+    of UnitSiege: SiegeBaseRange + teamBonus.rangeBonus
+    else: 0
+  let hasSpear = agent.inventorySpear > 0 and rangedRange == 0
+  let maxRange = if hasSpear: 2 else: 1
 
   proc tryDamageDoor(pos: IVec2): bool =
     if not env.hasDoor(pos):
@@ -576,6 +682,70 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         for y in 0 ..< MapHeight:
           if env.doorTeams[x][y] == oldTeam.int16:
             env.doorTeams[x][y] = attackerTeam.int16
+
+  if agent.unitClass == UnitMonk:
+    let healPos = agent.pos + ivec2(delta.x, delta.y)
+    let target = env.getThing(healPos)
+    if not isNil(target) and target.kind == Agent and getTeamId(target.agentId) == attackerTeam:
+      discard env.applyAgentHeal(target, 1)
+      env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
+      inc env.stats[id].actionAttack
+    else:
+      inc env.stats[id].actionInvalid
+    return
+
+  if rangedRange > 0:
+    var attackHit = false
+    for distance in 1 .. rangedRange:
+      let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+      if attackPos.x < 0 or attackPos.x >= MapWidth or attackPos.y < 0 or attackPos.y >= MapHeight:
+        continue
+      if tryDamageDoor(attackPos):
+        attackHit = true
+        break
+      let target = env.getThing(attackPos)
+      if isNil(target):
+        continue
+      case target.kind
+      of Tumor:
+        env.grid[attackPos.x][attackPos.y] = nil
+        env.updateObservations(AgentLayer, attackPos, 0)
+        env.updateObservations(AgentOrientationLayer, attackPos, 0)
+        let idx = env.things.find(target)
+        if idx >= 0:
+          env.things.del(idx)
+        agent.reward += env.config.tumorKillReward
+        attackHit = true
+      of Spawner:
+        env.grid[attackPos.x][attackPos.y] = nil
+        let idx = env.things.find(target)
+        if idx >= 0:
+          env.things.del(idx)
+        attackHit = true
+      of Agent:
+        if target.agentId == agent.agentId:
+          continue
+        if getTeamId(target.agentId) == attackerTeam:
+          continue
+        discard env.applyAgentDamage(target, damageAmount, agent)
+        attackHit = true
+      of Altar:
+        if target.teamId == attackerTeam:
+          continue
+        target.hearts = max(0, target.hearts - 1)
+        env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
+        attackHit = true
+        if target.hearts == 0:
+          claimAltar(target)
+      else:
+        discard
+      if attackHit:
+        break
+    if attackHit:
+      inc env.stats[id].actionAttack
+    else:
+      inc env.stats[id].actionInvalid
+    return
 
   # Special combat visuals
   if hasSpear:
@@ -613,7 +783,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       of Agent:
         if target.agentId == agent.agentId: return
         if getTeamId(target.agentId) == getTeamId(agent.agentId): return
-        discard env.applyAgentDamage(target, 1, agent)
+        discard env.applyAgentDamage(target, damageAmount, agent)
         hit = true
       of Altar:
         if target.teamId == attackerTeam:
@@ -679,7 +849,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         continue
       if getTeamId(target.agentId) == getTeamId(agent.agentId):
         continue
-      discard env.applyAgentDamage(target, 1, agent)
+      discard env.applyAgentDamage(target, damageAmount, agent)
       attackHit = true
     of Altar:
       if target.teamId == attackerTeam:
@@ -1061,25 +1231,66 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if env.useStorageBuilding(agent, thing, @[]):
       used = true
   of TownCenter:
-    if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone, ResourceWater}):
+    if thing.teamId == getTeamId(agent.agentId) and
+       env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone, ResourceWater}):
       used = true
   of Mill:
-    if env.useDropoffBuilding(agent, {ResourceFood}):
+    if thing.teamId == getTeamId(agent.agentId) and
+       env.useDropoffBuilding(agent, {ResourceFood}):
       used = true
     elif env.useStorageBuilding(agent, thing, @[ItemWheat]):
       used = true
   of LumberCamp:
-    if env.useDropoffBuilding(agent, {ResourceWood}):
+    if thing.teamId == getTeamId(agent.agentId) and
+       env.useDropoffBuilding(agent, {ResourceWood}):
       used = true
     elif env.useStorageBuilding(agent, thing, @[ItemBranch]):
       used = true
   of MiningCamp:
-    if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
+    if thing.teamId == getTeamId(agent.agentId) and
+       env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
       used = true
     elif env.useStorageBuilding(agent, thing, @[ItemBoulder, ItemRough]):
       used = true
   of Farm:
-    if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
+    if thing.teamId == getTeamId(agent.agentId) and
+       env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant, ItemPlantGrowth]):
+      used = true
+  of Barracks:
+    if thing.cooldown == 0 and env.tryTrainUnit(agent, thing, UnitManAtArms,
+        @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)], 8):
+      used = true
+  of ArcheryRange:
+    if thing.cooldown == 0 and env.tryTrainUnit(agent, thing, UnitArcher,
+        @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)], 8):
+      used = true
+  of Stable:
+    if thing.cooldown == 0 and env.tryTrainUnit(agent, thing, UnitScout,
+        @[(res: ResourceFood, count: 3)], 8):
+      used = true
+  of SiegeWorkshop:
+    if thing.cooldown == 0 and env.tryTrainUnit(agent, thing, UnitSiege,
+        @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], 10):
+      used = true
+  of Monastery:
+    if thing.cooldown == 0 and env.tryTrainUnit(agent, thing, UnitMonk,
+        @[(res: ResourceGold, count: 2)], 10):
+      used = true
+  of Castle:
+    if thing.cooldown == 0 and env.tryTrainUnit(agent, thing, UnitKnight,
+        @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)], 12):
+      used = true
+  of Blacksmith:
+    if thing.cooldown == 0 and env.tryBlacksmithUpgrade(agent, thing):
+      used = true
+  of University:
+    if thing.cooldown == 0 and env.tryUniversityUpgrade(agent, thing):
+      used = true
+  of Market:
+    if thing.cooldown == 0 and env.tryMarketTrade(agent, thing):
+      used = true
+  of Dock:
+    if thing.teamId == getTeamId(agent.agentId) and env.useDropoffBuilding(agent, {ResourceFood}):
       used = true
   else:
     discard

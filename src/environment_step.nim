@@ -101,7 +101,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.tickCooldown(thing, ConverterReadyLayer, true)
     elif thing.kind == Mine:
       env.tickCooldown(thing, MineReadyLayer, true)
-    elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom, Table, Chair, Bed, Statue}:
+    elif thing.kind in {Forge, Armory, ClayOven, WeavingLoom, Table, Chair, Bed, Statue,
+                        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market,
+                        Dock, Monastery, University, Castle, TownCenter, House}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
     elif thing.kind == Spawner:
@@ -361,7 +363,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.pos = respawnPos
           agent.inventory = emptyInventory()
           agent.frozen = 0
-          agent.hp = agent.maxHp
+          env.applyUnitClass(agent, UnitVillager)
           env.terminated[agentId] = 0.0
 
           # Update grid
