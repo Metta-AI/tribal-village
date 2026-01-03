@@ -1,30 +1,156 @@
-import vertexai
-from vertexai.preview.generative_models import ImageGenerationModel
 import argparse
+import os
+from io import BytesIO
+from typing import Optional
 
-def generate_image(project_id: str, location: str, prompt: str, output_file: str):
-    """Generates an image using a prompt."""
-    vertexai.init(project=project_id, location=location)
+from google import genai
+from google.genai.types import GenerateContentConfig, Modality
 
-    model = ImageGenerationModel.from_pretrained("imagegeneration@006")
+try:
+    from PIL import Image
+except ImportError:  # Pillow is optional; we can still save raw bytes.
+    Image = None
 
-    images = model.generate_images(
-        prompt=prompt,
-        number_of_images=1,
+def _ensure_vertex_env(project_id: Optional[str], location: Optional[str]) -> None:
+    if project_id:
+        os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+    if location:
+        os.environ["GOOGLE_CLOUD_LOCATION"] = location
+    os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
+
+def _extract_first_image_bytes(response) -> Optional[bytes]:
+    for candidate in getattr(response, "candidates", []) or []:
+        content = getattr(candidate, "content", None)
+        if not content:
+            continue
+        for part in getattr(content, "parts", []) or []:
+            inline_data = getattr(part, "inline_data", None)
+            if inline_data and getattr(inline_data, "data", None):
+                return inline_data.data
+    return None
+
+def _has_transparency(image) -> bool:
+    if image.mode in ("RGBA", "LA"):
+        return image.getchannel("A").getextrema()[0] < 255
+    return image.info.get("transparency") is not None
+
+def _key_out_background(image, threshold: int):
+    rgba = image.convert("RGBA")
+    w, h = rgba.size
+    samples = [
+        rgba.getpixel((0, 0)),
+        rgba.getpixel((w - 1, 0)),
+        rgba.getpixel((0, h - 1)),
+        rgba.getpixel((w - 1, h - 1)),
+        rgba.getpixel((w // 2, 0)),
+        rgba.getpixel((w // 2, h - 1)),
+    ]
+    bg_r = round(sum(p[0] for p in samples) / len(samples))
+    bg_g = round(sum(p[1] for p in samples) / len(samples))
+    bg_b = round(sum(p[2] for p in samples) / len(samples))
+    new_pixels = []
+    for r, g, b, a in rgba.getdata():
+        if (
+            abs(r - bg_r) <= threshold
+            and abs(g - bg_g) <= threshold
+            and abs(b - bg_b) <= threshold
+        ):
+            new_pixels.append((r, g, b, 0))
+        else:
+            new_pixels.append((r, g, b, a))
+    rgba.putdata(new_pixels)
+    return rgba
+
+def generate_image(
+    prompt: str,
+    output_file: str,
+    model: str,
+    project_id: Optional[str],
+    location: Optional[str],
+    tile_size: Optional[int],
+    key_out_background: bool,
+    key_out_threshold: int,
+) -> None:
+    """Generates an image using Gemini on Vertex AI."""
+    _ensure_vertex_env(project_id, location)
+    client = genai.Client()
+
+    response = client.models.generate_content(
+        model=model,
+        contents=[prompt],
+        config=GenerateContentConfig(response_modalities=[Modality.IMAGE]),
     )
 
-    if images:
-        images[0].save(location=output_file, include_generation_parameters=True)
-        print(f"Image generated and saved to {output_file}")
-    else:
-        print("Could not generate image.")
+    image_bytes = _extract_first_image_bytes(response)
+    if not image_bytes:
+        raise RuntimeError("No image bytes returned by the model.")
+
+    os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
+
+    if Image is None:
+        with open(output_file, "wb") as output:
+            output.write(image_bytes)
+        print("Saved image bytes (install Pillow for resizing/transparency).")
+        return
+
+    image = Image.open(BytesIO(image_bytes))
+    if key_out_background and not _has_transparency(image):
+        image = _key_out_background(image, key_out_threshold)
+
+    if tile_size:
+        image = image.resize((tile_size, tile_size), resample=Image.NEAREST)
+
+    image.save(output_file)
+    print(f"Image generated and saved to {output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project-id", type=str, required=True, help="Your GCP project ID.")
-    parser.add_argument("--location", type=str, default="us-central1", help="The GCP location to use.")
-    parser.add_argument("--prompt", type=str, default="a majestic tribal village at sunset", help="The prompt for image generation.")
-    parser.add_argument("--output-file", type=str, default="generated_image.png", help="The output file name.")
+    parser.add_argument("--project-id", type=str, help="Your GCP project ID.")
+    parser.add_argument("--location", type=str, help="The GCP location to use.")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="gemini-2.5-flash-image",
+        help="Gemini image model ID.",
+    )
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="a simple pixel-art house icon with a transparent background",
+        help="The prompt for image generation.",
+    )
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        default="generated_image.png",
+        help="The output file name.",
+    )
+    parser.add_argument(
+        "--tile-size",
+        type=int,
+        default=None,
+        help="If set, resize the output to this square size using nearest-neighbor.",
+    )
+    parser.add_argument(
+        "--key-out-background",
+        action="store_true",
+        help="If the image has no alpha, key out the dominant border color.",
+    )
+    parser.add_argument(
+        "--key-out-threshold",
+        type=int,
+        default=10,
+        help="Tolerance for background keying (0-255).",
+    )
     args = parser.parse_args()
 
-    generate_image(args.project_id, args.location, args.prompt, args.output_file)
+    generate_image(
+        prompt=args.prompt,
+        output_file=args.output_file,
+        model=args.model,
+        project_id=args.project_id,
+        location=args.location,
+        tile_size=args.tile_size,
+        key_out_background=args.key_out_background,
+        key_out_threshold=args.key_out_threshold,
+    )
