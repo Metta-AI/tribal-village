@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - Core Nim: `tribal_village.nim` (entry), `src/` for modules like `environment.nim`, `ai.nim`, `renderer.nim`,
-  `tribal_village_interface.nim`.
+  `interface.nim`.
 - Python wrapper: `tribal_village_env/` with `environment.py` loading the shared library.
 - Assets/data: `data/`.
 - Packaging/build: `tribal_village.nimble` (for deps/locking), `pyproject.toml`, `setup.py`, `MANIFEST.in`.
@@ -13,7 +13,7 @@
 - Install Nim deps: `nimby sync -g nimby.lock`
 - Run standalone game: `nim r -d:release tribal_village.nim`
 - Build shared lib for Python (matches mettascope flow):
-  `nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/tribal_village_interface.nim` then
+  `nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/interface.nim` then
   place at `tribal_village_env/libtribal_village.so` (rename/symlink on macOS with `.dylib`).
 - Quick Python smoke test: `python -c "from tribal_village_env import TribalVillageEnv; TribalVillageEnv()"`
 - Editable install (after building the lib): `pip install -e .`
