@@ -527,6 +527,47 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
             boulderMask[x][y] = false
       applyBiomeMaskToZone(terrain, biomes, boulderMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         Rock, BiomeSnowType, baseBiomeType, r, 0.15, blendDepth = 1)
+
+      # Place larger square-ish rock chunks (12-14 rocks) within the snow zone.
+      let area = (px1 - px0) * (py1 - py0)
+      var clumpCount = 1
+      if area > 4000: clumpCount = 2
+      if area > 8000: clumpCount = 3
+      if area > 12000: clumpCount = 4
+      clumpCount = min(5, clumpCount + randInclusive(r, 0, 1))
+      for _ in 0 ..< clumpCount:
+        var placedClump = false
+        for attempt in 0 ..< 24:
+          let clumpW = 4
+          let clumpH = 4
+          if px1 - px0 <= clumpW or py1 - py0 <= clumpH:
+            break
+          let startX = randInclusive(r, px0, px1 - clumpW)
+          let startY = randInclusive(r, py0, py1 - clumpH)
+          var candidates: seq[tuple[x, y: int]] = @[]
+          for x in startX ..< startX + clumpW:
+            for y in startY ..< startY + clumpH:
+              if not zoneMask[x][y]:
+                continue
+              if biomes[x][y] != BiomeSnowType:
+                continue
+              if terrain[x][y] in {Water, Tree, Rock}:
+                continue
+              candidates.add((x: x, y: y))
+          if candidates.len < 12:
+            continue
+          for i in countdown(candidates.len - 1, 1):
+            let j = randInclusive(r, 0, i)
+            swap(candidates[i], candidates[j])
+          let target = randInclusive(r, 12, 14)
+          let take = min(target, candidates.len)
+          for i in 0 ..< take:
+            let pos = candidates[i]
+            terrain[pos.x][pos.y] = Rock
+          placedClump = true
+          break
+        if not placedClump:
+          discard
     of BiomeCity:
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
