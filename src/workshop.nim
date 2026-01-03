@@ -50,16 +50,17 @@ proc createVillage*(): Structure =
   ]
 
   let ringDist = radius - 1
+  let ringDistI32 = ringDist.int32
   var ring: seq[IVec2] = @[]
-  ring.add(ivec2(0, -ringDist))
+  ring.add(ivec2(0'i32, -ringDistI32))
   for i in 1 .. ringDist:
-    ring.add(ivec2(i, -ringDist + i))
+    ring.add(ivec2(i.int32, (-ringDist + i).int32))
   for i in 1 .. ringDist:
-    ring.add(ivec2(ringDist - i, i))
+    ring.add(ivec2((ringDist - i).int32, i.int32))
   for i in 1 .. ringDist:
-    ring.add(ivec2(-i, ringDist - i))
+    ring.add(ivec2((-i).int32, (ringDist - i).int32))
   for i in 1 .. (ringDist - 1):
-    ring.add(ivec2(-ringDist + i, -i))
+    ring.add(ivec2((-ringDist + i).int32, (-i).int32))
 
   for idx in 0 ..< min(ring.len, buildingChars.len):
     let pos = center + ring[idx]

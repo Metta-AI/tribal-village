@@ -29,7 +29,7 @@ proc digCost(env: Environment, pos: IVec2): int =
     return 1
   let thing = env.getThing(pos)
   if thing != nil:
-    if thing.kind in {Wall, TreeObject}:
+    if thing.kind in {Wall, Pine, Palm, Stump}:
       return ConnectWallCost
     return int.high
   let terrain = env.terrain[pos.x][pos.y]
@@ -46,7 +46,7 @@ proc digCell(env: Environment, pos: IVec2) =
     return
   let thing = env.getThing(pos)
   if thing != nil:
-    if thing.kind in {Wall, TreeObject}:
+    if thing.kind in {Wall, Pine, Palm, Stump}:
       removeThing(env, thing)
     else:
       return

@@ -641,7 +641,7 @@ proc init(env: Environment) =
           candidates.add(pos)
 
     let toPlace = min(clusterSize - 1, candidates.len)
-  for i in 0 ..< toPlace:
+    for i in 0 ..< toPlace:
       let mine = Thing(
         kind: Mine,
         pos: candidates[i]
