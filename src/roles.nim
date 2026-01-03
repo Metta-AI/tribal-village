@@ -1,4 +1,4 @@
-# This file is included by ai_policies_default.nim
+# This file is included by defaults.nim
 include "hearter"
 include "armorer"
 include "hunter"

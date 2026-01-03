@@ -1,3 +1,3 @@
-include "ai_core"
+include "core"
 
-include "ai_policies"
+include "policies"

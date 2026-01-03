@@ -1,5 +1,5 @@
-import rng_compat
-import ./biome_common
+import entropy
+import ./biome
 
 type
   BiomeCavesConfig* = object
