@@ -497,7 +497,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     if randChance(r, 0.3):
       currentPos.y += sample(r, [-1, 0, 0, 1]).int32  # Bias towards staying straight
 
-  proc buildBranch(start: IVec2, dirY: int): seq[IVec2] =
+  proc buildBranch(start: IVec2, dirY: int, r: var Rand): seq[IVec2] =
     var path: seq[IVec2] = @[]
     var secondaryPos = start
     let maxSteps = max(mapWidth * 2, mapHeight * 2)
@@ -558,8 +558,8 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   if riverPath.len > 0:
     forkUpIdx = riverPath.find(forkUp)
     forkDownIdx = riverPath.find(forkDown)
-    branchUpPath = buildBranch(forkUp, -1)
-    branchDownPath = buildBranch(forkDown, 1)
+    branchUpPath = buildBranch(forkUp, -1, r)
+    branchDownPath = buildBranch(forkDown, 1, r)
 
   # Place water tiles for main river (skip reserved corners)
   for pos in riverPath:
