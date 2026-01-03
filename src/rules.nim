@@ -22,7 +22,7 @@ proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec
       continue
     if not env.isEmpty(candidate):
       continue
-    if env.terrain[candidate.x][candidate.y] != TerrainEmpty:
+    if env.terrain[candidate.x][candidate.y] notin {TerrainEmpty, TerrainSnow}:
       continue
     if isTileFrozen(candidate, env):
       continue
@@ -32,14 +32,11 @@ proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec
 proc buildRoadToward(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
   ## Try to place a road on the next step toward target; otherwise move toward it.
-  let roadKey = ItemThingPrefix & "Road"
-  if getInv(agent, roadKey) <= 0:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
   let dirIdx = neighborDirIndex(agent.pos, targetPos)
   let step = agent.pos + orientationToVec(Orientation(dirIdx))
-  if isValidPos(step) and env.isEmpty(step) and not env.hasDoor(step) and
-     env.terrain[step.x][step.y] == TerrainEmpty and not isTileFrozen(step, env):
-    return saveStateAndReturn(controller, agentId, state, encodeAction(6'u8, dirIdx.uint8))
+  if agent.orientation == Orientation(dirIdx) and isValidPos(step) and env.isEmpty(step) and
+     not env.hasDoor(step) and env.terrain[step.x][step.y] in {TerrainEmpty, TerrainSnow} and
+     not isTileFrozen(step, env):
+    return saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, BuildIndexRoad.uint8))
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
