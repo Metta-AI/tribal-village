@@ -52,7 +52,7 @@ proc rebuildObservations*(env: Environment) =
     let teamValue = getTeamId(agent.agentId) + 1
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-    env.updateObservations(AgentInventoryOreLayer, agent.pos, getInv(agent, ItemOre))
+    env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, ItemGold))
     env.updateObservations(AgentInventoryStoneLayer, agent.pos, getInv(agent, ItemStone))
     env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, ItemBar))
     env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, ItemWater))
@@ -89,7 +89,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
-    of Cow, Skeleton, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, Outpost,
+    of Cow, Skeleton, Armory, ClayOven, WeavingLoom, Bed, Chair, Table, Statue, Outpost,
        Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump, Lantern, TownCenter, House,
        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
        University, Castle:

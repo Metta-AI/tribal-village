@@ -125,9 +125,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(MagmaReadyLayer, thing.pos, 1)
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
       used = true
-  of Forge:
-    if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
-      used = true
   of WeavingLoom:
     if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
       agent.inventoryWheat = agent.inventoryWheat - 1
@@ -189,8 +186,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if env.useStorageBuilding(agent, thing, @[]):
       used = true
   of Blacksmith:
-    if thing.cooldown == 0 and env.tryBlacksmithService(agent, thing):
-      used = true
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationBlacksmith, thing):
+        used = true
+      elif env.tryBlacksmithService(agent, thing):
+        used = true
   of Table:
     if thing.cooldown == 0 and env.tryCraftAtStation(agent, StationTable, thing):
       used = true

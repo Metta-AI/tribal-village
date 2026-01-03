@@ -285,9 +285,9 @@ proc init(env: Environment) =
                 pos: worldPos,
                 teamId: teamId
               ))
-            of StructureForgeChar:  # Forge
+            of StructureBlacksmithChar:  # Blacksmith
               env.add(Thing(
-                kind: Forge,
+                kind: Blacksmith,
                 pos: worldPos,
                 teamId: teamId
               ))

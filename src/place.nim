@@ -57,7 +57,7 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Altar, Spawner, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
-                    University, Castle, Stump, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair,
+                    University, Castle, Stump, Armory, ClayOven, WeavingLoom, Bed, Chair,
                     Table, Statue, Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Wall,
                     Mine, Magma, Lantern}:
     return false
@@ -146,7 +146,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   of Lantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
-  of Armory, Forge, TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith,
+  of Armory, TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith,
      Market, Dock, Monastery, University, Castle, Outpost:
     placed.teamId = getTeamId(agent.agentId)
   of Altar:
