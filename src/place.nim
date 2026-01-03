@@ -139,7 +139,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   else:
     discard
   env.add(placed)
-  if kind == Farm:
+  if kind == Farm or kind == Mill:
     let offsets = [
       ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
       ivec2(-1, 0), ivec2(1, 0),
