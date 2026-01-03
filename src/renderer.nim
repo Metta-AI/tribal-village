@@ -163,7 +163,7 @@ proc drawTerrain*() =
       of Palm:
         spriteKey = "palm"
       of Fertile:
-        spriteKey = "fertile"
+        spriteKey = "fertile_tile"
       of Road:
         spriteKey = "road_tile"
       of Rock:
@@ -191,7 +191,7 @@ proc drawTerrain*() =
       if spriteKey.len > 0:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = 1/200)
       if infected and terrain in {Wheat, Tree, Palm}:
-        drawOverlayIf(true, "frozen", pos.vec2)
+        drawOverlayIf(true, "frozen_tile", pos.vec2)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
@@ -336,7 +336,7 @@ proc drawObjects*() =
           let treeSprite = thingSpriteKey(thing.kind)
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
           if infected:
-            drawOverlayIf(true, "frozen", pos.vec2)
+            drawOverlayIf(true, "frozen_tile", pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
@@ -399,7 +399,7 @@ proc drawObjects*() =
               let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
               bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = altarTint)
           if infected:
-            drawOverlayIf(true, "frozen", pos.vec2)
+            drawOverlayIf(true, "frozen_tile", pos.vec2)
 
         of Mine:
           let imageName = thingSpriteKey(Mine)
@@ -409,7 +409,7 @@ proc drawObjects*() =
             color(1.10, 0.92, 0.55, 1.0)
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
           if infected and hasFrozenOverlay(Mine):
-            drawOverlayIf(true, "frozen", pos.vec2)
+            drawOverlayIf(true, "frozen_tile", pos.vec2)
 
         of Tumor:
           # Map diagonal orientations to cardinal sprites
@@ -445,7 +445,7 @@ proc drawObjects*() =
             bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
             drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected and hasFrozenOverlay(thing.kind):
-            drawOverlayIf(true, "frozen", pos.vec2)
+            drawOverlayIf(true, "frozen_tile", pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -476,7 +476,7 @@ proc drawAgentDecorations*() =
   for agent in env.agents:
     # Frozen overlay
     if agent.frozen > 0:
-      bxy.drawImage("frozen", agent.pos.vec2, angle = 0, scale = 1/200)
+      bxy.drawImage("frozen_tile", agent.pos.vec2, angle = 0, scale = 1/200)
 
     # Health bar (5 segments)
     if agent.maxHp > 0:
