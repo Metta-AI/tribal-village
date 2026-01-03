@@ -56,29 +56,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.applyHealBurst(agent)
         used = true
       else:
-        let carriedThing = firstThingItem(agent)
-        if carriedThing != ItemNone:
-          if placeThingFromKey(env, agent, carriedThing, targetPos):
-            setInv(agent, carriedThing, getInv(agent, carriedThing) - 1)
-            env.updateAgentInventoryObs(agent, carriedThing)
-            used = true
-        if not used and agent.inventoryWood > 0 and agent.inventoryWater == 0:
-          agent.inventoryWood = max(0, agent.inventoryWood - 1)
-          env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-          env.add(Thing(
-            kind: Barrel,
-            pos: targetPos,
-            barrelCapacity: BarrelCapacity
-          ))
-          used = true
-        if not used and agent.inventoryWater > 0:
+        if agent.inventoryWater > 0:
           agent.inventoryWater = max(0, agent.inventoryWater - 1)
           env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
           env.terrain[targetPos.x][targetPos.y] = Fertile
           env.resetTileColor(targetPos)
           env.updateObservations(TintLayer, targetPos, 0)
           used = true
-        # Building placement is handled by placing carried thing items.
     of Bridge, Fertile, Road, Grass, Dune, Sand, Snow:
       used = false
 
@@ -295,4 +279,3 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionUse
   else:
     inc env.stats[id].actionInvalid
-

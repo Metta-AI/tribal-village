@@ -106,6 +106,13 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
   for recipe in CraftRecipes:
     if recipe.station != station:
       continue
+    var hasThingOutput = false
+    for output in recipe.outputs:
+      if output.key.startsWith(ItemThingPrefix):
+        hasThingOutput = true
+        break
+    if hasThingOutput:
+      continue
     if not canApplyRecipe(env, agent, recipe):
       continue
     env.applyRecipe(agent, recipe)

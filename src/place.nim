@@ -55,9 +55,11 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
     discard
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, TownCenter, House, Barracks,
+  if thing.kind in {Agent, Tumor, TreeObject, Cow, Altar, Spawner, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
-                    University, Castle, Stump}:
+                    University, Castle, Stump, Armory, Forge, ClayOven, WeavingLoom, Bed, Chair,
+                    Table, Statue, Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Wall,
+                    Mine, Converter, PlantedLantern}:
     return false
   if thing.kind == Skeleton:
     var resourceNeeded = 0
@@ -120,7 +122,7 @@ proc firstThingItem(agent: Thing): ItemKey =
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
-    if env.terrain[pos.x][pos.y] != Empty:
+    if env.terrain[pos.x][pos.y] notin {Empty, Snow}:
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)
