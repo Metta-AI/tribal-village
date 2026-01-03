@@ -63,19 +63,6 @@ proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
   return if isBuildingFrozen(pos, env): 1.0 else: 0.0
 
-proc getInfectionSprite*(entityType: string): string =
-  ## Get the appropriate infection overlay sprite for static environmental objects only
-  case entityType:
-  of "building", "mine", "converter", "altar", "armory", "forge", "clay_oven", "weaving_loom":
-    return "frozen"  # Ice cube overlay for static buildings
-  of "terrain", "wheat", "tree":
-    return "frozen"  # Ice cube overlay for terrain features (walls excluded)
-  of "agent", "tumor", "spawner", "wall":
-    return ""  # No overlays for dynamic entities and walls
-  else:
-    return ""  # Default: no overlay
-
-
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
     mouseDownPos = logicalMousePos(window)
@@ -112,6 +99,29 @@ proc drawRoofTint(spriteKey: string, pos: Vec2, teamId: int) =
   let tint = teamColors[teamId]
   bxy.drawImage(maskKey, pos, angle = 0, scale = 1/200, tint = tint)
 
+proc toSnakeCase(name: string): string =
+  result = ""
+  for i, ch in name:
+    if ch.isUpperAscii:
+      if i > 0:
+        result.add('_')
+      result.add(ch.toLowerAscii)
+    else:
+      result.add(ch)
+
+proc thingSpriteKey(kind: ThingKind): string =
+  toSnakeCase($kind)
+
+proc hasFrozenOverlay(kind: ThingKind): bool =
+  case kind
+  of Mine, Converter, Altar, Armory, Forge, ClayOven, WeavingLoom,
+     Bed, Chair, Table, Statue, Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump,
+     TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
+     Monastery, University, Castle:
+    true
+  else:
+    false
+
 proc drawFloor*() =
   # Draw the floor tiles everywhere first as the base layer
   for x in 0 ..< MapWidth:
@@ -139,19 +149,15 @@ proc drawTerrain*() =
       if terrain == Water:
         continue
       var spriteKey = ""
-      var infectionKey = ""
       case terrain
       of Bridge:
         spriteKey = "bridge"
       of Wheat:
         spriteKey = "wheat"
-        infectionKey = "wheat"
       of Tree:
         spriteKey = "pine"
-        infectionKey = "tree"
       of Palm:
         spriteKey = "palm"
-        infectionKey = "tree"
       of Fertile:
         spriteKey = "fertile"
       of Road:
@@ -180,8 +186,8 @@ proc drawTerrain*() =
         discard
       if spriteKey.len > 0:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = 1/200)
-      if infected and infectionKey.len > 0:
-        drawOverlayIf(true, getInfectionSprite(infectionKey), pos.vec2)
+      if infected and terrain in {Wheat, Tree, Palm}:
+        drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
@@ -328,9 +334,8 @@ proc drawObjects*() =
           else:
             "pine"
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
-          let overlayKey = "tree"
-          if infected and overlayKey.len > 0:
-            drawOverlayIf(true, getInfectionSprite(overlayKey), pos.vec2)
+          if infected:
+            drawOverlayIf(true, "frozen", pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
@@ -393,18 +398,17 @@ proc drawObjects*() =
               let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
               bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = altarTint)
           if infected:
-            drawOverlayIf(true, getInfectionSprite("altar"), pos.vec2)
+            drawOverlayIf(true, "frozen", pos.vec2)
 
         of Mine:
-          let imageName = "mine"
+          let imageName = thingSpriteKey(Mine)
           let mineTint = if thing.mineKind == MineStone:
             color(0.78, 0.78, 0.85, 1.0)
           else:
             color(1.10, 0.92, 0.55, 1.0)
           bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
-          let overlayKey = "mine"
-          if infected and overlayKey.len > 0:
-            drawOverlayIf(true, getInfectionSprite(overlayKey), pos.vec2)
+          if infected and hasFrozenOverlay(Mine):
+            drawOverlayIf(true, "frozen", pos.vec2)
 
         of Tumor:
           # Map diagonal orientations to cardinal sprites
@@ -434,106 +438,13 @@ proc drawObjects*() =
             # Unhealthy or unassigned lantern - draw as gray
             bxy.drawImage("lantern", pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
         else:
-          var spriteKey = ""
-          var infectionKey = ""
-          case thing.kind
-          of Converter:
-            spriteKey = "converter"
-            infectionKey = "converter"
-          of Spawner:
-            spriteKey = "spawner"
-            infectionKey = "spawner"
-          of Skeleton:
-            spriteKey = "skeleton"
-          of Armory:
-            spriteKey = "armory"
-            infectionKey = "armory"
-          of Forge:
-            spriteKey = "forge"
-            infectionKey = "forge"
-          of ClayOven:
-            spriteKey = "clay_oven"
-            infectionKey = "clay_oven"
-          of WeavingLoom:
-            spriteKey = "weaving_loom"
-            infectionKey = "weaving_loom"
-          of Bed:
-            spriteKey = "bed"
-            infectionKey = "building"
-          of Chair:
-            spriteKey = "chair"
-            infectionKey = "building"
-          of Table:
-            spriteKey = "table"
-            infectionKey = "building"
-          of Statue:
-            spriteKey = "statue"
-            infectionKey = "building"
-          of Outpost:
-            spriteKey = "outpost"
-            infectionKey = "building"
-          of Barrel:
-            spriteKey = "barrel"
-            infectionKey = "building"
-          of Mill:
-            spriteKey = "millstone"
-            infectionKey = "building"
-          of LumberCamp:
-            spriteKey = "cabinet"
-            infectionKey = "building"
-          of MiningCamp:
-            spriteKey = "smelter"
-            infectionKey = "building"
-          of Farm:
-            spriteKey = "farm"
-            infectionKey = "building"
-          of Stump:
-            spriteKey = "stump"
-            infectionKey = "building"
-          of TownCenter:
-            spriteKey = "town_center"
-            infectionKey = "building"
-          of House:
-            spriteKey = "house"
-            infectionKey = "building"
-          of Barracks:
-            spriteKey = "barracks"
-            infectionKey = "building"
-          of ArcheryRange:
-            spriteKey = "archery_range"
-            infectionKey = "building"
-          of Stable:
-            spriteKey = "stable"
-            infectionKey = "building"
-          of SiegeWorkshop:
-            spriteKey = "siege_workshop"
-            infectionKey = "building"
-          of Blacksmith:
-            spriteKey = "blacksmith"
-            infectionKey = "building"
-          of Market:
-            spriteKey = "market"
-            infectionKey = "building"
-          of Dock:
-            spriteKey = "dock"
-            infectionKey = "building"
-          of Monastery:
-            spriteKey = "monastery"
-            infectionKey = "building"
-          of University:
-            spriteKey = "university"
-            infectionKey = "building"
-          of Castle:
-            spriteKey = "castle"
-            infectionKey = "building"
-          else:
-            discard
+          let spriteKey = thingSpriteKey(thing.kind)
           if spriteKey.len > 0:
             let imageName = spriteKey
             bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
             drawRoofTint(imageName, pos.vec2, thing.teamId)
-          if infected and infectionKey.len > 0:
-            drawOverlayIf(true, getInfectionSprite(infectionKey), pos.vec2)
+          if infected and hasFrozenOverlay(thing.kind):
+            drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -584,57 +495,23 @@ proc drawAgentDecorations*() =
       count: int
 
     proc iconForItem(key: ItemKey): string =
-      if key == ItemOre: return "ore"
-      if key == ItemStone: return "blocks"
-      if key == ItemBar: return "bar"
-      if key == ItemWater: return "droplet"
-      if key == ItemWheat: return "bushel"
-      if key == ItemWood: return "wood"
-      if key == ItemSpear: return "spear"
-      if key == ItemLantern: return "lantern"
-      if key == ItemArmor: return "armor"
-      if key == ItemBread: return "bread"
-      if key == ItemMilk: return "liquid_misc"
-      if key == ItemHearts: return "heart"
-      if key.startsWith(ItemThingPrefix):
-        let kindName = key[ItemThingPrefix.len .. ^1]
-        case kindName
-        of "Armory": return "armory"
-        of "Forge": return "forge"
-        of "ClayOven": return "clay_oven"
-        of "WeavingLoom": return "weaving_loom"
-        of "Bed": return "bed"
-        of "Chair": return "chair"
-        of "Table": return "table"
-        of "Statue": return "statue"
-        of "Outpost": return "outpost"
-        of "Wall": return "wall"
-        of "Road": return "road"
-        of "Barrel": return "barrel"
-        of "Mill": return "millstone"
-        of "LumberCamp": return "cabinet"
-        of "MiningCamp": return "smelter"
-        of "Farm": return "farm"
-        of "TownCenter": return "town_center"
-        of "House": return "house"
-        of "Barracks": return "barracks"
-        of "ArcheryRange": return "archery_range"
-        of "Stable": return "stable"
-        of "SiegeWorkshop": return "siege_workshop"
-        of "Blacksmith": return "blacksmith"
-        of "Market": return "market"
-        of "Dock": return "dock"
-        of "Monastery": return "monastery"
-        of "University": return "university"
-        of "Castle": return "castle"
-        of "Stump": return "stump"
-        of "Mine": return "mine"
-        of "Converter": return "converter"
-        of "Altar": return "altar"
-        of "Spawner": return "spawner"
-        of "PlantedLantern": return "lantern"
-        else: return "floor"
-      return key
+      case key
+      of ItemOre: "ore"
+      of ItemStone: "blocks"
+      of ItemWater: "droplet"
+      of ItemWheat: "bushel"
+      of ItemWood: "wood"
+      of ItemSpear: "spear"
+      of ItemLantern: "lantern"
+      of ItemArmor: "armor"
+      of ItemBread: "bread"
+      of ItemMilk: "liquid_misc"
+      of ItemHearts: "heart"
+      else:
+        if key.startsWith(ItemThingPrefix):
+          let kindName = key[ItemThingPrefix.len .. ^1]
+          return toSnakeCase(kindName)
+        return key
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
