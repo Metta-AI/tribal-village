@@ -29,6 +29,19 @@ proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec
     return candidate
   return ivec2(-1, -1)
 
+proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                    state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8] =
+  if index < 0 or index >= BuildChoices.len:
+    return (false, 0'u8)
+  let key = BuildChoices[index]
+  if not env.canAffordBuild(teamId, key):
+    return (false, 0'u8)
+  let buildPos = findAdjacentBuildTile(env, agent.pos, orientationToVec(agent.orientation))
+  if buildPos.x < 0:
+    return (false, 0'u8)
+  return (true, saveStateAndReturn(controller, agentId, state,
+    encodeAction(8'u8, index.uint8)))
+
 proc buildRoadToward(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
   ## Try to place a road on the next step toward target; otherwise move toward it.

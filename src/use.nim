@@ -34,18 +34,18 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
     of Wheat:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward) or
-        env.tryGiveFirstAndClear(agent, targetPos, [ItemSeeds, ItemPlant])
+        env.tryGiveFirstAndClear(agent, targetPos, [ItemPlant])
     of Tree, Palm:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
         env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
     of Rock, Stalagmite:
-      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemBoulder, ItemRock])
+      used = env.tryGiveAndClear(agent, targetPos, ItemRock)
     of Gem:
       used = env.tryGiveAndClear(agent, targetPos, ItemRock)
     of Bush, Cactus:
-      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemSeeds, ItemPlant])
+      used = env.tryGiveAndClear(agent, targetPos, ItemPlant)
     of Animal:
-      used = env.tryGiveFirstAndClear(agent, targetPos, [ItemMeat, ItemCorpse, ItemEgg])
+      used = env.tryGiveAndClear(agent, targetPos, ItemFish)
     of Empty:
       if env.hasDoor(targetPos):
         used = false
@@ -158,18 +158,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         agent.reward += env.config.foodReward
         used = true
   of Cow:
-    if agent.inventorySpear > 0 and getInv(agent, ItemMilk) == 0:
-      if env.giveItem(agent, ItemMeat):
+    if agent.inventorySpear > 0:
+      if env.giveItem(agent, ItemFish):
         agent.inventorySpear = max(0, agent.inventorySpear - 1)
         env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
         env.grid[thing.pos.x][thing.pos.y] = nil
         let idx = env.things.find(thing)
         if idx >= 0:
           env.things.del(idx)
-        used = true
-    elif thing.cooldown == 0:
-      if env.giveItem(agent, ItemMilk):
-        thing.cooldown = CowMilkCooldown
         used = true
   of Altar:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
@@ -210,11 +206,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
         used = true
-      if not used and env.useStorageBuilding(agent, thing, @[ItemBoulder]):
+      if not used and env.useStorageBuilding(agent, thing, @[ItemRock]):
         used = true
   of Farm:
     if thing.teamId == getTeamId(agent.agentId):
-      if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemSeeds, ItemPlant]):
+      if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemPlant]):
         used = true
   of Dock:
     if thing.teamId == getTeamId(agent.agentId):

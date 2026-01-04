@@ -380,7 +380,7 @@ proc drawObjects*() =
           # Hearts row uses the same small icons/spacing as agent inventory overlays.
           let heartAnchor = vec2(-0.48, -0.64)
           let heartStep = 0.12
-          let heartScale: float32 = 1/80
+          let heartScale: float32 = 1/320
           let amt = max(0, thing.hearts)
           if amt == 0:
             let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
@@ -427,7 +427,7 @@ proc drawObjects*() =
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
 
         of Cow:
-          let cowSprite = if thing.orientation == Orientation.E: "cow_r" else: "cow"
+          let cowSprite = if thing.orientation == Orientation.E: "cow.r" else: "cow"
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
         of Lantern:
           # Draw lantern using a simple image with team color tint
@@ -507,7 +507,6 @@ proc drawAgentDecorations*() =
       of ItemArmor: "armor"
       of ItemBread: "bread"
       of ItemRock: "rock"
-      of ItemMilk: "liquid_misc"
       of ItemHearts: "heart"
       else:
         if key.startsWith(ItemThingPrefix):
