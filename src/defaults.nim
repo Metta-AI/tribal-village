@@ -11,8 +11,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Initialize agent role if needed (per-house pattern with one guaranteed Hearter)
   if agentId notin controller.agents:
     let role =
-      if agentId mod MapAgentsPerHouse == 0:
-        Hearter
+      case agentId mod MapAgentsPerHouse
+      of 0: Hearter
+      of 1: Armorer
+      of 2: Hunter
+      of 3: Baker
+      of 4: Lighter
+      of 5: Farmer
       else:
         sample(controller.rng, [Hearter, Armorer, Hunter, Baker, Lighter, Farmer])
 
