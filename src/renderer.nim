@@ -427,7 +427,7 @@ proc drawObjects*() =
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
 
         of Cow:
-          let cowSprite = if thing.orientation == Orientation.E: "cow_r" else: "cow"
+          let cowSprite = if thing.orientation == Orientation.E: "cow.r" else: "cow"
           bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
         of Lantern:
           # Draw lantern using a simple image with team color tint
