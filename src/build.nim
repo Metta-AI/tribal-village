@@ -1,4 +1,4 @@
-proc buildCostsForKey(key: ItemKey): seq[tuple[res: StockpileResource, count: int]] =
+proc buildCostsForKey*(key: ItemKey): seq[tuple[res: StockpileResource, count: int]] =
   for recipe in CraftRecipes:
     for output in recipe.outputs:
       if output.key != key:
@@ -39,8 +39,29 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = [
 ]
 
 const
+  BuildIndexHouse* = 0
+  BuildIndexTownCenter* = 1
+  BuildIndexMill* = 2
+  BuildIndexLumberCamp* = 3
+  BuildIndexMiningCamp* = 4
+  BuildIndexFarm* = 5
+  BuildIndexDock* = 6
+  BuildIndexMarket* = 7
+  BuildIndexBarracks* = 8
+  BuildIndexArcheryRange* = 9
+  BuildIndexStable* = 10
+  BuildIndexSiegeWorkshop* = 11
+  BuildIndexCastle* = 12
   BuildIndexOutpost* = 13
+  BuildIndexWall* = 14
   BuildIndexRoad* = 15
+  BuildIndexBlacksmith* = 16
+  BuildIndexMonastery* = 17
+  BuildIndexUniversity* = 18
+  BuildIndexArmory* = 19
+  BuildIndexClayOven* = 20
+  BuildIndexWeavingLoom* = 21
+  BuildIndexBarrel* = 22
 
 proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
                       choices: array[ActionArgumentCount, ItemKey]) =
