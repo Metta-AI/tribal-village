@@ -169,6 +169,11 @@ type
     outputs*: seq[ItemAmount]
     cooldown*: int
 
+const
+  ## DF tileset overrides are currently disabled; keep the catalog empty so
+  ## asset generation becomes a no-op without extra build flags.
+  DfTokenCatalog*: seq[DfTokenDef] = @[]
+
 proc addRecipe*(recipes: var seq[CraftRecipe], id: string, station: CraftStation,
                 inputs, outputs: seq[ItemAmount], cooldown: int = 8) =
   recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: cooldown))
