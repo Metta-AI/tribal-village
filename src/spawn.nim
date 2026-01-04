@@ -227,7 +227,7 @@ proc init(env: Environment) =
       teamColors.add(villageColor)
       let teamId = teamColors.len - 1
 
-      # Spawn agent slots for this house (one active, the rest dormant)
+      # Spawn agent slots for this house (six active, the rest dormant)
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
       let baseAgentId = teamId * MapAgentsPerHouse
 
@@ -356,6 +356,7 @@ proc init(env: Environment) =
       if agentsForThisHouse > 0:
         # Get nearby positions around the altar
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
+        let initialActive = min(6, agentsForThisHouse)
 
         for j in 0 ..< agentsForThisHouse:
           let agentId = baseAgentId + j
@@ -366,9 +367,9 @@ proc init(env: Environment) =
           var agentPos = ivec2(-1, -1)
           var frozen = 999999
           var hp = 0
-          if j == 0:
-            if nearbyPositions.len > 0:
-              agentPos = nearbyPositions[0]
+          if j < initialActive:
+            if j < nearbyPositions.len:
+              agentPos = nearbyPositions[j]
             else:
               agentPos = r.randomEmptyPos(env)
             frozen = 0
