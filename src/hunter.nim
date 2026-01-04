@@ -27,8 +27,8 @@ proc decideHunter(controller: Controller, env: Environment, agent: Thing,
   let (didCow, actCow) = controller.findAndUseBuilding(env, agent, agentId, state, Cow)
   if didCow: return actCow
 
-  # Priority 3: Hunt wildlife for meat/leather when available
-  if getInv(agent, ItemMeat) < MapObjectAgentMaxInventory:
+  # Priority 3: Hunt wildlife for food when available
+  if getInv(agent, ItemFish) < MapObjectAgentMaxInventory:
     let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Animal)
     if did: return act
 
