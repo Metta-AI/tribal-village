@@ -1,23 +1,19 @@
 proc decideBaker(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): uint8 =
-  # Priority 1: If carrying food, deliver to teammates needing it
-  if agent.inventoryBread > 0:
-    let teammate = findNearestTeammateNeeding(env, agent, NeedBread)
-    if teammate != nil:
-      let dx = abs(teammate.pos.x - agent.pos.x)
-      let dy = abs(teammate.pos.y - agent.pos.y)
-      if max(dx, dy) == 1'i32:
-        return saveStateAndReturn(controller, agentId, state,
-          encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8))
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
+  let teamId = getTeamId(agent.agentId)
 
-  # Priority 2: Craft bread if we have wheat
-  if agent.inventoryWheat > 0:
-    let (did, act) = controller.findAndUseBuilding(env, agent, agentId, state, ClayOven)
-    if did: return act
+  # AoE mining cycle: collect gold/stone and drop off at mining camps / town centers.
+  if agent.inventoryGold > 0 or agent.inventoryStone > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
 
-  # Priority 3: Collect wheat
-  let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
-  if did: return act
+  # Work mines when capacity allows.
+  if agent.inventoryGold + agent.inventoryStone < ResourceCarryCapacity:
+    let mine = env.findNearestThingSpiral(state, Mine, controller.rng)
+    if mine != nil:
+      return controller.useOrMove(env, agent, agentId, state, mine.pos)
+
   return controller.moveNextSearch(env, agent, agentId, state)
