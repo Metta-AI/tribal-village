@@ -110,16 +110,6 @@ proc removeThing(env: Environment, thing: Thing) =
   if thing.kind == Altar and altarColors.hasKey(thing.pos):
     altarColors.del(thing.pos)
 
-proc firstThingItem(agent: Thing): ItemKey =
-  var keys: seq[ItemKey] = @[]
-  for key, count in agent.inventory.pairs:
-    if count > 0 and key.startsWith(ItemThingPrefix):
-      keys.add(key)
-  if keys.len == 0:
-    return ItemNone
-  keys.sort()
-  keys[0]
-
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
     if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow}:
