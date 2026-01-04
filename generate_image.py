@@ -161,6 +161,11 @@ if __name__ == "__main__":
         help="Skip outputs that already exist when batch generating.",
     )
     parser.add_argument(
+        "--only-missing",
+        action="store_true",
+        help="Only generate outputs that are missing in the output directory.",
+    )
+    parser.add_argument(
         "--start-index",
         type=int,
         default=0,
@@ -202,6 +207,16 @@ if __name__ == "__main__":
         end_index = len(entries)
         if args.max_items is not None:
             end_index = min(end_index, start_index + max(0, args.max_items))
+        if args.only_missing:
+            entries = [
+                (filename, prompt)
+                for filename, prompt in entries
+                if not os.path.exists(os.path.join(output_dir, filename))
+            ]
+            start_index = 0
+            end_index = len(entries)
+            if args.max_items is not None:
+                end_index = min(end_index, max(0, args.max_items))
         for filename, prompt in entries[start_index:end_index]:
             out_path = os.path.join(output_dir, filename)
             if args.skip_existing and os.path.exists(out_path):
