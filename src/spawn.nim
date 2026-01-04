@@ -229,7 +229,7 @@ proc init(env: Environment) =
 
       # Spawn agent slots for this house (one active, the rest dormant)
       let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
-      let baseAgentId = i * MapAgentsPerHouse
+      let baseAgentId = teamId * MapAgentsPerHouse
 
       # Add the altar with initial hearts and house bounds
       let altar = Thing(
@@ -361,7 +361,7 @@ proc init(env: Environment) =
           let agentId = baseAgentId + j
 
           # Store the village color for this agent (shared by all agents of the house)
-          agentVillageColors[agentId] = teamColors[getTeamId(agentId)]
+          agentVillageColors[agentId] = teamColors[teamId]
 
           var agentPos = ivec2(-1, -1)
           var frozen = 999999
