@@ -19,20 +19,10 @@ const
   ItemLantern* = "lantern"
   ItemArmor* = "armor"
   ItemBread* = "bread"
-  ItemMilk* = "milk"
-  ItemBoulder* = "boulder"
-  ItemBlocks* = "blocks"
   ItemPlant* = "plant"
-  ItemSeeds* = "seeds"
-  ItemMeat* = "meat"
   ItemFish* = "fish"
-  ItemCloth* = "cloth"
-  ItemCheese* = "cheese"
   ItemRock* = "rock"
-  ItemBook* = "book"
   ItemBranch* = "branch"
-  ItemCorpse* = "corpse"
-  ItemEgg* = "egg"
   ItemHearts* = "hearts"
   ItemThingPrefix* = "thing:"
 
@@ -59,8 +49,7 @@ type
 
 proc isFoodItem*(key: ItemKey): bool =
   case key
-  of ItemWheat, ItemBread, ItemMeat, ItemFish, ItemPlant,
-     ItemMilk, ItemCheese, ItemEgg:
+  of ItemWheat, ItemBread, ItemFish, ItemPlant:
     true
   else:
     false
@@ -202,7 +191,6 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   var recipes: seq[CraftRecipe] = @[]
 
   # Table/workbench: wood and stone crafts.
-  addRecipe(recipes, "blocks", StationTable, @[(ItemBoulder, 1)], @[(ItemBlocks, 1)], 6)
   addRecipe(recipes, "door_wood", StationTable, @[(ItemWood, 1)], @[("door", 1)], 6)
   addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
   # AoE2-inspired building costs scaled to ~1/20 (house = 1 wood baseline).
@@ -237,9 +225,6 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "animaltrap", StationTable, @[(ItemWood, 1)], @[("animaltrap", 1)], 6)
   addRecipe(recipes, "armorstand_wood", StationTable, @[(ItemWood, 2)], @[("armorstand", 1)], 8)
   addRecipe(recipes, "weaponrack_wood", StationTable, @[(ItemWood, 2)], @[("weaponrack", 1)], 8)
-  addRecipe(recipes, "coffin", StationTable, @[(ItemBoulder, 2)], @[("coffin", 1)], 10)
-  addRecipe(recipes, "rock", StationTable, @[(ItemBoulder, 1)], @[(ItemRock, 1)], 4)
-
   # Blacksmith: metalworking and mechanisms.
   addRecipe(recipes, "weapon", StationBlacksmith, @[(ItemBar, 1)], @[("weapon", 1)], 8)
   addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, 1)], 10)
@@ -250,18 +235,11 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
   addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
 
-  # Armory: leather/cloth gear.
-  addRecipe(recipes, "pants", StationArmory, @[(ItemCloth, 1)], @[("pants", 1)], 6)
-  addRecipe(recipes, "backpack", StationArmory, @[(ItemCloth, 1)], @[("backpack", 1)], 6)
+  # Armory: wood gear.
   addRecipe(recipes, "shield_wood", StationArmory, @[(ItemWood, 1)], @[("shield", 1)], 6)
 
-  # Loom: fiber processing.
-  addRecipe(recipes, "cloth", StationLoom, @[(ItemPlant, 1)], @[(ItemCloth, 1)], 6)
-
-  # Oven: food, drink, and milling.
-  addRecipe(recipes, "bread_milk", StationOven, @[(ItemMilk, 1), (ItemWheat, 1)], @[(ItemBread, 2)], 8)
-  addRecipe(recipes, "cheese", StationOven, @[(ItemMilk, 1), (ItemWheat, 1)], @[(ItemCheese, 1)], 6)
-  addRecipe(recipes, "liquid_misc", StationOven, @[(ItemWater, 1)], @[("liquid_misc", 1)], 6)
+  # Oven: food.
+  addRecipe(recipes, "bread", StationOven, @[(ItemWheat, 1)], @[(ItemBread, 1)], 6)
 
   recipes
 
