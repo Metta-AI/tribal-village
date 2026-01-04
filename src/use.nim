@@ -39,9 +39,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
         env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
     of Rock, Stalagmite:
-      used = env.tryGiveAndClear(agent, targetPos, ItemRock)
+      if env.giveItem(agent, ItemStone):
+        used = true
     of Gem:
-      used = env.tryGiveAndClear(agent, targetPos, ItemRock)
+      if env.giveItem(agent, ItemGold):
+        used = true
     of Bush, Cactus:
       used = env.tryGiveAndClear(agent, targetPos, ItemPlant)
     of Animal:

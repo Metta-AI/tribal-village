@@ -167,9 +167,9 @@ proc drawTerrain*() =
       of Road:
         spriteKey = "road_tile"
       of Rock:
-        spriteKey = "rock"
+        spriteKey = "stone"
       of Gem:
-        spriteKey = "rock"
+        spriteKey = "gold"
       of Bush:
         spriteKey = "bush"
       of Animal:
@@ -497,7 +497,7 @@ proc drawAgentDecorations*() =
 
     proc iconForItem(key: ItemKey): string =
       case key
-      of ItemGold: "bar"
+      of ItemGold: "gold"
       of ItemStone: "stone"
       of ItemWater: "droplet"
       of ItemWheat: "bushel"
