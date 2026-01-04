@@ -28,23 +28,15 @@ proc decideHearter(controller: Controller, env: Environment, agent: Thing,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, nextSearchPos, controller.rng).uint8))
 
   else:
-    var bestMine: Thing = nil
-    var bestDist = int.high
-    for thing in env.things:
-      if thing.kind != Mine or thing.mineKind != MineGold:
-        continue
-      let dist = abs(thing.pos.x - agent.pos.x) + abs(thing.pos.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        bestMine = thing
-    if bestMine != nil:
-      let dx = abs(bestMine.pos.x - agent.pos.x)
-      let dy = abs(bestMine.pos.y - agent.pos.y)
+    let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gem, controller.rng)
+    if goldPos.x >= 0:
+      let dx = abs(goldPos.x - agent.pos.x)
+      let dy = abs(goldPos.y - agent.pos.y)
       if max(dx, dy) == 1'i32:
         return saveStateAndReturn(controller, agentId, state,
-          encodeAction(3'u8, neighborDirIndex(agent.pos, bestMine.pos).uint8))
+          encodeAction(3'u8, neighborDirIndex(agent.pos, goldPos).uint8))
       return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, bestMine.pos, controller.rng).uint8))
+        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, goldPos, controller.rng).uint8))
 
     let nextSearchPos = getNextSpiralPoint(state, controller.rng)
     return saveStateAndReturn(controller, agentId, state,

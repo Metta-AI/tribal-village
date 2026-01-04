@@ -10,10 +10,15 @@ proc decideBaker(controller: Controller, env: Environment, agent: Thing,
     if dropoff != nil:
       return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
 
-  # Work mines when capacity allows.
+  # Work gold/stone deposits when capacity allows.
   if agent.inventoryGold + agent.inventoryStone < ResourceCarryCapacity:
-    let mine = env.findNearestThingSpiral(state, Mine, controller.rng)
-    if mine != nil:
-      return controller.useOrMove(env, agent, agentId, state, mine.pos)
+    let preferGold = agent.inventoryGold <= agent.inventoryStone
+    let primaryTerrain = if preferGold: TerrainType.Gem else: TerrainType.Rock
+    var targetPos = env.findNearestTerrainSpiral(state, primaryTerrain, controller.rng)
+    if targetPos.x < 0:
+      let secondaryTerrain = if primaryTerrain == TerrainType.Gem: TerrainType.Rock else: TerrainType.Gem
+      targetPos = env.findNearestTerrainSpiral(state, secondaryTerrain, controller.rng)
+    if targetPos.x >= 0:
+      return controller.useOrMove(env, agent, agentId, state, targetPos)
 
   return controller.moveNextSearch(env, agent, agentId, state)
