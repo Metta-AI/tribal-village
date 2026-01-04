@@ -9,17 +9,12 @@ import ./environment, common, terrain
 type
   # Simple agent roles - one per team member
   AgentRole* = enum
-    Hearter     # Handles altar/bar workflow
-    Armorer     # Wood -> Armor
-    Hunter      # Wood -> Spear -> Hunt Tumors
-    Baker       # TerrainWheat -> Bread
-    Lighter     # TerrainWheat -> Lantern -> Plant
-    Farmer      # Creates fertile ground and plants wheat/trees
-    Builder     # Builds outposts and roads
-    Miner       # Mines gold and keeps magma fed
-    Guard       # Patrols near home and engages threats
-    Medic       # Bakes bread and distributes it
-    Scout       # Explores outward and probes the map
+    Hearter     # Gold -> bar -> altar (population growth)
+    Armorer     # Wood gatherer (AoE wood cycle)
+    Hunter      # Food gatherer (hunt/fish/forage)
+    Baker       # Miner (gold/stone cycle)
+    Lighter     # Builder (houses + dropoff + military buildings)
+    Farmer      # Farm builder/harvester (wheat cycle)
 
   # Minimal state tracking with spiral search
   AgentState = object
@@ -36,7 +31,6 @@ type
     escapeMode: bool
     escapeStepsRemaining: int
     escapeDirection: IVec2
-    builderHasOutpost: bool
 
   # Simple controller
   Controller* = ref object
@@ -223,6 +217,43 @@ proc hasFoodCargo(agent: Thing): bool =
     if count > 0 and isFoodItem(key):
       return true
   false
+
+proc teamPopCount*(env: Environment, teamId: int): int =
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    if env.terminated[agent.agentId] != 0.0:
+      continue
+    if getTeamId(agent.agentId) == teamId:
+      inc result
+
+proc teamPopCap*(env: Environment, teamId: int): int =
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.teamId != teamId:
+      continue
+    case thing.kind
+    of TownCenter:
+      result += TownCenterPopCap
+    of House:
+      result += HousePopCap
+    else:
+      discard
+
+proc countTeamBuildings*(env: Environment, teamId: int, kind: ThingKind): int =
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.kind == kind and thing.teamId == teamId:
+      inc result
+
+proc canAffordBuild*(env: Environment, teamId: int, key: ItemKey): bool =
+  let costs = buildCostsForKey(key)
+  if costs.len == 0:
+    return false
+  env.canSpendStockpile(teamId, costs)
+
 
 proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadius: int = 8): IVec2 =
   ## Find nearest empty, non-water tile matching fertile flag

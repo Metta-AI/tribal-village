@@ -14,8 +14,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       if agentId mod MapAgentsPerHouse == 0:
         Hearter
       else:
-        sample(controller.rng, [Hearter, Armorer, Hunter, Baker, Lighter, Farmer,
-          Builder, Miner, Guard, Medic, Scout])
+        sample(controller.rng, [Hearter, Armorer, Hunter, Baker, Lighter, Farmer])
 
     controller.agents[agentId] = AgentState(
       role: role,
@@ -28,8 +27,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       stuckCounter: 0,
       escapeMode: false,
       escapeStepsRemaining: 0,
-      escapeDirection: ivec2(0, -1),
-      builderHasOutpost: false
+      escapeDirection: ivec2(0, -1)
     )
 
   var state = controller.agents[agentId]
@@ -136,11 +134,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   of Baker: return decideBaker(controller, env, agent, agentId, state)
   of Lighter: return decideLighter(controller, env, agent, agentId, state)
   of Farmer: return decideFarmer(controller, env, agent, agentId, state)
-  of Builder: return decideBuilder(controller, env, agent, agentId, state)
-  of Miner: return decideMiner(controller, env, agent, agentId, state)
-  of Guard: return decideGuard(controller, env, agent, agentId, state)
-  of Medic: return decideMedic(controller, env, agent, agentId, state)
-  of Scout: return decideScout(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller) =
