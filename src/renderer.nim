@@ -498,7 +498,7 @@ proc drawAgentDecorations*() =
     proc iconForItem(key: ItemKey): string =
       case key
       of ItemGold: "bar"
-      of ItemStone: "blocks"
+      of ItemStone: "stone"
       of ItemWater: "droplet"
       of ItemWheat: "bushel"
       of ItemWood: "wood"
@@ -506,9 +506,7 @@ proc drawAgentDecorations*() =
       of ItemLantern: "lantern"
       of ItemArmor: "armor"
       of ItemBread: "bread"
-      of ItemRough: "rock"
-      of ItemSmallGem: "rock"
-      of ItemGem: "rock"
+      of ItemRock: "rock"
       of ItemMilk: "liquid_misc"
       of ItemHearts: "heart"
       else:
