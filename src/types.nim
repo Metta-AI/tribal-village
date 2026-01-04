@@ -17,7 +17,7 @@ const
   MapRoomObjectsMagmaPools* = 10
   MapRoomObjectsMagmaClusters* = 4
   MapRoomObjectsMines* = 20
-  MapRoomObjectsMineClusters* = 6
+  MapRoomObjectsMineClusters* = 8
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
 

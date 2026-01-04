@@ -532,7 +532,7 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, r))
 
-  # Magma spawns in small clusters like mines.
+  # Magma spawns in small clusters (2-3) for higher local density.
   var poolsPlaced = 0
   let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, MapRoomObjectsMagmaPools))
   for clusterIndex in 0 ..< magmaClusterCount:
@@ -540,7 +540,7 @@ proc init(env: Environment) =
     if remaining <= 0:
       break
     let clustersLeft = magmaClusterCount - clusterIndex
-    let maxCluster = min(4, remaining)
+    let maxCluster = min(3, remaining)
     let minCluster = if remaining >= 2: 2 else: 1
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(1, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
@@ -577,7 +577,7 @@ proc init(env: Environment) =
       if poolsPlaced >= MapRoomObjectsMagmaPools:
         break
 
-  # Mines spawn in small clusters (3-5 nodes) for higher local density.
+  # Mines spawn in small clusters (2-3 nodes) for higher local density.
   var minesPlaced = 0
   let clusterCount = max(1, min(MapRoomObjectsMineClusters, MapRoomObjectsMines))
   for clusterIndex in 0 ..< clusterCount:
@@ -585,11 +585,17 @@ proc init(env: Environment) =
     if remaining <= 0:
       break
     let clustersLeft = clusterCount - clusterIndex
-    let maxCluster = min(5, remaining)
-    let minCluster = if remaining >= 3: 3 else: 1
+    let maxCluster = min(3, remaining)
+    let minCluster = if remaining >= 2: 2 else: 1
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(1, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
-    let mineKind = if randFloat(r) < 0.5: MineGold else: MineStone
+    let mineKind =
+      if MapRoomObjectsMines >= 2 and clusterCount >= 2:
+        if clusterIndex == 0: MineGold
+        elif clusterIndex == 1: MineStone
+        else: (if randFloat(r) < 0.5: MineGold else: MineStone)
+      else:
+        (if randFloat(r) < 0.5: MineGold else: MineStone)
     let center = r.randomEmptyPos(env)
 
     let mine = Thing(
