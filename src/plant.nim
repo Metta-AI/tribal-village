@@ -74,12 +74,9 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
       return
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    env.terrain[targetPos.x][targetPos.y] = Empty
+    env.terrain[targetPos.x][targetPos.y] = Pine
+    env.terrainResources[targetPos.x][targetPos.y] = ResourceNodeInitial
     env.resetTileColor(targetPos)
-    let tree = Thing(kind: Pine, pos: targetPos)
-    tree.inventory = emptyInventory()
-    setInv(tree, ItemWood, ResourceNodeInitial)
-    env.add(tree)
   else:
     if agent.inventoryWheat <= 0:
       inc env.stats[id].actionInvalid

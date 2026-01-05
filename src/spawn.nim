@@ -43,21 +43,7 @@ proc init(env: Environment) =
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
   env.applyBiomeBaseColors()
 
-  # Convert forest/palm terrain into blocking tree objects.
-  for x in MapBorder ..< MapWidth - MapBorder:
-    for y in MapBorder ..< MapHeight - MapBorder:
-      let pos = ivec2(x.int32, y.int32)
-      if not env.isEmpty(pos):
-        continue
-      let isPalm = env.terrain[x][y] == Palm
-      let isForestTree = env.terrain[x][y] == Tree and env.biomes[x][y] in {BiomeForestType, BiomeSnowType}
-      if isPalm or isForestTree:
-        env.terrain[x][y] = Empty
-        let treeKind = if isPalm: Palm else: Pine
-        let tree = Thing(kind: treeKind, pos: ivec2(x.int32, y.int32))
-        tree.inventory = emptyInventory()
-        setInv(tree, ItemWood, ResourceNodeInitial)
-        env.add(tree)
+  # Keep forest/palm terrain as walkable tiles (trees are harvested from terrain).
 
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
@@ -820,7 +806,7 @@ proc init(env: Environment) =
   # Initialize terrain resource counts (each resource tile yields 1 per harvest, 25 total).
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      if env.terrain[x][y] in {Water, Wheat, Tree, Palm, Rock, Gold, Bush, Cactus, Animal, Stalagmite}:
+      if env.terrain[x][y] in {Water, Wheat, Pine, Palm, Rock, Gold, Bush, Cactus, Animal, Stalagmite}:
         env.terrainResources[x][y] = ResourceNodeInitial
       else:
         env.terrainResources[x][y] = 0

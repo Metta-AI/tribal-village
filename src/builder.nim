@@ -133,8 +133,10 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let spearNeedy = findNearestTeammateNeeding(env, agent, NeedSpear)
   if spearNeedy != nil:
     if agent.inventoryWood == 0:
-      let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
-      if did: return act
+      let (didTree, actTree) = controller.findAndHarvest(env, agent, agentId, state, Pine)
+      if didTree: return actTree
+      let (didPalm, actPalm) = controller.findAndHarvest(env, agent, agentId, state, Palm)
+      if didPalm: return actPalm
     let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
     if smith != nil:
       return controller.useOrMove(env, agent, agentId, state, smith.pos)
