@@ -208,7 +208,7 @@ proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] =
 proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   case kind
   of Granary: @[ItemWheat]
-  of MiningCamp: @[ItemRock]
+  of MiningCamp: @[ItemStone, ItemGold]
   of Blacksmith: @[ItemArmor, ItemSpear]
   else: @[]
 
