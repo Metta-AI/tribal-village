@@ -218,25 +218,71 @@ proc init(env: Environment) =
       env.add(Thing(kind: TownCenter, pos: fallback, teamId: teamId))
       return fallback
     center
-  proc placeStartingRoads(center: IVec2, r: var Rand) =
-    let lengths = [3, 4]
-    let length = lengths[randIntInclusive(r, 0, lengths.len - 1)]
-    let dirs = [ivec2(0, -1), ivec2(0, 1), ivec2(1, 0), ivec2(-1, 0)]
-    for d in dirs:
-      for step in 1 .. length:
-        let pos = center + ivec2(d.x.int32 * step.int32, d.y.int32 * step.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] == Water:
-          continue
-        let existing = env.getThing(pos)
-        if existing != nil:
-          if existing.kind in {Pine, Palm}:
-            removeThing(env, existing)
-          else:
-            continue
+  proc placeStartingRoads(center: IVec2, teamId: int, r: var Rand) =
+    proc signi(x: int32): int32 =
+      if x < 0: -1
+      elif x > 0: 1
+      else: 0
+
+    proc placeRoad(pos: IVec2) =
+      if not isValidPos(pos):
+        return
+      if env.terrain[pos.x][pos.y] == Water:
+        return
+      if env.hasDoor(pos):
+        return
+      let existing = env.getThing(pos)
+      if existing != nil:
+        if existing.kind in {Pine, Palm}:
+          removeThing(env, existing)
+        else:
+          return
+      if env.terrain[pos.x][pos.y] != Road:
         env.terrain[pos.x][pos.y] = Road
         env.resetTileColor(pos)
+
+    let connectKinds = {TownCenter, House, Granary, LumberCamp, MiningCamp, Bank, Mill}
+    var anchors: seq[IVec2] = @[center]
+    for thing in env.things:
+      if thing.teamId != teamId:
+        continue
+      if thing.kind notin connectKinds:
+        continue
+      let dist = max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y))
+      if dist <= 7:
+        anchors.add(thing.pos)
+
+    for anchor in anchors:
+      if anchor == center:
+        continue
+      var pos = center
+      while pos.x != anchor.x:
+        pos.x += signi(anchor.x - pos.x)
+        placeRoad(pos)
+      while pos.y != anchor.y:
+        pos.y += signi(anchor.y - pos.y)
+        placeRoad(pos)
+
+    var maxEast = 0
+    var maxWest = 0
+    var maxSouth = 0
+    var maxNorth = 0
+    for anchor in anchors:
+      let dx = (anchor.x - center.x).int
+      let dy = (anchor.y - center.y).int
+      if dx > maxEast: maxEast = dx
+      if dx < 0 and -dx > maxWest: maxWest = -dx
+      if dy > maxSouth: maxSouth = dy
+      if dy < 0 and -dy > maxNorth: maxNorth = -dy
+
+    let dirs = [(ivec2(1, 0), maxEast), (ivec2(-1, 0), maxWest),
+                (ivec2(0, 1), maxSouth), (ivec2(0, -1), maxNorth)]
+    for (dir, baseDist) in dirs:
+      let extra = randIntInclusive(r, 3, 4)
+      let total = baseDist + extra
+      for step in 1 .. total:
+        let pos = center + ivec2(dir.x.int32 * step.int32, dir.y.int32 * step.int32)
+        placeRoad(pos)
 
   proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
     let placements = [
@@ -402,12 +448,10 @@ proc init(env: Environment) =
             )
             env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
 
-      # Add starter roads and nearby houses for the town vibe.
-      placeStartingRoads(elements.center, r)
-      if townCenterPos.x >= 0:
-        placeStartingRoads(townCenterPos, r)
+      # Add nearby houses/resources first, then connect roads between them.
       placeStartingResourceBuildings(elements.center, teamId)
       placeStartingHouses(elements.center, teamId, r)
+      placeStartingRoads(elements.center, teamId, r)
 
       # Add the walls
       for wallPos in elements.walls:
