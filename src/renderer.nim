@@ -7,7 +7,7 @@ import
 const
   HeartPlusThreshold = 9           # Switch to compact heart counter after this many
   HeartCountFontPath = "data/Inter-Regular.ttf"
-  HeartCountFontSize: float32 = 28
+  HeartCountFontSize: float32 = 40
   HeartCountPadding = 6
 
 var
@@ -397,7 +397,8 @@ proc drawObjects*() =
           # Hearts row uses the same small icons/spacing as agent inventory overlays.
           let heartAnchor = vec2(-0.48, -0.64)
           let heartStep = 0.12
-          let heartScale: float32 = 1/320
+          let heartScale: float32 = 1/420
+          let labelScale: float32 = 1/240
           let amt = max(0, thing.hearts)
           if amt == 0:
             let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
@@ -414,7 +415,7 @@ proc drawObjects*() =
               let labelKey = ensureHeartCountLabel(amt)
               # Offset roughly half a tile to the right for clearer separation from the icon.
               let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
-              bxy.drawImage(labelKey, labelPos, angle = 0, scale = heartScale, tint = altarTint)
+              bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = altarTint)
           if infected:
             drawOverlayIf(true, "frozen_tile", pos.vec2)
 
