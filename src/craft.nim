@@ -17,20 +17,6 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   building.cooldown = cooldown
   true
 
-proc tryBlacksmithService(env: Environment, agent: Thing, building: Thing): bool =
-  let teamId = getTeamId(agent.agentId)
-  if building.teamId != teamId:
-    return false
-  var serviced = false
-  if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
-    if env.spendStockpile(teamId, @[(res: ResourceWood, count: 1)]):
-      agent.inventorySpear = SpearCharges
-      env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-      serviced = true
-  if serviced:
-    building.cooldown = 8
-  serviced
-
 proc tryMarketTrade(env: Environment, agent: Thing, building: Thing): bool =
   let teamId = getTeamId(agent.agentId)
   if building.teamId != teamId:

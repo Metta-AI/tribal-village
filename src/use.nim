@@ -104,19 +104,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   var used = false
   case thing.kind:
-  of Pine, Palm:
-    let stored = getInv(thing, ItemWood)
-    if stored > 0 and env.giveItem(agent, ItemWood):
-      let remaining = stored - 1
-      agent.reward += env.config.woodReward
-      if remaining <= 0:
-        removeThing(env, thing)
-      elif remaining < ResourceNodeInitial:
-        removeThing(env, thing)
-        env.dropStump(thing.pos, remaining)
-      else:
-        setInv(thing, ItemWood, remaining)
-      used = true
   of Stump:
     let stored = getInv(thing, ItemWood)
     if stored > 0 and env.giveItem(agent, ItemWood):
@@ -153,14 +140,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     elif thing.cooldown == 0:
       if env.tryCraftAtStation(agent, StationLoom, thing):
         used = true
-  of Armory:
-    if thing.teamId == getTeamId(agent.agentId) and thing.cooldown == 0 and agent.inventoryArmor < ArmorPoints:
-      if env.spendStockpile(thing.teamId, @[(res: ResourceWood, count: 1)]):
-        agent.inventoryArmor = ArmorPoints
-        thing.cooldown = 20
-        env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-        agent.reward += env.config.armorReward
-        used = true
   of ClayOven:
     if thing.cooldown == 0:
       if env.tryCraftAtStation(agent, StationOven, thing):
@@ -173,18 +152,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
         # No observation layer for bread; optional for UI later
         agent.reward += env.config.foodReward
-        used = true
-  of Cow:
-    if agent.inventorySpear > 0:
-      let stored = getInv(thing, ItemFish)
-      if stored > 0:
-        agent.inventorySpear = max(0, agent.inventorySpear - 1)
-        env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-        removeThing(env, thing)
-        let skeleton = Thing(kind: Skeleton, pos: thing.pos)
-        skeleton.inventory = emptyInventory()
-        setInv(skeleton, ItemFish, stored)
-        env.add(skeleton)
         used = true
   of Skeleton:
     let stored = getInv(thing, ItemFish)
