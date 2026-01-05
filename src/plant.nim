@@ -17,7 +17,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   # Check if position is empty and not water
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env) or env.terrain[targetPos.x][targetPos.y] == Wheat:
     inc env.stats[id].actionInvalid
     return
 
@@ -61,7 +61,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
     inc env.stats[id].actionInvalid
     return
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env) or env.terrain[targetPos.x][targetPos.y] == Wheat:
     inc env.stats[id].actionInvalid
     return
   if env.terrain[targetPos.x][targetPos.y] != Fertile:
