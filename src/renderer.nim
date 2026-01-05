@@ -428,7 +428,7 @@ proc drawObjects*() =
           let heartAnchor = vec2(-0.48, -0.64)
           let heartStep = 0.12
           let heartScale: float32 = 1/420
-          let labelScale: float32 = 1/240
+          let labelScale: float32 = 1/200
           let amt = max(0, thing.hearts)
           if amt == 0:
             let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
@@ -444,8 +444,8 @@ proc drawObjects*() =
               bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
               let labelKey = ensureHeartCountLabel(amt)
               # Offset roughly half a tile to the right for clearer separation from the icon.
-              let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.5, -0.015)
-              bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = altarTint)
+              let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
+              bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
           if infected:
             drawOverlayIf(true, "frozen_tile", pos.vec2)
 
