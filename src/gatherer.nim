@@ -140,8 +140,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if didCow: return actCow
     let (didAnimal, actAnimal) = controller.findAndHarvest(env, agent, agentId, state, Animal)
     if didAnimal: return actAnimal
-    let (didPlant, actPlant) = controller.findAndHarvest(env, agent, agentId, state, Bush)
-    if didPlant: return actPlant
+    let (didBush, actBush) = controller.findAndHarvest(env, agent, agentId, state, Bush)
+    if didBush: return actBush
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskWood:
     if agent.unitClass == UnitVillager:
