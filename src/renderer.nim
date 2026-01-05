@@ -86,6 +86,7 @@ proc stockpileIcon(res: StockpileResource): string =
   of ResourceStone: "stone"
   of ResourceGold: "gold"
   of ResourceWater: "droplet"
+  of ResourceNone: ""
 
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:

@@ -11,6 +11,10 @@ include "observe"
 include "grid"
 include "inventory"
 
+# Build craft recipes after registry is available.
+CraftRecipes = initCraftRecipesBase()
+appendBuildingRecipes(CraftRecipes)
+
 include "actions"
 include "connect"
 include "spawn"
