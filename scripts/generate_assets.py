@@ -43,6 +43,13 @@ def extract_inline_image(response) -> bytes:
     raise RuntimeError("No inline image data found in response.")
 
 
+DEFAULT_MODEL = "gemini-2.5-flash-image"
+ALLOWED_MODELS = {
+    DEFAULT_MODEL,
+    f"publishers/google/models/{DEFAULT_MODEL}",
+}
+
+
 def generate_image(
     client: genai.Client,
     model: str,
@@ -76,14 +83,10 @@ def generate_image(
     response = client.models.generate_content(model=model, contents=prompt, config=config)
     image_bytes = extract_inline_image(response)
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
-    if size and img.size != (size, size):
-        img = img.resize((size, size), Image.LANCZOS)
     return img
 
 
 def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
-    if img.mode != "RGBA":
-        img = img.convert("RGBA")
     w, h = img.size
     px = img.load()
     corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
@@ -111,27 +114,17 @@ def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
 
 
 def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
-    if img.mode != "RGBA":
-        img = img.convert("RGBA")
     w, h = img.size
-    pixels = img.getdata()
-    xs: list[int] = []
-    ys: list[int] = []
-    for i, p in enumerate(pixels):
-        if p[3] > 0:
-            y = i // w
-            x = i - y * w
-            xs.append(x)
-            ys.append(y)
-    if not xs:
+    alpha = img.getchannel("A")
+    bbox = alpha.getbbox()
+    if not bbox:
         return img
-    minx, maxx = min(xs), max(xs)
-    miny, maxy = min(ys), max(ys)
-    box_w = maxx - minx + 1
-    box_h = maxy - miny + 1
+    minx, miny, maxx, maxy = bbox
+    box_w = maxx - minx
+    box_h = maxy - miny
     side = max(box_w, box_h)
-    cx = (minx + maxx) // 2
-    cy = (miny + maxy) // 2
+    cx = minx + box_w // 2
+    cy = miny + box_h // 2
     half = side // 2
     left = max(0, cx - half)
     top = max(0, cy - half)
@@ -145,6 +138,14 @@ def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
     if target_size and cropped.size != (target_size, target_size):
         cropped = cropped.resize((target_size, target_size), Image.LANCZOS)
     return cropped
+
+
+def apply_postprocess(img: Image.Image, target_size: int, tol: int = 18) -> Image.Image:
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    img = flood_fill_bg(img, tol)
+    img = crop_to_content(img, target_size)
+    return img
 
 
 def iter_rows(
@@ -164,7 +165,7 @@ def main() -> None:
     parser.add_argument("--out-dir", default="data")
     parser.add_argument(
         "--model",
-        default="gemini-2.5-flash-image",
+        default=DEFAULT_MODEL,
         help="Nano Banana (Gemini 2.5 Flash Image) global model only.",
     )
     parser.add_argument("--project", default=os.environ.get("GOOGLE_CLOUD_PROJECT"))
@@ -185,11 +186,7 @@ def main() -> None:
     if not args.dry_run and not args.postprocess_only:
         if args.location != "global":
             raise SystemExit("Only the global endpoint is supported for image generation.")
-        allowed_models = {
-            "gemini-2.5-flash-image",
-            "publishers/google/models/gemini-2.5-flash-image",
-        }
-        if args.model not in allowed_models:
+        if args.model not in ALLOWED_MODELS:
             raise SystemExit("Only gemini-2.5-flash-image is supported for image generation.")
         client = make_client(args.project, args.location)
     out_dir = Path(args.out_dir)
@@ -207,16 +204,16 @@ def main() -> None:
                 continue
             with Image.open(target) as existing:
                 img = existing.convert("RGBA")
-            img = flood_fill_bg(img)
-            img = crop_to_content(img, args.size)
+            img = apply_postprocess(img, args.size)
             img.save(target)
             continue
         if client is None:
             raise SystemExit("Client not initialized for image generation.")
         img = generate_image(client, args.model, prompt, args.seed + idx, args.size)
         if args.postprocess:
-            img = flood_fill_bg(img)
-            img = crop_to_content(img, args.size)
+            img = apply_postprocess(img, args.size)
+        elif args.size and img.size != (args.size, args.size):
+            img = img.resize((args.size, args.size), Image.LANCZOS)
         target.parent.mkdir(parents=True, exist_ok=True)
         img.save(target)
 
