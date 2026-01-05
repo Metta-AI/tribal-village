@@ -60,6 +60,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
 
   # Core economic infrastructure.
+  if env.countTeamBuildings(teamId, Granary) == 0:
+    let idx = buildIndexFor(Granary)
+    if idx >= 0:
+      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+      if did: return act
   if env.countTeamBuildings(teamId, Mill) == 0:
     let idx = buildIndexFor(Mill)
     if idx >= 0:

@@ -81,7 +81,7 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent.agentId)
 
   if hasFoodCargo(agent):
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Granary, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:

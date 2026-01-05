@@ -140,6 +140,7 @@ type
     Outpost
     Barrel
     Mill
+    Granary
     LumberCamp
     MiningCamp
     Stump
