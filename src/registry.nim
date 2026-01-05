@@ -19,21 +19,13 @@ type
     TickMillFertile
 
   BuildingInfo* = object
-    isBuilding*: bool
     displayName*: string
     spriteKey*: string
     ascii*: char
     renderColor*: tuple[r, g, b: uint8]
-    needsLantern*: bool
-    hasFrozenOverlay*: bool
-    usesCooldown*: bool
-    teamOwned*: bool
-    showStockpile*: bool
     stockpileRes*: StockpileResource
-    buildable*: bool
     buildIndex*: int
     buildCost*: seq[ItemAmount]
-    buildStation*: CraftStation
     buildCooldown*: int
     popCap*: int
     barrelCapacity*: int
@@ -41,9 +33,7 @@ type
     useKind*: BuildingUseKind
     dropoffResources*: set[StockpileResource]
     storageItems*: seq[ItemKey]
-    hasCraftStation*: bool
     craftStation*: CraftStation
-    hasTrain*: bool
     trainUnit*: AgentUnitClass
     trainCosts*: seq[tuple[res: StockpileResource, count: int]]
     trainCooldown*: int
@@ -54,21 +44,13 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
   var reg: array[ThingKind, BuildingInfo]
   for kind in ThingKind:
     reg[kind] = BuildingInfo(
-      isBuilding: false,
       displayName: "",
       spriteKey: "",
       ascii: '?',
       renderColor: (r: 180'u8, g: 180'u8, b: 180'u8),
-      needsLantern: false,
-      hasFrozenOverlay: false,
-      usesCooldown: false,
-      teamOwned: false,
-      showStockpile: false,
-      stockpileRes: ResourceFood,
-      buildable: false,
+      stockpileRes: ResourceNone,
       buildIndex: -1,
       buildCost: @[],
-      buildStation: StationTable,
       buildCooldown: 8,
       popCap: 0,
       barrelCapacity: 0,
@@ -76,9 +58,7 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
       useKind: UseNone,
       dropoffResources: {},
       storageItems: @[],
-      hasCraftStation: false,
-      craftStation: StationTable,
-      hasTrain: false,
+      craftStation: StationNone,
       trainUnit: UnitVillager,
       trainCosts: @[],
       trainCooldown: 0,
@@ -87,43 +67,31 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
     )
 
   proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char,
-           renderColor: tuple[r, g, b: uint8], teamOwned = true,
-           needsLantern = true, hasFrozenOverlay = true, usesCooldown = true,
-           showStockpile = false, stockpileRes = ResourceFood,
-           buildable = false, buildIndex = -1, buildCost: seq[ItemAmount] = @[],
-           buildStation = StationTable, buildCooldown = 8, popCap = 0, barrelCapacity = 0,
+           renderColor: tuple[r, g, b: uint8],
+           stockpileRes = ResourceNone,
+           buildIndex = -1, buildCost: seq[ItemAmount] = @[],
+           buildCooldown = 8, popCap = 0, barrelCapacity = 0,
            fertileRadius = 0, useKind = UseNone,
            dropoffResources: set[StockpileResource] = {},
            storageItems: seq[ItemKey] = @[],
-           hasCraftStation = false, craftStation = StationTable,
-           hasTrain = false, trainUnit = UnitVillager,
+           craftStation = StationNone, trainUnit = UnitVillager,
            trainCosts: seq[tuple[res: StockpileResource, count: int]] = @[],
            trainCooldown = 0, tickKind = TickNone, tickCooldown = 0) =
     reg[kind] = BuildingInfo(
-      isBuilding: true,
       displayName: displayName,
       spriteKey: spriteKey,
       ascii: ascii,
       renderColor: renderColor,
-      needsLantern: needsLantern,
-      hasFrozenOverlay: hasFrozenOverlay,
-      usesCooldown: usesCooldown,
-      teamOwned: teamOwned,
-      showStockpile: showStockpile,
       stockpileRes: stockpileRes,
-      buildable: buildable,
       buildIndex: buildIndex,
       buildCost: buildCost,
-      buildStation: buildStation,
       popCap: popCap,
       barrelCapacity: barrelCapacity,
       fertileRadius: fertileRadius,
       useKind: useKind,
       dropoffResources: dropoffResources,
       storageItems: storageItems,
-      hasCraftStation: hasCraftStation,
       craftStation: craftStation,
-      hasTrain: hasTrain,
       trainUnit: trainUnit,
       trainCosts: trainCosts,
       trainCooldown: trainCooldown,
@@ -133,88 +101,87 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
     )
 
   add(Altar, "Altar", "altar", 'a', (r: 220'u8, g: 0'u8, b: 220'u8),
-      usesCooldown = false, needsLantern = true, useKind = UseAltar)
+      useKind = UseAltar)
   add(TownCenter, "Town Center", "town_center", 'N', (r: 190'u8, g: 180'u8, b: 140'u8),
-      buildable = true, buildIndex = 1, buildCost = @[(ItemWood, 14)], buildCooldown = 16,
+      buildIndex = 1, buildCost = @[(ItemWood, 14)], buildCooldown = 16,
       useKind = UseDropoff, dropoffResources = {ResourceFood, ResourceWood, ResourceGold, ResourceStone},
       popCap = TownCenterPopCap)
   add(House, "House", "house", 'h', (r: 170'u8, g: 140'u8, b: 110'u8),
-      buildable = true, buildIndex = 0, buildCost = @[(ItemWood, 1)], buildCooldown = 10,
+      buildIndex = 0, buildCost = @[(ItemWood, 1)], buildCooldown = 10,
       popCap = HousePopCap)
   add(Armory, "Armory", "armory", 'A', (r: 255'u8, g: 120'u8, b: 40'u8),
-      buildable = true, buildIndex = 19, buildCost = @[(ItemWood, 4)], buildCooldown = 12,
-      useKind = UseArmory, usesCooldown = true)
+      buildIndex = 19, buildCost = @[(ItemWood, 4)], buildCooldown = 12,
+      useKind = UseArmory)
   add(ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
-      buildable = true, buildIndex = 20, buildCost = @[(ItemWood, 4)], buildCooldown = 12,
-      useKind = UseClayOven, usesCooldown = true, hasCraftStation = true, craftStation = StationOven)
+      buildIndex = 20, buildCost = @[(ItemWood, 4)], buildCooldown = 12,
+      useKind = UseClayOven, craftStation = StationOven)
   add(WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),
-      buildable = true, buildIndex = 21, buildCost = @[(ItemWood, 3)], buildCooldown = 12,
-      useKind = UseWeavingLoom, usesCooldown = true, hasCraftStation = true, craftStation = StationLoom)
+      buildIndex = 21, buildCost = @[(ItemWood, 3)], buildCooldown = 12,
+      useKind = UseWeavingLoom, craftStation = StationLoom)
   add(Outpost, "Outpost", "outpost", '^', (r: 120'u8, g: 120'u8, b: 140'u8),
-      usesCooldown = false, buildable = true, buildIndex = 13, buildCost = @[(ItemWood, 1)],
+      buildIndex = 13, buildCost = @[(ItemWood, 1)],
       buildCooldown = 8)
   add(Barrel, "Barrel", "barrel", 'b', (r: 150'u8, g: 110'u8, b: 60'u8),
-      needsLantern = false, usesCooldown = false, teamOwned = false,
-      buildable = true, buildIndex = 22, buildCost = @[(ItemWood, 2)], buildCooldown = 10,
+      buildIndex = 22, buildCost = @[(ItemWood, 2)], buildCooldown = 10,
       useKind = UseStorage, storageItems = @[], barrelCapacity = BarrelCapacity)
   add(Mill, "Granary", "granary", 'm', (r: 210'u8, g: 200'u8, b: 170'u8),
-      usesCooldown = false, showStockpile = true, stockpileRes = ResourceFood,
-      buildable = true, buildIndex = 2, buildCost = @[(ItemWood, 5)], buildCooldown = 12,
+      stockpileRes = ResourceFood,
+      buildIndex = 2, buildCost = @[(ItemWood, 5)], buildCooldown = 12,
       useKind = UseDropoffAndStorage, dropoffResources = {ResourceFood}, storageItems = @[ItemWheat],
       barrelCapacity = BarrelCapacity, fertileRadius = 2, tickKind = TickMillFertile, tickCooldown = 10)
   add(LumberCamp, "Lumber Yard", "lumber_yard", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
-      usesCooldown = false, showStockpile = true, stockpileRes = ResourceWood,
-      buildable = true, buildIndex = 3, buildCost = @[(ItemWood, 5)], buildCooldown = 10,
+      stockpileRes = ResourceWood,
+      buildIndex = 3, buildCost = @[(ItemWood, 5)], buildCooldown = 10,
       useKind = UseDropoff, dropoffResources = {ResourceWood}, barrelCapacity = BarrelCapacity)
   add(MiningCamp, "Quarry", "quarry", 'G', (r: 120'u8, g: 120'u8, b: 120'u8),
-      usesCooldown = false, showStockpile = true, stockpileRes = ResourceStone,
-      buildable = true, buildIndex = 4, buildCost = @[(ItemWood, 5)], buildCooldown = 12,
+      stockpileRes = ResourceStone,
+      buildIndex = 4, buildCost = @[(ItemWood, 5)], buildCooldown = 12,
       useKind = UseDropoffAndStorage, dropoffResources = {ResourceGold, ResourceStone},
       storageItems = @[ItemRock], barrelCapacity = BarrelCapacity)
   add(Bank, "Bank", "bank", 'B', (r: 220'u8, g: 200'u8, b: 120'u8),
-      usesCooldown = false, showStockpile = true, stockpileRes = ResourceGold)
+      stockpileRes = ResourceGold)
   add(Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
-      buildable = true, buildIndex = 8, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
-      useKind = UseTrain, hasTrain = true, trainUnit = UnitManAtArms,
+      buildIndex = 8, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
+      useKind = UseTrain, trainUnit = UnitManAtArms,
       trainCosts = @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)],
       trainCooldown = 8)
   add(ArcheryRange, "Archery Range", "archery_range", 'g', (r: 140'u8, g: 120'u8, b: 180'u8),
-      buildable = true, buildIndex = 9, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
-      useKind = UseTrain, hasTrain = true, trainUnit = UnitArcher,
+      buildIndex = 9, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
+      useKind = UseTrain, trainUnit = UnitArcher,
       trainCosts = @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)],
       trainCooldown = 8)
   add(Stable, "Stable", "stable", 's', (r: 120'u8, g: 90'u8, b: 60'u8),
-      buildable = true, buildIndex = 10, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
-      useKind = UseTrain, hasTrain = true, trainUnit = UnitScout,
+      buildIndex = 10, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
+      useKind = UseTrain, trainUnit = UnitScout,
       trainCosts = @[(res: ResourceFood, count: 3)],
       trainCooldown = 8)
   add(SiegeWorkshop, "Siege Workshop", "siege_workshop", 'i', (r: 120'u8, g: 120'u8, b: 160'u8),
-      buildable = true, buildIndex = 11, buildCost = @[(ItemWood, 10)], buildCooldown = 14,
-      useKind = UseTrainAndCraft, hasCraftStation = true, craftStation = StationSiegeWorkshop,
-      hasTrain = true, trainUnit = UnitSiege,
+      buildIndex = 11, buildCost = @[(ItemWood, 10)], buildCooldown = 14,
+      useKind = UseTrainAndCraft, craftStation = StationSiegeWorkshop,
+      trainUnit = UnitSiege,
       trainCosts = @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)],
       trainCooldown = 10)
   add(Blacksmith, "Blacksmith", "blacksmith", 'k', (r: 90'u8, g: 90'u8, b: 90'u8),
-      buildable = true, buildIndex = 16, buildCost = @[(ItemWood, 8)], buildCooldown = 12,
-      useKind = UseBlacksmith, usesCooldown = true, hasCraftStation = true, craftStation = StationBlacksmith,
+      buildIndex = 16, buildCost = @[(ItemWood, 8)], buildCooldown = 12,
+      useKind = UseBlacksmith, craftStation = StationBlacksmith,
       storageItems = @[ItemArmor, ItemSpear], barrelCapacity = BarrelCapacity)
   add(Market, "Market", "market", 'e', (r: 200'u8, g: 170'u8, b: 120'u8),
-      buildable = true, buildIndex = 7, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
-      useKind = UseMarket, usesCooldown = true)
+      buildIndex = 7, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
+      useKind = UseMarket)
   add(Dock, "Dock", "dock", 'd', (r: 80'u8, g: 140'u8, b: 200'u8),
-      buildable = true, buildIndex = 6, buildCost = @[(ItemWood, 8)], buildCooldown = 12,
+      buildIndex = 6, buildCost = @[(ItemWood, 8)], buildCooldown = 12,
       useKind = UseDropoff, dropoffResources = {ResourceFood})
   add(Monastery, "Monastery", "monastery", 'y', (r: 220'u8, g: 200'u8, b: 120'u8),
-      buildable = true, buildIndex = 17, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
-      useKind = UseTrain, hasTrain = true, trainUnit = UnitMonk,
+      buildIndex = 17, buildCost = @[(ItemWood, 9)], buildCooldown = 12,
+      useKind = UseTrain, trainUnit = UnitMonk,
       trainCosts = @[(res: ResourceGold, count: 2)],
       trainCooldown = 10)
   add(University, "University", "university", 'u', (r: 140'u8, g: 160'u8, b: 200'u8),
-      buildable = true, buildIndex = 18, buildCost = @[(ItemWood, 10)], buildCooldown = 14,
-      useKind = UseNone, usesCooldown = true)
+      buildIndex = 18, buildCost = @[(ItemWood, 10)], buildCooldown = 14,
+      useKind = UseNone)
   add(Castle, "Castle", "castle", 'c', (r: 120'u8, g: 120'u8, b: 120'u8),
-      buildable = true, buildIndex = 12, buildCost = @[(ItemStone, 33)], buildCooldown = 20,
-      useKind = UseTrain, hasTrain = true, trainUnit = UnitKnight,
+      buildIndex = 12, buildCost = @[(ItemStone, 33)], buildCooldown = 20,
+      useKind = UseTrain, trainUnit = UnitKnight,
       trainCosts = @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)],
       trainCooldown = 12)
 
@@ -226,7 +193,7 @@ proc buildingInfo*(kind: ThingKind): BuildingInfo =
   BuildingRegistry[kind]
 
 proc isBuildingKind*(kind: ThingKind): bool =
-  BuildingRegistry[kind].isBuilding
+  BuildingRegistry[kind].displayName.len > 0
 
 proc buildingSpriteKey*(kind: ThingKind): string =
   BuildingRegistry[kind].spriteKey
@@ -241,19 +208,26 @@ proc buildingRenderColor*(kind: ThingKind): tuple[r, g, b: uint8] =
   BuildingRegistry[kind].renderColor
 
 proc buildingNeedsLantern*(kind: ThingKind): bool =
-  BuildingRegistry[kind].needsLantern
-
-proc buildingHasFrozenOverlay*(kind: ThingKind): bool =
-  BuildingRegistry[kind].hasFrozenOverlay
-
-proc buildingUsesCooldown*(kind: ThingKind): bool =
-  BuildingRegistry[kind].usesCooldown
+  isBuildingKind(kind) and kind != Barrel
 
 proc buildingTeamOwned*(kind: ThingKind): bool =
-  BuildingRegistry[kind].teamOwned
+  isBuildingKind(kind) and kind != Barrel
+
+proc buildingHasFrozenOverlay*(kind: ThingKind): bool =
+  isBuildingKind(kind)
+
+proc buildingUsesCooldown*(kind: ThingKind): bool =
+  if not isBuildingKind(kind):
+    return false
+  case BuildingRegistry[kind].useKind
+  of UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
+     UseTrain, UseTrainAndCraft, UseCraft:
+    true
+  else:
+    false
 
 proc buildingShowsStockpile*(kind: ThingKind): bool =
-  BuildingRegistry[kind].showStockpile
+  BuildingRegistry[kind].stockpileRes != ResourceNone
 
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   BuildingRegistry[kind].stockpileRes
@@ -262,13 +236,10 @@ proc buildingBuildIndex*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 
 proc buildingBuildable*(kind: ThingKind): bool =
-  BuildingRegistry[kind].buildable
+  BuildingRegistry[kind].buildIndex >= 0 and BuildingRegistry[kind].buildCost.len > 0
 
 proc buildingBuildCost*(kind: ThingKind): seq[ItemAmount] =
   BuildingRegistry[kind].buildCost
-
-proc buildingBuildStation*(kind: ThingKind): CraftStation =
-  BuildingRegistry[kind].buildStation
 
 proc buildingBuildCooldown*(kind: ThingKind): int =
   BuildingRegistry[kind].buildCooldown
@@ -292,13 +263,13 @@ proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   BuildingRegistry[kind].storageItems
 
 proc buildingHasCraftStation*(kind: ThingKind): bool =
-  BuildingRegistry[kind].hasCraftStation
+  BuildingRegistry[kind].craftStation != StationNone
 
 proc buildingCraftStation*(kind: ThingKind): CraftStation =
   BuildingRegistry[kind].craftStation
 
 proc buildingHasTrain*(kind: ThingKind): bool =
-  BuildingRegistry[kind].hasTrain
+  BuildingRegistry[kind].trainCosts.len > 0
 
 proc buildingTrainUnit*(kind: ThingKind): AgentUnitClass =
   BuildingRegistry[kind].trainUnit
@@ -338,6 +309,6 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
     if costs.len == 0:
       continue
     let id = toSnakeCase($kind)
-    let station = buildingBuildStation(kind)
+    let station = StationTable
     let cooldown = buildingBuildCooldown(kind)
     addRecipe(recipes, id, station, costs, @[(thingItem($kind), 1)], cooldown)
