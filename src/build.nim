@@ -17,7 +17,7 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = [
   thingItem("Mill"),
   thingItem("LumberCamp"),
   thingItem("MiningCamp"),
-  thingItem("Farm"),
+  ItemNone,  # Farm removed
   thingItem("Dock"),
   thingItem("Market"),
   thingItem("Barracks"),
@@ -44,7 +44,6 @@ const
   BuildIndexMill* = 2
   BuildIndexLumberCamp* = 3
   BuildIndexMiningCamp* = 4
-  BuildIndexFarm* = 5
   BuildIndexDock* = 6
   BuildIndexMarket* = 7
   BuildIndexBarracks* = 8
@@ -89,7 +88,7 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
       return false
     let terrain = env.terrain[pos.x][pos.y]
-    terrain in {Empty, Grass, Sand, Snow}
+    terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
 
   var offsets: seq[IVec2] = @[]
   proc addOffset(offset: IVec2) =

@@ -112,7 +112,7 @@ proc removeThing(env: Environment, thing: Thing) =
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
-    if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow}:
+    if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)
@@ -130,9 +130,6 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   of Barrel:
     placed.barrelCapacity = BarrelCapacity
   of Mill, LumberCamp, MiningCamp:
-    placed.barrelCapacity = BarrelCapacity
-    placed.teamId = getTeamId(agent.agentId)
-  of Farm:
     placed.barrelCapacity = BarrelCapacity
     placed.teamId = getTeamId(agent.agentId)
   of Lantern:
@@ -154,21 +151,23 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   else:
     discard
   env.add(placed)
-  if kind == Farm or kind == Mill:
-    let offsets = [
-      ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
-      ivec2(-1, 0), ivec2(1, 0),
-      ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
-    ]
-    for offset in offsets:
-      let farmPos = placed.pos + offset
-      if not isValidPos(farmPos):
-        continue
-      if not env.isEmpty(farmPos) or env.hasDoor(farmPos) or isBlockedTerrain(env.terrain[farmPos.x][farmPos.y]) or isTileFrozen(farmPos, env):
-        continue
-      if env.terrain[farmPos.x][farmPos.y] == Empty:
-        env.terrain[farmPos.x][farmPos.y] = Wheat
-        env.resetTileColor(farmPos)
+  if kind == Mill:
+    for dx in -2 .. 2:
+      for dy in -2 .. 2:
+        if dx == 0 and dy == 0:
+          continue
+        if max(abs(dx), abs(dy)) > 2:
+          continue
+        let fertilePos = placed.pos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(fertilePos):
+          continue
+        if not env.isEmpty(fertilePos) or env.hasDoor(fertilePos) or
+           isBlockedTerrain(env.terrain[fertilePos.x][fertilePos.y]) or isTileFrozen(fertilePos, env):
+          continue
+        let terrain = env.terrain[fertilePos.x][fertilePos.y]
+        if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
+          env.terrain[fertilePos.x][fertilePos.y] = Fertile
+          env.resetTileColor(fertilePos)
   env.updateThingObsOnAdd(kind, pos, placed)
   if kind == Altar:
     let teamId = placed.teamId

@@ -107,6 +107,27 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                         Dock, Monastery, University, Castle, TownCenter, House}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
+    elif thing.kind == Mill:
+      if thing.cooldown > 0:
+        thing.cooldown -= 1
+      else:
+        for dx in -2 .. 2:
+          for dy in -2 .. 2:
+            if dx == 0 and dy == 0:
+              continue
+            if max(abs(dx), abs(dy)) > 2:
+              continue
+            let pos = thing.pos + ivec2(dx.int32, dy.int32)
+            if not isValidPos(pos):
+              continue
+            if not env.isEmpty(pos) or env.hasDoor(pos) or
+               isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
+              continue
+            let terrain = env.terrain[pos.x][pos.y]
+            if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
+              env.terrain[pos.x][pos.y] = Fertile
+              env.resetTileColor(pos)
+        thing.cooldown = 10
     elif thing.kind == Spawner:
       if thing.cooldown > 0:
         thing.cooldown -= 1
@@ -184,26 +205,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             thing.orientation = Orientation.W
           elif desired.x > 0:
             thing.orientation = Orientation.E
-    elif thing.kind == Farm:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-      elif randFloat(stepRng) < 0.5:
-        let offsets = [
-          ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
-          ivec2(-1, 0), ivec2(1, 0),
-          ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
-        ]
-        let start = randIntInclusive(stepRng, 0, offsets.len - 1)
-        for i in 0 ..< offsets.len:
-          let idx = (start + i) mod offsets.len
-          let pos = thing.pos + offsets[idx]
-          if not isValidPos(pos):
-            continue
-          if env.isEmpty(pos) and not env.hasDoor(pos) and env.terrain[pos.x][pos.y] == Empty and not isTileFrozen(pos, env):
-            env.terrain[pos.x][pos.y] = Wheat
-            env.resetTileColor(pos)
-            break
-        thing.cooldown = 10
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
