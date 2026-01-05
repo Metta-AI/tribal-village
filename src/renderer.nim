@@ -86,6 +86,7 @@ proc stockpileIcon(res: StockpileResource): string =
   of ResourceStone: "stone"
   of ResourceGold: "gold"
   of ResourceWater: "droplet"
+  of ResourceNone: ""
 
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
@@ -200,7 +201,7 @@ proc drawTerrain*() =
         spriteKey = "bridge_tile"
       of Wheat:
         spriteKey = "wheat"
-      of Tree:
+      of Pine:
         spriteKey = "pine"
       of Palm:
         spriteKey = "palm"
@@ -232,7 +233,7 @@ proc drawTerrain*() =
         discard
       if spriteKey.len > 0:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-      if infected and terrain in {Wheat, Tree, Palm}:
+      if infected and terrain in {Wheat, Pine, Palm}:
         drawOverlayIf(true, "frozen_tile", pos.vec2)
 
 proc drawAttackOverlays*() =
@@ -667,7 +668,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Water: "Water"
       of Bridge: "Bridge"
       of Wheat: "Wheat"
-      of Tree: "Tree"
+      of Pine: "Pine"
       of Fertile: "Fertile"
       of Road: "Road"
       of Rock: "Rock"

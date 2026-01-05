@@ -6,11 +6,18 @@ type GathererTask = enum
   TaskHearts
 
 proc countNearbyTrees(env: Environment, center: IVec2, radius: int): int =
-  for thing in env.things:
-    if thing.kind notin {Pine, Palm}:
-      continue
-    if max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y)) <= radius:
-      inc result
+  let cx = center.x.int
+  let cy = center.y.int
+  let startX = max(0, cx - radius)
+  let endX = min(MapWidth - 1, cx + radius)
+  let startY = max(0, cy - radius)
+  let endY = min(MapHeight - 1, cy + radius)
+  for x in startX..endX:
+    for y in startY..endY:
+      if max(abs(x - cx), abs(y - cy)) > radius:
+        continue
+      if env.terrain[x][y] in {TerrainType.Pine, TerrainType.Palm}:
+        inc result
 
 proc countNearbyTerrain(env: Environment, center: IVec2, radius: int, allowed: set[TerrainType]): int =
   let cx = center.x.int
@@ -143,8 +150,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if agent.unitClass == UnitVillager:
       let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
       if nearbyGold >= 6 and not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMiningCamp)
-        if didBuild: return buildAct
+        let idx = buildIndexFor(MiningCamp)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
   of TaskFood:
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
@@ -161,17 +170,23 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if agent.unitClass == UnitVillager:
       let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
       if nearbyTrees >= 6 and not hasFriendlyBuildingNearby(env, teamId, LumberCamp, agent.pos, 6):
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexLumberCamp)
-        if didBuild: return buildAct
-    let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
-    if did: return act
+        let idx = buildIndexFor(LumberCamp)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
+    let (didPine, actPine) = controller.findAndHarvest(env, agent, agentId, state, Pine)
+    if didPine: return actPine
+    let (didPalm, actPalm) = controller.findAndHarvest(env, agent, agentId, state, Palm)
+    if didPalm: return actPalm
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     if agent.unitClass == UnitVillager:
       let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Rock, Stalagmite})
       if nearbyStone >= 6 and not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMiningCamp)
-        if didBuild: return buildAct
+        let idx = buildIndexFor(MiningCamp)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
     let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Rock)
     if did: return act
     return controller.moveNextSearch(env, agent, agentId, state)

@@ -26,7 +26,7 @@ proc render*(env: Environment): string =
         of Water: "~"
         of Bridge: "="
         of Wheat: "."
-        of Tree: "T"
+        of Pine: "T"
         of Fertile: "f"
         of Road: "r"
         of Rock: "R"
