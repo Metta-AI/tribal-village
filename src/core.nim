@@ -16,6 +16,7 @@ type
     Farmer      # Wheat cycle (mill + fertile planting/harvest)
     Lighter     # Lantern crafter/planter (team tint)
     Builder     # Builds team infrastructure
+    Waller      # Builds wall ring around altar
     BlacksmithRole  # Crafts at blacksmith (bars -> gear)
 
   # Minimal state tracking with spiral search

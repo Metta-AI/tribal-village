@@ -36,7 +36,7 @@ const
   CowMilkCooldown* = 25
   ResourceCarryCapacity* = 5
   TownCenterPopCap* = 5
-  HousePopCap* = 5
+  HousePopCap* = 1
   VillagerAttackDamage* = 1
   ManAtArmsAttackDamage* = 2
   ArcherAttackDamage* = 1
