@@ -78,7 +78,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     env.resetTileColor(targetPos)
     let tree = Thing(kind: Pine, pos: targetPos)
     tree.inventory = emptyInventory()
-    setInv(tree, ItemWood, TreeWoodInitial)
+    setInv(tree, ItemWood, ResourceNodeInitial)
     env.add(tree)
   else:
     if agent.inventoryWheat <= 0:
@@ -87,6 +87,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
     env.terrain[targetPos.x][targetPos.y] = Wheat
+    env.terrainResources[targetPos.x][targetPos.y] = ResourceNodeInitial
     env.resetTileColor(targetPos)
 
   # Consuming fertility (terrain replaced above)
