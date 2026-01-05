@@ -19,11 +19,6 @@ proc createVillage*(): Structure =
       if abs(x - center.x) + abs(y - center.y) <= 2:
         layout[y][x] = StructureFloorChar
 
-  # Town center sits adjacent to the altar (east).
-  let tcPos = ivec2(center.x + 1, center.y)
-  if tcPos.x >= 0 and tcPos.x < size and tcPos.y >= 0 and tcPos.y < size:
-    layout[tcPos.y][tcPos.x] = StructureTownCenterChar
-
   result = Structure(
     width: size,
     height: size,

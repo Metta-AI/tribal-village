@@ -7,17 +7,11 @@ import vmath
 import ./environment, common, terrain
 
 type
-  # Simple agent roles - one per team member
+  # Meta roles with focused responsibilities (AoE-style)
   AgentRole* = enum
-    Hearter     # Gold -> bar -> altar (population growth)
-    Woodsman    # Wood gatherer
-    Warrior     # Spear fighter that hunts tumors
-    Miner       # Gold/stone gatherer
-    Farmer      # Wheat cycle (mill + fertile planting/harvest)
-    Lighter     # Lantern crafter/planter (team tint)
-    Builder     # Builds team infrastructure
-    Waller      # Builds wall ring around altar
-    Smith       # Crafts armor and supports teammates
+    Gatherer   # Dynamic resource gatherer (food/wood/stone/gold + hearts)
+    Builder    # Builds structures + equips villagers
+    Fighter    # Combat & hunting
 
   # Minimal state tracking with spiral search
   AgentState = object
