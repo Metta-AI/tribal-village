@@ -155,6 +155,15 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
           if didBuild: return buildAct
   of TaskFood:
+    if agent.unitClass == UnitVillager:
+      let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
+      let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
+      if nearbyWheat + nearbyFertile >= 8 and
+          not hasFriendlyBuildingNearby(env, teamId, Mill, agent.pos, 8):
+        let idx = buildIndexFor(Mill)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
     let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
