@@ -159,6 +159,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
       elif env.tryBlacksmithService(agent, thing):
         used = true
+    if not used and thing.teamId == getTeamId(agent.agentId):
+      if env.useStorageBuilding(agent, thing, @[ItemArmor, ItemSpear]):
+        used = true
   of TownCenter:
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone}):
