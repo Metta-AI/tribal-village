@@ -8,21 +8,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if agent.frozen > 0:
     return encodeAction(0'u8, 0'u8)
 
-  # Initialize agent role if needed (per-house pattern with one guaranteed Hearter)
+  # Initialize agent role if needed (gatherer-heavy mix)
   if agentId notin controller.agents:
     let role =
       case agentId mod MapAgentsPerHouse
-      of 0: Hearter
-      of 1: Woodsman
-      of 2: Miner
-      of 3: Farmer
-      of 4: Warrior
-      of 5: Builder
-      of 6: Lighter
-      of 7: Smith
-      of 8: Waller
+      of 0, 1, 2, 3, 4, 5: Gatherer
+      of 6, 7: Fighter
+      of 8, 9: Builder
       else:
-        sample(controller.rng, [Hearter, Woodsman, Miner, Farmer, Warrior, Builder, Lighter, Smith, Waller])
+        sample(controller.rng, [Gatherer, Gatherer, Gatherer, Fighter, Builder])
 
     controller.agents[agentId] = AgentState(
       role: role,
@@ -99,8 +93,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.escapeMode = false
     state.stuckCounter = 0
 
-  # Small dithering chance to break deadlocks (higher for non-altar roles)
-  let ditherChance = if state.role == Hearter: 0.10 else: 0.20
+  # Small dithering chance to break deadlocks (lower for gatherers to stay focused)
+  let ditherChance = if state.role == Gatherer: 0.10 else: 0.20
   if randFloat(controller.rng) < ditherChance:
     var candidates = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
                        ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
@@ -136,15 +130,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Role-based decision making
   case state.role:
-  of Hearter: return decideHearter(controller, env, agent, agentId, state)
-  of Woodsman: return decideWoodsman(controller, env, agent, agentId, state)
-  of Warrior: return decideWarrior(controller, env, agent, agentId, state)
-  of Farmer: return decideFarmer(controller, env, agent, agentId, state)
-  of Miner: return decideMiner(controller, env, agent, agentId, state)
-  of Lighter: return decideLighter(controller, env, agent, agentId, state)
+  of Gatherer: return decideGatherer(controller, env, agent, agentId, state)
   of Builder: return decideBuilder(controller, env, agent, agentId, state)
-  of Smith: return decideSmith(controller, env, agent, agentId, state)
-  of Waller: return decideWaller(controller, env, agent, agentId, state)
+  of Fighter: return decideFighter(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller) =
