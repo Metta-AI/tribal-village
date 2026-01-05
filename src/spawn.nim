@@ -587,8 +587,8 @@ proc init(env: Environment) =
     if remaining <= 0:
       break
     let clustersLeft = clusterCount - clusterIndex
-    let maxCluster = min(5, remaining)
-    let minCluster = if remaining >= 3: 3 else: 1
+    let maxCluster = min(6, remaining)
+    let minCluster = min(3, remaining)
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
     let depositTerrain = if clusterIndex mod 2 == 0: Rock else: Gem
