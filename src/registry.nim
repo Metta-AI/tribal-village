@@ -157,9 +157,6 @@ proc buildingUsesCooldown*(kind: ThingKind): bool =
 
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource
 
-proc buildingShowsStockpile*(kind: ThingKind): bool =
-  buildingStockpileRes(kind) != ResourceNone
-
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   case kind
   of Granary: ResourceFood
@@ -216,9 +213,6 @@ proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   else: @[]
 
 proc buildingCraftStation*(kind: ThingKind): CraftStation
-
-proc buildingHasCraftStation*(kind: ThingKind): bool =
-  buildingCraftStation(kind) != StationNone
 
 proc buildingCraftStation*(kind: ThingKind): CraftStation =
   case kind
