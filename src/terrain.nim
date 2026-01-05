@@ -740,15 +740,14 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place bridges across the river and any tributary branch.
-  # Bridges are three tiles wide (east-west) and span slightly beyond river width north-south.
+  # Bridges are three tiles wide (east-west) and span across the river north-south.
   proc placeBridgeMain(t: var TerrainGrid, center: IVec2) =
-    let halfSpan = RiverWidth div 2 + 1
-    let startY = max(mapBorder, int(center.y) - halfSpan)
-    let endY = min(mapHeight - mapBorder - 1, int(center.y) + halfSpan)
-    let startX = max(mapBorder, int(center.x) - halfSpan)
-    let endX = min(mapWidth - mapBorder - 1, int(center.x) + halfSpan)
-    for x in startX .. endX:
+    let startY = max(mapBorder, int(center.y) - (RiverWidth div 2 + 1))
+    let endY = min(mapHeight - mapBorder - 1, int(center.y) + (RiverWidth div 2 + 1))
+    let baseX = max(mapBorder, min(mapWidth - mapBorder - 3, int(center.x) - 1))
+    for dx in 0 .. 2:
       for y in startY .. endY:
+        let x = baseX + dx
         if inCornerReserve(x, y, mapWidth, mapHeight, mapBorder, reserve):
           continue
         if t[x][y] == Water:
@@ -756,13 +755,12 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
   # Branch bridges run horizontally (east-west span) across the tributary.
   proc placeBridgeBranch(t: var TerrainGrid, center: IVec2) =
-    let halfSpan = RiverWidth div 2 + 1
-    let startX = max(mapBorder, int(center.x) - halfSpan)
-    let endX = min(mapWidth - mapBorder - 1, int(center.x) + halfSpan)
-    let startY = max(mapBorder, int(center.y) - halfSpan)
-    let endY = min(mapHeight - mapBorder - 1, int(center.y) + halfSpan)
-    for x in startX .. endX:
-      for y in startY .. endY:
+    let startX = max(mapBorder, int(center.x) - (RiverWidth div 2 + 1))
+    let endX = min(mapWidth - mapBorder - 1, int(center.x) + (RiverWidth div 2 + 1))
+    let baseY = max(mapBorder, min(mapHeight - mapBorder - 3, int(center.y) - 1))
+    for dy in 0 .. 2:
+      for x in startX .. endX:
+        let y = baseY + dy
         if inCornerReserve(x, y, mapWidth, mapHeight, mapBorder, reserve):
           continue
         if t[x][y] == Water:
