@@ -14,10 +14,10 @@ const
   MapRoomObjectsHouses* = 8
   MapAgentsPerHouse* = 20
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
-  MapRoomObjectsMagmaPools* = 10
-  MapRoomObjectsMagmaClusters* = 4
-  MapRoomObjectsMines* = 20
-  MapRoomObjectsMineClusters* = 8
+  MapRoomObjectsMagmaPools* = 14
+  MapRoomObjectsMagmaClusters* = 5
+  MapRoomObjectsMines* = 28
+  MapRoomObjectsMineClusters* = 10
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
 
