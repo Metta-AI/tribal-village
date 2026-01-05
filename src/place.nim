@@ -24,11 +24,9 @@ proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
     env.updateObservations(WallLayer, pos, 0)
   of Magma:
     env.updateObservations(MagmaLayer, pos, 0)
-    env.updateObservations(MagmaReadyLayer, pos, 0)
   of Altar:
     env.updateObservations(altarLayer, pos, 0)
     env.updateObservations(altarHeartsLayer, pos, 0)
-    env.updateObservations(altarReadyLayer, pos, 0)
   else:
     discard
 
@@ -38,11 +36,9 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
     env.updateObservations(WallLayer, pos, 1)
   of Magma:
     env.updateObservations(MagmaLayer, pos, 1)
-    env.updateObservations(MagmaReadyLayer, pos, placed.cooldown)
   of Altar:
     env.updateObservations(altarLayer, pos, 1)
     env.updateObservations(altarHeartsLayer, pos, placed.hearts)
-    env.updateObservations(altarReadyLayer, pos, placed.cooldown)
   else:
     discard
 

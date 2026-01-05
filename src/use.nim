@@ -106,7 +106,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, ItemGold))
       env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
       thing.cooldown = 0
-      env.updateObservations(MagmaReadyLayer, thing.pos, 1)
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
       used = true
   of WeavingLoom:
@@ -159,7 +158,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       thing.hearts = thing.hearts + 1
       thing.cooldown = MapObjectAltarCooldown
       env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
-      env.updateObservations(altarReadyLayer, thing.pos, thing.cooldown)
       agent.reward += env.config.heartReward
       used = true
   of Barrel:
