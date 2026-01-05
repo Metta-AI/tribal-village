@@ -564,7 +564,6 @@ proc drawAgentDecorations*() =
       of ItemLantern: "lantern"
       of ItemArmor: "armor"
       of ItemBread: "bread"
-      of ItemRock: "rock"
       of ItemHearts: "heart"
       else:
         if key.startsWith(ItemThingPrefix):
