@@ -305,8 +305,9 @@ proc init(env: Environment) =
               pos: pos,
               teamId: teamId
             )
-            if entry.kind in {Granary, LumberCamp, MiningCamp}:
-              building.barrelCapacity = BarrelCapacity
+            let capacity = buildingBarrelCapacity(entry.kind)
+            if capacity > 0:
+              building.barrelCapacity = capacity
             env.add(building)
             env.teamStockpiles[teamId].counts[entry.res] =
               max(env.teamStockpiles[teamId].counts[entry.res], 5)
@@ -469,7 +470,7 @@ proc init(env: Environment) =
                 kind: Blacksmith,
                 pos: worldPos,
                 teamId: teamId,
-                barrelCapacity: BarrelCapacity
+                barrelCapacity: buildingBarrelCapacity(Blacksmith)
               ))
             of StructureClayOvenChar:  # Clay Oven at bottom-left
               env.add(Thing(

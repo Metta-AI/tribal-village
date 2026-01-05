@@ -195,90 +195,100 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       else:
         setInv(thing, ItemFish, remaining)
       used = true
-  of Altar:
-    if thing.cooldown == 0 and agent.inventoryBar >= 1:
-      agent.inventoryBar = agent.inventoryBar - 1
-      env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
-      thing.hearts = thing.hearts + 1
-      thing.cooldown = MapObjectAltarCooldown
-      env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
-      agent.reward += env.config.heartReward
-      used = true
-  of Barrel:
-    if env.useStorageBuilding(agent, thing, @[]):
-      used = true
-  of Blacksmith:
-    if thing.cooldown == 0:
-      if env.tryCraftAtStation(agent, StationBlacksmith, thing):
-        used = true
-      elif env.tryBlacksmithService(agent, thing):
-        used = true
-    if not used and thing.teamId == getTeamId(agent.agentId):
-      if env.useStorageBuilding(agent, thing, @[ItemArmor, ItemSpear]):
-        used = true
-  of TownCenter:
-    if thing.teamId == getTeamId(agent.agentId):
-      if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone}):
-        used = true
-  of Granary:
-    if thing.teamId == getTeamId(agent.agentId):
-      if env.useDropoffBuilding(agent, {ResourceFood}):
-        used = true
-      if not used and env.useStorageBuilding(agent, thing, @[ItemWheat]):
-        used = true
-  of Mill:
-    discard
-  of LumberCamp:
-    if thing.teamId == getTeamId(agent.agentId):
-      if env.useDropoffBuilding(agent, {ResourceWood}):
-        used = true
-  of MiningCamp:
-    if thing.teamId == getTeamId(agent.agentId):
-      if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
-        used = true
-      if not used and env.useStorageBuilding(agent, thing, @[ItemRock]):
-        used = true
-  of Dock:
-    if thing.teamId == getTeamId(agent.agentId):
-      if env.useDropoffBuilding(agent, {ResourceFood}):
-        used = true
-  of Barracks:
-    if thing.cooldown == 0:
-      if env.tryTrainUnit(agent, thing, UnitManAtArms,
-          @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)], 8):
-        used = true
-  of ArcheryRange:
-    if thing.cooldown == 0:
-      if env.tryTrainUnit(agent, thing, UnitArcher,
-          @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)], 8):
-        used = true
-  of Stable:
-    if thing.cooldown == 0:
-      if env.tryTrainUnit(agent, thing, UnitScout, @[(res: ResourceFood, count: 3)], 8):
-        used = true
-  of SiegeWorkshop:
-    if thing.cooldown == 0:
-      if env.tryCraftAtStation(agent, StationSiegeWorkshop, thing):
-        used = true
-      elif env.tryTrainUnit(agent, thing, UnitSiege,
-          @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)], 10):
-        used = true
-  of Monastery:
-    if thing.cooldown == 0:
-      if env.tryTrainUnit(agent, thing, UnitMonk, @[(res: ResourceGold, count: 2)], 10):
-        used = true
-  of Castle:
-    if thing.cooldown == 0:
-      if env.tryTrainUnit(agent, thing, UnitKnight,
-          @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)], 12):
-        used = true
-  of University:
-    discard
-  of Market:
-    if thing.cooldown == 0 and env.tryMarketTrade(agent, thing):
-      used = true
   else:
-    discard
+    if isBuildingKind(thing.kind):
+      let useKind = buildingUseKind(thing.kind)
+      case useKind
+      of UseAltar:
+        if thing.cooldown == 0 and agent.inventoryBar >= 1:
+          agent.inventoryBar = agent.inventoryBar - 1
+          env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
+          thing.hearts = thing.hearts + 1
+          thing.cooldown = MapObjectAltarCooldown
+          env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
+          agent.reward += env.config.heartReward
+          used = true
+      of UseArmory:
+        if thing.teamId == getTeamId(agent.agentId) and thing.cooldown == 0 and agent.inventoryArmor < ArmorPoints:
+          if env.spendStockpile(thing.teamId, @[(res: ResourceWood, count: 1)]):
+            agent.inventoryArmor = ArmorPoints
+            thing.cooldown = 20
+            env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
+            agent.reward += env.config.armorReward
+            used = true
+      of UseClayOven:
+        if thing.cooldown == 0:
+          if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+          elif agent.inventoryWheat > 0:
+            agent.inventoryWheat = agent.inventoryWheat - 1
+            agent.inventoryBread = agent.inventoryBread + 1
+            thing.cooldown = 10
+            env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+            env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+            agent.reward += env.config.foodReward
+            used = true
+      of UseWeavingLoom:
+        if thing.cooldown == 0 and agent.inventoryLantern == 0 and
+            (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
+          if agent.inventoryWood > 0:
+            agent.inventoryWood = agent.inventoryWood - 1
+            env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+          else:
+            agent.inventoryWheat = agent.inventoryWheat - 1
+            env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
+          agent.inventoryLantern = 1
+          thing.cooldown = 15
+          env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
+          agent.reward += env.config.clothReward
+          used = true
+        elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+          if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+      of UseBlacksmith:
+        if thing.cooldown == 0:
+          if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+          elif env.tryBlacksmithService(agent, thing):
+            used = true
+        if not used and thing.teamId == getTeamId(agent.agentId):
+          if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+            used = true
+      of UseMarket:
+        if thing.cooldown == 0 and env.tryMarketTrade(agent, thing):
+          used = true
+      of UseDropoff:
+        if thing.teamId == getTeamId(agent.agentId):
+          if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+            used = true
+      of UseDropoffAndStorage:
+        if thing.teamId == getTeamId(agent.agentId):
+          if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+            used = true
+          if not used and env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+            used = true
+      of UseStorage:
+        if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+          used = true
+      of UseTrain:
+        if thing.cooldown == 0 and buildingHasTrain(thing.kind):
+          if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+              buildingTrainCosts(thing.kind), buildingTrainCooldown(thing.kind)):
+            used = true
+      of UseTrainAndCraft:
+        if thing.cooldown == 0:
+          if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+          elif buildingHasTrain(thing.kind):
+            if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+                buildingTrainCosts(thing.kind), buildingTrainCooldown(thing.kind)):
+              used = true
+      of UseCraft:
+        if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+          if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+      of UseNone:
+        discard
 
   if not used:
     if tryPickupThing(env, agent, thing):

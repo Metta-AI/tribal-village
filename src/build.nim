@@ -11,57 +11,27 @@ proc buildCostsForKey*(key: ItemKey): seq[tuple[res: StockpileResource, count: i
       return costs
   @[]
 
-let BuildChoices*: array[ActionArgumentCount, ItemKey] = [
-  thingItem("House"),
-  thingItem("TownCenter"),
-  thingItem("Mill"),
-  thingItem("LumberCamp"),
-  thingItem("MiningCamp"),
-  thingItem("Granary"),
-  thingItem("Dock"),
-  thingItem("Market"),
-  thingItem("Barracks"),
-  thingItem("ArcheryRange"),
-  thingItem("Stable"),
-  thingItem("SiegeWorkshop"),
-  thingItem("Castle"),
-  thingItem("Outpost"),
-  thingItem("Wall"),
-  thingItem("Road"),
-  thingItem("Blacksmith"),
-  thingItem("Monastery"),
-  thingItem("University"),
-  thingItem("Armory"),
-  thingItem("ClayOven"),
-  thingItem("WeavingLoom"),
-  thingItem("Barrel"),
-  ItemNone
-]
-
 const
-  BuildIndexHouse* = 0
-  BuildIndexTownCenter* = 1
-  BuildIndexMill* = 2
-  BuildIndexLumberCamp* = 3
-  BuildIndexMiningCamp* = 4
-  BuildIndexGranary* = 5
-  BuildIndexDock* = 6
-  BuildIndexMarket* = 7
-  BuildIndexBarracks* = 8
-  BuildIndexArcheryRange* = 9
-  BuildIndexStable* = 10
-  BuildIndexSiegeWorkshop* = 11
-  BuildIndexCastle* = 12
-  BuildIndexOutpost* = 13
   BuildIndexWall* = 14
   BuildIndexRoad* = 15
-  BuildIndexBlacksmith* = 16
-  BuildIndexMonastery* = 17
-  BuildIndexUniversity* = 18
-  BuildIndexArmory* = 19
-  BuildIndexClayOven* = 20
-  BuildIndexWeavingLoom* = 21
-  BuildIndexBarrel* = 22
+
+proc initBuildChoices(): array[ActionArgumentCount, ItemKey] =
+  var choices: array[ActionArgumentCount, ItemKey]
+  for i in 0 ..< choices.len:
+    choices[i] = ItemNone
+  for kind in ThingKind:
+    if not isBuildingKind(kind):
+      continue
+    if not buildingBuildable(kind):
+      continue
+    let idx = buildingBuildIndex(kind)
+    if idx >= 0 and idx < choices.len:
+      choices[idx] = thingItem($kind)
+  choices[BuildIndexWall] = thingItem("Wall")
+  choices[BuildIndexRoad] = thingItem("Road")
+  choices
+
+let BuildChoices*: array[ActionArgumentCount, ItemKey] = initBuildChoices()
 
 proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
                       choices: array[ActionArgumentCount, ItemKey]) =
