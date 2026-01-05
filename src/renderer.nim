@@ -85,6 +85,7 @@ proc stockpileIcon(res: StockpileResource): string =
   of ResourceWood: "wood"
   of ResourceStone: "stone"
   of ResourceGold: "gold"
+  of ResourceWater: "droplet"
   of ResourceNone: ""
 
 proc useSelections*() =
@@ -267,7 +268,9 @@ proc ensureHeartCountLabel(count: int): string =
   # Render the text into a fresh image.
   var ctx = newContext(labelWidth, labelHeight)
   configureHeartFont(ctx)
-  ctx.fillStyle.color = color(0, 0, 0, 1)
+  ctx.fillStyle.color = color(0, 0, 0, 0.7)
+  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+  ctx.fillStyle.color = color(1, 1, 1, 1)
   ctx.fillText(text, vec2(padding.float32, padding.float32))
 
   let key = "heart_count/" & $count
@@ -487,14 +490,14 @@ proc drawObjects*() =
               if icon.len > 0:
                 let count = env.teamStockpiles[thing.teamId].counts[res]
                 let iconScale = 1/320
-                let labelScale = 1/240
+                let labelScale = 1/200
                 let iconPos = pos.vec2 + vec2(-0.18, -0.72)
                 let alpha = if count > 0: 1.0 else: 0.35
                 bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
                 if count > 0:
                   let labelKey = ensureHeartCountLabel(count)
-                  let labelPos = iconPos + vec2(0.10, -0.06)
-                  bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 0.9))
+                  let labelPos = iconPos + vec2(0.14, -0.08)
+                  bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
           else:
             let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
             if spriteKey.len > 0:
