@@ -1,62 +1,80 @@
+proc isTeamBuilding(kind: ThingKind): bool =
+  case kind
+  of Altar, TownCenter, House, Armory, ClayOven, WeavingLoom, Outpost, Mill, LumberCamp,
+     MiningCamp, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
+     Monastery, University, Castle:
+    true
+  else:
+    false
+
+proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
+  for thing in env.things:
+    if thing.kind != Lantern:
+      continue
+    if not thing.lanternHealthy or thing.teamId != teamId:
+      continue
+    if abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y) <= 2:
+      return true
+  false
+
+proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thing =
+  var bestDist = int.high
+  for thing in env.things:
+    if thing.teamId != teamId:
+      continue
+    if not isTeamBuilding(thing.kind):
+      continue
+    if hasTeamLanternNear(env, teamId, thing.pos):
+      continue
+    let dist = abs(thing.pos.x - origin.x) + abs(thing.pos.y - origin.y)
+    if dist < bestDist:
+      bestDist = dist
+      result = thing
+
 proc decideFighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
-  # Lantern ring expansion / relocation.
-  if agent.inventoryLantern > 0:
-    let center = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-    let maxR = 12
-    for radius in 3 .. maxR:
-      var bestDir = -1
-      for i in 0 .. 7:
-        let dir = orientationToVec(Orientation(i))
-        let target = agent.pos + dir
-        let dist = max(abs(target.x - center.x), abs(target.y - center.y))
-        if dist != radius:
-          continue
-        if target.x < 0 or target.x >= MapWidth or target.y < 0 or target.y >= MapHeight:
-          continue
-        if not env.isEmpty(target) or env.hasDoor(target):
-          continue
-        if env.terrain[target.x][target.y] == Water or isTileFrozen(target, env):
-          continue
-        var spaced = true
-        for t in env.things:
-          if t.kind == Lantern and chebyshevDist(target, t.pos) < 3'i32:
-            spaced = false
-            break
-        if spaced:
-          bestDir = i
-          break
-      if bestDir >= 0:
-        return saveStateAndReturn(controller, agentId, state, encodeAction(6'u8, bestDir.uint8))
+  # Patrol and keep buildings lit by nearby lanterns.
+  let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
+  if unlit != nil:
+    if agent.inventoryLantern > 0:
+      var bestPos = ivec2(-1, -1)
+      var bestDist = int.high
+      for dx in -2 .. 2:
+        for dy in -2 .. 2:
+          if abs(dx) + abs(dy) > 2:
+            continue
+          let target = unlit.pos + ivec2(dx.int32, dy.int32)
+          if not isValidPos(target):
+            continue
+          if not env.isEmpty(target) or env.hasDoor(target):
+            continue
+          if isBlockedTerrain(env.terrain[target.x][target.y]) or isTileFrozen(target, env):
+            continue
+          if env.terrain[target.x][target.y] == Water or env.terrain[target.x][target.y] == Wheat:
+            continue
+          let dist = abs(target.x - agent.pos.x) + abs(target.y - agent.pos.y)
+          if dist < bestDist:
+            bestDist = dist
+            bestPos = target
+      if bestPos.x >= 0:
+        if chebyshevDist(agent.pos, bestPos) == 1'i32:
+          return saveStateAndReturn(controller, agentId, state,
+            encodeAction(6'u8, neighborDirIndex(agent.pos, bestPos).uint8))
+        return saveStateAndReturn(controller, agentId, state,
+          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, bestPos, controller.rng).uint8))
 
-    # If no ring slot found, step outward to expand the ring.
-    let away = getMoveAway(env, agent, agent.pos, center, controller.rng)
-    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, away.uint8))
-
-  # If adjacent to a lantern without one to plant, push it outward.
-  if isAdjacentToLantern(env, agent.pos):
-    let near = findNearestLantern(env, agent.pos)
-    if near.found and near.dist == 1'i32:
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, neighborDirIndex(agent.pos, near.pos).uint8))
-    let dx = near.pos.x - agent.pos.x
-    let dy = near.pos.y - agent.pos.y
-    let step = agent.pos + ivec2((if dx != 0: dx div abs(dx) else: 0'i32),
-                                 (if dy != 0: dy div abs(dy) else: 0'i32))
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, neighborDirIndex(agent.pos, step).uint8))
-
-  # Craft lanterns at the weaving loom when possible.
-  if agent.inventoryWheat > 0:
+    # No lantern in inventory: craft or gather resources to make one.
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
-    if loom != nil:
+    if loom != nil and (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
       return controller.useOrMove(env, agent, agentId, state, loom.pos)
 
-  # Gather wheat for lanterns.
-  let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
-  if didWheat: return actWheat
+    let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
+    if didWheat: return actWheat
+    let (didWood, actWood) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
+    if didWood: return actWood
+    return controller.moveNextSearch(env, agent, agentId, state)
 
   # Train into a combat unit when possible.
   if agent.unitClass == UnitVillager:

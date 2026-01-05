@@ -105,12 +105,23 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+  var altarHearts = 0
+  if agent.homeAltar.x >= 0:
+    let altar = env.getThing(agent.homeAltar)
+    if altar != nil and altar.kind == Altar:
+      altarHearts = altar.hearts
+  if altarHearts == 0:
+    let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
+    if altar != nil:
+      altarHearts = altar.hearts
 
   # Drop off any carried stockpile resources first.
   let (didDrop, dropAct) = dropoffIfCarrying(controller, env, agent, agentId, state)
   if didDrop: return dropAct
 
-  let task = chooseGathererTask(env, teamId)
+  var task = chooseGathererTask(env, teamId)
+  if altarHearts < 10:
+    task = TaskHearts
 
   case task
   of TaskHearts:

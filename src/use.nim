@@ -123,11 +123,16 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if agent.inventoryBar == 1: agent.reward += env.config.barReward
       used = true
   of WeavingLoom:
-    if thing.cooldown == 0 and agent.inventoryWheat > 0 and agent.inventoryLantern == 0:
-      agent.inventoryWheat = agent.inventoryWheat - 1
+    if thing.cooldown == 0 and agent.inventoryLantern == 0 and
+        (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
+      if agent.inventoryWood > 0:
+        agent.inventoryWood = agent.inventoryWood - 1
+        env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+      else:
+        agent.inventoryWheat = agent.inventoryWheat - 1
+        env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       agent.inventoryLantern = 1
       thing.cooldown = 15
-      env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
       env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
       agent.reward += env.config.clothReward
       used = true
