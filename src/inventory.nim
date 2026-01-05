@@ -139,12 +139,6 @@ proc hearts*(thing: Thing): int =
 proc `hearts=`*(thing: Thing, value: int) =
   setInv(thing, ItemHearts, value)
 
-proc resources*(thing: Thing): int =
-  thing.mineResources
-
-proc `resources=`*(thing: Thing, value: int) =
-  thing.mineResources = value
-
 template defineInventoryAccessors(name, key: untyped) =
   proc `name`*(agent: Thing): int =
     getInv(agent, key)

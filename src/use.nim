@@ -99,25 +99,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         if getInv(thing, ItemWood) == 0:
           removeThing(env, thing)
         used = true
-  of Mine:
-    if thing.cooldown == 0:
-      if thing.resources <= 0:
-        inc env.stats[id].actionInvalid
-        return
-      let resourceKey = if thing.mineKind == MineStone: ItemStone else: ItemGold
-      if env.giveItem(agent, resourceKey):
-        thing.resources = thing.resources - 1
-        env.updateObservations(MineResourceLayer, thing.pos, thing.resources)
-        thing.cooldown = MapObjectMineCooldown
-        env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
-        if resourceKey == ItemGold and getInv(agent, resourceKey) == 1:
-          agent.reward += env.config.oreReward
-        used = true
-        if thing.resources <= 0:
-          env.updateObservations(MineLayer, thing.pos, 0)
-          env.updateObservations(MineResourceLayer, thing.pos, 0)
-          env.updateObservations(MineReadyLayer, thing.pos, 0)
-          removeThing(env, thing)
   of Magma:  # Magma smelting
     if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
