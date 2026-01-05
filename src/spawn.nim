@@ -19,6 +19,7 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.tileColors[x][y] = BaseTileColorDefault
+      env.baseTintColors[x][y] = BaseTileColorDefault
       env.baseTileColors[x][y] = BaseTileColorDefault
 
   # Clear door grid
@@ -104,8 +105,9 @@ proc init(env: Environment) =
           let t = if dungeonBlendDepth <= 0: 1.0'f32 else:
             min(1.0'f32, max(0.0'f32, edge.float32 / dungeonBlendDepth.float32))
           let dungeonColor = biomeBaseColor(BiomeDungeonType)
-          let base = env.baseTileColors[x][y]
+          let base = env.baseTintColors[x][y]
           let blended = blendTileColor(base, dungeonColor, t)
+          env.baseTintColors[x][y] = blended
           env.baseTileColors[x][y] = blended
           env.tileColors[x][y] = blended
       var mask: MaskGrid

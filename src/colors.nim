@@ -115,7 +115,7 @@ proc biomeBaseColor*(biome: BiomeType): TileColor =
 proc baseColorForPos(env: Environment, pos: IVec2): TileColor =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return BaseTileColorDefault
-  env.baseTileColors[pos.x][pos.y]
+  env.baseTintColors[pos.x][pos.y]
 
 proc blendTileColor(a, b: TileColor, t: float32): TileColor =
   let tClamped = max(0.0'f32, min(1.0'f32, t))
@@ -237,6 +237,7 @@ proc applyBiomeBaseColors*(env: Environment) =
         discard
       colors[x][y] = color
   smoothBaseColors(colors, BiomeBlendPasses)
+  env.baseTintColors = colors
   env.baseTileColors = colors
   env.tileColors = colors
 

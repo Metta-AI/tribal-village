@@ -36,4 +36,3 @@ proc clearDoors(env: Environment) =
     for y in 0 ..< MapHeight:
       env.doorTeams[x][y] = -1
       env.doorHearts[x][y] = 0
-
