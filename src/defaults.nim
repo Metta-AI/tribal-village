@@ -110,8 +110,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # From here on, ensure lastPosition is updated this tick regardless of branch
   state.lastPosition = agent.pos
-  # Anchor spiral search around current agent position each tick
-  state.basePosition = agent.pos
+  # Anchor spiral search around home altar when possible (common base-centric search)
+  if agent.homeAltar.x >= 0:
+    state.basePosition = agent.homeAltar
+  else:
+    state.basePosition = agent.pos
 
   # Emergency self-heal: eat bread if below half HP (applies to all roles)
   if agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp:
