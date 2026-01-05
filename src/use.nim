@@ -50,7 +50,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = env.tryGiveAndClear(agent, targetPos, ItemPlant)
     of Animal:
       used = env.tryGiveAndClear(agent, targetPos, ItemFish)
-    of Empty, Grass, Dune, Sand, Snow, Stalagmite, Road:
+    of Empty, Grass, Dune, Sand, Snow, Road:
       if env.hasDoor(targetPos):
         used = false
       elif agent.inventoryBread > 0:
