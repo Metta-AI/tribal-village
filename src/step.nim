@@ -91,7 +91,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if thing.kind == Altar:
       if thing.cooldown > 0:
         thing.cooldown -= 1
-        env.updateObservations(altarReadyLayer, thing.pos, thing.cooldown)
       # Combine altar heart reward calculation here
       if env.currentStep >= env.config.maxSteps:  # Only at episode end
         let altarHearts = thing.hearts.float32
@@ -99,7 +98,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if agent.homeAltar == thing.pos:
             agent.reward += altarHearts / MapAgentsPerHouseFloat
     elif thing.kind == Magma:
-      env.tickCooldown(thing, MagmaReadyLayer, true)
+      env.tickCooldown(thing)
     elif thing.kind in {Armory, ClayOven, WeavingLoom,
                         Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market,
                         Dock, Monastery, University, Castle, TownCenter, House}:

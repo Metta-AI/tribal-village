@@ -58,7 +58,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 19
+  ObservationLayers* = 17
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -106,13 +106,11 @@ type
     AgentInventoryArmorLayer = 9
     WallLayer = 10
     MagmaLayer = 11
-    MagmaReadyLayer = 12
-    altarLayer = 13
-    altarHeartsLayer = 14  # Hearts for respawning
-    altarReadyLayer = 15
-    TintLayer = 16        # Unified tint layer for all environmental effects
-    AgentInventoryBreadLayer = 17  # Bread baked from clay oven
-    AgentInventoryStoneLayer = 18  # Stone (AoE2 resource)
+    altarLayer = 12
+    altarHeartsLayer = 13  # Hearts for respawning
+    TintLayer = 14        # Unified tint layer for all environmental effects
+    AgentInventoryBreadLayer = 15  # Bread baked from clay oven
+    AgentInventoryStoneLayer = 16  # Stone (AoE2 resource)
 
 
   AgentUnitClass* = enum
