@@ -20,6 +20,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMiningCamp)
     if did: return act
 
+  # Support lantern production.
+  if env.countTeamBuildings(teamId, WeavingLoom) == 0:
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexWeavingLoom)
+    if did: return act
+
   # Establish core military production and upgrades.
   if env.countTeamBuildings(teamId, Barracks) == 0:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexBarracks)

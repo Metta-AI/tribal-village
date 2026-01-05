@@ -165,10 +165,53 @@ proc init(env: Environment) =
   agentVillageColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
   teamColors.setLen(0)  # Clear team colors
   altarColors.clear()  # Clear altar colors from previous game
-  # Spawn houses with their altars, walls, and associated agents (tribes)
+  # Spawn villages with altars, town centers, and associated agents (tribes)
   let numHouses = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
   var houseCenters: seq[IVec2] = @[]
+  proc placeStartingRoads(center: IVec2, r: var Rand) =
+    let lengths = [3, 4]
+    let length = lengths[randIntInclusive(r, 0, lengths.len - 1)]
+    let dirs = [ivec2(0, -1), ivec2(0, 1), ivec2(1, 0), ivec2(-1, 0)]
+    for d in dirs:
+      for step in 1 .. length:
+        let pos = center + ivec2(d.x.int32 * step.int32, d.y.int32 * step.int32)
+        if not isValidPos(pos):
+          continue
+        if env.terrain[pos.x][pos.y] == Water:
+          continue
+        let existing = env.getThing(pos)
+        if existing != nil:
+          if existing.kind in {Pine, Palm}:
+            removeThing(env, existing)
+          else:
+            continue
+        env.terrain[pos.x][pos.y] = Road
+        env.resetTileColor(pos)
+
+  proc placeStartingHouses(center: IVec2, teamId: int, r: var Rand) =
+    let count = 4 + randIntInclusive(r, 0, 1)
+    var placed = 0
+    var attempts = 0
+    while placed < count and attempts < 120:
+      inc attempts
+      let dx = randIntInclusive(r, -9, 9)
+      let dy = randIntInclusive(r, -9, 9)
+      if max(abs(dx), abs(dy)) < 4:
+        continue
+      let pos = center + ivec2(dx.int32, dy.int32)
+      if not isValidPos(pos):
+        continue
+      if env.hasDoor(pos) or not env.isEmpty(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
+        continue
+      env.add(Thing(
+        kind: House,
+        pos: pos,
+        teamId: teamId
+      ))
+      inc placed
   for i in 0 ..< numHouses:
     let houseStruct = createVillage()
     var placed = false
@@ -261,6 +304,10 @@ proc init(env: Environment) =
               intensity: 1.0
             )
             env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
+
+      # Add starter roads and nearby houses for the town vibe.
+      placeStartingRoads(elements.center, r)
+      placeStartingHouses(elements.center, teamId, r)
 
       # Add the walls
       for wallPos in elements.walls:
