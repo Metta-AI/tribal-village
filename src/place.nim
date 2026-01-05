@@ -99,15 +99,9 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   if isBuildingKind(kind) and buildingTeamOwned(kind):
     placed.teamId = getTeamId(agent.agentId)
   case kind
-  of Barrel:
-    placed.barrelCapacity = BarrelCapacity
-  of Mill, LumberCamp, MiningCamp:
-    placed.barrelCapacity = BarrelCapacity
   of Lantern:
     placed.teamId = getTeamId(agent.agentId)
     placed.lanternHealthy = true
-  of Blacksmith:
-    placed.barrelCapacity = BarrelCapacity
   of Altar:
     placed.inventory = emptyInventory()
     placed.hearts = 0
@@ -115,24 +109,30 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.homeSpawner = pos
   else:
     discard
+  if isBuildingKind(kind):
+    let capacity = buildingBarrelCapacity(kind)
+    if capacity > 0:
+      placed.barrelCapacity = capacity
   env.add(placed)
-  if kind == Mill:
-    for dx in -2 .. 2:
-      for dy in -2 .. 2:
-        if dx == 0 and dy == 0:
-          continue
-        if max(abs(dx), abs(dy)) > 2:
-          continue
-        let fertilePos = placed.pos + ivec2(dx.int32, dy.int32)
-        if not isValidPos(fertilePos):
-          continue
-        if not env.isEmpty(fertilePos) or env.hasDoor(fertilePos) or
-           isBlockedTerrain(env.terrain[fertilePos.x][fertilePos.y]) or isTileFrozen(fertilePos, env):
-          continue
-        let terrain = env.terrain[fertilePos.x][fertilePos.y]
-        if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
-          env.terrain[fertilePos.x][fertilePos.y] = Fertile
-          env.resetTileColor(fertilePos)
+  if isBuildingKind(kind):
+    let radius = buildingFertileRadius(kind)
+    if radius > 0:
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          if dx == 0 and dy == 0:
+            continue
+          if max(abs(dx), abs(dy)) > radius:
+            continue
+          let fertilePos = placed.pos + ivec2(dx.int32, dy.int32)
+          if not isValidPos(fertilePos):
+            continue
+          if not env.isEmpty(fertilePos) or env.hasDoor(fertilePos) or
+             isBlockedTerrain(env.terrain[fertilePos.x][fertilePos.y]) or isTileFrozen(fertilePos, env):
+            continue
+          let terrain = env.terrain[fertilePos.x][fertilePos.y]
+          if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
+            env.terrain[fertilePos.x][fertilePos.y] = Fertile
+            env.resetTileColor(fertilePos)
   env.updateThingObsOnAdd(kind, pos, placed)
   if kind == Altar:
     let teamId = placed.teamId
