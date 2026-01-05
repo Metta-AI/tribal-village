@@ -185,32 +185,11 @@ const
       allowedCategories: {Weapons, Armor, FinishedGoods, Coins})
   ]
 
-proc initCraftRecipes*(): seq[CraftRecipe] =
+proc initCraftRecipesBase*(): seq[CraftRecipe] =
   var recipes: seq[CraftRecipe] = @[]
 
   # Table/workbench: wood and stone crafts.
   addRecipe(recipes, "door_wood", StationTable, @[(ItemWood, 1)], @[("door", 1)], 6)
-  addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
-  # AoE2-inspired building costs scaled to ~1/20 (house = 1 wood baseline).
-  addRecipe(recipes, "mill", StationTable, @[(ItemWood, 5)], @[(thingItem("Mill"), 1)], 12)
-  addRecipe(recipes, "lumber_camp", StationTable, @[(ItemWood, 5)], @[(thingItem("LumberCamp"), 1)], 10)
-  addRecipe(recipes, "mining_camp", StationTable, @[(ItemWood, 5)], @[(thingItem("MiningCamp"), 1)], 12)
-  addRecipe(recipes, "house", StationTable, @[(ItemWood, 1)], @[(thingItem("House"), 1)], 10)
-  addRecipe(recipes, "town_center", StationTable, @[(ItemWood, 14)], @[(thingItem("TownCenter"), 1)], 16)
-  addRecipe(recipes, "barracks", StationTable, @[(ItemWood, 9)], @[(thingItem("Barracks"), 1)], 12)
-  addRecipe(recipes, "archery_range", StationTable, @[(ItemWood, 9)], @[(thingItem("ArcheryRange"), 1)], 12)
-  addRecipe(recipes, "stable", StationTable, @[(ItemWood, 9)], @[(thingItem("Stable"), 1)], 12)
-  addRecipe(recipes, "siege_workshop", StationTable, @[(ItemWood, 10)], @[(thingItem("SiegeWorkshop"), 1)], 14)
-  addRecipe(recipes, "blacksmith", StationTable, @[(ItemWood, 8)], @[(thingItem("Blacksmith"), 1)], 12)
-  addRecipe(recipes, "market", StationTable, @[(ItemWood, 9)], @[(thingItem("Market"), 1)], 12)
-  addRecipe(recipes, "dock", StationTable, @[(ItemWood, 8)], @[(thingItem("Dock"), 1)], 12)
-  addRecipe(recipes, "monastery", StationTable, @[(ItemWood, 9)], @[(thingItem("Monastery"), 1)], 12)
-  addRecipe(recipes, "university", StationTable, @[(ItemWood, 10)], @[(thingItem("University"), 1)], 14)
-  addRecipe(recipes, "castle", StationTable, @[(ItemStone, 33)], @[(thingItem("Castle"), 1)], 20)
-  addRecipe(recipes, "outpost", StationTable, @[(ItemWood, 1)], @[(thingItem("Outpost"), 1)], 8)
-  addRecipe(recipes, "armory", StationTable, @[(ItemWood, 4)], @[(thingItem("Armory"), 1)], 12)
-  addRecipe(recipes, "clay_oven", StationTable, @[(ItemWood, 4)], @[(thingItem("ClayOven"), 1)], 12)
-  addRecipe(recipes, "weaving_loom", StationTable, @[(ItemWood, 3)], @[(thingItem("WeavingLoom"), 1)], 12)
   # Siege workshop crafts for walls/roads (1/20 AoE2 scale).
   addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemStone, 1)], @[(thingItem("Wall"), 1)], 6)
   addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)], 4)
@@ -241,4 +220,4 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
 
   recipes
 
-let CraftRecipes*: seq[CraftRecipe] = initCraftRecipes()
+var CraftRecipes*: seq[CraftRecipe] = initCraftRecipesBase()

@@ -143,8 +143,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if agent.unitClass == UnitVillager:
       let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
       if nearbyGold >= 6 and not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMiningCamp)
-        if didBuild: return buildAct
+        let idx = buildIndexFor(MiningCamp)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
   of TaskFood:
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
@@ -161,8 +163,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if agent.unitClass == UnitVillager:
       let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
       if nearbyTrees >= 6 and not hasFriendlyBuildingNearby(env, teamId, LumberCamp, agent.pos, 6):
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexLumberCamp)
-        if didBuild: return buildAct
+        let idx = buildIndexFor(LumberCamp)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
     let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
     if did: return act
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -170,8 +174,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if agent.unitClass == UnitVillager:
       let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Rock, Stalagmite})
       if nearbyStone >= 6 and not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMiningCamp)
-        if didBuild: return buildAct
+        let idx = buildIndexFor(MiningCamp)
+        if idx >= 0:
+          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if didBuild: return buildAct
     let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Rock)
     if did: return act
     return controller.moveNextSearch(env, agent, agentId, state)
