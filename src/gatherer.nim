@@ -107,7 +107,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent.agentId)
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
-    let altar = env.getThing(agent.homeAltar)
+    let altar =
+      if isValidPos(agent.homeAltar): env.grid[agent.homeAltar.x][agent.homeAltar.y] else: nil
     if altar != nil and altar.kind == Altar:
       altarHearts = altar.hearts
   if altarHearts == 0:
