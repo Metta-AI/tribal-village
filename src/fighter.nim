@@ -1,11 +1,6 @@
 proc isTeamBuilding(kind: ThingKind): bool =
   isBuildingKind(kind) and buildingNeedsLantern(kind)
 
-proc signi(x: int32): int32 =
-  if x < 0: -1
-  elif x > 0: 1
-  else: 0
-
 proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing =
   var bestDist = int.high
   for other in env.agents:
