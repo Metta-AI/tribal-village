@@ -166,14 +166,27 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           if didBuild: return buildAct
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
-    let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
-    if didWheat: return actWheat
-    let (didCow, actCow) = controller.findAndUseBuilding(env, agent, agentId, state, Cow)
-    if didCow: return actCow
-    let (didAnimal, actAnimal) = controller.findAndHarvest(env, agent, agentId, state, Animal)
-    if didAnimal: return actAnimal
-    let (didBush, actBush) = controller.findAndHarvest(env, agent, agentId, state, Bush)
-    if didBush: return actBush
+
+    let wheatPos = env.findNearestTerrainSpiral(state, Wheat, controller.rng)
+    if wheatPos.x >= 0:
+      return controller.useOrMoveToTerrain(env, agent, agentId, state, wheatPos)
+
+    let corpse = env.findNearestThingSpiral(state, Skeleton, controller.rng)
+    if corpse != nil:
+      return controller.useOrMove(env, agent, agentId, state, corpse.pos)
+
+    let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
+    if cow != nil:
+      return controller.attackOrMove(env, agent, agentId, state, cow.pos)
+
+    let animalPos = env.findNearestTerrainSpiral(state, Animal, controller.rng)
+    if animalPos.x >= 0:
+      return controller.attackOrMoveToTerrain(env, agent, agentId, state, animalPos)
+
+    let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
+    if bushPos.x >= 0:
+      return controller.useOrMoveToTerrain(env, agent, agentId, state, bushPos)
+
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskWood:
     if agent.unitClass == UnitVillager:
@@ -183,10 +196,15 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         if idx >= 0:
           let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
           if didBuild: return buildAct
-    let (didPine, actPine) = controller.findAndHarvest(env, agent, agentId, state, Pine)
-    if didPine: return actPine
-    let (didPalm, actPalm) = controller.findAndHarvest(env, agent, agentId, state, Palm)
-    if didPalm: return actPalm
+    let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
+    if stump != nil:
+      return controller.useOrMove(env, agent, agentId, state, stump.pos)
+    let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
+    if pinePos.x >= 0:
+      return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
+    let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
+    if palmPos.x >= 0:
+      return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     if agent.unitClass == UnitVillager:

@@ -27,8 +27,13 @@ proc decideGuard(controller: Controller, env: Environment, agent: Thing,
       return saveStateAndReturn(controller, agentId, state,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, tumor.pos, controller.rng).uint8))
 
-  let (didPine, actPine) = controller.findAndHarvest(env, agent, agentId, state, Pine)
-  if didPine: return actPine
-  let (didPalm, actPalm) = controller.findAndHarvest(env, agent, agentId, state, Palm)
-  if didPalm: return actPalm
+  let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
+  if stump != nil:
+    return controller.useOrMove(env, agent, agentId, state, stump.pos)
+  let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
+  if pinePos.x >= 0:
+    return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
+  let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
+  if palmPos.x >= 0:
+    return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
   return controller.moveNextSearch(env, agent, agentId, state)
