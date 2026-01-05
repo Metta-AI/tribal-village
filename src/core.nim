@@ -498,6 +498,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
 type NeedType = enum
   NeedArmor
   NeedBread
+  NeedSpear
 
 proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Thing =
   var best: Thing = nil
@@ -511,6 +512,8 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
       needs = other.inventoryArmor == 0
     of NeedBread:
       needs = other.inventoryBread < 1
+    of NeedSpear:
+      needs = other.unitClass == UnitManAtArms and other.inventorySpear == 0
     if not needs: continue
     let d = int(chebyshevDist(me.pos, other.pos))
     if d < bestDist:

@@ -431,7 +431,7 @@ proc drawObjects*() =
               (icon: "bushel", res: ResourceFood),
               (icon: "wood", res: ResourceWood),
               (icon: "stone", res: ResourceStone),
-              (icon: "bar", res: ResourceGold)
+              (icon: "gold", res: ResourceGold)
             ]
             let basePos = pos.vec2
             let iconScale = 1/360
