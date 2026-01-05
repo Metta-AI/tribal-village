@@ -194,6 +194,6 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   # Gold gathering (shared by TaskGold / TaskHearts fallback)
   let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gold, controller.rng)
   if goldPos.x >= 0:
-    return controller.useOrMove(env, agent, agentId, state, goldPos)
+    return controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos)
 
   return controller.moveNextSearch(env, agent, agentId, state)
