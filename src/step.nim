@@ -100,8 +100,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             agent.reward += altarHearts / MapAgentsPerHouseFloat
     elif thing.kind == Magma:
       env.tickCooldown(thing, MagmaReadyLayer, true)
-    elif thing.kind == Mine:
-      env.tickCooldown(thing, MineReadyLayer, true)
     elif thing.kind in {Armory, ClayOven, WeavingLoom,
                         Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market,
                         Dock, Monastery, University, Castle, TownCenter, House}:

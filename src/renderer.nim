@@ -118,7 +118,7 @@ proc thingSpriteKey(kind: ThingKind): string =
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
-  of Mine, Magma, Altar, Armory, ClayOven, WeavingLoom,
+  of Magma, Altar, Armory, ClayOven, WeavingLoom,
      Outpost, Barrel, Mill, LumberCamp, MiningCamp, Stump,
      TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
      Monastery, University, Castle:
@@ -421,16 +421,6 @@ proc drawObjects*() =
           if infected:
             drawOverlayIf(true, "frozen_tile", pos.vec2)
 
-        of Mine:
-          let imageName = thingSpriteKey(Mine)
-          let mineTint = if thing.mineKind == MineStone:
-            color(0.78, 0.78, 0.85, 1.0)
-          else:
-            color(1.10, 0.92, 0.55, 1.0)
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = spriteScale(imageName), tint = mineTint)
-          if infected and hasFrozenOverlay(Mine):
-            drawOverlayIf(true, "frozen_tile", pos.vec2)
-
         of Tumor:
           # Map diagonal orientations to cardinal sprites
           let spriteDir = case thing.orientation:
@@ -598,8 +588,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of UnitKnight: "Knight"
         of UnitMonk: "Monk"
         of UnitSiege: "Siege"
-      elif thing.kind == Mine:
-        if thing.mineKind == MineStone: "Stone Mine" else: "Gold Mine"
       else:
         case thing.kind
         of Wall: "Wall"
@@ -642,8 +630,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
           of UnitKnight: "Knight"
           of UnitMonk: "Monk"
           of UnitSiege: "Siege"
-        of Mine:
-          if thing.mineKind == MineStone: "Stone Mine" else: "Gold Mine"
   elif env.hasDoor(selectedPos):
     label = "Door"
   else:
