@@ -190,13 +190,13 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     if agent.unitClass == UnitVillager:
-      let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Rock, Stalagmite})
+      let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
       if nearbyStone >= 6 and not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
         let idx = buildIndexFor(MiningCamp)
         if idx >= 0:
           let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
           if didBuild: return buildAct
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Rock)
+    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Stone)
     if did: return act
     return controller.moveNextSearch(env, agent, agentId, state)
 

@@ -62,7 +62,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.resetTileColor(targetPos)
           env.dropStump(targetPos, newRemaining)
         used = true
-    of Rock:
+    of Stone:
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)
     of Stalagmite:
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)
@@ -215,8 +215,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       of UseBlacksmith:
         if thing.cooldown == 0:
           if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-            used = true
-          elif env.tryBlacksmithService(agent, thing):
             used = true
         if not used and thing.teamId == getTeamId(agent.agentId):
           if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
