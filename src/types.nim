@@ -30,6 +30,7 @@ const
   MapObjectAltarRespawnCost* = 1
   MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
+  ResourceNodeInitial* = 25
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
@@ -141,6 +142,7 @@ type
     Mill
     LumberCamp
     MiningCamp
+    Stump
     Lantern  # Lanterns that spread team colors
     TownCenter
     House
@@ -277,6 +279,7 @@ type
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
+    terrainResources*: array[MapWidth, array[MapHeight, int16]]
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
