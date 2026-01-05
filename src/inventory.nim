@@ -117,13 +117,10 @@ proc teamPopCap*(env: Environment, teamId: int): int =
       continue
     if thing.teamId != teamId:
       continue
-    case thing.kind
-    of TownCenter:
-      cap += TownCenterPopCap
-    of House:
-      cap += HousePopCap
-    else:
-      discard
+    if isBuildingKind(thing.kind):
+      let add = buildingPopCap(thing.kind)
+      if add > 0:
+        cap += add
   cap
 
 proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =

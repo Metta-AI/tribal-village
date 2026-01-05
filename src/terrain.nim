@@ -13,7 +13,7 @@ type
     Water
     Bridge
     Wheat
-    Tree
+    Pine
     Fertile
     Road
     Rock
@@ -85,7 +85,7 @@ type
 const
   UseBiomeTerrain* = true
   BaseBiome* = BiomeBase
-  BiomeForestTerrain* = Tree
+  BiomeForestTerrain* = Pine
   BiomeDesertTerrain* = Sand
   BiomeCavesTerrain* = Stalagmite
   BiomePlainsTerrain* = Grass
@@ -135,7 +135,7 @@ const
   ZoneBlobJaggedProb* = 0.18
   ZoneBlobDitherProb* = 0.12
   ZoneBlobDitherDepth* = 4
-  DungeonTerrainWall* = Tree
+  DungeonTerrainWall* = Pine
   DungeonTerrainPath* = Road
 
 const
@@ -143,7 +143,7 @@ const
   TerrainWater* = TerrainType.Water
   TerrainBridge* = TerrainType.Bridge
   TerrainWheat* = TerrainType.Wheat
-  TerrainTree* = TerrainType.Tree
+  TerrainPine* = TerrainType.Pine
   TerrainPalm* = TerrainType.Palm
   TerrainFertile* = TerrainType.Fertile
   TerrainRock* = TerrainType.Rock
@@ -511,7 +511,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
           if terrain[x][y] == Water:
             pineMask[x][y] = false
       applyBiomeMaskToZone(terrain, biomes, pineMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        Tree, BiomeSnowType, baseBiomeType, r, 0.2, blendDepth = 2)
+        Pine, BiomeSnowType, baseBiomeType, r, 0.2, blendDepth = 2)
 
       var boulderMask: MaskGrid
       let boulderCfg = BiomeSnowConfig(
@@ -556,7 +556,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
                 continue
               if biomes[x][y] != BiomeSnowType:
                 continue
-              if terrain[x][y] in {Water, Tree, Rock}:
+              if terrain[x][y] in {Water, Pine, Rock}:
                 continue
               candidates.add((x: x, y: y))
           if candidates.len < 12:
@@ -912,7 +912,7 @@ proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
     let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
     let groveSize = randInclusive(r, 3, 10)
-    terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Tree, 0.8, 0.4, r)
+    terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Pine, 0.8, 0.4, r)
 
 proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let numGroves = randInclusive(r, PalmGroveClusterBase, PalmGroveClusterBase + PalmGroveClusterRange) *
@@ -1199,7 +1199,7 @@ proc terrainAsciiChar*(terrain: TerrainType): char =
   of Water: '~'
   of Bridge: '='
   of Wheat: '"'
-  of Tree: 'Y'
+  of Pine: 'Y'
   of Fertile: ':'
   of Road: '+'
   of Rock: 'R'

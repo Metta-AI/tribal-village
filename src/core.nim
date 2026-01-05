@@ -230,13 +230,10 @@ proc teamPopCap*(env: Environment, teamId: int): int =
       continue
     if thing.teamId != teamId:
       continue
-    case thing.kind
-    of TownCenter:
-      result += TownCenterPopCap
-    of House:
-      result += HousePopCap
-    else:
-      discard
+    if isBuildingKind(thing.kind):
+      let cap = buildingPopCap(thing.kind)
+      if cap > 0:
+        result += cap
 
 proc countTeamBuildings*(env: Environment, teamId: int, kind: ThingKind): int =
   for thing in env.things:

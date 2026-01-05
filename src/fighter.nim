@@ -70,8 +70,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       if agent.homeAltar.x >= 0 and chebyshevDist(agent.pos, agent.homeAltar) > 2'i32:
         return saveStateAndReturn(controller, agentId, state,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, agent.homeAltar, controller.rng).uint8))
-      let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexWeavingLoom)
-      if didBuild: return buildAct
+      let idx = buildIndexFor(WeavingLoom)
+      if idx >= 0:
+        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+        if didBuild: return buildAct
 
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
     if loom != nil and agent.inventoryWheat > 0:
@@ -119,8 +121,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
     let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
     if didWheat: return actWheat
-    let (didWood, actWood) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
-    if didWood: return actWood
+    let (didPine, actPine) = controller.findAndHarvest(env, agent, agentId, state, Pine)
+    if didPine: return actPine
+    let (didPalm, actPalm) = controller.findAndHarvest(env, agent, agentId, state, Palm)
+    if didPalm: return actPalm
     return controller.moveNextSearch(env, agent, agentId, state)
 
   # Train into a combat unit when possible.

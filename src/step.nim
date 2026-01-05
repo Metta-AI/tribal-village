@@ -99,18 +99,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             agent.reward += altarHearts / MapAgentsPerHouseFloat
     elif thing.kind == Magma:
       env.tickCooldown(thing)
-    elif buildingUsesCooldown(thing.kind):
-      # All production buildings have simple cooldown
-      env.tickCooldown(thing)
-    elif thing.kind == Mill:
+    elif buildingTickKind(thing.kind) == TickMillFertile:
       if thing.cooldown > 0:
         thing.cooldown -= 1
       else:
-        for dx in -2 .. 2:
-          for dy in -2 .. 2:
+        let radius = max(0, buildingFertileRadius(thing.kind))
+        for dx in -radius .. radius:
+          for dy in -radius .. radius:
             if dx == 0 and dy == 0:
               continue
-            if max(abs(dx), abs(dy)) > 2:
+            if max(abs(dx), abs(dy)) > radius:
               continue
             let pos = thing.pos + ivec2(dx.int32, dy.int32)
             if not isValidPos(pos):
@@ -122,7 +120,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
-        thing.cooldown = 10
+        thing.cooldown = max(1, buildingTickCooldown(thing.kind))
+    elif buildingUsesCooldown(thing.kind):
+      # All production buildings have simple cooldown
+      env.tickCooldown(thing)
     elif thing.kind == Spawner:
       if thing.cooldown > 0:
         thing.cooldown -= 1
@@ -321,13 +322,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       continue
     if thing.teamId < 0 or thing.teamId >= MapRoomObjectsHouses:
       continue
-    case thing.kind
-    of TownCenter:
-      teamPopCaps[thing.teamId] += TownCenterPopCap
-    of House:
-      teamPopCaps[thing.teamId] += HousePopCap
-    else:
-      discard
+    if isBuildingKind(thing.kind):
+      let add = buildingPopCap(thing.kind)
+      if add > 0:
+        teamPopCaps[thing.teamId] += add
 
   # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:
