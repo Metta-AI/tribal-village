@@ -22,11 +22,25 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
+  proc deliverToTeammate(needy: Thing): uint8 =
+    let dx = abs(needy.pos.x - agent.pos.x)
+    let dy = abs(needy.pos.y - agent.pos.y)
+    if max(dx, dy) == 1'i32:
+      return saveStateAndReturn(controller, agentId, state,
+        encodeAction(5'u8, neighborDirIndex(agent.pos, needy.pos).uint8))
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, needy.pos, controller.rng).uint8))
+
   # Top priority: keep population cap ahead of current population.
   let popCount = env.teamPopCount(teamId)
   let popCap = env.teamPopCap(teamId)
   if popCap > 0 and popCount >= popCap - 1:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexHouse)
+    if did: return act
+
+  # Ensure a town center exists if the starter one is lost.
+  if env.countTeamBuildings(teamId, TownCenter) == 0:
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexTownCenter)
     if did: return act
 
   # Build a wall ring around the altar.
@@ -87,10 +101,38 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexCastle)
     if did: return act
 
-  # Gear up if we can.
-  if agent.inventoryArmor < ArmorPoints:
+  # Equipment support: deliver armor/spears to teammates who need them.
+  if agent.inventoryArmor > 0:
+    let teammate = findNearestTeammateNeeding(env, agent, NeedArmor)
+    if teammate != nil:
+      return deliverToTeammate(teammate)
+    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+    if smith != nil:
+      return controller.useOrMove(env, agent, agentId, state, smith.pos)
+
+  if agent.inventorySpear > 0:
+    let teammate = findNearestTeammateNeeding(env, agent, NeedSpear)
+    if teammate != nil:
+      return deliverToTeammate(teammate)
+    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+    if smith != nil:
+      return controller.useOrMove(env, agent, agentId, state, smith.pos)
+
+  # Craft armor if anyone needs it and the team has wood.
+  let armorNeedy = findNearestTeammateNeeding(env, agent, NeedArmor)
+  if armorNeedy != nil and env.stockpileCount(teamId, ResourceWood) > 0:
     let armory = env.findNearestFriendlyThingSpiral(state, teamId, Armory, controller.rng)
     if armory != nil:
       return controller.useOrMove(env, agent, agentId, state, armory.pos)
+
+  # Craft spears at the blacksmith if fighters are out.
+  let spearNeedy = findNearestTeammateNeeding(env, agent, NeedSpear)
+  if spearNeedy != nil:
+    if agent.inventoryWood == 0:
+      let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
+      if did: return act
+    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+    if smith != nil:
+      return controller.useOrMove(env, agent, agentId, state, smith.pos)
 
   return controller.moveNextSearch(env, agent, agentId, state)
