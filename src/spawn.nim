@@ -173,6 +173,12 @@ proc init(env: Environment) =
   var totalAgentsSpawned = 0
   var houseCenters: seq[IVec2] = @[]
   proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
+    let reserved = [
+      center + ivec2(2, -2),
+      center + ivec2(2, 2),
+      center + ivec2(-2, 2),
+      center + ivec2(-2, -2)
+    ]
     var candidates: seq[IVec2] = @[]
     for dx in -3 .. 3:
       for dy in -3 .. 3:
@@ -181,7 +187,10 @@ proc init(env: Environment) =
         let dist = max(abs(dx), abs(dy))
         if dist < 1 or dist > 3:
           continue
-        candidates.add(center + ivec2(dx.int32, dy.int32))
+        let pos = center + ivec2(dx.int32, dy.int32)
+        if pos in reserved:
+          continue
+        candidates.add(pos)
     for i in countdown(candidates.len - 1, 1):
       let j = randIntInclusive(r, 0, i)
       swap(candidates[i], candidates[j])
@@ -228,6 +237,46 @@ proc init(env: Environment) =
             continue
         env.terrain[pos.x][pos.y] = Road
         env.resetTileColor(pos)
+
+  proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
+    let placements = [
+      (offset: ivec2(2, -2), kind: LumberCamp),  # Lumber Yard
+      (offset: ivec2(2, 2), kind: Mill),         # Granary
+      (offset: ivec2(-2, 2), kind: MiningCamp),  # Quarry
+      (offset: ivec2(-2, -2), kind: Market)      # Bank
+    ]
+    for entry in placements:
+      var placed = false
+      let basePos = center + entry.offset
+      for radius in 0 .. 2:
+        for dx in -radius .. radius:
+          for dy in -radius .. radius:
+            if radius > 0 and max(abs(dx), abs(dy)) != radius:
+              continue
+            let pos = basePos + ivec2(dx.int32, dy.int32)
+            if not isValidPos(pos):
+              continue
+            if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
+              continue
+            if env.hasDoor(pos):
+              continue
+            let existing = env.getThing(pos)
+            if existing != nil:
+              if existing.kind in {Pine, Palm}:
+                removeThing(env, existing)
+              else:
+                continue
+            if not env.isEmpty(pos):
+              continue
+            env.add(Thing(
+              kind: entry.kind,
+              pos: pos,
+              teamId: teamId
+            ))
+            placed = true
+            break
+          if placed: break
+        if placed: break
 
   proc placeStartingHouses(center: IVec2, teamId: int, r: var Rand) =
     let count = 4 + randIntInclusive(r, 0, 1)
@@ -352,6 +401,7 @@ proc init(env: Environment) =
       placeStartingRoads(elements.center, r)
       if townCenterPos.x >= 0:
         placeStartingRoads(townCenterPos, r)
+      placeStartingResourceBuildings(elements.center, teamId)
       placeStartingHouses(elements.center, teamId, r)
 
       # Add the walls

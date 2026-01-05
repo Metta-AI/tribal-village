@@ -71,7 +71,14 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
       return controller.moveNextSearch(env, agent, agentId, state)
 
-    # No lantern: craft at loom if we have wheat; otherwise gather wheat.
+    # No lantern: ensure a loom exists near base, then craft (or gather wheat).
+    if env.countTeamBuildings(teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
+      if agent.homeAltar.x >= 0 and chebyshevDist(agent.pos, agent.homeAltar) > 2'i32:
+        return saveStateAndReturn(controller, agentId, state,
+          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, agent.homeAltar, controller.rng).uint8))
+      let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexWeavingLoom)
+      if didBuild: return buildAct
+
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
     if loom != nil and agent.inventoryWheat > 0:
       return controller.useOrMove(env, agent, agentId, state, loom.pos)

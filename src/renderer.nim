@@ -452,6 +452,30 @@ proc drawObjects*() =
                 let labelPos = iconPos + vec2(0.06, -0.10)
                 bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 0.9))
 
+        of Mill, LumberCamp, MiningCamp, Market:
+          let spriteKey = thingSpriteKey(thing.kind)
+          if spriteKey.len > 0:
+            bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
+            drawRoofTint(spriteKey, pos.vec2, thing.teamId)
+          if thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
+            let (icon, res) = case thing.kind
+              of Mill: ("bushel", ResourceFood)
+              of LumberCamp: ("wood", ResourceWood)
+              of MiningCamp: ("stone", ResourceStone)
+              of Market: ("gold", ResourceGold)
+              else: ("", ResourceFood)
+            if icon.len > 0:
+              let count = env.teamStockpiles[thing.teamId].counts[res]
+              let iconScale = 1/320
+              let labelScale = 1/240
+              let iconPos = pos.vec2 + vec2(-0.18, -0.72)
+              let alpha = if count > 0: 1.0 else: 0.35
+              bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
+              if count > 0:
+                let labelKey = ensureHeartCountLabel(count)
+                let labelPos = iconPos + vec2(0.10, -0.06)
+                bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 0.9))
+
         of Tumor:
           # Map diagonal orientations to cardinal sprites
           let spriteDir = case thing.orientation:
@@ -635,9 +659,9 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of WeavingLoom: "Weaving Loom"
         of Outpost: "Outpost"
         of Barrel: "Barrel"
-        of Mill: "Mill"
-        of LumberCamp: "Lumber Camp"
-        of MiningCamp: "Mining Camp"
+        of Mill: "Granary"
+        of LumberCamp: "Lumber Yard"
+        of MiningCamp: "Quarry"
         of Stump: "Stump"
         of Lantern: "Lantern"
         of TownCenter: "Town Center"
@@ -647,7 +671,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Stable: "Stable"
         of SiegeWorkshop: "Siege Workshop"
         of Blacksmith: "Blacksmith"
-        of Market: "Market"
+        of Market: "Bank"
         of Dock: "Dock"
         of Monastery: "Monastery"
         of University: "University"
