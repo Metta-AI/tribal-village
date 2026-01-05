@@ -54,7 +54,10 @@ proc init(env: Environment) =
       if isPalm or isForestTree:
         env.terrain[x][y] = Empty
         let treeKind = if isPalm: Palm else: Pine
-        env.add(Thing(kind: treeKind, pos: ivec2(x.int32, y.int32)))
+        let tree = Thing(kind: treeKind, pos: ivec2(x.int32, y.int32))
+        tree.inventory = emptyInventory()
+        setInv(tree, ItemWood, TreeWoodInitial)
+        env.add(tree)
 
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
