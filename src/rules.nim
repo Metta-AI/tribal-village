@@ -1,10 +1,5 @@
 # This file is included by defaults before role files.
 
-proc isOutOfSight(agent: Thing): bool =
-  ## Out of sight if beyond observation radius from home altar.
-  agent.homeAltar.x < 0 or
-    chebyshevDist(agent.pos, agent.homeAltar) > ObservationRadius.int32
-
 proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec2 =
   ## Find an empty adjacent tile for building, preferring the provided direction.
   let dirs = @[
@@ -42,16 +37,3 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
     return (false, 0'u8)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
-
-proc buildRoadToward(controller: Controller, env: Environment, agent: Thing,
-                     agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
-  ## Try to place a road on the next step toward target; otherwise move toward it.
-  let dirIdx = neighborDirIndex(agent.pos, targetPos)
-  let step = agent.pos + orientationToVec(Orientation(dirIdx))
-  if agent.orientation == Orientation(dirIdx) and isValidPos(step) and env.isEmpty(step) and
-     not env.hasDoor(step) and env.terrain[step.x][step.y] in {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
-                                                              TerrainDune, TerrainStalagmite, TerrainBridge} and
-     not isTileFrozen(step, env):
-    return saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, BuildIndexRoad.uint8))
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
