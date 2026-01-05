@@ -1,10 +1,3 @@
-proc dropStump(env: Environment, pos: IVec2, woodCount: int) =
-  let stump = Thing(kind: Stump, pos: pos)
-  stump.inventory = emptyInventory()
-  if woodCount > 0:
-    setInv(stump, ItemWood, woodCount)
-  env.add(stump)
-
 proc thingKey(kind: ThingKind): ItemKey =
   ItemThingPrefix & $kind
 
@@ -45,7 +38,7 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Altar, Spawner, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
-                    University, Castle, Stump, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
+                    University, Castle, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
                     Mill, LumberCamp, MiningCamp, Wall,
                     Magma, Lantern}:
     return false
