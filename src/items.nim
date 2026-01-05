@@ -193,6 +193,7 @@ proc initCraftRecipes*(): seq[CraftRecipe] =
   addRecipe(recipes, "barrel", StationTable, @[(ItemWood, 2)], @[(thingItem("Barrel"), 1)], 10)
   # AoE2-inspired building costs scaled to ~1/20 (house = 1 wood baseline).
   addRecipe(recipes, "mill", StationTable, @[(ItemWood, 5)], @[(thingItem("Mill"), 1)], 12)
+  addRecipe(recipes, "granary", StationTable, @[(ItemWood, 5)], @[(thingItem("Granary"), 1)], 12)
   addRecipe(recipes, "lumber_camp", StationTable, @[(ItemWood, 5)], @[(thingItem("LumberCamp"), 1)], 10)
   addRecipe(recipes, "mining_camp", StationTable, @[(ItemWood, 5)], @[(thingItem("MiningCamp"), 1)], 12)
   addRecipe(recipes, "house", StationTable, @[(ItemWood, 1)], @[(thingItem("House"), 1)], 10)

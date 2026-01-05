@@ -46,7 +46,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Skeleton, Altar, Spawner, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Bank, Dock, Monastery,
                     University, Castle, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
-                    Mill, LumberCamp, MiningCamp, Stump, Wall,
+                    Mill, Granary, LumberCamp, MiningCamp, Stump, Wall,
                     Magma, Lantern}:
     return false
 
@@ -101,7 +101,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   case kind
   of Barrel:
     placed.barrelCapacity = BarrelCapacity
-  of Mill, LumberCamp, MiningCamp:
+  of Mill, Granary, LumberCamp, MiningCamp:
     placed.barrelCapacity = BarrelCapacity
     placed.teamId = getTeamId(agent.agentId)
   of Lantern:

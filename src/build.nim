@@ -17,7 +17,7 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = [
   thingItem("Mill"),
   thingItem("LumberCamp"),
   thingItem("MiningCamp"),
-  ItemNone,  # Farm removed
+  thingItem("Granary"),
   thingItem("Dock"),
   thingItem("Market"),
   thingItem("Barracks"),
@@ -44,6 +44,7 @@ const
   BuildIndexMill* = 2
   BuildIndexLumberCamp* = 3
   BuildIndexMiningCamp* = 4
+  BuildIndexGranary* = 5
   BuildIndexDock* = 6
   BuildIndexMarket* = 7
   BuildIndexBarracks* = 8

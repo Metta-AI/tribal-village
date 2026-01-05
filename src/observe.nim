@@ -84,7 +84,7 @@ proc rebuildObservations*(env: Environment) =
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
     of Cow, Skeleton, Armory, ClayOven, WeavingLoom, Outpost,
-       Barrel, Mill, LumberCamp, MiningCamp, Stump, Lantern, TownCenter, House,
+       Barrel, Mill, Granary, LumberCamp, MiningCamp, Stump, Lantern, TownCenter, House,
        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Bank, Dock, Monastery,
        University, Castle:
       discard
