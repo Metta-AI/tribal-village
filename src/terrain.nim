@@ -1071,16 +1071,16 @@ proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBor
   for i in 0 ..< clusters:
     let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
     let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
-    let size = randInclusive(r, 3, 7)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Rock, 0.85, 0.35, r)
+    let size = randInclusive(r, 4, 8)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Rock, 0.9, 0.3, r)
 
 proc generateGemVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let clusters = max(8, mapWidth div 50)
   for i in 0 ..< clusters:
     let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
     let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
-    let size = randInclusive(r, 2, 4)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gem, 0.7, 0.5, r)
+    let size = randInclusive(r, 3, 5)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gem, 0.8, 0.4, r)
 
 proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   for i in 0 ..< 30:

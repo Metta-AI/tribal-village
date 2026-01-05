@@ -3,7 +3,7 @@ import ./biome
 
 type
   BiomeCavesConfig* = object
-    fillProb*: float = 0.4
+    fillProb*: float = 0.25
     steps*: int = 3
     birthLimit*: int = 5
     deathLimit*: int = 3
