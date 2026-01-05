@@ -169,6 +169,43 @@ proc init(env: Environment) =
   let numHouses = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
   var houseCenters: seq[IVec2] = @[]
+  proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
+    var candidates: seq[IVec2] = @[]
+    for dx in -3 .. 3:
+      for dy in -3 .. 3:
+        if dx == 0 and dy == 0:
+          continue
+        let dist = max(abs(dx), abs(dy))
+        if dist < 1 or dist > 3:
+          continue
+        candidates.add(center + ivec2(dx.int32, dy.int32))
+    for i in countdown(candidates.len - 1, 1):
+      let j = randIntInclusive(r, 0, i)
+      swap(candidates[i], candidates[j])
+    for pos in candidates:
+      if not isValidPos(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == Water:
+        continue
+      let existing = env.getThing(pos)
+      if existing != nil:
+        if existing.kind in {Pine, Palm}:
+          removeThing(env, existing)
+        else:
+          continue
+      if env.hasDoor(pos):
+        continue
+      if not env.isEmpty(pos):
+        continue
+      let tc = Thing(kind: TownCenter, pos: pos, teamId: teamId)
+      env.add(tc)
+      return pos
+    # Fallback: place directly east if possible.
+    let fallback = center + ivec2(1, 0)
+    if isValidPos(fallback) and env.isEmpty(fallback) and env.terrain[fallback.x][fallback.y] != Water and not env.hasDoor(fallback):
+      env.add(Thing(kind: TownCenter, pos: fallback, teamId: teamId))
+      return fallback
+    center
   proc placeStartingRoads(center: IVec2, r: var Rand) =
     let lengths = [3, 4]
     let length = lengths[randIntInclusive(r, 0, lengths.len - 1)]
@@ -195,9 +232,10 @@ proc init(env: Environment) =
     var attempts = 0
     while placed < count and attempts < 120:
       inc attempts
-      let dx = randIntInclusive(r, -9, 9)
-      let dy = randIntInclusive(r, -9, 9)
-      if max(abs(dx), abs(dy)) < 4:
+      let dx = randIntInclusive(r, -5, 5)
+      let dy = randIntInclusive(r, -5, 5)
+      let dist = max(abs(dx), abs(dy))
+      if dist < 3 or dist > 5:
         continue
       let pos = center + ivec2(dx.int32, dy.int32)
       if not isValidPos(pos):
@@ -288,6 +326,8 @@ proc init(env: Environment) =
       houseCenters.add(elements.center)
       altarColors[elements.center] = villageColor  # Associate altar position with village color
 
+      let townCenterPos = placeStartingTownCenter(elements.center, teamId, r)
+
       # Initialize base colors for house tiles to team color
       for dx in 0 ..< houseStruct.width:
         for dy in 0 ..< houseStruct.height:
@@ -307,6 +347,8 @@ proc init(env: Environment) =
 
       # Add starter roads and nearby houses for the town vibe.
       placeStartingRoads(elements.center, r)
+      if townCenterPos.x >= 0:
+        placeStartingRoads(townCenterPos, r)
       placeStartingHouses(elements.center, teamId, r)
 
       # Add the walls
