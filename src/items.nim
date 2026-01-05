@@ -45,6 +45,7 @@ type
     ResourceGold
     ResourceStone
     ResourceWater
+    ResourceNone
 
 proc isFoodItem*(key: ItemKey): bool =
   case key
@@ -142,6 +143,7 @@ type
   ItemAmount* = tuple[key: ItemKey, count: int]
 
   CraftStation* = enum
+    StationNone
     StationBlacksmith
     StationArmory
     StationLoom
