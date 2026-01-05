@@ -108,9 +108,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent.agentId)
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
-    let altar = env.getThing(agent.homeAltar)
-    if altar != nil and altar.kind == Altar and altar.teamId == teamId:
-      altarHearts = altar.hearts
+    for thing in env.things:
+      if thing.kind == Altar and thing.teamId == teamId and thing.pos == agent.homeAltar:
+        altarHearts = thing.hearts
+        break
   if altarHearts == 0:
     let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
     if altar != nil:
