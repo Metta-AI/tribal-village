@@ -4,6 +4,7 @@ import terrain, objects, workshop, items, common, biome
 export terrain, objects, workshop, items, common
 
 include "types"
+include "registry"
 include "colors"
 include "ascii"
 include "observe"
