@@ -62,7 +62,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.resetTileColor(targetPos)
           env.dropStump(targetPos, newRemaining)
         used = true
-    of Rock:
+    of Stone:
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)
     of Stalagmite:
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)
@@ -70,8 +70,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = tryHarvestTerrainResource(ItemGold, 0.0, true)
     of Bush, Cactus:
       used = tryHarvestTerrainResource(ItemPlant, 0.0, true)
-    of Animal:
-      used = tryHarvestTerrainResource(ItemFish, 0.0, true)
     of Empty, Grass, Dune, Sand, Snow, Road:
       if env.hasDoor(targetPos):
         used = false
@@ -176,13 +174,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           agent.reward += env.config.heartReward
           used = true
       of UseArmory:
-        if thing.teamId == getTeamId(agent.agentId) and thing.cooldown == 0 and agent.inventoryArmor < ArmorPoints:
-          if env.spendStockpile(thing.teamId, @[(res: ResourceWood, count: 1)]):
-            agent.inventoryArmor = ArmorPoints
-            thing.cooldown = 20
-            env.updateObservations(AgentInventoryArmorLayer, agent.pos, agent.inventoryArmor)
-            agent.reward += env.config.armorReward
-            used = true
+        discard
       of UseClayOven:
         if thing.cooldown == 0:
           if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
@@ -215,8 +207,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       of UseBlacksmith:
         if thing.cooldown == 0:
           if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-            used = true
-          elif env.tryBlacksmithService(agent, thing):
             used = true
         if not used and thing.teamId == getTeamId(agent.agentId):
           if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
