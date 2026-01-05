@@ -23,19 +23,7 @@ proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): boo
 
 proc clearTerrain(env: Environment, pos: IVec2) =
   env.terrain[pos.x][pos.y] = Empty
-
-proc tryHarvestWithCarry(env: Environment, agent: Thing, pos: IVec2, key: ItemKey,
-                         maxGain: int, reward: float32): bool =
-  let carryLeft = resourceCarryCapacityLeft(agent)
-  if carryLeft <= 0:
-    return false
-  let gain = min(maxGain, carryLeft)
-  if env.giveItem(agent, key, gain):
-    env.clearTerrain(pos)
-    if reward != 0:
-      agent.reward += reward
-    return true
-  false
+  env.terrainResources[pos.x][pos.y] = 0
 
 proc storageKeyAllowed(key: ItemKey, allowed: openArray[ItemKey]): bool =
   if allowed.len == 0:

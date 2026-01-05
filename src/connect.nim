@@ -53,6 +53,7 @@ proc digCell(env: Environment, pos: IVec2) =
   let terrain = env.terrain[pos.x][pos.y]
   if terrain in {Water, Dune, Stalagmite, Snow}:
     env.terrain[pos.x][pos.y] = Empty
+    env.terrainResources[pos.x][pos.y] = 0
     env.resetTileColor(pos)
 
 proc labelComponents(env: Environment,

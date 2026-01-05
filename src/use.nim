@@ -22,43 +22,40 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   let thing = env.getThing(targetPos)
-  proc tryHarvestThingWithCarry(thing: Thing, key: ItemKey, maxGain: int, reward: float32): bool =
-    let carryLeft = resourceCarryCapacityLeft(agent)
-    if carryLeft <= 0:
+  proc tryHarvestTerrainResource(key: ItemKey, reward: float32, clearOnDeplete: bool): bool =
+    let remaining = env.terrainResources[targetPos.x][targetPos.y]
+    if remaining <= 0:
       return false
-    let gain = min(maxGain, carryLeft)
-    if env.giveItem(agent, key, gain):
-      removeThing(env, thing)
-      if reward != 0:
-        agent.reward += reward
-      return true
-    false
+    if not env.giveItem(agent, key):
+      return false
+    env.terrainResources[targetPos.x][targetPos.y] = remaining - 1
+    if reward != 0:
+      agent.reward += reward
+    if env.terrainResources[targetPos.x][targetPos.y] <= 0 and clearOnDeplete:
+      env.terrain[targetPos.x][targetPos.y] = Empty
+      env.terrainResources[targetPos.x][targetPos.y] = 0
+      env.resetTileColor(targetPos)
+    true
   if isNil(thing):
     # Terrain use only when no Thing occupies the tile.
     var used = false
     case env.terrain[targetPos.x][targetPos.y]:
     of Water:
-      if env.giveItem(agent, ItemWater):
-        agent.reward += env.config.waterReward
-        used = true
-      elif env.giveItem(agent, ItemFish):
-        used = true
+      used = tryHarvestTerrainResource(ItemWater, env.config.waterReward, false)
     of Wheat:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward)
+      used = tryHarvestTerrainResource(ItemWheat, env.config.wheatReward, true)
     of Tree, Palm:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 1, env.config.woodReward)
+      used = tryHarvestTerrainResource(ItemWood, env.config.woodReward, true)
     of Rock:
-      if env.giveItem(agent, ItemStone):
-        used = true
+      used = tryHarvestTerrainResource(ItemStone, 0.0, true)
     of Stalagmite:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemStone, 2, 0.0)
+      used = tryHarvestTerrainResource(ItemStone, 0.0, true)
     of Gold:
-      if env.giveItem(agent, ItemGold):
-        used = true
+      used = tryHarvestTerrainResource(ItemGold, 0.0, true)
     of Bush, Cactus:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemPlant, 2, 0.0)
+      used = tryHarvestTerrainResource(ItemPlant, 0.0, true)
     of Animal:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemFish, 2, 0.0)
+      used = tryHarvestTerrainResource(ItemFish, 0.0, true)
     of Empty, Grass, Dune, Sand, Snow, Road:
       if env.hasDoor(targetPos):
         used = false
@@ -144,9 +141,13 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
   of Cow:
     if agent.inventorySpear > 0:
-      if tryHarvestThingWithCarry(thing, ItemFish, 2, 0.0):
+      let stored = getInv(thing, ItemFish)
+      if stored > 0 and env.giveItem(agent, ItemFish):
+        setInv(thing, ItemFish, stored - 1)
         agent.inventorySpear = max(0, agent.inventorySpear - 1)
         env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+        if getInv(thing, ItemFish) <= 0:
+          removeThing(env, thing)
         used = true
   of Altar:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
