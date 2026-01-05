@@ -19,6 +19,7 @@ type
     # Spiral search state
     spiralStepsInArc: int
     spiralArcsCompleted: int
+    spiralClockwise: bool
     basePosition: IVec2
     lastSearchPosition: IVec2
     # Bail-out / anti-oscillation state
@@ -78,16 +79,23 @@ proc getNextSpiralPoint(state: var AgentState, rng: var Rand): IVec2 =
   var totalOffset = ivec2(0, 0)
   var currentArcLength = 1
   var direction = 0
+  proc spiralDir(dir: int): int =
+    if state.spiralClockwise:
+      return dir
+    case dir
+    of 1: 3
+    of 3: 1
+    else: dir
 
   # Rebuild position by simulating all steps up to current point
   for arcNum in 0 ..< state.spiralArcsCompleted:
     let arcLen = (arcNum div 2) + 1  # 1,1,2,2,3,3,4,4...
-    let dir = arcNum mod 4  # Direction cycles 0,1,2,3 (N,E,S,W)
+    let dir = spiralDir(arcNum mod 4)  # Direction cycles 0,1,2,3 (N,E,S,W)
     applyDirectionOffset(totalOffset, dir, int32(arcLen))
 
   # Add partial progress in current arc
   currentArcLength = (state.spiralArcsCompleted div 2) + 1
-  direction = state.spiralArcsCompleted mod 4
+  direction = spiralDir(state.spiralArcsCompleted mod 4)
 
   # Add steps taken in current arc
   applyDirectionOffset(totalOffset, direction, int32(state.spiralStepsInArc))
