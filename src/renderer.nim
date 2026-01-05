@@ -9,6 +9,7 @@ const
   HeartCountFontPath = "data/Inter-Regular.ttf"
   HeartCountFontSize: float32 = 40
   HeartCountPadding = 6
+  SpriteScale = 1.0 / 200.0
 
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
@@ -63,6 +64,9 @@ proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
   return if isBuildingFrozen(pos, env): 1.0 else: 0.0
 
+proc spriteScale(_: string): float32 =
+  SpriteScale
+
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
     mouseDownPos = logicalMousePos(window)
@@ -87,7 +91,7 @@ proc useSelections*() =
 proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
   ## Tiny helper to reduce repeated overlay checks.
   if infected and overlaySprite.len > 0:
-    bxy.drawImage(overlaySprite, pos, angle = 0, scale = 1/200)
+    bxy.drawImage(overlaySprite, pos, angle = 0, scale = spriteScale(overlaySprite))
 
 proc drawRoofTint(spriteKey: string, pos: Vec2, teamId: int) =
   ## Apply village color tint to roof mask overlays when available.
@@ -97,7 +101,7 @@ proc drawRoofTint(spriteKey: string, pos: Vec2, teamId: int) =
   if not assetExists(maskKey):
     return
   let tint = teamColors[teamId]
-  bxy.drawImage(maskKey, pos, angle = 0, scale = 1/200, tint = tint)
+  bxy.drawImage(maskKey, pos, angle = 0, scale = spriteScale(maskKey), tint = tint)
 
 proc toSnakeCase(name: string): string =
   result = ""
@@ -154,7 +158,7 @@ proc drawFloor*() =
       let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
       let finalB = min(blendedColor.b * blendedColor.intensity, 1.5)
 
-      bxy.drawImage(floorSprite, ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
+      bxy.drawImage(floorSprite, ivec2(x, y).vec2, angle = 0, scale = spriteScale(floorSprite), tint = color(finalR, finalG, finalB, 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
@@ -202,7 +206,7 @@ proc drawTerrain*() =
       of Empty, Water:
         discard
       if spriteKey.len > 0:
-        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = 1/200)
+        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
       if infected and terrain in {Wheat, Tree, Palm}:
         drawOverlayIf(true, "frozen_tile", pos.vec2)
 
@@ -214,7 +218,7 @@ proc drawAttackOverlays*() =
       let c = env.actionTintColor[pos.x][pos.y]
       # Render the short-lived action overlay fully opaque so it sits above the
       # normal tint layer and clearly masks the underlying tile color.
-      bxy.drawImage("floor_tile", pos.vec2, angle = 0, scale = 1/200, tint = color(c.r, c.g, c.b, 1.0))
+      bxy.drawImage("floor_tile", pos.vec2, angle = 0, scale = spriteScale("floor_tile"), tint = color(c.r, c.g, c.b, 1.0))
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -302,14 +306,16 @@ proc drawWalls*() =
         let brightness = 0.3  # Fixed wall brightness
         let wallTint = color(brightness, brightness, brightness, 1.0)
 
-        bxy.drawImage(wallSprites[tile], vec2(x.float32, y.float32),
-                     angle = 0, scale = 1/200, tint = wallTint)
+        let wallSpriteKey = wallSprites[tile]
+        bxy.drawImage(wallSpriteKey, vec2(x.float32, y.float32),
+                     angle = 0, scale = spriteScale(wallSpriteKey), tint = wallTint)
 
   for fillPos in wallFills:
     let brightness = 0.3  # Fixed wall fill brightness
     let fillTint = color(brightness, brightness, brightness, 1.0)
-    bxy.drawImage("wall.fill", fillPos.vec2 + vec2(0.5, 0.3),
-                  angle = 0, scale = 1/200, tint = fillTint)
+    let fillSpriteKey = "wall.fill"
+    bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
+                  angle = 0, scale = spriteScale(fillSpriteKey), tint = fillTint)
 
 proc drawDoors*() =
   for x in 0 ..< MapWidth:
@@ -320,13 +326,13 @@ proc drawDoors*() =
       let teamId = env.getDoorTeam(pos)
       let base = if teamId >= 0 and teamId < teamColors.len: teamColors[teamId] else: color(0.8, 0.8, 0.8, 1.0)
       let tint = color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
-      bxy.drawImage(doorSpriteKey, pos.vec2, angle = 0, scale = 1/200, tint = tint)
+      bxy.drawImage(doorSpriteKey, pos.vec2, angle = 0, scale = spriteScale(doorSpriteKey), tint = tint)
 
 proc drawObjects*() =
   drawAttackOverlays()
 
   let drawWaterTile = proc(pos: Vec2) =
-    bxy.drawImage("water_tile", pos, angle = 0, scale = 1/200)
+    bxy.drawImage("water_tile", pos, angle = 0, scale = spriteScale("water_tile"))
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
   for x in 0 ..< MapWidth:
@@ -347,7 +353,7 @@ proc drawObjects*() =
           discard
         of Pine, Palm:
           let treeSprite = thingSpriteKey(thing.kind)
-          bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = 1/200)
+          bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
           if infected:
             drawOverlayIf(true, "frozen_tile", pos.vec2)
         of Agent:
@@ -367,7 +373,7 @@ proc drawObjects*() =
             agentImage,
             pos.vec2,
             angle = 0,
-            scale = 1/200,
+            scale = spriteScale(agentImage),
             tint = generateEntityColor("agent", agent.agentId)
           )
 
@@ -379,14 +385,14 @@ proc drawObjects*() =
             "floor_tile",
             pos.vec2,
             angle = 0,
-            scale = 1/200,
+            scale = spriteScale("floor_tile"),
             tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
           )
           bxy.drawImage(
             baseImage,
             pos.vec2,
             angle = 0,
-            scale = 1/200,
+            scale = spriteScale(baseImage),
             tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0)
           )
 
@@ -421,7 +427,7 @@ proc drawObjects*() =
             color(0.78, 0.78, 0.85, 1.0)
           else:
             color(1.10, 0.92, 0.55, 1.0)
-          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200, tint = mineTint)
+          bxy.drawImage(imageName, pos.vec2, angle = 0, scale = spriteScale(imageName), tint = mineTint)
           if infected and hasFrozenOverlay(Mine):
             drawOverlayIf(true, "frozen_tile", pos.vec2)
 
@@ -438,25 +444,25 @@ proc drawObjects*() =
             "tumor.color."
           let baseImage = spritePrefix & spriteDir
           # Tumors draw directly with tint variations baked into the sprite
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = 1/200)
+          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
 
         of Cow:
           let cowSprite = if thing.orientation == Orientation.E: "cow.r" else: "cow"
-          bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = 1/200)
+          bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = spriteScale(cowSprite))
         of Lantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing
           if lantern.lanternHealthy and lantern.teamId >= 0 and lantern.teamId < teamColors.len:
             let teamColor = teamColors[lantern.teamId]
-            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = 1/200, tint = teamColor)
+            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = spriteScale("lantern"), tint = teamColor)
           else:
             # Unhealthy or unassigned lantern - draw as gray
-            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = 1/200, tint = color(0.5, 0.5, 0.5, 1.0))
+            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = spriteScale("lantern"), tint = color(0.5, 0.5, 0.5, 1.0))
         else:
           let spriteKey = thingSpriteKey(thing.kind)
           if spriteKey.len > 0:
             let imageName = spriteKey
-            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = 1/200)
+            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = spriteScale(imageName))
             drawRoofTint(imageName, pos.vec2, thing.teamId)
           if infected and hasFrozenOverlay(thing.kind):
             drawOverlayIf(true, "frozen_tile", pos.vec2)
@@ -490,7 +496,7 @@ proc drawAgentDecorations*() =
   for agent in env.agents:
     # Frozen overlay
     if agent.frozen > 0:
-      bxy.drawImage("frozen_tile", agent.pos.vec2, angle = 0, scale = 1/200)
+      bxy.drawImage("frozen_tile", agent.pos.vec2, angle = 0, scale = spriteScale("frozen_tile"))
 
     # Health bar (5 segments)
     if agent.maxHp > 0:
@@ -562,7 +568,7 @@ proc drawGrid*() =
         "grid_tile",
         ivec2(x, y).vec2,
         angle = 0,
-        scale = 1/200
+        scale = spriteScale("grid_tile")
       )
 
 proc drawSelection*() =
@@ -571,7 +577,7 @@ proc drawSelection*() =
       "selection",
       selection.pos.vec2,
       angle = 0,
-      scale = 1/200
+      scale = spriteScale("selection")
     )
 
 proc drawSelectionLabel*(panelRect: IRect) =
