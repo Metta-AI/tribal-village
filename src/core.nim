@@ -73,29 +73,31 @@ proc clampToPlayable(pos: IVec2): IVec2 {.inline.} =
   result.x = min(MapWidth - MapBorder - 1, max(MapBorder, pos.x))
   result.y = min(MapHeight - MapBorder - 1, max(MapBorder, pos.y))
 
+proc spiralDir(dir: int, clockwise: bool): int =
+  if clockwise:
+    return dir
+  case dir
+  of 1: 3
+  of 3: 1
+  else: dir
+
 proc getNextSpiralPoint(state: var AgentState, rng: var Rand): IVec2 =
   ## Generate next position in expanding spiral search pattern
   # Track current position in spiral
   var totalOffset = ivec2(0, 0)
   var currentArcLength = 1
   var direction = 0
-  proc spiralDir(dir: int): int =
-    if state.spiralClockwise:
-      return dir
-    case dir
-    of 1: 3
-    of 3: 1
-    else: dir
+  let clockwise = state.spiralClockwise
 
   # Rebuild position by simulating all steps up to current point
   for arcNum in 0 ..< state.spiralArcsCompleted:
     let arcLen = (arcNum div 2) + 1  # 1,1,2,2,3,3,4,4...
-    let dir = spiralDir(arcNum mod 4)  # Direction cycles 0,1,2,3 (N,E,S,W)
+    let dir = spiralDir(arcNum mod 4, clockwise)  # Direction cycles 0,1,2,3 (N,E,S,W)
     applyDirectionOffset(totalOffset, dir, int32(arcLen))
 
   # Add partial progress in current arc
   currentArcLength = (state.spiralArcsCompleted div 2) + 1
-  direction = spiralDir(state.spiralArcsCompleted mod 4)
+  direction = spiralDir(state.spiralArcsCompleted mod 4, clockwise)
 
   # Add steps taken in current arc
   applyDirectionOffset(totalOffset, direction, int32(state.spiralStepsInArc))
