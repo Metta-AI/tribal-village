@@ -8,15 +8,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if agent.frozen > 0:
     return encodeAction(0'u8, 0'u8)
 
-  # Initialize agent role if needed (gatherer-heavy mix)
+  # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
   if agentId notin controller.agents:
     let role =
       case agentId mod MapAgentsPerHouse
-      of 0, 1, 2, 3, 4, 5: Gatherer
-      of 6, 7: Fighter
-      of 8, 9: Builder
+      of 0, 1: Gatherer
+      of 2, 3: Builder
+      of 4, 5: Fighter
       else:
-        sample(controller.rng, [Gatherer, Gatherer, Gatherer, Fighter, Builder])
+        sample(controller.rng, [Gatherer, Builder, Fighter])
 
     controller.agents[agentId] = AgentState(
       role: role,
