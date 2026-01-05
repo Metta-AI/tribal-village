@@ -736,6 +736,35 @@ proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: 
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
 
+proc useOrMoveToTerrain(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                        state: var AgentState, terrainPos: IVec2): uint8 =
+  let dx = abs(terrainPos.x - agent.pos.x)
+  let dy = abs(terrainPos.y - agent.pos.y)
+  if max(dx, dy) == 1'i32:
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(3'u8, neighborDirIndex(agent.pos, terrainPos).uint8))
+
+  var best = ivec2(-1, -1)
+  var bestDist = int.high
+  for oy in -1 .. 1:
+    for ox in -1 .. 1:
+      if ox == 0 and oy == 0:
+        continue
+      let candidate = terrainPos + ivec2(ox.int32, oy.int32)
+      if not isValidPos(candidate):
+        continue
+      if not isPassable(env, agent, candidate):
+        continue
+      let dist = abs(candidate.x - agent.pos.x) + abs(candidate.y - agent.pos.y)
+      if dist < bestDist:
+        bestDist = dist
+        best = candidate
+  if best.x >= 0:
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, best, controller.rng).uint8))
+
+  return controller.moveNextSearch(env, agent, agentId, state)
+
 proc findAndUseBuilding(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, kind: ThingKind): tuple[did: bool, action: uint8] =
   let b = env.findNearestThingSpiral(state, kind, controller.rng)
@@ -747,7 +776,7 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
                     state: var AgentState, terrain: TerrainType): tuple[did: bool, action: uint8] =
   let pos = env.findNearestTerrainSpiral(state, terrain, controller.rng)
   if pos.x >= 0:
-    return (true, controller.useOrMove(env, agent, agentId, state, pos))
+    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc findAndHarvestThings(controller: Controller, env: Environment, agent: Thing, agentId: int,
