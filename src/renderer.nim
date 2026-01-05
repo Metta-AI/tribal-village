@@ -114,7 +114,11 @@ proc toSnakeCase(name: string): string =
       result.add(ch)
 
 proc thingSpriteKey(kind: ThingKind): string =
-  toSnakeCase($kind)
+  case kind
+  of Skeleton:
+    "corpse"
+  else:
+    toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
