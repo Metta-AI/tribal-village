@@ -296,6 +296,7 @@ type
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
+    baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
     activeTiles*: ActiveTiles  # Sparse list of tiles to process

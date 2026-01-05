@@ -126,20 +126,37 @@ proc hasFrozenOverlay(kind: ThingKind): bool =
   else:
     false
 
+proc blendTileColors(a, b: TileColor, t: float32): TileColor =
+  let tClamped = max(0.0'f32, min(1.0'f32, t))
+  TileColor(
+    r: a.r * (1.0 - tClamped) + b.r * tClamped,
+    g: a.g * (1.0 - tClamped) + b.g * tClamped,
+    b: a.b * (1.0 - tClamped) + b.b * tClamped,
+    intensity: a.intensity * (1.0 - tClamped) + b.intensity * tClamped
+  )
+
+proc tileNoise(x, y: int): uint32 =
+  var v = uint32(x) * 374761393'u32 + uint32(y) * 668265263'u32
+  v = (v xor (v shr 13)) * 1274126177'u32
+  v xor (v shr 16)
+
 proc drawFloor*() =
   # Draw the floor tiles everywhere first as the base layer
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
 
       let tileColor = env.tileColors[x][y]
+      let baseTint = env.baseTintColors[x][y]
+      let blendedColor = blendTileColors(baseTint, tileColor, 0.65)
       let floorSprite = case env.biomes[x][y]
         of BiomeCavesType: "cave_tile"
-        of BiomeDungeonType: "dungeon_tile"
+        of BiomeDungeonType:
+          if (tileNoise(x, y) mod 100) < 35: "dungeon_tile" else: "floor_tile"
         else: "floor_tile"
 
-      let finalR = min(tileColor.r * tileColor.intensity, 1.5)
-      let finalG = min(tileColor.g * tileColor.intensity, 1.5)
-      let finalB = min(tileColor.b * tileColor.intensity, 1.5)
+      let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
+      let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
+      let finalB = min(blendedColor.b * blendedColor.intensity, 1.5)
 
       bxy.drawImage(floorSprite, ivec2(x, y).vec2, angle = 0, scale = 1/200, tint = color(finalR, finalG, finalB, 1.0))
 
