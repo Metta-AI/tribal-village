@@ -21,7 +21,6 @@ const
   ItemBread* = "bread"
   ItemPlant* = "plant"
   ItemFish* = "fish"
-  ItemRock* = "rock"
   ItemHearts* = "hearts"
   ItemThingPrefix* = "thing:"
 
