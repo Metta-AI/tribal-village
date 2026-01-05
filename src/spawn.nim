@@ -546,14 +546,13 @@ proc init(env: Environment) =
           agentVillageColors[agentId] = teamColors[teamId]
 
           var agentPos = ivec2(-1, -1)
-          var frozen = 999999
+          var frozen = 0
           var hp = 0
           if j < initialActive:
             if j < nearbyPositions.len:
               agentPos = nearbyPositions[j]
             else:
               agentPos = r.randomEmptyPos(env)
-            frozen = 0
             hp = AgentMaxHp
             env.terminated[agentId] = 0.0
           else:

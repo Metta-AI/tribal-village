@@ -188,9 +188,7 @@ proc hasFoodCargo(agent: Thing): bool =
 
 proc teamPopCount*(env: Environment, teamId: int): int =
   for agent in env.agents:
-    if agent.isNil:
-      continue
-    if env.terminated[agent.agentId] != 0.0:
+    if not isAgentAlive(env, agent):
       continue
     if getTeamId(agent.agentId) == teamId:
       inc result
@@ -332,7 +330,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
         let target = env.grid[targetPos.x][targetPos.y]
         if target == nil:
           continue
-        if target.kind == Agent and (target.frozen > 0 or sameTeam(agent, target)):
+        if target.kind == Agent and (not isAgentAlive(env, target) or sameTeam(agent, target)):
           continue
         let dist = int(chebyshevDist(agent.pos, target.pos))
         case target.kind
@@ -368,7 +366,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
       if env.grid[thing.pos.x][thing.pos.y] != thing:
         continue
       if thing.kind == Agent:
-        if thing.frozen > 0:
+        if not isAgentAlive(env, thing):
           continue
         if sameTeam(agent, thing):
           continue
@@ -408,7 +406,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
       return dirIdx
     elif occupant.kind == Spawner and bestSpawner.dir < 0:
       bestSpawner = (dirIdx, 1)
-    elif occupant.kind == Agent and bestEnemy.dir < 0 and occupant.frozen == 0 and not sameTeam(agent, occupant):
+    elif occupant.kind == Agent and bestEnemy.dir < 0 and isAgentAlive(env, occupant) and not sameTeam(agent, occupant):
       bestEnemy = (dirIdx, 1)
 
   if bestSpawner.dir >= 0: return bestSpawner.dir
@@ -425,6 +423,7 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
   var bestDist = int.high
   for other in env.agents:
     if other.agentId == me.agentId: continue
+    if not isAgentAlive(env, other): continue
     if not sameTeam(me, other): continue
     var needs = false
     case need

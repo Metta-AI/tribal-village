@@ -24,7 +24,6 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
     return true
   return env.getDoorTeam(pos) == getTeamId(agent.agentId)
 {.pop.}
-
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Restore a tile to the biome base color
   let color = env.baseColorForPos(pos)
