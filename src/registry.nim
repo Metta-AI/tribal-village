@@ -133,7 +133,7 @@ proc buildingHasFrozenOverlay*(kind: ThingKind): bool =
 proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   case kind
   of Altar: UseAltar
-  of Armory: UseArmory
+  of Armory: UseNone
   of ClayOven: UseClayOven
   of WeavingLoom: UseWeavingLoom
   of Blacksmith: UseBlacksmith
