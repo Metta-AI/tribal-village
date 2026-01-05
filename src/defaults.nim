@@ -16,13 +16,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       of 1: Woodsman
       of 2: Miner
       of 3: Farmer
-      of 4: Hunter
+      of 4: Warrior
       of 5: Builder
       of 6: Lighter
-      of 7: BlacksmithRole
+      of 7: Smith
       of 8: Waller
       else:
-        sample(controller.rng, [Hearter, Woodsman, Miner, Farmer, Hunter, Builder, Lighter, BlacksmithRole, Waller])
+        sample(controller.rng, [Hearter, Woodsman, Miner, Farmer, Warrior, Builder, Lighter, Smith, Waller])
 
     controller.agents[agentId] = AgentState(
       role: role,
@@ -138,12 +138,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   case state.role:
   of Hearter: return decideHearter(controller, env, agent, agentId, state)
   of Woodsman: return decideWoodsman(controller, env, agent, agentId, state)
-  of Hunter: return decideHunter(controller, env, agent, agentId, state)
+  of Warrior: return decideWarrior(controller, env, agent, agentId, state)
   of Farmer: return decideFarmer(controller, env, agent, agentId, state)
   of Miner: return decideMiner(controller, env, agent, agentId, state)
   of Lighter: return decideLighter(controller, env, agent, agentId, state)
   of Builder: return decideBuilder(controller, env, agent, agentId, state)
-  of BlacksmithRole: return decideBlacksmith(controller, env, agent, agentId, state)
+  of Smith: return decideSmith(controller, env, agent, agentId, state)
   of Waller: return decideWaller(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
