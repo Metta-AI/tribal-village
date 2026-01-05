@@ -737,17 +737,3 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
   if pos.x >= 0:
     return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
-
-proc findAndAttackThing(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                        state: var AgentState, kind: ThingKind): tuple[did: bool, action: uint8] =
-  let t = env.findNearestThingSpiral(state, kind, controller.rng)
-  if t != nil:
-    return (true, controller.attackOrMove(env, agent, agentId, state, t.pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
-
-proc findAndAttackTerrain(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                          state: var AgentState, terrain: TerrainType): tuple[did: bool, action: uint8] =
-  let pos = env.findNearestTerrainSpiral(state, terrain, controller.rng)
-  if pos.x >= 0:
-    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
