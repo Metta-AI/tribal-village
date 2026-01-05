@@ -168,6 +168,9 @@ proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   of Bank: ResourceGold
   else: ResourceNone
 
+proc buildingShowsStockpile*(kind: ThingKind): bool =
+  buildingStockpileRes(kind) != ResourceNone
+
 proc buildingBuildIndex*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 
@@ -224,6 +227,9 @@ proc buildingCraftStation*(kind: ThingKind): CraftStation =
   of Blacksmith: StationBlacksmith
   of SiegeWorkshop: StationSiegeWorkshop
   else: StationNone
+
+proc buildingHasCraftStation*(kind: ThingKind): bool =
+  buildingCraftStation(kind) != StationNone
 
 proc buildingHasTrain*(kind: ThingKind): bool =
   case kind
