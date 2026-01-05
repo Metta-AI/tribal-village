@@ -713,7 +713,7 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, r))
 
-  # Magma spawns in small clusters (2-3) for higher local density.
+  # Magma spawns in slightly larger clusters (3-4) for higher local density.
   var poolsPlaced = 0
   let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, max(1, MapRoomObjectsMagmaPools div 2)))
   for clusterIndex in 0 ..< magmaClusterCount:
@@ -721,8 +721,8 @@ proc init(env: Environment) =
     if remaining <= 0:
       break
     let clustersLeft = magmaClusterCount - clusterIndex
-    let maxCluster = min(3, remaining)
-    let minCluster = if remaining >= 2: 2 else: 1
+    let maxCluster = min(4, remaining)
+    let minCluster = if remaining >= 3: 3 else: 1
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
     let center = r.randomEmptyPos(env)
@@ -758,7 +758,7 @@ proc init(env: Environment) =
       if poolsPlaced >= MapRoomObjectsMagmaPools:
         break
 
-  # Gold/stone deposits spawn as terrain clusters (3-5 tiles), non-depleting.
+  # Gold/stone deposits spawn as slightly larger terrain clusters (4-7 tiles), non-depleting.
   var depositsPlaced = 0
   let clusterCount = max(1, min(MapRoomObjectsMineClusters, max(1, MapRoomObjectsMines div 3)))
   for clusterIndex in 0 ..< clusterCount:
@@ -766,8 +766,8 @@ proc init(env: Environment) =
     if remaining <= 0:
       break
     let clustersLeft = clusterCount - clusterIndex
-    let maxCluster = min(6, remaining)
-    let minCluster = min(3, remaining)
+    let maxCluster = min(7, remaining)
+    let minCluster = min(4, remaining)
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
     let depositTerrain = if clusterIndex mod 2 == 0: Rock else: Gold
