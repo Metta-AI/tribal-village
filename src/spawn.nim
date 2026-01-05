@@ -54,7 +54,10 @@ proc init(env: Environment) =
       if isPalm or isForestTree:
         env.terrain[x][y] = Empty
         let treeKind = if isPalm: Palm else: Pine
-        env.add(Thing(kind: treeKind, pos: ivec2(x.int32, y.int32)))
+        let tree = Thing(kind: treeKind, pos: ivec2(x.int32, y.int32))
+        tree.inventory = emptyInventory()
+        setInv(tree, ItemWood, ResourceNodeInitial)
+        env.add(tree)
 
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
@@ -715,6 +718,14 @@ proc init(env: Environment) =
   # Ensure the world is a single connected component after terrain and structures.
   env.makeConnected()
 
+  # Initialize terrain resource counts (each resource tile yields 1 per harvest, 25 total).
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.terrain[x][y] in {Water, Wheat, Tree, Palm, Rock, Gold, Bush, Cactus, Animal, Stalagmite}:
+        env.terrainResources[x][y] = ResourceNodeInitial
+      else:
+        env.terrainResources[x][y] = 0
+
   # Cows spawn in herds (5-10) across open terrain.
   const MinHerdSize = 5
   const MaxHerdSize = 10
@@ -751,6 +762,8 @@ proc init(env: Environment) =
         orientation: Orientation.W,
         herdId: herdId
       )
+      cow.inventory = emptyInventory()
+      setInv(cow, ItemFish, ResourceNodeInitial)
       env.add(cow)
       inc cowsPlaced
       if cowsPlaced >= MapRoomObjectsCows:
