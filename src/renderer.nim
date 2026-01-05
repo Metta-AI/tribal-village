@@ -117,6 +117,14 @@ proc thingSpriteKey(kind: ThingKind): string =
   case kind
   of Skeleton:
     "corpse"
+  of Mill:
+    "granary"
+  of LumberCamp:
+    "lumber_yard"
+  of MiningCamp:
+    "quarry"
+  of Market:
+    "bank"
   else:
     toSnakeCase($kind)
 
@@ -429,28 +437,6 @@ proc drawObjects*() =
           let baseImage = "town_center"
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
           drawRoofTint(baseImage, pos.vec2, thing.teamId)
-
-          if thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
-            let resources = [
-              (icon: "bushel", res: ResourceFood),
-              (icon: "wood", res: ResourceWood),
-              (icon: "stone", res: ResourceStone),
-              (icon: "gold", res: ResourceGold)
-            ]
-            let basePos = pos.vec2
-            let iconScale = 1/360
-            let labelScale = 1/260
-            let anchor = vec2(-0.54, -0.78)
-            let step = 0.26
-            for i, entry in resources:
-              let count = env.teamStockpiles[thing.teamId].counts[entry.res]
-              let iconPos = basePos + anchor + vec2(step * i.float32, 0.0)
-              let alpha = if count > 0: 1.0 else: 0.35
-              bxy.drawImage(entry.icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
-              if count > 0:
-                let labelKey = ensureHeartCountLabel(count)
-                let labelPos = iconPos + vec2(0.06, -0.10)
-                bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 0.9))
 
         of Mill, LumberCamp, MiningCamp, Market:
           let spriteKey = thingSpriteKey(thing.kind)
