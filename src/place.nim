@@ -11,9 +11,11 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
       return true
   false
 
-proc dropStump(env: Environment, pos: IVec2) =
+proc dropStump(env: Environment, pos: IVec2, woodRemaining: int) =
   let stump = Thing(kind: Stump, pos: pos)
   stump.inventory = emptyInventory()
+  if woodRemaining > 0:
+    setInv(stump, ItemWood, woodRemaining)
   env.add(stump)
 
 proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
@@ -41,28 +43,12 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
     discard
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Altar, Spawner, TownCenter, House, Barracks,
+  if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Skeleton, Altar, Spawner, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
                     University, Castle, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
                     Mill, LumberCamp, MiningCamp, Stump, Wall,
                     Magma, Lantern}:
     return false
-  if thing.kind == Skeleton:
-    var resourceNeeded = 0
-    for itemKey, count in thing.inventory.pairs:
-      if isStockpileResourceKey(itemKey):
-        resourceNeeded += count
-      else:
-        let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
-        if capacity < count:
-          return false
-    if resourceNeeded > resourceCarryCapacityLeft(agent):
-      return false
-    for itemKey, count in thing.inventory.pairs:
-      setInv(agent, itemKey, getInv(agent, itemKey) + count)
-      env.updateAgentInventoryObs(agent, itemKey)
-    removeThing(env, thing)
-    return true
 
   let key = thingKey(thing.kind)
   let current = getInv(agent, key)

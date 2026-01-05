@@ -41,7 +41,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     var used = false
     case env.terrain[targetPos.x][targetPos.y]:
     of Water:
-      used = tryHarvestTerrainResource(ItemWater, env.config.waterReward, false)
+      if env.giveItem(agent, ItemWater):
+        agent.reward += env.config.waterReward
+        used = true
     of Wheat:
       used = tryHarvestTerrainResource(ItemWheat, env.config.wheatReward, true)
     of Tree, Palm:
@@ -91,11 +93,25 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Pine, Palm:
     let stored = getInv(thing, ItemWood)
     if stored > 0 and env.giveItem(agent, ItemWood):
-      setInv(thing, ItemWood, stored - 1)
+      let remaining = stored - 1
       agent.reward += env.config.woodReward
-      if getInv(thing, ItemWood) <= 0:
+      if remaining <= 0:
         removeThing(env, thing)
-        env.dropStump(thing.pos)
+      elif remaining < ResourceNodeInitial:
+        removeThing(env, thing)
+        env.dropStump(thing.pos, remaining)
+      else:
+        setInv(thing, ItemWood, remaining)
+      used = true
+  of Stump:
+    let stored = getInv(thing, ItemWood)
+    if stored > 0 and env.giveItem(agent, ItemWood):
+      let remaining = stored - 1
+      agent.reward += env.config.woodReward
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemWood, remaining)
       used = true
   of Magma:  # Magma smelting
     if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
@@ -142,13 +158,24 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Cow:
     if agent.inventorySpear > 0:
       let stored = getInv(thing, ItemFish)
-      if stored > 0 and env.giveItem(agent, ItemFish):
-        setInv(thing, ItemFish, stored - 1)
+      if stored > 0:
         agent.inventorySpear = max(0, agent.inventorySpear - 1)
         env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-        if getInv(thing, ItemFish) <= 0:
-          removeThing(env, thing)
+        removeThing(env, thing)
+        let skeleton = Thing(kind: Skeleton, pos: thing.pos)
+        skeleton.inventory = emptyInventory()
+        setInv(skeleton, ItemFish, stored)
+        env.add(skeleton)
         used = true
+  of Skeleton:
+    let stored = getInv(thing, ItemFish)
+    if stored > 0 and env.giveItem(agent, ItemFish):
+      let remaining = stored - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemFish, remaining)
+      used = true
   of Altar:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
       agent.inventoryBar = agent.inventoryBar - 1
