@@ -1,6 +1,6 @@
 import
   boxy, vmath, windy, tables,
-  std/[algorithm, math, strutils],
+  std/[algorithm, math, strutils, sets],
   common, environment, assets
 
 # Infection system constants
@@ -67,6 +67,25 @@ proc getInfectionLevel*(pos: IVec2): float32 =
 proc spriteScale(_: string): float32 =
   SpriteScale
 
+var missingAssetWarnings: HashSet[string] = initHashSet[string]()
+
+proc resolveSpriteKey(key: string): string =
+  if key.len == 0:
+    return ""
+  if assetExists(key):
+    return key
+  if key notin missingAssetWarnings:
+    echo "⚠️  Missing asset: ", key, " (using unknown)"
+    missingAssetWarnings.incl(key)
+  return "unknown"
+
+proc stockpileIcon(res: StockpileResource): string =
+  case res
+  of ResourceFood: "bushel"
+  of ResourceWood: "wood"
+  of ResourceStone: "stone"
+  of ResourceGold: "gold"
+
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
     mouseDownPos = logicalMousePos(window)
@@ -114,26 +133,19 @@ proc toSnakeCase(name: string): string =
       result.add(ch)
 
 proc thingSpriteKey(kind: ThingKind): string =
+  if isBuildingKind(kind):
+    return buildingSpriteKey(kind)
   case kind
   of Skeleton:
     "corpse"
-  of Mill:
-    "mill"
-  of Granary:
-    "granary"
-  of LumberCamp:
-    "lumber_yard"
-  of MiningCamp:
-    "quarry"
   else:
     toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
+  if isBuildingKind(kind):
+    return buildingHasFrozenOverlay(kind)
   case kind
-  of Magma, Altar, Armory, ClayOven, WeavingLoom,
-     Outpost, Barrel, Mill, Granary, LumberCamp, MiningCamp, Stump, Bank,
-     TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
-     Monastery, University, Castle:
+  of Magma, Stump:
     true
   else:
     false
@@ -366,7 +378,7 @@ proc drawObjects*() =
         of Wall:
           discard
         of Pine, Palm:
-          let treeSprite = thingSpriteKey(thing.kind)
+          let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
           if infected:
             drawOverlayIf(true, "frozen_tile", pos.vec2)
@@ -392,7 +404,7 @@ proc drawObjects*() =
           )
 
         of Altar:
-          let baseImage = "altar"  # Visual centerpiece for each village
+          let baseImage = resolveSpriteKey("altar")  # Visual centerpiece for each village
           let altarTint = getAltarColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
@@ -435,35 +447,6 @@ proc drawObjects*() =
           if infected:
             drawOverlayIf(true, "frozen_tile", pos.vec2)
 
-        of TownCenter:
-          let baseImage = "town_center"
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
-          drawRoofTint(baseImage, pos.vec2, thing.teamId)
-
-        of Granary, LumberCamp, MiningCamp, Bank:
-          let spriteKey = thingSpriteKey(thing.kind)
-          if spriteKey.len > 0:
-            bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-            drawRoofTint(spriteKey, pos.vec2, thing.teamId)
-          if thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
-            let (icon, res) = case thing.kind
-              of Granary: ("bushel", ResourceFood)
-              of LumberCamp: ("wood", ResourceWood)
-              of MiningCamp: ("stone", ResourceStone)
-              of Bank: ("gold", ResourceGold)
-              else: ("", ResourceFood)
-            if icon.len > 0:
-              let count = env.teamStockpiles[thing.teamId].counts[res]
-              let iconScale = 1/320
-              let labelScale = 1/200
-              let iconPos = pos.vec2 + vec2(-0.18, -0.72)
-              let alpha = if count > 0: 1.0 else: 0.35
-              bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
-              if count > 0:
-                let labelKey = ensureHeartCountLabel(count)
-                let labelPos = iconPos + vec2(0.14, -0.08)
-                bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
-
         of Tumor:
           # Map diagonal orientations to cardinal sprites
           let spriteDir = case thing.orientation:
@@ -485,18 +468,38 @@ proc drawObjects*() =
         of Lantern:
           # Draw lantern using a simple image with team color tint
           let lantern = thing
+          let lanternKey = resolveSpriteKey("lantern")
           if lantern.lanternHealthy and lantern.teamId >= 0 and lantern.teamId < teamColors.len:
             let teamColor = teamColors[lantern.teamId]
-            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = spriteScale("lantern"), tint = teamColor)
+            bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = teamColor)
           else:
             # Unhealthy or unassigned lantern - draw as gray
-            bxy.drawImage("lantern", pos.vec2, angle = 0, scale = spriteScale("lantern"), tint = color(0.5, 0.5, 0.5, 1.0))
+            bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = color(0.5, 0.5, 0.5, 1.0))
         else:
-          let spriteKey = thingSpriteKey(thing.kind)
-          if spriteKey.len > 0:
-            let imageName = spriteKey
-            bxy.drawImage(imageName, pos.vec2, angle = 0, scale = spriteScale(imageName))
-            drawRoofTint(imageName, pos.vec2, thing.teamId)
+          if isBuildingKind(thing.kind):
+            let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
+            if spriteKey.len > 0:
+              bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
+              drawRoofTint(spriteKey, pos.vec2, thing.teamId)
+            if buildingShowsStockpile(thing.kind) and
+               thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
+              let res = buildingStockpileRes(thing.kind)
+              let icon = stockpileIcon(res)
+              if icon.len > 0:
+                let count = env.teamStockpiles[thing.teamId].counts[res]
+                let iconScale = 1/320
+                let labelScale = 1/200
+                let iconPos = pos.vec2 + vec2(-0.18, -0.72)
+                let alpha = if count > 0: 1.0 else: 0.35
+                bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
+                if count > 0:
+                  let labelKey = ensureHeartCountLabel(count)
+                  let labelPos = iconPos + vec2(0.14, -0.08)
+                  bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+          else:
+            let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
+            if spriteKey.len > 0:
+              bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
           if infected and hasFrozenOverlay(thing.kind):
             drawOverlayIf(true, "frozen_tile", pos.vec2)
 
@@ -631,41 +634,20 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of UnitKnight: "Knight"
         of UnitMonk: "Monk"
         of UnitSiege: "Siege"
+      elif isBuildingKind(thing.kind):
+        buildingDisplayName(thing.kind)
       else:
         case thing.kind
         of Wall: "Wall"
         of Pine: "Pine"
         of Palm: "Palm"
         of Magma: "Magma"
-        of Altar: "Altar"
         of Spawner: "Spawner"
         of Tumor: "Tumor"
         of Cow: "Cow"
         of Skeleton: "Skeleton"
-        of Armory: "Armory"
-        of ClayOven: "Clay Oven"
-        of WeavingLoom: "Weaving Loom"
-        of Outpost: "Outpost"
-        of Barrel: "Barrel"
-        of Mill: "Mill"
-        of Granary: "Granary"
-        of LumberCamp: "Lumber Yard"
-        of MiningCamp: "Quarry"
         of Stump: "Stump"
         of Lantern: "Lantern"
-        of TownCenter: "Town Center"
-        of House: "House"
-        of Barracks: "Barracks"
-        of ArcheryRange: "Archery Range"
-        of Stable: "Stable"
-        of SiegeWorkshop: "Siege Workshop"
-        of Blacksmith: "Blacksmith"
-        of Market: "Market"
-        of Bank: "Bank"
-        of Dock: "Dock"
-        of Monastery: "Monastery"
-        of University: "University"
-        of Castle: "Castle"
         of Agent:
           case thing.unitClass
           of UnitVillager: "Villager"
@@ -675,6 +657,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
           of UnitKnight: "Knight"
           of UnitMonk: "Monk"
           of UnitSiege: "Siege"
+        else: ""
   elif env.hasDoor(selectedPos):
     label = "Door"
   else:
