@@ -22,10 +22,6 @@ proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
   case kind
   of Wall:
     env.updateObservations(WallLayer, pos, 0)
-  of Mine:
-    env.updateObservations(MineLayer, pos, 0)
-    env.updateObservations(MineResourceLayer, pos, 0)
-    env.updateObservations(MineReadyLayer, pos, 0)
   of Magma:
     env.updateObservations(MagmaLayer, pos, 0)
     env.updateObservations(MagmaReadyLayer, pos, 0)
@@ -40,10 +36,6 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
   case kind
   of Wall:
     env.updateObservations(WallLayer, pos, 1)
-  of Mine:
-    env.updateObservations(MineLayer, pos, 1)
-    env.updateObservations(MineResourceLayer, pos, placed.resources)
-    env.updateObservations(MineReadyLayer, pos, placed.cooldown)
   of Magma:
     env.updateObservations(MagmaLayer, pos, 1)
     env.updateObservations(MagmaReadyLayer, pos, placed.cooldown)
@@ -59,7 +51,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
                     University, Castle, Stump, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
                     Mill, LumberCamp, MiningCamp, Wall,
-                    Mine, Magma, Lantern}:
+                    Magma, Lantern}:
     return false
   if thing.kind == Skeleton:
     var resourceNeeded = 0
@@ -144,10 +136,6 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.hearts = 0
   of Spawner:
     placed.homeSpawner = pos
-  of Mine:
-    placed.inventory = emptyInventory()
-    placed.mineKind = MineGold
-    placed.resources = MapObjectMineInitialResources
   else:
     discard
   env.add(placed)
