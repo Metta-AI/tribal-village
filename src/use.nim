@@ -38,9 +38,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     of Tree, Palm:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
         env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
-    of Rock, Stalagmite:
+    of Rock:
       if env.giveItem(agent, ItemStone):
         used = true
+    of Stalagmite:
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemStone, 2, 0.0)
     of Gem:
       if env.giveItem(agent, ItemGold):
         used = true
@@ -48,7 +50,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = env.tryGiveAndClear(agent, targetPos, ItemPlant)
     of Animal:
       used = env.tryGiveAndClear(agent, targetPos, ItemFish)
-    of Empty:
+    of Empty, Grass, Dune, Sand, Snow, Stalagmite, Road:
       if env.hasDoor(targetPos):
         used = false
       elif agent.inventoryBread > 0:
@@ -64,7 +66,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.resetTileColor(targetPos)
           env.updateObservations(TintLayer, targetPos, 0)
           used = true
-    of Bridge, Fertile, Road, Grass, Dune, Sand, Snow:
+    of Bridge, Fertile:
       used = false
 
     if used:
@@ -209,10 +211,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.useDropoffBuilding(agent, {ResourceGold, ResourceStone}):
         used = true
       if not used and env.useStorageBuilding(agent, thing, @[ItemRock]):
-        used = true
-  of Farm:
-    if thing.teamId == getTeamId(agent.agentId):
-      if env.useStorageBuilding(agent, thing, @[ItemWheat, ItemPlant]):
         used = true
   of Dock:
     if thing.teamId == getTeamId(agent.agentId):

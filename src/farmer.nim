@@ -10,13 +10,9 @@ proc decideFarmer(controller: Controller, env: Environment, agent: Thing,
     if dropoff != nil:
       return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
 
-  # Ensure at least one mill and a couple farms exist.
+  # Ensure at least one mill exists.
   if env.countTeamBuildings(teamId, Mill) == 0:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMill)
-    if did: return act
-
-  if env.countTeamBuildings(teamId, Farm) < 2:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexFarm)
     if did: return act
 
   # Harvest farm wheat.
