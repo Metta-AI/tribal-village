@@ -13,13 +13,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     let role =
       case agentId mod MapAgentsPerHouse
       of 0: Hearter
-      of 1: Armorer
-      of 2: Hunter
-      of 3: Baker
-      of 4: Lighter
-      of 5: Farmer
+      of 1: Woodsman
+      of 2: Miner
+      of 3: Farmer
+      of 4: Hunter
+      of 5: Builder
+      of 6: Lighter
+      of 7: BlacksmithRole
       else:
-        sample(controller.rng, [Hearter, Armorer, Hunter, Baker, Lighter, Farmer])
+        sample(controller.rng, [Hearter, Woodsman, Miner, Farmer, Hunter, Builder, Lighter, BlacksmithRole])
 
     controller.agents[agentId] = AgentState(
       role: role,
@@ -134,11 +136,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Role-based decision making
   case state.role:
   of Hearter: return decideHearter(controller, env, agent, agentId, state)
-  of Armorer: return decideArmorer(controller, env, agent, agentId, state)
+  of Woodsman: return decideWoodsman(controller, env, agent, agentId, state)
   of Hunter: return decideHunter(controller, env, agent, agentId, state)
-  of Baker: return decideBaker(controller, env, agent, agentId, state)
-  of Lighter: return decideLighter(controller, env, agent, agentId, state)
   of Farmer: return decideFarmer(controller, env, agent, agentId, state)
+  of Miner: return decideMiner(controller, env, agent, agentId, state)
+  of Lighter: return decideLighter(controller, env, agent, agentId, state)
+  of Builder: return decideBuilder(controller, env, agent, agentId, state)
+  of BlacksmithRole: return decideBlacksmith(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller) =

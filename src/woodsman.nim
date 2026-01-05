@@ -1,5 +1,5 @@
-proc decideArmorer(controller: Controller, env: Environment, agent: Thing,
-                   agentId: int, state: var AgentState): uint8 =
+proc decideWoodsman(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
   # AoE wood cycle: gather wood and drop it at lumber camps / town centers.

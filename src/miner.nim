@@ -1,8 +1,8 @@
 proc decideMiner(controller: Controller, env: Environment, agent: Thing,
-                agentId: int, state: var AgentState): uint8 =
+                 agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
-  # Drop off mined resources at a friendly mining camp or town center.
+  # AoE mining cycle: collect gold/stone and drop off at mining camps / town centers.
   if agent.inventoryGold > 0 or agent.inventoryStone > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
     if dropoff == nil:
@@ -10,15 +10,15 @@ proc decideMiner(controller: Controller, env: Environment, agent: Thing,
     if dropoff != nil:
       return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
 
-  # Keep mines working for gold/stone.
+  # Work gold/stone deposits when capacity allows.
   if agent.inventoryGold + agent.inventoryStone < ResourceCarryCapacity:
-    let mine = env.findNearestThingSpiral(state, Mine, controller.rng)
-    if mine != nil:
-      return controller.useOrMove(env, agent, agentId, state, mine.pos)
-
-  # Harvest rock terrain when available.
-  if getInv(agent, ItemRock) < MapObjectAgentMaxInventory:
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Rock)
-    if did: return act
+    let preferGold = agent.inventoryGold <= agent.inventoryStone
+    let primaryTerrain = if preferGold: TerrainType.Gem else: TerrainType.Rock
+    var targetPos = env.findNearestTerrainSpiral(state, primaryTerrain, controller.rng)
+    if targetPos.x < 0:
+      let secondaryTerrain = if primaryTerrain == TerrainType.Gem: TerrainType.Rock else: TerrainType.Gem
+      targetPos = env.findNearestTerrainSpiral(state, secondaryTerrain, controller.rng)
+    if targetPos.x >= 0:
+      return controller.useOrMove(env, agent, agentId, state, targetPos)
 
   return controller.moveNextSearch(env, agent, agentId, state)

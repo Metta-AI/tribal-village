@@ -1,7 +1,9 @@
 # This file is included by defaults.nim
 include "hearter"
-include "armorer"
+include "woodsman"
 include "hunter"
-include "baker"
+include "miner"
 include "lighter"
+include "builder"
 include "farmer"
+include "blacksmith_role"
