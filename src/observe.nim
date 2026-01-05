@@ -19,6 +19,8 @@ proc updateObservations(
   # Still need to check all agents but with optimized early exit
   let agentCount = env.agents.len
   for agentId in 0 ..< agentCount:
+    if not isAgentAlive(env, env.agents[agentId]):
+      continue
     let agentPos = env.agents[agentId].pos
 
     # Ultra-fast bounds check using compile-time constants
@@ -46,6 +48,8 @@ proc rebuildObservations*(env: Environment) =
   # Populate agent-centric layers (presence, orientation, inventory).
   for agent in env.agents:
     if agent.isNil:
+      continue
+    if not isAgentAlive(env, agent):
       continue
     if not isValidPos(agent.pos):
       continue

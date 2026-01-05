@@ -301,3 +301,12 @@ type
     terminated*: array[MapAgents, float32]
     truncated*: array[MapAgents, float32]
     stats: seq[Stats]
+
+proc isAgentAlive*(env: Environment, agent: Thing): bool =
+  if agent.isNil:
+    return false
+  if env.terminated[agent.agentId] != 0.0:
+    return false
+  if not isValidPos(agent.pos):
+    return false
+  return env.grid[agent.pos.x][agent.pos.y] == agent
