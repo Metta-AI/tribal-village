@@ -120,6 +120,8 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   var kind: ThingKind
   if not parseThingKey(key, kind):
     return false
+  if kind == Wall and env.terrain[pos.x][pos.y] == Wheat:
+    return false
   let placed = Thing(
     kind: kind,
     pos: pos
