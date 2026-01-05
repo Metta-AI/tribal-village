@@ -66,12 +66,10 @@ proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) 
     env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
     env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
 
-# Utility to tick a building cooldown and update its ready observation if provided.
-proc tickCooldown(env: Environment, thing: Thing, readyLayer: ObservationName = TintLayer, updateLayer = false) =
+# Utility to tick a building cooldown.
+proc tickCooldown(env: Environment, thing: Thing) =
   if thing.cooldown > 0:
     dec thing.cooldown
-    if updateLayer:
-      env.updateObservations(readyLayer, thing.pos, thing.cooldown)
 
 var
   env*: Environment  # Global environment instance

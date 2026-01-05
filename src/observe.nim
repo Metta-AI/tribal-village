@@ -76,11 +76,9 @@ proc rebuildObservations*(env: Environment) =
       discard  # No dedicated observation layer for trees.
     of Magma:
       env.updateObservations(MagmaLayer, thing.pos, 1)
-      env.updateObservations(MagmaReadyLayer, thing.pos, thing.cooldown)
     of Altar:
       env.updateObservations(altarLayer, thing.pos, 1)
       env.updateObservations(altarHeartsLayer, thing.pos, getInv(thing, ItemHearts))
-      env.updateObservations(altarReadyLayer, thing.pos, thing.cooldown)
     of Spawner:
       discard  # No dedicated observation layer for spawners.
     of Tumor:
