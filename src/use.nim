@@ -83,22 +83,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   var used = false
   case thing.kind:
   of Pine, Palm:
-    removeThing(env, thing)
-    env.dropStump(thing.pos, 5)
-    used = true
-  of Stump:
-    let stored = getInv(thing, ItemWood)
-    if stored > 0:
-      let capacity = resourceCarryCapacityLeft(agent)
-      if capacity > 0:
-        let moved = min(stored, capacity)
-        setInv(agent, ItemWood, getInv(agent, ItemWood) + moved)
-        setInv(thing, ItemWood, stored - moved)
-        env.updateAgentInventoryObs(agent, ItemWood)
-        agent.reward += env.config.woodReward
-        if getInv(thing, ItemWood) == 0:
-          removeThing(env, thing)
-        used = true
+    if env.tryHarvestWithCarry(agent, thing.pos, ItemWood, 5, env.config.woodReward):
+      removeThing(env, thing)
+      used = true
   of Magma:  # Magma smelting
     if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
