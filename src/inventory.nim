@@ -100,29 +100,6 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
     agent.attackDamage = SiegeAttackDamage
   agent.hp = agent.maxHp
 
-proc teamPopulation*(env: Environment, teamId: int): int =
-  result = 0
-  for agent in env.agents:
-    if agent.isNil:
-      continue
-    if env.terminated[agent.agentId] != 0.0:
-      continue
-    if getTeamId(agent.agentId) == teamId:
-      inc result
-
-proc teamPopCap*(env: Environment, teamId: int): int =
-  var cap = 0
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if isBuildingKind(thing.kind):
-      let add = buildingPopCap(thing.kind)
-      if add > 0:
-        cap += add
-  cap
-
 proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
   ## Pick the item with the highest count to deposit into an empty barrel.
   result = (key: ItemNone, count: 0)
