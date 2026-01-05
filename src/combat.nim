@@ -1,32 +1,27 @@
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
-  if victim.frozen >= 999999:
+  if env.terminated[victim.agentId] != 0.0:
     return
   let deathPos = victim.pos
-  env.grid[deathPos.x][deathPos.y] = nil
-  env.updateObservations(AgentLayer, victim.pos, 0)
-  env.updateObservations(AgentOrientationLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryGoldLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
-  env.updateObservations(AgentInventorySpearLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
+  if isValidPos(deathPos):
+    env.grid[deathPos.x][deathPos.y] = nil
+    env.updateObservations(AgentLayer, victim.pos, 0)
+    env.updateObservations(AgentOrientationLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryGoldLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
+    env.updateObservations(AgentInventorySpearLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
+    env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
 
   env.terminated[victim.agentId] = 1.0
-  victim.frozen = 999999
   victim.hp = 0
   victim.reward += env.config.deathPenalty
-  var hasItems = false
-  for key, count in victim.inventory.pairs:
-    if count > 0:
-      hasItems = true
-      break
-  if hasItems and isValidPos(deathPos):
+  if isValidPos(deathPos):
     var dropInv = emptyInventory()
     for key, count in victim.inventory.pairs:
       if count > 0:
@@ -36,8 +31,9 @@ proc killAgent(env: Environment, victim: Thing) =
     env.add(skeleton)
 
   victim.inventory = emptyInventory()
+  victim.pos = ivec2(-1, -1)
 
-# Apply damage to an agent; respects armor and only freezes when HP <= 0.
+# Apply damage to an agent; respects armor and marks terminated when HP <= 0.
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
   if target.isNil or amount <= 0:

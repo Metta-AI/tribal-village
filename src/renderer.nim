@@ -508,6 +508,8 @@ proc drawObjects*() =
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
   for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
     for i in 0 ..< ObservationWidth:
       for j in 0 ..< ObservationHeight:
         let

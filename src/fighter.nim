@@ -6,7 +6,7 @@ proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing
   for other in env.agents:
     if other.agentId == agent.agentId:
       continue
-    if other.frozen > 0:
+    if not isAgentAlive(env, other):
       continue
     if sameTeam(agent, other):
       continue

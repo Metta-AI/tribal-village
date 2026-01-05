@@ -4,8 +4,8 @@ include "roles"
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 
-  # Skip frozen agents
-  if agent.frozen > 0:
+  # Skip inactive agents
+  if not isAgentAlive(env, agent):
     return encodeAction(0'u8, 0'u8)
 
   # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
