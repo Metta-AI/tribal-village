@@ -1,7 +1,7 @@
 proc isTeamBuilding(kind: ThingKind): bool =
   case kind
   of Altar, TownCenter, House, Armory, ClayOven, WeavingLoom, Outpost, Mill, LumberCamp,
-     MiningCamp, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
+     MiningCamp, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Bank, Dock,
      Monastery, University, Castle:
     true
   else:

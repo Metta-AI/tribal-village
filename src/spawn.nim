@@ -240,10 +240,10 @@ proc init(env: Environment) =
 
   proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
     let placements = [
-      (offset: ivec2(2, -2), kind: LumberCamp),  # Lumber Yard
-      (offset: ivec2(2, 2), kind: Mill),         # Granary
-      (offset: ivec2(-2, 2), kind: MiningCamp),  # Quarry
-      (offset: ivec2(-2, -2), kind: Market)      # Bank
+      (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),   # Lumber Yard
+      (offset: ivec2(2, 2), kind: Mill, res: ResourceFood),          # Granary
+      (offset: ivec2(-2, 2), kind: MiningCamp, res: ResourceStone),  # Quarry
+      (offset: ivec2(-2, -2), kind: Bank, res: ResourceGold)         # Bank
     ]
     for entry in placements:
       var placed = false
@@ -273,6 +273,8 @@ proc init(env: Environment) =
               pos: pos,
               teamId: teamId
             ))
+            env.teamStockpiles[teamId].counts[entry.res] =
+              max(env.teamStockpiles[teamId].counts[entry.res], 5)
             placed = true
             break
           if placed: break

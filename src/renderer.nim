@@ -123,15 +123,13 @@ proc thingSpriteKey(kind: ThingKind): string =
     "lumber_yard"
   of MiningCamp:
     "quarry"
-  of Market:
-    "bank"
   else:
     toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
   of Magma, Altar, Armory, ClayOven, WeavingLoom,
-     Outpost, Barrel, Mill, LumberCamp, MiningCamp, Stump,
+     Outpost, Barrel, Mill, LumberCamp, MiningCamp, Stump, Bank,
      TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
      Monastery, University, Castle:
     true
@@ -438,7 +436,7 @@ proc drawObjects*() =
           bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
           drawRoofTint(baseImage, pos.vec2, thing.teamId)
 
-        of Mill, LumberCamp, MiningCamp, Market:
+        of Mill, LumberCamp, MiningCamp, Bank:
           let spriteKey = thingSpriteKey(thing.kind)
           if spriteKey.len > 0:
             bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
@@ -448,7 +446,7 @@ proc drawObjects*() =
               of Mill: ("bushel", ResourceFood)
               of LumberCamp: ("wood", ResourceWood)
               of MiningCamp: ("stone", ResourceStone)
-              of Market: ("gold", ResourceGold)
+              of Bank: ("gold", ResourceGold)
               else: ("", ResourceFood)
             if icon.len > 0:
               let count = env.teamStockpiles[thing.teamId].counts[res]
@@ -657,7 +655,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Stable: "Stable"
         of SiegeWorkshop: "Siege Workshop"
         of Blacksmith: "Blacksmith"
-        of Market: "Bank"
+        of Market: "Market"
+        of Bank: "Bank"
         of Dock: "Dock"
         of Monastery: "Monastery"
         of University: "University"

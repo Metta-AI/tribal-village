@@ -82,6 +82,7 @@ const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
   (r: 120'u8, g: 120'u8, b: 160'u8),  # SiegeWorkshop
   (r: 90'u8,  g: 90'u8,  b: 90'u8),   # Blacksmith
   (r: 200'u8, g: 170'u8, b: 120'u8),  # Market
+  (r: 220'u8, g: 200'u8, b: 120'u8),  # Bank
   (r: 80'u8,  g: 140'u8, b: 200'u8),  # Dock
   (r: 220'u8, g: 200'u8, b: 120'u8),  # Monastery
   (r: 140'u8, g: 160'u8, b: 200'u8),  # University
