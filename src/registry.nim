@@ -155,9 +155,6 @@ proc buildingUsesCooldown*(kind: ThingKind): bool =
   else:
     false
 
-proc buildingShowsStockpile*(kind: ThingKind): bool =
-  buildingStockpileRes(kind) != ResourceNone
-
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   case kind
   of Granary: ResourceFood
@@ -165,6 +162,9 @@ proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   of MiningCamp: ResourceStone
   of Bank: ResourceGold
   else: ResourceNone
+
+proc buildingShowsStockpile*(kind: ThingKind): bool =
+  buildingStockpileRes(kind) != ResourceNone
 
 proc buildingBuildIndex*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
@@ -210,9 +210,6 @@ proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   of Blacksmith: @[ItemArmor, ItemSpear]
   else: @[]
 
-proc buildingHasCraftStation*(kind: ThingKind): bool =
-  buildingCraftStation(kind) != StationNone
-
 proc buildingCraftStation*(kind: ThingKind): CraftStation =
   case kind
   of ClayOven: StationOven
@@ -220,6 +217,9 @@ proc buildingCraftStation*(kind: ThingKind): CraftStation =
   of Blacksmith: StationBlacksmith
   of SiegeWorkshop: StationSiegeWorkshop
   else: StationNone
+
+proc buildingHasCraftStation*(kind: ThingKind): bool =
+  buildingCraftStation(kind) != StationNone
 
 proc buildingHasTrain*(kind: ThingKind): bool =
   case kind
