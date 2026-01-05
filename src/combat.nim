@@ -129,6 +129,26 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
           if env.doorTeams[x][y] == oldTeam.int16:
             env.doorTeams[x][y] = attackerTeam.int16
   
+  proc spawnStumpAt(pos: IVec2, woodRemaining: int) =
+    var remaining = woodRemaining
+    if remaining <= 0:
+      remaining = ResourceNodeInitial
+    env.dropStump(pos, remaining)
+
+  proc spawnSkeletonAt(pos: IVec2, fishRemaining: int) =
+    var remaining = fishRemaining
+    if remaining <= 0:
+      remaining = ResourceNodeInitial
+    let skeleton = Thing(kind: Skeleton, pos: pos)
+    skeleton.inventory = emptyInventory()
+    setInv(skeleton, ItemFish, remaining)
+    env.add(skeleton)
+
+  proc clearTerrainAt(pos: IVec2) =
+    env.terrain[pos.x][pos.y] = Empty
+    env.terrainResources[pos.x][pos.y] = 0
+    env.resetTileColor(pos)
+
   proc tryHitAt(pos: IVec2): bool =
     if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
       return false
@@ -136,7 +156,19 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       return true
     let target = env.getThing(pos)
     if isNil(target):
-      return false
+      case env.terrain[pos.x][pos.y]
+      of Pine, Palm:
+        let remaining = env.terrainResources[pos.x][pos.y]
+        clearTerrainAt(pos)
+        spawnStumpAt(pos, remaining)
+        return true
+      of Animal:
+        let remaining = env.terrainResources[pos.x][pos.y]
+        clearTerrainAt(pos)
+        spawnSkeletonAt(pos, remaining)
+        return true
+      else:
+        return false
     case target.kind
     of Tumor:
       env.grid[pos.x][pos.y] = nil
@@ -167,6 +199,16 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
       if target.hearts == 0:
         claimAltar(target)
+      return true
+    of Cow:
+      let fishRemaining = getInv(target, ItemFish)
+      removeThing(env, target)
+      spawnSkeletonAt(pos, fishRemaining)
+      return true
+    of Pine, Palm:
+      let woodRemaining = getInv(target, ItemWood)
+      removeThing(env, target)
+      spawnStumpAt(pos, woodRemaining)
       return true
     else:
       return false
