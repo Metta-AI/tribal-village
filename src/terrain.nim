@@ -740,15 +740,18 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place bridges across the river and any tributary branch.
-  # Bridges are three tiles wide (east-west) and span slightly beyond river width north-south.
+  # Bridges are three tiles wide (east-west) and span across the river north-south.
   proc placeBridgeMain(t: var TerrainGrid, center: IVec2) =
     let startY = max(mapBorder, int(center.y) - (RiverWidth div 2 + 1))
     let endY = min(mapHeight - mapBorder - 1, int(center.y) + (RiverWidth div 2 + 1))
     let baseX = max(mapBorder, min(mapWidth - mapBorder - 3, int(center.x) - 1))
     for dx in 0 .. 2:
       for y in startY .. endY:
-        if not inCornerReserve(baseX + dx, y, mapWidth, mapHeight, mapBorder, reserve):
-          t[baseX + dx][y] = Bridge
+        let x = baseX + dx
+        if inCornerReserve(x, y, mapWidth, mapHeight, mapBorder, reserve):
+          continue
+        if t[x][y] == Water:
+          t[x][y] = Bridge
 
   # Branch bridges run horizontally (east-west span) across the tributary.
   proc placeBridgeBranch(t: var TerrainGrid, center: IVec2) =
@@ -757,8 +760,11 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     let baseY = max(mapBorder, min(mapHeight - mapBorder - 3, int(center.y) - 1))
     for dy in 0 .. 2:
       for x in startX .. endX:
-        if not inCornerReserve(x, baseY + dy, mapWidth, mapHeight, mapBorder, reserve):
-          t[x][baseY + dy] = Bridge
+        let y = baseY + dy
+        if inCornerReserve(x, y, mapWidth, mapHeight, mapBorder, reserve):
+          continue
+        if t[x][y] == Water:
+          t[x][y] = Bridge
 
   var mainCandidates: seq[IVec2] = @[]
   for pos in riverPath:
