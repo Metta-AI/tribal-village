@@ -119,8 +119,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
     let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
     if didWheat: return actWheat
-    let (didWood, actWood) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
-    if didWood: return actWood
+    let (didPine, actPine) = controller.findAndHarvest(env, agent, agentId, state, Pine)
+    if didPine: return actPine
+    let (didPalm, actPalm) = controller.findAndHarvest(env, agent, agentId, state, Palm)
+    if didPalm: return actPalm
     return controller.moveNextSearch(env, agent, agentId, state)
 
   # Train into a combat unit when possible.
