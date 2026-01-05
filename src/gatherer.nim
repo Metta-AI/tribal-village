@@ -76,7 +76,8 @@ proc chooseGathererTask(env: Environment, teamId: int): GathererTask =
   bestTask
 
 proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+                       agentId: int, state: var AgentState,
+                       allowGoldDropoff: bool): tuple[did: bool, action: uint8] =
   let teamId = getTeamId(agent.agentId)
 
   if hasFoodCargo(agent):
@@ -93,7 +94,7 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
     if dropoff != nil:
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
 
-  if agent.inventoryStone > 0 or agent.inventoryGold > 0:
+  if agent.inventoryStone > 0 or (allowGoldDropoff and agent.inventoryGold > 0):
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
@@ -108,7 +109,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
     let altar = env.getThing(agent.homeAltar)
-    if altar != nil and altar.kind == Altar:
+    if altar != nil and altar.kind == Altar and altar.teamId == teamId:
       altarHearts = altar.hearts
   if altarHearts == 0:
     let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
@@ -116,7 +117,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       altarHearts = altar.hearts
 
   # Drop off any carried stockpile resources first.
-  let (didDrop, dropAct) = dropoffIfCarrying(controller, env, agent, agentId, state)
+  let allowGoldDropoff = altarHearts >= 10
+  let (didDrop, dropAct) = dropoffIfCarrying(controller, env, agent, agentId, state, allowGoldDropoff)
   if didDrop: return dropAct
 
   var task = chooseGathererTask(env, teamId)

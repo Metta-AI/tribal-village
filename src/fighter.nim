@@ -31,9 +31,55 @@ proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thi
       bestDist = dist
       result = thing
 
+proc countTeamLanterns(env: Environment, teamId: int): int =
+  for thing in env.things:
+    if thing.kind != Lantern:
+      continue
+    if thing.lanternHealthy and thing.teamId == teamId:
+      inc result
+
+proc isLanternPlacementValid(env: Environment, pos: IVec2): bool =
+  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
+    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and not isTileFrozen(pos, env) and
+    env.terrain[pos.x][pos.y] notin {Water, Wheat}
+
 proc decideFighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+
+  let lanternCount = countTeamLanterns(env, teamId)
+  if lanternCount < 10:
+    # Expand lanterns outward from the home altar in a spiral.
+    if agent.homeAltar.x >= 0:
+      state.basePosition = agent.homeAltar
+    var target = ivec2(-1, -1)
+    for _ in 0 ..< 10:
+      let candidate = getNextSpiralPoint(state, controller.rng)
+      if not isLanternPlacementValid(env, candidate):
+        continue
+      if hasTeamLanternNear(env, teamId, candidate):
+        continue
+      target = candidate
+      break
+
+    if agent.inventoryLantern > 0:
+      if target.x >= 0:
+        if chebyshevDist(agent.pos, target) == 1'i32:
+          return saveStateAndReturn(controller, agentId, state,
+            encodeAction(6'u8, neighborDirIndex(agent.pos, target).uint8))
+        return saveStateAndReturn(controller, agentId, state,
+          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
+      return controller.moveNextSearch(env, agent, agentId, state)
+
+    # No lantern: craft at loom if we have wheat; otherwise gather wheat.
+    let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
+    if loom != nil and agent.inventoryWheat > 0:
+      return controller.useOrMove(env, agent, agentId, state, loom.pos)
+    let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
+    if didWheat: return actWheat
+    let (didBush, actBush) = controller.findAndHarvest(env, agent, agentId, state, Bush)
+    if didBush: return actBush
+    return controller.moveNextSearch(env, agent, agentId, state)
 
   # Patrol and keep buildings lit by nearby lanterns.
   let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
