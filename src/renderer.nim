@@ -209,7 +209,7 @@ proc drawTerrain*() =
         spriteKey = "fertile_tile"
       of Road:
         spriteKey = "road_tile"
-      of Rock:
+      of Stone:
         spriteKey = "stone"
       of Gold:
         spriteKey = "gold"
@@ -674,7 +674,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Pine: "Pine"
       of Fertile: "Fertile"
       of Road: "Road"
-      of Rock: "Rock"
+      of Stone: "Stone"
       of Gold: "Gold"
       of Bush: "Bush"
       of Animal: "Animal"

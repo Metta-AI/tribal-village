@@ -157,8 +157,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       if not env.canAffordBuild(teamId, wallKey):
         let (didDrop, actDrop) = dropoffCarrying(controller, env, agent, agentId, state)
         if didDrop: return actDrop
-        let (didRock, actRock) = controller.findAndHarvest(env, agent, agentId, state, Rock)
-        if didRock: return actRock
+        let (didStone, actStone) = controller.findAndHarvest(env, agent, agentId, state, Stone)
+        if didStone: return actStone
       return buildWallToward(controller, env, agent, agentId, state, frontier)
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))

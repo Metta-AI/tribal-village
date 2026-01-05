@@ -29,7 +29,7 @@ proc render*(env: Environment): string =
         of Pine: "T"
         of Fertile: "f"
         of Road: "r"
-        of Rock: "R"
+        of Stone: "S"
         of Gold: "G"
         of Bush: "b"
         of Animal: "a"

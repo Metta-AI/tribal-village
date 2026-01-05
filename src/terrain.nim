@@ -16,7 +16,7 @@ type
     Pine
     Fertile
     Road
-    Rock
+    Stone
     Gold
     Bush
     Animal
@@ -90,7 +90,7 @@ const
   BiomeCavesTerrain* = Stalagmite
   BiomePlainsTerrain* = Grass
   BiomeSnowTerrain* = Snow
-  BiomeCityBlockTerrain* = Rock
+  BiomeCityBlockTerrain* = Stone
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
@@ -146,7 +146,7 @@ const
   TerrainPine* = TerrainType.Pine
   TerrainPalm* = TerrainType.Palm
   TerrainFertile* = TerrainType.Fertile
-  TerrainRock* = TerrainType.Rock
+  TerrainStone* = TerrainType.Stone
   TerrainGold* = TerrainType.Gold
   TerrainBush* = TerrainType.Bush
   TerrainAnimal* = TerrainType.Animal
@@ -531,7 +531,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
           if terrain[x][y] == Water:
             boulderMask[x][y] = false
       applyBiomeMaskToZone(terrain, biomes, boulderMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        Rock, BiomeSnowType, baseBiomeType, r, 0.15, blendDepth = 1)
+        Stone, BiomeSnowType, baseBiomeType, r, 0.15, blendDepth = 1)
 
       # Place larger square-ish rock chunks (12-14 rocks) within the snow zone.
       let area = (px1 - px0) * (py1 - py0)
@@ -556,7 +556,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
                 continue
               if biomes[x][y] != BiomeSnowType:
                 continue
-              if terrain[x][y] in {Water, Pine, Rock}:
+              if terrain[x][y] in {Water, Pine, Stone}:
                 continue
               candidates.add((x: x, y: y))
           if candidates.len < 12:
@@ -568,7 +568,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
           let take = min(target, candidates.len)
           for i in 0 ..< take:
             let pos = candidates[i]
-            terrain[pos.x][pos.y] = Rock
+            terrain[pos.x][pos.y] = Stone
           placedClump = true
           break
         if not placedClump:
@@ -1078,7 +1078,7 @@ proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBor
     let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
     let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
     let size = randInclusive(r, 4, 8)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Rock, 0.9, 0.3, r)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Stone, 0.9, 0.3, r)
 
 proc generateGoldVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let clusters = max(8, mapWidth div 50)
@@ -1202,7 +1202,7 @@ proc terrainAsciiChar*(terrain: TerrainType): char =
   of Pine: 'Y'
   of Fertile: ':'
   of Road: '+'
-  of Rock: 'R'
+  of Stone: 'S'
   of Gold: 'G'
   of Bush: '%'
   of Animal: '&'
