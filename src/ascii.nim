@@ -1,40 +1,20 @@
 proc thingAsciiChar*(kind: ThingKind): char =
   ## ASCII schema for map objects (typeable characters).
+  if isBuildingKind(kind):
+    return buildingAscii(kind)
   case kind:
   of Agent: '@'
   of Wall: '#'
   of Pine: 't'
   of Palm: 'P'
   of Magma: 'v'
-  of Altar: 'a'
   of Spawner: 'Z'
   of Tumor: 'X'
   of Cow: 'w'
   of Skeleton: 'K'
-  of Armory: 'A'
-  of ClayOven: 'C'
-  of WeavingLoom: 'W'
-  of Outpost: '^'
-  of Barrel: 'b'
-  of Mill: 'm'
-  of Granary: 'g'
-  of LumberCamp: 'L'
-  of MiningCamp: 'G'
   of Stump: 'p'
   of Lantern: 'l'
-  of TownCenter: 'N'
-  of House: 'h'
-  of Barracks: 'r'
-  of ArcheryRange: 'g'
-  of Stable: 's'
-  of SiegeWorkshop: 'i'
-  of Blacksmith: 'k'
-  of Market: 'e'
-  of Bank: 'B'
-  of Dock: 'd'
-  of Monastery: 'y'
-  of University: 'u'
-  of Castle: 'c'
+  else: '?'
 
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
@@ -63,75 +43,7 @@ proc render*(env: Environment): string =
       # Then override with objects if present
       for thing in env.things:
         if thing.pos.x == x and thing.pos.y == y:
-          case thing.kind
-          of Agent:
-            cell = "A"
-          of Wall:
-            cell = "#"
-          of Pine:
-            cell = "T"
-          of Palm:
-            cell = "P"
-          of Magma:
-            cell = "v"
-          of Altar:
-            cell = "a"
-          of Spawner:
-            cell = "t"
-          of Tumor:
-            cell = "C"
-          of Cow:
-            cell = "o"
-          of Skeleton:
-            cell = "x"
-          of Armory:
-            cell = "A"
-          of ClayOven:
-            cell = "O"
-          of WeavingLoom:
-            cell = "W"
-          of Barrel:
-            cell = "b"
-          of Mill:
-            cell = "M"
-          of Granary:
-            cell = "g"
-          of LumberCamp:
-            cell = "l"
-          of MiningCamp:
-            cell = "n"
-          of Stump:
-            cell = "u"
-          of Outpost:
-            cell = "^"
-          of Lantern:
-            cell = "L"
-          of TownCenter:
-            cell = "N"
-          of House:
-            cell = "h"
-          of Barracks:
-            cell = "B"
-          of ArcheryRange:
-            cell = "R"
-          of Stable:
-            cell = "S"
-          of SiegeWorkshop:
-            cell = "G"
-          of Blacksmith:
-            cell = "K"
-          of Market:
-            cell = "M"
-          of Bank:
-            cell = "B"
-          of Dock:
-            cell = "D"
-          of Monastery:
-            cell = "O"
-          of University:
-            cell = "U"
-          of Castle:
-            cell = "C"
+          cell = $thingAsciiChar(thing.kind)
           break
       result.add(cell)
     result.add("\n")

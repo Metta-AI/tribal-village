@@ -1,11 +1,5 @@
 proc isTeamBuilding(kind: ThingKind): bool =
-  case kind
-  of Altar, TownCenter, House, Armory, ClayOven, WeavingLoom, Outpost, Mill, Granary, LumberCamp,
-     MiningCamp, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Bank, Dock,
-     Monastery, University, Castle:
-    true
-  else:
-    false
+  isBuildingKind(kind) and buildingNeedsLantern(kind)
 
 proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
   for thing in env.things:

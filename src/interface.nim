@@ -52,43 +52,22 @@ proc applyConfig(cfg: CEnvironmentConfig): EnvironmentConfig =
 
 var globalEnv: Environment = nil
 
-const thingRenderColors: array[ThingKind, tuple[r, g, b: uint8]] = [
-  # Matches previous hardcoded RGB choices for renderer export.
-  (r: 255'u8, g: 255'u8, b: 0'u8),    # Agent
-  (r: 96'u8,  g: 96'u8,  b: 96'u8),   # Wall
-  (r: 34'u8,  g: 139'u8, b: 34'u8),   # Pine
-  (r: 60'u8,  g: 160'u8, b: 80'u8),   # Palm
-  (r: 0'u8,   g: 200'u8, b: 200'u8),  # Magma
-  (r: 220'u8, g: 0'u8,   b: 220'u8),  # altar
-  (r: 255'u8, g: 170'u8, b: 0'u8),    # Spawner
-  (r: 160'u8, g: 32'u8,  b: 240'u8),  # Tumor
-  (r: 230'u8, g: 230'u8, b: 230'u8),  # Cow
-  (r: 210'u8, g: 210'u8, b: 210'u8),  # Skeleton
-  (r: 255'u8, g: 120'u8, b: 40'u8),   # Armory
-  (r: 255'u8, g: 180'u8, b: 120'u8),  # ClayOven
-  (r: 0'u8,   g: 180'u8, b: 255'u8),  # WeavingLoom
-  (r: 120'u8, g: 120'u8, b: 140'u8),  # Outpost
-  (r: 150'u8, g: 110'u8, b: 60'u8),   # Barrel
-  (r: 210'u8, g: 200'u8, b: 170'u8),  # Mill
-  (r: 220'u8, g: 200'u8, b: 150'u8),  # Granary
-  (r: 140'u8, g: 100'u8, b: 60'u8),   # LumberCamp
-  (r: 120'u8, g: 120'u8, b: 120'u8),  # MiningCamp
-  (r: 110'u8, g: 85'u8,  b: 55'u8),   # Stump
-  (r: 255'u8, g: 240'u8, b: 128'u8),  # Lantern
-  (r: 190'u8, g: 180'u8, b: 140'u8),  # TownCenter
-  (r: 170'u8, g: 140'u8, b: 110'u8),  # House
-  (r: 160'u8, g: 90'u8,  b: 60'u8),   # Barracks
-  (r: 140'u8, g: 120'u8, b: 180'u8),  # ArcheryRange
-  (r: 120'u8, g: 90'u8,  b: 60'u8),   # Stable
-  (r: 120'u8, g: 120'u8, b: 160'u8),  # SiegeWorkshop
-  (r: 90'u8,  g: 90'u8,  b: 90'u8),   # Blacksmith
-  (r: 200'u8, g: 170'u8, b: 120'u8),  # Market
-  (r: 220'u8, g: 200'u8, b: 120'u8),  # Bank
-  (r: 80'u8,  g: 140'u8, b: 200'u8),  # Dock
-  (r: 220'u8, g: 200'u8, b: 120'u8),  # Monastery
-  (r: 140'u8, g: 160'u8, b: 200'u8),  # University
-  (r: 120'u8, g: 120'u8, b: 120'u8)   # Castle
-]
+proc thingRenderColor(kind: ThingKind): tuple[r, g, b: uint8] =
+  if isBuildingKind(kind):
+    return buildingRenderColor(kind)
+  case kind
+  of Agent: (r: 255'u8, g: 255'u8, b: 0'u8)
+  of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)
+  of Pine: (r: 34'u8, g: 139'u8, b: 34'u8)
+  of Palm: (r: 60'u8, g: 160'u8, b: 80'u8)
+  of Magma: (r: 0'u8, g: 200'u8, b: 200'u8)
+  of Spawner: (r: 255'u8, g: 170'u8, b: 0'u8)
+  of Tumor: (r: 160'u8, g: 32'u8, b: 240'u8)
+  of Cow: (r: 230'u8, g: 230'u8, b: 230'u8)
+  of Skeleton: (r: 210'u8, g: 210'u8, b: 210'u8)
+  of Stump: (r: 110'u8, g: 85'u8, b: 55'u8)
+  of Lantern: (r: 255'u8, g: 240'u8, b: 128'u8)
+  else: (r: 180'u8, g: 180'u8, b: 180'u8)
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
@@ -239,7 +218,7 @@ proc tribal_village_render_rgb(
 
           let thing = globalEnv.grid[x][y]
           if thing != nil:
-            let tint = thingRenderColors[thing.kind]
+            let tint = thingRenderColor(thing.kind)
             rByte = tint.r
             gByte = tint.g
             bByte = tint.b
