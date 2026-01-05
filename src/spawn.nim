@@ -416,7 +416,7 @@ proc init(env: Environment) =
       houseCenters.add(elements.center)
       altarColors[elements.center] = villageColor  # Associate altar position with village color
 
-      let townCenterPos = placeStartingTownCenter(elements.center, teamId, r)
+      discard placeStartingTownCenter(elements.center, teamId, r)
 
       # Initialize base colors for house tiles to team color
       for dx in 0 ..< houseStruct.width:
