@@ -266,18 +266,6 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
           minDist = dist
           result = ivec2(x.int32, y.int32)
 
-proc countFertileEmpty(env: Environment, center: IVec2, radius: int = 8): int =
-  ## Count fertile tiles within Chebyshev radius that are empty and plantable
-  let startX = max(0, center.x - radius)
-  let endX = min(MapWidth - 1, center.x + radius)
-  let startY = max(0, center.y - radius)
-  let endY = min(MapHeight - 1, center.y + radius)
-  result = 0
-  for x in startX..endX:
-    for y in startY..endY:
-      if env.terrain[x][y] == TerrainType.Fertile and env.isEmpty(ivec2(x, y)):
-        inc result
-
 proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: TerrainType, rng: var Rand): IVec2 =
   ## Find terrain using spiral search pattern
   # First check from current spiral search position
@@ -327,42 +315,6 @@ proc chebyshevDist(a, b: IVec2): int32 =
 proc isValidEmptyTile(env: Environment, agent: Thing, pos: IVec2): bool =
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight and
   env.isEmpty(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]) and env.canAgentPassDoor(agent, pos)
-
-proc getMoveAway(env: Environment, agent: Thing, fromPos, threatPos: IVec2, rng: var Rand): int =
-  ## Pick a step that increases distance from the threat (chebyshev), prioritizing empty tiles.
-  var best: seq[IVec2] = @[]
-  var bestDist = int32(-1)
-  for dx in -1 .. 1:
-    for dy in -1 .. 1:
-      if dx == 0 and dy == 0: continue
-      let candidate = fromPos + ivec2(dx.int32, dy.int32)
-      if not isValidEmptyTile(env, agent, candidate): continue
-      let dist = chebyshevDist(candidate, threatPos)
-      if dist > bestDist:
-        bestDist = dist
-        best.setLen(0)
-        best.add(candidate)
-      elif dist == bestDist:
-        best.add(candidate)
-  if best.len == 0:
-    return vecToOrientation(ivec2(0, -1))  # fallback north
-  let pick = sample(rng, best)
-  return vecToOrientation(pick - fromPos)
-
-proc findNearestLantern(env: Environment, pos: IVec2): tuple[pos: IVec2, found: bool, dist: int32] =
-  var best = (pos: ivec2(0, 0), found: false, dist: int32.high)
-  for t in env.things:
-    if t.kind == Lantern:
-      let d = chebyshevDist(pos, t.pos)
-      if d < best.dist:
-        best = (pos: t.pos, found: true, dist: d)
-  return best
-
-proc isAdjacentToLantern(env: Environment, agentPos: IVec2): bool =
-  for t in env.things:
-    if t.kind == Lantern and chebyshevDist(agentPos, t.pos) == 1'i32:
-      return true
-  return false
 
 proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
   ## Pick an orientation whose spear wedge covers the target (matches attackAction pattern).
@@ -774,11 +726,4 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
   let pos = env.findNearestTerrainSpiral(state, terrain, controller.rng)
   if pos.x >= 0:
     return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
-
-proc findAndHarvestThings(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                          state: var AgentState, kinds: openArray[ThingKind]): tuple[did: bool, action: uint8] =
-  let thing = env.findNearestThingSpiral(state, kinds, controller.rng)
-  if thing != nil:
-    return (true, controller.useOrMove(env, agent, agentId, state, thing.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))

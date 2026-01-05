@@ -532,6 +532,10 @@ proc drawFogOfWar*() =
 
 proc drawAgentDecorations*() =
   for agent in env.agents:
+    if not isValidPos(agent.pos):
+      continue
+    if env.grid[agent.pos.x][agent.pos.y] != agent:
+      continue
     # Frozen overlay
     if agent.frozen > 0:
       bxy.drawImage("frozen_tile", agent.pos.vec2, angle = 0, scale = spriteScale("frozen_tile"))
