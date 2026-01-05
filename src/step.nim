@@ -100,7 +100,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif thing.kind == Magma:
       env.tickCooldown(thing)
     elif thing.kind in {Armory, ClayOven, WeavingLoom,
-                        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market,
+                        Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Bank,
                         Dock, Monastery, University, Castle, TownCenter, House}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)

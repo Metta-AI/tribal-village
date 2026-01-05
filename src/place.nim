@@ -44,7 +44,7 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Skeleton, Altar, Spawner, TownCenter, House, Barracks,
-                    ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
+                    ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Bank, Dock, Monastery,
                     University, Castle, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
                     Mill, LumberCamp, MiningCamp, Stump, Wall,
                     Magma, Lantern}:
@@ -111,7 +111,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.teamId = getTeamId(agent.agentId)
     placed.barrelCapacity = BarrelCapacity
   of Armory, TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop,
-     Market, Dock, Monastery, University, Castle, Outpost:
+     Market, Bank, Dock, Monastery, University, Castle, Outpost:
     placed.teamId = getTeamId(agent.agentId)
   of Altar:
     placed.teamId = getTeamId(agent.agentId)

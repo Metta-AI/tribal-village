@@ -29,6 +29,7 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of SiegeWorkshop: 'i'
   of Blacksmith: 'k'
   of Market: 'e'
+  of Bank: 'B'
   of Dock: 'd'
   of Monastery: 'y'
   of University: 'u'
@@ -118,6 +119,8 @@ proc render*(env: Environment): string =
             cell = "K"
           of Market:
             cell = "M"
+          of Bank:
+            cell = "B"
           of Dock:
             cell = "D"
           of Monastery:

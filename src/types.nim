@@ -152,6 +152,7 @@ type
     SiegeWorkshop
     Blacksmith
     Market
+    Bank
     Dock
     Monastery
     University
