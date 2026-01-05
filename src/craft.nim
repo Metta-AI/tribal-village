@@ -8,10 +8,7 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   if not env.spendStockpile(teamId, costs):
     return false
   applyUnitClass(agent, unitClass)
-  if unitClass == UnitManAtArms:
-    agent.inventorySpear = SpearCharges
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-  elif agent.inventorySpear > 0:
+  if agent.inventorySpear > 0:
     agent.inventorySpear = 0
     env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
   building.cooldown = cooldown
