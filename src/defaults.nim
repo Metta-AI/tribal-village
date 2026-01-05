@@ -22,6 +22,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       role: role,
       spiralStepsInArc: 0,
       spiralArcsCompleted: 0,
+      spiralClockwise: (agentId mod 2) == 0,
       basePosition: agent.pos,
       lastSearchPosition: agent.pos,
       lastPosition: agent.pos,
