@@ -17,6 +17,7 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of Outpost: '^'
   of Barrel: 'b'
   of Mill: 'm'
+  of Granary: 'g'
   of LumberCamp: 'L'
   of MiningCamp: 'G'
   of Stump: 'p'
@@ -93,6 +94,8 @@ proc render*(env: Environment): string =
             cell = "b"
           of Mill:
             cell = "M"
+          of Granary:
+            cell = "g"
           of LumberCamp:
             cell = "l"
           of MiningCamp:

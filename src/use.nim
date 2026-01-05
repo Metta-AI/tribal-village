@@ -206,12 +206,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceFood, ResourceWood, ResourceGold, ResourceStone}):
         used = true
-  of Mill:
+  of Granary:
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceFood}):
         used = true
       if not used and env.useStorageBuilding(agent, thing, @[ItemWheat]):
         used = true
+  of Mill:
+    discard
   of LumberCamp:
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceWood}):

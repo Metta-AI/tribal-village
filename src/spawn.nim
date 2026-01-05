@@ -241,7 +241,7 @@ proc init(env: Environment) =
   proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
     let placements = [
       (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),   # Lumber Yard
-      (offset: ivec2(2, 2), kind: Mill, res: ResourceFood),          # Granary
+      (offset: ivec2(2, 2), kind: Granary, res: ResourceFood),       # Granary
       (offset: ivec2(-2, 2), kind: MiningCamp, res: ResourceStone),  # Quarry
       (offset: ivec2(-2, -2), kind: Bank, res: ResourceGold)         # Bank
     ]
@@ -268,11 +268,14 @@ proc init(env: Environment) =
                 continue
             if not env.isEmpty(pos):
               continue
-            env.add(Thing(
+            let building = Thing(
               kind: entry.kind,
               pos: pos,
               teamId: teamId
-            ))
+            )
+            if entry.kind in {Granary, LumberCamp, MiningCamp}:
+              building.barrelCapacity = BarrelCapacity
+            env.add(building)
             env.teamStockpiles[teamId].counts[entry.res] =
               max(env.teamStockpiles[teamId].counts[entry.res], 5)
             placed = true
