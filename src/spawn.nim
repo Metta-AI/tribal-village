@@ -338,7 +338,8 @@ proc init(env: Environment) =
               env.add(Thing(
                 kind: Blacksmith,
                 pos: worldPos,
-                teamId: teamId
+                teamId: teamId,
+                barrelCapacity: BarrelCapacity
               ))
             of StructureClayOvenChar:  # Clay Oven at bottom-left
               env.add(Thing(
