@@ -11,6 +11,11 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
       return true
   false
 
+proc dropStump(env: Environment, pos: IVec2) =
+  let stump = Thing(kind: Stump, pos: pos)
+  stump.inventory = emptyInventory()
+  env.add(stump)
+
 proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
   case kind
   of Wall:
@@ -39,7 +44,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Altar, Spawner, TownCenter, House, Barracks,
                     ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock, Monastery,
                     University, Castle, Armory, ClayOven, WeavingLoom, Outpost, Barrel,
-                    Mill, LumberCamp, MiningCamp, Wall,
+                    Mill, LumberCamp, MiningCamp, Stump, Wall,
                     Magma, Lantern}:
     return false
   if thing.kind == Skeleton:
