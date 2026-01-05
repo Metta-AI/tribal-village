@@ -17,7 +17,7 @@ type
     Fertile
     Road
     Rock
-    Gem
+    Gold
     Bush
     Animal
     Grass
@@ -147,7 +147,7 @@ const
   TerrainPalm* = TerrainType.Palm
   TerrainFertile* = TerrainType.Fertile
   TerrainRock* = TerrainType.Rock
-  TerrainGem* = TerrainType.Gem
+  TerrainGold* = TerrainType.Gold
   TerrainBush* = TerrainType.Bush
   TerrainAnimal* = TerrainType.Animal
   TerrainGrass* = TerrainType.Grass
@@ -1074,13 +1074,13 @@ proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBor
     let size = randInclusive(r, 4, 8)
     terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Rock, 0.9, 0.3, r)
 
-proc generateGemVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+proc generateGoldVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   let clusters = max(8, mapWidth div 50)
   for i in 0 ..< clusters:
     let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
     let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
     let size = randInclusive(r, 3, 5)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gem, 0.8, 0.4, r)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gold, 0.8, 0.4, r)
 
 proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   for i in 0 ..< 30:
@@ -1144,7 +1144,7 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
   if UseLegacyTreeClusters:
     terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
   terrain.generateRockOutcrops(mapWidth, mapHeight, mapBorder, r)
-  terrain.generateGemVeins(mapWidth, mapHeight, mapBorder, r)
+  terrain.generateGoldVeins(mapWidth, mapHeight, mapBorder, r)
   terrain.generateBushes(mapWidth, mapHeight, mapBorder, r)
   terrain.generateAnimals(mapWidth, mapHeight, mapBorder, r)
 
@@ -1197,7 +1197,7 @@ proc terrainAsciiChar*(terrain: TerrainType): char =
   of Fertile: ':'
   of Road: '+'
   of Rock: 'R'
-  of Gem: '*'
+  of Gold: 'G'
   of Bush: '%'
   of Animal: '&'
   of Grass: ','

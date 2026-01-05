@@ -15,7 +15,7 @@ proc decideFarmer(controller: Controller, env: Environment, agent: Thing,
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMill)
     if did: return act
 
-  # Harvest farm wheat.
+  # Harvest wheat.
   let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
   if did: return act
 

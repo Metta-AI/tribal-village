@@ -86,7 +86,6 @@ type
     FinishedGoods
     Food
     FurnitureStorage
-    Gem
     Leather
     Refuse
     Sheets
@@ -180,7 +179,7 @@ const
     ContainerDef(kind: Bin, displayName: "Bin", capacity: 40,
       allowedCategories: {FinishedGoods, ClothThread, Leather, Coins, Ammo}),
     ContainerDef(kind: Bag, displayName: "Bag", capacity: 10,
-      allowedCategories: {Food, Gem, Refuse, ClothThread}),
+      allowedCategories: {Food, Refuse, ClothThread}),
     ContainerDef(kind: Cage, displayName: "Cage", capacity: 1,
       allowedCategories: {AnimalCaged}),
     ContainerDef(kind: Chest, displayName: "Chest", capacity: 25,

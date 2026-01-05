@@ -28,7 +28,7 @@ proc decideHearter(controller: Controller, env: Environment, agent: Thing,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, nextSearchPos, controller.rng).uint8))
 
   else:
-    let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gem, controller.rng)
+    let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gold, controller.rng)
     if goldPos.x >= 0:
       let dx = abs(goldPos.x - agent.pos.x)
       let dy = abs(goldPos.y - agent.pos.y)

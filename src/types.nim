@@ -153,7 +153,6 @@ type
     Mill
     LumberCamp
     MiningCamp
-    Farm
     Stump
     Lantern  # Lanterns that spread team colors
     TownCenter

@@ -13,7 +13,7 @@ type
     Woodsman    # Wood gatherer
     Hunter      # Food gatherer (hunt/fish/forage)
     Miner       # Gold/stone gatherer
-    Farmer      # Farm builder/harvester (wheat cycle)
+    Farmer      # Wheat cycle (mill + fertile planting/harvest)
     Lighter     # Lantern crafter/planter (team tint)
     Builder     # Builds team infrastructure
     BlacksmithRole  # Crafts at blacksmith (bars -> gear)

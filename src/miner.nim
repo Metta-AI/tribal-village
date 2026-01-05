@@ -13,10 +13,10 @@ proc decideMiner(controller: Controller, env: Environment, agent: Thing,
   # Work gold/stone deposits when capacity allows.
   if agent.inventoryGold + agent.inventoryStone < ResourceCarryCapacity:
     let preferGold = agent.inventoryGold <= agent.inventoryStone
-    let primaryTerrain = if preferGold: TerrainType.Gem else: TerrainType.Rock
+    let primaryTerrain = if preferGold: TerrainType.Gold else: TerrainType.Rock
     var targetPos = env.findNearestTerrainSpiral(state, primaryTerrain, controller.rng)
     if targetPos.x < 0:
-      let secondaryTerrain = if primaryTerrain == TerrainType.Gem: TerrainType.Rock else: TerrainType.Gem
+      let secondaryTerrain = if primaryTerrain == TerrainType.Gold: TerrainType.Rock else: TerrainType.Gold
       targetPos = env.findNearestTerrainSpiral(state, secondaryTerrain, controller.rng)
     if targetPos.x >= 0:
       return controller.useOrMove(env, agent, agentId, state, targetPos)

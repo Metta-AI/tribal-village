@@ -591,7 +591,7 @@ proc init(env: Environment) =
     let minCluster = min(3, remaining)
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
-    let depositTerrain = if clusterIndex mod 2 == 0: Rock else: Gem
+    let depositTerrain = if clusterIndex mod 2 == 0: Rock else: Gold
     let center = r.randomEmptyPos(env)
 
     env.terrain[center.x][center.y] = depositTerrain
