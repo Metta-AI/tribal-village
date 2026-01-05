@@ -74,10 +74,6 @@ proc rebuildObservations*(env: Environment) =
       env.updateObservations(WallLayer, thing.pos, 1)
     of Pine, Palm:
       discard  # No dedicated observation layer for trees.
-    of Mine:
-      env.updateObservations(MineLayer, thing.pos, 1)
-      env.updateObservations(MineResourceLayer, thing.pos, thing.mineResources)
-      env.updateObservations(MineReadyLayer, thing.pos, thing.cooldown)
     of Magma:
       env.updateObservations(MagmaLayer, thing.pos, 1)
       env.updateObservations(MagmaReadyLayer, thing.pos, thing.cooldown)

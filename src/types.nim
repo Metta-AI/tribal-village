@@ -30,8 +30,6 @@ const
   MapObjectAltarRespawnCost* = 1
   MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
-  MapObjectMineCooldown* = 5
-  MapObjectMineInitialResources* = 30
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
@@ -60,7 +58,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 22
+  ObservationLayers* = 19
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -107,22 +105,15 @@ type
     AgentInventoryLanternLayer = 8
     AgentInventoryArmorLayer = 9
     WallLayer = 10
-    MineLayer = 11
-    MineResourceLayer = 12
-    MineReadyLayer = 13
-    MagmaLayer = 14
-    MagmaReadyLayer = 15
-    altarLayer = 16
-    altarHeartsLayer = 17  # Hearts for respawning
-    altarReadyLayer = 18
-    TintLayer = 19        # Unified tint layer for all environmental effects
-    AgentInventoryBreadLayer = 20  # Bread baked from clay oven
-    AgentInventoryStoneLayer = 21  # Stone (AoE2 resource)
+    MagmaLayer = 11
+    MagmaReadyLayer = 12
+    altarLayer = 13
+    altarHeartsLayer = 14  # Hearts for respawning
+    altarReadyLayer = 15
+    TintLayer = 16        # Unified tint layer for all environmental effects
+    AgentInventoryBreadLayer = 17  # Bread baked from clay oven
+    AgentInventoryStoneLayer = 18  # Stone (AoE2 resource)
 
-
-  MineResourceKind* = enum
-    MineGold
-    MineStone
 
   AgentUnitClass* = enum
     UnitVillager
@@ -138,7 +129,6 @@ type
     Wall
     Pine
     Palm
-    Mine
     Magma  # Smelts gold into bars
     Altar
     Spawner
@@ -196,10 +186,6 @@ type
     # Lantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
-
-    # Mine:
-    mineKind*: MineResourceKind
-    mineResources*: int
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
