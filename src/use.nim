@@ -43,7 +43,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
     of Stalagmite:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemStone, 2, 0.0)
-    of Gem:
+    of Gold:
       if env.giveItem(agent, ItemGold):
         used = true
     of Bush, Cactus:

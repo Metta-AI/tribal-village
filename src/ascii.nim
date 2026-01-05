@@ -20,7 +20,6 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of Mill: 'm'
   of LumberCamp: 'L'
   of MiningCamp: 'G'
-  of Farm: 'f'
   of Stump: 'p'
   of Lantern: 'l'
   of TownCenter: 'N'
@@ -50,7 +49,7 @@ proc render*(env: Environment): string =
         of Fertile: "f"
         of Road: "r"
         of Rock: "R"
-        of Gem: "G"
+        of Gold: "G"
         of Bush: "b"
         of Animal: "a"
         of Grass: "g"
@@ -100,8 +99,6 @@ proc render*(env: Environment): string =
             cell = "l"
           of MiningCamp:
             cell = "n"
-          of Farm:
-            cell = "f"
           of Stump:
             cell = "u"
           of Outpost:

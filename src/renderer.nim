@@ -110,16 +110,12 @@ proc toSnakeCase(name: string): string =
       result.add(ch)
 
 proc thingSpriteKey(kind: ThingKind): string =
-  case kind
-  of Farm:
-    "farm_tile"
-  else:
-    toSnakeCase($kind)
+  toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   case kind
   of Mine, Magma, Altar, Armory, ClayOven, WeavingLoom,
-     Outpost, Barrel, Mill, LumberCamp, MiningCamp, Farm, Stump,
+     Outpost, Barrel, Mill, LumberCamp, MiningCamp, Stump,
      TownCenter, House, Barracks, ArcheryRange, Stable, SiegeWorkshop, Blacksmith, Market, Dock,
      Monastery, University, Castle:
     true
@@ -185,7 +181,7 @@ proc drawTerrain*() =
         spriteKey = "road_tile"
       of Rock:
         spriteKey = "stone"
-      of Gem:
+      of Gold:
         spriteKey = "gold"
       of Bush:
         spriteKey = "bush"
@@ -617,7 +613,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Mill: "Mill"
         of LumberCamp: "Lumber Camp"
         of MiningCamp: "Mining Camp"
-        of Farm: "Farm"
         of Stump: "Stump"
         of Lantern: "Lantern"
         of TownCenter: "Town Center"
@@ -655,7 +650,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Fertile: "Fertile"
       of Road: "Road"
       of Rock: "Rock"
-      of Gem: "Gem"
+      of Gold: "Gold"
       of Bush: "Bush"
       of Animal: "Animal"
       of Grass: "Grass"

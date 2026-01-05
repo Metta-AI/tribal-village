@@ -15,7 +15,7 @@ proc decideBlacksmith(controller: Controller, env: Environment, agent: Thing,
       return controller.useOrMove(env, agent, agentId, state, magma.pos)
 
   # Otherwise mine gold.
-  let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gem, controller.rng)
+  let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gold, controller.rng)
   if goldPos.x >= 0:
     return controller.useOrMove(env, agent, agentId, state, goldPos)
 
