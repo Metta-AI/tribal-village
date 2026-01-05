@@ -30,8 +30,6 @@ const
   MapObjectAltarRespawnCost* = 1
   MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
-  MapObjectMineCooldown* = 5
-  MapObjectMineInitialResources* = 30
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
@@ -120,10 +118,6 @@ type
     AgentInventoryStoneLayer = 21  # Stone (AoE2 resource)
 
 
-  MineResourceKind* = enum
-    MineGold
-    MineStone
-
   AgentUnitClass* = enum
     UnitVillager
     UnitManAtArms
@@ -138,7 +132,6 @@ type
     Wall
     Pine
     Palm
-    Mine
     Magma  # Smelts gold into bars
     Altar
     Spawner
@@ -196,10 +189,6 @@ type
     # Lantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
-
-    # Mine:
-    mineKind*: MineResourceKind
-    mineResources*: int
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
