@@ -21,26 +21,8 @@ proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): boo
   env.updateAgentInventoryObs(agent, key)
   true
 
-proc giveFirstAvailable(env: Environment, agent: Thing, keys: openArray[ItemKey]): bool =
-  for key in keys:
-    if agent.canCarry(key, 1):
-      return env.giveItem(agent, key, 1)
-  false
-
 proc clearTerrain(env: Environment, pos: IVec2) =
   env.terrain[pos.x][pos.y] = Empty
-
-proc tryGiveAndClear(env: Environment, agent: Thing, pos: IVec2, key: ItemKey): bool =
-  if env.giveItem(agent, key):
-    env.clearTerrain(pos)
-    return true
-  false
-
-proc tryGiveFirstAndClear(env: Environment, agent: Thing, pos: IVec2, keys: openArray[ItemKey]): bool =
-  if env.giveFirstAvailable(agent, keys):
-    env.clearTerrain(pos)
-    return true
-  false
 
 proc tryHarvestWithCarry(env: Environment, agent: Thing, pos: IVec2, key: ItemKey,
                          maxGain: int, reward: float32): bool =

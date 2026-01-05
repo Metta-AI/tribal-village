@@ -22,6 +22,17 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   let thing = env.getThing(targetPos)
+  proc tryHarvestThingWithCarry(thing: Thing, key: ItemKey, maxGain: int, reward: float32): bool =
+    let carryLeft = resourceCarryCapacityLeft(agent)
+    if carryLeft <= 0:
+      return false
+    let gain = min(maxGain, carryLeft)
+    if env.giveItem(agent, key, gain):
+      removeThing(env, thing)
+      if reward != 0:
+        agent.reward += reward
+      return true
+    false
   if isNil(thing):
     # Terrain use only when no Thing occupies the tile.
     var used = false
@@ -33,11 +44,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       elif env.giveItem(agent, ItemFish):
         used = true
     of Wheat:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward) or
-        env.tryGiveFirstAndClear(agent, targetPos, [ItemPlant])
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward)
     of Tree, Palm:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward) or
-        env.tryGiveFirstAndClear(agent, targetPos, [ItemBranch])
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward)
     of Rock:
       if env.giveItem(agent, ItemStone):
         used = true
@@ -47,9 +56,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.giveItem(agent, ItemGold):
         used = true
     of Bush, Cactus:
-      used = env.tryGiveAndClear(agent, targetPos, ItemPlant)
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemPlant, 2, 0.0)
     of Animal:
-      used = env.tryGiveAndClear(agent, targetPos, ItemFish)
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemFish, 2, 0.0)
     of Empty, Grass, Dune, Sand, Snow, Road:
       if env.hasDoor(targetPos):
         used = false
@@ -83,9 +92,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   var used = false
   case thing.kind:
   of Pine, Palm:
-    if env.tryHarvestWithCarry(agent, thing.pos, ItemWood, 5, env.config.woodReward):
-      removeThing(env, thing)
-      used = true
+    used = tryHarvestThingWithCarry(thing, ItemWood, 2, env.config.woodReward)
   of Magma:  # Magma smelting
     if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
@@ -130,13 +137,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
   of Cow:
     if agent.inventorySpear > 0:
-      if env.giveItem(agent, ItemFish):
+      if tryHarvestThingWithCarry(thing, ItemFish, 2, 0.0):
         agent.inventorySpear = max(0, agent.inventorySpear - 1)
         env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
-        env.grid[thing.pos.x][thing.pos.y] = nil
-        let idx = env.things.find(thing)
-        if idx >= 0:
-          env.things.del(idx)
         used = true
   of Altar:
     if thing.cooldown == 0 and agent.inventoryBar >= 1:
@@ -169,8 +172,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of LumberCamp:
     if thing.teamId == getTeamId(agent.agentId):
       if env.useDropoffBuilding(agent, {ResourceWood}):
-        used = true
-      if not used and env.useStorageBuilding(agent, thing, @[ItemBranch]):
         used = true
   of MiningCamp:
     if thing.teamId == getTeamId(agent.agentId):
