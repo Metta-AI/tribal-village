@@ -30,6 +30,7 @@ const
   MapObjectAltarRespawnCost* = 1
   MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
+  TreeWoodInitial* = 25
   DoorMaxHearts* = 5
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
@@ -141,6 +142,7 @@ type
     Mill
     LumberCamp
     MiningCamp
+    Stump
     Lantern  # Lanterns that spread team colors
     TownCenter
     House

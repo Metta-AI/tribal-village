@@ -46,7 +46,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     of Wheat:
       used = env.tryHarvestWithCarry(agent, targetPos, ItemWheat, 2, env.config.wheatReward)
     of Tree, Palm:
-      used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 2, env.config.woodReward)
+      used = env.tryHarvestWithCarry(agent, targetPos, ItemWood, 1, env.config.woodReward)
     of Rock:
       if env.giveItem(agent, ItemStone):
         used = true
@@ -92,7 +92,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   var used = false
   case thing.kind:
   of Pine, Palm:
-    used = tryHarvestThingWithCarry(thing, ItemWood, 2, env.config.woodReward)
+    let stored = getInv(thing, ItemWood)
+    if stored > 0 and env.giveItem(agent, ItemWood):
+      setInv(thing, ItemWood, stored - 1)
+      agent.reward += env.config.woodReward
+      if getInv(thing, ItemWood) <= 0:
+        removeThing(env, thing)
+        env.dropStump(thing.pos)
+      used = true
   of Magma:  # Magma smelting
     if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)

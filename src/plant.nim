@@ -76,10 +76,10 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
     env.terrain[targetPos.x][targetPos.y] = Empty
     env.resetTileColor(targetPos)
-    env.add(Thing(
-      kind: Pine,
-      pos: targetPos
-    ))
+    let tree = Thing(kind: Pine, pos: targetPos)
+    tree.inventory = emptyInventory()
+    setInv(tree, ItemWood, TreeWoodInitial)
+    env.add(tree)
   else:
     if agent.inventoryWheat <= 0:
       inc env.stats[id].actionInvalid
