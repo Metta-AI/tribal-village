@@ -21,10 +21,6 @@ proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): boo
   env.updateAgentInventoryObs(agent, key)
   true
 
-proc clearTerrain(env: Environment, pos: IVec2) =
-  env.terrain[pos.x][pos.y] = Empty
-  env.terrainResources[pos.x][pos.y] = 0
-
 proc storageKeyAllowed(key: ItemKey, allowed: openArray[ItemKey]): bool =
   if allowed.len == 0:
     return true
