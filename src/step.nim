@@ -36,7 +36,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   for id, actionValue in actions[]:
     let agent = env.agents[id]
-    if agent.frozen > 0:
+    if not isAgentAlive(env, agent):
       continue
 
     let decoded = decodeAction(actionValue)
@@ -310,9 +310,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var teamPopCounts: array[MapRoomObjectsHouses, int]
   var teamPopCaps: array[MapRoomObjectsHouses, int]
   for agent in env.agents:
-    if agent.isNil:
-      continue
-    if env.terminated[agent.agentId] != 0.0:
+    if not isAgentAlive(env, agent):
       continue
     let teamId = getTeamId(agent.agentId)
     if teamId >= 0 and teamId < MapRoomObjectsHouses:
@@ -375,7 +373,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Apply per-step survival penalty to all living agents
   if env.config.survivalPenalty != 0.0:
     for agent in env.agents:
-      if agent.frozen == 0:  # Only alive agents
+      if isAgentAlive(env, agent):  # Only alive agents
         agent.reward += env.config.survivalPenalty
 
   # Update heatmap using batch tint modification system

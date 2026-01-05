@@ -546,14 +546,13 @@ proc init(env: Environment) =
           agentVillageColors[agentId] = teamColors[teamId]
 
           var agentPos = ivec2(-1, -1)
-          var frozen = 999999
+          var frozen = 0
           var hp = 0
           if j < initialActive:
             if j < nearbyPositions.len:
               agentPos = nearbyPositions[j]
             else:
               agentPos = r.randomEmptyPos(env)
-            frozen = 0
             hp = AgentMaxHp
             env.terminated[agentId] = 0.0
           else:
@@ -770,7 +769,7 @@ proc init(env: Environment) =
     let minCluster = min(4, remaining)
     let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
     let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
-    let depositTerrain = if clusterIndex mod 2 == 0: Rock else: Gold
+    let depositTerrain = if clusterIndex mod 2 == 0: Stone else: Gold
     let center = r.randomEmptyPos(env)
 
     env.terrain[center.x][center.y] = depositTerrain
@@ -807,7 +806,7 @@ proc init(env: Environment) =
   # Initialize terrain resource counts (each resource tile yields 1 per harvest, 25 total).
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      if env.terrain[x][y] in {Water, Wheat, Pine, Palm, Rock, Gold, Bush, Cactus, Animal, Stalagmite}:
+      if env.terrain[x][y] in {Water, Wheat, Pine, Palm, Stone, Gold, Bush, Cactus, Animal, Stalagmite}:
         env.terrainResources[x][y] = ResourceNodeInitial
       else:
         env.terrainResources[x][y] = 0
