@@ -11,13 +11,13 @@ type
   AgentRole* = enum
     Hearter     # Gold -> bar -> altar (population growth)
     Woodsman    # Wood gatherer
-    Hunter      # Food gatherer (hunt/fish/forage)
+    Warrior     # Spear fighter that hunts tumors
     Miner       # Gold/stone gatherer
     Farmer      # Wheat cycle (mill + fertile planting/harvest)
     Lighter     # Lantern crafter/planter (team tint)
     Builder     # Builds team infrastructure
     Waller      # Builds wall ring around altar
-    BlacksmithRole  # Crafts at blacksmith (bars -> gear)
+    Smith       # Crafts armor and supports teammates
 
   # Minimal state tracking with spiral search
   AgentState = object

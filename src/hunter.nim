@@ -1,32 +1,28 @@
-proc decideHunter(controller: Controller, env: Environment, agent: Thing,
-                 agentId: int, state: var AgentState): uint8 =
+proc decideWarrior(controller: Controller, env: Environment, agent: Thing,
+                  agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
-  # AoE food cycle: gather and drop food at mills / town centers.
-  if hasFoodCargo(agent):
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
+  # Train into a basic melee unit when possible (grants spear charges).
+  if agent.unitClass == UnitVillager:
+    let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
+    if barracks != nil:
+      return controller.useOrMove(env, agent, agentId, state, barracks.pos)
+    return controller.moveNextSearch(env, agent, agentId, state)
 
-  # Priority 2: If a nearby tumor exists, retreat
-  let nearbyTumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
-  if nearbyTumor != nil and chebyshevDist(agent.pos, nearbyTumor.pos) <= 3:
-    let awayDir = getMoveAway(env, agent, agent.pos, nearbyTumor.pos, controller.rng)
-    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, awayDir.uint8))
+  # If out of spears, try to re-arm at the blacksmith.
+  if agent.inventorySpear == 0:
+    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+    if smith != nil:
+      return controller.useOrMove(env, agent, agentId, state, smith.pos)
+    return controller.moveNextSearch(env, agent, agentId, state)
 
-  # Priority 3: Harvest nearby cows
-  let (didCow, actCow) = controller.findAndUseBuilding(env, agent, agentId, state, Cow)
-  if didCow: return actCow
-
-  # Priority 4: Harvest wheat and wild food sources
-  let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
-  if didWheat: return actWheat
-
-  # Priority 5: Hunt wildlife for food when available
-  if getInv(agent, ItemFish) < MapObjectAgentMaxInventory:
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Animal)
-    if did: return act
+  # Hunt tumors with spear attacks.
+  let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
+  if tumor != nil:
+    let orientIdx = spearAttackDir(agent.pos, tumor.pos)
+    if orientIdx >= 0:
+      return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, orientIdx.uint8))
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, tumor.pos, controller.rng).uint8))
 
   return controller.moveNextSearch(env, agent, agentId, state)
