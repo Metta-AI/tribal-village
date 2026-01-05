@@ -2,43 +2,35 @@ proc decideLighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
-  # Drop any carried wood to help fund construction.
-  if agent.inventoryWood > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return controller.useOrMove(env, agent, agentId, state, dropoff.pos)
+  # Place lanterns to extend team tint.
+  if agent.inventoryLantern > 0:
+    let dirs = @[
+      ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
+      ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)
+    ]
+    for d in dirs:
+      let target = agent.pos + d
+      if not isValidPos(target):
+        continue
+      if env.hasDoor(target) or not env.isEmpty(target):
+        continue
+      if isBlockedTerrain(env.terrain[target.x][target.y]) or isTileFrozen(target, env):
+        continue
+      if env.terrain[target.x][target.y] == Wheat:
+        continue
+      return saveStateAndReturn(controller, agentId, state,
+        encodeAction(6'u8, vecToOrientation(d).uint8))
+    return controller.moveNextSearch(env, agent, agentId, state)
 
-  # Population pressure: build houses when near cap.
-  let popCount = env.teamPopCount(teamId)
-  let popCap = env.teamPopCap(teamId)
-  if popCap > 0 and popCount >= popCap - 1:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexHouse)
-    if did: return act
+  # Turn wheat into lanterns at the weaving loom.
+  if agent.inventoryWheat > 0:
+    let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
+    if loom != nil:
+      return controller.useOrMove(env, agent, agentId, state, loom.pos)
+    return controller.moveNextSearch(env, agent, agentId, state)
 
-  # Ensure basic dropoff infrastructure exists.
-  if env.countTeamBuildings(teamId, Mill) == 0:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMill)
-    if did: return act
-  if env.countTeamBuildings(teamId, LumberCamp) == 0:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexLumberCamp)
-    if did: return act
-  if env.countTeamBuildings(teamId, MiningCamp) == 0:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexMiningCamp)
-    if did: return act
-
-  # Establish core military production and upgrades.
-  if env.countTeamBuildings(teamId, Barracks) == 0:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexBarracks)
-    if did: return act
-  if env.countTeamBuildings(teamId, Blacksmith) == 0:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexBlacksmith)
-    if did: return act
-
-  # If no build to place, contribute wood gathering.
-  if env.stockpileCount(teamId, ResourceWood) == 0:
-    let (did, act) = controller.findAndHarvestThings(env, agent, agentId, state, [Pine, Palm])
-    if did: return act
+  # Harvest wheat so we can craft lanterns.
+  let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
+  if did: return act
 
   return controller.moveNextSearch(env, agent, agentId, state)

@@ -10,11 +10,13 @@ type
   # Simple agent roles - one per team member
   AgentRole* = enum
     Hearter     # Gold -> bar -> altar (population growth)
-    Armorer     # Wood gatherer (AoE wood cycle)
+    Woodsman    # Wood gatherer
     Hunter      # Food gatherer (hunt/fish/forage)
-    Baker       # Miner (gold/stone cycle)
-    Lighter     # Builder (houses + dropoff + military buildings)
+    Miner       # Gold/stone gatherer
     Farmer      # Farm builder/harvester (wheat cycle)
+    Lighter     # Lantern crafter/planter (team tint)
+    Builder     # Builds team infrastructure
+    BlacksmithRole  # Crafts at blacksmith (bars -> gear)
 
   # Minimal state tracking with spiral search
   AgentState = object
