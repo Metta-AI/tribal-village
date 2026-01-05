@@ -160,17 +160,19 @@ def iter_rows(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate image assets from TSV prompts.")
-    parser.add_argument("--prompts", default="data/nbi/image_prompts.txt")
+    parser.add_argument("--prompts", default="data/prompts/nbi.tsv")
     parser.add_argument("--out-dir", default="data")
     parser.add_argument(
         "--model",
-        default="publishers/google/models/gemini-2.0-flash-preview-image-generation",
+        default="gemini-2.5-flash-image",
+        help="Nano Banana (Gemini 2.5 Flash Image) global model only.",
     )
     parser.add_argument("--project", default=os.environ.get("GOOGLE_CLOUD_PROJECT"))
     parser.add_argument("--location", default=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"))
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--size", type=int, default=200, help="Output square size.")
     parser.add_argument("--postprocess", action="store_true")
+    parser.add_argument("--postprocess-only", action="store_true")
     parser.add_argument("--only", default="", help="Comma-separated filenames to generate.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -179,7 +181,17 @@ def main() -> None:
     rows = load_prompts(prompt_path)
     only = {p.strip() for p in args.only.split(",") if p.strip()} or None
 
-    client = make_client(args.project, args.location)
+    client = None
+    if not args.dry_run and not args.postprocess_only:
+        if args.location != "global":
+            raise SystemExit("Only the global endpoint is supported for image generation.")
+        allowed_models = {
+            "gemini-2.5-flash-image",
+            "publishers/google/models/gemini-2.5-flash-image",
+        }
+        if args.model not in allowed_models:
+            raise SystemExit("Only gemini-2.5-flash-image is supported for image generation.")
+        client = make_client(args.project, args.location)
     out_dir = Path(args.out_dir)
 
     for idx, (filename, prompt) in enumerate(iter_rows(rows, only)):
@@ -189,6 +201,18 @@ def main() -> None:
         if args.dry_run:
             print(f"[dry-run] {target} <- {prompt[:80]}...")
             continue
+        if args.postprocess_only:
+            if not target.exists():
+                print(f"[skip] missing {target}")
+                continue
+            with Image.open(target) as existing:
+                img = existing.convert("RGBA")
+            img = flood_fill_bg(img)
+            img = crop_to_content(img, args.size)
+            img.save(target)
+            continue
+        if client is None:
+            raise SystemExit("Client not initialized for image generation.")
         img = generate_image(client, args.model, prompt, args.seed + idx, args.size)
         if args.postprocess:
             img = flood_fill_bg(img)
