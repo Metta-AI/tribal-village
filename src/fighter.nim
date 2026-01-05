@@ -6,7 +6,7 @@ proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing
   for other in env.agents:
     if other.agentId == agent.agentId:
       continue
-    if other.frozen > 0:
+    if not isAgentAlive(env, other):
       continue
     if sameTeam(agent, other):
       continue
@@ -162,8 +162,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       if not env.canAffordBuild(teamId, wallKey):
         let (didDrop, actDrop) = dropoffCarrying(controller, env, agent, agentId, state)
         if didDrop: return actDrop
-        let (didRock, actRock) = controller.findAndHarvest(env, agent, agentId, state, Rock)
-        if didRock: return actRock
+        let (didStone, actStone) = controller.findAndHarvest(env, agent, agentId, state, Stone)
+        if didStone: return actStone
       return buildWallToward(controller, env, agent, agentId, state, frontier)
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))

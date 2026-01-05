@@ -46,7 +46,23 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         used = true
     of Wheat:
       used = tryHarvestTerrainResource(ItemWheat, env.config.wheatReward, true)
-    of Rock:
+    of Pine, Palm:
+      let remaining = env.terrainResources[targetPos.x][targetPos.y]
+      if remaining > 0 and env.giveItem(agent, ItemWood):
+        let newRemaining = remaining - 1
+        agent.reward += env.config.woodReward
+        if newRemaining <= 0:
+          env.terrain[targetPos.x][targetPos.y] = Empty
+          env.terrainResources[targetPos.x][targetPos.y] = 0
+          env.resetTileColor(targetPos)
+        else:
+          # Convert immediately to a stump after the first harvest.
+          env.terrain[targetPos.x][targetPos.y] = Empty
+          env.terrainResources[targetPos.x][targetPos.y] = 0
+          env.resetTileColor(targetPos)
+          env.dropStump(targetPos, newRemaining)
+        used = true
+    of Stone:
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)
     of Stalagmite:
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)

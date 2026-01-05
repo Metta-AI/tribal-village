@@ -103,9 +103,7 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
 proc teamPopulation*(env: Environment, teamId: int): int =
   result = 0
   for agent in env.agents:
-    if agent.isNil:
-      continue
-    if env.terminated[agent.agentId] != 0.0:
+    if not isAgentAlive(env, agent):
       continue
     if getTeamId(agent.agentId) == teamId:
       inc result

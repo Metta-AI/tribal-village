@@ -209,7 +209,7 @@ proc drawTerrain*() =
         spriteKey = "fertile_tile"
       of Road:
         spriteKey = "road_tile"
-      of Rock:
+      of Stone:
         spriteKey = "stone"
       of Gold:
         spriteKey = "gold"
@@ -508,6 +508,8 @@ proc drawObjects*() =
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
   for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
     for i in 0 ..< ObservationWidth:
       for j in 0 ..< ObservationHeight:
         let
@@ -674,7 +676,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Pine: "Pine"
       of Fertile: "Fertile"
       of Road: "Road"
-      of Rock: "Rock"
+      of Stone: "Stone"
       of Gold: "Gold"
       of Bush: "Bush"
       of Animal: "Animal"
