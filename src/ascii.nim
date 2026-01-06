@@ -11,6 +11,7 @@ proc thingAsciiChar*(kind: ThingKind): char =
   of Spawner: 'Z'
   of Tumor: 'X'
   of Cow: 'w'
+  of Corpse: 'C'
   of Skeleton: 'K'
   of Stump: 'p'
   of Lantern: 'l'

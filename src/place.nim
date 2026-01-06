@@ -45,7 +45,7 @@ proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
     return false
-  if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
+  if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
     return false
 
   let key = thingKey(thing.kind)

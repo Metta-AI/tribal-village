@@ -114,6 +114,31 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       else:
         setInv(thing, ItemWood, remaining)
       used = true
+  of Corpse:
+    var lootKey = ItemNone
+    var lootCount = 0
+    for key, count in thing.inventory.pairs:
+      if count > 0:
+        lootKey = key
+        lootCount = count
+        break
+    if lootKey != ItemNone and env.giveItem(agent, lootKey):
+      let remaining = lootCount - 1
+      if remaining <= 0:
+        thing.inventory.del(lootKey)
+      else:
+        setInv(thing, lootKey, remaining)
+      var hasItems = false
+      for _, count in thing.inventory.pairs:
+        if count > 0:
+          hasItems = true
+          break
+      if not hasItems:
+        removeThing(env, thing)
+        let skeleton = Thing(kind: Skeleton, pos: thing.pos)
+        skeleton.inventory = emptyInventory()
+        env.add(skeleton)
+      used = true
   of Magma:  # Magma smelting
     if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
       setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
