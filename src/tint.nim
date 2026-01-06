@@ -1,7 +1,7 @@
 const
-  TrailDecay = 0.93'f32
-  TintStrengthScale = 1000.0'f32
-  TumorTintScale = 120.0'f32
+  TrailDecay = 0.985'f32
+  TintStrengthScale = 8000.0'f32
+  TumorTintScale = 60.0'f32
 
 proc decayTintModifications(env: Environment) =
   ## Decay active tile modifications so agents leave fading trails.
@@ -129,7 +129,7 @@ proc applyTintModifications(env: Environment) =
     let rawB = max(0.0'f32, bTint.float32 / TintStrengthScale)
     let maxC = max(rawR, max(rawG, rawB))
     let alpha = min(1.0'f32, maxC)
-    let norm = if maxC > 1.0'f32: maxC else: 1.0'f32
+    let norm = if maxC > 0.0'f32: maxC else: 1.0'f32
     let clampedR = min(1.2'f32, rawR / norm)
     let clampedG = min(1.2'f32, rawG / norm)
     let clampedB = min(1.2'f32, rawB / norm)
