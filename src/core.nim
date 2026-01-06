@@ -10,7 +10,7 @@ type
   # Meta roles with focused responsibilities (AoE-style)
   AgentRole* = enum
     Gatherer   # Dynamic resource gatherer (food/wood/stone/gold + hearts)
-    Builder    # Builds structures + equips villagers
+    Builder    # Builds structures and expands the base
     Fighter    # Combat & hunting
 
   # Minimal state tracking with spiral search
