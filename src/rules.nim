@@ -17,6 +17,7 @@ proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec
       continue
     if not env.isEmpty(candidate):
       continue
+    # Avoid building on roads so they stay clear for traffic.
     if env.terrain[candidate.x][candidate.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
                                                     TerrainDune, TerrainStalagmite, TerrainBridge}:
       continue
