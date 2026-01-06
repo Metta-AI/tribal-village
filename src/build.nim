@@ -137,26 +137,22 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     return
 
   let teamId = getTeamId(agent.agentId)
-  if key == ItemDoor:
-    if not canLayRoad(targetPos):
-      inc env.stats[id].actionInvalid
-      return
-    let doorCost = @[(res: ResourceWood, count: 1)]
-    if not env.canSpendStockpile(teamId, doorCost):
-      inc env.stats[id].actionInvalid
-      return
-    discard env.spendStockpile(teamId, doorCost)
-    env.doorTeams[targetPos.x][targetPos.y] = teamId.int16
-    env.doorHearts[targetPos.x][targetPos.y] = DoorMaxHearts.int8
-    inc env.stats[id].actionBuild
-    return
-
   let costs = buildCostsForKey(key)
   if costs.len == 0:
     inc env.stats[id].actionInvalid
     return
   if not env.canSpendStockpile(teamId, costs):
     inc env.stats[id].actionInvalid
+    return
+
+  if key == ItemDoor:
+    if not canLayRoad(targetPos):
+      inc env.stats[id].actionInvalid
+      return
+    discard env.spendStockpile(teamId, costs)
+    env.doorTeams[targetPos.x][targetPos.y] = teamId.int16
+    env.doorHearts[targetPos.x][targetPos.y] = DoorMaxHearts.int8
+    inc env.stats[id].actionBuild
     return
 
   discard env.spendStockpile(teamId, costs)
