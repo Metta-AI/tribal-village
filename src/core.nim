@@ -822,8 +822,6 @@ proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, age
   if allowWood and agent.inventoryWood > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
     if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberYard, controller.rng)
-    if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
@@ -838,9 +836,7 @@ proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, age
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
 
   if allowStone and agent.inventoryStone > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
