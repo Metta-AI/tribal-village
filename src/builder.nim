@@ -127,7 +127,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let armorNeedy = findNearestTeammateNeeding(env, agent, NeedArmor)
   let (didDrop, dropAct) = controller.dropoffCarrying(
     env, agent, agentId, state,
-    allowWood = false,
+    allowWood = true,
     allowStone = true,
     allowGold = isNil(armorNeedy)
   )
@@ -162,21 +162,30 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
 
   # Build a wall ring around the altar.
   if agent.homeAltar.x >= 0:
-    if env.teamStockpiles[teamId].counts[ResourceWood] > 0:
+    let doorKey = thingItem("Door")
+    if env.canAffordBuild(teamId, doorKey):
       let doorTarget = findDoorRingTarget(env, agent.homeAltar, 5)
       if doorTarget.x >= 0:
         let (didDoor, actDoor) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
         )
         if didDoor: return actDoor
+    else:
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
     let target = findWallRingTarget(env, agent.homeAltar, 5)
     if target.x >= 0:
-      let idx = buildIndexFor(Wall)
-      if idx >= 0:
-        let (did, act) = goToAdjacentAndBuild(
-          controller, env, agent, agentId, state, target, idx
-        )
-        if did: return act
+      let wallKey = thingItem("Wall")
+      if env.canAffordBuild(teamId, wallKey):
+        let idx = buildIndexFor(Wall)
+        if idx >= 0:
+          let (did, act) = goToAdjacentAndBuild(
+            controller, env, agent, agentId, state, target, idx
+          )
+          if did: return act
+      else:
+        let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
+        if didStone: return actStone
 
   # Core economic infrastructure.
   for kind in CoreEconomy:
