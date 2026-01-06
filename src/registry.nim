@@ -1,3 +1,11 @@
+## registry.nim - Building, terrain, and thing registries for tribal-village
+##
+## This module provides lookup tables and metadata for all game entities.
+
+import std/[tables, strutils]
+import forward_decls, items
+export forward_decls, items
+
 type
   BuildingUseKind* = enum
     UseNone
