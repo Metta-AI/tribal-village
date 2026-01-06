@@ -108,8 +108,10 @@ proc toSnakeCase(name: string): string
 proc buildingInfo*(kind: ThingKind): BuildingInfo =
   BuildingRegistry[kind]
 
+{.push inline.}
 proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
+{.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =
   let key = BuildingRegistry[kind].spriteKey
@@ -299,8 +301,6 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   else: UseNone
 
 proc buildingUsesCooldown*(kind: ThingKind): bool =
-  if not isBuildingKind(kind):
-    return false
   case buildingUseKind(kind)
   of UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
      UseTrain, UseTrainAndCraft, UseCraft:
