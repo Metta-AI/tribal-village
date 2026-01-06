@@ -80,13 +80,7 @@ proc resolveSpriteKey(key: string): string =
   return "unknown"
 
 proc stockpileIcon(res: StockpileResource): string =
-  case res
-  of ResourceFood: "bushel"
-  of ResourceWood: "wood"
-  of ResourceStone: "stone"
-  of ResourceGold: "gold"
-  of ResourceWater: "droplet"
-  of ResourceNone: ""
+  stockpileIconKey(res)
 
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
@@ -123,27 +117,6 @@ proc drawRoofTint(spriteKey: string, pos: Vec2, teamId: int) =
     return
   let tint = teamColors[teamId]
   bxy.drawImage(maskKey, pos, angle = 0, scale = spriteScale(maskKey), tint = tint)
-
-proc toSnakeCase(name: string): string =
-  result = ""
-  for i, ch in name:
-    if ch.isUpperAscii:
-      if i > 0:
-        result.add('_')
-      result.add(ch.toLowerAscii)
-    else:
-      result.add(ch)
-
-proc thingSpriteKey(kind: ThingKind): string =
-  if isBuildingKind(kind):
-    return buildingSpriteKey(kind)
-  case kind
-  of Corpse:
-    "corpse"
-  of Skeleton:
-    "skeleton"
-  else:
-    toSnakeCase($kind)
 
 proc hasFrozenOverlay(kind: ThingKind): bool =
   if isBuildingKind(kind):
@@ -197,40 +170,7 @@ proc drawTerrain*() =
       let terrain = env.terrain[x][y]
       if terrain == Water:
         continue
-      var spriteKey = ""
-      case terrain
-      of Bridge:
-        spriteKey = "bridge_tile"
-      of Wheat:
-        spriteKey = "wheat"
-      of Pine:
-        spriteKey = "pine"
-      of Palm:
-        spriteKey = "palm"
-      of Fertile:
-        spriteKey = "fertile_tile"
-      of Road:
-        spriteKey = "road_tile"
-      of Stone:
-        spriteKey = "stone"
-      of Gold:
-        spriteKey = "gold"
-      of Bush:
-        spriteKey = "bush"
-      of Grass:
-        spriteKey = "grass"
-      of Cactus:
-        spriteKey = "cactus"
-      of Dune:
-        spriteKey = "dune"
-      of Stalagmite:
-        spriteKey = "stalagmite"
-      of Sand:
-        spriteKey = "sand_tile"
-      of Snow:
-        spriteKey = "snow_tile"
-      of Empty, Water:
-        discard
+      let spriteKey = terrainSpriteKey(terrain)
       if spriteKey.len > 0:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
       if infected and terrain in {Wheat, Pine, Palm}:
@@ -561,22 +501,7 @@ proc drawAgentDecorations*() =
       count: int
 
     proc iconForItem(key: ItemKey): string =
-      case key
-      of ItemGold: "gold"
-      of ItemStone: "stone"
-      of ItemWater: "droplet"
-      of ItemWheat: "bushel"
-      of ItemWood: "wood"
-      of ItemSpear: "spear"
-      of ItemLantern: "lantern"
-      of ItemArmor: "armor"
-      of ItemBread: "bread"
-      of ItemHearts: "heart"
-      else:
-        if key.startsWith(ItemThingPrefix):
-          let kindName = key[ItemThingPrefix.len .. ^1]
-          return toSnakeCase(kindName)
-        return key
+      itemSpriteKey(key)
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
@@ -646,17 +571,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
         buildingDisplayName(thing.kind)
       else:
         case thing.kind
-        of Wall: "Wall"
-        of Pine: "Pine"
-        of Palm: "Palm"
-        of Magma: "Magma"
-        of Spawner: "Spawner"
-        of Tumor: "Tumor"
-        of Cow: "Cow"
-        of Corpse: "Corpse"
-        of Skeleton: "Skeleton"
-        of Stump: "Stump"
-        of Lantern: "Lantern"
         of Agent:
           case thing.unitClass
           of UnitVillager: "Villager"
@@ -666,28 +580,12 @@ proc drawSelectionLabel*(panelRect: IRect) =
           of UnitKnight: "Knight"
           of UnitMonk: "Monk"
           of UnitSiege: "Siege"
-        else: ""
+        else:
+          thingDisplayName(thing.kind)
   elif env.hasDoor(selectedPos):
     label = "Door"
   else:
-    label = case env.terrain[selectedPos.x][selectedPos.y]
-      of Empty: "Empty"
-      of Water: "Water"
-      of Bridge: "Bridge"
-      of Wheat: "Wheat"
-      of Pine: "Pine"
-      of Fertile: "Fertile"
-      of Road: "Road"
-      of Stone: "Stone"
-      of Gold: "Gold"
-      of Bush: "Bush"
-      of Grass: "Grass"
-      of Cactus: "Cactus"
-      of Dune: "Dune"
-      of Stalagmite: "Stalagmite"
-      of Palm: "Palm"
-      of Sand: "Sand"
-      of Snow: "Snow"
+    label = terrainDisplayName(env.terrain[selectedPos.x][selectedPos.y])
 
   let key = ensureInfoLabel(label)
   if key.len == 0:
