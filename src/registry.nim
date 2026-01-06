@@ -118,6 +118,148 @@ proc buildingDisplayName*(kind: ThingKind): string =
 proc buildingAscii*(kind: ThingKind): char =
   BuildingRegistry[kind].ascii
 
+type
+  CatalogEntry* = object
+    displayName*: string
+    spriteKey*: string
+    ascii*: char
+
+proc initTerrainCatalog(): array[TerrainType, CatalogEntry] =
+  var reg: array[TerrainType, CatalogEntry]
+  for terrain in TerrainType:
+    reg[terrain] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
+
+  proc add(terrain: TerrainType, displayName, spriteKey: string, ascii: char) =
+    reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(Empty, "Empty", "", ' ')
+  add(Water, "Water", "", '~')
+  add(Bridge, "Bridge", "bridge_tile", '=')
+  add(Wheat, "Wheat", "wheat", '.')
+  add(Pine, "Pine", "pine", 'T')
+  add(Fertile, "Fertile", "fertile_tile", 'f')
+  add(Road, "Road", "road_tile", 'r')
+  add(Stone, "Stone", "stone", 'S')
+  add(Gold, "Gold", "gold", 'G')
+  add(Bush, "Bush", "bush", 'b')
+  add(Grass, "Grass", "grass", 'g')
+  add(Cactus, "Cactus", "cactus", 'c')
+  add(Dune, "Dune", "dune", 'd')
+  add(Stalagmite, "Stalagmite", "stalagmite", 'm')
+  add(Palm, "Palm", "palm", 'P')
+  add(Sand, "Sand", "sand_tile", 's')
+  add(Snow, "Snow", "snow_tile", 'n')
+  reg
+
+proc initThingCatalog(): array[ThingKind, CatalogEntry] =
+  var reg: array[ThingKind, CatalogEntry]
+  for kind in ThingKind:
+    reg[kind] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
+
+  proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char) =
+    reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(Agent, "Agent", "agent", '@')
+  add(Wall, "Wall", "wall", '#')
+  add(Pine, "Pine", "pine", 't')
+  add(Palm, "Palm", "palm", 'P')
+  add(Magma, "Magma", "magma", 'v')
+  add(Spawner, "Spawner", "spawner", 'Z')
+  add(Tumor, "Tumor", "tumor", 'X')
+  add(Cow, "Cow", "cow", 'w')
+  add(Corpse, "Corpse", "corpse", 'C')
+  add(Skeleton, "Skeleton", "skeleton", 'K')
+  add(Stump, "Stump", "stump", 'p')
+  add(Lantern, "Lantern", "lantern", 'l')
+  reg
+
+proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
+  result = initTable[ItemKey, CatalogEntry]()
+  proc add(key, displayName, spriteKey: string, ascii: char) =
+    result[key] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(ItemGold, "Gold", "gold", '$')
+  add(ItemStone, "Stone", "stone", 'S')
+  add(ItemBar, "Bar", "bar", 'B')
+  add(ItemWater, "Water", "droplet", '~')
+  add(ItemWheat, "Wheat", "bushel", 'w')
+  add(ItemWood, "Wood", "wood", 't')
+  add(ItemSpear, "Spear", "spear", 's')
+  add(ItemLantern, "Lantern", "lantern", 'l')
+  add(ItemArmor, "Armor", "armor", 'a')
+  add(ItemBread, "Bread", "bread", 'b')
+  add(ItemPlant, "Plant", "plant", 'p')
+  add(ItemFish, "Fish", "fish", 'f')
+  add(ItemHearts, "Hearts", "heart", 'h')
+
+let TerrainCatalog* = initTerrainCatalog()
+let ThingCatalog* = initThingCatalog()
+let ItemCatalog* = initItemCatalog()
+
+proc terrainInfo*(terrain: TerrainType): CatalogEntry =
+  TerrainCatalog[terrain]
+
+proc terrainSpriteKey*(terrain: TerrainType): string =
+  TerrainCatalog[terrain].spriteKey
+
+proc terrainDisplayName*(terrain: TerrainType): string =
+  let name = TerrainCatalog[terrain].displayName
+  if name.len > 0: name else: $terrain
+
+proc terrainAscii*(terrain: TerrainType): char =
+  TerrainCatalog[terrain].ascii
+
+proc thingInfo*(kind: ThingKind): CatalogEntry =
+  ThingCatalog[kind]
+
+proc thingSpriteKey*(kind: ThingKind): string =
+  if isBuildingKind(kind):
+    return buildingSpriteKey(kind)
+  ThingCatalog[kind].spriteKey
+
+proc thingDisplayName*(kind: ThingKind): string =
+  if isBuildingKind(kind):
+    return buildingDisplayName(kind)
+  let name = ThingCatalog[kind].displayName
+  if name.len > 0: name else: $kind
+
+proc thingAscii*(kind: ThingKind): char =
+  if isBuildingKind(kind):
+    return buildingAscii(kind)
+  ThingCatalog[kind].ascii
+
+proc itemInfo*(key: ItemKey): CatalogEntry =
+  ItemCatalog.getOrDefault(key, CatalogEntry(displayName: key, spriteKey: key, ascii: '?'))
+
+proc itemSpriteKey*(key: ItemKey): string =
+  if key.startsWith(ItemThingPrefix):
+    let kindName = key[ItemThingPrefix.len .. ^1]
+    for kind in ThingKind:
+      if $kind == kindName:
+        return thingSpriteKey(kind)
+  if ItemCatalog.hasKey(key):
+    return ItemCatalog[key].spriteKey
+  key
+
+proc itemDisplayName*(key: ItemKey): string =
+  if key.startsWith(ItemThingPrefix):
+    let kindName = key[ItemThingPrefix.len .. ^1]
+    for kind in ThingKind:
+      if $kind == kindName:
+        return thingDisplayName(kind)
+  if ItemCatalog.hasKey(key):
+    return ItemCatalog[key].displayName
+  key
+
+proc stockpileIconKey*(res: StockpileResource): string =
+  case res
+  of ResourceFood: itemSpriteKey(ItemWheat)
+  of ResourceWood: itemSpriteKey(ItemWood)
+  of ResourceStone: itemSpriteKey(ItemStone)
+  of ResourceGold: itemSpriteKey(ItemGold)
+  of ResourceWater: itemSpriteKey(ItemWater)
+  of ResourceNone: ""
+
 proc buildingRenderColor*(kind: ThingKind): tuple[r, g, b: uint8] =
   BuildingRegistry[kind].renderColor
 
