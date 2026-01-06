@@ -628,6 +628,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
 
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
+  let overlay = env.overlayGrid[selectedPos.x][selectedPos.y]
   if thing != nil:
     label =
       if thing.kind == Agent:
@@ -654,8 +655,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
           of UnitSiege: "Siege"
         else:
           thingDisplayName(thing.kind)
-  elif env.hasDoor(selectedPos):
-    label = "Door"
+  elif overlay != nil:
+    label = thingDisplayName(overlay.kind)
   else:
     let terrain = env.terrain[selectedPos.x][selectedPos.y]
     let name = TerrainCatalog[terrain].displayName

@@ -12,15 +12,10 @@ proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec
     let candidate = pos + d
     if not isValidPos(candidate):
       continue
-    if env.hasDoor(candidate):
-      continue
-    if not env.isEmpty(candidate):
+    if not env.canPlaceBuilding(candidate):
       continue
     # Avoid building on roads so they stay clear for traffic.
-    if env.terrain[candidate.x][candidate.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
-                                                    TerrainDune, TerrainStalagmite, TerrainBridge}:
-      continue
-    if isTileFrozen(candidate, env):
+    if env.terrain[candidate.x][candidate.y] == TerrainRoad:
       continue
     return candidate
   return ivec2(-1, -1)

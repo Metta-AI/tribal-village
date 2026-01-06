@@ -6,12 +6,9 @@ proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
       let pos = altar + ivec2(dx.int32, dy.int32)
       if not isValidPos(pos):
         continue
-      if env.hasDoor(pos) or not env.isEmpty(pos):
+      if not env.canPlaceBuilding(pos):
         continue
-      if env.terrain[pos.x][pos.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
-                                          TerrainDune, TerrainStalagmite, TerrainBridge}:
-        continue
-      if isTileFrozen(pos, env):
+      if env.terrain[pos.x][pos.y] == TerrainRoad:
         continue
       return pos
   ivec2(-1, -1)
@@ -34,8 +31,9 @@ proc findHouseClusterTarget(env: Environment, agent: Thing, anchor: IVec2,
       return false
     if isTileFrozen(pos, env):
       return false
-    if env.terrain[pos.x][pos.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
-                                        TerrainDune, TerrainStalagmite, TerrainBridge}:
+    if not env.isBuildableTerrain(env.terrain[pos.x][pos.y]):
+      return false
+    if env.terrain[pos.x][pos.y] == TerrainRoad:
       return false
     true
 
@@ -111,12 +109,9 @@ proc findDoorRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
   for pos in candidates:
     if not isValidPos(pos):
       continue
-    if env.hasDoor(pos) or not env.isEmpty(pos):
+    if not env.canPlaceBuilding(pos):
       continue
-    if env.terrain[pos.x][pos.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
-                                        TerrainDune, TerrainStalagmite, TerrainBridge}:
-      continue
-    if isTileFrozen(pos, env):
+    if env.terrain[pos.x][pos.y] == TerrainRoad:
       continue
     return pos
   ivec2(-1, -1)
