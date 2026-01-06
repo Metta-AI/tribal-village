@@ -79,8 +79,8 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
-  if env.countTeamBuildings(teamId, LumberYard) == 0:
-    let idx = buildIndexFor(LumberYard)
+  if env.countTeamBuildings(teamId, LumberCamp) == 0:
+    let idx = buildIndexFor(LumberCamp)
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
