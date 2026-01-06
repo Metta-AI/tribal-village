@@ -124,15 +124,6 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   const MilitaryBuildings = [Barracks, ArcheryRange, Stable, SiegeWorkshop]
   const DefenseBuildings = [Outpost, Castle]
 
-  let armorNeedy = findNearestTeammateNeeding(env, agent, NeedArmor)
-  let (didDrop, dropAct) = controller.dropoffCarrying(
-    env, agent, agentId, state,
-    allowWood = true,
-    allowStone = true,
-    allowGold = isNil(armorNeedy)
-  )
-  if didDrop: return dropAct
-
   # Top priority: keep population cap ahead of current population.
   var popCount = 0
   for otherAgent in env.agents:
@@ -229,49 +220,6 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   )
   if didQuarry: return actQuarry
 
-  # Plant wheat/trees around existing mills once the economy is established.
-  if agent.unitClass == UnitVillager:
-    let millCount = controller.getBuildingCount(env, teamId, Mill)
-    if millCount >= 4:
-      let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
-      if not isNil(mill):
-        let millDist = chebyshevDist(agent.pos, mill.pos).int
-        if millDist <= 12:
-          let radius = max(1, buildingFertileRadius(Mill))
-          var target = ivec2(-1, -1)
-          var bestDist = int.high
-          for dx in -radius .. radius:
-            for dy in -radius .. radius:
-              if max(abs(dx), abs(dy)) > radius:
-                continue
-              let pos = mill.pos + ivec2(dx.int32, dy.int32)
-              if not isValidPos(pos):
-                continue
-              if env.terrain[pos.x][pos.y] != Fertile:
-                continue
-              if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
-                continue
-              let dist = abs(pos.x - agent.pos.x) + abs(pos.y - agent.pos.y)
-              if dist < bestDist:
-                bestDist = dist
-                target = pos
-          if target.x >= 0:
-            if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
-              let dx = abs(target.x - agent.pos.x)
-              let dy = abs(target.y - agent.pos.y)
-              if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
-                let dirIdx = getCardinalDirIndex(agent.pos, target)
-                let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
-                return saveStateAndReturn(controller, agentId, state,
-                  encodeAction(7'u8, plantArg.uint8))
-              return saveStateAndReturn(controller, agentId, state,
-                encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
-            let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
-            if not isNil(wheat):
-              return controller.useOrMove(env, agent, agentId, state, wheat.pos)
-            let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-            if didWood: return actWood
-
   # Production buildings.
   for kind in ProductionBuildings:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
@@ -286,37 +234,5 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   for kind in DefenseBuildings:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
-
-  # Equipment support: deliver armor/spears to teammates who need them.
-  let (didArmor, actArmor) =
-    controller.deliverEquipment(env, agent, agentId, state, teamId, NeedArmor, agent.inventoryArmor)
-  if didArmor: return actArmor
-  let (didSpear, actSpear) =
-    controller.deliverEquipment(env, agent, agentId, state, teamId, NeedSpear, agent.inventorySpear)
-  if didSpear: return actSpear
-
-  # Craft armor at the blacksmith when bars are available.
-  if not isNil(armorNeedy):
-    if agent.inventoryBar > 0:
-      let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-      if not isNil(smith):
-        return controller.useOrMove(env, agent, agentId, state, smith.pos)
-    elif agent.inventoryGold > 0:
-      let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
-      if not isNil(magma):
-        return controller.useOrMove(env, agent, agentId, state, magma.pos)
-    else:
-      let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
-      if didGold: return actGold
-
-  # Craft spears at the blacksmith if fighters are out.
-  let spearNeedy = findNearestTeammateNeeding(env, agent, NeedSpear)
-  if not isNil(spearNeedy):
-    if agent.inventoryWood == 0:
-      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-      if didWood: return actWood
-    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-    if not isNil(smith):
-      return controller.useOrMove(env, agent, agentId, state, smith.pos)
 
   return controller.moveNextSearch(env, agent, agentId, state)
