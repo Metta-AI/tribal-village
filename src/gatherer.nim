@@ -4,63 +4,6 @@ type GathererTask = enum
   TaskStone
   TaskGold
   TaskHearts
-
-proc countNearbyTrees(env: Environment, center: IVec2, radius: int): int =
-  let cx = center.x.int
-  let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
-  for x in startX..endX:
-    for y in startY..endY:
-      if max(abs(x - cx), abs(y - cy)) > radius:
-        continue
-      if env.terrain[x][y] in {TerrainType.Pine, TerrainType.Palm}:
-        inc result
-
-proc countNearbyTerrain(env: Environment, center: IVec2, radius: int, allowed: set[TerrainType]): int =
-  let cx = center.x.int
-  let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
-  for x in startX..endX:
-    for y in startY..endY:
-      if max(abs(x - cx), abs(y - cy)) > radius:
-        continue
-      if env.terrain[x][y] in allowed:
-        inc result
-
-proc hasFriendlyBuildingNearby(env: Environment, teamId: int, kind: ThingKind,
-                               center: IVec2, radius: int): bool =
-  for thing in env.things:
-    if thing.kind != kind:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y)) <= radius:
-      return true
-  false
-
-proc nearestFriendlyBuildingDistance(env: Environment, teamId: int,
-                                     kinds: openArray[ThingKind], pos: IVec2): int =
-  result = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    var matches = false
-    for kind in kinds:
-      if thing.kind == kind:
-        matches = true
-        break
-    if not matches:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < result:
-      result = dist
-
 proc hasMagma(env: Environment): bool =
   for thing in env.things:
     if thing.kind == Magma:
@@ -105,43 +48,6 @@ proc chooseGathererTask(env: Environment, teamId: int): GathererTask =
     bestTask = TaskGold
   bestTask
 
-proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState,
-                       allowGoldDropoff: bool): tuple[did: bool, action: uint8] =
-  let teamId = getTeamId(agent.agentId)
-
-  if hasFoodCargo(agent):
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Granary, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-
-  if agent.inventoryWood > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-
-  if allowGoldDropoff and agent.inventoryGold > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-
-  if agent.inventoryStone > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-
-  (false, 0'u8)
-
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -158,8 +64,21 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
 
   # Drop off any carried stockpile resources first.
   let allowGoldDropoff = altarHearts >= 10 or not hasMagma(env)
-  let (didDrop, dropAct) = dropoffIfCarrying(controller, env, agent, agentId, state, allowGoldDropoff)
-  if didDrop: return dropAct
+  let (didDropFood, dropFoodAct) = dropoffFoodIfCarrying(controller, env, agent, agentId, state)
+  if didDropFood: return dropFoodAct
+
+  let (didDropWood, dropWoodAct) =
+    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceWood, agent.inventoryWood)
+  if didDropWood: return dropWoodAct
+
+  if allowGoldDropoff:
+    let (didDropGold, dropGoldAct) =
+      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceGold, agent.inventoryGold)
+    if didDropGold: return dropGoldAct
+
+  let (didDropStone, dropStoneAct) =
+    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
+  if didDropStone: return dropStoneAct
 
   var task = chooseGathererTask(env, teamId)
   if altarHearts < 10:
