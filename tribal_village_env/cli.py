@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -36,12 +37,30 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def _run_gui() -> None:
+def _run_gui(
+    profile: bool,
+    profile_steps: int,
+    step_timing: bool,
+    step_timing_target: int,
+    step_timing_window: int,
+) -> None:
     project_root = _project_root()
-    cmd = ["nim", "r", "-d:release", "tribal_village.nim"]
+    cmd = ["nim", "r", "-d:release"]
+    if profile:
+        cmd.extend(["--profiler:on", "--stackTrace:on", "--lineTrace:on"])
+    if step_timing:
+        cmd.append("-d:stepTiming")
+    cmd.append("tribal_village.nim")
+
+    env = os.environ.copy()
+    if profile:
+        env["TV_PROFILE_STEPS"] = str(profile_steps)
+    if step_timing:
+        env["TV_STEP_TIMING"] = str(step_timing_target)
+        env["TV_STEP_TIMING_WINDOW"] = str(step_timing_window)
 
     console.print("[cyan]Launching Tribal Village GUI via Nim...[/cyan]")
-    subprocess.run(cmd, cwd=project_root, check=True)
+    subprocess.run(cmd, cwd=project_root, check=True, env=env)
 
 
 def _run_ansi(steps: int, max_steps: Optional[int], random_actions: bool) -> None:
@@ -96,6 +115,34 @@ def _options():
             "--random-actions/--no-random-actions",
             help="Use random actions in ANSI mode (otherwise no-op)",
         ),
+        "profile": typer.Option(
+            False,
+            "--profile",
+            help="Enable Nim profiler (GUI mode only; runs headless steps then exits)",
+        ),
+        "profile_steps": typer.Option(
+            512,
+            "--profile-steps",
+            help="Steps to run when profiling",
+            min=1,
+        ),
+        "step_timing": typer.Option(
+            False,
+            "--step-timing",
+            help="Enable per-step timing logs (GUI mode only)",
+        ),
+        "step_timing_target": typer.Option(
+            0,
+            "--step-timing-target",
+            help="Step index at which to start timing logs",
+            min=0,
+        ),
+        "step_timing_window": typer.Option(
+            0,
+            "--step-timing-window",
+            help="Number of steps to log starting at target",
+            min=0,
+        ),
     }
 
 
@@ -105,6 +152,11 @@ def play(
     steps: int = _options()["steps"],
     max_steps: Optional[int] = _options()["max_steps"],
     random_actions: bool = _options()["random_actions"],
+    profile: bool = _options()["profile"],
+    profile_steps: int = _options()["profile_steps"],
+    step_timing: bool = _options()["step_timing"],
+    step_timing_target: int = _options()["step_timing_target"],
+    step_timing_window: int = _options()["step_timing_window"],
 ) -> None:
     ensure_nim_library_current()
 
@@ -114,7 +166,13 @@ def play(
         raise typer.Exit(1)
 
     if render_mode == "gui":
-        _run_gui()
+        _run_gui(
+            profile=profile,
+            profile_steps=profile_steps,
+            step_timing=step_timing,
+            step_timing_target=step_timing_target,
+            step_timing_window=step_timing_window,
+        )
     else:
         _run_ansi(steps=steps, max_steps=max_steps, random_actions=random_actions)
 
@@ -126,6 +184,11 @@ def root(
     steps: int = _options()["steps"],
     max_steps: Optional[int] = _options()["max_steps"],
     random_actions: bool = _options()["random_actions"],
+    profile: bool = _options()["profile"],
+    profile_steps: int = _options()["profile_steps"],
+    step_timing: bool = _options()["step_timing"],
+    step_timing_target: int = _options()["step_timing_target"],
+    step_timing_window: int = _options()["step_timing_window"],
 ) -> None:
     """Default to play when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
@@ -135,6 +198,11 @@ def root(
             steps=steps,
             max_steps=max_steps,
             random_actions=random_actions,
+            profile=profile,
+            profile_steps=profile_steps,
+            step_timing=step_timing,
+            step_timing_target=step_timing_target,
+            step_timing_window=step_timing_window,
         )
 
 
