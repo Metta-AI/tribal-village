@@ -204,8 +204,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   )
   if didLumber: return actLumber
 
-  let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {terrain.Gold}) +
-    countNearbyThings(env, agent.pos, 4, {Gold})
+  let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
   let (didMining, actMining) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, MiningCamp,
     nearbyGold, 6,
@@ -213,8 +212,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   )
   if didMining: return actMining
 
-  let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {terrain.Stone, terrain.Stalagmite}) +
-    countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
+  let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
   let (didQuarry, actQuarry) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, Quarry,
     nearbyStone, 6,
