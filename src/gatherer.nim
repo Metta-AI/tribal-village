@@ -6,6 +6,19 @@ type GathererTask = enum
   TaskHearts
 
 proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): GathererTask =
+  let food = env.stockpileCount(teamId, ResourceFood)
+  let wood = env.stockpileCount(teamId, ResourceWood)
+  let stone = env.stockpileCount(teamId, ResourceStone)
+  let gold = env.stockpileCount(teamId, ResourceGold)
+
+  var urgent: seq[GathererTask] = @[]
+  if food < 10: urgent.add(TaskFood)
+  if wood < 10: urgent.add(TaskWood)
+  if stone < 10: urgent.add(TaskStone)
+  if gold < 10: urgent.add(TaskGold)
+  if urgent.len > 0:
+    return urgent[randIntExclusive(controller.rng, 0, urgent.len)]
+
   let townCenters = controller.getBuildingCount(env, teamId, TownCenter)
   let houses = controller.getBuildingCount(env, teamId, House)
   let baseScale = max(1, townCenters + houses)
@@ -15,11 +28,6 @@ proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): 
     stone: 6 + baseScale,
     gold: 4 + baseScale div 2
   )
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  let gold = env.stockpileCount(teamId, ResourceGold)
-
   let foodDef = targets.food - food
   let woodDef = targets.wood - wood
   let stoneDef = targets.stone - stone
