@@ -32,7 +32,6 @@ type
     escapeStepsRemaining: int
     escapeDirection: IVec2
     cachedThingPos: array[ThingKind, IVec2]
-    cachedTerrainPos: array[TerrainType, IVec2]
 
   # Simple controller
   Controller* = ref object
@@ -225,18 +224,6 @@ proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, tea
   result = findNearestFriendlyThing(env, nextSearchPos, teamId, kind)
   return result
 
-proc findNearestTerrain(env: Environment, pos: IVec2, terrain: TerrainType): IVec2 =
-  result = ivec2(-1, -1)
-  var minDist = 999999
-  for x in max(0, pos.x - 20)..<min(MapWidth, pos.x + 21):
-    for y in max(0, pos.y - 20)..<min(MapHeight, pos.y + 21):
-      if env.terrain[x][y] == terrain:
-        let terrainPos = ivec2(x.int32, y.int32)
-        let dist = abs(terrainPos.x - pos.x) + abs(terrainPos.y - pos.y)
-        if dist < minDist:
-          minDist = dist
-          result = terrainPos
-
 proc countNearbyTerrain*(env: Environment, center: IVec2, radius: int,
                          allowed: set[TerrainType]): int =
   let cx = center.x.int
@@ -252,8 +239,24 @@ proc countNearbyTerrain*(env: Environment, center: IVec2, radius: int,
       if env.terrain[x][y] in allowed:
         inc result
 
+proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
+                        allowed: set[ThingKind]): int =
+  let cx = center.x.int
+  let cy = center.y.int
+  let startX = max(0, cx - radius)
+  let endX = min(MapWidth - 1, cx + radius)
+  let startY = max(0, cy - radius)
+  let endY = min(MapHeight - 1, cy + radius)
+  for x in startX..endX:
+    for y in startY..endY:
+      if max(abs(x - cx), abs(y - cy)) > radius:
+        continue
+      let occ = env.grid[x][y]
+      if occ != nil and occ.kind in allowed:
+        inc result
+
 proc countNearbyTrees*(env: Environment, center: IVec2, radius: int): int =
-  countNearbyTerrain(env, center, radius, {TerrainType.Pine, TerrainType.Palm})
+  countNearbyThings(env, center, radius, {Pine, Palm})
 
 proc hasFriendlyBuildingNearby*(env: Environment, teamId: int, kind: ThingKind,
                                 center: IVec2, radius: int): bool =
@@ -427,37 +430,6 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
         if dist < minDist:
           minDist = dist
           result = ivec2(x.int32, y.int32)
-
-proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: TerrainType, rng: var Rand): IVec2 =
-  ## Find terrain using spiral search pattern
-  let cachedPos = state.cachedTerrainPos[terrain]
-  if cachedPos.x >= 0:
-    if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30 and
-        env.terrain[cachedPos.x][cachedPos.y] == terrain:
-      return cachedPos
-    state.cachedTerrainPos[terrain] = ivec2(-1, -1)
-
-  # First check from current spiral search position
-  result = findNearestTerrain(env, state.lastSearchPosition, terrain)
-  if result.x >= 0:
-    state.cachedTerrainPos[terrain] = result
-    return result
-
-  # Also check around agent's current position before advancing spiral
-  result = findNearestTerrain(env, state.basePosition, terrain)
-  if result.x >= 0:
-    state.cachedTerrainPos[terrain] = result
-    return result
-
-  # If not found, advance spiral search
-  let nextSearchPos = getNextSpiralPoint(state, rng)
-  state.lastSearchPosition = nextSearchPos
-
-  # Search from new spiral position
-  result = findNearestTerrain(env, nextSearchPos, terrain)
-  if result.x >= 0:
-    state.cachedTerrainPos[terrain] = result
-  return result
 
 proc getCardinalDirIndex(fromPos, toPos: IVec2): int =
   ## Convert direction to orientation (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
@@ -694,7 +666,7 @@ proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thi
 proc isLanternPlacementValid(env: Environment, pos: IVec2): bool =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
     not isBlockedTerrain(env.terrain[pos.x][pos.y]) and not isTileFrozen(pos, env) and
-    env.terrain[pos.x][pos.y] notin {Water, Wheat}
+    env.terrain[pos.x][pos.y] != Water
 
 proc findLanternSpotNearBuilding(env: Environment, teamId: int, agent: Thing, building: Thing): IVec2 =
   var bestPos = ivec2(-1, -1)
@@ -803,35 +775,6 @@ proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: 
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
 
-proc useOrMoveToTerrain(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                        state: var AgentState, terrainPos: IVec2): uint8 =
-  let dx = abs(terrainPos.x - agent.pos.x)
-  let dy = abs(terrainPos.y - agent.pos.y)
-  if max(dx, dy) == 1'i32:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(3'u8, neighborDirIndex(agent.pos, terrainPos).uint8))
-
-  var best = ivec2(-1, -1)
-  var bestDist = int.high
-  for oy in -1 .. 1:
-    for ox in -1 .. 1:
-      if ox == 0 and oy == 0:
-        continue
-      let candidate = terrainPos + ivec2(ox.int32, oy.int32)
-      if not isValidPos(candidate):
-        continue
-      if not isPassable(env, agent, candidate):
-        continue
-      let dist = abs(candidate.x - agent.pos.x) + abs(candidate.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        best = candidate
-  if best.x >= 0:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, best, controller.rng).uint8))
-
-  return controller.moveNextSearch(env, agent, agentId, state)
-
 proc attackOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                   state: var AgentState, targetPos: IVec2): uint8 =
   let dx = abs(targetPos.x - agent.pos.x)
@@ -841,42 +784,6 @@ proc attackOrMove(controller: Controller, env: Environment, agent: Thing, agentI
       encodeAction(2'u8, neighborDirIndex(agent.pos, targetPos).uint8))
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
-
-proc attackOrMoveToTerrain(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                           state: var AgentState, terrainPos: IVec2): uint8 =
-  let dx = abs(terrainPos.x - agent.pos.x)
-  let dy = abs(terrainPos.y - agent.pos.y)
-  if max(dx, dy) == 1'i32:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(2'u8, neighborDirIndex(agent.pos, terrainPos).uint8))
-
-  var best = ivec2(-1, -1)
-  var bestDist = int.high
-  for oy in -1 .. 1:
-    for ox in -1 .. 1:
-      if ox == 0 and oy == 0:
-        continue
-      let candidate = terrainPos + ivec2(ox.int32, oy.int32)
-      if not isValidPos(candidate):
-        continue
-      if not isPassable(env, agent, candidate):
-        continue
-      let dist = abs(candidate.x - agent.pos.x) + abs(candidate.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        best = candidate
-  if best.x >= 0:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, best, controller.rng).uint8))
-
-  return controller.moveNextSearch(env, agent, agentId, state)
-
-proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                    state: var AgentState, terrain: TerrainType): tuple[did: bool, action: uint8] =
-  let pos = env.findNearestTerrainSpiral(state, terrain, controller.rng)
-  if pos.x >= 0:
-    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, pos))
-  (false, 0'u8)
 
 proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, agentId: int,
                      state: var AgentState, allowWood, allowStone, allowGold: bool): tuple[did: bool, action: uint8] =
@@ -902,27 +809,29 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
   let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
   if stump != nil:
     return (true, controller.useOrMove(env, agent, agentId, state, stump.pos))
-  let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
-  if pinePos.x >= 0:
-    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos))
-  let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
-  if palmPos.x >= 0:
-    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos))
+  let pine = env.findNearestThingSpiral(state, Pine, controller.rng)
+  if pine != nil:
+    return (true, controller.attackOrMove(env, agent, agentId, state, pine.pos))
+  let palm = env.findNearestThingSpiral(state, Palm, controller.rng)
+  if palm != nil:
+    return (true, controller.attackOrMove(env, agent, agentId, state, palm.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didStone, actStone) = controller.findAndHarvest(env, agent, agentId, state, Stone)
-  if didStone: return (didStone, actStone)
-  let (didStalag, actStalag) = controller.findAndHarvest(env, agent, agentId, state, Stalagmite)
-  if didStalag: return (didStalag, actStalag)
+  let stone = env.findNearestThingSpiral(state, Stone, controller.rng)
+  if stone != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, stone.pos))
+  let stalag = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
+  if stalag != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, stalag.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
-  let goldPos = env.findNearestTerrainSpiral(state, Gold, controller.rng)
-  if goldPos.x >= 0:
-    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos))
+  let gold = env.findNearestThingSpiral(state, Gold, controller.rng)
+  if gold != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, gold.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -933,7 +842,7 @@ proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agen
   let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
   if cow != nil:
     return (true, controller.attackOrMove(env, agent, agentId, state, cow.pos))
-  let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
-  if bushPos.x >= 0:
-    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, bushPos))
+  let bush = env.findNearestThingSpiral(state, Bush, controller.rng)
+  if bush != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, bush.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))

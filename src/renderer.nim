@@ -219,8 +219,6 @@ proc drawTerrain*() =
       let spriteKey = terrainSpriteKey(terrain)
       if spriteKey.len > 0:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-      if infected and terrain in {Wheat, Pine, Palm}:
-        drawOverlayIf(true, "frozen", pos.vec2)
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -514,7 +512,7 @@ proc drawObjects*() =
         let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
         if spriteKey.len > 0:
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-        if infected and (thing.kind in {Magma, Stump}):
+        if infected and (thing.kind in {Magma, Stump, Wheat}):
           drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =

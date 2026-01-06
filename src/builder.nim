@@ -185,7 +185,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
 
   # Remote dropoff buildings near resources.
   let dropoffDistanceThreshold = 5
-  let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
+  let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
   let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
   if agent.homeAltar.x < 0 or
      max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
@@ -204,7 +204,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   )
   if didLumber: return actLumber
 
-  let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
+  let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
   let (didMining, actMining) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, MiningCamp,
     nearbyGold, 6,
@@ -212,7 +212,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   )
   if didMining: return actMining
 
-  let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
+  let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
   let (didQuarry, actQuarry) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, Quarry,
     nearbyStone, 6,
@@ -255,8 +255,9 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                 encodeAction(7'u8, plantArg.uint8))
             return saveStateAndReturn(controller, agentId, state,
               encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
-          let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
-          if didWheat: return actWheat
+          let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
+          if wheat != nil:
+            return controller.useOrMove(env, agent, agentId, state, wheat.pos)
           let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
           if didWood: return actWood
 

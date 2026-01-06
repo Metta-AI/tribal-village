@@ -22,20 +22,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   let thing = env.getThing(targetPos)
-  proc tryHarvestTerrainResource(key: ItemKey, reward: float32, clearOnDeplete: bool): bool =
-    let remaining = env.terrainResources[targetPos.x][targetPos.y]
-    if remaining <= 0:
-      return false
-    if not env.giveItem(agent, key):
-      return false
-    env.terrainResources[targetPos.x][targetPos.y] = remaining - 1
-    if reward != 0:
-      agent.reward += reward
-    if env.terrainResources[targetPos.x][targetPos.y] <= 0 and clearOnDeplete:
-      env.terrain[targetPos.x][targetPos.y] = Empty
-      env.terrainResources[targetPos.x][targetPos.y] = 0
-      env.resetTileColor(targetPos)
-    true
   if isNil(thing):
     # Terrain use only when no Thing occupies the tile.
     var used = false
@@ -44,32 +30,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.giveItem(agent, ItemWater):
         agent.reward += env.config.waterReward
         used = true
-    of Wheat:
-      used = tryHarvestTerrainResource(ItemWheat, env.config.wheatReward, true)
-    of Pine, Palm:
-      let remaining = env.terrainResources[targetPos.x][targetPos.y]
-      if remaining > 0 and env.giveItem(agent, ItemWood):
-        let newRemaining = remaining - 1
-        agent.reward += env.config.woodReward
-        if newRemaining <= 0:
-          env.terrain[targetPos.x][targetPos.y] = Empty
-          env.terrainResources[targetPos.x][targetPos.y] = 0
-          env.resetTileColor(targetPos)
-        else:
-          # Convert immediately to a stump after the first harvest.
-          env.terrain[targetPos.x][targetPos.y] = Empty
-          env.terrainResources[targetPos.x][targetPos.y] = 0
-          env.resetTileColor(targetPos)
-          env.dropStump(targetPos, newRemaining)
-        used = true
-    of Stone:
-      used = tryHarvestTerrainResource(ItemStone, 0.0, true)
-    of Stalagmite:
-      used = tryHarvestTerrainResource(ItemStone, 0.0, true)
-    of Gold:
-      used = tryHarvestTerrainResource(ItemGold, 0.0, true)
-    of Bush, Cactus:
-      used = tryHarvestTerrainResource(ItemPlant, 0.0, true)
     of Empty, Grass, Dune, Sand, Snow, Road:
       if env.hasDoor(targetPos):
         used = false
@@ -86,7 +46,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           env.resetTileColor(targetPos)
           env.updateObservations(TintLayer, targetPos, 0)
           used = true
-    of Bridge, Fertile:
+    else:
       used = false
 
     if used:
@@ -102,6 +62,52 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   var used = false
   case thing.kind:
+  of Wheat:
+    let stored = getInv(thing, ItemWheat)
+    if stored > 0 and env.giveItem(agent, ItemWheat):
+      let remaining = stored - 1
+      agent.reward += env.config.wheatReward
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemWheat, remaining)
+      used = true
+  of Stone:
+    let stored = getInv(thing, ItemStone)
+    if stored > 0 and env.giveItem(agent, ItemStone):
+      let remaining = stored - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemStone, remaining)
+      used = true
+  of Gold:
+    let stored = getInv(thing, ItemGold)
+    if stored > 0 and env.giveItem(agent, ItemGold):
+      let remaining = stored - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemGold, remaining)
+      used = true
+  of Bush, Cactus:
+    let stored = getInv(thing, ItemPlant)
+    if stored > 0 and env.giveItem(agent, ItemPlant):
+      let remaining = stored - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemPlant, remaining)
+      used = true
+  of Stalagmite:
+    let stored = getInv(thing, ItemStone)
+    if stored > 0 and env.giveItem(agent, ItemStone):
+      let remaining = stored - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemStone, remaining)
+      used = true
   of Stump:
     let stored = getInv(thing, ItemWood)
     if stored > 0 and env.giveItem(agent, ItemWood):
