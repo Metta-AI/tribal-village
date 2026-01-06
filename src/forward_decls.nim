@@ -105,11 +105,14 @@ template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight
 
+const
+  MaxTintAccum* = 50_000_000'i32
+
 template safeTintAdd*(tintMod: var int32, delta: int): void =
   ## Safe tint accumulation with overflow protection
-  let clampedDelta = max(-1_000_000'i32, min(1_000_000'i32, delta.int32))
+  let clampedDelta = max(-MaxTintAccum, min(MaxTintAccum, delta.int32))
   let summed = tintMod + clampedDelta
-  tintMod = max(-1_000_000'i32, min(1_000_000'i32, summed))
+  tintMod = max(-MaxTintAccum, min(MaxTintAccum, summed))
 {.pop.}
 
 type
