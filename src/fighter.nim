@@ -14,6 +14,42 @@ proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing
       bestDist = dist
       result = other
 
+proc preferLanternWood(env: Environment, teamId: int): bool =
+  let food = env.stockpileCount(teamId, ResourceFood)
+  let wood = env.stockpileCount(teamId, ResourceWood)
+  if wood != food:
+    return wood < food
+  true
+
+proc chooseLanternTarget(controller: Controller, env: Environment, agent: Thing,
+                         teamId: int, state: var AgentState, basePos: IVec2): IVec2 =
+  let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
+  if not isNil(unlit):
+    return findLanternSpotNearBuilding(env, teamId, agent, unlit)
+
+  var lanternCount = 0
+  var farthest = 0
+  for thing in env.thingsByKind[Lantern]:
+    if not thing.lanternHealthy or thing.teamId != teamId:
+      continue
+    inc lanternCount
+    let dist = int(chebyshevDist(basePos, thing.pos))
+    if dist > farthest:
+      farthest = dist
+
+  let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
+  for _ in 0 ..< 18:
+    let candidate = getNextSpiralPoint(state, controller.rng)
+    if chebyshevDist(candidate, basePos) < desiredRadius:
+      continue
+    if not isLanternPlacementValid(env, candidate):
+      continue
+    if hasTeamLanternNear(env, teamId, candidate):
+      continue
+    return candidate
+
+  ivec2(-1, -1)
+
 proc decideFighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -73,37 +109,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))
 
-  # Drop off any carried food (meat counts as food) when not in immediate combat.
-  let (didFoodDrop, foodDropAct) =
-    controller.dropoffCarrying(env, agent, agentId, state, allowFood = true)
-  if didFoodDrop: return foodDropAct
-
   # Keep buildings lit, then push lanterns farther out from the base.
-  let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
-  var target = ivec2(-1, -1)
-  if not isNil(unlit):
-    target = findLanternSpotNearBuilding(env, teamId, agent, unlit)
-  else:
-    var lanternCount = 0
-    var farthest = 0
-    for thing in env.thingsByKind[Lantern]:
-      if not thing.lanternHealthy or thing.teamId != teamId:
-        continue
-      inc lanternCount
-      let dist = int(chebyshevDist(basePos, thing.pos))
-      if dist > farthest:
-        farthest = dist
-    let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
-    for _ in 0 ..< 18:
-      let candidate = getNextSpiralPoint(state, controller.rng)
-      if chebyshevDist(candidate, basePos) < desiredRadius:
-        continue
-      if not isLanternPlacementValid(env, candidate):
-        continue
-      if hasTeamLanternNear(env, teamId, candidate):
-        continue
-      target = candidate
-      break
+  let target = chooseLanternTarget(controller, env, agent, teamId, state, basePos)
 
   if target.x >= 0:
     if agent.inventoryLantern > 0:
@@ -121,9 +128,17 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       let (didBuild, buildAct) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, WeavingLoom)
       if didBuild: return buildAct
 
+    let hasLanternInput = agent.inventoryWheat > 0 or agent.inventoryWood > 0
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
-    if not isNil(loom) and (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
-      return controller.useOrMove(env, agent, agentId, state, loom.pos)
+    if hasLanternInput:
+      if not isNil(loom):
+        return controller.useOrMove(env, agent, agentId, state, loom.pos)
+      return controller.moveNextSearch(env, agent, agentId, state)
+
+    if preferLanternWood(env, teamId):
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
+      return controller.moveNextSearch(env, agent, agentId, state)
 
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
     if not isNil(wheat):
@@ -131,6 +146,11 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
+
+  # Drop off any carried food (meat counts as food) when not in immediate combat.
+  let (didFoodDrop, foodDropAct) =
+    controller.dropoffCarrying(env, agent, agentId, state, allowFood = true)
+  if didFoodDrop: return foodDropAct
 
   # Train into a combat unit when possible.
   if agent.unitClass == UnitVillager:
