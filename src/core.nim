@@ -849,10 +849,6 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
       return bestDir
     return randIntInclusive(rng, 0, 3)
 
-  let pathDir = nextStepToward(env, agent, fromPos, clampedTarget)
-  if pathDir >= 0:
-    return pathDir
-
   let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
 
   # Try primary direction first
@@ -883,6 +879,11 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
     let altMove = fromPos + directions[altDir]
     if isPassable(env, agent, altMove):
       return altDir
+
+  # Fall back to A* only if local greedy moves fail.
+  let pathDir = nextStepToward(env, agent, fromPos, clampedTarget)
+  if pathDir >= 0:
+    return pathDir
 
   # All blocked, try random movement
   return randIntInclusive(rng, 0, 3)
