@@ -33,8 +33,8 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
     template spacingOk(nextPos: IVec2): bool =
       var ok = true
-      for t in env.things:
-        if t.kind == Lantern and t != blocker:
+      for t in env.thingsByKind[Lantern]:
+        if t != blocker:
           let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
           if dist < 3'i32:
             ok = false
