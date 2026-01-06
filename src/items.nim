@@ -26,6 +26,7 @@ const
   ItemFish* = "fish"
   ItemMeat* = "meat"
   ItemHearts* = "hearts"
+  ItemDoor* = "door"
   ItemThingPrefix* = "thing:"
 
   ObservedItemKeys* = [

@@ -196,6 +196,7 @@ proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
   result[ItemFish] = CatalogEntry(displayName: "Fish", spriteKey: "fish", ascii: 'f')
   result[ItemMeat] = CatalogEntry(displayName: "Meat", spriteKey: "meat", ascii: 'm')
   result[ItemHearts] = CatalogEntry(displayName: "Hearts", spriteKey: "heart", ascii: 'h')
+  result[ItemDoor] = CatalogEntry(displayName: "Door", spriteKey: "door", ascii: 'D')
 
 let TerrainCatalog* = initTerrainCatalog()
 let ThingCatalog* = initThingCatalog()
