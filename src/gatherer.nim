@@ -179,7 +179,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         if idx >= 0:
           let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
           if didBuild: return buildAct
-      if nearbyFertile >= 6 and not hasFriendlyBuildingNearby(env, teamId, Mill, agent.pos, 6):
+      if not hasFriendlyBuildingNearby(env, teamId, Mill, agent.pos, 6):
         let idx = buildIndexFor(Mill)
         if idx >= 0:
           let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
