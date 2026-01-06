@@ -28,6 +28,13 @@ when defined(stepTiming):
   proc msBetween(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
+let spawnerScanOffsets = block:
+  var offsets: seq[IVec2] = @[]
+  for dx in -5 .. 5:
+    for dy in -5 .. 5:
+      offsets.add(ivec2(dx, dy))
+  offsets
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -139,6 +146,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Combined single-pass object updates and tumor collection
+  const adjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
 
@@ -200,13 +208,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Spawner is ready to spawn a Tumor
         # Fast grid-based nearby Tumor count (5-tile radius)
         var nearbyTumorCount = 0
-        for dx in -5..5:
-          for dy in -5..5:
-            let checkPos = thing.pos + ivec2(dx, dy)
-            if isValidPos(checkPos):
-              let other = env.getThing(checkPos)
-              if not isNil(other) and other.kind == Tumor and not other.hasClaimedTerritory:
-                inc nearbyTumorCount
+        for offset in spawnerScanOffsets:
+          let checkPos = thing.pos + offset
+          if isValidPos(checkPos):
+            let other = env.getThing(checkPos)
+            if not isNil(other) and other.kind == Tumor and not other.hasClaimedTerritory:
+              inc nearbyTumorCount
 
         # Spawn a new Tumor with reasonable limits to prevent unbounded growth
         let maxTumorsPerSpawner = 3  # Keep only a few active tumors near the spawner
@@ -369,14 +376,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let tumor = env.things[i]
     if tumor.kind != Tumor:
       continue
-    let adjacentPositions = [
-      tumor.pos + ivec2(0, -1),
-      tumor.pos + ivec2(1, 0),
-      tumor.pos + ivec2(0, 1),
-      tumor.pos + ivec2(-1, 0)
-    ]
-
-    for adjPos in adjacentPositions:
+    for offset in adjacentOffsets:
+      let adjPos = tumor.pos + offset
       if not isValidPos(adjPos):
         continue
 
