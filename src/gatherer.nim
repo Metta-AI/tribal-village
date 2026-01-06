@@ -101,7 +101,14 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
     if dropoff != nil:
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
 
-  if agent.inventoryStone > 0 or (allowGoldDropoff and agent.inventoryGold > 0):
+  if allowGoldDropoff and agent.inventoryGold > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+
+  if agent.inventoryStone > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)

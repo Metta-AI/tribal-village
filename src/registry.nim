@@ -138,6 +138,7 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of WeavingLoom: UseWeavingLoom
   of Blacksmith: UseBlacksmith
   of Market: UseMarket
+  of Bank: UseDropoff
   of TownCenter, LumberCamp, Dock: UseDropoff
   of Granary, MiningCamp: UseDropoffAndStorage
   of Barrel: UseStorage
@@ -201,14 +202,15 @@ proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] =
   of TownCenter: {ResourceFood, ResourceWood, ResourceGold, ResourceStone}
   of Granary: {ResourceFood}
   of LumberCamp: {ResourceWood}
-  of MiningCamp: {ResourceGold, ResourceStone}
+  of MiningCamp: {ResourceStone}
+  of Bank: {ResourceGold}
   of Dock: {ResourceFood}
   else: {}
 
 proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   case kind
   of Granary: @[ItemWheat]
-  of MiningCamp: @[ItemStone, ItemGold]
+  of MiningCamp: @[ItemStone]
   of Blacksmith: @[ItemArmor, ItemSpear]
   else: @[]
 
