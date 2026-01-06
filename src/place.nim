@@ -74,9 +74,23 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
     env.grid[thing.pos.x][thing.pos.y] = nil
-  let idx = env.things.find(thing)
-  if idx >= 0:
-    env.things.del(idx)
+  let idx = thing.thingsIndex
+  if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
+    let lastIdx = env.things.len - 1
+    if idx != lastIdx:
+      let last = env.things[lastIdx]
+      env.things[idx] = last
+      last.thingsIndex = idx
+    env.things.setLen(lastIdx)
+  let kindIdx = thing.kindListIndex
+  if kindIdx >= 0 and kindIdx < env.thingsByKind[thing.kind].len and
+      env.thingsByKind[thing.kind][kindIdx] == thing:
+    let lastKindIdx = env.thingsByKind[thing.kind].len - 1
+    if kindIdx != lastKindIdx:
+      let lastKindThing = env.thingsByKind[thing.kind][lastKindIdx]
+      env.thingsByKind[thing.kind][kindIdx] = lastKindThing
+      lastKindThing.kindListIndex = kindIdx
+    env.thingsByKind[thing.kind].setLen(lastKindIdx)
   if thing.kind == Altar and altarColors.hasKey(thing.pos):
     altarColors.del(thing.pos)
 
@@ -145,6 +159,9 @@ proc add(env: Environment, thing: Thing) =
   if thing.inventory.len == 0:
     thing.inventory = emptyInventory()
   env.things.add(thing)
+  thing.thingsIndex = env.things.len - 1
+  env.thingsByKind[thing.kind].add(thing)
+  thing.kindListIndex = env.thingsByKind[thing.kind].len - 1
   if thing.kind == Agent:
     env.agents.add(thing)
     env.stats.add(Stats())

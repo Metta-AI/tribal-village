@@ -53,8 +53,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Decay short-lived action tints
   if env.actionTintPositions.len > 0:
-    var kept: seq[IVec2] = @[]
-    for pos in env.actionTintPositions:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.actionTintPositions.len:
+      let pos = env.actionTintPositions[readIdx]
       let x = pos.x
       let y = pos.y
       if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
@@ -66,11 +67,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if next == 0:
           env.actionTintFlags[x][y] = false
           env.updateObservations(TintLayer, pos, 0)
-        kept.add(pos)
+        env.actionTintPositions[writeIdx] = pos
+        inc writeIdx
       else:
         env.actionTintFlags[x][y] = false
         env.updateObservations(TintLayer, pos, 0)
-    env.actionTintPositions = kept
+    env.actionTintPositions.setLen(writeIdx)
 
   when defined(stepTiming):
     if timing:
@@ -140,28 +142,21 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
 
-  var cowHerds: Table[int, tuple[count: int, sumX: int, sumY: int]] = initTable[int, tuple[count: int, sumX: int, sumY: int]]()
-  var cowDrift: Table[int, IVec2] = initTable[int, IVec2]()
+  if env.cowHerdCounts.len > 0:
+    for i in 0 ..< env.cowHerdCounts.len:
+      env.cowHerdCounts[i] = 0
+      env.cowHerdSumX[i] = 0
+      env.cowHerdSumY[i] = 0
+
+  # Precompute team pop caps while scanning things
+  var teamPopCaps: array[MapRoomObjectsHouses, int]
 
   for thing in env.things:
-    if thing.kind == Cow:
-      let herd = thing.herdId
-      let acc = cowHerds.getOrDefault(herd, (count: 0, sumX: 0, sumY: 0))
-      cowHerds[herd] = (count: acc.count + 1, sumX: acc.sumX + thing.pos.x.int, sumY: acc.sumY + thing.pos.y.int)
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses and isBuildingKind(thing.kind):
+      let add = buildingPopCap(thing.kind)
+      if add > 0:
+        teamPopCaps[thing.teamId] += add
 
-  for herdId in cowHerds.keys:
-    if randFloat(stepRng) < 0.35:
-      let dirIdx = randIntInclusive(stepRng, 0, 3)
-      let drift = case dirIdx
-        of 0: ivec2(-1, 0)
-        of 1: ivec2(1, 0)
-        of 2: ivec2(0, -1)
-        else: ivec2(0, 1)
-      cowDrift[herdId] = drift
-    else:
-      cowDrift[herdId] = ivec2(0, 0)
-
-  for thing in env.things:
     if thing.kind == Altar:
       if thing.cooldown > 0:
         thing.cooldown -= 1
@@ -232,49 +227,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               1000  # Very long cooldown if spawn disabled
             thing.cooldown = cooldown
     elif thing.kind == Cow:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-      let herdAcc = cowHerds.getOrDefault(thing.herdId, (count: 1, sumX: thing.pos.x.int, sumY: thing.pos.y.int))
-      let center = ivec2((herdAcc.sumX div herdAcc.count).int32, (herdAcc.sumY div herdAcc.count).int32)
-      let drift = cowDrift.getOrDefault(thing.herdId, ivec2(0, 0))
-      let herdTarget = if drift.x != 0 or drift.y != 0:
-        center + drift * 2
-      else:
-        center
-      let dist = max(abs(herdTarget.x - thing.pos.x), abs(herdTarget.y - thing.pos.y))
-
-      proc stepToward(fromPos, toPos: IVec2): IVec2 =
-        let dx = toPos.x - fromPos.x
-        let dy = toPos.y - fromPos.y
-        if dx == 0 and dy == 0:
-          return ivec2(0, 0)
-        if abs(dx) >= abs(dy):
-          return ivec2((if dx > 0: 1 else: -1), 0)
-        return ivec2(0, (if dy > 0: 1 else: -1))
-
-      var desired = ivec2(0, 0)
-      if dist > 1:
-        desired = stepToward(thing.pos, herdTarget)
-      elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.6:
-        desired = stepToward(thing.pos, herdTarget)
-      elif randFloat(stepRng) < 0.08:
-        let dirIdx = randIntInclusive(stepRng, 0, 3)
-        desired = case dirIdx
-          of 0: ivec2(-1, 0)
-          of 1: ivec2(1, 0)
-          of 2: ivec2(0, -1)
-          else: ivec2(0, 1)
-
-      if desired != ivec2(0, 0):
-        let nextPos = thing.pos + desired
-        if isValidPos(nextPos) and not env.hasDoor(nextPos) and not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
-          env.grid[thing.pos.x][thing.pos.y] = nil
-          thing.pos = nextPos
-          env.grid[nextPos.x][nextPos.y] = thing
-          if desired.x < 0:
-            thing.orientation = Orientation.W
-          elif desired.x > 0:
-            thing.orientation = Orientation.E
+      let herd = thing.herdId
+      if herd >= env.cowHerdCounts.len:
+        let newLen = herd + 1
+        env.cowHerdCounts.setLen(newLen)
+        env.cowHerdSumX.setLen(newLen)
+        env.cowHerdSumY.setLen(newLen)
+        env.cowHerdDrift.setLen(newLen)
+      env.cowHerdCounts[herd] += 1
+      env.cowHerdSumX[herd] += thing.pos.x.int
+      env.cowHerdSumY[herd] += thing.pos.y.int
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
@@ -282,6 +244,68 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Only collect mobile clippies for processing (planted ones are static)
       if not thing.hasClaimedTerritory:
         tumorsToProcess.add(thing)
+
+  for herdId in 0 ..< env.cowHerdCounts.len:
+    if env.cowHerdCounts[herdId] <= 0:
+      env.cowHerdDrift[herdId] = ivec2(0, 0)
+    elif randFloat(stepRng) < 0.35:
+      let dirIdx = randIntInclusive(stepRng, 0, 3)
+      let drift = case dirIdx
+        of 0: ivec2(-1, 0)
+        of 1: ivec2(1, 0)
+        of 2: ivec2(0, -1)
+        else: ivec2(0, 1)
+      env.cowHerdDrift[herdId] = drift
+    else:
+      env.cowHerdDrift[herdId] = ivec2(0, 0)
+
+  for thing in env.thingsByKind[Cow]:
+    if thing.cooldown > 0:
+      thing.cooldown -= 1
+    let herd = thing.herdId
+    let herdAccCount = max(1, env.cowHerdCounts[herd])
+    let center = ivec2((env.cowHerdSumX[herd] div herdAccCount).int32,
+                       (env.cowHerdSumY[herd] div herdAccCount).int32)
+    let drift = env.cowHerdDrift[herd]
+    let herdTarget = if drift.x != 0 or drift.y != 0:
+      center + drift * 2
+    else:
+      center
+    let dist = max(abs(herdTarget.x - thing.pos.x), abs(herdTarget.y - thing.pos.y))
+
+    proc stepToward(fromPos, toPos: IVec2): IVec2 =
+      let dx = toPos.x - fromPos.x
+      let dy = toPos.y - fromPos.y
+      if dx == 0 and dy == 0:
+        return ivec2(0, 0)
+      if abs(dx) >= abs(dy):
+        return ivec2((if dx > 0: 1 else: -1), 0)
+      return ivec2(0, (if dy > 0: 1 else: -1))
+
+    var desired = ivec2(0, 0)
+    if dist > 1:
+      desired = stepToward(thing.pos, herdTarget)
+    elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.6:
+      desired = stepToward(thing.pos, herdTarget)
+    elif randFloat(stepRng) < 0.08:
+      let dirIdx = randIntInclusive(stepRng, 0, 3)
+      desired = case dirIdx
+        of 0: ivec2(-1, 0)
+        of 1: ivec2(1, 0)
+        of 2: ivec2(0, -1)
+        else: ivec2(0, 1)
+
+    if desired != ivec2(0, 0):
+      let nextPos = thing.pos + desired
+      if isValidPos(nextPos) and not env.hasDoor(nextPos) and
+         not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
+        env.grid[thing.pos.x][thing.pos.y] = nil
+        thing.pos = nextPos
+        env.grid[nextPos.x][nextPos.y] = thing
+        if desired.x < 0:
+          thing.orientation = Orientation.W
+        elif desired.x > 0:
+          thing.orientation = Orientation.E
 
   when defined(stepTiming):
     if timing:
@@ -336,7 +360,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     env.add(newTumor)
 
   # Resolve agent contact: agents adjacent to tumors risk lethal creep
-  var tumorsToRemove: seq[Thing] = @[]
+  var tumorsToRemove = initHashSet[Thing]()
 
   let thingCount = env.things.len
   for i in 0 ..< thingCount:
@@ -376,7 +400,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if randFloat(stepRng) < TumorAdjacencyDeathChance:
         let killed = env.applyAgentDamage(occupant, 1)
         if killed and tumor notin tumorsToRemove:
-          tumorsToRemove.add(tumor)
+          tumorsToRemove.incl(tumor)
           env.grid[tumor.pos.x][tumor.pos.y] = nil
           env.updateObservations(AgentLayer, tumor.pos, 0)
           env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
@@ -385,9 +409,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Remove tumors cleared by lethal contact this step
   if tumorsToRemove.len > 0:
-    for i in countdown(env.things.len - 1, 0):
-      if env.things[i] in tumorsToRemove:
-        env.things.del(i)
+    for tumor in tumorsToRemove.items:
+      removeThing(env, tumor)
 
   when defined(stepTiming):
     if timing:
@@ -398,24 +421,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
 
-  # Precompute team population and pop caps (Town Centers + Houses)
+  # Precompute team population counts (Town Centers + Houses already counted above)
   var teamPopCounts: array[MapRoomObjectsHouses, int]
-  var teamPopCaps: array[MapRoomObjectsHouses, int]
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
     let teamId = getTeamId(agent.agentId)
     if teamId >= 0 and teamId < MapRoomObjectsHouses:
       inc teamPopCounts[teamId]
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.teamId < 0 or thing.teamId >= MapRoomObjectsHouses:
-      continue
-    if isBuildingKind(thing.kind):
-      let add = buildingPopCap(thing.kind)
-      if add > 0:
-        teamPopCaps[thing.teamId] += add
 
   # Respawn dead agents at their altars
   for agentId in 0 ..< MapAgents:
@@ -555,6 +568,7 @@ proc reset*(env: Environment) =
   env.terminated.clear()
   env.truncated.clear()
   env.things.setLen(0)
+  env.thingsByKind = default(array[ThingKind, seq[Thing]])
   env.agents.setLen(0)
   env.stats.setLen(0)
   env.grid.clear()
@@ -564,6 +578,10 @@ proc reset*(env: Environment) =
   env.tintMods.clear()
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  env.cowHerdCounts.setLen(0)
+  env.cowHerdSumX.setLen(0)
+  env.cowHerdSumY.setLen(0)
+  env.cowHerdDrift.setLen(0)
   # Clear global colors that could accumulate
   agentVillageColors.setLen(0)
   teamColors.setLen(0)
