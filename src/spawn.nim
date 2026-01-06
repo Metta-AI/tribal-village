@@ -535,12 +535,12 @@ proc init(env: Environment) =
               ))
             else:
               discard
-      if agentsForThisHouse > 0:
+      if agentsForThisVillage > 0:
         # Get nearby positions around the altar
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
-        let initialActive = min(6, agentsForThisHouse)
+        let initialActive = min(6, agentsForThisVillage)
 
-      for j in 0 ..< agentsForThisVillage:
+        for j in 0 ..< agentsForThisVillage:
           let agentId = baseAgentId + j
 
           # Store the village color for this agent (shared by all agents of the village)

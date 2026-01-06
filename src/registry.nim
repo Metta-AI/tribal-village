@@ -106,6 +106,8 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
 
 let BuildingRegistry* = initBuildingRegistry()
 
+proc toSnakeCase(name: string): string
+
 proc buildingInfo*(kind: ThingKind): BuildingInfo =
   BuildingRegistry[kind]
 
@@ -181,23 +183,20 @@ proc initThingCatalog(): array[ThingKind, CatalogEntry] =
 
 proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
   result = initTable[ItemKey, CatalogEntry]()
-  proc add(key, displayName, spriteKey: string, ascii: char) =
-    result[key] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
-
-  add(ItemGold, "Gold", "gold", '$')
-  add(ItemStone, "Stone", "stone", 'S')
-  add(ItemBar, "Bar", "bar", 'B')
-  add(ItemWater, "Water", "droplet", '~')
-  add(ItemWheat, "Wheat", "bushel", 'w')
-  add(ItemWood, "Wood", "wood", 't')
-  add(ItemSpear, "Spear", "spear", 's')
-  add(ItemLantern, "Lantern", "lantern", 'l')
-  add(ItemArmor, "Armor", "armor", 'a')
-  add(ItemBread, "Bread", "bread", 'b')
-  add(ItemPlant, "Plant", "plant", 'p')
-  add(ItemFish, "Fish", "fish", 'f')
-  add(ItemMeat, "Meat", "meat", 'm')
-  add(ItemHearts, "Hearts", "heart", 'h')
+  result[ItemGold] = CatalogEntry(displayName: "Gold", spriteKey: "gold", ascii: '$')
+  result[ItemStone] = CatalogEntry(displayName: "Stone", spriteKey: "stone", ascii: 'S')
+  result[ItemBar] = CatalogEntry(displayName: "Bar", spriteKey: "bar", ascii: 'B')
+  result[ItemWater] = CatalogEntry(displayName: "Water", spriteKey: "droplet", ascii: '~')
+  result[ItemWheat] = CatalogEntry(displayName: "Wheat", spriteKey: "bushel", ascii: 'w')
+  result[ItemWood] = CatalogEntry(displayName: "Wood", spriteKey: "wood", ascii: 't')
+  result[ItemSpear] = CatalogEntry(displayName: "Spear", spriteKey: "spear", ascii: 's')
+  result[ItemLantern] = CatalogEntry(displayName: "Lantern", spriteKey: "lantern", ascii: 'l')
+  result[ItemArmor] = CatalogEntry(displayName: "Armor", spriteKey: "armor", ascii: 'a')
+  result[ItemBread] = CatalogEntry(displayName: "Bread", spriteKey: "bread", ascii: 'b')
+  result[ItemPlant] = CatalogEntry(displayName: "Plant", spriteKey: "plant", ascii: 'p')
+  result[ItemFish] = CatalogEntry(displayName: "Fish", spriteKey: "fish", ascii: 'f')
+  result[ItemMeat] = CatalogEntry(displayName: "Meat", spriteKey: "meat", ascii: 'm')
+  result[ItemHearts] = CatalogEntry(displayName: "Hearts", spriteKey: "heart", ascii: 'h')
 
 let TerrainCatalog* = initTerrainCatalog()
 let ThingCatalog* = initThingCatalog()
