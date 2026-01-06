@@ -138,8 +138,10 @@ proc thingSpriteKey(kind: ThingKind): string =
   if isBuildingKind(kind):
     return buildingSpriteKey(kind)
   case kind
-  of Skeleton:
+  of Corpse:
     "corpse"
+  of Skeleton:
+    "skeleton"
   else:
     toSnakeCase($kind)
 
