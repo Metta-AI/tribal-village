@@ -336,15 +336,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         continue
       if teamPopCounts[teamId] >= teamPopCaps[teamId]:
         continue
-      # Find the altar
-      var altarThing: Thing = nil
-      for thing in env.things:
-        if thing.kind == ThingKind.Altar and thing.pos == agent.homeAltar:
-          altarThing = thing
-          break
+      # Find the altar via direct grid lookup (avoids O(things) scan)
+      let altarThing = env.getThing(agent.homeAltar)
 
       # Respawn if altar exists and has hearts above the auto-spawn threshold
-      if not isNil(altarThing) and altarThing.hearts > MapObjectAltarAutoSpawnThreshold:
+      if not isNil(altarThing) and altarThing.kind == ThingKind.Altar and
+          altarThing.hearts > MapObjectAltarAutoSpawnThreshold:
         # Deduct a heart from the altar
         altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
         env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
