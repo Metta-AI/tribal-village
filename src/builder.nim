@@ -170,8 +170,8 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if env.teamStockpiles[teamId].counts[ResourceWood] > 0:
       let doorTarget = findDoorRingTarget(env, agent.homeAltar, 5)
       if doorTarget.x >= 0:
-        let (didDoor, actDoor) = goToAdjacentAndBuildDoor(
-          controller, env, agent, agentId, state, doorTarget
+        let (didDoor, actDoor) = goToAdjacentAndBuild(
+          controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
         )
         if didDoor: return actDoor
     let target = findWallRingTarget(env, agent.homeAltar, 5)
