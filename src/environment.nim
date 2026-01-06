@@ -1,7 +1,7 @@
 import std/[algorithm, strutils, tables], vmath, chroma
 import entropy
-import terrain, objects, workshop, items, common, biome
-export terrain, objects, workshop, items, common
+import terrain, objects, village, items, common, biome
+export terrain, objects, village, items, common
 
 include "types"
 include "registry"

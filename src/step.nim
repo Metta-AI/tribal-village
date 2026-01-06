@@ -96,7 +96,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let altarHearts = thing.hearts.float32
         for agent in env.agents:
           if agent.homeAltar == thing.pos:
-            agent.reward += altarHearts / MapAgentsPerHouseFloat
+            agent.reward += altarHearts / MapAgentsPerVillageFloat
     elif thing.kind == Magma:
       env.tickCooldown(thing)
     elif buildingTickKind(thing.kind) == TickMillFertile:
