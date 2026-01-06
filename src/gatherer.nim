@@ -11,43 +11,13 @@ proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): 
   let stone = env.stockpileCount(teamId, ResourceStone)
   let gold = env.stockpileCount(teamId, ResourceGold)
 
-  var urgent: seq[GathererTask] = @[]
-  if food < 10: urgent.add(TaskFood)
-  if wood < 10: urgent.add(TaskWood)
-  if stone < 10: urgent.add(TaskStone)
-  if gold < 10: urgent.add(TaskGold)
-  if urgent.len > 0:
-    return urgent[randIntExclusive(controller.rng, 0, urgent.len)]
-
-  let townCenters = controller.getBuildingCount(env, teamId, TownCenter)
-  let houses = controller.getBuildingCount(env, teamId, House)
-  let baseScale = max(1, townCenters + houses)
-  let targets = (
-    food: 8 + baseScale * 2,
-    wood: 6 + baseScale,
-    stone: 6 + baseScale,
-    gold: 4 + baseScale div 2
-  )
-  let foodDef = targets.food - food
-  let woodDef = targets.wood - wood
-  let stoneDef = targets.stone - stone
-  let goldDef = targets.gold - gold
-
-  if foodDef <= 0 and woodDef <= 0 and stoneDef <= 0 and goldDef <= 0:
-    return TaskHearts
-
-  var bestTask = TaskFood
-  var bestDef = foodDef
-  if woodDef > bestDef:
-    bestDef = woodDef
-    bestTask = TaskWood
-  if stoneDef > bestDef:
-    bestDef = stoneDef
-    bestTask = TaskStone
-  if goldDef > bestDef:
-    bestDef = goldDef
-    bestTask = TaskGold
-  bestTask
+  var lowest = min(food, min(wood, min(stone, gold)))
+  var choices: seq[GathererTask] = @[]
+  if food == lowest: choices.add(TaskFood)
+  if wood == lowest: choices.add(TaskWood)
+  if stone == lowest: choices.add(TaskStone)
+  if gold == lowest: choices.add(TaskGold)
+  choices[randIntExclusive(controller.rng, 0, choices.len)]
 
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
