@@ -200,10 +200,6 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if cow != nil:
       return controller.attackOrMove(env, agent, agentId, state, cow.pos)
 
-    let animalPos = env.findNearestTerrainSpiral(state, Animal, controller.rng)
-    if animalPos.x >= 0:
-      return controller.attackOrMoveToTerrain(env, agent, agentId, state, animalPos)
-
     let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
     if bushPos.x >= 0:
       return controller.useOrMoveToTerrain(env, agent, agentId, state, bushPos)
