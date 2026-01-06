@@ -48,35 +48,41 @@ const
   TumorBranchChance = 0.1
   TumorAdjacencyDeathChance = 1.0 / 3.0
 
-proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
-  ## Pick a random empty tile within the tumor's branching range
-  var chosen = ivec2(-1, -1)
-  var count = 0
-  const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
-
+let TumorBranchOffsets = block:
+  var offsets: seq[IVec2] = @[]
   for dx in -TumorBranchRange .. TumorBranchRange:
     for dy in -TumorBranchRange .. TumorBranchRange:
       if dx == 0 and dy == 0:
         continue
       if max(abs(dx), abs(dy)) > TumorBranchRange:
         continue
-      let candidate = ivec2(tumor.pos.x + dx, tumor.pos.y + dy)
-      if not env.isValidEmptyPosition(candidate):
-        continue
+      offsets.add(ivec2(dx, dy))
+  offsets
 
-      var adjacentTumor = false
-      for adj in AdjacentOffsets:
-        let checkPos = candidate + adj
-        if not isValidPos(checkPos):
-          continue
-        let occupant = env.getThing(checkPos)
-        if not isNil(occupant) and occupant.kind == Tumor:
-          adjacentTumor = true
-          break
-      if not adjacentTumor:
-        inc count
-        if randIntExclusive(r, 0, count) == 0:
-          chosen = candidate
+proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
+  ## Pick a random empty tile within the tumor's branching range
+  var chosen = ivec2(-1, -1)
+  var count = 0
+  const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+
+  for offset in TumorBranchOffsets:
+    let candidate = tumor.pos + offset
+    if not env.isValidEmptyPosition(candidate):
+      continue
+
+    var adjacentTumor = false
+    for adj in AdjacentOffsets:
+      let checkPos = candidate + adj
+      if not isValidPos(checkPos):
+        continue
+      let occupant = env.getThing(checkPos)
+      if not isNil(occupant) and occupant.kind == Tumor:
+        adjacentTumor = true
+        break
+    if not adjacentTumor:
+      inc count
+      if randIntExclusive(r, 0, count) == 0:
+        chosen = candidate
 
   if count == 0:
     return ivec2(-1, -1)
