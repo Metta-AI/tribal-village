@@ -225,6 +225,46 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   )
   if didQuarry: return actQuarry
 
+  # Plant wheat/trees around existing mills when possible.
+  if agent.unitClass == UnitVillager:
+    let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
+    if mill != nil:
+      let millDist = chebyshevDist(agent.pos, mill.pos).int
+      if millDist <= 12:
+        let radius = max(1, buildingFertileRadius(Mill))
+        var target = ivec2(-1, -1)
+        var bestDist = int.high
+        for dx in -radius .. radius:
+          for dy in -radius .. radius:
+            if max(abs(dx), abs(dy)) > radius:
+              continue
+            let pos = mill.pos + ivec2(dx.int32, dy.int32)
+            if not isValidPos(pos):
+              continue
+            if env.terrain[pos.x][pos.y] != Fertile:
+              continue
+            if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
+              continue
+            let dist = abs(pos.x - agent.pos.x) + abs(pos.y - agent.pos.y)
+            if dist < bestDist:
+              bestDist = dist
+              target = pos
+        if target.x >= 0:
+          if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
+            let dx = abs(target.x - agent.pos.x)
+            let dy = abs(target.y - agent.pos.y)
+            if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
+              let dirIdx = getCardinalDirIndex(agent.pos, target)
+              let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
+              return saveStateAndReturn(controller, agentId, state,
+                encodeAction(7'u8, plantArg.uint8))
+            return saveStateAndReturn(controller, agentId, state,
+              encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
+          let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
+          if didWheat: return actWheat
+          let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+          if didWood: return actWood
+
   # Production buildings.
   for kind in ProductionBuildings:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
