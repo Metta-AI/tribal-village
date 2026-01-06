@@ -3,34 +3,6 @@ proc signi(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
-proc countNearbyTerrain(env: Environment, center: IVec2, radius: int, allowed: set[TerrainType]): int =
-  let cx = center.x.int
-  let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
-  for x in startX..endX:
-    for y in startY..endY:
-      if max(abs(x - cx), abs(y - cy)) > radius:
-        continue
-      if env.terrain[x][y] in allowed:
-        inc result
-
-proc countNearbyTrees(env: Environment, center: IVec2, radius: int): int =
-  countNearbyTerrain(env, center, radius, {TerrainType.Pine, TerrainType.Palm})
-
-proc hasFriendlyBuildingNearby(env: Environment, teamId: int, kind: ThingKind,
-                               center: IVec2, radius: int): bool =
-  for thing in env.things:
-    if thing.kind != kind:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y)) <= radius:
-      return true
-  false
-
 proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
   for dx in -radius .. radius:
     for dy in -radius .. radius:
