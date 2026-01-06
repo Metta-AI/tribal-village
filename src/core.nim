@@ -1,7 +1,7 @@
 # This file is included by src/ai.nim
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
-import std/[tables, sets, algorithm]
+import std/[tables]
 import entropy
 import vmath
 import ./environment, common, terrain
@@ -750,105 +750,6 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
     return true
   return occupant.kind == Lantern
 
-proc nextStepToward(env: Environment, agent: Thing, fromPos, targetPos: IVec2): int =
-  ## A* for the next step toward a target, falling back to -1 if no path found.
-  let directions = [
-    ivec2(0, -1),  # 0: North
-    ivec2(0, 1),   # 1: South
-    ivec2(-1, 0),  # 2: West
-    ivec2(1, 0),   # 3: East
-    ivec2(-1, -1), # 4: NW
-    ivec2(1, -1),  # 5: NE
-    ivec2(-1, 1),  # 6: SW
-    ivec2(1, 1)    # 7: SE
-  ]
-
-  # Determine goal tiles: target if passable, otherwise any passable neighbor.
-  var goals: seq[IVec2] = @[]
-  if isPassable(env, agent, targetPos):
-    goals.add(targetPos)
-  else:
-    for d in directions:
-      let candidate = targetPos + d
-      if isValidPos(candidate) and isPassable(env, agent, candidate):
-        goals.add(candidate)
-
-  if goals.len == 0:
-    return -1
-  for g in goals:
-    if g == fromPos:
-      return -1
-
-  proc heuristic(loc: IVec2): int =
-    var best = int.high
-    for g in goals:
-      let d = int(chebyshevDist(loc, g))
-      if d < best:
-        best = d
-    return best
-
-  proc reconstructPath(cameFrom: Table[IVec2, IVec2], current: IVec2): seq[IVec2] =
-    var cur = current
-    result = @[cur]
-    var cf = cameFrom
-    while cf.hasKey(cur):
-      cur = cf[cur]
-      result.add(cur)
-    result.reverse()
-
-  var openSet = initHashSet[IVec2]()
-  openSet.incl(fromPos)
-  var cameFrom = initTable[IVec2, IVec2]()
-  var gScore = initTable[IVec2, int]()
-  var fScore = initTable[IVec2, int]()
-  gScore[fromPos] = 0
-  fScore[fromPos] = heuristic(fromPos)
-
-  var explored = 0
-  while openSet.len > 0:
-    if explored > 250:
-      return -1
-
-    var currentIter = false
-    var current: IVec2
-    var bestF = int.high
-    for n in openSet:
-      let f = (if fScore.hasKey(n): fScore[n] else: int.high)
-      if not currentIter or f < bestF:
-        bestF = f
-        current = n
-        currentIter = true
-
-    if not currentIter:
-      return -1
-
-    for g in goals:
-      if current == g:
-        let path = reconstructPath(cameFrom, current)
-        if path.len >= 2:
-          return neighborDirIndex(path[0], path[1])
-        return -1
-
-    openSet.excl(current)
-    inc explored
-
-    for dirIdx in 0 .. 7:
-      let nextPos = current + directions[dirIdx]
-      if not isValidPos(nextPos):
-        continue
-      if not isPassable(env, agent, nextPos):
-        continue
-
-      let tentativeG = (if gScore.hasKey(current): gScore[current] else: int.high) + 1
-      let nextG = (if gScore.hasKey(nextPos): gScore[nextPos] else: int.high)
-      if tentativeG < nextG:
-        cameFrom[nextPos] = current
-        gScore[nextPos] = tentativeG
-        fScore[nextPos] = tentativeG + heuristic(nextPos)
-        openSet.incl(nextPos)
-
-  return -1
-
 proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
   ## Get a movement direction towards target, with obstacle avoidance
   let clampedTarget = clampToPlayable(toPos)
@@ -910,11 +811,6 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
     let altMove = fromPos + directions[altDir]
     if isPassable(env, agent, altMove):
       return altDir
-
-  # Fall back to A* only if local greedy moves fail.
-  let pathDir = nextStepToward(env, agent, fromPos, clampedTarget)
-  if pathDir >= 0:
-    return pathDir
 
   # All blocked, try random movement
   return randIntInclusive(rng, 0, 3)
