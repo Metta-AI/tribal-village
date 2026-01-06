@@ -45,9 +45,8 @@ proc init(env: Environment) =
   # Initialize tile colors to base terrain colors (neutral gray-brown)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      env.tileColors[x][y] = BaseTileColorDefault
       env.baseTintColors[x][y] = BaseTileColorDefault
-      env.baseTileColors[x][y] = BaseTileColorDefault
+      env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
   # Clear door grid
   for x in 0 ..< MapWidth:
@@ -130,8 +129,6 @@ proc init(env: Environment) =
           let base = env.baseTintColors[x][y]
           let blended = blendTileColor(base, dungeonColor, t)
           env.baseTintColors[x][y] = blended
-          env.baseTileColors[x][y] = blended
-          env.tileColors[x][y] = blended
       var mask: MaskGrid
       let dungeonKind = if UseSequentialDungeonZones:
         let selected = dungeonKinds[seqIdx mod dungeonKinds.len]
@@ -469,13 +466,12 @@ proc init(env: Environment) =
             if dy < villageStruct.layout.len and dx < villageStruct.layout[dy].len:
               if villageStruct.layout[dy][dx] == ' ':
                 continue
-            env.baseTileColors[tileX][tileY] = TileColor(
+            env.baseTintColors[tileX][tileY] = TileColor(
               r: villageColor.r,
               g: villageColor.g,
               b: villageColor.b,
               intensity: 1.0
             )
-            env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
 
       # Add nearby village resources first, then connect roads between them.
       placeStartingResourceBuildings(elements.center, teamId)

@@ -77,10 +77,27 @@ var
 proc isTileFrozen*(pos: IVec2, env: Environment): bool =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return false
-  let color = env.tileColors[pos.x][pos.y]
+  let base = env.baseTintColors[pos.x][pos.y]
+  let overlay = env.computedTintColors[pos.x][pos.y]
+  let color = TileColor(
+    r: min(max(base.r + overlay.r, 0.3), 1.2),
+    g: min(max(base.g + overlay.g, 0.3), 1.2),
+    b: min(max(base.b + overlay.b, 0.3), 1.2),
+    intensity: base.intensity + overlay.intensity
+  )
   return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
     abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
     abs(color.b - ClippyTint.b) <= ClippyTintTolerance
+
+proc combinedTileTint*(env: Environment, x, y: int): TileColor =
+  let base = env.baseTintColors[x][y]
+  let overlay = env.computedTintColors[x][y]
+  TileColor(
+    r: min(max(base.r + overlay.r, 0.3), 1.2),
+    g: min(max(base.g + overlay.g, 0.3), 1.2),
+    b: min(max(base.b + overlay.b, 0.3), 1.2),
+    intensity: base.intensity + overlay.intensity
+  )
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
@@ -221,8 +238,6 @@ proc applyBiomeBaseColors*(env: Environment) =
       colors[x][y] = color
   smoothBaseColors(colors, BiomeBlendPasses)
   env.baseTintColors = colors
-  env.baseTileColors = colors
-  env.tileColors = colors
 
 
 # ============== COLOR MANAGEMENT ==============
@@ -253,7 +268,7 @@ proc getAltarColor*(pos: IVec2): Color =
     return altarColors[pos]
 
   if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
-    let base = env.baseTileColors[pos.x][pos.y]
+    let base = env.baseTintColors[pos.x][pos.y]
     return color(base.r, base.g, base.b, 1.0)
 
   color(1.0, 1.0, 1.0, 1.0)

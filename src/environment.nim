@@ -128,10 +128,8 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
 {.pop.}
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
-  ## Restore a tile to the biome base color
-  let color = env.baseTileColors[pos.x][pos.y]
-  env.tileColors[pos.x][pos.y] = color
-  env.baseTileColors[pos.x][pos.y] = color
+  ## Clear dynamic tint overlays for a tile
+  env.computedTintColors[pos.x][pos.y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
 include "inventory"
 
