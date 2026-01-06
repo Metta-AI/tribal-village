@@ -5,6 +5,7 @@ proc clearTintModifications(env: Environment) =
     let tileY = pos.y.int
     if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
       env.tintMods[tileX][tileY] = TintModification(r: 0, g: 0, b: 0)
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
       env.activeTiles.flags[tileX][tileY] = false
 
   # Clear the active list for next frame
@@ -102,22 +103,26 @@ proc applyTintModifications(env: Environment) =
     let bTint = int(dynTint.b) + int(tumorTint.b)
 
     if abs(rTint) < MinTintEpsilon and abs(gTint) < MinTintEpsilon and abs(bTint) < MinTintEpsilon:
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
       return
 
     if env.terrain[tileX][tileY] == Water:
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
       return
 
-    var r = int(env.tileColors[tileX][tileY].r * 1000)
-    var g = int(env.tileColors[tileX][tileY].g * 1000)
-    var b = int(env.tileColors[tileX][tileY].b * 1000)
-
-    r += rTint div 10
-    g += gTint div 10
-    b += bTint div 10
-
-    env.tileColors[tileX][tileY].r = min(max(r.float32 / 1000.0, 0.3), 1.2)
-    env.tileColors[tileX][tileY].g = min(max(g.float32 / 1000.0, 0.3), 1.2)
-    env.tileColors[tileX][tileY].b = min(max(b.float32 / 1000.0, 0.3), 1.2)
+    let base = env.baseTintColors[tileX][tileY]
+    let deltaR = rTint.float32 / 10000.0
+    let deltaG = gTint.float32 / 10000.0
+    let deltaB = bTint.float32 / 10000.0
+    let clampedR = min(max(base.r + deltaR, 0.3), 1.2)
+    let clampedG = min(max(base.g + deltaG, 0.3), 1.2)
+    let clampedB = min(max(base.b + deltaB, 0.3), 1.2)
+    env.computedTintColors[tileX][tileY] = TileColor(
+      r: clampedR - base.r,
+      g: clampedG - base.g,
+      b: clampedB - base.b,
+      intensity: 0
+    )
 
   for pos in env.activeTiles.positions:
     applyTintAt(pos.x.int, pos.y.int)
@@ -128,28 +133,3 @@ proc applyTintModifications(env: Environment) =
     if env.activeTiles.flags[tileX][tileY]:
       continue
     applyTintAt(tileX, tileY)
-
-  # Apply global decay to ALL tiles (but infrequently for performance)
-  if env.currentStep mod 30 == 0 and env.currentStep > 0:
-    let decay = 0.98'f32  # 2% decay every 30 steps
-
-    for x in 0 ..< MapWidth:
-      for y in 0 ..< MapHeight:
-        # Get the base color for this tile (could be team color for houses)
-        let baseR = env.baseTileColors[x][y].r
-        let baseG = env.baseTileColors[x][y].g
-        let baseB = env.baseTileColors[x][y].b
-
-        # Only decay if color differs from base (avoid floating point errors)
-        # Lowered threshold to allow subtle creep effects to be balanced by decay
-        if abs(env.tileColors[x][y].r - baseR) > 0.001 or
-           abs(env.tileColors[x][y].g - baseG) > 0.001 or
-           abs(env.tileColors[x][y].b - baseB) > 0.001:
-          env.tileColors[x][y].r = env.tileColors[x][y].r * decay + baseR * (1.0 - decay)
-          env.tileColors[x][y].g = env.tileColors[x][y].g * decay + baseG * (1.0 - decay)
-          env.tileColors[x][y].b = env.tileColors[x][y].b * decay + baseB * (1.0 - decay)
-
-        # Also decay intensity back to base intensity
-        let baseIntensity = env.baseTileColors[x][y].intensity
-        if abs(env.tileColors[x][y].intensity - baseIntensity) > 0.01:
-          env.tileColors[x][y].intensity = env.tileColors[x][y].intensity * decay + baseIntensity * (1.0 - decay)

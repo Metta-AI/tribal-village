@@ -286,9 +286,8 @@ type
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     terrainResources*: array[MapWidth, array[MapHeight, int16]]
-    tileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Main color array
-    baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer
-    baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
+    baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)
+    computedTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Dynamic tint overlay (lanterns/tumors)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
     tumorTintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Persistent tumor tint contributions

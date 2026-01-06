@@ -209,9 +209,10 @@ proc tribal_village_render_rgb(
       for sy in 0 ..< scaleY:
         let rowBase = (y * scaleY + sy) * stride
         for x in 0 ..< MapWidth:
-          var rByte = toByte(globalEnv.tileColors[x][y].r)
-          var gByte = toByte(globalEnv.tileColors[x][y].g)
-          var bByte = toByte(globalEnv.tileColors[x][y].b)
+          let color = combinedTileTint(globalEnv, x, y)
+          var rByte = toByte(color.r)
+          var gByte = toByte(color.g)
+          var bByte = toByte(color.b)
 
           let thing = globalEnv.grid[x][y]
           if thing != nil:
