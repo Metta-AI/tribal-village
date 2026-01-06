@@ -13,7 +13,10 @@ proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
         continue
       if env.hasDoor(pos) or not env.isEmpty(pos):
         continue
-      if isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
+      if env.terrain[pos.x][pos.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
+                                          TerrainDune, TerrainStalagmite, TerrainBridge}:
+        continue
+      if isTileFrozen(pos, env):
         continue
       return pos
   ivec2(-1, -1)
@@ -63,8 +66,10 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if target.x >= 0:
       let dir = ivec2(signi(target.x - agent.pos.x), signi(target.y - agent.pos.y))
       if agent.orientation == Orientation(vecToOrientation(dir)) and chebyshevDist(agent.pos, target) == 1'i32:
-        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, BuildIndexWall)
-        if did: return act
+        let idx = buildIndexFor(Wall)
+        if idx >= 0:
+          let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+          if did: return act
       return saveStateAndReturn(controller, agentId, state,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
 
