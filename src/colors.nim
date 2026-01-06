@@ -88,12 +88,11 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]
   let alpha = max(0.0'f32, min(1.0'f32, overlay.intensity))
-  TileColor(
-    r: min(max(base.r * (1.0 - alpha) + overlay.r * alpha, 0.3), 1.2),
-    g: min(max(base.g * (1.0 - alpha) + overlay.g * alpha, 0.3), 1.2),
-    b: min(max(base.b * (1.0 - alpha) + overlay.b * alpha, 0.3), 1.2),
-    intensity: base.intensity
-  )
+  let r = base.r * (1.0 - alpha) + overlay.r * alpha
+  let g = base.g * (1.0 - alpha) + overlay.g * alpha
+  let b = base.b * (1.0 - alpha) + overlay.b * alpha
+  let intensity = base.intensity + (1.0'f32 - base.intensity) * alpha
+  TileColor(r: r, g: g, b: b, intensity: intensity)
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.

@@ -91,7 +91,9 @@ template isValidPos*(pos: IVec2): bool =
 
 template safeTintAdd*(tintMod: var int16, delta: int): void =
   ## Safe tint accumulation with overflow protection
-  tintMod = max(-32000'i16, min(32000'i16, tintMod + delta.int16))
+  let clampedDelta = max(-32000, min(32000, delta))
+  let summed = tintMod.int + clampedDelta
+  tintMod = max(-32000, min(32000, summed)).int16
 {.pop.}
 
 
