@@ -26,7 +26,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       basePosition: agent.pos,
       lastSearchPosition: agent.pos,
       lastPosition: agent.pos,
-      recentPositions: @[],
+      recentPosIndex: 0,
+      recentPosCount: 0,
       stuckCounter: 0,
       escapeMode: false,
       escapeStepsRemaining: 0,
@@ -39,19 +40,24 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   var state = controller.agents[agentId]
 
   # --- Simple bail-out and dithering to avoid getting stuck/oscillation ---
-  # Update recent positions history (size 4)
-  state.recentPositions.add(agent.pos)
-  if state.recentPositions.len > 4:
-    state.recentPositions.delete(0)
+  # Update recent positions history (ring buffer size 4)
+  state.recentPositions[state.recentPosIndex] = agent.pos
+  state.recentPosIndex = (state.recentPosIndex + 1) mod 4
+  if state.recentPosCount < 4:
+    inc state.recentPosCount
+
+  proc recentAt(offset: int): IVec2 =
+    let idx = (state.recentPosIndex - 1 - offset + 4 * 4) mod 4
+    state.recentPositions[idx]
 
   # Detect stuck: same position or simple 2-cycle oscillation
-  if state.recentPositions.len >= 2 and agent.pos == state.lastPosition:
+  if state.recentPosCount >= 2 and agent.pos == state.lastPosition:
     inc state.stuckCounter
-  elif state.recentPositions.len >= 4:
-    let p0 = state.recentPositions[^1]
-    let p1 = state.recentPositions[^2]
-    let p2 = state.recentPositions[^3]
-    let p3 = state.recentPositions[^4]
+  elif state.recentPosCount >= 4:
+    let p0 = recentAt(0)
+    let p1 = recentAt(1)
+    let p2 = recentAt(2)
+    let p3 = recentAt(3)
     if (p0 == p2 and p1 == p3) or (p0 == p1):
       inc state.stuckCounter
     else:
@@ -63,9 +69,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if not state.escapeMode and state.stuckCounter >= 3:
     state.escapeMode = true
     state.escapeStepsRemaining = 6
-    state.recentPositions.setLen(0)
+    state.recentPosCount = 0
+    state.recentPosIndex = 0
     # Choose an escape direction: prefer any empty cardinal, shuffled
-    var dirs = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+    var dirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
     for i in countdown(dirs.len - 1, 1):
       let j = randIntInclusive(controller.rng, 0, i)
       let tmp = dirs[i]
@@ -80,10 +87,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # If in escape mode, try to move in escape direction for a few steps
   if state.escapeMode and state.escapeStepsRemaining > 0:
-    let tryDirs = @[state.escapeDirection,
-                    ivec2(state.escapeDirection.y, -state.escapeDirection.x),  # perpendicular 1
-                    ivec2(-state.escapeDirection.y, state.escapeDirection.x),  # perpendicular 2
-                    ivec2(-state.escapeDirection.x, -state.escapeDirection.y)] # opposite
+    let tryDirs = [state.escapeDirection,
+                   ivec2(state.escapeDirection.y, -state.escapeDirection.x),  # perpendicular 1
+                   ivec2(-state.escapeDirection.y, state.escapeDirection.x),  # perpendicular 2
+                   ivec2(-state.escapeDirection.x, -state.escapeDirection.y)] # opposite
     for d in tryDirs:
       let np = agent.pos + d
       if isPassable(env, agent, np):
@@ -100,8 +107,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Small dithering chance to break deadlocks (lower for gatherers to stay focused)
   let ditherChance = if state.role == Gatherer: 0.10 else: 0.20
   if randFloat(controller.rng) < ditherChance:
-    var candidates = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
-                       ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
+    var candidates = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
+                      ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
     for i in countdown(candidates.len - 1, 1):
       let j = randIntInclusive(controller.rng, 0, i)
       let tmp = candidates[i]
@@ -122,8 +129,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Emergency self-heal: eat bread if below half HP (applies to all roles)
   if agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp:
-    let healDirs = @[ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),  # cardinals first
-                     ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)] # diagonals
+    let healDirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),  # cardinals first
+                    ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)] # diagonals
     for d in healDirs:
       let target = agent.pos + d
       if not env.hasDoor(target) and isValidEmptyTile(env, agent, target):
