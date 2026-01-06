@@ -217,8 +217,6 @@ proc drawTerrain*() =
         spriteKey = "gold"
       of Bush:
         spriteKey = "bush"
-      of Animal:
-        spriteKey = "cow"
       of Grass:
         spriteKey = "grass"
       of Cactus:
@@ -654,6 +652,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
         of Spawner: "Spawner"
         of Tumor: "Tumor"
         of Cow: "Cow"
+        of Corpse: "Corpse"
         of Skeleton: "Skeleton"
         of Stump: "Stump"
         of Lantern: "Lantern"
@@ -681,7 +680,6 @@ proc drawSelectionLabel*(panelRect: IRect) =
       of Stone: "Stone"
       of Gold: "Gold"
       of Bush: "Bush"
-      of Animal: "Animal"
       of Grass: "Grass"
       of Cactus: "Cactus"
       of Dune: "Dune"

@@ -33,7 +33,6 @@ proc render*(env: Environment): string =
         of Stone: "S"
         of Gold: "G"
         of Bush: "b"
-        of Animal: "a"
         of Grass: "g"
         of Cactus: "c"
         of Dune: "d"

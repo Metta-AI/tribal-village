@@ -806,7 +806,7 @@ proc init(env: Environment) =
   # Initialize terrain resource counts (each resource tile yields 1 per harvest, 25 total).
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      if env.terrain[x][y] in {Water, Wheat, Pine, Palm, Stone, Gold, Bush, Cactus, Animal, Stalagmite}:
+      if env.terrain[x][y] in {Water, Wheat, Pine, Palm, Stone, Gold, Bush, Cactus, Stalagmite}:
         env.terrainResources[x][y] = ResourceNodeInitial
       else:
         env.terrainResources[x][y] = 0

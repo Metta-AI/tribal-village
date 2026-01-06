@@ -68,8 +68,6 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = tryHarvestTerrainResource(ItemStone, 0.0, true)
     of Gold:
       used = tryHarvestTerrainResource(ItemGold, 0.0, true)
-    of Animal:
-      used = tryHarvestTerrainResource(ItemFish, 0.0, true)
     of Bush, Cactus:
       used = tryHarvestTerrainResource(ItemPlant, 0.0, true)
     of Empty, Grass, Dune, Sand, Snow, Road:
