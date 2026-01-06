@@ -190,15 +190,7 @@ proc drawFloor*() =
     for pos in floorSpritePositions[floorKind]:
       let x = pos.x
       let y = pos.y
-      let baseTint = env.baseTintColors[x][y]
-      let overlay = env.computedTintColors[x][y]
-      let tClamped = max(0.0'f32, min(1.0'f32, 0.65'f32))
-      let blendedColor = TileColor(
-        r: min(max(baseTint.r + overlay.r * tClamped, 0.3), 1.2),
-        g: min(max(baseTint.g + overlay.g * tClamped, 0.3), 1.2),
-        b: min(max(baseTint.b + overlay.b * tClamped, 0.3), 1.2),
-        intensity: baseTint.intensity + overlay.intensity * tClamped
-      )
+      let blendedColor = combinedTileTint(env, x, y)
 
       let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
       let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
