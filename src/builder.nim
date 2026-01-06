@@ -16,6 +16,26 @@ proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
       return pos
   ivec2(-1, -1)
 
+proc findDoorRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
+  let candidates = [
+    altar + ivec2(0, radius.int32),
+    altar + ivec2(radius.int32, 0),
+    altar + ivec2(0, -radius.int32),
+    altar + ivec2(-radius.int32, 0)
+  ]
+  for pos in candidates:
+    if not isValidPos(pos):
+      continue
+    if env.hasDoor(pos) or not env.isEmpty(pos):
+      continue
+    if env.terrain[pos.x][pos.y] notin {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
+                                        TerrainDune, TerrainStalagmite, TerrainBridge}:
+      continue
+    if isTileFrozen(pos, env):
+      continue
+    return pos
+  ivec2(-1, -1)
+
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -56,6 +76,15 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
 
   # Build a wall ring around the altar.
   if agent.homeAltar.x >= 0:
+    if env.teamStockpiles[teamId].counts[ResourceWood] > 0:
+      let doorTarget = findDoorRingTarget(env, agent.homeAltar, 5)
+      if doorTarget.x >= 0:
+        let dir = ivec2(signi(doorTarget.x - agent.pos.x), signi(doorTarget.y - agent.pos.y))
+        if agent.orientation == Orientation(vecToOrientation(dir)) and chebyshevDist(agent.pos, doorTarget) == 1'i32:
+          let (didDoor, actDoor) = tryBuildDoorAction(controller, env, agent, agentId, state, teamId)
+          if didDoor: return actDoor
+        return saveStateAndReturn(controller, agentId, state,
+          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, doorTarget, controller.rng).uint8))
     let target = findWallRingTarget(env, agent.homeAltar, 5)
     if target.x >= 0:
       let dir = ivec2(signi(target.x - agent.pos.x), signi(target.y - agent.pos.y))
