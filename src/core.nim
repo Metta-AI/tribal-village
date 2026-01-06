@@ -733,13 +733,6 @@ proc attackOrMoveToTerrain(controller: Controller, env: Environment, agent: Thin
 
   return controller.moveNextSearch(env, agent, agentId, state)
 
-proc findAndUseBuilding(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                        state: var AgentState, kind: ThingKind): tuple[did: bool, action: uint8] =
-  let b = env.findNearestThingSpiral(state, kind, controller.rng)
-  if b != nil:
-    return (true, controller.useOrMove(env, agent, agentId, state, b.pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
-
 proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState, terrain: TerrainType): tuple[did: bool, action: uint8] =
   let pos = env.findNearestTerrainSpiral(state, terrain, controller.rng)
