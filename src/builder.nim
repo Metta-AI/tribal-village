@@ -205,7 +205,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     )
     if didMill: return actMill
 
-  let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
+  let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Pine, Palm})
   let (didLumber, actLumber) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, LumberCamp,
     nearbyTrees, 6,

@@ -22,6 +22,16 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   let thing = env.getThing(targetPos)
+  template setInvAndObs(key: ItemKey, value: int) =
+    setInv(agent, key, value)
+    env.updateAgentInventoryObs(agent, key)
+
+  template decInv(key: ItemKey) =
+    setInvAndObs(key, getInv(agent, key) - 1)
+
+  template incInv(key: ItemKey) =
+    setInvAndObs(key, getInv(agent, key) + 1)
+
   if isNil(thing):
     # Terrain use only when no Thing occupies the tile.
     var used = false
@@ -34,14 +44,12 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.hasDoor(targetPos):
         used = false
       elif agent.inventoryBread > 0:
-        agent.inventoryBread = max(0, agent.inventoryBread - 1)
-        env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
+        decInv(ItemBread)
         env.applyHealBurst(agent)
         used = true
       else:
         if agent.inventoryWater > 0:
-          agent.inventoryWater = max(0, agent.inventoryWater - 1)
-          env.updateObservations(AgentInventoryWaterLayer, agent.pos, agent.inventoryWater)
+          decInv(ItemWater)
           env.terrain[targetPos.x][targetPos.y] = Fertile
           env.resetTileColor(targetPos)
           env.updateObservations(TintLayer, targetPos, 0)
@@ -61,72 +69,37 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   var used = false
+  template takeFromThing(key: ItemKey, rewardAmount: float32 = 0.0) =
+    let stored = getInv(thing, key)
+    if stored > 0 and env.giveItem(agent, key):
+      let remaining = stored - 1
+      if rewardAmount != 0:
+        agent.reward += rewardAmount
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, key, remaining)
+      used = true
   case thing.kind:
   of Wheat:
-    let stored = getInv(thing, ItemWheat)
-    if stored > 0 and env.giveItem(agent, ItemWheat):
-      let remaining = stored - 1
-      agent.reward += env.config.wheatReward
-      if remaining <= 0:
-        removeThing(env, thing)
-      else:
-        setInv(thing, ItemWheat, remaining)
-      used = true
+    takeFromThing(ItemWheat, env.config.wheatReward)
   of Stone:
-    let stored = getInv(thing, ItemStone)
-    if stored > 0 and env.giveItem(agent, ItemStone):
-      let remaining = stored - 1
-      if remaining <= 0:
-        removeThing(env, thing)
-      else:
-        setInv(thing, ItemStone, remaining)
-      used = true
+    takeFromThing(ItemStone)
   of Gold:
-    let stored = getInv(thing, ItemGold)
-    if stored > 0 and env.giveItem(agent, ItemGold):
-      let remaining = stored - 1
-      if remaining <= 0:
-        removeThing(env, thing)
-      else:
-        setInv(thing, ItemGold, remaining)
-      used = true
+    takeFromThing(ItemGold)
   of Bush, Cactus:
-    let stored = getInv(thing, ItemPlant)
-    if stored > 0 and env.giveItem(agent, ItemPlant):
-      let remaining = stored - 1
-      if remaining <= 0:
-        removeThing(env, thing)
-      else:
-        setInv(thing, ItemPlant, remaining)
-      used = true
+    takeFromThing(ItemPlant)
   of Stalagmite:
-    let stored = getInv(thing, ItemStone)
-    if stored > 0 and env.giveItem(agent, ItemStone):
-      let remaining = stored - 1
-      if remaining <= 0:
-        removeThing(env, thing)
-      else:
-        setInv(thing, ItemStone, remaining)
-      used = true
+    takeFromThing(ItemStone)
   of Stump:
-    let stored = getInv(thing, ItemWood)
-    if stored > 0 and env.giveItem(agent, ItemWood):
-      let remaining = stored - 1
-      agent.reward += env.config.woodReward
-      if remaining <= 0:
-        removeThing(env, thing)
-      else:
-        setInv(thing, ItemWood, remaining)
-      used = true
+    takeFromThing(ItemWood, env.config.woodReward)
   of Pine, Palm:
     let stored = getInv(thing, ItemWood)
     var remaining = stored
     if stored > 0 and env.giveItem(agent, ItemWood):
       remaining = stored - 1
       agent.reward += env.config.woodReward
-    removeThing(env, thing)
-    if remaining > 0:
-      env.dropStump(thing.pos, remaining)
+    env.convertTreeToStump(thing, remaining)
     used = true
   of Corpse:
     var lootKey = ItemNone
@@ -166,14 +139,11 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
     if thing.cooldown == 0 and agent.inventoryLantern == 0 and
         (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
       if agent.inventoryWood > 0:
-        agent.inventoryWood = agent.inventoryWood - 1
-        env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+        decInv(ItemWood)
       else:
-        agent.inventoryWheat = agent.inventoryWheat - 1
-        env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-      agent.inventoryLantern = 1
+        decInv(ItemWheat)
+      setInvAndObs(ItemLantern, 1)
       thing.cooldown = 15
-      env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
       agent.reward += env.config.clothReward
       used = true
     elif thing.cooldown == 0:
@@ -184,11 +154,9 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       if env.tryCraftAtStation(agent, StationOven, thing):
         used = true
       elif agent.inventoryWheat > 0:
-        agent.inventoryWheat = agent.inventoryWheat - 1
-        agent.inventoryBread = agent.inventoryBread + 1
+        decInv(ItemWheat)
+        incInv(ItemBread)
         thing.cooldown = 10
-        env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-        env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
         # No observation layer for bread; optional for UI later
         agent.reward += env.config.foodReward
         used = true
@@ -207,8 +175,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       case useKind
       of UseAltar:
         if thing.cooldown == 0 and agent.inventoryBar >= 1:
-          agent.inventoryBar = agent.inventoryBar - 1
-          env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
+          decInv(ItemBar)
           thing.hearts = thing.hearts + 1
           thing.cooldown = MapObjectAltarCooldown
           env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
@@ -221,25 +188,20 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
           if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
             used = true
           elif agent.inventoryWheat > 0:
-            agent.inventoryWheat = agent.inventoryWheat - 1
-            agent.inventoryBread = agent.inventoryBread + 1
+            decInv(ItemWheat)
+            incInv(ItemBread)
             thing.cooldown = 10
-            env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-            env.updateObservations(AgentInventoryBreadLayer, agent.pos, agent.inventoryBread)
             agent.reward += env.config.foodReward
             used = true
       of UseWeavingLoom:
         if thing.cooldown == 0 and agent.inventoryLantern == 0 and
             (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
           if agent.inventoryWood > 0:
-            agent.inventoryWood = agent.inventoryWood - 1
-            env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
+            decInv(ItemWood)
           else:
-            agent.inventoryWheat = agent.inventoryWheat - 1
-            env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-          agent.inventoryLantern = 1
+            decInv(ItemWheat)
+          setInvAndObs(ItemLantern, 1)
           thing.cooldown = 15
-          env.updateObservations(AgentInventoryLanternLayer, agent.pos, agent.inventoryLantern)
           agent.reward += env.config.clothReward
           used = true
         elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):

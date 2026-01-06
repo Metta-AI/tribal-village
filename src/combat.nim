@@ -183,8 +183,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       return true
     of Pine, Palm:
       let woodRemaining = getInv(target, ItemWood)
-      removeThing(env, target)
-      spawnStumpAt(pos, woodRemaining)
+      env.convertTreeToStump(target, woodRemaining)
       return true
     else:
       return false
