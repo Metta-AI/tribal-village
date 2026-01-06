@@ -50,7 +50,9 @@ const
 
 proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
   ## Pick a random empty tile within the tumor's branching range
-  var candidates: seq[IVec2] = @[]
+  var chosen = ivec2(-1, -1)
+  var count = 0
+  const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
 
   for dx in -TumorBranchRange .. TumorBranchRange:
     for dy in -TumorBranchRange .. TumorBranchRange:
@@ -63,7 +65,7 @@ proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
         continue
 
       var adjacentTumor = false
-      for adj in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+      for adj in AdjacentOffsets:
         let checkPos = candidate + adj
         if not isValidPos(checkPos):
           continue
@@ -72,12 +74,13 @@ proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
           adjacentTumor = true
           break
       if not adjacentTumor:
-        candidates.add(candidate)
+        inc count
+        if randIntExclusive(r, 0, count) == 0:
+          chosen = candidate
 
-  if candidates.len == 0:
+  if count == 0:
     return ivec2(-1, -1)
-
-  return candidates[randIntExclusive(r, 0, candidates.len)]
+  chosen
 
 proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   # Try with moderate attempts first

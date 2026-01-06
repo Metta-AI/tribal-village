@@ -64,21 +64,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
 
   # Drop off any carried stockpile resources first.
   let allowGoldDropoff = altarHearts >= 10 or not hasMagma(env)
-  let (didDropFood, dropFoodAct) = dropoffFoodIfCarrying(controller, env, agent, agentId, state)
-  if didDropFood: return dropFoodAct
-
-  let (didDropWood, dropWoodAct) =
-    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceWood, agent.inventoryWood)
-  if didDropWood: return dropWoodAct
-
-  if allowGoldDropoff:
-    let (didDropGold, dropGoldAct) =
-      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceGold, agent.inventoryGold)
-    if didDropGold: return dropGoldAct
-
-  let (didDropStone, dropStoneAct) =
-    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
-  if didDropStone: return dropStoneAct
+  let (didDrop, dropAct) =
+    controller.dropoffGathererCarrying(env, agent, agentId, state, allowGoldDropoff)
+  if didDrop: return dropAct
 
   var task = chooseGathererTask(env, teamId)
   if altarHearts < 10:
@@ -129,18 +117,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if wheatPos.x >= 0:
       return controller.useOrMoveToTerrain(env, agent, agentId, state, wheatPos)
 
-    let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
-    if corpse != nil:
-      return controller.useOrMove(env, agent, agentId, state, corpse.pos)
-
-    let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
-    if cow != nil:
-      return controller.attackOrMove(env, agent, agentId, state, cow.pos)
-
-    let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
-    if bushPos.x >= 0:
-      return controller.useOrMoveToTerrain(env, agent, agentId, state, bushPos)
-
+    let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
+    if didHunt: return actHunt
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskWood:
     if agent.unitClass == UnitVillager:
