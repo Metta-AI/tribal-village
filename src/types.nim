@@ -273,6 +273,7 @@ type
 
   Environment* = ref object
     currentStep*: int
+    mapGeneration*: int  # Bumps each time the map is rebuilt (for render caches)
     config*: EnvironmentConfig  # Configuration for this environment
     shouldReset*: bool  # Track if environment needs reset
     observationsInitialized*: bool  # Track whether observation tensors are populated
