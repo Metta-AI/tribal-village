@@ -44,6 +44,12 @@ proc hasFriendlyBuildingNearby(env: Environment, teamId: int, kind: ThingKind,
       return true
   false
 
+proc hasMagma(env: Environment): bool =
+  for thing in env.things:
+    if thing.kind == Magma:
+      return true
+  false
+
 proc gathererTargets(env: Environment, teamId: int): tuple[food, wood, stone, gold: int] =
   ## AoE-like priority: keep food/wood higher, scale a bit with base size.
   let townCenters = env.countTeamBuildings(teamId, TownCenter)
@@ -132,7 +138,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       altarHearts = altar.hearts
 
   # Drop off any carried stockpile resources first.
-  let allowGoldDropoff = altarHearts >= 10
+  let allowGoldDropoff = altarHearts >= 10 or not hasMagma(env)
   let (didDrop, dropAct) = dropoffIfCarrying(controller, env, agent, agentId, state, allowGoldDropoff)
   if didDrop: return dropAct
 
