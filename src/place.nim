@@ -70,7 +70,10 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
 
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
-    env.grid[thing.pos.x][thing.pos.y] = nil
+    if thingBlocksMovement(thing.kind):
+      env.grid[thing.pos.x][thing.pos.y] = nil
+    else:
+      env.overlayGrid[thing.pos.x][thing.pos.y] = nil
   if thing.kind == Tumor:
     let intensity = if thing.hasClaimedTerritory: 2 else: 1
     env.updateTumorInfluence(thing.pos, -intensity)
@@ -112,6 +115,9 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   )
   if isBuildingKind(kind) and kind != Barrel:
     placed.teamId = getTeamId(agent.agentId)
+  if kind == Door:
+    placed.hp = DoorMaxHearts
+    placed.maxHp = DoorMaxHearts
   case kind
   of Lantern:
     placed.teamId = getTeamId(agent.agentId)
@@ -169,4 +175,7 @@ proc add(env: Environment, thing: Thing) =
     let intensity = if thing.hasClaimedTerritory: 2 else: 1
     env.updateTumorInfluence(thing.pos, intensity)
   if isValidPos(thing.pos):
-    env.grid[thing.pos.x][thing.pos.y] = thing
+    if thingBlocksMovement(thing.kind):
+      env.grid[thing.pos.x][thing.pos.y] = thing
+    else:
+      env.overlayGrid[thing.pos.x][thing.pos.y] = thing

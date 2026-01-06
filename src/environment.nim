@@ -106,6 +106,11 @@ proc getThing*(env: Environment, pos: IVec2): Thing =
     return nil
   return env.grid[pos.x][pos.y]
 
+proc getOverlayThing*(env: Environment, pos: IVec2): Thing =
+  if not isValidPos(pos):
+    return nil
+  return env.overlayGrid[pos.x][pos.y]
+
 proc isEmpty*(env: Environment, pos: IVec2): bool =
   if not isValidPos(pos):
     return false
@@ -114,12 +119,16 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
 proc hasDoor*(env: Environment, pos: IVec2): bool =
   if not isValidPos(pos):
     return false
-  return env.doorTeams[pos.x][pos.y] >= 0
+  let door = env.overlayGrid[pos.x][pos.y]
+  return not isNil(door) and door.kind == Door
 
 proc getDoorTeam*(env: Environment, pos: IVec2): int =
   if not isValidPos(pos):
     return -1
-  return env.doorTeams[pos.x][pos.y].int
+  let door = env.overlayGrid[pos.x][pos.y]
+  if isNil(door) or door.kind != Door:
+    return -1
+  return door.teamId
 
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   if not env.hasDoor(pos):

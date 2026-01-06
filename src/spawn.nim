@@ -48,11 +48,10 @@ proc init(env: Environment) =
       env.baseTintColors[x][y] = BaseTileColorDefault
       env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
-  # Clear door grid
+  # Clear overlay grid (non-blocking things like doors)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      env.doorTeams[x][y] = -1
-      env.doorHearts[x][y] = 0
+      env.overlayGrid[x][y] = nil
 
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
@@ -488,8 +487,9 @@ proc init(env: Environment) =
       # Add the doors (team-colored, passable only to that team)
       for doorPos in elements.doors:
         if doorPos.x >= 0 and doorPos.x < MapWidth and doorPos.y >= 0 and doorPos.y < MapHeight:
-          env.doorTeams[doorPos.x][doorPos.y] = teamId.int16
-          env.doorHearts[doorPos.x][doorPos.y] = DoorMaxHearts.int8
+          if env.isEmpty(doorPos) and not env.hasDoor(doorPos):
+            let door = Thing(kind: Door, pos: doorPos, teamId: teamId, hp: DoorMaxHearts, maxHp: DoorMaxHearts)
+            env.add(door)
 
       # Add the interior buildings from the layout
       for y in 0 ..< villageStruct.height:
