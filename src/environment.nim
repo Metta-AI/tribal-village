@@ -384,6 +384,12 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
   false
 
 include "place"
+
+proc convertTreeToStump(env: Environment, tree: Thing, remaining: int) =
+  removeThing(env, tree)
+  if remaining > 0:
+    env.dropStump(tree.pos, remaining)
+
 include "move"
 include "combat"
 include "use"
