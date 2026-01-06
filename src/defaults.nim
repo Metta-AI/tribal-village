@@ -9,7 +9,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     return encodeAction(0'u8, 0'u8)
 
   # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
-  if agentId notin controller.agents:
+  if not controller.agentsInitialized[agentId]:
     let role =
       case agentId mod MapAgentsPerVillage
       of 0, 1: Gatherer
@@ -32,6 +32,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       escapeStepsRemaining: 0,
       escapeDirection: ivec2(0, -1)
     )
+    controller.agentsInitialized[agentId] = true
 
   var state = controller.agents[agentId]
 
