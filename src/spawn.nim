@@ -848,7 +848,7 @@ proc init(env: Environment) =
         herdId: herdId
       )
       cow.inventory = emptyInventory()
-      setInv(cow, ItemFish, ResourceNodeInitial)
+      setInv(cow, ItemMeat, ResourceNodeInitial)
       env.add(cow)
       inc cowsPlaced
       if cowsPlaced >= MapRoomObjectsCows:

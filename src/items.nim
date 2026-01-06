@@ -22,6 +22,7 @@ const
   ItemBread* = "bread"
   ItemPlant* = "plant"
   ItemFish* = "fish"
+  ItemMeat* = "meat"
   ItemHearts* = "hearts"
   ItemThingPrefix* = "thing:"
 
@@ -49,7 +50,7 @@ type
 
 proc isFoodItem*(key: ItemKey): bool =
   case key
-  of ItemWheat, ItemBread, ItemFish, ItemPlant:
+  of ItemWheat, ItemBread, ItemFish, ItemMeat, ItemPlant:
     true
   else:
     false
