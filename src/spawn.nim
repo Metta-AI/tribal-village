@@ -1,4 +1,30 @@
 # This file is included by src/environment.nim
+proc createSpawner*(): Structure =
+  Structure(width: 3, height: 3, centerPos: ivec2(1, 1))
+
+proc createVillage*(): Structure =
+  ## Small town starter: altar + town center, no walls.
+  const size = 7
+  const radius = 3
+  let center = ivec2(radius, radius)
+  var layout: seq[seq[char]] = newSeq[seq[char]](size)
+  for y in 0 ..< size:
+    layout[y] = newSeq[char](size)
+    for x in 0 ..< size:
+      layout[y][x] = ' '
+
+  # Clear a small plaza around the altar so the start isn't cluttered.
+  for y in 0 ..< size:
+    for x in 0 ..< size:
+      if abs(x - center.x) + abs(y - center.y) <= 2:
+        layout[y][x] = StructureFloorChar
+
+  result = Structure(
+    width: size,
+    height: size,
+    centerPos: center,
+    layout: layout
+  )
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   ## Create a new Tumor seed that can branch once before turning inert
   Thing(

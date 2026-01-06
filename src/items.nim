@@ -2,13 +2,15 @@
 ## This keeps the "what exists" separate from game logic.
 
 import std/tables
-import equipment
 
 type
   ItemKey* = string
   Inventory* = Table[ItemKey, int]
 
 const
+  SpearCharges* = 5       # Spears forged per craft & max carried
+  ArmorPoints* = 5        # Armor durability granted per craft
+  BreadHealAmount* = 999  # Effectively "heal to full" per bread use
   ItemNone* = ""
   ItemGold* = "gold"
   ItemStone* = "stone"

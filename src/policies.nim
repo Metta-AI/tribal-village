@@ -1,2 +1,0 @@
-# This file is included by src/ai.nim
-include "defaults"

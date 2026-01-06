@@ -3,8 +3,6 @@ var agentVillageColors*: seq[Color] = @[]
 var teamColors*: seq[Color] = @[]
 var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
 
-include equipment
-
 # Forward declaration so combat helpers can update observations before the
 # inline definition later in the file.
 proc updateObservations(env: Environment, layer: ObservationName, pos: IVec2, value: int)
