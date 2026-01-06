@@ -75,9 +75,6 @@ proc removeThing(env: Environment, thing: Thing) =
       env.grid[thing.pos.x][thing.pos.y] = nil
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = nil
-  if thing.kind == Tumor:
-    let intensity = if thing.hasClaimedTerritory: 2 else: 1
-    env.updateTumorInfluence(thing.pos, -intensity)
   let idx = thing.thingsIndex
   if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
     let lastIdx = env.things.len - 1
@@ -170,9 +167,6 @@ proc add(env: Environment, thing: Thing) =
   if thing.kind == Agent:
     env.agents.add(thing)
     env.stats.add(Stats())
-  if thing.kind == Tumor:
-    let intensity = if thing.hasClaimedTerritory: 2 else: 1
-    env.updateTumorInfluence(thing.pos, intensity)
   if isValidPos(thing.pos):
     if thingBlocksMovement(thing.kind):
       env.grid[thing.pos.x][thing.pos.y] = thing
