@@ -198,15 +198,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
     let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
     if didWheat: return actWheat
-    let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
-    if stump != nil:
-      return controller.useOrMove(env, agent, agentId, state, stump.pos)
-    let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
-    if pinePos.x >= 0:
-      return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
-    let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
-    if palmPos.x >= 0:
-      return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
+    let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+    if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
 
   # Train into a combat unit when possible.
@@ -223,15 +216,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
   if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
     if agent.inventoryWood == 0:
-      let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
-      if stump != nil:
-        return controller.useOrMove(env, agent, agentId, state, stump.pos)
-      let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
-      if pinePos.x >= 0:
-        return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
-      let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
-      if palmPos.x >= 0:
-        return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
     let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
     if smith != nil:
       return controller.useOrMove(env, agent, agentId, state, smith.pos)
