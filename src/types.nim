@@ -159,6 +159,8 @@ type
     Monastery
     University
     Castle
+    LumberYard
+    Quarry
 
   Thing* = ref object
     kind*: ThingKind

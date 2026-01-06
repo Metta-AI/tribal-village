@@ -115,17 +115,23 @@ proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing,
   if agent.inventoryWood > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
     if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberYard, controller.rng)
+    if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
   if agent.inventoryGold > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
   if agent.inventoryStone > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
@@ -170,6 +176,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         if didDrop: return actDrop
         let (didStone, actStone) = controller.findAndHarvest(env, agent, agentId, state, Stone)
         if didStone: return actStone
+        let (didStalag, actStalag) = controller.findAndHarvest(env, agent, agentId, state, Stalagmite)
+        if didStalag: return actStalag
       return buildWallToward(controller, env, agent, agentId, state, frontier)
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))
@@ -255,6 +263,14 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
     if smith != nil:
       return controller.useOrMove(env, agent, agentId, state, smith.pos)
+
+  # Seek tumors/spawners when idle.
+  let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
+  if tumor != nil:
+    return controller.attackOrMove(env, agent, agentId, state, tumor.pos)
+  let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
+  if spawner != nil:
+    return controller.attackOrMove(env, agent, agentId, state, spawner.pos)
 
   # Hunt while patrolling if nothing else to do.
   let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
