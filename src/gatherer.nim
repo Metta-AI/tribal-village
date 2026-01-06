@@ -151,15 +151,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         [LumberCamp], 6
       )
       if didBuild: return buildAct
-    let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
-    if stump != nil:
-      return controller.useOrMove(env, agent, agentId, state, stump.pos)
-    let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
-    if pinePos.x >= 0:
-      return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
-    let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
-    if palmPos.x >= 0:
-      return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
+    let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+    if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     if agent.unitClass == UnitVillager:
@@ -170,15 +163,11 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         [Quarry], 6
       )
       if didBuild: return buildAct
-    let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Stone)
-    if did: return act
-    let (didStalag, actStalag) = controller.findAndHarvest(env, agent, agentId, state, Stalagmite)
-    if didStalag: return actStalag
+    let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
+    if didStone: return actStone
     return controller.moveNextSearch(env, agent, agentId, state)
 
   # Gold gathering (shared by TaskGold / TaskHearts fallback)
-  let goldPos = env.findNearestTerrainSpiral(state, TerrainType.Gold, controller.rng)
-  if goldPos.x >= 0:
-    return controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos)
-
+  let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
+  if didGold: return actGold
   return controller.moveNextSearch(env, agent, agentId, state)
