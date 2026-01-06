@@ -63,22 +63,6 @@ template markActiveTile(active: var ActiveTiles, tileX, tileY: int) =
       active.flags[tileX][tileY] = true
       active.positions.add(ivec2(tileX, tileY))
 
-proc updateTumorInfluence*(env: Environment, pos: IVec2, intensityDelta: int) =
-  if intensityDelta == 0:
-    return
-  let baseX = pos.x.int
-  let baseY = pos.y.int
-  if baseX < 0 or baseX >= MapWidth or baseY < 0 or baseY >= MapHeight:
-    return
-  let minX = max(0, baseX - 2)
-  let maxX = min(MapWidth - 1, baseX + 2)
-  let minY = max(0, baseY - 2)
-  let maxY = min(MapHeight - 1, baseY + 2)
-  for tileX in minX .. maxX:
-    for tileY in minY .. maxY:
-      markActiveTile(env.tumorActiveTiles, tileX, tileY)
-      discard
-
 proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
   # Clear previous frame's modifications

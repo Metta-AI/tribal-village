@@ -351,8 +351,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     # Queue the new tumor for insertion and mark parent as inert
     newTumorBranches.add(newTumor)
-    if not tumor.hasClaimedTerritory:
-      env.updateTumorInfluence(tumor.pos, 1)
     tumor.hasClaimedTerritory = true
     tumor.turnsAlive = 0
 
