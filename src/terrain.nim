@@ -83,12 +83,12 @@ type
 const
   UseBiomeTerrain* = true
   BaseBiome* = BiomeBase
-  BiomeForestTerrain* = Pine
+  BiomeForestTerrain* = Grass
   BiomeDesertTerrain* = Sand
-  BiomeCavesTerrain* = Stalagmite
+  BiomeCavesTerrain* = Dune
   BiomePlainsTerrain* = Grass
   BiomeSnowTerrain* = Snow
-  BiomeCityBlockTerrain* = Stone
+  BiomeCityBlockTerrain* = Grass
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
@@ -133,7 +133,7 @@ const
   ZoneBlobJaggedProb* = 0.18
   ZoneBlobDitherProb* = 0.12
   ZoneBlobDitherDepth* = 4
-  DungeonTerrainWall* = Pine
+  DungeonTerrainWall* = Dune
   DungeonTerrainPath* = Road
 
 const
@@ -469,6 +469,19 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, edgeChance)
+      var stalagmiteMask: MaskGrid
+      let stalagmiteCfg = BiomeCavesConfig(
+        fillProb: 0.12,
+        steps: 2,
+        birthLimit: 4,
+        deathLimit: 3,
+        ditherEdges: true,
+        ditherProb: 0.12,
+        ditherDepth: 3
+      )
+      buildBiomeCavesMask(stalagmiteMask, mapWidth, mapHeight, mapBorder, r, stalagmiteCfg)
+      applyBiomeMaskToZone(terrain, biomes, stalagmiteMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        Stalagmite, BiomeCavesType, baseBiomeType, r, edgeChance, blendDepth = 2)
     of BiomeSnow:
       # Blend snow into the zone, then add clustered accents for texture.
       applyTerrainBlendToZone(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
