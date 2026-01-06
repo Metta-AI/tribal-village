@@ -35,7 +35,7 @@ proc digCost(env: Environment, pos: IVec2): int =
   let terrain = env.terrain[pos.x][pos.y]
   if terrain == Water:
     return ConnectWaterCost
-  if terrain in {Dune, Stalagmite, Snow}:
+  if terrain in {Dune, Snow}:
     return ConnectTerrainCost
   if isBlockedTerrain(terrain):
     return ConnectTerrainCost
@@ -51,7 +51,7 @@ proc digCell(env: Environment, pos: IVec2) =
     else:
       return
   let terrain = env.terrain[pos.x][pos.y]
-  if terrain in {Water, Dune, Stalagmite, Snow}:
+  if terrain in {Water, Dune, Snow}:
     env.terrain[pos.x][pos.y] = Empty
     env.resetTileColor(pos)
 
