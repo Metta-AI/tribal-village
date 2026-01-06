@@ -182,19 +182,19 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
   if cachedPos.x >= 0:
     if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       let cachedThing = env.getThing(cachedPos)
-      if cachedThing != nil and cachedThing.kind == kind:
+      if not isNil(cachedThing) and cachedThing.kind == kind:
         return cachedThing
     state.cachedThingPos[kind] = ivec2(-1, -1)
 
   # First check immediate area around current position
   result = findNearestThing(env, state.lastSearchPosition, kind)
-  if result != nil:
+  if not isNil(result):
     state.cachedThingPos[kind] = result.pos
     return result
 
   # Also check around agent's current position before advancing spiral
   result = findNearestThing(env, state.basePosition, kind)
-  if result != nil:
+  if not isNil(result):
     state.cachedThingPos[kind] = result.pos
     return result
 
@@ -204,7 +204,7 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
 
   # Search from new spiral position
   result = findNearestThing(env, nextSearchPos, kind)
-  if result != nil:
+  if not isNil(result):
     state.cachedThingPos[kind] = result.pos
   return result
 
@@ -212,11 +212,11 @@ proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, tea
                                     kind: ThingKind, rng: var Rand): Thing =
   ## Find nearest team-owned thing using spiral search pattern
   result = findNearestFriendlyThing(env, state.lastSearchPosition, teamId, kind)
-  if result != nil:
+  if not isNil(result):
     return result
 
   result = findNearestFriendlyThing(env, state.basePosition, teamId, kind)
-  if result != nil:
+  if not isNil(result):
     return result
 
   let nextSearchPos = getNextSpiralPoint(state, rng)
@@ -252,7 +252,7 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
       if max(abs(x - cx), abs(y - cy)) > radius:
         continue
       let occ = env.grid[x][y]
-      if occ != nil and occ.kind in allowed:
+      if not isNil(occ) and occ.kind in allowed:
         inc result
 
 proc countNearbyTrees*(env: Environment, center: IVec2, radius: int): int =
@@ -307,21 +307,21 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
   case res
   of ResourceFood:
     result = tryKind(Granary)
-    if result == nil:
+    if isNil(result):
       result = tryKind(TownCenter)
-    if result == nil:
+    if isNil(result):
       result = tryKind(Mill)
   of ResourceWood:
     result = tryKind(LumberCamp)
-    if result == nil:
+    if isNil(result):
       result = tryKind(TownCenter)
   of ResourceStone:
     result = tryKind(Quarry)
-    if result == nil:
+    if isNil(result):
       result = tryKind(TownCenter)
   of ResourceGold:
     result = tryKind(MiningCamp)
-    if result == nil:
+    if isNil(result):
       result = tryKind(TownCenter)
   of ResourceWater, ResourceNone:
     result = nil
@@ -329,49 +329,63 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
 proc dropoffResourceIfCarrying*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState,
                                 res: StockpileResource, amount: int): tuple[did: bool, action: uint8] =
+  ## Drop off a single resource type if carrying any
   if amount <= 0:
     return (false, 0'u8)
   let teamId = getTeamId(agent.agentId)
   let dropoff = findDropoffBuilding(env, state, teamId, res, controller.rng)
-  if dropoff != nil:
+  if not isNil(dropoff):
     return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
   (false, 0'u8)
 
-proc dropoffFoodIfCarrying*(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
-  var hasFood = false
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isFoodItem(key):
-      hasFood = true
-      break
-  if not hasFood:
-    return (false, 0'u8)
-  let teamId = getTeamId(agent.agentId)
-  let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
-  if dropoff != nil:
-    return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState,
+                      allowFood: bool = false,
+                      allowWood: bool = false,
+                      allowStone: bool = false,
+                      allowGold: bool = false): tuple[did: bool, action: uint8] =
+  ## Unified dropoff function - attempts to drop off resources in priority order
+  ## Priority: food -> wood -> gold -> stone (same as legacy gatherer order)
+
+  # Food dropoff - requires checking inventory for any food items
+  if allowFood:
+    var hasFood = false
+    for key, count in agent.inventory.pairs:
+      if count > 0 and isFoodItem(key):
+        hasFood = true
+        break
+    if hasFood:
+      let teamId = getTeamId(agent.agentId)
+      let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
+      if not isNil(dropoff):
+        return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+
+  # Wood dropoff
+  if allowWood:
+    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
+                                                ResourceWood, agent.inventoryWood)
+    if did: return (true, act)
+
+  # Gold dropoff
+  if allowGold:
+    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
+                                                ResourceGold, agent.inventoryGold)
+    if did: return (true, act)
+
+  # Stone dropoff
+  if allowStone:
+    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
+                                                ResourceStone, agent.inventoryStone)
+    if did: return (true, act)
+
   (false, 0'u8)
 
 proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState,
                               allowGold: bool): tuple[did: bool, action: uint8] =
-  let (didDropFood, dropFoodAct) = dropoffFoodIfCarrying(controller, env, agent, agentId, state)
-  if didDropFood: return (true, dropFoodAct)
-
-  let (didDropWood, dropWoodAct) =
-    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceWood, agent.inventoryWood)
-  if didDropWood: return (true, dropWoodAct)
-
-  if allowGold:
-    let (didDropGold, dropGoldAct) =
-      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceGold, agent.inventoryGold)
-    if didDropGold: return (true, dropGoldAct)
-
-  let (didDropStone, dropStoneAct) =
-    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
-  if didDropStone: return (true, dropStoneAct)
-
-  (false, 0'u8)
+  ## Convenience wrapper for gatherers - drops food, wood, stone, and optionally gold
+  dropoffCarrying(controller, env, agent, agentId, state,
+                  allowFood = true, allowWood = true, allowStone = true, allowGold = allowGold)
 
 proc teamPopCap*(env: Environment, teamId: int): int =
   for thing in env.things:
@@ -500,7 +514,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
         if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
           continue
         let target = env.grid[targetPos.x][targetPos.y]
-        if target == nil:
+        if isNil(target):
           continue
         if target.kind == Agent and (not isAgentAlive(env, target) or sameTeam(agent, target)):
           continue
@@ -571,7 +585,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
        targetPos.y < 0 or targetPos.y >= MapHeight:
       continue
     let occupant = env.grid[targetPos.x][targetPos.y]
-    if occupant == nil:
+    if isNil(occupant):
       continue
 
     if occupant.kind == Tumor:
@@ -617,7 +631,7 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
 proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
   let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-  if smith != nil:
+  if not isNil(smith):
     return (true, controller.useOrMove(env, agent, agentId, state, smith.pos))
   (false, 0'u8)
 
@@ -627,7 +641,7 @@ proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, ag
   if inventoryCount <= 0:
     return (false, 0'u8)
   let teammate = findNearestTeammateNeeding(env, agent, need)
-  if teammate != nil:
+  if not isNil(teammate):
     let dx = abs(teammate.pos.x - agent.pos.x)
     let dy = abs(teammate.pos.y - agent.pos.y)
     if max(dx, dy) == 1'i32:
@@ -695,7 +709,7 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   if not env.canAgentPassDoor(agent, pos):
     return false
   let occupant = env.grid[pos.x][pos.y]
-  if occupant == nil:
+  if isNil(occupant):
     return true
   return occupant.kind == Lantern
 proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
@@ -785,64 +799,45 @@ proc attackOrMove(controller: Controller, env: Environment, agent: Thing, agentI
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
 
-proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                     state: var AgentState, allowWood, allowStone, allowGold: bool): tuple[did: bool, action: uint8] =
-  if allowWood:
-    let (didWood, actWood) =
-      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceWood, agent.inventoryWood)
-    if didWood: return (true, actWood)
-
-  if allowGold:
-    let (didGold, actGold) =
-      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceGold, agent.inventoryGold)
-    if didGold: return (true, actGold)
-
-  if allowStone:
-    let (didStone, actStone) =
-      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
-    if didStone: return (true, actStone)
-
-  (false, 0'u8)
-
 proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
   let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
-  if stump != nil:
+  if not isNil(stump):
     return (true, controller.useOrMove(env, agent, agentId, state, stump.pos))
   let pine = env.findNearestThingSpiral(state, Pine, controller.rng)
-  if pine != nil:
+  if not isNil(pine):
     return (true, controller.attackOrMove(env, agent, agentId, state, pine.pos))
   let palm = env.findNearestThingSpiral(state, Palm, controller.rng)
-  if palm != nil:
+  if not isNil(palm):
     return (true, controller.attackOrMove(env, agent, agentId, state, palm.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
   let stone = env.findNearestThingSpiral(state, Stone, controller.rng)
-  if stone != nil:
+  if not isNil(stone):
     return (true, controller.useOrMove(env, agent, agentId, state, stone.pos))
   let stalag = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
-  if stalag != nil:
+  if not isNil(stalag):
     return (true, controller.useOrMove(env, agent, agentId, state, stalag.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
   let gold = env.findNearestThingSpiral(state, Gold, controller.rng)
-  if gold != nil:
+  if not isNil(gold):
     return (true, controller.useOrMove(env, agent, agentId, state, gold.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): tuple[did: bool, action: uint8] =
   let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
-  if corpse != nil:
+  if not isNil(corpse):
     return (true, controller.useOrMove(env, agent, agentId, state, corpse.pos))
   let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
-  if cow != nil:
+  if not isNil(cow):
     return (true, controller.attackOrMove(env, agent, agentId, state, cow.pos))
   let bush = env.findNearestThingSpiral(state, Bush, controller.rng)
-  if bush != nil:
+  if not isNil(bush):
     return (true, controller.useOrMove(env, agent, agentId, state, bush.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))

@@ -319,6 +319,10 @@ type
     terminated*: array[MapAgents, float32]
     truncated*: array[MapAgents, float32]
     stats: seq[Stats]
+    # Color management - moved from global state in colors.nim
+    agentColors*: seq[Color]           ## Per-agent colors for rendering
+    teamColors*: seq[Color]            ## Per-team colors for rendering
+    altarColors*: Table[IVec2, Color]  ## Altar position to color mapping
 
 proc isAgentAlive*(env: Environment, agent: Thing): bool =
   if agent.isNil:
