@@ -86,31 +86,40 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       if did: return act
 
   # Remote dropoff buildings near resources.
-  if env.countTeamBuildings(teamId, Mill) == 0:
-    let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
-    let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-    if nearbyWheat + nearbyFertile >= 8 and
-        not hasFriendlyBuildingNearby(env, teamId, Mill, agent.pos, 8):
+  let dropoffDistanceThreshold = 5
+  let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
+  let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
+  if nearbyWheat + nearbyFertile >= 8:
+    let dist = nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos)
+    if dist > dropoffDistanceThreshold:
       let idx = buildIndexFor(Mill)
       if idx >= 0:
         let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
         if did: return act
 
-  if env.countTeamBuildings(teamId, LumberCamp) == 0:
-    let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
-    if nearbyTrees >= 6 and
-        not hasFriendlyBuildingNearby(env, teamId, LumberCamp, agent.pos, 6):
+  let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
+  if nearbyTrees >= 6:
+    let dist = nearestFriendlyBuildingDistance(env, teamId, [LumberCamp, TownCenter], agent.pos)
+    if dist > dropoffDistanceThreshold:
       let idx = buildIndexFor(LumberCamp)
       if idx >= 0:
         let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
         if did: return act
 
-  if env.countTeamBuildings(teamId, MiningCamp) == 0:
-    let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
-    let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
-    if nearbyStone + nearbyGold >= 6 and
-        not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
+  let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
+  if nearbyGold >= 6:
+    let dist = nearestFriendlyBuildingDistance(env, teamId, [MiningCamp, TownCenter], agent.pos)
+    if dist > dropoffDistanceThreshold:
       let idx = buildIndexFor(MiningCamp)
+      if idx >= 0:
+        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+        if did: return act
+
+  let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
+  if nearbyStone >= 6:
+    let dist = nearestFriendlyBuildingDistance(env, teamId, [Quarry, TownCenter], agent.pos)
+    if dist > dropoffDistanceThreshold:
+      let idx = buildIndexFor(Quarry)
       if idx >= 0:
         let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
         if did: return act
