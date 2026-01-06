@@ -74,6 +74,9 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
     env.grid[thing.pos.x][thing.pos.y] = nil
+  if thing.kind == Tumor:
+    let intensity = if thing.hasClaimedTerritory: 2 else: 1
+    env.updateTumorInfluence(thing.pos, -intensity)
   let idx = env.things.find(thing)
   if idx >= 0:
     env.things.del(idx)
@@ -148,5 +151,8 @@ proc add(env: Environment, thing: Thing) =
   if thing.kind == Agent:
     env.agents.add(thing)
     env.stats.add(Stats())
+  if thing.kind == Tumor:
+    let intensity = if thing.hasClaimedTerritory: 2 else: 1
+    env.updateTumorInfluence(thing.pos, intensity)
   if isValidPos(thing.pos):
     env.grid[thing.pos.x][thing.pos.y] = thing

@@ -31,6 +31,9 @@ proc init(env: Environment) =
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  env.tumorActiveTiles.positions.setLen(0)
+  env.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
 
   # Clear action tints
   env.actionTintCountdown = default(ActionTintCountdown)

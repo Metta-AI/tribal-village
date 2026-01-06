@@ -320,6 +320,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     # Queue the new tumor for insertion and mark parent as inert
     newTumorBranches.add(newTumor)
+    if not tumor.hasClaimedTerritory:
+      env.updateTumorInfluence(tumor.pos, 1)
     tumor.hasClaimedTerritory = true
     tumor.turnsAlive = 0
 
@@ -387,6 +389,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   if tumorsToRemove.len > 0:
     for i in countdown(env.things.len - 1, 0):
       if env.things[i] in tumorsToRemove:
+        let tumor = env.things[i]
+        let intensity = if tumor.hasClaimedTerritory: 2 else: 1
+        env.updateTumorInfluence(tumor.pos, -intensity)
         env.things.del(i)
 
   when defined(stepTiming):
@@ -564,6 +569,9 @@ proc reset*(env: Environment) =
   env.tintMods.clear()
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
+  env.tumorActiveTiles.positions.setLen(0)
+  env.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   # Clear global colors that could accumulate
   agentVillageColors.setLen(0)
   teamColors.setLen(0)

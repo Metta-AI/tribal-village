@@ -288,6 +288,8 @@ type
     baseTileColors*: array[MapWidth, array[MapHeight, TileColor]]  # Base colors (terrain)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
+    tumorTintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Persistent tumor tint contributions
+    tumorActiveTiles*: ActiveTiles  # Sparse list of tiles touched by tumors
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
     actionTintFlags*: ActionTintFlags
