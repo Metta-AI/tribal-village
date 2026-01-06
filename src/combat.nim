@@ -168,16 +168,12 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       env.grid[pos.x][pos.y] = nil
       env.updateObservations(AgentLayer, pos, 0)
       env.updateObservations(AgentOrientationLayer, pos, 0)
-      let idx = env.things.find(target)
-      if idx >= 0:
-        env.things.del(idx)
+      removeThing(env, target)
       agent.reward += env.config.tumorKillReward
       return true
     of Spawner:
       env.grid[pos.x][pos.y] = nil
-      let idx = env.things.find(target)
-      if idx >= 0:
-        env.things.del(idx)
+      removeThing(env, target)
       return true
     of Agent:
       if target.agentId == agent.agentId:

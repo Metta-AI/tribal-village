@@ -136,18 +136,17 @@ proc getNextSpiralPoint(state: var AgentState, rng: var Rand): IVec2 =
 proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
   result = nil
   var minDist = 999999
-  for thing in env.things:
-    if thing.kind == kind:
-      let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-      if dist < minDist and dist < 30:  # Reasonable search radius
-        minDist = dist
-        result = thing
+  for thing in env.thingsByKind[kind]:
+    let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
+    if dist < minDist and dist < 30:  # Reasonable search radius
+      minDist = dist
+      result = thing
 
 proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
   result = nil
   var minDist = 999999
-  for thing in env.things:
-    if thing.kind == kind and thing.teamId == teamId:
+  for thing in env.thingsByKind[kind]:
+    if thing.teamId == teamId:
       let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
       if dist < minDist and dist < 30:
         minDist = dist
