@@ -43,7 +43,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       if did: return act
 
   # Ensure a town center exists if the starter one is lost.
-  if env.countTeamBuildings(teamId, TownCenter) == 0:
+  if controller.getBuildingCount(env, teamId, TownCenter) == 0:
     let idx = buildIndexFor(TownCenter)
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
