@@ -1,7 +1,7 @@
 import
   boxy, vmath, windy, tables,
   std/[algorithm, math, strutils, sets],
-  common, environment, assets
+  common, environment
 
 # Infection system constants
 const
@@ -18,6 +18,7 @@ var
   stepLabelLastValue = -1
   stepLabelSize = ivec2(0, 0)
   doorSpriteKey* = "wall"
+  assetKeys: HashSet[string] = initHashSet[string]()
 
 type FloorSpriteKind = enum
   FloorBase
@@ -31,6 +32,12 @@ var
 
 proc setDoorSprite*(key: string) =
   doorSpriteKey = key
+
+proc rememberAssetKey*(key: string) =
+  assetKeys.incl(key)
+
+proc assetExists*(key: string): bool =
+  key in assetKeys
 
 template configureHeartFont(ctx: var Context) =
   ctx.font = HeartCountFontPath

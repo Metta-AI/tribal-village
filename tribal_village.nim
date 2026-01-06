@@ -1,6 +1,6 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
-  src/environment, src/common, src/renderer, src/external, src/tileset, src/assets
+  src/environment, src/common, src/renderer, src/external, src/tileset
 
 when compileOption("profiler"):
   import std/nimprof
