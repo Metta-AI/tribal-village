@@ -680,8 +680,10 @@ proc drawStepLabel*(panelRect: IRect) =
   let key = ensureStepLabel(env.currentStep)
   if key.len == 0:
     return
+  let scale = window.contentScale.float32
+  let labelW = stepLabelSize.x.float32 / scale
   let pos = vec2(
-    (panelRect.x + panelRect.w - stepLabelSize.x - 2).float32,
-    (panelRect.y + 12).float32
+    panelRect.x.float32 + panelRect.w.float32 - labelW - 2.0,
+    panelRect.y.float32 + 12.0
   )
   bxy.drawImage(key, pos, angle = 0, scale = 1)
