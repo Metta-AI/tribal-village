@@ -654,7 +654,7 @@ proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thi
   for thing in env.things:
     if thing.teamId != teamId:
       continue
-    if not isBuildingKind(thing.kind) or thing.kind in {Barrel, Door}:
+    if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
       continue
     if hasTeamLanternNear(env, teamId, thing.pos):
       continue
