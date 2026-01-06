@@ -109,29 +109,6 @@ proc buildWallToward(controller: Controller, env: Environment, agent: Thing,
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
 
-proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing,
-                     agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
-  let teamId = getTeamId(agent.agentId)
-  if agent.inventoryWood > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-  if agent.inventoryGold > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-  if agent.inventoryStone > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-  (false, 0'u8)
-
 proc decideFighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -147,17 +124,15 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       let outpostKey = thingItem("Outpost")
       if outpostCount < 2:
         if not env.canAffordBuild(teamId, outpostKey):
-          let (didDrop, actDrop) = dropoffCarrying(controller, env, agent, agentId, state)
+          let (didDrop, actDrop) = controller.dropoffCarrying(
+            env, agent, agentId, state,
+            allowWood = true,
+            allowStone = true,
+            allowGold = true
+          )
           if didDrop: return actDrop
-          let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
-          if stump != nil:
-            return controller.useOrMove(env, agent, agentId, state, stump.pos)
-          let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
-          if pinePos.x >= 0:
-            return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
-          let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
-          if palmPos.x >= 0:
-            return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
+          let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+          if didWood: return actWood
         let idx = buildIndexFor(Outpost)
         if idx >= 0 and chebyshevDist(agent.pos, frontier) <= 1'i32:
           let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
@@ -166,12 +141,15 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, frontier, controller.rng).uint8))
       let wallKey = thingItem("Wall")
       if not env.canAffordBuild(teamId, wallKey):
-        let (didDrop, actDrop) = dropoffCarrying(controller, env, agent, agentId, state)
+        let (didDrop, actDrop) = controller.dropoffCarrying(
+          env, agent, agentId, state,
+          allowWood = true,
+          allowStone = true,
+          allowGold = true
+        )
         if didDrop: return actDrop
-        let (didStone, actStone) = controller.findAndHarvest(env, agent, agentId, state, Stone)
+        let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
         if didStone: return actStone
-        let (didStalag, actStalag) = controller.findAndHarvest(env, agent, agentId, state, Stalagmite)
-        if didStalag: return actStalag
       return buildWallToward(controller, env, agent, agentId, state, frontier)
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))

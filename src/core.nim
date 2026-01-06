@@ -739,3 +739,63 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
   if pos.x >= 0:
     return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                     state: var AgentState, allowWood, allowStone, allowGold: bool): tuple[did: bool, action: uint8] =
+  let teamId = getTeamId(agent.agentId)
+  if allowWood and agent.inventoryWood > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberYard, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+
+  if allowGold and agent.inventoryGold > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+
+  if allowStone and agent.inventoryStone > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+
+  (false, 0'u8)
+
+proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                state: var AgentState): tuple[did: bool, action: uint8] =
+  let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
+  if stump != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, stump.pos))
+  let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
+  if pinePos.x >= 0:
+    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos))
+  let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
+  if palmPos.x >= 0:
+    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                 state: var AgentState): tuple[did: bool, action: uint8] =
+  let (didStone, actStone) = controller.findAndHarvest(env, agent, agentId, state, Stone)
+  if didStone: return (didStone, actStone)
+  let (didStalag, actStalag) = controller.findAndHarvest(env, agent, agentId, state, Stalagmite)
+  if didStalag: return (didStalag, actStalag)
+  (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                state: var AgentState): tuple[did: bool, action: uint8] =
+  let goldPos = env.findNearestTerrainSpiral(state, Gold, controller.rng)
+  if goldPos.x >= 0:
+    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
