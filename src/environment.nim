@@ -137,7 +137,7 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
 {.pop.}
 
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
-  terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
+  terrain in {Empty, Grass, Sand, Snow, Dune, Road}
 
 proc canPlaceBuilding*(env: Environment, pos: IVec2): bool {.inline.} =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
@@ -145,7 +145,7 @@ proc canPlaceBuilding*(env: Environment, pos: IVec2): bool {.inline.} =
 
 proc canLayRoad*(env: Environment, pos: IVec2): bool {.inline.} =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
-    env.terrain[pos.x][pos.y] in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
+    env.terrain[pos.x][pos.y] in {Empty, Grass, Sand, Snow, Dune, Road}
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Clear dynamic tint overlays for a tile

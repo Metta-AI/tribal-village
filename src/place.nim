@@ -100,7 +100,7 @@ proc removeThing(env: Environment, thing: Thing) =
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
-    if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
+    if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow, Dune, Road}:
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)
