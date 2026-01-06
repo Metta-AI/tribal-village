@@ -1,5 +1,5 @@
 {.push inline.}
-proc getThing(env: Environment, pos: IVec2): Thing =
+proc getThing*(env: Environment, pos: IVec2): Thing =
   if not isValidPos(pos):
     return nil
   return env.grid[pos.x][pos.y]
