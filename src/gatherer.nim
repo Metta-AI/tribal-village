@@ -44,6 +44,23 @@ proc hasFriendlyBuildingNearby(env: Environment, teamId: int, kind: ThingKind,
       return true
   false
 
+proc nearestFriendlyBuildingDistance(env: Environment, teamId: int,
+                                     kinds: openArray[ThingKind], pos: IVec2): int =
+  result = int.high
+  for thing in env.things:
+    if thing.teamId != teamId:
+      continue
+    var matches = false
+    for kind in kinds:
+      if thing.kind == kind:
+        matches = true
+        break
+    if not matches:
+      continue
+    let dist = int(chebyshevDist(thing.pos, pos))
+    if dist < result:
+      result = dist
+
 proc hasMagma(env: Environment): bool =
   for thing in env.things:
     if thing.kind == Magma:
