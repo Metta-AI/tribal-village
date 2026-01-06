@@ -193,7 +193,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
               continue
             let terrain = env.terrain[pos.x][pos.y]
-            if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
+            if terrain in {Empty, Grass, Sand, Snow, Dune, Road}:
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
         thing.cooldown = 10

@@ -11,18 +11,10 @@ type
     Empty
     Water
     Bridge
-    Wheat
-    Pine
     Fertile
     Road
-    Stone
-    Gold
-    Bush
     Grass
-    Cactus
     Dune
-    Stalagmite
-    Palm
     Sand
     Snow
 
@@ -140,17 +132,9 @@ const
   TerrainEmpty* = TerrainType.Empty
   TerrainWater* = TerrainType.Water
   TerrainBridge* = TerrainType.Bridge
-  TerrainWheat* = TerrainType.Wheat
-  TerrainPine* = TerrainType.Pine
-  TerrainPalm* = TerrainType.Palm
   TerrainFertile* = TerrainType.Fertile
-  TerrainStone* = TerrainType.Stone
-  TerrainGold* = TerrainType.Gold
-  TerrainBush* = TerrainType.Bush
   TerrainGrass* = TerrainType.Grass
-  TerrainCactus* = TerrainType.Cactus
   TerrainDune* = TerrainType.Dune
-  TerrainStalagmite* = TerrainType.Stalagmite
   TerrainSand* = TerrainType.Sand
   TerrainSnow* = TerrainType.Snow
 
@@ -469,19 +453,6 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, edgeChance)
-      var stalagmiteMask: MaskGrid
-      let stalagmiteCfg = BiomeCavesConfig(
-        fillProb: 0.12,
-        steps: 2,
-        birthLimit: 4,
-        deathLimit: 3,
-        ditherEdges: true,
-        ditherProb: 0.12,
-        ditherDepth: 3
-      )
-      buildBiomeCavesMask(stalagmiteMask, mapWidth, mapHeight, mapBorder, r, stalagmiteCfg)
-      applyBiomeMaskToZone(terrain, biomes, stalagmiteMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        Stalagmite, BiomeCavesType, baseBiomeType, r, edgeChance, blendDepth = 2)
     of BiomeSnow:
       # Blend snow into the zone, then add clustered accents for texture.
       applyTerrainBlendToZone(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
@@ -490,86 +461,6 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       let snowEdgeChance = max(edgeChance, 0.55)
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, snowEdgeChance, density = 0.25)
-      # Add sparse snowy pine clusters and boulder outcrops for more visual interest.
-      var pineMask: MaskGrid
-      let pineCfg = BiomeForestConfig(
-        clumpiness: 1,
-        seedProb: 0.012,
-        growthProb: 0.45,
-        neighborThreshold: 3,
-        ditherEdges: true,
-        ditherProb: 0.18,
-        ditherDepth: 3
-      )
-      buildBiomeForestMask(pineMask, mapWidth, mapHeight, mapBorder, r, pineCfg)
-      let (px0, py0, px1, py1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
-      for x in px0 ..< px1:
-        for y in py0 ..< py1:
-          if terrain[x][y] == Water:
-            pineMask[x][y] = false
-      applyBiomeMaskToZone(terrain, biomes, pineMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        Pine, BiomeSnowType, baseBiomeType, r, 0.2, blendDepth = 2)
-
-      var boulderMask: MaskGrid
-      let boulderCfg = BiomeSnowConfig(
-        clusterPeriod: 16,
-        clusterMinRadius: 1,
-        clusterMaxRadius: 2,
-        clusterFill: 0.45,
-        clusterProb: 0.35,
-        jitter: 3,
-        ditherEdges: false,
-        ditherProb: 0.0,
-        ditherDepth: 0
-      )
-      buildBiomeSnowMask(boulderMask, mapWidth, mapHeight, mapBorder, r, boulderCfg)
-      for x in px0 ..< px1:
-        for y in py0 ..< py1:
-          if terrain[x][y] == Water:
-            boulderMask[x][y] = false
-      applyBiomeMaskToZone(terrain, biomes, boulderMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        Stone, BiomeSnowType, baseBiomeType, r, 0.15, blendDepth = 1)
-
-      # Place larger square-ish rock chunks (12-14 rocks) within the snow zone.
-      let area = (px1 - px0) * (py1 - py0)
-      var clumpCount = 1
-      if area > 4000: clumpCount = 2
-      if area > 8000: clumpCount = 3
-      if area > 12000: clumpCount = 4
-      clumpCount = min(5, clumpCount + randInclusive(r, 0, 1))
-      for _ in 0 ..< clumpCount:
-        var placedClump = false
-        for attempt in 0 ..< 24:
-          let clumpW = 4
-          let clumpH = 4
-          if px1 - px0 <= clumpW or py1 - py0 <= clumpH:
-            break
-          let startX = randInclusive(r, px0, px1 - clumpW)
-          let startY = randInclusive(r, py0, py1 - clumpH)
-          var candidates: seq[tuple[x, y: int]] = @[]
-          for x in startX ..< startX + clumpW:
-            for y in startY ..< startY + clumpH:
-              if not zoneMask[x][y]:
-                continue
-              if biomes[x][y] != BiomeSnowType:
-                continue
-              if terrain[x][y] in {Water, Pine, Stone}:
-                continue
-              candidates.add((x: x, y: y))
-          if candidates.len < 12:
-            continue
-          for i in countdown(candidates.len - 1, 1):
-            let j = randInclusive(r, 0, i)
-            swap(candidates[i], candidates[j])
-          let target = randInclusive(r, 12, 14)
-          let take = min(target, candidates.len)
-          for i in 0 ..< take:
-            let pos = candidates[i]
-            terrain[pos.x][pos.y] = Stone
-          placedClump = true
-          break
-        if not placedClump:
-          discard
     of BiomeCity:
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
@@ -846,253 +737,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       dec remaining
       idx += stride
 
-proc createTerrainCluster*(terrain: var TerrainGrid, centerX, centerY: int, size: int,
-                          mapWidth, mapHeight: int, terrainType: TerrainType,
-                          baseDensity: float, falloffRate: float, r: var Rand) =
-  ## Create a terrain cluster around a center point with configurable density
-  let radius = (size.float / 2.0).int
-  for dx in -radius .. radius:
-    for dy in -radius .. radius:
-      let x = centerX + dx
-      let y = centerY + dy
-      if x >= 0 and x < mapWidth and y >= 0 and y < mapHeight:
-        if terrain[x][y] == Empty:
-          let dist = sqrt((dx * dx + dy * dy).float)
-          if dist <= radius.float:
-            let chance = baseDensity - (dist / radius.float) * falloffRate
-            if randChance(r, chance):
-              terrain[x][y] = terrainType
-
-proc generateWheatFields*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  ## Generate clustered wheat fields; boosted count for richer biomes
-  let numFields = randInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
-    WheatFieldClusterScale
-
-  for i in 0 ..< numFields:
-    var placed = false
-    for attempt in 0 ..< 20:
-      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
-      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-
-      var nearWater = false
-      for dx in -5 .. 5:
-        for dy in -5 .. 5:
-          let checkX = x + dx
-          let checkY = y + dy
-          if checkX >= 0 and checkX < mapWidth and checkY >= 0 and checkY < mapHeight:
-            if terrain[checkX][checkY] == Water:
-              nearWater = true
-              break
-        if nearWater:
-          break
-
-      if nearWater or attempt > 10:
-        let fieldSize = randInclusive(r, 5, 12)
-        terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
-        terrain.createTerrainCluster(x, y, fieldSize + 1, mapWidth, mapHeight, Wheat, 0.5, 0.3, r)
-        placed = true
-        break
-
-    if not placed:
-      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
-      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-      let fieldSize = randInclusive(r, 5, 12)
-      terrain.createTerrainCluster(x, y, fieldSize, mapWidth, mapHeight, Wheat, 1.0, 0.3, r)
-      terrain.createTerrainCluster(x, y, fieldSize + 1, mapWidth, mapHeight, Wheat, 0.5, 0.3, r)
-
-proc generateTrees*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  ## Generate tree groves; boosted count for richer biomes
-  let numGroves = randInclusive(r, TreeGroveClusterBase, TreeGroveClusterBase + TreeGroveClusterRange) *
-    TreeGroveClusterScale
-
-  for i in 0 ..< numGroves:
-    let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
-    let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-    let groveSize = randInclusive(r, 3, 10)
-    terrain.createTerrainCluster(x, y, groveSize, mapWidth, mapHeight, Pine, 0.8, 0.4, r)
-
-proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  let numGroves = randInclusive(r, PalmGroveClusterBase, PalmGroveClusterBase + PalmGroveClusterRange) *
-    PalmGroveClusterScale
-  for i in 0 ..< numGroves:
-    var placed = false
-    for attempt in 0 ..< 16:
-      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
-      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-      var nearWater = false
-      for dx in -5 .. 5:
-        for dy in -5 .. 5:
-          let checkX = x + dx
-          let checkY = y + dy
-          if checkX >= 0 and checkX < mapWidth and checkY >= 0 and checkY < mapHeight:
-            if terrain[checkX][checkY] == Water:
-              nearWater = true
-              break
-        if nearWater:
-          break
-      if nearWater or attempt > 10:
-        let groveSize = randInclusive(r, 3, 8)
-        let radius = (groveSize.float / 2.0).int
-        for dx in -radius .. radius:
-          for dy in -radius .. radius:
-            let gx = x + dx
-            let gy = y + dy
-            if gx < mapBorder or gx >= mapWidth - mapBorder or gy < mapBorder or gy >= mapHeight - mapBorder:
-              continue
-            let dist = sqrt((dx * dx + dy * dy).float)
-            if dist <= radius.float:
-              let chance = 0.85 - (dist / radius.float) * 0.4
-              if randChance(r, chance) and terrain[gx][gy] != Water and terrain[gx][gy] in {Empty, Sand, Grass, Fertile, Dune}:
-                terrain[gx][gy] = Palm
-
-        let oasisW = randInclusive(r, 3, 5)
-        let oasisH = randInclusive(r, 3, 5)
-        let rx = max(1, oasisW div 2)
-        let ry = max(1, oasisH div 2)
-        for ox in -(rx + 1) .. (rx + 1):
-          for oy in -(ry + 1) .. (ry + 1):
-            let px = x + ox
-            let py = y + oy
-            if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
-              continue
-            let dx = ox.float / rx.float
-            let dy = oy.float / ry.float
-            let dist = dx * dx + dy * dy
-            let noise = (randFloat(r) - 0.5) * 0.35
-            if dist <= 1.0 + noise:
-              terrain[px][py] = Water
-
-        let rivulets = randInclusive(r, 1, 2)
-        for _ in 0 ..< rivulets:
-          var pos = ivec2(x.int32, y.int32)
-          let steps = randInclusive(r, 4, 10)
-          for _ in 0 ..< steps:
-            let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
-                                 ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
-            pos += dir
-            if pos.x < mapBorder.int32 or pos.x >= (mapWidth - mapBorder).int32 or
-               pos.y < mapBorder.int32 or pos.y >= (mapHeight - mapBorder).int32:
-              break
-            terrain[pos.x][pos.y] = Water
-
-        for ox in -(rx + 2) .. (rx + 2):
-          for oy in -(ry + 2) .. (ry + 2):
-            let px = x + ox
-            let py = y + oy
-            if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
-              continue
-            if terrain[px][py] == Water:
-              continue
-            var nearWater = false
-            for dx in -1 .. 1:
-              for dy in -1 .. 1:
-                let nx = px + dx
-                let ny = py + dy
-                if nx < mapBorder or nx >= mapWidth - mapBorder or ny < mapBorder or ny >= mapHeight - mapBorder:
-                  continue
-                if terrain[nx][ny] == Water:
-                  nearWater = true
-                  break
-              if nearWater:
-                break
-            if nearWater and randChance(r, 0.7) and terrain[px][py] in {Empty, Sand, Grass, Fertile, Dune}:
-              terrain[px][py] = Palm
-        placed = true
-        break
-    if not placed:
-      let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
-      let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-      let groveSize = randInclusive(r, 3, 8)
-      let radius = (groveSize.float / 2.0).int
-      for dx in -radius .. radius:
-        for dy in -radius .. radius:
-          let gx = x + dx
-          let gy = y + dy
-          if gx < mapBorder or gx >= mapWidth - mapBorder or gy < mapBorder or gy >= mapHeight - mapBorder:
-            continue
-          let dist = sqrt((dx * dx + dy * dy).float)
-          if dist <= radius.float:
-            let chance = 0.85 - (dist / radius.float) * 0.4
-            if randChance(r, chance) and terrain[gx][gy] != Water and terrain[gx][gy] in {Empty, Sand, Grass, Fertile, Dune}:
-              terrain[gx][gy] = Palm
-
-      let oasisW = randInclusive(r, 3, 5)
-      let oasisH = randInclusive(r, 3, 5)
-      let rx = max(1, oasisW div 2)
-      let ry = max(1, oasisH div 2)
-      for ox in -(rx + 1) .. (rx + 1):
-        for oy in -(ry + 1) .. (ry + 1):
-          let px = x + ox
-          let py = y + oy
-          if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
-            continue
-          let dx = ox.float / rx.float
-          let dy = oy.float / ry.float
-          let dist = dx * dx + dy * dy
-          let noise = (randFloat(r) - 0.5) * 0.35
-          if dist <= 1.0 + noise:
-            terrain[px][py] = Water
-
-      let rivulets = randInclusive(r, 1, 2)
-      for _ in 0 ..< rivulets:
-        var pos = ivec2(x.int32, y.int32)
-        let steps = randInclusive(r, 4, 10)
-        for _ in 0 ..< steps:
-          let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
-                               ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
-          pos += dir
-          if pos.x < mapBorder.int32 or pos.x >= (mapWidth - mapBorder).int32 or
-             pos.y < mapBorder.int32 or pos.y >= (mapHeight - mapBorder).int32:
-            break
-          terrain[pos.x][pos.y] = Water
-
-      for ox in -(rx + 2) .. (rx + 2):
-        for oy in -(ry + 2) .. (ry + 2):
-          let px = x + ox
-          let py = y + oy
-          if px < mapBorder or px >= mapWidth - mapBorder or py < mapBorder or py >= mapHeight - mapBorder:
-            continue
-          if terrain[px][py] == Water:
-            continue
-          var nearWater = false
-          for dx in -1 .. 1:
-            for dy in -1 .. 1:
-              let nx = px + dx
-              let ny = py + dy
-              if nx < mapBorder or nx >= mapWidth - mapBorder or ny < mapBorder or ny >= mapHeight - mapBorder:
-                continue
-              if terrain[nx][ny] == Water:
-                nearWater = true
-                break
-            if nearWater:
-              break
-          if nearWater and randChance(r, 0.7) and terrain[px][py] in {Empty, Sand, Grass, Fertile, Dune}:
-            terrain[px][py] = Palm
-
-proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  for i in 0 ..< 30:
-    var attempts = 0
-    var placed = false
-    while attempts < 12 and not placed:
-      inc attempts
-      let x = randInclusive(r, mapBorder + 2, mapWidth - mapBorder - 2)
-      let y = randInclusive(r, mapBorder + 2, mapHeight - mapBorder - 2)
-      var nearWater = false
-      for dx in -4 .. 4:
-        for dy in -4 .. 4:
-          let checkX = x + dx
-          let checkY = y + dy
-          if checkX >= 0 and checkX < mapWidth and checkY >= 0 and checkY < mapHeight:
-            if terrain[checkX][checkY] == Water:
-              nearWater = true
-              break
-        if nearWater:
-          break
-      if nearWater or attempts >= 10:
-        let size = randInclusive(r, 3, 7)
-        terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Bush, 0.75, 0.45, r)
-        placed = true
-
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                   mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
   ## Initialize terrain with all features
@@ -1118,25 +762,6 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
     applyBiomeZones(terrain, biomes, mapWidth, mapHeight, mapBorder, r)
 
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
-  terrain.generateWheatFields(mapWidth, mapHeight, mapBorder, r)
-  if UsePalmGroves:
-    terrain.generatePalmGroves(mapWidth, mapHeight, mapBorder, r)
-  if UseLegacyTreeClusters:
-    terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
-  let rockClusters = max(16, mapWidth div 25)
-  for i in 0 ..< rockClusters:
-    let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
-    let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
-    let size = randInclusive(r, 4, 8)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Stone, 0.9, 0.3, r)
-
-  let goldClusters = max(8, mapWidth div 50)
-  for i in 0 ..< goldClusters:
-    let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
-    let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
-    let size = randInclusive(r, 3, 5)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gold, 0.8, 0.4, r)
-  terrain.generateBushes(mapWidth, mapHeight, mapBorder, r)
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],
@@ -1182,17 +807,9 @@ proc terrainAsciiChar*(terrain: TerrainType): char =
   of Empty: ' '
   of Water: '~'
   of Bridge: '='
-  of Wheat: '"'
-  of Pine: 'Y'
   of Fertile: ':'
   of Road: '+'
-  of Stone: 'S'
-  of Gold: 'G'
-  of Bush: '%'
   of Grass: ','
-  of Cactus: '!'
   of Dune: '^'
-  of Stalagmite: 'I'
-  of Palm: 'P'
   of Sand: '.'
   of Snow: '_'
