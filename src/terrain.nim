@@ -138,6 +138,7 @@ const
   TerrainDune* = TerrainType.Dune
   TerrainSand* = TerrainType.Sand
   TerrainSnow* = TerrainType.Snow
+  BuildableTerrain* = {Empty, Grass, Sand, Snow, Dune, Road}
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain == Water
