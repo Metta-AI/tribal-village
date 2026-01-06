@@ -5,18 +5,23 @@ type GathererTask = enum
   TaskGold
   TaskHearts
 
-proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): GathererTask =
+proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
+                        altarHearts: int): GathererTask =
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
   let gold = env.stockpileCount(teamId, ResourceGold)
 
-  var lowest = min(food, min(wood, min(stone, gold)))
+  if altarHearts < 10:
+    return TaskHearts
+
+  var lowest = min(food, min(wood, min(stone, min(gold, altarHearts))))
   var choices: seq[GathererTask] = @[]
   if food == lowest: choices.add(TaskFood)
   if wood == lowest: choices.add(TaskWood)
   if stone == lowest: choices.add(TaskStone)
   if gold == lowest: choices.add(TaskGold)
+  if altarHearts == lowest: choices.add(TaskHearts)
   choices[randIntExclusive(controller.rng, 0, choices.len)]
 
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
@@ -39,9 +44,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     controller.dropoffGathererCarrying(env, agent, agentId, state, allowGoldDropoff)
   if didDrop: return dropAct
 
-  var task = chooseGathererTask(controller, env, teamId)
-  if altarHearts < 10:
-    task = TaskHearts
+  let task = chooseGathererTask(controller, env, teamId, altarHearts)
 
   template tryBuildCamp(kind: ThingKind, nearbyCount, minCount: int,
                         nearbyKinds: openArray[ThingKind], distanceThreshold: int): uint8 =
