@@ -28,30 +28,17 @@ proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
 
-proc dropoffBuilderCarrying(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState,
-                            allowGoldDropoff: bool): tuple[did: bool, action: uint8] =
-  let teamId = getTeamId(agent.agentId)
-  if allowGoldDropoff and agent.inventoryGold > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-  if agent.inventoryStone > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-  (false, 0'u8)
-
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
 
   let armorNeedy = findNearestTeammateNeeding(env, agent, NeedArmor)
-  let (didDrop, dropAct) = dropoffBuilderCarrying(controller, env, agent, agentId, state, armorNeedy == nil)
+  let (didDrop, dropAct) = controller.dropoffCarrying(
+    env, agent, agentId, state,
+    allowWood = false,
+    allowStone = true,
+    allowGold = armorNeedy == nil
+  )
   if didDrop: return dropAct
 
   # Top priority: keep population cap ahead of current population.
@@ -87,18 +74,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
-  if env.countTeamBuildings(teamId, LumberCamp) == 0:
-    let idx = buildIndexFor(LumberCamp)
+  if env.countTeamBuildings(teamId, LumberYard) == 0:
+    let idx = buildIndexFor(LumberYard)
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
   if env.countTeamBuildings(teamId, Quarry) == 0:
     let idx = buildIndexFor(Quarry)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, MiningCamp) == 0:
-    let idx = buildIndexFor(MiningCamp)
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
@@ -212,23 +194,15 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       if magma != nil:
         return controller.useOrMove(env, agent, agentId, state, magma.pos)
     else:
-      let goldPos = env.findNearestTerrainSpiral(state, Gold, controller.rng)
-      if goldPos.x >= 0:
-        return controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos)
+      let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
+      if didGold: return actGold
 
   # Craft spears at the blacksmith if fighters are out.
   let spearNeedy = findNearestTeammateNeeding(env, agent, NeedSpear)
   if spearNeedy != nil:
     if agent.inventoryWood == 0:
-      let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
-      if stump != nil:
-        return controller.useOrMove(env, agent, agentId, state, stump.pos)
-      let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
-      if pinePos.x >= 0:
-        return controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos)
-      let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
-      if palmPos.x >= 0:
-        return controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos)
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
     let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
     if smith != nil:
       return controller.useOrMove(env, agent, agentId, state, smith.pos)
