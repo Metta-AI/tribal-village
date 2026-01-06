@@ -272,7 +272,7 @@ proc drawWalls*() =
   template hasWall(x: int, y: int): bool =
     x >= 0 and x < MapWidth and
     y >= 0 and y < MapHeight and
-    env.grid[x][y] not isNil and
+    not isNil(env.grid[x][y]) and
     env.grid[x][y].kind == Wall
 
   var wallFills: seq[IVec2]
