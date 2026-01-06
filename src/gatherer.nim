@@ -85,8 +85,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     # Fall through to gold gathering.
   of TaskGold:
     if agent.unitClass == UnitVillager:
-      let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {terrain.Gold}) +
-        countNearbyThings(env, agent.pos, 4, {Gold})
+      let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
       let (didBuild, buildAct) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, MiningCamp,
         nearbyGold, 6,
@@ -95,8 +94,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       if didBuild: return buildAct
   of TaskFood:
     if agent.unitClass == UnitVillager:
-      let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {terrain.Wheat}) +
-        countNearbyThings(env, agent.pos, 4, {Wheat})
+      let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
       let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
       let (didGranary, actGranary) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, Granary,
@@ -116,14 +114,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if didPlant: return actPlant
 
     let wheatThing = env.findNearestThingSpiral(state, Wheat, controller.rng)
-    let wheatPos = env.findNearestTerrainSpiral(state, Wheat, controller.rng)
     if wheatThing != nil:
-      if wheatPos.x < 0 or
-         abs(wheatThing.pos.x - agent.pos.x) + abs(wheatThing.pos.y - agent.pos.y) <=
-         abs(wheatPos.x - agent.pos.x) + abs(wheatPos.y - agent.pos.y):
-        return controller.useOrMove(env, agent, agentId, state, wheatThing.pos)
-    if wheatPos.x >= 0:
-      return controller.useOrMoveToTerrain(env, agent, agentId, state, wheatPos)
+      return controller.useOrMove(env, agent, agentId, state, wheatThing.pos)
 
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
     if didHunt: return actHunt
@@ -142,8 +134,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     if agent.unitClass == UnitVillager:
-      let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {terrain.Stone, terrain.Stalagmite}) +
-        countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
+      let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
       let (didBuild, buildAct) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, Quarry,
         nearbyStone, 4,
