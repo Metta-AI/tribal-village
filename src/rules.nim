@@ -45,3 +45,15 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
     if idx >= 0:
       return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
   (false, 0'u8)
+
+proc tryBuildDoorAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                        state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
+  if env.teamStockpiles[teamId].counts[ResourceWood] < 1:
+    return (false, 0'u8)
+  let buildPos = findAdjacentBuildTile(env, agent.pos, orientationToVec(agent.orientation))
+  if buildPos.x < 0:
+    return (false, 0'u8)
+  if env.hasDoor(buildPos):
+    return (false, 0'u8)
+  return (true, saveStateAndReturn(controller, agentId, state,
+    encodeAction(8'u8, BuildIndexDoor.uint8)))
