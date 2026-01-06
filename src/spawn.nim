@@ -345,7 +345,12 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.baseTintColors[x][y] = BaseTileColorDefault
-      env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[x][y] = TileColor(
+        r: BaseTileColorDefault.r,
+        g: BaseTileColorDefault.g,
+        b: BaseTileColorDefault.b,
+        intensity: 0
+      )
 
   # Clear overlay grid (non-blocking things like doors)
   for x in 0 ..< MapWidth:

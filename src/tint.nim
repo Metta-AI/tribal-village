@@ -5,7 +5,8 @@ proc clearTintModifications(env: Environment) =
     let tileY = pos.y.int
     if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
       env.tintMods[tileX][tileY] = TintModification(r: 0, g: 0, b: 0)
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      let base = env.baseTintColors[tileX][tileY]
+      env.computedTintColors[tileX][tileY] = TileColor(r: base.r, g: base.g, b: base.b, intensity: 0)
       env.activeTiles.flags[tileX][tileY] = false
 
   # Clear the active list for next frame
@@ -103,11 +104,13 @@ proc applyTintModifications(env: Environment) =
     let bTint = int(dynTint.b) + int(tumorTint.b)
 
     if abs(rTint) < MinTintEpsilon and abs(gTint) < MinTintEpsilon and abs(bTint) < MinTintEpsilon:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      let base = env.baseTintColors[tileX][tileY]
+      env.computedTintColors[tileX][tileY] = TileColor(r: base.r, g: base.g, b: base.b, intensity: 0)
       return
 
     if env.terrain[tileX][tileY] == Water:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      let base = env.baseTintColors[tileX][tileY]
+      env.computedTintColors[tileX][tileY] = TileColor(r: base.r, g: base.g, b: base.b, intensity: 0)
       return
 
     let base = env.baseTintColors[tileX][tileY]
@@ -118,10 +121,10 @@ proc applyTintModifications(env: Environment) =
     let clampedG = min(max(base.g + deltaG, 0.3), 1.2)
     let clampedB = min(max(base.b + deltaB, 0.3), 1.2)
     env.computedTintColors[tileX][tileY] = TileColor(
-      r: clampedR - base.r,
-      g: clampedG - base.g,
-      b: clampedB - base.b,
-      intensity: 0
+      r: clampedR,
+      g: clampedG,
+      b: clampedB,
+      intensity: 0.65
     )
 
   for pos in env.activeTiles.positions:

@@ -74,17 +74,12 @@ var
   selection*: Thing  # Currently selected entity for UI interaction
   selectedPos*: IVec2 = ivec2(-1, -1)  # Last clicked tile for UI label
 
+proc combinedTileTint*(env: Environment, x, y: int): TileColor
+
 proc isTileFrozen*(pos: IVec2, env: Environment): bool =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return false
-  let base = env.baseTintColors[pos.x][pos.y]
-  let overlay = env.computedTintColors[pos.x][pos.y]
-  let color = TileColor(
-    r: min(max(base.r + overlay.r, 0.3), 1.2),
-    g: min(max(base.g + overlay.g, 0.3), 1.2),
-    b: min(max(base.b + overlay.b, 0.3), 1.2),
-    intensity: base.intensity + overlay.intensity
-  )
+  let color = combinedTileTint(env, pos.x, pos.y)
   return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
     abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
     abs(color.b - ClippyTint.b) <= ClippyTintTolerance
@@ -92,11 +87,12 @@ proc isTileFrozen*(pos: IVec2, env: Environment): bool =
 proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]
+  let alpha = max(0.0'f32, min(1.0'f32, overlay.intensity))
   TileColor(
-    r: min(max(base.r + overlay.r, 0.3), 1.2),
-    g: min(max(base.g + overlay.g, 0.3), 1.2),
-    b: min(max(base.b + overlay.b, 0.3), 1.2),
-    intensity: base.intensity + overlay.intensity
+    r: min(max(base.r * (1.0 - alpha) + overlay.r * alpha, 0.3), 1.2),
+    g: min(max(base.g * (1.0 - alpha) + overlay.g * alpha, 0.3), 1.2),
+    b: min(max(base.b * (1.0 - alpha) + overlay.b * alpha, 0.3), 1.2),
+    intensity: base.intensity
   )
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool =
