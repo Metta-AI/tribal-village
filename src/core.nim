@@ -35,6 +35,9 @@ type
     rng*: Rand
     agents: Table[int, AgentState]
 
+proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
+               state: var AgentState, targetPos: IVec2): uint8
+
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
@@ -224,6 +227,23 @@ proc hasFriendlyBuildingNearby*(env: Environment, teamId: int, kind: ThingKind,
     if max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y)) <= radius:
       return true
   false
+
+proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
+                                      kinds: openArray[ThingKind], pos: IVec2): int =
+  result = int.high
+  for thing in env.things:
+    if thing.teamId != teamId:
+      continue
+    var matches = false
+    for kind in kinds:
+      if thing.kind == kind:
+        matches = true
+        break
+    if not matches:
+      continue
+    let dist = int(chebyshevDist(thing.pos, pos))
+    if dist < result:
+      result = dist
 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
                           res: StockpileResource, rng: var Rand): Thing =
@@ -818,33 +838,20 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
 
 proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, agentId: int,
                      state: var AgentState, allowWood, allowStone, allowGold: bool): tuple[did: bool, action: uint8] =
-  let teamId = getTeamId(agent.agentId)
-  if allowWood and agent.inventoryWood > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberYard, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+  if allowWood:
+    let (didWood, actWood) =
+      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceWood, agent.inventoryWood)
+    if didWood: return (true, actWood)
 
-  if allowGold and agent.inventoryGold > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+  if allowGold:
+    let (didGold, actGold) =
+      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceGold, agent.inventoryGold)
+    if didGold: return (true, actGold)
 
-  if allowStone and agent.inventoryStone > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
-    if dropoff == nil:
-      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
-    if dropoff != nil:
-      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+  if allowStone:
+    let (didStone, actStone) =
+      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
+    if didStone: return (true, actStone)
 
   (false, 0'u8)
 
