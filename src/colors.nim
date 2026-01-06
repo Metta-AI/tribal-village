@@ -1,8 +1,3 @@
-# Global village color management and palettes
-var agentVillageColors*: seq[Color] = @[]
-var teamColors*: seq[Color] = @[]
-var altarColors*: Table[IVec2, Color] = initTable[IVec2, Color]()
-
 # Forward declaration so combat helpers can update observations before the
 # inline definition later in the file.
 proc updateObservations(env: Environment, layer: ObservationName, pos: IVec2, value: int)
@@ -68,11 +63,6 @@ proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) 
 proc tickCooldown(env: Environment, thing: Thing) =
   if thing.cooldown > 0:
     dec thing.cooldown
-
-var
-  env*: Environment  # Global environment instance
-  selection*: Thing  # Currently selected entity for UI interaction
-  selectedPos*: IVec2 = ivec2(-1, -1)  # Last clicked tile for UI label
 
 proc combinedTileTint*(env: Environment, x, y: int): TileColor
 
