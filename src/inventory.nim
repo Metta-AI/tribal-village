@@ -1,3 +1,4 @@
+{.push inline.}
 proc getInv*(thing: Thing, key: ItemKey): int =
   if key.len == 0:
     return 0
@@ -112,6 +113,7 @@ proc hearts*(thing: Thing): int =
 
 proc `hearts=`*(thing: Thing, value: int) =
   setInv(thing, ItemHearts, value)
+{.pop.}
 
 template defineInventoryAccessors(name, key: untyped) =
   proc `name`*(agent: Thing): int =

@@ -161,10 +161,6 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     return controller.attackOrMove(env, agent, agentId, state, spawner.pos)
 
   # Hunt while patrolling if nothing else to do.
-  let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
-  if corpse != nil:
-    return controller.useOrMove(env, agent, agentId, state, corpse.pos)
-  let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
-  if cow != nil:
-    return controller.attackOrMove(env, agent, agentId, state, cow.pos)
+  let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
+  if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)

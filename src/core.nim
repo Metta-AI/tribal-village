@@ -314,6 +314,27 @@ proc dropoffFoodIfCarrying*(controller: Controller, env: Environment, agent: Thi
     return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
   (false, 0'u8)
 
+proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState,
+                              allowGold: bool): tuple[did: bool, action: uint8] =
+  let (didDropFood, dropFoodAct) = dropoffFoodIfCarrying(controller, env, agent, agentId, state)
+  if didDropFood: return (true, dropFoodAct)
+
+  let (didDropWood, dropWoodAct) =
+    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceWood, agent.inventoryWood)
+  if didDropWood: return (true, dropWoodAct)
+
+  if allowGold:
+    let (didDropGold, dropGoldAct) =
+      dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceGold, agent.inventoryGold)
+    if didDropGold: return (true, dropGoldAct)
+
+  let (didDropStone, dropStoneAct) =
+    dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
+  if didDropStone: return (true, dropStoneAct)
+
+  (false, 0'u8)
+
 proc teamPopCount*(env: Environment, teamId: int): int =
   for agent in env.agents:
     if not isAgentAlive(env, agent):
@@ -999,4 +1020,17 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
   let goldPos = env.findNearestTerrainSpiral(state, Gold, controller.rng)
   if goldPos.x >= 0:
     return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                    state: var AgentState): tuple[did: bool, action: uint8] =
+  let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
+  if corpse != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, corpse.pos))
+  let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
+  if cow != nil:
+    return (true, controller.attackOrMove(env, agent, agentId, state, cow.pos))
+  let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
+  if bushPos.x >= 0:
+    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, bushPos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
