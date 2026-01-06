@@ -28,9 +28,29 @@ proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
 
+proc dropoffBuilderCarrying(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+  let teamId = getTeamId(agent.agentId)
+  if agent.inventoryGold > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+  if agent.inventoryStone > 0:
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
+    if dropoff != nil:
+      return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+  (false, 0'u8)
+
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+
+  let (didDrop, dropAct) = dropoffBuilderCarrying(controller, env, agent, agentId, state)
+  if didDrop: return dropAct
 
   # Top priority: keep population cap ahead of current population.
   let popCount = env.teamPopCount(teamId)
@@ -77,6 +97,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       if did: return act
   if env.countTeamBuildings(teamId, MiningCamp) == 0:
     let idx = buildIndexFor(MiningCamp)
+    if idx >= 0:
+      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+      if did: return act
+  if env.countTeamBuildings(teamId, Bank) == 0:
+    let idx = buildIndexFor(Bank)
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
