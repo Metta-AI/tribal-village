@@ -15,29 +15,24 @@ proc dropStump(env: Environment, pos: IVec2, woodRemaining: int) =
     setInv(stump, ItemWood, woodRemaining)
   env.add(stump)
 
-proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
+proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool, hearts = 0) =
+  let value = if present: 1 else: 0
   case kind
   of Wall:
-    env.updateObservations(WallLayer, pos, 0)
+    env.updateObservations(WallLayer, pos, value)
   of Magma:
-    env.updateObservations(MagmaLayer, pos, 0)
+    env.updateObservations(MagmaLayer, pos, value)
   of Altar:
-    env.updateObservations(altarLayer, pos, 0)
-    env.updateObservations(altarHeartsLayer, pos, 0)
+    env.updateObservations(altarLayer, pos, value)
+    env.updateObservations(altarHeartsLayer, pos, if present: hearts else: 0)
   else:
     discard
 
+proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
+  updateThingObs(env, kind, pos, false)
+
 proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: Thing) =
-  case kind
-  of Wall:
-    env.updateObservations(WallLayer, pos, 1)
-  of Magma:
-    env.updateObservations(MagmaLayer, pos, 1)
-  of Altar:
-    env.updateObservations(altarLayer, pos, 1)
-    env.updateObservations(altarHeartsLayer, pos, placed.hearts)
-  else:
-    discard
+  updateThingObs(env, kind, pos, true, placed.hearts)
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
@@ -97,7 +92,7 @@ proc removeThing(env: Environment, thing: Thing) =
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
-    if env.terrain[pos.x][pos.y] notin {Empty, Grass, Sand, Snow, Dune, Road}:
+    if env.terrain[pos.x][pos.y] notin BuildableTerrain:
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)
