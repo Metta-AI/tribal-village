@@ -11,6 +11,7 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   )
 
 proc init(env: Environment) =
+  inc env.mapGeneration
   # Use current time for random seed to get different maps each time
   let seed = int(nowSeconds() * 1000)
   var r = initRand(seed)

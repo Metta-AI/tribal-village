@@ -19,6 +19,16 @@ var
   stepLabelSize = ivec2(0, 0)
   doorSpriteKey* = "wall"
 
+type FloorSpriteKind = enum
+  FloorBase
+  FloorCave
+  FloorDungeon
+
+var
+  floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
+  waterPositions: seq[IVec2] = @[]
+  renderCacheGeneration = -1
+
 proc setDoorSprite*(key: string) =
   doorSpriteKey = key
 
@@ -168,25 +178,57 @@ proc tileNoise(x, y: int): uint32 =
   v = (v xor (v shr 13)) * 1274126177'u32
   v xor (v shr 16)
 
-proc drawFloor*() =
-  # Draw the floor tiles everywhere first as the base layer
+proc rebuildRenderCaches() =
+  for kind in FloorSpriteKind:
+    floorSpritePositions[kind].setLen(0)
+  waterPositions.setLen(0)
+
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
+      let biome = env.biomes[x][y]
+      let floorKind =
+        case biome
+        of BiomeCavesType:
+          FloorCave
+        of BiomeDungeonType:
+          if (tileNoise(x, y) mod 100) < 35:
+            FloorDungeon
+          else:
+            FloorBase
+        else:
+          FloorBase
+      floorSpritePositions[floorKind].add(ivec2(x, y))
 
+      if env.terrain[x][y] == Water:
+        waterPositions.add(ivec2(x, y))
+
+  renderCacheGeneration = env.mapGeneration
+
+proc ensureRenderCaches() =
+  if renderCacheGeneration != env.mapGeneration:
+    rebuildRenderCaches()
+
+proc drawFloor*() =
+  ensureRenderCaches()
+  # Draw the floor tiles everywhere first as the base layer
+  for floorKind in FloorSpriteKind:
+    let floorSprite = case floorKind
+      of FloorCave: "cave"
+      of FloorDungeon: "dungeon"
+      of FloorBase: "floor"
+    for pos in floorSpritePositions[floorKind]:
+      let x = pos.x
+      let y = pos.y
       let tileColor = env.tileColors[x][y]
       let baseTint = env.baseTintColors[x][y]
       let blendedColor = blendTileColors(baseTint, tileColor, 0.65)
-      let floorSprite = case env.biomes[x][y]
-        of BiomeCavesType: "cave"
-        of BiomeDungeonType:
-          if (tileNoise(x, y) mod 100) < 35: "dungeon" else: "floor"
-        else: "floor"
 
       let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
       let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
       let finalB = min(blendedColor.b * blendedColor.intensity, 1.5)
 
-      bxy.drawImage(floorSprite, ivec2(x, y).vec2, angle = 0, scale = spriteScale(floorSprite), tint = color(finalR, finalG, finalB, 1.0))
+      bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = spriteScale(floorSprite),
+        tint = color(finalR, finalG, finalB, 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
@@ -332,147 +374,158 @@ proc drawObjects*() =
       bxy.drawImage(waterKey, pos, angle = 0, scale = spriteScale(waterKey))
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      if env.terrain[x][y] == Water:
-        drawWaterTile(ivec2(x, y).vec2)
+  ensureRenderCaches()
+  for pos in waterPositions:
+    drawWaterTile(pos.vec2)
 
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      if env.grid[x][y] != nil:
-        let thing = env.grid[x][y]
-        let pos = ivec2(x, y)
-        let infectionLevel = getInfectionLevel(pos)
-        let infected = infectionLevel >= 1.0
+  template drawThings(kind: ThingKind, body: untyped) =
+    for thing in env.thingsByKind[kind]:
+      if not isValidPos(thing.pos):
+        continue
+      if env.grid[thing.pos.x][thing.pos.y] != thing:
+        continue
+      let t = thing
+      let thing {.inject.} = t
+      let pos {.inject.} = thing.pos
+      body
 
-        case thing.kind
-        of Wall:
-          discard
-        of Pine, Palm:
-          let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
-          bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
-          if infected:
-            drawOverlayIf(true, "frozen", pos.vec2)
-        of Agent:
-          let agent = thing
-          var agentImage = case agent.orientation:
-            of N: "agent.n"
-            of S: "agent.s"
-            of E: "agent.e"
-            of W: "agent.w"
-            of NW: "agent.w"  # Use west sprite for NW
-            of NE: "agent.e"  # Use east sprite for NE
-            of SW: "agent.w"  # Use west sprite for SW
-            of SE: "agent.e"  # Use east sprite for SE
+  drawThings(Pine):
+    let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
+    bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
+    if getInfectionLevel(pos) >= 1.0:
+      drawOverlayIf(true, "frozen", pos.vec2)
 
-          # Draw agent sprite with normal coloring (no infection overlay for agents)
-          bxy.drawImage(
-            agentImage,
-            pos.vec2,
-            angle = 0,
-            scale = spriteScale(agentImage),
-            tint = generateEntityColor("agent", agent.agentId)
-          )
+  drawThings(Palm):
+    let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
+    bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
+    if getInfectionLevel(pos) >= 1.0:
+      drawOverlayIf(true, "frozen", pos.vec2)
 
-        of Altar:
-          let baseImage = resolveSpriteKey("altar")  # Visual centerpiece for each village
-          let altarTint = getAltarColor(pos)
-          # Subtle ground tint so altars start with their team shade visible.
-          bxy.drawImage(
-            "floor",
-            pos.vec2,
-            angle = 0,
-            scale = spriteScale("floor"),
-            tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
-          )
-          bxy.drawImage(
-            baseImage,
-            pos.vec2,
-            angle = 0,
-            scale = spriteScale(baseImage),
-            tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0)
-          )
+  drawThings(Agent):
+    let agent = thing
+    var agentImage = case agent.orientation:
+      of N: "agent.n"
+      of S: "agent.s"
+      of E: "agent.e"
+      of W: "agent.w"
+      of NW: "agent.w"
+      of NE: "agent.e"
+      of SW: "agent.w"
+      of SE: "agent.e"
+    bxy.drawImage(
+      agentImage,
+      pos.vec2,
+      angle = 0,
+      scale = spriteScale(agentImage),
+      tint = generateEntityColor("agent", agent.agentId)
+    )
 
-          # Hearts row uses the same small icons/spacing as agent inventory overlays.
-          let heartAnchor = vec2(-0.48, -0.64)
-          let heartStep = 0.12
-          let heartScale: float32 = 1/420
-          let labelScale: float32 = 1/200
-          let amt = max(0, thing.hearts)
-          if amt == 0:
-            let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
-            bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
-          else:
-            if amt <= HeartPlusThreshold:
-              let drawCount = amt
-              for i in 0 ..< drawCount:
-                let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
-                bxy.drawImage("heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
-            else:
-              # Compact: single heart with a count label for large totals
-              bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
-              let labelKey = ensureHeartCountLabel(amt)
-              # Offset roughly half a tile to the right for clearer separation from the icon.
-              let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
+  drawThings(Altar):
+    let baseImage = resolveSpriteKey("altar")
+    let altarTint = getAltarColor(pos)
+    bxy.drawImage(
+      "floor",
+      pos.vec2,
+      angle = 0,
+      scale = spriteScale("floor"),
+      tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
+    )
+    bxy.drawImage(
+      baseImage,
+      pos.vec2,
+      angle = 0,
+      scale = spriteScale(baseImage),
+      tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0)
+    )
+    let heartAnchor = vec2(-0.48, -0.64)
+    let heartStep = 0.12
+    let heartScale: float32 = 1/420
+    let labelScale: float32 = 1/200
+    let amt = max(0, thing.hearts)
+    if amt == 0:
+      let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
+      bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
+    else:
+      if amt <= HeartPlusThreshold:
+        let drawCount = amt
+        for i in 0 ..< drawCount:
+          let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
+          bxy.drawImage("heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
+      else:
+        bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
+        let labelKey = ensureHeartCountLabel(amt)
+        let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
+        bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+    if getInfectionLevel(pos) >= 1.0:
+      drawOverlayIf(true, "frozen", pos.vec2)
+
+  drawThings(Tumor):
+    let spriteDir = case thing.orientation:
+      of N: "n"
+      of S: "s"
+      of E, NE, SE: "e"
+      of W, NW, SW: "w"
+    let spritePrefix = if thing.hasClaimedTerritory:
+      "tumor."
+    else:
+      "tumor.color."
+    let baseImage = spritePrefix & spriteDir
+    bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
+
+  drawThings(Cow):
+    let cowSprite = if thing.orientation == Orientation.E: "cow.r" else: "cow"
+    bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = spriteScale(cowSprite))
+
+  drawThings(Lantern):
+    let lanternKey = resolveSpriteKey("lantern")
+    if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < teamColors.len:
+      let teamColor = teamColors[thing.teamId]
+      bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = teamColor)
+    else:
+      bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = color(0.5, 0.5, 0.5, 1.0))
+
+  for kind in ThingKind:
+    if kind in {Wall, Pine, Palm, Agent, Altar, Tumor, Cow, Lantern}:
+      continue
+    if isBuildingKind(kind):
+      for thing in env.thingsByKind[kind]:
+        if not isValidPos(thing.pos):
+          continue
+        if env.grid[thing.pos.x][thing.pos.y] != thing:
+          continue
+        let pos = thing.pos
+        let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
+        if spriteKey.len > 0:
+          bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
+          drawRoofTint(spriteKey, pos.vec2, thing.teamId)
+        if buildingShowsStockpile(thing.kind) and
+           thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
+          let res = buildingStockpileRes(thing.kind)
+          let icon = stockpileIcon(res)
+          if icon.len > 0:
+            let count = env.teamStockpiles[thing.teamId].counts[res]
+            let iconScale = 1/320
+            let labelScale = 1/200
+            let iconPos = pos.vec2 + vec2(-0.18, -0.72)
+            let alpha = if count > 0: 1.0 else: 0.35
+            bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
+            if count > 0:
+              let labelKey = ensureHeartCountLabel(count)
+              let labelPos = iconPos + vec2(0.14, -0.08)
               bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
-          if infected:
-            drawOverlayIf(true, "frozen", pos.vec2)
-
-        of Tumor:
-          # Map diagonal orientations to cardinal sprites
-          let spriteDir = case thing.orientation:
-            of N: "n"
-            of S: "s"
-            of E, NE, SE: "e"
-            of W, NW, SW: "w"
-          let spritePrefix = if thing.hasClaimedTerritory:
-            "tumor."
-          else:
-            "tumor.color."
-          let baseImage = spritePrefix & spriteDir
-          # Tumors draw directly with tint variations baked into the sprite
-          bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
-
-        of Cow:
-          let cowSprite = if thing.orientation == Orientation.E: "cow.r" else: "cow"
-          bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = spriteScale(cowSprite))
-        of Lantern:
-          # Draw lantern using a simple image with team color tint
-          let lantern = thing
-          let lanternKey = resolveSpriteKey("lantern")
-          if lantern.lanternHealthy and lantern.teamId >= 0 and lantern.teamId < teamColors.len:
-            let teamColor = teamColors[lantern.teamId]
-            bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = teamColor)
-          else:
-            # Unhealthy or unassigned lantern - draw as gray
-            bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = color(0.5, 0.5, 0.5, 1.0))
-        else:
-          if isBuildingKind(thing.kind):
-            let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
-            if spriteKey.len > 0:
-              bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-              drawRoofTint(spriteKey, pos.vec2, thing.teamId)
-            if buildingShowsStockpile(thing.kind) and
-               thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
-              let res = buildingStockpileRes(thing.kind)
-              let icon = stockpileIcon(res)
-              if icon.len > 0:
-                let count = env.teamStockpiles[thing.teamId].counts[res]
-                let iconScale = 1/320
-                let labelScale = 1/200
-                let iconPos = pos.vec2 + vec2(-0.18, -0.72)
-                let alpha = if count > 0: 1.0 else: 0.35
-                bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
-                if count > 0:
-                  let labelKey = ensureHeartCountLabel(count)
-                  let labelPos = iconPos + vec2(0.14, -0.08)
-                  bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
-          else:
-            let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
-            if spriteKey.len > 0:
-              bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-          if infected and hasFrozenOverlay(thing.kind):
-            drawOverlayIf(true, "frozen", pos.vec2)
+    else:
+      for thing in env.thingsByKind[kind]:
+        if not isValidPos(thing.pos):
+          continue
+        if env.grid[thing.pos.x][thing.pos.y] != thing:
+          continue
+        let pos = thing.pos
+        let infected = getInfectionLevel(pos) >= 1.0
+        let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
+        if spriteKey.len > 0:
+          bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
+        if infected and hasFrozenOverlay(thing.kind):
+          drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
