@@ -43,12 +43,12 @@ proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSe
 
 proc setExternalActionCallback*(callback: proc(): array[MapAgents, uint8]) =
   ## Set the external action callback for neural network control
-  if globalController != nil and globalController.controllerType == ExternalNN:
+  if not isNil(globalController) and globalController.controllerType == ExternalNN:
     globalController.externalActionCallback = callback
 
 proc getActions*(env: Environment): array[MapAgents, uint8] =
   ## Get actions for all agents using the configured controller
-  if globalController == nil:
+  if isNil(globalController):
     # NO CONTROLLER - return NOOP actions (agents won't move, proving Python control is required)
     var noopActions: array[MapAgents, uint8]
     for i in 0..<MapAgents:
@@ -66,7 +66,7 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
     
   of ExternalNN:
     # Use external neural network callback
-    if globalController.externalActionCallback != nil:
+    if not isNil(globalController.externalActionCallback):
       let actions = globalController.externalActionCallback()
       return actions
     else:

@@ -588,10 +588,14 @@ proc reset*(env: Environment) =
   env.cowHerdSumX.setLen(0)
   env.cowHerdSumY.setLen(0)
   env.cowHerdDrift.setLen(0)
-  # Clear global colors that could accumulate
-  agentVillageColors.setLen(0)
-  teamColors.setLen(0)
-  altarColors.clear()
+  # Clear colors (now stored in Environment)
+  env.agentColors.setLen(0)
+  env.teamColors.setLen(0)
+  env.altarColors.clear()
+  # Keep globals in sync for backwards compatibility
+  agentVillageColors = env.agentColors
+  teamColors = env.teamColors
+  altarColors = env.altarColors
   # Clear UI selection to prevent stale references
   selection = nil
   env.init()  # init() handles terrain, activeTiles, and tile colors

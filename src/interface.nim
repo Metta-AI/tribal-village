@@ -87,7 +87,7 @@ proc tribal_village_set_config(
   cfg: ptr CEnvironmentConfig
 ): int32 {.exportc, dynlib.} =
   ## Update runtime config (rewards, spawn rates, max steps) from Python.
-  if globalEnv == nil or cfg.isNil:
+  if isNil(globalEnv) or isNil(cfg):
     return 0
   try:
     discard env
@@ -104,7 +104,7 @@ proc tribal_village_reset_and_get_obs(
   truncations_buffer: ptr UncheckedArray[uint8]
 ): int32 {.exportc, dynlib.} =
   ## Reset and write directly to buffers - no conversions
-  if globalEnv == nil:
+  if isNil(globalEnv):
     return 0
 
   try:
@@ -135,7 +135,7 @@ proc tribal_village_step_with_pointers(
   truncations_buffer: ptr UncheckedArray[uint8]
 ): int32 {.exportc, dynlib.} =
   ## Ultra-fast step with direct buffer access
-  if globalEnv == nil:
+  if isNil(globalEnv):
     return 0
 
   try:
@@ -196,7 +196,7 @@ proc tribal_village_render_rgb(
   out_w: int32,
   out_h: int32
 ): int32 {.exportc, dynlib.} =
-  if globalEnv == nil or out_buffer.isNil:
+  if isNil(globalEnv) or isNil(out_buffer):
     return 0
 
   let width = int(out_w)
@@ -227,7 +227,7 @@ proc tribal_village_render_rgb(
             bByte = toByte(c.b)
 
           let thing = globalEnv.grid[x][y]
-          if thing != nil:
+          if not isNil(thing):
             let tint = thingRenderColor(thing.kind)
             rByte = tint.r
             gByte = tint.g
@@ -257,7 +257,7 @@ proc tribal_village_render_ansi(
 ): int32 {.exportc, dynlib.} =
   ## Write an ANSI string render into out_buffer (null-terminated).
   ## Returns number of bytes written (excluding terminator). 0 on error.
-  if globalEnv == nil or out_buffer.isNil or buf_len <= 1:
+  if isNil(globalEnv) or isNil(out_buffer) or buf_len <= 1:
     return 0
 
   try:
@@ -269,3 +269,30 @@ proc tribal_village_render_ansi(
     return n.int32
   except:
     return 0
+
+# ============== FFI Error Query Functions ==============
+
+proc tribal_village_has_error*(): int32 {.exportc, dynlib.} =
+  ## Check if an error occurred during the last operation
+  ## Returns 1 if error, 0 otherwise
+  if lastFFIError.hasError: 1 else: 0
+
+proc tribal_village_get_error_code*(): int32 {.exportc, dynlib.} =
+  ## Get the error code from the last operation
+  ## Returns the TribalErrorKind as an integer
+  ord(lastFFIError.errorCode).int32
+
+proc tribal_village_get_error_message*(buffer: ptr char, bufferSize: int32): int32 {.exportc, dynlib.} =
+  ## Copy the error message to the provided buffer
+  ## Returns the actual length written, or -1 if buffer too small
+  let msg = lastFFIError.errorMessage
+  if msg.len >= bufferSize:
+    return -1
+  if msg.len > 0:
+    copyMem(buffer, unsafeAddr msg[0], msg.len)
+  cast[ptr char](cast[uint](buffer) + msg.len.uint)[] = '\0'
+  msg.len.int32
+
+proc tribal_village_clear_error*() {.exportc, dynlib.} =
+  ## Clear the error state
+  clearFFIError()
