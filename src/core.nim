@@ -29,6 +29,8 @@ type
     escapeMode: bool
     escapeStepsRemaining: int
     escapeDirection: IVec2
+    cachedThingPos: array[ThingKind, IVec2]
+    cachedTerrainPos: array[TerrainType, IVec2]
 
   # Simple controller
   Controller* = ref object
@@ -55,6 +57,12 @@ proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState,
   controller.agents[agentId] = state
   controller.agentsInitialized[agentId] = true
   return action
+
+proc initSearchCache(state: var AgentState) =
+  for kind in ThingKind:
+    state.cachedThingPos[kind] = ivec2(-1, -1)
+  for terrain in TerrainType:
+    state.cachedTerrainPos[terrain] = ivec2(-1, -1)
 
 proc vecToOrientation(vec: IVec2): int =
   ## Map a step vector to orientation index (0..7)
@@ -158,14 +166,24 @@ proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: T
 
 proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: ThingKind, rng: var Rand): Thing =
   ## Find nearest thing using spiral search pattern - more systematic than random search
+  let cachedPos = state.cachedThingPos[kind]
+  if cachedPos.x >= 0:
+    if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
+      let cachedThing = env.getThing(cachedPos)
+      if cachedThing != nil and cachedThing.kind == kind:
+        return cachedThing
+    state.cachedThingPos[kind] = ivec2(-1, -1)
+
   # First check immediate area around current position
   result = findNearestThing(env, state.lastSearchPosition, kind)
   if result != nil:
+    state.cachedThingPos[kind] = result.pos
     return result
 
   # Also check around agent's current position before advancing spiral
   result = findNearestThing(env, state.basePosition, kind)
   if result != nil:
+    state.cachedThingPos[kind] = result.pos
     return result
 
   # If not found, advance spiral search only every few calls to reduce dithering
@@ -174,6 +192,8 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
 
   # Search from new spiral position
   result = findNearestThing(env, nextSearchPos, kind)
+  if result != nil:
+    state.cachedThingPos[kind] = result.pos
   return result
 
 proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, teamId: int,
@@ -405,14 +425,23 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
 
 proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: TerrainType, rng: var Rand): IVec2 =
   ## Find terrain using spiral search pattern
+  let cachedPos = state.cachedTerrainPos[terrain]
+  if cachedPos.x >= 0:
+    if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30 and
+        env.terrain[cachedPos.x][cachedPos.y] == terrain:
+      return cachedPos
+    state.cachedTerrainPos[terrain] = ivec2(-1, -1)
+
   # First check from current spiral search position
   result = findNearestTerrain(env, state.lastSearchPosition, terrain)
   if result.x >= 0:
+    state.cachedTerrainPos[terrain] = result
     return result
 
   # Also check around agent's current position before advancing spiral
   result = findNearestTerrain(env, state.basePosition, terrain)
   if result.x >= 0:
+    state.cachedTerrainPos[terrain] = result
     return result
 
   # If not found, advance spiral search
@@ -421,6 +450,8 @@ proc findNearestTerrainSpiral(env: Environment, state: var AgentState, terrain: 
 
   # Search from new spiral position
   result = findNearestTerrain(env, nextSearchPos, terrain)
+  if result.x >= 0:
+    state.cachedTerrainPos[terrain] = result
   return result
 
 proc getCardinalDirIndex(fromPos, toPos: IVec2): int =

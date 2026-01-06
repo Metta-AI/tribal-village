@@ -18,7 +18,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       else:
         sample(controller.rng, [Gatherer, Builder, Fighter])
 
-    controller.agents[agentId] = AgentState(
+    var initState = AgentState(
       role: role,
       spiralStepsInArc: 0,
       spiralArcsCompleted: 0,
@@ -32,6 +32,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       escapeStepsRemaining: 0,
       escapeDirection: ivec2(0, -1)
     )
+    initState.initSearchCache()
+    controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
   var state = controller.agents[agentId]
