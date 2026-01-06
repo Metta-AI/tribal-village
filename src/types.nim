@@ -133,6 +133,7 @@ type
     Spawner
     Tumor
     Cow
+    Corpse
     Skeleton
     Armory
     ClayOven

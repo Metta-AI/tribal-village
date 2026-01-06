@@ -23,12 +23,15 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.reward += env.config.deathPenalty
   if isValidPos(deathPos):
     var dropInv = emptyInventory()
+    var hasItems = false
     for key, count in victim.inventory.pairs:
       if count > 0:
         dropInv[key] = count
-    let skeleton = Thing(kind: Skeleton, pos: deathPos)
-    skeleton.inventory = dropInv
-    env.add(skeleton)
+        hasItems = true
+    let corpseKind = if hasItems: Corpse else: Skeleton
+    let corpse = Thing(kind: corpseKind, pos: deathPos)
+    corpse.inventory = dropInv
+    env.add(corpse)
 
   victim.inventory = emptyInventory()
   victim.pos = ivec2(-1, -1)
