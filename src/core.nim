@@ -33,7 +33,8 @@ type
   # Simple controller
   Controller* = ref object
     rng*: Rand
-    agents: Table[int, AgentState]
+    agents: array[MapAgents, AgentState]
+    agentsInitialized: array[MapAgents, bool]
     buildingCountsStep: int
     buildingCounts: array[MapRoomObjectsHouses, array[ThingKind, int]]
 
@@ -46,13 +47,13 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
-    agents: initTable[int, AgentState](),
     buildingCountsStep: -1
   )
 
 # Helper proc to save state and return action
 proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState, action: uint8): uint8 =
   controller.agents[agentId] = state
+  controller.agentsInitialized[agentId] = true
   return action
 
 proc vecToOrientation(vec: IVec2): int =
