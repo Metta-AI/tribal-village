@@ -73,6 +73,11 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))
 
+  # Drop off any carried food (meat counts as food) when not in immediate combat.
+  let (didFoodDrop, foodDropAct) =
+    controller.dropoffCarrying(env, agent, agentId, state, allowFood = true)
+  if didFoodDrop: return foodDropAct
+
   # Keep buildings lit, then push lanterns farther out from the base.
   let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
   var target = ivec2(-1, -1)
