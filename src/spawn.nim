@@ -15,6 +15,8 @@ proc init(env: Environment) =
   let seed = int(nowSeconds() * 1000)
   var r = initRand(seed)
 
+  env.thingsByKind = default(array[ThingKind, seq[Thing]])
+
   # Initialize tile colors to base terrain colors (neutral gray-brown)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:

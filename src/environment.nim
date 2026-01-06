@@ -1,4 +1,4 @@
-import std/[algorithm, strutils, tables], vmath, chroma
+import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import terrain, objects, village, items, common, biome
 export terrain, objects, village, items, common

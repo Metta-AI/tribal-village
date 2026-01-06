@@ -167,6 +167,8 @@ type
     layer*: int
     cooldown*: int
     frozen*: int
+    thingsIndex*: int
+    kindListIndex*: int
 
     # Agent:
     agentId*: int
@@ -294,6 +296,11 @@ type
     actionTintColor*: ActionTintColor
     actionTintFlags*: ActionTintFlags
     actionTintPositions*: seq[IVec2]
+    thingsByKind*: array[ThingKind, seq[Thing]]
+    cowHerdCounts*: seq[int]
+    cowHerdSumX*: seq[int]
+    cowHerdSumY*: seq[int]
+    cowHerdDrift*: seq[IVec2]
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     observations*: array[
       MapAgents,
