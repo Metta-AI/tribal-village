@@ -422,7 +422,7 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
   for x in startX..endX:
     for y in startY..endY:
       let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainType.Fertile else: env.terrain[x][y] == TerrainType.Empty
-      if terrainOk and env.isEmpty(ivec2(x, y)) and env.doorTeams[x][y] < 0:
+      if terrainOk and env.isEmpty(ivec2(x, y)) and not env.hasDoor(ivec2(x, y)):
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
           minDist = dist
@@ -682,7 +682,7 @@ proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thi
   for thing in env.things:
     if thing.teamId != teamId:
       continue
-    if not isBuildingKind(thing.kind) or thing.kind == Barrel:
+    if not isBuildingKind(thing.kind) or thing.kind in {Barrel, Door}:
       continue
     if hasTeamLanternNear(env, teamId, thing.pos):
       continue

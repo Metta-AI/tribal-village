@@ -11,11 +11,6 @@ proc buildCostsForKey*(key: ItemKey): seq[tuple[res: StockpileResource, count: i
       return costs
   @[]
 
-const
-  BuildIndexWall* = 14
-  BuildIndexRoad* = 15
-  BuildIndexDoor* = 19
-
 proc initBuildChoices(): array[ActionArgumentCount, ItemKey] =
   var choices: array[ActionArgumentCount, ItemKey]
   for i in 0 ..< choices.len:
@@ -30,7 +25,7 @@ proc initBuildChoices(): array[ActionArgumentCount, ItemKey] =
       choices[idx] = thingItem($kind)
   choices[BuildIndexWall] = thingItem("Wall")
   choices[BuildIndexRoad] = thingItem("Road")
-  choices[BuildIndexDoor] = ItemDoor
+  choices[BuildIndexDoor] = thingItem("Door")
   choices
 
 let BuildChoices*: array[ActionArgumentCount, ItemKey] = initBuildChoices()
@@ -49,7 +44,7 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     return
 
   let roadKey = thingItem("Road")
-  if key != roadKey and key != ItemDoor:
+  if key != roadKey:
     var kind: ThingKind
     if not parseThingKey(key, kind):
       inc env.stats[id].actionInvalid
@@ -143,16 +138,6 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     return
   if not env.canSpendStockpile(teamId, costs):
     inc env.stats[id].actionInvalid
-    return
-
-  if key == ItemDoor:
-    if not canLayRoad(targetPos):
-      inc env.stats[id].actionInvalid
-      return
-    discard env.spendStockpile(teamId, costs)
-    env.doorTeams[targetPos.x][targetPos.y] = teamId.int16
-    env.doorHearts[targetPos.x][targetPos.y] = DoorMaxHearts.int8
-    inc env.stats[id].actionBuild
     return
 
   discard env.spendStockpile(teamId, costs)

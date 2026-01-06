@@ -26,7 +26,6 @@ const
   ItemFish* = "fish"
   ItemMeat* = "meat"
   ItemHearts* = "hearts"
-  ItemDoor* = "door"
   ItemThingPrefix* = "thing:"
 
   ObservedItemKeys* = [
@@ -195,7 +194,6 @@ proc initCraftRecipesBase*(): seq[CraftRecipe] =
   var recipes: seq[CraftRecipe] = @[]
 
   # Table/workbench: wood and stone crafts.
-  addRecipe(recipes, "door_wood", StationTable, @[(ItemWood, 1)], @[("door", 1)], 6)
   # Siege workshop crafts for walls/roads (1/20 AoE2 scale).
   addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemStone, 1)], @[(thingItem("Wall"), 1)], 6)
   addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)], 4)

@@ -59,6 +59,8 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
       buildIndex = 1, buildCost = @[(ItemWood, 14)], buildCooldown = 16)
   add(House, "House", "house", 'h', (r: 170'u8, g: 140'u8, b: 110'u8),
       buildIndex = 0, buildCost = @[(ItemWood, 1)], buildCooldown = 10)
+  add(Door, "Door", "door", 'D', (r: 120'u8, g: 100'u8, b: 80'u8),
+      buildIndex = BuildIndexDoor, buildCost = @[(ItemWood, 1)], buildCooldown = 6)
   add(Armory, "Armory", "armory", 'A', (r: 255'u8, g: 120'u8, b: 40'u8))
   add(ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
       buildIndex = 20, buildCost = @[(ItemWood, 4)], buildCooldown = 12)
@@ -111,6 +113,9 @@ proc buildingInfo*(kind: ThingKind): BuildingInfo =
 {.push inline.}
 proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
+
+proc thingBlocksMovement*(kind: ThingKind): bool =
+  kind != Door
 {.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =
@@ -194,7 +199,6 @@ proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
   result[ItemFish] = CatalogEntry(displayName: "Fish", spriteKey: "fish", ascii: 'f')
   result[ItemMeat] = CatalogEntry(displayName: "Meat", spriteKey: "meat", ascii: 'm')
   result[ItemHearts] = CatalogEntry(displayName: "Hearts", spriteKey: "heart", ascii: 'h')
-  result[ItemDoor] = CatalogEntry(displayName: "Door", spriteKey: "door", ascii: 'D')
 
 let TerrainCatalog* = initTerrainCatalog()
 let ThingCatalog* = initThingCatalog()

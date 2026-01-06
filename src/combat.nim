@@ -106,15 +106,14 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   let maxRange = if hasSpear: 2 else: 1
 
   proc tryDamageDoor(pos: IVec2): bool =
-    if not env.hasDoor(pos):
+    let door = env.getOverlayThing(pos)
+    if isNil(door) or door.kind != Door:
       return false
-    if env.getDoorTeam(pos) == attackerTeam:
+    if door.teamId == attackerTeam:
       return false
-    if env.doorHearts[pos.x][pos.y] > 0:
-      env.doorHearts[pos.x][pos.y] = env.doorHearts[pos.x][pos.y] - 1
-      if env.doorHearts[pos.x][pos.y] <= 0:
-        env.doorHearts[pos.x][pos.y] = 0
-        env.doorTeams[pos.x][pos.y] = -1
+    door.hp = max(0, door.hp - 1)
+    if door.hp <= 0:
+      removeThing(env, door)
     return true
 
   proc claimAltar(altarThing: Thing) =
@@ -123,10 +122,9 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     if attackerTeam >= 0 and attackerTeam < teamColors.len:
       altarColors[altarThing.pos] = teamColors[attackerTeam]
     if oldTeam >= 0:
-      for x in 0 ..< MapWidth:
-        for y in 0 ..< MapHeight:
-          if env.doorTeams[x][y] == oldTeam.int16:
-            env.doorTeams[x][y] = attackerTeam.int16
+      for door in env.thingsByKind[Door]:
+        if door.teamId == oldTeam:
+          door.teamId = attackerTeam
   
   proc spawnStumpAt(pos: IVec2, woodRemaining: int) =
     var remaining = woodRemaining

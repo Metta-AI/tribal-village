@@ -32,6 +32,9 @@ const
   BarrelCapacity* = 50
   ResourceNodeInitial* = 25
   DoorMaxHearts* = 5
+  BuildIndexWall* = 14
+  BuildIndexRoad* = 15
+  BuildIndexDoor* = 19
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
   CowMilkCooldown* = 25
@@ -126,6 +129,7 @@ type
   ThingKind* = enum
     Agent
     Wall
+    Door
     Pine
     Palm
     Magma  # Smelts gold into bars
@@ -280,8 +284,7 @@ type
     things*: seq[Thing]
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]
-    doorTeams*: array[MapWidth, array[MapHeight, int16]]  # -1 means no door
-    doorHearts*: array[MapWidth, array[MapHeight, int8]]
+    overlayGrid*: array[MapWidth, array[MapHeight, Thing]]
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid

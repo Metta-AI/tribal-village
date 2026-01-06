@@ -17,7 +17,6 @@ var
   stepLabelKey = ""
   stepLabelLastValue = -1
   stepLabelSize = ivec2(0, 0)
-  doorSpriteKey* = "wall"
   assetKeys: HashSet[string] = initHashSet[string]()
 
 type FloorSpriteKind = enum
@@ -29,9 +28,6 @@ var
   floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
   waterPositions: seq[IVec2] = @[]
   renderCacheGeneration = -1
-
-proc setDoorSprite*(key: string) =
-  doorSpriteKey = key
 
 proc rememberAssetKey*(key: string) =
   assetKeys.incl(key)
@@ -325,17 +321,6 @@ proc drawWalls*() =
     bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
                   angle = 0, scale = spriteScale(fillSpriteKey), tint = fillTint)
 
-proc drawDoors*() =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      let pos = ivec2(x, y)
-      if not env.hasDoor(pos):
-        continue
-      let teamId = env.getDoorTeam(pos)
-      let base = if teamId >= 0 and teamId < teamColors.len: teamColors[teamId] else: color(0.8, 0.8, 0.8, 1.0)
-      let tint = color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
-      bxy.drawImage(doorSpriteKey, pos.vec2, angle = 0, scale = spriteScale(doorSpriteKey), tint = tint)
-
 proc drawObjects*() =
   for pos in env.actionTintPositions:
     if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
@@ -360,8 +345,12 @@ proc drawObjects*() =
     for thing in env.thingsByKind[kind]:
       if not isValidPos(thing.pos):
         continue
-      if env.grid[thing.pos.x][thing.pos.y] != thing:
-        continue
+      if thingBlocksMovement(thing.kind):
+        if env.grid[thing.pos.x][thing.pos.y] != thing:
+          continue
+      else:
+        if env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
+          continue
       let t = thing
       let thing {.inject.} = t
       let pos {.inject.} = thing.pos
@@ -469,13 +458,23 @@ proc drawObjects*() =
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
-        if env.grid[thing.pos.x][thing.pos.y] != thing:
-          continue
+        if thingBlocksMovement(thing.kind):
+          if env.grid[thing.pos.x][thing.pos.y] != thing:
+            continue
+        else:
+          if env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
+            continue
         let pos = thing.pos
         let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
         if spriteKey.len > 0:
-          bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-          if thing.teamId >= 0 and thing.teamId < teamColors.len:
+          let tint =
+            if thing.kind == Door and thing.teamId >= 0 and thing.teamId < teamColors.len:
+              let base = teamColors[thing.teamId]
+              color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
+            else:
+              color(1, 1, 1, 1)
+          bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
+          if thing.kind != Door and thing.teamId >= 0 and thing.teamId < teamColors.len:
             let maskKey = "roofmask." & spriteKey
             if assetExists(maskKey):
               let tint = teamColors[thing.teamId]
@@ -504,8 +503,12 @@ proc drawObjects*() =
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
-        if env.grid[thing.pos.x][thing.pos.y] != thing:
-          continue
+        if thingBlocksMovement(thing.kind):
+          if env.grid[thing.pos.x][thing.pos.y] != thing:
+            continue
+        else:
+          if env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
+            continue
         let pos = thing.pos
         let infected = getInfectionLevel(pos) >= 1.0
         let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
