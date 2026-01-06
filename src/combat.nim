@@ -143,6 +143,15 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     setInv(skeleton, ItemFish, remaining)
     env.add(skeleton)
 
+  proc spawnCorpseAt(pos: IVec2, fishRemaining: int) =
+    var remaining = fishRemaining
+    if remaining <= 0:
+      remaining = ResourceNodeInitial
+    let corpse = Thing(kind: Corpse, pos: pos)
+    corpse.inventory = emptyInventory()
+    setInv(corpse, ItemFish, remaining)
+    env.add(corpse)
+
   proc clearTerrainAt(pos: IVec2) =
     env.terrain[pos.x][pos.y] = Empty
     env.terrainResources[pos.x][pos.y] = 0
@@ -202,7 +211,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     of Cow:
       let fishRemaining = getInv(target, ItemFish)
       removeThing(env, target)
-      spawnSkeletonAt(pos, fishRemaining)
+      spawnCorpseAt(pos, fishRemaining)
       return true
     of Pine, Palm:
       let woodRemaining = getInv(target, ItemWood)

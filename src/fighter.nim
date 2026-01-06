@@ -257,9 +257,13 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       return controller.useOrMove(env, agent, agentId, state, smith.pos)
 
   # Hunt while patrolling if nothing else to do.
-  let corpse = env.findNearestThingSpiral(state, Skeleton, controller.rng)
+  let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
   if corpse != nil:
     return controller.useOrMove(env, agent, agentId, state, corpse.pos)
+
+  let skeleton = env.findNearestThingSpiral(state, Skeleton, controller.rng)
+  if skeleton != nil:
+    return controller.useOrMove(env, agent, agentId, state, skeleton.pos)
   let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
   if cow != nil:
     return controller.attackOrMove(env, agent, agentId, state, cow.pos)
