@@ -322,6 +322,15 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
       result = tryKind(TownCenter)
   of ResourceWater, ResourceNone:
     result = nil
+  if isNil(result):
+    var bestDist = int.high
+    for thing in env.thingsByKind[TownCenter]:
+      if thing.teamId != teamId:
+        continue
+      let dist = int(chebyshevDist(thing.pos, state.basePosition))
+      if dist < bestDist:
+        bestDist = dist
+        result = thing
 
 proc dropoffResourceIfCarrying*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState,
