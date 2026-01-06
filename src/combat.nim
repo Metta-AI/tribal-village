@@ -126,12 +126,6 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         if door.teamId == oldTeam:
           door.teamId = attackerTeam
   
-  proc spawnStumpAt(pos: IVec2, woodRemaining: int) =
-    var remaining = woodRemaining
-    if remaining <= 0:
-      remaining = ResourceNodeInitial
-    env.dropStump(pos, remaining)
-
   proc spawnCorpseAt(pos: IVec2, key: ItemKey, amount: int) =
     var remaining = amount
     if remaining <= 0:
