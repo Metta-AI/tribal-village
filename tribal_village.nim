@@ -2,6 +2,18 @@ import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
   src/environment, src/common, src/renderer, src/external, src/tileset, src/assets
 
+when compileOption("profiler"):
+  import std/nimprof
+
+let profileStepsStr = getEnv("TV_PROFILE_STEPS", "")
+if profileStepsStr.len > 0:
+  let profileSteps = parseInt(profileStepsStr)
+  var actionsArray: array[MapAgents, uint8]
+  for _ in 0 ..< profileSteps:
+    actionsArray = getActions(env)
+    env.step(addr actionsArray)
+  quit(QuitSuccess)
+
 when not defined(emscripten):
   import opengl
 
