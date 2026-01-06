@@ -220,6 +220,12 @@ proc tribal_village_render_rgb(
           var gByte = toByte(color.g)
           var bByte = toByte(color.b)
 
+          if globalEnv.actionTintCountdown[x][y] > 0:
+            let c = globalEnv.actionTintColor[x][y]
+            rByte = toByte(c.r)
+            gByte = toByte(c.g)
+            bByte = toByte(c.b)
+
           let thing = globalEnv.grid[x][y]
           if thing != nil:
             let tint = thingRenderColor(thing.kind)
