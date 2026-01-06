@@ -46,6 +46,7 @@ const
   InfoLabelPadding = 18
   InfoLabelInsetX = 100
   InfoLabelInsetY = 50
+  StepLabelInsetY = 20
 
 template configureInfoLabelFont(ctx: var Context) =
   ctx.font = InfoLabelFontPath
@@ -665,6 +666,6 @@ proc drawStepLabel*(panelRect: IRect) =
   let labelW = stepLabelSize.x.float32 / scale
   let pos = vec2(
     panelRect.x.float32 + panelRect.w.float32 - labelW - 2.0,
-    panelRect.y.float32 + 12.0
+    panelRect.y.float32 + StepLabelInsetY.float32
   )
   bxy.drawImage(key, pos, angle = 0, scale = 1)
