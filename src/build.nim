@@ -61,6 +61,50 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     let terrain = env.terrain[pos.x][pos.y]
     terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
 
+  proc canLayRoad(pos: IVec2): bool =
+    if not isValidPos(pos):
+      return false
+    if env.hasDoor(pos):
+      return false
+    if not env.isEmpty(pos):
+      return false
+    let terrain = env.terrain[pos.x][pos.y]
+    terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
+
+  proc signi(x: int32): int32 =
+    if x < 0: -1
+    elif x > 0: 1
+    else: 0
+
+  proc nearestTeamAnchor(teamId: int, fromPos: IVec2): IVec2 =
+    var best = ivec2(-1, -1)
+    var bestDist = int.high
+    for thing in env.things:
+      if thing.teamId != teamId:
+        continue
+      if thing.kind notin {TownCenter, Altar}:
+        continue
+      let dist = abs(thing.pos.x - fromPos.x) + abs(thing.pos.y - fromPos.y)
+      if dist < bestDist:
+        bestDist = dist
+        best = thing.pos
+    if best.x < 0:
+      return fromPos
+    best
+
+  proc layRoadBetween(startPos, endPos: IVec2) =
+    var pos = startPos
+    while pos.x != endPos.x:
+      pos.x += signi(endPos.x - pos.x)
+      if canLayRoad(pos):
+        env.terrain[pos.x][pos.y] = Road
+        env.resetTileColor(pos)
+    while pos.y != endPos.y:
+      pos.y += signi(endPos.y - pos.y)
+      if canLayRoad(pos):
+        env.terrain[pos.x][pos.y] = Road
+        env.resetTileColor(pos)
+
   var offsets: seq[IVec2] = @[]
   proc addOffset(offset: IVec2) =
     if offset.x == 0'i32 and offset.y == 0'i32:
@@ -101,6 +145,11 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
 
   discard env.spendStockpile(teamId, costs)
   if placeThingFromKey(env, agent, key, targetPos):
+    var kind: ThingKind
+    if parseThingKey(key, kind):
+      if kind in {Mill, LumberCamp, MiningCamp}:
+        let anchor = nearestTeamAnchor(getTeamId(agent.agentId), targetPos)
+        layRoadBetween(targetPos, anchor)
     inc env.stats[id].actionBuild
   else:
     inc env.stats[id].actionInvalid
