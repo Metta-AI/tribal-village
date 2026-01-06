@@ -589,6 +589,8 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
       best = other
   return best
 
+proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int
+
 proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState, teammate: Thing): uint8 =
   let dx = abs(teammate.pos.x - agent.pos.x)
