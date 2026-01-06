@@ -1,7 +1,5 @@
 # This file is included by src/environment.nim
-proc createSpawner*(): Structure =
-  Structure(width: 3, height: 3, centerPos: ivec2(1, 1))
-
+import maze, radial
 proc createVillage*(): Structure =
   ## Small town starter: altar + town center, no walls.
   const size = 7
@@ -52,7 +50,10 @@ proc init(env: Environment) =
       env.baseTileColors[x][y] = BaseTileColorDefault
 
   # Clear door grid
-  env.clearDoors()
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      env.doorTeams[x][y] = -1
+      env.doorHearts[x][y] = 0
 
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
@@ -137,8 +138,16 @@ proc init(env: Environment) =
         inc seqIdx
         selected
       else:
-        pickDungeonKind(r)
-      buildDungeonMask(mask, MapWidth, MapHeight, zone, r, dungeonKind)
+        let roll = randFloat(r) * 1.6
+        if roll <= 1.0:
+          DungeonMaze
+        else:
+          DungeonRadial
+      case dungeonKind:
+      of DungeonMaze:
+        buildDungeonMazeMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
+      of DungeonRadial:
+        buildDungeonRadialMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
 
       for x in x0 ..< x1:
         for y in y0 ..< y1:
@@ -654,7 +663,7 @@ proc init(env: Environment) =
   let minDist2 = minDist * minDist
 
   for i in 0 ..< numSpawners:
-    let spawnerStruct = createSpawner()
+    let spawnerStruct = Structure(width: 3, height: 3, centerPos: ivec2(1, 1))
     var placed = false
     var targetPos: IVec2
 

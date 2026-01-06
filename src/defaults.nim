@@ -35,7 +35,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       escapeStepsRemaining: 0,
       escapeDirection: ivec2(0, -1)
     )
-    initState.initSearchCache()
+    for kind in ThingKind:
+      initState.cachedThingPos[kind] = ivec2(-1, -1)
+    for terrain in TerrainType:
+      initState.cachedTerrainPos[terrain] = ivec2(-1, -1)
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
@@ -135,7 +138,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
                     ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)] # diagonals
     for d in healDirs:
       let target = agent.pos + d
-      if not env.hasDoor(target) and isValidEmptyTile(env, agent, target):
+      if not env.hasDoor(target) and
+          target.x >= 0 and target.x < MapWidth and
+          target.y >= 0 and target.y < MapHeight and
+          env.isEmpty(target) and
+          not isBlockedTerrain(env.terrain[target.x][target.y]) and
+          env.canAgentPassDoor(agent, target):
         return saveStateAndReturn(
           controller, agentId, state,
           encodeAction(3'u8, neighborDirIndex(agent.pos, target).uint8))

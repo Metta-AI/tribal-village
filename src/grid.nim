@@ -26,12 +26,8 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
 {.pop.}
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Restore a tile to the biome base color
-  let color = env.baseColorForPos(pos)
+  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+    return
+  let color = env.baseTintColors[pos.x][pos.y]
   env.tileColors[pos.x][pos.y] = color
   env.baseTileColors[pos.x][pos.y] = color
-
-proc clearDoors(env: Environment) =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      env.doorTeams[x][y] = -1
-      env.doorHearts[x][y] = 0

@@ -122,8 +122,6 @@ proc buildingSpriteKey*(kind: ThingKind): string =
 proc buildingDisplayName*(kind: ThingKind): string =
   BuildingRegistry[kind].displayName
 
-proc buildingAscii*(kind: ThingKind): char =
-  BuildingRegistry[kind].ascii
 
 type
   CatalogEntry* = object
@@ -212,12 +210,6 @@ proc terrainSpriteKey*(terrain: TerrainType): string =
     return key
   toSnakeCase($terrain)
 
-proc terrainDisplayName*(terrain: TerrainType): string =
-  let name = TerrainCatalog[terrain].displayName
-  if name.len > 0: name else: $terrain
-
-proc terrainAscii*(terrain: TerrainType): char =
-  TerrainCatalog[terrain].ascii
 
 proc thingInfo*(kind: ThingKind): CatalogEntry =
   ThingCatalog[kind]
@@ -236,10 +228,6 @@ proc thingDisplayName*(kind: ThingKind): string =
   let name = ThingCatalog[kind].displayName
   if name.len > 0: name else: $kind
 
-proc thingAscii*(kind: ThingKind): char =
-  if isBuildingKind(kind):
-    return buildingAscii(kind)
-  ThingCatalog[kind].ascii
 
 proc itemInfo*(key: ItemKey): CatalogEntry =
   ItemCatalog.getOrDefault(key, CatalogEntry(displayName: key, spriteKey: key, ascii: '?'))
@@ -264,27 +252,6 @@ proc itemDisplayName*(key: ItemKey): string =
     return ItemCatalog[key].displayName
   key
 
-proc stockpileIconKey*(res: StockpileResource): string =
-  case res
-  of ResourceFood: itemSpriteKey(ItemWheat)
-  of ResourceWood: itemSpriteKey(ItemWood)
-  of ResourceStone: itemSpriteKey(ItemStone)
-  of ResourceGold: itemSpriteKey(ItemGold)
-  of ResourceWater: itemSpriteKey(ItemWater)
-  of ResourceNone: ""
-
-proc buildingRenderColor*(kind: ThingKind): tuple[r, g, b: uint8] =
-  BuildingRegistry[kind].renderColor
-
-proc buildingNeedsLantern*(kind: ThingKind): bool =
-  isBuildingKind(kind) and kind != Barrel
-
-proc buildingTeamOwned*(kind: ThingKind): bool =
-  isBuildingKind(kind) and kind != Barrel
-
-proc buildingHasFrozenOverlay*(kind: ThingKind): bool =
-  isBuildingKind(kind)
-
 proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   case kind
   of Altar: UseAltar
@@ -300,14 +267,6 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of SiegeWorkshop: UseTrainAndCraft
   else: UseNone
 
-proc buildingUsesCooldown*(kind: ThingKind): bool =
-  case buildingUseKind(kind)
-  of UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
-     UseTrain, UseTrainAndCraft, UseCraft:
-    true
-  else:
-    false
-
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource
 
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
@@ -318,20 +277,8 @@ proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   of MiningCamp: ResourceGold
   else: ResourceNone
 
-proc buildingShowsStockpile*(kind: ThingKind): bool =
-  buildingStockpileRes(kind) != ResourceNone
-
-proc buildingBuildIndex*(kind: ThingKind): int =
-  BuildingRegistry[kind].buildIndex
-
 proc buildingBuildable*(kind: ThingKind): bool =
   BuildingRegistry[kind].buildIndex >= 0 and BuildingRegistry[kind].buildCost.len > 0
-
-proc buildingBuildCost*(kind: ThingKind): seq[ItemAmount] =
-  BuildingRegistry[kind].buildCost
-
-proc buildingBuildCooldown*(kind: ThingKind): int =
-  BuildingRegistry[kind].buildCooldown
 
 proc buildingPopCap*(kind: ThingKind): int =
   case kind
@@ -413,16 +360,6 @@ proc buildingTrainCooldown*(kind: ThingKind): int =
   of Castle: 12
   else: 0
 
-proc buildingTickKind*(kind: ThingKind): BuildingTickKind =
-  case kind
-  of Mill: TickMillFertile
-  else: TickNone
-
-proc buildingTickCooldown*(kind: ThingKind): int =
-  case kind
-  of Mill: 10
-  else: 0
-
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 
@@ -442,10 +379,10 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
       continue
     if not buildingBuildable(kind):
       continue
-    let costs = buildingBuildCost(kind)
+    let costs = BuildingRegistry[kind].buildCost
     if costs.len == 0:
       continue
     let id = toSnakeCase($kind)
     let station = StationTable
-    let cooldown = buildingBuildCooldown(kind)
+    let cooldown = BuildingRegistry[kind].buildCooldown
     addRecipe(recipes, id, station, costs, @[(thingItem($kind), 1)], cooldown)

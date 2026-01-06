@@ -34,7 +34,12 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   if didDrop: return dropAct
 
   # Top priority: keep population cap ahead of current population.
-  let popCount = env.teamPopCount(teamId)
+  var popCount = 0
+  for otherAgent in env.agents:
+    if not isAgentAlive(env, otherAgent):
+      continue
+    if getTeamId(otherAgent.agentId) == teamId:
+      inc popCount
   let popCap = env.teamPopCap(teamId)
   if popCap > 0 and popCount >= popCap - 1:
     let idx = buildIndexFor(House)

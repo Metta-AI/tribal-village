@@ -106,7 +106,7 @@ proc ensureStepLabel(step: int): string =
 
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
-  return if isBuildingFrozen(pos, env): 1.0 else: 0.0
+  return if isTileFrozen(pos, env): 1.0 else: 0.0
 
 proc spriteScale(_: string): float32 =
   SpriteScale
@@ -122,9 +122,6 @@ proc resolveSpriteKey(key: string): string =
     echo "⚠️  Missing asset: ", key, " (using unknown)"
     missingAssetWarnings.incl(key)
   return "unknown"
-
-proc stockpileIcon(res: StockpileResource): string =
-  stockpileIconKey(res)
 
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
@@ -152,39 +149,6 @@ proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
   if infected and overlaySprite.len > 0:
     bxy.drawImage(overlaySprite, pos, angle = 0, scale = spriteScale(overlaySprite))
 
-proc drawRoofTint(spriteKey: string, pos: Vec2, teamId: int) =
-  ## Apply village color tint to roof mask overlays when available.
-  if teamId < 0 or teamId >= teamColors.len:
-    return
-  let maskKey = "roofmask." & spriteKey
-  if not assetExists(maskKey):
-    return
-  let tint = teamColors[teamId]
-  bxy.drawImage(maskKey, pos, angle = 0, scale = spriteScale(maskKey), tint = tint)
-
-proc hasFrozenOverlay(kind: ThingKind): bool =
-  if isBuildingKind(kind):
-    return buildingHasFrozenOverlay(kind)
-  case kind
-  of Magma, Stump:
-    true
-  else:
-    false
-
-proc blendTileColors(a, b: TileColor, t: float32): TileColor =
-  let tClamped = max(0.0'f32, min(1.0'f32, t))
-  TileColor(
-    r: a.r * (1.0 - tClamped) + b.r * tClamped,
-    g: a.g * (1.0 - tClamped) + b.g * tClamped,
-    b: a.b * (1.0 - tClamped) + b.b * tClamped,
-    intensity: a.intensity * (1.0 - tClamped) + b.intensity * tClamped
-  )
-
-proc tileNoise(x, y: int): uint32 =
-  var v = uint32(x) * 374761393'u32 + uint32(y) * 668265263'u32
-  v = (v xor (v shr 13)) * 1274126177'u32
-  v xor (v shr 16)
-
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
     floorSpritePositions[kind].setLen(0)
@@ -198,7 +162,11 @@ proc rebuildRenderCaches() =
         of BiomeCavesType:
           FloorCave
         of BiomeDungeonType:
-          if (tileNoise(x, y) mod 100) < 35:
+          let noise = block:
+            var v = uint32(x) * 374761393'u32 + uint32(y) * 668265263'u32
+            v = (v xor (v shr 13)) * 1274126177'u32
+            v xor (v shr 16)
+          if (noise mod 100) < 35:
             FloorDungeon
           else:
             FloorBase
@@ -228,7 +196,13 @@ proc drawFloor*() =
       let y = pos.y
       let tileColor = env.tileColors[x][y]
       let baseTint = env.baseTintColors[x][y]
-      let blendedColor = blendTileColors(baseTint, tileColor, 0.65)
+      let tClamped = max(0.0'f32, min(1.0'f32, 0.65'f32))
+      let blendedColor = TileColor(
+        r: baseTint.r * (1.0 - tClamped) + tileColor.r * tClamped,
+        g: baseTint.g * (1.0 - tClamped) + tileColor.g * tClamped,
+        b: baseTint.b * (1.0 - tClamped) + tileColor.b * tClamped,
+        intensity: baseTint.intensity * (1.0 - tClamped) + tileColor.intensity * tClamped
+      )
 
       let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
       let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
@@ -251,16 +225,6 @@ proc drawTerrain*() =
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
       if infected and terrain in {Wheat, Pine, Palm}:
         drawOverlayIf(true, "frozen", pos.vec2)
-
-proc drawAttackOverlays*() =
-  for pos in env.actionTintPositions:
-    if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
-      continue
-    if env.actionTintCountdown[pos.x][pos.y] > 0:
-      let c = env.actionTintColor[pos.x][pos.y]
-      # Render the short-lived action overlay fully opaque so it sits above the
-      # normal tint layer and clearly masks the underlying tile color.
-      bxy.drawImage("floor", pos.vec2, angle = 0, scale = spriteScale("floor"), tint = color(c.r, c.g, c.b, 1.0))
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -373,7 +337,14 @@ proc drawDoors*() =
       bxy.drawImage(doorSpriteKey, pos.vec2, angle = 0, scale = spriteScale(doorSpriteKey), tint = tint)
 
 proc drawObjects*() =
-  drawAttackOverlays()
+  for pos in env.actionTintPositions:
+    if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+      continue
+    if env.actionTintCountdown[pos.x][pos.y] > 0:
+      let c = env.actionTintColor[pos.x][pos.y]
+      # Render the short-lived action overlay fully opaque so it sits above the
+      # normal tint layer and clearly masks the underlying tile color.
+      bxy.drawImage("floor", pos.vec2, angle = 0, scale = spriteScale("floor"), tint = color(c.r, c.g, c.b, 1.0))
 
   let waterKey = terrainSpriteKey(Water)
   let drawWaterTile = proc(pos: Vec2) =
@@ -504,11 +475,20 @@ proc drawObjects*() =
         let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
         if spriteKey.len > 0:
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-          drawRoofTint(spriteKey, pos.vec2, thing.teamId)
-        if buildingShowsStockpile(thing.kind) and
-           thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
-          let res = buildingStockpileRes(thing.kind)
-          let icon = stockpileIcon(res)
+          if thing.teamId >= 0 and thing.teamId < teamColors.len:
+            let maskKey = "roofmask." & spriteKey
+            if assetExists(maskKey):
+              let tint = teamColors[thing.teamId]
+              bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
+        let res = buildingStockpileRes(thing.kind)
+        if res != ResourceNone and thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
+          let icon = case res
+            of ResourceFood: itemSpriteKey(ItemWheat)
+            of ResourceWood: itemSpriteKey(ItemWood)
+            of ResourceStone: itemSpriteKey(ItemStone)
+            of ResourceGold: itemSpriteKey(ItemGold)
+            of ResourceWater: itemSpriteKey(ItemWater)
+            of ResourceNone: ""
           if icon.len > 0:
             let count = env.teamStockpiles[thing.teamId].counts[res]
             let iconScale = 1/320
@@ -531,7 +511,7 @@ proc drawObjects*() =
         let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
         if spriteKey.len > 0:
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-        if infected and hasFrozenOverlay(thing.kind):
+        if infected and (thing.kind in {Magma, Stump}):
           drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
@@ -674,7 +654,9 @@ proc drawSelectionLabel*(panelRect: IRect) =
   elif env.hasDoor(selectedPos):
     label = "Door"
   else:
-    label = terrainDisplayName(env.terrain[selectedPos.x][selectedPos.y])
+    let terrain = env.terrain[selectedPos.x][selectedPos.y]
+    let name = TerrainCatalog[terrain].displayName
+    label = if name.len > 0: name else: $terrain
 
   let key = ensureInfoLabel(label)
   if key.len == 0:

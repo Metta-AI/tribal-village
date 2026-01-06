@@ -14,23 +14,6 @@ proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing
       bestDist = dist
       result = other
 
-proc countTeamOutpostsNear(env: Environment, teamId: int, pos: IVec2, radius: int32): int =
-  for thing in env.things:
-    if thing.kind != Outpost:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if chebyshevDist(thing.pos, pos) <= radius:
-      inc result
-
-proc defenseFrontierPos(basePos, enemyPos: IVec2): IVec2 =
-  let dx = signi(enemyPos.x - basePos.x)
-  let dy = signi(enemyPos.y - basePos.y)
-  let dist = max(abs(enemyPos.x - basePos.x), abs(enemyPos.y - basePos.y))
-  let step = max(4'i32, min(8'i32, int32(dist div 2)))
-  clampToPlayable(basePos + ivec2(dx * step, dy * step))
-
-
 proc buildWallToward(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
   let dirIdx = neighborDirIndex(agent.pos, targetPos)
@@ -52,9 +35,20 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   # React to nearby enemy agents by fortifying outward.
   let enemy = findNearestEnemyAgent(env, agent, ObservationRadius.int32 * 2)
   if enemy != nil:
-    let frontier = defenseFrontierPos(basePos, enemy.pos)
+    let dx = signi(enemy.pos.x - basePos.x)
+    let dy = signi(enemy.pos.y - basePos.y)
+    let dist = max(abs(enemy.pos.x - basePos.x), abs(enemy.pos.y - basePos.y))
+    let step = max(4'i32, min(8'i32, int32(dist div 2)))
+    let frontier = clampToPlayable(basePos + ivec2(dx * step, dy * step))
     if agent.unitClass == UnitVillager:
-      let outpostCount = countTeamOutpostsNear(env, teamId, frontier, 6)
+      var outpostCount = 0
+      for thing in env.things:
+        if thing.kind != Outpost:
+          continue
+        if thing.teamId != teamId:
+          continue
+        if chebyshevDist(thing.pos, frontier) <= 6:
+          inc outpostCount
       let outpostKey = thingItem("Outpost")
       if outpostCount < 2:
         if not env.canAffordBuild(teamId, outpostKey):
@@ -94,8 +88,15 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   if unlit != nil:
     target = findLanternSpotNearBuilding(env, teamId, agent, unlit)
   else:
-    let lanternCount = countTeamLanterns(env, teamId)
-    let farthest = farthestLanternDist(env, teamId, basePos)
+    var lanternCount = 0
+    var farthest = 0
+    for thing in env.thingsByKind[Lantern]:
+      if not thing.lanternHealthy or thing.teamId != teamId:
+        continue
+      inc lanternCount
+      let dist = int(chebyshevDist(basePos, thing.pos))
+      if dist > farthest:
+        farthest = dist
     let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
     for _ in 0 ..< 18:
       let candidate = getNextSpiralPoint(state, controller.rng)

@@ -14,9 +14,6 @@ include "inventory"
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
 
-proc noopAction(env: Environment, id: int, agent: Thing) =
-  inc env.stats[id].actionNoop
-
 proc add(env: Environment, thing: Thing)
 proc removeThing(env: Environment, thing: Thing)
 proc updateTumorInfluence*(env: Environment, pos: IVec2, intensityDelta: int)
@@ -42,20 +39,20 @@ include "connect"
 include "spawn"
 include "step"
 
-proc thingAsciiChar*(kind: ThingKind): char =
-  ## ASCII schema for map objects (typeable characters).
-  thingAscii(kind)
-
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
     for x in 0 ..< MapWidth:
       var cell = " "
       # First check terrain
-      cell = $terrainAscii(env.terrain[x][y])
+      cell = $TerrainCatalog[env.terrain[x][y]].ascii
       # Then override with objects if present
       for thing in env.things:
         if thing.pos.x == x and thing.pos.y == y:
-          cell = $thingAsciiChar(thing.kind)
+          let kind = thing.kind
+          if isBuildingKind(kind):
+            cell = $BuildingRegistry[kind].ascii
+          else:
+            cell = $ThingCatalog[kind].ascii
           break
       result.add(cell)
     result.add("\n")
