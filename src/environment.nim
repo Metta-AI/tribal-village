@@ -159,7 +159,6 @@ appendBuildingRecipes(CraftRecipes)
 
 proc add(env: Environment, thing: Thing)
 proc removeThing(env: Environment, thing: Thing)
-proc updateTumorInfluence*(env: Environment, pos: IVec2, intensityDelta: int)
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool
 proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: AgentUnitClass,
                   costs: openArray[tuple[res: StockpileResource, count: int]], cooldown: int): bool
