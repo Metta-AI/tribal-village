@@ -59,8 +59,7 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
       buildIndex = 1, buildCost = @[(ItemWood, 14)], buildCooldown = 16)
   add(House, "House", "house", 'h', (r: 170'u8, g: 140'u8, b: 110'u8),
       buildIndex = 0, buildCost = @[(ItemWood, 1)], buildCooldown = 10)
-  add(Armory, "Armory", "armory", 'A', (r: 255'u8, g: 120'u8, b: 40'u8),
-      buildIndex = 19, buildCost = @[(ItemWood, 4)], buildCooldown = 12)
+  add(Armory, "Armory", "armory", 'A', (r: 255'u8, g: 120'u8, b: 40'u8))
   add(ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
       buildIndex = 20, buildCost = @[(ItemWood, 4)], buildCooldown = 12)
   add(WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),
@@ -73,9 +72,13 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
       buildIndex = 2, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Granary, "Granary", "granary", 'n', (r: 220'u8, g: 200'u8, b: 150'u8),
       buildIndex = 5, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(LumberCamp, "Lumber Yard", "lumber_camp", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
+  add(LumberYard, "Lumber Yard", "lumber_yard", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
+      buildIndex = 19, buildCost = @[(ItemWood, 5)], buildCooldown = 10)
+  add(LumberCamp, "Lumber Camp", "lumber_camp", 'l', (r: 130'u8, g: 90'u8, b: 60'u8),
       buildIndex = 3, buildCost = @[(ItemWood, 5)], buildCooldown = 10)
-  add(MiningCamp, "Quarry", "mining_camp", 'G', (r: 120'u8, g: 120'u8, b: 120'u8),
+  add(Quarry, "Quarry", "quarry", 'Q', (r: 120'u8, g: 120'u8, b: 120'u8),
+      buildIndex = 23, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
+  add(MiningCamp, "Mining Camp", "mining_camp", 'G', (r: 120'u8, g: 120'u8, b: 120'u8),
       buildIndex = 4, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Bank, "Bank", "bank", 'B', (r: 220'u8, g: 200'u8, b: 120'u8))
   add(Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
@@ -288,13 +291,14 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   case kind
   of Altar: UseAltar
   of Armory: UseNone
+  of Mill: UseDropoff
   of ClayOven: UseClayOven
   of WeavingLoom: UseWeavingLoom
   of Blacksmith: UseBlacksmith
   of Market: UseMarket
-  of Bank: UseDropoff
-  of TownCenter, LumberCamp, Dock: UseDropoff
-  of Granary, MiningCamp: UseDropoffAndStorage
+  of Bank, LumberYard, Quarry: UseDropoff
+  of TownCenter, LumberCamp, MiningCamp, Dock: UseDropoff
+  of Granary: UseDropoffAndStorage
   of Barrel: UseStorage
   of Barracks, ArcheryRange, Stable, Monastery, Castle: UseTrain
   of SiegeWorkshop: UseTrainAndCraft
@@ -315,8 +319,8 @@ proc buildingStockpileRes*(kind: ThingKind): StockpileResource
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   case kind
   of Granary: ResourceFood
-  of LumberCamp: ResourceWood
-  of MiningCamp: ResourceStone
+  of LumberYard: ResourceWood
+  of Quarry: ResourceStone
   of Bank: ResourceGold
   else: ResourceNone
 
@@ -343,7 +347,7 @@ proc buildingPopCap*(kind: ThingKind): int =
 
 proc buildingBarrelCapacity*(kind: ThingKind): int =
   case kind
-  of Barrel, Granary, LumberCamp, MiningCamp, Blacksmith: BarrelCapacity
+  of Barrel, Granary, Blacksmith: BarrelCapacity
   else: 0
 
 proc buildingFertileRadius*(kind: ThingKind): int =
@@ -354,9 +358,10 @@ proc buildingFertileRadius*(kind: ThingKind): int =
 proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] =
   case kind
   of TownCenter: {ResourceFood, ResourceWood, ResourceGold, ResourceStone}
-  of Granary: {ResourceFood}
-  of LumberCamp: {ResourceWood}
-  of MiningCamp: {ResourceStone}
+  of Granary, Mill: {ResourceFood}
+  of LumberCamp, LumberYard: {ResourceWood}
+  of MiningCamp: {ResourceGold, ResourceStone}
+  of Quarry: {ResourceStone}
   of Bank: {ResourceGold}
   of Dock: {ResourceFood}
   else: {}
@@ -364,7 +369,6 @@ proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] =
 proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   case kind
   of Granary: @[ItemWheat]
-  of MiningCamp: @[ItemStone]
   of Blacksmith: @[ItemArmor, ItemSpear]
   else: @[]
 

@@ -227,7 +227,7 @@ proc init(env: Environment) =
         env.terrain[pos.x][pos.y] = Road
         env.resetTileColor(pos)
 
-    let connectKinds = {TownCenter, House, Granary, LumberCamp, MiningCamp, Bank, Mill}
+    let connectKinds = {TownCenter, House, Granary, LumberYard, Quarry, Bank, Mill}
     var anchors: seq[IVec2] = @[center]
     for thing in env.things:
       if thing.teamId != teamId:
@@ -272,9 +272,9 @@ proc init(env: Environment) =
 
   proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
     let placements = [
-      (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),   # Lumber Yard
+      (offset: ivec2(2, -2), kind: LumberYard, res: ResourceWood),   # Lumber Yard
       (offset: ivec2(2, 2), kind: Granary, res: ResourceFood),       # Granary
-      (offset: ivec2(-2, 2), kind: MiningCamp, res: ResourceStone),  # Quarry
+      (offset: ivec2(-2, 2), kind: Quarry, res: ResourceStone),      # Quarry
       (offset: ivec2(-2, -2), kind: Bank, res: ResourceGold)         # Bank
     ]
     for entry in placements:
