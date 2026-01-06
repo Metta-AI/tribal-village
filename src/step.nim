@@ -1,6 +1,56 @@
 # This file is included by src/environment.nim
+when defined(stepTiming):
+  import std/[os, monotimes]
+
+  let stepTimingTargetStr = getEnv("TV_STEP_TIMING", "")
+  let stepTimingWindowStr = getEnv("TV_STEP_TIMING_WINDOW", "0")
+  let stepTimingTarget = block:
+    if stepTimingTargetStr.len == 0:
+      -1
+    else:
+      try:
+        parseInt(stepTimingTargetStr)
+      except ValueError:
+        -1
+  let stepTimingWindow = block:
+    if stepTimingWindowStr.len == 0:
+      0
+    else:
+      try:
+        parseInt(stepTimingWindowStr)
+      except ValueError:
+        0
+
+  proc stepTimingActive(env: Environment): bool =
+    stepTimingTarget >= 0 and env.currentStep >= stepTimingTarget and
+      env.currentStep <= stepTimingTarget + stepTimingWindow
+
+  proc msBetween(a, b: MonoTime): float64 =
+    (b.ticks - a.ticks).float64 / 1_000_000.0
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
+  when defined(stepTiming):
+    let timing = stepTimingActive(env)
+    var tStart: MonoTime
+    var tNow: MonoTime
+    var tTotalStart: MonoTime
+    var tActionTintMs: float64
+    var tShieldsMs: float64
+    var tPreDeathsMs: float64
+    var tActionsMs: float64
+    var tThingsMs: float64
+    var tTumorsMs: float64
+    var tAdjacencyMs: float64
+    var tPopRespawnMs: float64
+    var tSurvivalMs: float64
+    var tTintMs: float64
+    var tEndMs: float64
+
+    if timing:
+      tStart = getMonoTime()
+      tTotalStart = tStart
+
   # Decay short-lived action tints
   if env.actionTintPositions.len > 0:
     var kept: seq[IVec2] = @[]
@@ -22,13 +72,31 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.updateObservations(TintLayer, pos, 0)
     env.actionTintPositions = kept
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tActionTintMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # Decay shields
   for i in 0 ..< MapAgents:
     if env.shieldCountdown[i] > 0:
       env.shieldCountdown[i] = env.shieldCountdown[i] - 1
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tShieldsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # Remove any agents that already hit zero HP so they can't act this step
   env.enforceZeroHpDeaths()
+
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tPreDeathsMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   inc env.currentStep
   # Single RNG for entire step - more efficient than multiple initRand calls
@@ -61,6 +129,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of 7: env.plantResourceAction(id, agent, argument)  # Plant wheat/tree on fertile tile
     of 8: env.buildFromChoices(id, agent, argument, BuildChoices)
     else: inc env.stats[id].actionInvalid
+
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tActionsMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   # Combined single-pass object updates and tumor collection
   var newTumorsToSpawn: seq[Thing] = @[]
@@ -209,6 +283,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if not thing.hasClaimedTerritory:
         tumorsToProcess.add(thing)
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tThingsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # ============== TUMOR PROCESSING ==============
   var newTumorBranches: seq[Thing] = @[]
 
@@ -242,6 +322,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     newTumorBranches.add(newTumor)
     tumor.hasClaimedTerritory = true
     tumor.turnsAlive = 0
+
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tTumorsMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   # Add newly spawned tumors from spawners and branching this step
   for newTumor in newTumorsToSpawn:
@@ -302,6 +388,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for i in countdown(env.things.len - 1, 0):
       if env.things[i] in tumorsToRemove:
         env.things.del(i)
+
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tAdjacencyMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
@@ -370,17 +462,34 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           for key in ObservedItemKeys:
             env.updateAgentInventoryObs(agent, key)
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tPopRespawnMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # Apply per-step survival penalty to all living agents
   if env.config.survivalPenalty != 0.0:
     for agent in env.agents:
       if isAgentAlive(env, agent):  # Only alive agents
         agent.reward += env.config.survivalPenalty
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tSurvivalMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # Update heatmap using batch tint modification system
   # This is much more efficient than updating during each entity move
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tTintMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
@@ -390,6 +499,48 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if env.terminated[i] == 0.0:
         env.truncated[i] = 1.0
     env.shouldReset = true
+
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tEndMs = msBetween(tStart, tNow)
+
+      var countTumor = 0
+      var countCorpse = 0
+      var countSkeleton = 0
+      var countCow = 0
+      var countStump = 0
+      for thing in env.things:
+        case thing.kind:
+        of Tumor: inc countTumor
+        of Corpse: inc countCorpse
+        of Skeleton: inc countSkeleton
+        of Cow: inc countCow
+        of Stump: inc countStump
+        else: discard
+
+      let totalMs = msBetween(tTotalStart, tNow)
+      echo "step=", env.currentStep,
+        " total_ms=", totalMs,
+        " actionTint_ms=", tActionTintMs,
+        " shields_ms=", tShieldsMs,
+        " preDeaths_ms=", tPreDeathsMs,
+        " actions_ms=", tActionsMs,
+        " things_ms=", tThingsMs,
+        " tumor_ms=", tTumorsMs,
+        " adjacency_ms=", tAdjacencyMs,
+        " pop_respawn_ms=", tPopRespawnMs,
+        " survival_ms=", tSurvivalMs,
+        " tint_ms=", tTintMs,
+        " end_ms=", tEndMs,
+        " things=", env.things.len,
+        " agents=", env.agents.len,
+        " tints=", env.actionTintPositions.len,
+        " tumors=", countTumor,
+        " corpses=", countCorpse,
+        " skeletons=", countSkeleton,
+        " cows=", countCow,
+        " stumps=", countStump
 
   # Check if all agents are terminated/truncated
   var allDone = true
