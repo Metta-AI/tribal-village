@@ -37,3 +37,11 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
     return (false, 0'u8)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
+
+proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                       state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint8] =
+  if env.countTeamBuildings(teamId, kind) == 0:
+    let idx = buildIndexFor(kind)
+    if idx >= 0:
+      return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  (false, 0'u8)
