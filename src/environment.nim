@@ -149,8 +149,7 @@ proc canLayRoad*(env: Environment, pos: IVec2): bool {.inline.} =
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Clear dynamic tint overlays for a tile
-  let base = env.baseTintColors[pos.x][pos.y]
-  env.computedTintColors[pos.x][pos.y] = TileColor(r: base.r, g: base.g, b: base.b, intensity: 0)
+  env.computedTintColors[pos.x][pos.y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
 include "inventory"
 
