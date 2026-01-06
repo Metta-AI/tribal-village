@@ -117,7 +117,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
 
     # No lantern in inventory: craft or gather resources to make one.
-    if env.countTeamBuildings(teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
+    if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
       if chebyshevDist(agent.pos, basePos) > 2'i32:
         return saveStateAndReturn(controller, agentId, state,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
