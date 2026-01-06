@@ -34,6 +34,8 @@ type
   Controller* = ref object
     rng*: Rand
     agents: Table[int, AgentState]
+    buildingCountsStep: int
+    buildingCounts: array[MapRoomObjectsHouses, array[ThingKind, int]]
 
 proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                state: var AgentState, targetPos: IVec2): uint8
@@ -44,7 +46,8 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
-    agents: initTable[int, AgentState]()
+    agents: initTable[int, AgentState](),
+    buildingCountsStep: -1
   )
 
 # Helper proc to save state and return action
@@ -358,6 +361,22 @@ proc countTeamBuildings*(env: Environment, teamId: int, kind: ThingKind): int =
       continue
     if thing.kind == kind and thing.teamId == teamId:
       inc result
+
+proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
+  if controller.buildingCountsStep != env.currentStep:
+    controller.buildingCountsStep = env.currentStep
+    controller.buildingCounts = default(array[MapRoomObjectsHouses, array[ThingKind, int]])
+    for thing in env.things:
+      if thing.isNil:
+        continue
+      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsHouses:
+        continue
+      if not isBuildingKind(thing.kind):
+        continue
+      controller.buildingCounts[thing.teamId][thing.kind] += 1
+  if teamId < 0 or teamId >= MapRoomObjectsHouses:
+    return 0
+  controller.buildingCounts[teamId][kind]
 
 proc canAffordBuild*(env: Environment, teamId: int, key: ItemKey): bool =
   let costs = buildCostsForKey(key)
