@@ -11,7 +11,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
   if agentId notin controller.agents:
     let role =
-      case agentId mod MapAgentsPerHouse
+      case agentId mod MapAgentsPerVillage
       of 0, 1: Gatherer
       of 2, 3: Builder
       of 4, 5: Fighter

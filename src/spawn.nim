@@ -149,15 +149,15 @@ proc init(env: Environment) =
         env.add(Thing(kind: Wall, pos: ivec2(j, y)))
         env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
 
-  # Agents will now spawn with their villages/houses below
+  # Agents will now spawn with their villages below
   # Clear and prepare village colors arrays
   agentVillageColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
   teamColors.setLen(0)  # Clear team colors
   altarColors.clear()  # Clear altar colors from previous game
   # Spawn villages with altars, town centers, and associated agents (tribes)
-  let numHouses = MapRoomObjectsHouses
+  let numVillages = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
-  var houseCenters: seq[IVec2] = @[]
+  var villageCenters: seq[IVec2] = @[]
   proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
     let reserved = [
       center + ivec2(2, -2),
@@ -340,10 +340,10 @@ proc init(env: Environment) =
         teamId: teamId
       ))
       inc placed
-  doAssert WarmVillagePalette.len >= numHouses,
+  doAssert WarmVillagePalette.len >= numVillages,
     "WarmVillagePalette must cover all base colors without reuse."
-  for i in 0 ..< numHouses:
-    let houseStruct = createVillage()
+  for i in 0 ..< numVillages:
+    let villageStruct = createVillage()
     var placed = false
     var placementPosition: IVec2
 
@@ -352,8 +352,8 @@ proc init(env: Environment) =
       let candidatePos = r.randomEmptyPos(env)
       # Check if position has enough space for the village footprint
       var canPlace = true
-      for dy in 0 ..< houseStruct.height:
-        for dx in 0 ..< houseStruct.width:
+      for dy in 0 ..< villageStruct.height:
+        for dx in 0 ..< villageStruct.width:
           let checkX = candidatePos.x + dx
           let checkY = candidatePos.y + dy
           if checkX >= MapWidth or checkY >= MapHeight or
@@ -363,14 +363,14 @@ proc init(env: Environment) =
             break
         if not canPlace: break
 
-      # Keep houses spaced apart (Chebyshev) to avoid crowding
+      # Keep villages spaced apart (Chebyshev) to avoid crowding
       if canPlace:
-        const MinHouseSpacing = 22
-        let candidateCenter = candidatePos + houseStruct.centerPos
-        for c in houseCenters:
+        const MinVillageSpacing = 22
+        let candidateCenter = candidatePos + villageStruct.centerPos
+        for c in villageCenters:
           let dx = abs(c.x - candidateCenter.x)
           let dy = abs(c.y - candidateCenter.y)
-          if max(dx, dy) < MinHouseSpacing:
+          if max(dx, dy) < MinVillageSpacing:
             canPlace = false
             break
 
@@ -380,16 +380,16 @@ proc init(env: Environment) =
         break
 
     if placed:
-      let elements = getStructureElements(houseStruct, placementPosition)
+      let elements = getStructureElements(villageStruct, placementPosition)
 
-      # Clear terrain within the house area to create a clearing
-      for dy in 0 ..< houseStruct.height:
-        for dx in 0 ..< houseStruct.width:
+      # Clear terrain within the village area to create a clearing
+      for dy in 0 ..< villageStruct.height:
+        for dx in 0 ..< villageStruct.width:
           let clearX = placementPosition.x + dx
           let clearY = placementPosition.y + dy
           if clearX >= 0 and clearX < MapWidth and clearY >= 0 and clearY < MapHeight:
-            if dy < houseStruct.layout.len and dx < houseStruct.layout[dy].len:
-              if houseStruct.layout[dy][dx] == ' ':
+            if dy < villageStruct.layout.len and dx < villageStruct.layout[dy].len:
+              if villageStruct.layout[dy][dx] == ' ':
                 continue
             # Clear any terrain features (wheat, trees) but keep blocked terrain
             if not isBlockedTerrain(env.terrain[clearX][clearY]):
@@ -401,11 +401,11 @@ proc init(env: Environment) =
       teamColors.add(villageColor)
       let teamId = teamColors.len - 1
 
-      # Spawn agent slots for this house (six active, the rest dormant)
-      let agentsForThisHouse = min(MapAgentsPerHouse, MapRoomObjectsAgents - totalAgentsSpawned)
-      let baseAgentId = teamId * MapAgentsPerHouse
+      # Spawn agent slots for this village (six active, the rest dormant)
+      let agentsForThisVillage = min(MapAgentsPerVillage, MapRoomObjectsAgents - totalAgentsSpawned)
+      let baseAgentId = teamId * MapAgentsPerVillage
 
-      # Add the altar with initial hearts and house bounds
+      # Add the altar with initial hearts and village bounds
       let altar = Thing(
         kind: Altar,
         pos: elements.center,
@@ -414,19 +414,19 @@ proc init(env: Environment) =
       altar.inventory = emptyInventory()
       altar.hearts = MapObjectAltarInitialHearts
       env.add(altar)
-      houseCenters.add(elements.center)
+      villageCenters.add(elements.center)
       altarColors[elements.center] = villageColor  # Associate altar position with village color
 
       discard placeStartingTownCenter(elements.center, teamId, r)
 
-      # Initialize base colors for house tiles to team color
-      for dx in 0 ..< houseStruct.width:
-        for dy in 0 ..< houseStruct.height:
+      # Initialize base colors for village tiles to team color
+      for dx in 0 ..< villageStruct.width:
+        for dy in 0 ..< villageStruct.height:
           let tileX = placementPosition.x + dx
           let tileY = placementPosition.y + dy
           if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-            if dy < houseStruct.layout.len and dx < houseStruct.layout[dy].len:
-              if houseStruct.layout[dy][dx] == ' ':
+            if dy < villageStruct.layout.len and dx < villageStruct.layout[dy].len:
+              if villageStruct.layout[dy][dx] == ' ':
                 continue
             env.baseTileColors[tileX][tileY] = TileColor(
               r: villageColor.r,
@@ -436,7 +436,7 @@ proc init(env: Environment) =
             )
             env.tileColors[tileX][tileY] = env.baseTileColors[tileX][tileY]
 
-      # Add nearby houses/resources first, then connect roads between them.
+      # Add nearby village resources first, then connect roads between them.
       placeStartingResourceBuildings(elements.center, teamId)
       placeStartingHouses(elements.center, teamId, r)
       placeStartingRoads(elements.center, teamId, r)
@@ -455,11 +455,11 @@ proc init(env: Environment) =
           env.doorHearts[doorPos.x][doorPos.y] = DoorMaxHearts.int8
 
       # Add the interior buildings from the layout
-      for y in 0 ..< houseStruct.height:
-        for x in 0 ..< houseStruct.width:
-          if y < houseStruct.layout.len and x < houseStruct.layout[y].len:
+      for y in 0 ..< villageStruct.height:
+        for x in 0 ..< villageStruct.width:
+          if y < villageStruct.layout.len and x < villageStruct.layout[y].len:
             let worldPos = placementPosition + ivec2(x.int32, y.int32)
-            case houseStruct.layout[y][x]:
+            case villageStruct.layout[y][x]:
             of StructureArmoryChar:  # Armory at top-left
               env.add(Thing(
                 kind: Armory,
@@ -540,10 +540,10 @@ proc init(env: Environment) =
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
         let initialActive = min(6, agentsForThisHouse)
 
-        for j in 0 ..< agentsForThisHouse:
+      for j in 0 ..< agentsForThisVillage:
           let agentId = baseAgentId + j
 
-          # Store the village color for this agent (shared by all agents of the house)
+          # Store the village color for this agent (shared by all agents of the village)
           agentVillageColors[agentId] = teamColors[teamId]
 
           var agentPos = ivec2(-1, -1)
@@ -584,7 +584,7 @@ proc init(env: Environment) =
     let pos = r.randomEmptyPos(env)
     env.add(Thing(kind: Wall, pos: pos))
 
-  # If there are still agents to spawn (e.g., if not enough houses), spawn them randomly
+  # If there are still agents to spawn (e.g., if not enough villages), spawn them randomly
   # They will get a neutral color
   let neutralColor = color(0.5, 0.5, 0.5, 1.0)  # Gray for unaffiliated agents
   while totalAgentsSpawned < MapRoomObjectsAgents:
@@ -617,7 +617,7 @@ proc init(env: Environment) =
     if thing.kind == Altar:
       altarPositionsNow.add(thing.pos)
 
-  let numSpawners = numHouses
+  let numSpawners = numVillages
   let minDist = 20  # tiles; simple guard so spawner isn't extremely close to a village
   let minDist2 = minDist * minDist
 

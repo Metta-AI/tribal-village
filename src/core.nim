@@ -313,7 +313,7 @@ proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
   return bestDir
 
 proc sameTeam(agentA, agentB: Thing): bool =
-  (agentA.agentId div MapAgentsPerHouse) == (agentB.agentId div MapAgentsPerHouse)
+  (agentA.agentId div MapAgentsPerVillage) == (agentB.agentId div MapAgentsPerVillage)
 
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.

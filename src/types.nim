@@ -12,8 +12,8 @@ const
   # World Objects
   # Eight bases with 125 agents each -> 1000 agents total.
   MapRoomObjectsHouses* = 8
-  MapAgentsPerHouse* = 125
-  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
+  MapAgentsPerVillage* = 125
+  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerVillage  # Agent slots across all villages
   MapRoomObjectsMagmaPools* = 14
   MapRoomObjectsMagmaClusters* = 5
   MapRoomObjectsMines* = 28
@@ -75,12 +75,12 @@ const
 
   # Compile-time optimization constants
   ObservationRadius* = ObservationWidth div 2  # 5 - computed once
-  MapAgentsPerHouseFloat* = MapAgentsPerHouse.float32  # Avoid runtime conversion
+  MapAgentsPerVillageFloat* = MapAgentsPerVillage.float32  # Avoid runtime conversion
 
 {.push inline.}
 proc getTeamId*(agentId: int): int =
   ## Inline team ID calculation - frequently used
-  agentId div MapAgentsPerHouse
+  agentId div MapAgentsPerVillage
 
 template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
