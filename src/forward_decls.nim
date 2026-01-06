@@ -105,11 +105,11 @@ template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight
 
-template safeTintAdd*(tintMod: var int16, delta: int): void =
+template safeTintAdd*(tintMod: var int32, delta: int): void =
   ## Safe tint accumulation with overflow protection
-  let clampedDelta = max(-32000, min(32000, delta))
-  let summed = tintMod.int + clampedDelta
-  tintMod = max(-32000, min(32000, summed)).int16
+  let clampedDelta = max(-1_000_000'i32, min(1_000_000'i32, delta.int32))
+  let summed = tintMod + clampedDelta
+  tintMod = max(-1_000_000'i32, min(1_000_000'i32, summed))
 {.pop.}
 
 type
@@ -239,7 +239,7 @@ type
 
   # Tint modification layers for efficient batch updates
   TintModification* = object
-    r*, g*, b*: int16       # Delta values to add (scaled by 1000)
+    r*, g*, b*: int32       # Accumulated color contributions (scaled)
 
   # Track active tiles for sparse processing
   ActiveTiles* = object
@@ -312,8 +312,10 @@ type
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)
     computedTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Dynamic tint overlay (lanterns/tumors)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
+    tintStrength*: array[MapWidth, array[MapHeight, int32]]  # Tint strength accumulation
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
     tumorTintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Persistent tumor tint contributions
+    tumorStrength*: array[MapWidth, array[MapHeight, int32]]  # Tumor tint strength accumulation
     tumorActiveTiles*: ActiveTiles  # Sparse list of tiles touched by tumors
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
