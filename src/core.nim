@@ -24,7 +24,9 @@ type
     lastSearchPosition: IVec2
     # Bail-out / anti-oscillation state
     lastPosition: IVec2
-    recentPositions: seq[IVec2]
+    recentPositions: array[4, IVec2]
+    recentPosIndex: int
+    recentPosCount: int
     stuckCounter: int
     escapeMode: bool
     escapeStepsRemaining: int
