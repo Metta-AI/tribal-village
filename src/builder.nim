@@ -184,6 +184,16 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   const MilitaryBuildings = [Barracks, ArcheryRange, Stable, SiegeWorkshop]
   const DefenseBuildings = [Outpost, Castle]
 
+  # Drop off any carried stockpile resources so building costs can be paid.
+  let (didDrop, dropAct) = controller.dropoffCarrying(
+    env, agent, agentId, state,
+    allowFood = true,
+    allowWood = true,
+    allowStone = true,
+    allowGold = true
+  )
+  if didDrop: return dropAct
+
   # Top priority: keep population cap ahead of current population.
   var popCount = 0
   for otherAgent in env.agents:
