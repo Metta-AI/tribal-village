@@ -17,7 +17,7 @@ proc gathererTargets(controller: Controller, env: Environment, teamId: int): tup
   let baseScale = max(1, townCenters + houses)
   result.food = 8 + baseScale * 2
   result.wood = 6 + baseScale
-  result.stone = 4 + baseScale div 2
+  result.stone = 6 + baseScale
   result.gold = 4 + baseScale div 2
 
 proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): GathererTask =
@@ -137,7 +137,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
       let (didBuild, buildAct) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, Quarry,
-        nearbyStone, 6,
+        nearbyStone, 4,
         [Quarry], 6
       )
       if didBuild: return buildAct
