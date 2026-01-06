@@ -1195,7 +1195,6 @@ proc terrainAsciiChar*(terrain: TerrainType): char =
   of Stone: 'S'
   of Gold: 'G'
   of Bush: '%'
-  of Animal: '&'
   of Grass: ','
   of Cactus: '!'
   of Dune: '^'
