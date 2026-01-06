@@ -134,15 +134,6 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       remaining = ResourceNodeInitial
     env.dropStump(pos, remaining)
 
-  proc spawnSkeletonAt(pos: IVec2, fishRemaining: int) =
-    var remaining = fishRemaining
-    if remaining <= 0:
-      remaining = ResourceNodeInitial
-    let skeleton = Thing(kind: Skeleton, pos: pos)
-    skeleton.inventory = emptyInventory()
-    setInv(skeleton, ItemFish, remaining)
-    env.add(skeleton)
-
   proc spawnCorpseAt(pos: IVec2, fishRemaining: int) =
     var remaining = fishRemaining
     if remaining <= 0:
