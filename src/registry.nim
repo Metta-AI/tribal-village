@@ -106,6 +106,8 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
 
 let BuildingRegistry* = initBuildingRegistry()
 
+proc toSnakeCase(name: string): string
+
 proc buildingInfo*(kind: ThingKind): BuildingInfo =
   BuildingRegistry[kind]
 
