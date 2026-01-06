@@ -133,11 +133,6 @@ proc resetTileColor*(env: Environment, pos: IVec2) =
   env.tileColors[pos.x][pos.y] = color
   env.baseTileColors[pos.x][pos.y] = color
 
-proc clearDoors(env: Environment) =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      env.doorTeams[x][y] = -1
-      env.doorHearts[x][y] = 0
 include "inventory"
 
 # Build craft recipes after registry is available.

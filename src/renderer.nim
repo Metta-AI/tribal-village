@@ -570,7 +570,7 @@ proc drawAgentDecorations*() =
       count: int
 
     proc iconForItem(key: ItemKey): string =
-      itemSpriteKey(key)
+      resolveSpriteKey(itemSpriteKey(key))
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:

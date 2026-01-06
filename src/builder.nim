@@ -192,12 +192,14 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let dropoffDistanceThreshold = 5
   let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
   let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-  let (didMill, actMill) = controller.tryBuildNearResource(
-    env, agent, agentId, state, teamId, Mill,
-    nearbyWheat + nearbyFertile, 8,
-    [Mill, Granary, TownCenter], dropoffDistanceThreshold
-  )
-  if didMill: return actMill
+  if agent.homeAltar.x < 0 or
+     max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
+    let (didMill, actMill) = controller.tryBuildNearResource(
+      env, agent, agentId, state, teamId, Mill,
+      nearbyWheat + nearbyFertile, 8,
+      [Mill, Granary, TownCenter], dropoffDistanceThreshold
+    )
+    if didMill: return actMill
 
   let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
   let (didLumber, actLumber) = controller.tryBuildNearResource(
