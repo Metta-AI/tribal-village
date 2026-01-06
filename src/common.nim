@@ -147,6 +147,8 @@ proc orientationToVec*(orientation: Orientation): IVec2 =
   of SW: result = ivec2(-1, 1)
   of SE: result = ivec2(1, 1)
 
+{.push inline.}
 proc ivec2*(x, y: int): IVec2 =
   result.x = x.int32
   result.y = y.int32
+{.pop.}

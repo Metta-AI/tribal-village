@@ -1,6 +1,3 @@
-proc isTeamBuilding(kind: ThingKind): bool =
-  isBuildingKind(kind) and buildingNeedsLantern(kind)
-
 proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing =
   var bestDist = int.high
   for other in env.agents:
@@ -33,69 +30,6 @@ proc defenseFrontierPos(basePos, enemyPos: IVec2): IVec2 =
   let step = max(4'i32, min(8'i32, int32(dist div 2)))
   clampToPlayable(basePos + ivec2(dx * step, dy * step))
 
-proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    if abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y) <= 2:
-      return true
-  false
-
-proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thing =
-  var bestDist = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    if not isTeamBuilding(thing.kind):
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    let dist = abs(thing.pos.x - origin.x) + abs(thing.pos.y - origin.y)
-    if dist < bestDist:
-      bestDist = dist
-      result = thing
-
-proc countTeamLanterns(env: Environment, teamId: int): int =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if thing.lanternHealthy and thing.teamId == teamId:
-      inc result
-
-proc farthestLanternDist(env: Environment, teamId: int, basePos: IVec2): int =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    let dist = int(chebyshevDist(basePos, thing.pos))
-    if dist > result:
-      result = dist
-
-proc isLanternPlacementValid(env: Environment, pos: IVec2): bool =
-  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
-    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and not isTileFrozen(pos, env) and
-    env.terrain[pos.x][pos.y] notin {Water, Wheat}
-
-proc findLanternSpotNearBuilding(env: Environment, teamId: int, agent: Thing, building: Thing): IVec2 =
-  var bestPos = ivec2(-1, -1)
-  var bestDist = int.high
-  for dx in -2 .. 2:
-    for dy in -2 .. 2:
-      if abs(dx) + abs(dy) > 2:
-        continue
-      let target = building.pos + ivec2(dx.int32, dy.int32)
-      if not isLanternPlacementValid(env, target):
-        continue
-      if hasTeamLanternNear(env, teamId, target):
-        continue
-      let dist = abs(target.x - agent.pos.x) + abs(target.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        bestPos = target
-  bestPos
 
 proc buildWallToward(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
@@ -208,17 +142,15 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
   # Maintain armor and spears.
   if agent.inventoryArmor < ArmorPoints:
-    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-    if smith != nil:
-      return controller.useOrMove(env, agent, agentId, state, smith.pos)
+    let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
+    if didSmith: return actSmith
 
   if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
     if agent.inventoryWood == 0:
       let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
       if didWood: return actWood
-    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-    if smith != nil:
-      return controller.useOrMove(env, agent, agentId, state, smith.pos)
+    let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
+    if didSmith: return actSmith
 
   # Seek tumors/spawners when idle.
   let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
@@ -229,10 +161,6 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     return controller.attackOrMove(env, agent, agentId, state, spawner.pos)
 
   # Hunt while patrolling if nothing else to do.
-  let corpse = env.findNearestThingSpiral(state, Corpse, controller.rng)
-  if corpse != nil:
-    return controller.useOrMove(env, agent, agentId, state, corpse.pos)
-  let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
-  if cow != nil:
-    return controller.attackOrMove(env, agent, agentId, state, cow.pos)
+  let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
+  if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
