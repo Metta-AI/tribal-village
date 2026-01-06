@@ -1,7 +1,7 @@
 const
-  TrailDecay = 0.985'f32
+  TrailDecay = 0.9985'f32
   TumorDecay = 0.995'f32
-  TintStrengthScale = 8000.0'f32
+  TintStrengthScale = 80000.0'f32
   TumorIncrementBase = 30.0'f32
 
 proc decayTintModifications(env: Environment) =
