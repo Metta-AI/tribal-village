@@ -1,6 +1,3 @@
-proc thingKey(kind: ThingKind): ItemKey =
-  ItemThingPrefix & $kind
-
 proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   if not key.startsWith(ItemThingPrefix):
     return false
@@ -48,7 +45,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if thing.kind in {Agent, Tumor, Pine, Palm, Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
     return false
 
-  let key = thingKey(thing.kind)
+  let key = ItemThingPrefix & $thing.kind
   let current = getInv(agent, key)
   if current >= MapObjectAgentMaxInventory:
     return false
@@ -113,7 +110,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     kind: kind,
     pos: pos
   )
-  if isBuildingKind(kind) and buildingTeamOwned(kind):
+  if isBuildingKind(kind) and kind != Barrel:
     placed.teamId = getTeamId(agent.agentId)
   case kind
   of Lantern:

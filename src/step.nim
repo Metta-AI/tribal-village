@@ -116,9 +116,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if not isAgentAlive(env, agent):
       continue
 
-    let decoded = decodeAction(actionValue)
-    let verb = decoded.verb.int
-    let argument = decoded.argument.int
+    let verb = actionValue.int div ActionArgumentCount
+    let argument = actionValue.int mod ActionArgumentCount
 
     if verb < 0 or verb >= ActionVerbCount:
       inc env.stats[id].actionInvalid
@@ -128,7 +127,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       continue
 
     case verb:
-    of 0: env.noopAction(id, agent)
+    of 0: inc env.stats[id].actionNoop
     of 1: env.moveAction(id, agent, argument)
     of 2: env.attackAction(id, agent, argument)
     of 3: env.useAction(id, agent, argument)  # Use terrain/buildings
@@ -176,7 +175,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             agent.reward += altarHearts / MapAgentsPerVillageFloat
     elif thing.kind == Magma:
       env.tickCooldown(thing)
-    elif buildingTickKind(thing.kind) == TickMillFertile:
+    elif thing.kind == Mill:
       if thing.cooldown > 0:
         thing.cooldown -= 1
       else:
@@ -197,8 +196,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}:
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
-        thing.cooldown = max(1, buildingTickCooldown(thing.kind))
-    elif buildingUsesCooldown(thing.kind):
+        thing.cooldown = 10
+    elif buildingUseKind(thing.kind) in {UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
+                                        UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
     elif thing.kind == Spawner:

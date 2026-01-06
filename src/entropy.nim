@@ -11,15 +11,12 @@ proc initRand*(seed: int): Rand =
   let s = if seed == 0: DefaultSeed else: uint64(seed)
   result.state = s
 
-proc mix(state: uint64): uint64 =
-  var x = state
+proc next*(r: var Rand): uint64 =
+  var x = r.state
   x = x xor (x shl 13)
   x = x xor (x shr 7)
   x = x xor (x shl 17)
-  x
-
-proc next*(r: var Rand): uint64 =
-  r.state = mix(r.state)
+  r.state = x
   r.state
 
 proc randIntInclusive*(r: var Rand, a, b: int): int =

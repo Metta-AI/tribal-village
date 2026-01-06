@@ -20,19 +20,15 @@ type
 # Global agent controller instance
 var globalController*: AgentController
 
-proc newBuiltinAIController*(seed: int = int(nowSeconds() * 1000)): AgentController =
-  ## Create a new controller using built-in AI
-  AgentController(
-    controllerType: BuiltinAI,
-    aiController: newController(seed),
-    externalActionCallback: nil
-  )
-
 proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSeconds() * 1000)) =
   ## Initialize the global controller with specified type
   case controllerType:
   of BuiltinAI:
-    globalController = newBuiltinAIController(seed)
+    globalController = AgentController(
+      controllerType: BuiltinAI,
+      aiController: newController(seed),
+      externalActionCallback: nil
+    )
   of ExternalNN:
     # External callback will be set later via setExternalActionCallback
     globalController = AgentController(

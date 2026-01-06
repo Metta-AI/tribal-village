@@ -217,7 +217,7 @@ proc display() =
 
   if worldMapPanel.hasMouse:
     if window.buttonDown[MouseLeft] or window.buttonDown[MouseMiddle]:
-      worldMapPanel.vel = logicalMouseDelta(window)
+      worldMapPanel.vel = window.mouseDelta.vec2 / window.contentScale
     else:
       worldMapPanel.vel *= 0.9
 

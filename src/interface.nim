@@ -23,16 +23,13 @@ type
     survivalPenalty*: float32
     deathPenalty*: float32
 
-proc isNan32(x: float32): bool {.inline.} =
-  x != x
-
 proc applyConfig(cfg: CEnvironmentConfig): EnvironmentConfig =
   result = defaultEnvironmentConfig()
   if cfg.maxSteps > 0:
     result.maxSteps = cfg.maxSteps.int
 
   template applyFloat(field: untyped, value: float32) =
-    if not isNan32(value):
+    if value == value:
       result.field = value.float
 
   applyFloat(tumorSpawnRate, cfg.tumorSpawnRate)
@@ -54,7 +51,7 @@ var globalEnv: Environment = nil
 
 proc thingRenderColor(kind: ThingKind): tuple[r, g, b: uint8] =
   if isBuildingKind(kind):
-    return buildingRenderColor(kind)
+    return BuildingRegistry[kind].renderColor
   case kind
   of Agent: (r: 255'u8, g: 255'u8, b: 0'u8)
   of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)

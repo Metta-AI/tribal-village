@@ -74,21 +74,13 @@ var
   selection*: Thing  # Currently selected entity for UI interaction
   selectedPos*: IVec2 = ivec2(-1, -1)  # Last clicked tile for UI label
 
-# Frozen detection (terrain & buildings share the same tint-based check)
-proc matchesClippyTint(color: TileColor): bool =
-  ## Frozen only when the tile tint fully matches the clippy tint.
-  abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
-  abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
-  abs(color.b - ClippyTint.b) <= ClippyTintTolerance
-
 proc isTileFrozen*(pos: IVec2, env: Environment): bool =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return false
-  return matchesClippyTint(env.tileColors[pos.x][pos.y])
-
-proc isBuildingFrozen*(pos: IVec2, env: Environment): bool =
-  ## Backwards-compatible alias for frozen detection on buildings.
-  return isTileFrozen(pos, env)
+  let color = env.tileColors[pos.x][pos.y]
+  return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
+    abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
+    abs(color.b - ClippyTint.b) <= ClippyTintTolerance
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
@@ -107,11 +99,6 @@ proc biomeBaseColor*(biome: BiomeType): TileColor =
   of BiomeSnowType: BiomeColorSnow
   of BiomeDungeonType: BiomeColorDungeon
   else: BaseTileColorDefault
-
-proc baseColorForPos(env: Environment, pos: IVec2): TileColor =
-  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
-    return BaseTileColorDefault
-  env.baseTintColors[pos.x][pos.y]
 
 proc blendTileColor(a, b: TileColor, t: float32): TileColor =
   let tClamped = max(0.0'f32, min(1.0'f32, t))

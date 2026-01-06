@@ -1,7 +1,6 @@
 import std/math, vmath
 import entropy
 import forest, desert, caves, city, plains, snow, biome
-import maze, radial
 
 const
   # Keep in sync with biome.nim's MaxBiomeSize.
@@ -430,19 +429,6 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
 proc zoneCount*(area: int, divisor: int, minCount: int, maxCount: int): int =
   let raw = max(1, area div divisor)
   clamp(raw, minCount, maxCount)
-
-proc pickDungeonKind*(r: var Rand): DungeonKind =
-  let kinds = [DungeonMaze, DungeonRadial]
-  let weights = [1.0, 0.6]
-  pickWeighted(r, kinds, weights)
-
-proc buildDungeonMask*(mask: var MaskGrid, mapWidth, mapHeight: int, zone: ZoneRect,
-                       r: var Rand, kind: DungeonKind) =
-  case kind:
-  of DungeonMaze:
-    buildDungeonMazeMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonMazeConfig())
-  of DungeonRadial:
-    buildDungeonRadialMask(mask, mapWidth, mapHeight, zone.x, zone.y, zone.w, zone.h, r, DungeonRadialConfig())
 
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
@@ -1070,22 +1056,6 @@ proc generatePalmGroves*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorde
           if nearWater and randChance(r, 0.7) and terrain[px][py] in {Empty, Sand, Grass, Fertile, Dune}:
             terrain[px][py] = Palm
 
-proc generateRockOutcrops*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  let clusters = max(16, mapWidth div 25)
-  for i in 0 ..< clusters:
-    let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
-    let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
-    let size = randInclusive(r, 4, 8)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Stone, 0.9, 0.3, r)
-
-proc generateGoldVeins*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  let clusters = max(8, mapWidth div 50)
-  for i in 0 ..< clusters:
-    let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
-    let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
-    let size = randInclusive(r, 3, 5)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gold, 0.8, 0.4, r)
-
 proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   for i in 0 ..< 30:
     var attempts = 0
@@ -1140,8 +1110,19 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
     terrain.generatePalmGroves(mapWidth, mapHeight, mapBorder, r)
   if UseLegacyTreeClusters:
     terrain.generateTrees(mapWidth, mapHeight, mapBorder, r)
-  terrain.generateRockOutcrops(mapWidth, mapHeight, mapBorder, r)
-  terrain.generateGoldVeins(mapWidth, mapHeight, mapBorder, r)
+  let rockClusters = max(16, mapWidth div 25)
+  for i in 0 ..< rockClusters:
+    let x = randInclusive(r, mapBorder + 4, mapWidth - mapBorder - 4)
+    let y = randInclusive(r, mapBorder + 4, mapHeight - mapBorder - 4)
+    let size = randInclusive(r, 4, 8)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Stone, 0.9, 0.3, r)
+
+  let goldClusters = max(8, mapWidth div 50)
+  for i in 0 ..< goldClusters:
+    let x = randInclusive(r, mapBorder + 6, mapWidth - mapBorder - 6)
+    let y = randInclusive(r, mapBorder + 6, mapHeight - mapBorder - 6)
+    let size = randInclusive(r, 3, 5)
+    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Gold, 0.8, 0.4, r)
   terrain.generateBushes(mapWidth, mapHeight, mapBorder, r)
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[

@@ -24,7 +24,7 @@ proc initBuildChoices(): array[ActionArgumentCount, ItemKey] =
       continue
     if not buildingBuildable(kind):
       continue
-    let idx = buildingBuildIndex(kind)
+    let idx = BuildingRegistry[kind].buildIndex
     if idx >= 0 and idx < choices.len:
       choices[idx] = thingItem($kind)
   choices[BuildIndexWall] = thingItem("Wall")

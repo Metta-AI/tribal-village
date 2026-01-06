@@ -60,12 +60,6 @@ proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState,
   controller.agentsInitialized[agentId] = true
   return action
 
-proc initSearchCache(state: var AgentState) =
-  for kind in ThingKind:
-    state.cachedThingPos[kind] = ivec2(-1, -1)
-  for terrain in TerrainType:
-    state.cachedTerrainPos[terrain] = ivec2(-1, -1)
-
 proc vecToOrientation(vec: IVec2): int =
   ## Map a step vector to orientation index (0..7)
   let x = vec.x
@@ -243,12 +237,6 @@ proc findNearestTerrain(env: Environment, pos: IVec2, terrain: TerrainType): IVe
           minDist = dist
           result = terrainPos
 
-proc hasFoodCargo(agent: Thing): bool =
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isFoodItem(key):
-      return true
-  false
-
 proc countNearbyTerrain*(env: Environment, center: IVec2, radius: int,
                          allowed: set[TerrainType]): int =
   let cx = center.x.int
@@ -348,7 +336,12 @@ proc dropoffResourceIfCarrying*(controller: Controller, env: Environment, agent:
 
 proc dropoffFoodIfCarrying*(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
-  if not hasFoodCargo(agent):
+  var hasFood = false
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isFoodItem(key):
+      hasFood = true
+      break
+  if not hasFood:
     return (false, 0'u8)
   let teamId = getTeamId(agent.agentId)
   let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
@@ -376,13 +369,6 @@ proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: T
   if didDropStone: return (true, dropStoneAct)
 
   (false, 0'u8)
-
-proc teamPopCount*(env: Environment, teamId: int): int =
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if getTeamId(agent.agentId) == teamId:
-      inc result
 
 proc teamPopCap*(env: Environment, teamId: int): int =
   for thing in env.things:
@@ -498,10 +484,6 @@ proc chebyshevDist(a, b: IVec2): int32 =
   let dx = abs(a.x - b.x)
   let dy = abs(a.y - b.y)
   return (if dx > dy: dx else: dy)
-
-proc isValidEmptyTile(env: Environment, agent: Thing, pos: IVec2): bool =
-  pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight and
-  env.isEmpty(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]) and env.canAgentPassDoor(agent, pos)
 
 proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
   ## Pick an orientation whose spear wedge covers the target (matches attackAction pattern).
@@ -660,16 +642,6 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
 
 proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int
 
-proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState, teammate: Thing): uint8 =
-  let dx = abs(teammate.pos.x - agent.pos.x)
-  let dy = abs(teammate.pos.y - agent.pos.y)
-  if max(dx, dy) == 1'i32:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8))
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
-
 proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
   let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
@@ -684,13 +656,16 @@ proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, ag
     return (false, 0'u8)
   let teammate = findNearestTeammateNeeding(env, agent, need)
   if teammate != nil:
-    return (true, deliverToTeammate(controller, env, agent, agentId, state, teammate))
+    let dx = abs(teammate.pos.x - agent.pos.x)
+    let dy = abs(teammate.pos.y - agent.pos.y)
+    if max(dx, dy) == 1'i32:
+      return (true, saveStateAndReturn(controller, agentId, state,
+        encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8)))
+    return (true, saveStateAndReturn(controller, agentId, state,
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8)))
   let (didSmith, actSmith) = moveToNearestSmith(controller, env, agent, agentId, state, teamId)
   if didSmith: return (true, actSmith)
   (false, 0'u8)
-
-proc isLanternBuilding(kind: ThingKind): bool =
-  isBuildingKind(kind) and buildingNeedsLantern(kind)
 
 proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
   for thing in env.things:
@@ -707,7 +682,7 @@ proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thi
   for thing in env.things:
     if thing.teamId != teamId:
       continue
-    if not isLanternBuilding(thing.kind):
+    if not isBuildingKind(thing.kind) or thing.kind == Barrel:
       continue
     if hasTeamLanternNear(env, teamId, thing.pos):
       continue
@@ -715,23 +690,6 @@ proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thi
     if dist < bestDist:
       bestDist = dist
       result = thing
-
-proc countTeamLanterns(env: Environment, teamId: int): int =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if thing.lanternHealthy and thing.teamId == teamId:
-      inc result
-
-proc farthestLanternDist(env: Environment, teamId: int, basePos: IVec2): int =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    let dist = int(chebyshevDist(basePos, thing.pos))
-    if dist > result:
-      result = dist
 
 proc isLanternPlacementValid(env: Environment, pos: IVec2): bool =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and

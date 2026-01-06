@@ -82,10 +82,6 @@ proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).
   window.mousePos.vec2 / window.contentScale
 
-proc logicalMouseDelta*(window: Window): Vec2 =
-  ## Mouse delta in logical coordinates (accounts for HiDPI scaling).
-  window.mouseDelta.vec2 / window.contentScale
-
 proc irect*(x, y, w, h: int): IRect =
   ## Utility function to create IRect from coordinates
   IRect(x: x, y: y, w: w, h: h)
@@ -127,9 +123,6 @@ const
 
 proc encodeAction*(verb: uint8, argument: uint8): uint8 =
   (verb.int * ActionArgumentCount + argument.int).uint8
-
-proc decodeAction*(value: uint8): tuple[verb: uint8, argument: uint8] =
-  (verb: (value.int div ActionArgumentCount).uint8, argument: (value.int mod ActionArgumentCount).uint8)
 
 {.push inline.}
 proc getOrientationDelta*(orient: Orientation): OrientationDelta =

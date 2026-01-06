@@ -7,36 +7,17 @@ proc resourceCarryTotal(agent: Thing): int =
 proc resourceCarryCapacityLeft(agent: Thing): int =
   max(0, ResourceCarryCapacity - resourceCarryTotal(agent))
 
-proc canCarry(agent: Thing, key: ItemKey, count: int = 1): bool =
-  if count <= 0:
-    return true
-  if isStockpileResourceKey(key):
-    return resourceCarryTotal(agent) + count <= ResourceCarryCapacity
-  getInv(agent, key) + count <= MapObjectAgentMaxInventory
-
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
-  if count <= 0 or not agent.canCarry(key, count):
+  if count <= 0:
+    return false
+  if isStockpileResourceKey(key):
+    if resourceCarryTotal(agent) + count > ResourceCarryCapacity:
+      return false
+  elif getInv(agent, key) + count > MapObjectAgentMaxInventory:
     return false
   setInv(agent, key, getInv(agent, key) + count)
   env.updateAgentInventoryObs(agent, key)
   true
-
-proc storageKeyAllowed(key: ItemKey, allowed: openArray[ItemKey]): bool =
-  if allowed.len == 0:
-    return true
-  for allowedKey in allowed:
-    if key == allowedKey:
-      return true
-  false
-
-proc selectAllowedItem(agent: Thing, allowed: openArray[ItemKey]): tuple[key: ItemKey, count: int] =
-  result = (key: ItemNone, count: 0)
-  if allowed.len == 0:
-    return agentMostHeldItem(agent)
-  for key in allowed:
-    let count = getInv(agent, key)
-    if count > result.count:
-      result = (key: key, count: count)
 
 proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed: openArray[ItemKey]): bool =
   if storage.inventory.len > 0:
@@ -47,8 +28,16 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
         storedKey = key
         storedCount = count
         break
-    if storedKey.len == 0 or not storageKeyAllowed(storedKey, allowed):
+    if storedKey.len == 0:
       return false
+    if allowed.len > 0:
+      var allowedOk = false
+      for allowedKey in allowed:
+        if storedKey == allowedKey:
+          allowedOk = true
+          break
+      if not allowedOk:
+        return false
     let agentCount = getInv(agent, storedKey)
     let storageSpace = max(0, storage.barrelCapacity - storedCount)
     if agentCount > 0 and storageSpace > 0:
@@ -69,15 +58,27 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
         let remaining = storedCount - moved
         setInv(storage, storedKey, remaining)
         env.updateAgentInventoryObs(agent, storedKey)
-        return true
+      return true
     return false
 
-  let choice = selectAllowedItem(agent, allowed)
-  if choice.count > 0 and choice.key != ItemNone:
-    let moved = min(choice.count, storage.barrelCapacity)
-    setInv(agent, choice.key, choice.count - moved)
-    setInv(storage, choice.key, moved)
-    env.updateAgentInventoryObs(agent, choice.key)
+  var choiceKey = ItemNone
+  var choiceCount = 0
+  if allowed.len == 0:
+    for key, count in agent.inventory.pairs:
+      if count > choiceCount:
+        choiceKey = key
+        choiceCount = count
+  else:
+    for key in allowed:
+      let count = getInv(agent, key)
+      if count > choiceCount:
+        choiceKey = key
+        choiceCount = count
+  if choiceCount > 0 and choiceKey != ItemNone:
+    let moved = min(choiceCount, storage.barrelCapacity)
+    setInv(agent, choiceKey, choiceCount - moved)
+    setInv(storage, choiceKey, moved)
+    env.updateAgentInventoryObs(agent, choiceKey)
     return true
   false
 

@@ -101,13 +101,6 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
     agent.attackDamage = SiegeAttackDamage
   agent.hp = agent.maxHp
 
-proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
-  ## Pick the item with the highest count to deposit into an empty barrel.
-  result = (key: ItemNone, count: 0)
-  for key, count in agent.inventory.pairs:
-    if count > result.count:
-      result = (key: key, count: count)
-
 proc hearts*(thing: Thing): int =
   getInv(thing, ItemHearts)
 

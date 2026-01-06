@@ -4,24 +4,17 @@ type GathererTask = enum
   TaskStone
   TaskGold
   TaskHearts
-proc hasMagma(env: Environment): bool =
-  for thing in env.things:
-    if thing.kind == Magma:
-      return true
-  false
 
-proc gathererTargets(controller: Controller, env: Environment, teamId: int): tuple[food, wood, stone, gold: int] =
-  ## AoE-like priority: keep food/wood higher, scale a bit with base size.
+proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): GathererTask =
   let townCenters = controller.getBuildingCount(env, teamId, TownCenter)
   let houses = controller.getBuildingCount(env, teamId, House)
   let baseScale = max(1, townCenters + houses)
-  result.food = 8 + baseScale * 2
-  result.wood = 6 + baseScale
-  result.stone = 6 + baseScale
-  result.gold = 4 + baseScale div 2
-
-proc chooseGathererTask(controller: Controller, env: Environment, teamId: int): GathererTask =
-  let targets = gathererTargets(controller, env, teamId)
+  let targets = (
+    food: 8 + baseScale * 2,
+    wood: 6 + baseScale,
+    stone: 6 + baseScale,
+    gold: 4 + baseScale div 2
+  )
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
@@ -63,7 +56,12 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       altarHearts = altar.hearts
 
   # Drop off any carried stockpile resources first.
-  let allowGoldDropoff = altarHearts >= 10 or not hasMagma(env)
+  var magmaFound = false
+  for thing in env.things:
+    if thing.kind == Magma:
+      magmaFound = true
+      break
+  let allowGoldDropoff = altarHearts >= 10 or not magmaFound
   let (didDrop, dropAct) =
     controller.dropoffGathererCarrying(env, agent, agentId, state, allowGoldDropoff)
   if didDrop: return dropAct

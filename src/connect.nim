@@ -145,14 +145,6 @@ proc computeDistances(env: Environment,
         prev[nidx] = idx
         buckets[newCost mod bucketCount].add(nidx)
 
-proc digPath(env: Environment, startIdx: int, prev: seq[int]) =
-  var cur = startIdx
-  while cur >= 0 and prev[cur] >= 0:
-    let x = cur mod MapWidth
-    let y = cur div MapWidth
-    digCell(env, ivec2(x.int32, y.int32))
-    cur = prev[cur]
-
 proc makeConnected*(env: Environment) =
   var labels: array[MapWidth, array[MapHeight, int16]]
   var counts: seq[int] = @[]
@@ -184,4 +176,9 @@ proc makeConnected*(env: Environment) =
             bestDist = dist[idx]
             bestIdx = idx
       if bestIdx >= 0 and bestDist < inf:
-        digPath(env, bestIdx, prev)
+        var cur = bestIdx
+        while cur >= 0 and prev[cur] >= 0:
+          let x = cur mod MapWidth
+          let y = cur div MapWidth
+          digCell(env, ivec2(x.int32, y.int32))
+          cur = prev[cur]
