@@ -256,7 +256,8 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
         inc result
 
 proc countNearbyTrees*(env: Environment, center: IVec2, radius: int): int =
-  countNearbyThings(env, center, radius, {Pine, Palm})
+  result = countNearbyTerrain(env, center, radius, {terrain.Pine, terrain.Palm})
+  result += countNearbyThings(env, center, radius, {Pine, Palm})
 
 proc hasFriendlyBuildingNearby*(env: Environment, teamId: int, kind: ThingKind,
                                 center: IVec2, radius: int): bool =
@@ -810,23 +811,38 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
   let palm = env.findNearestThingSpiral(state, Palm, controller.rng)
   if not isNil(palm):
     return (true, controller.attackOrMove(env, agent, agentId, state, palm.pos))
+  let pinePos = env.findNearestTerrainSpiral(state, Pine, controller.rng)
+  if pinePos.x >= 0:
+    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, pinePos))
+  let palmPos = env.findNearestTerrainSpiral(state, Palm, controller.rng)
+  if palmPos.x >= 0:
+    return (true, controller.attackOrMoveToTerrain(env, agent, agentId, state, palmPos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
-  let stone = env.findNearestThingSpiral(state, Stone, controller.rng)
-  if not isNil(stone):
-    return (true, controller.useOrMove(env, agent, agentId, state, stone.pos))
-  let stalag = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
-  if not isNil(stalag):
-    return (true, controller.useOrMove(env, agent, agentId, state, stalag.pos))
+  let stoneThing = env.findNearestThingSpiral(state, Stone, controller.rng)
+  if not isNil(stoneThing):
+    return (true, controller.useOrMove(env, agent, agentId, state, stoneThing.pos))
+  let stalagThing = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
+  if not isNil(stalagThing):
+    return (true, controller.useOrMove(env, agent, agentId, state, stalagThing.pos))
+  let stonePos = env.findNearestTerrainSpiral(state, Stone, controller.rng)
+  if stonePos.x >= 0:
+    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, stonePos))
+  let stalagPos = env.findNearestTerrainSpiral(state, Stalagmite, controller.rng)
+  if stalagPos.x >= 0:
+    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, stalagPos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
-  let gold = env.findNearestThingSpiral(state, Gold, controller.rng)
-  if not isNil(gold):
-    return (true, controller.useOrMove(env, agent, agentId, state, gold.pos))
+  let goldThing = env.findNearestThingSpiral(state, Gold, controller.rng)
+  if not isNil(goldThing):
+    return (true, controller.useOrMove(env, agent, agentId, state, goldThing.pos))
+  let goldPos = env.findNearestTerrainSpiral(state, Gold, controller.rng)
+  if goldPos.x >= 0:
+    return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, goldPos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
