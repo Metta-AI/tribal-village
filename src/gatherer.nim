@@ -102,12 +102,14 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         [Granary], 8
       )
       if didGranary: return actGranary
-      let (didMill, actMill) = controller.tryBuildNearResource(
-        env, agent, agentId, state, teamId, Mill,
-        1, 1,
-        [Mill], 6
-      )
-      if didMill: return actMill
+      if agent.homeAltar.x < 0 or
+         max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
+        let (didMill, actMill) = controller.tryBuildNearResource(
+          env, agent, agentId, state, teamId, Mill,
+          1, 1,
+          [Mill], 6
+        )
+        if didMill: return actMill
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
 
