@@ -14,6 +14,9 @@ const
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
   infoLabelImages: Table[string, string] = initTable[string, string]()
+  stepLabelKey = ""
+  stepLabelLastValue = -1
+  stepLabelSize = ivec2(0, 0)
   doorSpriteKey* = "wall"
 
 proc setDoorSprite*(key: string) =
@@ -59,6 +62,30 @@ proc ensureInfoLabel(text: string): string =
   bxy.addImage(key, ctx.image, mipmaps = false)
   infoLabelImages[text] = key
   result = key
+
+proc ensureStepLabel(step: int): string =
+  if stepLabelLastValue == step and stepLabelKey.len > 0:
+    return stepLabelKey
+  stepLabelLastValue = step
+
+  let text = "Step " & $step
+  var measureCtx = newContext(1, 1)
+  configureInfoLabelFont(measureCtx)
+  let metrics = measureCtx.measureText(text)
+  let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
+  let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
+  stepLabelSize = ivec2(labelWidth, labelHeight)
+
+  var ctx = newContext(labelWidth, labelHeight)
+  configureInfoLabelFont(ctx)
+  ctx.fillStyle.color = color(0, 0, 0, 0.6)
+  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
+
+  stepLabelKey = "hud_step"
+  bxy.addImage(stepLabelKey, ctx.image, mipmaps = false)
+  result = stepLabelKey
 
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
@@ -594,4 +621,14 @@ proc drawSelectionLabel*(panelRect: IRect) =
     return
   let pos = vec2(panelRect.x.float32 + 8 + InfoLabelInsetX.float32,
     panelRect.y.float32 + 8 + InfoLabelInsetY.float32)
+  bxy.drawImage(key, pos, angle = 0, scale = 1)
+
+proc drawStepLabel*(panelRect: IRect) =
+  let key = ensureStepLabel(env.currentStep)
+  if key.len == 0:
+    return
+  let pos = vec2(
+    (panelRect.x + panelRect.w - stepLabelSize.x - 8 - InfoLabelInsetX).float32,
+    (panelRect.y + 8 + InfoLabelInsetY).float32
+  )
   bxy.drawImage(key, pos, angle = 0, scale = 1)
