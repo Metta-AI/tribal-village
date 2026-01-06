@@ -1,4 +1,4 @@
-# This file is included by src/ai.nim
+# This file is included by src/external.nim
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
 import std/[tables]
