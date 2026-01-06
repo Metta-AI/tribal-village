@@ -1,8 +1,3 @@
-proc signi(x: int32): int32 =
-  if x < 0: -1
-  elif x > 0: 1
-  else: 0
-
 proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
   for dx in -radius .. radius:
     for dy in -radius .. radius:
@@ -86,40 +81,36 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let dropoffDistanceThreshold = 5
   let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
   let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-  if nearbyWheat + nearbyFertile >= 8:
-    let dist = nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos)
-    if dist > dropoffDistanceThreshold:
-      let idx = buildIndexFor(Mill)
-      if idx >= 0:
-        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-        if did: return act
+  let (didMill, actMill) = controller.tryBuildNearResource(
+    env, agent, agentId, state, teamId, Mill,
+    nearbyWheat + nearbyFertile, 8,
+    [Mill, Granary, TownCenter], dropoffDistanceThreshold
+  )
+  if didMill: return actMill
 
   let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
-  if nearbyTrees >= 6:
-    let dist = nearestFriendlyBuildingDistance(env, teamId, [LumberCamp, TownCenter], agent.pos)
-    if dist > dropoffDistanceThreshold:
-      let idx = buildIndexFor(LumberCamp)
-      if idx >= 0:
-        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-        if did: return act
+  let (didLumber, actLumber) = controller.tryBuildNearResource(
+    env, agent, agentId, state, teamId, LumberCamp,
+    nearbyTrees, 6,
+    [LumberCamp, TownCenter], dropoffDistanceThreshold
+  )
+  if didLumber: return actLumber
 
   let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
-  if nearbyGold >= 6:
-    let dist = nearestFriendlyBuildingDistance(env, teamId, [MiningCamp, TownCenter], agent.pos)
-    if dist > dropoffDistanceThreshold:
-      let idx = buildIndexFor(MiningCamp)
-      if idx >= 0:
-        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-        if did: return act
+  let (didMining, actMining) = controller.tryBuildNearResource(
+    env, agent, agentId, state, teamId, MiningCamp,
+    nearbyGold, 6,
+    [MiningCamp, TownCenter], dropoffDistanceThreshold
+  )
+  if didMining: return actMining
 
   let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
-  if nearbyStone >= 6:
-    let dist = nearestFriendlyBuildingDistance(env, teamId, [Quarry, TownCenter], agent.pos)
-    if dist > dropoffDistanceThreshold:
-      let idx = buildIndexFor(Quarry)
-      if idx >= 0:
-        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-        if did: return act
+  let (didQuarry, actQuarry) = controller.tryBuildNearResource(
+    env, agent, agentId, state, teamId, Quarry,
+    nearbyStone, 6,
+    [Quarry, TownCenter], dropoffDistanceThreshold
+  )
+  if didQuarry: return actQuarry
 
   # Production buildings.
   for kind in ProductionBuildings:

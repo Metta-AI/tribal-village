@@ -38,6 +38,8 @@ type
 proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                state: var AgentState, targetPos: IVec2): uint8
 proc chebyshevDist(a, b: IVec2): int32
+proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                    state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8]
 
 proc newController*(seed: int): Controller =
   result = Controller(
@@ -63,6 +65,11 @@ proc vecToOrientation(vec: IVec2): int =
   elif x == -1'i32 and y == 1'i32: return 6  # SW
   elif x == 1'i32 and y == 1'i32: return 7   # SE
   else: return 0
+
+proc signi*(x: int32): int32 =
+  if x < 0: -1
+  elif x > 0: 1
+  else: 0
 
 proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
   case direction:
@@ -245,6 +252,20 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
     let dist = int(chebyshevDist(thing.pos, pos))
     if dist < result:
       result = dist
+
+proc tryBuildNearResource*(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                           state: var AgentState, teamId: int, kind: ThingKind,
+                           resourceCount, minResource: int,
+                           nearbyKinds: openArray[ThingKind], distanceThreshold: int): tuple[did: bool, action: uint8] =
+  if resourceCount < minResource:
+    return (false, 0'u8)
+  let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
+  if dist <= distanceThreshold:
+    return (false, 0'u8)
+  let idx = buildIndexFor(kind)
+  if idx >= 0:
+    return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  (false, 0'u8)
 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
                           res: StockpileResource, rng: var Rand): Thing =
