@@ -73,9 +73,9 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
       buildIndex = 2, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Granary, "Granary", "granary", 'n', (r: 220'u8, g: 200'u8, b: 150'u8),
       buildIndex = 5, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(LumberCamp, "Lumber Yard", "lumber_yard", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
+  add(LumberCamp, "Lumber Yard", "lumber_camp", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
       buildIndex = 3, buildCost = @[(ItemWood, 5)], buildCooldown = 10)
-  add(MiningCamp, "Quarry", "quarry", 'G', (r: 120'u8, g: 120'u8, b: 120'u8),
+  add(MiningCamp, "Quarry", "mining_camp", 'G', (r: 120'u8, g: 120'u8, b: 120'u8),
       buildIndex = 4, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Bank, "Bank", "bank", 'B', (r: 220'u8, g: 200'u8, b: 120'u8))
   add(Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
@@ -110,7 +110,10 @@ proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
 proc buildingSpriteKey*(kind: ThingKind): string =
-  BuildingRegistry[kind].spriteKey
+  let key = BuildingRegistry[kind].spriteKey
+  if key.len > 0:
+    return key
+  toSnakeCase($kind)
 
 proc buildingDisplayName*(kind: ThingKind): string =
   BuildingRegistry[kind].displayName
@@ -134,21 +137,21 @@ proc initTerrainCatalog(): array[TerrainType, CatalogEntry] =
 
   add(Empty, "Empty", "", ' ')
   add(Water, "Water", "", '~')
-  add(Bridge, "Bridge", "bridge_tile", '=')
-  add(Wheat, "Wheat", "wheat", '.')
-  add(Pine, "Pine", "pine", 'T')
-  add(Fertile, "Fertile", "fertile_tile", 'f')
-  add(Road, "Road", "road_tile", 'r')
-  add(Stone, "Stone", "stone", 'S')
-  add(Gold, "Gold", "gold", 'G')
-  add(Bush, "Bush", "bush", 'b')
-  add(Grass, "Grass", "grass", 'g')
-  add(Cactus, "Cactus", "cactus", 'c')
-  add(Dune, "Dune", "dune", 'd')
-  add(Stalagmite, "Stalagmite", "stalagmite", 'm')
-  add(Palm, "Palm", "palm", 'P')
-  add(Sand, "Sand", "sand_tile", 's')
-  add(Snow, "Snow", "snow_tile", 'n')
+  add(Bridge, "Bridge", "", '=')
+  add(Wheat, "Wheat", "", '.')
+  add(Pine, "Pine", "", 'T')
+  add(Fertile, "Fertile", "", 'f')
+  add(Road, "Road", "", 'r')
+  add(Stone, "Stone", "", 'S')
+  add(Gold, "Gold", "", 'G')
+  add(Bush, "Bush", "", 'b')
+  add(Grass, "Grass", "", 'g')
+  add(Cactus, "Cactus", "", 'c')
+  add(Dune, "Dune", "", 'd')
+  add(Stalagmite, "Stalagmite", "", 'm')
+  add(Palm, "Palm", "", 'P')
+  add(Sand, "Sand", "", 's')
+  add(Snow, "Snow", "", 'n')
   reg
 
 proc initThingCatalog(): array[ThingKind, CatalogEntry] =
@@ -201,7 +204,12 @@ proc terrainInfo*(terrain: TerrainType): CatalogEntry =
   TerrainCatalog[terrain]
 
 proc terrainSpriteKey*(terrain: TerrainType): string =
-  TerrainCatalog[terrain].spriteKey
+  if terrain == Empty:
+    return ""
+  let key = TerrainCatalog[terrain].spriteKey
+  if key.len > 0:
+    return key
+  toSnakeCase($terrain)
 
 proc terrainDisplayName*(terrain: TerrainType): string =
   let name = TerrainCatalog[terrain].displayName
@@ -216,7 +224,10 @@ proc thingInfo*(kind: ThingKind): CatalogEntry =
 proc thingSpriteKey*(kind: ThingKind): string =
   if isBuildingKind(kind):
     return buildingSpriteKey(kind)
-  ThingCatalog[kind].spriteKey
+  let key = ThingCatalog[kind].spriteKey
+  if key.len > 0:
+    return key
+  toSnakeCase($kind)
 
 proc thingDisplayName*(kind: ThingKind): string =
   if isBuildingKind(kind):
