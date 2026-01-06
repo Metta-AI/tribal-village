@@ -28,7 +28,7 @@ proc digCost(env: Environment, pos: IVec2): int =
   if isPassableForConnect(env, pos):
     return 1
   let thing = env.getThing(pos)
-  if thing != nil:
+  if not isNil(thing):
     if thing.kind in {Wall, Pine, Palm, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
       return ConnectWallCost
     return int.high
@@ -45,7 +45,7 @@ proc digCell(env: Environment, pos: IVec2) =
   if not isValidPos(pos) or not isPlayablePos(pos):
     return
   let thing = env.getThing(pos)
-  if thing != nil:
+  if not isNil(thing):
     if thing.kind in {Wall, Pine, Palm, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
       removeThing(env, thing)
     else:

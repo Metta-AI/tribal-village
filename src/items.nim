@@ -4,13 +4,36 @@
 import std/tables
 
 type
+  ## Type-safe enum for all item kinds
+  ItemKind* = enum
+    ikNone = "none"
+    ikGold = "gold"
+    ikStone = "stone"
+    ikBar = "bar"
+    ikWater = "water"
+    ikWheat = "wheat"
+    ikWood = "wood"
+    ikSpear = "spear"
+    ikLantern = "lantern"
+    ikArmor = "armor"
+    ikBread = "bread"
+    ikPlant = "plant"
+    ikFish = "fish"
+    ikMeat = "meat"
+    ikHearts = "hearts"
+
+  ## ItemKey remains a string for backwards compatibility
+  ## Can be either an item kind string or a "thing:ThingKind" building item
   ItemKey* = string
+
   Inventory* = Table[ItemKey, int]
 
 const
   SpearCharges* = 5       # Spears forged per craft & max carried
   ArmorPoints* = 5        # Armor durability granted per craft
   BreadHealAmount* = 999  # Effectively "heal to full" per bread use
+
+  ## String constants for backwards compatibility - prefer ItemKind enum in new code
   ItemNone* = ""
   ItemGold* = "gold"
   ItemStone* = "stone"
@@ -41,6 +64,55 @@ const
     ItemBread
   ]
 
+  ## Mapping from ItemKind enum to observation layers (for efficient lookup)
+  ObservedItemKinds* = [ikGold, ikStone, ikBar, ikWater, ikWheat, ikWood, ikSpear, ikLantern, ikArmor, ikBread]
+
+proc toItemKey*(kind: ItemKind): ItemKey {.inline.} =
+  ## Convert ItemKind enum to ItemKey string
+  case kind
+  of ikNone: ItemNone
+  of ikGold: ItemGold
+  of ikStone: ItemStone
+  of ikBar: ItemBar
+  of ikWater: ItemWater
+  of ikWheat: ItemWheat
+  of ikWood: ItemWood
+  of ikSpear: ItemSpear
+  of ikLantern: ItemLantern
+  of ikArmor: ItemArmor
+  of ikBread: ItemBread
+  of ikPlant: ItemPlant
+  of ikFish: ItemFish
+  of ikMeat: ItemMeat
+  of ikHearts: ItemHearts
+
+proc toItemKind*(key: ItemKey): ItemKind {.inline.} =
+  ## Convert ItemKey string to ItemKind enum (returns ikNone for unknown/thing keys)
+  case key
+  of ItemGold: ikGold
+  of ItemStone: ikStone
+  of ItemBar: ikBar
+  of ItemWater: ikWater
+  of ItemWheat: ikWheat
+  of ItemWood: ikWood
+  of ItemSpear: ikSpear
+  of ItemLantern: ikLantern
+  of ItemArmor: ikArmor
+  of ItemBread: ikBread
+  of ItemPlant: ikPlant
+  of ItemFish: ikFish
+  of ItemMeat: ikMeat
+  of ItemHearts: ikHearts
+  else: ikNone
+
+proc isThingItem*(key: ItemKey): bool {.inline.} =
+  ## Check if an ItemKey is a building/thing item (starts with "thing:")
+  key.len > ItemThingPrefix.len and key[0..5] == ItemThingPrefix
+
+proc isFoodItemKind*(kind: ItemKind): bool {.inline.} =
+  ## Check if an ItemKind is a food item
+  kind in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}
+
 type
   StockpileResource* = enum
     ResourceFood
@@ -51,11 +123,8 @@ type
     ResourceNone
 
 proc isFoodItem*(key: ItemKey): bool =
-  case key
-  of ItemWheat, ItemBread, ItemFish, ItemMeat, ItemPlant:
-    true
-  else:
-    false
+  ## Check if an ItemKey is a food item (delegates to ItemKind-based check)
+  isFoodItemKind(toItemKind(key))
 
 proc isStockpileResourceKey*(key: ItemKey): bool =
   case key

@@ -22,7 +22,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
   # React to nearby enemy agents by fortifying outward.
   let enemy = findNearestEnemyAgent(env, agent, ObservationRadius.int32 * 2)
-  if enemy != nil:
+  if not isNil(enemy):
     let dx = signi(enemy.pos.x - basePos.x)
     let dy = signi(enemy.pos.y - basePos.y)
     let dist = max(abs(enemy.pos.x - basePos.x), abs(enemy.pos.y - basePos.y))
@@ -76,7 +76,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   # Keep buildings lit, then push lanterns farther out from the base.
   let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
   var target = ivec2(-1, -1)
-  if unlit != nil:
+  if not isNil(unlit):
     target = findLanternSpotNearBuilding(env, teamId, agent, unlit)
   else:
     var lanternCount = 0
@@ -117,11 +117,11 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       if didBuild: return buildAct
 
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
-    if loom != nil and (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
+    if not isNil(loom) and (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
       return controller.useOrMove(env, agent, agentId, state, loom.pos)
 
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
-    if wheat != nil:
+    if not isNil(wheat):
       return controller.useOrMove(env, agent, agentId, state, wheat.pos)
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
@@ -130,7 +130,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   # Train into a combat unit when possible.
   if agent.unitClass == UnitVillager:
     let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
-    if barracks != nil:
+    if not isNil(barracks):
       return controller.useOrMove(env, agent, agentId, state, barracks.pos)
 
   # Maintain armor and spears.
@@ -147,10 +147,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
   # Seek tumors/spawners when idle.
   let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
-  if tumor != nil:
+  if not isNil(tumor):
     return controller.attackOrMove(env, agent, agentId, state, tumor.pos)
   let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
-  if spawner != nil:
+  if not isNil(spawner):
     return controller.attackOrMove(env, agent, agentId, state, spawner.pos)
 
   # Hunt while patrolling if nothing else to do.

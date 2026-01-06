@@ -101,7 +101,7 @@ proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
   let
     targetPos = agent.pos + orientationToVec(agent.orientation)
     target = env.getThing(targetPos)
-  if target == nil:
+  if isNil(target):
     inc env.stats[id].actionInvalid
     return
   if target.kind == Agent and not isThingFrozen(target, env):
