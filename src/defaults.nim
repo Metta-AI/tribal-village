@@ -104,8 +104,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
-    for terrain in TerrainType:
-      initState.cachedTerrainPos[terrain] = ivec2(-1, -1)
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 

@@ -227,14 +227,6 @@ proc applyBiomeBaseColors*(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       var color = biomeEdgeBlendColor(env.biomes, x, y, BiomeEdgeBlendRadius)
-      case env.terrain[x][y]:
-      of Wheat:
-        color = blendTileColor(color, WheatBaseColor, WheatBaseBlend)
-      of Palm:
-        # Treat palm groves as desert oases for ground color.
-        color = BiomeColorDesert
-      else:
-        discard
       colors[x][y] = color
   smoothBaseColors(colors, BiomeBlendPasses)
   env.baseTintColors = colors

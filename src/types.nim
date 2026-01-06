@@ -132,6 +132,12 @@ type
     Door
     Pine
     Palm
+    Wheat
+    Stone
+    Gold
+    Bush
+    Cactus
+    Stalagmite
     Magma  # Smelts gold into bars
     Altar
     Spawner
@@ -237,8 +243,6 @@ const
   BiomeColorPlains = TileColor(r: 0.55, g: 0.70, b: 0.50, intensity: 1.0)
   BiomeColorDungeon = TileColor(r: 0.40, g: 0.36, b: 0.48, intensity: 0.9)
   BiomeColorSnow = TileColor(r: 0.93, g: 0.95, b: 0.98, intensity: 1.0)
-  WheatBaseColor = TileColor(r: 0.88, g: 0.78, b: 0.48, intensity: 1.05)
-  WheatBaseBlend = 0.65'f32
   BiomeEdgeBlendRadius = 6
   BiomeBlendPasses = 2
   BiomeBlendNeighborWeight = 0.18'f32
@@ -288,7 +292,6 @@ type
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
-    terrainResources*: array[MapWidth, array[MapHeight, int16]]
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)
     computedTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Dynamic tint overlay (lanterns/tumors)
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications

@@ -120,8 +120,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     if loom != nil and (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
       return controller.useOrMove(env, agent, agentId, state, loom.pos)
 
-    let (didWheat, actWheat) = controller.findAndHarvest(env, agent, agentId, state, Wheat)
-    if didWheat: return actWheat
+    let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
+    if wheat != nil:
+      return controller.useOrMove(env, agent, agentId, state, wheat.pos)
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)

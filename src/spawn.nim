@@ -34,6 +34,49 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
     turnsAlive: 0                # New tumor hasn't lived any turns yet
   )
 
+proc spawnResourceThings(env: Environment) =
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      let pos = ivec2(x.int32, y.int32)
+      let terrain = env.terrain[x][y]
+      var kind: ThingKind
+      var item: ItemKey
+      case terrain
+      of Wheat:
+        kind = Wheat
+        item = ItemWheat
+      of Pine:
+        kind = Pine
+        item = ItemWood
+      of Palm:
+        kind = Palm
+        item = ItemWood
+      of Stone:
+        kind = Stone
+        item = ItemStone
+      of Gold:
+        kind = Gold
+        item = ItemGold
+      of Bush:
+        kind = Bush
+        item = ItemPlant
+      of Cactus:
+        kind = Cactus
+        item = ItemPlant
+      of Stalagmite:
+        kind = Stalagmite
+        item = ItemStone
+      else:
+        continue
+
+      if env.isEmpty(pos) and not env.hasDoor(pos):
+        let node = Thing(kind: kind, pos: pos)
+        node.inventory = emptyInventory()
+        setInv(node, item, ResourceNodeInitial)
+        env.add(node)
+      env.terrain[x][y] = Empty
+      env.resetTileColor(pos)
+
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -74,7 +117,7 @@ proc init(env: Environment) =
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
   env.applyBiomeBaseColors()
 
-  # Keep forest/palm terrain as walkable tiles (trees are harvested from terrain).
+  # Resource terrain is converted to things later; base terrain stays walkable.
 
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
@@ -838,16 +881,12 @@ proc init(env: Environment) =
       if depositsPlaced >= MapRoomObjectsMines:
         break
 
+  # Convert terrain resources into things before connectivity pass.
+  spawnResourceThings(env)
+
   # Ensure the world is a single connected component after terrain and structures.
   env.makeConnected()
 
-  # Initialize terrain resource counts (each resource tile yields 1 per harvest, 25 total).
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      if env.terrain[x][y] in {Water, Wheat, Pine, Palm, Stone, Gold, Bush, Cactus, Stalagmite}:
-        env.terrainResources[x][y] = ResourceNodeInitial
-      else:
-        env.terrainResources[x][y] = 0
 
   # Cows spawn in herds (5-10) across open terrain.
   const MinHerdSize = 5

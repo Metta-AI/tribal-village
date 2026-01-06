@@ -85,7 +85,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     # Fall through to gold gathering.
   of TaskGold:
     if agent.unitClass == UnitVillager:
-      let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
+      let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
       let (didBuild, buildAct) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, MiningCamp,
         nearbyGold, 6,
@@ -94,7 +94,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       if didBuild: return buildAct
   of TaskFood:
     if agent.unitClass == UnitVillager:
-      let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
+      let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
       let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
       let (didGranary, actGranary) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, Granary,
@@ -113,9 +113,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
 
-    let wheatPos = env.findNearestTerrainSpiral(state, Wheat, controller.rng)
-    if wheatPos.x >= 0:
-      return controller.useOrMoveToTerrain(env, agent, agentId, state, wheatPos)
+    let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
+    if wheat != nil:
+      return controller.useOrMove(env, agent, agentId, state, wheat.pos)
 
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
     if didHunt: return actHunt
@@ -134,7 +134,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     if agent.unitClass == UnitVillager:
-      let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
+      let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
       let (didBuild, buildAct) = controller.tryBuildNearResource(
         env, agent, agentId, state, teamId, Quarry,
         nearbyStone, 4,

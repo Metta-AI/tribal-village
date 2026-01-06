@@ -471,7 +471,7 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
     pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
     env.isEmpty(pos) and not env.hasDoor(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
-    env.terrain[pos.x][pos.y] != Wheat
+    true
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
@@ -585,7 +585,7 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     return
 
   # Check if position is empty and not water
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env) or env.terrain[targetPos.x][targetPos.y] == Wheat:
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
 
@@ -629,7 +629,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
     inc env.stats[id].actionInvalid
     return
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env) or env.terrain[targetPos.x][targetPos.y] == Wheat:
+  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
   if env.terrain[targetPos.x][targetPos.y] != Fertile:
@@ -642,18 +642,23 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
       return
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    env.terrain[targetPos.x][targetPos.y] = Pine
-    env.terrainResources[targetPos.x][targetPos.y] = ResourceNodeInitial
-    env.resetTileColor(targetPos)
+    let tree = Thing(kind: Pine, pos: targetPos)
+    tree.inventory = emptyInventory()
+    setInv(tree, ItemWood, ResourceNodeInitial)
+    env.add(tree)
   else:
     if agent.inventoryWheat <= 0:
       inc env.stats[id].actionInvalid
       return
     agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
     env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-    env.terrain[targetPos.x][targetPos.y] = Wheat
-    env.terrainResources[targetPos.x][targetPos.y] = ResourceNodeInitial
-    env.resetTileColor(targetPos)
+    let crop = Thing(kind: Wheat, pos: targetPos)
+    crop.inventory = emptyInventory()
+    setInv(crop, ItemWheat, ResourceNodeInitial)
+    env.add(crop)
+
+  env.terrain[targetPos.x][targetPos.y] = Empty
+  env.resetTileColor(targetPos)
 
   # Consuming fertility (terrain replaced above)
   inc env.stats[id].actionPlantResource

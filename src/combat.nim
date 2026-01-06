@@ -141,11 +141,6 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
     setInv(corpse, key, remaining)
     env.add(corpse)
 
-  proc clearTerrainAt(pos: IVec2) =
-    env.terrain[pos.x][pos.y] = Empty
-    env.terrainResources[pos.x][pos.y] = 0
-    env.resetTileColor(pos)
-
   proc tryHitAt(pos: IVec2): bool =
     if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
       return false
@@ -153,14 +148,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       return true
     let target = env.getThing(pos)
     if isNil(target):
-      case env.terrain[pos.x][pos.y]
-      of Pine, Palm:
-        let remaining = env.terrainResources[pos.x][pos.y]
-        clearTerrainAt(pos)
-        spawnStumpAt(pos, remaining)
-        return true
-      else:
-        return false
+      return false
     case target.kind
     of Tumor:
       env.grid[pos.x][pos.y] = nil
