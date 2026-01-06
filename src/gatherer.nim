@@ -94,7 +94,9 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent.agentId)
 
   if hasFoodCargo(agent):
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Granary, controller.rng)
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Granary, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
@@ -103,12 +105,16 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
   if agent.inventoryWood > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberCamp, controller.rng)
     if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, LumberYard, controller.rng)
+    if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
       return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
 
   if allowGoldDropoff and agent.inventoryGold > 0:
-    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
+    var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Bank, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
@@ -116,6 +122,8 @@ proc dropoffIfCarrying(controller: Controller, env: Environment, agent: Thing,
 
   if agent.inventoryStone > 0:
     var dropoff = env.findNearestFriendlyThingSpiral(state, teamId, MiningCamp, controller.rng)
+    if dropoff == nil:
+      dropoff = env.findNearestFriendlyThingSpiral(state, teamId, Quarry, controller.rng)
     if dropoff == nil:
       dropoff = env.findNearestFriendlyThingSpiral(state, teamId, TownCenter, controller.rng)
     if dropoff != nil:
@@ -192,6 +200,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if cow != nil:
       return controller.attackOrMove(env, agent, agentId, state, cow.pos)
 
+    let animalPos = env.findNearestTerrainSpiral(state, Animal, controller.rng)
+    if animalPos.x >= 0:
+      return controller.attackOrMoveToTerrain(env, agent, agentId, state, animalPos)
+
     let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
     if bushPos.x >= 0:
       return controller.useOrMoveToTerrain(env, agent, agentId, state, bushPos)
@@ -225,6 +237,8 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           if didBuild: return buildAct
     let (did, act) = controller.findAndHarvest(env, agent, agentId, state, Stone)
     if did: return act
+    let (didStalag, actStalag) = controller.findAndHarvest(env, agent, agentId, state, Stalagmite)
+    if didStalag: return actStalag
     return controller.moveNextSearch(env, agent, agentId, state)
 
   # Gold gathering (shared by TaskGold / TaskHearts fallback)
