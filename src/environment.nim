@@ -1,12 +1,10 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import terrain, items, common, biome
+import forward_decls, registry, balance, errors
 export terrain, items, common
+export forward_decls, registry, balance, errors
 
-include "types"
-include "registry"
-include "balance"
-include "errors"
 include "colors"
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
