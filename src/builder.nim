@@ -3,6 +3,34 @@ proc signi(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
+proc countNearbyTerrain(env: Environment, center: IVec2, radius: int, allowed: set[TerrainType]): int =
+  let cx = center.x.int
+  let cy = center.y.int
+  let startX = max(0, cx - radius)
+  let endX = min(MapWidth - 1, cx + radius)
+  let startY = max(0, cy - radius)
+  let endY = min(MapHeight - 1, cy + radius)
+  for x in startX..endX:
+    for y in startY..endY:
+      if max(abs(x - cx), abs(y - cy)) > radius:
+        continue
+      if env.terrain[x][y] in allowed:
+        inc result
+
+proc countNearbyTrees(env: Environment, center: IVec2, radius: int): int =
+  countNearbyTerrain(env, center, radius, {TerrainType.Pine, TerrainType.Palm})
+
+proc hasFriendlyBuildingNearby(env: Environment, teamId: int, kind: ThingKind,
+                               center: IVec2, radius: int): bool =
+  for thing in env.things:
+    if thing.kind != kind:
+      continue
+    if thing.teamId != teamId:
+      continue
+    if max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y)) <= radius:
+      return true
+  false
+
 proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
   for dx in -radius .. radius:
     for dy in -radius .. radius:
@@ -102,6 +130,36 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if idx >= 0:
       let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
       if did: return act
+
+  # Remote dropoff buildings near resources.
+  if env.countTeamBuildings(teamId, Mill) == 0:
+    let nearbyWheat = countNearbyTerrain(env, agent.pos, 4, {Wheat})
+    let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
+    if nearbyWheat + nearbyFertile >= 8 and
+        not hasFriendlyBuildingNearby(env, teamId, Mill, agent.pos, 8):
+      let idx = buildIndexFor(Mill)
+      if idx >= 0:
+        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+        if did: return act
+
+  if env.countTeamBuildings(teamId, LumberCamp) == 0:
+    let nearbyTrees = countNearbyTrees(env, agent.pos, 4)
+    if nearbyTrees >= 6 and
+        not hasFriendlyBuildingNearby(env, teamId, LumberCamp, agent.pos, 6):
+      let idx = buildIndexFor(LumberCamp)
+      if idx >= 0:
+        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+        if did: return act
+
+  if env.countTeamBuildings(teamId, MiningCamp) == 0:
+    let nearbyStone = countNearbyTerrain(env, agent.pos, 4, {Stone, Stalagmite})
+    let nearbyGold = countNearbyTerrain(env, agent.pos, 4, {Gold})
+    if nearbyStone + nearbyGold >= 6 and
+        not hasFriendlyBuildingNearby(env, teamId, MiningCamp, agent.pos, 6):
+      let idx = buildIndexFor(MiningCamp)
+      if idx >= 0:
+        let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+        if did: return act
 
   # Production buildings.
   if env.countTeamBuildings(teamId, WeavingLoom) == 0:
