@@ -161,11 +161,6 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         clearTerrainAt(pos)
         spawnStumpAt(pos, remaining)
         return true
-      of Animal:
-        let remaining = env.terrainResources[pos.x][pos.y]
-        clearTerrainAt(pos)
-        spawnCorpseAt(pos, ItemFish, remaining)
-        return true
       else:
         return false
     case target.kind
