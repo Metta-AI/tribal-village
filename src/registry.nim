@@ -190,6 +190,7 @@ proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
   add(ItemBread, "Bread", "bread", 'b')
   add(ItemPlant, "Plant", "plant", 'p')
   add(ItemFish, "Fish", "fish", 'f')
+  add(ItemMeat, "Meat", "meat", 'm')
   add(ItemHearts, "Hearts", "heart", 'h')
 
 let TerrainCatalog* = initTerrainCatalog()
