@@ -187,10 +187,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       if chebyshevDist(agent.pos, basePos) > 2'i32:
         return saveStateAndReturn(controller, agentId, state,
           encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
-      let idx = buildIndexFor(WeavingLoom)
-      if idx >= 0:
-        let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-        if didBuild: return buildAct
+      let (didBuild, buildAct) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, WeavingLoom)
+      if didBuild: return buildAct
 
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
     if loom != nil and (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
