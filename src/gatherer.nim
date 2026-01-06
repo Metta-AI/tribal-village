@@ -188,17 +188,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if corpse != nil:
       return controller.useOrMove(env, agent, agentId, state, corpse.pos)
 
-    let skeleton = env.findNearestThingSpiral(state, Skeleton, controller.rng)
-    if skeleton != nil:
-      return controller.useOrMove(env, agent, agentId, state, skeleton.pos)
-
     let cow = env.findNearestThingSpiral(state, Cow, controller.rng)
     if cow != nil:
       return controller.attackOrMove(env, agent, agentId, state, cow.pos)
-
-    let animalPos = env.findNearestTerrainSpiral(state, Animal, controller.rng)
-    if animalPos.x >= 0:
-      return controller.attackOrMoveToTerrain(env, agent, agentId, state, animalPos)
 
     let bushPos = env.findNearestTerrainSpiral(state, Bush, controller.rng)
     if bushPos.x >= 0:

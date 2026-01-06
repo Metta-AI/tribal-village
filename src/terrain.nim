@@ -19,7 +19,6 @@ type
     Stone
     Gold
     Bush
-    Animal
     Grass
     Cactus
     Dune
@@ -149,7 +148,6 @@ const
   TerrainStone* = TerrainType.Stone
   TerrainGold* = TerrainType.Gold
   TerrainBush* = TerrainType.Bush
-  TerrainAnimal* = TerrainType.Animal
   TerrainGrass* = TerrainType.Grass
   TerrainCactus* = TerrainType.Cactus
   TerrainDune* = TerrainType.Dune
@@ -1112,13 +1110,6 @@ proc generateBushes*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: i
         terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Bush, 0.75, 0.45, r)
         placed = true
 
-proc generateAnimals*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  for i in 0 ..< 24:
-    let x = randInclusive(r, mapBorder + 3, mapWidth - mapBorder - 3)
-    let y = randInclusive(r, mapBorder + 3, mapHeight - mapBorder - 3)
-    let size = randInclusive(r, 2, 4)
-    terrain.createTerrainCluster(x, y, size, mapWidth, mapHeight, Animal, 0.6, 0.6, r)
-
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                   mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
   ## Initialize terrain with all features
@@ -1152,7 +1143,6 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
   terrain.generateRockOutcrops(mapWidth, mapHeight, mapBorder, r)
   terrain.generateGoldVeins(mapWidth, mapHeight, mapBorder, r)
   terrain.generateBushes(mapWidth, mapHeight, mapBorder, r)
-  terrain.generateAnimals(mapWidth, mapHeight, mapBorder, r)
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],
@@ -1205,7 +1195,6 @@ proc terrainAsciiChar*(terrain: TerrainType): char =
   of Stone: 'S'
   of Gold: 'G'
   of Bush: '%'
-  of Animal: '&'
   of Grass: ','
   of Cactus: '!'
   of Dune: '^'
