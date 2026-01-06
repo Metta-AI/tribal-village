@@ -31,6 +31,10 @@ proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+  const CoreEconomy = [Granary, LumberCamp, Quarry, MiningCamp]
+  const ProductionBuildings = [WeavingLoom, ClayOven, Blacksmith]
+  const MilitaryBuildings = [Barracks, ArcheryRange, Stable, SiegeWorkshop]
+  const DefenseBuildings = [Outpost, Castle]
 
   let armorNeedy = findNearestTeammateNeeding(env, agent, NeedArmor)
   let (didDrop, dropAct) = controller.dropoffCarrying(
@@ -69,21 +73,9 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
 
   # Core economic infrastructure.
-  if env.countTeamBuildings(teamId, Granary) == 0:
-    let idx = buildIndexFor(Granary)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, LumberCamp) == 0:
-    let idx = buildIndexFor(LumberCamp)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, Quarry) == 0:
-    let idx = buildIndexFor(Quarry)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
+  for kind in CoreEconomy:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
 
   # Remote dropoff buildings near resources.
   let dropoffDistanceThreshold = 5
@@ -125,55 +117,19 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         if did: return act
 
   # Production buildings.
-  if env.countTeamBuildings(teamId, WeavingLoom) == 0:
-    let idx = buildIndexFor(WeavingLoom)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, ClayOven) == 0:
-    let idx = buildIndexFor(ClayOven)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, Blacksmith) == 0:
-    let idx = buildIndexFor(Blacksmith)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
+  for kind in ProductionBuildings:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
 
   # Military production.
-  if env.countTeamBuildings(teamId, Barracks) == 0:
-    let idx = buildIndexFor(Barracks)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, ArcheryRange) == 0:
-    let idx = buildIndexFor(ArcheryRange)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, Stable) == 0:
-    let idx = buildIndexFor(Stable)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, SiegeWorkshop) == 0:
-    let idx = buildIndexFor(SiegeWorkshop)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
+  for kind in MilitaryBuildings:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
 
   # Defensive buildings.
-  if env.countTeamBuildings(teamId, Outpost) == 0:
-    let idx = buildIndexFor(Outpost)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
-  if env.countTeamBuildings(teamId, Castle) == 0:
-    let idx = buildIndexFor(Castle)
-    if idx >= 0:
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-      if did: return act
+  for kind in DefenseBuildings:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
 
   # Equipment support: deliver armor/spears to teammates who need them.
   if agent.inventoryArmor > 0:
