@@ -43,6 +43,10 @@ def _run_gui(
     step_timing: bool,
     step_timing_target: int,
     step_timing_window: int,
+    render_timing: bool,
+    render_timing_target: int,
+    render_timing_window: int,
+    render_timing_every: int,
 ) -> None:
     project_root = _project_root()
     cmd = ["nim", "r", "-d:release"]
@@ -50,6 +54,8 @@ def _run_gui(
         cmd.extend(["--profiler:on", "--stackTrace:on", "--lineTrace:on"])
     if step_timing:
         cmd.append("-d:stepTiming")
+    if render_timing:
+        cmd.append("-d:renderTiming")
     cmd.append("tribal_village.nim")
 
     env = os.environ.copy()
@@ -58,6 +64,10 @@ def _run_gui(
     if step_timing:
         env["TV_STEP_TIMING"] = str(step_timing_target)
         env["TV_STEP_TIMING_WINDOW"] = str(step_timing_window)
+    if render_timing:
+        env["TV_RENDER_TIMING"] = str(render_timing_target)
+        env["TV_RENDER_TIMING_WINDOW"] = str(render_timing_window)
+        env["TV_RENDER_TIMING_EVERY"] = str(render_timing_every)
 
     console.print("[cyan]Launching Tribal Village GUI via Nim...[/cyan]")
     subprocess.run(cmd, cwd=project_root, check=True, env=env)
@@ -143,6 +153,29 @@ def _options():
             help="Number of steps to log starting at target",
             min=0,
         ),
+        "render_timing": typer.Option(
+            False,
+            "--render-timing",
+            help="Enable per-frame render timing logs (GUI mode only)",
+        ),
+        "render_timing_target": typer.Option(
+            0,
+            "--render-timing-target",
+            help="Frame index at which to start render timing logs",
+            min=0,
+        ),
+        "render_timing_window": typer.Option(
+            0,
+            "--render-timing-window",
+            help="Number of frames to log starting at target",
+            min=0,
+        ),
+        "render_timing_every": typer.Option(
+            1,
+            "--render-timing-every",
+            help="Log every N frames within the timing window",
+            min=1,
+        ),
     }
 
 
@@ -157,6 +190,10 @@ def play(
     step_timing: bool = _options()["step_timing"],
     step_timing_target: int = _options()["step_timing_target"],
     step_timing_window: int = _options()["step_timing_window"],
+    render_timing: bool = _options()["render_timing"],
+    render_timing_target: int = _options()["render_timing_target"],
+    render_timing_window: int = _options()["render_timing_window"],
+    render_timing_every: int = _options()["render_timing_every"],
 ) -> None:
     ensure_nim_library_current()
 
@@ -172,6 +209,10 @@ def play(
             step_timing=step_timing,
             step_timing_target=step_timing_target,
             step_timing_window=step_timing_window,
+            render_timing=render_timing,
+            render_timing_target=render_timing_target,
+            render_timing_window=render_timing_window,
+            render_timing_every=render_timing_every,
         )
     else:
         _run_ansi(steps=steps, max_steps=max_steps, random_actions=random_actions)
@@ -189,6 +230,10 @@ def root(
     step_timing: bool = _options()["step_timing"],
     step_timing_target: int = _options()["step_timing_target"],
     step_timing_window: int = _options()["step_timing_window"],
+    render_timing: bool = _options()["render_timing"],
+    render_timing_target: int = _options()["render_timing_target"],
+    render_timing_window: int = _options()["render_timing_window"],
+    render_timing_every: int = _options()["render_timing_every"],
 ) -> None:
     """Default to play when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
@@ -203,6 +248,10 @@ def root(
             step_timing=step_timing,
             step_timing_target=step_timing_target,
             step_timing_window=step_timing_window,
+            render_timing=render_timing,
+            render_timing_target=render_timing_target,
+            render_timing_window=render_timing_window,
+            render_timing_every=render_timing_every,
         )
 
 

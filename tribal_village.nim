@@ -5,6 +5,9 @@ import std/[os, strutils, math],
 when compileOption("profiler"):
   import std/nimprof
 
+when defined(renderTiming):
+  import std/monotimes
+
 let profileStepsStr = getEnv("TV_PROFILE_STEPS", "")
 if profileStepsStr.len > 0:
   let profileSteps = parseInt(profileStepsStr)
@@ -13,6 +16,48 @@ if profileStepsStr.len > 0:
     actionsArray = getActions(env)
     env.step(addr actionsArray)
   quit(QuitSuccess)
+
+when defined(renderTiming):
+  let renderTimingStartStr = getEnv("TV_RENDER_TIMING", "")
+  let renderTimingWindowStr = getEnv("TV_RENDER_TIMING_WINDOW", "0")
+  let renderTimingEveryStr = getEnv("TV_RENDER_TIMING_EVERY", "1")
+  let renderTimingStart = block:
+    if renderTimingStartStr.len == 0:
+      -1
+    else:
+      try:
+        parseInt(renderTimingStartStr)
+      except ValueError:
+        -1
+  let renderTimingWindow = block:
+    if renderTimingWindowStr.len == 0:
+      0
+    else:
+      try:
+        parseInt(renderTimingWindowStr)
+      except ValueError:
+        0
+  let renderTimingEvery = block:
+    if renderTimingEveryStr.len == 0:
+      1
+    else:
+      try:
+        max(1, parseInt(renderTimingEveryStr))
+      except ValueError:
+        1
+
+  proc renderTimingActive(): bool =
+    renderTimingStart >= 0 and frame >= renderTimingStart and
+      frame <= renderTimingStart + renderTimingWindow
+
+  proc renderTimingShouldLog(): bool =
+    if not renderTimingActive():
+      return false
+    let offset = frame - renderTimingStart
+    offset mod renderTimingEvery == 0
+
+  proc msBetween(a, b: MonoTime): float64 =
+    (b.ticks - a.ticks).float64 / 1_000_000.0
 
 when not defined(emscripten):
   import opengl
@@ -259,32 +304,154 @@ proc display() =
       let useDir = agent.orientation.uint8
       overrideAndStep(encodeAction(3'u8, useDir))
 
+  when defined(renderTiming):
+    let timing = renderTimingActive()
+    var tStart: MonoTime
+    var tNow: MonoTime
+    var tRenderStart: MonoTime
+    var tFloorMs: float64
+    var tTerrainMs: float64
+    var tWallsMs: float64
+    var tDoorsMs: float64
+    var tObjectsMs: float64
+    var tDecorMs: float64
+    var tVisualMs: float64
+    var tGridMs: float64
+    var tFogMs: float64
+    var tSelectionMs: float64
+    var tUiMs: float64
+    var tMaskMs: float64
+    var tEndFrameMs: float64
+    var tSwapMs: float64
+    if timing:
+      tRenderStart = getMonoTime()
+      tStart = tRenderStart
+
   drawFloor()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tFloorMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawTerrain()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tTerrainMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawWalls()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tWallsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawDoors()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tDoorsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawObjects()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tObjectsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawAgentDecorations()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tDecorMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   if settings.showVisualRange:
     drawVisualRanges()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tVisualMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   if settings.showGrid:
     drawGrid()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tGridMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   if settings.showFogOfWar:
     drawFogOfWar()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tFogMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawSelection()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tSelectionMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   bxy.restoreTransform()
 
   bxy.restoreTransform()
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tUiMs = msBetween(tStart, tNow)
+      tStart = tNow
   bxy.pushLayer()
   bxy.drawRect(rect = panelRect, color = color(1, 0, 0, 1.0))
   bxy.popLayer(blendMode = MaskBlend)
   bxy.popLayer()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tMaskMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   bxy.endFrame()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tEndFrameMs = msBetween(tStart, tNow)
+      tStart = tNow
   window.swapBuffers()
+  when defined(renderTiming):
+    if timing:
+      tNow = getMonoTime()
+      tSwapMs = msBetween(tStart, tNow)
+      if renderTimingShouldLog():
+        let totalMs = msBetween(tRenderStart, tNow)
+        echo "frame=", frame,
+          " total_ms=", totalMs,
+          " floor_ms=", tFloorMs,
+          " terrain_ms=", tTerrainMs,
+          " walls_ms=", tWallsMs,
+          " doors_ms=", tDoorsMs,
+          " objects_ms=", tObjectsMs,
+          " decor_ms=", tDecorMs,
+          " visual_ms=", tVisualMs,
+          " grid_ms=", tGridMs,
+          " fog_ms=", tFogMs,
+          " selection_ms=", tSelectionMs,
+          " ui_ms=", tUiMs,
+          " mask_ms=", tMaskMs,
+          " end_ms=", tEndFrameMs,
+          " swap_ms=", tSwapMs,
+          " things=", env.things.len,
+          " agents=", env.agents.len,
+          " tumors=", env.thingsByKind[Tumor].len
   inc frame
 
 
