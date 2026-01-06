@@ -814,7 +814,7 @@ proc findAndHarvest(controller: Controller, env: Environment, agent: Thing, agen
   let pos = env.findNearestTerrainSpiral(state, terrain, controller.rng)
   if pos.x >= 0:
     return (true, controller.useOrMoveToTerrain(env, agent, agentId, state, pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
+  (false, 0'u8)
 
 proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, agentId: int,
                      state: var AgentState, allowWood, allowStone, allowGold: bool): tuple[did: bool, action: uint8] =
