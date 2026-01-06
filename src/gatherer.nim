@@ -39,7 +39,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       altarHearts = altar.hearts
 
   # Drop off any carried stockpile resources first.
-  let allowGoldDropoff = altarHearts >= 10 or env.thingsByKind[Magma].len == 0
+  let preDropTask = chooseGathererTask(controller, env, teamId, altarHearts)
+  let allowGoldDropoff =
+    (preDropTask != TaskHearts) or env.thingsByKind[Magma].len == 0
   let (didDrop, dropAct) =
     controller.dropoffGathererCarrying(env, agent, agentId, state, allowGoldDropoff)
   if didDrop: return dropAct
