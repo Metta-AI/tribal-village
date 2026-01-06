@@ -45,6 +45,15 @@ when defined(renderTiming):
         max(1, parseInt(renderTimingEveryStr))
       except ValueError:
         1
+  let renderTimingExitStr = getEnv("TV_RENDER_TIMING_EXIT", "")
+  let renderTimingExit = block:
+    if renderTimingExitStr.len == 0:
+      -1
+    else:
+      try:
+        parseInt(renderTimingExitStr)
+      except ValueError:
+        -1
 
   proc renderTimingActive(): bool =
     renderTimingStart >= 0 and frame >= renderTimingStart and
@@ -453,6 +462,9 @@ proc display() =
           " agents=", env.agents.len,
           " tumors=", env.thingsByKind[Tumor].len
   inc frame
+  when defined(renderTiming):
+    if renderTimingExit >= 0 and frame >= renderTimingExit:
+      quit(QuitSuccess)
 
 
 # Build any missing DF tileset sprites before loading assets.

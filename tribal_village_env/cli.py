@@ -47,6 +47,7 @@ def _run_gui(
     render_timing_target: int,
     render_timing_window: int,
     render_timing_every: int,
+    render_timing_exit: Optional[int],
 ) -> None:
     project_root = _project_root()
     cmd = ["nim", "r", "-d:release"]
@@ -68,6 +69,8 @@ def _run_gui(
         env["TV_RENDER_TIMING"] = str(render_timing_target)
         env["TV_RENDER_TIMING_WINDOW"] = str(render_timing_window)
         env["TV_RENDER_TIMING_EVERY"] = str(render_timing_every)
+        if render_timing_exit is not None:
+            env["TV_RENDER_TIMING_EXIT"] = str(render_timing_exit)
 
     console.print("[cyan]Launching Tribal Village GUI via Nim...[/cyan]")
     subprocess.run(cmd, cwd=project_root, check=True, env=env)
@@ -176,6 +179,12 @@ def _options():
             help="Log every N frames within the timing window",
             min=1,
         ),
+        "render_timing_exit": typer.Option(
+            None,
+            "--render-timing-exit",
+            help="Exit after this frame index (GUI mode only)",
+            min=1,
+        ),
     }
 
 
@@ -194,6 +203,7 @@ def play(
     render_timing_target: int = _options()["render_timing_target"],
     render_timing_window: int = _options()["render_timing_window"],
     render_timing_every: int = _options()["render_timing_every"],
+    render_timing_exit: Optional[int] = _options()["render_timing_exit"],
 ) -> None:
     ensure_nim_library_current()
 
@@ -213,6 +223,7 @@ def play(
             render_timing_target=render_timing_target,
             render_timing_window=render_timing_window,
             render_timing_every=render_timing_every,
+            render_timing_exit=render_timing_exit,
         )
     else:
         _run_ansi(steps=steps, max_steps=max_steps, random_actions=random_actions)
@@ -234,6 +245,7 @@ def root(
     render_timing_target: int = _options()["render_timing_target"],
     render_timing_window: int = _options()["render_timing_window"],
     render_timing_every: int = _options()["render_timing_every"],
+    render_timing_exit: Optional[int] = _options()["render_timing_exit"],
 ) -> None:
     """Default to play when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
@@ -252,6 +264,7 @@ def root(
             render_timing_target=render_timing_target,
             render_timing_window=render_timing_window,
             render_timing_every=render_timing_every,
+            render_timing_exit=render_timing_exit,
         )
 
 
