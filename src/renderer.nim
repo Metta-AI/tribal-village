@@ -150,10 +150,10 @@ proc drawFloor*() =
       let baseTint = env.baseTintColors[x][y]
       let blendedColor = blendTileColors(baseTint, tileColor, 0.65)
       let floorSprite = case env.biomes[x][y]
-        of BiomeCavesType: "cave_tile"
+        of BiomeCavesType: "cave"
         of BiomeDungeonType:
-          if (tileNoise(x, y) mod 100) < 35: "dungeon_tile" else: "floor_tile"
-        else: "floor_tile"
+          if (tileNoise(x, y) mod 100) < 35: "dungeon" else: "floor"
+        else: "floor"
 
       let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
       let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
@@ -174,7 +174,7 @@ proc drawTerrain*() =
       if spriteKey.len > 0:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
       if infected and terrain in {Wheat, Pine, Palm}:
-        drawOverlayIf(true, "frozen_tile", pos.vec2)
+        drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawAttackOverlays*() =
   for pos in env.actionTintPositions:
@@ -184,7 +184,7 @@ proc drawAttackOverlays*() =
       let c = env.actionTintColor[pos.x][pos.y]
       # Render the short-lived action overlay fully opaque so it sits above the
       # normal tint layer and clearly masks the underlying tile color.
-      bxy.drawImage("floor_tile", pos.vec2, angle = 0, scale = spriteScale("floor_tile"), tint = color(c.r, c.g, c.b, 1.0))
+      bxy.drawImage("floor", pos.vec2, angle = 0, scale = spriteScale("floor"), tint = color(c.r, c.g, c.b, 1.0))
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -325,7 +325,7 @@ proc drawObjects*() =
           let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
           bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
           if infected:
-            drawOverlayIf(true, "frozen_tile", pos.vec2)
+            drawOverlayIf(true, "frozen", pos.vec2)
         of Agent:
           let agent = thing
           var agentImage = case agent.orientation:
@@ -352,10 +352,10 @@ proc drawObjects*() =
           let altarTint = getAltarColor(pos)
           # Subtle ground tint so altars start with their team shade visible.
           bxy.drawImage(
-            "floor_tile",
+            "floor",
             pos.vec2,
             angle = 0,
-            scale = spriteScale("floor_tile"),
+            scale = spriteScale("floor"),
             tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
           )
           bxy.drawImage(
@@ -389,7 +389,7 @@ proc drawObjects*() =
               let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
               bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
           if infected:
-            drawOverlayIf(true, "frozen_tile", pos.vec2)
+            drawOverlayIf(true, "frozen", pos.vec2)
 
         of Tumor:
           # Map diagonal orientations to cardinal sprites
@@ -445,7 +445,7 @@ proc drawObjects*() =
             if spriteKey.len > 0:
               bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
           if infected and hasFrozenOverlay(thing.kind):
-            drawOverlayIf(true, "frozen_tile", pos.vec2)
+            drawOverlayIf(true, "frozen", pos.vec2)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -482,7 +482,7 @@ proc drawAgentDecorations*() =
       continue
     # Frozen overlay
     if agent.frozen > 0:
-      bxy.drawImage("frozen_tile", agent.pos.vec2, angle = 0, scale = spriteScale("frozen_tile"))
+      bxy.drawImage("frozen", agent.pos.vec2, angle = 0, scale = spriteScale("frozen"))
 
     # Health bar (5 segments)
     if agent.maxHp > 0:
@@ -494,7 +494,7 @@ proc drawAgentDecorations*() =
       let baseOffset = vec2(-totalWidth / 2, -0.55)
       for i in 0 ..< segments:
         let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
-        bxy.drawImage("floor_tile", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
+        bxy.drawImage("floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
 
     # Inventory overlays placed radially, ordered by item name.
     type OverlayItem = object
@@ -536,10 +536,10 @@ proc drawGrid*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       bxy.drawImage(
-        "grid_tile",
+        "grid",
         ivec2(x, y).vec2,
         angle = 0,
-        scale = spriteScale("grid_tile")
+        scale = spriteScale("grid")
       )
 
 proc drawSelection*() =
