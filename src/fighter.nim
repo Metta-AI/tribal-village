@@ -14,18 +14,6 @@ proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing
       bestDist = dist
       result = other
 
-proc buildWallToward(controller: Controller, env: Environment, agent: Thing,
-                     agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
-  let dirIdx = neighborDirIndex(agent.pos, targetPos)
-  let step = agent.pos + orientationToVec(Orientation(dirIdx))
-  if agent.orientation == Orientation(dirIdx) and isValidPos(step) and env.isEmpty(step) and
-     not env.hasDoor(step) and env.terrain[step.x][step.y] in {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow,
-                                                              TerrainDune, TerrainStalagmite, TerrainBridge} and
-     not isTileFrozen(step, env):
-    return saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, BuildIndexWall.uint8))
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
-
 proc decideFighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -62,11 +50,11 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
           let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
           if didWood: return actWood
         let idx = buildIndexFor(Outpost)
-        if idx >= 0 and chebyshevDist(agent.pos, frontier) <= 1'i32:
-          let (didBuild, buildAct) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+        if idx >= 0:
+          let (didBuild, buildAct) = goToAdjacentAndBuild(
+            controller, env, agent, agentId, state, frontier, idx
+          )
           if didBuild: return buildAct
-        return saveStateAndReturn(controller, agentId, state,
-          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, frontier, controller.rng).uint8))
       let wallKey = thingItem("Wall")
       if not env.canAffordBuild(teamId, wallKey):
         let (didDrop, actDrop) = controller.dropoffCarrying(
@@ -78,7 +66,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         if didDrop: return actDrop
         let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
         if didStone: return actStone
-      return buildWallToward(controller, env, agent, agentId, state, frontier)
+      let (didWall, wallAct) = goToAdjacentAndBuild(
+        controller, env, agent, agentId, state, frontier, BuildIndexWall
+      )
+      if didWall: return wallAct
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))
 

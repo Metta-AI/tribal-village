@@ -150,14 +150,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     let anchor = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
     let target = findHouseClusterTarget(env, agent, anchor, 3, 5)
     if target.buildPos.x >= 0:
-      let dir = ivec2(signi(target.buildPos.x - agent.pos.x), signi(target.buildPos.y - agent.pos.y))
-      if agent.pos == target.standPos and agent.orientation == Orientation(vecToOrientation(dir)):
-        let idx = buildIndexFor(House)
-        if idx >= 0:
-          let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-          if did: return act
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target.standPos, controller.rng).uint8))
+      let idx = buildIndexFor(House)
+      if idx >= 0:
+        let (did, act) = goToStandAndBuild(
+          controller, env, agent, agentId, state,
+          target.standPos, target.buildPos, idx
+        )
+        if did: return act
 
   # Ensure a town center exists if the starter one is lost.
   if controller.getBuildingCount(env, teamId, TownCenter) == 0:
@@ -171,22 +170,18 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if env.teamStockpiles[teamId].counts[ResourceWood] > 0:
       let doorTarget = findDoorRingTarget(env, agent.homeAltar, 5)
       if doorTarget.x >= 0:
-        let dir = ivec2(signi(doorTarget.x - agent.pos.x), signi(doorTarget.y - agent.pos.y))
-        if agent.orientation == Orientation(vecToOrientation(dir)) and chebyshevDist(agent.pos, doorTarget) == 1'i32:
-          let (didDoor, actDoor) = tryBuildDoorAction(controller, env, agent, agentId, state, teamId)
-          if didDoor: return actDoor
-        return saveStateAndReturn(controller, agentId, state,
-          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, doorTarget, controller.rng).uint8))
+        let (didDoor, actDoor) = goToAdjacentAndBuildDoor(
+          controller, env, agent, agentId, state, doorTarget
+        )
+        if didDoor: return actDoor
     let target = findWallRingTarget(env, agent.homeAltar, 5)
     if target.x >= 0:
-      let dir = ivec2(signi(target.x - agent.pos.x), signi(target.y - agent.pos.y))
-      if agent.orientation == Orientation(vecToOrientation(dir)) and chebyshevDist(agent.pos, target) == 1'i32:
-        let idx = buildIndexFor(Wall)
-        if idx >= 0:
-          let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-          if did: return act
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
+      let idx = buildIndexFor(Wall)
+      if idx >= 0:
+        let (did, act) = goToAdjacentAndBuild(
+          controller, env, agent, agentId, state, target, idx
+        )
+        if did: return act
 
   # Core economic infrastructure.
   for kind in CoreEconomy:
