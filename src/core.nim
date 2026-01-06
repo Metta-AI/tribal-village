@@ -91,6 +91,23 @@ proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
   of 3: offset.x -= distance  # West
   else: discard
 
+const Directions8 = [
+  ivec2(0, -1),  # 0: North
+  ivec2(0, 1),   # 1: South
+  ivec2(-1, 0),  # 2: West
+  ivec2(1, 0),   # 3: East
+  ivec2(-1, -1), # 4: NW
+  ivec2(1, -1),  # 5: NE
+  ivec2(-1, 1),  # 6: SW
+  ivec2(1, 1)    # 7: SE
+]
+const AltForCardinal = [
+  [5, 4, 1, 3, 2],  # N blocked
+  [7, 6, 0, 3, 2],  # S blocked
+  [4, 6, 3, 0, 1],  # W blocked
+  [5, 7, 2, 0, 1]   # E blocked
+]
+
 proc clampToPlayable(pos: IVec2): IVec2 {.inline.} =
   ## Keep positions inside the playable area (inside border walls).
   result.x = min(MapWidth - MapBorder - 1, max(MapBorder, pos.x))
@@ -749,25 +766,14 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   if occupant == nil:
     return true
   return occupant.kind == Lantern
-
 proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
   ## Get a movement direction towards target, with obstacle avoidance
   let clampedTarget = clampToPlayable(toPos)
   if clampedTarget == fromPos:
     # Target is outside playable bounds; push back inward toward the widest margin.
-    let directions = [
-      ivec2(0, -1),  # 0: North
-      ivec2(0, 1),   # 1: South
-      ivec2(-1, 0),  # 2: West
-      ivec2(1, 0),   # 3: East
-      ivec2(-1, -1), # 4: NW
-      ivec2(1, -1),  # 5: NE
-      ivec2(-1, 1),  # 6: SW
-      ivec2(1, 1)    # 7: SE
-    ]
     var bestDir = -1
     var bestMargin = -1
-    for idx, d in directions:
+    for idx, d in Directions8:
       let np = fromPos + d
       if not isPassable(env, agent, np):
         continue
@@ -784,33 +790,21 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
   let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
 
   # Try primary direction first
-  let directions = [
-    ivec2(0, -1),  # 0: North
-    ivec2(0, 1),   # 1: South
-    ivec2(-1, 0),  # 2: West
-    ivec2(1, 0),   # 3: East
-    ivec2(-1, -1), # 4: NW
-    ivec2(1, -1),  # 5: NE
-    ivec2(-1, 1),  # 6: SW
-    ivec2(1, 1)    # 7: SE
-  ]
-
-  let primaryMove = fromPos + directions[primaryDir]
+  let primaryMove = fromPos + Directions8[primaryDir]
   if isPassable(env, agent, primaryMove):
     return primaryDir
 
   # Primary blocked, try adjacent directions
-  let alternatives = case primaryDir:
-    of 0: @[5, 4, 1, 3, 2]  # North blocked, try NE, NW, South, East, West
-    of 1: @[7, 6, 0, 3, 2]  # South blocked, try SE, SW, North, East, West
-    of 2: @[4, 6, 3, 0, 1]  # West blocked, try NW, SW, East, North, South
-    of 3: @[5, 7, 2, 0, 1]  # East blocked, try NE, SE, West, North, South
-    else: @[0, 1, 2, 3]     # Diagonal blocked, try cardinals
-
-  for altDir in alternatives:
-    let altMove = fromPos + directions[altDir]
-    if isPassable(env, agent, altMove):
-      return altDir
+  if primaryDir <= 3:
+    for altDir in AltForCardinal[primaryDir]:
+      let altMove = fromPos + Directions8[altDir]
+      if isPassable(env, agent, altMove):
+        return altDir
+  else:
+    for altDir in [0, 1, 2, 3]:
+      let altMove = fromPos + Directions8[altDir]
+      if isPassable(env, agent, altMove):
+        return altDir
 
   # All blocked, try random movement
   return randIntInclusive(rng, 0, 3)
