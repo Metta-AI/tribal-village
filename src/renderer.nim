@@ -568,6 +568,8 @@ proc drawAgentDecorations*() =
       of ItemWater: "droplet"
       of ItemWheat: "bushel"
       of ItemWood: "wood"
+      of ItemFish: "fish"
+      of ItemMeat: "meat"
       of ItemSpear: "spear"
       of ItemLantern: "lantern"
       of ItemArmor: "armor"
