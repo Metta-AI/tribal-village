@@ -120,13 +120,14 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
       used = true
   of Pine, Palm:
     let stored = getInv(thing, ItemWood)
+    var remaining = stored
     if stored > 0 and env.giveItem(agent, ItemWood):
-      let remaining = stored - 1
+      remaining = stored - 1
       agent.reward += env.config.woodReward
-      removeThing(env, thing)
-      if remaining > 0:
-        env.dropStump(thing.pos, remaining)
-      used = true
+    removeThing(env, thing)
+    if remaining > 0:
+      env.dropStump(thing.pos, remaining)
+    used = true
   of Corpse:
     var lootKey = ItemNone
     var lootCount = 0
