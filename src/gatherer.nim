@@ -113,9 +113,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
 
-    let wheatThing = env.findNearestThingSpiral(state, Wheat, controller.rng)
-    if wheatThing != nil:
-      return controller.useOrMove(env, agent, agentId, state, wheatThing.pos)
+    let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
+    if not isNil(wheat):
+      return controller.useOrMove(env, agent, agentId, state, wheat.pos)
 
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
     if didHunt: return actHunt
