@@ -143,6 +143,7 @@ type
     Mill
     Granary
     LumberCamp
+    Quarry
     MiningCamp
     Stump
     Lantern  # Lanterns that spread team colors
@@ -154,13 +155,10 @@ type
     SiegeWorkshop
     Blacksmith
     Market
-    Bank
     Dock
     Monastery
     University
     Castle
-    LumberYard
-    Quarry
 
   Thing* = ref object
     kind*: ThingKind

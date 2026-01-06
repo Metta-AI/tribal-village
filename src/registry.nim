@@ -72,15 +72,12 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
       buildIndex = 2, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Granary, "Granary", "granary", 'n', (r: 220'u8, g: 200'u8, b: 150'u8),
       buildIndex = 5, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(LumberYard, "Lumber Yard", "lumber_yard", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
-      buildIndex = 19, buildCost = @[(ItemWood, 5)], buildCooldown = 10)
-  add(LumberCamp, "Lumber Camp", "lumber_camp", 'l', (r: 130'u8, g: 90'u8, b: 60'u8),
+  add(LumberCamp, "Lumber Camp", "lumber_camp", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
       buildIndex = 3, buildCost = @[(ItemWood, 5)], buildCooldown = 10)
   add(Quarry, "Quarry", "quarry", 'Q', (r: 120'u8, g: 120'u8, b: 120'u8),
-      buildIndex = 23, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(MiningCamp, "Mining Camp", "mining_camp", 'G', (r: 120'u8, g: 120'u8, b: 120'u8),
       buildIndex = 4, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(Bank, "Bank", "bank", 'B', (r: 220'u8, g: 200'u8, b: 120'u8))
+  add(MiningCamp, "Mining Camp", "mining_camp", 'M', (r: 200'u8, g: 190'u8, b: 120'u8),
+      buildIndex = 15, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
       buildIndex = 8, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
   add(ArcheryRange, "Archery Range", "archery_range", 'g', (r: 140'u8, g: 120'u8, b: 180'u8),
@@ -290,13 +287,11 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   case kind
   of Altar: UseAltar
   of Armory: UseNone
-  of Mill: UseDropoff
   of ClayOven: UseClayOven
   of WeavingLoom: UseWeavingLoom
   of Blacksmith: UseBlacksmith
   of Market: UseMarket
-  of Bank, LumberYard, Quarry: UseDropoff
-  of TownCenter, LumberCamp, MiningCamp, Dock: UseDropoff
+  of TownCenter, Mill, LumberCamp, Quarry, MiningCamp, Dock: UseDropoff
   of Granary: UseDropoffAndStorage
   of Barrel: UseStorage
   of Barracks, ArcheryRange, Stable, Monastery, Castle: UseTrain
@@ -318,9 +313,9 @@ proc buildingStockpileRes*(kind: ThingKind): StockpileResource
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   case kind
   of Granary: ResourceFood
-  of LumberYard: ResourceWood
+  of LumberCamp: ResourceWood
   of Quarry: ResourceStone
-  of Bank: ResourceGold
+  of MiningCamp: ResourceGold
   else: ResourceNone
 
 proc buildingShowsStockpile*(kind: ThingKind): bool =
@@ -358,10 +353,9 @@ proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] =
   case kind
   of TownCenter: {ResourceFood, ResourceWood, ResourceGold, ResourceStone}
   of Granary, Mill: {ResourceFood}
-  of LumberCamp, LumberYard: {ResourceWood}
-  of MiningCamp: {ResourceGold, ResourceStone}
+  of LumberCamp: {ResourceWood}
   of Quarry: {ResourceStone}
-  of Bank: {ResourceGold}
+  of MiningCamp: {ResourceGold}
   of Dock: {ResourceFood}
   else: {}
 
