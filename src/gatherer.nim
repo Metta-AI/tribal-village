@@ -4,7 +4,6 @@ type GathererTask = enum
   TaskStone
   TaskGold
   TaskHearts
-
 proc hasMagma(env: Environment): bool =
   for thing in env.things:
     if thing.kind == Magma:
@@ -80,7 +79,6 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   let (didDropStone, dropStoneAct) =
     dropoffResourceIfCarrying(controller, env, agent, agentId, state, ResourceStone, agent.inventoryStone)
   if didDropStone: return dropStoneAct
-  if didDrop: return dropAct
 
   var task = chooseGathererTask(env, teamId)
   if altarHearts < 10:
