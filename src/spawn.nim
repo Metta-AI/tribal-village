@@ -345,12 +345,7 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.baseTintColors[x][y] = BaseTileColorDefault
-      env.computedTintColors[x][y] = TileColor(
-        r: BaseTileColorDefault.r,
-        g: BaseTileColorDefault.g,
-        b: BaseTileColorDefault.b,
-        intensity: 0
-      )
+      env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
   # Clear overlay grid (non-blocking things like doors)
   for x in 0 ..< MapWidth:
@@ -366,6 +361,8 @@ proc init(env: Environment) =
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
+  env.tintStrength = default(array[MapWidth, array[MapHeight, int32]])
+  env.tumorStrength = default(array[MapWidth, array[MapHeight, int32]])
 
   # Clear action tints
   env.actionTintCountdown = default(ActionTintCountdown)

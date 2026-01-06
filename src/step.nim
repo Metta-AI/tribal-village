@@ -579,9 +579,11 @@ proc reset*(env: Environment) =
   env.observationsInitialized = false
   # Clear the massive tintMods array to prevent accumulation
   env.tintMods.clear()
+  env.tintStrength = default(array[MapWidth, array[MapHeight, int32]])
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
+  env.tumorStrength = default(array[MapWidth, array[MapHeight, int32]])
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   env.cowHerdCounts.setLen(0)
