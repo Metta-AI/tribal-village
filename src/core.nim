@@ -37,6 +37,7 @@ type
 
 proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                state: var AgentState, targetPos: IVec2): uint8
+proc chebyshevDist(a, b: IVec2): int32
 
 proc newController*(seed: int): Controller =
   result = Controller(
