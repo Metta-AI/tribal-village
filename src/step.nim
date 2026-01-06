@@ -157,6 +157,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Precompute team pop caps while scanning things
   var teamPopCaps: array[MapRoomObjectsHouses, int]
+  proc shouldTickCooldown(kind: ThingKind): bool =
+    buildingUseKind(kind) in {UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
+                              UseTrain, UseTrainAndCraft, UseCraft}
 
   for thing in env.things:
     if thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses and isBuildingKind(thing.kind):
@@ -197,8 +200,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
         thing.cooldown = 10
-    elif buildingUseKind(thing.kind) in {UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
-                                        UseTrain, UseTrainAndCraft, UseCraft}:
+    elif shouldTickCooldown(thing.kind):
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
     elif thing.kind == Spawner:

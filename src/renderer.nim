@@ -145,6 +145,14 @@ proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
   if infected and overlaySprite.len > 0:
     bxy.drawImage(overlaySprite, pos, angle = 0, scale = spriteScale(overlaySprite))
 
+proc drawFrozenOverlay(pos: IVec2) =
+  if getInfectionLevel(pos) >= 1.0:
+    drawOverlayIf(true, "frozen", pos.vec2)
+
+proc drawFrozenOverlayIfNeeded(kind: ThingKind, pos: IVec2) =
+  if kind in {Magma, Stump, Wheat}:
+    drawFrozenOverlay(pos)
+
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
     floorSpritePositions[kind].setLen(0)
@@ -347,14 +355,12 @@ proc drawObjects*() =
   drawThings(Pine):
     let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
     bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
-    if getInfectionLevel(pos) >= 1.0:
-      drawOverlayIf(true, "frozen", pos.vec2)
+    drawFrozenOverlay(pos)
 
   drawThings(Palm):
     let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
     bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
-    if getInfectionLevel(pos) >= 1.0:
-      drawOverlayIf(true, "frozen", pos.vec2)
+    drawFrozenOverlay(pos)
 
   drawThings(Agent):
     let agent = thing
@@ -411,8 +417,7 @@ proc drawObjects*() =
         let labelKey = ensureHeartCountLabel(amt)
         let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
         bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
-    if getInfectionLevel(pos) >= 1.0:
-      drawOverlayIf(true, "frozen", pos.vec2)
+    drawFrozenOverlay(pos)
 
   drawThings(Tumor):
     let spriteDir = case thing.orientation:
@@ -502,8 +507,8 @@ proc drawObjects*() =
         let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
         if spriteKey.len > 0:
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
-        if infected and (thing.kind in {Magma, Stump, Wheat}):
-          drawOverlayIf(true, "frozen", pos.vec2)
+        if infected:
+          drawFrozenOverlayIfNeeded(thing.kind, pos)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
