@@ -16,16 +16,6 @@ proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
       return pos
   ivec2(-1, -1)
 
-proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState, teammate: Thing): uint8 =
-  let dx = abs(teammate.pos.x - agent.pos.x)
-  let dy = abs(teammate.pos.y - agent.pos.y)
-  if max(dx, dy) == 1'i32:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8))
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
-
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -128,21 +118,12 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if did: return act
 
   # Equipment support: deliver armor/spears to teammates who need them.
-  if agent.inventoryArmor > 0:
-    let teammate = findNearestTeammateNeeding(env, agent, NeedArmor)
-    if teammate != nil:
-      return deliverToTeammate(controller, env, agent, agentId, state, teammate)
-    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-    if smith != nil:
-      return controller.useOrMove(env, agent, agentId, state, smith.pos)
-
-  if agent.inventorySpear > 0:
-    let teammate = findNearestTeammateNeeding(env, agent, NeedSpear)
-    if teammate != nil:
-      return deliverToTeammate(controller, env, agent, agentId, state, teammate)
-    let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-    if smith != nil:
-      return controller.useOrMove(env, agent, agentId, state, smith.pos)
+  let (didArmor, actArmor) =
+    controller.deliverEquipment(env, agent, agentId, state, teamId, NeedArmor, agent.inventoryArmor)
+  if didArmor: return actArmor
+  let (didSpear, actSpear) =
+    controller.deliverEquipment(env, agent, agentId, state, teamId, NeedSpear, agent.inventorySpear)
+  if didSpear: return actSpear
 
   # Craft armor at the blacksmith when bars are available.
   if armorNeedy != nil:

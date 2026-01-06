@@ -568,6 +568,102 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
       best = other
   return best
 
+proc deliverToTeammate(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState, teammate: Thing): uint8 =
+  let dx = abs(teammate.pos.x - agent.pos.x)
+  let dy = abs(teammate.pos.y - agent.pos.y)
+  if max(dx, dy) == 1'i32:
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8))
+  return saveStateAndReturn(controller, agentId, state,
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8))
+
+proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                        state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
+  let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+  if smith != nil:
+    return (true, controller.useOrMove(env, agent, agentId, state, smith.pos))
+  (false, 0'u8)
+
+proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                      state: var AgentState, teamId: int, need: NeedType,
+                      inventoryCount: int): tuple[did: bool, action: uint8] =
+  if inventoryCount <= 0:
+    return (false, 0'u8)
+  let teammate = findNearestTeammateNeeding(env, agent, need)
+  if teammate != nil:
+    return (true, deliverToTeammate(controller, env, agent, agentId, state, teammate))
+  let (didSmith, actSmith) = moveToNearestSmith(controller, env, agent, agentId, state, teamId)
+  if didSmith: return (true, actSmith)
+  (false, 0'u8)
+
+proc isLanternBuilding(kind: ThingKind): bool =
+  isBuildingKind(kind) and buildingNeedsLantern(kind)
+
+proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
+  for thing in env.things:
+    if thing.kind != Lantern:
+      continue
+    if not thing.lanternHealthy or thing.teamId != teamId:
+      continue
+    if abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y) <= 2:
+      return true
+  false
+
+proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thing =
+  var bestDist = int.high
+  for thing in env.things:
+    if thing.teamId != teamId:
+      continue
+    if not isLanternBuilding(thing.kind):
+      continue
+    if hasTeamLanternNear(env, teamId, thing.pos):
+      continue
+    let dist = abs(thing.pos.x - origin.x) + abs(thing.pos.y - origin.y)
+    if dist < bestDist:
+      bestDist = dist
+      result = thing
+
+proc countTeamLanterns(env: Environment, teamId: int): int =
+  for thing in env.things:
+    if thing.kind != Lantern:
+      continue
+    if thing.lanternHealthy and thing.teamId == teamId:
+      inc result
+
+proc farthestLanternDist(env: Environment, teamId: int, basePos: IVec2): int =
+  for thing in env.things:
+    if thing.kind != Lantern:
+      continue
+    if not thing.lanternHealthy or thing.teamId != teamId:
+      continue
+    let dist = int(chebyshevDist(basePos, thing.pos))
+    if dist > result:
+      result = dist
+
+proc isLanternPlacementValid(env: Environment, pos: IVec2): bool =
+  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
+    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and not isTileFrozen(pos, env) and
+    env.terrain[pos.x][pos.y] notin {Water, Wheat}
+
+proc findLanternSpotNearBuilding(env: Environment, teamId: int, agent: Thing, building: Thing): IVec2 =
+  var bestPos = ivec2(-1, -1)
+  var bestDist = int.high
+  for dx in -2 .. 2:
+    for dy in -2 .. 2:
+      if abs(dx) + abs(dy) > 2:
+        continue
+      let target = building.pos + ivec2(dx.int32, dy.int32)
+      if not isLanternPlacementValid(env, target):
+        continue
+      if hasTeamLanternNear(env, teamId, target):
+        continue
+      let dist = abs(target.x - agent.pos.x) + abs(target.y - agent.pos.y)
+      if dist < bestDist:
+        bestDist = dist
+        bestPos = target
+  bestPos
+
 proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   ## Consider lantern tiles passable for movement planning and respect doors/water.
   if not isValidPos(pos):
