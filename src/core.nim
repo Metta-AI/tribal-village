@@ -877,14 +877,6 @@ proc dropoffCarrying(controller: Controller, env: Environment, agent: Thing, age
 
   (false, 0'u8)
 
-proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                       state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint8] =
-  if env.countTeamBuildings(teamId, kind) == 0:
-    let idx = buildIndexFor(kind)
-    if idx >= 0:
-      return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-  (false, 0'u8)
-
 proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
   let stump = env.findNearestThingSpiral(state, Stump, controller.rng)
