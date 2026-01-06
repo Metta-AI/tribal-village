@@ -211,8 +211,6 @@ proc drawTerrain*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let pos = ivec2(x, y)
-      let infectionLevel = getInfectionLevel(pos)
-      let infected = infectionLevel >= 1.0
       let terrain = env.terrain[x][y]
       if terrain == Water:
         continue
@@ -339,8 +337,8 @@ proc drawObjects*() =
   for pos in waterPositions:
     drawWaterTile(pos.vec2)
 
-  template drawThings(kind: ThingKind, body: untyped) =
-    for thing in env.thingsByKind[kind]:
+  template drawThings(thingKind: ThingKind, body: untyped) =
+    for thing in env.thingsByKind[thingKind]:
       if not isValidPos(thing.pos):
         continue
       if thingBlocksMovement(thing.kind):

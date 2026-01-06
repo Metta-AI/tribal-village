@@ -149,7 +149,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
              isBlockedTerrain(env.terrain[fertilePos.x][fertilePos.y]) or isTileFrozen(fertilePos, env):
             continue
           let terrain = env.terrain[fertilePos.x][fertilePos.y]
-          if env.isBuildableTerrain(terrain):
+          if isBuildableTerrain(terrain):
             env.terrain[fertilePos.x][fertilePos.y] = Fertile
             env.resetTileColor(fertilePos)
   env.updateThingObsOnAdd(kind, pos, placed)

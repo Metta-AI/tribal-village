@@ -141,7 +141,7 @@ proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
 
 proc canPlaceBuilding*(env: Environment, pos: IVec2): bool {.inline.} =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
-    not isTileFrozen(pos, env) and env.isBuildableTerrain(env.terrain[pos.x][pos.y])
+    not isTileFrozen(pos, env) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc canLayRoad*(env: Environment, pos: IVec2): bool {.inline.} =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and

@@ -31,7 +31,7 @@ proc findHouseClusterTarget(env: Environment, agent: Thing, anchor: IVec2,
       return false
     if isTileFrozen(pos, env):
       return false
-    if not env.isBuildableTerrain(env.terrain[pos.x][pos.y]):
+    if not isBuildableTerrain(env.terrain[pos.x][pos.y]):
       return false
     if env.terrain[pos.x][pos.y] == TerrainRoad:
       return false

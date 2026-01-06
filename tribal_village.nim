@@ -321,7 +321,6 @@ proc display() =
     var tFloorMs: float64
     var tTerrainMs: float64
     var tWallsMs: float64
-    var tDoorsMs: float64
     var tObjectsMs: float64
     var tDecorMs: float64
     var tVisualMs: float64
@@ -355,13 +354,6 @@ proc display() =
     if timing:
       tNow = getMonoTime()
       tWallsMs = msBetween(tStart, tNow)
-      tStart = tNow
-
-  drawDoors()
-  when defined(renderTiming):
-    if timing:
-      tNow = getMonoTime()
-      tDoorsMs = msBetween(tStart, tNow)
       tStart = tNow
 
   drawObjects()
@@ -447,7 +439,6 @@ proc display() =
           " floor_ms=", tFloorMs,
           " terrain_ms=", tTerrainMs,
           " walls_ms=", tWallsMs,
-          " doors_ms=", tDoorsMs,
           " objects_ms=", tObjectsMs,
           " decor_ms=", tDecorMs,
           " visual_ms=", tVisualMs,
@@ -495,8 +486,6 @@ for path in walkDirRec("data/"):
       rememberAssetKey(key)
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
-
-setDoorSprite("door")
 
 # Check for command line arguments to determine controller type
 var useExternalController = false
