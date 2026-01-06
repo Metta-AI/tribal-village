@@ -547,8 +547,9 @@ proc drawAgentDecorations*() =
       let segments = 5
       let ratio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
       let filled = int(ceil(ratio * segments.float32))
-      let baseOffset = vec2(-0.40, -0.55)
       let segStep = 0.16
+      let totalWidth = segStep * (segments.float32 - 1)
+      let baseOffset = vec2(-totalWidth / 2, -0.55)
       for i in 0 ..< segments:
         let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
         bxy.drawImage("floor_tile", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
