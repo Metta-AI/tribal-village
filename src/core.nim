@@ -806,10 +806,10 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
     return (true, controller.useOrMove(env, agent, agentId, state, stump.pos))
   let pine = env.findNearestThingSpiral(state, Pine, controller.rng)
   if not isNil(pine):
-    return (true, controller.attackOrMove(env, agent, agentId, state, pine.pos))
+    return (true, controller.useOrMove(env, agent, agentId, state, pine.pos))
   let palm = env.findNearestThingSpiral(state, Palm, controller.rng)
   if not isNil(palm):
-    return (true, controller.attackOrMove(env, agent, agentId, state, palm.pos))
+    return (true, controller.useOrMove(env, agent, agentId, state, palm.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
