@@ -340,6 +340,8 @@ proc init(env: Environment) =
         teamId: teamId
       ))
       inc placed
+  doAssert WarmVillagePalette.len >= numHouses,
+    "WarmVillagePalette must cover all base colors without reuse."
   for i in 0 ..< numHouses:
     let houseStruct = createVillage()
     var placed = false
@@ -395,8 +397,7 @@ proc init(env: Environment) =
               env.resetTileColor(ivec2(clearX.int32, clearY.int32))
 
       # Generate a distinct warm color for this village (avoid cool/blue hues)
-      let paletteIndex = i mod WarmVillagePalette.len
-      let villageColor = WarmVillagePalette[paletteIndex]
+      let villageColor = WarmVillagePalette[i]
       teamColors.add(villageColor)
       let teamId = teamColors.len - 1
 

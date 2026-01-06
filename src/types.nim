@@ -10,9 +10,9 @@ const
   AgentMaxHp* = 5
 
   # World Objects
-  # Eight bases with six agents each -> 48 agents total (divisible by 12 and 16 for batching).
+  # Eight bases with 125 agents each -> 1000 agents total.
   MapRoomObjectsHouses* = 8
-  MapAgentsPerHouse* = 20
+  MapAgentsPerHouse* = 125
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerHouse  # Agent slots across all villages
   MapRoomObjectsMagmaPools* = 14
   MapRoomObjectsMagmaClusters* = 5
