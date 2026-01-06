@@ -27,6 +27,10 @@ type
     buildCost*: seq[ItemAmount]
     buildCooldown*: int
 
+  ThingPlacementKind* = enum
+    PlacementBlocking
+    PlacementOverlay
+
 proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
   var reg: array[ThingKind, BuildingInfo]
   for kind in ThingKind:
@@ -114,8 +118,11 @@ proc buildingInfo*(kind: ThingKind): BuildingInfo =
 proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
+proc thingPlacement*(kind: ThingKind): ThingPlacementKind =
+  if kind == Door: PlacementOverlay else: PlacementBlocking
+
 proc thingBlocksMovement*(kind: ThingKind): bool =
-  kind != Door
+  thingPlacement(kind) == PlacementBlocking
 {.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =

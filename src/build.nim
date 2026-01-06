@@ -1,4 +1,11 @@
 proc buildCostsForKey*(key: ItemKey): seq[tuple[res: StockpileResource, count: int]] =
+  var kind: ThingKind
+  if parseThingKey(key, kind) and isBuildingKind(kind):
+    var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+    for input in BuildingRegistry[kind].buildCost:
+      if isStockpileResourceKey(input.key):
+        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+    return costs
   for recipe in CraftRecipes:
     for output in recipe.outputs:
       if output.key != key:
@@ -50,24 +57,6 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
       inc env.stats[id].actionInvalid
       return
 
-  proc isBuildablePos(pos: IVec2): bool =
-    if not isValidPos(pos):
-      return false
-    if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
-      return false
-    let terrain = env.terrain[pos.x][pos.y]
-    terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
-
-  proc canLayRoad(pos: IVec2): bool =
-    if not isValidPos(pos):
-      return false
-    if env.hasDoor(pos):
-      return false
-    if not env.isEmpty(pos):
-      return false
-    let terrain = env.terrain[pos.x][pos.y]
-    terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
-
   proc signi(x: int32): int32 =
     if x < 0: -1
     elif x > 0: 1
@@ -93,12 +82,12 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     var pos = startPos
     while pos.x != endPos.x:
       pos.x += signi(endPos.x - pos.x)
-      if canLayRoad(pos):
+      if env.canLayRoad(pos):
         env.terrain[pos.x][pos.y] = Road
         env.resetTileColor(pos)
     while pos.y != endPos.y:
       pos.y += signi(endPos.y - pos.y)
-      if canLayRoad(pos):
+      if env.canLayRoad(pos):
         env.terrain[pos.x][pos.y] = Road
         env.resetTileColor(pos)
 
@@ -124,7 +113,7 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
   var targetPos = ivec2(-1, -1)
   for offset in offsets:
     let pos = agent.pos + offset
-    if isBuildablePos(pos):
+    if env.canPlaceBuilding(pos):
       targetPos = pos
       break
   if targetPos.x < 0:

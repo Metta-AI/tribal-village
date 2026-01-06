@@ -136,6 +136,17 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   return env.getDoorTeam(pos) == getTeamId(agent.agentId)
 {.pop.}
 
+proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
+  terrain in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
+
+proc canPlaceBuilding*(env: Environment, pos: IVec2): bool {.inline.} =
+  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
+    not isTileFrozen(pos, env) and env.isBuildableTerrain(env.terrain[pos.x][pos.y])
+
+proc canLayRoad*(env: Environment, pos: IVec2): bool {.inline.} =
+  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
+    env.terrain[pos.x][pos.y] in {Empty, Grass, Sand, Snow, Dune, Stalagmite, Road}
+
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Clear dynamic tint overlays for a tile
   env.computedTintColors[pos.x][pos.y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
@@ -657,14 +668,21 @@ proc render*(env: Environment): string =
       var cell = " "
       # First check terrain
       cell = $TerrainCatalog[env.terrain[x][y]].ascii
-      # Then override with objects if present
-      for thing in env.things:
-        if thing.pos.x == x and thing.pos.y == y:
-          let kind = thing.kind
+      # Then override with objects if present (blocking first, overlay second)
+      let blocking = env.grid[x][y]
+      if blocking != nil:
+        let kind = blocking.kind
+        if isBuildingKind(kind):
+          cell = $BuildingRegistry[kind].ascii
+        else:
+          cell = $ThingCatalog[kind].ascii
+      else:
+        let overlay = env.overlayGrid[x][y]
+        if overlay != nil:
+          let kind = overlay.kind
           if isBuildingKind(kind):
             cell = $BuildingRegistry[kind].ascii
           else:
             cell = $ThingCatalog[kind].ascii
-          break
       result.add(cell)
     result.add("\n")
