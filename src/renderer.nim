@@ -299,8 +299,10 @@ proc drawDoors*() =
 proc drawObjects*() =
   drawAttackOverlays()
 
+  let waterKey = terrainSpriteKey(Water)
   let drawWaterTile = proc(pos: Vec2) =
-    bxy.drawImage("water_tile", pos, angle = 0, scale = spriteScale("water_tile"))
+    if waterKey.len > 0:
+      bxy.drawImage(waterKey, pos, angle = 0, scale = spriteScale(waterKey))
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
   for x in 0 ..< MapWidth:
