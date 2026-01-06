@@ -79,12 +79,12 @@ proc updateTintModifications(env: Environment) =
     case thing.kind
     of Agent:
       let tribeId = thing.agentId
-      if tribeId < agentVillageColors.len:
-        addTintArea(baseX, baseY, agentVillageColors[tribeId], radius = 2, scale = 90)
+      if tribeId < env.agentColors.len:
+        addTintArea(baseX, baseY, env.agentColors[tribeId], radius = 2, scale = 90)
 
     of Lantern:
-      if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < teamColors.len:
-        addTintArea(baseX, baseY, teamColors[thing.teamId], radius = 2, scale = 60)
+      if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+        addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
 
     else:
       discard

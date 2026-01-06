@@ -5,6 +5,8 @@ export terrain, items, common
 
 include "types"
 include "registry"
+include "balance"
+include "errors"
 include "colors"
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
@@ -114,7 +116,7 @@ proc getOverlayThing*(env: Environment, pos: IVec2): Thing =
 proc isEmpty*(env: Environment, pos: IVec2): bool =
   if not isValidPos(pos):
     return false
-  return env.grid[pos.x][pos.y] == nil
+  return isNil(env.grid[pos.x][pos.y])
 
 proc hasDoor*(env: Environment, pos: IVec2): bool =
   if not isValidPos(pos):
@@ -380,7 +382,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
     if not canApplyRecipe(env, agent, recipe):
       continue
     env.applyRecipe(agent, recipe)
-    if stationThing != nil:
+    if not isNil(stationThing):
       stationThing.cooldown = max(1, recipe.cooldown)
     return true
   false
@@ -505,11 +507,12 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
   return ivec2(-1, -1)  # No empty position found
 
 
+# Tumor constants from balance.nim
 const
-  TumorBranchRange = 5
-  TumorBranchMinAge = 2
-  TumorBranchChance = 0.1
-  TumorAdjacencyDeathChance = 1.0 / 3.0
+  TumorBranchRange = DefaultTumorBranchRange
+  TumorBranchMinAge = DefaultTumorBranchMinAge
+  TumorBranchChance = DefaultTumorBranchChance
+  TumorAdjacencyDeathChance = DefaultTumorAdjacencyDeathChance
 
 let TumorBranchOffsets = block:
   var offsets: seq[IVec2] = @[]
@@ -562,7 +565,7 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
     let pos = r.generateRandomMapPosition()
     if env.isValidEmptyPosition(pos):
       return pos
-  quit("Failed to find an empty position, map too full!")
+  raiseMapFullError()
 
 include "tint"
 include "build"
@@ -676,7 +679,7 @@ proc render*(env: Environment): string =
       cell = $TerrainCatalog[env.terrain[x][y]].ascii
       # Then override with objects if present (blocking first, overlay second)
       let blocking = env.grid[x][y]
-      if blocking != nil:
+      if not isNil(blocking):
         let kind = blocking.kind
         if isBuildingKind(kind):
           cell = $BuildingRegistry[kind].ascii
@@ -684,7 +687,7 @@ proc render*(env: Environment): string =
           cell = $ThingCatalog[kind].ascii
       else:
         let overlay = env.overlayGrid[x][y]
-        if overlay != nil:
+        if not isNil(overlay):
           let kind = overlay.kind
           if isBuildingKind(kind):
             cell = $BuildingRegistry[kind].ascii

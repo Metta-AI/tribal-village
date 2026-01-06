@@ -391,7 +391,7 @@ proc init(env: Environment) =
       if env.hasDoor(pos):
         continue
       let existing = env.getThing(pos)
-      if existing != nil:
+      if not isNil(existing):
         if existing.kind in {Pine, Palm}:
           removeThing(env, existing)
         else:
@@ -473,7 +473,7 @@ proc init(env: Environment) =
         if env.hasDoor(pos):
           continue
         let existing = env.getThing(pos)
-        if existing != nil:
+        if not isNil(existing):
           if existing.kind in {Pine, Palm}:
             removeThing(env, existing)
           else:
@@ -491,10 +491,14 @@ proc init(env: Environment) =
         env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
 
   # Agents will now spawn with their villages below
-  # Clear and prepare village colors arrays
-  agentVillageColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
-  teamColors.setLen(0)  # Clear team colors
-  altarColors.clear()  # Clear altar colors from previous game
+  # Clear and prepare village colors arrays (use Environment fields)
+  env.agentColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
+  env.teamColors.setLen(0)  # Clear team colors
+  env.altarColors.clear()  # Clear altar colors from previous game
+  # Keep globals in sync for backwards compatibility during migration
+  agentVillageColors = env.agentColors
+  teamColors = env.teamColors
+  altarColors = env.altarColors
   # Spawn villages with altars, town centers, and associated agents (tribes)
   let numVillages = MapRoomObjectsHouses
   var totalAgentsSpawned = 0
@@ -527,7 +531,7 @@ proc init(env: Environment) =
       if env.terrain[pos.x][pos.y] == Water:
         continue
       let existing = env.getThing(pos)
-      if existing != nil:
+      if not isNil(existing):
         if existing.kind in {Pine, Palm}:
           removeThing(env, existing)
         else:
@@ -559,7 +563,7 @@ proc init(env: Environment) =
       if env.hasDoor(pos):
         return
       let existing = env.getThing(pos)
-      if existing != nil:
+      if not isNil(existing):
         if existing.kind in {Pine, Palm}:
           removeThing(env, existing)
         else:
@@ -634,7 +638,7 @@ proc init(env: Environment) =
             if env.hasDoor(pos):
               continue
             let existing = env.getThing(pos)
-            if existing != nil:
+            if not isNil(existing):
               if existing.kind in {Pine, Palm}:
                 removeThing(env, existing)
               else:
@@ -706,7 +710,7 @@ proc init(env: Environment) =
 
       # Keep villages spaced apart (Chebyshev) to avoid crowding
       if canPlace:
-        const MinVillageSpacing = 22
+        const MinVillageSpacing = DefaultMinVillageSpacing  # from balance.nim
         let candidateCenter = candidatePos + villageStruct.centerPos
         for c in villageCenters:
           let dx = abs(c.x - candidateCenter.x)
@@ -739,8 +743,8 @@ proc init(env: Environment) =
 
       # Generate a distinct warm color for this village (avoid cool/blue hues)
       let villageColor = WarmVillagePalette[i]
-      teamColors.add(villageColor)
-      let teamId = teamColors.len - 1
+      env.teamColors.add(villageColor)
+      let teamId = env.teamColors.len - 1
 
       # Spawn agent slots for this village (six active, the rest dormant)
       let agentsForThisVillage = min(MapAgentsPerVillage, MapRoomObjectsAgents - totalAgentsSpawned)
@@ -756,7 +760,7 @@ proc init(env: Environment) =
       altar.hearts = MapObjectAltarInitialHearts
       env.add(altar)
       villageCenters.add(elements.center)
-      altarColors[elements.center] = villageColor  # Associate altar position with village color
+      env.altarColors[elements.center] = villageColor  # Associate altar position with village color
 
       discard placeStartingTownCenter(elements.center, teamId, r)
 
@@ -885,7 +889,7 @@ proc init(env: Environment) =
           let agentId = baseAgentId + j
 
           # Store the village color for this agent (shared by all agents of the village)
-          agentVillageColors[agentId] = teamColors[teamId]
+          env.agentColors[agentId] = env.teamColors[teamId]
 
           var agentPos = ivec2(-1, -1)
           var frozen = 0
@@ -933,7 +937,7 @@ proc init(env: Environment) =
     let agentId = totalAgentsSpawned
 
     # Store neutral color for agents without a village
-    agentVillageColors[agentId] = neutralColor
+    env.agentColors[agentId] = neutralColor
 
     env.add(Thing(
       kind: Agent,
@@ -959,7 +963,7 @@ proc init(env: Environment) =
       altarPositionsNow.add(thing.pos)
 
   let numSpawners = numVillages
-  let minDist = 20  # tiles; simple guard so spawner isn't extremely close to a village
+  let minDist = DefaultSpawnerMinDistance  # from balance.nim
   let minDist2 = minDist * minDist
 
   for i in 0 ..< numSpawners:

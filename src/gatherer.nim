@@ -52,7 +52,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         break
   if altarHearts == 0:
     let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
-    if altar != nil:
+    if not isNil(altar):
       altarHearts = altar.hearts
 
   # Drop off any carried stockpile resources first.
@@ -76,11 +76,11 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       if agent.homeAltar.x >= 0:
         return controller.useOrMove(env, agent, agentId, state, agent.homeAltar)
       let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
-      if altar != nil:
+      if not isNil(altar):
         return controller.useOrMove(env, agent, agentId, state, altar.pos)
     if agent.inventoryGold > 0:
       let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
-      if magma != nil:
+      if not isNil(magma):
         return controller.useOrMove(env, agent, agentId, state, magma.pos)
     # Fall through to gold gathering.
   of TaskGold:
@@ -114,7 +114,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if didPlant: return actPlant
 
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
-    if wheat != nil:
+    if not isNil(wheat):
       return controller.useOrMove(env, agent, agentId, state, wheat.pos)
 
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)

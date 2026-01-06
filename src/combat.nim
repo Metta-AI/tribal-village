@@ -119,8 +119,8 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   proc claimAltar(altarThing: Thing) =
     let oldTeam = altarThing.teamId
     altarThing.teamId = attackerTeam
-    if attackerTeam >= 0 and attackerTeam < teamColors.len:
-      altarColors[altarThing.pos] = teamColors[attackerTeam]
+    if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
+      env.altarColors[altarThing.pos] = env.teamColors[attackerTeam]
     if oldTeam >= 0:
       for door in env.thingsByKind[Door]:
         if door.teamId == oldTeam:

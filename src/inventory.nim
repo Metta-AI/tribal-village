@@ -6,6 +6,12 @@ proc getInv*(thing: Thing, key: ItemKey): int =
     return thing.inventory[key]
   0
 
+proc getInv*(thing: Thing, kind: ItemKind): int =
+  ## Type-safe overload using ItemKind enum
+  if kind == ikNone:
+    return 0
+  getInv(thing, toItemKey(kind))
+
 proc setInv*(thing: Thing, key: ItemKey, value: int) =
   if key.len == 0:
     return
@@ -15,6 +21,12 @@ proc setInv*(thing: Thing, key: ItemKey, value: int) =
   else:
     thing.inventory[key] = value
 
+proc setInv*(thing: Thing, kind: ItemKind, value: int) =
+  ## Type-safe overload using ItemKind enum
+  if kind == ikNone:
+    return
+  setInv(thing, toItemKey(kind), value)
+
 proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
   if key.len == 0 or delta == 0:
     return getInv(thing, key)
@@ -22,27 +34,45 @@ proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
   setInv(thing, key, newVal)
   newVal
 
+proc addInv*(thing: Thing, kind: ItemKind, delta: int): int =
+  ## Type-safe overload using ItemKind enum
+  if kind == ikNone or delta == 0:
+    return getInv(thing, kind)
+  let newVal = getInv(thing, kind) + delta
+  setInv(thing, kind, newVal)
+  newVal
+
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
-  if key == ItemGold:
-    env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, key))
-  elif key == ItemStone:
-    env.updateObservations(AgentInventoryStoneLayer, agent.pos, getInv(agent, key))
-  elif key == ItemBar:
-    env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, key))
-  elif key == ItemWater:
-    env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, key))
-  elif key == ItemWheat:
-    env.updateObservations(AgentInventoryWheatLayer, agent.pos, getInv(agent, key))
-  elif key == ItemWood:
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, getInv(agent, key))
-  elif key == ItemSpear:
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, getInv(agent, key))
-  elif key == ItemLantern:
-    env.updateObservations(AgentInventoryLanternLayer, agent.pos, getInv(agent, key))
-  elif key == ItemArmor:
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, getInv(agent, key))
-  elif key == ItemBread:
-    env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, key))
+  ## Update observation layer for agent inventory - uses ItemKind enum for type safety
+  let kind = toItemKind(key)
+  let value = getInv(agent, key)
+  case kind
+  of ikGold:
+    env.updateObservations(AgentInventoryGoldLayer, agent.pos, value)
+  of ikStone:
+    env.updateObservations(AgentInventoryStoneLayer, agent.pos, value)
+  of ikBar:
+    env.updateObservations(AgentInventoryBarLayer, agent.pos, value)
+  of ikWater:
+    env.updateObservations(AgentInventoryWaterLayer, agent.pos, value)
+  of ikWheat:
+    env.updateObservations(AgentInventoryWheatLayer, agent.pos, value)
+  of ikWood:
+    env.updateObservations(AgentInventoryWoodLayer, agent.pos, value)
+  of ikSpear:
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, value)
+  of ikLantern:
+    env.updateObservations(AgentInventoryLanternLayer, agent.pos, value)
+  of ikArmor:
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, value)
+  of ikBread:
+    env.updateObservations(AgentInventoryBreadLayer, agent.pos, value)
+  else:
+    discard  # Non-observed items (plant, fish, meat, hearts, none)
+
+proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
+  ## Type-safe overload using ItemKind enum
+  updateAgentInventoryObs(env, agent, toItemKey(kind))
 
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
   if teamId < 0 or teamId >= env.teamStockpiles.len:

@@ -137,7 +137,7 @@ proc useSelections*() =
          gridPos.y >= 0 and gridPos.y < MapHeight:
         selectedPos = gridPos
         let thing = env.grid[gridPos.x][gridPos.y]
-        if thing != nil:
+        if not isNil(thing):
           selection = thing
 
 proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
@@ -272,14 +272,14 @@ proc drawWalls*() =
   template hasWall(x: int, y: int): bool =
     x >= 0 and x < MapWidth and
     y >= 0 and y < MapHeight and
-    env.grid[x][y] != nil and
+    env.grid[x][y] not isNil and
     env.grid[x][y].kind == Wall
 
   var wallFills: seq[IVec2]
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let thing = env.grid[x][y]
-      if thing != nil and thing.kind == Wall:
+      if not isNil(thing) and thing.kind == Wall:
         var tile = 0'u16
         if hasWall(x, y + 1): tile = tile or WallS.uint16
         if hasWall(x + 1, y): tile = tile or WallE.uint16
@@ -433,8 +433,8 @@ proc drawObjects*() =
 
   drawThings(Lantern):
     let lanternKey = resolveSpriteKey("lantern")
-    if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < teamColors.len:
-      let teamColor = teamColors[thing.teamId]
+    if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+      let teamColor = env.teamColors[thing.teamId]
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = teamColor)
     else:
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = color(0.5, 0.5, 0.5, 1.0))
@@ -456,16 +456,16 @@ proc drawObjects*() =
         let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
         if spriteKey.len > 0:
           let tint =
-            if thing.kind == Door and thing.teamId >= 0 and thing.teamId < teamColors.len:
-              let base = teamColors[thing.teamId]
+            if thing.kind == Door and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+              let base = env.teamColors[thing.teamId]
               color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
             else:
               color(1, 1, 1, 1)
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
-          if thing.kind != Door and thing.teamId >= 0 and thing.teamId < teamColors.len:
+          if thing.kind != Door and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
             let maskKey = "roofmask." & spriteKey
             if assetExists(maskKey):
-              let tint = teamColors[thing.teamId]
+              let tint = env.teamColors[thing.teamId]
               bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone and thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
@@ -601,7 +601,7 @@ proc drawGrid*() =
       )
 
 proc drawSelection*() =
-  if selection != nil:
+  if not isNil(selection):
     bxy.drawImage(
       "selection",
       selection.pos.vec2,
@@ -617,7 +617,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
   let overlay = env.overlayGrid[selectedPos.x][selectedPos.y]
-  if thing != nil:
+  if not isNil(thing):
     label =
       if thing.kind == Agent:
         case thing.unitClass
@@ -643,7 +643,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
           of UnitSiege: "Siege"
         else:
           thingDisplayName(thing.kind)
-  elif overlay != nil:
+  elif not isNil(overlay):
     label = thingDisplayName(overlay.kind)
   else:
     let terrain = env.terrain[selectedPos.x][selectedPos.y]

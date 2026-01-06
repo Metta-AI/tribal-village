@@ -95,8 +95,8 @@ proc removeThing(env: Environment, thing: Thing) =
       env.thingsByKind[thing.kind][kindIdx] = lastKindThing
       lastKindThing.kindListIndex = kindIdx
     env.thingsByKind[thing.kind].setLen(lastKindIdx)
-  if thing.kind == Altar and altarColors.hasKey(thing.pos):
-    altarColors.del(thing.pos)
+  if thing.kind == Altar and env.altarColors.hasKey(thing.pos):
+    env.altarColors.del(thing.pos)
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
@@ -155,8 +155,8 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   env.updateThingObsOnAdd(kind, pos, placed)
   if kind == Altar:
     let teamId = placed.teamId
-    if teamId >= 0 and teamId < teamColors.len:
-      altarColors[pos] = teamColors[teamId]
+    if teamId >= 0 and teamId < env.teamColors.len:
+      env.altarColors[pos] = env.teamColors[teamId]
   true
 
 
