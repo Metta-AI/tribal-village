@@ -329,6 +329,7 @@ type
     cowHerdSumX*: seq[int]
     cowHerdSumY*: seq[int]
     cowHerdDrift*: seq[IVec2]
+    cowHerdTargets*: seq[IVec2]
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     observations*: array[
       MapAgents,
