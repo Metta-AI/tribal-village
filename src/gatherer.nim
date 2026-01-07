@@ -27,6 +27,8 @@ proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  state.basePosition = basePos
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
     for thing in env.things:
@@ -38,13 +40,22 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if not isNil(altar):
       altarHearts = altar.hearts
 
-  # Drop off any carried stockpile resources first.
-  let preDropTask = chooseGathererTask(controller, env, teamId, altarHearts)
-  let allowGoldDropoff =
-    (preDropTask != TaskHearts) or env.thingsByKind[Magma].len == 0
-  let (didDrop, dropAct) =
-    controller.dropoffGathererCarrying(env, agent, agentId, state, allowGoldDropoff)
-  if didDrop: return dropAct
+  var carryingStockpile = false
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      carryingStockpile = true
+      break
+
+  if carryingStockpile:
+    if agent.inventoryGold > 0 and altarHearts < 10 and env.thingsByKind[Magma].len > 0:
+      let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
+      if not isNil(magma):
+        return controller.useOrMove(env, agent, agentId, state, magma.pos)
+    let (didDrop, dropAct) =
+      controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = true)
+    if didDrop: return dropAct
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
 
   let task = chooseGathererTask(controller, env, teamId, altarHearts)
 
