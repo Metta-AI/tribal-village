@@ -1,9 +1,9 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import terrain, items, common, biome
-import forward_decls, registry, balance, errors
+import types, registry, balance, errors
 export terrain, items, common
-export forward_decls, registry, balance, errors
+export types, registry, balance, errors
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   let p = cast[pointer](s[0].addr)
