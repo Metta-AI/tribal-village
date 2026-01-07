@@ -33,9 +33,31 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
+proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                          state: var AgentState, targetPos: IVec2,
+                          buildIndex: int): tuple[did: bool, action: uint8] =
+  if targetPos.x < 0:
+    return (false, 0'u8)
+  let dir = ivec2(signi(targetPos.x - agent.pos.x), signi(targetPos.y - agent.pos.y))
+  if chebyshevDist(agent.pos, targetPos) == 1'i32 and
+      agent.orientation == Orientation(vecToOrientation(dir)):
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
+    if did: return (true, act)
+  return (true, saveStateAndReturn(controller, agentId, state,
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8)))
+
 proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, standPos, targetPos: IVec2,
-                       buildIndex: int): tuple[did: bool, action: uint8]
+                       buildIndex: int): tuple[did: bool, action: uint8] =
+  if standPos.x < 0:
+    return (false, 0'u8)
+  if agent.pos == standPos:
+    let dir = ivec2(signi(targetPos.x - agent.pos.x), signi(targetPos.y - agent.pos.y))
+    if agent.orientation == Orientation(vecToOrientation(dir)):
+      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
+      if did: return (true, act)
+  return (true, saveStateAndReturn(controller, agentId, state,
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
 
 proc findBuildSpotNear(env: Environment, agent: Thing, center: IVec2,
                        radius: int): tuple[buildPos, standPos: IVec2] =
@@ -72,6 +94,20 @@ proc findBuildSpotNear(env: Environment, agent: Thing, center: IVec2,
         return result
   result
 
+proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                          state: var AgentState, teamId: int, kind: ThingKind,
+                          resourceCount, minResource: int,
+                          nearbyKinds: openArray[ThingKind], distanceThreshold: int): tuple[did: bool, action: uint8] =
+  if resourceCount < minResource:
+    return (false, 0'u8)
+  let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
+  if dist <= distanceThreshold:
+    return (false, 0'u8)
+  let idx = buildIndexFor(kind)
+  if idx >= 0:
+    return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  (false, 0'u8)
+
 proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thing, agentId: int,
                            state: var AgentState, teamId: int, kind: ThingKind,
                            resourceCount, minResource: int,
@@ -103,32 +139,6 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
     if idx >= 0:
       return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
   (false, 0'u8)
-
-proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                          state: var AgentState, targetPos: IVec2,
-                          buildIndex: int): tuple[did: bool, action: uint8] =
-  if targetPos.x < 0:
-    return (false, 0'u8)
-  let dir = ivec2(signi(targetPos.x - agent.pos.x), signi(targetPos.y - agent.pos.y))
-  if chebyshevDist(agent.pos, targetPos) == 1'i32 and
-      agent.orientation == Orientation(vecToOrientation(dir)):
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
-    if did: return (true, act)
-  return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8)))
-
-proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                       state: var AgentState, standPos, targetPos: IVec2,
-                       buildIndex: int): tuple[did: bool, action: uint8] =
-  if standPos.x < 0:
-    return (false, 0'u8)
-  if agent.pos == standPos:
-    let dir = ivec2(signi(targetPos.x - agent.pos.x), signi(targetPos.y - agent.pos.y))
-    if agent.orientation == Orientation(vecToOrientation(dir)):
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
-      if did: return (true, act)
-  return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
 
 include "gatherer"
 include "builder"
