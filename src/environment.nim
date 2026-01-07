@@ -74,6 +74,9 @@ proc rebuildObservations*(env: Environment) =
     env.updateObservations(AgentInventoryLanternLayer, agent.pos, getInv(agent, ItemLantern))
     env.updateObservations(AgentInventoryArmorLayer, agent.pos, getInv(agent, ItemArmor))
     env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, ItemBread))
+    env.updateObservations(AgentInventoryMeatLayer, agent.pos, getInv(agent, ItemMeat))
+    env.updateObservations(AgentInventoryFishLayer, agent.pos, getInv(agent, ItemFish))
+    env.updateObservations(AgentInventoryPlantLayer, agent.pos, getInv(agent, ItemPlant))
 
   # Populate environment object layers.
   for thing in env.things:
@@ -377,14 +380,20 @@ proc convertTreeToStump(env: Environment, tree: Thing) =
   removeThing(env, tree)
   env.dropStump(tree.pos, ResourceNodeInitial - 1)
 
-proc grantWood(env: Environment, agent: Thing, amount: int = 1) =
-  setInv(agent, ItemWood, getInv(agent, ItemWood) + amount)
-  env.updateAgentInventoryObs(agent, ItemWood)
+proc grantWood(env: Environment, agent: Thing, amount: int = 1): bool =
+  if amount <= 0:
+    return true
+  for _ in 0 ..< amount:
+    if not env.giveItem(agent, ItemWood):
+      return false
+  true
 
-proc harvestTree(env: Environment, agent: Thing, tree: Thing) =
-  env.grantWood(agent)
+proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
+  if not env.grantWood(agent):
+    return false
   agent.reward += env.config.woodReward
   env.convertTreeToStump(tree)
+  true
 
 include "move"
 include "combat"

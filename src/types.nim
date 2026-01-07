@@ -78,7 +78,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 17
+  ObservationLayers* = 20
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -134,6 +134,9 @@ type
     TintLayer = 14        # Unified tint layer for all environmental effects
     AgentInventoryBreadLayer = 15  # Bread baked from clay oven
     AgentInventoryStoneLayer = 16  # Stone (AoE2 resource)
+    AgentInventoryMeatLayer = 17
+    AgentInventoryFishLayer = 18
+    AgentInventoryPlantLayer = 19
 
 
   AgentUnitClass* = enum
