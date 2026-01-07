@@ -33,6 +33,65 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
+proc findBuildSpotNear(env: Environment, agent: Thing, center: IVec2,
+                       radius: int): tuple[buildPos, standPos: IVec2] =
+  ## Find a buildable tile near center plus an adjacent stand tile.
+  result.buildPos = ivec2(-1, -1)
+  result.standPos = ivec2(-1, -1)
+  let minX = max(0, center.x - radius)
+  let maxX = min(MapWidth - 1, center.x + radius)
+  let minY = max(0, center.y - radius)
+  let maxY = min(MapHeight - 1, center.y + radius)
+
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      let pos = ivec2(x.int32, y.int32)
+      if not env.canPlaceBuilding(pos):
+        continue
+      # Avoid building on roads so they stay clear for traffic.
+      if env.terrain[pos.x][pos.y] == TerrainRoad:
+        continue
+      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+        let stand = pos + d
+        if not isValidPos(stand):
+          continue
+        if env.hasDoor(stand):
+          continue
+        if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
+          continue
+        if not env.isEmpty(stand):
+          continue
+        if not env.canAgentPassDoor(agent, stand):
+          continue
+        result.buildPos = pos
+        result.standPos = stand
+        return result
+  result
+
+proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                           state: var AgentState, teamId: int, kind: ThingKind,
+                           resourceCount, minResource: int,
+                           nearbyKinds: openArray[ThingKind],
+                           minSpacing: int = 3,
+                           searchRadius: int = 4): tuple[did: bool, action: uint8] =
+  ## Build a camp if resource threshold is met and no nearby camp is within minSpacing.
+  if resourceCount < minResource:
+    return (false, 0'u8)
+  let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
+  if dist <= minSpacing:
+    return (false, 0'u8)
+  let idx = buildIndexFor(kind)
+  if idx < 0 or idx >= BuildChoices.len:
+    return (false, 0'u8)
+  let key = BuildChoices[idx]
+  if not env.canAffordBuild(teamId, key):
+    return (false, 0'u8)
+  let target = findBuildSpotNear(env, agent, agent.pos, searchRadius)
+  if target.buildPos.x < 0:
+    return (false, 0'u8)
+  return goToStandAndBuild(controller, env, agent, agentId, state,
+    target.standPos, target.buildPos, idx)
+
 proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint8] =
   if controller.getBuildingCount(env, teamId, kind) == 0:
