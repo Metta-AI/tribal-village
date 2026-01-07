@@ -6,13 +6,13 @@ type GathererTask = enum
   TaskHearts
 
 proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
-                        altarHearts: int, allowHearts: bool): GathererTask =
+                        altarHearts: int): GathererTask =
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
   let gold = env.stockpileCount(teamId, ResourceGold)
 
-  if altarHearts < 10 and allowHearts:
+  if altarHearts < 10:
     return TaskHearts
 
   var lowest = min(food, min(wood, min(stone, min(gold, altarHearts))))
@@ -40,9 +40,6 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if not isNil(altar):
       altarHearts = altar.hearts
 
-  let hasMagma = env.thingsByKind[Magma].len > 0
-  let allowHearts = hasMagma or agent.inventoryBar > 0
-
   var carryingStockpile = false
   for key, count in agent.inventory.pairs:
     if count > 0 and isStockpileResourceKey(key):
@@ -50,7 +47,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       break
 
   if carryingStockpile:
-    if agent.inventoryGold > 0 and altarHearts < 10 and env.thingsByKind[Magma].len > 0:
+    if agent.inventoryGold > 0 and altarHearts < 10:
       let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
       if not isNil(magma):
         return controller.useOrMove(env, agent, agentId, state, magma.pos)
@@ -60,7 +57,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
 
-  let task = chooseGathererTask(controller, env, teamId, altarHearts, allowHearts)
+  let task = chooseGathererTask(controller, env, teamId, altarHearts)
 
   template tryBuildCamp(kind: ThingKind, nearbyCount, minCount: int,
                         nearbyKinds: openArray[ThingKind]): uint8 =
