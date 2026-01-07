@@ -72,6 +72,11 @@ proc signi*(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
+proc chebyshevDist(a, b: IVec2): int32 =
+  let dx = abs(a.x - b.x)
+  let dy = abs(a.y - b.y)
+  return (if dx > dy: dx else: dy)
+
 proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
   case direction:
   of 0: offset.y -= distance  # North
