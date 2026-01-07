@@ -71,7 +71,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   var used = false
   template takeFromThing(key: ItemKey, rewardAmount: float32 = 0.0) =
     let stored = getInv(thing, key)
-    if stored > 0 and env.giveItem(agent, key):
+    if stored <= 0:
+      removeThing(env, thing)
+      used = true
+    elif env.giveItem(agent, key):
       let remaining = stored - 1
       if rewardAmount != 0:
         agent.reward += rewardAmount

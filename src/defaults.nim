@@ -33,6 +33,10 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
+proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                       state: var AgentState, standPos, targetPos: IVec2,
+                       buildIndex: int): tuple[did: bool, action: uint8]
+
 proc findBuildSpotNear(env: Environment, agent: Thing, center: IVec2,
                        radius: int): tuple[buildPos, standPos: IVec2] =
   ## Find a buildable tile near center plus an adjacent stand tile.
@@ -84,12 +88,6 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
   if idx < 0 or idx >= BuildChoices.len:
     return (false, 0'u8)
   let key = BuildChoices[idx]
-  let costs = buildCostsForKey(key)
-  if costs.len == 0:
-    return (false, 0'u8)
-  for cost in costs:
-    if env.stockpileCount(teamId, cost.res) < cost.count * CampLuxuryMultiplier:
-      return (false, 0'u8)
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
   let target = findBuildSpotNear(env, agent, agent.pos, searchRadius)
