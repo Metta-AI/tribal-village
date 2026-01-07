@@ -447,10 +447,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Find the altar via direct grid lookup (avoids O(things) scan)
       let altarThing = env.getThing(agent.homeAltar)
 
-      # Respawn if altar exists and has hearts above the auto-spawn threshold
+      # Respawn if altar exists and has at least one heart to spend
       if not isNil(altarThing) and altarThing.kind == ThingKind.Altar and
-          altarThing.hearts > MapObjectAltarAutoSpawnThreshold:
-        # Deduct a heart from the altar
+          altarThing.hearts >= MapObjectAltarRespawnCost:
+        # Deduct a heart from the altar (can reach 0, but not negative)
         altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
         env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
 
