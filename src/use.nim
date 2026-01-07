@@ -88,12 +88,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Stump:
     takeFromThing(ItemWood, env.config.woodReward)
   of Pine, Palm:
-    let stored = getInv(thing, ItemWood)
-    var remaining = stored
-    if stored > 0 and env.giveItem(agent, ItemWood):
-      remaining = stored - 1
-      agent.reward += env.config.woodReward
-    env.convertTreeToStump(thing, remaining)
+    env.harvestTree(agent, thing)
     used = true
   of Corpse:
     var lootKey = ItemNone
