@@ -161,8 +161,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       spawnCorpseAt(pos, ItemMeat, meatRemaining)
       return true
     of Pine, Palm:
-      let woodRemaining = getInv(target, ItemWood)
-      env.convertTreeToStump(target, woodRemaining)
+      env.harvestTree(agent, target)
       return true
     else:
       return false
