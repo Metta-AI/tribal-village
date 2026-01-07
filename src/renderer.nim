@@ -1,6 +1,6 @@
 import
   boxy, vmath, windy, tables,
-  std/[algorithm, math, strutils, sets],
+  std/[algorithm, math, strutils],
   common, environment
 
 # Infection system constants
@@ -128,7 +128,7 @@ proc useSelections*() =
 
 proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
   ## Tiny helper to reduce repeated overlay checks.
-  if infected and overlaySprite.len > 0:
+  if infected:
     bxy.drawImage(overlaySprite, pos, angle = 0, scale = spriteScale(overlaySprite))
 
 proc drawFrozenOverlay(pos: IVec2) =
@@ -437,18 +437,17 @@ proc drawObjects*() =
             continue
         let pos = thing.pos
         let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
-        if spriteKey.len > 0:
-          let tint =
-            if thing.kind == Door:
-              let base = env.teamColors[thing.teamId]
-              color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
-            else:
-              color(1, 1, 1, 1)
-          bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
-          if thing.kind != Door:
-            let maskKey = "roofmask." & spriteKey
-            let tint = env.teamColors[thing.teamId]
-            bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
+        let tint =
+          if thing.kind == Door:
+            let base = env.teamColors[thing.teamId]
+            color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
+          else:
+            color(1, 1, 1, 1)
+        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
+        if thing.kind != Door:
+          let maskKey = "roofmask." & spriteKey
+          let tint = env.teamColors[thing.teamId]
+          bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let icon = case res
@@ -458,17 +457,16 @@ proc drawObjects*() =
             of ResourceGold: itemSpriteKey(ItemGold)
             of ResourceWater: itemSpriteKey(ItemWater)
             of ResourceNone: ""
-          if icon.len > 0:
-            let count = env.teamStockpiles[thing.teamId].counts[res]
-            let iconScale = 1/320
-            let labelScale = 1/200
-            let iconPos = pos.vec2 + vec2(-0.18, -0.72)
-            let alpha = if count > 0: 1.0 else: 0.35
-            bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
-            if count > 0:
-              let labelKey = ensureHeartCountLabel(count)
-              let labelPos = iconPos + vec2(0.14, -0.08)
-              bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+          let count = env.teamStockpiles[thing.teamId].counts[res]
+          let iconScale = 1/320
+          let labelScale = 1/200
+          let iconPos = pos.vec2 + vec2(-0.18, -0.72)
+          let alpha = if count > 0: 1.0 else: 0.35
+          bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
+          if count > 0:
+            let labelKey = ensureHeartCountLabel(count)
+            let labelPos = iconPos + vec2(0.14, -0.08)
+            bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
     else:
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
@@ -487,8 +485,7 @@ proc drawObjects*() =
           if remaining > 0 and remaining < ResourceNodeInitial:
             spriteKey = "wheat_half"
         let resolved = resolveSpriteKey(spriteKey)
-        if resolved.len > 0:
-          bxy.drawImage(resolved, pos.vec2, angle = 0, scale = spriteScale(resolved))
+        bxy.drawImage(resolved, pos.vec2, angle = 0, scale = spriteScale(resolved))
         if infected:
           drawFrozenOverlayIfNeeded(thing.kind, pos)
 
