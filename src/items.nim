@@ -61,11 +61,15 @@ const
     ItemSpear,
     ItemLantern,
     ItemArmor,
-    ItemBread
+    ItemBread,
+    ItemMeat,
+    ItemFish,
+    ItemPlant
   ]
 
   ## Mapping from ItemKind enum to observation layers (for efficient lookup)
-  ObservedItemKinds* = [ikGold, ikStone, ikBar, ikWater, ikWheat, ikWood, ikSpear, ikLantern, ikArmor, ikBread]
+  ObservedItemKinds* = [ikGold, ikStone, ikBar, ikWater, ikWheat, ikWood, ikSpear, ikLantern, ikArmor, ikBread,
+                        ikMeat, ikFish, ikPlant]
 
 proc toItemKey*(kind: ItemKind): ItemKey {.inline.} =
   ## Convert ItemKind enum to ItemKey string

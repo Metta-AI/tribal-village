@@ -693,7 +693,7 @@ proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thi
   if pos.x < 0:
     return (false, 0'u8)
   let thing = env.getThing(pos)
-  if isNil(thing) or thing.kind notin allowed:
+  if isNil(thing) or thing.kind notin allowed or isThingFrozen(thing, env):
     pos = ivec2(-1, -1)
     return (false, 0'u8)
   return (true, moveOrAct(controller, env, agent, agentId, state, pos, verb))

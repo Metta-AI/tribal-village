@@ -74,6 +74,9 @@ proc rebuildObservations*(env: Environment) =
     env.updateObservations(AgentInventoryLanternLayer, agent.pos, getInv(agent, ItemLantern))
     env.updateObservations(AgentInventoryArmorLayer, agent.pos, getInv(agent, ItemArmor))
     env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, ItemBread))
+    env.updateObservations(AgentInventoryMeatLayer, agent.pos, getInv(agent, ItemMeat))
+    env.updateObservations(AgentInventoryFishLayer, agent.pos, getInv(agent, ItemFish))
+    env.updateObservations(AgentInventoryPlantLayer, agent.pos, getInv(agent, ItemPlant))
 
   # Populate environment object layers.
   for thing in env.things:
@@ -377,22 +380,27 @@ proc convertTreeToStump(env: Environment, tree: Thing) =
   removeThing(env, tree)
   env.dropStump(tree.pos, ResourceNodeInitial - 1)
 
-proc grantWood(env: Environment, agent: Thing, amount: int = 1) =
-  setInv(agent, ItemWood, getInv(agent, ItemWood) + amount)
-  env.updateAgentInventoryObs(agent, ItemWood)
+proc grantWood(env: Environment, agent: Thing, amount: int = 1): bool =
+  if amount <= 0:
+    return true
+  for _ in 0 ..< amount:
+    if not env.giveItem(agent, ItemWood):
+      return false
+  true
 
-proc harvestTree(env: Environment, agent: Thing, tree: Thing) =
-  env.grantWood(agent)
+proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
+  if not env.grantWood(agent):
+    return false
   agent.reward += env.config.woodReward
   env.convertTreeToStump(tree)
+  true
 
 include "move"
 include "combat"
 include "use"
 
-proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
+proc putAction(env: Environment, id: int, agent: Thing) =
   ## Give items to adjacent teammate in facing direction.
-  discard argument
   let dir = agent.orientation
   let delta = getOrientationDelta(dir)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
@@ -566,10 +574,9 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 include "tint"
 include "build"
 
-proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
+proc plantAction(env: Environment, id: int, agent: Thing) =
   ## Plant lantern in the facing direction.
   # Calculate target position based on current orientation
-  discard argument
   let plantOrientation = agent.orientation
   let delta = getOrientationDelta(plantOrientation)
   var targetPos = agent.pos

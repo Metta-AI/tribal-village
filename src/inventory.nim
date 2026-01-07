@@ -67,8 +67,14 @@ proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
     env.updateObservations(AgentInventoryArmorLayer, agent.pos, value)
   of ikBread:
     env.updateObservations(AgentInventoryBreadLayer, agent.pos, value)
+  of ikMeat:
+    env.updateObservations(AgentInventoryMeatLayer, agent.pos, value)
+  of ikFish:
+    env.updateObservations(AgentInventoryFishLayer, agent.pos, value)
+  of ikPlant:
+    env.updateObservations(AgentInventoryPlantLayer, agent.pos, value)
   else:
-    discard  # Non-observed items (plant, fish, meat, hearts, none)
+    discard  # Non-observed items (hearts, none)
 
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
   ## Type-safe overload using ItemKind enum
