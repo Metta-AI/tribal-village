@@ -72,6 +72,11 @@ proc signi*(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
+proc chebyshevDist(a, b: IVec2): int32 =
+  let dx = abs(a.x - b.x)
+  let dy = abs(a.y - b.y)
+  return (if dx > dy: dx else: dy)
+
 proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
   case direction:
   of 0: offset.y -= distance  # North
@@ -277,116 +282,6 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
     if dist < result:
       result = dist
 
-proc tryBuildNearResource*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                           state: var AgentState, teamId: int, kind: ThingKind,
-                           resourceCount, minResource: int,
-                           nearbyKinds: openArray[ThingKind], distanceThreshold: int): tuple[did: bool, action: uint8] =
-  if resourceCount < minResource:
-    return (false, 0'u8)
-  let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
-  if dist <= distanceThreshold:
-    return (false, 0'u8)
-  let idx = buildIndexFor(kind)
-  if idx >= 0:
-    return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-  (false, 0'u8)
-
-proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
-                          res: StockpileResource, rng: var Rand): Thing =
-  template tryKind(kind: ThingKind): Thing =
-    env.findNearestFriendlyThingSpiral(state, teamId, kind, rng)
-  case res
-  of ResourceFood:
-    result = tryKind(Granary)
-    if isNil(result):
-      result = tryKind(TownCenter)
-    if isNil(result):
-      result = tryKind(Mill)
-  of ResourceWood:
-    result = tryKind(LumberCamp)
-    if isNil(result):
-      result = tryKind(TownCenter)
-  of ResourceStone:
-    result = tryKind(Quarry)
-    if isNil(result):
-      result = tryKind(TownCenter)
-  of ResourceGold:
-    result = tryKind(MiningCamp)
-    if isNil(result):
-      result = tryKind(TownCenter)
-  of ResourceWater, ResourceNone:
-    result = nil
-  if isNil(result):
-    var bestDist = int.high
-    for thing in env.thingsByKind[TownCenter]:
-      if thing.teamId != teamId:
-        continue
-      let dist = int(chebyshevDist(thing.pos, state.basePosition))
-      if dist < bestDist:
-        bestDist = dist
-        result = thing
-
-proc dropoffResourceIfCarrying*(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState,
-                                res: StockpileResource, amount: int): tuple[did: bool, action: uint8] =
-  ## Drop off a single resource type if carrying any
-  if amount <= 0:
-    return (false, 0'u8)
-  let teamId = getTeamId(agent.agentId)
-  let dropoff = findDropoffBuilding(env, state, teamId, res, controller.rng)
-  if not isNil(dropoff):
-    return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-  (false, 0'u8)
-
-proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
-                      agentId: int, state: var AgentState,
-                      allowFood: bool = false,
-                      allowWood: bool = false,
-                      allowStone: bool = false,
-                      allowGold: bool = false): tuple[did: bool, action: uint8] =
-  ## Unified dropoff function - attempts to drop off resources in priority order
-  ## Priority: food -> wood -> gold -> stone (same as legacy gatherer order)
-
-  # Food dropoff - requires checking inventory for any food items
-  if allowFood:
-    var hasFood = false
-    for key, count in agent.inventory.pairs:
-      if count > 0 and isFoodItem(key):
-        hasFood = true
-        break
-    if hasFood:
-      let teamId = getTeamId(agent.agentId)
-      let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
-      if not isNil(dropoff):
-        return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
-
-  # Wood dropoff
-  if allowWood:
-    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
-                                                ResourceWood, agent.inventoryWood)
-    if did: return (true, act)
-
-  # Gold dropoff
-  if allowGold:
-    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
-                                                ResourceGold, agent.inventoryGold)
-    if did: return (true, act)
-
-  # Stone dropoff
-  if allowStone:
-    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
-                                                ResourceStone, agent.inventoryStone)
-    if did: return (true, act)
-
-  (false, 0'u8)
-
-proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState,
-                              allowGold: bool): tuple[did: bool, action: uint8] =
-  ## Convenience wrapper for gatherers - drops food, wood, stone, and optionally gold
-  dropoffCarrying(controller, env, agent, agentId, state,
-                  allowFood = true, allowWood = true, allowStone = true, allowGold = allowGold)
-
 proc teamPopCap*(env: Environment, teamId: int): int =
   for thing in env.things:
     if thing.isNil:
@@ -465,11 +360,6 @@ proc neighborDirIndex(fromPos, toPos: IVec2): int =
   let sx = (if dx > 0: 1'i32 elif dx < 0: -1'i32 else: 0'i32)
   let sy = (if dy > 0: 1'i32 elif dy < 0: -1'i32 else: 0'i32)
   return vecToOrientation(ivec2(sx.int, sy.int))
-
-proc chebyshevDist(a, b: IVec2): int32 =
-  let dx = abs(a.x - b.x)
-  let dy = abs(a.y - b.y)
-  return (if dx > dy: dx else: dy)
 
 proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
   ## Pick an orientation whose spear wedge covers the target (matches attackAction pattern).
@@ -626,32 +516,61 @@ proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Th
       best = other
   return best
 
-proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int
+proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
+  ## Consider lantern tiles passable for movement planning and respect doors/water.
+  if not isValidPos(pos):
+    return false
+  if isBlockedTerrain(env.terrain[pos.x][pos.y]):
+    return false
+  if not env.canAgentPassDoor(agent, pos):
+    return false
+  let occupant = env.grid[pos.x][pos.y]
+  if isNil(occupant):
+    return true
+  return occupant.kind == Lantern
 
-proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                        state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
-  let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
-  if not isNil(smith):
-    return (true, controller.useOrMove(env, agent, agentId, state, smith.pos))
-  (false, 0'u8)
+proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
+  ## Get a movement direction towards target, with obstacle avoidance
+  let clampedTarget = clampToPlayable(toPos)
+  if clampedTarget == fromPos:
+    # Target is outside playable bounds; push back inward toward the widest margin.
+    var bestDir = -1
+    var bestMargin = -1
+    for idx, d in Directions8:
+      let np = fromPos + d
+      if not isPassable(env, agent, np):
+        continue
+      let marginX = min(np.x - MapBorder, (MapWidth - MapBorder - 1) - np.x)
+      let marginY = min(np.y - MapBorder, (MapHeight - MapBorder - 1) - np.y)
+      let margin = min(marginX, marginY)
+      if margin > bestMargin:
+        bestMargin = margin
+        bestDir = idx
+    if bestDir >= 0:
+      return bestDir
+    return randIntInclusive(rng, 0, 3)
 
-proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                      state: var AgentState, teamId: int, need: NeedType,
-                      inventoryCount: int): tuple[did: bool, action: uint8] =
-  if inventoryCount <= 0:
-    return (false, 0'u8)
-  let teammate = findNearestTeammateNeeding(env, agent, need)
-  if not isNil(teammate):
-    let dx = abs(teammate.pos.x - agent.pos.x)
-    let dy = abs(teammate.pos.y - agent.pos.y)
-    if max(dx, dy) == 1'i32:
-      return (true, saveStateAndReturn(controller, agentId, state,
-        encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8)))
-    return (true, saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8)))
-  let (didSmith, actSmith) = moveToNearestSmith(controller, env, agent, agentId, state, teamId)
-  if didSmith: return (true, actSmith)
-  (false, 0'u8)
+  let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
+
+  # Try primary direction first
+  let primaryMove = fromPos + Directions8[primaryDir]
+  if isPassable(env, agent, primaryMove):
+    return primaryDir
+
+  # Primary blocked, try adjacent directions
+  if primaryDir <= 3:
+    for altDir in AltForCardinal[primaryDir]:
+      let altMove = fromPos + Directions8[altDir]
+      if isPassable(env, agent, altMove):
+        return altDir
+  else:
+    for altDir in [0, 1, 2, 3]:
+      let altMove = fromPos + Directions8[altDir]
+      if isPassable(env, agent, altMove):
+        return altDir
+
+  # All blocked, try random movement
+  return randIntInclusive(rng, 0, 3)
 
 proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
   for thing in env.things:
@@ -700,60 +619,6 @@ proc findLanternSpotNearBuilding(env: Environment, teamId: int, agent: Thing, bu
         bestPos = target
   bestPos
 
-proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
-  ## Consider lantern tiles passable for movement planning and respect doors/water.
-  if not isValidPos(pos):
-    return false
-  if isBlockedTerrain(env.terrain[pos.x][pos.y]):
-    return false
-  if not env.canAgentPassDoor(agent, pos):
-    return false
-  let occupant = env.grid[pos.x][pos.y]
-  if isNil(occupant):
-    return true
-  return occupant.kind == Lantern
-proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
-  ## Get a movement direction towards target, with obstacle avoidance
-  let clampedTarget = clampToPlayable(toPos)
-  if clampedTarget == fromPos:
-    # Target is outside playable bounds; push back inward toward the widest margin.
-    var bestDir = -1
-    var bestMargin = -1
-    for idx, d in Directions8:
-      let np = fromPos + d
-      if not isPassable(env, agent, np):
-        continue
-      let marginX = min(np.x - MapBorder, (MapWidth - MapBorder - 1) - np.x)
-      let marginY = min(np.y - MapBorder, (MapHeight - MapBorder - 1) - np.y)
-      let margin = min(marginX, marginY)
-      if margin > bestMargin:
-        bestMargin = margin
-        bestDir = idx
-    if bestDir >= 0:
-      return bestDir
-    return randIntInclusive(rng, 0, 3)
-
-  let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
-
-  # Try primary direction first
-  let primaryMove = fromPos + Directions8[primaryDir]
-  if isPassable(env, agent, primaryMove):
-    return primaryDir
-
-  # Primary blocked, try adjacent directions
-  if primaryDir <= 3:
-    for altDir in AltForCardinal[primaryDir]:
-      let altMove = fromPos + Directions8[altDir]
-      if isPassable(env, agent, altMove):
-        return altDir
-  else:
-    for altDir in [0, 1, 2, 3]:
-      let altMove = fromPos + Directions8[altDir]
-      if isPassable(env, agent, altMove):
-        return altDir
-
-  # All blocked, try random movement
-  return randIntInclusive(rng, 0, 3)
 
 proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
@@ -803,6 +668,127 @@ proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: 
 proc attackOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                   state: var AgentState, targetPos: IVec2): uint8 =
   moveOrAct(controller, env, agent, agentId, state, targetPos, 2'u8)
+
+proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                        state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
+  let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+  if not isNil(smith):
+    return (true, controller.useOrMove(env, agent, agentId, state, smith.pos))
+  (false, 0'u8)
+
+proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                      state: var AgentState, teamId: int, need: NeedType,
+                      inventoryCount: int): tuple[did: bool, action: uint8] =
+  if inventoryCount <= 0:
+    return (false, 0'u8)
+  let teammate = findNearestTeammateNeeding(env, agent, need)
+  if not isNil(teammate):
+    let dx = abs(teammate.pos.x - agent.pos.x)
+    let dy = abs(teammate.pos.y - agent.pos.y)
+    if max(dx, dy) == 1'i32:
+      return (true, saveStateAndReturn(controller, agentId, state,
+        encodeAction(5'u8, neighborDirIndex(agent.pos, teammate.pos).uint8)))
+    return (true, saveStateAndReturn(controller, agentId, state,
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8)))
+  let (didSmith, actSmith) = moveToNearestSmith(controller, env, agent, agentId, state, teamId)
+  if didSmith: return (true, actSmith)
+  (false, 0'u8)
+
+proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
+                          res: StockpileResource, rng: var Rand): Thing =
+  template tryKind(kind: ThingKind): Thing =
+    env.findNearestFriendlyThingSpiral(state, teamId, kind, rng)
+  case res
+  of ResourceFood:
+    result = tryKind(Granary)
+    if isNil(result):
+      result = tryKind(TownCenter)
+    if isNil(result):
+      result = tryKind(Mill)
+  of ResourceWood:
+    result = tryKind(LumberCamp)
+    if isNil(result):
+      result = tryKind(TownCenter)
+  of ResourceStone:
+    result = tryKind(Quarry)
+    if isNil(result):
+      result = tryKind(TownCenter)
+  of ResourceGold:
+    result = tryKind(MiningCamp)
+    if isNil(result):
+      result = tryKind(TownCenter)
+  of ResourceWater, ResourceNone:
+    result = nil
+  if isNil(result):
+    var bestDist = int.high
+    for thing in env.thingsByKind[TownCenter]:
+      if thing.teamId != teamId:
+        continue
+      let dist = int(chebyshevDist(thing.pos, state.basePosition))
+      if dist < bestDist:
+        bestDist = dist
+        result = thing
+
+proc dropoffResourceIfCarrying*(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState,
+                                res: StockpileResource, amount: int): tuple[did: bool, action: uint8] =
+  ## Drop off a single resource type if carrying any
+  if amount <= 0:
+    return (false, 0'u8)
+  let teamId = getTeamId(agent.agentId)
+  let dropoff = findDropoffBuilding(env, state, teamId, res, controller.rng)
+  if not isNil(dropoff):
+    return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+  (false, 0'u8)
+
+proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState,
+                      allowFood: bool = false,
+                      allowWood: bool = false,
+                      allowStone: bool = false,
+                      allowGold: bool = false): tuple[did: bool, action: uint8] =
+  ## Unified dropoff function - attempts to drop off resources in priority order
+  ## Priority: food -> wood -> gold -> stone (same as legacy gatherer order)
+
+  # Food dropoff - requires checking inventory for any food items
+  if allowFood:
+    var hasFood = false
+    for key, count in agent.inventory.pairs:
+      if count > 0 and isFoodItem(key):
+        hasFood = true
+        break
+    if hasFood:
+      let teamId = getTeamId(agent.agentId)
+      let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
+      if not isNil(dropoff):
+        return (true, controller.useOrMove(env, agent, agentId, state, dropoff.pos))
+
+  # Wood dropoff
+  if allowWood:
+    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
+                                                ResourceWood, agent.inventoryWood)
+    if did: return (true, act)
+
+  # Gold dropoff
+  if allowGold:
+    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
+                                                ResourceGold, agent.inventoryGold)
+    if did: return (true, act)
+
+  # Stone dropoff
+  if allowStone:
+    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
+                                                ResourceStone, agent.inventoryStone)
+    if did: return (true, act)
+
+  (false, 0'u8)
+
+proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState,
+                              allowGold: bool): tuple[did: bool, action: uint8] =
+  ## Convenience wrapper for gatherers - drops food, wood, stone, and optionally gold
+  dropoffCarrying(controller, env, agent, agentId, state,
+                  allowFood = true, allowWood = true, allowStone = true, allowGold = allowGold)
 
 proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =

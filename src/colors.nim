@@ -1,7 +1,3 @@
-# Forward declaration so combat helpers can update observations before the
-# inline definition later in the file.
-proc updateObservations(env: Environment, layer: ObservationName, pos: IVec2, value: int)
-
 const WarmVillagePalette* = [
   # Eight bright, evenly spaced tints (similar brightness, varied hue; away from clippy purple)
   color(0.910, 0.420, 0.420, 1.0),  # team 0: soft red        (#e86b6b)
@@ -64,16 +60,6 @@ proc tickCooldown(env: Environment, thing: Thing) =
   if thing.cooldown > 0:
     dec thing.cooldown
 
-proc combinedTileTint*(env: Environment, x, y: int): TileColor
-
-proc isTileFrozen*(pos: IVec2, env: Environment): bool =
-  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
-    return false
-  let color = combinedTileTint(env, pos.x, pos.y)
-  return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
-    abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
-    abs(color.b - ClippyTint.b) <= ClippyTintTolerance
-
 proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]
@@ -83,6 +69,14 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let b = base.b * (1.0 - alpha) + overlay.b * alpha
   let intensity = base.intensity + (1.0'f32 - base.intensity) * alpha
   TileColor(r: r, g: g, b: b, intensity: intensity)
+
+proc isTileFrozen*(pos: IVec2, env: Environment): bool =
+  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+    return false
+  let color = combinedTileTint(env, pos.x, pos.y)
+  return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
+    abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
+    abs(color.b - ClippyTint.b) <= ClippyTintTolerance
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
