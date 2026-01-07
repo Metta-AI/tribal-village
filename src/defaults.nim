@@ -33,6 +33,10 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
+proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                       state: var AgentState, standPos, targetPos: IVec2,
+                       buildIndex: int): tuple[did: bool, action: uint8]
+
 proc findBuildSpotNear(env: Environment, agent: Thing, center: IVec2,
                        radius: int): tuple[buildPos, standPos: IVec2] =
   ## Find a buildable tile near center plus an adjacent stand tile.
