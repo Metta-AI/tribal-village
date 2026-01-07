@@ -1,7 +1,7 @@
 # This file is included by src/external.nim
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
-import std/[tables, sets]
+import std/[tables, sets, algorithm]
 import entropy
 import vmath
 import ./environment, common, terrain
