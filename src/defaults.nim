@@ -84,6 +84,12 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
   if idx < 0 or idx >= BuildChoices.len:
     return (false, 0'u8)
   let key = BuildChoices[idx]
+  let costs = buildCostsForKey(key)
+  if costs.len == 0:
+    return (false, 0'u8)
+  for cost in costs:
+    if env.stockpileCount(teamId, cost.res) < cost.count * CampLuxuryMultiplier:
+      return (false, 0'u8)
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
   let target = findBuildSpotNear(env, agent, agent.pos, searchRadius)

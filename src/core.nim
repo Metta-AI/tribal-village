@@ -297,7 +297,6 @@ proc tryBuildNearResource*(controller: Controller, env: Environment, agent: Thin
     return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
   (false, 0'u8)
 
-
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
                           res: StockpileResource, rng: var Rand): Thing =
   template tryKind(kind: ThingKind): Thing =
