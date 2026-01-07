@@ -12,6 +12,12 @@ from google import genai
 from google.genai import types
 from PIL import Image
 
+# Setup notes:
+# - Option A (API key): export GOOGLE_API_KEY=...
+# - Option B (gcloud ADC): install gcloud and run
+#   `gcloud auth application-default login`, then set the project via
+#   `gcloud config set project <id>` or pass `--project <id>` (location must be "global").
+
 
 def load_prompts(path: Path) -> list[tuple[str, str]]:
     rows: list[tuple[str, str]] = []

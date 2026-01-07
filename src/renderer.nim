@@ -17,7 +17,6 @@ var
   stepLabelKey = ""
   stepLabelLastValue = -1
   stepLabelSize = ivec2(0, 0)
-  assetKeys: HashSet[string] = initHashSet[string]()
 
 type FloorSpriteKind = enum
   FloorBase
@@ -30,10 +29,7 @@ var
   renderCacheGeneration = -1
 
 proc rememberAssetKey*(key: string) =
-  assetKeys.incl(key)
-
-proc assetExists*(key: string): bool =
-  key in assetKeys
+  discard
 
 template configureHeartFont(ctx: var Context) =
   ctx.font = HeartCountFontPath
@@ -106,15 +102,8 @@ proc getInfectionLevel*(pos: IVec2): float32 =
 proc spriteScale(_: string): float32 =
   SpriteScale
 
-var missingAssetWarnings: HashSet[string] = initHashSet[string]()
-
 proc resolveSpriteKey(key: string): string =
-  if assetExists(key):
-    return key
-  if key notin missingAssetWarnings:
-    echo "⚠️  Missing asset: ", key, " (using unknown)"
-    missingAssetWarnings.incl(key)
-  return "unknown"
+  key
 
 proc useSelections*() =
   if window.buttonPressed[MouseLeft]:
@@ -458,9 +447,8 @@ proc drawObjects*() =
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
           if thing.kind != Door:
             let maskKey = "roofmask." & spriteKey
-            if assetExists(maskKey):
-              let tint = env.teamColors[thing.teamId]
-              bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
+            let tint = env.teamColors[thing.teamId]
+            bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let icon = case res
@@ -493,9 +481,14 @@ proc drawObjects*() =
             continue
         let pos = thing.pos
         let infected = getInfectionLevel(pos) >= 1.0
-        let spriteKey = resolveSpriteKey(thingSpriteKey(thing.kind))
-        if spriteKey.len > 0:
-          bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey))
+        var spriteKey = thingSpriteKey(thing.kind)
+        if thing.kind == Wheat:
+          let remaining = getInv(thing, ItemWheat)
+          if remaining > 0 and remaining < ResourceNodeInitial:
+            spriteKey = "wheat_half"
+        let resolved = resolveSpriteKey(spriteKey)
+        if resolved.len > 0:
+          bxy.drawImage(resolved, pos.vec2, angle = 0, scale = spriteScale(resolved))
         if infected:
           drawFrozenOverlayIfNeeded(thing.kind, pos)
 
