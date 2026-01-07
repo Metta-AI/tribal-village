@@ -1,4 +1,4 @@
-proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
+proc useAction*(env: Environment, id: int, agent: Thing, argument: int) =
   ## Use terrain or building with a single action (requires holding needed resource if any)
   # Use current facing; argument is ignored for direction.
   discard argument

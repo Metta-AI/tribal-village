@@ -83,7 +83,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   removeThing(env, thing)
   true
 
-proc add(env: Environment, thing: Thing) =
+proc add*(env: Environment, thing: Thing) =
   if thing.kind == Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, ResourceNodeInitial)
