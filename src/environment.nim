@@ -375,13 +375,13 @@ include "place"
 
 proc convertTreeToStump(env: Environment, tree: Thing, remaining: int) =
   removeThing(env, tree)
-  env.dropStump(tree.pos, max(0, remaining))
+  if remaining > 0:
+    env.dropStump(tree.pos, remaining)
 
 proc harvestTree(env: Environment, agent: Thing, tree: Thing) =
   let stored = getInv(tree, ItemWood)
-  var remaining = stored
+  var remaining = max(0, stored - 1)
   if stored > 0 and env.giveItem(agent, ItemWood):
-    remaining = stored - 1
     agent.reward += env.config.woodReward
   env.convertTreeToStump(tree, remaining)
 

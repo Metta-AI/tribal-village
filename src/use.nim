@@ -86,7 +86,15 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Stalagmite:
     takeFromThing(ItemStone)
   of Stump:
-    takeFromThing(ItemWood, env.config.woodReward)
+    let stored = getInv(thing, ItemWood)
+    let remaining = max(0, stored - 1)
+    if stored > 0 and env.giveItem(agent, ItemWood):
+      agent.reward += env.config.woodReward
+    if remaining <= 0:
+      removeThing(env, thing)
+    else:
+      setInv(thing, ItemWood, remaining)
+    used = true
   of Pine, Palm:
     env.harvestTree(agent, thing)
     used = true
