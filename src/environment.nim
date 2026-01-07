@@ -390,9 +390,8 @@ include "move"
 include "combat"
 include "use"
 
-proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
+proc putAction(env: Environment, id: int, agent: Thing) =
   ## Give items to adjacent teammate in facing direction.
-  discard argument
   let dir = agent.orientation
   let delta = getOrientationDelta(dir)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
@@ -566,10 +565,9 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 include "tint"
 include "build"
 
-proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
+proc plantAction(env: Environment, id: int, agent: Thing) =
   ## Plant lantern in the facing direction.
   # Calculate target position based on current orientation
-  discard argument
   let plantOrientation = agent.orientation
   let delta = getOrientationDelta(plantOrientation)
   var targetPos = agent.pos
