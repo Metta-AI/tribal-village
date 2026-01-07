@@ -149,6 +149,8 @@ proc findDoorRingOutpostTarget(env: Environment, altar: IVec2): IVec2 =
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  state.basePosition = basePos
   const CoreEconomy = [Granary, LumberCamp, Quarry, MiningCamp]
   const ProductionBuildings = [WeavingLoom, ClayOven, Blacksmith]
   const MilitaryBuildings = [Barracks, ArcheryRange, Stable, SiegeWorkshop]
