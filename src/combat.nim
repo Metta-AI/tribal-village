@@ -14,6 +14,9 @@ proc killAgent(env: Environment, victim: Thing) =
   env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
   env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryMeatLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryFishLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryPlantLayer, victim.pos, 0)
 
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0
@@ -157,14 +160,13 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         claimAltar(target)
       return true
     of Cow:
-      setInv(agent, ItemMeat, getInv(agent, ItemMeat) + 1)
-      env.updateAgentInventoryObs(agent, ItemMeat)
+      if not env.giveItem(agent, ItemMeat):
+        return false
       removeThing(env, target)
       spawnCorpseAt(pos, ItemMeat, ResourceNodeInitial - 1)
       return true
     of Pine, Palm:
-      env.harvestTree(agent, target)
-      return true
+      return env.harvestTree(agent, target)
     else:
       return false
 

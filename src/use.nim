@@ -91,17 +91,16 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   of Stalagmite:
     takeFromThing(ItemStone)
   of Stump:
-    env.grantWood(agent)
-    agent.reward += env.config.woodReward
-    let remaining = getInv(thing, ItemWood) - 1
-    if remaining <= 0:
-      removeThing(env, thing)
-    else:
-      setInv(thing, ItemWood, remaining)
-    used = true
+    if env.grantWood(agent):
+      agent.reward += env.config.woodReward
+      let remaining = getInv(thing, ItemWood) - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemWood, remaining)
+      used = true
   of Pine, Palm:
-    env.harvestTree(agent, thing)
-    used = true
+    used = env.harvestTree(agent, thing)
   of Corpse:
     var lootKey = ItemNone
     var lootCount = 0
@@ -111,14 +110,7 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
         lootCount = count
         break
     if lootKey != ItemNone:
-      var didTake = false
-      if lootKey == ItemMeat:
-        setInv(agent, ItemMeat, getInv(agent, ItemMeat) + 1)
-        env.updateAgentInventoryObs(agent, ItemMeat)
-        didTake = true
-      else:
-        didTake = env.giveItem(agent, lootKey)
-      if didTake:
+      if env.giveItem(agent, lootKey):
         let remaining = lootCount - 1
         if remaining <= 0:
           thing.inventory.del(lootKey)
