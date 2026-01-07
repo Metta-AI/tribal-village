@@ -155,6 +155,12 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
 proc add(env: Environment, thing: Thing) =
   if thing.inventory.len == 0:
     thing.inventory = emptyInventory()
+  if thing.kind == Stone:
+    if getInv(thing, ItemStone) <= 0:
+      setInv(thing, ItemStone, ResourceNodeInitial)
+  elif thing.kind == Gold:
+    if getInv(thing, ItemGold) <= 0:
+      setInv(thing, ItemGold, ResourceNodeInitial)
   env.things.add(thing)
   thing.thingsIndex = env.things.len - 1
   env.thingsByKind[thing.kind].add(thing)
