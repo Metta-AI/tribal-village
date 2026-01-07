@@ -307,13 +307,9 @@ proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kin
     for thing in env.things:
       if thing.isNil:
         continue
-      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsHouses:
-        continue
       if not isBuildingKind(thing.kind):
         continue
       controller.buildingCounts[thing.teamId][thing.kind] += 1
-  if teamId < 0 or teamId >= MapRoomObjectsHouses:
-    return 0
   controller.buildingCounts[teamId][kind]
 
 proc canAffordBuild*(env: Environment, teamId: int, key: ItemKey): bool =

@@ -439,7 +439,7 @@ proc drawObjects*() =
 
   drawThings(Lantern):
     let lanternKey = resolveSpriteKey("lantern")
-    if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+    if thing.lanternHealthy:
       let teamColor = env.teamColors[thing.teamId]
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = teamColor)
     else:
@@ -462,19 +462,19 @@ proc drawObjects*() =
         let spriteKey = resolveSpriteKey(buildingSpriteKey(thing.kind))
         if spriteKey.len > 0:
           let tint =
-            if thing.kind == Door and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+            if thing.kind == Door:
               let base = env.teamColors[thing.teamId]
               color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
             else:
               color(1, 1, 1, 1)
           bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
-          if thing.kind != Door and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+          if thing.kind != Door:
             let maskKey = "roofmask." & spriteKey
             if assetExists(maskKey):
               let tint = env.teamColors[thing.teamId]
               bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
         let res = buildingStockpileRes(thing.kind)
-        if res != ResourceNone and thing.teamId >= 0 and thing.teamId < env.teamStockpiles.len:
+        if res != ResourceNone:
           let icon = case res
             of ResourceFood: itemSpriteKey(ItemWheat)
             of ResourceWood: itemSpriteKey(ItemWood)

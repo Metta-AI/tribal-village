@@ -119,13 +119,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let verb = actionValue.int div ActionArgumentCount
     let argument = actionValue.int mod ActionArgumentCount
 
-    if verb < 0 or verb >= ActionVerbCount:
-      inc env.stats[id].actionInvalid
-      continue
-    if argument < 0 or argument >= ActionArgumentCount:
-      inc env.stats[id].actionInvalid
-      continue
-
     case verb:
     of 0: inc env.stats[id].actionNoop
     of 1: env.moveAction(id, agent, argument)

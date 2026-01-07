@@ -26,7 +26,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     if canMove:
       return true
     let blocker = env.getThing(pos)
-    if isNil(blocker) or blocker.kind != Lantern:
+    if blocker.kind != Lantern:
       return false
 
     var relocated = false

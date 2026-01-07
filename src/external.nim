@@ -48,13 +48,6 @@ proc setExternalActionCallback*(callback: proc(): array[MapAgents, uint8]) =
 
 proc getActions*(env: Environment): array[MapAgents, uint8] =
   ## Get actions for all agents using the configured controller
-  if isNil(globalController):
-    # NO CONTROLLER - return NOOP actions (agents won't move, proving Python control is required)
-    var noopActions: array[MapAgents, uint8]
-    for i in 0..<MapAgents:
-      noopActions[i] = encodeAction(0'u8, 0'u8)  # NOOP action
-    return noopActions
-  
   case globalController.controllerType:
   of BuiltinAI:
     # Use built-in AI controller

@@ -123,11 +123,7 @@ proc hasDoor*(env: Environment, pos: IVec2): bool =
   return not isNil(door) and door.kind == Door
 
 proc getDoorTeam*(env: Environment, pos: IVec2): int =
-  if not isValidPos(pos):
-    return -1
   let door = env.overlayGrid[pos.x][pos.y]
-  if isNil(door) or door.kind != Door:
-    return -1
   return door.teamId
 
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =

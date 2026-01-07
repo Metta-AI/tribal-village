@@ -87,8 +87,6 @@ proc tribal_village_set_config(
   cfg: ptr CEnvironmentConfig
 ): int32 {.exportc, dynlib.} =
   ## Update runtime config (rewards, spawn rates, max steps) from Python.
-  if isNil(globalEnv) or isNil(cfg):
-    return 0
   try:
     discard env
     globalEnv.config = applyConfig(cfg[])
@@ -104,9 +102,6 @@ proc tribal_village_reset_and_get_obs(
   truncations_buffer: ptr UncheckedArray[uint8]
 ): int32 {.exportc, dynlib.} =
   ## Reset and write directly to buffers - no conversions
-  if isNil(globalEnv):
-    return 0
-
   try:
     globalEnv.reset()
     if not globalEnv.observationsInitialized:
@@ -196,15 +191,8 @@ proc tribal_village_render_rgb(
   out_w: int32,
   out_h: int32
 ): int32 {.exportc, dynlib.} =
-  if isNil(globalEnv) or isNil(out_buffer):
-    return 0
-
   let width = int(out_w)
   let height = int(out_h)
-  if width <= 0 or height <= 0:
-    return 0
-  if width mod MapWidth != 0 or height mod MapHeight != 0:
-    return 0
 
   let scaleX = width div MapWidth
   let scaleY = height div MapHeight
@@ -257,9 +245,6 @@ proc tribal_village_render_ansi(
 ): int32 {.exportc, dynlib.} =
   ## Write an ANSI string render into out_buffer (null-terminated).
   ## Returns number of bytes written (excluding terminator). 0 on error.
-  if isNil(globalEnv) or isNil(out_buffer) or buf_len <= 1:
-    return 0
-
   try:
     let s = render(globalEnv)  # environment.render*(env: Environment): string
     let n = min(s.len, max(0, buf_len - 1).int)

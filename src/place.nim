@@ -84,8 +84,6 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   true
 
 proc add(env: Environment, thing: Thing) =
-  if thing.inventory.len == 0:
-    thing.inventory = emptyInventory()
   if thing.kind == Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, ResourceNodeInitial)
