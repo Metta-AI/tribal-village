@@ -104,8 +104,7 @@ proc tribal_village_reset_and_get_obs(
   ## Reset and write directly to buffers - no conversions
   try:
     globalEnv.reset()
-    if not globalEnv.observationsInitialized:
-      globalEnv.rebuildObservations()
+    globalEnv.rebuildObservations()
 
     # Direct memory copy of observations (zero conversion)
     let obs_size = MapAgents * ObservationLayers * ObservationWidth * ObservationHeight
@@ -130,9 +129,6 @@ proc tribal_village_step_with_pointers(
   truncations_buffer: ptr UncheckedArray[uint8]
 ): int32 {.exportc, dynlib.} =
   ## Ultra-fast step with direct buffer access
-  if isNil(globalEnv):
-    return 0
-
   try:
     # Read actions directly from buffer (no conversion)
     var actions: array[MapAgents, uint8]
@@ -148,11 +144,10 @@ proc tribal_village_step_with_pointers(
 
     # Direct buffer writes (no dict conversion)
     for i in 0..<MapAgents:
-      let agent = (if i < globalEnv.agents.len: globalEnv.agents[i] else: nil)
-      let reward = if agent.isNil: 0.0'f32 else: agent.reward
+      let agent = globalEnv.agents[i]
+      let reward = agent.reward
       rewards_buffer[i] = reward
-      if not agent.isNil:
-        agent.reward = 0.0'f32
+      agent.reward = 0.0'f32
       terminals_buffer[i] = if globalEnv.terminated[i] > 0.0: 1 else: 0
       truncations_buffer[i] = if globalEnv.truncated[i] > 0.0: 1 else: 0
 
@@ -248,8 +243,7 @@ proc tribal_village_render_ansi(
   try:
     let s = render(globalEnv)  # environment.render*(env: Environment): string
     let n = min(s.len, max(0, buf_len - 1).int)
-    if n > 0:
-      copyMem(out_buffer, cast[pointer](s.cstring), n)
+    copyMem(out_buffer, cast[pointer](s.cstring), n)
     out_buffer[n] = '\0'  # null-terminate
     return n.int32
   except:
@@ -271,10 +265,7 @@ proc tribal_village_get_error_message*(buffer: ptr char, bufferSize: int32): int
   ## Copy the error message to the provided buffer
   ## Returns the actual length written, or -1 if buffer too small
   let msg = lastFFIError.errorMessage
-  if msg.len >= bufferSize:
-    return -1
-  if msg.len > 0:
-    copyMem(buffer, unsafeAddr msg[0], msg.len)
+  copyMem(buffer, unsafeAddr msg[0], msg.len)
   cast[ptr char](cast[uint](buffer) + msg.len.uint)[] = '\0'
   msg.len.int32
 

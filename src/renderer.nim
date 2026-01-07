@@ -54,8 +54,6 @@ template configureInfoLabelFont(ctx: var Context) =
   ctx.textBaseline = TopBaseline
 
 proc ensureInfoLabel(text: string): string =
-  if text.len == 0:
-    return ""
   if text in infoLabelImages:
     return infoLabelImages[text]
 
@@ -111,8 +109,6 @@ proc spriteScale(_: string): float32 =
 var missingAssetWarnings: HashSet[string] = initHashSet[string]()
 
 proc resolveSpriteKey(key: string): string =
-  if key.len == 0:
-    return ""
   if assetExists(key):
     return key
   if key notin missingAssetWarnings:
@@ -340,14 +336,6 @@ proc drawObjects*() =
 
   template drawThings(thingKind: ThingKind, body: untyped) =
     for thing in env.thingsByKind[thingKind]:
-      if not isValidPos(thing.pos):
-        continue
-      if thingBlocksMovement(thing.kind):
-        if env.grid[thing.pos.x][thing.pos.y] != thing:
-          continue
-      else:
-        if env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
-          continue
       let t = thing
       let thing {.inject.} = t
       let pos {.inject.} = thing.pos

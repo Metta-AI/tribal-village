@@ -7,10 +7,6 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   step1.y += int32(delta.y)
 
   # Prevent moving onto blocked terrain (bridges remain walkable).
-  if isBlockedTerrain(env.terrain[step1.x][step1.y]):
-    inc env.stats[id].actionInvalid
-    return
-
   if not env.canAgentPassDoor(agent, step1):
     inc env.stats[id].actionInvalid
     return
@@ -66,9 +62,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
     return relocated
 
   var finalPos = step1
-  if not canEnter(step1):
-    inc env.stats[id].actionInvalid
-    return
+  discard canEnter(step1)
 
   # Roads accelerate movement in the direction of entry.
   if env.terrain[step1.x][step1.y] == Road:
@@ -91,20 +85,10 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Swap
-  if argument > 1:
-    inc env.stats[id].actionInvalid
-    return
   let
     targetPos = agent.pos + orientationToVec(agent.orientation)
     target = env.getThing(targetPos)
-  if isNil(target):
-    inc env.stats[id].actionInvalid
-    return
-  if target.kind == Agent and not isThingFrozen(target, env):
-    var temp = agent.pos
-    agent.pos = target.pos
-    target.pos = temp
-    inc env.stats[id].actionSwap
-    # REMOVED: expensive per-agent full grid rebuilds
-  else:
-    inc env.stats[id].actionInvalid
+  var temp = agent.pos
+  agent.pos = target.pos
+  target.pos = temp
+  inc env.stats[id].actionSwap

@@ -462,7 +462,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc teamPopCounts[teamId]
 
           # Update observations
-          # REMOVED: expensive per-agent full grid rebuild
           env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
           env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
           for key in ObservedItemKeys:

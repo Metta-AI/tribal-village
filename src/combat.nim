@@ -1,37 +1,33 @@
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
-  if env.terminated[victim.agentId] != 0.0:
-    return
   let deathPos = victim.pos
-  if isValidPos(deathPos):
-    env.grid[deathPos.x][deathPos.y] = nil
-    env.updateObservations(AgentLayer, victim.pos, 0)
-    env.updateObservations(AgentOrientationLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryGoldLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
-    env.updateObservations(AgentInventorySpearLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
-    env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
+  env.grid[deathPos.x][deathPos.y] = nil
+  env.updateObservations(AgentLayer, victim.pos, 0)
+  env.updateObservations(AgentOrientationLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryGoldLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
+  env.updateObservations(AgentInventorySpearLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
+  env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
 
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0
   victim.reward += env.config.deathPenalty
-  if isValidPos(deathPos):
-    var dropInv = emptyInventory()
-    var hasItems = false
-    for key, count in victim.inventory.pairs:
-      if count > 0:
-        dropInv[key] = count
-        hasItems = true
-    let corpseKind = if hasItems: Corpse else: Skeleton
-    let corpse = Thing(kind: corpseKind, pos: deathPos)
-    corpse.inventory = dropInv
-    env.add(corpse)
+  var dropInv = emptyInventory()
+  var hasItems = false
+  for key, count in victim.inventory.pairs:
+    if count > 0:
+      dropInv[key] = count
+      hasItems = true
+  let corpseKind = if hasItems: Corpse else: Skeleton
+  let corpse = Thing(kind: corpseKind, pos: deathPos)
+  corpse.inventory = dropInv
+  env.add(corpse)
 
   victim.inventory = emptyInventory()
   victim.pos = ivec2(-1, -1)
@@ -39,9 +35,6 @@ proc killAgent(env: Environment, victim: Thing) =
 # Apply damage to an agent; respects armor and marks terminated when HP <= 0.
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
-  if target.isNil or amount <= 0:
-    return false
-
   var remaining = amount
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
@@ -60,8 +53,6 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
 
 # Heal an agent up to its max HP. Returns the amount actually healed.
 proc applyAgentHeal(env: Environment, target: Thing, amount: int): int =
-  if target.isNil or amount <= 0:
-    return 0
   let before = target.hp
   target.hp = min(target.maxHp, target.hp + amount)
   result = target.hp - before
@@ -82,17 +73,11 @@ proc applyHealBurst(env: Environment, agent: Thing) =
 # Centralized zero-HP handling so agents instantly freeze/die when drained
 proc enforceZeroHpDeaths(env: Environment) =
   for agent in env.agents:
-    if agent.isNil:
-      continue
     if env.terminated[agent.agentId] == 0.0 and agent.hp <= 0:
       env.killAgent(agent)
 
 proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Attack an entity in one of eight directions. Spears extend range to 2 tiles.
-  if argument < 0 or argument > 7:
-    inc env.stats[id].actionInvalid
-    return
-
   let attackOrientation = Orientation(argument)
   let delta = getOrientationDelta(attackOrientation)
   let attackerTeam = getTeamId(agent.agentId)
