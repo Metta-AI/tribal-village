@@ -4,8 +4,6 @@ import terrain, items, common, biome
 import forward_decls, registry, balance, errors
 export terrain, items, common
 export forward_decls, registry, balance, errors
-
-include "colors"
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   let p = cast[pointer](s[0].addr)
@@ -44,6 +42,8 @@ proc updateObservations(
     agentLayer[][x][y] = value.uint8
   env.observationsInitialized = true
 {.pop.}
+
+include "colors"
 
 proc getInv*(thing: Thing, key: ItemKey): int
 
@@ -156,14 +156,6 @@ include "inventory"
 # Build craft recipes after registry is available.
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
-
-proc add(env: Environment, thing: Thing)
-proc removeThing(env: Environment, thing: Thing)
-proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool
-proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: AgentUnitClass,
-                  costs: openArray[tuple[res: StockpileResource, count: int]], cooldown: int): bool
-proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileResource]): bool
-proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed: openArray[ItemKey]): bool
 
 proc resourceCarryTotal(agent: Thing): int =
   result = 0

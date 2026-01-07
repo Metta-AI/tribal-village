@@ -8,13 +8,6 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
       return true
   false
 
-proc dropStump(env: Environment, pos: IVec2, woodRemaining: int) =
-  let stump = Thing(kind: Stump, pos: pos)
-  stump.inventory = emptyInventory()
-  if woodRemaining > 0:
-    setInv(stump, ItemWood, woodRemaining)
-  env.add(stump)
-
 proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool, hearts = 0) =
   let value = if present: 1 else: 0
   case kind
@@ -33,6 +26,32 @@ proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
 
 proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: Thing) =
   updateThingObs(env, kind, pos, true, placed.hearts)
+
+proc removeThing(env: Environment, thing: Thing) =
+  if isValidPos(thing.pos):
+    if thingBlocksMovement(thing.kind):
+      env.grid[thing.pos.x][thing.pos.y] = nil
+    else:
+      env.overlayGrid[thing.pos.x][thing.pos.y] = nil
+  let idx = thing.thingsIndex
+  if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
+    let lastIdx = env.things.len - 1
+    if idx != lastIdx:
+      let last = env.things[lastIdx]
+      env.things[idx] = last
+      last.thingsIndex = idx
+    env.things.setLen(lastIdx)
+  let kindIdx = thing.kindListIndex
+  if kindIdx >= 0 and kindIdx < env.thingsByKind[thing.kind].len and
+      env.thingsByKind[thing.kind][kindIdx] == thing:
+    let lastKindIdx = env.thingsByKind[thing.kind].len - 1
+    if kindIdx != lastKindIdx:
+      let lastKindThing = env.thingsByKind[thing.kind][lastKindIdx]
+      env.thingsByKind[thing.kind][kindIdx] = lastKindThing
+      lastKindThing.kindListIndex = kindIdx
+    env.thingsByKind[thing.kind].setLen(lastKindIdx)
+  if thing.kind == Altar and env.altarColors.hasKey(thing.pos):
+    env.altarColors.del(thing.pos)
 
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
@@ -64,31 +83,27 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   removeThing(env, thing)
   true
 
-proc removeThing(env: Environment, thing: Thing) =
+proc add(env: Environment, thing: Thing) =
+  if thing.inventory.len == 0:
+    thing.inventory = emptyInventory()
+  if thing.kind == Stone:
+    if getInv(thing, ItemStone) <= 0:
+      setInv(thing, ItemStone, ResourceNodeInitial)
+  elif thing.kind == Gold:
+    if getInv(thing, ItemGold) <= 0:
+      setInv(thing, ItemGold, ResourceNodeInitial)
+  env.things.add(thing)
+  thing.thingsIndex = env.things.len - 1
+  env.thingsByKind[thing.kind].add(thing)
+  thing.kindListIndex = env.thingsByKind[thing.kind].len - 1
+  if thing.kind == Agent:
+    env.agents.add(thing)
+    env.stats.add(Stats())
   if isValidPos(thing.pos):
     if thingBlocksMovement(thing.kind):
-      env.grid[thing.pos.x][thing.pos.y] = nil
+      env.grid[thing.pos.x][thing.pos.y] = thing
     else:
-      env.overlayGrid[thing.pos.x][thing.pos.y] = nil
-  let idx = thing.thingsIndex
-  if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
-    let lastIdx = env.things.len - 1
-    if idx != lastIdx:
-      let last = env.things[lastIdx]
-      env.things[idx] = last
-      last.thingsIndex = idx
-    env.things.setLen(lastIdx)
-  let kindIdx = thing.kindListIndex
-  if kindIdx >= 0 and kindIdx < env.thingsByKind[thing.kind].len and
-      env.thingsByKind[thing.kind][kindIdx] == thing:
-    let lastKindIdx = env.thingsByKind[thing.kind].len - 1
-    if kindIdx != lastKindIdx:
-      let lastKindThing = env.thingsByKind[thing.kind][lastKindIdx]
-      env.thingsByKind[thing.kind][kindIdx] = lastKindThing
-      lastKindThing.kindListIndex = kindIdx
-    env.thingsByKind[thing.kind].setLen(lastKindIdx)
-  if thing.kind == Altar and env.altarColors.hasKey(thing.pos):
-    env.altarColors.del(thing.pos)
+      env.overlayGrid[thing.pos.x][thing.pos.y] = thing
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if key == ItemThingPrefix & "Road":
@@ -151,25 +166,9 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
       env.altarColors[pos] = env.teamColors[teamId]
   true
 
-
-proc add(env: Environment, thing: Thing) =
-  if thing.inventory.len == 0:
-    thing.inventory = emptyInventory()
-  if thing.kind == Stone:
-    if getInv(thing, ItemStone) <= 0:
-      setInv(thing, ItemStone, ResourceNodeInitial)
-  elif thing.kind == Gold:
-    if getInv(thing, ItemGold) <= 0:
-      setInv(thing, ItemGold, ResourceNodeInitial)
-  env.things.add(thing)
-  thing.thingsIndex = env.things.len - 1
-  env.thingsByKind[thing.kind].add(thing)
-  thing.kindListIndex = env.thingsByKind[thing.kind].len - 1
-  if thing.kind == Agent:
-    env.agents.add(thing)
-    env.stats.add(Stats())
-  if isValidPos(thing.pos):
-    if thingBlocksMovement(thing.kind):
-      env.grid[thing.pos.x][thing.pos.y] = thing
-    else:
-      env.overlayGrid[thing.pos.x][thing.pos.y] = thing
+proc dropStump(env: Environment, pos: IVec2, woodRemaining: int) =
+  let stump = Thing(kind: Stump, pos: pos)
+  stump.inventory = emptyInventory()
+  if woodRemaining > 0:
+    setInv(stump, ItemWood, woodRemaining)
+  env.add(stump)

@@ -285,8 +285,6 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of SiegeWorkshop: UseTrainAndCraft
   else: UseNone
 
-proc buildingStockpileRes*(kind: ThingKind): StockpileResource
-
 proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   case kind
   of Granary: ResourceFood
@@ -329,8 +327,6 @@ proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   of Granary: @[ItemWheat]
   of Blacksmith: @[ItemArmor, ItemSpear]
   else: @[]
-
-proc buildingCraftStation*(kind: ThingKind): CraftStation
 
 proc buildingCraftStation*(kind: ThingKind): CraftStation =
   case kind
