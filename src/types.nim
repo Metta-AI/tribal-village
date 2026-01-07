@@ -235,6 +235,7 @@ type
     actionPut*: int      # Action 5: GIVE to teammate
     actionBuild*: int    # Action 8: BUILD
     actionPlantResource*: int  # Action 7: Plant wheat/tree onto fertile tile
+    actionOrient*: int   # Action 9: ORIENT
 
   TileColor* = object
     r*, g*, b*: float32      # RGB color components

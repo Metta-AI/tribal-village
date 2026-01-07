@@ -93,6 +93,17 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   inc env.stats[id].actionMove
 
+proc orientAction(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Change orientation without moving.
+  if argument < 0 or argument > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let newOrientation = Orientation(argument)
+  if agent.orientation != newOrientation:
+    agent.orientation = newOrientation
+    env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+  inc env.stats[id].actionOrient
+
 proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Swap
   let

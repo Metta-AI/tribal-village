@@ -129,6 +129,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of 6: env.plantAction(id, agent, argument)  # Plant lantern
     of 7: env.plantResourceAction(id, agent, argument)  # Plant wheat/tree on fertile tile
     of 8: env.buildFromChoices(id, agent, argument, BuildChoices)
+    of 9: env.orientAction(id, agent, argument)
     else: inc env.stats[id].actionInvalid
 
   when defined(stepTiming):
