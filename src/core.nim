@@ -297,6 +297,22 @@ proc tryBuildNearResource*(controller: Controller, env: Environment, agent: Thin
     return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
   (false, 0'u8)
 
+proc tryBuildCampThreshold*(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, teamId: int, kind: ThingKind,
+                            resourceCount, minResource: int,
+                            nearbyKinds: openArray[ThingKind],
+                            minSpacing: int = 3): tuple[did: bool, action: uint8] =
+  ## Build a camp if resource threshold is met and no nearby camp is within minSpacing.
+  if resourceCount < minResource:
+    return (false, 0'u8)
+  let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
+  if dist <= minSpacing:
+    return (false, 0'u8)
+  let idx = buildIndexFor(kind)
+  if idx >= 0:
+    return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  (false, 0'u8)
+
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
                           res: StockpileResource, rng: var Rand): Thing =
   template tryKind(kind: ThingKind): Thing =
