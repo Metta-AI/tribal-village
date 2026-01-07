@@ -77,8 +77,9 @@ proc enforceZeroHpDeaths(env: Environment) =
       env.killAgent(agent)
 
 proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Attack an entity in one of eight directions. Spears extend range to 2 tiles.
-  let attackOrientation = Orientation(argument)
+  ## Attack an entity in facing direction. Spears extend range to 2 tiles.
+  discard argument
+  let attackOrientation = agent.orientation
   let delta = getOrientationDelta(attackOrientation)
   let attackerTeam = getTeamId(agent.agentId)
   let baseDamage = agent.attackDamage
