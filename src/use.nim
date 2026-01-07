@@ -80,7 +80,14 @@ proc useAction*(env: Environment, id: int, agent: Thing) =
       used = true
   case thing.kind:
   of Wheat:
-    takeFromThing(ItemWheat, env.config.wheatReward)
+    if env.giveItem(agent, ItemWheat):
+      let remaining = getInv(thing, ItemWheat) - 1
+      agent.reward += env.config.wheatReward
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemWheat, remaining)
+      used = true
   of Stone:
     takeFromThing(ItemStone)
   of Gold:

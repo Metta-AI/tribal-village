@@ -594,6 +594,31 @@ proc drawSelectionLabel*(panelRect: IRect) =
      selectedPos.y < 0 or selectedPos.y >= MapHeight:
     return
 
+  proc appendResourceCount(label: var string, thing: Thing) =
+    var count = 0
+    case thing.kind
+    of Wheat:
+      count = getInv(thing, ItemWheat)
+    of Pine, Palm, Stump:
+      count = getInv(thing, ItemWood)
+    of Stone, Stalagmite:
+      count = getInv(thing, ItemStone)
+    of Gold:
+      count = getInv(thing, ItemGold)
+    of Bush, Cactus:
+      count = getInv(thing, ItemPlant)
+    of Cow:
+      count = getInv(thing, ItemMeat)
+    of Corpse:
+      for key, c in thing.inventory.pairs:
+        if c > 0:
+          label &= " (" & key & " " & $c & ")"
+          return
+      return
+    else:
+      return
+    label &= " (" & $count & ")"
+
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
   let overlay = env.overlayGrid[selectedPos.x][selectedPos.y]
@@ -623,8 +648,10 @@ proc drawSelectionLabel*(panelRect: IRect) =
           of UnitSiege: "Siege"
         else:
           thingDisplayName(thing.kind)
+    appendResourceCount(label, thing)
   elif not isNil(overlay):
     label = thingDisplayName(overlay.kind)
+    appendResourceCount(label, overlay)
   else:
     let terrain = env.terrain[selectedPos.x][selectedPos.y]
     let name = TerrainCatalog[terrain].displayName
