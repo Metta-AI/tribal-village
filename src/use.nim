@@ -1,4 +1,4 @@
-proc useAction(env: Environment, id: int, agent: Thing) =
+proc useAction*(env: Environment, id: int, agent: Thing) =
   ## Use terrain or building with a single action (requires holding needed resource if any)
   # Use current facing direction.
   let useOrientation = agent.orientation

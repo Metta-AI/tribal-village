@@ -5,7 +5,6 @@ import common
 import types
 import items
 import terrain
-import biome
 
 proc decodeAction(action: uint8): tuple[verb: int, arg: int] =
   (action.int div ActionArgumentCount, action.int mod ActionArgumentCount)
@@ -102,14 +101,16 @@ suite "Mechanics":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Pine, ivec2(10, 9), ItemWood, ResourceNodeInitial)
 
-    env.useAction(0, agent, dirIndex(agent.pos, ivec2(10, 9)))
+    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
+    env.useAction(0, agent)
     let stump = env.getThing(ivec2(10, 9))
     check stump.kind == Stump
     check getInv(stump, ItemWood) == ResourceNodeInitial - 1
     check agent.inventoryWood == 1
 
     setInv(stump, ItemWood, 1)
-    env.useAction(0, agent, dirIndex(agent.pos, ivec2(10, 9)))
+    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
+    env.useAction(0, agent)
     check env.getThing(ivec2(10, 9)) == nil
 
   test "wheat depletes and removes":
@@ -117,12 +118,14 @@ suite "Mechanics":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 2)
 
-    env.useAction(0, agent, dirIndex(agent.pos, ivec2(10, 9)))
+    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
+    env.useAction(0, agent)
     let wheat = env.getThing(ivec2(10, 9))
     check wheat.kind == Wheat
     check getInv(wheat, ItemWheat) == 1
 
-    env.useAction(0, agent, dirIndex(agent.pos, ivec2(10, 9)))
+    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
+    env.useAction(0, agent)
     check env.getThing(ivec2(10, 9)) == nil
 
   test "stone and gold deplete":
@@ -130,12 +133,16 @@ suite "Mechanics":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Stone, ivec2(10, 9), ItemStone, 1)
     discard addResource(env, Gold, ivec2(11, 10), ItemGold, 1)
+    let goldNode = env.getThing(ivec2(11, 10))
+    check getInv(goldNode, ItemGold) == 1
 
-    env.useAction(0, agent, dirIndex(agent.pos, ivec2(10, 9)))
+    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
+    env.useAction(0, agent)
     check env.getThing(ivec2(10, 9)) == nil
 
     agent.inventory = emptyInventory()
-    env.useAction(0, agent, dirIndex(agent.pos, ivec2(11, 10)))
+    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(11, 10)))
+    env.useAction(0, agent)
     check env.getThing(ivec2(11, 10)) == nil
 
 suite "AI - Gatherer":
@@ -171,7 +178,7 @@ suite "AI - Gatherer":
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
     discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 3)
-    let agent = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
+    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
     setStockpile(env, 0, ResourceFood, 0)
     setStockpile(env, 0, ResourceWood, 5)
     setStockpile(env, 0, ResourceStone, 5)
@@ -187,7 +194,7 @@ suite "AI - Gatherer":
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
     discard addResource(env, Pine, ivec2(10, 9), ItemWood, 3)
-    let agent = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
+    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
     setStockpile(env, 0, ResourceFood, 5)
     setStockpile(env, 0, ResourceWood, 0)
     setStockpile(env, 0, ResourceStone, 5)
@@ -203,7 +210,7 @@ suite "AI - Gatherer":
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
     discard addResource(env, Stone, ivec2(10, 9), ItemStone, 3)
-    let agent = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
+    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
     setStockpile(env, 0, ResourceFood, 5)
     setStockpile(env, 0, ResourceWood, 5)
     setStockpile(env, 0, ResourceStone, 0)
@@ -219,7 +226,7 @@ suite "AI - Gatherer":
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
     discard addResource(env, Gold, ivec2(10, 9), ItemGold, 3)
-    let agent = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
+    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
     setStockpile(env, 0, ResourceFood, 5)
     setStockpile(env, 0, ResourceWood, 5)
     setStockpile(env, 0, ResourceStone, 5)
@@ -246,7 +253,7 @@ suite "AI - Builder":
   test "builds core economy building when missing":
     let env = makeEmptyEnv()
     let controller = newController(8)
-    let agent = addAgentAt(env, 2, ivec2(10, 10))
+    discard addAgentAt(env, 2, ivec2(10, 10))
     setStockpile(env, 0, ResourceFood, 50)
     setStockpile(env, 0, ResourceWood, 50)
     setStockpile(env, 0, ResourceStone, 50)
@@ -264,7 +271,7 @@ suite "AI - Builder":
     discard addBuilding(env, LumberCamp, ivec2(13, 10), 0)
     discard addBuilding(env, Quarry, ivec2(14, 10), 0)
     discard addBuilding(env, MiningCamp, ivec2(15, 10), 0)
-    let agent = addAgentAt(env, 2, ivec2(10, 10))
+    discard addAgentAt(env, 2, ivec2(10, 10))
     setStockpile(env, 0, ResourceFood, 50)
     setStockpile(env, 0, ResourceWood, 50)
     setStockpile(env, 0, ResourceStone, 50)
@@ -283,7 +290,7 @@ suite "AI - Fighter":
     discard addAltar(env, basePos, 0, 12)
     let agentPos = ivec2(10, 17)
     let enemyPos = ivec2(10, 26)
-    let agent = addAgentAt(env, 4, agentPos, homeAltar = basePos, orientation = S)
+    discard addAgentAt(env, 4, agentPos, homeAltar = basePos, orientation = S)
     discard addAgentAt(env, MapAgentsPerVillage, enemyPos)
     setStockpile(env, 0, ResourceWood, 10)
 
