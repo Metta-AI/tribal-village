@@ -1,31 +1,22 @@
 const
-  # Door slots along the wall ring; offset avoids corners on common radii.
-  WallRingDoorSpacing = 5
-  WallRingDoorOffset = 2
   WallRingRadius = 7
   WallRingRadiusSlack = 1
   WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
 
-proc wallRingIndex(dx, dy, radius: int): int =
-  if max(abs(dx), abs(dy)) != radius:
-    return -1
-  if dy == -radius:
-    return dx + radius
-  if dx == radius:
-    return (2 * radius + 1) + (dy + radius - 1)
-  if dy == radius:
-    return (4 * radius + 1) + (radius - 1 - dx)
-  if dx == -radius:
-    return (6 * radius + 1) + (radius - 1 - dy)
-  -1
-
 proc isWallRingDoorSlot(altar, pos: IVec2, radius: int): bool =
   let dx = int(pos.x - altar.x)
   let dy = int(pos.y - altar.y)
-  let idx = wallRingIndex(dx, dy, radius)
-  if idx < 0:
-    return false
-  ((idx + WallRingDoorOffset) mod WallRingDoorSpacing) == 0
+  # Doors at cardinals and diagonals (8 total).
+  (dx, dy) in {
+    (0, -radius),
+    (radius, 0),
+    (0, radius),
+    (-radius, 0),
+    (radius, -radius),
+    (radius, radius),
+    (-radius, radius),
+    (-radius, -radius)
+  }
 
 proc doorInnerPos(altar, doorPos: IVec2, radius: int): IVec2 =
   let dx = int(doorPos.x - altar.x)
@@ -111,18 +102,19 @@ proc findHouseTarget(env: Environment, agent: Thing, anchor: IVec2,
 
 proc findDoorRingTarget(env: Environment, altar: IVec2): IVec2 =
   for radius in WallRingRadii:
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        if max(abs(dx), abs(dy)) != radius:
-          continue
-        let pos = altar + ivec2(dx.int32, dy.int32)
-        if not isWallRingDoorSlot(altar, pos, radius):
-          continue
-        if not env.canPlaceBuilding(pos):
-          continue
-        if env.terrain[pos.x][pos.y] == TerrainRoad:
-          continue
-        return pos
+    let doorOffsets = [
+      ivec2(0, -radius), ivec2(radius, 0), ivec2(0, radius), ivec2(-radius, 0),
+      ivec2(radius, -radius), ivec2(radius, radius), ivec2(-radius, radius), ivec2(-radius, -radius)
+    ]
+    for offset in doorOffsets:
+      let pos = altar + offset
+      if not isValidPos(pos):
+        continue
+      if not env.canPlaceBuilding(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == TerrainRoad:
+        continue
+      return pos
   ivec2(-1, -1)
 
 proc findDoorRingOutpostTarget(env: Environment, altar: IVec2): IVec2 =
@@ -190,7 +182,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   if agent.homeAltar.x >= 0:
     let doorKey = thingItem("Door")
     let doorTarget = findDoorRingTarget(env, agent.homeAltar)
-    if doorTarget.x >= 0:
+    let wallTarget = findWallRingTarget(env, agent.homeAltar)
+    let canDoor = doorTarget.x >= 0
+    let canWall = wallTarget.x >= 0
+    let buildDoorFirst = if canDoor and canWall: (env.currentStep mod 2) == 0 else: canDoor
+    if buildDoorFirst and canDoor:
       if env.canAffordBuild(teamId, doorKey):
         let (didDoor, actDoor) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
@@ -212,8 +208,8 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       else:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
-    let target = findWallRingTarget(env, agent.homeAltar)
-    if target.x >= 0:
+    if (not buildDoorFirst) and canWall:
+      let target = wallTarget
       let wallKey = thingItem("Wall")
       if env.canAffordBuild(teamId, wallKey):
         let idx = buildIndexFor(Wall)
