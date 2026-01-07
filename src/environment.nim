@@ -373,17 +373,18 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
 
 include "place"
 
-proc convertTreeToStump(env: Environment, tree: Thing, remaining: int) =
+proc convertTreeToStump(env: Environment, tree: Thing) =
   removeThing(env, tree)
-  env.dropStump(tree.pos, max(0, remaining))
+  env.dropStump(tree.pos, ResourceNodeInitial - 1)
+
+proc grantWood(env: Environment, agent: Thing, amount: int = 1) =
+  setInv(agent, ItemWood, getInv(agent, ItemWood) + amount)
+  env.updateAgentInventoryObs(agent, ItemWood)
 
 proc harvestTree(env: Environment, agent: Thing, tree: Thing) =
-  let stored = getInv(tree, ItemWood)
-  var remaining = stored
-  if stored > 0 and env.giveItem(agent, ItemWood):
-    remaining = stored - 1
-    agent.reward += env.config.woodReward
-  env.convertTreeToStump(tree, remaining)
+  env.grantWood(agent)
+  agent.reward += env.config.woodReward
+  env.convertTreeToStump(tree)
 
 include "move"
 include "combat"
