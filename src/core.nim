@@ -24,14 +24,18 @@ type
     lastSearchPosition: IVec2
     # Bail-out / anti-oscillation state
     lastPosition: IVec2
-    recentPositions: array[4, IVec2]
+    recentPositions: array[12, IVec2]
     recentPosIndex: int
     recentPosCount: int
-    stuckCounter: int
     escapeMode: bool
     escapeStepsRemaining: int
     escapeDirection: IVec2
     cachedThingPos: array[ThingKind, IVec2]
+    closestFoodPos: IVec2
+    closestWoodPos: IVec2
+    closestStonePos: IVec2
+    closestGoldPos: IVec2
+    closestMagmaPos: IVec2
 
   # Simple controller
   Controller* = ref object
@@ -76,6 +80,15 @@ proc chebyshevDist(a, b: IVec2): int32 =
   let dx = abs(a.x - b.x)
   let dy = abs(a.y - b.y)
   return (if dx > dy: dx else: dy)
+
+proc updateClosestSeen(state: var AgentState, basePos: IVec2, candidate: IVec2, current: var IVec2) =
+  if candidate.x < 0:
+    return
+  if current.x < 0:
+    current = candidate
+    return
+  if chebyshevDist(candidate, basePos) < chebyshevDist(current, basePos):
+    current = candidate
 
 proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
   case direction:
@@ -356,6 +369,7 @@ proc neighborDirIndex(fromPos, toPos: IVec2): int =
   let sx = (if dx > 0: 1'i32 elif dx < 0: -1'i32 else: 0'i32)
   let sy = (if dy > 0: 1'i32 elif dy < 0: -1'i32 else: 0'i32)
   return vecToOrientation(ivec2(sx.int, sy.int))
+
 
 proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
   ## Pick an orientation whose spear wedge covers the target (matches attackAction pattern).
@@ -665,6 +679,17 @@ proc attackOrMove(controller: Controller, env: Environment, agent: Thing, agentI
                   state: var AgentState, targetPos: IVec2): uint8 =
   moveOrAct(controller, env, agent, agentId, state, targetPos, 2'u8)
 
+proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, pos: var IVec2,
+                            allowed: set[ThingKind], verb: uint8): tuple[did: bool, action: uint8] =
+  if pos.x < 0:
+    return (false, 0'u8)
+  let thing = env.getThing(pos)
+  if isNil(thing) or thing.kind notin allowed:
+    pos = ivec2(-1, -1)
+    return (false, 0'u8)
+  return (true, moveOrAct(controller, env, agent, agentId, state, pos, verb))
+
 proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
   let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
@@ -788,34 +813,61 @@ proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: T
 
 proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didStump, actStump) = controller.moveToNearestThing(env, agent, agentId, state, Stump, 3'u8)
-  if didStump: return (didStump, actStump)
-  let (didPine, actPine) = controller.moveToNearestThing(env, agent, agentId, state, Pine, 3'u8)
-  if didPine: return (didPine, actPine)
-  let (didPalm, actPalm) = controller.moveToNearestThing(env, agent, agentId, state, Palm, 3'u8)
-  if didPalm: return (didPalm, actPalm)
+  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+    env, agent, agentId, state, state.closestWoodPos, {Stump, Pine, Palm}, 3'u8)
+  if didKnown: return (didKnown, actKnown)
+  var target = env.findNearestThingSpiral(state, Stump, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+  target = env.findNearestThingSpiral(state, Pine, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+  target = env.findNearestThingSpiral(state, Palm, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didStone, actStone) = controller.moveToNearestThing(env, agent, agentId, state, Stone, 3'u8)
-  if didStone: return (didStone, actStone)
-  let (didStalag, actStalag) = controller.moveToNearestThing(env, agent, agentId, state, Stalagmite, 3'u8)
-  if didStalag: return (didStalag, actStalag)
+  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+    env, agent, agentId, state, state.closestStonePos, {Stone, Stalagmite}, 3'u8)
+  if didKnown: return (didKnown, actKnown)
+  var target = env.findNearestThingSpiral(state, Stone, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+  target = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didGold, actGold) = controller.moveToNearestThing(env, agent, agentId, state, Gold, 3'u8)
-  if didGold: return (didGold, actGold)
+  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+    env, agent, agentId, state, state.closestGoldPos, {Gold}, 3'u8)
+  if didKnown: return (didKnown, actKnown)
+  let target = env.findNearestThingSpiral(state, Gold, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didCorpse, actCorpse) = controller.moveToNearestThing(env, agent, agentId, state, Corpse, 3'u8)
-  if didCorpse: return (didCorpse, actCorpse)
-  let (didCow, actCow) = controller.moveToNearestThing(env, agent, agentId, state, Cow, 2'u8)
-  if didCow: return (didCow, actCow)
-  let (didBush, actBush) = controller.moveToNearestThing(env, agent, agentId, state, Bush, 3'u8)
-  if didBush: return (didBush, actBush)
+  var target = env.findNearestThingSpiral(state, Corpse, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+  target = env.findNearestThingSpiral(state, Cow, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 2'u8))
+  target = env.findNearestThingSpiral(state, Bush, controller.rng)
+  if not isNil(target):
+    updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
+    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
   (true, controller.moveNextSearch(env, agent, agentId, state))
