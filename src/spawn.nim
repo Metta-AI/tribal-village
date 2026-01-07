@@ -269,14 +269,14 @@ proc spawnRockAndGoldClusters(env: Environment, r: var Rand) =
   for _ in 0 ..< rockClusters:
     let x = randIntInclusive(r, MapBorder + 4, MapWidth - MapBorder - 4)
     let y = randIntInclusive(r, MapBorder + 4, MapHeight - MapBorder - 4)
-    let size = randIntInclusive(r, 4, 8)
+    let size = randIntInclusive(r, 5, 10)
     placeResourceCluster(env, x, y, size, 0.9, 0.3, Stone, ItemStone, ResourceGround, r)
 
   let goldClusters = max(8, MapWidth div 50)
   for _ in 0 ..< goldClusters:
     let x = randIntInclusive(r, MapBorder + 6, MapWidth - MapBorder - 6)
     let y = randIntInclusive(r, MapBorder + 6, MapHeight - MapBorder - 6)
-    let size = randIntInclusive(r, 3, 5)
+    let size = randIntInclusive(r, 4, 6)
     placeResourceCluster(env, x, y, size, 0.8, 0.4, Gold, ItemGold, ResourceGround, r)
 
 proc spawnMineDeposits(env: Environment, r: var Rand) =
