@@ -75,23 +75,13 @@ proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
   updateAgentInventoryObs(env, agent, toItemKey(kind))
 
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
-  if teamId < 0 or teamId >= env.teamStockpiles.len:
-    return 0
   env.teamStockpiles[teamId].counts[res]
 
 proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
-  if teamId < 0 or teamId >= env.teamStockpiles.len:
-    return
-  if amount <= 0:
-    return
   env.teamStockpiles[teamId].counts[res] += amount
 
 proc canSpendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
-  if teamId < 0 or teamId >= env.teamStockpiles.len:
-    return false
   for cost in costs:
-    if cost.count <= 0:
-      continue
     if env.teamStockpiles[teamId].counts[cost.res] < cost.count:
       return false
   true
@@ -100,8 +90,6 @@ proc spendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[res: 
   if not env.canSpendStockpile(teamId, costs):
     return false
   for cost in costs:
-    if cost.count <= 0:
-      continue
     env.teamStockpiles[teamId].counts[cost.res] -= cost.count
   true
 

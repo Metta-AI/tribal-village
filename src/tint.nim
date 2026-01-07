@@ -121,7 +121,7 @@ proc updateTintModifications(env: Environment) =
         addTintArea(baseX, baseY, env.agentColors[tribeId], radius = 2, scale = 90)
 
     of Lantern:
-      if thing.lanternHealthy and thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+      if thing.lanternHealthy:
         addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
     of Tumor:
       addTumorTintArea(baseX, baseY)

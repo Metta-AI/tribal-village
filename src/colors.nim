@@ -219,16 +219,9 @@ proc generateEntityColor*(entityType: string, id: int, fallbackColor: Color = co
   ## Uses Environment fields for color storage.
   case entityType:
   of "agent":
-    if id >= 0 and id < env.agentColors.len:
-      return env.agentColors[id]
-    let teamId = getTeamId(id)
-    if teamId >= 0 and teamId < env.teamColors.len:
-      return env.teamColors[teamId]
-    return fallbackColor
+    return env.agentColors[id]
   of "village":
-    if id >= 0 and id < env.teamColors.len:
-      return env.teamColors[id]
-    return fallbackColor
+    return env.teamColors[id]
   else:
     return fallbackColor
 
