@@ -122,12 +122,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     case verb:
     of 0: inc env.stats[id].actionNoop
     of 1: env.moveAction(id, agent, argument)
-    of 2: env.attackAction(id, agent, argument)
-    of 3: env.useAction(id, agent, argument)  # Use terrain/buildings
+    of 2: env.attackAction(id, agent)
+    of 3: env.useAction(id, agent)  # Use terrain/buildings (facing)
     of 4: env.swapAction(id, agent, argument)
-    of 5: env.putAction(id, agent, argument)  # Give to teammate
-    of 6: env.plantAction(id, agent, argument)  # Plant lantern
-    of 7: env.plantResourceAction(id, agent, argument)  # Plant wheat/tree on fertile tile
+    of 5: env.putAction(id, agent)  # Give to teammate (facing)
+    of 6: env.plantAction(id, agent)  # Plant lantern (facing)
+    of 7: env.plantResourceAction(id, agent, argument)  # Plant wheat/tree type on fertile tile
     of 8: env.buildFromChoices(id, agent, argument, BuildChoices)
     of 9: env.orientAction(id, agent, argument)
     else: inc env.stats[id].actionInvalid
