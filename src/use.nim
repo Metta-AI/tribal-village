@@ -1,20 +1,11 @@
 proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Use terrain or building with a single action (requires holding needed resource if any)
-  if argument > 7:
-    inc env.stats[id].actionInvalid
-    return
-
   # Calculate target position based on orientation argument
   let useOrientation = Orientation(argument)
   let delta = getOrientationDelta(useOrientation)
   var targetPos = agent.pos
   targetPos.x += int32(delta.x)
   targetPos.y += int32(delta.y)
-
-  # Check bounds
-  if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
-    inc env.stats[id].actionInvalid
-    return
 
   # Frozen tiles are non-interactable (terrain or things sitting on them)
   if isTileFrozen(targetPos, env):

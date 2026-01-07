@@ -562,21 +562,12 @@ include "build"
 
 proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Plant lantern at agent's current position - argument specifies direction (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
-  if argument > 7:
-    inc env.stats[id].actionInvalid
-    return
-
   # Calculate target position based on orientation argument
   let plantOrientation = Orientation(argument)
   let delta = getOrientationDelta(plantOrientation)
   var targetPos = agent.pos
   targetPos.x += int32(delta.x)
   targetPos.y += int32(delta.y)
-
-  # Check bounds
-  if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
-    inc env.stats[id].actionInvalid
-    return
 
   # Check if position is empty and not water
   if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
@@ -609,20 +600,13 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile
-  if argument < 0 or argument >= 8:
-    inc env.stats[id].actionInvalid
-    return
-
   let plantingTree = argument >= 4
   let dirIndex = if plantingTree: argument - 4 else: argument
   let orientation = Orientation(dirIndex)
   let delta = getOrientationDelta(orientation)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
 
-  # Bounds and occupancy checks
-  if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
-    inc env.stats[id].actionInvalid
-    return
+  # Occupancy checks
   if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
