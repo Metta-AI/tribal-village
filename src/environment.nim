@@ -125,7 +125,7 @@ proc hasDoor*(env: Environment, pos: IVec2): bool =
   let door = env.overlayGrid[pos.x][pos.y]
   return not isNil(door) and door.kind == Door
 
-proc getDoorTeam*(env: Environment, pos: IVec2): int =
+proc getDoorTeam(env: Environment, pos: IVec2): int =
   let door = env.overlayGrid[pos.x][pos.y]
   return door.teamId
 
