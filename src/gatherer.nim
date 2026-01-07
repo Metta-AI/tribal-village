@@ -49,12 +49,12 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   let task = chooseGathererTask(controller, env, teamId, altarHearts)
 
   template tryBuildCamp(kind: ThingKind, nearbyCount, minCount: int,
-                        nearbyKinds: openArray[ThingKind], distanceThreshold: int): uint8 =
+                        nearbyKinds: openArray[ThingKind]): uint8 =
     if agent.unitClass == UnitVillager:
-      let (didBuild, buildAct) = controller.tryBuildNearResource(
+      let (didBuild, buildAct) = controller.tryBuildCampThreshold(
         env, agent, agentId, state, teamId, kind,
         nearbyCount, minCount,
-        nearbyKinds, distanceThreshold
+        nearbyKinds
       )
       if didBuild: return buildAct
     0'u8
@@ -76,7 +76,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskGold:
     let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
-    let buildAct = tryBuildCamp(MiningCamp, nearbyGold, 6, [MiningCamp], 6)
+    let buildAct = tryBuildCamp(MiningCamp, nearbyGold, 6, [MiningCamp])
     if buildAct != 0'u8: return buildAct
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return actGold
@@ -84,12 +84,15 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   of TaskFood:
     let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
     let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-    let buildGranary = tryBuildCamp(Granary, nearbyWheat + nearbyFertile, 8, [Granary], 8)
+    let buildGranary = tryBuildCamp(Granary, nearbyWheat + nearbyFertile, 8, [Granary])
     if buildGranary != 0'u8: return buildGranary
     if agent.homeAltar.x < 0 or
        max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
-      let buildMill = tryBuildCamp(Mill, 1, 1, [Mill], 6)
-      if buildMill != 0'u8: return buildMill
+      let (didMill, actMill) = controller.tryBuildNearResource(
+        env, agent, agentId, state, teamId, Mill,
+        1, 1, [Mill], 6
+      )
+      if didMill: return actMill
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
 
@@ -102,14 +105,14 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskWood:
     let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Pine, Palm})
-    let buildAct = tryBuildCamp(LumberCamp, nearbyTrees, 6, [LumberCamp], 6)
+    let buildAct = tryBuildCamp(LumberCamp, nearbyTrees, 6, [LumberCamp])
     if buildAct != 0'u8: return buildAct
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskStone:
     let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
-    let buildAct = tryBuildCamp(Quarry, nearbyStone, 4, [Quarry], 6)
+    let buildAct = tryBuildCamp(Quarry, nearbyStone, 4, [Quarry])
     if buildAct != 0'u8: return buildAct
     let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
     if didStone: return actStone
