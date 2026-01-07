@@ -39,23 +39,9 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = initBuildChoices()
 
 proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
                       choices: array[ActionArgumentCount, ItemKey]) =
-  if argument < 0 or argument >= choices.len:
-    inc env.stats[id].actionInvalid
-    return
-  if agent.unitClass != UnitVillager:
-    inc env.stats[id].actionInvalid
-    return
   let key = choices[argument]
-  if key == ItemNone:
-    inc env.stats[id].actionInvalid
-    return
 
   let roadKey = thingItem("Road")
-  if key != roadKey:
-    var kind: ThingKind
-    if not parseThingKey(key, kind):
-      inc env.stats[id].actionInvalid
-      return
 
   proc signi(x: int32): int32 =
     if x < 0: -1

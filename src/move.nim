@@ -1,8 +1,4 @@
 proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
-  if argument < 0 or argument > 7:
-    inc env.stats[id].actionInvalid
-    return
-
   let moveOrientation = Orientation(argument)
   let delta = getOrientationDelta(moveOrientation)
 
