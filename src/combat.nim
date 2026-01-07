@@ -112,9 +112,9 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
           door.teamId = attackerTeam
   
   proc spawnCorpseAt(pos: IVec2, key: ItemKey, amount: int) =
-    var remaining = amount
+    let remaining = amount
     if remaining <= 0:
-      remaining = ResourceNodeInitial
+      return
     let corpse = Thing(kind: Corpse, pos: pos)
     corpse.inventory = emptyInventory()
     setInv(corpse, key, remaining)
@@ -156,9 +156,10 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
         claimAltar(target)
       return true
     of Cow:
-      let meatRemaining = getInv(target, ItemMeat)
+      setInv(agent, ItemMeat, getInv(agent, ItemMeat) + 1)
+      env.updateAgentInventoryObs(agent, ItemMeat)
       removeThing(env, target)
-      spawnCorpseAt(pos, ItemMeat, meatRemaining)
+      spawnCorpseAt(pos, ItemMeat, ResourceNodeInitial - 1)
       return true
     of Pine, Palm:
       env.harvestTree(agent, target)
