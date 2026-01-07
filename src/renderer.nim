@@ -444,10 +444,6 @@ proc drawObjects*() =
           else:
             color(1, 1, 1, 1)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = spriteScale(spriteKey), tint = tint)
-        if thing.kind != Door:
-          let maskKey = "roofmask." & spriteKey
-          let tint = env.teamColors[thing.teamId]
-          bxy.drawImage(maskKey, pos.vec2, angle = 0, scale = spriteScale(maskKey), tint = tint)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let icon = case res
