@@ -55,16 +55,15 @@ proc findWallRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
       return pos
   ivec2(-1, -1)
 
-proc findHouseClusterTarget(env: Environment, agent: Thing, anchor: IVec2,
-                            minDist, maxDist: int): tuple[buildPos, standPos: IVec2] =
-  ## Find an empty tile inside a 2x2 house block near the anchor, plus a stand position.
+proc findHouseTarget(env: Environment, agent: Thing, anchor: IVec2,
+                     minDist, maxDist: int): tuple[buildPos, standPos: IVec2] =
+  ## Find any buildable single-tile house spot between min/max range of the altar.
   result.buildPos = ivec2(-1, -1)
   result.standPos = ivec2(-1, -1)
-  let minX = max(0, anchor.x - maxDist - 1)
-  let maxX = min(MapWidth - 2, anchor.x + maxDist + 1)
-  let minY = max(0, anchor.y - maxDist - 1)
-  let maxY = min(MapHeight - 2, anchor.y + maxDist + 1)
-  var bestScore = -1
+  let minX = max(0, anchor.x - maxDist)
+  let maxX = min(MapWidth - 1, anchor.x + maxDist)
+  let minY = max(0, anchor.y - maxDist)
+  let maxY = min(MapHeight - 1, anchor.y + maxDist)
 
   proc isBuildableHouseTile(pos: IVec2): bool =
     if not isValidPos(pos):
@@ -77,68 +76,33 @@ proc findHouseClusterTarget(env: Environment, agent: Thing, anchor: IVec2,
       return false
     if env.terrain[pos.x][pos.y] == TerrainRoad:
       return false
+    if not env.isEmpty(pos):
+      return false
     true
 
   for x in minX .. maxX:
     for y in minY .. maxY:
-      let p0 = ivec2(x.int32, y.int32)
-      let p1 = ivec2((x + 1).int32, y.int32)
-      let p2 = ivec2(x.int32, (y + 1).int32)
-      let p3 = ivec2((x + 1).int32, (y + 1).int32)
-      let tiles = [p0, p1, p2, p3]
-
-      var existingHouses = 0
-      var emptyTiles: seq[IVec2] = @[]
-      var blocked = false
-      for t in tiles:
-        let dist = chebyshevDist(anchor, t).int
-        if dist < minDist or dist > maxDist:
-          blocked = true
-          break
-        if not isBuildableHouseTile(t):
-          blocked = true
-          break
-        let occ = env.getThing(t)
-        if not isNil(occ):
-          if occ.kind == House:
-            inc existingHouses
-          else:
-            blocked = true
-            break
-        else:
-          emptyTiles.add(t)
-      if blocked or emptyTiles.len == 0:
+      let pos = ivec2(x.int32, y.int32)
+      let dist = chebyshevDist(anchor, pos).int
+      if dist < minDist or dist > maxDist:
         continue
-
-      var bestTile = ivec2(-1, -1)
-      var bestStand = ivec2(-1, -1)
-      for t in emptyTiles:
-        for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
-          let stand = t + d
-          if not isValidPos(stand):
-            continue
-          if env.hasDoor(stand):
-            continue
-          if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
-            continue
-          if not env.isEmpty(stand):
-            continue
-          if not env.canAgentPassDoor(agent, stand):
-            continue
-          bestTile = t
-          bestStand = stand
-          break
-        if bestTile.x >= 0:
-          break
-      if bestTile.x < 0:
+      if not isBuildableHouseTile(pos):
         continue
-
-      let score = existingHouses * 10
-      if score > bestScore:
-        bestScore = score
-        result.buildPos = bestTile
-        result.standPos = bestStand
-
+      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+        let stand = pos + d
+        if not isValidPos(stand):
+          continue
+        if env.hasDoor(stand):
+          continue
+        if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
+          continue
+        if not env.isEmpty(stand):
+          continue
+        if not env.canAgentPassDoor(agent, stand):
+          continue
+        result.buildPos = pos
+        result.standPos = stand
+        return result
   result
 
 proc findDoorRingTarget(env: Environment, altar: IVec2, radius: int): IVec2 =
@@ -204,7 +168,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let popCap = env.teamPopCap(teamId)
   if popCap > 0 and popCount >= popCap - 1:
     let anchor = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-    let target = findHouseClusterTarget(env, agent, anchor, 3, 5)
+    let target = findHouseTarget(env, agent, anchor, 5, 15)
     if target.buildPos.x >= 0:
       let idx = buildIndexFor(House)
       if idx >= 0:
