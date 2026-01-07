@@ -265,7 +265,10 @@ proc tribal_village_get_error_message*(buffer: ptr char, bufferSize: int32): int
   ## Copy the error message to the provided buffer
   ## Returns the actual length written, or -1 if buffer too small
   let msg = lastFFIError.errorMessage
-  copyMem(buffer, unsafeAddr msg[0], msg.len)
+  if msg.len >= bufferSize:
+    return -1
+  if msg.len > 0:
+    copyMem(buffer, unsafeAddr msg[0], msg.len)
   cast[ptr char](cast[uint](buffer) + msg.len.uint)[] = '\0'
   msg.len.int32
 

@@ -11,6 +11,9 @@ when defined(renderTiming):
 let profileStepsStr = getEnv("TV_PROFILE_STEPS", "")
 if profileStepsStr.len > 0:
   let profileSteps = parseInt(profileStepsStr)
+  if globalController.isNil:
+    let profileExternal = existsEnv("TRIBAL_PYTHON_CONTROL") or existsEnv("TRIBAL_EXTERNAL_CONTROL")
+    initGlobalController(if profileExternal: ExternalNN else: BuiltinAI)
   var actionsArray: array[MapAgents, uint8]
   for _ in 0 ..< profileSteps:
     actionsArray = getActions(env)
