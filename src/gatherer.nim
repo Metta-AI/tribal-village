@@ -15,14 +15,21 @@ proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
   if altarHearts < 10:
     return TaskHearts
 
-  var lowest = min(food, min(wood, min(stone, min(gold, altarHearts))))
-  var choices: seq[GathererTask] = @[]
-  if food == lowest: choices.add(TaskFood)
-  if wood == lowest: choices.add(TaskWood)
-  if stone == lowest: choices.add(TaskStone)
-  if gold == lowest: choices.add(TaskGold)
-  if altarHearts == lowest: choices.add(TaskHearts)
-  choices[randIntExclusive(controller.rng, 0, choices.len)]
+  let lowest = min(food, min(wood, min(stone, min(gold, altarHearts))))
+  let ordered = [TaskHearts, TaskFood, TaskWood, TaskStone, TaskGold]
+  for task in ordered:
+    case task
+    of TaskHearts:
+      if altarHearts == lowest: return TaskHearts
+    of TaskFood:
+      if food == lowest: return TaskFood
+    of TaskWood:
+      if wood == lowest: return TaskWood
+    of TaskStone:
+      if stone == lowest: return TaskStone
+    of TaskGold:
+      if gold == lowest: return TaskGold
+  TaskFood
 
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
@@ -48,8 +55,12 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
 
   if carryingStockpile:
     if agent.inventoryGold > 0 and altarHearts < 10:
+      let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+        env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+      if didKnown: return actKnown
       let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
       if not isNil(magma):
+        updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
         return controller.useOrMove(env, agent, agentId, state, magma.pos)
     let (didDrop, dropAct) =
       controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = true)
@@ -79,8 +90,12 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       if not isNil(altar):
         return controller.useOrMove(env, agent, agentId, state, altar.pos)
     if agent.inventoryGold > 0:
+      let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+        env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+      if didKnown: return actKnown
       let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
       if not isNil(magma):
+        updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
         return controller.useOrMove(env, agent, agentId, state, magma.pos)
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return actGold
@@ -107,8 +122,17 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
 
+    if state.closestFoodPos.x >= 0:
+      let knownThing = env.getThing(state.closestFoodPos)
+      if not isNil(knownThing) and knownThing.kind in {Wheat, Bush, Cow, Corpse}:
+        if knownThing.kind == Cow:
+          return controller.attackOrMove(env, agent, agentId, state, knownThing.pos)
+        return controller.useOrMove(env, agent, agentId, state, knownThing.pos)
+      state.closestFoodPos = ivec2(-1, -1)
+
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
     if not isNil(wheat):
+      updateClosestSeen(state, state.basePosition, wheat.pos, state.closestFoodPos)
       return controller.useOrMove(env, agent, agentId, state, wheat.pos)
 
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)

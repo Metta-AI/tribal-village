@@ -170,10 +170,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       lastPosition: agent.pos,
       recentPosIndex: 0,
       recentPosCount: 0,
-      stuckCounter: 0,
       escapeMode: false,
       escapeStepsRemaining: 0,
-      escapeDirection: ivec2(0, -1)
+      escapeDirection: ivec2(0, -1),
+      closestFoodPos: ivec2(-1, -1),
+      closestWoodPos: ivec2(-1, -1),
+      closestStonePos: ivec2(-1, -1),
+      closestGoldPos: ivec2(-1, -1),
+      closestMagmaPos: ivec2(-1, -1)
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
@@ -182,51 +186,53 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   var state = controller.agents[agentId]
 
-  # --- Simple bail-out and dithering to avoid getting stuck/oscillation ---
-  # Update recent positions history (ring buffer size 4)
+  # --- Simple bail-out to avoid getting stuck/oscillation ---
+  # Update recent positions history (ring buffer size 12)
   state.recentPositions[state.recentPosIndex] = agent.pos
-  state.recentPosIndex = (state.recentPosIndex + 1) mod 4
-  if state.recentPosCount < 4:
+  state.recentPosIndex = (state.recentPosIndex + 1) mod 12
+  if state.recentPosCount < 12:
     inc state.recentPosCount
 
   proc recentAt(offset: int): IVec2 =
-    let idx = (state.recentPosIndex - 1 - offset + 4 * 4) mod 4
+    let idx = (state.recentPosIndex - 1 - offset + 12 * 12) mod 12
     state.recentPositions[idx]
 
-  # Detect stuck: same position or simple 2-cycle oscillation
-  if state.recentPosCount >= 2 and agent.pos == state.lastPosition:
-    inc state.stuckCounter
-  elif state.recentPosCount >= 4:
-    let p0 = recentAt(0)
-    let p1 = recentAt(1)
-    let p2 = recentAt(2)
-    let p3 = recentAt(3)
-    if (p0 == p2 and p1 == p3) or (p0 == p1):
-      inc state.stuckCounter
-    else:
-      state.stuckCounter = 0
-  else:
-    state.stuckCounter = 0
-
-  # Enter escape mode if stuck
-  if not state.escapeMode and state.stuckCounter >= 3:
-    state.escapeMode = true
-    state.escapeStepsRemaining = 6
-    state.recentPosCount = 0
-    state.recentPosIndex = 0
-    # Choose an escape direction: prefer any empty cardinal, shuffled
-    var dirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
-    for i in countdown(dirs.len - 1, 1):
-      let j = randIntInclusive(controller.rng, 0, i)
-      let tmp = dirs[i]
-      dirs[i] = dirs[j]
-      dirs[j] = tmp
-    var chosen = ivec2(0, -1)
-    for d in dirs:
-      if isPassable(env, agent, agent.pos + d):
-        chosen = d
-        break
-    state.escapeDirection = chosen
+  # Enter escape mode if stuck in 1-3 tiles for 10+ steps
+  if not state.escapeMode and state.recentPosCount >= 10:
+    var uniqueCount = 0
+    var unique: array[3, IVec2]
+    for i in 0 ..< 10:
+      let p = recentAt(i)
+      var seen = false
+      for j in 0 ..< uniqueCount:
+        if unique[j] == p:
+          seen = true
+          break
+      if not seen:
+        if uniqueCount < 3:
+          unique[uniqueCount] = p
+          inc uniqueCount
+        else:
+          uniqueCount = 4
+          break
+    if uniqueCount <= 3:
+      state.escapeMode = true
+      state.escapeStepsRemaining = 10
+      state.recentPosCount = 0
+      state.recentPosIndex = 0
+      # Choose an escape direction: prefer any empty cardinal, shuffled
+      var dirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+      for i in countdown(dirs.len - 1, 1):
+        let j = randIntInclusive(controller.rng, 0, i)
+        let tmp = dirs[i]
+        dirs[i] = dirs[j]
+        dirs[j] = tmp
+      var chosen = ivec2(0, -1)
+      for d in dirs:
+        if isPassable(env, agent, agent.pos + d):
+          chosen = d
+          break
+      state.escapeDirection = chosen
 
   # If in escape mode, try to move in escape direction for a few steps
   if state.escapeMode and state.escapeStepsRemaining > 0:
@@ -240,27 +246,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         dec state.escapeStepsRemaining
         if state.escapeStepsRemaining <= 0:
           state.escapeMode = false
-          state.stuckCounter = 0
         state.lastPosition = agent.pos
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, vecToOrientation(d).uint8))
     # If all blocked, drop out of escape for this tick
     state.escapeMode = false
-    state.stuckCounter = 0
-
-  # Small dithering chance to break deadlocks (lower for gatherers to stay focused)
-  let ditherChance = if state.role == Gatherer: 0.10 else: 0.20
-  if randFloat(controller.rng) < ditherChance:
-    var candidates = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
-                      ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
-    for i in countdown(candidates.len - 1, 1):
-      let j = randIntInclusive(controller.rng, 0, i)
-      let tmp = candidates[i]
-      candidates[i] = candidates[j]
-      candidates[j] = tmp
-    for d in candidates:
-      if isPassable(env, agent, agent.pos + d):
-        state.lastPosition = agent.pos
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, vecToOrientation(d).uint8))
 
   # From here on, ensure lastPosition is updated this tick regardless of branch
   state.lastPosition = agent.pos
