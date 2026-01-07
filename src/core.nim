@@ -745,18 +745,20 @@ proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agen
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, nextSearchPos, controller.rng).uint8))
 
-proc moveOrAct(controller: Controller, env: Environment, agent: Thing, agentId: int,
-               state: var AgentState, targetPos: IVec2, verb: uint8,
-               argument: int = 0): uint8 =
+proc actAtTarget(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                 state: var AgentState, targetPos: IVec2, verb: uint8,
+                 argument: int = 0): uint8 =
+  let desiredDir = neighborDirIndex(agent.pos, targetPos)
+  if agent.orientation != Orientation(desiredDir):
+    return saveStateAndReturn(controller, agentId, state,
+      encodeAction(9'u8, desiredDir.uint8))
+  return saveStateAndReturn(controller, agentId, state,
+    encodeAction(verb, argument.uint8))
+
+proc moveToTarget(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                  state: var AgentState, targetPos: IVec2): uint8 =
   let dx = abs(targetPos.x - agent.pos.x)
   let dy = abs(targetPos.y - agent.pos.y)
-  if max(dx, dy) == 1'i32:
-    let desiredDir = neighborDirIndex(agent.pos, targetPos)
-    if agent.orientation != Orientation(desiredDir):
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(9'u8, desiredDir.uint8))
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(verb, argument.uint8))
   if max(dx, dy) >= 6'i32:
     if state.pathBlockedTarget != targetPos:
       if state.plannedTarget != targetPos or state.plannedPath.len == 0:
@@ -787,16 +789,28 @@ proc moveToNearestThing(controller: Controller, env: Environment, agent: Thing, 
                         state: var AgentState, kind: ThingKind, verb: uint8): tuple[did: bool, action: uint8] =
   let target = env.findNearestThingSpiral(state, kind, controller.rng)
   if not isNil(target):
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, verb))
+    let dx = abs(target.pos.x - agent.pos.x)
+    let dy = abs(target.pos.y - agent.pos.y)
+    if max(dx, dy) == 1'i32:
+      return (true, actAtTarget(controller, env, agent, agentId, state, target.pos, verb))
+    return (true, moveToTarget(controller, env, agent, agentId, state, target.pos))
   (false, 0'u8)
 
 proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                state: var AgentState, targetPos: IVec2): uint8 =
-  moveOrAct(controller, env, agent, agentId, state, targetPos, 3'u8)
+  let dx = abs(targetPos.x - agent.pos.x)
+  let dy = abs(targetPos.y - agent.pos.y)
+  if max(dx, dy) == 1'i32:
+    return actAtTarget(controller, env, agent, agentId, state, targetPos, 3'u8)
+  moveToTarget(controller, env, agent, agentId, state, targetPos)
 
 proc attackOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
                   state: var AgentState, targetPos: IVec2): uint8 =
-  moveOrAct(controller, env, agent, agentId, state, targetPos, 2'u8)
+  let dx = abs(targetPos.x - agent.pos.x)
+  let dy = abs(targetPos.y - agent.pos.y)
+  if max(dx, dy) == 1'i32:
+    return actAtTarget(controller, env, agent, agentId, state, targetPos, 2'u8)
+  moveToTarget(controller, env, agent, agentId, state, targetPos)
 
 proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
                             state: var AgentState, pos: var IVec2,
@@ -807,7 +821,11 @@ proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thi
   if isNil(thing) or thing.kind notin allowed or isThingFrozen(thing, env):
     pos = ivec2(-1, -1)
     return (false, 0'u8)
-  return (true, moveOrAct(controller, env, agent, agentId, state, pos, verb))
+  let dx = abs(pos.x - agent.pos.x)
+  let dy = abs(pos.y - agent.pos.y)
+  if max(dx, dy) == 1'i32:
+    return (true, actAtTarget(controller, env, agent, agentId, state, pos, verb))
+  return (true, moveToTarget(controller, env, agent, agentId, state, pos))
 
 proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
@@ -846,9 +864,9 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
   of ResourceFood:
     result = tryKind(Granary)
     if isNil(result):
-      result = tryKind(TownCenter)
-    if isNil(result):
       result = tryKind(Mill)
+    if isNil(result):
+      result = tryKind(TownCenter)
   of ResourceWood:
     result = tryKind(LumberCamp)
     if isNil(result):
@@ -942,15 +960,15 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
   var target = env.findNearestThingSpiral(state, Stump, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   target = env.findNearestThingSpiral(state, Pine, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   target = env.findNearestThingSpiral(state, Palm, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -961,11 +979,11 @@ proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId
   var target = env.findNearestThingSpiral(state, Stone, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   target = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -976,7 +994,7 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
   let target = env.findNearestThingSpiral(state, Gold, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -984,13 +1002,13 @@ proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agen
   var target = env.findNearestThingSpiral(state, Corpse, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   target = env.findNearestThingSpiral(state, Cow, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 2'u8))
+    return (true, controller.attackOrMove(env, agent, agentId, state, target.pos))
   target = env.findNearestThingSpiral(state, Bush, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
-    return (true, moveOrAct(controller, env, agent, agentId, state, target.pos, 3'u8))
+    return (true, controller.useOrMove(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))

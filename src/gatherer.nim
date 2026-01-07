@@ -47,6 +47,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if not isNil(altar):
       altarHearts = altar.hearts
 
+  let task = chooseGathererTask(controller, env, teamId, altarHearts)
+  let heartsPriority = task == TaskHearts
+
   var carryingStockpile = false
   for key, count in agent.inventory.pairs:
     if count > 0 and isStockpileResourceKey(key):
@@ -54,7 +57,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       break
 
   if carryingStockpile:
-    if agent.inventoryGold > 0 and altarHearts < 10:
+    if agent.inventoryGold > 0 and heartsPriority:
       let (didKnown, actKnown) = controller.tryMoveToKnownResource(
         env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
       if didKnown: return actKnown
@@ -63,12 +66,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
         return controller.useOrMove(env, agent, agentId, state, magma.pos)
     let (didDrop, dropAct) =
-      controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = true)
+      controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = not heartsPriority)
     if didDrop: return dropAct
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
-
-  let task = chooseGathererTask(controller, env, teamId, altarHearts)
 
   template tryBuildCamp(kind: ThingKind, nearbyCount, minCount: int,
                         nearbyKinds: openArray[ThingKind]): uint8 =
