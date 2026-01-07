@@ -7,6 +7,10 @@ proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   targetPos.x += int32(delta.x)
   targetPos.y += int32(delta.y)
 
+  if not isValidPos(targetPos):
+    inc env.stats[id].actionInvalid
+    return
+
   # Frozen tiles are non-interactable (terrain or things sitting on them)
   if isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
