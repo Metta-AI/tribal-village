@@ -280,13 +280,20 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           env.isEmpty(target) and
           not isBlockedTerrain(env.terrain[target.x][target.y]) and
           env.canAgentPassDoor(agent, target):
+        let dirIdx = neighborDirIndex(agent.pos, target)
+        if agent.orientation != Orientation(dirIdx):
+          return saveStateAndReturn(
+            controller, agentId, state,
+            encodeAction(9'u8, dirIdx.uint8))
         return saveStateAndReturn(
           controller, agentId, state,
-          encodeAction(3'u8, neighborDirIndex(agent.pos, target).uint8))
+          encodeAction(3'u8, 0'u8))
 
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
-    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+    if agent.orientation != Orientation(attackDir):
+      return saveStateAndReturn(controller, agentId, state, encodeAction(9'u8, attackDir.uint8))
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, 0'u8))
 
   # Role-based decision making
   case state.role:

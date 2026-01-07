@@ -391,11 +391,9 @@ include "combat"
 include "use"
 
 proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Give items to adjacent teammate. Argument is direction (0..7)
-  if argument > 7:
-    inc env.stats[id].actionInvalid
-    return
-  let dir = Orientation(argument)
+  ## Give items to adjacent teammate in facing direction.
+  discard argument
+  let dir = agent.orientation
   let delta = getOrientationDelta(dir)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
@@ -569,9 +567,10 @@ include "tint"
 include "build"
 
 proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Plant lantern at agent's current position - argument specifies direction (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
-  # Calculate target position based on orientation argument
-  let plantOrientation = Orientation(argument)
+  ## Plant lantern in the facing direction.
+  # Calculate target position based on current orientation
+  discard argument
+  let plantOrientation = agent.orientation
   let delta = getOrientationDelta(plantOrientation)
   var targetPos = agent.pos
   targetPos.x += int32(delta.x)
@@ -607,10 +606,14 @@ proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
 
 proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile
-  let plantingTree = argument >= 4
-  let dirIndex = if plantingTree: argument - 4 else: argument
-  let orientation = Orientation(dirIndex)
+  ## Plant wheat or tree onto an adjacent fertile tile (direction uses facing).
+  ## Args 0-3 = wheat, 4-7 = tree (legacy); otherwise parity selects tree when odd.
+  let plantingTree =
+    if argument <= 7:
+      argument >= 4
+    else:
+      (argument mod 2) == 1
+  let orientation = agent.orientation
   let delta = getOrientationDelta(orientation)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
 

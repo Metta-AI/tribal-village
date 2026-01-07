@@ -1,7 +1,8 @@
 proc useAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Use terrain or building with a single action (requires holding needed resource if any)
-  # Calculate target position based on orientation argument
-  let useOrientation = Orientation(argument)
+  # Use current facing; argument is ignored for direction.
+  discard argument
+  let useOrientation = agent.orientation
   let delta = getOrientationDelta(useOrientation)
   var targetPos = agent.pos
   targetPos.x += int32(delta.x)
