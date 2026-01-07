@@ -308,6 +308,13 @@ proc tryBuildCampThreshold*(controller: Controller, env: Environment, agent: Thi
   let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
   if dist <= minSpacing:
     return (false, 0'u8)
+  let key = thingItem($kind)
+  let costs = buildCostsForKey(key)
+  if costs.len == 0:
+    return (false, 0'u8)
+  for cost in costs:
+    if env.stockpileCount(teamId, cost.res) < cost.count * CampLuxuryMultiplier:
+      return (false, 0'u8)
   let idx = buildIndexFor(kind)
   if idx >= 0:
     return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
