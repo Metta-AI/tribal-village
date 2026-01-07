@@ -41,12 +41,6 @@ type
     buildingCountsStep: int
     buildingCounts: array[MapRoomObjectsHouses, array[ThingKind, int]]
 
-proc useOrMove(controller: Controller, env: Environment, agent: Thing, agentId: int,
-               state: var AgentState, targetPos: IVec2): uint8
-proc chebyshevDist(a, b: IVec2): int32
-proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                    state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8]
-
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
