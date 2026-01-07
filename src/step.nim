@@ -231,11 +231,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif thing.kind == Cow:
       let herd = thing.herdId
       if herd >= env.cowHerdCounts.len:
+        let oldLen = env.cowHerdCounts.len
         let newLen = herd + 1
         env.cowHerdCounts.setLen(newLen)
         env.cowHerdSumX.setLen(newLen)
         env.cowHerdSumY.setLen(newLen)
         env.cowHerdDrift.setLen(newLen)
+        env.cowHerdTargets.setLen(newLen)
+        for i in oldLen ..< newLen:
+          env.cowHerdTargets[i] = ivec2(-1, -1)
       env.cowHerdCounts[herd] += 1
       env.cowHerdSumX[herd] += thing.pos.x.int
       env.cowHerdSumY[herd] += thing.pos.y.int
@@ -247,19 +251,61 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if not thing.hasClaimedTerritory:
         tumorsToProcess.add(thing)
 
+  proc stepToward(fromPos, toPos: IVec2): IVec2 =
+    let dx = toPos.x - fromPos.x
+    let dy = toPos.y - fromPos.y
+    if dx == 0 and dy == 0:
+      return ivec2(0, 0)
+    if abs(dx) >= abs(dy):
+      return ivec2((if dx > 0: 1 else: -1), 0)
+    return ivec2(0, (if dy > 0: 1 else: -1))
+
+  let cornerInset = MapBorder + 2
+  let cornerMin = cornerInset.int32
+  let cornerMaxX = (MapWidth - MapBorder - 3).int32
+  let cornerMaxY = (MapHeight - MapBorder - 3).int32
+  let cornerTargets = [
+    ivec2(cornerMin, cornerMin),
+    ivec2(cornerMaxX, cornerMin),
+    ivec2(cornerMin, cornerMaxY),
+    ivec2(cornerMaxX, cornerMaxY)
+  ]
+
+  proc pickCowHerdTarget(center, previous: IVec2, r: var Rand): IVec2 =
+    var bestDist = -1
+    var candidates: seq[IVec2] = @[]
+    for corner in cornerTargets:
+      if corner == previous:
+        continue
+      let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
+      if dist > bestDist:
+        candidates.setLen(0)
+        candidates.add(corner)
+        bestDist = dist
+      elif dist == bestDist:
+        candidates.add(corner)
+    if candidates.len == 0:
+      return cornerTargets[randIntInclusive(r, 0, 3)]
+    return candidates[randIntInclusive(r, 0, candidates.len - 1)]
+
   for herdId in 0 ..< env.cowHerdCounts.len:
     if env.cowHerdCounts[herdId] <= 0:
       env.cowHerdDrift[herdId] = ivec2(0, 0)
-    elif randFloat(stepRng) < 0.35:
-      let dirIdx = randIntInclusive(stepRng, 0, 3)
-      let drift = case dirIdx
-        of 0: ivec2(-1, 0)
-        of 1: ivec2(1, 0)
-        of 2: ivec2(0, -1)
-        else: ivec2(0, 1)
-      env.cowHerdDrift[herdId] = drift
+      continue
+    let herdAccCount = max(1, env.cowHerdCounts[herdId])
+    let center = ivec2((env.cowHerdSumX[herdId] div herdAccCount).int32,
+                       (env.cowHerdSumY[herdId] div herdAccCount).int32)
+    let target = env.cowHerdTargets[herdId]
+    let targetInvalid = target.x < 0 or target.y < 0
+    let distToTarget = if targetInvalid:
+      0
     else:
-      env.cowHerdDrift[herdId] = ivec2(0, 0)
+      max(abs(center.x - target.x), abs(center.y - target.y))
+    let nearBorder = center.x <= cornerMin or center.y <= cornerMin or
+                     center.x >= cornerMaxX or center.y >= cornerMaxY
+    if targetInvalid or (nearBorder and distToTarget <= 3):
+      env.cowHerdTargets[herdId] = pickCowHerdTarget(center, target, stepRng)
+    env.cowHerdDrift[herdId] = stepToward(center, env.cowHerdTargets[herdId])
 
   for thing in env.thingsByKind[Cow]:
     if thing.cooldown > 0:
@@ -270,19 +316,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                        (env.cowHerdSumY[herd] div herdAccCount).int32)
     let drift = env.cowHerdDrift[herd]
     let herdTarget = if drift.x != 0 or drift.y != 0:
-      center + drift * 2
+      center + drift * 3
     else:
       center
     let dist = max(abs(herdTarget.x - thing.pos.x), abs(herdTarget.y - thing.pos.y))
-
-    proc stepToward(fromPos, toPos: IVec2): IVec2 =
-      let dx = toPos.x - fromPos.x
-      let dy = toPos.y - fromPos.y
-      if dx == 0 and dy == 0:
-        return ivec2(0, 0)
-      if abs(dx) >= abs(dy):
-        return ivec2((if dx > 0: 1 else: -1), 0)
-      return ivec2(0, (if dy > 0: 1 else: -1))
 
     var desired = ivec2(0, 0)
     if dist > 1:
@@ -582,6 +619,7 @@ proc reset*(env: Environment) =
   env.cowHerdSumX.setLen(0)
   env.cowHerdSumY.setLen(0)
   env.cowHerdDrift.setLen(0)
+  env.cowHerdTargets.setLen(0)
   # Clear colors (now stored in Environment)
   env.agentColors.setLen(0)
   env.teamColors.setLen(0)
