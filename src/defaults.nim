@@ -186,7 +186,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       closestWoodPos: ivec2(-1, -1),
       closestStonePos: ivec2(-1, -1),
       closestGoldPos: ivec2(-1, -1),
-      closestMagmaPos: ivec2(-1, -1)
+      closestMagmaPos: ivec2(-1, -1),
+      plannedTarget: ivec2(-1, -1),
+      plannedPath: @[],
+      plannedPathIndex: 0,
+      pathBlockedTarget: ivec2(-1, -1)
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)

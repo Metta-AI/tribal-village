@@ -1,7 +1,7 @@
 # This file is included by src/external.nim
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
-import std/[tables]
+import std/[tables, sets]
 import entropy
 import vmath
 import ./environment, common, terrain
@@ -36,6 +36,10 @@ type
     closestStonePos: IVec2
     closestGoldPos: IVec2
     closestMagmaPos: IVec2
+    plannedTarget: IVec2
+    plannedPath: seq[IVec2]
+    plannedPathIndex: int
+    pathBlockedTarget: IVec2
 
   # Simple controller
   Controller* = ref object
@@ -582,6 +586,90 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
   # All blocked, try random movement
   return randIntInclusive(rng, 0, 3)
 
+proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
+  ## A* path from start to target (or passable neighbor), returns path including start.
+  var goals: seq[IVec2] = @[]
+  if isPassable(env, agent, targetPos):
+    goals.add(targetPos)
+  else:
+    for d in Directions8:
+      let candidate = targetPos + d
+      if isValidPos(candidate) and isPassable(env, agent, candidate):
+        goals.add(candidate)
+
+  if goals.len == 0:
+    return @[]
+  for g in goals:
+    if g == fromPos:
+      return @[fromPos]
+
+  proc heuristic(loc: IVec2): int =
+    var best = int.high
+    for g in goals:
+      let d = int(chebyshevDist(loc, g))
+      if d < best:
+        best = d
+    best
+
+  proc reconstructPath(cameFrom: Table[IVec2, IVec2], current: IVec2): seq[IVec2] =
+    var cur = current
+    result = @[cur]
+    var cf = cameFrom
+    while cf.hasKey(cur):
+      cur = cf[cur]
+      result.add(cur)
+    result.reverse()
+
+  var openSet = initHashSet[IVec2]()
+  openSet.incl(fromPos)
+  var cameFrom = initTable[IVec2, IVec2]()
+  var gScore = initTable[IVec2, int]()
+  var fScore = initTable[IVec2, int]()
+  gScore[fromPos] = 0
+  fScore[fromPos] = heuristic(fromPos)
+
+  var explored = 0
+  while openSet.len > 0:
+    if explored > 250:
+      return @[]
+
+    var currentIter = false
+    var current: IVec2
+    var bestF = int.high
+    for n in openSet:
+      let f = (if fScore.hasKey(n): fScore[n] else: int.high)
+      if not currentIter or f < bestF:
+        bestF = f
+        current = n
+        currentIter = true
+
+    if not currentIter:
+      return @[]
+
+    for g in goals:
+      if current == g:
+        return reconstructPath(cameFrom, current)
+
+    openSet.excl(current)
+    inc explored
+
+    for dirIdx in 0 .. 7:
+      let nextPos = current + Directions8[dirIdx]
+      if not isValidPos(nextPos):
+        continue
+      if not isPassable(env, agent, nextPos):
+        continue
+
+      let tentativeG = (if gScore.hasKey(current): gScore[current] else: int.high) + 1
+      let nextG = (if gScore.hasKey(nextPos): gScore[nextPos] else: int.high)
+      if tentativeG < nextG:
+        cameFrom[nextPos] = current
+        gScore[nextPos] = tentativeG
+        fScore[nextPos] = tentativeG + heuristic(nextPos)
+        openSet.incl(nextPos)
+
+  @[]
+
 proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
   for thing in env.things:
     if thing.kind != Lantern:
@@ -669,6 +757,29 @@ proc moveOrAct(controller: Controller, env: Environment, agent: Thing, agentId: 
         encodeAction(9'u8, desiredDir.uint8))
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(verb, argument.uint8))
+  if max(dx, dy) >= 6'i32:
+    if state.pathBlockedTarget != targetPos:
+      if state.plannedTarget != targetPos or state.plannedPath.len == 0:
+        state.plannedPath = findPath(env, agent, agent.pos, targetPos)
+        state.plannedTarget = targetPos
+        state.plannedPathIndex = 0
+      elif state.plannedPathIndex < state.plannedPath.len and
+           state.plannedPath[state.plannedPathIndex] != agent.pos:
+        state.plannedPath = findPath(env, agent, agent.pos, targetPos)
+        state.plannedTarget = targetPos
+        state.plannedPathIndex = 0
+      if state.plannedPath.len >= 2 and state.plannedPathIndex < state.plannedPath.len - 1:
+        let nextPos = state.plannedPath[state.plannedPathIndex + 1]
+        if isPassable(env, agent, nextPos):
+          state.plannedPathIndex += 1
+          return saveStateAndReturn(controller, agentId, state,
+            encodeAction(1'u8, neighborDirIndex(agent.pos, nextPos).uint8))
+        state.plannedPath.setLen(0)
+        state.pathBlockedTarget = targetPos
+      elif state.plannedPath.len == 0:
+        state.pathBlockedTarget = targetPos
+    else:
+      state.plannedPath.setLen(0)
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
 
