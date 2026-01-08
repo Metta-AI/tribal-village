@@ -38,8 +38,18 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
                           buildIndex: int): tuple[did: bool, action: uint8] =
   if targetPos.x < 0:
     return (false, 0'u8)
+  if buildIndex < 0 or buildIndex >= BuildChoices.len:
+    return (false, 0'u8)
+  let teamId = getTeamId(agent.agentId)
+  let key = BuildChoices[buildIndex]
+  if not env.canAffordBuild(teamId, key):
+    return (false, 0'u8)
+  if not env.canPlaceBuilding(targetPos):
+    return (false, 0'u8)
+  if env.terrain[targetPos.x][targetPos.y] == TerrainRoad:
+    return (false, 0'u8)
   if chebyshevDist(agent.pos, targetPos) == 1'i32:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did: return (true, act)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8)))
@@ -49,8 +59,22 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
                        buildIndex: int): tuple[did: bool, action: uint8] =
   if standPos.x < 0:
     return (false, 0'u8)
+  if buildIndex < 0 or buildIndex >= BuildChoices.len:
+    return (false, 0'u8)
+  let teamId = getTeamId(agent.agentId)
+  let key = BuildChoices[buildIndex]
+  if not env.canAffordBuild(teamId, key):
+    return (false, 0'u8)
+  if not env.canPlaceBuilding(targetPos):
+    return (false, 0'u8)
+  if env.terrain[targetPos.x][targetPos.y] == TerrainRoad:
+    return (false, 0'u8)
+  if not isValidPos(standPos) or env.hasDoor(standPos) or
+      isBlockedTerrain(env.terrain[standPos.x][standPos.y]) or isTileFrozen(standPos, env) or
+      not env.isEmpty(standPos) or not env.canAgentPassDoor(agent, standPos):
+    return (false, 0'u8)
   if agent.pos == standPos:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did: return (true, act)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
