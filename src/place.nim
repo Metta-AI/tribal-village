@@ -21,12 +21,6 @@ proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool
   else:
     discard
 
-proc updateThingObsOnRemove(env: Environment, kind: ThingKind, pos: IVec2) =
-  updateThingObs(env, kind, pos, false)
-
-proc updateThingObsOnAdd(env: Environment, kind: ThingKind, pos: IVec2, placed: Thing) =
-  updateThingObs(env, kind, pos, true, placed.hearts)
-
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
     if thingBlocksMovement(thing.kind):
@@ -72,14 +66,20 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
       let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
       if capacity < count:
         return false
-  if resourceNeeded > resourceCarryCapacityLeft(agent):
+  let capacityLeft = block:
+    var total = 0
+    for invKey, invCount in agent.inventory.pairs:
+      if invCount > 0 and isStockpileResourceKey(invKey):
+        total += invCount
+    max(0, ResourceCarryCapacity - total)
+  if resourceNeeded > capacityLeft:
     return false
   for itemKey, count in thing.inventory.pairs:
     setInv(agent, itemKey, getInv(agent, itemKey) + count)
     env.updateAgentInventoryObs(agent, itemKey)
   setInv(agent, key, current + 1)
   env.updateAgentInventoryObs(agent, key)
-  env.updateThingObsOnRemove(thing.kind, thing.pos)
+  updateThingObs(env, thing.kind, thing.pos, false)
   removeThing(env, thing)
   true
 
@@ -157,7 +157,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
           if isBuildableTerrain(terrain):
             env.terrain[fertilePos.x][fertilePos.y] = Fertile
             env.resetTileColor(fertilePos)
-  env.updateThingObsOnAdd(kind, pos, placed)
+  updateThingObs(env, kind, pos, true, placed.hearts)
   if kind == Altar:
     let teamId = placed.teamId
     if teamId >= 0 and teamId < env.teamColors.len:

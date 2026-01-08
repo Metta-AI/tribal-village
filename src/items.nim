@@ -109,10 +109,6 @@ proc toItemKind*(key: ItemKey): ItemKind {.inline.} =
   of ItemHearts: ikHearts
   else: ikNone
 
-proc isThingItem*(key: ItemKey): bool {.inline.} =
-  ## Check if an ItemKey is a building/thing item (starts with "thing:")
-  key.len > ItemThingPrefix.len and key[0..5] == ItemThingPrefix
-
 proc isFoodItemKind*(kind: ItemKind): bool {.inline.} =
   ## Check if an ItemKind is a food item
   kind in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}

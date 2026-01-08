@@ -49,28 +49,6 @@ proc applyConfig(cfg: CEnvironmentConfig): EnvironmentConfig =
 
 var globalEnv: Environment = nil
 
-proc thingRenderColor(kind: ThingKind): tuple[r, g, b: uint8] =
-  if isBuildingKind(kind):
-    return BuildingRegistry[kind].renderColor
-  case kind
-  of Agent: (r: 255'u8, g: 255'u8, b: 0'u8)
-  of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)
-  of Tree: (r: 34'u8, g: 139'u8, b: 34'u8)
-  of Wheat: (r: 200'u8, g: 180'u8, b: 90'u8)
-  of Stone: (r: 140'u8, g: 140'u8, b: 140'u8)
-  of Gold: (r: 220'u8, g: 190'u8, b: 80'u8)
-  of Bush: (r: 60'u8, g: 120'u8, b: 60'u8)
-  of Cactus: (r: 80'u8, g: 140'u8, b: 60'u8)
-  of Stalagmite: (r: 150'u8, g: 150'u8, b: 170'u8)
-  of Magma: (r: 0'u8, g: 200'u8, b: 200'u8)
-  of Spawner: (r: 255'u8, g: 170'u8, b: 0'u8)
-  of Tumor: (r: 160'u8, g: 32'u8, b: 240'u8)
-  of Cow: (r: 230'u8, g: 230'u8, b: 230'u8)
-  of Skeleton: (r: 210'u8, g: 210'u8, b: 210'u8)
-  of Stump: (r: 110'u8, g: 85'u8, b: 55'u8)
-  of Lantern: (r: 255'u8, g: 240'u8, b: 128'u8)
-  else: (r: 180'u8, g: 180'u8, b: 180'u8)
-
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
   try:
@@ -210,10 +188,33 @@ proc tribal_village_render_rgb(
 
           let thing = globalEnv.grid[x][y]
           if not isNil(thing):
-            let tint = thingRenderColor(thing.kind)
-            rByte = tint.r
-            gByte = tint.g
-            bByte = tint.b
+            if isBuildingKind(thing.kind):
+              let tint = BuildingRegistry[thing.kind].renderColor
+              rByte = tint.r
+              gByte = tint.g
+              bByte = tint.b
+            else:
+              let tint = case thing.kind
+                of Agent: (r: 255'u8, g: 255'u8, b: 0'u8)
+                of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)
+                of Tree: (r: 34'u8, g: 139'u8, b: 34'u8)
+                of Wheat: (r: 200'u8, g: 180'u8, b: 90'u8)
+                of Stone: (r: 140'u8, g: 140'u8, b: 140'u8)
+                of Gold: (r: 220'u8, g: 190'u8, b: 80'u8)
+                of Bush: (r: 60'u8, g: 120'u8, b: 60'u8)
+                of Cactus: (r: 80'u8, g: 140'u8, b: 60'u8)
+                of Stalagmite: (r: 150'u8, g: 150'u8, b: 170'u8)
+                of Magma: (r: 0'u8, g: 200'u8, b: 200'u8)
+                of Spawner: (r: 255'u8, g: 170'u8, b: 0'u8)
+                of Tumor: (r: 160'u8, g: 32'u8, b: 240'u8)
+                of Cow: (r: 230'u8, g: 230'u8, b: 230'u8)
+                of Skeleton: (r: 210'u8, g: 210'u8, b: 210'u8)
+                of Stump: (r: 110'u8, g: 85'u8, b: 55'u8)
+                of Lantern: (r: 255'u8, g: 240'u8, b: 128'u8)
+                else: (r: 180'u8, g: 180'u8, b: 180'u8)
+              rByte = tint.r
+              gByte = tint.g
+              bByte = tint.b
 
           let xBase = rowBase + x * scaleX * 3
           for sx in 0 ..< scaleX:

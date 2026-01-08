@@ -119,18 +119,12 @@ let BuildingRegistry* = initBuildingRegistry()
 
 proc toSnakeCase(name: string): string
 
-proc buildingInfo*(kind: ThingKind): BuildingInfo =
-  BuildingRegistry[kind]
-
 {.push inline.}
 proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
-proc thingPlacement*(kind: ThingKind): ThingPlacementKind =
-  if kind in {Door, Wheat, Tree}: PlacementOverlay else: PlacementBlocking
-
 proc thingBlocksMovement*(kind: ThingKind): bool =
-  thingPlacement(kind) == PlacementBlocking
+  kind notin {Door, Wheat, Tree}
 {.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =
@@ -216,9 +210,6 @@ let TerrainCatalog* = initTerrainCatalog()
 let ThingCatalog* = initThingCatalog()
 let ItemCatalog* = initItemCatalog()
 
-proc terrainInfo*(terrain: TerrainType): CatalogEntry =
-  TerrainCatalog[terrain]
-
 proc terrainSpriteKey*(terrain: TerrainType): string =
   if terrain == Empty:
     return ""
@@ -227,9 +218,6 @@ proc terrainSpriteKey*(terrain: TerrainType): string =
     return key
   toSnakeCase($terrain)
 
-
-proc thingInfo*(kind: ThingKind): CatalogEntry =
-  ThingCatalog[kind]
 
 proc thingSpriteKey*(kind: ThingKind): string =
   if isBuildingKind(kind):
@@ -246,9 +234,6 @@ proc thingDisplayName*(kind: ThingKind): string =
   if name.len > 0: name else: $kind
 
 
-proc itemInfo*(key: ItemKey): CatalogEntry =
-  ItemCatalog.getOrDefault(key, CatalogEntry(displayName: key, spriteKey: key, ascii: '?'))
-
 proc itemSpriteKey*(key: ItemKey): string =
   if key.startsWith(ItemThingPrefix):
     let kindName = key[ItemThingPrefix.len .. ^1]
@@ -257,16 +242,6 @@ proc itemSpriteKey*(key: ItemKey): string =
         return thingSpriteKey(kind)
   if ItemCatalog.hasKey(key):
     return ItemCatalog[key].spriteKey
-  key
-
-proc itemDisplayName*(key: ItemKey): string =
-  if key.startsWith(ItemThingPrefix):
-    let kindName = key[ItemThingPrefix.len .. ^1]
-    for kind in ThingKind:
-      if $kind == kindName:
-        return thingDisplayName(kind)
-  if ItemCatalog.hasKey(key):
-    return ItemCatalog[key].displayName
   key
 
 proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
