@@ -1,7 +1,11 @@
-proc useAction*(env: Environment, id: int, agent: Thing) =
-  ## Use terrain or building with a single action (requires holding needed resource if any)
-  # Use current facing direction.
-  let useOrientation = agent.orientation
+proc useAction*(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Use terrain or building with a single action in a direction.
+  if argument > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let useOrientation = Orientation(argument)
+  agent.orientation = useOrientation
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   let delta = getOrientationDelta(useOrientation)
   var targetPos = agent.pos
   targetPos.x += int32(delta.x)

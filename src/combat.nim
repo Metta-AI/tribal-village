@@ -79,9 +79,14 @@ proc enforceZeroHpDeaths(env: Environment) =
     if env.terminated[agent.agentId] == 0.0 and agent.hp <= 0:
       env.killAgent(agent)
 
-proc attackAction(env: Environment, id: int, agent: Thing) =
-  ## Attack an entity in facing direction. Spears extend range to 2 tiles.
-  let attackOrientation = agent.orientation
+proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Attack an entity in the given direction. Spears extend range to 2 tiles.
+  if argument > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let attackOrientation = Orientation(argument)
+  agent.orientation = attackOrientation
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   let delta = getOrientationDelta(attackOrientation)
   let attackerTeam = getTeamId(agent.agentId)
   let baseDamage = agent.attackDamage
