@@ -283,6 +283,16 @@ proc drawObjects*() =
     if getInfectionLevel(pos) >= 1.0:
       bxy.drawImage("frozen", pos.vec2, angle = 0, scale = spriteScale("frozen"))
 
+  drawThings(Wheat):
+    var spriteKey = thingSpriteKey(thing.kind)
+    let remaining = getInv(thing, ItemWheat)
+    if remaining > 0 and remaining < ResourceNodeInitial:
+      spriteKey = "wheat_half"
+    let resolved = resolveSpriteKey(spriteKey)
+    bxy.drawImage(resolved, pos.vec2, angle = 0, scale = spriteScale(resolved))
+    if getInfectionLevel(pos) >= 1.0:
+      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = spriteScale("frozen"))
+
   drawThings(Agent):
     let agent = thing
     let roleKey =
@@ -373,7 +383,7 @@ proc drawObjects*() =
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = color(0.5, 0.5, 0.5, 1.0))
 
   for kind in ThingKind:
-    if kind in {Wall, Tree, Agent, Altar, Tumor, Cow, Lantern}:
+    if kind in {Wall, Tree, Wheat, Agent, Altar, Tumor, Cow, Lantern}:
       continue
     if isBuildingKind(kind):
       for thing in env.thingsByKind[kind]:
@@ -426,13 +436,9 @@ proc drawObjects*() =
         let pos = thing.pos
         let infected = getInfectionLevel(pos) >= 1.0
         var spriteKey = thingSpriteKey(thing.kind)
-        if thing.kind == Wheat:
-          let remaining = getInv(thing, ItemWheat)
-          if remaining > 0 and remaining < ResourceNodeInitial:
-            spriteKey = "wheat_half"
         let resolved = resolveSpriteKey(spriteKey)
         bxy.drawImage(resolved, pos.vec2, angle = 0, scale = spriteScale(resolved))
-        if infected and thing.kind in {Magma, Stump, Wheat}:
+        if infected and thing.kind in {Magma, Stump}:
           bxy.drawImage("frozen", pos.vec2, angle = 0, scale = spriteScale("frozen"))
 
 proc drawVisualRanges*(alpha = 0.2) =
