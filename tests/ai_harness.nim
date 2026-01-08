@@ -99,7 +99,7 @@ suite "Mechanics":
   test "tree to stump and stump depletes":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
-    discard addResource(env, Pine, ivec2(10, 9), ItemWood, ResourceNodeInitial)
+    discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
 
     agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
     env.useAction(0, agent)
@@ -193,7 +193,7 @@ suite "AI - Gatherer":
     let controller = newController(4)
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Pine, ivec2(10, 9), ItemWood, 3)
+    discard addResource(env, Tree, ivec2(10, 9), ItemWood, 3)
     discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
     setStockpile(env, 0, ResourceFood, 5)
     setStockpile(env, 0, ResourceWood, 0)

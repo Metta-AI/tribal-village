@@ -40,11 +40,11 @@ template randChance(r: var Rand, p: float): bool =
 
 const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
-  PalmGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
+  TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
-  if not env.isEmpty(pos) or env.hasDoor(pos):
+  if not env.isEmpty(pos) or not isNil(env.getOverlayThing(pos)) or env.hasDoor(pos):
     return
   let node = Thing(kind: kind, pos: pos)
   node.inventory = emptyInventory()
@@ -115,7 +115,7 @@ proc spawnTreeGroves(env: Environment, r: var Rand) =
     let groveSize = randIntInclusive(r, 3, 10)
     placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
 
-proc placePalmOasis(env: Environment, centerX, centerY: int, r: var Rand) =
+proc placeTreeOasis(env: Environment, centerX, centerY: int, r: var Rand) =
   let groveSize = randIntInclusive(r, 3, 8)
   let radius = max(1, (groveSize.float / 2.0).int)
   for dx in -radius .. radius:
@@ -127,7 +127,7 @@ proc placePalmOasis(env: Environment, centerX, centerY: int, r: var Rand) =
       let dist = sqrt((dx * dx + dy * dy).float)
       if dist <= radius.float:
         let chance = 0.85 - (dist / radius.float) * 0.4
-        if randChance(r, chance) and env.terrain[gx][gy] in PalmGround:
+        if randChance(r, chance) and env.terrain[gx][gy] in TreeGround:
           addResourceNode(env, ivec2(gx.int32, gy.int32), Tree, ItemWood)
 
   let oasisW = randIntInclusive(r, 3, 5)
@@ -191,12 +191,12 @@ proc placePalmOasis(env: Environment, centerX, centerY: int, r: var Rand) =
             break
         if nearWater:
           break
-      if nearWater and randChance(r, 0.7) and env.terrain[px][py] in PalmGround:
+      if nearWater and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
         addResourceNode(env, ivec2(px.int32, py.int32), Tree, ItemWood)
 
-proc spawnPalmGroves(env: Environment, r: var Rand) =
-  let numGroves = randIntInclusive(r, PalmGroveClusterBase, PalmGroveClusterBase + PalmGroveClusterRange) *
-    PalmGroveClusterScale
+proc spawnTreeOases(env: Environment, r: var Rand) =
+  let numGroves = randIntInclusive(r, TreeOasisClusterBase, TreeOasisClusterBase + TreeOasisClusterRange) *
+    TreeOasisClusterScale
   for _ in 0 ..< numGroves:
     var placed = false
     for attempt in 0 ..< 16:
@@ -214,13 +214,13 @@ proc spawnPalmGroves(env: Environment, r: var Rand) =
         if nearWater:
           break
       if nearWater or attempt > 10:
-        placePalmOasis(env, x, y, r)
+        placeTreeOasis(env, x, y, r)
         placed = true
         break
     if not placed:
       let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
       let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-      placePalmOasis(env, x, y, r)
+      placeTreeOasis(env, x, y, r)
 
 proc spawnBushes(env: Environment, r: var Rand) =
   for _ in 0 ..< 30:
@@ -323,8 +323,8 @@ proc spawnMineDeposits(env: Environment, r: var Rand) =
 
 proc spawnResourceThings(env: Environment, r: var Rand) =
   spawnWheatFields(env, r)
-  if UsePalmGroves:
-    spawnPalmGroves(env, r)
+  if UseTreeOases:
+    spawnTreeOases(env, r)
   if UseLegacyTreeClusters:
     spawnTreeGroves(env, r)
   spawnRockAndGoldClusters(env, r)

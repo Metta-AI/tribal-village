@@ -139,11 +139,11 @@ proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
   terrain in BuildableTerrain
 
 proc canPlaceBuilding*(env: Environment, pos: IVec2): bool {.inline.} =
-  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
+  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
     not isTileFrozen(pos, env) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc canLayRoad*(env: Environment, pos: IVec2): bool {.inline.} =
-  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
+  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
     env.terrain[pos.x][pos.y] in BuildableTerrain
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
@@ -643,7 +643,8 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
 
   # Occupancy checks
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
+  if not env.isEmpty(targetPos) or not isNil(env.getOverlayThing(targetPos)) or env.hasDoor(targetPos) or
+      isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
   if env.terrain[targetPos.x][targetPos.y] != Fertile:

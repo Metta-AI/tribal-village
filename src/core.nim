@@ -347,12 +347,12 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
   for x in startX..endX:
     for y in startY..endY:
       let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainType.Fertile else: env.terrain[x][y] == TerrainType.Empty
-      let pos = ivec2(x.int32, y.int32)
-      if terrainOk and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos):
+      let candPos = ivec2(x.int32, y.int32)
+      if terrainOk and env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
           minDist = dist
-          result = pos
+          result = candPos
 
 proc getCardinalDirIndex(fromPos, toPos: IVec2): int =
   ## Convert direction to orientation (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
@@ -992,6 +992,15 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
   let target = env.findNearestThingSpiral(state, Gold, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
+    if isAdjacent(agent.pos, target.pos):
+      return (true, controller.useAt(env, agent, agentId, state, target.pos))
+    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                 state: var AgentState): tuple[did: bool, action: uint8] =
+  let target = env.findNearestThingSpiral(state, Wheat, controller.rng)
+  if not isNil(target):
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))
