@@ -67,10 +67,3 @@ proc defaultCombatConfig*(): CombatConfig =
     armorPoints: DefaultArmorPoints,
     breadHealAmount: DefaultBreadHealAmount
   )
-
-proc defaultBalanceConfig*(): BalanceConfig =
-  BalanceConfig(
-    tumor: defaultTumorConfig(),
-    village: defaultVillageConfig(),
-    combat: defaultCombatConfig()
-  )

@@ -802,16 +802,3 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       of StructureClayOvenChar: result.clayOvens.add(pos)
       of StructureWeavingLoomChar: result.weavingLooms.add(pos)
       else: discard
-
-proc terrainAsciiChar*(terrain: TerrainType): char =
-  ## ASCII schema for terrain tiles (typeable characters).
-  case terrain:
-  of Empty: ' '
-  of Water: '~'
-  of Bridge: '='
-  of Fertile: ':'
-  of Road: '+'
-  of Grass: ','
-  of Dune: '^'
-  of Sand: '.'
-  of Snow: '_'
