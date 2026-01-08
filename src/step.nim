@@ -1220,7 +1220,27 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if randFloat(stepRng) >= TumorBranchChance:
       continue
 
-    let branchPos = findTumorBranchTarget(tumor, env, stepRng)
+    var branchPos = ivec2(-1, -1)
+    var branchCount = 0
+    const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+    for offset in TumorBranchOffsets:
+      let candidate = tumor.pos + offset
+      if not env.isValidEmptyPosition(candidate):
+        continue
+
+      var adjacentTumor = false
+      for adj in AdjacentOffsets:
+        let checkPos = candidate + adj
+        if not isValidPos(checkPos):
+          continue
+        let occupant = env.getThing(checkPos)
+        if not isNil(occupant) and occupant.kind == Tumor:
+          adjacentTumor = true
+          break
+      if not adjacentTumor:
+        inc branchCount
+        if randIntExclusive(stepRng, 0, branchCount) == 0:
+          branchPos = candidate
     if branchPos.x < 0:
       continue
 

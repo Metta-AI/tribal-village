@@ -23,30 +23,6 @@ type
     survivalPenalty*: float32
     deathPenalty*: float32
 
-proc applyConfig(cfg: CEnvironmentConfig): EnvironmentConfig =
-  result = defaultEnvironmentConfig()
-  if cfg.maxSteps > 0:
-    result.maxSteps = cfg.maxSteps.int
-
-  template applyFloat(field: untyped, value: float32) =
-    if value == value:
-      result.field = value.float
-
-  applyFloat(tumorSpawnRate, cfg.tumorSpawnRate)
-  applyFloat(heartReward, cfg.heartReward)
-  applyFloat(oreReward, cfg.oreReward)
-  applyFloat(barReward, cfg.barReward)
-  applyFloat(woodReward, cfg.woodReward)
-  applyFloat(waterReward, cfg.waterReward)
-  applyFloat(wheatReward, cfg.wheatReward)
-  applyFloat(spearReward, cfg.spearReward)
-  applyFloat(armorReward, cfg.armorReward)
-  applyFloat(foodReward, cfg.foodReward)
-  applyFloat(clothReward, cfg.clothReward)
-  applyFloat(tumorKillReward, cfg.tumorKillReward)
-  applyFloat(survivalPenalty, cfg.survivalPenalty)
-  applyFloat(deathPenalty, cfg.deathPenalty)
-
 var globalEnv: Environment = nil
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
@@ -66,7 +42,30 @@ proc tribal_village_set_config(
   ## Update runtime config (rewards, spawn rates, max steps) from Python.
   try:
     discard env
-    globalEnv.config = applyConfig(cfg[])
+    let incoming = cfg[]
+    var config = defaultEnvironmentConfig()
+    if incoming.maxSteps > 0:
+      config.maxSteps = incoming.maxSteps.int
+
+    template applyFloat(field: untyped, value: float32) =
+      if value == value:
+        config.field = value.float
+
+    applyFloat(tumorSpawnRate, incoming.tumorSpawnRate)
+    applyFloat(heartReward, incoming.heartReward)
+    applyFloat(oreReward, incoming.oreReward)
+    applyFloat(barReward, incoming.barReward)
+    applyFloat(woodReward, incoming.woodReward)
+    applyFloat(waterReward, incoming.waterReward)
+    applyFloat(wheatReward, incoming.wheatReward)
+    applyFloat(spearReward, incoming.spearReward)
+    applyFloat(armorReward, incoming.armorReward)
+    applyFloat(foodReward, incoming.foodReward)
+    applyFloat(clothReward, incoming.clothReward)
+    applyFloat(tumorKillReward, incoming.tumorKillReward)
+    applyFloat(survivalPenalty, incoming.survivalPenalty)
+    applyFloat(deathPenalty, incoming.deathPenalty)
+    globalEnv.config = config
     return 1
   except:
     return 0

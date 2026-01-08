@@ -163,10 +163,3 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     if teamId >= 0 and teamId < env.teamColors.len:
       env.altarColors[pos] = env.teamColors[teamId]
   true
-
-proc dropStump(env: Environment, pos: IVec2, woodRemaining: int) =
-  let stump = Thing(kind: Stump, pos: pos)
-  stump.inventory = emptyInventory()
-  if woodRemaining > 0:
-    setInv(stump, ItemWood, woodRemaining)
-  env.add(stump)

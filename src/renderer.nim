@@ -117,12 +117,9 @@ proc rebuildRenderCaches() =
 
   renderCacheGeneration = env.mapGeneration
 
-proc ensureRenderCaches() =
+proc drawFloor*() =
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
-
-proc drawFloor*() =
-  ensureRenderCaches()
   # Draw the floor tiles everywhere first as the base layer
   for floorKind in FloorSpriteKind:
     let floorSprite = case floorKind
@@ -262,7 +259,8 @@ proc drawObjects*() =
       bxy.drawImage(waterKey, pos, angle = 0, scale = spriteScale(waterKey))
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
-  ensureRenderCaches()
+  if renderCacheGeneration != env.mapGeneration:
+    rebuildRenderCaches()
   for pos in waterPositions:
     drawWaterTile(pos.vec2)
 
