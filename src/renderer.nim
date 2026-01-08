@@ -342,15 +342,21 @@ proc drawObjects*() =
 
   drawThings(Agent):
     let agent = thing
+    let roleKey =
+      case agent.agentId mod MapAgentsPerVillage
+      of 0, 1: "gatherer"
+      of 2, 3: "builder"
+      of 4, 5: "fighter"
+      else: "gatherer"
     var agentImage = case agent.orientation:
-      of N: "agent.n"
-      of S: "agent.s"
-      of E: "agent.e"
-      of W: "agent.w"
-      of NW: "agent.w"
-      of NE: "agent.e"
-      of SW: "agent.w"
-      of SE: "agent.e"
+      of N: roleKey & ".n"
+      of S: roleKey & ".s"
+      of E: roleKey & ".e"
+      of W: roleKey & ".w"
+      of NW: roleKey & ".w"
+      of NE: roleKey & ".e"
+      of SW: roleKey & ".w"
+      of SE: roleKey & ".e"
     bxy.drawImage(
       agentImage,
       pos.vec2,
