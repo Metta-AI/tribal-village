@@ -268,7 +268,7 @@ proc initCraftRecipesBase*(): seq[CraftRecipe] =
 
   # Table/workbench: wood and stone crafts.
   # Siege workshop crafts for walls/roads (1/20 AoE2 scale).
-  addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemStone, 1)], @[(thingItem("Wall"), 1)], 6)
+  addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Wall"), 1)], 6)
   addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)], 4)
   addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
   addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)

@@ -101,16 +101,16 @@ suite "Mechanics":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
 
-    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
-    env.useAction(0, agent)
+    let treeDir = dirIndex(agent.pos, ivec2(10, 9))
+    env.useAction(0, agent, treeDir)
     let stump = env.getThing(ivec2(10, 9))
     check stump.kind == Stump
     check getInv(stump, ItemWood) == ResourceNodeInitial - 1
     check agent.inventoryWood == 1
 
     setInv(stump, ItemWood, 1)
-    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
-    env.useAction(0, agent)
+    let stumpDir = dirIndex(agent.pos, ivec2(10, 9))
+    env.useAction(0, agent, stumpDir)
     check env.getThing(ivec2(10, 9)) == nil
 
   test "wheat depletes and removes":
@@ -118,15 +118,14 @@ suite "Mechanics":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 2)
 
-    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
-    env.useAction(0, agent)
-    let wheat = env.getThing(ivec2(10, 9))
+    let wheatDir = dirIndex(agent.pos, ivec2(10, 9))
+    env.useAction(0, agent, wheatDir)
+    let wheat = env.getOverlayThing(ivec2(10, 9))
     check wheat.kind == Wheat
     check getInv(wheat, ItemWheat) == 1
 
-    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
-    env.useAction(0, agent)
-    check env.getThing(ivec2(10, 9)) == nil
+    env.useAction(0, agent, wheatDir)
+    check env.getOverlayThing(ivec2(10, 9)) == nil
 
   test "stone and gold deplete":
     let env = makeEmptyEnv()
@@ -136,13 +135,13 @@ suite "Mechanics":
     let goldNode = env.getThing(ivec2(11, 10))
     check getInv(goldNode, ItemGold) == 1
 
-    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(10, 9)))
-    env.useAction(0, agent)
+    let stoneDir = dirIndex(agent.pos, ivec2(10, 9))
+    env.useAction(0, agent, stoneDir)
     check env.getThing(ivec2(10, 9)) == nil
 
     agent.inventory = emptyInventory()
-    agent.orientation = Orientation(dirIndex(agent.pos, ivec2(11, 10)))
-    env.useAction(0, agent)
+    let goldDir = dirIndex(agent.pos, ivec2(11, 10))
+    env.useAction(0, agent, goldDir)
     check env.getThing(ivec2(11, 10)) == nil
 
 suite "AI - Gatherer":
