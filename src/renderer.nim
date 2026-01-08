@@ -214,6 +214,7 @@ proc drawWalls*() =
     env.grid[x][y].kind == Wall
 
   var wallFills: seq[IVec2]
+  let wallTint = color(0.3, 0.3, 0.3, 1.0)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let thing = env.grid[x][y]
@@ -233,19 +234,14 @@ proc drawWalls*() =
               hasWall(x + 1, y - 1):
             continue
 
-        let brightness = 0.3  # Fixed wall brightness
-        let wallTint = color(brightness, brightness, brightness, 1.0)
-
         let wallSpriteKey = wallSprites[tile]
         bxy.drawImage(wallSpriteKey, vec2(x.float32, y.float32),
                      angle = 0, scale = spriteScale(wallSpriteKey), tint = wallTint)
 
   for fillPos in wallFills:
-    let brightness = 0.3  # Fixed wall fill brightness
-    let fillTint = color(brightness, brightness, brightness, 1.0)
     let fillSpriteKey = "wall.fill"
     bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
-                  angle = 0, scale = spriteScale(fillSpriteKey), tint = fillTint)
+                  angle = 0, scale = spriteScale(fillSpriteKey), tint = wallTint)
 
 proc drawObjects*() =
   for pos in env.actionTintPositions:
@@ -299,15 +295,12 @@ proc drawObjects*() =
       of 2, 3: "builder"
       of 4, 5: "fighter"
       else: "gatherer"
-    var agentImage = case agent.orientation:
-      of N: roleKey & ".n"
-      of S: roleKey & ".s"
-      of E: roleKey & ".e"
-      of W: roleKey & ".w"
-      of NW: roleKey & ".w"
-      of NE: roleKey & ".e"
-      of SW: roleKey & ".w"
-      of SE: roleKey & ".e"
+    let dirKey = case agent.orientation:
+      of N: "n"
+      of S: "s"
+      of E, NE, SE: "e"
+      of W, NW, SW: "w"
+    let agentImage = roleKey & "." & dirKey
     bxy.drawImage(
       agentImage,
       pos.vec2,
