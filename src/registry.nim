@@ -146,19 +146,18 @@ let TerrainCatalog* = block:
   for terrain in TerrainType:
     reg[terrain] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
 
-  for entry in [
-    (Empty, "Empty", "", ' '),
-    (Water, "Water", "", '~'),
-    (Bridge, "Bridge", "", '='),
-    (Fertile, "Fertile", "", 'f'),
-    (Road, "Road", "", 'r'),
-    (Grass, "Grass", "", 'g'),
-    (Dune, "Dune", "", 'd'),
-    (Sand, "Sand", "", 's'),
-    (Snow, "Snow", "", 'n')
-  ]:
-    let (terrain, displayName, spriteKey, ascii) = entry
+  proc add(terrain: TerrainType, displayName, spriteKey: string, ascii: char) =
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(Empty, "Empty", "", ' ')
+  add(Water, "Water", "", '~')
+  add(Bridge, "Bridge", "", '=')
+  add(Fertile, "Fertile", "", 'f')
+  add(Road, "Road", "", 'r')
+  add(Grass, "Grass", "", 'g')
+  add(Dune, "Dune", "", 'd')
+  add(Sand, "Sand", "", 's')
+  add(Snow, "Snow", "", 'n')
   reg
 
 let ThingCatalog* = block:
@@ -166,27 +165,26 @@ let ThingCatalog* = block:
   for kind in ThingKind:
     reg[kind] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
 
-  for entry in [
-    (Agent, "Agent", "gatherer", '@'),
-    (Wall, "Wall", "wall", '#'),
-    (Tree, "Tree", "tree", 't'),
-    (Wheat, "Wheat", "wheat", 'w'),
-    (Stone, "Stone", "stone", 'S'),
-    (Gold, "Gold", "gold", 'G'),
-    (Bush, "Bush", "bush", 'b'),
-    (Cactus, "Cactus", "cactus", 'c'),
-    (Stalagmite, "Stalagmite", "stalagmite", 'm'),
-    (Magma, "Magma", "magma", 'v'),
-    (Spawner, "Spawner", "spawner", 'Z'),
-    (Tumor, "Tumor", "tumor", 'X'),
-    (Cow, "Cow", "cow", 'w'),
-    (Corpse, "Corpse", "corpse", 'C'),
-    (Skeleton, "Skeleton", "skeleton", 'K'),
-    (Stump, "Stump", "stump", 'p'),
-    (Lantern, "Lantern", "lantern", 'l')
-  ]:
-    let (kind, displayName, spriteKey, ascii) = entry
+  proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char) =
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(Agent, "Agent", "gatherer", '@')
+  add(Wall, "Wall", "wall", '#')
+  add(Tree, "Tree", "tree", 't')
+  add(Wheat, "Wheat", "wheat", 'w')
+  add(Stone, "Stone", "stone", 'S')
+  add(Gold, "Gold", "gold", 'G')
+  add(Bush, "Bush", "bush", 'b')
+  add(Cactus, "Cactus", "cactus", 'c')
+  add(Stalagmite, "Stalagmite", "stalagmite", 'm')
+  add(Magma, "Magma", "magma", 'v')
+  add(Spawner, "Spawner", "spawner", 'Z')
+  add(Tumor, "Tumor", "tumor", 'X')
+  add(Cow, "Cow", "cow", 'w')
+  add(Corpse, "Corpse", "corpse", 'C')
+  add(Skeleton, "Skeleton", "skeleton", 'K')
+  add(Stump, "Stump", "stump", 'p')
+  add(Lantern, "Lantern", "lantern", 'l')
   reg
 
 let ItemCatalog* = block:
