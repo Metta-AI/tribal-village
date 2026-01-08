@@ -239,11 +239,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     if agent.inventoryLantern > 0:
       if chebyshevDist(agent.pos, target) == 1'i32:
         let dirIdx = neighborDirIndex(agent.pos, target)
-        if agent.orientation != Orientation(dirIdx):
-          return saveStateAndReturn(controller, agentId, state,
-            encodeAction(9'u8, dirIdx.uint8))
         return saveStateAndReturn(controller, agentId, state,
-          encodeAction(6'u8, 0'u8))
+          encodeAction(6'u8, dirIdx.uint8))
       return saveStateAndReturn(controller, agentId, state,
         encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
 
