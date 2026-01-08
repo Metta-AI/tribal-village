@@ -10,7 +10,6 @@ const WarmVillagePalette* = [
   color(0.930, 0.560, 0.820, 1.0)   # team 7: soft pink       (#ed8fd1)
 ]
 
-# Combat tint helpers (inlined from combat.nim)
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
   if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
     return
@@ -21,11 +20,6 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
   if not env.actionTintFlags[pos.x][pos.y]:
     env.actionTintFlags[pos.x][pos.y] = true
     env.actionTintPositions.add(pos)
-
-# Utility to tick a building cooldown.
-proc tickCooldown(env: Environment, thing: Thing) =
-  if thing.cooldown > 0:
-    dec thing.cooldown
 
 proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
@@ -63,118 +57,106 @@ proc biomeBaseColor*(biome: BiomeType): TileColor =
   of BiomeDungeonType: BiomeColorDungeon
   else: BaseTileColorDefault
 
-proc blendTileColor(a, b: TileColor, t: float32): TileColor =
-  let tClamped = max(0.0'f32, min(1.0'f32, t))
-  TileColor(
-    r: a.r * (1.0 - tClamped) + b.r * tClamped,
-    g: a.g * (1.0 - tClamped) + b.g * tClamped,
-    b: a.b * (1.0 - tClamped) + b.b * tClamped,
-    intensity: a.intensity * (1.0 - tClamped) + b.intensity * tClamped
-  )
-
-proc biomeEdgeBlendColor(biomes: BiomeGrid, x, y: int, radius: int): TileColor =
-  let baseBiome = biomes[x][y]
-  let baseColor = biomeBaseColor(baseBiome)
-  if radius <= 0 or baseBiome == BiomeNone:
-    return baseColor
-
-  var minDist = radius + 1
-  var sumR = 0.0'f32
-  var sumG = 0.0'f32
-  var sumB = 0.0'f32
-  var sumI = 0.0'f32
-  var count = 0
-
-  for dx in -radius .. radius:
-    let nx = x + dx
-    if nx < 0 or nx >= MapWidth:
-      continue
-    for dy in -radius .. radius:
-      if dx == 0 and dy == 0:
-        continue
-      let ny = y + dy
-      if ny < 0 or ny >= MapHeight:
-        continue
-      let dist = max(abs(dx), abs(dy))
-      if dist > radius:
-        continue
-      let otherBiome = biomes[nx][ny]
-      if otherBiome == baseBiome or otherBiome == BiomeNone:
-        continue
-      let otherColor = biomeBaseColor(otherBiome)
-      if dist < minDist:
-        minDist = dist
-        sumR = otherColor.r
-        sumG = otherColor.g
-        sumB = otherColor.b
-        sumI = otherColor.intensity
-        count = 1
-      elif dist == minDist:
-        sumR += otherColor.r
-        sumG += otherColor.g
-        sumB += otherColor.b
-        sumI += otherColor.intensity
-        inc count
-
-  if count == 0 or minDist > radius:
-    return baseColor
-
-  let invCount = 1.0'f32 / count.float32
-  let neighborColor = TileColor(
-    r: sumR * invCount,
-    g: sumG * invCount,
-    b: sumB * invCount,
-    intensity: sumI * invCount
-  )
-
-  let raw = 1.0'f32 - (float32(minDist - 1) / float32(radius))
-  let clamped = max(0.0'f32, min(1.0'f32, raw))
-  let t = clamped * clamped * (3.0'f32 - 2.0'f32 * clamped)
-  blendTileColor(baseColor, neighborColor, t)
-
-proc smoothBaseColors(colors: var array[MapWidth, array[MapHeight, TileColor]], passes: int) =
-  if passes <= 0:
-    return
-  var temp: array[MapWidth, array[MapHeight, TileColor]]
-  let centerWeight = 1.0'f32
-  let neighborWeight = BiomeBlendNeighborWeight
-  for _ in 0 ..< passes:
-    for x in 0 ..< MapWidth:
-      for y in 0 ..< MapHeight:
-        var sumR = colors[x][y].r * centerWeight
-        var sumG = colors[x][y].g * centerWeight
-        var sumB = colors[x][y].b * centerWeight
-        var sumI = colors[x][y].intensity * centerWeight
-        var total = centerWeight
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            if dx == 0 and dy == 0:
-              continue
-            let nx = x + dx
-            let ny = y + dy
-            if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
-              continue
-            let c = colors[nx][ny]
-            sumR += c.r * neighborWeight
-            sumG += c.g * neighborWeight
-            sumB += c.b * neighborWeight
-            sumI += c.intensity * neighborWeight
-            total += neighborWeight
-        temp[x][y] = TileColor(
-          r: sumR / total,
-          g: sumG / total,
-          b: sumB / total,
-          intensity: sumI / total
-        )
-    colors = temp
-
 proc applyBiomeBaseColors*(env: Environment) =
   var colors: array[MapWidth, array[MapHeight, TileColor]]
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      var color = biomeEdgeBlendColor(env.biomes, x, y, BiomeEdgeBlendRadius)
+      let baseBiome = env.biomes[x][y]
+      var color = biomeBaseColor(baseBiome)
+      if BiomeEdgeBlendRadius > 0 and baseBiome != BiomeNone:
+        var minDist = BiomeEdgeBlendRadius + 1
+        var sumR = 0.0'f32
+        var sumG = 0.0'f32
+        var sumB = 0.0'f32
+        var sumI = 0.0'f32
+        var count = 0
+
+        for dx in -BiomeEdgeBlendRadius .. BiomeEdgeBlendRadius:
+          let nx = x + dx
+          if nx < 0 or nx >= MapWidth:
+            continue
+          for dy in -BiomeEdgeBlendRadius .. BiomeEdgeBlendRadius:
+            if dx == 0 and dy == 0:
+              continue
+            let ny = y + dy
+            if ny < 0 or ny >= MapHeight:
+              continue
+            let dist = max(abs(dx), abs(dy))
+            if dist > BiomeEdgeBlendRadius:
+              continue
+            let otherBiome = env.biomes[nx][ny]
+            if otherBiome == baseBiome or otherBiome == BiomeNone:
+              continue
+            let otherColor = biomeBaseColor(otherBiome)
+            if dist < minDist:
+              minDist = dist
+              sumR = otherColor.r
+              sumG = otherColor.g
+              sumB = otherColor.b
+              sumI = otherColor.intensity
+              count = 1
+            elif dist == minDist:
+              sumR += otherColor.r
+              sumG += otherColor.g
+              sumB += otherColor.b
+              sumI += otherColor.intensity
+              inc count
+
+        if count > 0 and minDist <= BiomeEdgeBlendRadius:
+          let invCount = 1.0'f32 / count.float32
+          let neighborColor = TileColor(
+            r: sumR * invCount,
+            g: sumG * invCount,
+            b: sumB * invCount,
+            intensity: sumI * invCount
+          )
+
+          let raw = 1.0'f32 - (float32(minDist - 1) / float32(BiomeEdgeBlendRadius))
+          let clamped = max(0.0'f32, min(1.0'f32, raw))
+          let t = clamped * clamped * (3.0'f32 - 2.0'f32 * clamped)
+          let invT = 1.0'f32 - t
+          color = TileColor(
+            r: color.r * invT + neighborColor.r * t,
+            g: color.g * invT + neighborColor.g * t,
+            b: color.b * invT + neighborColor.b * t,
+            intensity: color.intensity * invT + neighborColor.intensity * t
+          )
       colors[x][y] = color
-  smoothBaseColors(colors, BiomeBlendPasses)
+
+  if BiomeBlendPasses > 0:
+    var temp: array[MapWidth, array[MapHeight, TileColor]]
+    let centerWeight = 1.0'f32
+    let neighborWeight = BiomeBlendNeighborWeight
+    for _ in 0 ..< BiomeBlendPasses:
+      for x in 0 ..< MapWidth:
+        for y in 0 ..< MapHeight:
+          var sumR = colors[x][y].r * centerWeight
+          var sumG = colors[x][y].g * centerWeight
+          var sumB = colors[x][y].b * centerWeight
+          var sumI = colors[x][y].intensity * centerWeight
+          var total = centerWeight
+          for dx in -1 .. 1:
+            for dy in -1 .. 1:
+              if dx == 0 and dy == 0:
+                continue
+              let nx = x + dx
+              let ny = y + dy
+              if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
+                continue
+              let c = colors[nx][ny]
+              sumR += c.r * neighborWeight
+              sumG += c.g * neighborWeight
+              sumB += c.b * neighborWeight
+              sumI += c.intensity * neighborWeight
+              total += neighborWeight
+          temp[x][y] = TileColor(
+            r: sumR / total,
+            g: sumG / total,
+            b: sumB / total,
+            intensity: sumI / total
+          )
+      colors = temp
+
   env.baseTintColors = colors
 
 

@@ -427,8 +427,13 @@ proc init(env: Environment) =
             min(1.0'f32, max(0.0'f32, edge.float32 / dungeonBlendDepth.float32))
           let dungeonColor = biomeBaseColor(BiomeDungeonType)
           let base = env.baseTintColors[x][y]
-          let blended = blendTileColor(base, dungeonColor, t)
-          env.baseTintColors[x][y] = blended
+          let tClamped = max(0.0'f32, min(1.0'f32, t))
+          env.baseTintColors[x][y] = TileColor(
+            r: base.r * (1.0 - tClamped) + dungeonColor.r * tClamped,
+            g: base.g * (1.0 - tClamped) + dungeonColor.g * tClamped,
+            b: base.b * (1.0 - tClamped) + dungeonColor.b * tClamped,
+            intensity: base.intensity * (1.0 - tClamped) + dungeonColor.intensity * tClamped
+          )
       var mask: MaskGrid
       let dungeonKind = if UseSequentialDungeonZones:
         let selected = dungeonKinds[seqIdx mod dungeonKinds.len]

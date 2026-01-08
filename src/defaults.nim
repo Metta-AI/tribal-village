@@ -1,25 +1,4 @@
 # This file is included by src/external.nim
-proc findAdjacentBuildTile(env: Environment, pos: IVec2, preferDir: IVec2): IVec2 =
-  ## Find an empty adjacent tile for building, preferring the provided direction.
-  let dirs = @[
-    preferDir,
-    ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
-    ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)
-  ]
-  for d in dirs:
-    if d.x == 0 and d.y == 0:
-      continue
-    let candidate = pos + d
-    if not isValidPos(candidate):
-      continue
-    if not env.canPlaceBuilding(candidate):
-      continue
-    # Avoid building on roads so they stay clear for traffic.
-    if env.terrain[candidate.x][candidate.y] == TerrainRoad:
-      continue
-    return candidate
-  return ivec2(-1, -1)
-
 proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8] =
   if index < 0 or index >= BuildChoices.len:
@@ -27,9 +6,30 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   let key = BuildChoices[index]
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
-  let buildPos = findAdjacentBuildTile(env, agent.pos, orientationToVec(agent.orientation))
-  if buildPos.x < 0:
-    return (false, 0'u8)
+  block findBuildPos:
+    ## Find an empty adjacent tile for building, preferring the provided direction.
+    let preferDir = orientationToVec(agent.orientation)
+    let dirs = @[
+      preferDir,
+      ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
+      ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)
+    ]
+    var buildPos = ivec2(-1, -1)
+    for d in dirs:
+      if d.x == 0 and d.y == 0:
+        continue
+      let candidate = agent.pos + d
+      if not isValidPos(candidate):
+        continue
+      if not env.canPlaceBuilding(candidate):
+        continue
+      # Avoid building on roads so they stay clear for traffic.
+      if env.terrain[candidate.x][candidate.y] == TerrainRoad:
+        continue
+      buildPos = candidate
+      break
+    if buildPos.x < 0:
+      return (false, 0'u8)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
@@ -54,41 +54,6 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
     if did: return (true, act)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
-
-proc findBuildSpotNear(env: Environment, agent: Thing, center: IVec2,
-                       radius: int): tuple[buildPos, standPos: IVec2] =
-  ## Find a buildable tile near center plus an adjacent stand tile.
-  result.buildPos = ivec2(-1, -1)
-  result.standPos = ivec2(-1, -1)
-  let minX = max(0, center.x - radius)
-  let maxX = min(MapWidth - 1, center.x + radius)
-  let minY = max(0, center.y - radius)
-  let maxY = min(MapHeight - 1, center.y + radius)
-
-  for x in minX .. maxX:
-    for y in minY .. maxY:
-      let pos = ivec2(x.int32, y.int32)
-      if not env.canPlaceBuilding(pos):
-        continue
-      # Avoid building on roads so they stay clear for traffic.
-      if env.terrain[pos.x][pos.y] == TerrainRoad:
-        continue
-      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
-        let stand = pos + d
-        if not isValidPos(stand):
-          continue
-        if env.hasDoor(stand):
-          continue
-        if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
-          continue
-        if not env.isEmpty(stand):
-          continue
-        if not env.canAgentPassDoor(agent, stand):
-          continue
-        result.buildPos = pos
-        result.standPos = stand
-        return result
-  result
 
 proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
                           state: var AgentState, teamId: int, kind: ThingKind,
@@ -122,11 +87,47 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
   let key = BuildChoices[idx]
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
-  let target = findBuildSpotNear(env, agent, agent.pos, searchRadius)
-  if target.buildPos.x < 0:
-    return (false, 0'u8)
-  return goToStandAndBuild(controller, env, agent, agentId, state,
-    target.standPos, target.buildPos, idx)
+  block findBuildSpotNear:
+    ## Find a buildable tile near center plus an adjacent stand tile.
+    var buildPos = ivec2(-1, -1)
+    var standPos = ivec2(-1, -1)
+    let center = agent.pos
+    let minX = max(0, center.x - searchRadius)
+    let maxX = min(MapWidth - 1, center.x + searchRadius)
+    let minY = max(0, center.y - searchRadius)
+    let maxY = min(MapHeight - 1, center.y + searchRadius)
+
+    for x in minX .. maxX:
+      for y in minY .. maxY:
+        let pos = ivec2(x.int32, y.int32)
+        if not env.canPlaceBuilding(pos):
+          continue
+        # Avoid building on roads so they stay clear for traffic.
+        if env.terrain[pos.x][pos.y] == TerrainRoad:
+          continue
+        for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+          let stand = pos + d
+          if not isValidPos(stand):
+            continue
+          if env.hasDoor(stand):
+            continue
+          if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
+            continue
+          if not env.isEmpty(stand):
+            continue
+          if not env.canAgentPassDoor(agent, stand):
+            continue
+          buildPos = pos
+          standPos = stand
+          break
+        if buildPos.x >= 0:
+          break
+      if buildPos.x >= 0:
+        break
+    if buildPos.x < 0:
+      return (false, 0'u8)
+    return goToStandAndBuild(controller, env, agent, agentId, state,
+      standPos, buildPos, idx)
 
 proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint8] =

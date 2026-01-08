@@ -774,7 +774,7 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       allowStone: bool = false,
                       allowGold: bool = false): tuple[did: bool, action: uint8] =
   ## Unified dropoff function - attempts to drop off resources in priority order
-  ## Priority: food -> wood -> gold -> stone (same as legacy gatherer order)
+  ## Priority: food -> wood -> gold -> stone
 
   # Food dropoff - requires checking inventory for any food items
   if allowFood:

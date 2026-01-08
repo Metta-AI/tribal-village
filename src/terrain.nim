@@ -249,20 +249,6 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
         terrain[x][y] = terrainType
         biomes[x][y] = biomeType
 
-proc pickWeighted[T](r: var Rand, options: openArray[T], weights: openArray[float]): T =
-  var total = 0.0
-  for w in weights:
-    total += max(0.0, w)
-  if total <= 0.0:
-    return options[0]
-  let roll = randFloat(r) * total
-  var accum = 0.0
-  for i, w in weights:
-    accum += max(0.0, w)
-    if roll <= accum:
-      return options[i]
-  options[^1]
-
 proc evenlyDistributedZones*(r: var Rand, mapWidth, mapHeight, mapBorder: int, count: int,
                              maxFraction: float): seq[ZoneRect] =
   if count <= 0:
@@ -433,7 +419,21 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       inc seqIdx
       selected
     else:
-      pickWeighted(r, kinds, weights)
+      var total = 0.0
+      for w in weights:
+        total += max(0.0, w)
+      if total <= 0.0:
+        kinds[0]
+      else:
+        let roll = randFloat(r) * total
+        var accum = 0.0
+        var selected = kinds[^1]
+        for i, w in weights:
+          accum += max(0.0, w)
+          if roll <= accum:
+            selected = kinds[i]
+            break
+        selected
     var mask: MaskGrid
     var zoneMask: MaskGrid
     buildZoneBlobMask(zoneMask, mapWidth, mapHeight, mapBorder, zone, r)

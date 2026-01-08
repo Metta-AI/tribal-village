@@ -275,36 +275,6 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   building.cooldown = cooldown
   true
 
-proc tryMarketTrade(env: Environment, agent: Thing, building: Thing): bool =
-  let teamId = getTeamId(agent.agentId)
-  if building.teamId != teamId:
-    return false
-  var traded = false
-  for key, count in agent.inventory.pairs:
-    if count <= 0:
-      continue
-    if not isStockpileResourceKey(key):
-      continue
-    let res = stockpileResourceForItem(key)
-    if res == ResourceWater:
-      continue
-    if res == ResourceGold:
-      env.addToStockpile(teamId, ResourceFood, count)
-      setInv(agent, key, 0)
-      env.updateAgentInventoryObs(agent, key)
-      traded = true
-    else:
-      let gained = count div 2
-      if gained > 0:
-        env.addToStockpile(teamId, ResourceGold, gained)
-        setInv(agent, key, count mod 2)
-        env.updateAgentInventoryObs(agent, key)
-        traded = true
-  if traded:
-    building.cooldown = 6
-    return true
-  false
-
 proc recipeUsesStockpile(recipe: CraftRecipe): bool =
   if recipe.station == StationSiegeWorkshop:
     return false
@@ -312,39 +282,6 @@ proc recipeUsesStockpile(recipe: CraftRecipe): bool =
     if output.key.startsWith(ItemThingPrefix):
       return true
   false
-
-proc canApplyRecipe(env: Environment, agent: Thing, recipe: CraftRecipe): bool =
-  let useStockpile = recipeUsesStockpile(recipe)
-  let teamId = getTeamId(agent.agentId)
-  for input in recipe.inputs:
-    if useStockpile and isStockpileResourceKey(input.key):
-      let res = stockpileResourceForItem(input.key)
-      if env.stockpileCount(teamId, res) < input.count:
-        return false
-    elif getInv(agent, input.key) < input.count:
-      return false
-  for output in recipe.outputs:
-    if getInv(agent, output.key) + output.count > MapObjectAgentMaxInventory:
-      return false
-  true
-
-proc applyRecipe(env: Environment, agent: Thing, recipe: CraftRecipe) =
-  let useStockpile = recipeUsesStockpile(recipe)
-  let teamId = getTeamId(agent.agentId)
-  if useStockpile:
-    var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
-    for input in recipe.inputs:
-      if isStockpileResourceKey(input.key):
-        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
-    discard env.spendStockpile(teamId, costs)
-  for input in recipe.inputs:
-    if useStockpile and isStockpileResourceKey(input.key):
-      continue
-    setInv(agent, input.key, getInv(agent, input.key) - input.count)
-    env.updateAgentInventoryObs(agent, input.key)
-  for output in recipe.outputs:
-    setInv(agent, output.key, getInv(agent, output.key) + output.count)
-    env.updateAgentInventoryObs(agent, output.key)
 
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
@@ -357,19 +294,45 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
         break
     if hasThingOutput:
       continue
-    if not canApplyRecipe(env, agent, recipe):
+    let useStockpile = recipeUsesStockpile(recipe)
+    let teamId = getTeamId(agent.agentId)
+    var canApply = true
+    for input in recipe.inputs:
+      if useStockpile and isStockpileResourceKey(input.key):
+        let res = stockpileResourceForItem(input.key)
+        if env.stockpileCount(teamId, res) < input.count:
+          canApply = false
+          break
+      elif getInv(agent, input.key) < input.count:
+        canApply = false
+        break
+    if canApply:
+      for output in recipe.outputs:
+        if getInv(agent, output.key) + output.count > MapObjectAgentMaxInventory:
+          canApply = false
+          break
+    if not canApply:
       continue
-    env.applyRecipe(agent, recipe)
+    if useStockpile:
+      var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+      for input in recipe.inputs:
+        if isStockpileResourceKey(input.key):
+          costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+      discard env.spendStockpile(teamId, costs)
+    for input in recipe.inputs:
+      if useStockpile and isStockpileResourceKey(input.key):
+        continue
+      setInv(agent, input.key, getInv(agent, input.key) - input.count)
+      env.updateAgentInventoryObs(agent, input.key)
+    for output in recipe.outputs:
+      setInv(agent, output.key, getInv(agent, output.key) + output.count)
+      env.updateAgentInventoryObs(agent, output.key)
     if not isNil(stationThing):
       stationThing.cooldown = max(1, recipe.cooldown)
     return true
   false
 
 include "place"
-
-proc convertTreeToStump(env: Environment, tree: Thing) =
-  removeThing(env, tree)
-  env.dropStump(tree.pos, ResourceNodeInitial - 1)
 
 proc grantWood(env: Environment, agent: Thing, amount: int = 1): bool =
   if amount <= 0:
@@ -383,84 +346,318 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if not env.grantWood(agent):
     return false
   agent.reward += env.config.woodReward
-  env.convertTreeToStump(tree)
+  removeThing(env, tree)
+  env.dropStump(tree.pos, ResourceNodeInitial - 1)
   true
-
-include "move"
 include "combat"
-include "use"
 
-proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Give items to adjacent teammate in the given direction.
+proc useAction*(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Use terrain or building with a single action in a direction.
   if argument > 7:
     inc env.stats[id].actionInvalid
     return
-  let dir = Orientation(argument)
-  agent.orientation = dir
+  let useOrientation = Orientation(argument)
+  agent.orientation = useOrientation
   env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-  let delta = getOrientationDelta(dir)
-  let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
-  if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
+  let delta = getOrientationDelta(useOrientation)
+  var targetPos = agent.pos
+  targetPos.x += int32(delta.x)
+  targetPos.y += int32(delta.y)
+
+  if not isValidPos(targetPos):
     inc env.stats[id].actionInvalid
     return
-  let target = env.getThing(targetPos)
-  if isNil(target):
+
+  # Frozen tiles are non-interactable (terrain or things sitting on them)
+  if isTileFrozen(targetPos, env):
     inc env.stats[id].actionInvalid
     return
-  if target.kind != Agent or isThingFrozen(target, env):
+
+  var thing = env.getThing(targetPos)
+  if isNil(thing):
+    thing = env.getOverlayThing(targetPos)
+  template setInvAndObs(key: ItemKey, value: int) =
+    setInv(agent, key, value)
+    env.updateAgentInventoryObs(agent, key)
+
+  template decInv(key: ItemKey) =
+    setInvAndObs(key, getInv(agent, key) - 1)
+
+  template incInv(key: ItemKey) =
+    setInvAndObs(key, getInv(agent, key) + 1)
+
+  if isNil(thing):
+    # Terrain use only when no Thing occupies the tile.
+    var used = false
+    case env.terrain[targetPos.x][targetPos.y]:
+    of Water:
+      if env.giveItem(agent, ItemWater):
+        agent.reward += env.config.waterReward
+        used = true
+    of Empty, Grass, Dune, Sand, Snow, Road:
+      if env.hasDoor(targetPos):
+        used = false
+      elif agent.inventoryBread > 0:
+        decInv(ItemBread)
+        let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            let p = agent.pos + ivec2(dx, dy)
+            env.applyActionTint(p, tint, 2, ActionTintHeal)
+            let occ = env.getThing(p)
+            if not occ.isNil and occ.kind == Agent:
+              let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)
+              if healAmt > 0:
+                discard env.applyAgentHeal(occ, healAmt)
+        used = true
+      else:
+        if agent.inventoryWater > 0:
+          decInv(ItemWater)
+          env.terrain[targetPos.x][targetPos.y] = Fertile
+          env.resetTileColor(targetPos)
+          env.updateObservations(TintLayer, targetPos, 0)
+          used = true
+    else:
+      used = false
+
+    if used:
+      inc env.stats[id].actionUse
+    else:
+      inc env.stats[id].actionInvalid
+    return
+  # Building use
+  # Prevent interacting with frozen objects/buildings
+  if isThingFrozen(thing, env):
     inc env.stats[id].actionInvalid
     return
-  var transferred = false
-  # Give armor if we have any and target has none
-  if agent.inventoryArmor > 0 and target.inventoryArmor == 0:
-    target.inventoryArmor = agent.inventoryArmor
-    agent.inventoryArmor = 0
-    transferred = true
-  # Otherwise give food if possible (no obs layer yet)
-  elif agent.inventoryBread > 0:
-    let capacity = stockpileCapacityLeft(target)
-    let giveAmt = min(agent.inventoryBread, capacity)
-    if giveAmt > 0:
-      agent.inventoryBread = agent.inventoryBread - giveAmt
-      target.inventoryBread = target.inventoryBread + giveAmt
-      transferred = true
+
+  var used = false
+  template takeFromThing(key: ItemKey, rewardAmount: float32 = 0.0) =
+    let stored = getInv(thing, key)
+    if stored <= 0:
+      removeThing(env, thing)
+      used = true
+    elif env.giveItem(agent, key):
+      let remaining = stored - 1
+      if rewardAmount != 0:
+        agent.reward += rewardAmount
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, key, remaining)
+      used = true
+  case thing.kind:
+  of Wheat:
+    if env.giveItem(agent, ItemWheat):
+      let remaining = getInv(thing, ItemWheat) - 1
+      agent.reward += env.config.wheatReward
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemWheat, remaining)
+      used = true
+  of Stone:
+    takeFromThing(ItemStone)
+  of Gold:
+    takeFromThing(ItemGold)
+  of Bush, Cactus:
+    takeFromThing(ItemPlant)
+  of Stalagmite:
+    takeFromThing(ItemStone)
+  of Stump:
+    if env.grantWood(agent):
+      agent.reward += env.config.woodReward
+      let remaining = getInv(thing, ItemWood) - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemWood, remaining)
+      used = true
+  of Tree:
+    used = env.harvestTree(agent, thing)
+  of Corpse:
+    var lootKey = ItemNone
+    var lootCount = 0
+    for key, count in thing.inventory.pairs:
+      if count > 0:
+        lootKey = key
+        lootCount = count
+        break
+    if lootKey != ItemNone:
+      if env.giveItem(agent, lootKey):
+        let remaining = lootCount - 1
+        if remaining <= 0:
+          thing.inventory.del(lootKey)
+        else:
+          setInv(thing, lootKey, remaining)
+        var hasItems = false
+        for _, count in thing.inventory.pairs:
+          if count > 0:
+            hasItems = true
+            break
+        if not hasItems:
+          removeThing(env, thing)
+          if lootKey != ItemMeat:
+            let skeleton = Thing(kind: Skeleton, pos: thing.pos)
+            skeleton.inventory = emptyInventory()
+            env.add(skeleton)
+        used = true
+  of Magma:  # Magma smelting
+    if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
+      setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
+      agent.inventoryBar = agent.inventoryBar + 1
+      env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, ItemGold))
+      env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
+      thing.cooldown = 0
+      if agent.inventoryBar == 1:
+        agent.reward += env.config.barReward
+      used = true
+  of WeavingLoom:
+    if thing.cooldown == 0 and agent.inventoryLantern == 0 and
+        (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
+      if agent.inventoryWood > 0:
+        decInv(ItemWood)
+      else:
+        decInv(ItemWheat)
+      setInvAndObs(ItemLantern, 1)
+      thing.cooldown = 15
+      agent.reward += env.config.clothReward
+      used = true
+    elif thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationLoom, thing):
+        used = true
+  of ClayOven:
+    if thing.cooldown == 0:
+      if env.tryCraftAtStation(agent, StationOven, thing):
+        used = true
+      elif agent.inventoryWheat > 0:
+        decInv(ItemWheat)
+        incInv(ItemBread)
+        thing.cooldown = 10
+        # No observation layer for bread; optional for UI later
+        agent.reward += env.config.foodReward
+        used = true
+  of Skeleton:
+    let stored = getInv(thing, ItemFish)
+    if stored > 0 and env.giveItem(agent, ItemFish):
+      let remaining = stored - 1
+      if remaining <= 0:
+        removeThing(env, thing)
+      else:
+        setInv(thing, ItemFish, remaining)
+      used = true
   else:
-    let stockpileCapacityLeftTarget = stockpileCapacityLeft(target)
-    var bestKey = ItemNone
-    var bestCount = 0
-    for key, count in agent.inventory.pairs:
-      if count <= 0:
-        continue
-      let capacity =
-        if isStockpileResourceKey(key):
-          stockpileCapacityLeftTarget
-        else:
-          MapObjectAgentMaxInventory - getInv(target, key)
-      if capacity <= 0:
-        continue
-      if count > bestCount:
-        bestKey = key
-        bestCount = count
-    if bestKey != ItemNone and bestCount > 0:
-      let capacity =
-        if isStockpileResourceKey(bestKey):
-          stockpileCapacityLeftTarget
-        else:
-          max(0, MapObjectAgentMaxInventory - getInv(target, bestKey))
-      if capacity > 0:
-        let moved = min(bestCount, capacity)
-        setInv(agent, bestKey, bestCount - moved)
-        setInv(target, bestKey, getInv(target, bestKey) + moved)
-        env.updateAgentInventoryObs(agent, bestKey)
-        env.updateAgentInventoryObs(target, bestKey)
-        transferred = true
-  if transferred:
-    inc env.stats[id].actionPut
-    # Update observations for changed inventories
-    env.updateAgentInventoryObs(agent, ItemArmor)
-    env.updateAgentInventoryObs(agent, ItemBread)
-    env.updateAgentInventoryObs(target, ItemArmor)
-    env.updateAgentInventoryObs(target, ItemBread)
+    if isBuildingKind(thing.kind):
+      let useKind = buildingUseKind(thing.kind)
+      case useKind
+      of UseAltar:
+        if thing.cooldown == 0 and agent.inventoryBar >= 1:
+          decInv(ItemBar)
+          thing.hearts = thing.hearts + 1
+          thing.cooldown = MapObjectAltarCooldown
+          env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
+          agent.reward += env.config.heartReward
+          used = true
+      of UseArmory:
+        discard
+      of UseClayOven:
+        if thing.cooldown == 0:
+          if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+          elif agent.inventoryWheat > 0:
+            decInv(ItemWheat)
+            incInv(ItemBread)
+            thing.cooldown = 10
+            agent.reward += env.config.foodReward
+            used = true
+      of UseWeavingLoom:
+        if thing.cooldown == 0 and agent.inventoryLantern == 0 and
+            (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
+          if agent.inventoryWood > 0:
+            decInv(ItemWood)
+          else:
+            decInv(ItemWheat)
+          setInvAndObs(ItemLantern, 1)
+          thing.cooldown = 15
+          agent.reward += env.config.clothReward
+          used = true
+        elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+          if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+      of UseBlacksmith:
+        if thing.cooldown == 0:
+          if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+        if not used and thing.teamId == getTeamId(agent.agentId):
+          if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+            used = true
+      of UseMarket:
+        if thing.cooldown == 0:
+          let teamId = getTeamId(agent.agentId)
+          if thing.teamId == teamId:
+            var traded = false
+            for key, count in agent.inventory.pairs:
+              if count <= 0:
+                continue
+              if not isStockpileResourceKey(key):
+                continue
+              let res = stockpileResourceForItem(key)
+              if res == ResourceWater:
+                continue
+              if res == ResourceGold:
+                env.addToStockpile(teamId, ResourceFood, count)
+                setInv(agent, key, 0)
+                env.updateAgentInventoryObs(agent, key)
+                traded = true
+              else:
+                let gained = count div 2
+                if gained > 0:
+                  env.addToStockpile(teamId, ResourceGold, gained)
+                  setInv(agent, key, count mod 2)
+                  env.updateAgentInventoryObs(agent, key)
+                  traded = true
+            if traded:
+              thing.cooldown = 6
+              used = true
+      of UseDropoff:
+        if thing.teamId == getTeamId(agent.agentId):
+          if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+            used = true
+      of UseDropoffAndStorage:
+        if thing.teamId == getTeamId(agent.agentId):
+          if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+            used = true
+          if not used and env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+            used = true
+      of UseStorage:
+        if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+          used = true
+      of UseTrain:
+        if thing.cooldown == 0 and buildingHasTrain(thing.kind):
+          if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+              buildingTrainCosts(thing.kind), buildingTrainCooldown(thing.kind)):
+            used = true
+      of UseTrainAndCraft:
+        if thing.cooldown == 0:
+          if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+          elif buildingHasTrain(thing.kind):
+            if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+                buildingTrainCosts(thing.kind), buildingTrainCooldown(thing.kind)):
+              used = true
+      of UseCraft:
+        if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+          if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            used = true
+      of UseNone:
+        discard
+
+  if not used:
+    if tryPickupThing(env, agent, thing):
+      used = true
+
+  if used:
+    inc env.stats[id].actionUse
   else:
     inc env.stats[id].actionInvalid
 
@@ -570,105 +767,6 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 
 include "tint"
 include "build"
-
-proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Plant lantern in the given direction.
-  if argument > 7:
-    inc env.stats[id].actionInvalid
-    return
-  let plantOrientation = Orientation(argument)
-  agent.orientation = plantOrientation
-  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-  let delta = getOrientationDelta(plantOrientation)
-  var targetPos = agent.pos
-  targetPos.x += int32(delta.x)
-  targetPos.y += int32(delta.y)
-
-  # Check if position is empty and not water
-  if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
-    inc env.stats[id].actionInvalid
-    return
-
-  if agent.inventoryLantern > 0:
-    # Calculate team ID directly from the planting agent's ID
-    let teamId = getTeamId(agent.agentId)
-
-    # Plant the lantern
-    let lantern = Thing(
-      kind: Lantern,
-      pos: targetPos,
-      teamId: teamId,
-      lanternHealthy: true
-    )
-
-    env.add(lantern)
-
-    # Consume the lantern from agent's inventory
-    agent.inventoryLantern = 0
-
-    # Give reward for planting
-    agent.reward += env.config.clothReward * 0.5  # Half reward for planting
-
-    inc env.stats[id].actionPlant
-  else:
-    inc env.stats[id].actionInvalid
-
-proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile.
-  let plantingTree =
-    if argument <= 7:
-      argument >= 4
-    else:
-      (argument mod 2) == 1
-  let dirIndex =
-    if argument <= 7:
-      (if plantingTree: argument - 4 else: argument)
-    else:
-      (if argument mod 2 == 1: (argument div 2) mod 4 else: argument mod 4)
-  if dirIndex < 0 or dirIndex > 7:
-    inc env.stats[id].actionInvalid
-    return
-  let orientation = Orientation(dirIndex)
-  agent.orientation = orientation
-  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-  let delta = getOrientationDelta(orientation)
-  let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
-
-  # Occupancy checks
-  if not env.isEmpty(targetPos) or not isNil(env.getOverlayThing(targetPos)) or env.hasDoor(targetPos) or
-      isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
-    inc env.stats[id].actionInvalid
-    return
-  if env.terrain[targetPos.x][targetPos.y] != Fertile:
-    inc env.stats[id].actionInvalid
-    return
-
-  if plantingTree:
-    if agent.inventoryWood <= 0:
-      inc env.stats[id].actionInvalid
-      return
-    agent.inventoryWood = max(0, agent.inventoryWood - 1)
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    let tree = Thing(kind: Tree, pos: targetPos)
-    tree.inventory = emptyInventory()
-    setInv(tree, ItemWood, ResourceNodeInitial)
-    env.add(tree)
-  else:
-    if agent.inventoryWheat <= 0:
-      inc env.stats[id].actionInvalid
-      return
-    agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
-    env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
-    let crop = Thing(kind: Wheat, pos: targetPos)
-    crop.inventory = emptyInventory()
-    setInv(crop, ItemWheat, ResourceNodeInitial)
-    env.add(crop)
-
-  env.terrain[targetPos.x][targetPos.y] = Empty
-  env.resetTileColor(targetPos)
-
-  # Consuming fertility (terrain replaced above)
-  inc env.stats[id].actionPlantResource
 
 include "connect"
 include "spawn"

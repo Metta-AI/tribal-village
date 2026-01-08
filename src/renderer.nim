@@ -185,8 +185,8 @@ proc ensureHeartCountLabel(count: int): string =
 
   result = key
 
-proc generateWallSprites(): seq[string] =
-  result = newSeq[string](16)
+let wallSprites = block:
+  var sprites = newSeq[string](16)
   for i in 0 .. 15:
     var suffix = ""
     if (i and 8) != 0: suffix.add("n")
@@ -195,11 +195,10 @@ proc generateWallSprites(): seq[string] =
     if (i and 1) != 0: suffix.add("e")
 
     if suffix.len > 0:
-      result[i] = "wall." & suffix
+      sprites[i] = "wall." & suffix
     else:
-      result[i] = "wall"
-
-const wallSprites = generateWallSprites()
+      sprites[i] = "wall"
+  sprites
 
 type WallTile = enum
   WallNone = 0,
