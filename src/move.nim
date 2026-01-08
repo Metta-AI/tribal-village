@@ -106,9 +106,14 @@ proc orientAction(env: Environment, id: int, agent: Thing, argument: int) =
 
 proc swapAction(env: Environment, id: int, agent: Thing, argument: int) =
   ## Swap
-  let
-    targetPos = agent.pos + orientationToVec(agent.orientation)
-    target = env.getThing(targetPos)
+  if argument > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let dir = Orientation(argument)
+  agent.orientation = dir
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+  let targetPos = agent.pos + orientationToVec(dir)
+  let target = env.getThing(targetPos)
   if isNil(target) or target.kind != Agent or isThingFrozen(target, env):
     inc env.stats[id].actionInvalid
     return

@@ -399,9 +399,14 @@ include "move"
 include "combat"
 include "use"
 
-proc putAction(env: Environment, id: int, agent: Thing) =
-  ## Give items to adjacent teammate in facing direction.
-  let dir = agent.orientation
+proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Give items to adjacent teammate in the given direction.
+  if argument > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let dir = Orientation(argument)
+  agent.orientation = dir
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   let delta = getOrientationDelta(dir)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
   if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
@@ -574,10 +579,14 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 include "tint"
 include "build"
 
-proc plantAction(env: Environment, id: int, agent: Thing) =
-  ## Plant lantern in the facing direction.
-  # Calculate target position based on current orientation
-  let plantOrientation = agent.orientation
+proc plantAction(env: Environment, id: int, agent: Thing, argument: int) =
+  ## Plant lantern in the given direction.
+  if argument > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let plantOrientation = Orientation(argument)
+  agent.orientation = plantOrientation
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   let delta = getOrientationDelta(plantOrientation)
   var targetPos = agent.pos
   targetPos.x += int32(delta.x)
@@ -613,14 +622,23 @@ proc plantAction(env: Environment, id: int, agent: Thing) =
     inc env.stats[id].actionInvalid
 
 proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int) =
-  ## Plant wheat or tree onto an adjacent fertile tile (direction uses facing).
-  ## Args 0-3 = wheat, 4-7 = tree (legacy); otherwise parity selects tree when odd.
+  ## Plant wheat (args 0-3) or tree (args 4-7) onto an adjacent fertile tile.
   let plantingTree =
     if argument <= 7:
       argument >= 4
     else:
       (argument mod 2) == 1
-  let orientation = agent.orientation
+  let dirIndex =
+    if argument <= 7:
+      (if plantingTree: argument - 4 else: argument)
+    else:
+      (if argument mod 2 == 1: (argument div 2) mod 4 else: argument mod 4)
+  if dirIndex < 0 or dirIndex > 7:
+    inc env.stats[id].actionInvalid
+    return
+  let orientation = Orientation(dirIndex)
+  agent.orientation = orientation
+  env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
   let delta = getOrientationDelta(orientation)
   let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
 
