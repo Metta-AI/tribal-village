@@ -570,17 +570,18 @@ proc drawSelectionLabel*(panelRect: IRect) =
       return
     label &= " (" & $count & ")"
 
+  template displayNameFor(t: Thing): string =
+    if t.kind == Agent:
+      UnitClassLabels[t.unitClass]
+    elif isBuildingKind(t.kind):
+      buildingDisplayName(t.kind)
+    else:
+      thingDisplayName(t.kind)
+
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
   let overlay = env.overlayGrid[selectedPos.x][selectedPos.y]
   if not isNil(thing):
-    template displayNameFor(t: Thing): string =
-      if t.kind == Agent:
-        UnitClassLabels[t.unitClass]
-      elif isBuildingKind(t.kind):
-        buildingDisplayName(t.kind)
-      else:
-        thingDisplayName(t.kind)
     label = displayNameFor(thing)
     appendResourceCount(label, thing)
   elif not isNil(overlay):
