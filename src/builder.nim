@@ -7,16 +7,14 @@ proc isWallRingDoorSlot(altar, pos: IVec2, radius: int): bool =
   let dx = int(pos.x - altar.x)
   let dy = int(pos.y - altar.y)
   # Doors at cardinals and diagonals (8 total).
-  (dx, dy) in {
-    (0, -radius),
-    (radius, 0),
-    (0, radius),
-    (-radius, 0),
-    (radius, -radius),
-    (radius, radius),
-    (-radius, radius),
-    (-radius, -radius)
-  }
+  (dx == 0 and dy == -radius) or
+  (dx == radius and dy == 0) or
+  (dx == 0 and dy == radius) or
+  (dx == -radius and dy == 0) or
+  (dx == radius and dy == -radius) or
+  (dx == radius and dy == radius) or
+  (dx == -radius and dy == radius) or
+  (dx == -radius and dy == -radius)
 
 proc doorInnerPos(altar, doorPos: IVec2, radius: int): IVec2 =
   let step = ivec2(signi(altar.x - doorPos.x), signi(altar.y - doorPos.y))

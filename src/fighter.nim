@@ -259,7 +259,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
     if hasLanternInput:
       if not isNil(loom):
-        return controller.useOrMove(env, agent, agentId, state, loom.pos)
+        if isAdjacent(agent.pos, loom.pos):
+          return controller.useAt(env, agent, agentId, state, loom.pos)
+        return controller.moveTo(env, agent, agentId, state, loom.pos)
       return controller.moveNextSearch(env, agent, agentId, state)
 
     if preferLanternWood(env, teamId):
@@ -269,7 +271,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
     if not isNil(wheat):
-      return controller.useOrMove(env, agent, agentId, state, wheat.pos)
+      if isAdjacent(agent.pos, wheat.pos):
+        return controller.useAt(env, agent, agentId, state, wheat.pos)
+      return controller.moveTo(env, agent, agentId, state, wheat.pos)
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -283,7 +287,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   if agent.unitClass == UnitVillager:
     let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
     if not isNil(barracks):
-      return controller.useOrMove(env, agent, agentId, state, barracks.pos)
+      if isAdjacent(agent.pos, barracks.pos):
+        return controller.useAt(env, agent, agentId, state, barracks.pos)
+      return controller.moveTo(env, agent, agentId, state, barracks.pos)
 
   # Maintain armor and spears.
   if agent.inventoryArmor < ArmorPoints:
@@ -300,10 +306,14 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   # Seek tumors/spawners when idle.
   let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
   if not isNil(tumor):
-    return controller.attackOrMove(env, agent, agentId, state, tumor.pos)
+    if isAdjacent(agent.pos, tumor.pos):
+      return controller.actAt(env, agent, agentId, state, tumor.pos, 2'u8)
+    return controller.moveTo(env, agent, agentId, state, tumor.pos)
   let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
   if not isNil(spawner):
-    return controller.attackOrMove(env, agent, agentId, state, spawner.pos)
+    if isAdjacent(agent.pos, spawner.pos):
+      return controller.actAt(env, agent, agentId, state, spawner.pos, 2'u8)
+    return controller.moveTo(env, agent, agentId, state, spawner.pos)
 
   # Hunt while patrolling if nothing else to do.
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
