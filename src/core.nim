@@ -728,10 +728,7 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
       let dy = abs(fertilePos.y - agent.pos.y)
       if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
         let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
-        if agent.orientation != Orientation(dirIdx):
-          return (true, saveStateAndReturn(controller, agentId, state,
-                   encodeAction(9'u8, dirIdx.uint8)))
-        let plantArg = (if agent.inventoryWheat > 0: 0 else: 1)
+        let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
         return (true, saveStateAndReturn(controller, agentId, state,
                  encodeAction(7'u8, plantArg.uint8)))
       else:
@@ -752,13 +749,11 @@ proc isAdjacent(a, b: IVec2): bool =
 
 proc actAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
            state: var AgentState, targetPos: IVec2, verb: uint8,
-           argument: int = 0): uint8 =
+           argument: int = -1): uint8 =
   let desiredDir = neighborDirIndex(agent.pos, targetPos)
-  if agent.orientation != Orientation(desiredDir):
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(9'u8, desiredDir.uint8))
+  let arg = if argument < 0: desiredDir else: argument
   return saveStateAndReturn(controller, agentId, state,
-    encodeAction(verb, argument.uint8))
+    encodeAction(verb, arg.uint8))
 
 proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =
@@ -836,11 +831,8 @@ proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, ag
     let dy = abs(teammate.pos.y - agent.pos.y)
     if max(dx, dy) == 1'i32:
       let dirIdx = neighborDirIndex(agent.pos, teammate.pos)
-      if agent.orientation != Orientation(dirIdx):
-        return (true, saveStateAndReturn(controller, agentId, state,
-          encodeAction(9'u8, dirIdx.uint8)))
       return (true, saveStateAndReturn(controller, agentId, state,
-        encodeAction(5'u8, 0'u8)))
+        encodeAction(5'u8, dirIdx.uint8)))
     return (true, saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8)))
   let (didSmith, actSmith) = moveToNearestSmith(controller, env, agent, agentId, state, teamId)
