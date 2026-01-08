@@ -19,18 +19,8 @@ proc isWallRingDoorSlot(altar, pos: IVec2, radius: int): bool =
   }
 
 proc doorInnerPos(altar, doorPos: IVec2, radius: int): IVec2 =
-  let dx = int(doorPos.x - altar.x)
-  let dy = int(doorPos.y - altar.y)
-  if dx == radius and abs(dy) < radius:
-    return doorPos + ivec2(-1, 0)
-  if dx == -radius and abs(dy) < radius:
-    return doorPos + ivec2(1, 0)
-  if dy == radius and abs(dx) < radius:
-    return doorPos + ivec2(0, -1)
-  if dy == -radius and abs(dx) < radius:
-    return doorPos + ivec2(0, 1)
   let step = ivec2(signi(altar.x - doorPos.x), signi(altar.y - doorPos.y))
-  doorPos + step
+  doorPos + ivec2(step.x * 2, step.y * 2)
 
 proc findWallRingTarget(env: Environment, altar: IVec2): IVec2 =
   for radius in WallRingRadii:
