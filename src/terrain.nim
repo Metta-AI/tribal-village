@@ -87,16 +87,16 @@ const
   UseSequentialBiomeZones* = true
   UseSequentialDungeonZones* = true
   UseLegacyTreeClusters* = true
-  UsePalmGroves* = true
+  UseTreeOases* = true
   WheatFieldClusterBase* = 14
   WheatFieldClusterRange* = 6
   WheatFieldClusterScale* = 7
   TreeGroveClusterBase* = 14
   TreeGroveClusterRange* = 6
   TreeGroveClusterScale* = 7
-  PalmGroveClusterBase* = 6
-  PalmGroveClusterRange* = 4
-  PalmGroveClusterScale* = 3
+  TreeOasisClusterBase* = 6
+  TreeOasisClusterRange* = 4
+  TreeOasisClusterScale* = 3
   # Slightly lower biome/dungeon density for less crowded maps.
   BiomeZoneDivisor* = 5000
   DungeonZoneDivisor* = 7800

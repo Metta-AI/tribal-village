@@ -178,7 +178,7 @@ proc initThingCatalog(): array[ThingKind, CatalogEntry] =
 
   add(Agent, "Agent", "gatherer", '@')
   add(Wall, "Wall", "wall", '#')
-  add(Tree, "Tree", "pine", 't')
+  add(Tree, "Tree", "tree", 't')
   add(Wheat, "Wheat", "wheat", 'w')
   add(Stone, "Stone", "stone", 'S')
   add(Gold, "Gold", "gold", 'G')

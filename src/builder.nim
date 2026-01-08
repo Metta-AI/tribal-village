@@ -126,6 +126,35 @@ proc findDoorRingOutpostTarget(env: Environment, altar: IVec2): IVec2 =
         return outpostPos
   ivec2(-1, -1)
 
+proc tryPlantFarmTiles(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
+  let millCount = controller.getBuildingCount(env, teamId, Mill)
+  if millCount < 2:
+    return (false, 0'u8)
+  let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
+  if isNil(mill):
+    return (false, 0'u8)
+  let fertilePos = findNearestEmpty(env, mill.pos, true, 6)
+  if fertilePos.x < 0:
+    return (false, 0'u8)
+
+  let wantsTree = ((fertilePos.x + fertilePos.y) mod 2'i32) == 1'i32
+  if wantsTree:
+    if agent.inventoryWood <= 0:
+      return controller.ensureWood(env, agent, agentId, state)
+  else:
+    if agent.inventoryWheat <= 0:
+      return controller.ensureWheat(env, agent, agentId, state)
+
+  let dx = abs(fertilePos.x - agent.pos.x)
+  let dy = abs(fertilePos.y - agent.pos.y)
+  if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
+    let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
+    let plantArg = if wantsTree: dirIdx + 4 else: dirIdx
+    return (true, saveStateAndReturn(controller, agentId, state,
+      encodeAction(7'u8, plantArg.uint8)))
+  return (true, controller.moveTo(env, agent, agentId, state, fertilePos))
+
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -227,6 +256,9 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       [Mill, Granary, TownCenter], dropoffDistanceThreshold
     )
     if didMill: return actMill
+
+  let (didPlant, actPlant) = tryPlantFarmTiles(controller, env, agent, agentId, state, teamId)
+  if didPlant: return actPlant
 
   let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
   let (didLumber, actLumber) = controller.tryBuildCampThreshold(
