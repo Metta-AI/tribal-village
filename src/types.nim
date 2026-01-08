@@ -152,8 +152,7 @@ type
     Agent
     Wall
     Door
-    Pine
-    Palm
+    Tree
     Wheat
     Stone
     Gold

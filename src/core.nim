@@ -347,11 +347,12 @@ proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadi
   for x in startX..endX:
     for y in startY..endY:
       let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainType.Fertile else: env.terrain[x][y] == TerrainType.Empty
-      if terrainOk and env.isEmpty(ivec2(x, y)) and not env.hasDoor(ivec2(x, y)):
+      let pos = ivec2(x.int32, y.int32)
+      if terrainOk and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos):
         let dist = abs(x - pos.x) + abs(y - pos.y)
         if dist < minDist:
           minDist = dist
-          result = ivec2(x.int32, y.int32)
+          result = pos
 
 proc getCardinalDirIndex(fromPos, toPos: IVec2): int =
   ## Convert direction to orientation (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
@@ -942,7 +943,7 @@ proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: T
 proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-    env, agent, agentId, state, state.closestWoodPos, {Stump, Pine, Palm}, 3'u8)
+    env, agent, agentId, state, state.closestWoodPos, {Stump, Tree}, 3'u8)
   if didKnown: return (didKnown, actKnown)
   var target = env.findNearestThingSpiral(state, Stump, controller.rng)
   if not isNil(target):
@@ -950,13 +951,13 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Pine, controller.rng)
+  target = env.findNearestThingSpiral(state, Tree, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Palm, controller.rng)
+  target = env.findNearestThingSpiral(state, Tree, controller.rng)
   if not isNil(target):
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
     if isAdjacent(agent.pos, target.pos):

@@ -87,7 +87,7 @@ proc rebuildObservations*(env: Environment) =
       discard  # Already handled above.
     of Wall:
       env.updateObservations(WallLayer, thing.pos, 1)
-    of Pine, Palm:
+    of Tree:
       discard  # No dedicated observation layer for trees.
     of Magma:
       env.updateObservations(MagmaLayer, thing.pos, 1)
@@ -656,7 +656,7 @@ proc plantResourceAction(env: Environment, id: int, agent: Thing, argument: int)
       return
     agent.inventoryWood = max(0, agent.inventoryWood - 1)
     env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
-    let tree = Thing(kind: Pine, pos: targetPos)
+    let tree = Thing(kind: Tree, pos: targetPos)
     tree.inventory = emptyInventory()
     setInv(tree, ItemWood, ResourceNodeInitial)
     env.add(tree)

@@ -55,8 +55,7 @@ proc thingRenderColor(kind: ThingKind): tuple[r, g, b: uint8] =
   case kind
   of Agent: (r: 255'u8, g: 255'u8, b: 0'u8)
   of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)
-  of Pine: (r: 34'u8, g: 139'u8, b: 34'u8)
-  of Palm: (r: 60'u8, g: 160'u8, b: 80'u8)
+  of Tree: (r: 34'u8, g: 139'u8, b: 34'u8)
   of Wheat: (r: 200'u8, g: 180'u8, b: 90'u8)
   of Stone: (r: 140'u8, g: 140'u8, b: 140'u8)
   of Gold: (r: 220'u8, g: 190'u8, b: 80'u8)

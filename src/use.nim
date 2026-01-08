@@ -20,7 +20,9 @@ proc useAction*(env: Environment, id: int, agent: Thing, argument: int) =
     inc env.stats[id].actionInvalid
     return
 
-  let thing = env.getThing(targetPos)
+  var thing = env.getThing(targetPos)
+  if isNil(thing):
+    thing = env.getOverlayThing(targetPos)
   template setInvAndObs(key: ItemKey, value: int) =
     setInv(agent, key, value)
     env.updateAgentInventoryObs(agent, key)
@@ -109,7 +111,7 @@ proc useAction*(env: Environment, id: int, agent: Thing, argument: int) =
       else:
         setInv(thing, ItemWood, remaining)
       used = true
-  of Pine, Palm:
+  of Tree:
     used = env.harvestTree(agent, thing)
   of Corpse:
     var lootKey = ItemNone

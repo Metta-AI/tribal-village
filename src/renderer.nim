@@ -330,12 +330,7 @@ proc drawObjects*() =
       let pos {.inject.} = thing.pos
       body
 
-  drawThings(Pine):
-    let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
-    bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
-    drawFrozenOverlay(pos)
-
-  drawThings(Palm):
+  drawThings(Tree):
     let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
     bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
     drawFrozenOverlay(pos)
@@ -429,7 +424,7 @@ proc drawObjects*() =
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = spriteScale(lanternKey), tint = color(0.5, 0.5, 0.5, 1.0))
 
   for kind in ThingKind:
-    if kind in {Wall, Pine, Palm, Agent, Altar, Tumor, Cow, Lantern}:
+    if kind in {Wall, Tree, Agent, Altar, Tumor, Cow, Lantern}:
       continue
     if isBuildingKind(kind):
       for thing in env.thingsByKind[kind]:
@@ -605,7 +600,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
     case thing.kind
     of Wheat:
       count = getInv(thing, ItemWheat)
-    of Pine, Palm, Stump:
+    of Tree, Stump:
       count = getInv(thing, ItemWood)
     of Stone, Stalagmite:
       count = getInv(thing, ItemStone)

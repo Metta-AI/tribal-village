@@ -67,7 +67,7 @@ proc moveAction(env: Environment, id: int, agent: Thing, argument: int) =
   var finalPos = step1
   if not canEnter(step1):
     let blocker = env.getThing(step1)
-    if not isNil(blocker) and blocker.kind in {Pine, Palm} and not isThingFrozen(blocker, env):
+    if not isNil(blocker) and blocker.kind in {Tree} and not isThingFrozen(blocker, env):
       if env.harvestTree(agent, blocker):
         inc env.stats[id].actionUse
         return
