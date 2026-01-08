@@ -38,16 +38,9 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
                           buildIndex: int): tuple[did: bool, action: uint8] =
   if targetPos.x < 0:
     return (false, 0'u8)
-  let dir = ivec2(signi(targetPos.x - agent.pos.x), signi(targetPos.y - agent.pos.y))
-  let desiredOrientation = vecToOrientation(dir)
-  if chebyshevDist(agent.pos, targetPos) == 1'i32 and
-      agent.orientation == Orientation(desiredOrientation):
+  if chebyshevDist(agent.pos, targetPos) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
     if did: return (true, act)
-  elif chebyshevDist(agent.pos, targetPos) == 1'i32 and
-      agent.orientation != Orientation(desiredOrientation):
-    return (true, saveStateAndReturn(controller, agentId, state,
-      encodeAction(9'u8, desiredOrientation.uint8)))
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8)))
 
@@ -57,14 +50,8 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   if standPos.x < 0:
     return (false, 0'u8)
   if agent.pos == standPos:
-    let dir = ivec2(signi(targetPos.x - agent.pos.x), signi(targetPos.y - agent.pos.y))
-    let desiredOrientation = vecToOrientation(dir)
-    if agent.orientation == Orientation(desiredOrientation):
-      let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
-      if did: return (true, act)
-    else:
-      return (true, saveStateAndReturn(controller, agentId, state,
-        encodeAction(9'u8, desiredOrientation.uint8)))
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, getTeamId(agent.agentId), buildIndex)
+    if did: return (true, act)
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
 
@@ -285,19 +272,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           not isBlockedTerrain(env.terrain[target.x][target.y]) and
           env.canAgentPassDoor(agent, target):
         let dirIdx = neighborDirIndex(agent.pos, target)
-        if agent.orientation != Orientation(dirIdx):
-          return saveStateAndReturn(
-            controller, agentId, state,
-            encodeAction(9'u8, dirIdx.uint8))
         return saveStateAndReturn(
           controller, agentId, state,
-          encodeAction(3'u8, 0'u8))
+          encodeAction(3'u8, dirIdx.uint8))
 
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
-    if agent.orientation != Orientation(attackDir):
-      return saveStateAndReturn(controller, agentId, state, encodeAction(9'u8, attackDir.uint8))
-    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, 0'u8))
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
 
   # Role-based decision making
   case state.role:
