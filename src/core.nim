@@ -818,20 +818,10 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestWoodPos, {Stump, Tree}, 3'u8)
   if didKnown: return (didKnown, actKnown)
-  var target = env.findNearestThingSpiral(state, Stump, controller.rng)
-  if not isNil(target):
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Tree, controller.rng)
-  if not isNil(target):
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Tree, controller.rng)
-  if not isNil(target):
+  for kind in [Stump, Tree]:
+    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    if isNil(target):
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
@@ -843,14 +833,10 @@ proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestStonePos, {Stone, Stalagmite}, 3'u8)
   if didKnown: return (didKnown, actKnown)
-  var target = env.findNearestThingSpiral(state, Stone, controller.rng)
-  if not isNil(target):
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Stalagmite, controller.rng)
-  if not isNil(target):
+  for kind in [Stone, Stalagmite]:
+    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    if isNil(target):
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
