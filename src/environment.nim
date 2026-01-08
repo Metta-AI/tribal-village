@@ -47,6 +47,8 @@ include "colors"
 
 proc getInv*(thing: Thing, key: ItemKey): int
 
+include "inventory"
+
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state when needed.
@@ -64,19 +66,8 @@ proc rebuildObservations*(env: Environment) =
     let teamValue = getTeamId(agent.agentId) + 1
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-    env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, ItemGold))
-    env.updateObservations(AgentInventoryStoneLayer, agent.pos, getInv(agent, ItemStone))
-    env.updateObservations(AgentInventoryBarLayer, agent.pos, getInv(agent, ItemBar))
-    env.updateObservations(AgentInventoryWaterLayer, agent.pos, getInv(agent, ItemWater))
-    env.updateObservations(AgentInventoryWheatLayer, agent.pos, getInv(agent, ItemWheat))
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, getInv(agent, ItemWood))
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, getInv(agent, ItemSpear))
-    env.updateObservations(AgentInventoryLanternLayer, agent.pos, getInv(agent, ItemLantern))
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, getInv(agent, ItemArmor))
-    env.updateObservations(AgentInventoryBreadLayer, agent.pos, getInv(agent, ItemBread))
-    env.updateObservations(AgentInventoryMeatLayer, agent.pos, getInv(agent, ItemMeat))
-    env.updateObservations(AgentInventoryFishLayer, agent.pos, getInv(agent, ItemFish))
-    env.updateObservations(AgentInventoryPlantLayer, agent.pos, getInv(agent, ItemPlant))
+    for key in ObservedItemKeys:
+      env.updateAgentInventoryObs(agent, key)
 
   # Populate environment object layers.
   for thing in env.things:
@@ -146,8 +137,6 @@ proc canLayRoad*(env: Environment, pos: IVec2): bool {.inline.} =
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Clear dynamic tint overlays for a tile
   env.computedTintColors[pos.x][pos.y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
-
-include "inventory"
 
 # Build craft recipes after registry is available.
 CraftRecipes = initCraftRecipesBase()
