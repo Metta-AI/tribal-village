@@ -74,19 +74,13 @@ proc rebuildObservations*(env: Environment) =
     if thing.isNil:
       continue
     case thing.kind
-    of Agent:
-      discard  # Already handled above.
     of Wall:
       env.updateObservations(WallLayer, thing.pos, 1)
-    of Tree:
-      discard  # No dedicated observation layer for trees.
     of Magma:
       env.updateObservations(MagmaLayer, thing.pos, 1)
     of Altar:
       env.updateObservations(altarLayer, thing.pos, 1)
       env.updateObservations(altarHeartsLayer, thing.pos, getInv(thing, ItemHearts))
-    of Spawner:
-      discard  # No dedicated observation layer for spawners.
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
     else:
