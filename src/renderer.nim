@@ -23,6 +23,16 @@ type FloorSpriteKind = enum
   FloorCave
   FloorDungeon
 
+const UnitClassLabels: array[AgentUnitClass, string] = [
+  "Villager",
+  "Man-at-Arms",
+  "Archer",
+  "Scout",
+  "Knight",
+  "Monk",
+  "Siege"
+]
+
 var
   floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
   waterPositions: seq[IVec2] = @[]
@@ -564,34 +574,17 @@ proc drawSelectionLabel*(panelRect: IRect) =
   let thing = env.grid[selectedPos.x][selectedPos.y]
   let overlay = env.overlayGrid[selectedPos.x][selectedPos.y]
   if not isNil(thing):
-    label =
-      if thing.kind == Agent:
-        case thing.unitClass
-        of UnitVillager: "Villager"
-        of UnitManAtArms: "Man-at-Arms"
-        of UnitArcher: "Archer"
-        of UnitScout: "Scout"
-        of UnitKnight: "Knight"
-        of UnitMonk: "Monk"
-        of UnitSiege: "Siege"
-      elif isBuildingKind(thing.kind):
-        buildingDisplayName(thing.kind)
+    template displayNameFor(t: Thing): string =
+      if t.kind == Agent:
+        UnitClassLabels[t.unitClass]
+      elif isBuildingKind(t.kind):
+        buildingDisplayName(t.kind)
       else:
-        case thing.kind
-        of Agent:
-          case thing.unitClass
-          of UnitVillager: "Villager"
-          of UnitManAtArms: "Man-at-Arms"
-          of UnitArcher: "Archer"
-          of UnitScout: "Scout"
-          of UnitKnight: "Knight"
-          of UnitMonk: "Monk"
-          of UnitSiege: "Siege"
-        else:
-          thingDisplayName(thing.kind)
+        thingDisplayName(t.kind)
+    label = displayNameFor(thing)
     appendResourceCount(label, thing)
   elif not isNil(overlay):
-    label = thingDisplayName(overlay.kind)
+    label = displayNameFor(overlay)
     appendResourceCount(label, overlay)
   else:
     let terrain = env.terrain[selectedPos.x][selectedPos.y]

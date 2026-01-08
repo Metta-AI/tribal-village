@@ -10,6 +10,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent.agentId)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
+  template actOrMove(targetPos: IVec2, verb: uint8): uint8 =
+    if isAdjacent(agent.pos, targetPos):
+      return controller.actAt(env, agent, agentId, state, targetPos, verb)
+    return controller.moveTo(env, agent, agentId, state, targetPos)
 
   # React to nearby enemy agents by fortifying outward.
   var enemy: Thing = nil
@@ -249,12 +253,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
   if target.x >= 0:
     if agent.inventoryLantern > 0:
-      if chebyshevDist(agent.pos, target) == 1'i32:
-        let dirIdx = neighborDirIndex(agent.pos, target)
-        return saveStateAndReturn(controller, agentId, state,
-          encodeAction(6'u8, dirIdx.uint8))
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, target, controller.rng).uint8))
+      return actOrMove(target, 6'u8)
 
     # No lantern in inventory: craft or gather resources to make one.
     if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
@@ -268,9 +267,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
     if hasLanternInput:
       if not isNil(loom):
-        if isAdjacent(agent.pos, loom.pos):
-          return controller.useAt(env, agent, agentId, state, loom.pos)
-        return controller.moveTo(env, agent, agentId, state, loom.pos)
+        return actOrMove(loom.pos, 3'u8)
       return controller.moveNextSearch(env, agent, agentId, state)
 
     let food = env.stockpileCount(teamId, ResourceFood)
@@ -282,9 +279,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
 
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
     if not isNil(wheat):
-      if isAdjacent(agent.pos, wheat.pos):
-        return controller.useAt(env, agent, agentId, state, wheat.pos)
-      return controller.moveTo(env, agent, agentId, state, wheat.pos)
+      return actOrMove(wheat.pos, 3'u8)
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -298,9 +293,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   if agent.unitClass == UnitVillager:
     let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
     if not isNil(barracks):
-      if isAdjacent(agent.pos, barracks.pos):
-        return controller.useAt(env, agent, agentId, state, barracks.pos)
-      return controller.moveTo(env, agent, agentId, state, barracks.pos)
+      return actOrMove(barracks.pos, 3'u8)
 
   # Maintain armor and spears.
   if agent.inventoryArmor < ArmorPoints:
@@ -317,14 +310,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   # Seek tumors/spawners when idle.
   let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
   if not isNil(tumor):
-    if isAdjacent(agent.pos, tumor.pos):
-      return controller.actAt(env, agent, agentId, state, tumor.pos, 2'u8)
-    return controller.moveTo(env, agent, agentId, state, tumor.pos)
+    return actOrMove(tumor.pos, 2'u8)
   let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
   if not isNil(spawner):
-    if isAdjacent(agent.pos, spawner.pos):
-      return controller.actAt(env, agent, agentId, state, spawner.pos, 2'u8)
-    return controller.moveTo(env, agent, agentId, state, spawner.pos)
+    return actOrMove(spawner.pos, 2'u8)
 
   # Hunt while patrolling if nothing else to do.
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
