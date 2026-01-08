@@ -125,14 +125,11 @@ proc hasDoor*(env: Environment, pos: IVec2): bool =
   let door = env.overlayGrid[pos.x][pos.y]
   return not isNil(door) and door.kind == Door
 
-proc getDoorTeam(env: Environment, pos: IVec2): int =
-  let door = env.overlayGrid[pos.x][pos.y]
-  return door.teamId
-
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   if not env.hasDoor(pos):
     return true
-  return env.getDoorTeam(pos) == getTeamId(agent.agentId)
+  let door = env.overlayGrid[pos.x][pos.y]
+  return door.teamId == getTeamId(agent.agentId)
 {.pop.}
 
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
@@ -156,51 +153,22 @@ include "inventory"
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
 
-proc resourceCarryTotal(agent: Thing): int =
-  result = 0
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      result += count
-
-proc resourceCarryCapacityLeft(agent: Thing): int =
-  max(0, ResourceCarryCapacity - resourceCarryTotal(agent))
-
-proc canCarry(agent: Thing, key: ItemKey, count: int = 1): bool =
-  if count <= 0:
-    return true
-  if isStockpileResourceKey(key):
-    return resourceCarryTotal(agent) + count <= ResourceCarryCapacity
-  getInv(agent, key) + count <= MapObjectAgentMaxInventory
-
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
-  if count <= 0 or not agent.canCarry(key, count):
+  if count <= 0:
     return false
+  if isStockpileResourceKey(key):
+    var total = 0
+    for invKey, invCount in agent.inventory.pairs:
+      if invCount > 0 and isStockpileResourceKey(invKey):
+        total += invCount
+    if total + count > ResourceCarryCapacity:
+      return false
+  else:
+    if getInv(agent, key) + count > MapObjectAgentMaxInventory:
+      return false
   setInv(agent, key, getInv(agent, key) + count)
   env.updateAgentInventoryObs(agent, key)
   true
-
-proc storageKeyAllowed(key: ItemKey, allowed: openArray[ItemKey]): bool =
-  if allowed.len == 0:
-    return true
-  for allowedKey in allowed:
-    if key == allowedKey:
-      return true
-  false
-
-proc agentMostHeldItem(agent: Thing): tuple[key: ItemKey, count: int] =
-  result = (key: ItemNone, count: 0)
-  for key, count in agent.inventory.pairs:
-    if count > result.count:
-      result = (key: key, count: count)
-
-proc selectAllowedItem(agent: Thing, allowed: openArray[ItemKey]): tuple[key: ItemKey, count: int] =
-  result = (key: ItemNone, count: 0)
-  if allowed.len == 0:
-    return agentMostHeldItem(agent)
-  for key in allowed:
-    let count = getInv(agent, key)
-    if count > result.count:
-      result = (key: key, count: count)
 
 proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed: openArray[ItemKey]): bool =
   if storage.inventory.len > 0:
@@ -211,8 +179,16 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
         storedKey = key
         storedCount = count
         break
-    if storedKey.len == 0 or not storageKeyAllowed(storedKey, allowed):
+    if storedKey.len == 0:
       return false
+    if allowed.len > 0:
+      var allowedMatch = false
+      for allowedKey in allowed:
+        if storedKey == allowedKey:
+          allowedMatch = true
+          break
+      if not allowedMatch:
+        return false
     let agentCount = getInv(agent, storedKey)
     let storageSpace = max(0, storage.barrelCapacity - storedCount)
     if agentCount > 0 and storageSpace > 0:
@@ -223,7 +199,12 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
       return true
     let capacityLeft =
       if isStockpileResourceKey(storedKey):
-        resourceCarryCapacityLeft(agent)
+        block:
+          var total = 0
+          for invKey, invCount in agent.inventory.pairs:
+            if invCount > 0 and isStockpileResourceKey(invKey):
+              total += invCount
+          max(0, ResourceCarryCapacity - total)
       else:
         max(0, MapObjectAgentMaxInventory - agentCount)
     if capacityLeft > 0:
@@ -236,12 +217,24 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
         return true
     return false
 
-  let choice = selectAllowedItem(agent, allowed)
-  if choice.count > 0 and choice.key != ItemNone:
-    let moved = min(choice.count, storage.barrelCapacity)
-    setInv(agent, choice.key, choice.count - moved)
-    setInv(storage, choice.key, moved)
-    env.updateAgentInventoryObs(agent, choice.key)
+  var choiceKey = ItemNone
+  var choiceCount = 0
+  if allowed.len == 0:
+    for key, count in agent.inventory.pairs:
+      if count > choiceCount:
+        choiceKey = key
+        choiceCount = count
+  else:
+    for key in allowed:
+      let count = getInv(agent, key)
+      if count > choiceCount:
+        choiceKey = key
+        choiceCount = count
+  if choiceCount > 0 and choiceKey != ItemNone:
+    let moved = min(choiceCount, storage.barrelCapacity)
+    setInv(agent, choiceKey, choiceCount - moved)
+    setInv(storage, choiceKey, moved)
+    env.updateAgentInventoryObs(agent, choiceKey)
     return true
   false
 
@@ -427,13 +420,24 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     transferred = true
   # Otherwise give food if possible (no obs layer yet)
   elif agent.inventoryBread > 0:
-    let capacity = resourceCarryCapacityLeft(target)
+    let capacity = block:
+      var total = 0
+      for invKey, invCount in target.inventory.pairs:
+        if invCount > 0 and isStockpileResourceKey(invKey):
+          total += invCount
+      max(0, ResourceCarryCapacity - total)
     let giveAmt = min(agent.inventoryBread, capacity)
     if giveAmt > 0:
       agent.inventoryBread = agent.inventoryBread - giveAmt
       target.inventoryBread = target.inventoryBread + giveAmt
       transferred = true
   else:
+    let stockpileCapacityLeft = block:
+      var total = 0
+      for invKey, invCount in target.inventory.pairs:
+        if invCount > 0 and isStockpileResourceKey(invKey):
+          total += invCount
+      max(0, ResourceCarryCapacity - total)
     var bestKey = ItemNone
     var bestCount = 0
     for key, count in agent.inventory.pairs:
@@ -441,7 +445,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
         continue
       let capacity =
         if isStockpileResourceKey(key):
-          resourceCarryCapacityLeft(target)
+          stockpileCapacityLeft
         else:
           MapObjectAgentMaxInventory - getInv(target, key)
       if capacity <= 0:
@@ -452,7 +456,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     if bestKey != ItemNone and bestCount > 0:
       let capacity =
         if isStockpileResourceKey(bestKey):
-          resourceCarryCapacityLeft(target)
+          stockpileCapacityLeft
         else:
           max(0, MapObjectAgentMaxInventory - getInv(target, bestKey))
       if capacity > 0:

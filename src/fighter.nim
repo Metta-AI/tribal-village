@@ -1,168 +1,9 @@
-proc findNearestEnemyAgent(env: Environment, agent: Thing, radius: int32): Thing =
-  var bestDist = int.high
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if sameTeam(agent, other):
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > radius.int:
-      continue
-    if dist < bestDist:
-      bestDist = dist
-      result = other
-
 const
   DividerDoorSpacing = 5
   DividerDoorOffset = 0
   DividerHalfLengthMin = 6
   DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
-
-proc findNearestEnemyAltar(env: Environment, basePos: IVec2, teamId: int): Thing =
-  var bestDist = int.high
-  for altar in env.thingsByKind[Altar]:
-    if altar.teamId == teamId:
-      continue
-    let dist = abs(altar.pos.x - basePos.x) + abs(altar.pos.y - basePos.y)
-    if dist < bestDist:
-      bestDist = dist
-      result = altar
-
-proc dividerLineDir(basePos, enemyPos: IVec2): IVec2 =
-  let dx = float32(enemyPos.x - basePos.x)
-  let dy = float32(enemyPos.y - basePos.y)
-  var bestDir = ivec2(1, 0)
-  var bestScore = abs(dx * float32(bestDir.x) + dy * float32(bestDir.y))
-  let candidates = [
-    (ivec2(1, 0), 1.0'f32),
-    (ivec2(0, 1), 1.0'f32),
-    (ivec2(1, 1), DividerInvSqrt2),
-    (ivec2(1, -1), DividerInvSqrt2)
-  ]
-  for entry in candidates:
-    let dot = abs(dx * float32(entry[0].x) + dy * float32(entry[0].y))
-    let score = dot * entry[1]
-    if score < bestScore:
-      bestScore = score
-      bestDir = entry[0]
-  bestDir
-
-proc dividerNormalTowardBase(basePos, midPos, lineDir: IVec2): IVec2 =
-  var n1 = ivec2(0, 0)
-  var n2 = ivec2(0, 0)
-  if lineDir.x != 0 and lineDir.y == 0:
-    n1 = ivec2(0, 1)
-    n2 = ivec2(0, -1)
-  elif lineDir.x == 0 and lineDir.y != 0:
-    n1 = ivec2(1, 0)
-    n2 = ivec2(-1, 0)
-  elif lineDir.x == 1 and lineDir.y == 1:
-    n1 = ivec2(1, -1)
-    n2 = ivec2(-1, 1)
-  else:
-    n1 = ivec2(1, 1)
-    n2 = ivec2(-1, -1)
-  let toBase = basePos - midPos
-  if toBase.x * n1.x + toBase.y * n1.y >= 0:
-    return n1
-  n2
-
-proc isDividerDoorSlot(offset: int): bool =
-  let raw = (offset + DividerDoorOffset) mod DividerDoorSpacing
-  let normalized = if raw < 0: raw + DividerDoorSpacing else: raw
-  normalized == 0
-
-proc findDividerBuildTarget(env: Environment, basePos, enemyPos, agentPos: IVec2):
-    tuple[found: bool, kind: ThingKind, pos: IVec2] =
-  let lineDir = dividerLineDir(basePos, enemyPos)
-  let midPos = ivec2(
-    (basePos.x + enemyPos.x) div 2,
-    (basePos.y + enemyPos.y) div 2
-  )
-  let normal = dividerNormalTowardBase(basePos, midPos, lineDir)
-  let dist = max(abs(enemyPos.x - basePos.x), abs(enemyPos.y - basePos.y))
-  let halfLen = max(DividerHalfLengthMin, min(DividerHalfLengthMax, dist div 2))
-
-  var bestDoor = ivec2(-1, -1)
-  var bestDoorDist = int.high
-  var bestOutpost = ivec2(-1, -1)
-  var bestOutpostDist = int.high
-  var bestWall = ivec2(-1, -1)
-  var bestWallDist = int.high
-
-  for offset in -halfLen .. halfLen:
-    let pos = midPos + ivec2(lineDir.x * offset, lineDir.y * offset)
-    if not isValidPos(pos):
-      continue
-    if env.terrain[pos.x][pos.y] == TerrainRoad:
-      continue
-    let distToAgent = int(chebyshevDist(agentPos, pos))
-    if isDividerDoorSlot(offset):
-      if env.hasDoor(pos):
-        let outpostPos = pos + normal
-        if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
-            env.canPlaceBuilding(outpostPos):
-          let outDist = int(chebyshevDist(agentPos, outpostPos))
-          if outDist < bestOutpostDist:
-            bestOutpostDist = outDist
-            bestOutpost = outpostPos
-      else:
-        if env.canPlaceBuilding(pos):
-          if distToAgent < bestDoorDist:
-            bestDoorDist = distToAgent
-            bestDoor = pos
-    else:
-      if env.canPlaceBuilding(pos):
-        if distToAgent < bestWallDist:
-          bestWallDist = distToAgent
-          bestWall = pos
-
-  if bestDoor.x >= 0:
-    return (true, Door, bestDoor)
-  if bestOutpost.x >= 0:
-    return (true, Outpost, bestOutpost)
-  if bestWall.x >= 0:
-    return (true, Wall, bestWall)
-  (false, Wall, ivec2(-1, -1))
-
-proc preferLanternWood(env: Environment, teamId: int): bool =
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  if wood != food:
-    return wood < food
-  true
-
-proc chooseLanternTarget(controller: Controller, env: Environment, agent: Thing,
-                         teamId: int, state: var AgentState, basePos: IVec2): IVec2 =
-  let unlit = findNearestUnlitBuilding(env, teamId, agent.pos)
-  if not isNil(unlit):
-    return findLanternSpotNearBuilding(env, teamId, agent, unlit)
-
-  var lanternCount = 0
-  var farthest = 0
-  for thing in env.thingsByKind[Lantern]:
-    if not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    inc lanternCount
-    let dist = int(chebyshevDist(basePos, thing.pos))
-    if dist > farthest:
-      farthest = dist
-
-  let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
-  for _ in 0 ..< 18:
-    let candidate = getNextSpiralPoint(state, controller.rng)
-    if chebyshevDist(candidate, basePos) < desiredRadius:
-      continue
-    if not isLanternPlacementValid(env, candidate):
-      continue
-    if hasTeamLanternNear(env, teamId, candidate):
-      continue
-    return candidate
-
-  ivec2(-1, -1)
 
 proc decideFighter(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
@@ -171,14 +12,132 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
   state.basePosition = basePos
 
   # React to nearby enemy agents by fortifying outward.
-  let enemy = findNearestEnemyAgent(env, agent, ObservationRadius.int32 * 2)
+  var enemy: Thing = nil
+  var bestEnemyDist = int.high
+  let enemyRadius = ObservationRadius.int32 * 2
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if sameTeam(agent, other):
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > enemyRadius.int:
+      continue
+    if dist < bestEnemyDist:
+      bestEnemyDist = dist
+      enemy = other
   if not isNil(enemy):
     if agent.unitClass == UnitVillager:
-      let enemyBase = findNearestEnemyAltar(env, basePos, teamId)
+      var enemyBase: Thing = nil
+      var bestAltarDist = int.high
+      for altar in env.thingsByKind[Altar]:
+        if altar.teamId == teamId:
+          continue
+        let dist = abs(altar.pos.x - basePos.x) + abs(altar.pos.y - basePos.y)
+        if dist < bestAltarDist:
+          bestAltarDist = dist
+          enemyBase = altar
       let enemyPos = if not isNil(enemyBase): enemyBase.pos else: enemy.pos
-      let target = findDividerBuildTarget(env, basePos, enemyPos, agent.pos)
-      if target.found:
-        case target.kind
+
+      let dx = float32(enemyPos.x - basePos.x)
+      let dy = float32(enemyPos.y - basePos.y)
+      var lineDir = ivec2(1, 0)
+      var bestScore = abs(dx * float32(lineDir.x) + dy * float32(lineDir.y))
+      let candidates = [
+        (ivec2(1, 0), 1.0'f32),
+        (ivec2(0, 1), 1.0'f32),
+        (ivec2(1, 1), DividerInvSqrt2),
+        (ivec2(1, -1), DividerInvSqrt2)
+      ]
+      for entry in candidates:
+        let dot = abs(dx * float32(entry[0].x) + dy * float32(entry[0].y))
+        let score = dot * entry[1]
+        if score < bestScore:
+          bestScore = score
+          lineDir = entry[0]
+
+      let midPos = ivec2(
+        (basePos.x + enemyPos.x) div 2,
+        (basePos.y + enemyPos.y) div 2
+      )
+
+      var n1 = ivec2(0, 0)
+      var n2 = ivec2(0, 0)
+      if lineDir.x != 0 and lineDir.y == 0:
+        n1 = ivec2(0, 1)
+        n2 = ivec2(0, -1)
+      elif lineDir.x == 0 and lineDir.y != 0:
+        n1 = ivec2(1, 0)
+        n2 = ivec2(-1, 0)
+      elif lineDir.x == 1 and lineDir.y == 1:
+        n1 = ivec2(1, -1)
+        n2 = ivec2(-1, 1)
+      else:
+        n1 = ivec2(1, 1)
+        n2 = ivec2(-1, -1)
+      let toBase = basePos - midPos
+      let normal = if toBase.x * n1.x + toBase.y * n1.y >= 0: n1 else: n2
+
+      let dist = max(abs(enemyPos.x - basePos.x), abs(enemyPos.y - basePos.y))
+      let halfLen = max(DividerHalfLengthMin, min(DividerHalfLengthMax, dist div 2))
+
+      var bestDoor = ivec2(-1, -1)
+      var bestDoorDist = int.high
+      var bestOutpost = ivec2(-1, -1)
+      var bestOutpostDist = int.high
+      var bestWall = ivec2(-1, -1)
+      var bestWallDist = int.high
+
+      for offset in -halfLen .. halfLen:
+        let pos = midPos + ivec2(lineDir.x * offset, lineDir.y * offset)
+        if not isValidPos(pos):
+          continue
+        if env.terrain[pos.x][pos.y] == TerrainRoad:
+          continue
+        let distToAgent = int(chebyshevDist(agent.pos, pos))
+        let raw = (offset + DividerDoorOffset) mod DividerDoorSpacing
+        let normalized = if raw < 0: raw + DividerDoorSpacing else: raw
+        let isDoorSlot = normalized == 0
+        if isDoorSlot:
+          if env.hasDoor(pos):
+            let outpostPos = pos + normal
+            if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
+                env.canPlaceBuilding(outpostPos):
+              let outDist = int(chebyshevDist(agent.pos, outpostPos))
+              if outDist < bestOutpostDist:
+                bestOutpostDist = outDist
+                bestOutpost = outpostPos
+          else:
+            if env.canPlaceBuilding(pos):
+              if distToAgent < bestDoorDist:
+                bestDoorDist = distToAgent
+                bestDoor = pos
+        else:
+          if env.canPlaceBuilding(pos):
+            if distToAgent < bestWallDist:
+              bestWallDist = distToAgent
+              bestWall = pos
+
+      var targetFound = false
+      var targetKind = Wall
+      var targetPos = ivec2(-1, -1)
+      if bestDoor.x >= 0:
+        targetFound = true
+        targetKind = Door
+        targetPos = bestDoor
+      elif bestOutpost.x >= 0:
+        targetFound = true
+        targetKind = Outpost
+        targetPos = bestOutpost
+      elif bestWall.x >= 0:
+        targetFound = true
+        targetKind = Wall
+        targetPos = bestWall
+
+      if targetFound:
+        case targetKind
         of Door:
           let doorKey = thingItem("Door")
           if not env.canAffordBuild(teamId, doorKey):
@@ -192,7 +151,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
             let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
             if didWood: return actWood
           let (didDoor, doorAct) = goToAdjacentAndBuild(
-            controller, env, agent, agentId, state, target.pos, BuildIndexDoor
+            controller, env, agent, agentId, state, targetPos, BuildIndexDoor
           )
           if didDoor: return doorAct
         of Outpost:
@@ -210,7 +169,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
           let idx = buildIndexFor(Outpost)
           if idx >= 0:
             let (didOutpost, outpostAct) = goToAdjacentAndBuild(
-              controller, env, agent, agentId, state, target.pos, idx
+              controller, env, agent, agentId, state, targetPos, idx
             )
             if didOutpost: return outpostAct
         else:
@@ -226,14 +185,67 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
             let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
             if didStone: return actStone
           let (didWall, wallAct) = goToAdjacentAndBuild(
-            controller, env, agent, agentId, state, target.pos, BuildIndexWall
+            controller, env, agent, agentId, state, targetPos, BuildIndexWall
           )
           if didWall: return wallAct
     return saveStateAndReturn(controller, agentId, state,
       encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))
 
   # Keep buildings lit, then push lanterns farther out from the base.
-  let target = chooseLanternTarget(controller, env, agent, teamId, state, basePos)
+  var target = ivec2(-1, -1)
+  var unlit: Thing = nil
+  var bestUnlitDist = int.high
+  for thing in env.things:
+    if thing.teamId != teamId:
+      continue
+    if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
+      continue
+    if hasTeamLanternNear(env, teamId, thing.pos):
+      continue
+    let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
+    if dist < bestUnlitDist:
+      bestUnlitDist = dist
+      unlit = thing
+
+  if not isNil(unlit):
+    var bestPos = ivec2(-1, -1)
+    var bestDist = int.high
+    for dx in -2 .. 2:
+      for dy in -2 .. 2:
+        if abs(dx) + abs(dy) > 2:
+          continue
+        let cand = unlit.pos + ivec2(dx.int32, dy.int32)
+        if not isLanternPlacementValid(env, cand):
+          continue
+        if hasTeamLanternNear(env, teamId, cand):
+          continue
+        let dist = abs(cand.x - agent.pos.x).int + abs(cand.y - agent.pos.y).int
+        if dist < bestDist:
+          bestDist = dist
+          bestPos = cand
+    target = bestPos
+  else:
+    var lanternCount = 0
+    var farthest = 0
+    for thing in env.thingsByKind[Lantern]:
+      if not thing.lanternHealthy or thing.teamId != teamId:
+        continue
+      inc lanternCount
+      let dist = int(chebyshevDist(basePos, thing.pos))
+      if dist > farthest:
+        farthest = dist
+
+    let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
+    for _ in 0 ..< 18:
+      let candidate = getNextSpiralPoint(state, controller.rng)
+      if chebyshevDist(candidate, basePos) < desiredRadius:
+        continue
+      if not isLanternPlacementValid(env, candidate):
+        continue
+      if hasTeamLanternNear(env, teamId, candidate):
+        continue
+      target = candidate
+      break
 
   if target.x >= 0:
     if agent.inventoryLantern > 0:
@@ -261,7 +273,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         return controller.moveTo(env, agent, agentId, state, loom.pos)
       return controller.moveNextSearch(env, agent, agentId, state)
 
-    if preferLanternWood(env, teamId):
+    let food = env.stockpileCount(teamId, ResourceFood)
+    let wood = env.stockpileCount(teamId, ResourceWood)
+    if wood <= food:
       let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
       if didWood: return actWood
       return controller.moveNextSearch(env, agent, agentId, state)

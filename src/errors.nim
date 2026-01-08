@@ -30,10 +30,6 @@ proc clearFFIError*() =
   ## Clear the last FFI error state
   lastFFIError = FFIErrorState(hasError: false, errorCode: ErrNone, errorMessage: "")
 
-proc setFFIError*(kind: TribalErrorKind, message: string) =
-  ## Set the FFI error state for external consumers
-  lastFFIError = FFIErrorState(hasError: true, errorCode: kind, errorMessage: message)
-
 proc newTribalError*(kind: TribalErrorKind, message: string): ref TribalError =
   ## Create a new tribal error with the given kind and message
   result = new(TribalError)
@@ -44,7 +40,3 @@ proc newTribalError*(kind: TribalErrorKind, message: string): ref TribalError =
 proc raiseMapFullError*() {.noreturn.} =
   ## Raise an error when the map is too full to place entities
   raise newTribalError(ErrMapFull, "Failed to find an empty position, map too full!")
-
-proc raiseInvalidPositionError*(pos: string) {.noreturn.} =
-  ## Raise an error for invalid positions
-  raise newTribalError(ErrInvalidPosition, "Invalid position: " & pos)

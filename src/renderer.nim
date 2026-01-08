@@ -28,9 +28,6 @@ var
   waterPositions: seq[IVec2] = @[]
   renderCacheGeneration = -1
 
-proc rememberAssetKey*(key: string) =
-  discard
-
 template configureHeartFont(ctx: var Context) =
   ctx.font = HeartCountFontPath
   ctx.fontSize = HeartCountFontSize
@@ -48,52 +45,6 @@ template configureInfoLabelFont(ctx: var Context) =
   ctx.font = InfoLabelFontPath
   ctx.fontSize = InfoLabelFontSize
   ctx.textBaseline = TopBaseline
-
-proc ensureInfoLabel(text: string): string =
-  if text in infoLabelImages:
-    return infoLabelImages[text]
-
-  var measureCtx = newContext(1, 1)
-  configureInfoLabelFont(measureCtx)
-  let metrics = measureCtx.measureText(text)
-  let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
-  let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
-
-  var ctx = newContext(labelWidth, labelHeight)
-  configureInfoLabelFont(ctx)
-  ctx.fillStyle.color = color(0, 0, 0, 0.6)
-  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
-
-  let key = "selection_label/" & text.replace(" ", "_").replace("/", "_")
-  bxy.addImage(key, ctx.image, mipmaps = false)
-  infoLabelImages[text] = key
-  result = key
-
-proc ensureStepLabel(step: int): string =
-  if stepLabelLastValue == step and stepLabelKey.len > 0:
-    return stepLabelKey
-  stepLabelLastValue = step
-
-  let text = "Step " & $step
-  var measureCtx = newContext(1, 1)
-  configureInfoLabelFont(measureCtx)
-  let metrics = measureCtx.measureText(text)
-  let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
-  let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
-  stepLabelSize = ivec2(labelWidth, labelHeight)
-
-  var ctx = newContext(labelWidth, labelHeight)
-  configureInfoLabelFont(ctx)
-  ctx.fillStyle.color = color(0, 0, 0, 0.6)
-  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
-
-  stepLabelKey = "hud_step"
-  bxy.addImage(stepLabelKey, ctx.image, mipmaps = false)
-  result = stepLabelKey
 
 proc getInfectionLevel*(pos: IVec2): float32 =
   ## Simple infection level based on color temperature
@@ -125,19 +76,6 @@ proc useSelections*() =
         let thing = env.grid[gridPos.x][gridPos.y]
         if not isNil(thing):
           selection = thing
-
-proc drawOverlayIf(infected: bool, overlaySprite: string, pos: Vec2) =
-  ## Tiny helper to reduce repeated overlay checks.
-  if infected:
-    bxy.drawImage(overlaySprite, pos, angle = 0, scale = spriteScale(overlaySprite))
-
-proc drawFrozenOverlay(pos: IVec2) =
-  if getInfectionLevel(pos) >= 1.0:
-    drawOverlayIf(true, "frozen", pos.vec2)
-
-proc drawFrozenOverlayIfNeeded(kind: ThingKind, pos: IVec2) =
-  if kind in {Magma, Stump, Wheat}:
-    drawFrozenOverlay(pos)
 
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
@@ -333,7 +271,8 @@ proc drawObjects*() =
   drawThings(Tree):
     let treeSprite = resolveSpriteKey(thingSpriteKey(thing.kind))
     bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = spriteScale(treeSprite))
-    drawFrozenOverlay(pos)
+    if getInfectionLevel(pos) >= 1.0:
+      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = spriteScale("frozen"))
 
   drawThings(Agent):
     let agent = thing
@@ -396,7 +335,8 @@ proc drawObjects*() =
         let labelKey = ensureHeartCountLabel(amt)
         let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
         bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
-    drawFrozenOverlay(pos)
+    if getInfectionLevel(pos) >= 1.0:
+      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = spriteScale("frozen"))
 
   drawThings(Tumor):
     let spriteDir = case thing.orientation:
@@ -483,8 +423,8 @@ proc drawObjects*() =
             spriteKey = "wheat_half"
         let resolved = resolveSpriteKey(spriteKey)
         bxy.drawImage(resolved, pos.vec2, angle = 0, scale = spriteScale(resolved))
-        if infected:
-          drawFrozenOverlayIfNeeded(thing.kind, pos)
+        if infected and thing.kind in {Magma, Stump, Wheat}:
+          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = spriteScale("frozen"))
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -658,7 +598,28 @@ proc drawSelectionLabel*(panelRect: IRect) =
     let name = TerrainCatalog[terrain].displayName
     label = if name.len > 0: name else: $terrain
 
-  let key = ensureInfoLabel(label)
+  if label.len == 0:
+    return
+  var key = ""
+  if label in infoLabelImages:
+    key = infoLabelImages[label]
+  else:
+    var measureCtx = newContext(1, 1)
+    configureInfoLabelFont(measureCtx)
+    let metrics = measureCtx.measureText(label)
+    let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
+    let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
+
+    var ctx = newContext(labelWidth, labelHeight)
+    configureInfoLabelFont(ctx)
+    ctx.fillStyle.color = color(0, 0, 0, 0.6)
+    ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+    ctx.fillStyle.color = color(1, 1, 1, 1)
+    ctx.fillText(label, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
+
+    key = "selection_label/" & label.replace(" ", "_").replace("/", "_")
+    bxy.addImage(key, ctx.image, mipmaps = false)
+    infoLabelImages[label] = key
   if key.len == 0:
     return
   let pos = vec2(panelRect.x.float32 + 8 + InfoLabelInsetX.float32,
@@ -666,7 +627,29 @@ proc drawSelectionLabel*(panelRect: IRect) =
   bxy.drawImage(key, pos, angle = 0, scale = 1)
 
 proc drawStepLabel*(panelRect: IRect) =
-  let key = ensureStepLabel(env.currentStep)
+  var key = ""
+  if stepLabelLastValue == env.currentStep and stepLabelKey.len > 0:
+    key = stepLabelKey
+  else:
+    stepLabelLastValue = env.currentStep
+    let text = "Step " & $env.currentStep
+    var measureCtx = newContext(1, 1)
+    configureInfoLabelFont(measureCtx)
+    let metrics = measureCtx.measureText(text)
+    let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
+    let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
+    stepLabelSize = ivec2(labelWidth, labelHeight)
+
+    var ctx = newContext(labelWidth, labelHeight)
+    configureInfoLabelFont(ctx)
+    ctx.fillStyle.color = color(0, 0, 0, 0.6)
+    ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+    ctx.fillStyle.color = color(1, 1, 1, 1)
+    ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
+
+    stepLabelKey = "hud_step"
+    bxy.addImage(stepLabelKey, ctx.image, mipmaps = false)
+    key = stepLabelKey
   if key.len == 0:
     return
   let scale = window.contentScale.float32

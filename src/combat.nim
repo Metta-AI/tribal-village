@@ -60,19 +60,6 @@ proc applyAgentHeal(env: Environment, target: Thing, amount: int): int =
   target.hp = min(target.maxHp, target.hp + amount)
   result = target.hp - before
 
-# Heal burst around an agent (used when consuming bread)
-proc applyHealBurst(env: Environment, agent: Thing) =
-  let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
-  for dx in -1 .. 1:
-    for dy in -1 .. 1:
-      let p = agent.pos + ivec2(dx, dy)
-      env.applyActionTint(p, tint, 2, ActionTintHeal)
-      let occ = env.getThing(p)
-      if not occ.isNil and occ.kind == Agent:
-        let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)
-        if healAmt > 0:
-          discard env.applyAgentHeal(occ, healAmt)
-
 # Centralized zero-HP handling so agents instantly freeze/die when drained
 proc enforceZeroHpDeaths(env: Environment) =
   for agent in env.agents:
@@ -202,9 +189,29 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
 
   # Special combat visuals
   if hasSpear:
-    env.applySpearStrike(agent, attackOrientation)
+    let left = ivec2(-delta.y, delta.x)
+    let right = ivec2(delta.y, -delta.x)
+    let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
+    for step in 1 .. 3:
+      let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+      env.applyActionTint(forward, tint, 2, ActionTintAttack)
+      env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
+      env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
   if agent.inventoryArmor > 0:
-    env.applyShieldBand(agent, attackOrientation)
+    let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
+    if abs(delta.x) == 1 and abs(delta.y) == 1:
+      let diagPos = agent.pos + ivec2(delta.x, delta.y)
+      let xPos = agent.pos + ivec2(delta.x, 0)
+      let yPos = agent.pos + ivec2(0, delta.y)
+      env.applyActionTint(diagPos, tint, 2, ActionTintShield)
+      env.applyActionTint(xPos, tint, 2, ActionTintShield)
+      env.applyActionTint(yPos, tint, 2, ActionTintShield)
+    else:
+      let perp = if delta.x != 0: ivec2(0, 1) else: ivec2(1, 0)
+      let forward = agent.pos + ivec2(delta.x, delta.y)
+      for offset in -1 .. 1:
+        let p = forward + ivec2(perp.x * offset, perp.y * offset)
+        env.applyActionTint(p, tint, 2, ActionTintShield)
     env.shieldCountdown[agent.agentId] = 2
 
   # Spear: area strike (3 forward + diagonals)

@@ -43,58 +43,21 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
 
   let roadKey = thingItem("Road")
 
-  proc signi(x: int32): int32 =
-    if x < 0: -1
-    elif x > 0: 1
-    else: 0
-
-  proc nearestTeamAnchor(teamId: int, fromPos: IVec2): IVec2 =
-    var best = ivec2(-1, -1)
-    var bestDist = int.high
-    for thing in env.things:
-      if thing.teamId != teamId:
-        continue
-      if thing.kind notin {TownCenter, Altar}:
-        continue
-      let dist = abs(thing.pos.x - fromPos.x) + abs(thing.pos.y - fromPos.y)
-      if dist < bestDist:
-        bestDist = dist
-        best = thing.pos
-    if best.x < 0:
-      return fromPos
-    best
-
-  proc layRoadBetween(startPos, endPos: IVec2) =
-    var pos = startPos
-    while pos.x != endPos.x:
-      pos.x += signi(endPos.x - pos.x)
-      if env.canLayRoad(pos):
-        env.terrain[pos.x][pos.y] = Road
-        env.resetTileColor(pos)
-    while pos.y != endPos.y:
-      pos.y += signi(endPos.y - pos.y)
-      if env.canLayRoad(pos):
-        env.terrain[pos.x][pos.y] = Road
-        env.resetTileColor(pos)
-
   var offsets: seq[IVec2] = @[]
-  proc addOffset(offset: IVec2) =
+  for offset in [
+    orientationToVec(agent.orientation),
+    ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
+    ivec2(-1, -1), ivec2(1, -1), ivec2(-1, 1), ivec2(1, 1)
+  ]:
     if offset.x == 0'i32 and offset.y == 0'i32:
-      return
+      continue
+    var exists = false
     for existing in offsets:
       if existing == offset:
-        return
-    offsets.add(offset)
-
-  addOffset(orientationToVec(agent.orientation))
-  addOffset(ivec2(0, -1))
-  addOffset(ivec2(1, 0))
-  addOffset(ivec2(0, 1))
-  addOffset(ivec2(-1, 0))
-  addOffset(ivec2(-1, -1))
-  addOffset(ivec2(1, -1))
-  addOffset(ivec2(-1, 1))
-  addOffset(ivec2(1, 1))
+        exists = true
+        break
+    if not exists:
+      offsets.add(offset)
 
   var targetPos = ivec2(-1, -1)
   for offset in offsets:
@@ -120,8 +83,30 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
     var kind: ThingKind
     if parseThingKey(key, kind):
       if kind in {Mill, LumberCamp, MiningCamp}:
-        let anchor = nearestTeamAnchor(getTeamId(agent.agentId), targetPos)
-        layRoadBetween(targetPos, anchor)
+        var anchor = ivec2(-1, -1)
+        var bestDist = int.high
+        for thing in env.things:
+          if thing.teamId != teamId:
+            continue
+          if thing.kind notin {TownCenter, Altar}:
+            continue
+          let dist = abs(thing.pos.x - targetPos.x) + abs(thing.pos.y - targetPos.y)
+          if dist < bestDist:
+            bestDist = dist
+            anchor = thing.pos
+        if anchor.x < 0:
+          anchor = targetPos
+        var pos = targetPos
+        while pos.x != anchor.x:
+          pos.x += (if anchor.x < pos.x: -1'i32 elif anchor.x > pos.x: 1'i32 else: 0'i32)
+          if env.canLayRoad(pos):
+            env.terrain[pos.x][pos.y] = Road
+            env.resetTileColor(pos)
+        while pos.y != anchor.y:
+          pos.y += (if anchor.y < pos.y: -1'i32 elif anchor.y > pos.y: 1'i32 else: 0'i32)
+          if env.canLayRoad(pos):
+            env.terrain[pos.x][pos.y] = Road
+            env.resetTileColor(pos)
     inc env.stats[id].actionBuild
   else:
     inc env.stats[id].actionInvalid

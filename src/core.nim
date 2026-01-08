@@ -271,17 +271,6 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
       if not isNil(occ) and occ.kind in allowed:
         inc result
 
-proc hasFriendlyBuildingNearby*(env: Environment, teamId: int, kind: ThingKind,
-                                center: IVec2, radius: int): bool =
-  for thing in env.things:
-    if thing.kind != kind:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y)) <= radius:
-      return true
-  false
-
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =
   result = int.high
@@ -298,24 +287,6 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
     let dist = int(chebyshevDist(thing.pos, pos))
     if dist < result:
       result = dist
-
-proc teamPopCap*(env: Environment, teamId: int): int =
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if isBuildingKind(thing.kind):
-      let cap = buildingPopCap(thing.kind)
-      if cap > 0:
-        result += cap
-
-proc countTeamBuildings*(env: Environment, teamId: int, kind: ThingKind): int =
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.kind == kind and thing.teamId == teamId:
-      inc result
 
 proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
   if controller.buildingCountsStep != env.currentStep:
@@ -335,24 +306,6 @@ proc canAffordBuild*(env: Environment, teamId: int, key: ItemKey): bool =
     return false
   env.canSpendStockpile(teamId, costs)
 
-
-proc findNearestEmpty(env: Environment, pos: IVec2, fertileNeeded: bool, maxRadius: int = 8): IVec2 =
-  ## Find nearest empty, non-water tile matching fertile flag
-  result = ivec2(-1, -1)
-  var minDist = 999999
-  let startX = max(0, pos.x - maxRadius)
-  let endX = min(MapWidth - 1, pos.x + maxRadius)
-  let startY = max(0, pos.y - maxRadius)
-  let endY = min(MapHeight - 1, pos.y + maxRadius)
-  for x in startX..endX:
-    for y in startY..endY:
-      let terrainOk = if fertileNeeded: env.terrain[x][y] == TerrainType.Fertile else: env.terrain[x][y] == TerrainType.Empty
-      let candPos = ivec2(x.int32, y.int32)
-      if terrainOk and env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
-        let dist = abs(x - pos.x) + abs(y - pos.y)
-        if dist < minDist:
-          minDist = dist
-          result = candPos
 
 proc getCardinalDirIndex(fromPos, toPos: IVec2): int =
   ## Convert direction to orientation (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
@@ -375,23 +328,6 @@ proc neighborDirIndex(fromPos, toPos: IVec2): int =
   let sy = (if dy > 0: 1'i32 elif dy < 0: -1'i32 else: 0'i32)
   return vecToOrientation(ivec2(sx.int, sy.int))
 
-
-proc spearAttackDir(agentPos: IVec2, targetPos: IVec2): int {.inline.} =
-  ## Pick an orientation whose spear wedge covers the target (matches attackAction pattern).
-  var bestDir = -1
-  var bestStep = int.high
-  for dirIdx in 0 .. 7:
-    let d = getOrientationDelta(Orientation(dirIdx))
-    let left = ivec2(-d.y, d.x)
-    let right = ivec2(d.y, -d.x)
-    for step in 1 .. 3:
-      let forward = agentPos + ivec2(d.x * step, d.y * step)
-      if forward == targetPos or forward + left == targetPos or forward + right == targetPos:
-        if step < bestStep:
-          bestStep = step
-          bestDir = dirIdx
-        break
-  return bestDir
 
 proc sameTeam(agentA, agentB: Thing): bool =
   (agentA.agentId div MapAgentsPerVillage) == (agentB.agentId div MapAgentsPerVillage)
@@ -461,7 +397,21 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
           continue
         if sameTeam(agent, thing):
           continue
-      let dirIdx = spearAttackDir(agent.pos, thing.pos)
+      let dirIdx = block:
+        var bestDir = -1
+        var bestStep = int.high
+        for checkDir in 0 .. 7:
+          let d = getOrientationDelta(Orientation(checkDir))
+          let left = ivec2(-d.y, d.x)
+          let right = ivec2(d.y, -d.x)
+          for step in 1 .. 3:
+            let forward = agent.pos + ivec2(d.x * step, d.y * step)
+            if forward == thing.pos or forward + left == thing.pos or forward + right == thing.pos:
+              if step < bestStep:
+                bestStep = step
+                bestDir = checkDir
+              break
+        bestDir
       if dirIdx < 0:
         continue
       let dist = int(chebyshevDist(agent.pos, thing.pos))
@@ -503,33 +453,6 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   if bestSpawner.dir >= 0: return bestSpawner.dir
   if bestEnemy.dir >= 0: return bestEnemy.dir
   return -1
-
-type NeedType = enum
-  NeedArmor
-  NeedBread
-  NeedSpear
-
-proc findNearestTeammateNeeding(env: Environment, me: Thing, need: NeedType): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for other in env.agents:
-    if other.agentId == me.agentId: continue
-    if not isAgentAlive(env, other): continue
-    if not sameTeam(me, other): continue
-    var needs = false
-    case need
-    of NeedArmor:
-      needs = other.inventoryArmor == 0
-    of NeedBread:
-      needs = other.inventoryBread < 1
-    of NeedSpear:
-      needs = other.unitClass == UnitManAtArms and other.inventorySpear == 0
-    if not needs: continue
-    let d = int(chebyshevDist(me.pos, other.pos))
-    if d < bestDist:
-      bestDist = d
-      best = other
-  return best
 
 proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   ## Consider lantern tiles passable for movement planning and respect doors/water.
@@ -612,15 +535,6 @@ proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IV
         best = d
     best
 
-  proc reconstructPath(cameFrom: Table[IVec2, IVec2], current: IVec2): seq[IVec2] =
-    var cur = current
-    result = @[cur]
-    var cf = cameFrom
-    while cf.hasKey(cur):
-      cur = cf[cur]
-      result.add(cur)
-    result.reverse()
-
   var openSet = initHashSet[IVec2]()
   openSet.incl(fromPos)
   var cameFrom = initTable[IVec2, IVec2]()
@@ -649,7 +563,14 @@ proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IV
 
     for g in goals:
       if current == g:
-        return reconstructPath(cameFrom, current)
+        var cur = current
+        result = @[cur]
+        var cf = cameFrom
+        while cf.hasKey(cur):
+          cur = cf[cur]
+          result.add(cur)
+        result.reverse()
+        return result
 
     openSet.excl(current)
     inc explored
@@ -681,49 +602,34 @@ proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
       return true
   false
 
-proc findNearestUnlitBuilding(env: Environment, teamId: int, origin: IVec2): Thing =
-  var bestDist = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    let dist = abs(thing.pos.x - origin.x) + abs(thing.pos.y - origin.y)
-    if dist < bestDist:
-      bestDist = dist
-      result = thing
-
 proc isLanternPlacementValid(env: Environment, pos: IVec2): bool =
   isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
     not isBlockedTerrain(env.terrain[pos.x][pos.y]) and not isTileFrozen(pos, env) and
     env.terrain[pos.x][pos.y] != Water
-
-proc findLanternSpotNearBuilding(env: Environment, teamId: int, agent: Thing, building: Thing): IVec2 =
-  var bestPos = ivec2(-1, -1)
-  var bestDist = int.high
-  for dx in -2 .. 2:
-    for dy in -2 .. 2:
-      if abs(dx) + abs(dy) > 2:
-        continue
-      let target = building.pos + ivec2(dx.int32, dy.int32)
-      if not isLanternPlacementValid(env, target):
-        continue
-      if hasTeamLanternNear(env, teamId, target):
-        continue
-      let dist = abs(target.x - agent.pos.x) + abs(target.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        bestPos = target
-  bestPos
 
 
 proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
   ## If carrying wood/wheat and a fertile tile is nearby, plant; otherwise move toward it.
   if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
-    let fertilePos = findNearestEmpty(env, agent.pos, true)
+    var fertilePos = ivec2(-1, -1)
+    var minDist = 999999
+    let startX = max(0, agent.pos.x - 8)
+    let endX = min(MapWidth - 1, agent.pos.x + 8)
+    let startY = max(0, agent.pos.y - 8)
+    let endY = min(MapHeight - 1, agent.pos.y + 8)
+    let ax = agent.pos.x.int
+    let ay = agent.pos.y.int
+    for x in startX..endX:
+      for y in startY..endY:
+        if env.terrain[x][y] != TerrainType.Fertile:
+          continue
+        let candPos = ivec2(x.int32, y.int32)
+        if env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
+          let dist = abs(x - ax) + abs(y - ay)
+          if dist < minDist:
+            minDist = dist
+            fertilePos = candPos
     if fertilePos.x >= 0:
       let dx = abs(fertilePos.x - agent.pos.x)
       let dy = abs(fertilePos.y - agent.pos.y)
@@ -790,15 +696,6 @@ proc useAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
            state: var AgentState, targetPos: IVec2): uint8 =
   actAt(controller, env, agent, agentId, state, targetPos, 3'u8)
 
-proc moveToNearestThing(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                        state: var AgentState, kind: ThingKind, verb: uint8): tuple[did: bool, action: uint8] =
-  let target = env.findNearestThingSpiral(state, kind, controller.rng)
-  if not isNil(target):
-    if isAdjacent(agent.pos, target.pos):
-      return (true, actAt(controller, env, agent, agentId, state, target.pos, verb))
-    return (true, moveTo(controller, env, agent, agentId, state, target.pos))
-  (false, 0'u8)
-
 proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
                             state: var AgentState, pos: var IVec2,
                             allowed: set[ThingKind], verb: uint8): tuple[did: bool, action: uint8] =
@@ -819,25 +716,6 @@ proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, 
     if isAdjacent(agent.pos, smith.pos):
       return (true, controller.useAt(env, agent, agentId, state, smith.pos))
     return (true, controller.moveTo(env, agent, agentId, state, smith.pos))
-  (false, 0'u8)
-
-proc deliverEquipment(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                      state: var AgentState, teamId: int, need: NeedType,
-                      inventoryCount: int): tuple[did: bool, action: uint8] =
-  if inventoryCount <= 0:
-    return (false, 0'u8)
-  let teammate = findNearestTeammateNeeding(env, agent, need)
-  if not isNil(teammate):
-    let dx = abs(teammate.pos.x - agent.pos.x)
-    let dy = abs(teammate.pos.y - agent.pos.y)
-    if max(dx, dy) == 1'i32:
-      let dirIdx = neighborDirIndex(agent.pos, teammate.pos)
-      return (true, saveStateAndReturn(controller, agentId, state,
-        encodeAction(5'u8, dirIdx.uint8)))
-    return (true, saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, teammate.pos, controller.rng).uint8)))
-  let (didSmith, actSmith) = moveToNearestSmith(controller, env, agent, agentId, state, teamId)
-  if didSmith: return (true, actSmith)
   (false, 0'u8)
 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,

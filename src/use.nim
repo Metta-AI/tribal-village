@@ -46,7 +46,16 @@ proc useAction*(env: Environment, id: int, agent: Thing, argument: int) =
         used = false
       elif agent.inventoryBread > 0:
         decInv(ItemBread)
-        env.applyHealBurst(agent)
+        let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            let p = agent.pos + ivec2(dx, dy)
+            env.applyActionTint(p, tint, 2, ActionTintHeal)
+            let occ = env.getThing(p)
+            if not occ.isNil and occ.kind == Agent:
+              let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)
+              if healAmt > 0:
+                discard env.applyAgentHeal(occ, healAmt)
         used = true
       else:
         if agent.inventoryWater > 0:

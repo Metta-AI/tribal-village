@@ -22,39 +22,6 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
     env.actionTintFlags[pos.x][pos.y] = true
     env.actionTintPositions.add(pos)
 
-proc applyShieldBand(env: Environment, agent: Thing, orientation: Orientation) =
-  let d = getOrientationDelta(orientation)
-  let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
-
-  # Diagonal orientations should “wrap the corner”: cover the forward diagonal tile
-  # plus the two adjacent cardinals (one step in x, one step in y).
-  if abs(d.x) == 1 and abs(d.y) == 1:
-    let diagPos = agent.pos + ivec2(d.x, d.y)
-    let xPos = agent.pos + ivec2(d.x, 0)
-    let yPos = agent.pos + ivec2(0, d.y)
-    env.applyActionTint(diagPos, tint, 2, ActionTintShield)
-    env.applyActionTint(xPos, tint, 2, ActionTintShield)
-    env.applyActionTint(yPos, tint, 2, ActionTintShield)
-  else:
-    # Cardinal facing: keep a 3-wide band centered on the forward tile
-    let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
-    let forward = agent.pos + ivec2(d.x, d.y)
-    for offset in -1 .. 1:
-      let p = forward + ivec2(perp.x * offset, perp.y * offset)
-      env.applyActionTint(p, tint, 2, ActionTintShield)
-
-proc applySpearStrike(env: Environment, agent: Thing, orientation: Orientation) =
-  let d = getOrientationDelta(orientation)
-  let left = ivec2(-d.y, d.x)
-  let right = ivec2(d.y, -d.x)
-  let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
-  for step in 1 .. 3:
-    let forward = agent.pos + ivec2(d.x * step, d.y * step)
-    env.applyActionTint(forward, tint, 2, ActionTintAttack)
-    # Keep spear width contiguous: side tiles offset by 1 perpendicular, not scaled by range.
-    env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
-    env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
-
 # Utility to tick a building cooldown.
 proc tickCooldown(env: Environment, thing: Thing) =
   if thing.cooldown > 0:

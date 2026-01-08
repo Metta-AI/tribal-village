@@ -27,21 +27,6 @@ proc setInv*(thing: Thing, kind: ItemKind, value: int) =
     return
   setInv(thing, toItemKey(kind), value)
 
-proc addInv*(thing: Thing, key: ItemKey, delta: int): int =
-  if key.len == 0 or delta == 0:
-    return getInv(thing, key)
-  let newVal = getInv(thing, key) + delta
-  setInv(thing, key, newVal)
-  newVal
-
-proc addInv*(thing: Thing, kind: ItemKind, delta: int): int =
-  ## Type-safe overload using ItemKind enum
-  if kind == ikNone or delta == 0:
-    return getInv(thing, kind)
-  let newVal = getInv(thing, kind) + delta
-  setInv(thing, kind, newVal)
-  newVal
-
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   ## Update observation layer for agent inventory - uses ItemKind enum for type safety
   let kind = toItemKind(key)

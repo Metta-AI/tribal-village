@@ -3,129 +3,6 @@ const
   WallRingRadiusSlack = 1
   WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
 
-proc isWallRingDoorSlot(altar, pos: IVec2, radius: int): bool =
-  let dx = int(pos.x - altar.x)
-  let dy = int(pos.y - altar.y)
-  # Doors at cardinals and diagonals (8 total).
-  (dx == 0 and dy == -radius) or
-  (dx == radius and dy == 0) or
-  (dx == 0 and dy == radius) or
-  (dx == -radius and dy == 0) or
-  (dx == radius and dy == -radius) or
-  (dx == radius and dy == radius) or
-  (dx == -radius and dy == radius) or
-  (dx == -radius and dy == -radius)
-
-proc doorInnerPos(altar, doorPos: IVec2, radius: int): IVec2 =
-  let step = ivec2(signi(altar.x - doorPos.x), signi(altar.y - doorPos.y))
-  doorPos + ivec2(step.x * 2, step.y * 2)
-
-proc findWallRingTarget(env: Environment, altar: IVec2): IVec2 =
-  for radius in WallRingRadii:
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        if max(abs(dx), abs(dy)) != radius:
-          continue
-        let pos = altar + ivec2(dx.int32, dy.int32)
-        if isWallRingDoorSlot(altar, pos, radius):
-          continue
-        if not isValidPos(pos):
-          continue
-        if not env.canPlaceBuilding(pos):
-          continue
-        if env.terrain[pos.x][pos.y] == TerrainRoad:
-          continue
-        return pos
-  ivec2(-1, -1)
-
-proc findHouseTarget(env: Environment, agent: Thing, anchor: IVec2,
-                     minDist, maxDist: int): tuple[buildPos, standPos: IVec2] =
-  ## Find any buildable single-tile house spot between min/max range of the altar.
-  result.buildPos = ivec2(-1, -1)
-  result.standPos = ivec2(-1, -1)
-  let minX = max(0, anchor.x - maxDist)
-  let maxX = min(MapWidth - 1, anchor.x + maxDist)
-  let minY = max(0, anchor.y - maxDist)
-  let maxY = min(MapHeight - 1, anchor.y + maxDist)
-
-  proc isBuildableHouseTile(pos: IVec2): bool =
-    if not isValidPos(pos):
-      return false
-    if env.hasDoor(pos):
-      return false
-    if isTileFrozen(pos, env):
-      return false
-    if not isBuildableTerrain(env.terrain[pos.x][pos.y]):
-      return false
-    if env.terrain[pos.x][pos.y] == TerrainRoad:
-      return false
-    if not env.isEmpty(pos):
-      return false
-    true
-
-  for x in minX .. maxX:
-    for y in minY .. maxY:
-      let pos = ivec2(x.int32, y.int32)
-      let dist = chebyshevDist(anchor, pos).int
-      if dist < minDist or dist > maxDist:
-        continue
-      if not isBuildableHouseTile(pos):
-        continue
-      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
-        let stand = pos + d
-        if not isValidPos(stand):
-          continue
-        if env.hasDoor(stand):
-          continue
-        if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
-          continue
-        if not env.isEmpty(stand):
-          continue
-        if not env.canAgentPassDoor(agent, stand):
-          continue
-        result.buildPos = pos
-        result.standPos = stand
-        return result
-  result
-
-proc findDoorRingTarget(env: Environment, altar: IVec2): IVec2 =
-  for radius in WallRingRadii:
-    let doorOffsets = [
-      ivec2(0, -radius), ivec2(radius, 0), ivec2(0, radius), ivec2(-radius, 0),
-      ivec2(radius, -radius), ivec2(radius, radius), ivec2(-radius, radius), ivec2(-radius, -radius)
-    ]
-    for offset in doorOffsets:
-      let pos = altar + offset
-      if not isValidPos(pos):
-        continue
-      if not env.canPlaceBuilding(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == TerrainRoad:
-        continue
-      return pos
-  ivec2(-1, -1)
-
-proc findDoorRingOutpostTarget(env: Environment, altar: IVec2): IVec2 =
-  for radius in WallRingRadii:
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        if max(abs(dx), abs(dy)) != radius:
-          continue
-        let doorPos = altar + ivec2(dx.int32, dy.int32)
-        if not isWallRingDoorSlot(altar, doorPos, radius):
-          continue
-        if not env.hasDoor(doorPos):
-          continue
-        let outpostPos = doorInnerPos(altar, doorPos, radius)
-        if not isValidPos(outpostPos):
-          continue
-        if not env.canPlaceBuilding(outpostPos):
-          continue
-        if env.terrain[outpostPos.x][outpostPos.y] == TerrainRoad:
-          continue
-        return outpostPos
-  ivec2(-1, -1)
-
 proc tryPlantFarmTiles(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
   let millCount = controller.getBuildingCount(env, teamId, Mill)
@@ -182,24 +59,115 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       continue
     if getTeamId(otherAgent.agentId) == teamId:
       inc popCount
-  let popCap = env.teamPopCap(teamId)
+  var popCap = 0
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.teamId != teamId:
+      continue
+    if isBuildingKind(thing.kind):
+      let cap = buildingPopCap(thing.kind)
+      if cap > 0:
+        popCap += cap
   if popCap > 0 and popCount >= popCap - 1:
     let anchor = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-    let target = findHouseTarget(env, agent, anchor, 5, 15)
-    if target.buildPos.x >= 0:
+    var targetBuildPos = ivec2(-1, -1)
+    var targetStandPos = ivec2(-1, -1)
+    let minX = max(0, anchor.x - 15)
+    let maxX = min(MapWidth - 1, anchor.x + 15)
+    let minY = max(0, anchor.y - 15)
+    let maxY = min(MapHeight - 1, anchor.y + 15)
+    block findHouse:
+      for x in minX .. maxX:
+        for y in minY .. maxY:
+          let pos = ivec2(x.int32, y.int32)
+          let dist = chebyshevDist(anchor, pos).int
+          if dist < 5 or dist > 15:
+            continue
+          if not isValidPos(pos):
+            continue
+          if env.hasDoor(pos):
+            continue
+          if isTileFrozen(pos, env):
+            continue
+          if not isBuildableTerrain(env.terrain[pos.x][pos.y]):
+            continue
+          if env.terrain[pos.x][pos.y] == TerrainRoad:
+            continue
+          if not env.isEmpty(pos):
+            continue
+          for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+            let stand = pos + d
+            if not isValidPos(stand):
+              continue
+            if env.hasDoor(stand):
+              continue
+            if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
+              continue
+            if not env.isEmpty(stand):
+              continue
+            if not env.canAgentPassDoor(agent, stand):
+              continue
+            targetBuildPos = pos
+            targetStandPos = stand
+            break findHouse
+    if targetBuildPos.x >= 0:
       let idx = buildIndexFor(House)
       if idx >= 0:
         let (did, act) = goToStandAndBuild(
           controller, env, agent, agentId, state,
-          target.standPos, target.buildPos, idx
+          targetStandPos, targetBuildPos, idx
         )
         if did: return act
 
   # Build a wall ring around the altar.
   if agent.homeAltar.x >= 0:
     let doorKey = thingItem("Door")
-    let doorTarget = findDoorRingTarget(env, agent.homeAltar)
-    let wallTarget = findWallRingTarget(env, agent.homeAltar)
+    let altarPos = agent.homeAltar
+    var doorTarget = ivec2(-1, -1)
+    var wallTarget = ivec2(-1, -1)
+    block findDoor:
+      for radius in WallRingRadii:
+        let doorOffsets = [
+          ivec2(0, -radius), ivec2(radius, 0), ivec2(0, radius), ivec2(-radius, 0),
+          ivec2(radius, -radius), ivec2(radius, radius), ivec2(-radius, radius), ivec2(-radius, -radius)
+        ]
+        for offset in doorOffsets:
+          let pos = altarPos + offset
+          if not isValidPos(pos):
+            continue
+          if not env.canPlaceBuilding(pos):
+            continue
+          if env.terrain[pos.x][pos.y] == TerrainRoad:
+            continue
+          doorTarget = pos
+          break findDoor
+    block findWall:
+      for radius in WallRingRadii:
+        for dx in -radius .. radius:
+          for dy in -radius .. radius:
+            if max(abs(dx), abs(dy)) != radius:
+              continue
+            let pos = altarPos + ivec2(dx.int32, dy.int32)
+            let isDoorSlot =
+              (dx == 0 and dy == -radius) or
+              (dx == radius and dy == 0) or
+              (dx == 0 and dy == radius) or
+              (dx == -radius and dy == 0) or
+              (dx == radius and dy == -radius) or
+              (dx == radius and dy == radius) or
+              (dx == -radius and dy == radius) or
+              (dx == -radius and dy == -radius)
+            if isDoorSlot:
+              continue
+            if not isValidPos(pos):
+              continue
+            if not env.canPlaceBuilding(pos):
+              continue
+            if env.terrain[pos.x][pos.y] == TerrainRoad:
+              continue
+            wallTarget = pos
+            break findWall
     let canDoor = doorTarget.x >= 0
     let canWall = wallTarget.x >= 0
     let buildDoorFirst = if canDoor and canWall: (env.currentStep mod 2) == 0 else: canDoor
@@ -212,7 +180,38 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       else:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
-    let outpostTarget = findDoorRingOutpostTarget(env, agent.homeAltar)
+    var outpostTarget = ivec2(-1, -1)
+    block findOutpost:
+      for radius in WallRingRadii:
+        for dx in -radius .. radius:
+          for dy in -radius .. radius:
+            if max(abs(dx), abs(dy)) != radius:
+              continue
+            let doorPos = altarPos + ivec2(dx.int32, dy.int32)
+            let isDoorSlot =
+              (dx == 0 and dy == -radius) or
+              (dx == radius and dy == 0) or
+              (dx == 0 and dy == radius) or
+              (dx == -radius and dy == 0) or
+              (dx == radius and dy == -radius) or
+              (dx == radius and dy == radius) or
+              (dx == -radius and dy == radius) or
+              (dx == -radius and dy == -radius)
+            if not isDoorSlot:
+              continue
+            if not env.hasDoor(doorPos):
+              continue
+            let stepX = if altarPos.x > doorPos.x: 1'i32 elif altarPos.x < doorPos.x: -1'i32 else: 0'i32
+            let stepY = if altarPos.y > doorPos.y: 1'i32 elif altarPos.y < doorPos.y: -1'i32 else: 0'i32
+            let outpostPos = doorPos + ivec2(stepX * 2, stepY * 2)
+            if not isValidPos(outpostPos):
+              continue
+            if not env.canPlaceBuilding(outpostPos):
+              continue
+            if env.terrain[outpostPos.x][outpostPos.y] == TerrainRoad:
+              continue
+            outpostTarget = outpostPos
+            break findOutpost
     if outpostTarget.x >= 0:
       let outpostKey = thingItem("Outpost")
       if env.canAffordBuild(teamId, outpostKey):
