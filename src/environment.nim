@@ -153,15 +153,18 @@ include "inventory"
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
 
+proc stockpileCapacityLeft(agent: Thing): int {.inline.} =
+  var total = 0
+  for invKey, invCount in agent.inventory.pairs:
+    if invCount > 0 and isStockpileResourceKey(invKey):
+      total += invCount
+  max(0, ResourceCarryCapacity - total)
+
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
   if count <= 0:
     return false
   if isStockpileResourceKey(key):
-    var total = 0
-    for invKey, invCount in agent.inventory.pairs:
-      if invCount > 0 and isStockpileResourceKey(invKey):
-        total += invCount
-    if total + count > ResourceCarryCapacity:
+    if stockpileCapacityLeft(agent) < count:
       return false
   else:
     if getInv(agent, key) + count > MapObjectAgentMaxInventory:
@@ -199,12 +202,7 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
       return true
     let capacityLeft =
       if isStockpileResourceKey(storedKey):
-        block:
-          var total = 0
-          for invKey, invCount in agent.inventory.pairs:
-            if invCount > 0 and isStockpileResourceKey(invKey):
-              total += invCount
-          max(0, ResourceCarryCapacity - total)
+        stockpileCapacityLeft(agent)
       else:
         max(0, MapObjectAgentMaxInventory - agentCount)
     if capacityLeft > 0:
@@ -420,24 +418,14 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     transferred = true
   # Otherwise give food if possible (no obs layer yet)
   elif agent.inventoryBread > 0:
-    let capacity = block:
-      var total = 0
-      for invKey, invCount in target.inventory.pairs:
-        if invCount > 0 and isStockpileResourceKey(invKey):
-          total += invCount
-      max(0, ResourceCarryCapacity - total)
+    let capacity = stockpileCapacityLeft(target)
     let giveAmt = min(agent.inventoryBread, capacity)
     if giveAmt > 0:
       agent.inventoryBread = agent.inventoryBread - giveAmt
       target.inventoryBread = target.inventoryBread + giveAmt
       transferred = true
   else:
-    let stockpileCapacityLeft = block:
-      var total = 0
-      for invKey, invCount in target.inventory.pairs:
-        if invCount > 0 and isStockpileResourceKey(invKey):
-          total += invCount
-      max(0, ResourceCarryCapacity - total)
+    let stockpileCapacityLeftTarget = stockpileCapacityLeft(target)
     var bestKey = ItemNone
     var bestCount = 0
     for key, count in agent.inventory.pairs:
@@ -445,7 +433,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
         continue
       let capacity =
         if isStockpileResourceKey(key):
-          stockpileCapacityLeft
+          stockpileCapacityLeftTarget
         else:
           MapObjectAgentMaxInventory - getInv(target, key)
       if capacity <= 0:
@@ -456,7 +444,7 @@ proc putAction(env: Environment, id: int, agent: Thing, argument: int) =
     if bestKey != ItemNone and bestCount > 0:
       let capacity =
         if isStockpileResourceKey(bestKey):
-          stockpileCapacityLeft
+          stockpileCapacityLeftTarget
         else:
           max(0, MapObjectAgentMaxInventory - getInv(target, bestKey))
       if capacity > 0:
