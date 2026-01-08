@@ -133,7 +133,9 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       return false
     if tryDamageDoor(pos):
       return true
-    let target = env.getThing(pos)
+    var target = env.getThing(pos)
+    if isNil(target):
+      target = env.getOverlayThing(pos)
     if isNil(target):
       return false
     case target.kind
@@ -169,7 +171,7 @@ proc attackAction(env: Environment, id: int, agent: Thing, argument: int) =
       removeThing(env, target)
       spawnCorpseAt(pos, ItemMeat, ResourceNodeInitial - 1)
       return true
-    of Pine, Palm:
+    of Tree:
       return env.harvestTree(agent, target)
     else:
       return false

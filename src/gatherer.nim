@@ -154,7 +154,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if didHunt: return actHunt
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskWood:
-    let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Pine, Palm})
+    let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
     let buildAct = tryBuildCamp(LumberCamp, nearbyTrees, 6, [LumberCamp])
     if buildAct != 0'u8: return buildAct
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)

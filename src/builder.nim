@@ -228,7 +228,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     )
     if didMill: return actMill
 
-  let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Pine, Palm})
+  let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
   let (didLumber, actLumber) = controller.tryBuildCampThreshold(
     env, agent, agentId, state, teamId, LumberCamp,
     nearbyTrees, 6,

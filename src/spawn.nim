@@ -113,7 +113,7 @@ proc spawnTreeGroves(env: Environment, r: var Rand) =
     let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
     let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
     let groveSize = randIntInclusive(r, 3, 10)
-    placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Pine, ItemWood, ResourceGround, r)
+    placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
 
 proc placePalmOasis(env: Environment, centerX, centerY: int, r: var Rand) =
   let groveSize = randIntInclusive(r, 3, 8)
@@ -128,7 +128,7 @@ proc placePalmOasis(env: Environment, centerX, centerY: int, r: var Rand) =
       if dist <= radius.float:
         let chance = 0.85 - (dist / radius.float) * 0.4
         if randChance(r, chance) and env.terrain[gx][gy] in PalmGround:
-          addResourceNode(env, ivec2(gx.int32, gy.int32), Palm, ItemWood)
+          addResourceNode(env, ivec2(gx.int32, gy.int32), Tree, ItemWood)
 
   let oasisW = randIntInclusive(r, 3, 5)
   let oasisH = randIntInclusive(r, 3, 5)
@@ -192,7 +192,7 @@ proc placePalmOasis(env: Environment, centerX, centerY: int, r: var Rand) =
         if nearWater:
           break
       if nearWater and randChance(r, 0.7) and env.terrain[px][py] in PalmGround:
-        addResourceNode(env, ivec2(px.int32, py.int32), Palm, ItemWood)
+        addResourceNode(env, ivec2(px.int32, py.int32), Tree, ItemWood)
 
 proc spawnPalmGroves(env: Environment, r: var Rand) =
   let numGroves = randIntInclusive(r, PalmGroveClusterBase, PalmGroveClusterBase + PalmGroveClusterRange) *
@@ -389,7 +389,7 @@ proc init(env: Environment) =
         continue
       let existing = env.getThing(pos)
       if not isNil(existing):
-        if existing.kind in {Pine, Palm}:
+        if existing.kind in {Tree}:
           removeThing(env, existing)
         else:
           continue
@@ -471,7 +471,7 @@ proc init(env: Environment) =
           continue
         let existing = env.getThing(pos)
         if not isNil(existing):
-          if existing.kind in {Pine, Palm}:
+          if existing.kind in {Tree}:
             removeThing(env, existing)
           else:
             continue
@@ -529,7 +529,7 @@ proc init(env: Environment) =
         continue
       let existing = env.getThing(pos)
       if not isNil(existing):
-        if existing.kind in {Pine, Palm}:
+        if existing.kind in {Tree}:
           removeThing(env, existing)
         else:
           continue
@@ -561,7 +561,7 @@ proc init(env: Environment) =
         return
       let existing = env.getThing(pos)
       if not isNil(existing):
-        if existing.kind in {Pine, Palm}:
+        if existing.kind in {Tree}:
           removeThing(env, existing)
         else:
           return
@@ -636,7 +636,7 @@ proc init(env: Environment) =
               continue
             let existing = env.getThing(pos)
             if not isNil(existing):
-              if existing.kind in {Pine, Palm}:
+              if existing.kind in {Tree}:
                 removeThing(env, existing)
               else:
                 continue

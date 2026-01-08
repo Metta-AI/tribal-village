@@ -127,7 +127,7 @@ proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
 proc thingPlacement*(kind: ThingKind): ThingPlacementKind =
-  if kind == Door: PlacementOverlay else: PlacementBlocking
+  if kind in {Door, Wheat, Tree}: PlacementOverlay else: PlacementBlocking
 
 proc thingBlocksMovement*(kind: ThingKind): bool =
   thingPlacement(kind) == PlacementBlocking
@@ -178,8 +178,7 @@ proc initThingCatalog(): array[ThingKind, CatalogEntry] =
 
   add(Agent, "Agent", "gatherer", '@')
   add(Wall, "Wall", "wall", '#')
-  add(Pine, "Pine", "pine", 't')
-  add(Palm, "Palm", "palm", 'P')
+  add(Tree, "Tree", "pine", 't')
   add(Wheat, "Wheat", "wheat", 'w')
   add(Stone, "Stone", "stone", 'S')
   add(Gold, "Gold", "gold", 'G')
