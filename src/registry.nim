@@ -39,7 +39,7 @@ type
     PlacementBlocking
     PlacementOverlay
 
-proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
+let BuildingRegistry* = block:
   var reg: array[ThingKind, BuildingInfo]
   for kind in ThingKind:
     reg[kind] = BuildingInfo(
@@ -115,8 +115,6 @@ proc initBuildingRegistry(): array[ThingKind, BuildingInfo] =
 
   reg
 
-let BuildingRegistry* = initBuildingRegistry()
-
 proc toSnakeCase(name: string): string
 
 {.push inline.}
@@ -143,7 +141,7 @@ type
     spriteKey*: string
     ascii*: char
 
-proc initTerrainCatalog(): array[TerrainType, CatalogEntry] =
+let TerrainCatalog* = block:
   var reg: array[TerrainType, CatalogEntry]
   for terrain in TerrainType:
     reg[terrain] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
@@ -163,7 +161,7 @@ proc initTerrainCatalog(): array[TerrainType, CatalogEntry] =
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
   reg
 
-proc initThingCatalog(): array[ThingKind, CatalogEntry] =
+let ThingCatalog* = block:
   var reg: array[ThingKind, CatalogEntry]
   for kind in ThingKind:
     reg[kind] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
@@ -191,8 +189,8 @@ proc initThingCatalog(): array[ThingKind, CatalogEntry] =
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
   reg
 
-proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
-  result = initTable[ItemKey, CatalogEntry]()
+let ItemCatalog* = block:
+  var reg = initTable[ItemKey, CatalogEntry]()
   for entry in [
     (ItemGold, "Gold", "gold", '$'),
     (ItemStone, "Stone", "stone", 'S'),
@@ -210,11 +208,8 @@ proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
     (ItemHearts, "Hearts", "heart", 'h')
   ]:
     let (key, displayName, spriteKey, ascii) = entry
-    result[key] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
-
-let TerrainCatalog* = initTerrainCatalog()
-let ThingCatalog* = initThingCatalog()
-let ItemCatalog* = initItemCatalog()
+    reg[key] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+  reg
 
 proc terrainSpriteKey*(terrain: TerrainType): string =
   if terrain == Empty:

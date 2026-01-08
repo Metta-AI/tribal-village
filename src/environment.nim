@@ -264,14 +264,6 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   building.cooldown = cooldown
   true
 
-proc recipeUsesStockpile(recipe: CraftRecipe): bool =
-  if recipe.station == StationSiegeWorkshop:
-    return false
-  for output in recipe.outputs:
-    if output.key.startsWith(ItemThingPrefix):
-      return true
-  false
-
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
     if recipe.station != station:
@@ -283,7 +275,16 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
         break
     if hasThingOutput:
       continue
-    let useStockpile = recipeUsesStockpile(recipe)
+    let useStockpile = block:
+      if recipe.station == StationSiegeWorkshop:
+        false
+      else:
+        var uses = false
+        for output in recipe.outputs:
+          if output.key.startsWith(ItemThingPrefix):
+            uses = true
+            break
+        uses
     let teamId = getTeamId(agent.agentId)
     var canApply = true
     for input in recipe.inputs:
@@ -336,7 +337,12 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
     return false
   agent.reward += env.config.woodReward
   removeThing(env, tree)
-  env.dropStump(tree.pos, ResourceNodeInitial - 1)
+  let stump = Thing(kind: Stump, pos: tree.pos)
+  stump.inventory = emptyInventory()
+  let remaining = ResourceNodeInitial - 1
+  if remaining > 0:
+    setInv(stump, ItemWood, remaining)
+  env.add(stump)
   true
 include "combat"
 
@@ -401,35 +407,6 @@ let TumorBranchOffsets = block:
         continue
       offsets.add(ivec2(dx, dy))
   offsets
-
-proc findTumorBranchTarget(tumor: Thing, env: Environment, r: var Rand): IVec2 =
-  ## Pick a random empty tile within the tumor's branching range
-  var chosen = ivec2(-1, -1)
-  var count = 0
-  const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
-
-  for offset in TumorBranchOffsets:
-    let candidate = tumor.pos + offset
-    if not env.isValidEmptyPosition(candidate):
-      continue
-
-    var adjacentTumor = false
-    for adj in AdjacentOffsets:
-      let checkPos = candidate + adj
-      if not isValidPos(checkPos):
-        continue
-      let occupant = env.getThing(checkPos)
-      if not isNil(occupant) and occupant.kind == Tumor:
-        adjacentTumor = true
-        break
-    if not adjacentTumor:
-      inc count
-      if randIntExclusive(r, 0, count) == 0:
-        chosen = candidate
-
-  if count == 0:
-    return ivec2(-1, -1)
-  chosen
 
 proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   # Try with moderate attempts first
