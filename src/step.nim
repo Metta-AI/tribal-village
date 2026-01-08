@@ -910,21 +910,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let key = BuildChoices[argument]
 
         var offsets: seq[IVec2] = @[]
-        proc addOffset(offset: IVec2) =
-          if offset.x == 0'i32 and offset.y == 0'i32:
-            return
-          for existing in offsets:
-            if existing == offset:
-              return
-          offsets.add(offset)
-
-        const NeighborOffsets = [
+        for offset in [
+          orientationToVec(agent.orientation),
           ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
           ivec2(-1, -1), ivec2(1, -1), ivec2(-1, 1), ivec2(1, 1)
-        ]
-        addOffset(orientationToVec(agent.orientation))
-        for offset in NeighborOffsets:
-          addOffset(offset)
+        ]:
+          if (offset.x == 0'i32 and offset.y == 0'i32) or offset in offsets:
+            continue
+          offsets.add(offset)
 
         var targetPos = ivec2(-1, -1)
         for offset in offsets:
