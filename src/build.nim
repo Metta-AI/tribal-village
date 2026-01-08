@@ -41,8 +41,6 @@ proc buildFromChoices(env: Environment, id: int, agent: Thing, argument: int,
                       choices: array[ActionArgumentCount, ItemKey]) =
   let key = choices[argument]
 
-  let roadKey = thingItem("Road")
-
   var offsets: seq[IVec2] = @[]
   for offset in [
     orientationToVec(agent.orientation),

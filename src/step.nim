@@ -21,10 +21,6 @@ when defined(stepTiming):
       except ValueError:
         0
 
-  proc stepTimingActive(env: Environment): bool =
-    stepTimingTarget >= 0 and env.currentStep >= stepTimingTarget and
-      env.currentStep <= stepTimingTarget + stepTimingWindow
-
   proc msBetween(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
@@ -38,7 +34,8 @@ let spawnerScanOffsets = block:
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
-    let timing = stepTimingActive(env)
+    let timing = stepTimingTarget >= 0 and env.currentStep >= stepTimingTarget and
+      env.currentStep <= stepTimingTarget + stepTimingWindow
     var tStart: MonoTime
     var tNow: MonoTime
     var tTotalStart: MonoTime
@@ -151,10 +148,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Precompute team pop caps while scanning things
   var teamPopCaps: array[MapRoomObjectsHouses, int]
-  proc shouldTickCooldown(kind: ThingKind): bool =
-    buildingUseKind(kind) in {UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
-                              UseTrain, UseTrainAndCraft, UseCraft}
-
   for thing in env.things:
     if thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses and isBuildingKind(thing.kind):
       let add = buildingPopCap(thing.kind)
@@ -194,7 +187,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
         thing.cooldown = 10
-    elif shouldTickCooldown(thing.kind):
+    elif buildingUseKind(thing.kind) in {UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
+                                         UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
       env.tickCooldown(thing)
     elif thing.kind == Spawner:
@@ -272,23 +266,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     ivec2(cornerMaxX, cornerMaxY)
   ]
 
-  proc pickCowHerdTarget(center, previous: IVec2, r: var Rand): IVec2 =
-    var bestDist = -1
-    var candidates: seq[IVec2] = @[]
-    for corner in cornerTargets:
-      if corner == previous:
-        continue
-      let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
-      if dist > bestDist:
-        candidates.setLen(0)
-        candidates.add(corner)
-        bestDist = dist
-      elif dist == bestDist:
-        candidates.add(corner)
-    if candidates.len == 0:
-      return cornerTargets[randIntInclusive(r, 0, 3)]
-    return candidates[randIntInclusive(r, 0, candidates.len - 1)]
-
   for herdId in 0 ..< env.cowHerdCounts.len:
     if env.cowHerdCounts[herdId] <= 0:
       env.cowHerdDrift[herdId] = ivec2(0, 0)
@@ -305,7 +282,22 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let nearBorder = center.x <= cornerMin or center.y <= cornerMin or
                      center.x >= cornerMaxX or center.y >= cornerMaxY
     if targetInvalid or (nearBorder and distToTarget <= 3):
-      env.cowHerdTargets[herdId] = pickCowHerdTarget(center, target, stepRng)
+      var bestDist = -1
+      var candidates: seq[IVec2] = @[]
+      for corner in cornerTargets:
+        if corner == target:
+          continue
+        let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
+        if dist > bestDist:
+          candidates.setLen(0)
+          candidates.add(corner)
+          bestDist = dist
+        elif dist == bestDist:
+          candidates.add(corner)
+      if candidates.len == 0:
+        env.cowHerdTargets[herdId] = cornerTargets[randIntInclusive(stepRng, 0, 3)]
+      else:
+        env.cowHerdTargets[herdId] = candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
     env.cowHerdDrift[herdId] = stepToward(center, env.cowHerdTargets[herdId])
 
   for thing in env.thingsByKind[Cow]:

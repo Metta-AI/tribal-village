@@ -486,7 +486,6 @@ for path in walkDirRec("data/"):
     try:
       let key = path.replace("data/", "").replace(".png", "")
       bxy.addImage(key, readImage(path))
-      rememberAssetKey(key)
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
 
