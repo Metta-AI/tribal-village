@@ -95,7 +95,26 @@ proc addResource(env: Environment, kind: ThingKind, pos: IVec2, key: ItemKey,
 proc setStockpile(env: Environment, teamId: int, res: StockpileResource, count: int) =
   env.teamStockpiles[teamId].counts[res] = count
 
+proc ensureAgentSlots(env: Environment) =
+  while env.agents.len < MapAgents:
+    let nextId = env.agents.len
+    let agent = Thing(
+      kind: Agent,
+      pos: ivec2(-1, -1),
+      agentId: nextId,
+      orientation: N,
+      inventory: emptyInventory(),
+      hp: 0,
+      maxHp: AgentMaxHp,
+      attackDamage: 1,
+      unitClass: UnitVillager,
+      homeAltar: ivec2(-1, -1)
+    )
+    env.add(agent)
+    env.terminated[nextId] = 1.0
+
 proc stepAction(env: Environment, agentId: int, verb: uint8, argument: int) =
+  env.ensureAgentSlots()
   var actions: array[MapAgents, uint8]
   for i in 0 ..< MapAgents:
     actions[i] = 0
