@@ -4,8 +4,15 @@ const
   TintStrengthScale = 80000.0'f32
   TumorIncrementBase = 30.0'f32
 
-proc decayTintModifications(env: Environment) =
-  ## Decay active tile modifications so agents leave fading trails.
+template markActiveTile(active: var ActiveTiles, tileX, tileY: int) =
+  if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
+    if not active.flags[tileX][tileY]:
+      active.flags[tileX][tileY] = true
+      active.positions.add(ivec2(tileX, tileY))
+
+proc updateTintModifications(env: Environment) =
+  ## Update unified tint modification array based on entity positions - runs every frame
+  # Clear previous frame's modifications
   var writeIdx = 0
   for readIdx in 0 ..< env.activeTiles.positions.len:
     let pos = env.activeTiles.positions[readIdx]
@@ -31,9 +38,7 @@ proc decayTintModifications(env: Environment) =
     inc writeIdx
   env.activeTiles.positions.setLen(writeIdx)
 
-proc decayTumorModifications(env: Environment) =
-  ## Decay tumor tint slowly so creep fades after removal.
-  var writeIdx = 0
+  writeIdx = 0
   for readIdx in 0 ..< env.tumorActiveTiles.positions.len:
     let pos = env.tumorActiveTiles.positions[readIdx]
     let tileX = pos.x.int
@@ -56,18 +61,6 @@ proc decayTumorModifications(env: Environment) =
     env.tumorActiveTiles.positions[writeIdx] = pos
     inc writeIdx
   env.tumorActiveTiles.positions.setLen(writeIdx)
-
-template markActiveTile(active: var ActiveTiles, tileX, tileY: int) =
-  if tileX >= 0 and tileX < MapWidth and tileY >= 0 and tileY < MapHeight:
-    if not active.flags[tileX][tileY]:
-      active.flags[tileX][tileY] = true
-      active.positions.add(ivec2(tileX, tileY))
-
-proc updateTintModifications(env: Environment) =
-  ## Update unified tint modification array based on entity positions - runs every frame
-  # Clear previous frame's modifications
-  env.decayTintModifications()
-  env.decayTumorModifications()
 
   # Helper: add team tint in a radius with simple Manhattan falloff
   proc addTintArea(baseX, baseY: int, color: Color, radius: int, scale: int) =

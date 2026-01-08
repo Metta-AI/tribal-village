@@ -9,142 +9,142 @@ let ConnectDirs8 = [
   ivec2(-1, -1), ivec2(1, -1), ivec2(-1, 1), ivec2(1, 1)
 ]
 
-proc isPlayablePos(pos: IVec2): bool =
-  pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
-    pos.y >= MapBorder and pos.y < MapHeight - MapBorder
-
-proc isPassableForConnect(env: Environment, pos: IVec2): bool =
-  if not isValidPos(pos) or not isPlayablePos(pos):
-    return false
-  if not env.isEmpty(pos):
-    return false
-  if isBlockedTerrain(env.terrain[pos.x][pos.y]):
-    return false
-  true
-
-proc digCost(env: Environment, pos: IVec2): int =
-  if not isValidPos(pos) or not isPlayablePos(pos):
-    return int.high
-  if isPassableForConnect(env, pos):
-    return 1
-  let thing = env.getThing(pos)
-  if not isNil(thing):
-    if thing.kind in {Wall, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
-      return ConnectWallCost
-    return int.high
-  let terrain = env.terrain[pos.x][pos.y]
-  if terrain == Water:
-    return ConnectWaterCost
-  if terrain in {Dune, Snow}:
-    return ConnectTerrainCost
-  if isBlockedTerrain(terrain):
-    return ConnectTerrainCost
-  1
-
-proc digCell(env: Environment, pos: IVec2) =
-  if not isValidPos(pos) or not isPlayablePos(pos):
-    return
-  let thing = env.getThing(pos)
-  if not isNil(thing):
-    if thing.kind in {Wall, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
-      removeThing(env, thing)
-    else:
-      return
-  let terrain = env.terrain[pos.x][pos.y]
-  if terrain in {Water, Dune, Snow}:
-    env.terrain[pos.x][pos.y] = Empty
-    env.resetTileColor(pos)
-
-proc labelComponents(env: Environment,
-                     labels: var array[MapWidth, array[MapHeight, int16]],
-                     counts: var seq[int]): int =
-  labels = default(array[MapWidth, array[MapHeight, int16]])
-  counts.setLen(0)
-  var label = 0
-  for x in MapBorder ..< MapWidth - MapBorder:
-    for y in MapBorder ..< MapHeight - MapBorder:
-      if labels[x][y] != 0 or not isPassableForConnect(env, ivec2(x, y)):
-        continue
-      inc label
-      var queue: seq[IVec2] = @[ivec2(x, y)]
-      var head = 0
-      labels[x][y] = label.int16
-      var count = 0
-      while head < queue.len:
-        let pos = queue[head]
-        inc head
-        inc count
-        for d in ConnectDirs8:
-          let nx = pos.x + d.x
-          let ny = pos.y + d.y
-          let npos = ivec2(nx.int32, ny.int32)
-          if not isPassableForConnect(env, npos):
-            continue
-          let ix = nx.int
-          let iy = ny.int
-          if labels[ix][iy] != 0:
-            continue
-          labels[ix][iy] = label.int16
-          queue.add(npos)
-      counts.add(count)
-  label
-
-proc computeDistances(env: Environment,
-                      labels: array[MapWidth, array[MapHeight, int16]],
-                      sourceLabel: int16,
-                      dist: var seq[int],
-                      prev: var seq[int]) =
-  let size = MapWidth * MapHeight
-  let inf = size * ConnectMaxEdgeCost + 1
-  dist.setLen(size)
-  prev.setLen(size)
-  for i in 0 ..< size:
-    dist[i] = inf
-    prev[i] = -1
-
-  let bucketCount = ConnectMaxEdgeCost + 1
-  var buckets: seq[seq[int]] = newSeq[seq[int]](bucketCount)
-  var heads: seq[int] = newSeq[int](bucketCount)
-
-  for x in MapBorder ..< MapWidth - MapBorder:
-    for y in MapBorder ..< MapHeight - MapBorder:
-      if labels[x][y] == sourceLabel:
-        let idx = y * MapWidth + x
-        dist[idx] = 0
-        prev[idx] = -2
-        buckets[0].add(idx)
-
-  var processed = 0
-  var currentCost = 0
-  while processed < size and currentCost <= inf:
-    let b = currentCost mod bucketCount
-    if heads[b] >= buckets[b].len:
-      inc currentCost
-      continue
-    let idx = buckets[b][heads[b]]
-    inc heads[b]
-    if dist[idx] < currentCost:
-      continue
-    inc processed
-    let x = idx mod MapWidth
-    let y = idx div MapWidth
-    for d in ConnectDirs8:
-      let nx = x + d.x.int
-      let ny = y + d.y.int
-      if nx < 0 or ny < 0 or nx >= MapWidth or ny >= MapHeight:
-        continue
-      let npos = ivec2(nx.int32, ny.int32)
-      let stepCost = digCost(env, npos)
-      if stepCost == int.high:
-        continue
-      let nidx = ny * MapWidth + nx
-      let newCost = currentCost + stepCost
-      if newCost < dist[nidx]:
-        dist[nidx] = newCost
-        prev[nidx] = idx
-        buckets[newCost mod bucketCount].add(nidx)
-
 proc makeConnected*(env: Environment) =
+  proc isPlayablePos(pos: IVec2): bool =
+    pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
+      pos.y >= MapBorder and pos.y < MapHeight - MapBorder
+
+  proc isPassableForConnect(env: Environment, pos: IVec2): bool =
+    if not isValidPos(pos) or not isPlayablePos(pos):
+      return false
+    if not env.isEmpty(pos):
+      return false
+    if isBlockedTerrain(env.terrain[pos.x][pos.y]):
+      return false
+    true
+
+  proc digCost(env: Environment, pos: IVec2): int =
+    if not isValidPos(pos) or not isPlayablePos(pos):
+      return int.high
+    if isPassableForConnect(env, pos):
+      return 1
+    let thing = env.getThing(pos)
+    if not isNil(thing):
+      if thing.kind in {Wall, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
+        return ConnectWallCost
+      return int.high
+    let terrain = env.terrain[pos.x][pos.y]
+    if terrain == Water:
+      return ConnectWaterCost
+    if terrain in {Dune, Snow}:
+      return ConnectTerrainCost
+    if isBlockedTerrain(terrain):
+      return ConnectTerrainCost
+    1
+
+  proc digCell(env: Environment, pos: IVec2) =
+    if not isValidPos(pos) or not isPlayablePos(pos):
+      return
+    let thing = env.getThing(pos)
+    if not isNil(thing):
+      if thing.kind in {Wall, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
+        removeThing(env, thing)
+      else:
+        return
+    let terrain = env.terrain[pos.x][pos.y]
+    if terrain in {Water, Dune, Snow}:
+      env.terrain[pos.x][pos.y] = Empty
+      env.resetTileColor(pos)
+
+  proc labelComponents(env: Environment,
+                       labels: var array[MapWidth, array[MapHeight, int16]],
+                       counts: var seq[int]): int =
+    labels = default(array[MapWidth, array[MapHeight, int16]])
+    counts.setLen(0)
+    var label = 0
+    for x in MapBorder ..< MapWidth - MapBorder:
+      for y in MapBorder ..< MapHeight - MapBorder:
+        if labels[x][y] != 0 or not isPassableForConnect(env, ivec2(x, y)):
+          continue
+        inc label
+        var queue: seq[IVec2] = @[ivec2(x, y)]
+        var head = 0
+        labels[x][y] = label.int16
+        var count = 0
+        while head < queue.len:
+          let pos = queue[head]
+          inc head
+          inc count
+          for d in ConnectDirs8:
+            let nx = pos.x + d.x
+            let ny = pos.y + d.y
+            let npos = ivec2(nx.int32, ny.int32)
+            if not isPassableForConnect(env, npos):
+              continue
+            let ix = nx.int
+            let iy = ny.int
+            if labels[ix][iy] != 0:
+              continue
+            labels[ix][iy] = label.int16
+            queue.add(npos)
+        counts.add(count)
+    label
+
+  proc computeDistances(env: Environment,
+                        labels: array[MapWidth, array[MapHeight, int16]],
+                        sourceLabel: int16,
+                        dist: var seq[int],
+                        prev: var seq[int]) =
+    let size = MapWidth * MapHeight
+    let inf = size * ConnectMaxEdgeCost + 1
+    dist.setLen(size)
+    prev.setLen(size)
+    for i in 0 ..< size:
+      dist[i] = inf
+      prev[i] = -1
+
+    let bucketCount = ConnectMaxEdgeCost + 1
+    var buckets: seq[seq[int]] = newSeq[seq[int]](bucketCount)
+    var heads: seq[int] = newSeq[int](bucketCount)
+
+    for x in MapBorder ..< MapWidth - MapBorder:
+      for y in MapBorder ..< MapHeight - MapBorder:
+        if labels[x][y] == sourceLabel:
+          let idx = y * MapWidth + x
+          dist[idx] = 0
+          prev[idx] = -2
+          buckets[0].add(idx)
+
+    var processed = 0
+    var currentCost = 0
+    while processed < size and currentCost <= inf:
+      let b = currentCost mod bucketCount
+      if heads[b] >= buckets[b].len:
+        inc currentCost
+        continue
+      let idx = buckets[b][heads[b]]
+      inc heads[b]
+      if dist[idx] < currentCost:
+        continue
+      inc processed
+      let x = idx mod MapWidth
+      let y = idx div MapWidth
+      for d in ConnectDirs8:
+        let nx = x + d.x.int
+        let ny = y + d.y.int
+        if nx < 0 or ny < 0 or nx >= MapWidth or ny >= MapHeight:
+          continue
+        let npos = ivec2(nx.int32, ny.int32)
+        let stepCost = digCost(env, npos)
+        if stepCost == int.high:
+          continue
+        let nidx = ny * MapWidth + nx
+        let newCost = currentCost + stepCost
+        if newCost < dist[nidx]:
+          dist[nidx] = newCost
+          prev[nidx] = idx
+          buckets[newCost mod bucketCount].add(nidx)
+
   var labels: array[MapWidth, array[MapHeight, int16]]
   var counts: seq[int] = @[]
   while true:

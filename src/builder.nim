@@ -11,7 +11,24 @@ proc tryPlantFarmTiles(controller: Controller, env: Environment, agent: Thing,
   let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
   if isNil(mill):
     return (false, 0'u8)
-  let fertilePos = findNearestEmpty(env, mill.pos, true, 6)
+  var fertilePos = ivec2(-1, -1)
+  var minDist = 999999
+  let startX = max(0, mill.pos.x - 6)
+  let endX = min(MapWidth - 1, mill.pos.x + 6)
+  let startY = max(0, mill.pos.y - 6)
+  let endY = min(MapHeight - 1, mill.pos.y + 6)
+  let mx = mill.pos.x.int
+  let my = mill.pos.y.int
+  for x in startX..endX:
+    for y in startY..endY:
+      if env.terrain[x][y] != TerrainType.Fertile:
+        continue
+      let candPos = ivec2(x.int32, y.int32)
+      if env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
+        let dist = abs(x - mx) + abs(y - my)
+        if dist < minDist:
+          minDist = dist
+          fertilePos = candPos
   if fertilePos.x < 0:
     return (false, 0'u8)
 
