@@ -27,7 +27,30 @@ proc isDigitsOnly(s: string): bool =
       return false
   true
 
-proc parseTilesetMap(lines: seq[string]): Table[int, string] =
+proc scaleNearest(src: Image, dstW, dstH: int): Image =
+  result = newImage(dstW, dstH)
+  for y in 0 ..< dstH:
+    let sy = (y * src.height) div dstH
+    for x in 0 ..< dstW:
+      let sx = (x * src.width) div dstW
+      result[x, y] = src[sx, sy]
+
+proc extractTile(sheet: Image, tileIndex: int): Image =
+  let col = tileIndex mod TilesPerRow
+  let row = tileIndex div TilesPerRow
+  let x = col * TileSize
+  let y = row * TileSize
+  result = sheet.subImage(x, y, TileSize, TileSize)
+
+proc generateDfViewAssets*() =
+  when defined(emscripten):
+    return
+
+  if not dirExists(DfViewRoot) or not fileExists(OverridesPath):
+    return
+
+  let lines = readFile(OverridesPath).splitLines()
+  var tilesets: Table[int, string]
   for line in lines:
     let trimmed = line.strip()
     if not trimmed.startsWith("[TILESET:"):
@@ -42,9 +65,11 @@ proc parseTilesetMap(lines: seq[string]): Table[int, string] =
     let filename = parts[1]
     if filename.len == 0:
       continue
-    result[idx] = ArtDir / filename
+    tilesets[idx] = ArtDir / filename
+  if tilesets.len == 0:
+    return
 
-proc parseOverrides(lines: seq[string], tilesets: Table[int, string]): Table[string, OverrideEntry] =
+  var overrides: Table[string, OverrideEntry]
   for line in lines:
     let trimmed = line.strip()
     if trimmed.len == 0 or trimmed[0] == '#':
@@ -74,37 +99,8 @@ proc parseOverrides(lines: seq[string], tilesets: Table[int, string]): Table[str
         break
     if tilesetIdx == -1 or tileIndex == -1:
       continue
-    if token notin result:
-      result[token] = OverrideEntry(tilesetIdx: tilesetIdx, tileIndex: tileIndex)
-
-proc scaleNearest(src: Image, dstW, dstH: int): Image =
-  result = newImage(dstW, dstH)
-  for y in 0 ..< dstH:
-    let sy = (y * src.height) div dstH
-    for x in 0 ..< dstW:
-      let sx = (x * src.width) div dstW
-      result[x, y] = src[sx, sy]
-
-proc extractTile(sheet: Image, tileIndex: int): Image =
-  let col = tileIndex mod TilesPerRow
-  let row = tileIndex div TilesPerRow
-  let x = col * TileSize
-  let y = row * TileSize
-  result = sheet.subImage(x, y, TileSize, TileSize)
-
-proc generateDfViewAssets*() =
-  when defined(emscripten):
-    return
-
-  if not dirExists(DfViewRoot) or not fileExists(OverridesPath):
-    return
-
-  let lines = readFile(OverridesPath).splitLines()
-  let tilesets = parseTilesetMap(lines)
-  if tilesets.len == 0:
-    return
-
-  let overrides = parseOverrides(lines, tilesets)
+    if token notin overrides:
+      overrides[token] = OverrideEntry(tilesetIdx: tilesetIdx, tileIndex: tileIndex)
   if overrides.len == 0:
     return
 

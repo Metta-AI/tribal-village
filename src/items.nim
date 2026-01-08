@@ -109,10 +109,6 @@ proc toItemKind*(key: ItemKey): ItemKind {.inline.} =
   of ItemHearts: ikHearts
   else: ikNone
 
-proc isFoodItemKind*(kind: ItemKind): bool {.inline.} =
-  ## Check if an ItemKind is a food item
-  kind in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}
-
 type
   StockpileResource* = enum
     ResourceFood
@@ -123,8 +119,8 @@ type
     ResourceNone
 
 proc isFoodItem*(key: ItemKey): bool =
-  ## Check if an ItemKey is a food item (delegates to ItemKind-based check)
-  isFoodItemKind(toItemKind(key))
+  ## Check if an ItemKey is a food item
+  toItemKind(key) in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}
 
 proc isStockpileResourceKey*(key: ItemKey): bool =
   case key
