@@ -792,21 +792,16 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
         return (true, controller.moveTo(env, agent, agentId, state, dropoff.pos))
 
   # Wood dropoff
-  if allowWood:
-    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
-                                                ResourceWood, agent.inventoryWood)
-    if did: return (true, act)
-
-  # Gold dropoff
-  if allowGold:
-    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
-                                                ResourceGold, agent.inventoryGold)
-    if did: return (true, act)
-
-  # Stone dropoff
-  if allowStone:
-    let (did, act) = dropoffResourceIfCarrying(controller, env, agent, agentId, state,
-                                                ResourceStone, agent.inventoryStone)
+  for entry in [
+    (res: ResourceWood, amount: agent.inventoryWood, allowed: allowWood),
+    (res: ResourceGold, amount: agent.inventoryGold, allowed: allowGold),
+    (res: ResourceStone, amount: agent.inventoryStone, allowed: allowStone)
+  ]:
+    if not entry.allowed:
+      continue
+    let (did, act) = dropoffResourceIfCarrying(
+      controller, env, agent, agentId, state, entry.res, entry.amount
+    )
     if did: return (true, act)
 
   (false, 0'u8)
@@ -886,22 +881,14 @@ proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): tuple[did: bool, action: uint8] =
-  var target = env.findNearestThingSpiral(state, Corpse, controller.rng)
-  if not isNil(target):
+  for (kind, verb) in [(Corpse, 3'u8), (Cow, 2'u8), (Bush, 3'u8)]:
+    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    if isNil(target):
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
     if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Cow, controller.rng)
-  if not isNil(target):
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.actAt(env, agent, agentId, state, target.pos, 2'u8))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
-  target = env.findNearestThingSpiral(state, Bush, controller.rng)
-  if not isNil(target):
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
-    if isAdjacent(agent.pos, target.pos):
+      if verb == 2'u8:
+        return (true, controller.actAt(env, agent, agentId, state, target.pos, verb))
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
