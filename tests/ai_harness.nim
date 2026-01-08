@@ -95,6 +95,13 @@ proc addResource(env: Environment, kind: ThingKind, pos: IVec2, key: ItemKey,
 proc setStockpile(env: Environment, teamId: int, res: StockpileResource, count: int) =
   env.teamStockpiles[teamId].counts[res] = count
 
+proc stepAction(env: Environment, agentId: int, verb: uint8, argument: int) =
+  var actions: array[MapAgents, uint8]
+  for i in 0 ..< MapAgents:
+    actions[i] = 0
+  actions[agentId] = encodeAction(verb, argument.uint8)
+  env.step(addr actions)
+
 suite "Mechanics":
   test "tree to stump and stump depletes":
     let env = makeEmptyEnv()
@@ -102,7 +109,7 @@ suite "Mechanics":
     discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
 
     let treeDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.useAction(0, agent, treeDir)
+    env.stepAction(0, 3'u8, treeDir)
     let stump = env.getThing(ivec2(10, 9))
     check stump.kind == Stump
     check getInv(stump, ItemWood) == ResourceNodeInitial - 1
@@ -110,7 +117,7 @@ suite "Mechanics":
 
     setInv(stump, ItemWood, 1)
     let stumpDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.useAction(0, agent, stumpDir)
+    env.stepAction(0, 3'u8, stumpDir)
     check env.getThing(ivec2(10, 9)) == nil
 
   test "wheat depletes and removes":
@@ -119,12 +126,12 @@ suite "Mechanics":
     discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 2)
 
     let wheatDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.useAction(0, agent, wheatDir)
+    env.stepAction(0, 3'u8, wheatDir)
     let wheat = env.getOverlayThing(ivec2(10, 9))
     check wheat.kind == Wheat
     check getInv(wheat, ItemWheat) == 1
 
-    env.useAction(0, agent, wheatDir)
+    env.stepAction(0, 3'u8, wheatDir)
     check env.getOverlayThing(ivec2(10, 9)) == nil
 
   test "stone and gold deplete":
@@ -136,12 +143,12 @@ suite "Mechanics":
     check getInv(goldNode, ItemGold) == 1
 
     let stoneDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.useAction(0, agent, stoneDir)
+    env.stepAction(0, 3'u8, stoneDir)
     check env.getThing(ivec2(10, 9)) == nil
 
     agent.inventory = emptyInventory()
     let goldDir = dirIndex(agent.pos, ivec2(11, 10))
-    env.useAction(0, agent, goldDir)
+    env.stepAction(0, 3'u8, goldDir)
     check env.getThing(ivec2(11, 10)) == nil
 
 suite "AI - Gatherer":
