@@ -148,19 +148,18 @@ proc initTerrainCatalog(): array[TerrainType, CatalogEntry] =
   for terrain in TerrainType:
     reg[terrain] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
 
-  for entry in [
-    (Empty, "Empty", "", ' '),
-    (Water, "Water", "", '~'),
-    (Bridge, "Bridge", "", '='),
-    (Fertile, "Fertile", "", 'f'),
-    (Road, "Road", "", 'r'),
-    (Grass, "Grass", "", 'g'),
-    (Dune, "Dune", "", 'd'),
-    (Sand, "Sand", "", 's'),
-    (Snow, "Snow", "", 'n')
-  ]:
-    let (terrain, displayName, spriteKey, ascii) = entry
+  proc add(terrain: TerrainType, displayName, spriteKey: string, ascii: char) =
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(Empty, "Empty", "", ' ')
+  add(Water, "Water", "", '~')
+  add(Bridge, "Bridge", "", '=')
+  add(Fertile, "Fertile", "", 'f')
+  add(Road, "Road", "", 'r')
+  add(Grass, "Grass", "", 'g')
+  add(Dune, "Dune", "", 'd')
+  add(Sand, "Sand", "", 's')
+  add(Snow, "Snow", "", 'n')
   reg
 
 proc initThingCatalog(): array[ThingKind, CatalogEntry] =
@@ -168,49 +167,44 @@ proc initThingCatalog(): array[ThingKind, CatalogEntry] =
   for kind in ThingKind:
     reg[kind] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
 
-  for entry in [
-    (Agent, "Agent", "gatherer", '@'),
-    (Wall, "Wall", "wall", '#'),
-    (Tree, "Tree", "tree", 't'),
-    (Wheat, "Wheat", "wheat", 'w'),
-    (Stone, "Stone", "stone", 'S'),
-    (Gold, "Gold", "gold", 'G'),
-    (Bush, "Bush", "bush", 'b'),
-    (Cactus, "Cactus", "cactus", 'c'),
-    (Stalagmite, "Stalagmite", "stalagmite", 'm'),
-    (Magma, "Magma", "magma", 'v'),
-    (Spawner, "Spawner", "spawner", 'Z'),
-    (Tumor, "Tumor", "tumor", 'X'),
-    (Cow, "Cow", "cow", 'w'),
-    (Corpse, "Corpse", "corpse", 'C'),
-    (Skeleton, "Skeleton", "skeleton", 'K'),
-    (Stump, "Stump", "stump", 'p'),
-    (Lantern, "Lantern", "lantern", 'l')
-  ]:
-    let (kind, displayName, spriteKey, ascii) = entry
+  proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char) =
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+
+  add(Agent, "Agent", "gatherer", '@')
+  add(Wall, "Wall", "wall", '#')
+  add(Tree, "Tree", "tree", 't')
+  add(Wheat, "Wheat", "wheat", 'w')
+  add(Stone, "Stone", "stone", 'S')
+  add(Gold, "Gold", "gold", 'G')
+  add(Bush, "Bush", "bush", 'b')
+  add(Cactus, "Cactus", "cactus", 'c')
+  add(Stalagmite, "Stalagmite", "stalagmite", 'm')
+  add(Magma, "Magma", "magma", 'v')
+  add(Spawner, "Spawner", "spawner", 'Z')
+  add(Tumor, "Tumor", "tumor", 'X')
+  add(Cow, "Cow", "cow", 'w')
+  add(Corpse, "Corpse", "corpse", 'C')
+  add(Skeleton, "Skeleton", "skeleton", 'K')
+  add(Stump, "Stump", "stump", 'p')
+  add(Lantern, "Lantern", "lantern", 'l')
   reg
 
 proc initItemCatalog(): Table[ItemKey, CatalogEntry] =
   result = initTable[ItemKey, CatalogEntry]()
-  for entry in [
-    (ItemGold, "Gold", "gold", '$'),
-    (ItemStone, "Stone", "stone", 'S'),
-    (ItemBar, "Bar", "bar", 'B'),
-    (ItemWater, "Water", "droplet", '~'),
-    (ItemWheat, "Wheat", "bushel", 'w'),
-    (ItemWood, "Wood", "wood", 't'),
-    (ItemSpear, "Spear", "spear", 's'),
-    (ItemLantern, "Lantern", "lantern", 'l'),
-    (ItemArmor, "Armor", "armor", 'a'),
-    (ItemBread, "Bread", "bread", 'b'),
-    (ItemPlant, "Plant", "plant", 'p'),
-    (ItemFish, "Fish", "fish", 'f'),
-    (ItemMeat, "Meat", "meat", 'm'),
-    (ItemHearts, "Hearts", "heart", 'h')
-  ]:
-    let (key, displayName, spriteKey, ascii) = entry
-    result[key] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
+  result[ItemGold] = CatalogEntry(displayName: "Gold", spriteKey: "gold", ascii: '$')
+  result[ItemStone] = CatalogEntry(displayName: "Stone", spriteKey: "stone", ascii: 'S')
+  result[ItemBar] = CatalogEntry(displayName: "Bar", spriteKey: "bar", ascii: 'B')
+  result[ItemWater] = CatalogEntry(displayName: "Water", spriteKey: "droplet", ascii: '~')
+  result[ItemWheat] = CatalogEntry(displayName: "Wheat", spriteKey: "bushel", ascii: 'w')
+  result[ItemWood] = CatalogEntry(displayName: "Wood", spriteKey: "wood", ascii: 't')
+  result[ItemSpear] = CatalogEntry(displayName: "Spear", spriteKey: "spear", ascii: 's')
+  result[ItemLantern] = CatalogEntry(displayName: "Lantern", spriteKey: "lantern", ascii: 'l')
+  result[ItemArmor] = CatalogEntry(displayName: "Armor", spriteKey: "armor", ascii: 'a')
+  result[ItemBread] = CatalogEntry(displayName: "Bread", spriteKey: "bread", ascii: 'b')
+  result[ItemPlant] = CatalogEntry(displayName: "Plant", spriteKey: "plant", ascii: 'p')
+  result[ItemFish] = CatalogEntry(displayName: "Fish", spriteKey: "fish", ascii: 'f')
+  result[ItemMeat] = CatalogEntry(displayName: "Meat", spriteKey: "meat", ascii: 'm')
+  result[ItemHearts] = CatalogEntry(displayName: "Hearts", spriteKey: "heart", ascii: 'h')
 
 let TerrainCatalog* = initTerrainCatalog()
 let ThingCatalog* = initThingCatalog()
