@@ -1,4 +1,5 @@
 # This file is included by src/environment.nim
+import std/os
 when defined(stepTiming):
   import std/[os, monotimes]
 
@@ -30,6 +31,86 @@ let spawnerScanOffsets = block:
     for dy in -5 .. 5:
       offsets.add(ivec2(dx, dy))
   offsets
+
+let logRenderEnabled = block:
+  let raw = getEnv("TV_LOG_RENDER", "")
+  raw.len > 0 and raw != "0" and raw != "false"
+let logRenderWindow = block:
+  let raw = getEnv("TV_LOG_RENDER_WINDOW", "100")
+  let parsed =
+    try:
+      parseInt(raw)
+    except ValueError:
+      100
+  max(100, parsed)
+let logRenderEvery = block:
+  let raw = getEnv("TV_LOG_RENDER_EVERY", "1")
+  let parsed =
+    try:
+      parseInt(raw)
+    except ValueError:
+      1
+  max(1, parsed)
+let logRenderPath = block:
+  let raw = getEnv("TV_LOG_RENDER_PATH", "")
+  if raw.len > 0: raw else: "tribal_village.log"
+
+var logRenderBuffer: seq[string] = @[]
+var logRenderHead = 0
+var logRenderCount = 0
+
+proc logRenderActionName(verb: int): string =
+  case verb:
+  of 0: "noop"
+  of 1: "move"
+  of 2: "attack"
+  of 3: "use"
+  of 4: "swap"
+  of 5: "put"
+  of 6: "plant_lantern"
+  of 7: "plant_resource"
+  of 8: "build"
+  of 9: "orient"
+  else: "unknown"
+
+proc logRenderDirName(arg: int): string =
+  case arg:
+  of 0: "N"
+  of 1: "S"
+  of 2: "W"
+  of 3: "E"
+  of 4: "NW"
+  of 5: "NE"
+  of 6: "SW"
+  of 7: "SE"
+  else: $arg
+
+proc logRenderRoleName(agentId: int): string =
+  case agentId mod MapAgentsPerVillage:
+  of 0, 1: "gatherer"
+  of 2, 3: "builder"
+  of 4, 5: "fighter"
+  else: "gatherer"
+
+proc pushLogRenderEntry(entry: string) =
+  if logRenderBuffer.len < logRenderWindow:
+    logRenderBuffer.add(entry)
+    logRenderCount = logRenderBuffer.len
+    return
+  logRenderBuffer[logRenderHead] = entry
+  logRenderHead = (logRenderHead + 1) mod logRenderWindow
+  logRenderCount = logRenderWindow
+
+proc dumpLogRenderBuffer() =
+  if logRenderCount == 0:
+    return
+  var output = newStringOfCap(logRenderCount * 512)
+  output.add("=== tribal-village log window (" & $logRenderCount & " steps) ===\n")
+  for i in 0 ..< logRenderCount:
+    let idx = (logRenderHead + i) mod logRenderCount
+    output.add(logRenderBuffer[idx])
+    output.add("\n")
+  writeFile(logRenderPath, output)
 
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
@@ -1463,6 +1544,53 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   if allDone:
     # Team altar rewards already applied in main loop if needed
     env.shouldReset = true
+
+  if logRenderEnabled and (env.currentStep mod logRenderEvery == 0):
+    var entry = "STEP " & $env.currentStep & "\n"
+    var teamSeen: array[MapRoomObjectsHouses, bool]
+    for agent in env.agents:
+      if agent.isNil:
+        continue
+      teamSeen[getTeamId(agent.agentId)] = true
+    entry.add("Stockpiles:\n")
+    for teamId, seen in teamSeen:
+      if not seen:
+        continue
+      entry.add(
+        "  t" & $teamId &
+        " food=" & $env.stockpileCount(teamId, ResourceFood) &
+        " wood=" & $env.stockpileCount(teamId, ResourceWood) &
+        " stone=" & $env.stockpileCount(teamId, ResourceStone) &
+        " gold=" & $env.stockpileCount(teamId, ResourceGold) & "\n"
+      )
+    entry.add("Agents:\n")
+    for id, agent in env.agents:
+      if agent.isNil:
+        continue
+      let actionValue = actions[][id]
+      let verb = actionValue.int div ActionArgumentCount
+      let arg = actionValue.int mod ActionArgumentCount
+      var invParts: seq[string] = @[]
+      for key in ObservedItemKeys:
+        let count = getInv(agent, key)
+        if count > 0:
+          invParts.add(key & "=" & $count)
+      let invSummary = if invParts.len > 0: invParts.join(",") else: "-"
+      entry.add(
+        "  a" & $id &
+        " t" & $getTeamId(agent.agentId) &
+        " " & logRenderRoleName(agent.agentId) &
+        " pos=(" & $agent.pos.x & "," & $agent.pos.y & ")" &
+        " ori=" & $agent.orientation &
+        " act=" & logRenderActionName(verb) & ":" &
+        (if verb in [1, 2, 3, 9]: logRenderDirName(arg) else: $arg) &
+        " hp=" & $agent.hp & "/" & $agent.maxHp &
+        " inv=" & invSummary & "\n"
+      )
+    entry.add("Map:\n")
+    entry.add(env.render())
+    pushLogRenderEntry(entry)
+    dumpLogRenderBuffer()
 
 proc reset*(env: Environment) =
   env.currentStep = 0

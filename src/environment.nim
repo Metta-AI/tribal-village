@@ -49,6 +49,8 @@ proc getInv*(thing: Thing, key: ItemKey): int
 
 include "inventory"
 
+proc render*(env: Environment): string
+
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state when needed.
