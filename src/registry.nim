@@ -176,7 +176,7 @@ proc initThingCatalog(): array[ThingKind, CatalogEntry] =
   proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char) =
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
 
-  add(Agent, "Agent", "agent", '@')
+  add(Agent, "Agent", "gatherer", '@')
   add(Wall, "Wall", "wall", '#')
   add(Pine, "Pine", "pine", 't')
   add(Palm, "Palm", "palm", 'P')
