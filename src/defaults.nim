@@ -155,11 +155,78 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
 
 proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint8] =
-  if controller.getBuildingCount(env, teamId, kind) == 0:
-    let idx = buildIndexFor(kind)
-    if idx >= 0:
-      return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-  (false, 0'u8)
+  if controller.getBuildingCount(env, teamId, kind) != 0:
+    return (false, 0'u8)
+  let idx = buildIndexFor(kind)
+  if idx < 0:
+    return (false, 0'u8)
+  let key = BuildChoices[idx]
+  let costs = buildCostsForKey(key)
+  if costs.len == 0:
+    return (false, 0'u8)
+  if not env.canSpendStockpile(teamId, costs):
+    for cost in costs:
+      case cost.res
+      of ResourceWood:
+        return controller.ensureWood(env, agent, agentId, state)
+      of ResourceStone:
+        return controller.ensureStone(env, agent, agentId, state)
+      of ResourceGold:
+        return controller.ensureGold(env, agent, agentId, state)
+      of ResourceFood:
+        return controller.ensureWheat(env, agent, agentId, state)
+      of ResourceWater, ResourceNone:
+        discard
+    return (false, 0'u8)
+
+  let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  if didAdjacent:
+    return (didAdjacent, actAdjacent)
+
+  let anchor =
+    if state.basePosition.x >= 0: state.basePosition
+    elif agent.homeAltar.x >= 0: agent.homeAltar
+    else: agent.pos
+
+  const searchRadius = 8
+  var bestDist = int.high
+  var buildPos = ivec2(-1, -1)
+  var standPos = ivec2(-1, -1)
+  let minX = max(0, anchor.x - searchRadius)
+  let maxX = min(MapWidth - 1, anchor.x + searchRadius)
+  let minY = max(0, anchor.y - searchRadius)
+  let maxY = min(MapHeight - 1, anchor.y + searchRadius)
+  let ax = anchor.x.int
+  let ay = anchor.y.int
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      let pos = ivec2(x.int32, y.int32)
+      if not env.canPlaceBuilding(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == TerrainRoad:
+        continue
+      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+        let stand = pos + d
+        if not isValidPos(stand):
+          continue
+        if env.hasDoor(stand):
+          continue
+        if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
+          continue
+        if not env.isEmpty(stand):
+          continue
+        if not env.canAgentPassDoor(agent, stand):
+          continue
+        let dist = abs(x - ax) + abs(y - ay)
+        if dist < bestDist:
+          bestDist = dist
+          buildPos = pos
+          standPos = stand
+        break
+  if buildPos.x >= 0:
+    return goToStandAndBuild(controller, env, agent, agentId, state,
+      standPos, buildPos, idx)
+  return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
 
 include "gatherer"
 include "builder"
