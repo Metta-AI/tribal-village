@@ -137,8 +137,70 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         )
         if did: return act
 
-  # Build a wall ring around the altar.
-  if agent.homeAltar.x >= 0:
+  # Core economic infrastructure.
+  for kind in CoreEconomy:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
+
+  # Remote dropoff buildings near resources.
+  let dropoffDistanceThreshold = 5
+  let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
+  let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
+  if agent.homeAltar.x < 0 or
+     max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
+    let (didMill, actMill) = controller.tryBuildNearResource(
+      env, agent, agentId, state, teamId, Mill,
+      nearbyWheat + nearbyFertile, 8,
+      [Mill, Granary, TownCenter], dropoffDistanceThreshold
+    )
+    if didMill: return actMill
+
+  let (didPlant, actPlant) = tryPlantFarmTiles(controller, env, agent, agentId, state, teamId)
+  if didPlant: return actPlant
+
+  let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
+  let (didLumber, actLumber) = controller.tryBuildCampThreshold(
+    env, agent, agentId, state, teamId, LumberCamp,
+    nearbyTrees, 6,
+    [LumberCamp]
+  )
+  if didLumber: return actLumber
+
+  let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
+  let (didMining, actMining) = controller.tryBuildCampThreshold(
+    env, agent, agentId, state, teamId, MiningCamp,
+    nearbyGold, 6,
+    [MiningCamp]
+  )
+  if didMining: return actMining
+
+  let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
+  let (didQuarry, actQuarry) = controller.tryBuildCampThreshold(
+    env, agent, agentId, state, teamId, Quarry,
+    nearbyStone, 6,
+    [Quarry]
+  )
+  if didQuarry: return actQuarry
+
+  # Production buildings.
+  for kind in ProductionBuildings:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
+
+  # Military production.
+  for kind in MilitaryBuildings:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
+
+  # Defensive buildings.
+  for kind in DefenseBuildings:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
+
+  # Build a wall ring around the altar once core economy exists and wood is stockpiled.
+  if agent.homeAltar.x >= 0 and
+      controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
+      env.stockpileCount(teamId, ResourceWood) >= 3:
     let doorKey = thingItem("Door")
     let altarPos = agent.homeAltar
     var doorTarget = ivec2(-1, -1)
@@ -245,74 +307,12 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       let target = wallTarget
       let wallKey = thingItem("Wall")
       if env.canAffordBuild(teamId, wallKey):
-        let idx = buildIndexFor(Wall)
-        if idx >= 0:
-          let (did, act) = goToAdjacentAndBuild(
-            controller, env, agent, agentId, state, target, idx
-          )
-          if did: return act
+        let (did, act) = goToAdjacentAndBuild(
+          controller, env, agent, agentId, state, target, BuildIndexWall
+        )
+        if did: return act
       else:
-        let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
-        if didStone: return actStone
-
-  # Core economic infrastructure.
-  for kind in CoreEconomy:
-    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
-    if did: return act
-
-  # Remote dropoff buildings near resources.
-  let dropoffDistanceThreshold = 5
-  let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
-  let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-  if agent.homeAltar.x < 0 or
-     max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
-    let (didMill, actMill) = controller.tryBuildNearResource(
-      env, agent, agentId, state, teamId, Mill,
-      nearbyWheat + nearbyFertile, 8,
-      [Mill, Granary, TownCenter], dropoffDistanceThreshold
-    )
-    if didMill: return actMill
-
-  let (didPlant, actPlant) = tryPlantFarmTiles(controller, env, agent, agentId, state, teamId)
-  if didPlant: return actPlant
-
-  let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
-  let (didLumber, actLumber) = controller.tryBuildCampThreshold(
-    env, agent, agentId, state, teamId, LumberCamp,
-    nearbyTrees, 6,
-    [LumberCamp]
-  )
-  if didLumber: return actLumber
-
-  let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
-  let (didMining, actMining) = controller.tryBuildCampThreshold(
-    env, agent, agentId, state, teamId, MiningCamp,
-    nearbyGold, 6,
-    [MiningCamp]
-  )
-  if didMining: return actMining
-
-  let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
-  let (didQuarry, actQuarry) = controller.tryBuildCampThreshold(
-    env, agent, agentId, state, teamId, Quarry,
-    nearbyStone, 6,
-    [Quarry]
-  )
-  if didQuarry: return actQuarry
-
-  # Production buildings.
-  for kind in ProductionBuildings:
-    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
-    if did: return act
-
-  # Military production.
-  for kind in MilitaryBuildings:
-    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
-    if did: return act
-
-  # Defensive buildings.
-  for kind in DefenseBuildings:
-    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
-    if did: return act
+        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+        if didWood: return actWood
 
   return controller.moveNextSearch(env, agent, agentId, state)
