@@ -40,6 +40,10 @@ type
     closestStonePos: IVec2
     closestGoldPos: IVec2
     closestMagmaPos: IVec2
+    buildTarget: IVec2
+    buildStand: IVec2
+    buildIndex: int
+    buildLockSteps: int
     plannedTarget: IVec2
     plannedPath: seq[IVec2]
     plannedPathIndex: int
@@ -786,18 +790,31 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
       if state.plannedPath.len >= 2 and state.plannedPathIndex < state.plannedPath.len - 1:
         let nextPos = state.plannedPath[state.plannedPathIndex + 1]
         if canEnterForMove(env, agent, agent.pos, nextPos):
+          var dirIdx = neighborDirIndex(agent.pos, nextPos)
+          if state.role == Builder and state.lastPosition == nextPos:
+            let altDir = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, dirIdx)
+            if altDir != dirIdx:
+              state.plannedPath.setLen(0)
+              state.plannedPathIndex = 0
+              return saveStateAndReturn(controller, agentId, state,
+                encodeAction(1'u8, altDir.uint8))
           state.plannedPathIndex += 1
           return saveStateAndReturn(controller, agentId, state,
-            encodeAction(1'u8, neighborDirIndex(agent.pos, nextPos).uint8))
+            encodeAction(1'u8, dirIdx.uint8))
         state.plannedPath.setLen(0)
         state.pathBlockedTarget = targetPos
       elif state.plannedPath.len == 0:
         state.pathBlockedTarget = targetPos
     else:
       state.plannedPath.setLen(0)
+  var dirIdx = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, avoidDir)
+  let nextPos = agent.pos + Directions8[dirIdx]
+  if state.role == Builder and state.lastPosition == nextPos:
+    let altDir = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, dirIdx)
+    if altDir != dirIdx:
+      dirIdx = altDir
   return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos,
-      controller.rng, avoidDir).uint8))
+    encodeAction(1'u8, dirIdx.uint8))
 
 proc useAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
            state: var AgentState, targetPos: IVec2): uint8 =

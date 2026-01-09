@@ -228,15 +228,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
             if max(abs(dx), abs(dy)) != radius:
               continue
             let pos = altarPos + ivec2(dx.int32, dy.int32)
-            let isDoorSlot =
-              (dx == 0 and dy == -radius) or
-              (dx == radius and dy == 0) or
-              (dx == 0 and dy == radius) or
-              (dx == -radius and dy == 0) or
-              (dx == radius and dy == -radius) or
-              (dx == radius and dy == radius) or
-              (dx == -radius and dy == radius) or
-              (dx == -radius and dy == -radius)
+            let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
             if isDoorSlot:
               continue
             if not isValidPos(pos):
@@ -267,15 +259,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
             if max(abs(dx), abs(dy)) != radius:
               continue
             let doorPos = altarPos + ivec2(dx.int32, dy.int32)
-            let isDoorSlot =
-              (dx == 0 and dy == -radius) or
-              (dx == radius and dy == 0) or
-              (dx == 0 and dy == radius) or
-              (dx == -radius and dy == 0) or
-              (dx == radius and dy == -radius) or
-              (dx == radius and dy == radius) or
-              (dx == -radius and dy == radius) or
-              (dx == -radius and dy == -radius)
+            let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
             if not isDoorSlot:
               continue
             if not env.hasDoor(doorPos):
@@ -294,21 +278,18 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if outpostTarget.x >= 0:
       let outpostKey = thingItem("Outpost")
       if env.canAffordBuild(teamId, outpostKey):
-        let idx = buildIndexFor(Outpost)
-        if idx >= 0:
-          let (didOutpost, actOutpost) = goToAdjacentAndBuild(
-            controller, env, agent, agentId, state, outpostTarget, idx
-          )
-          if didOutpost: return actOutpost
+        let (didOutpost, actOutpost) = goToAdjacentAndBuild(
+          controller, env, agent, agentId, state, outpostTarget, buildIndexFor(Outpost)
+        )
+        if didOutpost: return actOutpost
       else:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
     if (not buildDoorFirst) and canWall:
-      let target = wallTarget
       let wallKey = thingItem("Wall")
       if env.canAffordBuild(teamId, wallKey):
         let (did, act) = goToAdjacentAndBuild(
-          controller, env, agent, agentId, state, target, BuildIndexWall
+          controller, env, agent, agentId, state, wallTarget, BuildIndexWall
         )
         if did: return act
       else:

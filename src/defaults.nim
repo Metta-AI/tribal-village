@@ -40,18 +40,42 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
     return (false, 0'u8)
   if buildIndex < 0 or buildIndex >= BuildChoices.len:
     return (false, 0'u8)
+  if state.buildLockSteps > 0 and state.buildIndex != buildIndex:
+    state.buildIndex = -1
+    state.buildTarget = ivec2(-1, -1)
+    state.buildStand = ivec2(-1, -1)
+    state.buildLockSteps = 0
+  var target = targetPos
+  if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0:
+    if env.canPlaceBuilding(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad:
+      target = state.buildTarget
+    dec state.buildLockSteps
+    if state.buildLockSteps <= 0:
+      state.buildIndex = -1
+      state.buildTarget = ivec2(-1, -1)
+      state.buildStand = ivec2(-1, -1)
   let teamId = getTeamId(agent.agentId)
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
-  if not env.canPlaceBuilding(targetPos):
+  if not env.canPlaceBuilding(target):
     return (false, 0'u8)
-  if env.terrain[targetPos.x][targetPos.y] == TerrainRoad:
+  if env.terrain[target.x][target.y] == TerrainRoad:
     return (false, 0'u8)
-  if chebyshevDist(agent.pos, targetPos) == 1'i32:
+  if chebyshevDist(agent.pos, target) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
-    if did: return (true, act)
-  return (true, controller.moveTo(env, agent, agentId, state, targetPos))
+    if did:
+      state.buildIndex = -1
+      state.buildTarget = ivec2(-1, -1)
+      state.buildStand = ivec2(-1, -1)
+      state.buildLockSteps = 0
+      return (true, act)
+  state.buildTarget = target
+  state.buildStand = ivec2(-1, -1)
+  state.buildIndex = buildIndex
+  if state.buildLockSteps <= 0:
+    state.buildLockSteps = 8
+  return (true, controller.moveTo(env, agent, agentId, state, target))
 
 proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, standPos, targetPos: IVec2,
@@ -60,22 +84,53 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
     return (false, 0'u8)
   if buildIndex < 0 or buildIndex >= BuildChoices.len:
     return (false, 0'u8)
+  if state.buildLockSteps > 0 and state.buildIndex != buildIndex:
+    state.buildIndex = -1
+    state.buildTarget = ivec2(-1, -1)
+    state.buildStand = ivec2(-1, -1)
+    state.buildLockSteps = 0
+  var stand = standPos
+  var target = targetPos
+  if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0 and
+      state.buildStand.x >= 0:
+    if env.canPlaceBuilding(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad and
+        isValidPos(state.buildStand) and not env.hasDoor(state.buildStand) and
+        not isBlockedTerrain(env.terrain[state.buildStand.x][state.buildStand.y]) and
+        not isTileFrozen(state.buildStand, env) and
+        env.isEmpty(state.buildStand) and env.canAgentPassDoor(agent, state.buildStand):
+      target = state.buildTarget
+      stand = state.buildStand
+    dec state.buildLockSteps
+    if state.buildLockSteps <= 0:
+      state.buildIndex = -1
+      state.buildTarget = ivec2(-1, -1)
+      state.buildStand = ivec2(-1, -1)
   let teamId = getTeamId(agent.agentId)
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
-  if not env.canPlaceBuilding(targetPos):
+  if not env.canPlaceBuilding(target):
     return (false, 0'u8)
-  if env.terrain[targetPos.x][targetPos.y] == TerrainRoad:
+  if env.terrain[target.x][target.y] == TerrainRoad:
     return (false, 0'u8)
-  if not isValidPos(standPos) or env.hasDoor(standPos) or
-      isBlockedTerrain(env.terrain[standPos.x][standPos.y]) or isTileFrozen(standPos, env) or
-      not env.isEmpty(standPos) or not env.canAgentPassDoor(agent, standPos):
+  if not isValidPos(stand) or env.hasDoor(stand) or
+      isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env) or
+      not env.isEmpty(stand) or not env.canAgentPassDoor(agent, stand):
     return (false, 0'u8)
-  if agent.pos == standPos:
+  if agent.pos == stand:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
-    if did: return (true, act)
-  return (true, controller.moveTo(env, agent, agentId, state, standPos))
+    if did:
+      state.buildIndex = -1
+      state.buildTarget = ivec2(-1, -1)
+      state.buildStand = ivec2(-1, -1)
+      state.buildLockSteps = 0
+      return (true, act)
+  state.buildTarget = target
+  state.buildStand = stand
+  state.buildIndex = buildIndex
+  if state.buildLockSteps <= 0:
+    state.buildLockSteps = 8
+  return (true, controller.moveTo(env, agent, agentId, state, stand))
 
 proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
                           state: var AgentState, teamId: int, kind: ThingKind,
@@ -268,6 +323,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       closestStonePos: ivec2(-1, -1),
       closestGoldPos: ivec2(-1, -1),
       closestMagmaPos: ivec2(-1, -1),
+      buildTarget: ivec2(-1, -1),
+      buildStand: ivec2(-1, -1),
+      buildIndex: -1,
+      buildLockSteps: 0,
       plannedTarget: ivec2(-1, -1),
       plannedPath: @[],
       plannedPathIndex: 0,
