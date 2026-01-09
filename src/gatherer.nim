@@ -107,17 +107,45 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
         return controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
       return controller.moveNextSearch(env, agent, agentId, state)
-    if state.closestMagmaPos.x < 0 and isNil(magmaGlobal):
+    let magmaKnown = state.closestMagmaPos.x >= 0 or not isNil(magmaGlobal)
+    if not magmaKnown:
       return controller.moveNextSearch(env, agent, agentId, state)
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return actGold
     return controller.moveNextSearch(env, agent, agentId, state)
-  of TaskGold:
-    let nearbyGold = countNearbyThings(env, agent.pos, 4, {Gold})
-    let buildAct = tryBuildCamp(MiningCamp, nearbyGold, 6, [MiningCamp])
+  of TaskGold, TaskWood, TaskStone:
+    var campKind: ThingKind
+    var nearbyCount = 0
+    var minCount = 0
+    case task
+    of TaskGold:
+      campKind = MiningCamp
+      nearbyCount = countNearbyThings(env, agent.pos, 4, {Gold})
+      minCount = 6
+    of TaskWood:
+      campKind = LumberCamp
+      nearbyCount = countNearbyThings(env, agent.pos, 4, {Tree})
+      minCount = 6
+    of TaskStone:
+      campKind = Quarry
+      nearbyCount = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
+      minCount = 4
+    else:
+      discard
+    let buildAct = tryBuildCamp(campKind, nearbyCount, minCount, [campKind])
     if buildAct != 0'u8: return buildAct
-    let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
-    if didGold: return actGold
+    case task
+    of TaskGold:
+      let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
+      if didGold: return actGold
+    of TaskWood:
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
+    of TaskStone:
+      let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
+      if didStone: return actStone
+    else:
+      discard
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskFood:
     let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
@@ -153,18 +181,4 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
 
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
     if didHunt: return actHunt
-    return controller.moveNextSearch(env, agent, agentId, state)
-  of TaskWood:
-    let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
-    let buildAct = tryBuildCamp(LumberCamp, nearbyTrees, 6, [LumberCamp])
-    if buildAct != 0'u8: return buildAct
-    let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-    if didWood: return actWood
-    return controller.moveNextSearch(env, agent, agentId, state)
-  of TaskStone:
-    let nearbyStone = countNearbyThings(env, agent.pos, 4, {Stone, Stalagmite})
-    let buildAct = tryBuildCamp(Quarry, nearbyStone, 4, [Quarry])
-    if buildAct != 0'u8: return buildAct
-    let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
-    if didStone: return actStone
     return controller.moveNextSearch(env, agent, agentId, state)
