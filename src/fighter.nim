@@ -192,8 +192,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
             controller, env, agent, agentId, state, targetPos, BuildIndexWall
           )
           if didWall: return wallAct
+    let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
     return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos, controller.rng).uint8))
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos,
+        controller.rng, avoidDir).uint8))
 
   # Keep buildings lit, then push lanterns farther out from the base.
   var target = ivec2(-1, -1)
@@ -258,8 +260,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     # No lantern in inventory: craft or gather resources to make one.
     if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
       if chebyshevDist(agent.pos, basePos) > 2'i32:
+        let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
         return saveStateAndReturn(controller, agentId, state,
-          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
+          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos,
+            controller.rng, avoidDir).uint8))
       let (didBuild, buildAct) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, WeavingLoom)
       if didBuild: return buildAct
 

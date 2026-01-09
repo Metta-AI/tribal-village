@@ -30,6 +30,10 @@ type
     escapeMode: bool
     escapeStepsRemaining: int
     escapeDirection: IVec2
+    lastActionVerb: int
+    lastActionArg: int
+    blockedMoveDir: int
+    blockedMoveSteps: int
     cachedThingPos: array[ThingKind, IVec2]
     closestFoodPos: IVec2
     closestWoodPos: IVec2
@@ -57,7 +61,12 @@ proc newController*(seed: int): Controller =
 
 # Helper proc to save state and return action
 proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState, action: uint8): uint8 =
-  controller.agents[agentId] = state
+  let verb = action.int div ActionArgumentCount
+  let arg = action.int mod ActionArgumentCount
+  var nextState = state
+  nextState.lastActionVerb = verb
+  nextState.lastActionArg = arg
+  controller.agents[agentId] = nextState
   controller.agentsInitialized[agentId] = true
   return action
 
@@ -530,16 +539,21 @@ proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): boo
         return true
   return false
 
-proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
+proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2,
+                    rng: var Rand, avoidDir: int = -1): int =
   ## Get a movement direction towards target, with obstacle avoidance
   let clampedTarget = clampToPlayable(toPos)
   if clampedTarget == fromPos:
     # Target is outside playable bounds; push back inward toward the widest margin.
     var bestDir = -1
     var bestMargin = -1
+    var avoidCandidate = -1
     for idx, d in Directions8:
       let np = fromPos + d
       if not canEnterForMove(env, agent, fromPos, np):
+        continue
+      if idx == avoidDir:
+        avoidCandidate = idx
         continue
       let marginX = min(np.x - MapBorder, (MapWidth - MapBorder - 1) - np.x)
       let marginY = min(np.y - MapBorder, (MapHeight - MapBorder - 1) - np.y)
@@ -549,6 +563,8 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
         bestDir = idx
     if bestDir >= 0:
       return bestDir
+    if avoidCandidate >= 0:
+      return avoidCandidate
     return randIntInclusive(rng, 0, 7)
 
   let dx = clampedTarget.x - fromPos.x
@@ -557,14 +573,18 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
   if step.x != 0 or step.y != 0:
     let primaryDir = vecToOrientation(step)
     let primaryMove = fromPos + Directions8[primaryDir]
-    if canEnterForMove(env, agent, fromPos, primaryMove):
+    if primaryDir != avoidDir and canEnterForMove(env, agent, fromPos, primaryMove):
       return primaryDir
 
   var bestDir = -1
   var bestDist = int.high
+  var avoidCandidate = -1
   for idx, d in Directions8:
     let np = fromPos + d
     if not canEnterForMove(env, agent, fromPos, np):
+      continue
+    if idx == avoidDir:
+      avoidCandidate = idx
       continue
     let dist = int(chebyshevDist(np, clampedTarget))
     if dist < bestDist:
@@ -572,6 +592,8 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
       bestDir = idx
   if bestDir >= 0:
     return bestDir
+  if avoidCandidate >= 0:
+    return avoidCandidate
 
   # All blocked, try random movement.
   return randIntInclusive(rng, 0, 7)
@@ -664,7 +686,7 @@ proc hasTeamLanternNear(env: Environment, teamId: int, pos: IVec2): bool =
       continue
     if not thing.lanternHealthy or thing.teamId != teamId:
       continue
-    if abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y) <= 2:
+    if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:
       return true
   false
 
@@ -705,15 +727,19 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
         return (true, saveStateAndReturn(controller, agentId, state,
                  encodeAction(7'u8, plantArg.uint8)))
       else:
+        let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
         return (true, saveStateAndReturn(controller, agentId, state,
-                 encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, fertilePos, controller.rng).uint8)))
+                 encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, fertilePos,
+                   controller.rng, avoidDir).uint8)))
   return (false, 0'u8)
 
 proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): uint8 =
   let nextSearchPos = getNextSpiralPoint(state, controller.rng)
+  let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, nextSearchPos, controller.rng).uint8))
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, nextSearchPos,
+      controller.rng, avoidDir).uint8))
 
 proc isAdjacent(a, b: IVec2): bool =
   let dx = abs(a.x - b.x)
@@ -733,6 +759,7 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
   let dx = abs(targetPos.x - agent.pos.x)
   let dy = abs(targetPos.y - agent.pos.y)
   let stuck = isStuckRecent(state, 6, 2)
+  let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   if stuck:
     state.pathBlockedTarget = ivec2(-1, -1)
     state.plannedPath.setLen(0)
@@ -761,7 +788,8 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
     else:
       state.plannedPath.setLen(0)
   return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8))
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos,
+      controller.rng, avoidDir).uint8))
 
 proc useAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
            state: var AgentState, targetPos: IVec2): uint8 =

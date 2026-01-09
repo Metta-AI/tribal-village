@@ -70,8 +70,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     let (didDrop, dropAct) =
       controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = not heartsPriority)
     if didDrop: return dropAct
+    let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
     return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos, controller.rng).uint8))
+      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos,
+        controller.rng, avoidDir).uint8))
 
   template tryBuildCamp(kind: ThingKind, nearbyCount, minCount: int,
                         nearbyKinds: openArray[ThingKind]): uint8 =
