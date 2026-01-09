@@ -273,10 +273,26 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var finalPos = step1
         if not canEnter(step1):
           let blocker = env.getThing(step1)
-          if not isNil(blocker) and blocker.kind in {Tree} and not isThingFrozen(blocker, env):
-            if env.harvestTree(agent, blocker):
-              inc env.stats[id].actionUse
+          if not isNil(blocker):
+            if blocker.kind == Agent and not isThingFrozen(blocker, env) and
+                getTeamId(blocker.agentId) == getTeamId(agent.agentId):
+              let agentOld = agent.pos
+              let blockerOld = blocker.pos
+              agent.pos = blockerOld
+              blocker.pos = agentOld
+              env.grid[agentOld.x][agentOld.y] = blocker
+              env.grid[blockerOld.x][blockerOld.y] = agent
+              agent.orientation = newOrientation
+              env.updateObservations(AgentLayer, agentOld, getTeamId(blocker.agentId) + 1)
+              env.updateObservations(AgentLayer, blockerOld, getTeamId(agent.agentId) + 1)
+              env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+              env.updateObservations(AgentOrientationLayer, blocker.pos, blocker.orientation.int)
+              inc env.stats[id].actionMove
               break moveAction
+            if blocker.kind in {Tree} and not isThingFrozen(blocker, env):
+              if env.harvestTree(agent, blocker):
+                inc env.stats[id].actionUse
+                break moveAction
           inc env.stats[id].actionInvalid
           break moveAction
 
