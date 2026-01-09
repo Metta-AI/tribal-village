@@ -31,6 +31,16 @@ proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
       if gold == lowest: return TaskGold
   TaskFood
 
+proc findNearestMagmaGlobal(env: Environment, pos: IVec2): Thing =
+  var best: Thing = nil
+  var bestDist = int.high
+  for magma in env.thingsByKind[Magma]:
+    let dist = abs(magma.pos.x - pos.x) + abs(magma.pos.y - pos.y)
+    if dist < bestDist:
+      bestDist = dist
+      best = magma
+  best
+
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -38,10 +48,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   state.basePosition = basePos
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
-    for thing in env.things:
-      if thing.kind == Altar and thing.teamId == teamId and thing.pos == agent.homeAltar:
-        altarHearts = thing.hearts
-        break
+    let homeAltar = env.getThing(agent.homeAltar)
+    if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
+      altarHearts = homeAltar.hearts
   if altarHearts == 0:
     let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
     if not isNil(altar):
@@ -56,17 +65,22 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       carryingStockpile = true
       break
 
+  template tryUseMagma(): uint8 =
+    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+    if didKnown: return actKnown
+    let magma = findNearestMagmaGlobal(env, agent.pos)
+    if not isNil(magma):
+      updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
+      if isAdjacent(agent.pos, magma.pos):
+        return controller.useAt(env, agent, agentId, state, magma.pos)
+      return controller.moveTo(env, agent, agentId, state, magma.pos)
+    0'u8
+
   if carryingStockpile:
     if agent.inventoryGold > 0 and heartsPriority:
-      let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-        env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
-      if didKnown: return actKnown
-      let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
-      if not isNil(magma):
-        updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
-        if isAdjacent(agent.pos, magma.pos):
-          return controller.useAt(env, agent, agentId, state, magma.pos)
-        return controller.moveTo(env, agent, agentId, state, magma.pos)
+      let magmaAct = tryUseMagma()
+      if magmaAct != 0'u8: return magmaAct
     let (didDrop, dropAct) =
       controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = not heartsPriority)
     if didDrop: return dropAct
@@ -99,15 +113,13 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           return controller.useAt(env, agent, agentId, state, altar.pos)
         return controller.moveTo(env, agent, agentId, state, altar.pos)
     if agent.inventoryGold > 0:
-      let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-        env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
-      if didKnown: return actKnown
-      let magma = env.findNearestThingSpiral(state, Magma, controller.rng)
-      if not isNil(magma):
-        updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
-        if isAdjacent(agent.pos, magma.pos):
-          return controller.useAt(env, agent, agentId, state, magma.pos)
-        return controller.moveTo(env, agent, agentId, state, magma.pos)
+      let magmaAct = tryUseMagma()
+      if magmaAct != 0'u8: return magmaAct
+      return controller.moveNextSearch(env, agent, agentId, state)
+    if state.closestMagmaPos.x < 0:
+      let magma = findNearestMagmaGlobal(env, agent.pos)
+      if isNil(magma):
+        return controller.moveNextSearch(env, agent, agentId, state)
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return actGold
     return controller.moveNextSearch(env, agent, agentId, state)
