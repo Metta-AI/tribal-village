@@ -150,23 +150,13 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
               bestWallDist = distToAgent
               bestWall = pos
 
-      var targetFound = false
       var targetKind = Wall
-      var targetPos = ivec2(-1, -1)
       if bestDoor.x >= 0:
-        targetFound = true
         targetKind = Door
-        targetPos = bestDoor
       elif bestOutpost.x >= 0:
-        targetFound = true
         targetKind = Outpost
-        targetPos = bestOutpost
-      elif bestWall.x >= 0:
-        targetFound = true
-        targetKind = Wall
-        targetPos = bestWall
-
-      if targetFound:
+      var targetPos = (if targetKind == Door: bestDoor elif targetKind == Outpost: bestOutpost else: bestWall)
+      if targetPos.x >= 0:
         case targetKind
         of Door:
           let doorKey = thingItem("Door")
@@ -334,18 +324,18 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
     if didSmith: return actSmith
 
-  var hasAlly = false
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if not sameTeam(agent, other):
-      continue
-    if chebyshevDist(agent.pos, other.pos) <= 4'i32:
-      hasAlly = true
-      break
-  let cautious = agent.hp * 2 < agent.maxHp and not hasAlly
+  var cautious = agent.hp * 2 < agent.maxHp
+  if cautious:
+    for other in env.agents:
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if not sameTeam(agent, other):
+        continue
+      if chebyshevDist(agent.pos, other.pos) <= 4'i32:
+        cautious = false
+        break
 
   if not cautious:
     for kind in [Tumor, Spawner]:
