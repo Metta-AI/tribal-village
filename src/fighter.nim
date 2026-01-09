@@ -347,17 +347,11 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       inc nearbyAllies
   let cautious = agent.hp * 2 < agent.maxHp and nearbyAllies == 0
 
-  # Seek tumors/spawners when idle.
   if not cautious:
-    let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
-    if not isNil(tumor):
-      actOrMove(tumor.pos, 2'u8)
-    let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
-    if not isNil(spawner):
-      actOrMove(spawner.pos, 2'u8)
-
-  # Hunt while patrolling if nothing else to do.
-  if not cautious:
+    for kind in [Tumor, Spawner]:
+      let target = env.findNearestThingSpiral(state, kind, controller.rng)
+      if not isNil(target):
+        actOrMove(target.pos, 2'u8)
     let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
     if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
