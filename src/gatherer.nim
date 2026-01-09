@@ -5,8 +5,7 @@ type GathererTask = enum
   TaskGold
   TaskHearts
 
-proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
-                        altarHearts: int): GathererTask =
+proc chooseGathererTask(env: Environment, teamId: int, altarHearts: int): GathererTask =
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
@@ -15,21 +14,18 @@ proc chooseGathererTask(controller: Controller, env: Environment, teamId: int,
   if altarHearts < 10:
     return TaskHearts
 
-  let lowest = min(food, min(wood, min(stone, min(gold, altarHearts))))
-  let ordered = [TaskHearts, TaskFood, TaskWood, TaskStone, TaskGold]
-  for task in ordered:
-    case task
-    of TaskHearts:
-      if altarHearts == lowest: return TaskHearts
-    of TaskFood:
-      if food == lowest: return TaskFood
-    of TaskWood:
-      if wood == lowest: return TaskWood
-    of TaskStone:
-      if stone == lowest: return TaskStone
-    of TaskGold:
-      if gold == lowest: return TaskGold
-  TaskFood
+  let ordered = [
+    (TaskHearts, altarHearts),
+    (TaskFood, food),
+    (TaskWood, wood),
+    (TaskStone, stone),
+    (TaskGold, gold)
+  ]
+  var best = ordered[0]
+  for i in 1 ..< ordered.len:
+    if ordered[i][1] < best[1]:
+      best = ordered[i]
+  best[0]
 
 proc findNearestMagmaGlobal(env: Environment, pos: IVec2): Thing =
   var best: Thing = nil
@@ -56,7 +52,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if not isNil(altar):
       altarHearts = altar.hearts
 
-  let task = chooseGathererTask(controller, env, teamId, altarHearts)
+  let task = chooseGathererTask(env, teamId, altarHearts)
   let heartsPriority = task == TaskHearts
 
   var carryingStockpile = false
@@ -103,15 +99,15 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   case task
   of TaskHearts:
     if agent.inventoryBar > 0:
-      if agent.homeAltar.x >= 0:
-        if isAdjacent(agent.pos, agent.homeAltar):
-          return controller.useAt(env, agent, agentId, state, agent.homeAltar)
-        return controller.moveTo(env, agent, agentId, state, agent.homeAltar)
-      let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
-      if not isNil(altar):
-        if isAdjacent(agent.pos, altar.pos):
-          return controller.useAt(env, agent, agentId, state, altar.pos)
-        return controller.moveTo(env, agent, agentId, state, altar.pos)
+      var altarPos = agent.homeAltar
+      if altarPos.x < 0:
+        let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
+        if not isNil(altar):
+          altarPos = altar.pos
+      if altarPos.x >= 0:
+        if isAdjacent(agent.pos, altarPos):
+          return controller.useAt(env, agent, agentId, state, altarPos)
+        return controller.moveTo(env, agent, agentId, state, altarPos)
     if agent.inventoryGold > 0:
       let magmaAct = tryUseMagma()
       if magmaAct != 0'u8: return magmaAct
