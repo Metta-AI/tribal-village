@@ -298,8 +298,12 @@ proc drawObjects*() =
     let dirKey = case agent.orientation:
       of N: "n"
       of S: "s"
-      of E, NE, SE: "e"
-      of W, NW, SW: "w"
+      of E: "e"
+      of W: "w"
+      of NE: "ne"
+      of NW: "nw"
+      of SE: "se"
+      of SW: "sw"
     let agentImage = roleKey & "." & dirKey
     bxy.drawImage(
       agentImage,
