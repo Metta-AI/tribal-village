@@ -15,6 +15,34 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       return controller.actAt(env, agent, agentId, state, targetPos, verb)
     return controller.moveTo(env, agent, agentId, state, targetPos)
 
+  # If fully enclosed, attack blocking tiles to break out.
+  var hasExit = false
+  for _, d in Directions8:
+    let np = agent.pos + d
+    if canEnterForMove(env, agent, agent.pos, np):
+      hasExit = true
+      break
+  if not hasExit:
+    for dirIdx in 0 .. 7:
+      let targetPos = agent.pos + Directions8[dirIdx]
+      if not isValidPos(targetPos):
+        continue
+      if env.hasDoor(targetPos):
+        return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, dirIdx.uint8))
+      let blocker = env.getThing(targetPos)
+      if not isNil(blocker) and blocker.kind in {Wall, Skeleton, Spawner, Tumor}:
+        return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, dirIdx.uint8))
+
+  # Low-HP retreat: regroup near friendly structures/base.
+  if agent.hp * 3 <= agent.maxHp:
+    var safe: Thing = nil
+    for kind in [Outpost, Barracks, TownCenter, Monastery]:
+      safe = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
+      if not isNil(safe):
+        break
+    let target = if not isNil(safe): safe.pos else: basePos
+    return controller.moveTo(env, agent, agentId, state, target)
+
   # React to nearby enemy agents by fortifying outward.
   var enemy: Thing = nil
   var bestEnemyDist = int.high
@@ -311,15 +339,29 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
     if didSmith: return actSmith
 
+  var nearbyAllies = 0
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if not sameTeam(agent, other):
+      continue
+    if chebyshevDist(agent.pos, other.pos) <= 4'i32:
+      inc nearbyAllies
+  let cautious = agent.hp * 2 < agent.maxHp and nearbyAllies == 0
+
   # Seek tumors/spawners when idle.
-  let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
-  if not isNil(tumor):
-    actOrMove(tumor.pos, 2'u8)
-  let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
-  if not isNil(spawner):
-    actOrMove(spawner.pos, 2'u8)
+  if not cautious:
+    let tumor = env.findNearestThingSpiral(state, Tumor, controller.rng)
+    if not isNil(tumor):
+      actOrMove(tumor.pos, 2'u8)
+    let spawner = env.findNearestThingSpiral(state, Spawner, controller.rng)
+    if not isNil(spawner):
+      actOrMove(spawner.pos, 2'u8)
 
   # Hunt while patrolling if nothing else to do.
-  let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
-  if didHunt: return actHunt
+  if not cautious:
+    let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
+    if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
