@@ -143,15 +143,13 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
 
     if state.closestFoodPos.x >= 0:
       let knownThing = env.getThing(state.closestFoodPos)
-      if not isNil(knownThing) and knownThing.kind in {Wheat, Bush, Cow, Corpse}:
-        if knownThing.kind == Cow:
-          if isAdjacent(agent.pos, knownThing.pos):
-            return controller.actAt(env, agent, agentId, state, knownThing.pos, 2'u8)
-          return controller.moveTo(env, agent, agentId, state, knownThing.pos)
+      if isNil(knownThing) or knownThing.kind notin {Wheat, Bush, Cow, Corpse}:
+        state.closestFoodPos = ivec2(-1, -1)
+      else:
+        let verb = (if knownThing.kind == Cow: 2'u8 else: 3'u8)
         if isAdjacent(agent.pos, knownThing.pos):
-          return controller.useAt(env, agent, agentId, state, knownThing.pos)
+          return controller.actAt(env, agent, agentId, state, knownThing.pos, verb)
         return controller.moveTo(env, agent, agentId, state, knownThing.pos)
-      state.closestFoodPos = ivec2(-1, -1)
 
     let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
     if not isNil(wheat):
