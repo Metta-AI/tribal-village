@@ -27,6 +27,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if getTeamId(otherAgent.agentId) == teamId:
       inc popCount
   var popCap = 0
+  let popTarget = popCount + 1
   for thing in env.things:
     if thing.isNil:
       continue
@@ -36,6 +37,8 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       let cap = buildingPopCap(thing.kind)
       if cap > 0:
         popCap += cap
+        if popCap >= popTarget:
+          break
   if popCap > 0 and popCount >= popCap - 1:
     var targetBuildPos = ivec2(-1, -1)
     var targetStandPos = ivec2(-1, -1)
@@ -54,19 +57,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
             continue
           for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
             let stand = pos + d
-            if not isValidPos(stand):
-              continue
-            if env.hasDoor(stand):
-              continue
-            if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
-              continue
-            if not env.isEmpty(stand):
-              continue
-            if not env.canAgentPassDoor(agent, stand):
-              continue
-            targetBuildPos = pos
-            targetStandPos = stand
-            break findHouse
+            if isValidPos(stand) and not env.hasDoor(stand) and env.isEmpty(stand) and
+                env.canAgentPassDoor(agent, stand) and
+                not isTileFrozen(stand, env) and
+                not isBlockedTerrain(env.terrain[stand.x][stand.y]):
+              targetBuildPos = pos
+              targetStandPos = stand
+              break findHouse
     if targetBuildPos.x >= 0:
       let (did, act) = goToStandAndBuild(
         controller, env, agent, agentId, state,
@@ -99,7 +96,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if isNil(mill):
       break plantFarmTiles
     var fertilePos = ivec2(-1, -1)
-    var minDist = 999999
+    var minDist = int.high
     let startX = max(0, mill.pos.x - 6)
     let endX = min(MapWidth - 1, mill.pos.x + 6)
     let startY = max(0, mill.pos.y - 6)
@@ -167,6 +164,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     let altarPos = agent.homeAltar
     var doorTarget = ivec2(-1, -1)
     var wallTarget = ivec2(-1, -1)
+    var outpostTarget = ivec2(-1, -1)
     block findRing:
       for radius in WallRingRadii:
         for dx in -radius .. radius:
@@ -178,16 +176,19 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
               continue
             if env.terrain[pos.x][pos.y] == TerrainRoad:
               continue
-            if not env.canPlaceBuilding(pos):
-              continue
             let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
             if isDoorSlot:
-              if doorTarget.x < 0:
+              if outpostTarget.x < 0 and env.hasDoor(pos):
+                let stepX = signi(altarPos.x - pos.x)
+                let stepY = signi(altarPos.y - pos.y)
+                let outpostPos = pos + ivec2(stepX * 2, stepY * 2)
+                if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
+                    env.canPlaceBuilding(outpostPos):
+                  outpostTarget = outpostPos
+              if doorTarget.x < 0 and env.canPlaceBuilding(pos):
                 doorTarget = pos
-            elif wallTarget.x < 0:
+            elif wallTarget.x < 0 and env.canPlaceBuilding(pos):
               wallTarget = pos
-            if doorTarget.x >= 0 and wallTarget.x >= 0:
-              break findRing
     let canDoor = doorTarget.x >= 0
     let canWall = wallTarget.x >= 0
     let buildDoorFirst = if canDoor and canWall: (env.currentStep mod 2) == 0 else: canDoor
@@ -200,30 +201,6 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       else:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
-    var outpostTarget = ivec2(-1, -1)
-    block findOutpost:
-      for radius in WallRingRadii:
-        for dx in -radius .. radius:
-          for dy in -radius .. radius:
-            if max(abs(dx), abs(dy)) != radius:
-              continue
-            let doorPos = altarPos + ivec2(dx.int32, dy.int32)
-            let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
-            if not isDoorSlot:
-              continue
-            if not env.hasDoor(doorPos):
-              continue
-            let stepX = signi(altarPos.x - doorPos.x)
-            let stepY = signi(altarPos.y - doorPos.y)
-            let outpostPos = doorPos + ivec2(stepX * 2, stepY * 2)
-            if not isValidPos(outpostPos):
-              continue
-            if not env.canPlaceBuilding(outpostPos):
-              continue
-            if env.terrain[outpostPos.x][outpostPos.y] == TerrainRoad:
-              continue
-            outpostTarget = outpostPos
-            break findOutpost
     if outpostTarget.x >= 0:
       if env.canAffordBuild(teamId, thingItem("Outpost")):
         let (didOutpost, actOutpost) = goToAdjacentAndBuild(
