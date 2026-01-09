@@ -241,6 +241,17 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           uniqueCount = 4
           break
     if uniqueCount <= 3:
+      state.plannedTarget = ivec2(-1, -1)
+      state.plannedPath.setLen(0)
+      state.plannedPathIndex = 0
+      state.pathBlockedTarget = ivec2(-1, -1)
+      for kind in ThingKind:
+        state.cachedThingPos[kind] = ivec2(-1, -1)
+      state.closestFoodPos = ivec2(-1, -1)
+      state.closestWoodPos = ivec2(-1, -1)
+      state.closestStonePos = ivec2(-1, -1)
+      state.closestGoldPos = ivec2(-1, -1)
+      state.closestMagmaPos = ivec2(-1, -1)
       state.escapeMode = true
       state.escapeStepsRemaining = 10
       state.recentPosCount = 0
