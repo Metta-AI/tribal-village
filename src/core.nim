@@ -455,7 +455,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   return -1
 
 proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
-  ## Consider lantern tiles passable for movement planning and respect doors/water.
+  ## Consider lantern tiles passable for generic checks and respect doors/water.
   if not isValidPos(pos):
     return false
   if isBlockedTerrain(env.terrain[pos.x][pos.y]):
@@ -466,6 +466,76 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   if isNil(occupant):
     return true
   return occupant.kind == Lantern
+
+proc recentPosAt(state: AgentState, offset: int): IVec2 =
+  let idx = (state.recentPosIndex - 1 - offset + 12 * 12) mod 12
+  state.recentPositions[idx]
+
+proc isStuckRecent(state: AgentState, window: int, maxUnique: int): bool =
+  if state.recentPosCount < window:
+    return false
+  var uniqueCount = 0
+  var unique: array[4, IVec2]
+  for i in 0 ..< window:
+    let p = recentPosAt(state, i)
+    var seen = false
+    for j in 0 ..< uniqueCount:
+      if unique[j] == p:
+        seen = true
+        break
+    if not seen:
+      if uniqueCount < unique.len:
+        unique[uniqueCount] = p
+        inc uniqueCount
+      if uniqueCount > maxUnique:
+        return false
+  return true
+
+proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): bool =
+  ## Directional passability check that mirrors move logic (lantern pushing rules).
+  if not isValidPos(toPos):
+    return false
+  if isBlockedTerrain(env.terrain[toPos.x][toPos.y]):
+    return false
+  if not env.canAgentPassDoor(agent, toPos):
+    return false
+  if env.isEmpty(toPos):
+    return true
+  let blocker = env.getThing(toPos)
+  if isNil(blocker) or blocker.kind != Lantern:
+    return false
+
+  template spacingOk(nextPos: IVec2): bool =
+    var ok = true
+    for t in env.thingsByKind[Lantern]:
+      if t != blocker:
+        let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
+        if dist < 3'i32:
+          ok = false
+          break
+    ok
+
+  let delta = toPos - fromPos
+  let ahead1 = ivec2(toPos.x + delta.x, toPos.y + delta.y)
+  let ahead2 = ivec2(toPos.x + delta.x * 2, toPos.y + delta.y * 2)
+  if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
+      not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
+    return true
+  if isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
+      not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
+    return true
+
+  for dy in -1 .. 1:
+    for dx in -1 .. 1:
+      if dx == 0 and dy == 0:
+        continue
+      let alt = ivec2(toPos.x + dx, toPos.y + dy)
+      if not isValidPos(alt):
+        continue
+      if env.isEmpty(alt) and not env.hasDoor(alt) and
+          not isBlockedTerrain(env.terrain[alt.x][alt.y]) and spacingOk(alt):
+        return true
+  return false
 
 proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: var Rand): int =
   ## Get a movement direction towards target, with obstacle avoidance
@@ -492,22 +562,33 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
 
   # Try primary direction first
   let primaryMove = fromPos + Directions8[primaryDir]
-  if isPassable(env, agent, primaryMove):
+  if canEnterForMove(env, agent, fromPos, primaryMove):
     return primaryDir
 
   # Primary blocked, try adjacent directions
   if primaryDir <= 3:
     for altDir in AltForCardinal[primaryDir]:
       let altMove = fromPos + Directions8[altDir]
-      if isPassable(env, agent, altMove):
+      if canEnterForMove(env, agent, fromPos, altMove):
         return altDir
   else:
     for altDir in [0, 1, 2, 3]:
       let altMove = fromPos + Directions8[altDir]
-      if isPassable(env, agent, altMove):
+      if canEnterForMove(env, agent, fromPos, altMove):
         return altDir
 
-  # All blocked, try random movement
+  # All blocked, try any passable direction (including diagonals).
+  var candidates: array[8, int]
+  var count = 0
+  for idx, d in Directions8:
+    let np = fromPos + d
+    if canEnterForMove(env, agent, fromPos, np):
+      candidates[count] = idx
+      inc count
+  if count > 0:
+    return candidates[randIntInclusive(rng, 0, count - 1)]
+
+  # Truly blocked: fall back to random cardinal movement.
   return randIntInclusive(rng, 0, 3)
 
 proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
@@ -579,7 +660,7 @@ proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IV
       let nextPos = current + Directions8[dirIdx]
       if not isValidPos(nextPos):
         continue
-      if not isPassable(env, agent, nextPos):
+      if not canEnterForMove(env, agent, current, nextPos):
         continue
 
       let tentativeG = (if gScore.hasKey(current): gScore[current] else: int.high) + 1
@@ -666,9 +747,14 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
             state: var AgentState, targetPos: IVec2): uint8 =
   let dx = abs(targetPos.x - agent.pos.x)
   let dy = abs(targetPos.y - agent.pos.y)
-  if max(dx, dy) >= 6'i32:
-    if state.pathBlockedTarget != targetPos:
-      if state.plannedTarget != targetPos or state.plannedPath.len == 0:
+  let stuck = isStuckRecent(state, 6, 2)
+  if stuck:
+    state.pathBlockedTarget = ivec2(-1, -1)
+    state.plannedPath.setLen(0)
+
+  if max(dx, dy) >= 6'i32 or stuck:
+    if state.pathBlockedTarget != targetPos or stuck:
+      if state.plannedTarget != targetPos or state.plannedPath.len == 0 or stuck:
         state.plannedPath = findPath(env, agent, agent.pos, targetPos)
         state.plannedTarget = targetPos
         state.plannedPathIndex = 0
@@ -679,7 +765,7 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
         state.plannedPathIndex = 0
       if state.plannedPath.len >= 2 and state.plannedPathIndex < state.plannedPath.len - 1:
         let nextPos = state.plannedPath[state.plannedPathIndex + 1]
-        if isPassable(env, agent, nextPos):
+        if canEnterForMove(env, agent, agent.pos, nextPos):
           state.plannedPathIndex += 1
           return saveStateAndReturn(controller, agentId, state,
             encodeAction(1'u8, neighborDirIndex(agent.pos, nextPos).uint8))
