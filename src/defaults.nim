@@ -51,8 +51,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
   if chebyshevDist(agent.pos, targetPos) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did: return (true, act)
-  return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8)))
+  return (true, controller.moveTo(env, agent, agentId, state, targetPos))
 
 proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, standPos, targetPos: IVec2,
@@ -76,8 +75,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   if agent.pos == standPos:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did: return (true, act)
-  return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
+  return (true, controller.moveTo(env, agent, agentId, state, standPos))
 
 proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
                           state: var AgentState, teamId: int, kind: ThingKind,
@@ -290,10 +288,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.recentPositions[idx]
 
   # Enter escape mode if stuck in 1-3 tiles for 10+ steps
-  if not state.escapeMode and state.recentPosCount >= 10:
+  let stuckWindow = if state.role == Builder: 6 else: 10
+  if not state.escapeMode and state.recentPosCount >= stuckWindow:
     var uniqueCount = 0
     var unique: array[3, IVec2]
-    for i in 0 ..< 10:
+    for i in 0 ..< stuckWindow:
       let p = recentAt(i)
       var seen = false
       for j in 0 ..< uniqueCount:
