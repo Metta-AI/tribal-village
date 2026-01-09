@@ -112,13 +112,6 @@ const Directions8 = [
   ivec2(-1, 1),  # 6: SW
   ivec2(1, 1)    # 7: SE
 ]
-const AltForCardinal = [
-  [5, 4, 1, 3, 2],  # N blocked
-  [7, 6, 0, 3, 2],  # S blocked
-  [4, 6, 3, 0, 1],  # W blocked
-  [5, 7, 2, 0, 1]   # E blocked
-]
-
 proc clampToPlayable(pos: IVec2): IVec2 {.inline.} =
   ## Keep positions inside the playable area (inside border walls).
   result.x = min(MapWidth - MapBorder - 1, max(MapBorder, pos.x))
@@ -546,7 +539,7 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
     var bestMargin = -1
     for idx, d in Directions8:
       let np = fromPos + d
-      if not isPassable(env, agent, np):
+      if not canEnterForMove(env, agent, fromPos, np):
         continue
       let marginX = min(np.x - MapBorder, (MapWidth - MapBorder - 1) - np.x)
       let marginY = min(np.y - MapBorder, (MapHeight - MapBorder - 1) - np.y)
@@ -556,40 +549,32 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2, rng: 
         bestDir = idx
     if bestDir >= 0:
       return bestDir
-    return randIntInclusive(rng, 0, 3)
+    return randIntInclusive(rng, 0, 7)
 
-  let primaryDir = getCardinalDirIndex(fromPos, clampedTarget)
+  let dx = clampedTarget.x - fromPos.x
+  let dy = clampedTarget.y - fromPos.y
+  let step = ivec2(signi(dx), signi(dy))
+  if step.x != 0 or step.y != 0:
+    let primaryDir = vecToOrientation(step)
+    let primaryMove = fromPos + Directions8[primaryDir]
+    if canEnterForMove(env, agent, fromPos, primaryMove):
+      return primaryDir
 
-  # Try primary direction first
-  let primaryMove = fromPos + Directions8[primaryDir]
-  if canEnterForMove(env, agent, fromPos, primaryMove):
-    return primaryDir
-
-  # Primary blocked, try adjacent directions
-  if primaryDir <= 3:
-    for altDir in AltForCardinal[primaryDir]:
-      let altMove = fromPos + Directions8[altDir]
-      if canEnterForMove(env, agent, fromPos, altMove):
-        return altDir
-  else:
-    for altDir in [0, 1, 2, 3]:
-      let altMove = fromPos + Directions8[altDir]
-      if canEnterForMove(env, agent, fromPos, altMove):
-        return altDir
-
-  # All blocked, try any passable direction (including diagonals).
-  var candidates: array[8, int]
-  var count = 0
+  var bestDir = -1
+  var bestDist = int.high
   for idx, d in Directions8:
     let np = fromPos + d
-    if canEnterForMove(env, agent, fromPos, np):
-      candidates[count] = idx
-      inc count
-  if count > 0:
-    return candidates[randIntInclusive(rng, 0, count - 1)]
+    if not canEnterForMove(env, agent, fromPos, np):
+      continue
+    let dist = int(chebyshevDist(np, clampedTarget))
+    if dist < bestDist:
+      bestDist = dist
+      bestDir = idx
+  if bestDir >= 0:
+    return bestDir
 
-  # Truly blocked: fall back to random cardinal movement.
-  return randIntInclusive(rng, 0, 3)
+  # All blocked, try random movement.
+  return randIntInclusive(rng, 0, 7)
 
 proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
   ## A* path from start to target (or passable neighbor), returns path including start.
