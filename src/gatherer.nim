@@ -5,16 +5,6 @@ type GathererTask = enum
   TaskGold
   TaskHearts
 
-proc findNearestMagmaGlobal(env: Environment, pos: IVec2): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for magma in env.thingsByKind[Magma]:
-    let dist = abs(magma.pos.x - pos.x) + abs(magma.pos.y - pos.y)
-    if dist < bestDist:
-      bestDist = dist
-      best = magma
-  best
-
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -51,6 +41,14 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
         best = ordered[i]
     task = best[0]
   let heartsPriority = task == TaskHearts
+  var magmaGlobal: Thing = nil
+  if heartsPriority:
+    var bestDist = int.high
+    for magma in env.thingsByKind[Magma]:
+      let dist = abs(magma.pos.x - agent.pos.x) + abs(magma.pos.y - agent.pos.y)
+      if dist < bestDist:
+        bestDist = dist
+        magmaGlobal = magma
 
   var carryingStockpile = false
   for key, count in agent.inventory.pairs:
@@ -58,22 +56,16 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       carryingStockpile = true
       break
 
-  template tryUseMagma(): uint8 =
-    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
-    if didKnown: return actKnown
-    let magma = findNearestMagmaGlobal(env, agent.pos)
-    if not isNil(magma):
-      updateClosestSeen(state, state.basePosition, magma.pos, state.closestMagmaPos)
-      if isAdjacent(agent.pos, magma.pos):
-        return controller.useAt(env, agent, agentId, state, magma.pos)
-      return controller.moveTo(env, agent, agentId, state, magma.pos)
-    0'u8
-
   if carryingStockpile:
     if agent.inventoryGold > 0 and heartsPriority:
-      let magmaAct = tryUseMagma()
-      if magmaAct != 0'u8: return magmaAct
+      let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+        env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+      if didKnown: return actKnown
+      if not isNil(magmaGlobal):
+        updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
+        if isAdjacent(agent.pos, magmaGlobal.pos):
+          return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
+        return controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
     let (didDrop, dropAct) =
       controller.dropoffGathererCarrying(env, agent, agentId, state, allowGold = not heartsPriority)
     if didDrop: return dropAct
@@ -106,13 +98,17 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           return controller.useAt(env, agent, agentId, state, altarPos)
         return controller.moveTo(env, agent, agentId, state, altarPos)
     if agent.inventoryGold > 0:
-      let magmaAct = tryUseMagma()
-      if magmaAct != 0'u8: return magmaAct
+      let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+        env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+      if didKnown: return actKnown
+      if not isNil(magmaGlobal):
+        updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
+        if isAdjacent(agent.pos, magmaGlobal.pos):
+          return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
+        return controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
       return controller.moveNextSearch(env, agent, agentId, state)
-    if state.closestMagmaPos.x < 0:
-      let magma = findNearestMagmaGlobal(env, agent.pos)
-      if isNil(magma):
-        return controller.moveNextSearch(env, agent, agentId, state)
+    if state.closestMagmaPos.x < 0 and isNil(magmaGlobal):
+      return controller.moveNextSearch(env, agent, agentId, state)
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return actGold
     return controller.moveNextSearch(env, agent, agentId, state)

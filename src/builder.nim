@@ -164,49 +164,35 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   if agent.homeAltar.x >= 0 and
       controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
       env.stockpileCount(teamId, ResourceWood) >= 3:
-    let doorKey = thingItem("Door")
     let altarPos = agent.homeAltar
     var doorTarget = ivec2(-1, -1)
     var wallTarget = ivec2(-1, -1)
-    block findDoor:
-      for radius in WallRingRadii:
-        let doorOffsets = [
-          ivec2(0, -radius), ivec2(radius, 0), ivec2(0, radius), ivec2(-radius, 0),
-          ivec2(radius, -radius), ivec2(radius, radius), ivec2(-radius, radius), ivec2(-radius, -radius)
-        ]
-        for offset in doorOffsets:
-          let pos = altarPos + offset
-          if not isValidPos(pos):
-            continue
-          if not env.canPlaceBuilding(pos):
-            continue
-          if env.terrain[pos.x][pos.y] == TerrainRoad:
-            continue
-          doorTarget = pos
-          break findDoor
-    block findWall:
+    block findRing:
       for radius in WallRingRadii:
         for dx in -radius .. radius:
           for dy in -radius .. radius:
             if max(abs(dx), abs(dy)) != radius:
               continue
             let pos = altarPos + ivec2(dx.int32, dy.int32)
-            let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
-            if isDoorSlot:
-              continue
             if not isValidPos(pos):
-              continue
-            if not env.canPlaceBuilding(pos):
               continue
             if env.terrain[pos.x][pos.y] == TerrainRoad:
               continue
-            wallTarget = pos
-            break findWall
+            if not env.canPlaceBuilding(pos):
+              continue
+            let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
+            if isDoorSlot:
+              if doorTarget.x < 0:
+                doorTarget = pos
+            elif wallTarget.x < 0:
+              wallTarget = pos
+            if doorTarget.x >= 0 and wallTarget.x >= 0:
+              break findRing
     let canDoor = doorTarget.x >= 0
     let canWall = wallTarget.x >= 0
     let buildDoorFirst = if canDoor and canWall: (env.currentStep mod 2) == 0 else: canDoor
     if buildDoorFirst and canDoor:
-      if env.canAffordBuild(teamId, doorKey):
+      if env.canAffordBuild(teamId, thingItem("Door")):
         let (didDoor, actDoor) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
         )
@@ -227,8 +213,8 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
               continue
             if not env.hasDoor(doorPos):
               continue
-            let stepX = if altarPos.x > doorPos.x: 1'i32 elif altarPos.x < doorPos.x: -1'i32 else: 0'i32
-            let stepY = if altarPos.y > doorPos.y: 1'i32 elif altarPos.y < doorPos.y: -1'i32 else: 0'i32
+            let stepX = signi(altarPos.x - doorPos.x)
+            let stepY = signi(altarPos.y - doorPos.y)
             let outpostPos = doorPos + ivec2(stepX * 2, stepY * 2)
             if not isValidPos(outpostPos):
               continue
@@ -239,8 +225,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
             outpostTarget = outpostPos
             break findOutpost
     if outpostTarget.x >= 0:
-      let outpostKey = thingItem("Outpost")
-      if env.canAffordBuild(teamId, outpostKey):
+      if env.canAffordBuild(teamId, thingItem("Outpost")):
         let (didOutpost, actOutpost) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, outpostTarget, buildIndexFor(Outpost)
         )
@@ -249,8 +234,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
     if (not buildDoorFirst) and canWall:
-      let wallKey = thingItem("Wall")
-      if env.canAffordBuild(teamId, wallKey):
+      if env.canAffordBuild(teamId, thingItem("Wall")):
         let (did, act) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, wallTarget, BuildIndexWall
         )
