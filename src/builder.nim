@@ -87,31 +87,20 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       if cap > 0:
         popCap += cap
   if popCap > 0 and popCount >= popCap - 1:
-    let anchor = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
     var targetBuildPos = ivec2(-1, -1)
     var targetStandPos = ivec2(-1, -1)
-    let minX = max(0, anchor.x - 15)
-    let maxX = min(MapWidth - 1, anchor.x + 15)
-    let minY = max(0, anchor.y - 15)
-    let maxY = min(MapHeight - 1, anchor.y + 15)
+    let minX = max(0, basePos.x - 15)
+    let maxX = min(MapWidth - 1, basePos.x + 15)
+    let minY = max(0, basePos.y - 15)
+    let maxY = min(MapHeight - 1, basePos.y + 15)
     block findHouse:
       for x in minX .. maxX:
         for y in minY .. maxY:
           let pos = ivec2(x.int32, y.int32)
-          let dist = chebyshevDist(anchor, pos).int
+          let dist = chebyshevDist(basePos, pos).int
           if dist < 5 or dist > 15:
             continue
-          if not isValidPos(pos):
-            continue
-          if env.hasDoor(pos):
-            continue
-          if isTileFrozen(pos, env):
-            continue
-          if not isBuildableTerrain(env.terrain[pos.x][pos.y]):
-            continue
-          if env.terrain[pos.x][pos.y] == TerrainRoad:
-            continue
-          if not env.isEmpty(pos):
+          if not env.canPlaceBuilding(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
             continue
           for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
             let stand = pos + d
@@ -129,13 +118,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
             targetStandPos = stand
             break findHouse
     if targetBuildPos.x >= 0:
-      let idx = buildIndexFor(House)
-      if idx >= 0:
-        let (did, act) = goToStandAndBuild(
-          controller, env, agent, agentId, state,
-          targetStandPos, targetBuildPos, idx
-        )
-        if did: return act
+      let (did, act) = goToStandAndBuild(
+        controller, env, agent, agentId, state,
+        targetStandPos, targetBuildPos, buildIndexFor(House)
+      )
+      if did: return act
 
   # Core economic infrastructure.
   for kind in CoreEconomy:
