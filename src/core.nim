@@ -121,6 +121,10 @@ const Directions8 = [
   ivec2(-1, 1),  # 6: SW
   ivec2(1, 1)    # 7: SE
 ]
+
+const
+  SearchRadius = 50
+  SpiralAdvanceSteps = 3
 proc clampToPlayable(pos: IVec2): IVec2 {.inline.} =
   ## Keep positions inside the playable area (inside border walls).
   result.x = min(MapWidth - MapBorder - 1, max(MapBorder, pos.x))
@@ -180,7 +184,7 @@ proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
   var minDist = 999999
   for thing in env.thingsByKind[kind]:
     let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-    if dist < minDist and dist < 30:  # Reasonable search radius
+    if dist < minDist and dist < SearchRadius:
       minDist = dist
       result = thing
 
@@ -190,7 +194,7 @@ proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: T
   for thing in env.thingsByKind[kind]:
     if thing.teamId == teamId:
       let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-      if dist < minDist and dist < 30:
+      if dist < minDist and dist < SearchRadius:
         minDist = dist
         result = thing
 
@@ -216,8 +220,10 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
     state.cachedThingPos[kind] = result.pos
     return result
 
-  # If not found, advance spiral search only every few calls to reduce dithering
-  let nextSearchPos = getNextSpiralPoint(state, rng)
+  # If not found, advance spiral search (multiple steps) to cover ground faster
+  var nextSearchPos = state.lastSearchPosition
+  for _ in 0 ..< SpiralAdvanceSteps:
+    nextSearchPos = getNextSpiralPoint(state, rng)
   state.lastSearchPosition = nextSearchPos
 
   # Search from new spiral position
@@ -237,7 +243,9 @@ proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, tea
   if not isNil(result):
     return result
 
-  let nextSearchPos = getNextSpiralPoint(state, rng)
+  var nextSearchPos = state.lastSearchPosition
+  for _ in 0 ..< SpiralAdvanceSteps:
+    nextSearchPos = getNextSpiralPoint(state, rng)
   state.lastSearchPosition = nextSearchPos
   result = findNearestFriendlyThing(env, nextSearchPos, teamId, kind)
   return result
