@@ -5,28 +5,6 @@ type GathererTask = enum
   TaskGold
   TaskHearts
 
-proc chooseGathererTask(env: Environment, teamId: int, altarHearts: int): GathererTask =
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  let gold = env.stockpileCount(teamId, ResourceGold)
-
-  if altarHearts < 10:
-    return TaskHearts
-
-  let ordered = [
-    (TaskHearts, altarHearts),
-    (TaskFood, food),
-    (TaskWood, wood),
-    (TaskStone, stone),
-    (TaskGold, gold)
-  ]
-  var best = ordered[0]
-  for i in 1 ..< ordered.len:
-    if ordered[i][1] < best[1]:
-      best = ordered[i]
-  best[0]
-
 proc findNearestMagmaGlobal(env: Environment, pos: IVec2): Thing =
   var best: Thing = nil
   var bestDist = int.high
@@ -52,7 +30,26 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if not isNil(altar):
       altarHearts = altar.hearts
 
-  let task = chooseGathererTask(env, teamId, altarHearts)
+  let food = env.stockpileCount(teamId, ResourceFood)
+  let wood = env.stockpileCount(teamId, ResourceWood)
+  let stone = env.stockpileCount(teamId, ResourceStone)
+  let gold = env.stockpileCount(teamId, ResourceGold)
+  var task = TaskFood
+  if altarHearts < 10:
+    task = TaskHearts
+  else:
+    let ordered = [
+      (TaskHearts, altarHearts),
+      (TaskFood, food),
+      (TaskWood, wood),
+      (TaskStone, stone),
+      (TaskGold, gold)
+    ]
+    var best = ordered[0]
+    for i in 1 ..< ordered.len:
+      if ordered[i][1] < best[1]:
+        best = ordered[i]
+    task = best[0]
   let heartsPriority = task == TaskHearts
 
   var carryingStockpile = false
