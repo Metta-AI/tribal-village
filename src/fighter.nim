@@ -59,35 +59,34 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     if dist < bestEnemyDist:
       bestEnemyDist = dist
       enemy = other
-  if not isNil(enemy):
-    if agent.unitClass == UnitVillager:
-      var enemyBase: Thing = nil
-      var bestAltarDist = int.high
-      for altar in env.thingsByKind[Altar]:
-        if altar.teamId == teamId:
-          continue
-        let dist = abs(altar.pos.x - basePos.x) + abs(altar.pos.y - basePos.y)
-        if dist < bestAltarDist:
-          bestAltarDist = dist
-          enemyBase = altar
-      let enemyPos = if not isNil(enemyBase): enemyBase.pos else: enemy.pos
+  if not isNil(enemy) and agent.unitClass == UnitVillager:
+    var enemyBase: Thing = nil
+    var bestAltarDist = int.high
+    for altar in env.thingsByKind[Altar]:
+      if altar.teamId == teamId:
+        continue
+      let dist = abs(altar.pos.x - basePos.x) + abs(altar.pos.y - basePos.y)
+      if dist < bestAltarDist:
+        bestAltarDist = dist
+        enemyBase = altar
+    let enemyPos = if not isNil(enemyBase): enemyBase.pos else: enemy.pos
 
-      let dx = float32(enemyPos.x - basePos.x)
-      let dy = float32(enemyPos.y - basePos.y)
-      var lineDir = ivec2(1, 0)
-      var bestScore = abs(dx * float32(lineDir.x) + dy * float32(lineDir.y))
-      let candidates = [
-        (ivec2(1, 0), 1.0'f32),
-        (ivec2(0, 1), 1.0'f32),
-        (ivec2(1, 1), DividerInvSqrt2),
-        (ivec2(1, -1), DividerInvSqrt2)
-      ]
-      for entry in candidates:
-        let dot = abs(dx * float32(entry[0].x) + dy * float32(entry[0].y))
-        let score = dot * entry[1]
-        if score < bestScore:
-          bestScore = score
-          lineDir = entry[0]
+    let dx = float32(enemyPos.x - basePos.x)
+    let dy = float32(enemyPos.y - basePos.y)
+    var lineDir = ivec2(1, 0)
+    var bestScore = abs(dx * float32(lineDir.x) + dy * float32(lineDir.y))
+    let candidates = [
+      (ivec2(1, 0), 1.0'f32),
+      (ivec2(0, 1), 1.0'f32),
+      (ivec2(1, 1), DividerInvSqrt2),
+      (ivec2(1, -1), DividerInvSqrt2)
+    ]
+    for entry in candidates:
+      let dot = abs(dx * float32(entry[0].x) + dy * float32(entry[0].y))
+      let score = dot * entry[1]
+      if score < bestScore:
+        bestScore = score
+        lineDir = entry[0]
 
       let midPos = ivec2(
         (basePos.x + enemyPos.x) div 2,
@@ -219,7 +218,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
             controller, env, agent, agentId, state, targetPos, BuildIndexWall
           )
           if didWall: return wallAct
-    return controller.moveTo(env, agent, agentId, state, enemy.pos)
+      return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
   # Keep buildings lit, then push lanterns farther out from the base.
   var target = ivec2(-1, -1)
@@ -335,7 +334,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
     if didSmith: return actSmith
 
-  var nearbyAllies = 0
+  var hasAlly = false
   for other in env.agents:
     if other.agentId == agent.agentId:
       continue
@@ -344,8 +343,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     if not sameTeam(agent, other):
       continue
     if chebyshevDist(agent.pos, other.pos) <= 4'i32:
-      inc nearbyAllies
-  let cautious = agent.hp * 2 < agent.maxHp and nearbyAllies == 0
+      hasAlly = true
+      break
+  let cautious = agent.hp * 2 < agent.maxHp and not hasAlly
 
   if not cautious:
     for kind in [Tumor, Spawner]:
