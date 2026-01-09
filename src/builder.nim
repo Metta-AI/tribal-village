@@ -3,52 +3,6 @@ const
   WallRingRadiusSlack = 1
   WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
 
-proc tryPlantFarmTiles(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
-  let millCount = controller.getBuildingCount(env, teamId, Mill)
-  if millCount < 2:
-    return (false, 0'u8)
-  let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
-  if isNil(mill):
-    return (false, 0'u8)
-  var fertilePos = ivec2(-1, -1)
-  var minDist = 999999
-  let startX = max(0, mill.pos.x - 6)
-  let endX = min(MapWidth - 1, mill.pos.x + 6)
-  let startY = max(0, mill.pos.y - 6)
-  let endY = min(MapHeight - 1, mill.pos.y + 6)
-  let mx = mill.pos.x.int
-  let my = mill.pos.y.int
-  for x in startX..endX:
-    for y in startY..endY:
-      if env.terrain[x][y] != TerrainType.Fertile:
-        continue
-      let candPos = ivec2(x.int32, y.int32)
-      if env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
-        let dist = abs(x - mx) + abs(y - my)
-        if dist < minDist:
-          minDist = dist
-          fertilePos = candPos
-  if fertilePos.x < 0:
-    return (false, 0'u8)
-
-  let wantsTree = ((fertilePos.x + fertilePos.y) mod 2'i32) == 1'i32
-  if wantsTree:
-    if agent.inventoryWood <= 0:
-      return controller.ensureWood(env, agent, agentId, state)
-  else:
-    if agent.inventoryWheat <= 0:
-      return controller.ensureWheat(env, agent, agentId, state)
-
-  let dx = abs(fertilePos.x - agent.pos.x)
-  let dy = abs(fertilePos.y - agent.pos.y)
-  if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
-    let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
-    let plantArg = if wantsTree: dirIdx + 4 else: dirIdx
-    return (true, saveStateAndReturn(controller, agentId, state,
-      encodeAction(7'u8, plantArg.uint8)))
-  return (true, controller.moveTo(env, agent, agentId, state, fertilePos))
-
 proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -142,8 +96,54 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     )
     if didMill: return actMill
 
-  let (didPlant, actPlant) = tryPlantFarmTiles(controller, env, agent, agentId, state, teamId)
-  if didPlant: return actPlant
+  block plantFarmTiles:
+    let millCount = controller.getBuildingCount(env, teamId, Mill)
+    if millCount < 2:
+      break plantFarmTiles
+    let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
+    if isNil(mill):
+      break plantFarmTiles
+    var fertilePos = ivec2(-1, -1)
+    var minDist = 999999
+    let startX = max(0, mill.pos.x - 6)
+    let endX = min(MapWidth - 1, mill.pos.x + 6)
+    let startY = max(0, mill.pos.y - 6)
+    let endY = min(MapHeight - 1, mill.pos.y + 6)
+    let mx = mill.pos.x.int
+    let my = mill.pos.y.int
+    for x in startX..endX:
+      for y in startY..endY:
+        if env.terrain[x][y] != TerrainType.Fertile:
+          continue
+        let candPos = ivec2(x.int32, y.int32)
+        if env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
+          let dist = abs(x - mx) + abs(y - my)
+          if dist < minDist:
+            minDist = dist
+            fertilePos = candPos
+    if fertilePos.x < 0:
+      break plantFarmTiles
+
+    let wantsTree = ((fertilePos.x + fertilePos.y) mod 2'i32) == 1'i32
+    if wantsTree:
+      if agent.inventoryWood <= 0:
+        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+        if didWood: return actWood
+        break plantFarmTiles
+    else:
+      if agent.inventoryWheat <= 0:
+        let (didWheat, actWheat) = controller.ensureWheat(env, agent, agentId, state)
+        if didWheat: return actWheat
+        break plantFarmTiles
+
+    let dx = abs(fertilePos.x - agent.pos.x)
+    let dy = abs(fertilePos.y - agent.pos.y)
+    if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
+      let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
+      let plantArg = if wantsTree: dirIdx + 4 else: dirIdx
+      return saveStateAndReturn(controller, agentId, state,
+        encodeAction(7'u8, plantArg.uint8))
+    return controller.moveTo(env, agent, agentId, state, fertilePos)
 
   let nearbyTrees = countNearbyThings(env, agent.pos, 4, {Tree})
   let (didLumber, actLumber) = controller.tryBuildCampThreshold(
