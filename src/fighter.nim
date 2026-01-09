@@ -14,7 +14,76 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     if isAdjacent(agent.pos, targetPos):
       return controller.actAt(env, agent, agentId, state, targetPos, verb)
     return controller.moveTo(env, agent, agentId, state, targetPos)
-
+  template safePosition(): IVec2 =
+    block:
+      var pos = basePos
+      for kind in [Outpost, Barracks, TownCenter, Monastery]:
+        let safe = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
+        if not isNil(safe): pos = safe.pos; break
+      pos
+  template ensureCombatKit(): tuple[did: bool, action: uint8] =
+    block:
+      if agent.inventoryArmor < ArmorPoints:
+        controller.moveToNearestSmith(env, agent, agentId, state, teamId)
+      elif agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
+        if agent.inventoryWood == 0:
+          let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+          if didWood: (true, actWood) else: controller.moveToNearestSmith(env, agent, agentId, state, teamId)
+        else:
+          controller.moveToNearestSmith(env, agent, agentId, state, teamId)
+      else:
+        (false, 0'u8)
+  template findLanternTarget(): IVec2 =
+    block:
+      var unlit: Thing = nil; var bestUnlitDist = int.high
+      for thing in env.things:
+        if thing.teamId != teamId:
+          continue
+        if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
+          continue
+        if hasTeamLanternNear(env, teamId, thing.pos):
+          continue
+        let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
+        if dist < bestUnlitDist:
+          bestUnlitDist = dist
+          unlit = thing
+      if not isNil(unlit):
+        var bestPos = ivec2(-1, -1); var bestDist = int.high
+        for dx in -2 .. 2:
+          for dy in -2 .. 2:
+            if abs(dx) + abs(dy) > 2:
+              continue
+            let cand = unlit.pos + ivec2(dx.int32, dy.int32)
+            if not isLanternPlacementValid(env, cand):
+              continue
+            if hasTeamLanternNear(env, teamId, cand):
+              continue
+            let dist = abs(cand.x - agent.pos.x).int + abs(cand.y - agent.pos.y).int
+            if dist < bestDist:
+              bestDist = dist
+              bestPos = cand
+        bestPos
+      else:
+        var lanternCount = 0; var farthest = 0
+        for thing in env.thingsByKind[Lantern]:
+          if not thing.lanternHealthy or thing.teamId != teamId:
+            continue
+          inc lanternCount
+          let dist = int(chebyshevDist(basePos, thing.pos))
+          if dist > farthest:
+            farthest = dist
+        let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6)); var candidate = ivec2(-1, -1)
+        for _ in 0 ..< 18:
+          let next = getNextSpiralPoint(state, controller.rng)
+          if chebyshevDist(next, basePos) < desiredRadius:
+            continue
+          if not isLanternPlacementValid(env, next):
+            continue
+          if hasTeamLanternNear(env, teamId, next):
+            continue
+          candidate = next
+          break
+        candidate
   # If fully enclosed, attack blocking tiles to break out.
   var hasExit = false
   for _, d in Directions8:
@@ -32,16 +101,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       let blocker = env.getThing(targetPos)
       if not isNil(blocker) and blocker.kind in {Wall, Skeleton, Spawner, Tumor}:
         return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, dirIdx.uint8))
-
   # Low-HP retreat: regroup near friendly structures/base.
   if agent.hp * 3 <= agent.maxHp:
-    var safe: Thing = nil
-    for kind in [Outpost, Barracks, TownCenter, Monastery]:
-      safe = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
-      if not isNil(safe):
-        break
-    let target = if not isNil(safe): safe.pos else: basePos
-    return controller.moveTo(env, agent, agentId, state, target)
+    return controller.moveTo(env, agent, agentId, state, safePosition())
 
   # React to nearby enemy agents by fortifying outward.
   var enemy: Thing = nil
@@ -220,66 +282,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
             controller, env, agent, agentId, state, targetPos, BuildIndexWall
           )
           if didWall: return wallAct
-    let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, enemy.pos,
-        controller.rng, avoidDir).uint8))
+    return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
   # Keep buildings lit, then push lanterns farther out from the base.
-  var target = ivec2(-1, -1)
-  var unlit: Thing = nil
-  var bestUnlitDist = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
-    if dist < bestUnlitDist:
-      bestUnlitDist = dist
-      unlit = thing
-
-  if not isNil(unlit):
-    var bestPos = ivec2(-1, -1)
-    var bestDist = int.high
-    for dx in -2 .. 2:
-      for dy in -2 .. 2:
-        if abs(dx) + abs(dy) > 2:
-          continue
-        let cand = unlit.pos + ivec2(dx.int32, dy.int32)
-        if not isLanternPlacementValid(env, cand):
-          continue
-        if hasTeamLanternNear(env, teamId, cand):
-          continue
-        let dist = abs(cand.x - agent.pos.x).int + abs(cand.y - agent.pos.y).int
-        if dist < bestDist:
-          bestDist = dist
-          bestPos = cand
-    target = bestPos
-  else:
-    var lanternCount = 0
-    var farthest = 0
-    for thing in env.thingsByKind[Lantern]:
-      if not thing.lanternHealthy or thing.teamId != teamId:
-        continue
-      inc lanternCount
-      let dist = int(chebyshevDist(basePos, thing.pos))
-      if dist > farthest:
-        farthest = dist
-
-    let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
-    for _ in 0 ..< 18:
-      let candidate = getNextSpiralPoint(state, controller.rng)
-      if chebyshevDist(candidate, basePos) < desiredRadius:
-        continue
-      if not isLanternPlacementValid(env, candidate):
-        continue
-      if hasTeamLanternNear(env, teamId, candidate):
-        continue
-      target = candidate
-      break
+  let target = findLanternTarget()
 
   if target.x >= 0:
     if agent.inventoryLantern > 0:
@@ -328,16 +334,8 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       actOrMove(barracks.pos, 3'u8)
 
   # Maintain armor and spears.
-  if agent.inventoryArmor < ArmorPoints:
-    let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
-    if didSmith: return actSmith
-
-  if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
-    if agent.inventoryWood == 0:
-      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-      if didWood: return actWood
-    let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
-    if didSmith: return actSmith
+  let (didKit, actKit) = ensureCombatKit()
+  if didKit: return actKit
 
   var nearbyAllies = 0
   for other in env.agents:
