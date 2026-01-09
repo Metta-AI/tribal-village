@@ -242,14 +242,16 @@ proc spawnStalagmites(env: Environment, r: var Rand) =
       allowedBiomes = {BiomeCavesType})
 
 proc spawnRockAndGoldClusters(env: Environment, r: var Rand) =
-  let rockClusters = max(20, MapWidth div 22)
+  let rockBase = max(20, MapWidth div 22)
+  let rockClusters = rockBase + rockBase div 2
   for _ in 0 ..< rockClusters:
     let x = randIntInclusive(r, MapBorder + 4, MapWidth - MapBorder - 4)
     let y = randIntInclusive(r, MapBorder + 4, MapHeight - MapBorder - 4)
     let size = randIntInclusive(r, 5, 10)
     placeResourceCluster(env, x, y, size, 0.9, 0.3, Stone, ItemStone, ResourceGround, r)
 
-  let goldClusters = max(8, MapWidth div 50)
+  let goldBase = max(8, MapWidth div 50)
+  let goldClusters = goldBase + goldBase div 2
   for _ in 0 ..< goldClusters:
     let x = randIntInclusive(r, MapBorder + 6, MapWidth - MapBorder - 6)
     let y = randIntInclusive(r, MapBorder + 6, MapHeight - MapBorder - 6)
