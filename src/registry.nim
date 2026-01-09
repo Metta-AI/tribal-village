@@ -122,7 +122,7 @@ proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
 proc thingBlocksMovement*(kind: ThingKind): bool =
-  kind notin {Door, Wheat, Tree}
+  kind notin {Door, Wheat, Tree, Lantern}
 {.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =

@@ -51,8 +51,10 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
   if chebyshevDist(agent.pos, targetPos) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did: return (true, act)
+  let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos, controller.rng).uint8)))
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, targetPos,
+      controller.rng, avoidDir).uint8)))
 
 proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
                        state: var AgentState, standPos, targetPos: IVec2,
@@ -76,8 +78,10 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   if agent.pos == standPos:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did: return (true, act)
+  let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos, controller.rng).uint8)))
+    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, standPos,
+      controller.rng, avoidDir).uint8)))
 
 proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
                           state: var AgentState, teamId: int, kind: ThingKind,
@@ -261,6 +265,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       escapeMode: false,
       escapeStepsRemaining: 0,
       escapeDirection: ivec2(0, -1),
+      lastActionVerb: 0,
+      lastActionArg: 0,
+      blockedMoveDir: -1,
+      blockedMoveSteps: 0,
       closestFoodPos: ivec2(-1, -1),
       closestWoodPos: ivec2(-1, -1),
       closestStonePos: ivec2(-1, -1),
@@ -288,6 +296,18 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   proc recentAt(offset: int): IVec2 =
     let idx = (state.recentPosIndex - 1 - offset + 12 * 12) mod 12
     state.recentPositions[idx]
+
+  if state.blockedMoveSteps > 0:
+    dec state.blockedMoveSteps
+    if state.blockedMoveSteps <= 0:
+      state.blockedMoveDir = -1
+
+  if state.lastActionVerb == 1 and state.recentPosCount >= 2:
+    if recentAt(1) == agent.pos and state.lastActionArg >= 0 and state.lastActionArg <= 7:
+      state.blockedMoveDir = state.lastActionArg
+      state.blockedMoveSteps = 4
+      state.plannedPath.setLen(0)
+      state.pathBlockedTarget = ivec2(-1, -1)
 
   # Enter escape mode if stuck in 1-3 tiles for 10+ steps
   if not state.escapeMode and state.recentPosCount >= 10:
