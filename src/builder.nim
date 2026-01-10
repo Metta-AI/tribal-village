@@ -77,10 +77,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if did: return act
 
   # Remote dropoff buildings near resources.
-  let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
-  let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-  if agent.homeAltar.x < 0 or
-     max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
+  let farFromHome = agent.homeAltar.x < 0 or
+    max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10
+  if farFromHome:
+    let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
+    let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
     let (didMill, actMill) = controller.tryBuildNearResource(
       env, agent, agentId, state, teamId, Mill,
       nearbyWheat + nearbyFertile, 8,
@@ -88,54 +89,9 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     )
     if didMill: return actMill
 
-  block plantFarmTiles:
-    let millCount = controller.getBuildingCount(env, teamId, Mill)
-    if millCount < 2:
-      break plantFarmTiles
-    let mill = env.findNearestFriendlyThingSpiral(state, teamId, Mill, controller.rng)
-    if isNil(mill):
-      break plantFarmTiles
-    var fertilePos = ivec2(-1, -1)
-    var minDist = int.high
-    let startX = max(0, mill.pos.x - 6)
-    let endX = min(MapWidth - 1, mill.pos.x + 6)
-    let startY = max(0, mill.pos.y - 6)
-    let endY = min(MapHeight - 1, mill.pos.y + 6)
-    let mx = mill.pos.x.int
-    let my = mill.pos.y.int
-    for x in startX..endX:
-      for y in startY..endY:
-        if env.terrain[x][y] != TerrainType.Fertile:
-          continue
-        let candPos = ivec2(x.int32, y.int32)
-        if env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
-          let dist = abs(x - mx) + abs(y - my)
-          if dist < minDist:
-            minDist = dist
-            fertilePos = candPos
-    if fertilePos.x < 0:
-      break plantFarmTiles
-
-    let wantsTree = ((fertilePos.x + fertilePos.y) mod 2'i32) == 1'i32
-    if wantsTree:
-      if agent.inventoryWood <= 0:
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-        break plantFarmTiles
-    else:
-      if agent.inventoryWheat <= 0:
-        let (didWheat, actWheat) = controller.ensureWheat(env, agent, agentId, state)
-        if didWheat: return actWheat
-        break plantFarmTiles
-
-    let dx = abs(fertilePos.x - agent.pos.x)
-    let dy = abs(fertilePos.y - agent.pos.y)
-    if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
-      let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
-      let plantArg = if wantsTree: dirIdx + 4 else: dirIdx
-      return saveStateAndReturn(controller, agentId, state,
-        encodeAction(7'u8, plantArg.uint8))
-    return controller.moveTo(env, agent, agentId, state, fertilePos)
+  if controller.getBuildingCount(env, teamId, Mill) >= 2:
+    let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
+    if didPlant: return actPlant
 
   for entry in [
     (LumberCamp, {Tree}, 6),
