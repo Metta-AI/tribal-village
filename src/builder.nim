@@ -176,4 +176,31 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
 
+  # If nothing to build, help gather the scarcest basic resource.
+  if agent.unitClass == UnitVillager:
+    let food = env.stockpileCount(teamId, ResourceFood)
+    let wood = env.stockpileCount(teamId, ResourceWood)
+    let stone = env.stockpileCount(teamId, ResourceStone)
+    var targetRes = ResourceFood
+    var best = food
+    if wood < best:
+      best = wood
+      targetRes = ResourceWood
+    if stone < best:
+      best = stone
+      targetRes = ResourceStone
+    if best < 5:
+      case targetRes
+      of ResourceFood:
+        let (didFood, actFood) = controller.ensureWheat(env, agent, agentId, state)
+        if didFood: return actFood
+      of ResourceWood:
+        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+        if didWood: return actWood
+      of ResourceStone:
+        let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
+        if didStone: return actStone
+      else:
+        discard
+
   return controller.moveNextSearch(env, agent, agentId, state)
