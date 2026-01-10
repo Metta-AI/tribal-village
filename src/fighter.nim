@@ -88,126 +88,126 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         bestScore = score
         lineDir = entry[0]
 
-      let midPos = ivec2(
-        (basePos.x + enemyPos.x) div 2,
-        (basePos.y + enemyPos.y) div 2
-      )
+    let midPos = ivec2(
+      (basePos.x + enemyPos.x) div 2,
+      (basePos.y + enemyPos.y) div 2
+    )
 
-      var n1 = ivec2(0, 0)
-      var n2 = ivec2(0, 0)
-      if lineDir.x != 0 and lineDir.y == 0:
-        n1 = ivec2(0, 1)
-        n2 = ivec2(0, -1)
-      elif lineDir.x == 0 and lineDir.y != 0:
-        n1 = ivec2(1, 0)
-        n2 = ivec2(-1, 0)
-      elif lineDir.x == 1 and lineDir.y == 1:
-        n1 = ivec2(1, -1)
-        n2 = ivec2(-1, 1)
-      else:
-        n1 = ivec2(1, 1)
-        n2 = ivec2(-1, -1)
-      let toBase = basePos - midPos
-      let normal = if toBase.x * n1.x + toBase.y * n1.y >= 0: n1 else: n2
+    var n1 = ivec2(0, 0)
+    var n2 = ivec2(0, 0)
+    if lineDir.x != 0 and lineDir.y == 0:
+      n1 = ivec2(0, 1)
+      n2 = ivec2(0, -1)
+    elif lineDir.x == 0 and lineDir.y != 0:
+      n1 = ivec2(1, 0)
+      n2 = ivec2(-1, 0)
+    elif lineDir.x == 1 and lineDir.y == 1:
+      n1 = ivec2(1, -1)
+      n2 = ivec2(-1, 1)
+    else:
+      n1 = ivec2(1, 1)
+      n2 = ivec2(-1, -1)
+    let toBase = basePos - midPos
+    let normal = if toBase.x * n1.x + toBase.y * n1.y >= 0: n1 else: n2
 
-      let dist = max(abs(enemyPos.x - basePos.x), abs(enemyPos.y - basePos.y))
-      let halfLen = max(DividerHalfLengthMin, min(DividerHalfLengthMax, dist div 2))
+    let dist = max(abs(enemyPos.x - basePos.x), abs(enemyPos.y - basePos.y))
+    let halfLen = max(DividerHalfLengthMin, min(DividerHalfLengthMax, dist div 2))
 
-      var bestDoor = ivec2(-1, -1)
-      var bestDoorDist = int.high
-      var bestOutpost = ivec2(-1, -1)
-      var bestOutpostDist = int.high
-      var bestWall = ivec2(-1, -1)
-      var bestWallDist = int.high
+    var bestDoor = ivec2(-1, -1)
+    var bestDoorDist = int.high
+    var bestOutpost = ivec2(-1, -1)
+    var bestOutpostDist = int.high
+    var bestWall = ivec2(-1, -1)
+    var bestWallDist = int.high
 
-      for offset in -halfLen .. halfLen:
-        let pos = midPos + ivec2(lineDir.x * offset, lineDir.y * offset)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] == TerrainRoad:
-          continue
-        let distToAgent = int(chebyshevDist(agent.pos, pos))
-        let raw = (offset + DividerDoorOffset) mod DividerDoorSpacing
-        let normalized = if raw < 0: raw + DividerDoorSpacing else: raw
-        let isDoorSlot = normalized == 0
-        if isDoorSlot:
-          if env.hasDoor(pos):
-            let outpostPos = pos + normal
-            if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
-                env.canPlaceBuilding(outpostPos):
-              let outDist = int(chebyshevDist(agent.pos, outpostPos))
-              if outDist < bestOutpostDist:
-                bestOutpostDist = outDist
-                bestOutpost = outpostPos
-          else:
-            if env.canPlaceBuilding(pos):
-              if distToAgent < bestDoorDist:
-                bestDoorDist = distToAgent
-                bestDoor = pos
+    for offset in -halfLen .. halfLen:
+      let pos = midPos + ivec2(lineDir.x * offset, lineDir.y * offset)
+      if not isValidPos(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == TerrainRoad:
+        continue
+      let distToAgent = int(chebyshevDist(agent.pos, pos))
+      let raw = (offset + DividerDoorOffset) mod DividerDoorSpacing
+      let normalized = if raw < 0: raw + DividerDoorSpacing else: raw
+      let isDoorSlot = normalized == 0
+      if isDoorSlot:
+        if env.hasDoor(pos):
+          let outpostPos = pos + normal
+          if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
+              env.canPlaceBuilding(outpostPos):
+            let outDist = int(chebyshevDist(agent.pos, outpostPos))
+            if outDist < bestOutpostDist:
+              bestOutpostDist = outDist
+              bestOutpost = outpostPos
         else:
           if env.canPlaceBuilding(pos):
-            if distToAgent < bestWallDist:
-              bestWallDist = distToAgent
-              bestWall = pos
+            if distToAgent < bestDoorDist:
+              bestDoorDist = distToAgent
+              bestDoor = pos
+      else:
+        if env.canPlaceBuilding(pos):
+          if distToAgent < bestWallDist:
+            bestWallDist = distToAgent
+            bestWall = pos
 
-      var targetKind = Wall
-      if bestDoor.x >= 0:
-        targetKind = Door
-      elif bestOutpost.x >= 0:
-        targetKind = Outpost
-      var targetPos = (if targetKind == Door: bestDoor elif targetKind == Outpost: bestOutpost else: bestWall)
-      if targetPos.x >= 0:
-        case targetKind
-        of Door:
-          let doorKey = thingItem("Door")
-          if not env.canAffordBuild(teamId, doorKey):
-            let (didDrop, actDrop) = controller.dropoffCarrying(
-              env, agent, agentId, state,
-              allowWood = true,
-              allowStone = true,
-              allowGold = true
-            )
-            if didDrop: return actDrop
-            let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-            if didWood: return actWood
-          let (didDoor, doorAct) = goToAdjacentAndBuild(
-            controller, env, agent, agentId, state, targetPos, BuildIndexDoor
+    var targetKind = Wall
+    if bestDoor.x >= 0:
+      targetKind = Door
+    elif bestOutpost.x >= 0:
+      targetKind = Outpost
+    var targetPos = (if targetKind == Door: bestDoor elif targetKind == Outpost: bestOutpost else: bestWall)
+    if targetPos.x >= 0:
+      case targetKind
+      of Door:
+        let doorKey = thingItem("Door")
+        if not env.canAffordBuild(teamId, doorKey):
+          let (didDrop, actDrop) = controller.dropoffCarrying(
+            env, agent, agentId, state,
+            allowWood = true,
+            allowStone = true,
+            allowGold = true
           )
-          if didDoor: return doorAct
-        of Outpost:
-          let outpostKey = thingItem("Outpost")
-          if not env.canAffordBuild(teamId, outpostKey):
-            let (didDrop, actDrop) = controller.dropoffCarrying(
-              env, agent, agentId, state,
-              allowWood = true,
-              allowStone = true,
-              allowGold = true
-            )
-            if didDrop: return actDrop
-            let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-            if didWood: return actWood
-          let idx = buildIndexFor(Outpost)
-          if idx >= 0:
-            let (didOutpost, outpostAct) = goToAdjacentAndBuild(
-              controller, env, agent, agentId, state, targetPos, idx
-            )
-            if didOutpost: return outpostAct
-        else:
-          let wallKey = thingItem("Wall")
-          if not env.canAffordBuild(teamId, wallKey):
-            let (didDrop, actDrop) = controller.dropoffCarrying(
-              env, agent, agentId, state,
-              allowWood = true,
-              allowStone = true,
-              allowGold = true
-            )
-            if didDrop: return actDrop
-            let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
-            if didStone: return actStone
-          let (didWall, wallAct) = goToAdjacentAndBuild(
-            controller, env, agent, agentId, state, targetPos, BuildIndexWall
+          if didDrop: return actDrop
+          let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+          if didWood: return actWood
+        let (didDoor, doorAct) = goToAdjacentAndBuild(
+          controller, env, agent, agentId, state, targetPos, BuildIndexDoor
+        )
+        if didDoor: return doorAct
+      of Outpost:
+        let outpostKey = thingItem("Outpost")
+        if not env.canAffordBuild(teamId, outpostKey):
+          let (didDrop, actDrop) = controller.dropoffCarrying(
+            env, agent, agentId, state,
+            allowWood = true,
+            allowStone = true,
+            allowGold = true
           )
-          if didWall: return wallAct
+          if didDrop: return actDrop
+          let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+          if didWood: return actWood
+        let idx = buildIndexFor(Outpost)
+        if idx >= 0:
+          let (didOutpost, outpostAct) = goToAdjacentAndBuild(
+            controller, env, agent, agentId, state, targetPos, idx
+          )
+          if didOutpost: return outpostAct
+      else:
+        let wallKey = thingItem("Wall")
+        if not env.canAffordBuild(teamId, wallKey):
+          let (didDrop, actDrop) = controller.dropoffCarrying(
+            env, agent, agentId, state,
+            allowWood = true,
+            allowStone = true,
+            allowGold = true
+          )
+          if didDrop: return actDrop
+          let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
+          if didStone: return actStone
+        let (didWall, wallAct) = goToAdjacentAndBuild(
+          controller, env, agent, agentId, state, targetPos, BuildIndexWall
+        )
+        if didWall: return wallAct
       return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
   # Keep buildings lit, then push lanterns farther out from the base.
@@ -242,8 +242,9 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         if dist < bestDist:
           bestDist = dist
           bestPos = cand
-    target = bestPos
-  else:
+    if bestPos.x >= 0:
+      target = bestPos
+  if target.x < 0:
     var lanternCount = 0
     var farthest = 0
     for thing in env.thingsByKind[Lantern]:
