@@ -87,14 +87,6 @@ proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).
   window.mousePos.vec2 / window.contentScale
 
-proc irect*(x, y, w, h: int): IRect =
-  ## Utility function to create IRect from coordinates
-  IRect(x: x, y: y, w: w, h: h)
-
-proc irect*(rect: Rect): IRect =
-  ## Convert floating point Rect to integer IRect
-  IRect(x: rect.x.int, y: rect.y.int, w: rect.w.int, h: rect.h.int)
-
 proc rect*(irect: IRect): Rect =
   ## Convert integer IRect to floating point Rect
   Rect(x: irect.x.float32, y: irect.y.float32, w: irect.w.float32, h: irect.h.float32)

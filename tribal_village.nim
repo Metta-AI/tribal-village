@@ -58,16 +58,6 @@ when defined(renderTiming):
       except ValueError:
         -1
 
-  proc renderTimingActive(): bool =
-    renderTimingStart >= 0 and frame >= renderTimingStart and
-      frame <= renderTimingStart + renderTimingWindow
-
-  proc renderTimingShouldLog(): bool =
-    if not renderTimingActive():
-      return false
-    let offset = frame - renderTimingStart
-    offset mod renderTimingEvery == 0
-
   proc msBetween(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
@@ -75,26 +65,24 @@ when not defined(emscripten):
   import opengl
 
 let baseWindowSize = ivec2(1280, 800)
-let largeWindowSize = ivec2(baseWindowSize.x * 2, baseWindowSize.y * 2)
-
-proc pickInitialWindowSize(): IVec2 =
+let initialWindowSize = block:
   ## Choose a large window that fits on the primary screen
   when defined(emscripten):
-    result = largeWindowSize
+    ivec2(baseWindowSize.x * 2, baseWindowSize.y * 2)
   elif defined(linux):
     # Windy does not expose getScreens on Linux; fall back to a safe default.
-    result = baseWindowSize
+    baseWindowSize
   else:
     let screens = getScreens()
-    var target = largeWindowSize
+    var target = ivec2(baseWindowSize.x * 2, baseWindowSize.y * 2)
     for s in screens:
       if s.primary:
         let sz = s.size()
         target = ivec2(min(target.x, sz.x), min(target.y, sz.y))
         break
-    result = target
+    target
 
-window = newWindow("Tribal Village", pickInitialWindowSize())
+window = newWindow("Tribal Village", initialWindowSize)
 makeContextCurrent(window)
 
 when not defined(emscripten):
@@ -116,27 +104,6 @@ var lastPanelSize = ivec2(0, 0)
 var lastContentScale: float32 = 0.0
 
 var actionsArray: array[MapAgents, uint8]
-
-proc fitMapToPanel(panelRect: IRect) =
-  ## Centers the map and chooses a zoom that fits the viewport when the window is resized.
-  let scaleF = window.contentScale.float32
-  let logicalW = panelRect.w.float32 / scaleF
-  let logicalH = panelRect.h.float32 / scaleF
-  if logicalW <= 0 or logicalH <= 0:
-    return
-
-  let padding = 1.0'f32  # Zoom in one more notch
-  let zoomForW = sqrt(logicalW / MapWidth.float32) * padding
-  let zoomForH = sqrt(logicalH / MapHeight.float32) * padding
-  let targetZoom = min(zoomForW, zoomForH).clamp(worldMapPanel.minZoom, worldMapPanel.maxZoom)
-  worldMapPanel.zoom = targetZoom
-
-  let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
-  worldMapPanel.pos = vec2(
-    logicalW / 2.0'f32 - mapCenter.x * zoomScale,
-    logicalH / 2.0'f32 - mapCenter.y * zoomScale
-  )
-  worldMapPanel.vel = vec2(0, 0)
 
 proc display() =
   # Handle mouse capture release
@@ -190,7 +157,23 @@ proc display() =
   if panelRectInt.w != lastPanelSize.x or
      panelRectInt.h != lastPanelSize.y or
      window.contentScale.float32 != lastContentScale:
-    fitMapToPanel(panelRectInt)
+    # Centers the map and chooses a zoom that fits the viewport when the window is resized.
+    let scaleF = window.contentScale.float32
+    let logicalW = panelRectInt.w.float32 / scaleF
+    let logicalH = panelRectInt.h.float32 / scaleF
+    if logicalW > 0 and logicalH > 0:
+      let padding = 1.0'f32  # Zoom in one more notch
+      let zoomForW = sqrt(logicalW / MapWidth.float32) * padding
+      let zoomForH = sqrt(logicalH / MapHeight.float32) * padding
+      let targetZoom = min(zoomForW, zoomForH).clamp(worldMapPanel.minZoom, worldMapPanel.maxZoom)
+      worldMapPanel.zoom = targetZoom
+
+      let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
+      worldMapPanel.pos = vec2(
+        logicalW / 2.0'f32 - mapCenter.x * zoomScale,
+        logicalH / 2.0'f32 - mapCenter.y * zoomScale
+      )
+      worldMapPanel.vel = vec2(0, 0)
     lastPanelSize = ivec2(panelRectInt.w, panelRectInt.h)
     lastContentScale = window.contentScale.float32
 
@@ -376,7 +359,8 @@ proc display() =
       overrideAndStep(encodeAction(3'u8, useDir))
 
   when defined(renderTiming):
-    let timing = renderTimingActive()
+    let timing = renderTimingStart >= 0 and frame >= renderTimingStart and
+      frame <= renderTimingStart + renderTimingWindow
     var tStart: MonoTime
     var tNow: MonoTime
     var tRenderStart: MonoTime
@@ -449,7 +433,7 @@ proc display() =
       tStart = tNow
 
   if settings.showFogOfWar:
-    drawFogOfWar()
+    drawVisualRanges(alpha = 1.0)
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()
@@ -498,7 +482,8 @@ proc display() =
     if timing:
       tNow = getMonoTime()
       tSwapMs = msBetween(tStart, tNow)
-      if renderTimingShouldLog():
+      let shouldLog = (frame - renderTimingStart) mod renderTimingEvery == 0
+      if shouldLog:
         let totalMs = msBetween(tRenderStart, tNow)
         echo "frame=", frame,
           " total_ms=", totalMs,
