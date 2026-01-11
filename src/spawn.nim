@@ -951,37 +951,32 @@ proc init(env: Environment) =
         let groveSize = randIntInclusive(r, 3, 10)
         placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
 
-    var depositsPlaced = 0
-    if MapRoomObjectsMines > 0:
+    proc buildClusterSizes(targetDeposits: int, clusterCount: int): seq[int] =
       let minCluster = 3
       let maxCluster = 4
-      var clusterCount = 1
-      var clusterSizes: seq[int] = @[]
-      if MapRoomObjectsMines < minCluster:
-        clusterSizes.add(MapRoomObjectsMines)
-      else:
-        let minClusters = max(1, (MapRoomObjectsMines + maxCluster - 1) div maxCluster)
-        let maxClusters = max(1, MapRoomObjectsMines div minCluster)
-        clusterCount = max(minClusters, min(maxClusters, MapRoomObjectsMineClusters))
-        clusterSizes.setLen(clusterCount)
-        for i in 0 ..< clusterCount:
-          clusterSizes[i] = minCluster
-        var extras = MapRoomObjectsMines - clusterCount * minCluster
-        while extras > 0:
-          let idx = randIntInclusive(r, 0, clusterCount - 1)
-          if clusterSizes[idx] < maxCluster:
-            inc clusterSizes[idx]
-            dec extras
+      let minDeposits = clusterCount * minCluster
+      let maxDeposits = clusterCount * maxCluster
+      let clamped = max(minDeposits, min(maxDeposits, targetDeposits))
+      result = newSeq[int](clusterCount)
+      for i in 0 ..< clusterCount:
+        result[i] = minCluster
+      var extras = clamped - minDeposits
+      while extras > 0:
+        let idx = randIntInclusive(r, 0, clusterCount - 1)
+        if result[idx] < maxCluster:
+          inc result[idx]
+          dec extras
+
+    proc placeMineClusters(depositKind: ThingKind, depositItem: ItemKey,
+                           targetDeposits: int, clusterCount: int) =
+      if targetDeposits <= 0 or clusterCount <= 0:
+        return
+      let clusterSizes = buildClusterSizes(targetDeposits, clusterCount)
       for clusterIndex in 0 ..< clusterSizes.len:
         let clusterSize = clusterSizes[clusterIndex]
-        let (depositKind, depositItem) = if clusterIndex mod 2 == 0:
-          (Stone, ItemStone)
-        else:
-          (Gold, ItemGold)
         let center = r.randomEmptyPos(env)
 
         addResourceNode(env, center, depositKind, depositItem, MineDepositAmount)
-        inc depositsPlaced
 
         var candidates = env.findEmptyPositionsAround(center, 1)
         if candidates.len < clusterSize - 1:
@@ -998,7 +993,9 @@ proc init(env: Environment) =
         let toPlace = min(clusterSize - 1, candidates.len)
         for i in 0 ..< toPlace:
           addResourceNode(env, candidates[i], depositKind, depositItem, MineDepositAmount)
-          inc depositsPlaced
+
+    placeMineClusters(Stone, ItemStone, MapRoomObjectsStoneMines, MapRoomObjectsStoneMineClusters)
+    placeMineClusters(Gold, ItemGold, MapRoomObjectsGoldMines, MapRoomObjectsGoldMineClusters)
 
     for _ in 0 ..< 30:
       var attempts = 0
