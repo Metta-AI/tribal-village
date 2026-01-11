@@ -513,7 +513,7 @@ proc drawObjects*() =
     bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
 
   drawThings(Cow):
-    let cowSprite = if thing.orientation == Orientation.E: "cow.r" else: "cow"
+    let cowSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
     bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = spriteScale(cowSprite))
 
   drawThings(Lantern):

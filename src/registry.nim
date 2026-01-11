@@ -180,7 +180,7 @@ let ThingCatalog* = block:
   add(Magma, "Magma", "magma", 'v')
   add(Spawner, "Spawner", "spawner", 'Z')
   add(Tumor, "Tumor", "tumor", 'X')
-  add(Cow, "Cow", "cow", 'w')
+  add(Cow, "Cow", "oriented/cow", 'w')
   add(Corpse, "Corpse", "corpse", 'C')
   add(Skeleton, "Skeleton", "skeleton", 'K')
   add(Stump, "Stump", "stump", 'p')
