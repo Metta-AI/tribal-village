@@ -846,7 +846,7 @@ proc init(env: Environment) =
           if nearWater:
             break
         if nearWater or attempt > 10:
-          let fieldSize = randIntInclusive(r, 5, 12)
+          let fieldSize = max(2, randIntInclusive(r, 5, 12) div 2)
           placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
           placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
           placed = true
@@ -854,27 +854,16 @@ proc init(env: Environment) =
       if not placed:
         let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
         let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-        let fieldSize = randIntInclusive(r, 5, 12)
+        let fieldSize = max(2, randIntInclusive(r, 5, 12) div 2)
         placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
         placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
 
     proc placeTreeOasis(centerX, centerY: int) =
-      let groveSize = randIntInclusive(r, 3, 8)
-      let radius = max(1, (groveSize.float / 2.0).int)
-      for dx in -radius .. radius:
-        for dy in -radius .. radius:
-          let gx = centerX + dx
-          let gy = centerY + dy
-          if gx < MapBorder or gx >= MapWidth - MapBorder or gy < MapBorder or gy >= MapHeight - MapBorder:
-            continue
-          let dist = sqrt((dx * dx + dy * dy).float)
-          if dist <= radius.float:
-            let chance = 0.85 - (dist / radius.float) * 0.4
-            if randChance(r, chance) and env.terrain[gx][gy] in TreeGround:
-              addResourceNode(env, ivec2(gx.int32, gy.int32), Tree, ItemWood)
-
       let rx = max(1, randIntInclusive(r, 3, 5) div 2)
       let ry = max(1, randIntInclusive(r, 3, 5) div 2)
+      template canPlaceWater(pos: IVec2): bool =
+        env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
+          env.terrain[pos.x][pos.y] notin {Road, Bridge}
       for ox in -(rx + 1) .. (rx + 1):
         for oy in -(ry + 1) .. (ry + 1):
           let px = centerX + ox
@@ -882,9 +871,7 @@ proc init(env: Environment) =
           if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
             continue
           let waterPos = ivec2(px.int32, py.int32)
-          if not env.isEmpty(waterPos) or env.hasDoor(waterPos):
-            continue
-          if env.terrain[px][py] in {Road, Bridge}:
+          if not canPlaceWater(waterPos):
             continue
           let dx = ox.float / rx.float
           let dy = oy.float / ry.float
@@ -902,9 +889,7 @@ proc init(env: Environment) =
           if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
              pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
             break
-          if not env.isEmpty(pos) or env.hasDoor(pos):
-            continue
-          if env.terrain[pos.x][pos.y] in {Road, Bridge}:
+          if not canPlaceWater(pos):
             continue
           env.terrain[pos.x][pos.y] = Water
           env.resetTileColor(pos)
