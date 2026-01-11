@@ -300,8 +300,10 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
       if didWood: return actWood
       return controller.moveNextSearch(env, agent, agentId, state)
 
-    let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
-    if not isNil(wheat):
+    for kind in [Wheat, Stubble]:
+      let wheat = env.findNearestThingSpiral(state, kind, controller.rng)
+      if isNil(wheat):
+        continue
       actOrMove(wheat.pos, 3'u8)
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
