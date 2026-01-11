@@ -32,8 +32,8 @@ const
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerVillage  # Agent slots across all villages
   MapRoomObjectsMagmaPools* = 44
   MapRoomObjectsMagmaClusters* = 7
-  MapRoomObjectsMines* = 28
-  MapRoomObjectsMineClusters* = 10
+  MapRoomObjectsMines* = 48
+  MapRoomObjectsMineClusters* = 16
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
 
@@ -55,6 +55,7 @@ const
   OutpostWoodCost* = 1
   CowMilkCooldown* = 25
   ResourceCarryCapacity* = 5
+  MineDepositAmount* = 12
   TownCenterPopCap* = 0
   HousePopCap* = 2
   VillagerAttackDamage* = 1
