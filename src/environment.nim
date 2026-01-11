@@ -353,7 +353,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
       setInv(agent, output.key, getInv(agent, output.key) + output.count)
       env.updateAgentInventoryObs(agent, output.key)
     if not isNil(stationThing):
-      stationThing.cooldown = max(1, recipe.cooldown)
+      stationThing.cooldown = 0
     return true
   false
 
@@ -364,6 +364,14 @@ proc grantWood(env: Environment, agent: Thing, amount: int = 1): bool =
     return true
   for _ in 0 ..< amount:
     if not env.giveItem(agent, ItemWood):
+      return false
+  true
+
+proc grantWheat(env: Environment, agent: Thing, amount: int = 1): bool =
+  if amount <= 0:
+    return true
+  for _ in 0 ..< amount:
+    if not env.giveItem(agent, ItemWheat):
       return false
   true
 
@@ -378,6 +386,23 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if remaining > 0:
     setInv(stump, ItemWood, remaining)
   env.add(stump)
+  true
+
+proc harvestWheat(env: Environment, agent: Thing, wheat: Thing): bool =
+  let stored = getInv(wheat, ItemWheat)
+  if stored <= 0:
+    removeThing(env, wheat)
+    return true
+  if not env.grantWheat(agent):
+    return false
+  agent.reward += env.config.wheatReward
+  removeThing(env, wheat)
+  let stubble = Thing(kind: Stubble, pos: wheat.pos)
+  stubble.inventory = emptyInventory()
+  let remaining = stored - 1
+  if remaining > 0:
+    setInv(stubble, ItemWheat, remaining)
+  env.add(stubble)
   true
 include "combat"
 

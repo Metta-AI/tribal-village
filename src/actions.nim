@@ -466,7 +466,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             else:
               decInv(ItemWheat)
             setInvAndObs(ItemLantern, 1)
-            thing.cooldown = 15
+            thing.cooldown = 0
             agent.reward += env.config.clothReward
             used = true
           elif thing.cooldown == 0:
@@ -479,7 +479,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             elif agent.inventoryWheat > 0:
               decInv(ItemWheat)
               incInv(ItemBread)
-              thing.cooldown = 10
+              thing.cooldown = 0
               # No observation layer for bread; optional for UI later
               agent.reward += env.config.foodReward
               used = true
@@ -513,7 +513,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 elif agent.inventoryWheat > 0:
                   decInv(ItemWheat)
                   incInv(ItemBread)
-                  thing.cooldown = 10
+                  thing.cooldown = 0
                   agent.reward += env.config.foodReward
                   used = true
             of UseWeavingLoom:
@@ -524,7 +524,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 else:
                   decInv(ItemWheat)
                 setInvAndObs(ItemLantern, 1)
-                thing.cooldown = 15
+                thing.cooldown = 0
                 agent.reward += env.config.clothReward
                 used = true
               elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
@@ -563,7 +563,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                         env.updateAgentInventoryObs(agent, key)
                         traded = true
                   if traded:
-                    thing.cooldown = 6
+                    thing.cooldown = 0
                     used = true
             of UseDropoff:
               if thing.teamId == getTeamId(agent.agentId):
@@ -875,4 +875,3 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         inc env.stats[id].actionOrient
     else:
       inc env.stats[id].actionInvalid
-
