@@ -221,7 +221,7 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
     if button.iconKey.len > 0 and button.iconSize.x > 0 and button.iconSize.y > 0:
       let maxIconSize = min(button.rect.w, button.rect.h) * 0.6
       let iconScale = min(1.0'f32, maxIconSize / max(button.iconSize.x.float32, button.iconSize.y.float32))
-      let iconShift = vec2(2.0, 3.0) * iconScale
+      let iconShift = vec2(8.0, 9.0) * iconScale
       let iconPos = vec2(
         button.rect.x + (button.rect.w - button.iconSize.x.float32 * iconScale) * 0.5,
         button.rect.y + (button.rect.h - button.iconSize.y.float32 * iconScale) * 0.5
@@ -773,11 +773,11 @@ proc drawSelectionLabel*(panelRect: IRect) =
   if labelSize.x <= 0 or labelSize.y <= 0:
     return
   let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
-  let maxHeight = FooterHeight.float32 - FooterHudPadding * 2.0
-  let scale = min(1.0'f32, maxHeight / labelSize.y.float32)
+  let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
+  let scale = min(1.0'f32, innerHeight / labelSize.y.float32)
   let pos = vec2(
-    panelRect.x.float32 + FooterHudPadding,
-    footerTop + (FooterHeight.float32 - labelSize.y.float32 * scale) * 0.5
+    panelRect.x.float32 + FooterHudPadding + 75.0,
+    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + 20.0
   )
   bxy.drawImage(key, pos, angle = 0, scale = scale)
 
@@ -808,11 +808,11 @@ proc drawStepLabel*(panelRect: IRect) =
   if key.len == 0:
     return
   let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
-  let maxHeight = FooterHeight.float32 - FooterHudPadding * 2.0
-  let scale = min(1.0'f32, maxHeight / stepLabelSize.y.float32)
+  let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
+  let scale = min(1.0'f32, innerHeight / stepLabelSize.y.float32)
   let labelW = stepLabelSize.x.float32 * scale
   let pos = vec2(
-    panelRect.x.float32 + panelRect.w.float32 - labelW - FooterHudPadding,
-    footerTop + (FooterHeight.float32 - stepLabelSize.y.float32 * scale) * 0.5
+    panelRect.x.float32 + panelRect.w.float32 - labelW - FooterHudPadding + 25.0,
+    footerTop + FooterPadding + (innerHeight - stepLabelSize.y.float32 * scale) * 0.5 + 20.0
   )
   bxy.drawImage(key, pos, angle = 0, scale = scale)

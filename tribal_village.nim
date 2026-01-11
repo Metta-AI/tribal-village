@@ -450,10 +450,10 @@ proc display() =
   bxy.restoreTransform()
 
   bxy.restoreTransform()
-  drawSelectionLabel(panelRectInt)
-  drawStepLabel(panelRectInt)
   let footerButtons = buildFooterButtons(panelRectInt)
   drawFooter(panelRectInt, footerButtons)
+  drawSelectionLabel(panelRectInt)
+  drawStepLabel(panelRectInt)
   if clearUiCapture:
     uiMouseCaptured = false
   when defined(renderTiming):
