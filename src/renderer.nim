@@ -14,6 +14,7 @@ const
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
   infoLabelImages: Table[string, string] = initTable[string, string]()
+  infoLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
   stepLabelKey = ""
   stepLabelLastValue = -1
   stepLabelSize = ivec2(0, 0)
@@ -49,14 +50,13 @@ const
   InfoLabelFontPath = HeartCountFontPath
   InfoLabelFontSize: float32 = 54
   InfoLabelPadding = 18
-  InfoLabelInsetX = 100
-  InfoLabelInsetY = 50
-  StepLabelInsetY = 20
   FooterFontPath = HeartCountFontPath
   FooterFontSize: float32 = 26
   FooterPadding = 10.0'f32
   FooterButtonPaddingX = 18.0'f32
   FooterButtonGap = 12.0'f32
+  FooterLabelPadding = 4.0'f32
+  FooterHudPadding = 12.0'f32
 
 template configureInfoLabelFont(ctx: var Context) =
   ctx.font = InfoLabelFontPath
@@ -121,12 +121,12 @@ proc ensureFooterLabel(text: string): tuple[key: string, size: IVec2] =
   var measureCtx = newContext(1, 1)
   configureFooterFont(measureCtx)
   let metrics = measureCtx.measureText(text)
-  let labelWidth = max(1, metrics.width.int)
-  let labelHeight = max(1, measureCtx.fontSize.int)
+  let labelWidth = max(1, (metrics.width + FooterLabelPadding * 2).int)
+  let labelHeight = max(1, (measureCtx.fontSize + FooterLabelPadding * 2).int)
   var ctx = newContext(labelWidth, labelHeight)
   configureFooterFont(ctx)
   ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(0, 0))
+  ctx.fillText(text, vec2(FooterLabelPadding, FooterLabelPadding))
   let key = "footer_label/" & text.replace(" ", "_").replace("/", "_")
   bxy.addImage(key, ctx.image, mipmaps = false)
   footerLabelImages[text] = key
@@ -136,8 +136,8 @@ proc ensureFooterLabel(text: string): tuple[key: string, size: IVec2] =
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   let footerY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let buttonHeight = FooterHeight.float32 - FooterPadding * 2.0
-  let playLabel = if play: "Pause" else: "Play"
-  let labels = [playLabel, "Step", "Slow", "Fast", "Super"]
+  let playLabel = if play: "||" else: ">"
+  let labels = [playLabel, "|>", "Slow", "Fast", "Super"]
   var buttonWidths: array[labels.len, float32]
   var labelKeys: array[labels.len, string]
   var labelSizes: array[labels.len, IVec2]
@@ -714,8 +714,10 @@ proc drawSelectionLabel*(panelRect: IRect) =
   if label.len == 0:
     return
   var key = ""
+  var labelSize = ivec2(0, 0)
   if label in infoLabelImages:
     key = infoLabelImages[label]
+    labelSize = infoLabelSizes.getOrDefault(label, ivec2(0, 0))
   else:
     var measureCtx = newContext(1, 1)
     configureInfoLabelFont(measureCtx)
@@ -733,11 +735,20 @@ proc drawSelectionLabel*(panelRect: IRect) =
     key = "selection_label/" & label.replace(" ", "_").replace("/", "_")
     bxy.addImage(key, ctx.image, mipmaps = false)
     infoLabelImages[label] = key
+    infoLabelSizes[label] = ivec2(labelWidth, labelHeight)
+    labelSize = ivec2(labelWidth, labelHeight)
   if key.len == 0:
     return
-  let pos = vec2(panelRect.x.float32 + 8 + InfoLabelInsetX.float32,
-    panelRect.y.float32 + 8 + InfoLabelInsetY.float32)
-  bxy.drawImage(key, pos, angle = 0, scale = 1)
+  if labelSize.x <= 0 or labelSize.y <= 0:
+    return
+  let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
+  let maxHeight = FooterHeight.float32 - FooterHudPadding * 2.0
+  let scale = min(1.0'f32, maxHeight / labelSize.y.float32)
+  let pos = vec2(
+    panelRect.x.float32 + FooterHudPadding,
+    footerTop + (FooterHeight.float32 - labelSize.y.float32 * scale) * 0.5
+  )
+  bxy.drawImage(key, pos, angle = 0, scale = scale)
 
 proc drawStepLabel*(panelRect: IRect) =
   var key = ""
@@ -765,10 +776,12 @@ proc drawStepLabel*(panelRect: IRect) =
     key = stepLabelKey
   if key.len == 0:
     return
-  let scale = window.contentScale.float32
-  let labelW = stepLabelSize.x.float32 / scale
+  let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
+  let maxHeight = FooterHeight.float32 - FooterHudPadding * 2.0
+  let scale = min(1.0'f32, maxHeight / stepLabelSize.y.float32)
+  let labelW = stepLabelSize.x.float32 * scale
   let pos = vec2(
-    panelRect.x.float32 + panelRect.w.float32 - labelW - 2.0,
-    panelRect.y.float32 + StepLabelInsetY.float32
+    panelRect.x.float32 + panelRect.w.float32 - labelW - FooterHudPadding,
+    footerTop + (FooterHeight.float32 - stepLabelSize.y.float32 * scale) * 0.5
   )
-  bxy.drawImage(key, pos, angle = 0, scale = 1)
+  bxy.drawImage(key, pos, angle = 0, scale = scale)
