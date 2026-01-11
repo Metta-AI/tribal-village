@@ -281,6 +281,60 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
       standPos, buildPos, idx)
   return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
 
+proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint8] =
+  ## Build a house when the team is at or near population cap.
+  var popCount = 0
+  for otherAgent in env.agents:
+    if not isAgentAlive(env, otherAgent):
+      continue
+    if getTeamId(otherAgent.agentId) == teamId:
+      inc popCount
+  var popCap = 0
+  let popTarget = popCount + 1
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.teamId != teamId:
+      continue
+    if isBuildingKind(thing.kind):
+      let cap = buildingPopCap(thing.kind)
+      if cap > 0:
+        popCap += cap
+        if popCap >= popTarget:
+          break
+  if popCap > 0 and popCount >= popCap - 1:
+    var targetBuildPos = ivec2(-1, -1)
+    var targetStandPos = ivec2(-1, -1)
+    let minX = max(0, basePos.x - 15)
+    let maxX = min(MapWidth - 1, basePos.x + 15)
+    let minY = max(0, basePos.y - 15)
+    let maxY = min(MapHeight - 1, basePos.y + 15)
+    block findHouse:
+      for x in minX .. maxX:
+        for y in minY .. maxY:
+          let pos = ivec2(x.int32, y.int32)
+          let dist = chebyshevDist(basePos, pos).int
+          if dist < 5 or dist > 15:
+            continue
+          if not env.canPlaceBuilding(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
+            continue
+          for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+            let stand = pos + d
+            if isValidPos(stand) and not env.hasDoor(stand) and env.isEmpty(stand) and
+                env.canAgentPassDoor(agent, stand) and
+                not isTileFrozen(stand, env) and
+                not isBlockedTerrain(env.terrain[stand.x][stand.y]):
+              targetBuildPos = pos
+              targetStandPos = stand
+              break findHouse
+    if targetBuildPos.x >= 0:
+      return goToStandAndBuild(
+        controller, env, agent, agentId, state,
+        targetStandPos, targetBuildPos, buildIndexFor(House)
+      )
+  (false, 0'u8)
+
 include "gatherer"
 include "builder"
 include "fighter"

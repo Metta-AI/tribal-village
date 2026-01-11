@@ -42,7 +42,7 @@ const
 
   # Building Parameters
   MapObjectAltarInitialHearts* = 5
-  MapObjectAltarCooldown* = 10
+  MapObjectAltarCooldown* = 0
   MapObjectAltarRespawnCost* = 1
   MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
@@ -190,6 +190,7 @@ type
     Monastery
     University
     Castle
+    Stubble  # Harvested wheat residue
 
   Thing* = ref object
     kind*: ThingKind

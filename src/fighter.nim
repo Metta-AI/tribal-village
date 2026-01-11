@@ -210,6 +210,11 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         if didWall: return wallAct
       return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
+  # Grow population before spending time on lanterns.
+  let (didHouse, houseAct) =
+    tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, basePos)
+  if didHouse: return houseAct
+
   # Keep buildings lit, then push lanterns farther out from the base.
   var target = ivec2(-1, -1)
   var unlit: Thing = nil

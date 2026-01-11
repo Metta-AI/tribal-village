@@ -232,8 +232,9 @@ const
   DfTokenCatalog*: seq[DfTokenDef] = @[]
 
 proc addRecipe*(recipes: var seq[CraftRecipe], id: string, station: CraftStation,
-                inputs, outputs: seq[ItemAmount], cooldown: int = 8) =
-  recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: cooldown))
+                inputs, outputs: seq[ItemAmount], cooldown: int = 0) =
+  discard cooldown
+  recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: 0))
 
 proc thingItem*(name: string): ItemKey =
   ItemThingPrefix & name

@@ -49,13 +49,14 @@ let BuildingRegistry* = block:
       renderColor: (r: 180'u8, g: 180'u8, b: 180'u8),
       buildIndex: -1,
       buildCost: @[],
-      buildCooldown: 8
+      buildCooldown: 0
     )
 
   proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char,
            renderColor: tuple[r, g, b: uint8],
            buildIndex = -1, buildCost: seq[ItemAmount] = @[],
-           buildCooldown = 8) =
+           buildCooldown = 0) =
+    discard buildCooldown
     reg[kind] = BuildingInfo(
       displayName: displayName,
       spriteKey: spriteKey,
@@ -63,7 +64,7 @@ let BuildingRegistry* = block:
       renderColor: renderColor,
       buildIndex: buildIndex,
       buildCost: buildCost,
-      buildCooldown: buildCooldown
+      buildCooldown: 0
     )
 
   add(Altar, "Altar", "altar", 'a', (r: 220'u8, g: 0'u8, b: 220'u8))
@@ -122,7 +123,7 @@ proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
 proc thingBlocksMovement*(kind: ThingKind): bool =
-  kind notin {Door, Wheat, Tree, Lantern, Corpse, Skeleton}
+  kind notin {Door, Wheat, Stubble, Tree, Lantern, Corpse, Skeleton}
 {.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =
@@ -184,6 +185,7 @@ let ThingCatalog* = block:
   add(Corpse, "Corpse", "corpse", 'C')
   add(Skeleton, "Skeleton", "skeleton", 'K')
   add(Stump, "Stump", "stump", 'p')
+  add(Stubble, "Stubble", "stubble", 'u')
   add(Lantern, "Lantern", "lantern", 'l')
   reg
 
@@ -340,12 +342,7 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   else: @[]
 
 proc buildingTrainCooldown*(kind: ThingKind): int =
-  case kind
-  of Barracks, ArcheryRange, Stable: 8
-  of SiegeWorkshop: 10
-  of Monastery: 10
-  of Castle: 12
-  else: 0
+  0
 
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
