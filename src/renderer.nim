@@ -117,37 +117,6 @@ type FooterButton* = object
   labelSize*: IVec2
   active*: bool
 
-proc ensureFooterLabel(text: string): tuple[key: string, size: IVec2] =
-  if text in footerLabelImages:
-    return (footerLabelImages[text], footerLabelSizes[text])
-  var measureCtx = newContext(1, 1)
-  configureFooterFont(measureCtx)
-  let metrics = measureCtx.measureText(text)
-  let labelWidth = max(1, (metrics.width + FooterLabelPadding * 2).int)
-  let labelHeight = max(1, (measureCtx.fontSize + FooterLabelPadding * 2).int)
-  var ctx = newContext(labelWidth, labelHeight)
-  configureFooterFont(ctx)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(FooterLabelPadding, FooterLabelPadding))
-  let key = "footer_label/" & text.replace(" ", "_").replace("/", "_")
-  bxy.addImage(key, ctx.image, mipmaps = false)
-  footerLabelImages[text] = key
-  footerLabelSizes[text] = ivec2(labelWidth, labelHeight)
-  result = (key, footerLabelSizes[text])
-
-proc ensureFooterIcon(iconKey: string): IVec2 =
-  if iconKey.len == 0:
-    return ivec2(0, 0)
-  if iconKey in footerIconSizes:
-    return footerIconSizes[iconKey]
-  let path = "data/" & iconKey & ".png"
-  if not fileExists(path):
-    footerIconSizes[iconKey] = ivec2(0, 0)
-    return footerIconSizes[iconKey]
-  let image = readImage(path)
-  footerIconSizes[iconKey] = ivec2(image.width, image.height)
-  result = footerIconSizes[iconKey]
-
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   let footerY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let buttonHeight = FooterHeight.float32 - FooterPadding * 2.0
@@ -160,12 +129,42 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   var iconSizes: array[labels.len, IVec2]
   var totalWidth = 0.0'f32
   for i, label in labels:
-    let (key, size) = ensureFooterLabel(label)
-    labelKeys[i] = key
-    labelSizes[i] = size
-    let width = size.x.float32 + FooterButtonPaddingX * 2.0
+    var labelKey = ""
+    var labelSize = ivec2(0, 0)
+    if label in footerLabelImages:
+      labelKey = footerLabelImages[label]
+      labelSize = footerLabelSizes[label]
+    else:
+      var measureCtx = newContext(1, 1)
+      configureFooterFont(measureCtx)
+      let metrics = measureCtx.measureText(label)
+      let labelWidth = max(1, (metrics.width + FooterLabelPadding * 2).int)
+      let labelHeight = max(1, (measureCtx.fontSize + FooterLabelPadding * 2).int)
+      var ctx = newContext(labelWidth, labelHeight)
+      configureFooterFont(ctx)
+      ctx.fillStyle.color = color(1, 1, 1, 1)
+      ctx.fillText(label, vec2(FooterLabelPadding, FooterLabelPadding))
+      labelKey = "footer_label/" & label.replace(" ", "_").replace("/", "_")
+      bxy.addImage(labelKey, ctx.image, mipmaps = false)
+      labelSize = ivec2(labelWidth, labelHeight)
+      footerLabelImages[label] = labelKey
+      footerLabelSizes[label] = labelSize
+    labelKeys[i] = labelKey
+    labelSizes[i] = labelSize
+    let width = labelSize.x.float32 + FooterButtonPaddingX * 2.0
     buttonWidths[i] = width
-    iconSizes[i] = ensureFooterIcon(iconKeys[i])
+    let iconKey = iconKeys[i]
+    var iconSize = ivec2(0, 0)
+    if iconKey.len > 0:
+      if iconKey in footerIconSizes:
+        iconSize = footerIconSizes[iconKey]
+      else:
+        let path = "data/" & iconKey & ".png"
+        if fileExists(path):
+          let image = readImage(path)
+          iconSize = ivec2(image.width, image.height)
+        footerIconSizes[iconKey] = iconSize
+    iconSizes[i] = iconSize
     totalWidth += width
     if i < labels.len - 1:
       totalWidth += FooterButtonGap
@@ -457,12 +456,19 @@ proc drawObjects*() =
       pos.vec2,
       angle = 0,
       scale = spriteScale(agentImage),
-      tint = generateEntityColor("agent", agent.agentId)
+      tint = env.agentColors[agent.agentId]
     )
 
   drawThings(Altar):
     let baseImage = resolveSpriteKey("altar")
-    let altarTint = getAltarColor(pos)
+    let altarTint = block:
+      if env.altarColors.hasKey(pos):
+        env.altarColors[pos]
+      elif pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
+        let base = env.baseTintColors[pos.x][pos.y]
+        color(base.r, base.g, base.b, 1.0)
+      else:
+        color(1.0, 1.0, 1.0, 1.0)
     bxy.drawImage(
       "floor",
       pos.vec2,
@@ -605,10 +611,6 @@ proc drawVisualRanges*(alpha = 0.2) =
           rect(x.float32 - 0.5, y.float32 - 0.5, 1, 1),
           color(0, 0, 0, alpha)
         )
-
-proc drawFogOfWar*() =
-  drawVisualRanges(alpha = 1.0)
-
 
 proc drawAgentDecorations*() =
   for agent in env.agents:

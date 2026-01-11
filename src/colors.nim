@@ -159,31 +159,3 @@ proc applyBiomeBaseColors*(env: Environment) =
 
   env.baseTintColors = colors
 
-
-# ============== COLOR MANAGEMENT ==============
-
-proc generateEntityColor*(entityType: string, id: int, fallbackColor: Color = color(0.5, 0.5, 0.5, 1.0)): Color =
-  ## Unified color generation for all entity types
-  ## Uses deterministic palette indexing; no random sampling.
-  ## Uses Environment fields for color storage.
-  case entityType:
-  of "agent":
-    return env.agentColors[id]
-  of "village":
-    return env.teamColors[id]
-  else:
-    return fallbackColor
-
-proc getAltarColor*(pos: IVec2): Color =
-  ## Get altar color by position, with white fallback.
-  ## Falls back to the base tile color so altars start visibly tinted even
-  ## before any dynamic color updates run.
-  ## Uses Environment fields for color storage.
-  if env.altarColors.hasKey(pos):
-    return env.altarColors[pos]
-
-  if pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
-    let base = env.baseTintColors[pos.x][pos.y]
-    return color(base.r, base.g, base.b, 1.0)
-
-  color(1.0, 1.0, 1.0, 1.0)
