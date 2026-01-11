@@ -321,19 +321,6 @@ proc canAffordBuild*(env: Environment, teamId: int, key: ItemKey): bool =
   env.canSpendStockpile(teamId, costs)
 
 
-proc getCardinalDirIndex(fromPos, toPos: IVec2): int =
-  ## Convert direction to orientation (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
-  let dx = toPos.x - fromPos.x
-  let dy = toPos.y - fromPos.y
-
-  # Handle cardinal directions first (simpler pathfinding)
-  if abs(dx) > abs(dy):
-    if dx > 0: return 3  # East
-    else: return 2       # West
-  else:
-    if dy > 0: return 1  # South
-    else: return 0       # North
-
 proc neighborDirIndex(fromPos, toPos: IVec2): int =
   ## Orientation index (0..7) toward adjacent target (includes diagonals)
   let dx = toPos.x - fromPos.x
@@ -481,17 +468,15 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
     return true
   return occupant.kind == Lantern
 
-proc recentPosAt(state: AgentState, offset: int): IVec2 =
-  let idx = (state.recentPosIndex - 1 - offset + 12 * 12) mod 12
-  state.recentPositions[idx]
-
 proc isStuckRecent(state: AgentState, window: int, maxUnique: int): bool =
   if state.recentPosCount < window:
     return false
   var uniqueCount = 0
   var unique: array[4, IVec2]
+  let historyLen = state.recentPositions.len
   for i in 0 ..< window:
-    let p = recentPosAt(state, i)
+    let idx = (state.recentPosIndex - 1 - i + historyLen * historyLen) mod historyLen
+    let p = state.recentPositions[idx]
     var seen = false
     for j in 0 ..< uniqueCount:
       if unique[j] == p:
@@ -731,10 +716,9 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
             minDist = dist
             fertilePos = candPos
     if fertilePos.x >= 0:
-      let dx = abs(fertilePos.x - agent.pos.x)
-      let dy = abs(fertilePos.y - agent.pos.y)
-      if max(dx, dy) == 1'i32 and (dx == 0 or dy == 0):
-        let dirIdx = getCardinalDirIndex(agent.pos, fertilePos)
+      if max(abs(fertilePos.x - agent.pos.x), abs(fertilePos.y - agent.pos.y)) == 1'i32 and
+          (fertilePos.x == agent.pos.x or fertilePos.y == agent.pos.y):
+        let dirIdx = neighborDirIndex(agent.pos, fertilePos)
         let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
         return (true, saveStateAndReturn(controller, agentId, state,
                  encodeAction(7'u8, plantArg.uint8)))
@@ -768,15 +752,13 @@ proc actAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
 
 proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =
-  let dx = abs(targetPos.x - agent.pos.x)
-  let dy = abs(targetPos.y - agent.pos.y)
   let stuck = isStuckRecent(state, 6, 2)
   let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   if stuck:
     state.pathBlockedTarget = ivec2(-1, -1)
     state.plannedPath.setLen(0)
 
-  if max(dx, dy) >= 6'i32 or stuck:
+  if max(abs(targetPos.x - agent.pos.x), abs(targetPos.y - agent.pos.y)) >= 6'i32 or stuck:
     if state.pathBlockedTarget != targetPos or stuck:
       if state.plannedTarget != targetPos or state.plannedPath.len == 0 or stuck:
         state.plannedPath = findPath(env, agent, agent.pos, targetPos)
