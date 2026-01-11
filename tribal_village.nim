@@ -81,8 +81,11 @@ proc pickInitialWindowSize(): IVec2 =
   ## Choose a large window that fits on the primary screen
   when defined(emscripten):
     result = largeWindowSize
+  elif defined(linux):
+    # Windy does not expose getScreens on Linux; fall back to a safe default.
+    result = baseWindowSize
   else:
-    let screens = windy.getScreens()
+    let screens = getScreens()
     var target = largeWindowSize
     for s in screens:
       if s.primary:
