@@ -272,8 +272,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         let delta = getOrientationDelta(attackOrientation)
         let attackerTeam = getTeamId(agent.agentId)
-        let baseDamage = agent.attackDamage
-        let damageAmount = max(1, baseDamage)
+        let damageAmount = max(1, agent.attackDamage)
         let rangedRange = case agent.unitClass
           of UnitArcher: ArcherBaseRange
           of UnitSiege: SiegeBaseRange

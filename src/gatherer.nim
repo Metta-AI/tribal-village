@@ -20,20 +20,16 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if not isNil(altar):
       altarHearts = altar.hearts
 
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  let gold = env.stockpileCount(teamId, ResourceGold)
   var task = TaskFood
   if altarHearts < 10:
     task = TaskHearts
   else:
     let ordered = [
       (TaskHearts, altarHearts),
-      (TaskFood, food),
-      (TaskWood, wood),
-      (TaskStone, stone),
-      (TaskGold, gold)
+      (TaskFood, env.stockpileCount(teamId, ResourceFood)),
+      (TaskWood, env.stockpileCount(teamId, ResourceWood)),
+      (TaskStone, env.stockpileCount(teamId, ResourceStone)),
+      (TaskGold, env.stockpileCount(teamId, ResourceGold))
     ]
     var best = ordered[0]
     for i in 1 ..< ordered.len:
@@ -108,8 +104,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
         return controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
       return controller.moveNextSearch(env, agent, agentId, state)
-    let magmaKnown = state.closestMagmaPos.x >= 0 or not isNil(magmaGlobal)
-    if not magmaKnown:
+    if state.closestMagmaPos.x < 0 and isNil(magmaGlobal):
       return controller.moveNextSearch(env, agent, agentId, state)
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return actGold
@@ -149,9 +144,13 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       discard
     return controller.moveNextSearch(env, agent, agentId, state)
   of TaskFood:
-    let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
-    let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
-    let buildGranary = tryBuildCamp(Granary, nearbyWheat + nearbyFertile, 8, [Granary])
+    let buildGranary = tryBuildCamp(
+      Granary,
+      countNearbyThings(env, agent.pos, 4, {Wheat}) +
+        countNearbyTerrain(env, agent.pos, 4, {Fertile}),
+      8,
+      [Granary]
+    )
     if buildGranary != 0'u8: return buildGranary
     if agent.homeAltar.x < 0 or
        max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:

@@ -65,11 +65,9 @@ proc newController*(seed: int): Controller =
 
 # Helper proc to save state and return action
 proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState, action: uint8): uint8 =
-  let verb = action.int div ActionArgumentCount
-  let arg = action.int mod ActionArgumentCount
   var nextState = state
-  nextState.lastActionVerb = verb
-  nextState.lastActionArg = arg
+  nextState.lastActionVerb = action.int div ActionArgumentCount
+  nextState.lastActionArg = action.int mod ActionArgumentCount
   controller.agents[agentId] = nextState
   controller.agentsInitialized[agentId] = true
   return action
@@ -709,11 +707,11 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
 
 proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): uint8 =
-  let nextSearchPos = getNextSpiralPoint(state, controller.rng)
-  let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, nextSearchPos,
-      controller.rng, avoidDir).uint8))
+    encodeAction(1'u8, getMoveTowards(
+      env, agent, agent.pos, getNextSpiralPoint(state, controller.rng),
+      controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
+    ).uint8))
 
 proc isAdjacent(a, b: IVec2): bool =
   let dx = abs(a.x - b.x)
@@ -723,10 +721,9 @@ proc isAdjacent(a, b: IVec2): bool =
 proc actAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
            state: var AgentState, targetPos: IVec2, verb: uint8,
            argument: int = -1): uint8 =
-  let desiredDir = neighborDirIndex(agent.pos, targetPos)
-  let arg = if argument < 0: desiredDir else: argument
   return saveStateAndReturn(controller, agentId, state,
-    encodeAction(verb, arg.uint8))
+    encodeAction(verb,
+      (if argument < 0: neighborDirIndex(agent.pos, targetPos) else: argument).uint8))
 
 proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =

@@ -51,267 +51,6 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
       if randChance(r, chance):
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
-proc spawnWheatFields(env: Environment, r: var Rand) =
-  let numFields = randIntInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
-    WheatFieldClusterScale
-  for _ in 0 ..< numFields:
-    var placed = false
-    for attempt in 0 ..< 20:
-      let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-      let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-      var nearWater = false
-      for dx in -5 .. 5:
-        for dy in -5 .. 5:
-          let checkX = x + dx
-          let checkY = y + dy
-          if checkX >= 0 and checkX < MapWidth and checkY >= 0 and checkY < MapHeight:
-            if env.terrain[checkX][checkY] == Water:
-              nearWater = true
-              break
-        if nearWater:
-          break
-      if nearWater or attempt > 10:
-        let fieldSize = randIntInclusive(r, 5, 12)
-        placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
-        placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
-        placed = true
-        break
-    if not placed:
-      let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-      let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-      let fieldSize = randIntInclusive(r, 5, 12)
-      placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
-      placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
-
-proc spawnTreeGroves(env: Environment, r: var Rand) =
-  let numGroves = randIntInclusive(r, TreeGroveClusterBase, TreeGroveClusterBase + TreeGroveClusterRange) *
-    TreeGroveClusterScale
-  for _ in 0 ..< numGroves:
-    let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-    let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-    let groveSize = randIntInclusive(r, 3, 10)
-    placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
-
-proc placeTreeOasis(env: Environment, centerX, centerY: int, r: var Rand) =
-  let groveSize = randIntInclusive(r, 3, 8)
-  let radius = max(1, (groveSize.float / 2.0).int)
-  for dx in -radius .. radius:
-    for dy in -radius .. radius:
-      let gx = centerX + dx
-      let gy = centerY + dy
-      if gx < MapBorder or gx >= MapWidth - MapBorder or gy < MapBorder or gy >= MapHeight - MapBorder:
-        continue
-      let dist = sqrt((dx * dx + dy * dy).float)
-      if dist <= radius.float:
-        let chance = 0.85 - (dist / radius.float) * 0.4
-        if randChance(r, chance) and env.terrain[gx][gy] in TreeGround:
-          addResourceNode(env, ivec2(gx.int32, gy.int32), Tree, ItemWood)
-
-  let oasisW = randIntInclusive(r, 3, 5)
-  let oasisH = randIntInclusive(r, 3, 5)
-  let rx = max(1, oasisW div 2)
-  let ry = max(1, oasisH div 2)
-  for ox in -(rx + 1) .. (rx + 1):
-    for oy in -(ry + 1) .. (ry + 1):
-      let px = centerX + ox
-      let py = centerY + oy
-      if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
-        continue
-      let waterPos = ivec2(px.int32, py.int32)
-      if not env.isEmpty(waterPos) or env.hasDoor(waterPos):
-        continue
-      if env.terrain[px][py] in {Road, Bridge}:
-        continue
-      let dx = ox.float / rx.float
-      let dy = oy.float / ry.float
-      let dist = dx * dx + dy * dy
-      let noise = (randFloat(r) - 0.5) * 0.35
-      if dist <= 1.0 + noise:
-        env.terrain[px][py] = Water
-        env.resetTileColor(waterPos)
-
-  let rivulets = randIntInclusive(r, 1, 2)
-  for _ in 0 ..< rivulets:
-    var pos = ivec2(centerX.int32, centerY.int32)
-    let steps = randIntInclusive(r, 4, 10)
-    for _ in 0 ..< steps:
-      let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
-                           ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
-      pos += dir
-      if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
-         pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
-        break
-      if not env.isEmpty(pos) or env.hasDoor(pos):
-        continue
-      if env.terrain[pos.x][pos.y] in {Road, Bridge}:
-        continue
-      env.terrain[pos.x][pos.y] = Water
-      env.resetTileColor(pos)
-
-  for ox in -(rx + 2) .. (rx + 2):
-    for oy in -(ry + 2) .. (ry + 2):
-      let px = centerX + ox
-      let py = centerY + oy
-      if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
-        continue
-      if env.terrain[px][py] == Water:
-        continue
-      var nearWater = false
-      for dx in -1 .. 1:
-        for dy in -1 .. 1:
-          let nx = px + dx
-          let ny = py + dy
-          if nx < MapBorder or nx >= MapWidth - MapBorder or ny < MapBorder or ny >= MapHeight - MapBorder:
-            continue
-          if env.terrain[nx][ny] == Water:
-            nearWater = true
-            break
-        if nearWater:
-          break
-      if nearWater and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
-        addResourceNode(env, ivec2(px.int32, py.int32), Tree, ItemWood)
-
-proc spawnTreeOases(env: Environment, r: var Rand) =
-  let numGroves = randIntInclusive(r, TreeOasisClusterBase, TreeOasisClusterBase + TreeOasisClusterRange) *
-    TreeOasisClusterScale
-  for _ in 0 ..< numGroves:
-    var placed = false
-    for attempt in 0 ..< 16:
-      let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-      let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-      var nearWater = false
-      for dx in -5 .. 5:
-        for dy in -5 .. 5:
-          let checkX = x + dx
-          let checkY = y + dy
-          if checkX >= 0 and checkX < MapWidth and checkY >= 0 and checkY < MapHeight:
-            if env.terrain[checkX][checkY] == Water:
-              nearWater = true
-              break
-        if nearWater:
-          break
-      if nearWater or attempt > 10:
-        placeTreeOasis(env, x, y, r)
-        placed = true
-        break
-    if not placed:
-      let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-      let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-      placeTreeOasis(env, x, y, r)
-
-proc spawnBushes(env: Environment, r: var Rand) =
-  for _ in 0 ..< 30:
-    var attempts = 0
-    var placed = false
-    while attempts < 12 and not placed:
-      inc attempts
-      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-      var nearWater = false
-      for dx in -4 .. 4:
-        for dy in -4 .. 4:
-          let checkX = x + dx
-          let checkY = y + dy
-          if checkX >= 0 and checkX < MapWidth and checkY >= 0 and checkY < MapHeight:
-            if env.terrain[checkX][checkY] == Water:
-              nearWater = true
-              break
-        if nearWater:
-          break
-      if nearWater or attempts >= 10:
-        let size = randIntInclusive(r, 3, 7)
-        placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
-        placed = true
-
-proc spawnCactus(env: Environment, r: var Rand) =
-  let clusters = max(10, MapWidth div 20)
-  for _ in 0 ..< clusters:
-    let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-    let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-    let size = randIntInclusive(r, 2, 5)
-    placeResourceCluster(env, x, y, size, 0.65, 0.4, Cactus, ItemPlant, ResourceGround, r,
-      allowedBiomes = {BiomeDesertType})
-
-proc spawnStalagmites(env: Environment, r: var Rand) =
-  let clusters = max(10, MapWidth div 30)
-  for _ in 0 ..< clusters:
-    let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-    let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-    let size = randIntInclusive(r, 2, 6)
-    placeResourceCluster(env, x, y, size, 0.7, 0.45, Stalagmite, ItemStone, ResourceGround, r,
-      allowedBiomes = {BiomeCavesType})
-
-proc spawnRockAndGoldClusters(env: Environment, r: var Rand) =
-  let rockBase = max(20, MapWidth div 22)
-  let rockClusters = rockBase + rockBase div 2
-  for _ in 0 ..< rockClusters:
-    let x = randIntInclusive(r, MapBorder + 4, MapWidth - MapBorder - 4)
-    let y = randIntInclusive(r, MapBorder + 4, MapHeight - MapBorder - 4)
-    let size = randIntInclusive(r, 5, 10)
-    placeResourceCluster(env, x, y, size, 0.9, 0.3, Stone, ItemStone, ResourceGround, r)
-
-  let goldBase = max(8, MapWidth div 50)
-  let goldClusters = goldBase + goldBase div 2
-  for _ in 0 ..< goldClusters:
-    let x = randIntInclusive(r, MapBorder + 6, MapWidth - MapBorder - 6)
-    let y = randIntInclusive(r, MapBorder + 6, MapHeight - MapBorder - 6)
-    let size = randIntInclusive(r, 4, 6)
-    placeResourceCluster(env, x, y, size, 0.8, 0.4, Gold, ItemGold, ResourceGround, r)
-
-proc spawnMineDeposits(env: Environment, r: var Rand) =
-  var depositsPlaced = 0
-  let clusterCount = max(1, min(MapRoomObjectsMineClusters, max(1, MapRoomObjectsMines div 3)))
-  for clusterIndex in 0 ..< clusterCount:
-    let remaining = MapRoomObjectsMines - depositsPlaced
-    if remaining <= 0:
-      break
-    let clustersLeft = clusterCount - clusterIndex
-    let maxCluster = min(7, remaining)
-    let minCluster = min(4, remaining)
-    let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
-    let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
-    let (depositKind, depositItem) = if clusterIndex mod 2 == 0:
-      (Stone, ItemStone)
-    else:
-      (Gold, ItemGold)
-    let center = r.randomEmptyPos(env)
-
-    addResourceNode(env, center, depositKind, depositItem)
-    inc depositsPlaced
-    if depositsPlaced >= MapRoomObjectsMines:
-      break
-
-    var candidates = env.findEmptyPositionsAround(center, 1)
-    if candidates.len < clusterSize - 1:
-      let extra = env.findEmptyPositionsAround(center, 2)
-      for pos in extra:
-        var exists = false
-        for c in candidates:
-          if c == pos:
-            exists = true
-            break
-        if not exists:
-          candidates.add(pos)
-
-    let toPlace = min(clusterSize - 1, candidates.len)
-    for i in 0 ..< toPlace:
-      addResourceNode(env, candidates[i], depositKind, depositItem)
-      inc depositsPlaced
-      if depositsPlaced >= MapRoomObjectsMines:
-        break
-
-proc spawnResourceThings(env: Environment, r: var Rand) =
-  spawnWheatFields(env, r)
-  if UseTreeOases:
-    spawnTreeOases(env, r)
-  if UseLegacyTreeClusters:
-    spawnTreeGroves(env, r)
-  spawnRockAndGoldClusters(env, r)
-  spawnMineDeposits(env, r)
-  spawnBushes(env, r)
-  spawnCactus(env, r)
-  spawnStalagmites(env, r)
-
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -1107,7 +846,250 @@ proc init(env: Environment) =
         break
 
   # Spawn resource nodes (trees, wheat, ore, plants) as Things.
-  spawnResourceThings(env, r)
+  block:
+    # Wheat fields.
+    let numFields = randIntInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
+      WheatFieldClusterScale
+    for _ in 0 ..< numFields:
+      var placed = false
+      for attempt in 0 ..< 20:
+        let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
+        let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+        var nearWater = false
+        for dx in -5 .. 5:
+          for dy in -5 .. 5:
+            let checkX = x + dx
+            let checkY = y + dy
+            if checkX >= 0 and checkX < MapWidth and checkY >= 0 and checkY < MapHeight:
+              if env.terrain[checkX][checkY] == Water:
+                nearWater = true
+                break
+          if nearWater:
+            break
+        if nearWater or attempt > 10:
+          let fieldSize = randIntInclusive(r, 5, 12)
+          placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
+          placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
+          placed = true
+          break
+      if not placed:
+        let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
+        let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+        let fieldSize = randIntInclusive(r, 5, 12)
+        placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
+        placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
+
+    proc placeTreeOasis(centerX, centerY: int) =
+      let groveSize = randIntInclusive(r, 3, 8)
+      let radius = max(1, (groveSize.float / 2.0).int)
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          let gx = centerX + dx
+          let gy = centerY + dy
+          if gx < MapBorder or gx >= MapWidth - MapBorder or gy < MapBorder or gy >= MapHeight - MapBorder:
+            continue
+          let dist = sqrt((dx * dx + dy * dy).float)
+          if dist <= radius.float:
+            let chance = 0.85 - (dist / radius.float) * 0.4
+            if randChance(r, chance) and env.terrain[gx][gy] in TreeGround:
+              addResourceNode(env, ivec2(gx.int32, gy.int32), Tree, ItemWood)
+
+      let oasisW = randIntInclusive(r, 3, 5)
+      let oasisH = randIntInclusive(r, 3, 5)
+      let rx = max(1, oasisW div 2)
+      let ry = max(1, oasisH div 2)
+      for ox in -(rx + 1) .. (rx + 1):
+        for oy in -(ry + 1) .. (ry + 1):
+          let px = centerX + ox
+          let py = centerY + oy
+          if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
+            continue
+          let waterPos = ivec2(px.int32, py.int32)
+          if not env.isEmpty(waterPos) or env.hasDoor(waterPos):
+            continue
+          if env.terrain[px][py] in {Road, Bridge}:
+            continue
+          let dx = ox.float / rx.float
+          let dy = oy.float / ry.float
+          let dist = dx * dx + dy * dy
+          let noise = (randFloat(r) - 0.5) * 0.35
+          if dist <= 1.0 + noise:
+            env.terrain[px][py] = Water
+            env.resetTileColor(waterPos)
+
+      let rivulets = randIntInclusive(r, 1, 2)
+      for _ in 0 ..< rivulets:
+        var pos = ivec2(centerX.int32, centerY.int32)
+        let steps = randIntInclusive(r, 4, 10)
+        for _ in 0 ..< steps:
+          let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
+                               ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
+          pos += dir
+          if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
+             pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
+            break
+          if not env.isEmpty(pos) or env.hasDoor(pos):
+            continue
+          if env.terrain[pos.x][pos.y] in {Road, Bridge}:
+            continue
+          env.terrain[pos.x][pos.y] = Water
+          env.resetTileColor(pos)
+
+      for ox in -(rx + 2) .. (rx + 2):
+        for oy in -(ry + 2) .. (ry + 2):
+          let px = centerX + ox
+          let py = centerY + oy
+          if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
+            continue
+          if env.terrain[px][py] == Water:
+            continue
+          var nearWater = false
+          for dx in -1 .. 1:
+            for dy in -1 .. 1:
+              let nx = px + dx
+              let ny = py + dy
+              if nx < MapBorder or nx >= MapWidth - MapBorder or ny < MapBorder or ny >= MapHeight - MapBorder:
+                continue
+              if env.terrain[nx][ny] == Water:
+                nearWater = true
+                break
+            if nearWater:
+              break
+          if nearWater and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
+            addResourceNode(env, ivec2(px.int32, py.int32), Tree, ItemWood)
+
+    if UseTreeOases:
+      let numGroves = randIntInclusive(r, TreeOasisClusterBase, TreeOasisClusterBase + TreeOasisClusterRange) *
+        TreeOasisClusterScale
+      for _ in 0 ..< numGroves:
+        var placed = false
+        for attempt in 0 ..< 16:
+          let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
+          let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+          var nearWater = false
+          for dx in -5 .. 5:
+            for dy in -5 .. 5:
+              let checkX = x + dx
+              let checkY = y + dy
+              if checkX >= 0 and checkX < MapWidth and checkY >= 0 and checkY < MapHeight:
+                if env.terrain[checkX][checkY] == Water:
+                  nearWater = true
+                  break
+            if nearWater:
+              break
+          if nearWater or attempt > 10:
+            placeTreeOasis(x, y)
+            placed = true
+            break
+        if not placed:
+          let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
+          let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+          placeTreeOasis(x, y)
+
+    if UseLegacyTreeClusters:
+      let numGroves = randIntInclusive(r, TreeGroveClusterBase, TreeGroveClusterBase + TreeGroveClusterRange) *
+        TreeGroveClusterScale
+      for _ in 0 ..< numGroves:
+        let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
+        let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+        let groveSize = randIntInclusive(r, 3, 10)
+        placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
+
+    let rockBase = max(20, MapWidth div 22)
+    let rockClusters = rockBase + rockBase div 2
+    for _ in 0 ..< rockClusters:
+      let x = randIntInclusive(r, MapBorder + 4, MapWidth - MapBorder - 4)
+      let y = randIntInclusive(r, MapBorder + 4, MapHeight - MapBorder - 4)
+      let size = randIntInclusive(r, 5, 10)
+      placeResourceCluster(env, x, y, size, 0.9, 0.3, Stone, ItemStone, ResourceGround, r)
+
+    let goldBase = max(8, MapWidth div 50)
+    let goldClusters = goldBase + goldBase div 2
+    for _ in 0 ..< goldClusters:
+      let x = randIntInclusive(r, MapBorder + 6, MapWidth - MapBorder - 6)
+      let y = randIntInclusive(r, MapBorder + 6, MapHeight - MapBorder - 6)
+      let size = randIntInclusive(r, 4, 6)
+      placeResourceCluster(env, x, y, size, 0.8, 0.4, Gold, ItemGold, ResourceGround, r)
+
+    var depositsPlaced = 0
+    let clusterCount = max(1, min(MapRoomObjectsMineClusters, max(1, MapRoomObjectsMines div 3)))
+    for clusterIndex in 0 ..< clusterCount:
+      let remaining = MapRoomObjectsMines - depositsPlaced
+      if remaining <= 0:
+        break
+      let clustersLeft = clusterCount - clusterIndex
+      let maxCluster = min(7, remaining)
+      let minCluster = min(4, remaining)
+      let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
+      let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
+      let (depositKind, depositItem) = if clusterIndex mod 2 == 0:
+        (Stone, ItemStone)
+      else:
+        (Gold, ItemGold)
+      let center = r.randomEmptyPos(env)
+
+      addResourceNode(env, center, depositKind, depositItem)
+      inc depositsPlaced
+      if depositsPlaced >= MapRoomObjectsMines:
+        break
+
+      var candidates = env.findEmptyPositionsAround(center, 1)
+      if candidates.len < clusterSize - 1:
+        let extra = env.findEmptyPositionsAround(center, 2)
+        for pos in extra:
+          var exists = false
+          for c in candidates:
+            if c == pos:
+              exists = true
+              break
+          if not exists:
+            candidates.add(pos)
+
+      let toPlace = min(clusterSize - 1, candidates.len)
+      for i in 0 ..< toPlace:
+        addResourceNode(env, candidates[i], depositKind, depositItem)
+        inc depositsPlaced
+        if depositsPlaced >= MapRoomObjectsMines:
+          break
+
+    for _ in 0 ..< 30:
+      var attempts = 0
+      var placed = false
+      while attempts < 12 and not placed:
+        inc attempts
+        let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
+        let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+        var nearWater = false
+        for dx in -4 .. 4:
+          for dy in -4 .. 4:
+            let checkX = x + dx
+            let checkY = y + dy
+            if checkX >= 0 and checkX < MapWidth and checkY >= 0 and checkY < MapHeight:
+              if env.terrain[checkX][checkY] == Water:
+                nearWater = true
+                break
+          if nearWater:
+            break
+        if nearWater or attempts >= 10:
+          let size = randIntInclusive(r, 3, 7)
+          placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
+          placed = true
+
+    let cactusClusters = max(10, MapWidth div 20)
+    for _ in 0 ..< cactusClusters:
+      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
+      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+      let size = randIntInclusive(r, 2, 5)
+      placeResourceCluster(env, x, y, size, 0.65, 0.4, Cactus, ItemPlant, ResourceGround, r,
+        allowedBiomes = {BiomeDesertType})
+
+    let stalagmiteClusters = max(10, MapWidth div 30)
+    for _ in 0 ..< stalagmiteClusters:
+      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
+      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+      let size = randIntInclusive(r, 2, 6)
+      placeResourceCluster(env, x, y, size, 0.7, 0.45, Stalagmite, ItemStone, ResourceGround, r,
+        allowedBiomes = {BiomeCavesType})
 
   # Ensure the world is a single connected component after terrain and structures.
   env.makeConnected()

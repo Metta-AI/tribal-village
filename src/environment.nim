@@ -1,9 +1,48 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import terrain, items, common, biome
-import types, registry, balance, errors
+import types, registry, balance
 export terrain, items, common
-export types, registry, balance, errors
+export types, registry, balance
+
+## Error types and FFI error state management.
+type
+  TribalErrorKind* = enum
+    ## Error categories for better diagnostics
+    ErrNone = 0
+    ErrMapFull = 1          ## No empty positions available for placement
+    ErrInvalidPosition = 2  ## Position is out of bounds or invalid
+    ErrResourceNotFound = 3 ## Required resource not found
+    ErrInvalidState = 4     ## Invalid game state encountered
+    ErrFFIError = 5         ## Error in FFI layer
+
+  TribalError* = object of CatchableError
+    ## Base exception type for tribal village errors
+    kind*: TribalErrorKind
+    details*: string
+
+  FFIErrorState* = object
+    ## Thread-local error state for FFI layer
+    hasError*: bool
+    errorCode*: TribalErrorKind
+    errorMessage*: string
+
+var lastFFIError*: FFIErrorState
+
+proc clearFFIError*() =
+  ## Clear the last FFI error state
+  lastFFIError = FFIErrorState(hasError: false, errorCode: ErrNone, errorMessage: "")
+
+proc newTribalError*(kind: TribalErrorKind, message: string): ref TribalError =
+  ## Create a new tribal error with the given kind and message
+  result = new(TribalError)
+  result.kind = kind
+  result.details = message
+  result.msg = $kind & ": " & message
+
+proc raiseMapFullError*() {.noreturn.} =
+  ## Raise an error when the map is too full to place entities
+  raise newTribalError(ErrMapFull, "Failed to find an empty position, map too full!")
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   let p = cast[pointer](s[0].addr)
@@ -418,7 +457,43 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   raiseMapFullError()
 
 include "tint"
-include "build"
+
+proc buildCostsForKey*(key: ItemKey): seq[tuple[res: StockpileResource, count: int]] =
+  var kind: ThingKind
+  if parseThingKey(key, kind) and isBuildingKind(kind):
+    var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+    for input in BuildingRegistry[kind].buildCost:
+      if isStockpileResourceKey(input.key):
+        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+    return costs
+  for recipe in CraftRecipes:
+    for output in recipe.outputs:
+      if output.key != key:
+        continue
+      var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+      for input in recipe.inputs:
+        if not isStockpileResourceKey(input.key):
+          continue
+        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+      return costs
+  @[]
+
+let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
+  var choices: array[ActionArgumentCount, ItemKey]
+  for i in 0 ..< choices.len:
+    choices[i] = ItemNone
+  for kind in ThingKind:
+    if not isBuildingKind(kind):
+      continue
+    if not buildingBuildable(kind):
+      continue
+    let idx = BuildingRegistry[kind].buildIndex
+    if idx >= 0 and idx < choices.len:
+      choices[idx] = thingItem($kind)
+  choices[BuildIndexWall] = thingItem("Wall")
+  choices[BuildIndexRoad] = thingItem("Road")
+  choices[BuildIndexDoor] = thingItem("Door")
+  choices
 
 include "connect"
 include "spawn"

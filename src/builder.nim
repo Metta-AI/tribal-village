@@ -77,14 +77,13 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     if did: return act
 
   # Remote dropoff buildings near resources.
-  let farFromHome = agent.homeAltar.x < 0 or
-    max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10
-  if farFromHome:
-    let nearbyWheat = countNearbyThings(env, agent.pos, 4, {Wheat})
-    let nearbyFertile = countNearbyTerrain(env, agent.pos, 4, {Fertile})
+  if agent.homeAltar.x < 0 or
+      max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
     let (didMill, actMill) = controller.tryBuildNearResource(
       env, agent, agentId, state, teamId, Mill,
-      nearbyWheat + nearbyFertile, 8,
+      countNearbyThings(env, agent.pos, 4, {Wheat}) +
+        countNearbyTerrain(env, agent.pos, 4, {Fertile}),
+      8,
       [Mill, Granary, TownCenter], 5
     )
     if didMill: return actMill
