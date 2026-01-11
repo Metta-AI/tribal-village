@@ -221,10 +221,11 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
     if button.iconKey.len > 0 and button.iconSize.x > 0 and button.iconSize.y > 0:
       let maxIconSize = min(button.rect.w, button.rect.h) * 0.6
       let iconScale = min(1.0'f32, maxIconSize / max(button.iconSize.x.float32, button.iconSize.y.float32))
+      let iconShift = vec2(2.0, 3.0) * iconScale
       let iconPos = vec2(
         button.rect.x + (button.rect.w - button.iconSize.x.float32 * iconScale) * 0.5,
         button.rect.y + (button.rect.h - button.iconSize.y.float32 * iconScale) * 0.5
-      )
+      ) + iconShift
       bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = iconScale)
     else:
       let labelPos = vec2(
