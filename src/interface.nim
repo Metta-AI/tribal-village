@@ -198,6 +198,7 @@ proc tribal_village_render_rgb(
                 of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)
                 of Tree: (r: 34'u8, g: 139'u8, b: 34'u8)
                 of Wheat: (r: 200'u8, g: 180'u8, b: 90'u8)
+                of Stubble: (r: 175'u8, g: 150'u8, b: 70'u8)
                 of Stone: (r: 140'u8, g: 140'u8, b: 140'u8)
                 of Gold: (r: 220'u8, g: 190'u8, b: 80'u8)
                 of Bush: (r: 60'u8, g: 120'u8, b: 60'u8)

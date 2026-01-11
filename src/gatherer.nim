@@ -146,7 +146,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
   of TaskFood:
     let buildGranary = tryBuildCamp(
       Granary,
-      countNearbyThings(env, agent.pos, 4, {Wheat}) +
+      countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
         countNearbyTerrain(env, agent.pos, 4, {Fertile}),
       8,
       [Granary]
@@ -164,7 +164,7 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
 
     if state.closestFoodPos.x >= 0:
       let knownThing = env.getThing(state.closestFoodPos)
-      if isNil(knownThing) or knownThing.kind notin {Wheat, Bush, Cow, Corpse}:
+      if isNil(knownThing) or knownThing.kind notin {Wheat, Stubble, Bush, Cow, Corpse}:
         state.closestFoodPos = ivec2(-1, -1)
       else:
         let verb = (if knownThing.kind == Cow: 2'u8 else: 3'u8)
@@ -172,8 +172,10 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
           return controller.actAt(env, agent, agentId, state, knownThing.pos, verb)
         return controller.moveTo(env, agent, agentId, state, knownThing.pos)
 
-    let wheat = env.findNearestThingSpiral(state, Wheat, controller.rng)
-    if not isNil(wheat):
+    for kind in [Wheat, Stubble]:
+      let wheat = env.findNearestThingSpiral(state, kind, controller.rng)
+      if isNil(wheat):
+        continue
       updateClosestSeen(state, state.basePosition, wheat.pos, state.closestFoodPos)
       if isAdjacent(agent.pos, wheat.pos):
         return controller.useAt(env, agent, agentId, state, wheat.pos)

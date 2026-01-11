@@ -30,7 +30,7 @@ proc makeConnected*(env: Environment) =
       return 1
     let thing = env.getThing(pos)
     if not isNil(thing):
-      if thing.kind in {Wall, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
+      if thing.kind in {Wall, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
         return ConnectWallCost
       return int.high
     let terrain = env.terrain[pos.x][pos.y]
@@ -47,7 +47,7 @@ proc makeConnected*(env: Environment) =
       return
     let thing = env.getThing(pos)
     if not isNil(thing):
-      if thing.kind in {Wall, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
+      if thing.kind in {Wall, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
         removeThing(env, thing)
       else:
         return

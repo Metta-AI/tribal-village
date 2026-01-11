@@ -50,7 +50,7 @@ proc removeThing(env: Environment, thing: Thing) =
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
     return false
-  if thing.kind in {Agent, Tumor, Tree, Wheat, Stone, Gold, Bush, Cactus, Stalagmite,
+  if thing.kind in {Agent, Tumor, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite,
                     Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
     return false
 

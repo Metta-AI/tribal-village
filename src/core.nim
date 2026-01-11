@@ -939,8 +939,10 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
 
 proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
-  let target = env.findNearestThingSpiral(state, Wheat, controller.rng)
-  if not isNil(target):
+  for kind in [Wheat, Stubble]:
+    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    if isNil(target):
+      continue
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))

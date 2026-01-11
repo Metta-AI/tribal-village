@@ -413,10 +413,13 @@ proc drawObjects*() =
       bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Wheat):
-    var spriteKey = thingSpriteKey(thing.kind)
-    let remaining = getInv(thing, ItemWheat)
-    if remaining > 0 and remaining < ResourceNodeInitial:
-      spriteKey = "wheat_half"
+    let spriteKey = thingSpriteKey(thing.kind)
+    bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
+    if isTileFrozen(pos, env):
+      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+
+  drawThings(Stubble):
+    let spriteKey = thingSpriteKey(thing.kind)
     bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
     if isTileFrozen(pos, env):
       bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
@@ -519,7 +522,7 @@ proc drawObjects*() =
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.5, 0.5, 0.5, 1.0))
 
   for kind in ThingKind:
-    if kind in {Wall, Tree, Wheat, Agent, Altar, Tumor, Cow, Lantern}:
+    if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Lantern}:
       continue
     if isBuildingKind(kind):
       for thing in env.thingsByKind[kind]:
@@ -681,7 +684,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
   proc appendResourceCount(label: var string, thing: Thing) =
     var count = 0
     case thing.kind
-    of Wheat:
+    of Wheat, Stubble:
       count = getInv(thing, ItemWheat)
     of Tree, Stump:
       count = getInv(thing, ItemWood)

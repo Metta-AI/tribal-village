@@ -394,9 +394,11 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
         case thing.kind:
         of Wheat:
-          if env.giveItem(agent, ItemWheat):
-            let remaining = getInv(thing, ItemWheat) - 1
+          used = env.harvestWheat(agent, thing)
+        of Stubble:
+          if env.grantWheat(agent):
             agent.reward += env.config.wheatReward
+            let remaining = getInv(thing, ItemWheat) - 1
             if remaining <= 0:
               removeThing(env, thing)
             else:

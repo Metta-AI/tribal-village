@@ -34,7 +34,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
     let (didMill, actMill) = controller.tryBuildNearResource(
       env, agent, agentId, state, teamId, Mill,
-      countNearbyThings(env, agent.pos, 4, {Wheat}) +
+      countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
         countNearbyTerrain(env, agent.pos, 4, {Fertile}),
       8,
       [Mill, Granary, TownCenter], 5
