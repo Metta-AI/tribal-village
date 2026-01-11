@@ -1,6 +1,6 @@
 import
   boxy, vmath, windy, tables,
-  std/[algorithm, math, strutils],
+  std/[algorithm, math, os, strutils],
   common, environment
 
 # Infection system constants
@@ -20,6 +20,7 @@ var
   stepLabelSize = ivec2(0, 0)
   footerLabelImages: Table[string, string] = initTable[string, string]()
   footerLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
+  footerIconSizes: Table[string, IVec2] = initTable[string, IVec2]()
 
 type FloorSpriteKind = enum
   FloorBase
@@ -110,7 +111,8 @@ type FooterButtonKind* = enum
 type FooterButton* = object
   kind*: FooterButtonKind
   rect*: Rect
-  label*: string
+  iconKey*: string
+  iconSize*: IVec2
   labelKey*: string
   labelSize*: IVec2
   active*: bool
@@ -133,14 +135,29 @@ proc ensureFooterLabel(text: string): tuple[key: string, size: IVec2] =
   footerLabelSizes[text] = ivec2(labelWidth, labelHeight)
   result = (key, footerLabelSizes[text])
 
+proc ensureFooterIcon(iconKey: string): IVec2 =
+  if iconKey.len == 0:
+    return ivec2(0, 0)
+  if iconKey in footerIconSizes:
+    return footerIconSizes[iconKey]
+  let path = "data/" & iconKey & ".png"
+  if not fileExists(path):
+    footerIconSizes[iconKey] = ivec2(0, 0)
+    return footerIconSizes[iconKey]
+  let image = readImage(path)
+  footerIconSizes[iconKey] = ivec2(image.width, image.height)
+  result = footerIconSizes[iconKey]
+
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   let footerY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let buttonHeight = FooterHeight.float32 - FooterPadding * 2.0
-  let playLabel = if play: "||" else: ">"
-  let labels = [playLabel, "|>", "Slow", "Fast", "Super"]
+  let playIcon = if play: "ui/pause" else: "ui/play"
+  let iconKeys = [playIcon, "ui/stepForward", "ui/turtle", "ui/speed", "ui/rabbit"]
+  let labels = ["Pause", "Step", "Slow", "Fast", "Super"]
   var buttonWidths: array[labels.len, float32]
   var labelKeys: array[labels.len, string]
   var labelSizes: array[labels.len, IVec2]
+  var iconSizes: array[labels.len, IVec2]
   var totalWidth = 0.0'f32
   for i, label in labels:
     let (key, size) = ensureFooterLabel(label)
@@ -148,6 +165,7 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
     labelSizes[i] = size
     let width = size.x.float32 + FooterButtonPaddingX * 2.0
     buttonWidths[i] = width
+    iconSizes[i] = ensureFooterIcon(iconKeys[i])
     totalWidth += width
     if i < labels.len - 1:
       totalWidth += FooterButtonGap
@@ -178,7 +196,8 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
     result.add(FooterButton(
       kind: kind,
       rect: rect,
-      label: label,
+      iconKey: iconKeys[i],
+      iconSize: iconSizes[i],
       labelKey: labelKeys[i],
       labelSize: labelSizes[i],
       active: active
@@ -200,11 +219,20 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
     let baseColor = if button.active: color(0.2, 0.5, 0.7, 0.95) else: color(0.2, 0.24, 0.28, 0.9)
     let drawColor = if hovered: color(baseColor.r + 0.08, baseColor.g + 0.08, baseColor.b + 0.08, baseColor.a) else: baseColor
     bxy.drawRect(rect = button.rect, color = drawColor)
-    let labelPos = vec2(
-      button.rect.x + (button.rect.w - button.labelSize.x.float32) * 0.5,
-      button.rect.y + (button.rect.h - button.labelSize.y.float32) * 0.5
-    )
-    bxy.drawImage(button.labelKey, labelPos, angle = 0, scale = 1)
+    if button.iconKey.len > 0 and button.iconSize.x > 0 and button.iconSize.y > 0:
+      let maxIconSize = min(button.rect.w, button.rect.h) * 0.6
+      let iconScale = min(1.0'f32, maxIconSize / max(button.iconSize.x.float32, button.iconSize.y.float32))
+      let iconPos = vec2(
+        button.rect.x + (button.rect.w - button.iconSize.x.float32 * iconScale) * 0.5,
+        button.rect.y + (button.rect.h - button.iconSize.y.float32 * iconScale) * 0.5
+      )
+      bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = iconScale)
+    else:
+      let labelPos = vec2(
+        button.rect.x + (button.rect.w - button.labelSize.x.float32) * 0.5,
+        button.rect.y + (button.rect.h - button.labelSize.y.float32) * 0.5
+      )
+      bxy.drawImage(button.labelKey, labelPos, angle = 0, scale = 1)
 
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
@@ -311,9 +339,9 @@ let wallSprites = block:
     if (i and 1) != 0: suffix.add("e")
 
     if suffix.len > 0:
-      sprites[i] = "wall." & suffix
+      sprites[i] = "oriented/wall." & suffix
     else:
-      sprites[i] = "wall"
+      sprites[i] = "oriented/wall"
   sprites
 
 type WallTile = enum
@@ -357,8 +385,8 @@ proc drawWalls*() =
         bxy.drawImage(wallSpriteKey, vec2(x.float32, y.float32),
                      angle = 0, scale = spriteScale(wallSpriteKey), tint = wallTint)
 
+  let fillSpriteKey = "oriented/wall.fill"
   for fillPos in wallFills:
-    let fillSpriteKey = "wall.fill"
     bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
                   angle = 0, scale = spriteScale(fillSpriteKey), tint = wallTint)
 
@@ -410,10 +438,10 @@ proc drawObjects*() =
     let agent = thing
     let roleKey =
       case agent.agentId mod MapAgentsPerVillage
-      of 0, 1: "gatherer"
-      of 2, 3: "builder"
-      of 4, 5: "fighter"
-      else: "gatherer"
+      of 0, 1: "oriented/gatherer"
+      of 2, 3: "oriented/builder"
+      of 4, 5: "oriented/fighter"
+      else: "oriented/gatherer"
     let dirKey = case agent.orientation:
       of N: "n"
       of S: "s"
@@ -478,9 +506,9 @@ proc drawObjects*() =
       of E, NE, SE: "e"
       of W, NW, SW: "w"
     let spritePrefix = if thing.hasClaimedTerritory:
-      "tumor."
+      "oriented/tumor."
     else:
-      "tumor.color."
+      "oriented/tumor.color."
     let baseImage = spritePrefix & spriteDir
     bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = spriteScale(baseImage))
 
