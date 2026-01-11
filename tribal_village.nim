@@ -208,10 +208,19 @@ proc display() =
     w: panelRect.w / scaleVal,
     h: panelRect.h / scaleVal
   )
+  let footerHeightLogical = FooterHeight.float32 / scaleVal
+  let footerRectLogical = Rect(
+    x: logicalRect.x,
+    y: logicalRect.y + logicalRect.h - footerHeightLogical,
+    w: logicalRect.w,
+    h: footerHeightLogical
+  )
 
   let mousePos = logicalMousePos(window)
   let insideRect = mousePos.x >= logicalRect.x and mousePos.x <= logicalRect.x + logicalRect.w and
-    mousePos.y >= logicalRect.y and mousePos.y <= logicalRect.y + logicalRect.h
+    mousePos.y >= logicalRect.y and mousePos.y <= logicalRect.y + logicalRect.h and
+    not (mousePos.x >= footerRectLogical.x and mousePos.x <= footerRectLogical.x + footerRectLogical.w and
+      mousePos.y >= footerRectLogical.y and mousePos.y <= footerRectLogical.y + footerRectLogical.h)
 
   worldMapPanel.hasMouse = worldMapPanel.visible and ((not mouseCaptured and insideRect) or
     (mouseCaptured and mouseCapturedPanel == worldMapPanel))
@@ -288,7 +297,54 @@ proc display() =
   let zoomScaled = worldMapPanel.zoom * worldMapPanel.zoom * scaleF
   bxy.scale(vec2(zoomScaled, zoomScaled))
 
-  useSelections()
+  let footerRect = Rect(
+    x: panelRect.x,
+    y: panelRect.y + panelRect.h - FooterHeight.float32,
+    w: panelRect.w,
+    h: FooterHeight.float32
+  )
+  let mousePosPx = window.mousePos.vec2
+  var blockSelection = uiMouseCaptured
+  var clearUiCapture = false
+  if window.buttonPressed[MouseLeft] and
+      mousePosPx.x >= footerRect.x and mousePosPx.x <= footerRect.x + footerRect.w and
+      mousePosPx.y >= footerRect.y and mousePosPx.y <= footerRect.y + footerRect.h:
+    uiMouseCaptured = true
+    blockSelection = true
+  if uiMouseCaptured and window.buttonReleased[MouseLeft]:
+    let buttons = buildFooterButtons(panelRectInt)
+    for button in buttons:
+      if mousePosPx.x >= button.rect.x and mousePosPx.x <= button.rect.x + button.rect.w and
+          mousePosPx.y >= button.rect.y and mousePosPx.y <= button.rect.y + button.rect.h:
+        case button.kind
+        of FooterPlayPause:
+          if play:
+            play = false
+          else:
+            play = true
+            lastSimTime = nowSeconds()
+        of FooterStep:
+          play = false
+          lastSimTime = nowSeconds()
+          actionsArray = getActions(env)
+          env.step(addr actionsArray)
+        of FooterSlow:
+          playSpeed = SlowPlaySpeed
+          play = true
+          lastSimTime = nowSeconds()
+        of FooterFast:
+          playSpeed = FastPlaySpeed
+          play = true
+          lastSimTime = nowSeconds()
+        of FooterSuper:
+          playSpeed = SuperPlaySpeed
+          play = true
+          lastSimTime = nowSeconds()
+        break
+    clearUiCapture = true
+    blockSelection = true
+
+  useSelections(blockSelection)
 
   if selection != nil and selection.kind == Agent:
     let agent = selection
@@ -412,6 +468,10 @@ proc display() =
   bxy.restoreTransform()
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
+  let footerButtons = buildFooterButtons(panelRectInt)
+  drawFooter(panelRectInt, footerButtons)
+  if clearUiCapture:
+    uiMouseCaptured = false
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()
