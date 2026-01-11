@@ -59,59 +59,6 @@ var logRenderBuffer: seq[string] = @[]
 var logRenderHead = 0
 var logRenderCount = 0
 
-proc logRenderActionName(verb: int): string =
-  case verb:
-  of 0: "noop"
-  of 1: "move"
-  of 2: "attack"
-  of 3: "use"
-  of 4: "swap"
-  of 5: "put"
-  of 6: "plant_lantern"
-  of 7: "plant_resource"
-  of 8: "build"
-  of 9: "orient"
-  else: "unknown"
-
-proc logRenderDirName(arg: int): string =
-  case arg:
-  of 0: "N"
-  of 1: "S"
-  of 2: "W"
-  of 3: "E"
-  of 4: "NW"
-  of 5: "NE"
-  of 6: "SW"
-  of 7: "SE"
-  else: $arg
-
-proc logRenderRoleName(agentId: int): string =
-  case agentId mod MapAgentsPerVillage:
-  of 0, 1: "gatherer"
-  of 2, 3: "builder"
-  of 4, 5: "fighter"
-  else: "gatherer"
-
-proc pushLogRenderEntry(entry: string) =
-  if logRenderBuffer.len < logRenderWindow:
-    logRenderBuffer.add(entry)
-    logRenderCount = logRenderBuffer.len
-    return
-  logRenderBuffer[logRenderHead] = entry
-  logRenderHead = (logRenderHead + 1) mod logRenderWindow
-  logRenderCount = logRenderWindow
-
-proc dumpLogRenderBuffer() =
-  if logRenderCount == 0:
-    return
-  var output = newStringOfCap(logRenderCount * 512)
-  output.add("=== tribal-village log window (" & $logRenderCount & " steps) ===\n")
-  for i in 0 ..< logRenderCount:
-    let idx = (logRenderHead + i) mod logRenderCount
-    output.add(logRenderBuffer[idx])
-    output.add("\n")
-  writeFile(logRenderPath, output)
-
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -1595,18 +1542,59 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       entry.add(
         "  a" & $id &
         " t" & $getTeamId(agent.agentId) &
-        " " & logRenderRoleName(agent.agentId) &
+        " " & (case agent.agentId mod MapAgentsPerVillage:
+          of 0, 1: "gatherer"
+          of 2, 3: "builder"
+          of 4, 5: "fighter"
+          else: "gatherer") &
         " pos=(" & $agent.pos.x & "," & $agent.pos.y & ")" &
         " ori=" & $agent.orientation &
-        " act=" & logRenderActionName(verb) & ":" &
-        (if verb in [1, 2, 3, 9]: logRenderDirName(arg) else: $arg) &
+        " act=" & (case verb:
+          of 0: "noop"
+          of 1: "move"
+          of 2: "attack"
+          of 3: "use"
+          of 4: "swap"
+          of 5: "put"
+          of 6: "plant_lantern"
+          of 7: "plant_resource"
+          of 8: "build"
+          of 9: "orient"
+          else: "unknown") & ":" &
+        (if verb in [1, 2, 3, 9]:
+          (case arg:
+            of 0: "N"
+            of 1: "S"
+            of 2: "W"
+            of 3: "E"
+            of 4: "NW"
+            of 5: "NE"
+            of 6: "SW"
+            of 7: "SE"
+            else: $arg)
+        else:
+          $arg) &
         " hp=" & $agent.hp & "/" & $agent.maxHp &
         " inv=" & invSummary & "\n"
       )
     entry.add("Map:\n")
     entry.add(env.render())
-    pushLogRenderEntry(entry)
-    dumpLogRenderBuffer()
+    if logRenderBuffer.len < logRenderWindow:
+      logRenderBuffer.add(entry)
+      logRenderCount = logRenderBuffer.len
+    else:
+      logRenderBuffer[logRenderHead] = entry
+      logRenderHead = (logRenderHead + 1) mod logRenderWindow
+      logRenderCount = logRenderWindow
+
+    if logRenderCount > 0:
+      var output = newStringOfCap(logRenderCount * 512)
+      output.add("=== tribal-village log window (" & $logRenderCount & " steps) ===\n")
+      for i in 0 ..< logRenderCount:
+        let idx = (logRenderHead + i) mod logRenderCount
+        output.add(logRenderBuffer[idx])
+        output.add("\n")
+      writeFile(logRenderPath, output)
 
 proc reset*(env: Environment) =
   env.currentStep = 0
