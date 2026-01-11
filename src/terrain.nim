@@ -88,15 +88,16 @@ const
   UseSequentialDungeonZones* = true
   UseLegacyTreeClusters* = true
   UseTreeOases* = true
-  WheatFieldClusterBase* = 14
-  WheatFieldClusterRange* = 6
-  WheatFieldClusterScale* = 7
-  TreeGroveClusterBase* = 14
-  TreeGroveClusterRange* = 6
-  TreeGroveClusterScale* = 7
-  TreeOasisClusterBase* = 6
-  TreeOasisClusterRange* = 4
-  TreeOasisClusterScale* = 3
+  WheatFieldClusterCountMin* = 98
+  WheatFieldClusterCountMax* = 140
+  WheatFieldSizeMin* = 3
+  WheatFieldSizeMax* = 6
+  TreeGroveClusterCountMin* = 98
+  TreeGroveClusterCountMax* = 140
+  TreeOasisClusterCountMin* = 18
+  TreeOasisClusterCountMax* = 30
+  TreeOasisWaterRadiusMin* = 1
+  TreeOasisWaterRadiusMax* = 2
   # Slightly lower biome/dungeon density for less crowded maps.
   BiomeZoneDivisor* = 5000
   DungeonZoneDivisor* = 7800

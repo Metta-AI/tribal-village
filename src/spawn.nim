@@ -367,7 +367,7 @@ proc init(env: Environment) =
         if placed: break
 
   proc placeStartingHouses(center: IVec2, teamId: int, r: var Rand) =
-    let count = 4 + randIntInclusive(r, 0, 1)
+    let count = randIntInclusive(r, 4, 5)
     var placed = 0
     var attempts = 0
     while placed < count and attempts < 120:
@@ -828,8 +828,7 @@ proc init(env: Environment) =
   # Spawn resource nodes (trees, wheat, ore, plants) as Things.
   block:
     # Wheat fields.
-    for _ in 0 ..< randIntInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
-      WheatFieldClusterScale:
+    for _ in 0 ..< randIntInclusive(r, WheatFieldClusterCountMin, WheatFieldClusterCountMax):
       var placed = false
       for attempt in 0 ..< 20:
         let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
@@ -846,7 +845,7 @@ proc init(env: Environment) =
           if nearWater:
             break
         if nearWater or attempt > 10:
-          let fieldSize = max(2, randIntInclusive(r, 5, 12) div 2)
+          let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
           placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
           placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
           placed = true
@@ -854,13 +853,13 @@ proc init(env: Environment) =
       if not placed:
         let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
         let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
-        let fieldSize = max(2, randIntInclusive(r, 5, 12) div 2)
+        let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
         placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
         placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
 
     proc placeTreeOasis(centerX, centerY: int) =
-      let rx = max(1, randIntInclusive(r, 3, 5) div 2)
-      let ry = max(1, randIntInclusive(r, 3, 5) div 2)
+      let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+      let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       template canPlaceWater(pos: IVec2): bool =
         env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
           env.terrain[pos.x][pos.y] notin {Road, Bridge}
@@ -918,8 +917,7 @@ proc init(env: Environment) =
             addResourceNode(env, ivec2(px.int32, py.int32), Tree, ItemWood)
 
     if UseTreeOases:
-      let numGroves = randIntInclusive(r, TreeOasisClusterBase, TreeOasisClusterBase + TreeOasisClusterRange) *
-        TreeOasisClusterScale
+      let numGroves = randIntInclusive(r, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
       for _ in 0 ..< numGroves:
         var placed = false
         for attempt in 0 ..< 16:
@@ -946,68 +944,61 @@ proc init(env: Environment) =
           placeTreeOasis(x, y)
 
     if UseLegacyTreeClusters:
-      let numGroves = randIntInclusive(r, TreeGroveClusterBase, TreeGroveClusterBase + TreeGroveClusterRange) *
-        TreeGroveClusterScale
+      let numGroves = randIntInclusive(r, TreeGroveClusterCountMin, TreeGroveClusterCountMax)
       for _ in 0 ..< numGroves:
         let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
         let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
         let groveSize = randIntInclusive(r, 3, 10)
         placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
 
-    let rockBase = max(20, MapWidth div 22)
-    for _ in 0 ..< rockBase + rockBase div 2:
-      let x = randIntInclusive(r, MapBorder + 4, MapWidth - MapBorder - 4)
-      let y = randIntInclusive(r, MapBorder + 4, MapHeight - MapBorder - 4)
-      let size = randIntInclusive(r, 5, 10)
-      placeResourceCluster(env, x, y, size, 0.9, 0.3, Stone, ItemStone, ResourceGround, r)
-
-    let goldBase = max(8, MapWidth div 50)
-    for _ in 0 ..< goldBase + goldBase div 2:
-      let x = randIntInclusive(r, MapBorder + 6, MapWidth - MapBorder - 6)
-      let y = randIntInclusive(r, MapBorder + 6, MapHeight - MapBorder - 6)
-      let size = randIntInclusive(r, 4, 6)
-      placeResourceCluster(env, x, y, size, 0.8, 0.4, Gold, ItemGold, ResourceGround, r)
-
     var depositsPlaced = 0
-    let clusterCount = max(1, min(MapRoomObjectsMineClusters, max(1, MapRoomObjectsMines div 3)))
-    for clusterIndex in 0 ..< clusterCount:
-      let remaining = MapRoomObjectsMines - depositsPlaced
-      if remaining <= 0:
-        break
-      let clustersLeft = clusterCount - clusterIndex
-      let maxCluster = min(7, remaining)
-      let minCluster = min(4, remaining)
-      let baseSize = max(minCluster, min(maxCluster, remaining div clustersLeft))
-      let clusterSize = max(minCluster, min(maxCluster, baseSize + randIntInclusive(r, -1, 1)))
-      let (depositKind, depositItem) = if clusterIndex mod 2 == 0:
-        (Stone, ItemStone)
+    if MapRoomObjectsMines > 0:
+      let minCluster = 3
+      let maxCluster = 4
+      var clusterCount = 1
+      var clusterSizes: seq[int] = @[]
+      if MapRoomObjectsMines < minCluster:
+        clusterSizes.add(MapRoomObjectsMines)
       else:
-        (Gold, ItemGold)
-      let center = r.randomEmptyPos(env)
+        let minClusters = max(1, (MapRoomObjectsMines + maxCluster - 1) div maxCluster)
+        let maxClusters = max(1, MapRoomObjectsMines div minCluster)
+        clusterCount = max(minClusters, min(maxClusters, MapRoomObjectsMineClusters))
+        clusterSizes.setLen(clusterCount)
+        for i in 0 ..< clusterCount:
+          clusterSizes[i] = minCluster
+        var extras = MapRoomObjectsMines - clusterCount * minCluster
+        while extras > 0:
+          let idx = randIntInclusive(r, 0, clusterCount - 1)
+          if clusterSizes[idx] < maxCluster:
+            inc clusterSizes[idx]
+            dec extras
+      for clusterIndex in 0 ..< clusterSizes.len:
+        let clusterSize = clusterSizes[clusterIndex]
+        let (depositKind, depositItem) = if clusterIndex mod 2 == 0:
+          (Stone, ItemStone)
+        else:
+          (Gold, ItemGold)
+        let center = r.randomEmptyPos(env)
 
-      addResourceNode(env, center, depositKind, depositItem)
-      inc depositsPlaced
-      if depositsPlaced >= MapRoomObjectsMines:
-        break
-
-      var candidates = env.findEmptyPositionsAround(center, 1)
-      if candidates.len < clusterSize - 1:
-        let extra = env.findEmptyPositionsAround(center, 2)
-        for pos in extra:
-          var exists = false
-          for c in candidates:
-            if c == pos:
-              exists = true
-              break
-          if not exists:
-            candidates.add(pos)
-
-      let toPlace = min(clusterSize - 1, candidates.len)
-      for i in 0 ..< toPlace:
-        addResourceNode(env, candidates[i], depositKind, depositItem)
+        addResourceNode(env, center, depositKind, depositItem, MineDepositAmount)
         inc depositsPlaced
-        if depositsPlaced >= MapRoomObjectsMines:
-          break
+
+        var candidates = env.findEmptyPositionsAround(center, 1)
+        if candidates.len < clusterSize - 1:
+          let extra = env.findEmptyPositionsAround(center, 2)
+          for pos in extra:
+            var exists = false
+            for c in candidates:
+              if c == pos:
+                exists = true
+                break
+            if not exists:
+              candidates.add(pos)
+
+        let toPlace = min(clusterSize - 1, candidates.len)
+        for i in 0 ..< toPlace:
+          addResourceNode(env, candidates[i], depositKind, depositItem, MineDepositAmount)
+          inc depositsPlaced
 
     for _ in 0 ..< 30:
       var attempts = 0
