@@ -994,8 +994,8 @@ proc init(env: Environment) =
         for i in 0 ..< toPlace:
           addResourceNode(env, candidates[i], depositKind, depositItem, MineDepositAmount)
 
-    placeMineClusters(Stone, ItemStone, MapRoomObjectsStoneMines, MapRoomObjectsStoneMineClusters)
-    placeMineClusters(Gold, ItemGold, MapRoomObjectsGoldMines, MapRoomObjectsGoldMineClusters)
+    placeMineClusters(Stone, ItemStone, MapRoomObjectsStoneClusters, MapRoomObjectsStoneClusterCount)
+    placeMineClusters(Gold, ItemGold, MapRoomObjectsGoldClusters, MapRoomObjectsGoldClusterCount)
 
     for _ in 0 ..< 30:
       var attempts = 0
