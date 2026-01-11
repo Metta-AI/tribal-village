@@ -468,28 +468,6 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
     return true
   return occupant.kind == Lantern
 
-proc isStuckRecent(state: AgentState, window: int, maxUnique: int): bool =
-  if state.recentPosCount < window:
-    return false
-  var uniqueCount = 0
-  var unique: array[4, IVec2]
-  let historyLen = state.recentPositions.len
-  for i in 0 ..< window:
-    let idx = (state.recentPosIndex - 1 - i + historyLen * historyLen) mod historyLen
-    let p = state.recentPositions[idx]
-    var seen = false
-    for j in 0 ..< uniqueCount:
-      if unique[j] == p:
-        seen = true
-        break
-    if not seen:
-      if uniqueCount < unique.len:
-        unique[uniqueCount] = p
-        inc uniqueCount
-      if uniqueCount > maxUnique:
-        return false
-  return true
-
 proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): bool =
   ## Directional passability check that mirrors move logic (lantern pushing rules).
   if not isValidPos(toPos):
@@ -752,8 +730,26 @@ proc actAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
 
 proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =
-  let stuck = isStuckRecent(state, 6, 2)
-  let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
+  var stuck = false
+  if state.recentPosCount >= 6:
+    var uniqueCount = 0
+    var unique: array[4, IVec2]
+    let historyLen = state.recentPositions.len
+    for i in 0 ..< 6:
+      let idx = (state.recentPosIndex - 1 - i + historyLen * historyLen) mod historyLen
+      let p = state.recentPositions[idx]
+      var seen = false
+      for j in 0 ..< uniqueCount:
+        if unique[j] == p:
+          seen = true
+          break
+      if not seen:
+        if uniqueCount < unique.len:
+          unique[uniqueCount] = p
+          inc uniqueCount
+        if uniqueCount > 2:
+          break
+    stuck = uniqueCount <= 2
   if stuck:
     state.pathBlockedTarget = ivec2(-1, -1)
     state.plannedPath.setLen(0)
@@ -789,9 +785,11 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
         state.pathBlockedTarget = targetPos
     else:
       state.plannedPath.setLen(0)
-  var dirIdx = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, avoidDir)
-  let nextPos = agent.pos + Directions8[dirIdx]
-  if state.role == Builder and state.lastPosition == nextPos:
+  var dirIdx = getMoveTowards(
+    env, agent, agent.pos, targetPos, controller.rng,
+    (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
+  )
+  if state.role == Builder and state.lastPosition == agent.pos + Directions8[dirIdx]:
     let altDir = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, dirIdx)
     if altDir != dirIdx:
       dirIdx = altDir
@@ -859,20 +857,6 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
         bestDist = dist
         result = thing
 
-proc dropoffResourceIfCarrying*(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState,
-                                res: StockpileResource, amount: int): tuple[did: bool, action: uint8] =
-  ## Drop off a single resource type if carrying any
-  if amount <= 0:
-    return (false, 0'u8)
-  let teamId = getTeamId(agent.agentId)
-  let dropoff = findDropoffBuilding(env, state, teamId, res, controller.rng)
-  if not isNil(dropoff):
-    if isAdjacent(agent.pos, dropoff.pos):
-      return (true, controller.useAt(env, agent, agentId, state, dropoff.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, dropoff.pos))
-  (false, 0'u8)
-
 proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState,
                       allowFood: bool = false,
@@ -881,6 +865,7 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       allowGold: bool = false): tuple[did: bool, action: uint8] =
   ## Unified dropoff function - attempts to drop off resources in priority order
   ## Priority: food -> wood -> gold -> stone
+  let teamId = getTeamId(agent.agentId)
 
   # Food dropoff - requires checking inventory for any food items
   if allowFood:
@@ -890,7 +875,6 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
         hasFood = true
         break
     if hasFood:
-      let teamId = getTeamId(agent.agentId)
       let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
       if not isNil(dropoff):
         if isAdjacent(agent.pos, dropoff.pos):
@@ -903,21 +887,15 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
     (res: ResourceGold, amount: agent.inventoryGold, allowed: allowGold),
     (res: ResourceStone, amount: agent.inventoryStone, allowed: allowStone)
   ]:
-    if not entry.allowed:
+    if not entry.allowed or entry.amount <= 0:
       continue
-    let (did, act) = dropoffResourceIfCarrying(
-      controller, env, agent, agentId, state, entry.res, entry.amount
-    )
-    if did: return (true, act)
+    let dropoff = findDropoffBuilding(env, state, teamId, entry.res, controller.rng)
+    if not isNil(dropoff):
+      if isAdjacent(agent.pos, dropoff.pos):
+        return (true, controller.useAt(env, agent, agentId, state, dropoff.pos))
+      return (true, controller.moveTo(env, agent, agentId, state, dropoff.pos))
 
   (false, 0'u8)
-
-proc dropoffGathererCarrying*(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState,
-                              allowGold: bool): tuple[did: bool, action: uint8] =
-  ## Convenience wrapper for gatherers - drops food, wood, stone, and optionally gold
-  dropoffCarrying(controller, env, agent, agentId, state,
-                  allowFood = true, allowWood = true, allowStone = true, allowGold = allowGold)
 
 proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
