@@ -122,9 +122,8 @@ proc init(env: Environment) =
       count = max(count, dungeonKinds.len)
     var dungeonWalls: MaskGrid
     dungeonWalls.clearMask(MapWidth, MapHeight)
-    let zones = evenlyDistributedZones(r, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction)
     var seqIdx = randIntInclusive(r, 0, dungeonKinds.len - 1)
-    for zone in zones:
+    for zone in evenlyDistributedZones(r, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction):
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
       let x1 = min(MapWidth - MapBorder, zone.x + zone.w)
@@ -154,12 +153,10 @@ proc init(env: Environment) =
           )
       var mask: MaskGrid
       let dungeonKind = if UseSequentialDungeonZones:
-        let selected = dungeonKinds[seqIdx mod dungeonKinds.len]
         inc seqIdx
-        selected
+        dungeonKinds[(seqIdx - 1) mod dungeonKinds.len]
       else:
-        let roll = randFloat(r) * 1.6
-        if roll <= 1.0:
+        if randFloat(r) * 1.6 <= 1.0:
           DungeonMaze
         else:
           DungeonRadial
@@ -173,11 +170,10 @@ proc init(env: Environment) =
         for y in y0 ..< y1:
           if not zoneMask[x][y]:
             continue
-          let shouldWall = if dungeonKind == DungeonRadial:
-            not mask[x][y]  # radial mask encodes corridors; invert for walls
-          else:
-            mask[x][y]
-          if shouldWall and not isBlockedTerrain(env.terrain[x][y]):
+          if (if dungeonKind == DungeonRadial:
+                not mask[x][y]  # radial mask encodes corridors; invert for walls
+              else:
+                mask[x][y]) and not isBlockedTerrain(env.terrain[x][y]):
             dungeonWalls[x][y] = true
 
     # Soften dungeon edges so they blend into surrounding biomes.
@@ -224,12 +220,6 @@ proc init(env: Environment) =
   var totalAgentsSpawned = 0
   var villageCenters: seq[IVec2] = @[]
   proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
-    let reserved = [
-      center + ivec2(2, -2),
-      center + ivec2(2, 2),
-      center + ivec2(-2, 2),
-      center + ivec2(-2, -2)
-    ]
     var candidates: seq[IVec2] = @[]
     for dx in -3 .. 3:
       for dy in -3 .. 3:
@@ -239,7 +229,8 @@ proc init(env: Environment) =
         if dist < 1 or dist > 3:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if pos in reserved:
+        if pos == center + ivec2(2, -2) or pos == center + ivec2(2, 2) or
+            pos == center + ivec2(-2, 2) or pos == center + ivec2(-2, -2):
           continue
         candidates.add(pos)
     for i in countdown(candidates.len - 1, 1):
@@ -260,8 +251,7 @@ proc init(env: Environment) =
         continue
       if not env.isEmpty(pos):
         continue
-      let tc = Thing(kind: TownCenter, pos: pos, teamId: teamId)
-      env.add(tc)
+      env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
       return pos
     # Fallback: place directly east if possible.
     let fallback = center + ivec2(1, 0)
@@ -292,12 +282,11 @@ proc init(env: Environment) =
         env.terrain[pos.x][pos.y] = Road
         env.resetTileColor(pos)
 
-    let connectKinds = {TownCenter, House, Granary, LumberCamp, Quarry, MiningCamp, Mill}
     var anchors: seq[IVec2] = @[center]
     for thing in env.things:
       if thing.teamId != teamId:
         continue
-      if thing.kind notin connectKinds:
+      if thing.kind notin {TownCenter, House, Granary, LumberCamp, Quarry, MiningCamp, Mill}:
         continue
       let dist = max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y))
       if dist <= 7:
@@ -326,31 +315,27 @@ proc init(env: Environment) =
       if dy > maxSouth: maxSouth = dy
       if dy < 0 and -dy > maxNorth: maxNorth = -dy
 
-    let dirs = [(ivec2(1, 0), maxEast), (ivec2(-1, 0), maxWest),
-                (ivec2(0, 1), maxSouth), (ivec2(0, -1), maxNorth)]
-    for (dir, baseDist) in dirs:
+    for (dir, baseDist) in [(ivec2(1, 0), maxEast), (ivec2(-1, 0), maxWest),
+                            (ivec2(0, 1), maxSouth), (ivec2(0, -1), maxNorth)]:
       let extra = randIntInclusive(r, 3, 4)
-      let total = baseDist + extra
-      for step in 1 .. total:
+      for step in 1 .. baseDist + extra:
         let pos = center + ivec2(dir.x.int32 * step.int32, dir.y.int32 * step.int32)
         placeRoad(pos)
 
   proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
-    let placements = [
+    for entry in [
       (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),   # Lumber Camp
       (offset: ivec2(2, 2), kind: Granary, res: ResourceFood),       # Granary
       (offset: ivec2(-2, 2), kind: Quarry, res: ResourceStone),      # Quarry
       (offset: ivec2(-2, -2), kind: MiningCamp, res: ResourceGold)   # Mining Camp
-    ]
-    for entry in placements:
+    ]:
       var placed = false
-      let basePos = center + entry.offset
       for radius in 0 .. 2:
         for dx in -radius .. radius:
           for dy in -radius .. radius:
             if radius > 0 and max(abs(dx), abs(dy)) != radius:
               continue
-            let pos = basePos + ivec2(dx.int32, dy.int32)
+            let pos = center + entry.offset + ivec2(dx.int32, dy.int32)
             if not isValidPos(pos):
               continue
             if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
@@ -490,7 +475,6 @@ proc init(env: Environment) =
 
       # Spawn agent slots for this village (six active, the rest dormant)
       let agentsForThisVillage = min(MapAgentsPerVillage, MapRoomObjectsAgents - totalAgentsSpawned)
-      let baseAgentId = teamId * MapAgentsPerVillage
 
       # Add the altar with initial hearts and village bounds
       let altar = Thing(
@@ -538,8 +522,7 @@ proc init(env: Environment) =
       for doorPos in elements.doors:
         if doorPos.x >= 0 and doorPos.x < MapWidth and doorPos.y >= 0 and doorPos.y < MapHeight:
           if env.isEmpty(doorPos) and not env.hasDoor(doorPos):
-            let door = Thing(kind: Door, pos: doorPos, teamId: teamId, hp: DoorMaxHearts, maxHp: DoorMaxHearts)
-            env.add(door)
+            env.add(Thing(kind: Door, pos: doorPos, teamId: teamId, hp: DoorMaxHearts, maxHp: DoorMaxHearts))
 
       # Add the interior buildings from the layout
       for y in 0 ..< villageStruct.height:
@@ -625,10 +608,9 @@ proc init(env: Environment) =
       if agentsForThisVillage > 0:
         # Get nearby positions around the altar
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
-        let initialActive = min(6, agentsForThisVillage)
 
         for j in 0 ..< agentsForThisVillage:
-          let agentId = baseAgentId + j
+          let agentId = teamId * MapAgentsPerVillage + j
 
           # Store the village color for this agent (shared by all agents of the village)
           env.agentColors[agentId] = env.teamColors[teamId]
@@ -636,7 +618,7 @@ proc init(env: Environment) =
           var agentPos = ivec2(-1, -1)
           var frozen = 0
           var hp = 0
-          if j < initialActive:
+          if j < min(6, agentsForThisVillage):
             if j < nearbyPositions.len:
               agentPos = nearbyPositions[j]
             else:
@@ -673,13 +655,12 @@ proc init(env: Environment) =
 
   # If there are still agents to spawn (e.g., if not enough villages), spawn them randomly
   # They will get a neutral color
-  let neutralColor = color(0.5, 0.5, 0.5, 1.0)  # Gray for unaffiliated agents
   while totalAgentsSpawned < MapRoomObjectsAgents:
     let agentPos = r.randomEmptyPos(env)
     let agentId = totalAgentsSpawned
 
     # Store neutral color for agents without a village
-    env.agentColors[agentId] = neutralColor
+    env.agentColors[agentId] = color(0.5, 0.5, 0.5, 1.0)  # Gray for unaffiliated agents
 
     env.add(Thing(
       kind: Agent,
@@ -704,11 +685,10 @@ proc init(env: Environment) =
     if thing.kind == Altar:
       altarPositionsNow.add(thing.pos)
 
-  let numSpawners = numVillages
   let minDist = DefaultSpawnerMinDistance  # from balance.nim
   let minDist2 = minDist * minDist
 
-  for i in 0 ..< numSpawners:
+  for i in 0 ..< numVillages:
     let spawnerStruct = Structure(width: 3, height: 3, centerPos: ivec2(1, 1))
     var placed = false
     var targetPos: IVec2
@@ -848,9 +828,8 @@ proc init(env: Environment) =
   # Spawn resource nodes (trees, wheat, ore, plants) as Things.
   block:
     # Wheat fields.
-    let numFields = randIntInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
-      WheatFieldClusterScale
-    for _ in 0 ..< numFields:
+    for _ in 0 ..< randIntInclusive(r, WheatFieldClusterBase, WheatFieldClusterBase + WheatFieldClusterRange) *
+      WheatFieldClusterScale:
       var placed = false
       for attempt in 0 ..< 20:
         let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
@@ -894,10 +873,8 @@ proc init(env: Environment) =
             if randChance(r, chance) and env.terrain[gx][gy] in TreeGround:
               addResourceNode(env, ivec2(gx.int32, gy.int32), Tree, ItemWood)
 
-      let oasisW = randIntInclusive(r, 3, 5)
-      let oasisH = randIntInclusive(r, 3, 5)
-      let rx = max(1, oasisW div 2)
-      let ry = max(1, oasisH div 2)
+      let rx = max(1, randIntInclusive(r, 3, 5) div 2)
+      let ry = max(1, randIntInclusive(r, 3, 5) div 2)
       for ox in -(rx + 1) .. (rx + 1):
         for oy in -(ry + 1) .. (ry + 1):
           let px = centerX + ox
@@ -912,16 +889,13 @@ proc init(env: Environment) =
           let dx = ox.float / rx.float
           let dy = oy.float / ry.float
           let dist = dx * dx + dy * dy
-          let noise = (randFloat(r) - 0.5) * 0.35
-          if dist <= 1.0 + noise:
+          if dist <= 1.0 + (randFloat(r) - 0.5) * 0.35:
             env.terrain[px][py] = Water
             env.resetTileColor(waterPos)
 
-      let rivulets = randIntInclusive(r, 1, 2)
-      for _ in 0 ..< rivulets:
+      for _ in 0 ..< randIntInclusive(r, 1, 2):
         var pos = ivec2(centerX.int32, centerY.int32)
-        let steps = randIntInclusive(r, 4, 10)
-        for _ in 0 ..< steps:
+        for _ in 0 ..< randIntInclusive(r, 4, 10):
           let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
                                ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
           pos += dir
@@ -996,16 +970,14 @@ proc init(env: Environment) =
         placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
 
     let rockBase = max(20, MapWidth div 22)
-    let rockClusters = rockBase + rockBase div 2
-    for _ in 0 ..< rockClusters:
+    for _ in 0 ..< rockBase + rockBase div 2:
       let x = randIntInclusive(r, MapBorder + 4, MapWidth - MapBorder - 4)
       let y = randIntInclusive(r, MapBorder + 4, MapHeight - MapBorder - 4)
       let size = randIntInclusive(r, 5, 10)
       placeResourceCluster(env, x, y, size, 0.9, 0.3, Stone, ItemStone, ResourceGround, r)
 
     let goldBase = max(8, MapWidth div 50)
-    let goldClusters = goldBase + goldBase div 2
-    for _ in 0 ..< goldClusters:
+    for _ in 0 ..< goldBase + goldBase div 2:
       let x = randIntInclusive(r, MapBorder + 6, MapWidth - MapBorder - 6)
       let y = randIntInclusive(r, MapBorder + 6, MapHeight - MapBorder - 6)
       let size = randIntInclusive(r, 4, 6)
@@ -1075,16 +1047,14 @@ proc init(env: Environment) =
           placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
           placed = true
 
-    let cactusClusters = max(10, MapWidth div 20)
-    for _ in 0 ..< cactusClusters:
+    for _ in 0 ..< max(10, MapWidth div 20):
       let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
       let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
       let size = randIntInclusive(r, 2, 5)
       placeResourceCluster(env, x, y, size, 0.65, 0.4, Cactus, ItemPlant, ResourceGround, r,
         allowedBiomes = {BiomeDesertType})
 
-    let stalagmiteClusters = max(10, MapWidth div 30)
-    for _ in 0 ..< stalagmiteClusters:
+    for _ in 0 ..< max(10, MapWidth div 30):
       let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
       let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
       let size = randIntInclusive(r, 2, 6)
