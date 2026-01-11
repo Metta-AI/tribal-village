@@ -1,6 +1,6 @@
 import std/math, vmath
 import entropy
-import forest, desert, caves, city, plains, snow, biome
+import plains, biome
 
 const
   # Keep in sync with biome.nim's MaxBiomeSize.
@@ -159,6 +159,242 @@ proc applyMaskToTerrain(terrain: var TerrainGrid, mask: MaskGrid, mapWidth, mapH
     for y in mapBorder ..< mapHeight - mapBorder:
       if mask[x][y] and terrain[x][y] == Empty:
         terrain[x][y] = terrainType
+
+type
+  BiomeForestConfig* = object
+    clumpiness*: int = 2
+    seedProb*: float = 0.03
+    growthProb*: float = 0.5
+    neighborThreshold*: int = 3
+    ditherEdges*: bool = true
+    ditherProb*: float = 0.15
+    ditherDepth*: int = 5
+
+proc buildBiomeForestMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                           r: var Rand, cfg: BiomeForestConfig) =
+  mask.clearMask(mapWidth, mapHeight)
+
+  for x in mapBorder ..< mapWidth - mapBorder:
+    for y in mapBorder ..< mapHeight - mapBorder:
+      if randFloat(r) < cfg.seedProb:
+        mask[x][y] = true
+
+  let passes = max(0, cfg.clumpiness)
+  for _ in 0 ..< passes:
+    var nextMask: MaskGrid
+    for x in mapBorder ..< mapWidth - mapBorder:
+      for y in mapBorder ..< mapHeight - mapBorder:
+        var neighbors = 0
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            if dx == 0 and dy == 0:
+              continue
+            let nx = x + dx
+            let ny = y + dy
+            if nx >= 0 and nx < mapWidth and ny >= 0 and ny < mapHeight:
+              if mask[nx][ny]:
+                inc neighbors
+        let grow = neighbors >= cfg.neighborThreshold and randFloat(r) < cfg.growthProb
+        nextMask[x][y] = grow or mask[x][y]
+    mask = nextMask
+
+  if cfg.ditherEdges:
+    ditherEdges(mask, mapWidth, mapHeight, cfg.ditherProb, cfg.ditherDepth, r)
+
+type
+  BiomeDesertConfig* = object
+    dunePeriod*: int = 8
+    ridgeWidth*: int = 1
+    angle*: float = PI / 4
+    noiseProb*: float = 0.1
+    ditherEdges*: bool = true
+    ditherProb*: float = 0.15
+    ditherDepth*: int = 5
+
+proc buildBiomeDesertMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                           r: var Rand, cfg: BiomeDesertConfig) =
+  mask.clearMask(mapWidth, mapHeight)
+
+  let period = max(2, cfg.dunePeriod)
+  let width = max(1, cfg.ridgeWidth)
+  let theta = cfg.angle
+  let cosT = cos(theta)
+  let sinT = sin(theta)
+
+  for x in mapBorder ..< mapWidth - mapBorder:
+    for y in mapBorder ..< mapHeight - mapBorder:
+      let xr = x.float * cosT + y.float * sinT
+      var modv = xr - floor(xr / period.float) * period.float
+      if modv < width.float:
+        mask[x][y] = true
+      if mask[x][y] and randFloat(r) < cfg.noiseProb:
+        mask[x][y] = false
+
+  if cfg.ditherEdges:
+    ditherEdges(mask, mapWidth, mapHeight, cfg.ditherProb, cfg.ditherDepth, r)
+
+type
+  BiomeCavesConfig* = object
+    fillProb*: float = 0.25
+    steps*: int = 3
+    birthLimit*: int = 5
+    deathLimit*: int = 3
+    ditherEdges*: bool = true
+    ditherProb*: float = 0.15
+    ditherDepth*: int = 5
+
+proc buildBiomeCavesMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                          r: var Rand, cfg: BiomeCavesConfig) =
+  mask.clearMask(mapWidth, mapHeight)
+
+  for x in mapBorder ..< mapWidth - mapBorder:
+    for y in mapBorder ..< mapHeight - mapBorder:
+      mask[x][y] = randFloat(r) < cfg.fillProb
+
+  let steps = max(0, cfg.steps)
+  for _ in 0 ..< steps:
+    var nextMask: MaskGrid
+    for x in mapBorder ..< mapWidth - mapBorder:
+      for y in mapBorder ..< mapHeight - mapBorder:
+        var neighbors = 0
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            if dx == 0 and dy == 0:
+              continue
+            let nx = x + dx
+            let ny = y + dy
+            if nx < mapBorder or nx >= mapWidth - mapBorder or
+               ny < mapBorder or ny >= mapHeight - mapBorder:
+              inc neighbors
+            elif mask[nx][ny]:
+              inc neighbors
+        let birth = neighbors > cfg.birthLimit
+        let death = neighbors < cfg.deathLimit
+        nextMask[x][y] = birth or ((not death) and mask[x][y])
+    mask = nextMask
+
+  if cfg.ditherEdges:
+    ditherEdges(mask, mapWidth, mapHeight, cfg.ditherProb, cfg.ditherDepth, r)
+
+type
+  BiomeCityConfig* = object
+    pitch*: int = 10
+    roadWidth*: int = 3
+    placeProb*: float = 0.9
+    minBlockFrac*: float = 0.5
+    jitter*: int = 1
+    ditherEdges*: bool = true
+    ditherProb*: float = 0.15
+    ditherDepth*: int = 5
+
+proc buildBiomeCityMasks*(blockMask: var MaskGrid, roadMask: var MaskGrid,
+                          mapWidth, mapHeight, mapBorder: int,
+                          r: var Rand, cfg: BiomeCityConfig) =
+  blockMask.clearMask(mapWidth, mapHeight)
+  roadMask.clearMask(mapWidth, mapHeight)
+
+  let pitch = max(4, cfg.pitch)
+  let roadW = max(1, cfg.roadWidth)
+  let minBlock = max(1, int(float(pitch) * cfg.minBlockFrac))
+  let jitter = max(0, cfg.jitter)
+
+  for gy in countup(mapBorder, mapHeight - mapBorder - 1, pitch):
+    for gx in countup(mapBorder, mapWidth - mapBorder - 1, pitch):
+      if randFloat(r) > cfg.placeProb:
+        continue
+      let x0 = gx + roadW
+      let y0 = gy + roadW
+      var bw = minBlock
+      var bh = minBlock
+      if jitter > 0:
+        bw += randIntInclusive(r, -jitter, jitter)
+        bh += randIntInclusive(r, -jitter, jitter)
+      bw = min(bw, pitch - 2 * roadW)
+      bh = min(bh, pitch - 2 * roadW)
+      if bw <= 0 or bh <= 0:
+        continue
+      let cx0 = max(mapBorder, x0)
+      let cy0 = max(mapBorder, y0)
+      let cx1 = min(mapWidth - mapBorder, x0 + bw)
+      let cy1 = min(mapHeight - mapBorder, y0 + bh)
+      if cx1 <= cx0 or cy1 <= cy0:
+        continue
+      for x in cx0 ..< cx1:
+        for y in cy0 ..< cy1:
+          blockMask[x][y] = true
+
+  if cfg.ditherEdges:
+    ditherEdges(blockMask, mapWidth, mapHeight, cfg.ditherProb, cfg.ditherDepth, r)
+
+  for gy in countup(mapBorder, mapHeight - mapBorder - 1, pitch):
+    let y1 = min(mapHeight - mapBorder, gy + roadW)
+    for y in gy ..< y1:
+      for x in mapBorder ..< mapWidth - mapBorder:
+        if not blockMask[x][y]:
+          roadMask[x][y] = true
+
+  for gx in countup(mapBorder, mapWidth - mapBorder - 1, pitch):
+    let x1 = min(mapWidth - mapBorder, gx + roadW)
+    for x in gx ..< x1:
+      for y in mapBorder ..< mapHeight - mapBorder:
+        if not blockMask[x][y]:
+          roadMask[x][y] = true
+
+type
+  BiomeSnowConfig* = object
+    clusterPeriod*: int = 12
+    clusterMinRadius*: int = 2
+    clusterMaxRadius*: int = 5
+    clusterFill*: float = 0.85
+    clusterProb*: float = 0.75
+    jitter*: int = 2
+    ditherEdges*: bool = true
+    ditherProb*: float = 0.12
+    ditherDepth*: int = 3
+
+proc buildBiomeSnowMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                         r: var Rand, cfg: BiomeSnowConfig) =
+  mask.clearMask(mapWidth, mapHeight)
+
+  let period = max(4, cfg.clusterPeriod)
+  let minRadius = max(1, cfg.clusterMinRadius)
+  let maxRadius = max(minRadius, cfg.clusterMaxRadius)
+  let jitter = max(0, cfg.jitter)
+  let fillBase = cfg.clusterFill
+
+  for ay in countup(mapBorder, mapHeight - mapBorder - 1, period):
+    for ax in countup(mapBorder, mapWidth - mapBorder - 1, period):
+      if randFloat(r) > cfg.clusterProb:
+        continue
+      var cx = ax
+      var cy = ay
+      if jitter > 0:
+        cx += randIntInclusive(r, -jitter, jitter)
+        cy += randIntInclusive(r, -jitter, jitter)
+      if cx < mapBorder or cx >= mapWidth - mapBorder or
+         cy < mapBorder or cy >= mapHeight - mapBorder:
+        continue
+
+      let radius = randIntInclusive(r, minRadius, maxRadius)
+      let fill = fillBase * (0.7 + 0.3 * randFloat(r))
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          let x = cx + dx
+          let y = cy + dy
+          if x < mapBorder or x >= mapWidth - mapBorder or
+             y < mapBorder or y >= mapHeight - mapBorder:
+            continue
+          let dist2 = dx * dx + dy * dy
+          if dist2 > radius * radius:
+            continue
+          let dist = sqrt(dist2.float)
+          let falloff = 1.0 - min(1.0, dist / radius.float)
+          let chance = fill * (0.6 + 0.4 * falloff)
+          if randFloat(r) < chance:
+            mask[x][y] = true
+
+  if cfg.ditherEdges:
+    ditherEdges(mask, mapWidth, mapHeight, cfg.ditherProb, cfg.ditherDepth, r)
 
 proc blendChanceForDistance(dist, depth: int, edgeChance: float): float =
   if depth <= 0:
@@ -501,25 +737,20 @@ proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     buildBiomeSnowMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSnowConfig())
     applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeSnowTerrain)
 
-proc inCornerReserve(x, y, mapWidth, mapHeight, mapBorder: int, reserve: int): bool =
-  ## Returns true if the coordinate is within a reserved corner area
-  let left = mapBorder
-  let right = mapWidth - mapBorder
-  let top = mapBorder
-  let bottom = mapHeight - mapBorder
-  let rx = reserve
-  let ry = reserve
-  let inTopLeft = (x >= left and x < left + rx) and (y >= top and y < top + ry)
-  let inTopRight = (x >= right - rx and x < right) and (y >= top and y < top + ry)
-  let inBottomLeft = (x >= left and x < left + rx) and (y >= bottom - ry and y < bottom)
-  let inBottomRight = (x >= right - rx and x < right) and (y >= bottom - ry and y < bottom)
-  inTopLeft or inTopRight or inBottomLeft or inBottomRight
-
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
 
   # Reserve corners for villages so river doesn't block them
   let reserve = max(8, min(mapWidth, mapHeight) div 10)
+  let left = mapBorder
+  let right = mapWidth - mapBorder
+  let top = mapBorder
+  let bottom = mapHeight - mapBorder
+  template inCorner(x, y: int): bool =
+    ((x >= left and x < left + reserve) and (y >= top and y < top + reserve)) or
+    ((x >= right - reserve and x < right) and (y >= top and y < top + reserve)) or
+    ((x >= left and x < left + reserve) and (y >= bottom - reserve and y < bottom)) or
+    ((x >= right - reserve and x < right) and (y >= bottom - reserve and y < bottom))
 
   # Start near left edge and centered vertically (avoid corner reserves)
   let centerY = mapHeight div 2
@@ -549,7 +780,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         secondaryPos.y += sample(r, [-1, 0, 1]).int32
       if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
          secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
-        if not inCornerReserve(secondaryPos.x, secondaryPos.y, mapWidth, mapHeight, mapBorder, reserve):
+        if not inCorner(secondaryPos.x, secondaryPos.y):
           path.add(secondaryPos)
       else:
         break
@@ -562,14 +793,14 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       while tip.y > mapBorder and pushSteps < maxPush:
         dec tip.y
         if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
-          if not inCornerReserve(tip.x, tip.y, mapWidth, mapHeight, mapBorder, reserve):
+          if not inCorner(tip.x, tip.y):
             path.add(tip)
         inc pushSteps
     else:
       while tip.y < mapHeight - mapBorder and pushSteps < maxPush:
         inc tip.y
         if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
-          if not inCornerReserve(tip.x, tip.y, mapWidth, mapHeight, mapBorder, reserve):
+          if not inCorner(tip.x, tip.y):
             path.add(tip)
         inc pushSteps
     path
@@ -583,7 +814,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   var forkCandidates: seq[IVec2] = @[]
   for pos in riverPath:
     if pos.y > mapBorder + RiverWidth + 2 and pos.y < mapHeight - mapBorder - RiverWidth - 2 and
-       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+       not inCorner(pos.x, pos.y):
       forkCandidates.add(pos)
   if forkCandidates.len > 0:
     let upIdx = forkCandidates.len div 3
@@ -608,7 +839,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         let waterPos = pos + ivec2(dx.int32, dy.int32)
         if waterPos.x >= 0 and waterPos.x < mapWidth and
            waterPos.y >= 0 and waterPos.y < mapHeight:
-          if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
+          if not inCorner(waterPos.x, waterPos.y):
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place water tiles for tributary branches (skip reserved corners)
@@ -618,7 +849,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         let waterPos = pos + ivec2(dx.int32, dy.int32)
         if waterPos.x >= 0 and waterPos.x < mapWidth and
            waterPos.y >= 0 and waterPos.y < mapHeight:
-          if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
+          if not inCorner(waterPos.x, waterPos.y):
             terrain[waterPos.x][waterPos.y] = Water
   for pos in branchDownPath:
     for dx in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
@@ -626,7 +857,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         let waterPos = pos + ivec2(dx.int32, dy.int32)
         if waterPos.x >= 0 and waterPos.x < mapWidth and
            waterPos.y >= 0 and waterPos.y < mapHeight:
-          if not inCornerReserve(waterPos.x, waterPos.y, mapWidth, mapHeight, mapBorder, reserve):
+          if not inCorner(waterPos.x, waterPos.y):
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place bridges across the river and any tributary branch.
@@ -638,7 +869,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     for dx in 0 .. 2:
       for y in startY .. endY:
         let x = baseX + dx
-        if inCornerReserve(x, y, mapWidth, mapHeight, mapBorder, reserve):
+        if inCorner(x, y):
           continue
         if t[x][y] == Water:
           t[x][y] = Bridge
@@ -651,7 +882,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     for dy in 0 .. 2:
       for x in startX .. endX:
         let y = baseY + dy
-        if inCornerReserve(x, y, mapWidth, mapHeight, mapBorder, reserve):
+        if inCorner(x, y):
           continue
         if t[x][y] == Water:
           t[x][y] = Bridge
@@ -660,21 +891,21 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   for pos in riverPath:
     if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
        pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+       not inCorner(pos.x, pos.y):
       mainCandidates.add(pos)
 
   var branchUpCandidates: seq[IVec2] = @[]
   for pos in branchUpPath:
     if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
        pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+       not inCorner(pos.x, pos.y):
       branchUpCandidates.add(pos)
 
   var branchDownCandidates: seq[IVec2] = @[]
   for pos in branchDownPath:
     if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
        pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-       not inCornerReserve(pos.x, pos.y, mapWidth, mapHeight, mapBorder, reserve):
+       not inCorner(pos.x, pos.y):
       branchDownCandidates.add(pos)
 
   let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
