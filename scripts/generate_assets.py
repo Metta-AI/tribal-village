@@ -19,6 +19,39 @@ from PIL import Image
 #   `gcloud config set project <id>` or pass `--project <id>` (location must be "global").
 
 
+ORIENTATION_TEMPLATES = [
+    ("n", "Back view facing away from the camera."),
+    ("s", "Front view facing the camera."),
+    ("e", "Right-facing profile view."),
+    ("w", "Left-facing profile view."),
+    ("ne", "Three-quarter view facing up-right (northeast)."),
+    ("nw", "Three-quarter view facing up-left (northwest)."),
+    ("se", "Three-quarter view facing down-right (southeast)."),
+    ("sw", "Three-quarter view facing down-left (southwest)."),
+]
+
+
+def expand_oriented_row(filename: str, prompt: str) -> list[tuple[str, str]]:
+    if "{dir}" not in filename:
+        if "{orientation}" in prompt or "{dir}" in prompt:
+            raise ValueError(f"Orientation placeholder requires {{dir}} in filename: {filename}")
+        return [(filename, prompt)]
+    rows: list[tuple[str, str]] = []
+    for dir_key, orientation in ORIENTATION_TEMPLATES:
+        subs = {
+            "dir": dir_key,
+            "dir_upper": dir_key.upper(),
+            "orientation": orientation,
+        }
+        try:
+            expanded_name = filename.format(**subs)
+            expanded_prompt = prompt.format(**subs)
+        except KeyError as exc:
+            raise ValueError(f"Unknown placeholder in prompt row: {filename}") from exc
+        rows.append((expanded_name, expanded_prompt))
+    return rows
+
+
 def load_prompts(path: Path) -> list[tuple[str, str]]:
     rows: list[tuple[str, str]] = []
     for raw in path.read_text().splitlines():
@@ -28,7 +61,9 @@ def load_prompts(path: Path) -> list[tuple[str, str]]:
         parts = line.split("\t", 1)
         if len(parts) != 2:
             raise ValueError(f"Invalid prompt line (expected TSV): {raw}")
-        rows.append((parts[0].strip(), parts[1].strip()))
+        filename = parts[0].strip()
+        prompt = parts[1].strip()
+        rows.extend(expand_oriented_row(filename, prompt))
     return rows
 
 
@@ -167,7 +202,7 @@ def iter_rows(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate image assets from TSV prompts.")
-    parser.add_argument("--prompts", default="data/prompts/nbi.tsv")
+    parser.add_argument("--prompts", default="data/prompts/assets.tsv")
     parser.add_argument("--out-dir", default="data")
     parser.add_argument(
         "--model",
