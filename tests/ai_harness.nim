@@ -144,7 +144,7 @@ suite "Mechanics":
     let wheatDir = dirIndex(agent.pos, ivec2(10, 9))
     env.stepAction(0, 3'u8, wheatDir)
     let wheat = env.getOverlayThing(ivec2(10, 9))
-    check wheat.kind == Wheat
+    check wheat.kind == Stubble
     check getInv(wheat, ItemWheat) == 1
 
     env.stepAction(0, 3'u8, wheatDir)
