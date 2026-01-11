@@ -169,7 +169,7 @@ let ThingCatalog* = block:
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
 
   add(Agent, "Agent", "gatherer", '@')
-  add(Wall, "Wall", "wall", '#')
+  add(Wall, "Wall", "oriented/wall", '#')
   add(Tree, "Tree", "tree", 't')
   add(Wheat, "Wheat", "wheat", 'w')
   add(Stone, "Stone", "stone", 'S')
