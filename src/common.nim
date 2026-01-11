@@ -66,17 +66,22 @@ var
   settings* = Settings()
 
   play*: bool = true
-  playSpeed*: float32 = 0.015625  # faster default playback
+  playSpeed*: float32 = 0.1  # slower default playback
   lastSimTime*: float64 = nowSeconds()
 
 const
-  DefaultPlaySpeed* = 0.015625
+  DefaultPlaySpeed* = 0.1
+  SlowPlaySpeed* = 0.2
+  FastPlaySpeed* = 0.02
+  SuperPlaySpeed* = 0.001
+  FooterHeight* = 64
 
 var
   followSelection*: bool = false
   mouseCaptured*: bool = false
   mouseCapturedPanel*: Panel = nil
   mouseDownPos*: Vec2 = vec2(0, 0)
+  uiMouseCaptured*: bool = false
 
 proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).

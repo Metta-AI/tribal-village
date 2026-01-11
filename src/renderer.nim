@@ -17,6 +17,8 @@ var
   stepLabelKey = ""
   stepLabelLastValue = -1
   stepLabelSize = ivec2(0, 0)
+  footerLabelImages: Table[string, string] = initTable[string, string]()
+  footerLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
 
 type FloorSpriteKind = enum
   FloorBase
@@ -50,10 +52,20 @@ const
   InfoLabelInsetX = 100
   InfoLabelInsetY = 50
   StepLabelInsetY = 20
+  FooterFontPath = HeartCountFontPath
+  FooterFontSize: float32 = 26
+  FooterPadding = 10.0'f32
+  FooterButtonPaddingX = 18.0'f32
+  FooterButtonGap = 12.0'f32
 
 template configureInfoLabelFont(ctx: var Context) =
   ctx.font = InfoLabelFontPath
   ctx.fontSize = InfoLabelFontSize
+  ctx.textBaseline = TopBaseline
+
+template configureFooterFont(ctx: var Context) =
+  ctx.font = FooterFontPath
+  ctx.fontSize = FooterFontSize
   ctx.textBaseline = TopBaseline
 
 proc getInfectionLevel*(pos: IVec2): float32 =
@@ -66,7 +78,9 @@ proc spriteScale(_: string): float32 =
 proc resolveSpriteKey(key: string): string =
   key
 
-proc useSelections*() =
+proc useSelections*(blockSelection = false) =
+  if blockSelection:
+    return
   if window.buttonPressed[MouseLeft]:
     mouseDownPos = logicalMousePos(window)
 
@@ -74,7 +88,6 @@ proc useSelections*() =
     let mouseUpPos = logicalMousePos(window)
     let dragDistance = (mouseUpPos - mouseDownPos).length
     let clickThreshold = 3.0
-
     if dragDistance <= clickThreshold:
       selection = nil
       let
@@ -86,6 +99,112 @@ proc useSelections*() =
         let thing = env.grid[gridPos.x][gridPos.y]
         if not isNil(thing):
           selection = thing
+
+type FooterButtonKind* = enum
+  FooterPlayPause
+  FooterStep
+  FooterSlow
+  FooterFast
+  FooterSuper
+
+type FooterButton* = object
+  kind*: FooterButtonKind
+  rect*: Rect
+  label*: string
+  labelKey*: string
+  labelSize*: IVec2
+  active*: bool
+
+proc ensureFooterLabel(text: string): tuple[key: string, size: IVec2] =
+  if text in footerLabelImages:
+    return (footerLabelImages[text], footerLabelSizes[text])
+  var measureCtx = newContext(1, 1)
+  configureFooterFont(measureCtx)
+  let metrics = measureCtx.measureText(text)
+  let labelWidth = max(1, metrics.width.int)
+  let labelHeight = max(1, measureCtx.fontSize.int)
+  var ctx = newContext(labelWidth, labelHeight)
+  configureFooterFont(ctx)
+  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillText(text, vec2(0, 0))
+  let key = "footer_label/" & text.replace(" ", "_").replace("/", "_")
+  bxy.addImage(key, ctx.image, mipmaps = false)
+  footerLabelImages[text] = key
+  footerLabelSizes[text] = ivec2(labelWidth, labelHeight)
+  result = (key, footerLabelSizes[text])
+
+proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
+  let footerY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
+  let buttonHeight = FooterHeight.float32 - FooterPadding * 2.0
+  let playLabel = if play: "Pause" else: "Play"
+  let labels = [playLabel, "Step", "Slow", "Fast", "Super"]
+  var buttonWidths: array[labels.len, float32]
+  var labelKeys: array[labels.len, string]
+  var labelSizes: array[labels.len, IVec2]
+  var totalWidth = 0.0'f32
+  for i, label in labels:
+    let (key, size) = ensureFooterLabel(label)
+    labelKeys[i] = key
+    labelSizes[i] = size
+    let width = size.x.float32 + FooterButtonPaddingX * 2.0
+    buttonWidths[i] = width
+    totalWidth += width
+    if i < labels.len - 1:
+      totalWidth += FooterButtonGap
+  let startX = panelRect.x.float32 + (panelRect.w.float32 - totalWidth) * 0.5
+  var x = startX
+  for i, label in labels:
+    let kind = case i
+      of 0: FooterPlayPause
+      of 1: FooterStep
+      of 2: FooterSlow
+      of 3: FooterFast
+      else: FooterSuper
+    let rect = Rect(
+      x: x,
+      y: footerY + FooterPadding,
+      w: buttonWidths[i],
+      h: buttonHeight
+    )
+    let active = case kind
+      of FooterSlow:
+        abs(playSpeed - SlowPlaySpeed) < 0.0001
+      of FooterFast:
+        abs(playSpeed - FastPlaySpeed) < 0.0001
+      of FooterSuper:
+        abs(playSpeed - SuperPlaySpeed) < 0.0001
+      else:
+        false
+    result.add(FooterButton(
+      kind: kind,
+      rect: rect,
+      label: label,
+      labelKey: labelKeys[i],
+      labelSize: labelSizes[i],
+      active: active
+    ))
+    x += buttonWidths[i] + FooterButtonGap
+
+proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
+  let footerRect = Rect(
+    x: panelRect.x.float32,
+    y: panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32,
+    w: panelRect.w.float32,
+    h: FooterHeight.float32
+  )
+  bxy.drawRect(rect = footerRect, color = color(0.12, 0.16, 0.2, 0.9))
+  let mousePos = window.mousePos.vec2
+  for button in buttons:
+    let hovered = mousePos.x >= button.rect.x and mousePos.x <= button.rect.x + button.rect.w and
+      mousePos.y >= button.rect.y and mousePos.y <= button.rect.y + button.rect.h
+    let baseColor = if button.active: color(0.2, 0.5, 0.7, 0.95) else: color(0.2, 0.24, 0.28, 0.9)
+    let drawColor = if hovered: color(baseColor.r + 0.08, baseColor.g + 0.08, baseColor.b + 0.08, baseColor.a) else: baseColor
+    bxy.drawRect(rect = button.rect, color = drawColor)
+    let labelPos = vec2(
+      button.rect.x + (button.rect.w - button.labelSize.x.float32) * 0.5,
+      button.rect.y + (button.rect.h - button.labelSize.y.float32) * 0.5
+    )
+    bxy.drawImage(button.labelKey, labelPos, angle = 0, scale = 1)
 
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
