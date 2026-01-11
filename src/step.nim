@@ -281,40 +281,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let hasSpear = agent.inventorySpear > 0 and rangedRange == 0
         let maxRange = if hasSpear: 2 else: 1
 
-        proc tryDamageDoor(pos: IVec2): bool =
-          let door = env.getOverlayThing(pos)
-          if isNil(door) or door.kind != Door:
-            return false
-          if door.teamId == attackerTeam:
-            return false
-          door.hp = max(0, door.hp - 1)
-          if door.hp <= 0:
-            removeThing(env, door)
-          return true
-
-        proc claimAltar(altarThing: Thing) =
-          let oldTeam = altarThing.teamId
-          altarThing.teamId = attackerTeam
-          if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
-            env.altarColors[altarThing.pos] = env.teamColors[attackerTeam]
-          if oldTeam >= 0:
-            for door in env.thingsByKind[Door]:
-              if door.teamId == oldTeam:
-                door.teamId = attackerTeam
-
-        proc spawnCorpseAt(pos: IVec2, key: ItemKey, amount: int) =
-          let remaining = amount
-          if remaining <= 0:
-            return
-          let corpse = Thing(kind: Corpse, pos: pos)
-          corpse.inventory = emptyInventory()
-          setInv(corpse, key, remaining)
-          env.add(corpse)
-
         proc tryHitAt(pos: IVec2): bool =
           if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
             return false
-          if tryDamageDoor(pos):
+          let door = env.getOverlayThing(pos)
+          if not isNil(door) and door.kind == Door and door.teamId != attackerTeam:
+            door.hp = max(0, door.hp - 1)
+            if door.hp <= 0:
+              removeThing(env, door)
             return true
           var target = env.getThing(pos)
           if isNil(target):
@@ -346,13 +320,24 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             target.hearts = max(0, target.hearts - 1)
             env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
             if target.hearts == 0:
-              claimAltar(target)
+              let oldTeam = target.teamId
+              target.teamId = attackerTeam
+              if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
+                env.altarColors[target.pos] = env.teamColors[attackerTeam]
+              if oldTeam >= 0:
+                for door in env.thingsByKind[Door]:
+                  if door.teamId == oldTeam:
+                    door.teamId = attackerTeam
             return true
           of Cow:
             if not env.giveItem(agent, ItemMeat):
               return false
             removeThing(env, target)
-            spawnCorpseAt(pos, ItemMeat, ResourceNodeInitial - 1)
+            if ResourceNodeInitial > 1:
+              let corpse = Thing(kind: Corpse, pos: pos)
+              corpse.inventory = emptyInventory()
+              setInv(corpse, ItemMeat, ResourceNodeInitial - 1)
+              env.add(corpse)
             return true
           of Tree:
             return env.harvestTree(agent, target)
