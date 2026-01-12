@@ -128,7 +128,7 @@ proc getOrientationDelta*(orient: Orientation): OrientationDelta =
 
 proc orientationToVec*(orientation: Orientation): IVec2 =
   let delta = getOrientationDelta(orientation)
-  ivec2(delta.x, delta.y)
+  ivec2(delta.x.int32, delta.y.int32)
 
 {.push inline.}
 proc ivec2*(x, y: int): IVec2 =
