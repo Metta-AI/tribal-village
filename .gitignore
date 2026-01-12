@@ -12,7 +12,6 @@ uv.lock
 # Nim compilation artifacts
 *.out
 *.exe
-src/tribal.out
 src/tribal/tribal
 
 # Nim compiled binaries (executables without extension)
@@ -34,21 +33,9 @@ tests/fixed_*
 !tests/quick_*.nim
 !tests/fixed_*.nim
 
-# General pattern for Nim binaries in src directories
-# (Nim compiles to extensionless executables on Unix)
-src/**/*
-!src/**/*.nim
-!src/**/*.py
-!src/**/*.sh
-!src/**/*.md
-!src/**/*.txt
-!src/**/*.json
-!src/**/*.yaml
-!src/**/*.yml
-!src/**/*.html
-!src/**/*.css
-!src/**/*.js
-!src/**/*/
+# Nim cache (when configured to emit locally)
+nimcache/
+src/**/nimcache/
 
 # Temporary files and outputs
 *.tmp
@@ -69,8 +56,6 @@ __pycache__/
 *.pyo
 *.pyd
 build/
-# Emscripten local cache created by nimble wasm
-build/web/emscripten_cache/
 dist/
 .eggs/
 
