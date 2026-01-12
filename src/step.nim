@@ -88,7 +88,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Combined single-pass object updates and tumor collection
-  const adjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
 
@@ -311,14 +310,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     var branchPos = ivec2(-1, -1)
     var branchCount = 0
-    const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
     for offset in TumorBranchOffsets:
       let candidate = tumor.pos + offset
       if not env.isValidEmptyPosition(candidate):
         continue
 
       var adjacentTumor = false
-      for adj in AdjacentOffsets:
+      for adj in CardinalOffsets:
         let checkPos = candidate + adj
         if not isValidPos(checkPos):
           continue
@@ -372,7 +370,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let tumor = env.things[i]
     if tumor.kind != Tumor:
       continue
-    for offset in adjacentOffsets:
+    for offset in CardinalOffsets:
       let adjPos = tumor.pos + offset
       if not isValidPos(adjPos):
         continue

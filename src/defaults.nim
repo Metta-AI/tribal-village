@@ -181,7 +181,7 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
         # Avoid building on roads so they stay clear for traffic.
         if env.terrain[pos.x][pos.y] == TerrainRoad:
           continue
-        for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+        for d in CardinalOffsets:
           let stand = pos + d
           if not isValidPos(stand):
             continue
@@ -257,7 +257,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
         continue
       if env.terrain[pos.x][pos.y] == TerrainRoad:
         continue
-      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+      for d in CardinalOffsets:
         let stand = pos + d
         if not isValidPos(stand):
           continue
@@ -318,7 +318,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
             continue
           if not env.canPlace(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
             continue
-          for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+          for d in CardinalOffsets:
             let stand = pos + d
             if isValidPos(stand) and not env.hasDoor(stand) and env.isEmpty(stand) and
                 env.canAgentPassDoor(agent, stand) and
@@ -451,7 +451,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       state.recentPosCount = 0
       state.recentPosIndex = 0
       # Choose an escape direction: prefer any empty cardinal, shuffled
-      var dirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+      var dirs = CardinalOffsets
       for i in countdown(dirs.len - 1, 1):
         let j = randIntInclusive(controller.rng, 0, i)
         let tmp = dirs[i]
@@ -491,13 +491,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Emergency self-heal: eat bread if below half HP (applies to all roles)
   if agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp:
-    let healDirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),  # cardinals first
-                    ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)] # diagonals
+    let healDirs = AdjacentOffsets8
     for d in healDirs:
       let target = agent.pos + d
       if not env.hasDoor(target) and
-          target.x >= 0 and target.x < MapWidth and
-          target.y >= 0 and target.y < MapHeight and
+          isValidPos(target) and
           env.isEmpty(target) and
           not isBlockedTerrain(env.terrain[target.x][target.y]) and
           env.canAgentPassDoor(agent, target):
