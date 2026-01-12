@@ -4,7 +4,7 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   if index < 0 or index >= BuildChoices.len:
     return (false, 0'u8)
   let key = BuildChoices[index]
-  if not env.canAffordBuild(teamId, key):
+  if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
   block findBuildPos:
     ## Find an empty adjacent tile for building, preferring the provided direction.
@@ -56,7 +56,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
       state.buildStand = ivec2(-1, -1)
   let teamId = getTeamId(agent.agentId)
   let key = BuildChoices[buildIndex]
-  if not env.canAffordBuild(teamId, key):
+  if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
   if not env.canPlace(target):
     return (false, 0'u8)
@@ -107,7 +107,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
       state.buildStand = ivec2(-1, -1)
   let teamId = getTeamId(agent.agentId)
   let key = BuildChoices[buildIndex]
-  if not env.canAffordBuild(teamId, key):
+  if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
   if not env.canPlace(target):
     return (false, 0'u8)
@@ -161,7 +161,7 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
   if idx < 0 or idx >= BuildChoices.len:
     return (false, 0'u8)
   let key = BuildChoices[idx]
-  if not env.canAffordBuild(teamId, key):
+  if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
   block findBuildSpotNear:
     ## Find a buildable tile near center plus an adjacent stand tile.
@@ -216,9 +216,9 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
   let costs = buildCostsForKey(key)
   if costs.len == 0:
     return (false, 0'u8)
-  if not env.canSpendStockpile(teamId, costs):
+  if not canSpendInventory(agent, costs) and not env.canSpendStockpile(teamId, costs):
     for cost in costs:
-      case cost.res
+      case stockpileResourceForItem(cost.key)
       of ResourceWood:
         return controller.ensureWood(env, agent, agentId, state)
       of ResourceStone:

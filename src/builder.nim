@@ -102,7 +102,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     else:
       doorTarget.x >= 0
     if buildDoorFirst and doorTarget.x >= 0:
-      if env.canAffordBuild(teamId, thingItem("Door")):
+      if env.canAffordBuild(agent, thingItem("Door")):
         let (didDoor, actDoor) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
         )
@@ -111,7 +111,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
     if outpostTarget.x >= 0:
-      if env.canAffordBuild(teamId, thingItem("Outpost")):
+      if env.canAffordBuild(agent, thingItem("Outpost")):
         let (didOutpost, actOutpost) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, outpostTarget, buildIndexFor(Outpost)
         )
@@ -120,7 +120,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
     if (not buildDoorFirst) and wallTarget.x >= 0:
-      if env.canAffordBuild(teamId, thingItem("Wall")):
+      if env.canAffordBuild(agent, thingItem("Wall")):
         let (did, act) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, wallTarget, BuildIndexWall
         )
