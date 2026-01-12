@@ -97,10 +97,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                 doorTarget = pos
             elif wallTarget.x < 0 and env.canPlace(pos):
               wallTarget = pos
-    let canDoor = doorTarget.x >= 0
-    let canWall = wallTarget.x >= 0
-    let buildDoorFirst = if canDoor and canWall: (env.currentStep mod 2) == 0 else: canDoor
-    if buildDoorFirst and canDoor:
+    let buildDoorFirst = if doorTarget.x >= 0 and wallTarget.x >= 0:
+      (env.currentStep mod 2) == 0
+    else:
+      doorTarget.x >= 0
+    if buildDoorFirst and doorTarget.x >= 0:
       if env.canAffordBuild(teamId, thingItem("Door")):
         let (didDoor, actDoor) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
@@ -118,7 +119,7 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       else:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
-    if (not buildDoorFirst) and canWall:
+    if (not buildDoorFirst) and wallTarget.x >= 0:
       if env.canAffordBuild(teamId, thingItem("Wall")):
         let (did, act) = goToAdjacentAndBuild(
           controller, env, agent, agentId, state, wallTarget, BuildIndexWall

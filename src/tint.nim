@@ -81,24 +81,6 @@ proc updateTintModifications(env: Environment) =
         safeTintAdd(env.tintMods[tileX][tileY].g, int(color.g * strength))
         safeTintAdd(env.tintMods[tileX][tileY].b, int(color.b * strength))
 
-  proc addTumorTintArea(baseX, baseY: int) =
-    let minX = max(0, baseX - 2)
-    let maxX = min(MapWidth - 1, baseX + 2)
-    let minY = max(0, baseY - 2)
-    let maxY = min(MapHeight - 1, baseY + 2)
-    for tileX in minX .. maxX:
-      let dx = tileX - baseX
-      for tileY in minY .. maxY:
-        let dy = tileY - baseY
-        let manDist = abs(dx) + abs(dy)
-        let falloff = max(1, 5 - manDist)
-        markActiveTile(env.tumorActiveTiles, tileX, tileY)
-        let strength = TumorIncrementBase * falloff.float32
-        safeTintAdd(env.tumorStrength[tileX][tileY], int(strength))
-        safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
-        safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
-        safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
-
   # Process all entities and mark their affected positions as active
   for thing in env.things:
     let pos = thing.pos
@@ -117,7 +99,22 @@ proc updateTintModifications(env: Environment) =
       if thing.lanternHealthy:
         addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
     of Tumor:
-      addTumorTintArea(baseX, baseY)
+      let minX = max(0, baseX - 2)
+      let maxX = min(MapWidth - 1, baseX + 2)
+      let minY = max(0, baseY - 2)
+      let maxY = min(MapHeight - 1, baseY + 2)
+      for tileX in minX .. maxX:
+        let dx = tileX - baseX
+        for tileY in minY .. maxY:
+          let dy = tileY - baseY
+          let manDist = abs(dx) + abs(dy)
+          let falloff = max(1, 5 - manDist)
+          markActiveTile(env.tumorActiveTiles, tileX, tileY)
+          let strength = TumorIncrementBase * falloff.float32
+          safeTintAdd(env.tumorStrength[tileX][tileY], int(strength))
+          safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
+          safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
+          safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
 
     else:
       discard
