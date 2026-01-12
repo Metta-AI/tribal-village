@@ -816,7 +816,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var targetPos = ivec2(-1, -1)
         for offset in offsets:
           let pos = agent.pos + offset
-          if env.canPlaceBuilding(pos):
+          if env.canPlace(pos):
             targetPos = pos
             break
         if targetPos.x < 0:
@@ -853,12 +853,12 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               var pos = targetPos
               while pos.x != anchor.x:
                 pos.x += (if anchor.x < pos.x: -1'i32 elif anchor.x > pos.x: 1'i32 else: 0'i32)
-                if env.canLayRoad(pos):
+                if env.canPlace(pos, checkFrozen = false):
                   env.terrain[pos.x][pos.y] = Road
                   env.resetTileColor(pos)
               while pos.y != anchor.y:
                 pos.y += (if anchor.y < pos.y: -1'i32 elif anchor.y > pos.y: 1'i32 else: 0'i32)
-                if env.canLayRoad(pos):
+                if env.canPlace(pos, checkFrozen = false):
                   env.terrain[pos.x][pos.y] = Road
                   env.resetTileColor(pos)
           inc env.stats[id].actionBuild
