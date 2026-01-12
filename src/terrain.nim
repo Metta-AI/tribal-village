@@ -1,6 +1,6 @@
 import std/math, vmath
 import entropy
-import plains, biome, biomes
+import biome, biomes
 
 const
   # Keep in sync with biome.nim's MaxBiomeSize.
