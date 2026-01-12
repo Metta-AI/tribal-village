@@ -2,15 +2,6 @@ tribal_village.log
 profile_results.txt
 metta
 tribal_village
-PufferLib
-resources
-src/mettascope.out
-bindings/generated/
-mettascope2/dist/
-mettascope2/data/fidget/
-data/fidget/
-!data/inventory/
-!data/inventory/*.png
 uv.lock
 
 # Dynamic libraries (platform-specific compiled binaries)
