@@ -31,10 +31,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     var writeIdx = 0
     for readIdx in 0 ..< env.actionTintPositions.len:
       let pos = env.actionTintPositions[readIdx]
+      if not isValidPos(pos):
+        continue
       let x = pos.x
       let y = pos.y
-      if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
-        continue
       let c = env.actionTintCountdown[x][y]
       if c > 0:
         let next = c - 1
@@ -88,7 +88,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Combined single-pass object updates and tumor collection
-  const adjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
 
@@ -209,8 +208,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       return ivec2((if dx > 0: 1 else: -1), 0)
     return ivec2(0, (if dy > 0: 1 else: -1))
 
-  let cornerInset = MapBorder + 2
-  let cornerMin = cornerInset.int32
+  let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
   let cornerMaxY = (MapHeight - MapBorder - 3).int32
   let cornerTargets = [
@@ -312,14 +310,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     var branchPos = ivec2(-1, -1)
     var branchCount = 0
-    const AdjacentOffsets = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
     for offset in TumorBranchOffsets:
       let candidate = tumor.pos + offset
       if not env.isValidEmptyPosition(candidate):
         continue
 
       var adjacentTumor = false
-      for adj in AdjacentOffsets:
+      for adj in CardinalOffsets:
         let checkPos = candidate + adj
         if not isValidPos(checkPos):
           continue
@@ -373,7 +370,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let tumor = env.things[i]
     if tumor.kind != Tumor:
       continue
-    for offset in adjacentOffsets:
+    for offset in CardinalOffsets:
       let adjPos = tumor.pos + offset
       if not isValidPos(adjPos):
         continue

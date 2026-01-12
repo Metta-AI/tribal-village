@@ -109,12 +109,6 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
     agent.maxHp = SiegeMaxHp
     agent.attackDamage = SiegeAttackDamage
   agent.hp = agent.maxHp
-
-proc hearts*(thing: Thing): int =
-  getInv(thing, ItemHearts)
-
-proc `hearts=`*(thing: Thing, value: int) =
-  setInv(thing, ItemHearts, value)
 {.pop.}
 
 template defineInventoryAccessors(name, key: untyped) =
@@ -134,3 +128,4 @@ defineInventoryAccessors(inventorySpear, ItemSpear)
 defineInventoryAccessors(inventoryLantern, ItemLantern)
 defineInventoryAccessors(inventoryArmor, ItemArmor)
 defineInventoryAccessors(inventoryBread, ItemBread)
+defineInventoryAccessors(hearts, ItemHearts)

@@ -135,3 +135,21 @@ proc ivec2*(x, y: int): IVec2 =
   result.x = x.int32
   result.y = y.int32
 {.pop.}
+
+const
+  CardinalOffsets* = [
+    ivec2(0, -1),
+    ivec2(1, 0),
+    ivec2(0, 1),
+    ivec2(-1, 0)
+  ]
+  AdjacentOffsets8* = [
+    ivec2(0, -1),
+    ivec2(1, 0),
+    ivec2(0, 1),
+    ivec2(-1, 0),
+    ivec2(1, -1),
+    ivec2(1, 1),
+    ivec2(-1, 1),
+    ivec2(-1, -1)
+  ]

@@ -11,9 +11,6 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
     turnsAlive: 0                # New tumor hasn't lived any turns yet
   )
 
-template randChance(r: var Rand, p: float): bool =
-  randFloat(r) < p
-
 const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
   TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
@@ -706,7 +703,7 @@ proc init(env: Environment) =
       for dx in -(spawnerStruct.width div 2) .. (spawnerStruct.width div 2):
         for dy in -(spawnerStruct.height div 2) .. (spawnerStruct.height div 2):
           let checkPos = targetPos + ivec2(dx, dy)
-          if checkPos.x < 0 or checkPos.x >= MapWidth or checkPos.y < 0 or checkPos.y >= MapHeight:
+          if not isValidPos(checkPos):
             areaValid = false
             break
           if not env.isEmpty(checkPos) or isBlockedTerrain(env.terrain[checkPos.x][checkPos.y]):
