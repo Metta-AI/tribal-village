@@ -12,9 +12,6 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
     turnsAlive: 0                # New tumor hasn't lived any turns yet
   )
 
-template randChance(r: var Rand, p: float): bool =
-  randFloat(r) < p
-
 const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
   TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
