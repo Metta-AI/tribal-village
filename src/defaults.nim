@@ -138,8 +138,7 @@ proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing
                           nearbyKinds: openArray[ThingKind], distanceThreshold: int): tuple[did: bool, action: uint8] =
   if resourceCount < minResource:
     return (false, 0'u8)
-  let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
-  if dist <= distanceThreshold:
+  if nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos) <= distanceThreshold:
     return (false, 0'u8)
   let idx = buildIndexFor(kind)
   if idx >= 0:

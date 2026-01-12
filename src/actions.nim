@@ -28,7 +28,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionInvalid
           break moveAction
 
-        let newOrientation = moveOrientation
         # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
         proc canEnter(pos: IVec2): bool =
           var canMove = env.isEmpty(pos)
@@ -93,7 +92,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               blocker.pos = agentOld
               env.grid[agentOld.x][agentOld.y] = blocker
               env.grid[blockerOld.x][blockerOld.y] = agent
-              agent.orientation = newOrientation
+              agent.orientation = moveOrientation
               env.updateObservations(AgentLayer, agentOld, getTeamId(blocker.agentId) + 1)
               env.updateObservations(AgentLayer, blockerOld, getTeamId(agent.agentId) + 1)
               env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -118,7 +117,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Clear old position and set new position
         env.updateObservations(AgentLayer, agent.pos, 0)  # Clear old
         agent.pos = finalPos
-        agent.orientation = newOrientation
+        agent.orientation = moveOrientation
         env.grid[agent.pos.x][agent.pos.y] = agent
 
         # Update observations for new position only

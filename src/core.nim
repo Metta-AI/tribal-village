@@ -323,9 +323,10 @@ proc neighborDirIndex(fromPos, toPos: IVec2): int =
   ## Orientation index (0..7) toward adjacent target (includes diagonals)
   let dx = toPos.x - fromPos.x
   let dy = toPos.y - fromPos.y
-  let sx = (if dx > 0: 1'i32 elif dx < 0: -1'i32 else: 0'i32)
-  let sy = (if dy > 0: 1'i32 elif dy < 0: -1'i32 else: 0'i32)
-  return vecToOrientation(ivec2(sx.int, sy.int))
+  return vecToOrientation(ivec2(
+    (if dx > 0: 1'i32 elif dx < 0: -1'i32 else: 0'i32).int,
+    (if dy > 0: 1'i32 elif dy < 0: -1'i32 else: 0'i32).int
+  ))
 
 
 proc sameTeam(agentA, agentB: Thing): bool =
