@@ -268,12 +268,13 @@ proc drawFloor*() =
       let y = pos.y
       let blendedColor = combinedTileTint(env, x, y)
 
-      let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
-      let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
-      let finalB = min(blendedColor.b * blendedColor.intensity, 1.5)
-
       bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = SpriteScale,
-        tint = color(finalR, finalG, finalB, 1.0))
+        tint = color(
+          min(blendedColor.r * blendedColor.intensity, 1.5),
+          min(blendedColor.g * blendedColor.intensity, 1.5),
+          min(blendedColor.b * blendedColor.intensity, 1.5),
+          1.0
+        ))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:

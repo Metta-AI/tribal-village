@@ -209,8 +209,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       return ivec2((if dx > 0: 1 else: -1), 0)
     return ivec2(0, (if dy > 0: 1 else: -1))
 
-  let cornerInset = MapBorder + 2
-  let cornerMin = cornerInset.int32
+  let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
   let cornerMaxY = (MapHeight - MapBorder - 3).int32
   let cornerTargets = [

@@ -159,8 +159,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
     if targetPos.x >= 0:
       case targetKind
       of Door:
-        let doorKey = thingItem("Door")
-        if not env.canAffordBuild(teamId, doorKey):
+        if not env.canAffordBuild(teamId, thingItem("Door")):
           let (didDrop, actDrop) = controller.dropoffCarrying(
             env, agent, agentId, state,
             allowWood = true,
@@ -175,8 +174,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         )
         if didDoor: return doorAct
       of Outpost:
-        let outpostKey = thingItem("Outpost")
-        if not env.canAffordBuild(teamId, outpostKey):
+        if not env.canAffordBuild(teamId, thingItem("Outpost")):
           let (didDrop, actDrop) = controller.dropoffCarrying(
             env, agent, agentId, state,
             allowWood = true,
@@ -193,8 +191,7 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
           )
           if didOutpost: return outpostAct
       else:
-        let wallKey = thingItem("Wall")
-        if not env.canAffordBuild(teamId, wallKey):
+        if not env.canAffordBuild(teamId, thingItem("Wall")):
           let (didDrop, actDrop) = controller.dropoffCarrying(
             env, agent, agentId, state,
             allowWood = true,
