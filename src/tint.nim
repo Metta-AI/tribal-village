@@ -16,10 +16,10 @@ proc updateTintModifications(env: Environment) =
   var writeIdx = 0
   for readIdx in 0 ..< env.activeTiles.positions.len:
     let pos = env.activeTiles.positions[readIdx]
+    if not isValidPos(pos):
+      continue
     let tileX = pos.x.int
     let tileY = pos.y.int
-    if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
-      continue
     let current = env.tintMods[tileX][tileY]
     let strength = env.tintStrength[tileX][tileY]
     let r = int(round(current.r.float32 * TrailDecay))
@@ -41,10 +41,10 @@ proc updateTintModifications(env: Environment) =
   writeIdx = 0
   for readIdx in 0 ..< env.tumorActiveTiles.positions.len:
     let pos = env.tumorActiveTiles.positions[readIdx]
+    if not isValidPos(pos):
+      continue
     let tileX = pos.x.int
     let tileY = pos.y.int
-    if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
-      continue
     let current = env.tumorTintMods[tileX][tileY]
     let strength = env.tumorStrength[tileX][tileY]
     let r = int(round(current.r.float32 * TumorDecay))
@@ -102,7 +102,7 @@ proc updateTintModifications(env: Environment) =
   # Process all entities and mark their affected positions as active
   for thing in env.things:
     let pos = thing.pos
-    if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+    if not isValidPos(pos):
       continue
     let baseX = pos.x.int
     let baseY = pos.y.int
