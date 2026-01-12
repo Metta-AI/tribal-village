@@ -115,6 +115,32 @@ proc spendInventory*(env: Environment, agent: Thing, costs: openArray[tuple[key:
     env.updateAgentInventoryObs(agent, cost.key)
   true
 
+type PaymentSource* = enum
+  PayNone
+  PayInventory
+  PayStockpile
+
+proc choosePayment*(env: Environment, agent: Thing,
+                    costs: openArray[tuple[key: ItemKey, count: int]]): PaymentSource =
+  if costs.len == 0:
+    return PayNone
+  if canSpendInventory(agent, costs):
+    return PayInventory
+  let teamId = getTeamId(agent.agentId)
+  if env.canSpendStockpile(teamId, costs):
+    return PayStockpile
+  PayNone
+
+proc spendCosts*(env: Environment, agent: Thing, source: PaymentSource,
+                 costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  case source
+  of PayInventory:
+    spendInventory(env, agent, costs)
+  of PayStockpile:
+    env.spendStockpile(getTeamId(agent.agentId), costs)
+  of PayNone:
+    false
+
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.unitClass = unitClass
   case unitClass

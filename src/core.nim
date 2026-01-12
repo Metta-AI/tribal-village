@@ -314,11 +314,7 @@ proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kin
 
 proc canAffordBuild*(env: Environment, agent: Thing, key: ItemKey): bool =
   let costs = buildCostsForKey(key)
-  if costs.len == 0:
-    return false
-  if canSpendInventory(agent, costs):
-    return true
-  env.canSpendStockpile(getTeamId(agent.agentId), costs)
+  choosePayment(env, agent, costs) != PayNone
 
 
 proc neighborDirIndex(fromPos, toPos: IVec2): int =

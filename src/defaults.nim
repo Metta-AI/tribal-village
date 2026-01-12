@@ -216,7 +216,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
   let costs = buildCostsForKey(key)
   if costs.len == 0:
     return (false, 0'u8)
-  if not canSpendInventory(agent, costs) and not env.canSpendStockpile(teamId, costs):
+  if choosePayment(env, agent, costs) == PayNone:
     for cost in costs:
       case stockpileResourceForItem(cost.key)
       of ResourceWood:
