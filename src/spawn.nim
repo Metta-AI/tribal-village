@@ -1,6 +1,5 @@
 # This file is included by src/environment.nim
 import std/math
-import maze, radial
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   ## Create a new Tumor seed that can branch once before turning inert
   Thing(
