@@ -25,11 +25,12 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]
   let alpha = max(0.0'f32, min(1.0'f32, overlay.intensity))
-  let r = base.r * (1.0 - alpha) + overlay.r * alpha
-  let g = base.g * (1.0 - alpha) + overlay.g * alpha
-  let b = base.b * (1.0 - alpha) + overlay.b * alpha
-  let intensity = base.intensity + (1.0'f32 - base.intensity) * alpha
-  TileColor(r: r, g: g, b: b, intensity: intensity)
+  TileColor(
+    r: base.r * (1.0 - alpha) + overlay.r * alpha,
+    g: base.g * (1.0 - alpha) + overlay.g * alpha,
+    b: base.b * (1.0 - alpha) + overlay.b * alpha,
+    intensity: base.intensity + (1.0'f32 - base.intensity) * alpha
+  )
 
 proc isTileFrozen*(pos: IVec2, env: Environment): bool =
   if not isValidPos(pos):

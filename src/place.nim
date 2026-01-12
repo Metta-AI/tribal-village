@@ -9,14 +9,13 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   false
 
 proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool, hearts = 0) =
-  let value = if present: 1 else: 0
   case kind
   of Wall:
-    env.updateObservations(WallLayer, pos, value)
+    env.updateObservations(WallLayer, pos, if present: 1 else: 0)
   of Magma:
-    env.updateObservations(MagmaLayer, pos, value)
+    env.updateObservations(MagmaLayer, pos, if present: 1 else: 0)
   of Altar:
-    env.updateObservations(altarLayer, pos, value)
+    env.updateObservations(altarLayer, pos, if present: 1 else: 0)
     env.updateObservations(altarHeartsLayer, pos, if present: hearts else: 0)
   else:
     discard
@@ -66,13 +65,13 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
       let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
       if capacity < count:
         return false
-  let capacityLeft = block:
+  if resourceNeeded > (block:
     var total = 0
     for invKey, invCount in agent.inventory.pairs:
       if invCount > 0 and isStockpileResourceKey(invKey):
         total += invCount
     max(0, ResourceCarryCapacity - total)
-  if resourceNeeded > capacityLeft:
+  ):
     return false
   for itemKey, count in thing.inventory.pairs:
     setInv(agent, itemKey, getInv(agent, itemKey) + count)

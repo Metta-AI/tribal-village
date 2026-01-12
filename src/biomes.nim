@@ -21,8 +21,7 @@ proc buildBiomeForestMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
       if randFloat(r) < cfg.seedProb:
         mask[x][y] = true
 
-  let passes = max(0, cfg.clumpiness)
-  for _ in 0 ..< passes:
+  for _ in 0 ..< max(0, cfg.clumpiness):
     var nextMask: MaskGrid
     for x in mapBorder ..< mapWidth - mapBorder:
       for y in mapBorder ..< mapHeight - mapBorder:
@@ -93,8 +92,7 @@ proc buildBiomeCavesMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: in
     for y in mapBorder ..< mapHeight - mapBorder:
       mask[x][y] = randFloat(r) < cfg.fillProb
 
-  let steps = max(0, cfg.steps)
-  for _ in 0 ..< steps:
+  for _ in 0 ..< max(0, cfg.steps):
     var nextMask: MaskGrid
     for x in mapBorder ..< mapWidth - mapBorder:
       for y in mapBorder ..< mapHeight - mapBorder:

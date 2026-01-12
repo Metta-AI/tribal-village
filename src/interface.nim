@@ -83,8 +83,8 @@ proc tribal_village_reset_and_get_obs(
     globalEnv.rebuildObservations()
 
     # Direct memory copy of observations (zero conversion)
-    let obs_size = MapAgents * ObservationLayers * ObservationWidth * ObservationHeight
-    copyMem(obs_buffer, globalEnv.observations.addr, obs_size)
+    copyMem(obs_buffer, globalEnv.observations.addr,
+      MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
 
     # Clear rewards/terminals/truncations
     for i in 0..<MapAgents:
@@ -115,8 +115,8 @@ proc tribal_village_step_with_pointers(
     globalEnv.step(unsafeAddr actions)
 
     # Direct memory copy of observations (zero conversion overhead)
-    let obs_size = MapAgents * ObservationLayers * ObservationWidth * ObservationHeight
-    copyMem(obs_buffer, globalEnv.observations.addr, obs_size)
+    copyMem(obs_buffer, globalEnv.observations.addr,
+      MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
 
     # Direct buffer writes (no dict conversion)
     for i in 0..<MapAgents:
@@ -167,12 +167,9 @@ proc tribal_village_render_rgb(
 
   let scaleX = width div MapWidth
   let scaleY = height div MapHeight
-  let stride = width * 3
-
   try:
     for y in 0 ..< MapHeight:
       for sy in 0 ..< scaleY:
-        let rowBase = (y * scaleY + sy) * stride
         for x in 0 ..< MapWidth:
           let color = combinedTileTint(globalEnv, x, y)
           var rByte = toByte(color.r)
@@ -216,7 +213,7 @@ proc tribal_village_render_rgb(
               gByte = tint.g
               bByte = tint.b
 
-          let xBase = rowBase + x * scaleX * 3
+          let xBase = (y * scaleY + sy) * (width * 3) + x * scaleX * 3
           for sx in 0 ..< scaleX:
             let idx = xBase + sx * 3
             out_buffer[idx] = rByte
