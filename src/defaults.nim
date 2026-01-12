@@ -21,7 +21,7 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
       let candidate = agent.pos + d
       if not isValidPos(candidate):
         continue
-      if not env.canPlaceBuilding(candidate):
+      if not env.canPlace(candidate):
         continue
       # Avoid building on roads so they stay clear for traffic.
       if env.terrain[candidate.x][candidate.y] == TerrainRoad:
@@ -47,7 +47,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
     state.buildLockSteps = 0
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0:
-    if env.canPlaceBuilding(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad:
+    if env.canPlace(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad:
       target = state.buildTarget
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
@@ -58,7 +58,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
-  if not env.canPlaceBuilding(target):
+  if not env.canPlace(target):
     return (false, 0'u8)
   if env.terrain[target.x][target.y] == TerrainRoad:
     return (false, 0'u8)
@@ -93,7 +93,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0 and
       state.buildStand.x >= 0:
-    if env.canPlaceBuilding(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad and
+    if env.canPlace(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad and
         isValidPos(state.buildStand) and not env.hasDoor(state.buildStand) and
         not isBlockedTerrain(env.terrain[state.buildStand.x][state.buildStand.y]) and
         not isTileFrozen(state.buildStand, env) and
@@ -109,7 +109,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(teamId, key):
     return (false, 0'u8)
-  if not env.canPlaceBuilding(target):
+  if not env.canPlace(target):
     return (false, 0'u8)
   if env.terrain[target.x][target.y] == TerrainRoad:
     return (false, 0'u8)
@@ -177,7 +177,7 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
     for x in minX .. maxX:
       for y in minY .. maxY:
         let pos = ivec2(x.int32, y.int32)
-        if not env.canPlaceBuilding(pos):
+        if not env.canPlace(pos):
           continue
         # Avoid building on roads so they stay clear for traffic.
         if env.terrain[pos.x][pos.y] == TerrainRoad:
@@ -254,7 +254,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
   for x in minX .. maxX:
     for y in minY .. maxY:
       let pos = ivec2(x.int32, y.int32)
-      if not env.canPlaceBuilding(pos):
+      if not env.canPlace(pos):
         continue
       if env.terrain[pos.x][pos.y] == TerrainRoad:
         continue
@@ -317,7 +317,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
           let dist = chebyshevDist(basePos, pos).int
           if dist < 5 or dist > 15:
             continue
-          if not env.canPlaceBuilding(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
+          if not env.canPlace(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
             continue
           for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
             let stand = pos + d

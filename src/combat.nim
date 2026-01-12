@@ -4,19 +4,6 @@ proc killAgent(env: Environment, victim: Thing) =
   env.grid[deathPos.x][deathPos.y] = nil
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryGoldLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryStoneLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryBarLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryWaterLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryWheatLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryWoodLayer, victim.pos, 0)
-  env.updateObservations(AgentInventorySpearLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryLanternLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryArmorLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryBreadLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryMeatLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryFishLayer, victim.pos, 0)
-  env.updateObservations(AgentInventoryPlantLayer, victim.pos, 0)
 
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0
@@ -33,6 +20,8 @@ proc killAgent(env: Environment, victim: Thing) =
   env.add(corpse)
 
   victim.inventory = emptyInventory()
+  for key in ObservedItemKeys:
+    env.updateAgentInventoryObs(victim, key)
   victim.pos = ivec2(-1, -1)
 
 # Apply damage to an agent; respects armor and marks terminated when HP <= 0.
