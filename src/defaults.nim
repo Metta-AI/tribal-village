@@ -290,6 +290,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
     if getTeamId(otherAgent.agentId) == teamId:
       inc popCount
   var popCap = 0
+  var hasBase = false
   let popTarget = popCount + 1
   for thing in env.things:
     if thing.isNil:
@@ -297,12 +298,13 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
     if thing.teamId != teamId:
       continue
     if isBuildingKind(thing.kind):
+      hasBase = true
       let cap = buildingPopCap(thing.kind)
       if cap > 0:
         popCap += cap
         if popCap >= popTarget:
           break
-  if popCap > 0 and popCount >= popCap - 1:
+  if (popCap > 0 and popCount >= popCap - 1) or (popCap == 0 and hasBase):
     var targetBuildPos = ivec2(-1, -1)
     var targetStandPos = ivec2(-1, -1)
     let minX = max(0, basePos.x - 15)

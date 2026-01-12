@@ -13,6 +13,7 @@ const
 
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
+  overlayLabelImages: Table[string, string] = initTable[string, string]()
   infoLabelImages: Table[string, string] = initTable[string, string]()
   infoLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
   stepLabelKey = ""
@@ -320,6 +321,33 @@ proc ensureHeartCountLabel(count: int): string =
 
   result = key
 
+proc ensureOverlayLabel(text: string): string =
+  ## Cache small overlay labels like "x 5" or "x 5/10".
+  if text.len == 0:
+    return ""
+  if text in overlayLabelImages:
+    return overlayLabelImages[text]
+
+  var measureCtx = newContext(1, 1)
+  configureHeartFont(measureCtx)
+  let metrics = measureCtx.measureText(text)
+
+  let padding = HeartCountPadding
+  let labelWidth = max(1, metrics.width.int + padding * 2)
+  let labelHeight = max(1, measureCtx.fontSize.int + padding * 2)
+
+  var ctx = newContext(labelWidth, labelHeight)
+  configureHeartFont(ctx)
+  ctx.fillStyle.color = color(0, 0, 0, 0.7)
+  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillText(text, vec2(padding.float32, padding.float32))
+
+  let key = "overlay_label/" & text.replace(" ", "_").replace("/", "_")
+  bxy.addImage(key, ctx.image, mipmaps = false)
+  overlayLabelImages[text] = key
+  result = key
+
 let wallSprites = block:
   var sprites = newSeq[string](16)
   for i in 0 .. 15:
@@ -382,6 +410,18 @@ proc drawWalls*() =
                   angle = 0, scale = SpriteScale, tint = wallTint)
 
 proc drawObjects*() =
+  var teamPopCounts: array[MapRoomObjectsHouses, int]
+  var teamHouseCounts: array[MapRoomObjectsHouses, int]
+  for agent in env.agents:
+    if isAgentAlive(env, agent):
+      let teamId = getTeamId(agent.agentId)
+      if teamId >= 0 and teamId < MapRoomObjectsHouses:
+        inc teamPopCounts[teamId]
+  for house in env.thingsByKind[House]:
+    let teamId = house.teamId
+    if teamId >= 0 and teamId < MapRoomObjectsHouses:
+      inc teamHouseCounts[teamId]
+
   for pos in env.actionTintPositions:
     if not isValidPos(pos):
       continue
@@ -563,6 +603,26 @@ proc drawObjects*() =
             let labelKey = ensureHeartCountLabel(count)
             let labelPos = iconPos + vec2(0.14, -0.08)
             bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+        if thing.kind == TownCenter:
+          let teamId = thing.teamId
+          if teamId >= 0 and teamId < MapRoomObjectsHouses:
+            let popCount = teamPopCounts[teamId]
+            let popCap = teamHouseCounts[teamId] * HousePopCap
+            let iconScale = 1/320
+            let labelScale = 1/200
+            let iconPos = pos.vec2 + vec2(-0.18, -0.72)
+            let lineStep = vec2(0.0, 0.22)
+            bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0, scale = iconScale,
+              tint = color(1, 1, 1, 1))
+            let villagerLabel = ensureOverlayLabel("x " & $popCount)
+            let villagerLabelPos = iconPos + vec2(0.14, -0.08)
+            bxy.drawImage(villagerLabel, villagerLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+            let houseIcon = buildingSpriteKey(House)
+            let housePos = iconPos + lineStep
+            bxy.drawImage(houseIcon, housePos, angle = 0, scale = iconScale, tint = color(1, 1, 1, 1))
+            let capLabel = ensureOverlayLabel("x " & $popCount & "/" & $popCap)
+            let capLabelPos = housePos + vec2(0.14, -0.08)
+            bxy.drawImage(capLabel, capLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
     else:
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
