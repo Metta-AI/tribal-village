@@ -11,7 +11,7 @@ const WarmVillagePalette* = [
 ]
 
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
-  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+  if not isValidPos(pos):
     return
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
@@ -25,14 +25,15 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]
   let alpha = max(0.0'f32, min(1.0'f32, overlay.intensity))
-  let r = base.r * (1.0 - alpha) + overlay.r * alpha
-  let g = base.g * (1.0 - alpha) + overlay.g * alpha
-  let b = base.b * (1.0 - alpha) + overlay.b * alpha
-  let intensity = base.intensity + (1.0'f32 - base.intensity) * alpha
-  TileColor(r: r, g: g, b: b, intensity: intensity)
+  TileColor(
+    r: base.r * (1.0 - alpha) + overlay.r * alpha,
+    g: base.g * (1.0 - alpha) + overlay.g * alpha,
+    b: base.b * (1.0 - alpha) + overlay.b * alpha,
+    intensity: base.intensity + (1.0'f32 - base.intensity) * alpha
+  )
 
 proc isTileFrozen*(pos: IVec2, env: Environment): bool =
-  if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+  if not isValidPos(pos):
     return false
   let color = combinedTileTint(env, pos.x, pos.y)
   return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
@@ -158,4 +159,3 @@ proc applyBiomeBaseColors*(env: Environment) =
       colors = temp
 
   env.baseTintColors = colors
-

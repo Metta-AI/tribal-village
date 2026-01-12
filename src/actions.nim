@@ -28,7 +28,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionInvalid
           break moveAction
 
-        let newOrientation = moveOrientation
         # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
         proc canEnter(pos: IVec2): bool =
           var canMove = env.isEmpty(pos)
@@ -52,12 +51,12 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # Preferred push positions in move direction
           let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
           let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
-          if ahead2.x >= 0 and ahead2.x < MapWidth and ahead2.y >= 0 and ahead2.y < MapHeight and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
+          if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead2
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
             relocated = true
-          elif ahead1.x >= 0 and ahead1.x < MapWidth and ahead1.y >= 0 and ahead1.y < MapHeight and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
+          elif isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead1
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -69,7 +68,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if dx == 0 and dy == 0:
                   continue
                 let alt = ivec2(pos.x + dx, pos.y + dy)
-                if alt.x < 0 or alt.y < 0 or alt.x >= MapWidth or alt.y >= MapHeight:
+                if not isValidPos(alt):
                   continue
                 if env.isEmpty(alt) and not env.hasDoor(alt) and not isBlockedTerrain(env.terrain[alt.x][alt.y]) and spacingOk(alt):
                   env.grid[blocker.pos.x][blocker.pos.y] = nil
@@ -93,7 +92,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               blocker.pos = agentOld
               env.grid[agentOld.x][agentOld.y] = blocker
               env.grid[blockerOld.x][blockerOld.y] = agent
-              agent.orientation = newOrientation
+              agent.orientation = moveOrientation
               env.updateObservations(AgentLayer, agentOld, getTeamId(blocker.agentId) + 1)
               env.updateObservations(AgentLayer, blockerOld, getTeamId(agent.agentId) + 1)
               env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -118,7 +117,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Clear old position and set new position
         env.updateObservations(AgentLayer, agent.pos, 0)  # Clear old
         agent.pos = finalPos
-        agent.orientation = newOrientation
+        agent.orientation = moveOrientation
         env.grid[agent.pos.x][agent.pos.y] = agent
 
         # Update observations for new position only
@@ -145,7 +144,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let maxRange = if hasSpear: 2 else: 1
 
         proc tryHitAt(pos: IVec2): bool =
-          if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+          if not isValidPos(pos):
             return false
           let door = env.getOverlayThing(pos)
           if not isNil(door) and door.kind == Door and door.teamId != attackerTeam:
@@ -637,7 +636,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         let delta = getOrientationDelta(dir)
         let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
-        if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
+        if not isValidPos(targetPos):
           inc env.stats[id].actionInvalid
           break putAction
         let target = env.getThing(targetPos)

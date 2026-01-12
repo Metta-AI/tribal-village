@@ -146,23 +146,19 @@ proc isEmpty*(env: Environment, pos: IVec2): bool =
   return isNil(env.grid[pos.x][pos.y])
 
 proc hasDoor*(env: Environment, pos: IVec2): bool =
-  if not isValidPos(pos):
-    return false
-  let door = env.overlayGrid[pos.x][pos.y]
+  let door = env.getOverlayThing(pos)
   return not isNil(door) and door.kind == Door
 
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
-  if not env.hasDoor(pos):
-    return true
-  let door = env.overlayGrid[pos.x][pos.y]
-  return door.teamId == getTeamId(agent.agentId)
+  let door = env.getOverlayThing(pos)
+  return isNil(door) or door.kind != Door or door.teamId == getTeamId(agent.agentId)
 {.pop.}
 
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
   terrain in BuildableTerrain
 
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
-  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
+  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc resetTileColor*(env: Environment, pos: IVec2) =

@@ -144,9 +144,6 @@ const
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain == Water
 
-template randInclusive(r: var Rand, a, b: int): int = randIntInclusive(r, a, b)
-template randChance(r: var Rand, p: float): bool = randFloat(r) < p
-
 const
   RiverWidth* = 6
 
@@ -298,7 +295,7 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
   let cy = (y0 + y1 - 1) div 2
   let rx = max(2, (x1 - x0) div 2)
   let ry = max(2, (y1 - y0) div 2)
-  let lobeCount = randInclusive(r, ZoneBlobLobesMin, ZoneBlobLobesMax)
+  let lobeCount = randIntInclusive(r, ZoneBlobLobesMin, ZoneBlobLobesMax)
   var lobes: seq[tuple[cx, cy, rx, ry: float]] = @[]
   let baseStretch = max(0.35, 1.0 + (randFloat(r) * 2.0 - 1.0) * ZoneBlobAnisotropy)
   lobes.add((
@@ -337,20 +334,20 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
         mask[x][y] = true
 
   let baseRadius = max(2, min(rx, ry))
-  let biteCount = randInclusive(r, ZoneBlobBiteCountMin, ZoneBlobBiteCountMax)
+  let biteCount = randIntInclusive(r, ZoneBlobBiteCountMin, ZoneBlobBiteCountMax)
   for _ in 0 ..< biteCount:
-    var bx = randInclusive(r, x0, x1 - 1)
-    var by = randInclusive(r, y0, y1 - 1)
+    var bx = randIntInclusive(r, x0, x1 - 1)
+    var by = randIntInclusive(r, y0, y1 - 1)
     var attempts = 0
     while attempts < 10 and not mask[bx][by]:
-      bx = randInclusive(r, x0, x1 - 1)
-      by = randInclusive(r, y0, y1 - 1)
+      bx = randIntInclusive(r, x0, x1 - 1)
+      by = randIntInclusive(r, y0, y1 - 1)
       inc attempts
     if not mask[bx][by]:
       continue
     let biteMin = max(2, int(baseRadius.float * ZoneBlobBiteScaleMin))
     let biteMax = max(biteMin, int(baseRadius.float * ZoneBlobBiteScaleMax))
-    let biteRadius = randInclusive(r, biteMin, biteMax)
+    let biteRadius = randIntInclusive(r, biteMin, biteMax)
     let biteAngle = randFloat(r) * 2.0 * PI
     let biteSpread = (ZoneBlobBiteAngleMin + randFloat(r) *
       (ZoneBlobBiteAngleMax - ZoneBlobBiteAngleMin)) * PI
@@ -523,7 +520,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   var startMin = max(mapBorder + RiverWidth + reserve, centerY - span)
   var startMax = min(mapHeight - mapBorder - RiverWidth - reserve, centerY + span)
   if startMin > startMax: swap(startMin, startMax)
-  var currentPos = ivec2(mapBorder.int32, randInclusive(r, startMin, startMax).int32)
+  var currentPos = ivec2(mapBorder.int32, randIntInclusive(r, startMin, startMax).int32)
 
   while currentPos.x >= mapBorder and currentPos.x < mapWidth - mapBorder and
         currentPos.y >= mapBorder and currentPos.y < mapHeight - mapBorder:
@@ -674,7 +671,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       branchDownCandidates.add(pos)
 
   let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
-  let desiredBridges = max(randInclusive(r, 4, 5), (if hasBranch: 3 else: 0)) * 2
+  let desiredBridges = max(randIntInclusive(r, 4, 5), (if hasBranch: 3 else: 0)) * 2
 
   var placed: seq[IVec2] = @[]
   template placeFrom(cands: seq[IVec2], useBranch: bool) =

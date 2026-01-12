@@ -167,9 +167,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       if isNil(knownThing) or knownThing.kind notin {Wheat, Stubble, Bush, Cow, Corpse}:
         state.closestFoodPos = ivec2(-1, -1)
       else:
-        let verb = (if knownThing.kind == Cow: 2'u8 else: 3'u8)
         if isAdjacent(agent.pos, knownThing.pos):
-          return controller.actAt(env, agent, agentId, state, knownThing.pos, verb)
+          return controller.actAt(env, agent, agentId, state, knownThing.pos,
+            (if knownThing.kind == Cow: 2'u8 else: 3'u8))
         return controller.moveTo(env, agent, agentId, state, knownThing.pos)
 
     for kind in [Wheat, Stubble]:

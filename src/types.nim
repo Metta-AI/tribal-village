@@ -113,9 +113,9 @@ const
 
 template safeTintAdd*(tintMod: var int32, delta: int): void =
   ## Safe tint accumulation with overflow protection
-  let clampedDelta = max(-MaxTintAccum, min(MaxTintAccum, delta.int32))
-  let summed = tintMod + clampedDelta
-  tintMod = max(-MaxTintAccum, min(MaxTintAccum, summed))
+  tintMod = max(-MaxTintAccum, min(MaxTintAccum,
+    tintMod + max(-MaxTintAccum, min(MaxTintAccum, delta.int32))
+  ))
 {.pop.}
 
 type

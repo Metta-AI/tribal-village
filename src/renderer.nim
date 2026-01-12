@@ -268,12 +268,13 @@ proc drawFloor*() =
       let y = pos.y
       let blendedColor = combinedTileTint(env, x, y)
 
-      let finalR = min(blendedColor.r * blendedColor.intensity, 1.5)
-      let finalG = min(blendedColor.g * blendedColor.intensity, 1.5)
-      let finalB = min(blendedColor.b * blendedColor.intensity, 1.5)
-
       bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = SpriteScale,
-        tint = color(finalR, finalG, finalB, 1.0))
+        tint = color(
+          min(blendedColor.r * blendedColor.intensity, 1.5),
+          min(blendedColor.g * blendedColor.intensity, 1.5),
+          min(blendedColor.b * blendedColor.intensity, 1.5),
+          1.0
+        ))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
@@ -382,7 +383,7 @@ proc drawWalls*() =
 
 proc drawObjects*() =
   for pos in env.actionTintPositions:
-    if pos.x < 0 or pos.x >= MapWidth or pos.y < 0 or pos.y >= MapHeight:
+    if not isValidPos(pos):
       continue
     if env.actionTintCountdown[pos.x][pos.y] > 0:
       let c = env.actionTintColor[pos.x][pos.y]
@@ -677,8 +678,7 @@ proc drawSelection*() =
     )
 
 proc drawSelectionLabel*(panelRect: IRect) =
-  if selectedPos.x < 0 or selectedPos.x >= MapWidth or
-     selectedPos.y < 0 or selectedPos.y >= MapHeight:
+  if not isValidPos(selectedPos):
     return
 
   proc appendResourceCount(label: var string, thing: Thing) =
