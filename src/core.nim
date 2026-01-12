@@ -352,7 +352,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
       let delta = getOrientationDelta(Orientation(dirIdx))
       for distance in 1 .. rangedRange:
         let targetPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
-        if targetPos.x < 0 or targetPos.x >= MapWidth or targetPos.y < 0 or targetPos.y >= MapHeight:
+        if not isValidPos(targetPos):
           continue
         let target = env.grid[targetPos.x][targetPos.y]
         if isNil(target):
@@ -388,7 +388,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
       # Safety: skip stale things whose grid entry was already cleared (can happen after destruction
       # but before env.things is pruned). Without this, agents may attack an empty tile where the
       # object used to live.
-      if thing.pos.x < 0 or thing.pos.x >= MapWidth or thing.pos.y < 0 or thing.pos.y >= MapHeight:
+      if not isValidPos(thing.pos):
         continue
       if env.grid[thing.pos.x][thing.pos.y] != thing:
         continue
@@ -436,8 +436,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   for dirIdx in 0 .. 7:
     let delta = getOrientationDelta(Orientation(dirIdx))
     let targetPos = agent.pos + ivec2(delta.x, delta.y)
-    if targetPos.x < 0 or targetPos.x >= MapWidth or
-       targetPos.y < 0 or targetPos.y >= MapHeight:
+    if not isValidPos(targetPos):
       continue
     let occupant = env.grid[targetPos.x][targetPos.y]
     if isNil(occupant):

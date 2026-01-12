@@ -31,10 +31,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     var writeIdx = 0
     for readIdx in 0 ..< env.actionTintPositions.len:
       let pos = env.actionTintPositions[readIdx]
+      if not isValidPos(pos):
+        continue
       let x = pos.x
       let y = pos.y
-      if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
-        continue
       let c = env.actionTintCountdown[x][y]
       if c > 0:
         let next = c - 1
