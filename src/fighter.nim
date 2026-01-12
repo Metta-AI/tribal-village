@@ -134,18 +134,18 @@ proc decideFighter(controller: Controller, env: Environment, agent: Thing,
         if env.hasDoor(pos):
           let outpostPos = pos + normal
           if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
-              env.canPlaceBuilding(outpostPos):
+              env.canPlace(outpostPos):
             let outDist = int(chebyshevDist(agent.pos, outpostPos))
             if outDist < bestOutpostDist:
               bestOutpostDist = outDist
               bestOutpost = outpostPos
         else:
-          if env.canPlaceBuilding(pos):
+          if env.canPlace(pos):
             if distToAgent < bestDoorDist:
               bestDoorDist = distToAgent
               bestDoor = pos
       else:
-        if env.canPlaceBuilding(pos):
+        if env.canPlace(pos):
           if distToAgent < bestWallDist:
             bestWallDist = distToAgent
             bestWall = pos

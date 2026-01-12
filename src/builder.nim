@@ -91,11 +91,11 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
                 let stepY = signi(altarPos.y - pos.y)
                 let outpostPos = pos + ivec2(stepX * 2, stepY * 2)
                 if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
-                    env.canPlaceBuilding(outpostPos):
+                    env.canPlace(outpostPos):
                   outpostTarget = outpostPos
-              if doorTarget.x < 0 and env.canPlaceBuilding(pos):
+              if doorTarget.x < 0 and env.canPlace(pos):
                 doorTarget = pos
-            elif wallTarget.x < 0 and env.canPlaceBuilding(pos):
+            elif wallTarget.x < 0 and env.canPlace(pos):
               wallTarget = pos
     let canDoor = doorTarget.x >= 0
     let canWall = wallTarget.x >= 0
