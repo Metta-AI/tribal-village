@@ -127,15 +127,8 @@ proc getOrientationDelta*(orient: Orientation): OrientationDelta =
 {.pop.}
 
 proc orientationToVec*(orientation: Orientation): IVec2 =
-  case orientation
-  of N: result = ivec2(0, -1)
-  of S: result = ivec2(0, 1)
-  of E: result = ivec2(1, 0)
-  of W: result = ivec2(-1, 0)
-  of NW: result = ivec2(-1, -1)
-  of NE: result = ivec2(1, -1)
-  of SW: result = ivec2(-1, 1)
-  of SE: result = ivec2(1, 1)
+  let delta = getOrientationDelta(orientation)
+  ivec2(delta.x.int32, delta.y.int32)
 
 {.push inline.}
 proc ivec2*(x, y: int): IVec2 =
