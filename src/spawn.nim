@@ -704,7 +704,7 @@ proc init(env: Environment) =
       for dx in -(spawnerStruct.width div 2) .. (spawnerStruct.width div 2):
         for dy in -(spawnerStruct.height div 2) .. (spawnerStruct.height div 2):
           let checkPos = targetPos + ivec2(dx, dy)
-          if checkPos.x < 0 or checkPos.x >= MapWidth or checkPos.y < 0 or checkPos.y >= MapHeight:
+          if not isValidPos(checkPos):
             areaValid = false
             break
           if not env.isEmpty(checkPos) or isBlockedTerrain(env.terrain[checkPos.x][checkPos.y]):
