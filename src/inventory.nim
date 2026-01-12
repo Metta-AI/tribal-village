@@ -84,6 +84,37 @@ proc spendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[res: 
     env.teamStockpiles[teamId].counts[cost.res] -= cost.count
   true
 
+proc canSpendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  for cost in costs:
+    if not isStockpileResourceKey(cost.key):
+      return false
+    let res = stockpileResourceForItem(cost.key)
+    if env.teamStockpiles[teamId].counts[res] < cost.count:
+      return false
+  true
+
+proc spendStockpile*(env: Environment, teamId: int, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  if not env.canSpendStockpile(teamId, costs):
+    return false
+  for cost in costs:
+    let res = stockpileResourceForItem(cost.key)
+    env.teamStockpiles[teamId].counts[res] -= cost.count
+  true
+
+proc canSpendInventory*(agent: Thing, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  for cost in costs:
+    if getInv(agent, cost.key) < cost.count:
+      return false
+  true
+
+proc spendInventory*(env: Environment, agent: Thing, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  if not canSpendInventory(agent, costs):
+    return false
+  for cost in costs:
+    setInv(agent, cost.key, getInv(agent, cost.key) - cost.count)
+    env.updateAgentInventoryObs(agent, cost.key)
+  true
+
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.unitClass = unitClass
   case unitClass

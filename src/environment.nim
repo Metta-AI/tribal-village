@@ -475,23 +475,20 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 
 include "tint"
 
-proc buildCostsForKey*(key: ItemKey): seq[tuple[res: StockpileResource, count: int]] =
+proc buildCostsForKey*(key: ItemKey): seq[tuple[key: ItemKey, count: int]] =
   var kind: ThingKind
   if parseThingKey(key, kind) and isBuildingKind(kind):
-    var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+    var costs: seq[tuple[key: ItemKey, count: int]] = @[]
     for input in BuildingRegistry[kind].buildCost:
-      if isStockpileResourceKey(input.key):
-        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+      costs.add((key: input.key, count: input.count))
     return costs
   for recipe in CraftRecipes:
     for output in recipe.outputs:
       if output.key != key:
         continue
-      var costs: seq[tuple[res: StockpileResource, count: int]] = @[]
+      var costs: seq[tuple[key: ItemKey, count: int]] = @[]
       for input in recipe.inputs:
-        if not isStockpileResourceKey(input.key):
-          continue
-        costs.add((res: stockpileResourceForItem(input.key), count: input.count))
+        costs.add((key: input.key, count: input.count))
       return costs
   @[]
 
