@@ -238,6 +238,26 @@ suite "Mechanics":
 
     check ally.hp == 2
 
+  test "guard tower attacks enemy in range":
+    let env = makeEmptyEnv()
+    discard addBuilding(env, GuardTower, ivec2(10, 10), 0)
+    let enemyId = MapAgentsPerVillage
+    let enemy = addAgentAt(env, enemyId, ivec2(10, 13))
+    let startHp = enemy.hp
+
+    env.stepAction(enemyId, 0'u8, 0)
+    check enemy.hp < startHp
+
+  test "castle attacks enemy in range":
+    let env = makeEmptyEnv()
+    discard addBuilding(env, Castle, ivec2(10, 10), 0)
+    let enemyId = MapAgentsPerVillage
+    let enemy = addAgentAt(env, enemyId, ivec2(10, 15))
+    let startHp = enemy.hp
+
+    env.stepAction(enemyId, 0'u8, 0)
+    check enemy.hp < startHp
+
   test "swap action updates positions":
     let env = makeEmptyEnv()
     let agentA = addAgentAt(env, 0, ivec2(10, 10))
