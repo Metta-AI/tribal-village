@@ -400,13 +400,13 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
   var bestTumor = (dir: -1, dist: int.high)
   var bestSpawner = (dir: -1, dist: int.high)
   var bestEnemy = (dir: -1, dist: int.high)
+  var bestStructure = (dir: -1, dist: int.high)
 
   if agent.unitClass == UnitMonk:
     return -1
 
   let rangedRange = case agent.unitClass
     of UnitArcher: ArcherBaseRange
-    of UnitSiege: SiegeBaseRange
     else: 0
 
   if rangedRange > 0:
@@ -439,6 +439,59 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
           discard
           break
 
+    if bestTumor.dir >= 0: return bestTumor.dir
+    if bestSpawner.dir >= 0: return bestSpawner.dir
+    if bestEnemy.dir >= 0: return bestEnemy.dir
+
+  if agent.unitClass == UnitMangonel:
+    for thing in env.things:
+      if thing.kind == Agent:
+        if not isAgentAlive(env, thing):
+          continue
+        if sameTeam(agent, thing):
+          continue
+      elif isAttackableStructure(thing.kind):
+        if thing.teamId == getTeamId(agent.agentId):
+          continue
+      elif thing.kind notin {Tumor, Spawner}:
+        continue
+      if not isValidPos(thing.pos):
+        continue
+      if env.grid[thing.pos.x][thing.pos.y] != thing:
+        continue
+      let dirIdx = block:
+        var bestDir = -1
+        var bestStep = int.high
+        for checkDir in 0 .. 7:
+          let d = getOrientationDelta(Orientation(checkDir))
+          let left = ivec2(-d.y, d.x)
+          let right = ivec2(d.y, -d.x)
+          for step in 1 .. MangonelAoELength:
+            let forward = agent.pos + ivec2(d.x * step, d.y * step)
+            if forward == thing.pos or forward + left == thing.pos or forward + right == thing.pos:
+              if step < bestStep:
+                bestStep = step
+                bestDir = checkDir
+              break
+        bestDir
+      if dirIdx < 0:
+        continue
+      let dist = int(chebyshevDist(agent.pos, thing.pos))
+      case thing.kind
+      of Tumor:
+        if dist < bestTumor.dist:
+          bestTumor = (dirIdx, dist)
+      of Spawner:
+        if dist < bestSpawner.dist:
+          bestSpawner = (dirIdx, dist)
+      of Agent:
+        if dist < bestEnemy.dist:
+          bestEnemy = (dirIdx, dist)
+      else:
+        if dist < bestStructure.dist:
+          bestStructure = (dirIdx, dist)
+
+    if bestStructure.dir >= 0: return bestStructure.dir
     if bestTumor.dir >= 0: return bestTumor.dir
     if bestSpawner.dir >= 0: return bestSpawner.dir
     if bestEnemy.dir >= 0: return bestEnemy.dir
@@ -500,11 +553,17 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
     let targetPos = agent.pos + ivec2(delta.x, delta.y)
     if not isValidPos(targetPos):
       continue
+    let door = env.getOverlayThing(targetPos)
+    if not isNil(door) and door.kind == Door and door.teamId != getTeamId(agent.agentId):
+      return dirIdx
     let occupant = env.grid[targetPos.x][targetPos.y]
     if isNil(occupant):
       continue
 
-    if occupant.kind == Tumor:
+    if isAttackableStructure(occupant.kind) and occupant.teamId != getTeamId(agent.agentId):
+      if agent.unitClass in {UnitBatteringRam, UnitMangonel}:
+        return dirIdx
+    elif occupant.kind == Tumor:
       return dirIdx
     elif occupant.kind == Spawner and bestSpawner.dir < 0:
       bestSpawner = (dirIdx, 1)

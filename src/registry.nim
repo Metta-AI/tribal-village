@@ -101,6 +101,8 @@ let BuildingRegistry* = block:
       buildIndex = 10, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
   add(SiegeWorkshop, "Siege Workshop", "siege_workshop", 'i', (r: 120'u8, g: 120'u8, b: 160'u8),
       buildIndex = 11, buildCost = @[(ItemWood, 10)], buildCooldown = 14)
+  add(MangonelWorkshop, "Mangonel Workshop", "mangonel_workshop", 'j', (r: 120'u8, g: 130'u8, b: 160'u8),
+      buildIndex = BuildIndexMangonelWorkshop, buildCost = @[(ItemWood, 10), (ItemStone, 4)], buildCooldown = 14)
   add(Blacksmith, "Blacksmith", "blacksmith", 'k', (r: 90'u8, g: 90'u8, b: 90'u8),
       buildIndex = 16, buildCost = @[(ItemWood, 8)], buildCooldown = 12)
   add(Market, "Market", "market", 'e', (r: 200'u8, g: 170'u8, b: 120'u8),
@@ -261,7 +263,7 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of TownCenter, Mill, LumberCamp, Quarry, MiningCamp, Dock: UseDropoff
   of Granary: UseDropoffAndStorage
   of Barrel: UseStorage
-  of Barracks, ArcheryRange, Stable, Monastery, Castle: UseTrain
+  of Barracks, ArcheryRange, Stable, Monastery, Castle, MangonelWorkshop: UseTrain
   of SiegeWorkshop: UseTrainAndCraft
   else: UseNone
 
@@ -321,7 +323,7 @@ proc buildingHasCraftStation*(kind: ThingKind): bool =
 
 proc buildingHasTrain*(kind: ThingKind): bool =
   case kind
-  of Barracks, ArcheryRange, Stable, SiegeWorkshop, Monastery, Castle:
+  of Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, Monastery, Castle:
     true
   else:
     false
@@ -331,7 +333,8 @@ proc buildingTrainUnit*(kind: ThingKind): AgentUnitClass =
   of Barracks: UnitManAtArms
   of ArcheryRange: UnitArcher
   of Stable: UnitScout
-  of SiegeWorkshop: UnitSiege
+  of SiegeWorkshop: UnitBatteringRam
+  of MangonelWorkshop: UnitMangonel
   of Monastery: UnitMonk
   of Castle: UnitKnight
   else: UnitVillager
@@ -342,6 +345,7 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   of ArcheryRange: @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)]
   of Stable: @[(res: ResourceFood, count: 3)]
   of SiegeWorkshop: @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)]
+  of MangonelWorkshop: @[(res: ResourceWood, count: 4), (res: ResourceStone, count: 3)]
   of Monastery: @[(res: ResourceGold, count: 2)]
   of Castle: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)]
   else: @[]

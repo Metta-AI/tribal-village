@@ -117,7 +117,7 @@ const OrientationDeltas*: array[8, OrientationDelta] = [
 
 const
   ActionVerbCount* = 10  # Added orient action (verb 9)
-  ActionArgumentCount* = 24
+  ActionArgumentCount* = 25
 
 proc encodeAction*(verb: uint8, argument: uint8): uint8 =
   (verb.int * ActionArgumentCount + argument.int).uint8

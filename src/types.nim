@@ -61,6 +61,7 @@ const
   CastleRange* = 6
   SiegeStructureMultiplier* = 3
   BuildIndexGuardTower* = 23
+  BuildIndexMangonelWorkshop* = 24
   BuildIndexWall* = 14
   BuildIndexRoad* = 15
   BuildIndexDoor* = 19
@@ -77,16 +78,19 @@ const
   ScoutAttackDamage* = 1
   KnightAttackDamage* = 2
   MonkAttackDamage* = 0
-  SiegeAttackDamage* = 3
+  BatteringRamAttackDamage* = 2
+  MangonelAttackDamage* = 2
   VillagerMaxHp* = AgentMaxHp
   ManAtArmsMaxHp* = 7
   ArcherMaxHp* = 4
   ScoutMaxHp* = 6
   KnightMaxHp* = 8
   MonkMaxHp* = 4
-  SiegeMaxHp* = 10
+  BatteringRamMaxHp* = 18
+  MangonelMaxHp* = 12
   ArcherBaseRange* = 3
-  SiegeBaseRange* = 2
+  MangonelBaseRange* = 3
+  MangonelAoELength* = 4
 
   # Gameplay
   MinTintEpsilon* = 5
@@ -160,7 +164,8 @@ type
     UnitScout
     UnitKnight
     UnitMonk
-    UnitSiege
+    UnitBatteringRam
+    UnitMangonel
 
   ThingKind* = enum
     Agent
@@ -198,6 +203,7 @@ type
     ArcheryRange
     Stable
     SiegeWorkshop
+    MangonelWorkshop
     Blacksmith
     Market
     Dock

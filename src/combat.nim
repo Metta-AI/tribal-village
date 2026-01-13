@@ -1,18 +1,20 @@
 const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
   # Attacker: UnitVillager
-  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitManAtArms (infantry > cavalry)
-  [0, 0, 0, 1, 1, 0, 0],
+  [0, 0, 0, 1, 1, 0, 0, 0],
   # Attacker: UnitArcher (archer > infantry)
-  [0, 1, 0, 0, 0, 0, 0],
+  [0, 1, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitScout (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0],
   # Attacker: UnitKnight (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0],
   # Attacker: UnitMonk
-  [0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitSiege
-  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0],
+  # Attacker: UnitBatteringRam
+  [0, 0, 0, 0, 0, 0, 0, 0],
+  # Attacker: UnitMangonel
+  [0, 0, 0, 0, 0, 0, 0, 0],
 ]
 
 const BonusDamageTint = TileColor(r: 1.0, g: 0.45, b: 0.15, intensity: 1.15)
@@ -26,7 +28,7 @@ proc isAttackableStructure*(kind: ThingKind): bool {.inline.} =
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =
   var damage = max(1, amount)
-  if not attacker.isNil and attacker.unitClass == UnitSiege:
+  if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
       env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)

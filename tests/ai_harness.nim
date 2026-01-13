@@ -477,7 +477,7 @@ suite "AI - Builder":
     addBuildings(env, 0, ivec2(12, 10), @[
       Granary, LumberCamp, Quarry, MiningCamp,
       WeavingLoom, ClayOven, Blacksmith,
-      Barracks, ArcheryRange, Stable, SiegeWorkshop, Outpost
+      Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, Outpost
     ])
     discard addAgentAt(env, 2, basePos, homeAltar = basePos)
     setStockpile(env, 0, ResourceFood, 50)
