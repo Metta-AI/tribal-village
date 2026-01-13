@@ -96,7 +96,7 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
 
 proc canStartGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
-  gathererHasPlantInputs(agent)
+  state.gathererTask != TaskHearts and gathererHasPlantInputs(agent)
 
 proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
