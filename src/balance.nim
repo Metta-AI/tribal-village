@@ -19,3 +19,10 @@ const
   DefaultSpearCharges* = 5
   DefaultArmorPoints* = 5
   DefaultBreadHealAmount* = 999
+
+  ## Default market tuning
+  DefaultMarketSellNumerator* = 1
+  DefaultMarketSellDenominator* = 2
+  DefaultMarketBuyFoodNumerator* = 1
+  DefaultMarketBuyFoodDenominator* = 1
+  DefaultMarketCooldown* = 2

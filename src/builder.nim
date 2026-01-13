@@ -168,7 +168,7 @@ proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agen
                                   agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent.agentId)
   for kind in [WeavingLoom, ClayOven, Blacksmith,
-               Barracks, ArcheryRange, Stable, SiegeWorkshop,
+               Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
                Outpost, Castle]:
     if controller.getBuildingCount(env, teamId, kind) == 0:
       return true

@@ -138,7 +138,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let damageAmount = max(1, agent.attackDamage)
         let rangedRange = case agent.unitClass
           of UnitArcher: ArcherBaseRange
-          of UnitSiege: SiegeBaseRange
           else: 0
         let hasSpear = agent.inventorySpear > 0 and rangedRange == 0
         let maxRange = if hasSpear: 2 else: 1
@@ -215,6 +214,24 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if not isNil(target) and target.kind == Agent and getTeamId(target.agentId) == attackerTeam:
             discard env.applyAgentHeal(target, 1)
             env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
+            inc env.stats[id].actionAttack
+          else:
+            inc env.stats[id].actionInvalid
+          break attackAction
+
+        if agent.unitClass == UnitMangonel:
+          var hit = false
+          let left = ivec2(-delta.y, delta.x)
+          let right = ivec2(delta.y, -delta.x)
+          for step in 1 .. MangonelAoELength:
+            let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+            if tryHitAt(forward):
+              hit = true
+            if tryHitAt(forward + left):
+              hit = true
+            if tryHitAt(forward + right):
+              hit = true
+          if hit:
             inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -553,19 +570,22 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     if res == ResourceWater:
                       continue
                     if res == ResourceGold:
-                      env.addToStockpile(teamId, ResourceFood, count)
+                      let gained = (count * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
+                      if gained <= 0:
+                        continue
+                      env.addToStockpile(teamId, ResourceFood, gained)
                       setInv(agent, key, 0)
                       env.updateAgentInventoryObs(agent, key)
                       traded = true
                     else:
-                      let gained = count div 2
+                      let gained = (count * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
                       if gained > 0:
                         env.addToStockpile(teamId, ResourceGold, gained)
                         setInv(agent, key, count mod 2)
                         env.updateAgentInventoryObs(agent, key)
                         traded = true
                   if traded:
-                    thing.cooldown = 0
+                    thing.cooldown = DefaultMarketCooldown
                     used = true
             of UseDropoff:
               if thing.teamId == getTeamId(agent.agentId):

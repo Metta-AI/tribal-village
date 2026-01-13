@@ -18,7 +18,7 @@ Status: Draft
 
 ---
 
-## 1) Economy & Resource Pressure
+## 1) Economy & Resource Pressure (Complete)
 
 ### Current State
 - Resource items: wood, wheat, gold, stone, water, etc. (item inventories). Team stockpiles aggregate wood/stone/gold/water/food.
@@ -30,9 +30,9 @@ Status: Draft
 - Resource flow, drop-off placement, and sustainable food vs. early food sources are major macro decisions.
 
 ### Changes Needed
-- **Tune** gold/stone scarcity and resource costs to make them strategic constraints.
-- **Emphasize** multiple food sources and the transition to sustainable food (already present via wheat/bread/meat/plant).
-- **No structural changes required**; focus on tuning costs/weights and potentially spawn distributions.
+- **Done.** Tuned gold/stone scarcity and resource costs to make them strategic constraints.
+- **Done.** Emphasized multiple food sources and the transition to sustainable food.
+- No further structural changes required unless economy balance goals change.
 
 ---
 
@@ -71,13 +71,13 @@ Status: Draft
 ## 4) Market / Resource Conversion
 
 ### Current State
-- Market exists; it converts stockpiled resources into food/gold with inefficiency.
+- Market exists; it converts carried stockpile resources into food/gold using configurable rates and a cooldown.
 
 ### AoE2-Style Meaning
 - Markets enable late-game pivots and mitigate gold scarcity while preserving a cost/tax.
 
 ### Changes Needed
-- **Tune** conversion rates to match desired scarcity (avoid infinite gold via perfect conversion).
+- **Tune** conversion rates/cooldown to match desired scarcity (avoid infinite gold via perfect conversion).
 - No new systems required.
 
 ---
@@ -197,6 +197,6 @@ At step ~10000 (or `maxSteps`), compute a **territory score** for each team base
 
 ## Summary of Proposed Changes
 - **Must-have**: doc clarity + scoring metric spec for tint-territory.
-- **Should-have**: tuning for resource scarcity and unit counters.
+- **Should-have**: tuning for unit counters and siege/fortification dynamics.
 - **Nice-to-have**: civ-style asymmetry, improved territory readability.
 - **Non-goals**: housing changes, age gates, conquest win condition.
