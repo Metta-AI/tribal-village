@@ -32,17 +32,6 @@ proc fighterFindNearbyEnemy(env: Environment, agent: Thing): Thing =
       bestEnemyDist = dist
       result = other
 
-proc fighterHasUnlitBuilding(env: Environment, teamId: int): bool =
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    return true
-  false
-
 proc fighterHasFood(agent: Thing): bool =
   for key, count in agent.inventory.pairs:
     if count > 0 and isFoodItem(key):
@@ -104,6 +93,8 @@ proc shouldTerminateFighterRetreat(controller: Controller, env: Environment, age
 
 proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
+  if agent.hp * 3 > agent.maxHp:
+    return 0'u8
   let teamId = getTeamId(agent.agentId)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
@@ -288,12 +279,7 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
 
 proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
-  if agent.unitClass == UnitVillager:
-    return true
-  if agent.inventoryLantern > 0:
-    return true
-  let teamId = getTeamId(agent.agentId)
-  fighterHasUnlitBuilding(env, teamId)
+  true
 
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
