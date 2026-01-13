@@ -79,6 +79,8 @@ let BuildingRegistry* = block:
       buildIndex = 21, buildCost = @[(ItemWood, 3)], buildCooldown = 12)
   add(Outpost, "Outpost", "outpost", '^', (r: 120'u8, g: 120'u8, b: 140'u8),
       buildIndex = 13, buildCost = @[(ItemWood, 1)], buildCooldown = 8)
+  add(GuardTower, "Guard Tower", "guard_tower", 'T', (r: 110'u8, g: 110'u8, b: 130'u8),
+      buildIndex = BuildIndexGuardTower, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
   add(Barrel, "Barrel", "barrel", 'b', (r: 150'u8, g: 110'u8, b: 60'u8),
       buildIndex = 22, buildCost = @[(ItemWood, 2)], buildCooldown = 10)
   add(Mill, "Mill", "mill", 'm', (r: 210'u8, g: 200'u8, b: 170'u8),

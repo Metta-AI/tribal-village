@@ -77,6 +77,33 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   true
 
 proc add*(env: Environment, thing: Thing) =
+  if thing.kind in {Wall, Door, Outpost, GuardTower, TownCenter, Castle}:
+    if thing.maxHp <= 0:
+      case thing.kind
+      of Wall:
+        thing.maxHp = WallMaxHp
+      of Door:
+        thing.maxHp = DoorMaxHearts
+      of Outpost:
+        thing.maxHp = OutpostMaxHp
+      of GuardTower:
+        thing.maxHp = GuardTowerMaxHp
+      of TownCenter:
+        thing.maxHp = TownCenterMaxHp
+      of Castle:
+        thing.maxHp = CastleMaxHp
+      else:
+        discard
+    if thing.hp <= 0:
+      thing.hp = thing.maxHp
+    if thing.attackDamage <= 0:
+      case thing.kind
+      of GuardTower:
+        thing.attackDamage = GuardTowerAttackDamage
+      of Castle:
+        thing.attackDamage = CastleAttackDamage
+      else:
+        discard
   if thing.kind == Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, MineDepositAmount)

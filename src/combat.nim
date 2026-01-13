@@ -18,6 +18,22 @@ const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
 proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
   BonusDamageByClass[attacker][target]
 
+proc isAttackableStructure*(kind: ThingKind): bool {.inline.} =
+  kind in {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
+
+proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
+                           attacker: Thing = nil): bool =
+  var damage = max(1, amount)
+  if not attacker.isNil and attacker.unitClass == UnitSiege:
+    damage *= SiegeStructureMultiplier
+  target.hp = max(0, target.hp - damage)
+  if target.hp > 0:
+    return false
+  if target.kind == Wall:
+    updateThingObs(env, target.kind, target.pos, false)
+  removeThing(env, target)
+  true
+
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
   let deathPos = victim.pos
