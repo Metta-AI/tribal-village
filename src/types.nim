@@ -301,6 +301,12 @@ type
     survivalPenalty*: float
     deathPenalty*: float
 
+  TerritoryScore* = object
+    teamTiles*: array[MapRoomObjectsHouses, int]
+    clippyTiles*: int
+    neutralTiles*: int
+    scoredTiles*: int
+
   TeamStockpile* = object
     counts*: array[StockpileResource, int]
 
@@ -336,6 +342,8 @@ type
     cowHerdDrift*: seq[IVec2]
     cowHerdTargets*: seq[IVec2]
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
+    territoryScore*: TerritoryScore
+    territoryScored*: bool
     observations*: array[
       MapAgents,
       array[ObservationLayers,

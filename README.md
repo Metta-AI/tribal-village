@@ -49,7 +49,7 @@ Pass a config dict to the Python wrapper (rendering + gameplay tuning):
 
 ```python
 config = {
-    'max_steps': 1000,          # Episode length (Python-side truncation)
+    'max_steps': 10000,         # Episode length (Python-side truncation)
     'render_mode': 'rgb_array', # or 'ansi'
     'render_scale': 4,          # RGB scale factor (full-map render)
     'ansi_buffer_size': 1_000_000,

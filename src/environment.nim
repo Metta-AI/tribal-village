@@ -84,6 +84,10 @@ proc updateObservations(
 
 include "colors"
 
+const
+  DefaultScoreNeutralThreshold = 0.05'f32
+  DefaultScoreIncludeWater = false
+
 {.push inline.}
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   ## Update observation layer for agent inventory - uses ItemKind enum for type safety
@@ -223,6 +227,42 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
 {.pop.}
 
 proc render*(env: Environment): string
+
+proc scoreTerritory*(env: Environment): TerritoryScore =
+  ## Compute territory ownership by nearest tint color (teams + clippy).
+  var score: TerritoryScore
+  let teamCount = min(env.teamColors.len, MapRoomObjectsHouses)
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if not DefaultScoreIncludeWater and env.terrain[x][y] == Water:
+        continue
+      let tint = env.computedTintColors[x][y]
+      if tint.intensity < DefaultScoreNeutralThreshold:
+        inc score.neutralTiles
+        continue
+      var bestDist = 1.0e9'f32
+      var bestTeam = -1
+      # Clippy as NPC team
+      let drc = tint.r - ClippyTint.r
+      let dgc = tint.g - ClippyTint.g
+      let dbc = tint.b - ClippyTint.b
+      bestDist = drc * drc + dgc * dgc + dbc * dbc
+      bestTeam = MapRoomObjectsHouses
+      for teamId in 0 ..< teamCount:
+        let t = env.teamColors[teamId]
+        let dr = tint.r - t.r
+        let dg = tint.g - t.g
+        let db = tint.b - t.b
+        let dist = dr * dr + dg * dg + db * db
+        if dist < bestDist:
+          bestDist = dist
+          bestTeam = teamId
+      if bestTeam == MapRoomObjectsHouses:
+        inc score.clippyTiles
+      elif bestTeam >= 0 and bestTeam < MapRoomObjectsHouses:
+        inc score.teamTiles[bestTeam]
+      inc score.scoredTiles
+  score
 
 
 proc rebuildObservations*(env: Environment) =

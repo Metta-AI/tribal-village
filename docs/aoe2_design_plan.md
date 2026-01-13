@@ -137,7 +137,7 @@ Status: Draft
 - AoE2 rewards territorial control indirectly through eco and pressure. For TV, we can make territory explicit via end-of-episode scoring without changing core mechanics.
 
 ### Goal (Definition)
-At step ~5000, compute a **territory score** for each team based on the number of tiles whose tint is closest to that team’s tint color, with tumors/clippies treated as an NPC team.
+At step ~10000 (or `maxSteps`), compute a **territory score** for each team based on the number of tiles whose tint is closest to that team’s tint color, with tumors/clippies treated as an NPC team.
 
 ### Data Inputs
 - `computedTintColors` per tile (dynamic influence only).
@@ -170,7 +170,7 @@ At step ~5000, compute a **territory score** for each team based on the number o
   - `FinalState`: compute only at episode end.
   - `RollingAverage`: average over last N steps.
   - `AreaUnderCurve`: sum per-step scores across the episode.
-- `ScoreHorizonSteps` (int): default ~5000.
+- `ScoreHorizonSteps` (int): default ~10000 (or mirror `maxSteps`).
 
 ### Implementation Notes
 - Use `computedTintColors` (not `combinedTileTint`) to avoid bias from base biome colors.
@@ -180,7 +180,7 @@ At step ~5000, compute a **territory score** for each team based on the number o
 ### Minimal Implementation Plan
 1. Add a scoring function in `environment.nim` (or a dedicated scoring module):
    - `proc scoreTerritory*(env: Environment): TerritoryScore`
-2. Call it when `currentStep >= ScoreHorizonSteps` and store results on the environment.
+2. Call it when `currentStep >= ScoreHorizonSteps` (or `maxSteps`) and store results on the environment.
 3. Expose scores through the FFI layer (optional; for Python logging).
 4. Log summary on episode end for debugging.
 
