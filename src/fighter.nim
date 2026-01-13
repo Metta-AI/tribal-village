@@ -5,6 +5,54 @@ const
   DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
 
+proc fighterHasExit(env: Environment, agent: Thing): bool =
+  for _, d in Directions8:
+    let np = agent.pos + d
+    if canEnterForMove(env, agent, agent.pos, np):
+      return true
+  false
+
+proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
+  not fighterHasExit(env, agent)
+
+proc fighterFindNearbyEnemy(env: Environment, agent: Thing): Thing =
+  var bestEnemyDist = int.high
+  let enemyRadius = ObservationRadius.int32 * 2
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if sameTeam(agent, other):
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > enemyRadius.int:
+      continue
+    if dist < bestEnemyDist:
+      bestEnemyDist = dist
+      result = other
+
+proc fighterHasFood(agent: Thing): bool =
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isFoodItem(key):
+      return true
+  false
+
+proc fighterIsCautious(env: Environment, agent: Thing): bool =
+  var cautious = agent.hp * 2 < agent.maxHp
+  if cautious:
+    for other in env.agents:
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if not sameTeam(agent, other):
+        continue
+      if chebyshevDist(agent.pos, other.pos) <= 4'i32:
+        cautious = false
+        break
+  cautious
+
 proc fighterActOrMove(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState,
                       targetPos: IVec2, verb: uint8): uint8 =
@@ -12,15 +60,17 @@ proc fighterActOrMove(controller: Controller, env: Environment, agent: Thing,
     return controller.actAt(env, agent, agentId, state, targetPos, verb)
   return controller.moveTo(env, agent, agentId, state, targetPos)
 
+proc canStartFighterBreakout(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): bool =
+  fighterIsEnclosed(env, agent)
+
+proc shouldTerminateFighterBreakout(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  not fighterIsEnclosed(env, agent)
+
 proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
-  var hasExit = false
-  for _, d in Directions8:
-    let np = agent.pos + d
-    if canEnterForMove(env, agent, agent.pos, np):
-      hasExit = true
-      break
-  if hasExit:
+  if not fighterIsEnclosed(env, agent):
     return 0'u8
   for dirIdx in 0 .. 7:
     let targetPos = agent.pos + Directions8[dirIdx]
@@ -32,6 +82,14 @@ proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
     if not isNil(blocker) and blocker.kind in {Wall, Skeleton, Spawner, Tumor}:
       return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, dirIdx.uint8))
   0'u8
+
+proc canStartFighterRetreat(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  agent.hp * 3 <= agent.maxHp
+
+proc shouldTerminateFighterRetreat(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  agent.hp * 3 > agent.maxHp
 
 proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
@@ -48,29 +106,28 @@ proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
       break
   controller.moveTo(env, agent, agentId, state, safePos)
 
+proc canStartFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let enemy = fighterFindNearbyEnemy(env, agent)
+  not isNil(enemy)
+
+proc shouldTerminateFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
+                                          agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return true
+  let enemy = fighterFindNearbyEnemy(env, agent)
+  isNil(enemy)
+
 proc optFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
+  let enemy = fighterFindNearbyEnemy(env, agent)
+  if isNil(enemy) or agent.unitClass != UnitVillager:
+    return 0'u8
   let teamId = getTeamId(agent.agentId)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
-  var enemy: Thing = nil
-  var bestEnemyDist = int.high
-  let enemyRadius = ObservationRadius.int32 * 2
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if sameTeam(agent, other):
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > enemyRadius.int:
-      continue
-    if dist < bestEnemyDist:
-      bestEnemyDist = dist
-      enemy = other
-  if isNil(enemy) or agent.unitClass != UnitVillager:
-    return 0'u8
 
   var enemyBase: Thing = nil
   var bestAltarDist = int.high
@@ -220,6 +277,10 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
     return controller.moveTo(env, agent, agentId, state, enemy.pos)
   0'u8
 
+proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): bool =
+  true
+
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -319,12 +380,23 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
 
   0'u8
 
+proc canStartFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  fighterHasFood(agent)
+
 proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint8 =
   let (didFoodDrop, foodDropAct) =
     controller.dropoffCarrying(env, agent, agentId, state, allowFood = true)
   if didFoodDrop: return foodDropAct
   0'u8
+
+proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent.agentId)
+  controller.getBuildingCount(env, teamId, Barracks) > 0
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -335,6 +407,12 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
   if not isNil(barracks):
     return fighterActOrMove(controller, env, agent, agentId, state, barracks.pos, 3'u8)
   0'u8
+
+proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  if agent.inventoryArmor < ArmorPoints:
+    return true
+  agent.unitClass == UnitManAtArms and agent.inventorySpear == 0
 
 proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
@@ -352,28 +430,18 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
   0'u8
 
+proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  not fighterIsCautious(env, agent)
+
 proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
-  var cautious = agent.hp * 2 < agent.maxHp
-  if cautious:
-    for other in env.agents:
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      if not sameTeam(agent, other):
-        continue
-      if chebyshevDist(agent.pos, other.pos) <= 4'i32:
-        cautious = false
-        break
-
-  if not cautious:
-    for kind in [Tumor, Spawner]:
-      let target = env.findNearestThingSpiral(state, kind, controller.rng)
-      if not isNil(target):
-        return fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
-    let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
-    if didHunt: return actHunt
+  for kind in [Tumor, Spawner]:
+    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    if not isNil(target):
+      return fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
+  let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
+  if didHunt: return actHunt
   0'u8
 
 proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: Thing,
@@ -383,56 +451,56 @@ proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: T
 let FighterOptions = [
   OptionDef(
     name: "FighterBreakout",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
+    canStart: canStartFighterBreakout,
+    shouldTerminate: shouldTerminateFighterBreakout,
     act: optFighterBreakout,
     interruptible: true
   ),
   OptionDef(
     name: "FighterRetreat",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
+    canStart: canStartFighterRetreat,
+    shouldTerminate: shouldTerminateFighterRetreat,
     act: optFighterRetreat,
     interruptible: true
   ),
   OptionDef(
     name: "FighterDividerDefense",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
+    canStart: canStartFighterDividerDefense,
+    shouldTerminate: shouldTerminateFighterDividerDefense,
     act: optFighterDividerDefense,
     interruptible: true
   ),
   OptionDef(
     name: "FighterLanterns",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartFighterLanterns,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterLanterns,
     interruptible: true
   ),
   OptionDef(
     name: "FighterDropoffFood",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartFighterDropoffFood,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterDropoffFood,
     interruptible: true
   ),
   OptionDef(
     name: "FighterTrain",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartFighterTrain,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterTrain,
     interruptible: true
   ),
   OptionDef(
     name: "FighterMaintainGear",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartFighterMaintainGear,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterMaintainGear,
     interruptible: true
   ),
   OptionDef(
     name: "FighterAggressive",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartFighterAggressive,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterAggressive,
     interruptible: true
