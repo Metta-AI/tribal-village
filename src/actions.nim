@@ -227,12 +227,47 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
               inc env.stats[id].actionAttack
             else:
-              target.teamIdOverride = attackerTeam
-              if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
-                env.agentColors[target.agentId] = env.teamColors[attackerTeam]
+              let newTeam = attackerTeam
+              if newTeam < 0 or newTeam >= MapRoomObjectsHouses:
+                inc env.stats[id].actionInvalid
+                break attackAction
+              var popCap = 0
+              for thing in env.things:
+                if thing.teamId == newTeam and isBuildingKind(thing.kind):
+                  let add = buildingPopCap(thing.kind)
+                  if add > 0:
+                    popCap += add
+              var popCount = 0
+              for other in env.agents:
+                if isAgentAlive(env, other) and getTeamId(other) == newTeam:
+                  inc popCount
+              if popCap <= 0 or popCount >= popCap:
+                inc env.stats[id].actionInvalid
+                break attackAction
+              var newHome = ivec2(-1, -1)
               if agent.homeAltar.x >= 0:
-                target.homeAltar = agent.homeAltar
-              env.updateObservations(AgentLayer, target.pos, attackerTeam + 1)
+                let altarThing = env.getThing(agent.homeAltar)
+                if not isNil(altarThing) and altarThing.kind == Altar and
+                    altarThing.teamId == newTeam:
+                  newHome = agent.homeAltar
+              if newHome.x < 0:
+                var bestDist = int.high
+                for altar in env.thingsByKind[Altar]:
+                  if altar.teamId != newTeam:
+                    continue
+                  let dist = abs(altar.pos.x - target.pos.x) + abs(altar.pos.y - target.pos.y)
+                  if dist < bestDist:
+                    bestDist = dist
+                    newHome = altar.pos
+              target.homeAltar = newHome
+              let defaultTeam = getTeamId(target.agentId)
+              if newTeam == defaultTeam:
+                target.teamIdOverride = -1
+              else:
+                target.teamIdOverride = newTeam
+              if newTeam < env.teamColors.len:
+                env.agentColors[target.agentId] = env.teamColors[newTeam]
+              env.updateObservations(AgentLayer, target.pos, newTeam + 1)
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
