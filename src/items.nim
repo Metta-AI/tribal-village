@@ -180,6 +180,66 @@ proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
 proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
 
+{.push inline.}
+proc getInv*[T](thing: T, key: ItemKey): int =
+  if key.kind == ItemKeyNone:
+    return 0
+  if thing.inventory.hasKey(key):
+    return thing.inventory[key]
+  0
+
+proc getInv*[T](thing: T, kind: ItemKind): int =
+  ## Type-safe overload using ItemKind enum
+  if kind == ikNone:
+    return 0
+  getInv(thing, toItemKey(kind))
+
+proc setInv*[T](thing: T, key: ItemKey, value: int) =
+  if key.kind == ItemKeyNone:
+    return
+  if value <= 0:
+    if thing.inventory.hasKey(key):
+      thing.inventory.del(key)
+  else:
+    thing.inventory[key] = value
+
+proc setInv*[T](thing: T, kind: ItemKind, value: int) =
+  ## Type-safe overload using ItemKind enum
+  if kind == ikNone:
+    return
+  setInv(thing, toItemKey(kind), value)
+
+proc canSpendInventory*[T](agent: T, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  for cost in costs:
+    if getInv(agent, cost.key) < cost.count:
+      return false
+  true
+{.pop.}
+
+type PaymentSource* = enum
+  PayNone
+  PayInventory
+  PayStockpile
+
+template defineInventoryAccessors(name, key: untyped) =
+  proc `name`*[T](agent: T): int =
+    getInv(agent, key)
+
+  proc `name=`*[T](agent: T, value: int) =
+    setInv(agent, key, value)
+
+defineInventoryAccessors(inventoryGold, ItemGold)
+defineInventoryAccessors(inventoryStone, ItemStone)
+defineInventoryAccessors(inventoryBar, ItemBar)
+defineInventoryAccessors(inventoryWater, ItemWater)
+defineInventoryAccessors(inventoryWheat, ItemWheat)
+defineInventoryAccessors(inventoryWood, ItemWood)
+defineInventoryAccessors(inventorySpear, ItemSpear)
+defineInventoryAccessors(inventoryLantern, ItemLantern)
+defineInventoryAccessors(inventoryArmor, ItemArmor)
+defineInventoryAccessors(inventoryBread, ItemBread)
+defineInventoryAccessors(hearts, ItemHearts)
+
 type
   DfTokenPlacement* = enum
     DfItem

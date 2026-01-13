@@ -4,7 +4,7 @@
 import std/[tables, sets, algorithm]
 import entropy
 import vmath
-import ./environment, game_common, terrain
+import ./environment, common, terrain
 
 type
   # Meta roles with focused responsibilities (AoE-style)

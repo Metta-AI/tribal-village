@@ -1,15 +1,15 @@
-## game_types.nim - Forward type declarations for tribal-village
+## types.nim - Forward type declarations for tribal-village
 ##
 ## This module provides type definitions that multiple modules need access to,
 ## breaking circular dependency chains. All fundamental types should be defined here.
 ##
 ## Import order for modules using these types:
-##   1. game_types (this file) - for type definitions
+##   1. types (this file) - for type definitions
 ##   2. Other modules that use these types
 
 import std/[tables, sets], vmath, chroma
-import terrain, items, game_common
-export terrain, items, game_common
+import terrain, items, common
+export terrain, items, common
 
 # Re-export key types from dependencies
 export tables, vmath, chroma
