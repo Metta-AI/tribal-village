@@ -578,7 +578,7 @@ proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   ## Consider lantern tiles passable for generic checks and respect doors/water.
   if not isValidPos(pos):
     return false
-  if isBlockedTerrain(env.terrain[pos.x][pos.y]):
+  if env.isWaterBlockedForAgent(agent, pos):
     return false
   if not env.canAgentPassDoor(agent, pos):
     return false
@@ -591,7 +591,7 @@ proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): boo
   ## Directional passability check that mirrors move logic (lantern pushing rules).
   if not isValidPos(toPos):
     return false
-  if isBlockedTerrain(env.terrain[toPos.x][toPos.y]):
+  if env.isWaterBlockedForAgent(agent, toPos):
     return false
   if not env.canAgentPassDoor(agent, toPos):
     return false
@@ -615,10 +615,10 @@ proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): boo
   let ahead1 = ivec2(toPos.x + delta.x, toPos.y + delta.y)
   let ahead2 = ivec2(toPos.x + delta.x * 2, toPos.y + delta.y * 2)
   if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
-      not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
+      not env.isWaterBlockedForAgent(agent, ahead2) and spacingOk(ahead2):
     return true
   if isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
-      not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
+      not env.isWaterBlockedForAgent(agent, ahead1) and spacingOk(ahead1):
     return true
 
   for dy in -1 .. 1:
@@ -629,7 +629,7 @@ proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): boo
       if not isValidPos(alt):
         continue
       if env.isEmpty(alt) and not env.hasDoor(alt) and
-          not isBlockedTerrain(env.terrain[alt.x][alt.y]) and spacingOk(alt):
+          not env.isWaterBlockedForAgent(agent, alt) and spacingOk(alt):
         return true
   return false
 
@@ -1113,7 +1113,7 @@ proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): tuple[did: bool, action: uint8] =
-  for (kind, verb) in [(Corpse, 3'u8), (Cow, 2'u8), (Bush, 3'u8)]:
+  for (kind, verb) in [(Corpse, 3'u8), (Cow, 2'u8), (Bush, 3'u8), (Fish, 3'u8)]:
     let target = env.findNearestThingSpiral(state, kind, controller.rng)
     if isNil(target):
       continue

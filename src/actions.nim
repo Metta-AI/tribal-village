@@ -21,7 +21,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         step1.y += int32(delta.y)
 
         # Prevent moving onto blocked terrain (bridges remain walkable).
-        if isBlockedTerrain(env.terrain[step1.x][step1.y]):
+        if env.isWaterBlockedForAgent(agent, step1):
           inc env.stats[id].actionInvalid
           break moveAction
         if not env.canAgentPassDoor(agent, step1):
@@ -51,12 +51,14 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # Preferred push positions in move direction
           let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
           let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
-          if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
+          if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
+              not env.isWaterBlockedForAgent(agent, ahead2) and spacingOk(ahead2):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead2
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
             relocated = true
-          elif isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
+          elif isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
+              not env.isWaterBlockedForAgent(agent, ahead1) and spacingOk(ahead1):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead1
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -70,7 +72,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 let alt = ivec2(pos.x + dx, pos.y + dy)
                 if not isValidPos(alt):
                   continue
-                if env.isEmpty(alt) and not env.hasDoor(alt) and not isBlockedTerrain(env.terrain[alt.x][alt.y]) and spacingOk(alt):
+                if env.isEmpty(alt) and not env.hasDoor(alt) and
+                    not env.isWaterBlockedForAgent(agent, alt) and spacingOk(alt):
                   env.grid[blocker.pos.x][blocker.pos.y] = nil
                   blocker.pos = alt
                   env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -109,7 +112,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Roads accelerate movement in the direction of entry.
         if env.terrain[step1.x][step1.y] == Road:
           let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
-          if isValidPos(step2) and not isBlockedTerrain(env.terrain[step2.x][step2.y]) and env.canAgentPassDoor(agent, step2):
+          if isValidPos(step2) and not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
             if canEnter(step2):
               finalPos = step2
 
@@ -119,6 +122,13 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         agent.pos = finalPos
         agent.orientation = moveOrientation
         env.grid[agent.pos.x][agent.pos.y] = agent
+
+        let dockHere = env.hasDockAt(agent.pos)
+        if agent.unitClass == UnitBoat:
+          if dockHere or env.terrain[agent.pos.x][agent.pos.y] != Water:
+            disembarkAgent(agent)
+        elif dockHere:
+          embarkAgent(agent)
 
         # Update observations for new position only
         env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
@@ -431,6 +441,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           takeFromThing(ItemPlant)
         of Stalagmite:
           takeFromThing(ItemStone)
+        of Fish:
+          takeFromThing(ItemFish)
         of Stump:
           if env.grantWood(agent):
             agent.reward += env.config.woodReward
@@ -834,6 +846,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of 8:
       block buildFromChoices:
         let key = BuildChoices[argument]
+        var buildKind: ThingKind
+        let isDock = parseThingKey(key, buildKind) and buildKind == Dock
 
         var offsets: seq[IVec2] = @[]
         for offset in [
@@ -848,7 +862,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var targetPos = ivec2(-1, -1)
         for offset in offsets:
           let pos = agent.pos + offset
-          if env.canPlace(pos):
+          if (if isDock: env.canPlaceDock(pos) else: env.canPlace(pos)):
             targetPos = pos
             break
         if targetPos.x < 0:
