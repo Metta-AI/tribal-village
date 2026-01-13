@@ -13,9 +13,19 @@ type
     Builder    # Builds structures and expands the base
     Fighter    # Combat & hunting
 
+  GathererTask = enum
+    TaskFood
+    TaskWood
+    TaskStone
+    TaskGold
+    TaskHearts
+
   # Minimal state tracking with spiral search
   AgentState = object
     role: AgentRole
+    activeOptionId: int
+    activeOptionTicks: int
+    gathererTask: GathererTask
     # Spiral search state
     spiralStepsInArc: int
     spiralArcsCompleted: int

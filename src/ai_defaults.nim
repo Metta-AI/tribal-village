@@ -377,6 +377,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
       )
   (false, 0'u8)
 
+include "options"
 include "gatherer"
 include "builder"
 include "fighter"
@@ -399,6 +400,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     var initState = AgentState(
       role: role,
+      activeOptionId: -1,
+      activeOptionTicks: 0,
+      gathererTask: TaskFood,
       spiralStepsInArc: 0,
       spiralArcsCompleted: 0,
       spiralClockwise: (agentId mod 2) == 0,

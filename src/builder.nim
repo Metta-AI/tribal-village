@@ -3,16 +3,14 @@ const
   WallRingRadiusSlack = 1
   WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
 
-proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
-                  agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-  state.basePosition = basePos
-
+proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): uint8 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
   if didPlant: return actPlant
+  0'u8
 
-  # Drop off any carried stockpile resources so building costs can be paid.
+proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): uint8 =
   let (didDrop, dropAct) = controller.dropoffCarrying(
     env, agent, agentId, state,
     allowFood = true,
@@ -21,18 +19,29 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
     allowGold = true
   )
   if didDrop: return dropAct
+  0'u8
 
-  # Top priority: keep population cap ahead of current population.
+proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  state.basePosition = basePos
   let (didHouse, houseAct) =
     tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, basePos)
   if didHouse: return houseAct
+  0'u8
 
-  # Core economic infrastructure.
+proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
   for kind in [Granary, LumberCamp, Quarry, MiningCamp]:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
+  0'u8
 
-  # Remote dropoff buildings near resources.
+proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
   if agent.homeAltar.x < 0 or
       max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
     let (didMill, actMill) = controller.tryBuildNearResource(
@@ -43,11 +52,19 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       [Mill, Granary, TownCenter], 5
     )
     if didMill: return actMill
+  0'u8
 
+proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
   if controller.getBuildingCount(env, teamId, Mill) >= 2:
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
+  0'u8
 
+proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
   for entry in [
     (LumberCamp, {Tree}, 6),
     (MiningCamp, {Gold}, 6),
@@ -61,14 +78,21 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       [kind]
     )
     if did: return act
+  0'u8
 
+proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
   for kind in [WeavingLoom, ClayOven, Blacksmith,
                Barracks, ArcheryRange, Stable, SiegeWorkshop,
                Outpost, Castle]:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
+  0'u8
 
-  # Build a wall ring around the altar once core economy exists and wood is stockpiled.
+proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent.agentId)
   if agent.homeAltar.x >= 0 and
       controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
       env.stockpileCount(teamId, ResourceWood) >= 3:
@@ -131,32 +155,123 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
       else:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
         if didWood: return actWood
+  0'u8
 
-  # If nothing to build, help gather the scarcest basic resource.
-  if agent.unitClass == UnitVillager:
-    let food = env.stockpileCount(teamId, ResourceFood)
-    let wood = env.stockpileCount(teamId, ResourceWood)
-    let stone = env.stockpileCount(teamId, ResourceStone)
-    var targetRes = ResourceFood
-    var best = food
-    if wood < best:
-      best = wood
-      targetRes = ResourceWood
-    if stone < best:
-      best = stone
-      targetRes = ResourceStone
-    if best < 5:
-      case targetRes
-      of ResourceFood:
-        let (didFood, actFood) = controller.ensureWheat(env, agent, agentId, state)
-        if didFood: return actFood
-      of ResourceWood:
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-      of ResourceStone:
-        let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
-        if didStone: return actStone
-      else:
-        discard
+proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  if agent.unitClass != UnitVillager:
+    return 0'u8
+  let teamId = getTeamId(agent.agentId)
+  let food = env.stockpileCount(teamId, ResourceFood)
+  let wood = env.stockpileCount(teamId, ResourceWood)
+  let stone = env.stockpileCount(teamId, ResourceStone)
+  var targetRes = ResourceFood
+  var best = food
+  if wood < best:
+    best = wood
+    targetRes = ResourceWood
+  if stone < best:
+    best = stone
+    targetRes = ResourceStone
+  if best < 5:
+    case targetRes
+    of ResourceFood:
+      let (didFood, actFood) = controller.ensureWheat(env, agent, agentId, state)
+      if didFood: return actFood
+    of ResourceWood:
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
+    of ResourceStone:
+      let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
+      if didStone: return actStone
+    else:
+      discard
+  0'u8
 
-  return controller.moveNextSearch(env, agent, agentId, state)
+proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): uint8 =
+  controller.moveNextSearch(env, agent, agentId, state)
+
+let BuilderOptions = [
+  OptionDef(
+    name: "BuilderPlantOnFertile",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantOnFertile,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderDropoffCarrying",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderDropoffCarrying,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPopCap",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPopCap,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCoreInfrastructure",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCoreInfrastructure,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMillNearResource",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderMillNearResource,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPlantIfMills",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantIfMills,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCampThreshold",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCampThreshold,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderTechBuildings",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderTechBuildings,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderWallRing",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderWallRing,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderGatherScarce",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderGatherScarce,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderFallbackSearch,
+    interruptible: true
+  )
+]
+
+proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
+                  agentId: int, state: var AgentState): uint8 =
+  return runOptions(controller, env, agent, agentId, state, BuilderOptions)
