@@ -725,6 +725,8 @@ proc actAt(controller: Controller, env: Environment, agent: Thing, agentId: int,
 
 proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =
+  if state.pathBlockedTarget == targetPos:
+    return controller.moveNextSearch(env, agent, agentId, state)
   var stuck = false
   if state.recentPosCount >= 6:
     var uniqueCount = 0
@@ -776,8 +778,10 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
             encodeAction(1'u8, dirIdx.uint8))
         state.plannedPath.setLen(0)
         state.pathBlockedTarget = targetPos
+        return controller.moveNextSearch(env, agent, agentId, state)
       elif state.plannedPath.len == 0:
         state.pathBlockedTarget = targetPos
+        return controller.moveNextSearch(env, agent, agentId, state)
     else:
       state.plannedPath.setLen(0)
   var dirIdx = getMoveTowards(
@@ -799,6 +803,9 @@ proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thi
                             state: var AgentState, pos: var IVec2,
                             allowed: set[ThingKind], verb: uint8): tuple[did: bool, action: uint8] =
   if pos.x < 0:
+    return (false, 0'u8)
+  if pos == state.pathBlockedTarget:
+    pos = ivec2(-1, -1)
     return (false, 0'u8)
   let thing = env.getThing(pos)
   if isNil(thing) or thing.kind notin allowed or isThingFrozen(thing, env):
@@ -901,6 +908,9 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
     let target = env.findNearestThingSpiral(state, kind, controller.rng)
     if isNil(target):
       continue
+    if target.pos == state.pathBlockedTarget:
+      state.cachedThingPos[kind] = ivec2(-1, -1)
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
@@ -916,6 +926,9 @@ proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId
     let target = env.findNearestThingSpiral(state, kind, controller.rng)
     if isNil(target):
       continue
+    if target.pos == state.pathBlockedTarget:
+      state.cachedThingPos[kind] = ivec2(-1, -1)
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
@@ -929,6 +942,9 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
   if didKnown: return (didKnown, actKnown)
   let target = env.findNearestThingSpiral(state, Gold, controller.rng)
   if not isNil(target):
+    if target.pos == state.pathBlockedTarget:
+      state.cachedThingPos[Gold] = ivec2(-1, -1)
+      return (true, controller.moveNextSearch(env, agent, agentId, state))
     updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
@@ -941,6 +957,9 @@ proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId
     let target = env.findNearestThingSpiral(state, kind, controller.rng)
     if isNil(target):
       continue
+    if target.pos == state.pathBlockedTarget:
+      state.cachedThingPos[kind] = ivec2(-1, -1)
+      continue
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))
@@ -951,6 +970,9 @@ proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agen
   for (kind, verb) in [(Corpse, 3'u8), (Cow, 2'u8), (Bush, 3'u8)]:
     let target = env.findNearestThingSpiral(state, kind, controller.rng)
     if isNil(target):
+      continue
+    if target.pos == state.pathBlockedTarget:
+      state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
     if isAdjacent(agent.pos, target.pos):

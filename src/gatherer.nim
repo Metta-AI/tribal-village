@@ -163,18 +163,24 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
     if didPlant: return actPlant
 
     if state.closestFoodPos.x >= 0:
-      let knownThing = env.getThing(state.closestFoodPos)
-      if isNil(knownThing) or knownThing.kind notin {Wheat, Stubble, Bush, Cow, Corpse}:
+      if state.closestFoodPos == state.pathBlockedTarget:
         state.closestFoodPos = ivec2(-1, -1)
       else:
-        if isAdjacent(agent.pos, knownThing.pos):
-          return controller.actAt(env, agent, agentId, state, knownThing.pos,
-            (if knownThing.kind == Cow: 2'u8 else: 3'u8))
-        return controller.moveTo(env, agent, agentId, state, knownThing.pos)
+        let knownThing = env.getThing(state.closestFoodPos)
+        if isNil(knownThing) or knownThing.kind notin {Wheat, Stubble, Bush, Cow, Corpse}:
+          state.closestFoodPos = ivec2(-1, -1)
+        else:
+          if isAdjacent(agent.pos, knownThing.pos):
+            return controller.actAt(env, agent, agentId, state, knownThing.pos,
+              (if knownThing.kind == Cow: 2'u8 else: 3'u8))
+          return controller.moveTo(env, agent, agentId, state, knownThing.pos)
 
     for kind in [Wheat, Stubble]:
       let wheat = env.findNearestThingSpiral(state, kind, controller.rng)
       if isNil(wheat):
+        continue
+      if wheat.pos == state.pathBlockedTarget:
+        state.cachedThingPos[kind] = ivec2(-1, -1)
         continue
       updateClosestSeen(state, state.basePosition, wheat.pos, state.closestFoodPos)
       if isAdjacent(agent.pos, wheat.pos):
