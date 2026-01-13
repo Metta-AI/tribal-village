@@ -596,7 +596,7 @@ proc drawObjects*() =
           let count = env.teamStockpiles[thing.teamId].counts[res]
           let iconScale = 1/320
           let labelScale = 1/200
-          let iconPos = pos.vec2 + vec2(-0.18, -0.72)
+          let iconPos = pos.vec2 + vec2(-0.18, -0.62)
           let alpha = if count > 0: 1.0 else: 0.35
           bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
           if count > 0:
@@ -610,19 +610,12 @@ proc drawObjects*() =
             let popCap = teamHouseCounts[teamId] * HousePopCap
             let iconScale = 1/320
             let labelScale = 1/200
-            let iconPos = pos.vec2 + vec2(-0.18, -0.72)
-            let lineStep = vec2(0.0, 0.22)
+            let iconPos = pos.vec2 + vec2(-0.18, -0.62)
             bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0, scale = iconScale,
               tint = color(1, 1, 1, 1))
-            let villagerLabel = ensureOverlayLabel("x " & $popCount)
-            let villagerLabelPos = iconPos + vec2(0.14, -0.08)
-            bxy.drawImage(villagerLabel, villagerLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
-            let houseIcon = buildingSpriteKey(House)
-            let housePos = iconPos + lineStep
-            bxy.drawImage(houseIcon, housePos, angle = 0, scale = iconScale, tint = color(1, 1, 1, 1))
-            let capLabel = ensureOverlayLabel("x " & $popCount & "/" & $popCap)
-            let capLabelPos = housePos + vec2(0.14, -0.08)
-            bxy.drawImage(capLabel, capLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+            let popLabel = ensureOverlayLabel("x " & $popCount & "/" & $popCap)
+            let popLabelPos = iconPos + vec2(0.14, -0.08)
+            bxy.drawImage(popLabel, popLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
     else:
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
