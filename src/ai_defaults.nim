@@ -284,9 +284,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
       standPos, buildPos, idx)
   return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
 
-proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint8] =
-  ## Build a house when the team is at or near population cap.
+proc needsPopCapHouse(env: Environment, teamId: int): bool =
   var popCount = 0
   for otherAgent in env.agents:
     if not isAgentAlive(env, otherAgent):
@@ -306,8 +304,13 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
       if cap > 0:
         popCap += cap
   let buffer = HousePopCap
-  if (popCap > 0 and popCount >= popCap - buffer) or
-      (popCap == 0 and hasBase and popCount >= buffer):
+  (popCap > 0 and popCount >= popCap - buffer) or
+    (popCap == 0 and hasBase and popCount >= buffer)
+
+proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint8] =
+  ## Build a house when the team is at or near population cap.
+  if needsPopCapHouse(env, teamId):
     let minX = max(0, basePos.x - 15)
     let maxX = min(MapWidth - 1, basePos.x + 15)
     let minY = max(0, basePos.y - 15)
@@ -593,9 +596,22 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Global: keep population cap ahead of current population (all roles).
   if agent.unitClass == UnitVillager:
     let teamId = getTeamId(agent.agentId)
-    let (didHouse, houseAct) =
-      tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
-    if didHouse: return houseAct
+    if needsPopCapHouse(env, teamId):
+      let houseKey = thingItem("House")
+      let costs = buildCostsForKey(houseKey)
+      var requiredWood = 0
+      if costs.len > 0:
+        for cost in costs:
+          if stockpileResourceForItem(cost.key) == ResourceWood:
+            requiredWood += cost.count
+      if requiredWood > 0 and
+          env.stockpileCount(teamId, ResourceWood) + agent.inventoryWood < requiredWood:
+        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+        if didWood: return actWood
+      if env.canAffordBuild(agent, houseKey):
+        let (didHouse, houseAct) =
+          tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
+        if didHouse: return houseAct
 
   # Global: prioritize getting hearts to 10 via gold -> magma -> altar.
   let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)
