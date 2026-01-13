@@ -181,48 +181,6 @@ proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
 
 type
-  ItemCategory* = enum
-    Ammo
-    AnimalCaged
-    Armor
-    BarBlock
-    ClothThread
-    Coins
-    Corpses
-    FinishedGoods
-    Food
-    FurnitureStorage
-    Leather
-    Refuse
-    Sheets
-    StoneOre
-    Weapons
-    Wood
-
-  ContainerKind* = enum
-    ContainerNone
-    Barrel
-    Pot
-    Bin
-    Bag
-    Cage
-    Chest
-
-  ItemDef* = object
-    id*: string
-    displayName*: string
-    category*: ItemCategory
-    maxStack*: int          # 1 for non-stackable items
-    isContainer*: bool
-    containerKind*: ContainerKind
-    notes*: string
-
-  ContainerDef* = object
-    kind*: ContainerKind
-    displayName*: string
-    capacity*: int          # Item count capacity
-    allowedCategories*: set[ItemCategory]
-
   DfTokenPlacement* = enum
     DfItem
     DfBuilding
@@ -233,18 +191,6 @@ type
     displayName*: string
     placement*: DfTokenPlacement
     notes*: string
-
-  DfTokenBehavior* = object
-    token*: string
-    inputs*: seq[string]
-    outputs*: seq[string]
-    uses*: string
-
-  GameStructureDef* = object
-    id*: string
-    displayName*: string
-    buildCost*: seq[string]
-    uses*: string
 
   ItemAmount* = tuple[key: ItemKey, count: int]
 
@@ -279,23 +225,6 @@ proc thingItem*(name: string): ItemKey =
 
 proc otherItem*(name: string): ItemKey =
   ItemKey(kind: ItemKeyOther, name: name)
-
-const
-  ## Container examples for stockpile storage mechanics.
-  ExampleContainers*: seq[ContainerDef] = @[
-    ContainerDef(kind: Barrel, displayName: "Barrel", capacity: 30,
-      allowedCategories: {Food, BarBlock, StoneOre, Wood}),
-    ContainerDef(kind: Pot, displayName: "Pot", capacity: 20,
-      allowedCategories: {Food}),
-    ContainerDef(kind: Bin, displayName: "Bin", capacity: 40,
-      allowedCategories: {FinishedGoods, ClothThread, Leather, Coins, Ammo}),
-    ContainerDef(kind: Bag, displayName: "Bag", capacity: 10,
-      allowedCategories: {Food, Refuse, ClothThread}),
-    ContainerDef(kind: Cage, displayName: "Cage", capacity: 1,
-      allowedCategories: {AnimalCaged}),
-    ContainerDef(kind: Chest, displayName: "Chest", capacity: 25,
-      allowedCategories: {Weapons, Armor, FinishedGoods, Coins})
-  ]
 
 proc initCraftRecipesBase*(): seq[CraftRecipe] =
   var recipes: seq[CraftRecipe] = @[]
