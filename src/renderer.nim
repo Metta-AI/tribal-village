@@ -223,10 +223,11 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
       ) + iconShift
       bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = iconScale)
     else:
+      let labelShift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
       let labelPos = vec2(
         button.rect.x + (button.rect.w - button.labelSize.x.float32) * 0.5,
         button.rect.y + (button.rect.h - button.labelSize.y.float32) * 0.5
-      )
+      ) + labelShift
       bxy.drawImage(button.labelKey, labelPos, angle = 0, scale = 1)
 
 proc rebuildRenderCaches() =
