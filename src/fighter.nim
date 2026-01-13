@@ -86,8 +86,6 @@ proc shouldTerminateFighterBreakout(controller: Controller, env: Environment, ag
 
 proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
-  if not fighterIsEnclosed(env, agent):
-    return 0'u8
   for dirIdx in 0 .. 7:
     let targetPos = agent.pos + Directions8[dirIdx]
     if not isValidPos(targetPos):
@@ -139,7 +137,7 @@ proc shouldTerminateFighterDividerDefense(controller: Controller, env: Environme
 proc optFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
-  if isNil(enemy) or agent.unitClass != UnitVillager:
+  if isNil(enemy):
     return 0'u8
   let teamId = getTeamId(agent.agentId)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
@@ -416,8 +414,6 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
-  if agent.unitClass != UnitVillager:
-    return 0'u8
   let teamId = getTeamId(agent.agentId)
   let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
   if not isNil(barracks):
