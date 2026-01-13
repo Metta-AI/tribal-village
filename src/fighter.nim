@@ -15,10 +15,21 @@ proc fighterHasExit(env: Environment, agent: Thing): bool =
 proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
   not fighterHasExit(env, agent)
 
-proc fighterFindNearbyEnemy(env: Environment, agent: Thing): Thing =
-  var bestEnemyDist = int.high
+proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thing,
+                            state: var AgentState): Thing =
   let enemyRadius = ObservationRadius.int32 * 2
-  for other in env.agents:
+  if state.fighterEnemyStep == env.currentStep and
+      state.fighterEnemyAgentId >= 0 and state.fighterEnemyAgentId < MapAgents:
+    let cached = env.agents[state.fighterEnemyAgentId]
+    if cached.agentId != agent.agentId and
+        isAgentAlive(env, cached) and
+        not sameTeam(agent, cached) and
+        int(chebyshevDist(agent.pos, cached.pos)) <= enemyRadius.int:
+      return cached
+
+  var bestEnemyDist = int.high
+  var bestEnemyId = -1
+  for idx, other in env.agents:
     if other.agentId == agent.agentId:
       continue
     if not isAgentAlive(env, other):
@@ -30,7 +41,12 @@ proc fighterFindNearbyEnemy(env: Environment, agent: Thing): Thing =
       continue
     if dist < bestEnemyDist:
       bestEnemyDist = dist
-      result = other
+      bestEnemyId = idx
+
+  state.fighterEnemyStep = env.currentStep
+  state.fighterEnemyAgentId = bestEnemyId
+  if bestEnemyId >= 0:
+    return env.agents[bestEnemyId]
 
 proc fighterHasFood(agent: Thing): bool =
   for key, count in agent.inventory.pairs:
@@ -110,19 +126,19 @@ proc canStartFighterDividerDefense(controller: Controller, env: Environment, age
                                    agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
     return false
-  let enemy = fighterFindNearbyEnemy(env, agent)
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   not isNil(enemy)
 
 proc shouldTerminateFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
                                           agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
     return true
-  let enemy = fighterFindNearbyEnemy(env, agent)
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   isNil(enemy)
 
 proc optFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
-  let enemy = fighterFindNearbyEnemy(env, agent)
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   if isNil(enemy) or agent.unitClass != UnitVillager:
     return 0'u8
   let teamId = getTeamId(agent.agentId)

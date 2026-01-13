@@ -1,3 +1,23 @@
+const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
+  # Attacker: UnitVillager
+  [0, 0, 0, 0, 0, 0, 0],
+  # Attacker: UnitManAtArms (infantry > cavalry)
+  [0, 0, 0, 1, 1, 0, 0],
+  # Attacker: UnitArcher (archer > infantry)
+  [0, 1, 0, 0, 0, 0, 0],
+  # Attacker: UnitScout (cavalry > archer)
+  [0, 0, 1, 0, 0, 0, 0],
+  # Attacker: UnitKnight (cavalry > archer)
+  [0, 0, 1, 0, 0, 0, 0],
+  # Attacker: UnitMonk
+  [0, 0, 0, 0, 0, 0, 0],
+  # Attacker: UnitSiege
+  [0, 0, 0, 0, 0, 0, 0],
+]
+
+proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
+  BonusDamageByClass[attacker][target]
+
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
   let deathPos = victim.pos
@@ -28,6 +48,8 @@ proc killAgent(env: Environment, victim: Thing) =
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
   var remaining = amount
+  if not attacker.isNil:
+    remaining += classBonusDamage(attacker.unitClass, target.unitClass)
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)

@@ -403,6 +403,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       activeOptionId: -1,
       activeOptionTicks: 0,
       gathererTask: TaskFood,
+      fighterEnemyAgentId: -1,
+      fighterEnemyStep: -1,
       spiralStepsInArc: 0,
       spiralArcsCompleted: 0,
       spiralClockwise: (agentId mod 2) == 0,

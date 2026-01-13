@@ -26,6 +26,8 @@ type
     activeOptionId: int
     activeOptionTicks: int
     gathererTask: GathererTask
+    fighterEnemyAgentId: int
+    fighterEnemyStep: int
     # Spiral search state
     spiralStepsInArc: int
     spiralArcsCompleted: int
