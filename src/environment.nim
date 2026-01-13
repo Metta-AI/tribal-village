@@ -1,9 +1,9 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
-import terrain, items, common, biome
-import types, registry, balance
-export terrain, items, common
-export types, registry, balance
+import terrain, items, game_common, biome
+import game_types, registry, balance
+export terrain, items, game_common
+export game_types, registry, balance
 
 ## Error types and FFI error state management.
 type
@@ -349,7 +349,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
     return true
   false
 
-include "place"
+include "placement"
 
 proc grantWood(env: Environment, agent: Thing, amount: int = 1): bool =
   if amount <= 0:
@@ -509,7 +509,7 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
   choices[BuildIndexDoor] = thingItem("Door")
   choices
 
-include "connect"
+include "connectivity"
 include "spawn"
 include "step"
 

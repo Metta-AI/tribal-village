@@ -1,10 +1,10 @@
-# This file is included by src/external.nim
+# This file is included by src/agent_control.nim
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
 import std/[tables, sets, algorithm]
 import entropy
 import vmath
-import ./environment, common, terrain
+import ./environment, game_common, terrain
 
 type
   # Meta roles with focused responsibilities (AoE-style)

@@ -1,4 +1,4 @@
-# This file is included by src/external.nim
+# This file is included by src/agent_control.nim
 proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8] =
   if index < 0 or index >= BuildChoices.len:

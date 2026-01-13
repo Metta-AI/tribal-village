@@ -1,5 +1,5 @@
 import environment
-import external
+import agent_control
 
 const Steps = 1000
 
