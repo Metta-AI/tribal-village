@@ -99,10 +99,6 @@ const
     ItemPlant
   ]
 
-  ## Mapping from ItemKind enum to observation layers (for efficient lookup)
-  ObservedItemKinds* = [ikGold, ikStone, ikBar, ikWater, ikWheat, ikWood, ikSpear, ikLantern, ikArmor, ikBread,
-                        ikMeat, ikFish, ikPlant]
-
 proc toItemKey*(kind: ItemKind): ItemKey {.inline.} =
   ## Convert ItemKind enum to ItemKey
   if kind == ikNone:
@@ -110,17 +106,10 @@ proc toItemKey*(kind: ItemKind): ItemKey {.inline.} =
   else:
     ItemKey(kind: ItemKeyItem, item: kind)
 
-proc toItemKind*(key: ItemKey): ItemKind {.inline.} =
-  ## Convert ItemKey to ItemKind enum (returns ikNone for non-item keys)
-  if key.kind == ItemKeyItem:
-    key.item
-  else:
-    ikNone
-
 proc itemKindName*(kind: ItemKind): string =
   ItemKindNames[kind]
 
-proc itemKeyName*(key: ItemKey): string =
+proc `$`*(key: ItemKey): string =
   case key.kind
   of ItemKeyNone:
     ""
@@ -129,17 +118,8 @@ proc itemKeyName*(key: ItemKey): string =
   of ItemKeyThing, ItemKeyOther:
     key.name
 
-proc `$`*(key: ItemKey): string =
-  itemKeyName(key)
-
-proc isItemKey*(key: ItemKey): bool =
-  key.kind == ItemKeyItem
-
 proc isThingKey*(key: ItemKey): bool =
   key.kind == ItemKeyThing
-
-proc isOtherKey*(key: ItemKey): bool =
-  key.kind == ItemKeyOther
 
 proc `==`*(a, b: ItemKey): bool =
   if a.kind != b.kind:
