@@ -304,7 +304,7 @@ proc initCraftRecipesBase*(): seq[CraftRecipe] =
   # Blacksmith: metalworking and mechanisms.
   addRecipe(recipes, "spear", StationBlacksmith, @[(ItemWood, 1)], @[(ItemSpear, SpearCharges)], 6)
   addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, ArmorPoints)], 10)
-  addRecipe(recipes, "weapon", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("weapon"), 1)], 8)
+  addRecipe(recipes, "spear_metal", StationBlacksmith, @[(ItemBar, 1)], @[(ItemSpear, SpearCharges)], 8)
   addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("shield"), 1)], 8)
   addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[(otherItem("anvil"), 1)], 10)
   addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("goblet"), 1)], 6)

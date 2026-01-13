@@ -200,7 +200,7 @@ let ItemCatalog* = block:
     (ItemWood, "Wood", "wood", 't'),
     (ItemSpear, "Spear", "spear", 's'),
     (ItemLantern, "Lantern", "lantern", 'l'),
-    (ItemArmor, "Armor", "armor", 'a'),
+    (ItemArmor, "Armor", "shield", 'a'),
     (ItemBread, "Bread", "bread", 'b'),
     (ItemPlant, "Plant", "plant", 'p'),
     (ItemFish, "Fish", "fish", 'f'),
