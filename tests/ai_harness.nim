@@ -201,6 +201,21 @@ suite "Mechanics":
     check defender.inventoryArmor == 1
     check defender.hp == 5
 
+  test "class bonus damage applies on counter hit":
+    let env = makeEmptyEnv()
+    let archer = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitArcher)
+    let infantry = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9), unitClass = UnitManAtArms)
+    let cavalry = addAgentAt(env, MapAgentsPerVillage * 2, ivec2(12, 10), unitClass = UnitScout)
+    archer.attackDamage = 1
+    infantry.hp = 5
+    cavalry.hp = 5
+
+    env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, infantry.pos))
+
+    check infantry.hp == 3
+    env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, cavalry.pos))
+    check cavalry.hp == 4
+
   test "spear attack hits at range and consumes spear":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
