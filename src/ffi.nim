@@ -25,6 +25,41 @@ type
 
 var globalEnv: Environment = nil
 
+const
+  ObscuredLayerIndex = ord(ObscuredLayer)
+  ObsTileStride = ObservationWidth * ObservationHeight
+  ObsAgentStride = ObservationLayers * ObsTileStride
+
+proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) =
+  ## Mask tiles above the observer elevation and mark the ObscuredLayer.
+  let radius = ObservationRadius
+  for agentId in 0 ..< MapAgents:
+    let agent = env.agents[agentId]
+    if not isAgentAlive(env, agent):
+      continue
+    let agentPos = agent.pos
+    if not isValidPos(agentPos):
+      continue
+    let baseElevation = env.elevation[agentPos.x][agentPos.y]
+    let agentBase = agentId * ObsAgentStride
+    for x in 0 ..< ObservationWidth:
+      let worldX = agentPos.x + (x - radius)
+      let xOffset = x * ObservationHeight
+      for y in 0 ..< ObservationHeight:
+        let worldY = agentPos.y + (y - radius)
+        var obscured = false
+        if worldX >= 0 and worldX < MapWidth and worldY >= 0 and worldY < MapHeight:
+          if env.elevation[worldX][worldY] > baseElevation:
+            obscured = true
+        let obscuredIndex = agentBase + ObscuredLayerIndex * ObsTileStride + xOffset + y
+        obs_buffer[obscuredIndex] = (if obscured: 1'u8 else: 0'u8)
+        if obscured:
+          for layer in 0 ..< ObservationLayers:
+            if layer == ObscuredLayerIndex:
+              continue
+            let idx = agentBase + layer * ObsTileStride + xOffset + y
+            obs_buffer[idx] = 0
+
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
   try:
@@ -72,7 +107,7 @@ proc tribal_village_set_config(
 
 proc tribal_village_reset_and_get_obs(
   env: pointer,
-  obs_buffer: ptr UncheckedArray[uint8],    # [60, 22, 11, 11] direct
+  obs_buffer: ptr UncheckedArray[uint8],    # [MapAgents, ObservationLayers, 11, 11] direct
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
   truncations_buffer: ptr UncheckedArray[uint8]
@@ -85,6 +120,7 @@ proc tribal_village_reset_and_get_obs(
     # Direct memory copy of observations (zero conversion)
     copyMem(obs_buffer, globalEnv.observations.addr,
       MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
+    applyObscuredMask(globalEnv, obs_buffer)
 
     # Clear rewards/terminals/truncations
     for i in 0..<MapAgents:
@@ -99,7 +135,7 @@ proc tribal_village_reset_and_get_obs(
 proc tribal_village_step_with_pointers(
   env: pointer,
   actions_buffer: ptr UncheckedArray[uint8],    # [MapAgents] direct read
-  obs_buffer: ptr UncheckedArray[uint8],        # [60, 22, 11, 11] direct write
+  obs_buffer: ptr UncheckedArray[uint8],        # [MapAgents, ObservationLayers, 11, 11] direct write
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
   truncations_buffer: ptr UncheckedArray[uint8]
@@ -117,6 +153,7 @@ proc tribal_village_step_with_pointers(
     # Direct memory copy of observations (zero conversion overhead)
     copyMem(obs_buffer, globalEnv.observations.addr,
       MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
+    applyObscuredMask(globalEnv, obs_buffer)
 
     # Direct buffer writes (no dict conversion)
     for i in 0..<MapAgents:

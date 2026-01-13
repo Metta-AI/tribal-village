@@ -49,7 +49,7 @@ proc removeThing(env: Environment, thing: Thing) =
 proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
     return false
-  if thing.kind in {Agent, Tumor, Tree, Wheat, Fish, Stubble, Stone, Gold, Bush, Cactus, Stalagmite,
+  if thing.kind in {Agent, Tumor, Tree, Wheat, Fish, Relic, Stubble, Stone, Gold, Bush, Cactus, Stalagmite,
                     Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
     return false
 
@@ -115,6 +115,10 @@ proc add*(env: Environment, thing: Thing) =
   env.thingsByKind[thing.kind].add(thing)
   thing.kindListIndex = env.thingsByKind[thing.kind].len - 1
   if thing.kind == Agent:
+    if thing.teamIdOverride == 0:
+      thing.teamIdOverride = -1
+    if thing.embarkedUnitClass == UnitVillager and thing.unitClass != UnitVillager:
+      thing.embarkedUnitClass = thing.unitClass
     env.agents.add(thing)
     env.stats.add(Stats())
   if isValidPos(thing.pos):
@@ -138,13 +142,13 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     pos: pos
   )
   if isBuildingKind(kind) and kind != Barrel:
-    placed.teamId = getTeamId(agent.agentId)
+    placed.teamId = getTeamId(agent)
   if kind == Door:
     placed.hp = DoorMaxHearts
     placed.maxHp = DoorMaxHearts
   case kind
   of Lantern:
-    placed.teamId = getTeamId(agent.agentId)
+    placed.teamId = getTeamId(agent)
     placed.lanternHealthy = true
   of Altar:
     placed.inventory = emptyInventory()

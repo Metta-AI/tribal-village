@@ -47,6 +47,17 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
       if randChance(r, chance):
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
+proc applyBiomeElevation(env: Environment) =
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      case env.biomes[x][y]
+      of BiomeSnowType:
+        env.elevation[x][y] = 1
+      of BiomeSwampType:
+        env.elevation[x][y] = -1
+      else:
+        env.elevation[x][y] = 0
+
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -65,6 +76,7 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.overlayGrid[x][y] = nil
+      env.elevation[x][y] = 0
 
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
@@ -87,6 +99,7 @@ proc init(env: Environment) =
 
   # Initialize terrain with all features
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
+  env.applyBiomeElevation()
   env.applyBiomeBaseColors()
 
   # Resource nodes are spawned as Things later; base terrain stays walkable.
@@ -626,7 +639,8 @@ proc init(env: Environment) =
             maxHp: AgentMaxHp,
             attackDamage: VillagerAttackDamage,
             unitClass: UnitVillager,
-            embarkedUnitClass: UnitVillager
+            embarkedUnitClass: UnitVillager,
+            teamIdOverride: -1
           ))
 
           totalAgentsSpawned += 1
@@ -661,6 +675,7 @@ proc init(env: Environment) =
       attackDamage: VillagerAttackDamage,
       unitClass: UnitVillager,
       embarkedUnitClass: UnitVillager,
+      teamIdOverride: -1,
     ))
 
     totalAgentsSpawned += 1
@@ -999,6 +1014,17 @@ proc init(env: Environment) =
         break
       if not placed:
         break
+
+    var relicsPlaced = 0
+    var relicAttempts = 0
+    while relicsPlaced < MapRoomObjectsRelics and relicAttempts < MapRoomObjectsRelics * 10:
+      inc relicAttempts
+      let pos = r.randomEmptyPos(env)
+      if env.terrain[pos.x][pos.y] == Water:
+        continue
+      if env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos):
+        env.add(Thing(kind: Relic, pos: pos))
+        inc relicsPlaced
 
     for _ in 0 ..< 30:
       var attempts = 0

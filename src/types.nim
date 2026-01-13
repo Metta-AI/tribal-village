@@ -38,6 +38,7 @@ const
   MapRoomObjectsGoldClusterCount* = 28
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
+  MapRoomObjectsRelics* = 12
 
   # Agent Parameters
   MapObjectAgentMaxInventory* = 5
@@ -96,7 +97,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 20
+  ObservationLayers* = 21
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -118,6 +119,7 @@ const
 proc getTeamId*(agentId: int): int =
   ## Inline team ID calculation - frequently used
   agentId div MapAgentsPerVillage
+
 
 template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
@@ -155,6 +157,7 @@ type
     AgentInventoryMeatLayer = 17
     AgentInventoryFishLayer = 18
     AgentInventoryPlantLayer = 19
+    ObscuredLayer = 20    # 1 when target tile is above observer elevation
 
 
   AgentUnitClass* = enum
@@ -175,6 +178,7 @@ type
     Tree
     Wheat
     Fish
+    Relic
     Stone
     Gold
     Bush
@@ -235,6 +239,7 @@ type
     attackDamage*: int
     unitClass*: AgentUnitClass
     embarkedUnitClass*: AgentUnitClass
+    teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
     # Tumor:
@@ -280,6 +285,12 @@ type
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
 
+proc getTeamId*(agent: Thing): int =
+  ## Team ID lookup that respects conversions.
+  if agent.teamIdOverride >= 0:
+    return agent.teamIdOverride
+  getTeamId(agent.agentId)
+
 const
   BaseTileColorDefault* = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   BiomeColorForest* = TileColor(r: 0.45, g: 0.60, b: 0.40, intensity: 1.0)
@@ -287,6 +298,7 @@ const
   BiomeColorCaves* = TileColor(r: 0.45, g: 0.50, b: 0.58, intensity: 0.95)
   BiomeColorCity* = TileColor(r: 0.62, g: 0.62, b: 0.66, intensity: 1.0)
   BiomeColorPlains* = TileColor(r: 0.55, g: 0.70, b: 0.50, intensity: 1.0)
+  BiomeColorSwamp* = TileColor(r: 0.32, g: 0.48, b: 0.38, intensity: 0.95)
   BiomeColorDungeon* = TileColor(r: 0.40, g: 0.36, b: 0.48, intensity: 0.9)
   BiomeColorSnow* = TileColor(r: 0.93, g: 0.95, b: 0.98, intensity: 1.0)
   BiomeEdgeBlendRadius* = 6
@@ -331,6 +343,8 @@ type
   TeamStockpile* = object
     counts*: array[StockpileResource, int]
 
+  ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
+
   Environment* = ref object
     currentStep*: int
     mapGeneration*: int  # Bumps each time the map is rebuilt (for render caches)
@@ -341,6 +355,7 @@ type
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]
     overlayGrid*: array[MapWidth, array[MapHeight, Thing]]
+    elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
