@@ -2,7 +2,7 @@
 
 Date: 2026-01-13
 Owner: Design / Systems
-Status: Draft
+Status: In Progress
 
 ## 0) Scope & Non-Goals
 
@@ -39,7 +39,7 @@ Status: Draft
 ## 2) Unit Classes & Counter System
 
 ### Current State
-- Unit classes: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Siege.
+- Unit classes: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Battering Ram, Mangonel.
 - Combat includes armor absorption, spear AoE strikes, ranged attack ranges, and healing by monks.
 - Bonus damage vs class is implemented via a simple lookup table in `src/combat.nim`.
 - Training follows a one-building-per-unit approach:
@@ -80,7 +80,7 @@ Status: Draft
 ## 4) Market / Resource Conversion
 
 ### Current State
-- Market exists; it converts carried stockpile resources into food/gold using configurable rates and a cooldown.
+- Market exists; it converts carried stockpile resources into team stockpiles of food/gold using configurable rates and a cooldown.
 
 ### AoE2-Style Meaning
 - Markets enable late-game pivots and mitigate gold scarcity while preserving a cost/tax.
@@ -138,9 +138,9 @@ Status: Draft
 ## 8) Scoring / End-of-Episode Metric (Tint Territory)
 
 ### Current State
-- No explicit score-based win condition tied to map control.
+- Territory scoring exists and is run at the episode horizon.
 - Tint data exists per tile in `computedTintColors`; tumor tint is distinct (Clippy).
-- Frozen tiles are determined by proximity to Clippy tint but are not currently scored.
+- Frozen tiles are determined by proximity to Clippy tint and currently score like any other tile.
 
 ### AoE2-Style Meaning
 - AoE2 rewards territorial control indirectly through eco and pressure. For TV, we can make territory explicit via end-of-episode scoring without changing core mechanics.
@@ -199,13 +199,13 @@ At step ~10000 (or `maxSteps`), compute a **territory score** for each team base
 - Clippy should capture tiles if tumor tint dominates or frozen areas spread.
 
 ### Changes Needed
-- **Add** scoring function and minimal config fields (threshold, horizon, mode).
+- **None** for core implementation; only tuning and telemetry if desired.
 - **No change** to housing, ages, or win-by-elimination rules.
 
 ---
 
 ## Summary of Proposed Changes
-- **Must-have**: doc clarity + scoring metric spec for tint-territory.
-- **Should-have**: tuning for unit counters and siege/fortification dynamics.
+- **Must-have**: tuning for unit counters and siege/fortification dynamics.
+- **Should-have**: market conversion tuning and territory scoring parameter tuning (if needed).
 - **Nice-to-have**: civ-style asymmetry, improved territory readability.
 - **Non-goals**: housing changes, age gates, conquest win condition.
