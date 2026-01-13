@@ -57,7 +57,7 @@ const
   OutpostWoodCost* = 1
   CowMilkCooldown* = 25
   ResourceCarryCapacity* = 5
-  MineDepositAmount* = 12
+  MineDepositAmount* = 100
   TownCenterPopCap* = 0
   HousePopCap* = 2
   VillagerAttackDamage* = 1

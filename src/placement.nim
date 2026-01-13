@@ -79,10 +79,10 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
 proc add*(env: Environment, thing: Thing) =
   if thing.kind == Stone:
     if getInv(thing, ItemStone) <= 0:
-      setInv(thing, ItemStone, ResourceNodeInitial)
+      setInv(thing, ItemStone, MineDepositAmount)
   elif thing.kind == Gold:
     if getInv(thing, ItemGold) <= 0:
-      setInv(thing, ItemGold, ResourceNodeInitial)
+      setInv(thing, ItemGold, MineDepositAmount)
   env.things.add(thing)
   thing.thingsIndex = env.things.len - 1
   env.thingsByKind[thing.kind].add(thing)
