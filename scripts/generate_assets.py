@@ -24,8 +24,8 @@ ORIENTATION_TEMPLATES = [
     ("s", "Front view facing the camera."),
     ("e", "Right-facing profile view."),
     ("w", "Left-facing profile view."),
-    ("ne", "Three-quarter view facing up-right (northeast)."),
-    ("nw", "Three-quarter view facing up-left (northwest)."),
+    ("ne", "Three-quarter back view facing up-right (northeast), facing away from camera."),
+    ("nw", "Three-quarter back view facing up-left (northwest), facing away from camera."),
     ("se", "Three-quarter view facing down-right (southeast)."),
     ("sw", "Three-quarter view facing down-left (southwest)."),
 ]
@@ -352,7 +352,7 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=200, help="Output square size.")
     parser.add_argument("--postprocess", action="store_true")
     parser.add_argument("--postprocess-only", action="store_true")
-    parser.add_argument("--postprocess-tol", type=int, default=18, help="Background keying tolerance.")
+    parser.add_argument("--postprocess-tol", type=int, default=30, help="Background keying tolerance.")
     parser.add_argument(
         "--oriented",
         action="store_true",
