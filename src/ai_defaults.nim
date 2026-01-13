@@ -291,7 +291,6 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
       inc popCount
   var popCap = 0
   var hasBase = false
-  let popTarget = popCount + 1
   for thing in env.things:
     if thing.isNil:
       continue
@@ -302,10 +301,9 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
       let cap = buildingPopCap(thing.kind)
       if cap > 0:
         popCap += cap
-        if popCap >= popTarget:
-          break
-  if (popCap > 0 and popCount >= popCap - 1) or
-      (popCap == 0 and hasBase and popCount >= HousePopCap):
+  let buffer = HousePopCap
+  if (popCap > 0 and popCount >= popCap - buffer) or
+      (popCap == 0 and hasBase and popCount >= buffer):
     var targetBuildPos = ivec2(-1, -1)
     var targetStandPos = ivec2(-1, -1)
     let minX = max(0, basePos.x - 15)
