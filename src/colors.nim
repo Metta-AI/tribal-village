@@ -55,6 +55,7 @@ proc biomeBaseColor*(biome: BiomeType): TileColor =
   of BiomeCityType: BiomeColorCity
   of BiomePlainsType: BiomeColorPlains
   of BiomeSnowType: BiomeColorSnow
+  of BiomeSwampType: BiomeColorSwamp
   of BiomeDungeonType: BiomeColorDungeon
   else: BaseTileColorDefault
 

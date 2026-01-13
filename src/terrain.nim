@@ -53,6 +53,7 @@ type
     BiomeCity
     BiomePlains
     BiomeSnow
+    BiomeSwamp
 
   BiomeType* = enum
     BiomeNone
@@ -63,6 +64,7 @@ type
     BiomeCityType
     BiomePlainsType
     BiomeSnowType
+    BiomeSwampType
     BiomeDungeonType
 
   BiomeGrid* = array[MaxTerrainSize, array[MaxTerrainSize, BiomeType]]
@@ -79,6 +81,7 @@ const
   BiomeCavesTerrain* = Dune
   BiomePlainsTerrain* = Grass
   BiomeSnowTerrain* = Snow
+  BiomeSwampTerrain* = Grass
   BiomeCityBlockTerrain* = Grass
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
@@ -175,6 +178,7 @@ proc baseBiomeType*(): BiomeType =
   of BiomeCity: BiomeCityType
   of BiomePlains: BiomePlainsType
   of BiomeSnow: BiomeSnowType
+  of BiomeSwamp: BiomeSwampType
 
 proc zoneBounds(zone: ZoneRect, mapWidth, mapHeight, mapBorder: int): tuple[x0, y0, x1, y1: int] =
   let x0 = max(mapBorder, zone.x)
@@ -399,11 +403,51 @@ proc zoneCount*(area: int, divisor: int, minCount: int, maxCount: int): int =
   let raw = max(1, area div divisor)
   clamp(raw, minCount, maxCount)
 
+proc applySwampWater(terrain: var TerrainGrid, biomes: var BiomeGrid,
+                     mapWidth, mapHeight, mapBorder: int,
+                     r: var Rand, cfg: BiomeSwampConfig) =
+  var swampTiles: seq[IVec2] = @[]
+  for x in mapBorder ..< mapWidth - mapBorder:
+    for y in mapBorder ..< mapHeight - mapBorder:
+      if biomes[x][y] != BiomeSwampType:
+        continue
+      swampTiles.add(ivec2(x.int32, y.int32))
+      if randChance(r, cfg.waterScatterProb):
+        terrain[x][y] = Water
+
+  if swampTiles.len == 0:
+    return
+
+  let tilesPerPond = max(1, cfg.pondTilesPerPond)
+  let desired = max(cfg.pondCountMin, swampTiles.len div tilesPerPond)
+  let pondCount = min(cfg.pondCountMax, desired)
+
+  for _ in 0 ..< pondCount:
+    let center = swampTiles[randIntExclusive(r, 0, swampTiles.len)]
+    let radius = randIntInclusive(r, cfg.pondRadiusMin, cfg.pondRadiusMax)
+    let radius2 = radius * radius
+    let inner2 = max(0, (radius - 1) * (radius - 1))
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let wx = center.x + dx
+        let wy = center.y + dy
+        if wx < mapBorder or wx >= mapWidth - mapBorder or
+           wy < mapBorder or wy >= mapHeight - mapBorder:
+          continue
+        if biomes[wx][wy] != BiomeSwampType:
+          continue
+        let dist2 = dx * dx + dy * dy
+        if dist2 > radius2:
+          continue
+        if dist2 > inner2 and randChance(r, cfg.pondEdgeDitherProb):
+          continue
+        terrain[wx][wy] = Water
+
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
   var count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
-  let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow]
-  let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8]
+  let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow, BiomeSwamp]
+  let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8, 0.7]
   if UseSequentialBiomeZones:
     count = max(count, kinds.len)
   let baseBiomeType = baseBiomeType()
@@ -460,6 +504,10 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       let snowEdgeChance = max(edgeChance, 0.55)
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, snowEdgeChance, density = 0.25)
+    of BiomeSwamp:
+      buildBiomeSwampMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSwampConfig())
+      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        BiomeSwampTerrain, BiomeSwampType, baseBiomeType, r, edgeChance)
     of BiomeCity:
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
@@ -497,6 +545,9 @@ proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   of BiomeSnow:
     buildBiomeSnowMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSnowConfig())
     applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeSnowTerrain)
+  of BiomeSwamp:
+    buildBiomeSwampMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSwampConfig())
+    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeSwampTerrain)
 
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
@@ -754,6 +805,7 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
     applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, r)
   if UseBiomeZones:
     applyBiomeZones(terrain, biomes, mapWidth, mapHeight, mapBorder, r)
+  applySwampWater(terrain, biomes, mapWidth, mapHeight, mapBorder, r, BiomeSwampConfig())
 
   terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
 
