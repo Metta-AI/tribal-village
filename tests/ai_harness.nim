@@ -304,6 +304,55 @@ suite "AI - Builder":
     check verb == 8
     check arg == buildIndexFor(WeavingLoom)
 
+  test "builds house when one house of room left":
+    let env = makeEmptyEnv()
+    let controller = newController(12)
+    let basePos = ivec2(10, 10)
+    discard addBuilding(env, House, ivec2(8, 8), 0)
+    discard addBuilding(env, House, ivec2(12, 8), 0)
+    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = basePos)
+    discard addAgentAt(env, 1, ivec2(10, 11), homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 12), homeAltar = basePos)
+    setStockpile(env, 0, ResourceWood, 10)
+
+    var built = false
+    for _ in 0 ..< 20:
+      let action = controller.decideAction(env, 2)
+      let (verb, arg) = decodeAction(action)
+      if verb == 8 and arg == buildIndexFor(House):
+        built = true
+        break
+      if verb == 1:
+        env.stepAction(2, verb.uint8, arg)
+        continue
+      break
+    check built
+
+  test "builds house at cap using team-only pop cap":
+    let env = makeEmptyEnv()
+    let controller = newController(13)
+    let basePos = ivec2(10, 10)
+    discard addBuilding(env, House, ivec2(8, 8), 0)
+    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 12), homeAltar = basePos)
+    setStockpile(env, 0, ResourceWood, 10)
+    discard addBuilding(env, House, ivec2(20, 20), 1)
+    discard addBuilding(env, House, ivec2(22, 20), 1)
+    discard addBuilding(env, House, ivec2(24, 20), 1)
+
+    var built = false
+    for _ in 0 ..< 20:
+      let action = controller.decideAction(env, 2)
+      let (verb, arg) = decodeAction(action)
+      if verb == 8 and arg == buildIndexFor(House):
+        built = true
+        break
+      if verb == 1:
+        env.stepAction(2, verb.uint8, arg)
+        continue
+      break
+    check built
+
 suite "AI - Fighter":
   test "villager fighter builds divider door when enemy nearby":
     let env = makeEmptyEnv()

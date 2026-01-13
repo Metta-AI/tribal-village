@@ -115,7 +115,8 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
     return (false, 0'u8)
   if not isValidPos(stand) or env.hasDoor(stand) or
       isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env) or
-      not env.isEmpty(stand) or not env.canAgentPassDoor(agent, stand):
+      (not env.isEmpty(stand) and stand != agent.pos) or
+      not env.canAgentPassDoor(agent, stand):
     return (false, 0'u8)
   if agent.pos == stand:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
@@ -189,7 +190,7 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
             continue
           if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
             continue
-          if not env.isEmpty(stand):
+          if not env.isEmpty(stand) and stand != agent.pos:
             continue
           if not env.canAgentPassDoor(agent, stand):
             continue
@@ -265,7 +266,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
           continue
         if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
           continue
-        if not env.isEmpty(stand):
+        if not env.isEmpty(stand) and stand != agent.pos:
           continue
         if not env.canAgentPassDoor(agent, stand):
           continue
@@ -321,7 +322,8 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
             continue
           for d in CardinalOffsets:
             let stand = pos + d
-            if isValidPos(stand) and not env.hasDoor(stand) and env.isEmpty(stand) and
+            if isValidPos(stand) and not env.hasDoor(stand) and
+                (env.isEmpty(stand) or stand == agent.pos) and
                 env.canAgentPassDoor(agent, stand) and
                 not isTileFrozen(stand, env) and
                 not isBlockedTerrain(env.terrain[stand.x][stand.y]):
