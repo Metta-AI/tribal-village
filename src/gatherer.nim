@@ -5,6 +5,33 @@ type GathererTask = enum
   TaskGold
   TaskHearts
 
+proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IVec2): IVec2 =
+  let cx = center.x.int
+  let cy = center.y.int
+  let startX = max(0, cx - radius)
+  let endX = min(MapWidth - 1, cx + radius)
+  let startY = max(0, cy - radius)
+  let endY = min(MapHeight - 1, cy + radius)
+  var bestDist = int.high
+  var bestPos = ivec2(-1, -1)
+  for x in startX .. endX:
+    for y in startY .. endY:
+      if max(abs(x - cx), abs(y - cy)) > radius:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      if pos == blocked:
+        continue
+      if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
+        continue
+      let terrain = env.terrain[x][y]
+      if terrain notin {Empty, Grass, Sand, Snow, Dune, Road}:
+        continue
+      let dist = abs(x - cx) + abs(y - cy)
+      if dist < bestDist:
+        bestDist = dist
+        bestPos = pos
+  bestPos
+
 proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -161,6 +188,53 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       if didMill: return actMill
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
+
+    block waterFertile:
+      block:
+        let cx = agent.pos.x.int
+        let cy = agent.pos.y.int
+        let radius = 4
+        let startX = max(0, cx - radius)
+        let endX = min(MapWidth - 1, cx + radius)
+        let startY = max(0, cy - radius)
+        let endY = min(MapHeight - 1, cy + radius)
+        var hasNearbyFood = false
+        for x in startX .. endX:
+          for y in startY .. endY:
+            if max(abs(x - cx), abs(y - cy)) > radius:
+              continue
+            let occ = env.grid[x][y]
+            if not isNil(occ) and occ.kind in {Wheat, Stubble, Bush, Cow, Corpse}:
+              hasNearbyFood = true
+              break
+            let overlay = env.overlayGrid[x][y]
+            if not isNil(overlay) and overlay.kind in {Wheat, Stubble, Bush, Cow, Corpse}:
+              hasNearbyFood = true
+              break
+          if hasNearbyFood:
+            break
+        if hasNearbyFood:
+          break waterFertile
+      let basePos = state.basePosition
+      let fertileRadius = 6
+      let fertileCount = countNearbyTerrain(env, basePos, fertileRadius, {Fertile})
+      var hasMill = false
+      for mill in env.thingsByKind[Mill]:
+        if mill.teamId == teamId and chebyshevDist(mill.pos, basePos) <= fertileRadius:
+          hasMill = true
+          break
+      if fertileCount < 6 and not hasMill:
+        if agent.inventoryWater > 0:
+          var target = findFertileTarget(env, basePos, fertileRadius, state.pathBlockedTarget)
+          if target.x < 0:
+            target = findFertileTarget(env, agent.pos, fertileRadius, state.pathBlockedTarget)
+          if target.x >= 0:
+            if isAdjacent(agent.pos, target):
+              return controller.useAt(env, agent, agentId, state, target)
+            return controller.moveTo(env, agent, agentId, state, target)
+        else:
+          let (didWater, actWater) = controller.ensureWater(env, agent, agentId, state)
+          if didWater: return actWater
 
     if state.closestFoodPos.x >= 0:
       if state.closestFoodPos == state.pathBlockedTarget:

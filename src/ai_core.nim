@@ -35,10 +35,12 @@ type
     blockedMoveDir: int
     blockedMoveSteps: int
     cachedThingPos: array[ThingKind, IVec2]
+    cachedWaterPos: IVec2
     closestFoodPos: IVec2
     closestWoodPos: IVec2
     closestStonePos: IVec2
     closestGoldPos: IVec2
+    closestWaterPos: IVec2
     closestMagmaPos: IVec2
     buildTarget: IVec2
     buildStand: IVec2
@@ -190,6 +192,29 @@ proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
       minDist = dist
       result = thing
 
+proc findNearestWater(env: Environment, pos: IVec2): IVec2 =
+  result = ivec2(-1, -1)
+  let cx = pos.x.int
+  let cy = pos.y.int
+  let startX = max(0, cx - SearchRadius)
+  let endX = min(MapWidth - 1, cx + SearchRadius)
+  let startY = max(0, cy - SearchRadius)
+  let endY = min(MapHeight - 1, cy + SearchRadius)
+  var minDist = int.high
+  for x in startX .. endX:
+    for y in startY .. endY:
+      if abs(x - cx) + abs(y - cy) >= SearchRadius:
+        continue
+      if env.terrain[x][y] != Water:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      if isTileFrozen(pos, env):
+        continue
+      let dist = abs(x - cx) + abs(y - cy)
+      if dist < minDist:
+        minDist = dist
+        result = pos
+
 proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
   result = nil
   var minDist = 999999
@@ -232,6 +257,33 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
   result = findNearestThing(env, nextSearchPos, kind)
   if not isNil(result):
     state.cachedThingPos[kind] = result.pos
+  return result
+
+proc findNearestWaterSpiral(env: Environment, state: var AgentState, rng: var Rand): IVec2 =
+  let cachedPos = state.cachedWaterPos
+  if cachedPos.x >= 0:
+    if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
+      if env.terrain[cachedPos.x][cachedPos.y] == Water and not isTileFrozen(cachedPos, env):
+        return cachedPos
+    state.cachedWaterPos = ivec2(-1, -1)
+
+  result = findNearestWater(env, state.lastSearchPosition)
+  if result.x >= 0:
+    state.cachedWaterPos = result
+    return result
+
+  result = findNearestWater(env, state.basePosition)
+  if result.x >= 0:
+    state.cachedWaterPos = result
+    return result
+
+  var nextSearchPos = state.lastSearchPosition
+  for _ in 0 ..< SpiralAdvanceSteps:
+    nextSearchPos = getNextSpiralPoint(state, rng)
+  state.lastSearchPosition = nextSearchPos
+  result = findNearestWater(env, nextSearchPos)
+  if result.x >= 0:
+    state.cachedWaterPos = result
   return result
 
 proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, teamId: int,
@@ -949,6 +1001,30 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
     if isAdjacent(agent.pos, target.pos):
       return (true, controller.useAt(env, agent, agentId, state, target.pos))
     return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
+
+proc ensureWater(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                 state: var AgentState): tuple[did: bool, action: uint8] =
+  if state.closestWaterPos.x >= 0:
+    if state.closestWaterPos == state.pathBlockedTarget:
+      state.closestWaterPos = ivec2(-1, -1)
+    elif env.terrain[state.closestWaterPos.x][state.closestWaterPos.y] != Water or
+         isTileFrozen(state.closestWaterPos, env):
+      state.closestWaterPos = ivec2(-1, -1)
+  if state.closestWaterPos.x >= 0:
+    if isAdjacent(agent.pos, state.closestWaterPos):
+      return (true, controller.useAt(env, agent, agentId, state, state.closestWaterPos))
+    return (true, controller.moveTo(env, agent, agentId, state, state.closestWaterPos))
+
+  let target = findNearestWaterSpiral(env, state, controller.rng)
+  if target.x >= 0:
+    if target == state.pathBlockedTarget:
+      state.cachedWaterPos = ivec2(-1, -1)
+      return (true, controller.moveNextSearch(env, agent, agentId, state))
+    updateClosestSeen(state, state.basePosition, target, state.closestWaterPos)
+    if isAdjacent(agent.pos, target):
+      return (true, controller.useAt(env, agent, agentId, state, target))
+    return (true, controller.moveTo(env, agent, agentId, state, target))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId: int,
