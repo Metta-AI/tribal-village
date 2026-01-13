@@ -30,12 +30,31 @@ ORIENTATION_TEMPLATES = [
     ("sw", "Three-quarter view facing down-left (southwest)."),
 ]
 
-ORIENTATION_MAP = {key: text for key, text in ORIENTATION_TEMPLATES}
+EDGE_ORIENTATIONS = [
+    ("ew", "Horizontal cliff edge segment running east-west; higher ground on the north (top) side."),
+    ("ns", "Vertical cliff edge segment running north-south; higher ground on the east (right) side."),
+]
+
+CORNER_ORIENTATIONS = [
+    ("ne", "Right-angle corner with edges on the north and east sides, oriented to the northeast."),
+    ("nw", "Right-angle corner with edges on the north and west sides, oriented to the northwest."),
+    ("se", "Right-angle corner with edges on the south and east sides, oriented to the southeast."),
+    ("sw", "Right-angle corner with edges on the south and west sides, oriented to the southwest."),
+]
+
+ORIENTATION_SETS = {
+    "unit": ORIENTATION_TEMPLATES,
+    "edge": EDGE_ORIENTATIONS,
+    "corner": CORNER_ORIENTATIONS,
+}
 
 
 class OrientedRow(NamedTuple):
     filename_template: str
     prompt_template: str
+    orientation_set: str
+    allowed_dirs: set[str] | None
+    reference_dir: str | None
 
 
 class OrientedOutput(NamedTuple):
@@ -43,15 +62,52 @@ class OrientedOutput(NamedTuple):
     prompt: str
     dir_key: str
     reference_filename: str
+    orientation_set: str
+    reference_dir: str
 
 
-def expand_oriented_row(filename: str, prompt: str) -> list[tuple[str, str]]:
+def parse_flags(raw: str) -> dict[str, str]:
+    flags: dict[str, str] = {}
+    if not raw:
+        return flags
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        if "=" in token:
+            key, value = token.split("=", 1)
+            flags[key.strip()] = value.strip()
+        else:
+            flags[token] = "true"
+    return flags
+
+
+def resolve_orientation_set(name: str) -> list[tuple[str, str]]:
+    if name not in ORIENTATION_SETS:
+        raise ValueError(f"Unknown orientation set '{name}' (expected one of {sorted(ORIENTATION_SETS)})")
+    return ORIENTATION_SETS[name]
+
+
+def parse_dirs(raw: str | None) -> set[str] | None:
+    if not raw:
+        return None
+    return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+def expand_oriented_row(
+    filename: str,
+    prompt: str,
+    orientation_set: str,
+    allowed_dirs: set[str] | None,
+) -> list[tuple[str, str]]:
     if "{dir}" not in filename:
         if "{orientation}" in prompt or "{dir}" in prompt:
             raise ValueError(f"Orientation placeholder requires {{dir}} in filename: {filename}")
         return [(filename, prompt)]
     rows: list[tuple[str, str]] = []
-    for dir_key, orientation in ORIENTATION_TEMPLATES:
+    for dir_key, orientation in resolve_orientation_set(orientation_set):
+        if allowed_dirs and dir_key not in allowed_dirs:
+            continue
         subs = {
             "dir": dir_key,
             "dir_upper": dir_key.upper(),
@@ -66,34 +122,50 @@ def expand_oriented_row(filename: str, prompt: str) -> list[tuple[str, str]]:
     return rows
 
 
+def parse_prompt_line(raw: str) -> tuple[str, str, dict[str, str]]:
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        return "", "", {}
+    parts = line.split("\t")
+    if len(parts) not in (2, 3):
+        raise ValueError(f"Invalid prompt line (expected TSV with 2 or 3 columns): {raw}")
+    filename = parts[0].strip()
+    prompt = parts[1].strip()
+    flags = parse_flags(parts[2].strip()) if len(parts) == 3 else {}
+    return filename, prompt, flags
+
+
 def load_prompts(path: Path) -> list[tuple[str, str]]:
     rows: list[tuple[str, str]] = []
     for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
+        filename, prompt, flags = parse_prompt_line(raw)
+        if not filename:
             continue
-        parts = line.split("\t", 1)
-        if len(parts) != 2:
-            raise ValueError(f"Invalid prompt line (expected TSV): {raw}")
-        filename = parts[0].strip()
-        prompt = parts[1].strip()
-        rows.extend(expand_oriented_row(filename, prompt))
+        orientation_set = flags.get("orient", "unit")
+        allowed_dirs = parse_dirs(flags.get("dirs"))
+        rows.extend(expand_oriented_row(filename, prompt, orientation_set, allowed_dirs))
     return rows
 
 
 def load_oriented_rows(path: Path) -> list[OrientedRow]:
     rows: list[OrientedRow] = []
     for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
+        filename, prompt, flags = parse_prompt_line(raw)
+        if not filename:
             continue
-        parts = line.split("\t", 1)
-        if len(parts) != 2:
-            raise ValueError(f"Invalid prompt line (expected TSV): {raw}")
-        filename = parts[0].strip()
-        prompt = parts[1].strip()
+        orientation_set = flags.get("orient", "unit")
+        allowed_dirs = parse_dirs(flags.get("dirs"))
+        reference_dir = flags.get("ref") or flags.get("reference")
         if "{dir}" in filename:
-            rows.append(OrientedRow(filename_template=filename, prompt_template=prompt))
+            rows.append(
+                OrientedRow(
+                    filename_template=filename,
+                    prompt_template=prompt,
+                    orientation_set=orientation_set,
+                    allowed_dirs=allowed_dirs,
+                    reference_dir=reference_dir,
+                )
+            )
     return rows
 
 
@@ -102,11 +174,19 @@ def iter_oriented_rows(
     reference_dir: str,
     only: set[str] | None,
 ) -> Iterator[OrientedOutput]:
-    if reference_dir not in ORIENTATION_MAP:
-        raise ValueError(f"Unknown reference dir '{reference_dir}' (expected one of {sorted(ORIENTATION_MAP)})")
-    reference_orientation = ORIENTATION_MAP[reference_dir]
     for row in rows:
-        for dir_key, orientation in ORIENTATION_TEMPLATES:
+        orientation_set = resolve_orientation_set(row.orientation_set)
+        orientation_map = {key: text for key, text in orientation_set}
+        row_reference_dir = row.reference_dir or reference_dir
+        if row_reference_dir not in orientation_map:
+            raise ValueError(
+                f"Unknown reference dir '{row_reference_dir}' for orient={row.orientation_set} "
+                f"(expected one of {sorted(orientation_map)})"
+            )
+        reference_orientation = orientation_map[row_reference_dir]
+        for dir_key, orientation in orientation_set:
+            if row.allowed_dirs and dir_key not in row.allowed_dirs:
+                continue
             subs = {
                 "dir": dir_key,
                 "dir_upper": dir_key.upper(),
@@ -117,8 +197,8 @@ def iter_oriented_rows(
                 continue
             prompt = row.prompt_template.format(**subs)
             ref_subs = {
-                "dir": reference_dir,
-                "dir_upper": reference_dir.upper(),
+                "dir": row_reference_dir,
+                "dir_upper": row_reference_dir.upper(),
                 "orientation": reference_orientation,
             }
             ref_name = row.filename_template.format(**ref_subs)
@@ -127,6 +207,8 @@ def iter_oriented_rows(
                 prompt=prompt,
                 dir_key=dir_key,
                 reference_filename=ref_name,
+                orientation_set=row.orientation_set,
+                reference_dir=row_reference_dir,
             )
 
 
@@ -331,9 +413,16 @@ def build_oriented_prompt(prompt: str) -> str:
 
 
 FLIP_ORIENTATIONS = {
-    "e": "w",
-    "ne": "nw",
-    "se": "sw",
+    "unit": {
+        "e": "w",
+        "ne": "nw",
+        "se": "sw",
+    },
+    "corner": {
+        "ne": "nw",
+        "se": "sw",
+    },
+    "edge": {},
 }
 
 
@@ -389,8 +478,14 @@ def main() -> None:
         if not oriented_rows:
             raise SystemExit("No oriented rows found (filenames containing {dir}).")
         outputs = list(iter_oriented_rows(oriented_rows, args.reference_dir, only))
-        non_flip = [o for o in outputs if o.dir_key not in FLIP_ORIENTATIONS]
-        flip = [o for o in outputs if o.dir_key in FLIP_ORIENTATIONS]
+        non_flip: list[OrientedOutput] = []
+        flip: list[OrientedOutput] = []
+        for output in outputs:
+            flip_map = FLIP_ORIENTATIONS.get(output.orientation_set, {})
+            if output.dir_key in flip_map:
+                flip.append(output)
+            else:
+                non_flip.append(output)
 
         for idx, output in enumerate(non_flip):
             if output.dir_key == args.reference_dir and not args.include_reference:
@@ -432,7 +527,8 @@ def main() -> None:
             target = Path(output.filename)
             if not target.is_absolute():
                 target = out_dir / target
-            source_dir = FLIP_ORIENTATIONS[output.dir_key]
+            flip_map = FLIP_ORIENTATIONS.get(output.orientation_set, {})
+            source_dir = flip_map[output.dir_key]
             source_name = output.filename.replace(f".{output.dir_key}.", f".{source_dir}.")
             source = Path(source_name)
             if not source.is_absolute():
