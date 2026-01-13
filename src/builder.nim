@@ -3,11 +3,49 @@ const
   WallRingRadiusSlack = 1
   WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
 
+proc builderHasPlantInputs(agent: Thing): bool =
+  agent.inventoryWheat > 0 or agent.inventoryWood > 0
+
+proc builderHasDropoffItems(agent: Thing): bool =
+  for key, count in agent.inventory.pairs:
+    if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
+      return true
+  false
+
+proc builderNeedsPopCap(env: Environment, teamId: int): bool =
+  var popCount = 0
+  for otherAgent in env.agents:
+    if not isAgentAlive(env, otherAgent):
+      continue
+    if getTeamId(otherAgent.agentId) == teamId:
+      inc popCount
+  var popCap = 0
+  var hasBase = false
+  for thing in env.things:
+    if thing.isNil or thing.teamId != teamId:
+      continue
+    if isBuildingKind(thing.kind):
+      hasBase = true
+      let cap = buildingPopCap(thing.kind)
+      if cap > 0:
+        popCap += cap
+  let buffer = HousePopCap
+  (popCap > 0 and popCount >= popCap - buffer) or
+    (popCap == 0 and hasBase and popCount >= buffer)
+
+proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  builderHasPlantInputs(agent)
+
 proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
   if didPlant: return actPlant
   0'u8
+
+proc canStartBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  builderHasDropoffItems(agent)
 
 proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
@@ -21,6 +59,11 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
   if didDrop: return dropAct
   0'u8
 
+proc canStartBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent.agentId)
+  builderNeedsPopCap(env, teamId)
+
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -31,6 +74,14 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
   if didHouse: return houseAct
   0'u8
 
+proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent.agentId)
+  for kind in [Granary, LumberCamp, Quarry, MiningCamp]:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      return true
+  false
+
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -38,6 +89,19 @@ proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agen
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
   0'u8
+
+proc canStartBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  if agent.homeAltar.x >= 0 and
+      max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10:
+    return false
+  let teamId = getTeamId(agent.agentId)
+  let resourceCount =
+    countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
+      countNearbyTerrain(env, agent.pos, 4, {Fertile})
+  if resourceCount < 8:
+    return false
+  nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos) > 5
 
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint8 =
@@ -54,6 +118,13 @@ proc optBuilderMillNearResource(controller: Controller, env: Environment, agent:
     if didMill: return actMill
   0'u8
 
+proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  if not builderHasPlantInputs(agent):
+    return false
+  let teamId = getTeamId(agent.agentId)
+  controller.getBuildingCount(env, teamId, Mill) >= 2
+
 proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -61,6 +132,23 @@ proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thi
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
   0'u8
+
+proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent.agentId)
+  for entry in [
+    (LumberCamp, {Tree}, 6),
+    (MiningCamp, {Gold}, 6),
+    (Quarry, {Stone, Stalagmite}, 6)
+  ]:
+    let (kind, nearbyKinds, minCount) = entry
+    let nearbyCount = countNearbyThings(env, agent.pos, 4, nearbyKinds)
+    if nearbyCount < minCount:
+      continue
+    let dist = nearestFriendlyBuildingDistance(env, teamId, [kind], agent.pos)
+    if dist > 3:
+      return true
+  false
 
 proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
@@ -80,6 +168,16 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
     if did: return act
   0'u8
 
+proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent.agentId)
+  for kind in [WeavingLoom, ClayOven, Blacksmith,
+               Barracks, ArcheryRange, Stable, SiegeWorkshop,
+               Outpost, Castle]:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      return true
+  false
+
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
@@ -89,6 +187,13 @@ proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Th
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
   0'u8
+
+proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent.agentId)
+  agent.homeAltar.x >= 0 and
+    controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
+    env.stockpileCount(teamId, ResourceWood) >= 3
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
@@ -157,6 +262,21 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
         if didWood: return actWood
   0'u8
 
+proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent.agentId)
+  let food = env.stockpileCount(teamId, ResourceFood)
+  let wood = env.stockpileCount(teamId, ResourceWood)
+  let stone = env.stockpileCount(teamId, ResourceStone)
+  var best = food
+  if wood < best:
+    best = wood
+  if stone < best:
+    best = stone
+  best < 5
+
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   if agent.unitClass != UnitVillager:
@@ -195,70 +315,70 @@ proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: T
 let BuilderOptions = [
   OptionDef(
     name: "BuilderPlantOnFertile",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderPlantOnFertile,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderPlantOnFertile,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderDropoffCarrying",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderDropoffCarrying,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderDropoffCarrying,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderPopCap",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderPopCap,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderPopCap,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderCoreInfrastructure",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderCoreInfrastructure,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderCoreInfrastructure,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderMillNearResource",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderMillNearResource,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderMillNearResource,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderPlantIfMills",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderPlantIfMills,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderPlantIfMills,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderCampThreshold",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderCampThreshold,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderCampThreshold,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderTechBuildings",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderTechBuildings,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderTechBuildings,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderWallRing",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderWallRing,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderWallRing,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderGatherScarce",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartBuilderGatherScarce,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderGatherScarce,
     interruptible: true
