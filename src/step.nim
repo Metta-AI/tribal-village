@@ -91,6 +91,40 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
 
+  proc tryTowerAttack(tower: Thing, range: int) =
+    var bestTarget: Thing = nil
+    var bestDist = int.high
+    for agent in env.agents:
+      if not isAgentAlive(env, agent):
+        continue
+      if tower.teamId == getTeamId(agent.agentId):
+        continue
+      let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
+      if dist <= range and dist < bestDist:
+        bestDist = dist
+        bestTarget = agent
+    for kind in [Tumor, Spawner]:
+      for thing in env.thingsByKind[kind]:
+        let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
+        if dist <= range and dist < bestDist:
+          bestDist = dist
+          bestTarget = thing
+    if isNil(bestTarget):
+      return
+    case bestTarget.kind
+    of Agent:
+      discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))
+    of Tumor:
+      env.grid[bestTarget.pos.x][bestTarget.pos.y] = nil
+      env.updateObservations(AgentLayer, bestTarget.pos, 0)
+      env.updateObservations(AgentOrientationLayer, bestTarget.pos, 0)
+      removeThing(env, bestTarget)
+    of Spawner:
+      env.grid[bestTarget.pos.x][bestTarget.pos.y] = nil
+      removeThing(env, bestTarget)
+    else:
+      discard
+
   if env.cowHerdCounts.len > 0:
     for i in 0 ..< env.cowHerdCounts.len:
       env.cowHerdCounts[i] = 0
@@ -139,6 +173,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
         thing.cooldown = 10
+    elif thing.kind == GuardTower:
+      tryTowerAttack(thing, GuardTowerRange)
+    elif thing.kind == Castle:
+      tryTowerAttack(thing, CastleRange)
+      if thing.cooldown > 0:
+        dec thing.cooldown
     elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
                                          UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown

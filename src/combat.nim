@@ -16,27 +16,28 @@ const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
 ]
 
 const BonusDamageTint = TileColor(r: 1.0, g: 0.45, b: 0.15, intensity: 1.15)
-const StructureBonusMultiplier = 3
 
 proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
   BonusDamageByClass[attacker][target]
 
-proc structureBonusDamage(attacker: Thing, baseDamage: int): int {.inline.} =
-  if attacker.isNil or attacker.unitClass != UnitSiege:
-    return 0
-  max(0, baseDamage) * (StructureBonusMultiplier - 1)
+proc isAttackableStructure*(kind: ThingKind): bool {.inline.} =
+  kind in {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
 
-proc applyStructureDamage*(env: Environment, target: Thing, baseDamage: int, attacker: Thing = nil): bool =
-  var damage = max(1, baseDamage)
-  let bonus = structureBonusDamage(attacker, damage)
-  if bonus > 0:
-    env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)
-    damage += bonus
+proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
+                           attacker: Thing = nil): bool =
+  var damage = max(1, amount)
+  if not attacker.isNil and attacker.unitClass == UnitSiege:
+    let bonus = damage * (SiegeStructureMultiplier - 1)
+    if bonus > 0:
+      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)
+      damage += bonus
   target.hp = max(0, target.hp - damage)
-  if target.hp <= 0:
-    removeThing(env, target)
-    return true
-  false
+  if target.hp > 0:
+    return false
+  if target.kind == Wall:
+    updateThingObs(env, target.kind, target.pos, false)
+  removeThing(env, target)
+  true
 
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn

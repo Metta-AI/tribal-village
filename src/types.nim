@@ -50,6 +50,17 @@ const
   BarrelCapacity* = 50
   ResourceNodeInitial* = 25
   DoorMaxHearts* = 5
+  WallMaxHp* = 10
+  OutpostMaxHp* = 8
+  GuardTowerMaxHp* = 14
+  TownCenterMaxHp* = 20
+  CastleMaxHp* = 30
+  GuardTowerAttackDamage* = 2
+  CastleAttackDamage* = 3
+  GuardTowerRange* = 4
+  CastleRange* = 6
+  SiegeStructureMultiplier* = 3
+  BuildIndexGuardTower* = 23
   BuildIndexWall* = 14
   BuildIndexRoad* = 15
   BuildIndexDoor* = 19
@@ -172,6 +183,7 @@ type
     ClayOven
     WeavingLoom
     Outpost
+    GuardTower
     Barrel
     Mill
     Granary
