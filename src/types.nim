@@ -38,6 +38,7 @@ const
   MapRoomObjectsGoldClusterCount* = 28
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
+  MapRoomObjectsRelics* = 12
 
   # Agent Parameters
   MapObjectAgentMaxInventory* = 5
@@ -119,6 +120,7 @@ proc getTeamId*(agentId: int): int =
   ## Inline team ID calculation - frequently used
   agentId div MapAgentsPerVillage
 
+
 template isValidPos*(pos: IVec2): bool =
   ## Inline bounds checking template - very frequently used
   pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight
@@ -175,6 +177,7 @@ type
     Tree
     Wheat
     Fish
+    Relic
     Stone
     Gold
     Bush
@@ -235,6 +238,7 @@ type
     attackDamage*: int
     unitClass*: AgentUnitClass
     embarkedUnitClass*: AgentUnitClass
+    teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
     # Tumor:
@@ -279,6 +283,12 @@ type
   ActionTintCountdown* = array[MapWidth, array[MapHeight, int8]]
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
+
+proc getTeamId*(agent: Thing): int =
+  ## Team ID lookup that respects conversions.
+  if agent.teamIdOverride >= 0:
+    return agent.teamIdOverride
+  getTeamId(agent.agentId)
 
 const
   BaseTileColorDefault* = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)

@@ -88,7 +88,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let blocker = env.getThing(step1)
           if not isNil(blocker):
             if blocker.kind == Agent and not isThingFrozen(blocker, env) and
-                getTeamId(blocker.agentId) == getTeamId(agent.agentId):
+                getTeamId(blocker) == getTeamId(agent):
               let agentOld = agent.pos
               let blockerOld = blocker.pos
               agent.pos = blockerOld
@@ -96,8 +96,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.grid[agentOld.x][agentOld.y] = blocker
               env.grid[blockerOld.x][blockerOld.y] = agent
               agent.orientation = moveOrientation
-              env.updateObservations(AgentLayer, agentOld, getTeamId(blocker.agentId) + 1)
-              env.updateObservations(AgentLayer, blockerOld, getTeamId(agent.agentId) + 1)
+              env.updateObservations(AgentLayer, agentOld, getTeamId(blocker) + 1)
+              env.updateObservations(AgentLayer, blockerOld, getTeamId(agent) + 1)
               env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
               env.updateObservations(AgentOrientationLayer, blocker.pos, blocker.orientation.int)
               inc env.stats[id].actionMove
@@ -131,7 +131,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           embarkAgent(agent)
 
         # Update observations for new position only
-        env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
+        env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         inc env.stats[id].actionMove
     of 2:
@@ -144,7 +144,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         agent.orientation = attackOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         let delta = getOrientationDelta(attackOrientation)
-        let attackerTeam = getTeamId(agent.agentId)
+        let attackerTeam = getTeamId(agent)
         let damageAmount = max(1, agent.attackDamage)
         let rangedRange = case agent.unitClass
           of UnitArcher: ArcherBaseRange
@@ -184,7 +184,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           of Agent:
             if target.agentId == agent.agentId:
               return false
-            if getTeamId(target.agentId) == attackerTeam:
+            if getTeamId(target) == attackerTeam:
               return false
             discard env.applyAgentDamage(target, damageAmount, agent)
             return true
@@ -221,10 +221,19 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if agent.unitClass == UnitMonk:
           let healPos = agent.pos + ivec2(delta.x, delta.y)
           let target = env.getThing(healPos)
-          if not isNil(target) and target.kind == Agent and getTeamId(target.agentId) == attackerTeam:
-            discard env.applyAgentHeal(target, 1)
-            env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
-            inc env.stats[id].actionAttack
+          if not isNil(target) and target.kind == Agent:
+            if getTeamId(target) == attackerTeam:
+              discard env.applyAgentHeal(target, 1)
+              env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
+              inc env.stats[id].actionAttack
+            else:
+              target.teamIdOverride = attackerTeam
+              if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
+                env.agentColors[target.agentId] = env.teamColors[attackerTeam]
+              if agent.homeAltar.x >= 0:
+                target.homeAltar = agent.homeAltar
+              env.updateObservations(AgentLayer, target.pos, attackerTeam + 1)
+              inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
           break attackAction
@@ -525,6 +534,12 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             else:
               setInv(thing, ItemFish, remaining)
             used = true
+        of Relic:
+          if agent.unitClass == UnitMonk:
+            let teamId = getTeamId(agent)
+            env.addToStockpile(teamId, ResourceGold, 2)
+            removeThing(env, thing)
+            used = true
         else:
           if isBuildingKind(thing.kind):
             let useKind = buildingUseKind(thing.kind)
@@ -565,12 +580,12 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if thing.cooldown == 0:
                 if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                   used = true
-              if not used and thing.teamId == getTeamId(agent.agentId):
+              if not used and thing.teamId == getTeamId(agent):
                 if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
                   used = true
             of UseMarket:
               if thing.cooldown == 0:
-                let teamId = getTeamId(agent.agentId)
+                let teamId = getTeamId(agent)
                 if thing.teamId == teamId:
                   var traded = false
                   var carried: seq[tuple[key: ItemKey, count: int]] = @[]
@@ -605,11 +620,11 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     thing.cooldown = DefaultMarketCooldown
                     used = true
             of UseDropoff:
-              if thing.teamId == getTeamId(agent.agentId):
+              if thing.teamId == getTeamId(agent):
                 if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                   used = true
             of UseDropoffAndStorage:
-              if thing.teamId == getTeamId(agent.agentId):
+              if thing.teamId == getTeamId(agent):
                 if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                   used = true
                 if not used and env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
@@ -665,8 +680,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         target.pos = agentOld
         env.grid[agentOld.x][agentOld.y] = target
         env.grid[targetOld.x][targetOld.y] = agent
-        env.updateObservations(AgentLayer, agentOld, getTeamId(target.agentId) + 1)
-        env.updateObservations(AgentLayer, targetOld, getTeamId(agent.agentId) + 1)
+        env.updateObservations(AgentLayer, agentOld, getTeamId(target) + 1)
+        env.updateObservations(AgentLayer, targetOld, getTeamId(agent) + 1)
         env.updateObservations(AgentOrientationLayer, agentOld, target.orientation.int)
         env.updateObservations(AgentOrientationLayer, targetOld, agent.orientation.int)
         inc env.stats[id].actionSwap
@@ -765,7 +780,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         if agent.inventoryLantern > 0:
           # Calculate team ID directly from the planting agent's ID
-          let teamId = getTeamId(agent.agentId)
+          let teamId = getTeamId(agent)
 
           # Plant the lantern
           let lantern = Thing(
@@ -869,7 +884,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionInvalid
           break buildFromChoices
 
-        let teamId = getTeamId(agent.agentId)
+        let teamId = getTeamId(agent)
         let costs = buildCostsForKey(key)
         if costs.len == 0:
           inc env.stats[id].actionInvalid

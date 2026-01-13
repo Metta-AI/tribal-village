@@ -125,7 +125,7 @@ proc isBuildingKind*(kind: ThingKind): bool =
   BuildingRegistry[kind].displayName.len > 0
 
 proc thingBlocksMovement*(kind: ThingKind): bool =
-  kind notin {Door, Wheat, Stubble, Tree, Fish, Lantern, Corpse, Skeleton, Dock}
+  kind notin {Door, Wheat, Stubble, Tree, Fish, Relic, Lantern, Corpse, Skeleton, Dock}
 {.pop.}
 
 proc buildingSpriteKey*(kind: ThingKind): string =
@@ -176,6 +176,7 @@ let ThingCatalog* = block:
   add(Tree, "Tree", "tree", 't')
   add(Wheat, "Wheat", "wheat", 'w')
   add(Fish, "Fish", "fish", 'f')
+  add(Relic, "Relic", "bar", 'r')
   add(Stone, "Stone", "stone", 'S')
   add(Gold, "Gold", "gold", 'G')
   add(Bush, "Bush", "bush", 'b')

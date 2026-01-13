@@ -55,7 +55,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
       state.buildIndex = -1
       state.buildTarget = ivec2(-1, -1)
       state.buildStand = ivec2(-1, -1)
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
@@ -107,7 +107,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
       state.buildIndex = -1
       state.buildTarget = ivec2(-1, -1)
       state.buildStand = ivec2(-1, -1)
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
@@ -289,7 +289,7 @@ proc needsPopCapHouse(env: Environment, teamId: int): bool =
   for otherAgent in env.agents:
     if not isAgentAlive(env, otherAgent):
       continue
-    if getTeamId(otherAgent.agentId) == teamId:
+    if getTeamId(otherAgent) == teamId:
       inc popCount
   var popCap = 0
   var hasBase = false
@@ -388,7 +388,7 @@ include "fighter"
 
 proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let altar = gathererAltarInfo(controller, env, agent, state, teamId)
   if (not altar.found) or altar.hearts >= 10:
     return (false, 0'u8)
@@ -595,7 +595,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Global: keep population cap ahead of current population (gatherers only).
   if state.role == Gatherer and agent.unitClass == UnitVillager:
-    let teamId = getTeamId(agent.agentId)
+    let teamId = getTeamId(agent)
     if needsPopCapHouse(env, teamId):
       let houseKey = thingItem("House")
       let costs = buildCostsForKey(houseKey)

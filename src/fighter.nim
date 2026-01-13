@@ -4,7 +4,7 @@ const
   DividerHalfLengthMin = 6
   DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
-  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks]
+  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
   FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
 
 proc fighterHasExit(env: Environment, agent: Thing): bool =
@@ -57,7 +57,7 @@ proc fighterHasFood(agent: Thing): bool =
   false
 
 proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for thing in env.things:
     if thing.isNil or thing.teamId == teamId:
       continue
@@ -98,6 +98,37 @@ proc fighterActOrMove(controller: Controller, env: Environment, agent: Thing,
     return controller.actAt(env, agent, agentId, state, targetPos, verb)
   return controller.moveTo(env, agent, agentId, state, targetPos)
 
+proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): bool =
+  agent.unitClass == UnitMonk
+
+proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  var bestEnemy: Thing = nil
+  var bestDist = int.high
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist < bestDist:
+      bestDist = dist
+      bestEnemy = other
+  if not isNil(bestEnemy):
+    return fighterActOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
+
+  let relic = env.findNearestThingSpiral(state, Relic, controller.rng)
+  if not isNil(relic):
+    if isAdjacent(agent.pos, relic.pos):
+      return controller.useAt(env, agent, agentId, state, relic.pos)
+    return controller.moveTo(env, agent, agentId, state, relic.pos)
+
+  controller.moveNextSearch(env, agent, agentId, state)
+
 proc canStartFighterBreakout(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
   fighterIsEnclosed(env, agent)
@@ -131,7 +162,7 @@ proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   if agent.hp * 3 > agent.maxHp:
     return 0'u8
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
   var safePos = basePos
@@ -161,7 +192,7 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   if isNil(enemy):
     return 0'u8
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
 
@@ -319,7 +350,7 @@ proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Th
 
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
   var target = ivec2(-1, -1)
@@ -431,7 +462,7 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
                           agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
     return false
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
   for kind in FighterTrainKinds:
     if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
@@ -445,7 +476,7 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
   for kind in FighterTrainKinds:
     if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
@@ -468,7 +499,7 @@ proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent
 
 proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   if agent.inventoryArmor < ArmorPoints:
     let (didSmith, actSmith) = controller.moveToNearestSmith(env, agent, agentId, state, teamId)
     if didSmith: return actSmith
@@ -513,6 +544,13 @@ let FighterOptions = [
     canStart: canStartFighterRetreat,
     shouldTerminate: shouldTerminateFighterRetreat,
     act: optFighterRetreat,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterMonk",
+    canStart: canStartFighterMonk,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optFighterMonk,
     interruptible: true
   ),
   OptionDef(
