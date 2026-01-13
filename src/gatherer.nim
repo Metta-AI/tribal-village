@@ -66,6 +66,9 @@ proc isCarryingStockpile(agent: Thing): bool =
       return true
   false
 
+proc gathererHasPlantInputs(agent: Thing): bool =
+  agent.inventoryWheat > 0 or agent.inventoryWood > 0
+
 proc findNearestMagma(env: Environment, agent: Thing): Thing =
   var bestDist = int.high
   var best: Thing = nil
@@ -91,8 +94,12 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
   if didBuild: return buildAct
   0'u8
 
+proc canStartGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  gathererHasPlantInputs(agent)
+
 proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): uint8 =
+                               agentId: int, state: var AgentState): uint8 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
   if didPlant: return actPlant
   0'u8
@@ -328,7 +335,7 @@ proc optGathererFallbackSearch(controller: Controller, env: Environment, agent: 
 let GathererOptions = [
   OptionDef(
     name: "GathererPlantOnFertile",
-    canStart: optionsAlwaysCanStart,
+    canStart: canStartGathererPlantOnFertile,
     shouldTerminate: optionsAlwaysTerminate,
     act: optGathererPlantOnFertile,
     interruptible: true
