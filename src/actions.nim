@@ -148,9 +148,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             return false
           let door = env.getOverlayThing(pos)
           if not isNil(door) and door.kind == Door and door.teamId != attackerTeam:
-            door.hp = max(0, door.hp - 1)
-            if door.hp <= 0:
-              removeThing(env, door)
+            discard env.applyStructureDamage(door, damageAmount, agent)
             return true
           var target = env.getThing(pos)
           if isNil(target):
