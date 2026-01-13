@@ -827,17 +827,13 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if costs.len == 0:
           inc env.stats[id].actionInvalid
           break buildFromChoices
-        let canPayInventory = canSpendInventory(agent, costs)
-        let canPayStockpile = env.canSpendStockpile(teamId, costs)
-        if not (canPayInventory or canPayStockpile):
+        let payment = choosePayment(env, agent, costs)
+        if payment == PayNone:
           inc env.stats[id].actionInvalid
           break buildFromChoices
 
         if placeThingFromKey(env, agent, key, targetPos):
-          if canPayInventory:
-            discard spendInventory(env, agent, costs)
-          else:
-            discard env.spendStockpile(teamId, costs)
+          discard spendCosts(env, agent, payment, costs)
           var kind: ThingKind
           if parseThingKey(key, kind):
             if kind in {Mill, LumberCamp, MiningCamp}:
