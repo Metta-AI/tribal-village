@@ -310,6 +310,22 @@ def flip_horizontal(img: Image.Image) -> Image.Image:
     return img.transpose(Image.FLIP_LEFT_RIGHT)
 
 
+def tmp_path_for(target: Path, out_dir: Path, tmp_dir: Path) -> Path:
+    try:
+        relative = target.relative_to(out_dir)
+    except ValueError:
+        return tmp_dir / target.name
+    return tmp_dir / relative
+
+
+def postprocess_to_target(source: Path, target: Path, size: int, tol: int) -> None:
+    with Image.open(source) as existing:
+        img = existing.convert("RGBA")
+    img = apply_postprocess(img, size, tol)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    img.save(target)
+
+
 def iter_rows(
     rows: Iterable[tuple[str, str]],
     only: set[str] | None,
@@ -383,6 +399,7 @@ def main() -> None:
             raise SystemExit("Only supported Gemini image models are allowed.")
         client = make_client(args.project, args.location)
     out_dir = Path(args.out_dir)
+    tmp_dir = out_dir / "tmp"
 
     if args.oriented:
         oriented_rows = load_oriented_rows(prompt_path)
@@ -398,6 +415,7 @@ def main() -> None:
             target = Path(output.filename)
             if not target.is_absolute():
                 target = out_dir / target
+            raw_target = tmp_path_for(target, out_dir, tmp_dir)
             reference = Path(output.reference_filename)
             if not reference.is_absolute():
                 reference = out_dir / reference
@@ -405,13 +423,11 @@ def main() -> None:
                 print(f"[dry-run] {target} <- {output.prompt[:80]}... (ref {reference})")
                 continue
             if args.postprocess_only:
-                if not target.exists():
-                    print(f"[skip] missing {target}")
+                source = raw_target if raw_target.exists() else target
+                if not source.exists():
+                    print(f"[skip] missing {source}")
                     continue
-                with Image.open(target) as existing:
-                    img = existing.convert("RGBA")
-                img = apply_postprocess(img, args.size, args.postprocess_tol)
-                img.save(target)
+                postprocess_to_target(source, target, args.size, args.postprocess_tol)
                 continue
             if not reference.exists():
                 raise SystemExit(f"Missing reference image: {reference}")
@@ -422,16 +438,20 @@ def main() -> None:
                 client, args.model, prompt, args.seed + idx, args.size, reference
             )
             if args.postprocess:
-                img = apply_postprocess(img, args.size, args.postprocess_tol)
-            elif args.size and img.size != (args.size, args.size):
-                img = img.resize((args.size, args.size), Image.LANCZOS)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            img.save(target)
+                raw_target.parent.mkdir(parents=True, exist_ok=True)
+                img.save(raw_target)
+                postprocess_to_target(raw_target, target, args.size, args.postprocess_tol)
+            else:
+                if args.size and img.size != (args.size, args.size):
+                    img = img.resize((args.size, args.size), Image.LANCZOS)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                img.save(target)
 
         for output in flip:
             target = Path(output.filename)
             if not target.is_absolute():
                 target = out_dir / target
+            raw_target = tmp_path_for(target, out_dir, tmp_dir)
             source_dir = FLIP_ORIENTATIONS[output.dir_key]
             source_name = output.filename.replace(f".{output.dir_key}.", f".{source_dir}.")
             source = Path(source_name)
@@ -441,52 +461,58 @@ def main() -> None:
                 print(f"[dry-run] {target} <- flip {source}")
                 continue
             if args.postprocess_only:
-                if not target.exists():
-                    print(f"[skip] missing {target}")
+                source = raw_target if raw_target.exists() else target
+                if not source.exists():
+                    print(f"[skip] missing {source}")
                     continue
-                with Image.open(target) as existing:
-                    img = existing.convert("RGBA")
-                img = apply_postprocess(img, args.size, args.postprocess_tol)
-                img.save(target)
+                postprocess_to_target(source, target, args.size, args.postprocess_tol)
                 continue
+            raw_source = tmp_path_for(source, out_dir, tmp_dir)
+            if raw_source.exists():
+                source = raw_source
             if not source.exists():
                 raise SystemExit(f"Missing flip source image: {source}")
             with Image.open(source) as existing:
                 img = existing.convert("RGBA")
             img = flip_horizontal(img)
             if args.postprocess:
-                img = apply_postprocess(img, args.size, args.postprocess_tol)
-            elif args.size and img.size != (args.size, args.size):
-                img = img.resize((args.size, args.size), Image.LANCZOS)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            img.save(target)
+                raw_target.parent.mkdir(parents=True, exist_ok=True)
+                img.save(raw_target)
+                postprocess_to_target(raw_target, target, args.size, args.postprocess_tol)
+            else:
+                if args.size and img.size != (args.size, args.size):
+                    img = img.resize((args.size, args.size), Image.LANCZOS)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                img.save(target)
     else:
         rows = load_prompts(prompt_path)
         for idx, (filename, prompt) in enumerate(iter_rows(rows, only)):
             target = Path(filename)
             if not target.is_absolute():
                 target = out_dir / target
+            raw_target = tmp_path_for(target, out_dir, tmp_dir)
             if args.dry_run:
                 print(f"[dry-run] {target} <- {prompt[:80]}...")
                 continue
             if args.postprocess_only:
-                if not target.exists():
-                    print(f"[skip] missing {target}")
+                source = raw_target if raw_target.exists() else target
+                if not source.exists():
+                    print(f"[skip] missing {source}")
                     continue
-                with Image.open(target) as existing:
-                    img = existing.convert("RGBA")
-                img = apply_postprocess(img, args.size, args.postprocess_tol)
-                img.save(target)
+                postprocess_to_target(source, target, args.size, args.postprocess_tol)
                 continue
             if client is None:
                 raise SystemExit("Client not initialized for image generation.")
             img = generate_image(client, args.model, prompt, args.seed + idx, args.size)
             if args.postprocess:
-                img = apply_postprocess(img, args.size, args.postprocess_tol)
-            elif args.size and img.size != (args.size, args.size):
-                img = img.resize((args.size, args.size), Image.LANCZOS)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            img.save(target)
+                raw_target.parent.mkdir(parents=True, exist_ok=True)
+                img.save(raw_target)
+                postprocess_to_target(raw_target, target, args.size, args.postprocess_tol)
+            else:
+                if args.size and img.size != (args.size, args.size):
+                    img = img.resize((args.size, args.size), Image.LANCZOS)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                img.save(target)
 
 
 if __name__ == "__main__":
