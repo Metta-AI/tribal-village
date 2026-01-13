@@ -25,34 +25,43 @@ proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IV
         bestPos = pos
   bestPos
 
-proc gathererAltarHearts(controller: Controller, env: Environment, agent: Thing,
-                         state: var AgentState, teamId: int): int =
+proc gathererAltarInfo(controller: Controller, env: Environment, agent: Thing,
+                       state: var AgentState, teamId: int): tuple[pos: IVec2, hearts: int, found: bool] =
+  var altarPos = ivec2(-1, -1)
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
     let homeAltar = env.getThing(agent.homeAltar)
     if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
+      altarPos = homeAltar.pos
       altarHearts = homeAltar.hearts
-  if altarHearts == 0:
-    let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
-    if not isNil(altar):
-      altarHearts = altar.hearts
-  altarHearts
+  if altarPos.x < 0:
+    var bestDist = int.high
+    for altar in env.thingsByKind[Altar]:
+      if altar.teamId != teamId:
+        continue
+      let dist = abs(altar.pos.x - agent.pos.x) + abs(altar.pos.y - agent.pos.y)
+      if dist < bestDist:
+        bestDist = dist
+        altarPos = altar.pos
+        altarHearts = altar.hearts
+  (altarPos, altarHearts, altarPos.x >= 0)
 
 proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
   let teamId = getTeamId(agent.agentId)
-  let altarHearts = gathererAltarHearts(controller, env, agent, state, teamId)
+  let altar = gathererAltarInfo(controller, env, agent, state, teamId)
   var task = TaskFood
-  if altarHearts < 10:
+  if altar.found and altar.hearts < 10:
     task = TaskHearts
   else:
-    let ordered = [
-      (TaskHearts, altarHearts),
+    var ordered: seq[(GathererTask, int)] = @[
       (TaskFood, env.stockpileCount(teamId, ResourceFood)),
       (TaskWood, env.stockpileCount(teamId, ResourceWood)),
       (TaskStone, env.stockpileCount(teamId, ResourceStone)),
       (TaskGold, env.stockpileCount(teamId, ResourceGold))
     ]
+    if altar.found:
+      ordered.insert((TaskHearts, altar.hearts), 0)
     var best = ordered[0]
     for i in 1 ..< ordered.len:
       if ordered[i][1] < best[1]:

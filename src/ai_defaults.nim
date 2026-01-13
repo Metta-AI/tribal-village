@@ -33,6 +33,7 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
+
 proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
                           state: var AgentState, targetPos: IVec2,
                           buildIndex: int): tuple[did: bool, action: uint8] =
@@ -283,9 +284,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
       standPos, buildPos, idx)
   return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
 
-proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint8] =
-  ## Build a house when the team is at or near population cap.
+proc needsPopCapHouse(env: Environment, teamId: int): bool =
   var popCount = 0
   for otherAgent in env.agents:
     if not isAgentAlive(env, otherAgent):
@@ -305,8 +304,13 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
       if cap > 0:
         popCap += cap
   let buffer = HousePopCap
-  if (popCap > 0 and popCount >= popCap - buffer) or
-      (popCap == 0 and hasBase and popCount >= buffer):
+  (popCap > 0 and popCount >= popCap - buffer) or
+    (popCap == 0 and hasBase and popCount >= buffer)
+
+proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint8] =
+  ## Build a house when the team is at or near population cap.
+  if needsPopCapHouse(env, teamId):
     let minX = max(0, basePos.x - 15)
     let maxX = min(MapWidth - 1, basePos.x + 15)
     let minY = max(0, basePos.y - 15)
@@ -381,6 +385,36 @@ include "options"
 include "gatherer"
 include "builder"
 include "fighter"
+
+proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+  let teamId = getTeamId(agent.agentId)
+  let altar = gathererAltarInfo(controller, env, agent, state, teamId)
+  if (not altar.found) or altar.hearts >= 10:
+    return (false, 0'u8)
+
+  if agent.inventoryBar > 0:
+    if isAdjacent(agent.pos, altar.pos):
+      return (true, controller.useAt(env, agent, agentId, state, altar.pos))
+    return (true, controller.moveTo(env, agent, agentId, state, altar.pos))
+
+  if agent.inventoryGold > 0:
+    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+    if didKnown: return (true, actKnown)
+    let magmaGlobal = findNearestMagma(env, agent)
+    if not isNil(magmaGlobal):
+      updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
+      if isAdjacent(agent.pos, magmaGlobal.pos):
+        return (true, controller.useAt(env, agent, agentId, state, magmaGlobal.pos))
+      return (true, controller.moveTo(env, agent, agentId, state, magmaGlobal.pos))
+    return (true, controller.moveNextSearch(env, agent, agentId, state))
+
+  if agent.unitClass == UnitVillager:
+    let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
+    if didGold: return (true, actGold)
+
+  (false, 0'u8)
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 
@@ -558,6 +592,31 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Global: keep population cap ahead of current population (gatherers only).
+  if state.role == Gatherer and agent.unitClass == UnitVillager:
+    let teamId = getTeamId(agent.agentId)
+    if needsPopCapHouse(env, teamId):
+      let houseKey = thingItem("House")
+      let costs = buildCostsForKey(houseKey)
+      var requiredWood = 0
+      if costs.len > 0:
+        for cost in costs:
+          if stockpileResourceForItem(cost.key) == ResourceWood:
+            requiredWood += cost.count
+      if requiredWood > 0 and
+          env.stockpileCount(teamId, ResourceWood) + agent.inventoryWood < requiredWood:
+        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+        if didWood: return actWood
+      if env.canAffordBuild(agent, houseKey):
+        let (didHouse, houseAct) =
+          tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
+        if didHouse: return houseAct
+
+  # Global: prioritize getting hearts to 10 via gold -> magma -> altar (gatherers only).
+  if state.role == Gatherer:
+    let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)
+    if didHearts: return heartsAct
 
   # Role-based decision making
   case state.role:
