@@ -96,7 +96,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 20
+  ObservationLayers* = 21
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -155,6 +155,7 @@ type
     AgentInventoryMeatLayer = 17
     AgentInventoryFishLayer = 18
     AgentInventoryPlantLayer = 19
+    ObscuredLayer = 20    # 1 when target tile is above observer elevation
 
 
   AgentUnitClass* = enum
@@ -331,6 +332,8 @@ type
   TeamStockpile* = object
     counts*: array[StockpileResource, int]
 
+  ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
+
   Environment* = ref object
     currentStep*: int
     mapGeneration*: int  # Bumps each time the map is rebuilt (for render caches)
@@ -341,6 +344,7 @@ type
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]
     overlayGrid*: array[MapWidth, array[MapHeight, Thing]]
+    elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid

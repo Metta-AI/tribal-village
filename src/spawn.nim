@@ -65,6 +65,7 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.overlayGrid[x][y] = nil
+      env.elevation[x][y] = 0
 
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
