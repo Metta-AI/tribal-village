@@ -312,7 +312,7 @@ suite "AI - Builder":
     discard addBuilding(env, House, ivec2(12, 8), 0)
     discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = basePos)
     discard addAgentAt(env, 1, ivec2(10, 11), homeAltar = basePos)
-    discard addAgentAt(env, 2, ivec2(10, 12), homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(1, 0), homeAltar = basePos)
     setStockpile(env, 0, ResourceWood, 10)
 
     var built = false
@@ -334,7 +334,7 @@ suite "AI - Builder":
     let basePos = ivec2(10, 10)
     discard addBuilding(env, House, ivec2(8, 8), 0)
     discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = basePos)
-    discard addAgentAt(env, 2, ivec2(10, 12), homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(1, 0), homeAltar = basePos)
     setStockpile(env, 0, ResourceWood, 10)
     discard addBuilding(env, House, ivec2(20, 20), 1)
     discard addBuilding(env, House, ivec2(22, 20), 1)
