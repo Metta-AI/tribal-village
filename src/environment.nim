@@ -1,9 +1,9 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
-import terrain, items, game_common, biome
-import game_types, registry, balance
-export terrain, items, game_common
-export game_types, registry, balance
+import terrain, items, common, biome
+import types, registry, balance
+export terrain, items, common
+export types, registry, balance
 
 ## Error types and FFI error state management.
 type
@@ -84,9 +84,143 @@ proc updateObservations(
 
 include "colors"
 
-proc getInv*(thing: Thing, key: ItemKey): int
+{.push inline.}
+proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
+  ## Update observation layer for agent inventory - uses ItemKind enum for type safety
+  if key.kind != ItemKeyItem:
+    return
+  let kind = key.item
+  let value = getInv(agent, key)
+  case kind
+  of ikGold:
+    env.updateObservations(AgentInventoryGoldLayer, agent.pos, value)
+  of ikStone:
+    env.updateObservations(AgentInventoryStoneLayer, agent.pos, value)
+  of ikBar:
+    env.updateObservations(AgentInventoryBarLayer, agent.pos, value)
+  of ikWater:
+    env.updateObservations(AgentInventoryWaterLayer, agent.pos, value)
+  of ikWheat:
+    env.updateObservations(AgentInventoryWheatLayer, agent.pos, value)
+  of ikWood:
+    env.updateObservations(AgentInventoryWoodLayer, agent.pos, value)
+  of ikSpear:
+    env.updateObservations(AgentInventorySpearLayer, agent.pos, value)
+  of ikLantern:
+    env.updateObservations(AgentInventoryLanternLayer, agent.pos, value)
+  of ikArmor:
+    env.updateObservations(AgentInventoryArmorLayer, agent.pos, value)
+  of ikBread:
+    env.updateObservations(AgentInventoryBreadLayer, agent.pos, value)
+  of ikMeat:
+    env.updateObservations(AgentInventoryMeatLayer, agent.pos, value)
+  of ikFish:
+    env.updateObservations(AgentInventoryFishLayer, agent.pos, value)
+  of ikPlant:
+    env.updateObservations(AgentInventoryPlantLayer, agent.pos, value)
+  else:
+    discard  # Non-observed items (hearts, none)
 
-include "inventory"
+proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
+  ## Type-safe overload using ItemKind enum
+  env.updateAgentInventoryObs(agent, toItemKey(kind))
+
+proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
+  env.teamStockpiles[teamId].counts[res]
+
+proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
+  env.teamStockpiles[teamId].counts[res] += amount
+
+proc canSpendStockpile*(env: Environment, teamId: int,
+                        costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  for cost in costs:
+    if env.teamStockpiles[teamId].counts[cost.res] < cost.count:
+      return false
+  true
+
+proc spendStockpile*(env: Environment, teamId: int,
+                     costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  if not env.canSpendStockpile(teamId, costs):
+    return false
+  for cost in costs:
+    env.teamStockpiles[teamId].counts[cost.res] -= cost.count
+  true
+
+proc canSpendStockpile*(env: Environment, teamId: int,
+                        costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  for cost in costs:
+    if not isStockpileResourceKey(cost.key):
+      return false
+    let res = stockpileResourceForItem(cost.key)
+    if env.teamStockpiles[teamId].counts[res] < cost.count:
+      return false
+  true
+
+proc spendStockpile*(env: Environment, teamId: int,
+                     costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  if not env.canSpendStockpile(teamId, costs):
+    return false
+  for cost in costs:
+    let res = stockpileResourceForItem(cost.key)
+    env.teamStockpiles[teamId].counts[res] -= cost.count
+  true
+
+proc spendInventory*(env: Environment, agent: Thing,
+                     costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  if not canSpendInventory(agent, costs):
+    return false
+  for cost in costs:
+    setInv(agent, cost.key, getInv(agent, cost.key) - cost.count)
+    env.updateAgentInventoryObs(agent, cost.key)
+  true
+
+proc choosePayment*(env: Environment, agent: Thing,
+                    costs: openArray[tuple[key: ItemKey, count: int]]): PaymentSource =
+  if costs.len == 0:
+    return PayNone
+  if canSpendInventory(agent, costs):
+    return PayInventory
+  let teamId = getTeamId(agent.agentId)
+  if env.canSpendStockpile(teamId, costs):
+    return PayStockpile
+  PayNone
+
+proc spendCosts*(env: Environment, agent: Thing, source: PaymentSource,
+                 costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+  case source
+  of PayInventory:
+    spendInventory(env, agent, costs)
+  of PayStockpile:
+    env.spendStockpile(getTeamId(agent.agentId), costs)
+  of PayNone:
+    false
+
+proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
+  agent.unitClass = unitClass
+  case unitClass
+  of UnitVillager:
+    agent.maxHp = VillagerMaxHp
+    agent.attackDamage = VillagerAttackDamage
+  of UnitManAtArms:
+    agent.maxHp = ManAtArmsMaxHp
+    agent.attackDamage = ManAtArmsAttackDamage
+  of UnitArcher:
+    agent.maxHp = ArcherMaxHp
+    agent.attackDamage = ArcherAttackDamage
+  of UnitScout:
+    agent.maxHp = ScoutMaxHp
+    agent.attackDamage = ScoutAttackDamage
+  of UnitKnight:
+    agent.maxHp = KnightMaxHp
+    agent.attackDamage = KnightAttackDamage
+  of UnitMonk:
+    agent.maxHp = MonkMaxHp
+    agent.attackDamage = MonkAttackDamage
+  of UnitSiege:
+    agent.maxHp = SiegeMaxHp
+    agent.attackDamage = SiegeAttackDamage
+  agent.hp = agent.maxHp
+{.pop.}
 
 proc render*(env: Environment): string
 

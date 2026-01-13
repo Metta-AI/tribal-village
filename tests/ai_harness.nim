@@ -1,8 +1,8 @@
 import std/unittest
 import environment
 import agent_control
-import game_common
-import game_types
+import common
+import types
 import items
 import terrain
 

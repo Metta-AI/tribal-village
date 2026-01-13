@@ -3,8 +3,8 @@
 ## This module provides lookup tables and metadata for all game entities.
 
 import std/[tables, strutils]
-import game_types, items
-export game_types, items
+import types, items
+export types, items
 
 type
   BuildingUseKind* = enum

@@ -1,7 +1,7 @@
 import
   boxy, vmath, windy, tables,
   std/[algorithm, math, os, strutils],
-  game_common, environment
+  common, environment
 
 # Infection system constants
 const
