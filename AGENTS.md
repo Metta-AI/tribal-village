@@ -1,5 +1,9 @@
 # Agent Instructions
 
+## Repo Sync (required)
+At the start of each prompt, run:
+`git pull`
+
 ## Validation Steps (required)
 1. Ensure Nim code compiles:
    `nim c -d:release tribal_village.nim`
