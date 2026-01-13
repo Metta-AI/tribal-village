@@ -16,7 +16,13 @@ Status: Draft
 - Guard Tower range: **4**
 - Castle range: **6**
 
-## 1) Siege Units
+## 1) Siege Units (Two-Building Approach)
+
+### Design Note (Locked)
+- One building = one unit type for training.
+- Siege is split into two buildings:
+  - **Siege Workshop** -> **Battering Ram**
+  - **Mangonel Workshop** -> **Mangonel**
 
 ### 1.1 Battering Ram
 **Role:** Best vs structures, weak vs units.
@@ -38,7 +44,7 @@ Status: Draft
 ### 1.2 Mangonel
 **Role:** Clump breaker; moderate vs buildings.
 
-**Training:** Siege Workshop (later or alongside Ram).
+**Training:** Mangonel Workshop.
 
 **Attack Shape:**
 - “Large spear”: forward line length 4–5 tiles with 1‑tile side prongs.
@@ -98,6 +104,6 @@ Status: Draft
 3) Add siege building damage multiplier (x3).
 4) Add Guard Tower with range 4 and simple auto‑attack.
 5) Arm Castle with range 6 and simple auto‑attack.
-6) Add Battering Ram unit + simple AI.
-7) Add Mangonel unit + extended spear AoE + simple AI.
-
+6) Add Siege Workshop (Ram) + Mangonel Workshop (Mangonel).
+7) Add Battering Ram unit + simple AI.
+8) Add Mangonel unit + extended spear AoE + simple AI.
