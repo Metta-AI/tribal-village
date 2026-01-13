@@ -8,6 +8,10 @@ proc optionsAlwaysTerminate*(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): bool =
   true
 
+proc optionsNeverTerminate*(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  false
+
 type OptionDef* = object
   name*: string
   canStart*: proc(controller: Controller, env: Environment, agent: Thing,
@@ -29,22 +33,22 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
   if state.activeOptionId >= 0 and state.activeOptionId < roleOptions.len:
     let activeIdx = state.activeOptionId
     let activeDef = roleOptions[activeIdx]
-    if activeDef.shouldTerminate(controller, env, agent, agentId, state):
+    if activeDef.interruptible:
+      for i in 0 ..< activeIdx:
+        if roleOptions[i].canStart(controller, env, agent, agentId, state):
+          state.activeOptionId = i
+          state.activeOptionTicks = 0
+          break
+    if state.activeOptionId >= 0 and state.activeOptionId < roleOptions.len:
+      inc state.activeOptionTicks
+      let action = roleOptions[state.activeOptionId].act(
+        controller, env, agent, agentId, state)
+      if action != 0'u8:
+        if roleOptions[state.activeOptionId].shouldTerminate(
+            controller, env, agent, agentId, state):
+          clearActiveOption(state)
+        return action
       clearActiveOption(state)
-    else:
-      if activeDef.interruptible:
-        for i in 0 ..< activeIdx:
-          if roleOptions[i].canStart(controller, env, agent, agentId, state):
-            state.activeOptionId = i
-            state.activeOptionTicks = 0
-            break
-      if state.activeOptionId >= 0 and state.activeOptionId < roleOptions.len:
-        inc state.activeOptionTicks
-        let action = roleOptions[state.activeOptionId].act(
-          controller, env, agent, agentId, state)
-        if action != 0'u8:
-          return action
-        clearActiveOption(state)
 
   # Otherwise, scan options in priority order and use the first that acts.
   for i, opt in roleOptions:
@@ -54,6 +58,8 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
     state.activeOptionTicks = 1
     let action = opt.act(controller, env, agent, agentId, state)
     if action != 0'u8:
+      if opt.shouldTerminate(controller, env, agent, agentId, state):
+        clearActiveOption(state)
       return action
     clearActiveOption(state)
 
