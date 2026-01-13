@@ -39,6 +39,7 @@ proc makeEmptyEnv(): Environment =
       result.overlayGrid[x][y] = nil
       result.terrain[x][y] = TerrainEmpty
       result.biomes[x][y] = BiomeBaseType
+      result.elevation[x][y] = 0
       result.baseTintColors[x][y] = BaseTileColorDefault
       result.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
   result.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
