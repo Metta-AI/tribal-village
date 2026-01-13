@@ -220,9 +220,12 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   of UnitMonk:
     agent.maxHp = MonkMaxHp
     agent.attackDamage = MonkAttackDamage
-  of UnitSiege:
-    agent.maxHp = SiegeMaxHp
-    agent.attackDamage = SiegeAttackDamage
+  of UnitBatteringRam:
+    agent.maxHp = BatteringRamMaxHp
+    agent.attackDamage = BatteringRamAttackDamage
+  of UnitMangonel:
+    agent.maxHp = MangonelMaxHp
+    agent.attackDamage = MangonelAttackDamage
   agent.hp = agent.maxHp
 {.pop.}
 

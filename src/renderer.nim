@@ -35,7 +35,8 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Scout",
   "Knight",
   "Monk",
-  "Siege"
+  "Battering Ram",
+  "Mangonel"
 ]
 
 var
