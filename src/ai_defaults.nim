@@ -307,35 +307,73 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
   let buffer = HousePopCap
   if (popCap > 0 and popCount >= popCap - buffer) or
       (popCap == 0 and hasBase and popCount >= buffer):
-    var targetBuildPos = ivec2(-1, -1)
-    var targetStandPos = ivec2(-1, -1)
     let minX = max(0, basePos.x - 15)
     let maxX = min(MapWidth - 1, basePos.x + 15)
     let minY = max(0, basePos.y - 15)
     let maxY = min(MapHeight - 1, basePos.y + 15)
-    block findHouse:
-      for x in minX .. maxX:
-        for y in minY .. maxY:
-          let pos = ivec2(x.int32, y.int32)
-          let dist = chebyshevDist(basePos, pos).int
-          if dist < 5 or dist > 15:
+    var preferred: seq[tuple[build, stand: IVec2]]
+    var fallback: seq[tuple[build, stand: IVec2]]
+    for x in minX .. maxX:
+      for y in minY .. maxY:
+        let pos = ivec2(x.int32, y.int32)
+        let dist = chebyshevDist(basePos, pos).int
+        if dist < 5 or dist > 15:
+          continue
+        if not env.canPlace(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
+          continue
+        var standPos = ivec2(-1, -1)
+        for d in CardinalOffsets:
+          let stand = pos + d
+          if isValidPos(stand) and not env.hasDoor(stand) and
+              (env.isEmpty(stand) or stand == agent.pos) and
+              env.canAgentPassDoor(agent, stand) and
+              not isTileFrozen(stand, env) and
+              not isBlockedTerrain(env.terrain[stand.x][stand.y]):
+            standPos = stand
+            break
+        if standPos.x < 0:
+          continue
+        var adjacentHouses = 0
+        for d in AdjacentOffsets8:
+          let neighbor = pos + d
+          if not isValidPos(neighbor):
             continue
-          if not env.canPlace(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
-            continue
-          for d in CardinalOffsets:
-            let stand = pos + d
-            if isValidPos(stand) and not env.hasDoor(stand) and
-                (env.isEmpty(stand) or stand == agent.pos) and
-                env.canAgentPassDoor(agent, stand) and
-                not isTileFrozen(stand, env) and
-                not isBlockedTerrain(env.terrain[stand.x][stand.y]):
-              targetBuildPos = pos
-              targetStandPos = stand
-              break findHouse
-    if targetBuildPos.x >= 0:
+          let occ = env.grid[neighbor.x][neighbor.y]
+          if not isNil(occ) and occ.kind == House and occ.teamId == teamId:
+            inc adjacentHouses
+        var makesLine = false
+        for dir in CardinalOffsets:
+          var lineCount = 0
+          for step in 1 .. 2:
+            let neighbor = pos + ivec2(dir.x.int * step, dir.y.int * step)
+            if not isValidPos(neighbor):
+              break
+            let occ = env.grid[neighbor.x][neighbor.y]
+            if isNil(occ) or occ.kind != House or occ.teamId != teamId:
+              break
+            inc lineCount
+          for step in 1 .. 2:
+            let neighbor = pos - ivec2(dir.x.int * step, dir.y.int * step)
+            if not isValidPos(neighbor):
+              break
+            let occ = env.grid[neighbor.x][neighbor.y]
+            if isNil(occ) or occ.kind != House or occ.teamId != teamId:
+              break
+            inc lineCount
+          if lineCount >= 2:
+            makesLine = true
+            break
+        let candidate = (build: pos, stand: standPos)
+        if adjacentHouses <= 1 and not makesLine:
+          preferred.add(candidate)
+        else:
+          fallback.add(candidate)
+    let candidates = if preferred.len > 0: preferred else: fallback
+    if candidates.len > 0:
+      let choice = candidates[randIntExclusive(controller.rng, 0, candidates.len)]
       return goToStandAndBuild(
         controller, env, agent, agentId, state,
-        targetStandPos, targetBuildPos, buildIndexFor(House)
+        choice.stand, choice.build, buildIndexFor(House)
       )
   (false, 0'u8)
 

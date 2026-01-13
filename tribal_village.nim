@@ -319,6 +319,10 @@ proc display() =
           playSpeed = FastPlaySpeed
           play = true
           lastSimTime = nowSeconds()
+        of FooterFaster:
+          playSpeed = FasterPlaySpeed
+          play = true
+          lastSimTime = nowSeconds()
         of FooterSuper:
           playSpeed = SuperPlaySpeed
           play = true

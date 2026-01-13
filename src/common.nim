@@ -73,6 +73,7 @@ const
   DefaultPlaySpeed* = 0.1
   SlowPlaySpeed* = 0.2
   FastPlaySpeed* = 0.02
+  FasterPlaySpeed* = 0.005
   SuperPlaySpeed* = 0.001
   FooterHeight* = 64
 

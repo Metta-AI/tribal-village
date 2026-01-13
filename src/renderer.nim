@@ -97,6 +97,7 @@ type FooterButtonKind* = enum
   FooterStep
   FooterSlow
   FooterFast
+  FooterFaster
   FooterSuper
 
 type FooterButton* = object
@@ -112,8 +113,8 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   let footerY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let buttonHeight = FooterHeight.float32 - FooterPadding * 2.0
   let playIcon = if play: "ui/pause" else: "ui/play"
-  let iconKeys = [playIcon, "ui/stepForward", "ui/turtle", "ui/speed", "ui/rabbit"]
-  let labels = ["Pause", "Step", "Slow", "Fast", "Super"]
+  let iconKeys = [playIcon, "ui/stepForward", "ui/turtle", "ui/speed", "", "ui/rabbit"]
+  let labels = ["Pause", "Step", "Slow", "Fast", ">>", "Super"]
   var buttonWidths: array[labels.len, float32]
   var labelKeys: array[labels.len, string]
   var labelSizes: array[labels.len, IVec2]
@@ -167,6 +168,7 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       of 1: FooterStep
       of 2: FooterSlow
       of 3: FooterFast
+      of 4: FooterFaster
       else: FooterSuper
     let rect = Rect(
       x: x,
@@ -179,6 +181,8 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
         abs(playSpeed - SlowPlaySpeed) < 0.0001
       of FooterFast:
         abs(playSpeed - FastPlaySpeed) < 0.0001
+      of FooterFaster:
+        abs(playSpeed - FasterPlaySpeed) < 0.0001
       of FooterSuper:
         abs(playSpeed - SuperPlaySpeed) < 0.0001
       else:
