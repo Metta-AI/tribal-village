@@ -33,6 +33,7 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
   return (true, saveStateAndReturn(controller, agentId, state,
     encodeAction(8'u8, index.uint8)))
 
+
 proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
                           state: var AgentState, targetPos: IVec2,
                           buildIndex: int): tuple[did: bool, action: uint8] =
@@ -381,6 +382,36 @@ include "options"
 include "gatherer"
 include "builder"
 include "fighter"
+
+proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+  let teamId = getTeamId(agent.agentId)
+  let altar = gathererAltarInfo(controller, env, agent, state, teamId)
+  if (not altar.found) or altar.hearts >= 10:
+    return (false, 0'u8)
+
+  if agent.inventoryBar > 0:
+    if isAdjacent(agent.pos, altar.pos):
+      return (true, controller.useAt(env, agent, agentId, state, altar.pos))
+    return (true, controller.moveTo(env, agent, agentId, state, altar.pos))
+
+  if agent.inventoryGold > 0:
+    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+    if didKnown: return (true, actKnown)
+    let magmaGlobal = findNearestMagma(env, agent)
+    if not isNil(magmaGlobal):
+      updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
+      if isAdjacent(agent.pos, magmaGlobal.pos):
+        return (true, controller.useAt(env, agent, agentId, state, magmaGlobal.pos))
+      return (true, controller.moveTo(env, agent, agentId, state, magmaGlobal.pos))
+    return (true, controller.moveNextSearch(env, agent, agentId, state))
+
+  if agent.unitClass == UnitVillager:
+    let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
+    if didGold: return (true, actGold)
+
+  (false, 0'u8)
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 
@@ -558,6 +589,17 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Global: keep population cap ahead of current population (all roles).
+  if agent.unitClass == UnitVillager:
+    let teamId = getTeamId(agent.agentId)
+    let (didHouse, houseAct) =
+      tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
+    if didHouse: return houseAct
+
+  # Global: prioritize getting hearts to 10 via gold -> magma -> altar.
+  let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)
+  if didHearts: return heartsAct
 
   # Role-based decision making
   case state.role:
