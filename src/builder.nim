@@ -9,6 +9,9 @@ proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
 
+  let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
+  if didPlant: return actPlant
+
   # Drop off any carried stockpile resources so building costs can be paid.
   let (didDrop, dropAct) = controller.dropoffCarrying(
     env, agent, agentId, state,

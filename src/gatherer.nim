@@ -52,6 +52,9 @@ proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
       carryingStockpile = true
       break
 
+  let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
+  if didPlant: return actPlant
+
   if carryingStockpile:
     if agent.inventoryGold > 0 and heartsPriority:
       let (didKnown, actKnown) = controller.tryMoveToKnownResource(
