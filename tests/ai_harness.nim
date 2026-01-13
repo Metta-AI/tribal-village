@@ -76,6 +76,12 @@ proc addBuilding(env: Environment, kind: ThingKind, pos: IVec2, teamId: int): Th
   env.add(thing)
   thing
 
+proc addBuildings(env: Environment, teamId: int, start: IVec2, kinds: openArray[ThingKind]) =
+  var dx = 0
+  for kind in kinds:
+    discard addBuilding(env, kind, start + ivec2(dx.int32, 0), teamId)
+    inc dx
+
 proc addAltar(env: Environment, pos: IVec2, teamId: int, hearts: int): Thing =
   let altar = Thing(kind: Altar, pos: pos, teamId: teamId)
   altar.inventory = emptyInventory()
@@ -366,10 +372,7 @@ suite "AI - Builder":
   test "builds production building after core economy":
     let env = makeEmptyEnv()
     let controller = newController(9)
-    discard addBuilding(env, Granary, ivec2(12, 10), 0)
-    discard addBuilding(env, LumberCamp, ivec2(13, 10), 0)
-    discard addBuilding(env, Quarry, ivec2(14, 10), 0)
-    discard addBuilding(env, MiningCamp, ivec2(15, 10), 0)
+    addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
     discard addAgentAt(env, 2, ivec2(10, 10))
     setStockpile(env, 0, ResourceFood, 50)
     setStockpile(env, 0, ResourceWood, 50)
@@ -380,6 +383,97 @@ suite "AI - Builder":
     let (verb, arg) = decodeAction(action)
     check verb == 8
     check arg == buildIndexFor(WeavingLoom)
+
+  test "builds clay oven after weaving loom":
+    let env = makeEmptyEnv()
+    let controller = newController(14)
+    let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10),
+      @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom])
+    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    setStockpile(env, 0, ResourceFood, 50)
+    setStockpile(env, 0, ResourceWood, 50)
+    setStockpile(env, 0, ResourceStone, 50)
+    setStockpile(env, 0, ResourceGold, 50)
+
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 8
+    check arg == buildIndexFor(ClayOven)
+
+  test "builds blacksmith after clay oven":
+    let env = makeEmptyEnv()
+    let controller = newController(15)
+    let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10),
+      @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven])
+    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    setStockpile(env, 0, ResourceFood, 50)
+    setStockpile(env, 0, ResourceWood, 50)
+    setStockpile(env, 0, ResourceStone, 50)
+    setStockpile(env, 0, ResourceGold, 50)
+
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 8
+    check arg == buildIndexFor(Blacksmith)
+
+  test "builds barracks after blacksmith":
+    let env = makeEmptyEnv()
+    let controller = newController(16)
+    let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10),
+      @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith])
+    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    setStockpile(env, 0, ResourceFood, 50)
+    setStockpile(env, 0, ResourceWood, 50)
+    setStockpile(env, 0, ResourceStone, 50)
+    setStockpile(env, 0, ResourceGold, 50)
+
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 8
+    check arg == buildIndexFor(Barracks)
+
+  test "builds siege workshop after stable":
+    let env = makeEmptyEnv()
+    let controller = newController(17)
+    let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10), @[
+      Granary, LumberCamp, Quarry, MiningCamp,
+      WeavingLoom, ClayOven, Blacksmith,
+      Barracks, ArcheryRange, Stable
+    ])
+    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    setStockpile(env, 0, ResourceFood, 50)
+    setStockpile(env, 0, ResourceWood, 50)
+    setStockpile(env, 0, ResourceStone, 50)
+    setStockpile(env, 0, ResourceGold, 50)
+
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 8
+    check arg == buildIndexFor(SiegeWorkshop)
+
+  test "builds castle after outpost":
+    let env = makeEmptyEnv()
+    let controller = newController(18)
+    let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10), @[
+      Granary, LumberCamp, Quarry, MiningCamp,
+      WeavingLoom, ClayOven, Blacksmith,
+      Barracks, ArcheryRange, Stable, SiegeWorkshop, Outpost
+    ])
+    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    setStockpile(env, 0, ResourceFood, 50)
+    setStockpile(env, 0, ResourceWood, 50)
+    setStockpile(env, 0, ResourceStone, 50)
+    setStockpile(env, 0, ResourceGold, 50)
+
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 8
+    check arg == buildIndexFor(Castle)
 
   test "builds house when one house of room left":
     let env = makeEmptyEnv()

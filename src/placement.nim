@@ -65,13 +65,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
       let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
       if capacity < count:
         return false
-  if resourceNeeded > (block:
-    var total = 0
-    for invKey, invCount in agent.inventory.pairs:
-      if invCount > 0 and isStockpileResourceKey(invKey):
-        total += invCount
-    max(0, ResourceCarryCapacity - total)
-  ):
+  if resourceNeeded > stockpileCapacityLeft(agent):
     return false
   for itemKey, count in thing.inventory.pairs:
     setInv(agent, itemKey, getInv(agent, itemKey) + count)
@@ -104,7 +98,7 @@ proc add*(env: Environment, thing: Thing) =
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if isThingKey(key) and key.name == "Road":
-    if env.terrain[pos.x][pos.y] notin BuildableTerrain:
+    if not isBuildableTerrain(env.terrain[pos.x][pos.y]):
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)
