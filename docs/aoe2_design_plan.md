@@ -71,13 +71,13 @@ Status: Draft
 ## 4) Market / Resource Conversion
 
 ### Current State
-- Market exists; it converts stockpiled resources into food/gold with inefficiency.
+- Market exists; it converts carried stockpile resources into food/gold using configurable rates and a cooldown.
 
 ### AoE2-Style Meaning
 - Markets enable late-game pivots and mitigate gold scarcity while preserving a cost/tax.
 
 ### Changes Needed
-- **Tune** conversion rates to match desired scarcity (avoid infinite gold via perfect conversion).
+- **Tune** conversion rates/cooldown to match desired scarcity (avoid infinite gold via perfect conversion).
 - No new systems required.
 
 ---

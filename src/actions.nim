@@ -570,19 +570,22 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     if res == ResourceWater:
                       continue
                     if res == ResourceGold:
-                      env.addToStockpile(teamId, ResourceFood, count)
+                      let gained = (count * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
+                      if gained <= 0:
+                        continue
+                      env.addToStockpile(teamId, ResourceFood, gained)
                       setInv(agent, key, 0)
                       env.updateAgentInventoryObs(agent, key)
                       traded = true
                     else:
-                      let gained = count div 2
+                      let gained = (count * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
                       if gained > 0:
                         env.addToStockpile(teamId, ResourceGold, gained)
                         setInv(agent, key, count mod 2)
                         env.updateAgentInventoryObs(agent, key)
                         traded = true
                   if traded:
-                    thing.cooldown = 0
+                    thing.cooldown = DefaultMarketCooldown
                     used = true
             of UseDropoff:
               if thing.teamId == getTeamId(agent.agentId):
