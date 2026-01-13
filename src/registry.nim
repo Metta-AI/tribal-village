@@ -236,7 +236,7 @@ proc thingDisplayName*(kind: ThingKind): string =
 
 
 proc itemSpriteKey*(key: ItemKey): string =
-  if key.kind == ItemKeyThing:
+  if isThingKey(key):
     for kind in ThingKind:
       if $kind == key.name:
         return thingSpriteKey(kind)
