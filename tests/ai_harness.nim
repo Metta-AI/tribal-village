@@ -5,6 +5,7 @@ import common
 import types
 import items
 import terrain
+import balance
 
 proc decodeAction(action: uint8): tuple[verb: int, arg: int] =
   (action.int div ActionArgumentCount, action.int mod ActionArgumentCount)
@@ -215,6 +216,28 @@ suite "Mechanics":
     check infantry.hp == 3
     env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, cavalry.pos))
     check cavalry.hp == 4
+
+  test "market converts carried resources to gold and food":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addBuilding(env, Market, ivec2(10, 9), 0)
+    setInv(agent, ItemWood, 4)
+    setInv(agent, ItemWater, 3)
+    setInv(agent, ItemGold, 3)
+
+    let expectedGold = (4 * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
+    let expectedFood = (3 * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
+    let expectedWoodLeft = 4 mod DefaultMarketSellDenominator
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+
+    check env.stockpileCount(0, ResourceGold) == expectedGold
+    check env.stockpileCount(0, ResourceFood) == expectedFood
+    check getInv(agent, ItemWood) == expectedWoodLeft
+    check getInv(agent, ItemWater) == 3
+    check getInv(agent, ItemGold) == 0
+    let market = env.getThing(ivec2(10, 9))
+    check market.cooldown == max(0, DefaultMarketCooldown - 1)
 
   test "spear attack hits at range and consumes spear":
     let env = makeEmptyEnv()

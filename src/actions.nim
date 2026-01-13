@@ -561,11 +561,16 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 let teamId = getTeamId(agent.agentId)
                 if thing.teamId == teamId:
                   var traded = false
+                  var carried: seq[tuple[key: ItemKey, count: int]] = @[]
                   for key, count in agent.inventory.pairs:
                     if count <= 0:
                       continue
                     if not isStockpileResourceKey(key):
                       continue
+                    carried.add((key: key, count: count))
+                  for entry in carried:
+                    let key = entry.key
+                    let count = entry.count
                     let res = stockpileResourceForItem(key)
                     if res == ResourceWater:
                       continue
@@ -581,7 +586,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                       let gained = (count * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
                       if gained > 0:
                         env.addToStockpile(teamId, ResourceGold, gained)
-                        setInv(agent, key, count mod 2)
+                        setInv(agent, key, count mod DefaultMarketSellDenominator)
                         env.updateAgentInventoryObs(agent, key)
                         traded = true
                   if traded:
