@@ -1,5 +1,5 @@
 # This file is included by src/environment.nim
-include "config"
+include "runtime_flags"
 include "actions"
 
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =

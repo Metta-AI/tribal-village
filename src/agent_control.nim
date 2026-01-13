@@ -4,8 +4,8 @@
 
 import std/os, std/strutils
 
-include "core"
-include "defaults"
+include "ai_core"
+include "ai_defaults"
 
 type
   ControllerType* = enum

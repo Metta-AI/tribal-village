@@ -125,7 +125,7 @@ Discrete 64 (`verb * 8 + argument`), where the argument is a direction (0..7):
 
 ## Build
 
-- Native shared library for Python: `nim c --app:lib ... src/interface.nim` (see Quick Start step 3)
+- Native shared library for Python: `nim c --app:lib ... src/ffi.nim` (see Quick Start step 3)
 - Native desktop viewer: `nim r -d:release tribal_village.nim`
 - WebAssembly demo (requires Emscripten): command in `scripts/` section below; outputs `build/web/tribal_village.html`
 
@@ -139,7 +139,7 @@ Discrete 64 (`verb * 8 + argument`), where the argument is a direction (0..7):
 
 **Core**: `tribal_village.nim` (entry), `src/environment.nim` (simulation), `src/ai.nim` (built-ins)  
 **Rendering**: `src/renderer.nim`, `data/` (sprites/fonts/UI)  
-**Integration**: `src/interface.nim` (C interface), `tribal_village_env/` (Python wrapper + CLI)  
+**Integration**: `src/ffi.nim` (C interface), `tribal_village_env/` (Python wrapper + CLI)  
 **Build**: `nimby.lock`, `tribal_village.nimble`, `pyproject.toml`
 
 ## Dependencies

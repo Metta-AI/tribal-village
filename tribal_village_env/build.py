@@ -52,7 +52,7 @@ def _build_library(project_root: Path) -> Path:
         "--opt:speed",
         "-d:danger",
         f"--out:libtribal_village{ext}",
-        "src/interface.nim",
+        "src/ffi.nim",
     ]
     result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True)
 

@@ -1,6 +1,6 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
-  src/environment, src/common, src/renderer, src/external, src/tileset
+  src/environment, src/game_common, src/renderer, src/agent_control, src/tileset
 
 when compileOption("profiler"):
   import std/nimprof
@@ -108,8 +108,8 @@ var actionsArray: array[MapAgents, uint8]
 proc display() =
   # Handle mouse capture release
   if window.buttonReleased[MouseLeft]:
-    common.mouseCaptured = false
-    common.mouseCapturedPanel = nil
+    game_common.mouseCaptured = false
+    game_common.mouseCapturedPanel = nil
   
   if window.buttonPressed[KeySpace]:
     if play:
