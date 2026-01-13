@@ -301,6 +301,35 @@ suite "Mechanics":
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, workshop.pos))
     check agent.unitClass == UnitMangonel
 
+  test "archery range trains archer":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let range = addBuilding(env, ArcheryRange, ivec2(10, 9), 0)
+    env.teamStockpiles[0].counts[ResourceWood] = 10
+    env.teamStockpiles[0].counts[ResourceGold] = 10
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, range.pos))
+    check agent.unitClass == UnitArcher
+
+  test "stable trains scout":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let stable = addBuilding(env, Stable, ivec2(10, 9), 0)
+    env.teamStockpiles[0].counts[ResourceFood] = 10
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, stable.pos))
+    check agent.unitClass == UnitScout
+
+  test "castle trains knight":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let castle = addBuilding(env, Castle, ivec2(10, 9), 0)
+    env.teamStockpiles[0].counts[ResourceFood] = 10
+    env.teamStockpiles[0].counts[ResourceGold] = 10
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, castle.pos))
+    check agent.unitClass == UnitKnight
+
   test "siege damage multiplier applies vs walls":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)

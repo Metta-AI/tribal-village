@@ -178,7 +178,7 @@ proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
   for kind in [WeavingLoom, ClayOven, Blacksmith,
-               Barracks, ArcheryRange, Stable, SiegeWorkshop,
+               Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
                Outpost, Castle]:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act

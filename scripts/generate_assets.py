@@ -6,7 +6,7 @@ import io
 import os
 from collections import deque
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator, NamedTuple
 
 from google import genai
 from google.genai import types
@@ -29,6 +29,20 @@ ORIENTATION_TEMPLATES = [
     ("se", "Three-quarter view facing down-right (southeast)."),
     ("sw", "Three-quarter view facing down-left (southwest)."),
 ]
+
+ORIENTATION_MAP = {key: text for key, text in ORIENTATION_TEMPLATES}
+
+
+class OrientedRow(NamedTuple):
+    filename_template: str
+    prompt_template: str
+
+
+class OrientedOutput(NamedTuple):
+    filename: str
+    prompt: str
+    dir_key: str
+    reference_filename: str
 
 
 def expand_oriented_row(filename: str, prompt: str) -> list[tuple[str, str]]:
@@ -67,6 +81,55 @@ def load_prompts(path: Path) -> list[tuple[str, str]]:
     return rows
 
 
+def load_oriented_rows(path: Path) -> list[OrientedRow]:
+    rows: list[OrientedRow] = []
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t", 1)
+        if len(parts) != 2:
+            raise ValueError(f"Invalid prompt line (expected TSV): {raw}")
+        filename = parts[0].strip()
+        prompt = parts[1].strip()
+        if "{dir}" in filename:
+            rows.append(OrientedRow(filename_template=filename, prompt_template=prompt))
+    return rows
+
+
+def iter_oriented_rows(
+    rows: Iterable[OrientedRow],
+    reference_dir: str,
+    only: set[str] | None,
+) -> Iterator[OrientedOutput]:
+    if reference_dir not in ORIENTATION_MAP:
+        raise ValueError(f"Unknown reference dir '{reference_dir}' (expected one of {sorted(ORIENTATION_MAP)})")
+    reference_orientation = ORIENTATION_MAP[reference_dir]
+    for row in rows:
+        for dir_key, orientation in ORIENTATION_TEMPLATES:
+            subs = {
+                "dir": dir_key,
+                "dir_upper": dir_key.upper(),
+                "orientation": orientation,
+            }
+            out_name = row.filename_template.format(**subs)
+            if only and out_name not in only and Path(out_name).name not in only:
+                continue
+            prompt = row.prompt_template.format(**subs)
+            ref_subs = {
+                "dir": reference_dir,
+                "dir_upper": reference_dir.upper(),
+                "orientation": reference_orientation,
+            }
+            ref_name = row.filename_template.format(**ref_subs)
+            yield OrientedOutput(
+                filename=out_name,
+                prompt=prompt,
+                dir_key=dir_key,
+                reference_filename=ref_name,
+            )
+
+
 def make_client(project: str | None, location: str | None) -> genai.Client:
     api_key = os.environ.get("GOOGLE_API_KEY")
     if api_key:
@@ -84,21 +147,17 @@ def extract_inline_image(response) -> bytes:
     raise RuntimeError("No inline image data found in response.")
 
 
-DEFAULT_MODEL = "gemini-2.5-flash-image"
+DEFAULT_MODEL = "gemini-3-pro-image-preview"
 ALLOWED_MODELS = {
-    DEFAULT_MODEL,
-    f"publishers/google/models/{DEFAULT_MODEL}",
+    "gemini-2.5-flash-image",
+    "publishers/google/models/gemini-2.5-flash-image",
+    "gemini-3-pro-image-preview",
+    "publishers/google/models/gemini-3-pro-image-preview",
 }
 
 
-def generate_image(
-    client: genai.Client,
-    model: str,
-    prompt: str,
-    seed: int,
-    size: int,
-) -> Image.Image:
-    config = types.GenerateContentConfig(
+def build_config(seed: int) -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
         response_modalities=["IMAGE"],
         image_config=types.ImageConfig(output_mime_type="image/png", aspect_ratio="1:1"),
         seed=seed,
@@ -121,7 +180,37 @@ def generate_image(
             ),
         ],
     )
+
+
+def generate_image(
+    client: genai.Client,
+    model: str,
+    prompt: str,
+    seed: int,
+    size: int,
+) -> Image.Image:
+    config = build_config(seed)
     response = client.models.generate_content(model=model, contents=prompt, config=config)
+    image_bytes = extract_inline_image(response)
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+    return img
+
+
+def generate_oriented_image(
+    client: genai.Client,
+    model: str,
+    prompt: str,
+    seed: int,
+    size: int,
+    reference_path: Path,
+) -> Image.Image:
+    config = build_config(seed)
+    reference_bytes = reference_path.read_bytes()
+    parts = [
+        types.Part.from_bytes(data=reference_bytes, mime_type="image/png"),
+        types.Part.from_text(text=prompt),
+    ]
+    response = client.models.generate_content(model=model, contents=parts, config=config)
     image_bytes = extract_inline_image(response)
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     return img
@@ -200,6 +289,15 @@ def iter_rows(
         yield filename, prompt
 
 
+def build_oriented_prompt(prompt: str) -> str:
+    return (
+        "Use the provided reference image as the same unit. "
+        "Match palette, silhouette, proportions, and line weight. "
+        "Keep lighting consistent and preserve transparent background. "
+        + prompt
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate image assets from TSV prompts.")
     parser.add_argument("--prompts", default="data/prompts/assets.tsv")
@@ -207,7 +305,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
-        help="Nano Banana (Gemini 2.5 Flash Image) global model only.",
+        help="Gemini image model (global endpoint only).",
     )
     parser.add_argument("--project", default=os.environ.get("GOOGLE_CLOUD_PROJECT"))
     parser.add_argument("--location", default=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"))
@@ -215,12 +313,26 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=200, help="Output square size.")
     parser.add_argument("--postprocess", action="store_true")
     parser.add_argument("--postprocess-only", action="store_true")
+    parser.add_argument(
+        "--oriented",
+        action="store_true",
+        help="Generate oriented sprites using reference images (rows with {dir}).",
+    )
+    parser.add_argument(
+        "--reference-dir",
+        default="s",
+        help="Orientation to use as the reference image (default: s).",
+    )
+    parser.add_argument(
+        "--include-reference",
+        action="store_true",
+        help="Also generate the reference orientation instead of skipping it.",
+    )
     parser.add_argument("--only", default="", help="Comma-separated filenames to generate.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     prompt_path = Path(args.prompts)
-    rows = load_prompts(prompt_path)
     only = {p.strip() for p in args.only.split(",") if p.strip()} or None
 
     client = None
@@ -228,35 +340,76 @@ def main() -> None:
         if args.location != "global":
             raise SystemExit("Only the global endpoint is supported for image generation.")
         if args.model not in ALLOWED_MODELS:
-            raise SystemExit("Only gemini-2.5-flash-image is supported for image generation.")
+            raise SystemExit("Only supported Gemini image models are allowed.")
         client = make_client(args.project, args.location)
     out_dir = Path(args.out_dir)
 
-    for idx, (filename, prompt) in enumerate(iter_rows(rows, only)):
-        target = Path(filename)
-        if not target.is_absolute():
-            target = out_dir / target
-        if args.dry_run:
-            print(f"[dry-run] {target} <- {prompt[:80]}...")
-            continue
-        if args.postprocess_only:
-            if not target.exists():
-                print(f"[skip] missing {target}")
+    if args.oriented:
+        oriented_rows = load_oriented_rows(prompt_path)
+        if not oriented_rows:
+            raise SystemExit("No oriented rows found (filenames containing {dir}).")
+        for idx, output in enumerate(iter_oriented_rows(oriented_rows, args.reference_dir, only)):
+            if output.dir_key == args.reference_dir and not args.include_reference:
                 continue
-            with Image.open(target) as existing:
-                img = existing.convert("RGBA")
-            img = apply_postprocess(img, args.size)
+            target = Path(output.filename)
+            if not target.is_absolute():
+                target = out_dir / target
+            reference = Path(output.reference_filename)
+            if not reference.is_absolute():
+                reference = out_dir / reference
+            if args.dry_run:
+                print(f"[dry-run] {target} <- {output.prompt[:80]}... (ref {reference})")
+                continue
+            if args.postprocess_only:
+                if not target.exists():
+                    print(f"[skip] missing {target}")
+                    continue
+                with Image.open(target) as existing:
+                    img = existing.convert("RGBA")
+                img = apply_postprocess(img, args.size)
+                img.save(target)
+                continue
+            if not reference.exists():
+                raise SystemExit(f"Missing reference image: {reference}")
+            if client is None:
+                raise SystemExit("Client not initialized for image generation.")
+            prompt = build_oriented_prompt(output.prompt)
+            img = generate_oriented_image(
+                client, args.model, prompt, args.seed + idx, args.size, reference
+            )
+            if args.postprocess:
+                img = apply_postprocess(img, args.size)
+            elif args.size and img.size != (args.size, args.size):
+                img = img.resize((args.size, args.size), Image.LANCZOS)
+            target.parent.mkdir(parents=True, exist_ok=True)
             img.save(target)
-            continue
-        if client is None:
-            raise SystemExit("Client not initialized for image generation.")
-        img = generate_image(client, args.model, prompt, args.seed + idx, args.size)
-        if args.postprocess:
-            img = apply_postprocess(img, args.size)
-        elif args.size and img.size != (args.size, args.size):
-            img = img.resize((args.size, args.size), Image.LANCZOS)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        img.save(target)
+    else:
+        rows = load_prompts(prompt_path)
+        for idx, (filename, prompt) in enumerate(iter_rows(rows, only)):
+            target = Path(filename)
+            if not target.is_absolute():
+                target = out_dir / target
+            if args.dry_run:
+                print(f"[dry-run] {target} <- {prompt[:80]}...")
+                continue
+            if args.postprocess_only:
+                if not target.exists():
+                    print(f"[skip] missing {target}")
+                    continue
+                with Image.open(target) as existing:
+                    img = existing.convert("RGBA")
+                img = apply_postprocess(img, args.size)
+                img.save(target)
+                continue
+            if client is None:
+                raise SystemExit("Client not initialized for image generation.")
+            img = generate_image(client, args.model, prompt, args.seed + idx, args.size)
+            if args.postprocess:
+                img = apply_postprocess(img, args.size)
+            elif args.size and img.size != (args.size, args.size):
+                img = img.resize((args.size, args.size), Image.LANCZOS)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            img.save(target)
 
 
 if __name__ == "__main__":

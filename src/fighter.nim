@@ -4,6 +4,8 @@ const
   DividerHalfLengthMin = 6
   DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
+  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks]
+  FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
 
 proc fighterHasExit(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
@@ -53,6 +55,26 @@ proc fighterHasFood(agent: Thing): bool =
     if count > 0 and isFoodItem(key):
       return true
   false
+
+proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
+  let teamId = getTeamId(agent.agentId)
+  for thing in env.things:
+    if thing.isNil or thing.teamId == teamId:
+      continue
+    if not isBuildingKind(thing.kind):
+      continue
+    if not isAttackableStructure(thing.kind):
+      continue
+    if chebyshevDist(agent.pos, thing.pos) <= ObservationRadius.int32:
+      return true
+  false
+
+proc canAffordTrainCosts(env: Environment, teamId: int,
+                         costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  for cost in costs:
+    if env.stockpileCount(teamId, cost.res) < cost.count:
+      return false
+  true
 
 proc fighterIsCautious(env: Environment, agent: Thing): bool =
   var cautious = agent.hp * 2 < agent.maxHp
@@ -410,14 +432,32 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent.agentId)
-  controller.getBuildingCount(env, teamId, Barracks) > 0
+  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      continue
+    if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
+      continue
+    return true
+  false
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
-  let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
-  if not isNil(barracks):
-    return fighterActOrMove(controller, env, agent, agentId, state, barracks.pos, 3'u8)
+  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      continue
+    if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
+      continue
+    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
+    if isNil(building) or building.cooldown != 0:
+      continue
+    return fighterActOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
   0'u8
 
 proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
