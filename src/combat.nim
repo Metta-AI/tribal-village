@@ -15,6 +15,8 @@ const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
   [0, 0, 0, 0, 0, 0, 0],
 ]
 
+const BonusDamageTint = TileColor(r: 1.0, g: 0.45, b: 0.15, intensity: 1.15)
+
 proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
   BonusDamageByClass[attacker][target]
 
@@ -49,7 +51,10 @@ proc killAgent(env: Environment, victim: Thing) =
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
   var remaining = amount
   if not attacker.isNil:
-    remaining += classBonusDamage(attacker.unitClass, target.unitClass)
+    let bonus = classBonusDamage(attacker.unitClass, target.unitClass)
+    if bonus > 0:
+      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)
+    remaining += bonus
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
