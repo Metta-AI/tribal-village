@@ -97,7 +97,8 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
         isValidPos(state.buildStand) and not env.hasDoor(state.buildStand) and
         not isBlockedTerrain(env.terrain[state.buildStand.x][state.buildStand.y]) and
         not isTileFrozen(state.buildStand, env) and
-        env.isEmpty(state.buildStand) and env.canAgentPassDoor(agent, state.buildStand):
+        (env.isEmpty(state.buildStand) or state.buildStand == agent.pos) and
+        env.canAgentPassDoor(agent, state.buildStand):
       target = state.buildTarget
       stand = state.buildStand
     dec state.buildLockSteps
