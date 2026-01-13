@@ -593,8 +593,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
 
-  # Global: keep population cap ahead of current population (all roles).
-  if agent.unitClass == UnitVillager:
+  # Global: keep population cap ahead of current population (gatherers only).
+  if state.role == Gatherer and agent.unitClass == UnitVillager:
     let teamId = getTeamId(agent.agentId)
     if needsPopCapHouse(env, teamId):
       let houseKey = thingItem("House")
@@ -613,9 +613,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
         if didHouse: return houseAct
 
-  # Global: prioritize getting hearts to 10 via gold -> magma -> altar.
-  let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)
-  if didHearts: return heartsAct
+  # Global: prioritize getting hearts to 10 via gold -> magma -> altar (gatherers only).
+  if state.role == Gatherer:
+    let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)
+    if didHearts: return heartsAct
 
   # Role-based decision making
   case state.role:
