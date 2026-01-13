@@ -36,7 +36,8 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Knight",
   "Monk",
   "Battering Ram",
-  "Mangonel"
+  "Mangonel",
+  "Boat"
 ]
 
 var
@@ -745,6 +746,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
     case thing.kind
     of Wheat, Stubble:
       count = getInv(thing, ItemWheat)
+    of Fish:
+      count = getInv(thing, ItemFish)
     of Tree, Stump:
       count = getInv(thing, ItemWood)
     of Stone, Stalagmite:

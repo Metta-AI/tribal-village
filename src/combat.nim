@@ -1,20 +1,22 @@
 const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
   # Attacker: UnitVillager
-  [0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitManAtArms (infantry > cavalry)
-  [0, 0, 0, 1, 1, 0, 0, 0],
+  [0, 0, 0, 1, 1, 0, 0, 0, 0],
   # Attacker: UnitArcher (archer > infantry)
-  [0, 1, 0, 0, 0, 0, 0, 0],
+  [0, 1, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitScout (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitKnight (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitMonk
-  [0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitBatteringRam
-  [0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitMangonel
-  [0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  # Attacker: UnitBoat
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
 ]
 
 const BonusDamageTint = TileColor(r: 1.0, g: 0.45, b: 0.15, intensity: 1.15)

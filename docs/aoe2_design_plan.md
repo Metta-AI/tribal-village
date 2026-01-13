@@ -42,6 +42,14 @@ Status: Draft
 - Unit classes: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Siege.
 - Combat includes armor absorption, spear AoE strikes, ranged attack ranges, and healing by monks.
 - Bonus damage vs class is implemented via a simple lookup table in `src/combat.nim`.
+- Training follows a one-building-per-unit approach:
+  - Barracks -> Man-at-Arms
+  - Archery Range -> Archer
+  - Stable -> Scout
+  - Siege Workshop -> Battering Ram
+  - Mangonel Workshop -> Mangonel
+  - Monastery -> Monk
+  - Castle -> Knight
 
 ### AoE2-Style Meaning
 - AoE2 relies on a readable counter loop (archer > infantry, spear > cavalry, cavalry > archer), with siege as a structural breaker.
@@ -57,6 +65,7 @@ Status: Draft
 ### Current State
 - Walls, doors, town centers, and other buildings create choke points.
 - Siege units exist and are trainable; doors have HP and can be damaged.
+- Siege training is split across two buildings (Siege Workshop for rams, Mangonel Workshop for mangonels).
 
 ### AoE2-Style Meaning
 - Fortifications should shape movement and raid routes; siege should be the efficient solution to hardened defenses.
