@@ -304,7 +304,8 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
         popCap += cap
         if popCap >= popTarget:
           break
-  if (popCap > 0 and popCount >= popCap - 1) or (popCap == 0 and hasBase):
+  if (popCap > 0 and popCount >= popCap - 1) or
+      (popCap == 0 and hasBase and popCount >= HousePopCap):
     var targetBuildPos = ivec2(-1, -1)
     var targetStandPos = ivec2(-1, -1)
     let minX = max(0, basePos.x - 15)
