@@ -627,7 +627,8 @@ proc init(env: Environment) =
             maxHp: AgentMaxHp,
             attackDamage: VillagerAttackDamage,
             unitClass: UnitVillager,
-            embarkedUnitClass: UnitVillager
+            embarkedUnitClass: UnitVillager,
+            teamIdOverride: -1
           ))
 
           totalAgentsSpawned += 1
@@ -662,6 +663,7 @@ proc init(env: Environment) =
       attackDamage: VillagerAttackDamage,
       unitClass: UnitVillager,
       embarkedUnitClass: UnitVillager,
+      teamIdOverride: -1,
     ))
 
     totalAgentsSpawned += 1
@@ -1000,6 +1002,17 @@ proc init(env: Environment) =
         break
       if not placed:
         break
+
+    var relicsPlaced = 0
+    var relicAttempts = 0
+    while relicsPlaced < MapRoomObjectsRelics and relicAttempts < MapRoomObjectsRelics * 10:
+      inc relicAttempts
+      let pos = r.randomEmptyPos(env)
+      if env.terrain[pos.x][pos.y] == Water:
+        continue
+      if env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos):
+        env.add(Thing(kind: Relic, pos: pos))
+        inc relicsPlaced
 
     for _ in 0 ..< 30:
       var attempts = 0

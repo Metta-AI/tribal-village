@@ -392,7 +392,7 @@ proc neighborDirIndex(fromPos, toPos: IVec2): int =
 
 
 proc sameTeam(agentA, agentB: Thing): bool =
-  (agentA.agentId div MapAgentsPerVillage) == (agentB.agentId div MapAgentsPerVillage)
+  getTeamId(agentA) == getTeamId(agentB)
 
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
@@ -451,7 +451,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
         if sameTeam(agent, thing):
           continue
       elif isAttackableStructure(thing.kind):
-        if thing.teamId == getTeamId(agent.agentId):
+        if thing.teamId == getTeamId(agent):
           continue
       elif thing.kind notin {Tumor, Spawner}:
         continue
@@ -554,13 +554,13 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
     if not isValidPos(targetPos):
       continue
     let door = env.getOverlayThing(targetPos)
-    if not isNil(door) and door.kind == Door and door.teamId != getTeamId(agent.agentId):
+    if not isNil(door) and door.kind == Door and door.teamId != getTeamId(agent):
       return dirIdx
     let occupant = env.grid[targetPos.x][targetPos.y]
     if isNil(occupant):
       continue
 
-    if isAttackableStructure(occupant.kind) and occupant.teamId != getTeamId(agent.agentId):
+    if isAttackableStructure(occupant.kind) and occupant.teamId != getTeamId(agent):
       if agent.unitClass in {UnitBatteringRam, UnitMangonel}:
         return dirIdx
     elif occupant.kind == Tumor:
@@ -989,7 +989,7 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       allowGold: bool = false): tuple[did: bool, action: uint8] =
   ## Unified dropoff function - attempts to drop off resources in priority order
   ## Priority: food -> wood -> gold -> stone
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
 
   # Food dropoff - requires checking inventory for any food items
   if allowFood:

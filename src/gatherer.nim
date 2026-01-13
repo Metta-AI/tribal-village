@@ -48,7 +48,7 @@ proc gathererAltarInfo(controller: Controller, env: Environment, agent: Thing,
 
 proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let altar = gathererAltarInfo(controller, env, agent, state, teamId)
   var task = TaskFood
   if altar.found and altar.hearts < 10:
@@ -116,6 +116,34 @@ proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: 
 proc canStartGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
   isCarryingStockpile(agent)
+
+proc canStartGathererMarket(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  if controller.getBuildingCount(env, teamId, Market) == 0:
+    return false
+  if agent.inventoryGold > 0 and env.stockpileCount(teamId, ResourceFood) < 10:
+    return true
+  var hasNonFood = false
+  for key, count in agent.inventory.pairs:
+    if count <= 0 or not isStockpileResourceKey(key):
+      continue
+    let res = stockpileResourceForItem(key)
+    if res notin {ResourceFood, ResourceWater, ResourceGold}:
+      hasNonFood = true
+      break
+  hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
+
+proc optGathererMarket(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  state.basePosition = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market, controller.rng)
+  if isNil(market):
+    return 0'u8
+  if isAdjacent(agent.pos, market.pos):
+    return controller.useAt(env, agent, agentId, state, market.pos)
+  controller.moveTo(env, agent, agentId, state, market.pos)
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -187,7 +215,7 @@ proc canStartGathererResource(controller: Controller, env: Environment, agent: T
 
 proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   var campKind: ThingKind
   var nearbyCount = 0
   var minCount = 0
@@ -231,7 +259,7 @@ proc canStartGathererFood(controller: Controller, env: Environment, agent: Thing
 
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
 
@@ -339,6 +367,13 @@ let GathererOptions = [
     canStart: canStartGathererPlantOnFertile,
     shouldTerminate: optionsAlwaysTerminate,
     act: optGathererPlantOnFertile,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererMarketTrade",
+    canStart: canStartGathererMarket,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererMarket,
     interruptible: true
   ),
   OptionDef(

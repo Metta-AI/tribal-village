@@ -97,7 +97,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for agent in env.agents:
       if not isAgentAlive(env, agent):
         continue
-      if tower.teamId == getTeamId(agent.agentId):
+      if tower.teamId == getTeamId(agent):
         continue
       let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
       if dist <= range and dist < bestDist:
@@ -463,7 +463,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
-    let teamId = getTeamId(agent.agentId)
+    let teamId = getTeamId(agent)
     if teamId >= 0 and teamId < MapRoomObjectsHouses:
       inc teamPopCounts[teamId]
 
@@ -473,7 +473,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     # Check if agent is dead and has a home altar
     if env.terminated[agentId] == 1.0 and agent.homeAltar.x >= 0:
-      let teamId = getTeamId(agent.agentId)
+      let teamId = getTeamId(agent)
       if teamId < 0 or teamId >= MapRoomObjectsHouses:
         continue
       if teamPopCounts[teamId] >= teamPopCaps[teamId]:
@@ -503,7 +503,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc teamPopCounts[teamId]
 
           # Update observations
-          env.updateObservations(AgentLayer, agent.pos, getTeamId(agent.agentId) + 1)
+          env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
           env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
           for key in ObservedItemKeys:
             env.updateAgentInventoryObs(agent, key)
@@ -610,7 +610,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for agent in env.agents:
       if agent.isNil:
         continue
-      teamSeen[getTeamId(agent.agentId)] = true
+      teamSeen[getTeamId(agent)] = true
     entry.add("Stockpiles:\n")
     for teamId, seen in teamSeen:
       if not seen:
@@ -637,7 +637,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       let invSummary = if invParts.len > 0: invParts.join(",") else: "-"
       entry.add(
         "  a" & $id &
-        " t" & $getTeamId(agent.agentId) &
+        " t" & $getTeamId(agent) &
         " " & (case agent.agentId mod MapAgentsPerVillage:
           of 0, 1: "gatherer"
           of 2, 3: "builder"

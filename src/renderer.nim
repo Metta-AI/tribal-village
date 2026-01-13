@@ -421,7 +421,7 @@ proc drawObjects*() =
   var teamHouseCounts: array[MapRoomObjectsHouses, int]
   for agent in env.agents:
     if isAgentAlive(env, agent):
-      let teamId = getTeamId(agent.agentId)
+      let teamId = getTeamId(agent)
       if teamId >= 0 and teamId < MapRoomObjectsHouses:
         inc teamPopCounts[teamId]
   for house in env.thingsByKind[House]:

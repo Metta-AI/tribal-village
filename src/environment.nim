@@ -184,7 +184,7 @@ proc choosePayment*(env: Environment, agent: Thing,
     return PayNone
   if canSpendInventory(agent, costs):
     return PayInventory
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   if env.canSpendStockpile(teamId, costs):
     return PayStockpile
   PayNone
@@ -195,7 +195,7 @@ proc spendCosts*(env: Environment, agent: Thing, source: PaymentSource,
   of PayInventory:
     spendInventory(env, agent, costs)
   of PayStockpile:
-    env.spendStockpile(getTeamId(agent.agentId), costs)
+    env.spendStockpile(getTeamId(agent), costs)
   of PayNone:
     false
 
@@ -305,7 +305,7 @@ proc rebuildObservations*(env: Environment) =
       continue
     if not isValidPos(agent.pos):
       continue
-    let teamValue = getTeamId(agent.agentId) + 1
+    let teamValue = getTeamId(agent) + 1
     env.updateObservations(AgentLayer, agent.pos, teamValue)
     env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
     for key in ObservedItemKeys:
@@ -352,7 +352,7 @@ proc hasDoor*(env: Environment, pos: IVec2): bool =
 
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   let door = env.getOverlayThing(pos)
-  return isNil(door) or door.kind != Door or door.teamId == getTeamId(agent.agentId)
+  return isNil(door) or door.kind != Door or door.teamId == getTeamId(agent)
 
 proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
   let overlay = env.getOverlayThing(pos)
@@ -472,7 +472,7 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
   false
 
 proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileResource]): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   var depositKeys: seq[ItemKey] = @[]
   for key, count in agent.inventory.pairs:
     if count <= 0:
@@ -498,7 +498,7 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
                   costs: openArray[tuple[res: StockpileResource, count: int]], cooldown: int): bool =
   if agent.unitClass != UnitVillager:
     return false
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   if building.teamId != teamId:
     return false
   if not env.spendStockpile(teamId, costs):
@@ -531,7 +531,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
             uses = true
             break
         uses
-    let teamId = getTeamId(agent.agentId)
+    let teamId = getTeamId(agent)
     var canApply = true
     for input in recipe.inputs:
       if useStockpile and isStockpileResourceKey(input.key):

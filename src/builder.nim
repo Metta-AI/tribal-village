@@ -17,7 +17,7 @@ proc builderNeedsPopCap(env: Environment, teamId: int): bool =
   for otherAgent in env.agents:
     if not isAgentAlive(env, otherAgent):
       continue
-    if getTeamId(otherAgent.agentId) == teamId:
+    if getTeamId(otherAgent) == teamId:
       inc popCount
   var popCap = 0
   var hasBase = false
@@ -61,12 +61,12 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
 
 proc canStartBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   builderNeedsPopCap(env, teamId)
 
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
   let (didHouse, houseAct) =
@@ -76,7 +76,7 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                        agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for kind in [Granary, LumberCamp, Quarry, MiningCamp]:
     if controller.getBuildingCount(env, teamId, kind) == 0:
       return true
@@ -84,7 +84,7 @@ proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment,
 
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for kind in [Granary, LumberCamp, Quarry, MiningCamp]:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
@@ -95,7 +95,7 @@ proc canStartBuilderMillNearResource(controller: Controller, env: Environment, a
   if agent.homeAltar.x >= 0 and
       max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10:
     return false
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let resourceCount =
     countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
       countNearbyTerrain(env, agent.pos, 4, {Fertile})
@@ -105,7 +105,7 @@ proc canStartBuilderMillNearResource(controller: Controller, env: Environment, a
 
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let (didMill, actMill) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, Mill,
     countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
@@ -120,7 +120,7 @@ proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent
                                  agentId: int, state: var AgentState): bool =
   if not builderHasPlantInputs(agent):
     return false
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   controller.getBuildingCount(env, teamId, Mill) >= 2
 
 proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
@@ -131,7 +131,7 @@ proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thi
 
 proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for entry in [
     (LumberCamp, {Tree}, 6),
     (MiningCamp, {Gold}, 6),
@@ -148,7 +148,7 @@ proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agen
 
 proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for entry in [
     (LumberCamp, {Tree}, 6),
     (MiningCamp, {Gold}, 6),
@@ -166,34 +166,34 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
 
 proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for kind in [WeavingLoom, ClayOven, Blacksmith,
                Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
-               Outpost, Castle]:
+               Outpost, Castle, Market, Monastery]:
     if controller.getBuildingCount(env, teamId, kind) == 0:
       return true
   false
 
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   for kind in [WeavingLoom, ClayOven, Blacksmith,
                Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
-               Outpost, Castle]:
+               Outpost, Castle, Market, Monastery]:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
   0'u8
 
 proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   agent.homeAltar.x >= 0 and
     controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
     env.stockpileCount(teamId, ResourceWood) >= 3
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   if agent.homeAltar.x >= 0 and
       controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
       env.stockpileCount(teamId, ResourceWood) >= 3:
@@ -262,7 +262,7 @@ proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent
                                  agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
     return false
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
@@ -275,7 +275,7 @@ proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent
 
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
+  let teamId = getTeamId(agent)
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
