@@ -2,6 +2,7 @@
 ## This keeps the "what exists" separate from game logic.
 
 import std/tables
+import std/hashes
 
 type
   ## Type-safe enum for all item kinds
@@ -22,9 +23,24 @@ type
     ikMeat = "meat"
     ikHearts = "hearts"
 
-  ## ItemKey remains a string for backwards compatibility
-  ## Can be either an item kind string or a "thing:ThingKind" building item
-  ItemKey* = string
+  ItemKeyKind* = enum
+    ItemKeyNone
+    ItemKeyItem
+    ItemKeyThing
+    ItemKeyOther
+
+  ## ItemKey represents inventory entries and craft/build outputs.
+  ## - ItemKeyItem: core item kinds (typed)
+  ## - ItemKeyThing: buildable/placeable things by name
+  ## - ItemKeyOther: extra recipe-only items
+  ItemKey* = object
+    case kind*: ItemKeyKind
+    of ItemKeyNone:
+      discard
+    of ItemKeyItem:
+      item*: ItemKind
+    of ItemKeyThing, ItemKeyOther:
+      name*: string
 
   Inventory* = Table[ItemKey, int]
 
@@ -33,23 +49,21 @@ const
   ArmorPoints* = 5        # Armor durability granted per craft
   BreadHealAmount* = 999  # Effectively "heal to full" per bread use
 
-  ## String constants for backwards compatibility - prefer ItemKind enum in new code
-  ItemNone* = ""
-  ItemGold* = "gold"
-  ItemStone* = "stone"
-  ItemBar* = "bar"
-  ItemWater* = "water"
-  ItemWheat* = "wheat"
-  ItemWood* = "wood"
-  ItemSpear* = "spear"
-  ItemLantern* = "lantern"
-  ItemArmor* = "armor"
-  ItemBread* = "bread"
-  ItemPlant* = "plant"
-  ItemFish* = "fish"
-  ItemMeat* = "meat"
-  ItemHearts* = "hearts"
-  ItemThingPrefix* = "thing:"
+  ItemNone* = ItemKey(kind: ItemKeyNone)
+  ItemGold* = ItemKey(kind: ItemKeyItem, item: ikGold)
+  ItemStone* = ItemKey(kind: ItemKeyItem, item: ikStone)
+  ItemBar* = ItemKey(kind: ItemKeyItem, item: ikBar)
+  ItemWater* = ItemKey(kind: ItemKeyItem, item: ikWater)
+  ItemWheat* = ItemKey(kind: ItemKeyItem, item: ikWheat)
+  ItemWood* = ItemKey(kind: ItemKeyItem, item: ikWood)
+  ItemSpear* = ItemKey(kind: ItemKeyItem, item: ikSpear)
+  ItemLantern* = ItemKey(kind: ItemKeyItem, item: ikLantern)
+  ItemArmor* = ItemKey(kind: ItemKeyItem, item: ikArmor)
+  ItemBread* = ItemKey(kind: ItemKeyItem, item: ikBread)
+  ItemPlant* = ItemKey(kind: ItemKeyItem, item: ikPlant)
+  ItemFish* = ItemKey(kind: ItemKeyItem, item: ikFish)
+  ItemMeat* = ItemKey(kind: ItemKeyItem, item: ikMeat)
+  ItemHearts* = ItemKey(kind: ItemKeyItem, item: ikHearts)
 
   ObservedItemKeys* = [
     ItemGold,
@@ -72,42 +86,67 @@ const
                         ikMeat, ikFish, ikPlant]
 
 proc toItemKey*(kind: ItemKind): ItemKey {.inline.} =
-  ## Convert ItemKind enum to ItemKey string
-  case kind
-  of ikNone: ItemNone
-  of ikGold: ItemGold
-  of ikStone: ItemStone
-  of ikBar: ItemBar
-  of ikWater: ItemWater
-  of ikWheat: ItemWheat
-  of ikWood: ItemWood
-  of ikSpear: ItemSpear
-  of ikLantern: ItemLantern
-  of ikArmor: ItemArmor
-  of ikBread: ItemBread
-  of ikPlant: ItemPlant
-  of ikFish: ItemFish
-  of ikMeat: ItemMeat
-  of ikHearts: ItemHearts
+  ## Convert ItemKind enum to ItemKey
+  if kind == ikNone:
+    ItemNone
+  else:
+    ItemKey(kind: ItemKeyItem, item: kind)
 
 proc toItemKind*(key: ItemKey): ItemKind {.inline.} =
-  ## Convert ItemKey string to ItemKind enum (returns ikNone for unknown/thing keys)
-  case key
-  of ItemGold: ikGold
-  of ItemStone: ikStone
-  of ItemBar: ikBar
-  of ItemWater: ikWater
-  of ItemWheat: ikWheat
-  of ItemWood: ikWood
-  of ItemSpear: ikSpear
-  of ItemLantern: ikLantern
-  of ItemArmor: ikArmor
-  of ItemBread: ikBread
-  of ItemPlant: ikPlant
-  of ItemFish: ikFish
-  of ItemMeat: ikMeat
-  of ItemHearts: ikHearts
-  else: ikNone
+  ## Convert ItemKey to ItemKind enum (returns ikNone for non-item keys)
+  if key.kind == ItemKeyItem:
+    key.item
+  else:
+    ikNone
+
+proc itemKindName*(kind: ItemKind): string =
+  case kind
+  of ikNone: ""
+  of ikGold: "gold"
+  of ikStone: "stone"
+  of ikBar: "bar"
+  of ikWater: "water"
+  of ikWheat: "wheat"
+  of ikWood: "wood"
+  of ikSpear: "spear"
+  of ikLantern: "lantern"
+  of ikArmor: "armor"
+  of ikBread: "bread"
+  of ikPlant: "plant"
+  of ikFish: "fish"
+  of ikMeat: "meat"
+  of ikHearts: "hearts"
+
+proc itemKeyName*(key: ItemKey): string =
+  case key.kind
+  of ItemKeyNone:
+    ""
+  of ItemKeyItem:
+    itemKindName(key.item)
+  of ItemKeyThing, ItemKeyOther:
+    key.name
+
+proc `==`*(a, b: ItemKey): bool =
+  if a.kind != b.kind:
+    return false
+  case a.kind
+  of ItemKeyNone:
+    true
+  of ItemKeyItem:
+    a.item == b.item
+  of ItemKeyThing, ItemKeyOther:
+    a.name == b.name
+
+proc hash*(key: ItemKey): Hash =
+  var h = hash(key.kind)
+  case key.kind
+  of ItemKeyNone:
+    discard
+  of ItemKeyItem:
+    h = h !& hash(key.item)
+  of ItemKeyThing, ItemKeyOther:
+    h = h !& hash(key.name)
+  result = !$h
 
 type
   StockpileResource* = enum
@@ -120,11 +159,13 @@ type
 
 proc isFoodItem*(key: ItemKey): bool =
   ## Check if an ItemKey is a food item
-  toItemKind(key) in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}
+  key.kind == ItemKeyItem and key.item in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}
 
 proc isStockpileResourceKey*(key: ItemKey): bool =
-  case key
-  of ItemWood, ItemGold, ItemStone, ItemWater:
+  if key.kind != ItemKeyItem:
+    return false
+  case key.item
+  of ikWood, ikGold, ikStone, ikWater:
     true
   else:
     isFoodItem(key)
@@ -132,12 +173,14 @@ proc isStockpileResourceKey*(key: ItemKey): bool =
 proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
   if isFoodItem(key):
     return ResourceFood
-  case key
-  of ItemWood: ResourceWood
-  of ItemGold: ResourceGold
-  of ItemStone: ResourceStone
-  of ItemWater: ResourceWater
-  else: ResourceFood
+  if key.kind != ItemKeyItem:
+    return ResourceNone
+  case key.item
+  of ikWood: ResourceWood
+  of ikGold: ResourceGold
+  of ikStone: ResourceStone
+  of ikWater: ResourceWater
+  else: ResourceNone
 
 proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
@@ -237,7 +280,10 @@ proc addRecipe*(recipes: var seq[CraftRecipe], id: string, station: CraftStation
   recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: 0))
 
 proc thingItem*(name: string): ItemKey =
-  ItemThingPrefix & name
+  ItemKey(kind: ItemKeyThing, name: name)
+
+proc otherItem*(name: string): ItemKey =
+  ItemKey(kind: ItemKeyOther, name: name)
 
 const
   ## Container examples for stockpile storage mechanics.
@@ -263,27 +309,27 @@ proc initCraftRecipesBase*(): seq[CraftRecipe] =
   # Siege workshop crafts for walls/roads (1/20 AoE2 scale).
   addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Wall"), 1)], 6)
   addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)], 4)
-  addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[("bucket", 1)], 6)
-  addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[("box", 1)], 6)
-  addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[("bin", 1)], 8)
-  addRecipe(recipes, "cabinet", StationTable, @[(ItemWood, 2)], @[("cabinet", 1)], 8)
-  addRecipe(recipes, "cage", StationTable, @[(ItemWood, 2)], @[("cage", 1)], 8)
-  addRecipe(recipes, "animaltrap", StationTable, @[(ItemWood, 1)], @[("animaltrap", 1)], 6)
-  addRecipe(recipes, "armorstand_wood", StationTable, @[(ItemWood, 2)], @[("armorstand", 1)], 8)
-  addRecipe(recipes, "weaponrack_wood", StationTable, @[(ItemWood, 2)], @[("weaponrack", 1)], 8)
+  addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[(otherItem("bucket"), 1)], 6)
+  addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[(otherItem("box"), 1)], 6)
+  addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[(otherItem("bin"), 1)], 8)
+  addRecipe(recipes, "cabinet", StationTable, @[(ItemWood, 2)], @[(otherItem("cabinet"), 1)], 8)
+  addRecipe(recipes, "cage", StationTable, @[(ItemWood, 2)], @[(otherItem("cage"), 1)], 8)
+  addRecipe(recipes, "animaltrap", StationTable, @[(ItemWood, 1)], @[(otherItem("animaltrap"), 1)], 6)
+  addRecipe(recipes, "armorstand_wood", StationTable, @[(ItemWood, 2)], @[(otherItem("armorstand"), 1)], 8)
+  addRecipe(recipes, "weaponrack_wood", StationTable, @[(ItemWood, 2)], @[(otherItem("weaponrack"), 1)], 8)
   # Blacksmith: metalworking and mechanisms.
   addRecipe(recipes, "spear", StationBlacksmith, @[(ItemWood, 1)], @[(ItemSpear, SpearCharges)], 6)
   addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, ArmorPoints)], 10)
-  addRecipe(recipes, "weapon", StationBlacksmith, @[(ItemBar, 1)], @[("weapon", 1)], 8)
-  addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[("shield", 1)], 8)
-  addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[("anvil", 1)], 10)
-  addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[("goblet", 1)], 6)
-  addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[("crown", 1)], 8)
-  addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[("armorstand", 1)], 8)
-  addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[("weaponrack", 1)], 8)
+  addRecipe(recipes, "weapon", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("weapon"), 1)], 8)
+  addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("shield"), 1)], 8)
+  addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[(otherItem("anvil"), 1)], 10)
+  addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("goblet"), 1)], 6)
+  addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("crown"), 1)], 8)
+  addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("armorstand"), 1)], 8)
+  addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("weaponrack"), 1)], 8)
 
   # Armory: wood gear.
-  addRecipe(recipes, "shield_wood", StationArmory, @[(ItemWood, 1)], @[("shield", 1)], 6)
+  addRecipe(recipes, "shield_wood", StationArmory, @[(ItemWood, 1)], @[(otherItem("shield"), 1)], 6)
 
   # Oven: food.
   addRecipe(recipes, "bread", StationOven, @[(ItemWheat, 1)], @[(ItemBread, 1)], 6)

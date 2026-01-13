@@ -1,6 +1,6 @@
 {.push inline.}
 proc getInv*(thing: Thing, key: ItemKey): int =
-  if key.len == 0:
+  if key.kind == ItemKeyNone:
     return 0
   if thing.inventory.hasKey(key):
     return thing.inventory[key]
@@ -13,7 +13,7 @@ proc getInv*(thing: Thing, kind: ItemKind): int =
   getInv(thing, toItemKey(kind))
 
 proc setInv*(thing: Thing, key: ItemKey, value: int) =
-  if key.len == 0:
+  if key.kind == ItemKeyNone:
     return
   if value <= 0:
     if thing.inventory.hasKey(key):
@@ -29,7 +29,9 @@ proc setInv*(thing: Thing, kind: ItemKind, value: int) =
 
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   ## Update observation layer for agent inventory - uses ItemKind enum for type safety
-  let kind = toItemKind(key)
+  if key.kind != ItemKeyItem:
+    return
+  let kind = key.item
   let value = getInv(agent, key)
   case kind
   of ikGold:

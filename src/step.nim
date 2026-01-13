@@ -587,7 +587,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       for key in ObservedItemKeys:
         let count = getInv(agent, key)
         if count > 0:
-          invParts.add(key & "=" & $count)
+          invParts.add(itemKeyName(key) & "=" & $count)
       let invSummary = if invParts.len > 0: invParts.join(",") else: "-"
       entry.add(
         "  a" & $id &
@@ -676,10 +676,6 @@ proc reset*(env: Environment) =
   env.agentColors.setLen(0)
   env.teamColors.setLen(0)
   env.altarColors.clear()
-  # Keep globals in sync for backwards compatibility
-  agentVillageColors = env.agentColors
-  teamColors = env.teamColors
-  altarColors = env.altarColors
   # Clear UI selection to prevent stale references
   selection = nil
   env.init()  # init() handles terrain, activeTiles, and tile colors

@@ -198,7 +198,7 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
         storedKey = key
         storedCount = count
         break
-    if storedKey.len == 0:
+    if storedKey == ItemNone:
       return false
     if allowed.len > 0:
       var allowedMatch = false
@@ -297,7 +297,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
       continue
     var hasThingOutput = false
     for output in recipe.outputs:
-      if output.key.startsWith(ItemThingPrefix):
+      if output.key.kind == ItemKeyThing:
         hasThingOutput = true
         break
     if hasThingOutput:
@@ -308,7 +308,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
       else:
         var uses = false
         for output in recipe.outputs:
-          if output.key.startsWith(ItemThingPrefix):
+          if output.key.kind == ItemKeyThing:
             uses = true
             break
         uses

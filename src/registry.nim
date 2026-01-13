@@ -236,14 +236,20 @@ proc thingDisplayName*(kind: ThingKind): string =
 
 
 proc itemSpriteKey*(key: ItemKey): string =
-  if key.startsWith(ItemThingPrefix):
-    let kindName = key[ItemThingPrefix.len .. ^1]
+  if key.kind == ItemKeyThing:
     for kind in ThingKind:
-      if $kind == kindName:
+      if $kind == key.name:
         return thingSpriteKey(kind)
+    return key.name
   if ItemCatalog.hasKey(key):
     return ItemCatalog[key].spriteKey
-  key
+  case key.kind
+  of ItemKeyOther:
+    key.name
+  of ItemKeyItem:
+    itemKindName(key.item)
+  else:
+    ""
 
 proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   case kind

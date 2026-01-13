@@ -688,7 +688,7 @@ proc drawAgentDecorations*() =
     for key, count in agent.inventory.pairs:
       if count <= 0:
         continue
-      overlays.add(OverlayItem(name: key, icon: itemSpriteKey(key), count: count))
+      overlays.add(OverlayItem(name: itemKeyName(key), icon: itemSpriteKey(key), count: count))
 
     if overlays.len == 0:
       continue
@@ -752,7 +752,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
     of Corpse:
       for key, c in thing.inventory.pairs:
         if c > 0:
-          label &= " (" & key & " " & $c & ")"
+          label &= " (" & itemKeyName(key) & " " & $c & ")"
           return
       return
     else:

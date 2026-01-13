@@ -1,7 +1,7 @@
 proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
-  if not key.startsWith(ItemThingPrefix):
+  if key.kind != ItemKeyThing:
     return false
-  let name = key[ItemThingPrefix.len .. ^1]
+  let name = key.name
   for candidate in ThingKind:
     if $candidate == name:
       kind = candidate
@@ -53,7 +53,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
                     Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
     return false
 
-  let key = ItemThingPrefix & $thing.kind
+  let key = thingItem($thing.kind)
   let current = getInv(agent, key)
   if current >= MapObjectAgentMaxInventory:
     return false
@@ -103,7 +103,7 @@ proc add*(env: Environment, thing: Thing) =
       env.overlayGrid[thing.pos.x][thing.pos.y] = thing
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
-  if key == ItemThingPrefix & "Road":
+  if key.kind == ItemKeyThing and key.name == "Road":
     if env.terrain[pos.x][pos.y] notin BuildableTerrain:
       return false
     env.terrain[pos.x][pos.y] = Road

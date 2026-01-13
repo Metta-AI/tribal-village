@@ -207,10 +207,6 @@ proc init(env: Environment) =
   env.agentColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
   env.teamColors.setLen(0)  # Clear team colors
   env.altarColors.clear()  # Clear altar colors from previous game
-  # Keep globals in sync for backwards compatibility during migration
-  agentVillageColors = env.agentColors
-  teamColors = env.teamColors
-  altarColors = env.altarColors
   # Spawn villages with altars, town centers, and associated agents (tribes)
   let numVillages = MapRoomObjectsHouses
   var totalAgentsSpawned = 0

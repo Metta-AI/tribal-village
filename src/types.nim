@@ -227,7 +227,6 @@ type
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
-    # Note: Door uses hearts (deprecated) now uses hp/maxHp
 
   Stats* = ref object
     # Agent Stats - simplified actions:
@@ -358,11 +357,6 @@ var env*: Environment
 # Selection state (for UI)
 var selection*: Thing = nil
 var selectedPos*: IVec2 = ivec2(-1, -1)
-
-# Color tracking (for backwards compatibility during migration)
-var agentVillageColors*: seq[Color]
-var teamColors*: seq[Color]
-var altarColors*: Table[IVec2, Color]
 
 # Helper function for checking if agent is alive
 proc isAgentAlive*(env: Environment, agent: Thing): bool =
