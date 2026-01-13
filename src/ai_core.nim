@@ -742,8 +742,7 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
             minDist = dist
             fertilePos = candPos
     if fertilePos.x >= 0:
-      if max(abs(fertilePos.x - agent.pos.x), abs(fertilePos.y - agent.pos.y)) == 1'i32 and
-          (fertilePos.x == agent.pos.x or fertilePos.y == agent.pos.y):
+      if max(abs(fertilePos.x - agent.pos.x), abs(fertilePos.y - agent.pos.y)) == 1'i32:
         let dirIdx = neighborDirIndex(agent.pos, fertilePos)
         let plantArg = (if agent.inventoryWheat > 0: dirIdx else: dirIdx + 4)
         return (true, saveStateAndReturn(controller, agentId, state,
