@@ -209,6 +209,7 @@ let ItemCatalog* = block:
     (ItemPlant, "Plant", "plant", 'p'),
     (ItemFish, "Fish", "fish", 'f'),
     (ItemMeat, "Meat", "meat", 'm'),
+    (ItemRelic, "Relic", "bar", 'r'),
     (ItemHearts, "Hearts", "heart", 'h')
   ]:
     let (key, displayName, spriteKey, ascii) = entry

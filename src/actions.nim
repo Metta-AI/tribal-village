@@ -227,12 +227,47 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
               inc env.stats[id].actionAttack
             else:
-              target.teamIdOverride = attackerTeam
-              if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
-                env.agentColors[target.agentId] = env.teamColors[attackerTeam]
+              let newTeam = attackerTeam
+              if newTeam < 0 or newTeam >= MapRoomObjectsHouses:
+                inc env.stats[id].actionInvalid
+                break attackAction
+              var popCap = 0
+              for thing in env.things:
+                if thing.teamId == newTeam and isBuildingKind(thing.kind):
+                  let add = buildingPopCap(thing.kind)
+                  if add > 0:
+                    popCap += add
+              var popCount = 0
+              for other in env.agents:
+                if isAgentAlive(env, other) and getTeamId(other) == newTeam:
+                  inc popCount
+              if popCap <= 0 or popCount >= popCap:
+                inc env.stats[id].actionInvalid
+                break attackAction
+              var newHome = ivec2(-1, -1)
               if agent.homeAltar.x >= 0:
-                target.homeAltar = agent.homeAltar
-              env.updateObservations(AgentLayer, target.pos, attackerTeam + 1)
+                let altarThing = env.getThing(agent.homeAltar)
+                if not isNil(altarThing) and altarThing.kind == Altar and
+                    altarThing.teamId == newTeam:
+                  newHome = agent.homeAltar
+              if newHome.x < 0:
+                var bestDist = int.high
+                for altar in env.thingsByKind[Altar]:
+                  if altar.teamId != newTeam:
+                    continue
+                  let dist = abs(altar.pos.x - target.pos.x) + abs(altar.pos.y - target.pos.y)
+                  if dist < bestDist:
+                    bestDist = dist
+                    newHome = altar.pos
+              target.homeAltar = newHome
+              let defaultTeam = getTeamId(target.agentId)
+              if newTeam == defaultTeam:
+                target.teamIdOverride = -1
+              else:
+                target.teamIdOverride = newTeam
+              if newTeam < env.teamColors.len:
+                env.agentColors[target.agentId] = env.teamColors[newTeam]
+              env.updateObservations(AgentLayer, target.pos, newTeam + 1)
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -381,6 +416,17 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           of Empty, Grass, Dune, Sand, Snow, Road:
             if env.hasDoor(targetPos):
               used = false
+            elif agent.inventoryRelic > 0:
+              let canDrop = env.isEmpty(targetPos) and not env.hasDoor(targetPos) and
+                not isTileFrozen(targetPos, env) and env.terrain[targetPos.x][targetPos.y] != Water
+              if canDrop:
+                let relic = Thing(kind: Relic, pos: targetPos)
+                relic.inventory = emptyInventory()
+                setInv(relic, ItemGold, 0)
+                env.add(relic)
+                agent.inventoryRelic = agent.inventoryRelic - 1
+                env.updateAgentInventoryObs(agent, ItemRelic)
+                used = true
             elif agent.inventoryBread > 0:
               decInv(ItemBread)
               let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
@@ -431,6 +477,27 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               setInv(thing, key, remaining)
             used = true
         case thing.kind:
+        of Relic:
+          let stored = getInv(thing, ItemGold)
+          if stored > 0:
+            if env.giveItem(agent, ItemGold):
+              setInv(thing, ItemGold, stored - 1)
+            else:
+              used = false
+              break useAction
+          if agent.inventoryRelic < MapObjectAgentMaxInventory:
+            agent.inventoryRelic = agent.inventoryRelic + 1
+            env.updateAgentInventoryObs(agent, ItemRelic)
+            removeThing(env, thing)
+            used = true
+          else:
+            used = stored > 0
+        of Lantern:
+          if agent.inventoryLantern < MapObjectAgentMaxInventory:
+            agent.inventoryLantern = agent.inventoryLantern + 1
+            env.updateAgentInventoryObs(agent, ItemLantern)
+            removeThing(env, thing)
+            used = true
         of Wheat:
           used = env.harvestWheat(agent, thing)
         of Stubble:
@@ -533,12 +600,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               removeThing(env, thing)
             else:
               setInv(thing, ItemFish, remaining)
-            used = true
-        of Relic:
-          if agent.unitClass == UnitMonk:
-            let teamId = getTeamId(agent)
-            env.addToStockpile(teamId, ResourceGold, 2)
-            removeThing(env, thing)
             used = true
         else:
           if isBuildingKind(thing.kind):
