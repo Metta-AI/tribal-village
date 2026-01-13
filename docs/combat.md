@@ -22,8 +22,13 @@ To tune counters:
 - Adjust values in `BonusDamageByClass`.
 - Keep bonuses small but decisive (e.g., +1 or +2) to preserve readable outcomes without making fights one-sided.
 
+## Structure Bonus (Siege vs Buildings)
+Structure bonus damage is handled in `applyStructureDamage` using `SiegeStructureMultiplier`.
+- Only siege units receive the multiplier.
+- The bonus uses the same critical-hit overlay as class counters.
+
 ## Critical-Hit Overlay
-When a class bonus applies, the target tile receives a distinct action tint:
+When a bonus applies (class counters or siege-vs-structure), the target tile receives a distinct action tint:
 - `BonusDamageTint` in `src/combat.nim`
 - Applied via `env.applyActionTint` when bonus damage > 0
 

@@ -27,7 +27,10 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =
   var damage = max(1, amount)
   if not attacker.isNil and attacker.unitClass == UnitSiege:
-    damage *= SiegeStructureMultiplier
+    let bonus = damage * (SiegeStructureMultiplier - 1)
+    if bonus > 0:
+      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)
+      damage += bonus
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
     return false

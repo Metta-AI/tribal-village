@@ -4,6 +4,11 @@
 At the start of each prompt, run:
 `git pull`
 
+## Merge Considerations (required)
+- If a merge includes siege/fortification changes (e.g., GuardTower/Castle/walls or structure HP), ensure combat uses
+  `applyStructureDamage` with `SiegeStructureMultiplier`, and preserve any action tint feedback for bonus damage.
+- Keep `docs/siege_fortifications_plan.md` in sync with implementation notes when siege logic changes.
+
 ## Validation Steps (required)
 1. Ensure Nim code compiles:
    `nim c -d:release tribal_village.nim`
