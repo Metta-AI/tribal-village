@@ -381,6 +381,17 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           of Empty, Grass, Dune, Sand, Snow, Road:
             if env.hasDoor(targetPos):
               used = false
+            elif agent.inventoryRelic > 0:
+              let canDrop = env.isEmpty(targetPos) and not env.hasDoor(targetPos) and
+                not isTileFrozen(targetPos, env) and env.terrain[targetPos.x][targetPos.y] != Water
+              if canDrop:
+                let relic = Thing(kind: Relic, pos: targetPos)
+                relic.inventory = emptyInventory()
+                setInv(relic, ItemGold, 0)
+                env.add(relic)
+                agent.inventoryRelic = agent.inventoryRelic - 1
+                env.updateAgentInventoryObs(agent, ItemRelic)
+                used = true
             elif agent.inventoryBread > 0:
               decInv(ItemBread)
               let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
@@ -431,6 +442,27 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               setInv(thing, key, remaining)
             used = true
         case thing.kind:
+        of Relic:
+          let stored = getInv(thing, ItemGold)
+          if stored > 0:
+            if env.giveItem(agent, ItemGold):
+              setInv(thing, ItemGold, stored - 1)
+            else:
+              used = false
+              break useAction
+          if agent.inventoryRelic < MapObjectAgentMaxInventory:
+            agent.inventoryRelic = agent.inventoryRelic + 1
+            env.updateAgentInventoryObs(agent, ItemRelic)
+            removeThing(env, thing)
+            used = true
+          else:
+            used = stored > 0
+        of Lantern:
+          if agent.inventoryLantern < MapObjectAgentMaxInventory:
+            agent.inventoryLantern = agent.inventoryLantern + 1
+            env.updateAgentInventoryObs(agent, ItemLantern)
+            removeThing(env, thing)
+            used = true
         of Wheat:
           used = env.harvestWheat(agent, thing)
         of Stubble:
@@ -533,12 +565,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               removeThing(env, thing)
             else:
               setInv(thing, ItemFish, remaining)
-            used = true
-        of Relic:
-          if agent.unitClass == UnitMonk:
-            let teamId = getTeamId(agent)
-            env.addToStockpile(teamId, ResourceGold, 2)
-            removeThing(env, thing)
             used = true
         else:
           if isBuildingKind(thing.kind):

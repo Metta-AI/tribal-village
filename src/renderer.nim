@@ -748,6 +748,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
       count = getInv(thing, ItemWheat)
     of Fish:
       count = getInv(thing, ItemFish)
+    of Relic:
+      count = getInv(thing, ItemGold)
     of Tree, Stump:
       count = getInv(thing, ItemWood)
     of Stone, Stalagmite:
