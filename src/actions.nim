@@ -621,9 +621,16 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if isNil(target) or target.kind != Agent or isThingFrozen(target, env):
           inc env.stats[id].actionInvalid
           break swapAction
-        var temp = agent.pos
-        agent.pos = target.pos
-        target.pos = temp
+        let agentOld = agent.pos
+        let targetOld = target.pos
+        agent.pos = targetOld
+        target.pos = agentOld
+        env.grid[agentOld.x][agentOld.y] = target
+        env.grid[targetOld.x][targetOld.y] = agent
+        env.updateObservations(AgentLayer, agentOld, getTeamId(target.agentId) + 1)
+        env.updateObservations(AgentLayer, targetOld, getTeamId(agent.agentId) + 1)
+        env.updateObservations(AgentOrientationLayer, agentOld, target.orientation.int)
+        env.updateObservations(AgentOrientationLayer, targetOld, agent.orientation.int)
         inc env.stats[id].actionSwap
     of 5:
       block putAction:

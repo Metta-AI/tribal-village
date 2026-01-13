@@ -167,6 +167,83 @@ suite "Mechanics":
     env.stepAction(0, 3'u8, goldDir)
     check env.getThing(ivec2(11, 10)) == nil
 
+  test "attack kills enemy and drops corpse inventory":
+    let env = makeEmptyEnv()
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    let defender = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9))
+    defender.hp = 1
+    setInv(defender, ItemWood, 2)
+
+    let attackDir = dirIndex(attacker.pos, defender.pos)
+    env.stepAction(attacker.agentId, 2'u8, attackDir)
+
+    let corpse = env.getOverlayThing(ivec2(10, 9))
+    check corpse.kind == Corpse
+    check getInv(corpse, ItemWood) == 2
+    check env.terminated[defender.agentId] == 1.0
+
+  test "armor absorbs damage before hp":
+    let env = makeEmptyEnv()
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    let defender = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9))
+    defender.inventoryArmor = 2
+    defender.hp = 5
+
+    let attackDir = dirIndex(attacker.pos, defender.pos)
+    env.stepAction(attacker.agentId, 2'u8, attackDir)
+
+    check defender.inventoryArmor == 1
+    check defender.hp == 5
+
+  test "spear attack hits at range and consumes spear":
+    let env = makeEmptyEnv()
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    attacker.inventorySpear = 1
+    let defender = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 8))
+    defender.hp = 2
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
+
+    check attacker.inventorySpear == 0
+    check defender.hp == 1
+
+  test "monk heals adjacent ally":
+    let env = makeEmptyEnv()
+    let monk = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMonk)
+    let ally = addAgentAt(env, 1, ivec2(10, 9))
+    ally.hp = 1
+
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, ally.pos))
+
+    check ally.hp == 2
+
+  test "swap action updates positions":
+    let env = makeEmptyEnv()
+    let agentA = addAgentAt(env, 0, ivec2(10, 10))
+    let agentB = addAgentAt(env, 1, ivec2(10, 9))
+
+    env.stepAction(agentA.agentId, 4'u8, dirIndex(agentA.pos, agentB.pos))
+
+    check agentA.pos == ivec2(10, 9)
+    check agentB.pos == ivec2(10, 10)
+    check env.getThing(ivec2(10, 9)) == agentA
+    check env.getThing(ivec2(10, 10)) == agentB
+
+  test "planting wheat consumes inventory and clears fertile":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    agent.inventoryWheat = 1
+    let target = ivec2(10, 9)
+    env.terrain[target.x][target.y] = Fertile
+
+    env.stepAction(agent.agentId, 7'u8, dirIndex(agent.pos, target))
+
+    let crop = env.getOverlayThing(target)
+    check crop.kind == Wheat
+    check getInv(crop, ItemWheat) == ResourceNodeInitial
+    check agent.inventoryWheat == 0
+    check env.terrain[target.x][target.y] == TerrainEmpty
+
 suite "AI - Gatherer":
   test "drops off carried wood":
     let env = makeEmptyEnv()
