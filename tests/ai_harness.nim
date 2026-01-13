@@ -258,6 +258,67 @@ suite "Mechanics":
     env.stepAction(enemyId, 0'u8, 0)
     check enemy.hp < startHp
 
+  test "siege workshop trains battering ram":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let workshop = addBuilding(env, SiegeWorkshop, ivec2(10, 9), 0)
+    env.teamStockpiles[0].counts[ResourceWood] = 10
+    env.teamStockpiles[0].counts[ResourceStone] = 10
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, workshop.pos))
+    check agent.unitClass == UnitBatteringRam
+
+  test "mangonel workshop trains mangonel":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let workshop = addBuilding(env, MangonelWorkshop, ivec2(10, 9), 0)
+    env.teamStockpiles[0].counts[ResourceWood] = 10
+    env.teamStockpiles[0].counts[ResourceStone] = 10
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, workshop.pos))
+    check agent.unitClass == UnitMangonel
+
+  test "siege damage multiplier applies vs walls":
+    let env = makeEmptyEnv()
+    let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)
+    applyUnitClass(attacker, UnitBatteringRam)
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerVillage)
+    wall.hp = WallMaxHp
+    wall.maxHp = WallMaxHp
+    env.add(wall)
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, wall.pos))
+    check wall.hp == WallMaxHp - (BatteringRamAttackDamage * SiegeStructureMultiplier)
+
+  test "mangonel extended attack hits multiple targets":
+    let env = makeEmptyEnv()
+    let mangonel = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMangonel)
+    let enemyA = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 8))
+    let enemyB = addAgentAt(env, MapAgentsPerVillage + 1, ivec2(9, 8))
+    let enemyC = addAgentAt(env, MapAgentsPerVillage + 2, ivec2(11, 8))
+    let hpA = enemyA.hp
+    let hpB = enemyB.hp
+    let hpC = enemyC.hp
+
+    env.stepAction(mangonel.agentId, 2'u8, dirIndex(mangonel.pos, enemyA.pos))
+    check enemyA.hp < hpA
+    check enemyB.hp < hpB
+    check enemyC.hp < hpC
+
+  test "siege prefers attacking blocking wall":
+    let env = makeEmptyEnv()
+    let ram = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerVillage)
+    wall.hp = WallMaxHp
+    wall.maxHp = WallMaxHp
+    env.add(wall)
+    let enemy = addAgentAt(env, MapAgentsPerVillage, ivec2(9, 10))
+    let enemyHp = enemy.hp
+
+    env.stepAction(ram.agentId, 2'u8, dirIndex(ram.pos, wall.pos))
+    check wall.hp < WallMaxHp
+    check enemy.hp == enemyHp
+
   test "swap action updates positions":
     let env = makeEmptyEnv()
     let agentA = addAgentAt(env, 0, ivec2(10, 10))
