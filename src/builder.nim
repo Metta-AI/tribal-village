@@ -106,16 +106,14 @@ proc canStartBuilderMillNearResource(controller: Controller, env: Environment, a
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
-  if agent.homeAltar.x < 0 or
-      max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
-    let (didMill, actMill) = controller.tryBuildNearResource(
-      env, agent, agentId, state, teamId, Mill,
-      countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
-        countNearbyTerrain(env, agent.pos, 4, {Fertile}),
-      8,
-      [Mill, Granary, TownCenter], 5
-    )
-    if didMill: return actMill
+  let (didMill, actMill) = controller.tryBuildNearResource(
+    env, agent, agentId, state, teamId, Mill,
+    countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
+      countNearbyTerrain(env, agent.pos, 4, {Fertile}),
+    8,
+    [Mill, Granary, TownCenter], 5
+  )
+  if didMill: return actMill
   0'u8
 
 proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
@@ -127,10 +125,8 @@ proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent
 
 proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent.agentId)
-  if controller.getBuildingCount(env, teamId, Mill) >= 2:
-    let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
-    if didPlant: return actPlant
+  let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
+  if didPlant: return actPlant
   0'u8
 
 proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
@@ -279,8 +275,6 @@ proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent
 
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
-  if agent.unitClass != UnitVillager:
-    return 0'u8
   let teamId = getTeamId(agent.agentId)
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)

@@ -110,8 +110,6 @@ proc canStartGathererCarrying(controller: Controller, env: Environment, agent: T
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  if not isCarryingStockpile(agent):
-    return 0'u8
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
   let heartsPriority = state.gathererTask == TaskHearts
@@ -144,8 +142,6 @@ proc canStartGathererHearts(controller: Controller, env: Environment, agent: Thi
 
 proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
-  if state.gathererTask != TaskHearts:
-    return 0'u8
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
   let magmaGlobal = findNearestMagma(env, agent)
@@ -182,8 +178,6 @@ proc canStartGathererResource(controller: Controller, env: Environment, agent: T
 
 proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  if state.gathererTask notin {TaskGold, TaskWood, TaskStone}:
-    return 0'u8
   let teamId = getTeamId(agent.agentId)
   var campKind: ThingKind
   var nearbyCount = 0
@@ -228,8 +222,6 @@ proc canStartGathererFood(controller: Controller, env: Environment, agent: Thing
 
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
-  if state.gathererTask != TaskFood:
-    return 0'u8
   let teamId = getTeamId(agent.agentId)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
