@@ -130,7 +130,8 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   state.buildStand = stand
   state.buildIndex = buildIndex
   if state.buildLockSteps <= 0:
-    state.buildLockSteps = 8
+    let dist = int(chebyshevDist(agent.pos, stand))
+    state.buildLockSteps = max(8, dist + 4)
   return (true, controller.moveTo(env, agent, agentId, state, stand))
 
 proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing, agentId: int,
