@@ -499,6 +499,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:
+    if not env.territoryScored:
+      env.territoryScore = env.scoreTerritory()
+      env.territoryScored = true
     # Team altar rewards already applied in main loop above
     # Mark all living agents as truncated (episode ended due to time limit)
     for i in 0..<MapAgents:
@@ -556,6 +559,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       break
   if allDone:
     # Team altar rewards already applied in main loop if needed
+    if not env.territoryScored:
+      env.territoryScore = env.scoreTerritory()
+      env.territoryScored = true
     env.shouldReset = true
 
   if logRenderEnabled and (env.currentStep mod logRenderEvery == 0):
@@ -676,6 +682,8 @@ proc reset*(env: Environment) =
   env.agentColors.setLen(0)
   env.teamColors.setLen(0)
   env.altarColors.clear()
+  env.territoryScore = default(TerritoryScore)
+  env.territoryScored = false
   # Clear UI selection to prevent stale references
   selection = nil
   env.init()  # init() handles terrain, activeTiles, and tile colors

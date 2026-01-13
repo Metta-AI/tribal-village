@@ -130,17 +130,68 @@ Status: Draft
 
 ### Current State
 - No explicit score-based win condition tied to map control.
-- Tint data exists per tile in `computedTintColors` and tumor tint is distinct (Clippy).
+- Tint data exists per tile in `computedTintColors`; tumor tint is distinct (Clippy).
+- Frozen tiles are determined by proximity to Clippy tint but are not currently scored.
 
 ### AoE2-Style Meaning
-- AoE2 often rewards territorial control indirectly via resources and pressure. For TV, we can make territory explicit without changing core mechanics.
+- AoE2 rewards territorial control indirectly through eco and pressure. For TV, we can make territory explicit via end-of-episode scoring without changing core mechanics.
+
+### Goal (Definition)
+At step ~10000 (or `maxSteps`), compute a **territory score** for each team based on the number of tiles whose tint is closest to that team’s tint color, with tumors/clippies treated as an NPC team.
+
+### Data Inputs
+- `computedTintColors` per tile (dynamic influence only).
+- Team tint colors: `env.teamColors`.
+- Clippy tint color: `ClippyTint`.
+- Terrain grid (to optionally exclude water/blocked tiles).
+
+### Scoring Algorithm (Deterministic)
+1. For each tile (x, y):
+   - Skip if `terrain == Water` (optional).
+   - Read tint color `C = computedTintColors[x][y]`.
+   - If `C.intensity < NeutralThreshold`, count as neutral and continue.
+2. Compute color distance for all teams and clippy:
+   - `dist(team) = (C.r - team.r)^2 + (C.g - team.g)^2 + (C.b - team.b)^2`
+   - `dist(clippy) = (C - ClippyTint)^2`
+3. Assign tile ownership to the **minimum distance** entry.
+4. Increment that owner’s territory count.
+
+### Outputs
+- `territory_score[teamId]` for each team.
+- `territory_score_clippy` for NPC tumors.
+- Optional derived metrics:
+  - `territory_share = score / total_scored_tiles`
+  - `neutral_tiles` count
+
+### Parameters (Tunable)
+- `NeutralThreshold` (float): minimum tint intensity to count a tile.
+- `ScoreWaterTiles` (bool): whether water tiles are included.
+- `ScoreMode` (enum):
+  - `FinalState`: compute only at episode end.
+  - `RollingAverage`: average over last N steps.
+  - `AreaUnderCurve`: sum per-step scores across the episode.
+- `ScoreHorizonSteps` (int): default ~10000 (or mirror `maxSteps`).
+
+### Implementation Notes
+- Use `computedTintColors` (not `combinedTileTint`) to avoid bias from base biome colors.
+- Ignore `actionTint` overlays; these are visual feedback, not territory.
+- Clippy is treated as a distinct “team” in scoring but does not need an agent ID.
+
+### Minimal Implementation Plan
+1. Add a scoring function in `environment.nim` (or a dedicated scoring module):
+   - `proc scoreTerritory*(env: Environment): TerritoryScore`
+2. Call it when `currentStep >= ScoreHorizonSteps` (or `maxSteps`) and store results on the environment.
+3. Expose scores through the FFI layer (optional; for Python logging).
+4. Log summary on episode end for debugging.
+
+### Validation / Sanity Checks
+- If no tints present, all tiles should be neutral.
+- If a single team tint dominates, that team should score nearly all tiles.
+- Clippy should capture tiles if tumor tint dominates or frozen areas spread.
 
 ### Changes Needed
-- **Add** a scoring function at a fixed horizon (e.g., step ~5000) that:
-  - Scores tiles by nearest tint color to each team and Clippy.
-  - Uses `computedTintColors` only (ignore base biome and action tints).
-  - Ignores water/blocked tiles if desired.
-- Variants: final-state only, rolling average (last N steps), or area-under-curve.
+- **Add** scoring function and minimal config fields (threshold, horizon, mode).
+- **No change** to housing, ages, or win-by-elimination rules.
 
 ---
 
