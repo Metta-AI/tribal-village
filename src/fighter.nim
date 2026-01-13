@@ -4,7 +4,8 @@ const
   DividerHalfLengthMin = 6
   DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
-  FighterTrainKinds = [Castle, MangonelWorkshop, Stable, ArcheryRange, Barracks]
+  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks]
+  FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
 
 proc fighterHasExit(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
@@ -52,6 +53,19 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
 proc fighterHasFood(agent: Thing): bool =
   for key, count in agent.inventory.pairs:
     if count > 0 and isFoodItem(key):
+      return true
+  false
+
+proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
+  let teamId = getTeamId(agent.agentId)
+  for thing in env.things:
+    if thing.isNil or thing.teamId == teamId:
+      continue
+    if not isBuildingKind(thing.kind):
+      continue
+    if not isAttackableStructure(thing.kind):
+      continue
+    if chebyshevDist(agent.pos, thing.pos) <= ObservationRadius.int32:
       return true
   false
 
@@ -418,7 +432,10 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent.agentId)
+  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
   for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
     if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
@@ -429,7 +446,10 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
+  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
   for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
     if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
