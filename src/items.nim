@@ -257,7 +257,6 @@ type
   CraftStation* = enum
     StationNone
     StationBlacksmith
-    StationArmory
     StationLoom
     StationOven
     StationTable
@@ -311,9 +310,6 @@ proc initCraftRecipesBase*(): seq[CraftRecipe] =
   addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("crown"), 1)], 8)
   addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("armorstand"), 1)], 8)
   addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("weaponrack"), 1)], 8)
-
-  # Armory: wood gear.
-  addRecipe(recipes, "shield_wood", StationArmory, @[(ItemWood, 1)], @[(otherItem("shield"), 1)], 6)
 
   # Oven: food.
   addRecipe(recipes, "bread", StationOven, @[(ItemWheat, 1)], @[(ItemBread, 1)], 6)

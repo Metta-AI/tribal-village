@@ -32,7 +32,6 @@ const
   StructureFloorChar* = '.'
   StructureDoorChar* = 'D'
   StructureAltarChar* = 'a'
-  StructureArmoryChar* = 'A'
   StructureBlacksmithChar* = 'F'
   StructureClayOvenChar* = 'C'
   StructureWeavingLoomChar* = 'W'
@@ -764,7 +763,6 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     floors: seq[IVec2],
     altars: seq[IVec2],
     blacksmiths: seq[IVec2],
-    armories: seq[IVec2],
     clayOvens: seq[IVec2],
     weavingLooms: seq[IVec2],
     center: IVec2
@@ -776,7 +774,6 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     floors: @[],
     altars: @[],
     blacksmiths: @[],
-    armories: @[],
     clayOvens: @[],
     weavingLooms: @[],
     center: topLeft + structure.centerPos
@@ -791,7 +788,6 @@ proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
       of StructureFloorChar: result.floors.add(pos)
       of StructureAltarChar: result.altars.add(pos)
       of StructureBlacksmithChar: result.blacksmiths.add(pos)
-      of StructureArmoryChar: result.armories.add(pos)
       of StructureClayOvenChar: result.clayOvens.add(pos)
       of StructureWeavingLoomChar: result.weavingLooms.add(pos)
       else: discard

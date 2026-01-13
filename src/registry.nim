@@ -10,7 +10,6 @@ type
   BuildingUseKind* = enum
     UseNone
     UseAltar
-    UseArmory
     UseClayOven
     UseWeavingLoom
     UseBlacksmith
@@ -74,7 +73,6 @@ let BuildingRegistry* = block:
       buildIndex = 0, buildCost = @[(ItemWood, 1)], buildCooldown = 10)
   add(Door, "Door", "door", 'D', (r: 120'u8, g: 100'u8, b: 80'u8),
       buildIndex = BuildIndexDoor, buildCost = @[(ItemWood, 1)], buildCooldown = 6)
-  add(Armory, "Armory", "armory", 'A', (r: 255'u8, g: 120'u8, b: 40'u8))
   add(ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
       buildIndex = 20, buildCost = @[(ItemWood, 4)], buildCooldown = 12)
   add(WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),
@@ -254,7 +252,6 @@ proc itemSpriteKey*(key: ItemKey): string =
 proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   case kind
   of Altar: UseAltar
-  of Armory: UseNone
   of ClayOven: UseClayOven
   of WeavingLoom: UseWeavingLoom
   of Blacksmith: UseBlacksmith

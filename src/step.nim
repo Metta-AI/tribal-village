@@ -139,7 +139,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
         thing.cooldown = 10
-    elif buildingUseKind(thing.kind) in {UseArmory, UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
+    elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
                                          UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
       if thing.cooldown > 0:

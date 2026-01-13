@@ -1,7 +1,8 @@
 # Tribal Village Environment
 
-Multi‑agent RL playground in Nim with a Python wrapper (PufferLib compatible). 48 agents (8 teams, 6 per team) compete for
-resources while hostile tumors spread a freezing “clippy” tint across the map. Code: <https://github.com/Metta-AI/tribal-village>
+Multi‑agent RL playground in Nim with a Python wrapper (PufferLib compatible). 1000 agent slots (8 teams, 125 per team;
+6 active per team at start) compete for resources while hostile tumors spread a freezing “clippy” tint across the map.
+Code: <https://github.com/Metta-AI/tribal-village>
 
 <img width="2932" height="1578" alt="image" src="https://github.com/user-attachments/assets/b1736191-ff85-48fa-b5cf-f47e441fd118" />
 
@@ -74,15 +75,17 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ## Game Overview
 
-- Map: 192x108 grid, procedural rivers/fields/trees.
-- Agents: 48 agents (8 teams, 6 per team).
-- Resources: gold, batteries, water, wheat, wood, spears, lanterns, armor, bread.
+- Map: 234x148 grid, procedural rivers/fields/trees/biomes.
+- Agents: 1000 slots (8 teams, 125 per team; 6 active per team at start).
+- Resources: gold, stone, water, wheat, wood, bars, spears, lanterns, armor, bread, plants, meat (plus team stockpiles for
+  food/wood/stone/gold/water).
 - Threats: tumors spread dark clippy tint; frozen tiles/objects cannot be harvested or used until thawed.
 - Coalition touches we enjoyed while building it:
   - Territory control via lanterns
-  - Tiny async loops (e.g., craft 5x armor from wood and hand off to teammates)
+  - Tiny async loops (e.g., craft armor from bars and hand off to teammates)
   - Tank / DPS / healer roles that synergize in combat
   - Hearts power respawns for your squad
+  - Note: most production building cooldowns are currently 0 (use/craft actions are available every step)
 
 ### Core Gameplay Loop
 
@@ -102,24 +105,34 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ### Observation Space
 
-21 layers, 11x11 grid per agent:
+20 layers, 11x11 grid per agent:
 
 - **Layer 0**: Team-aware agent presence (1..8=teams, 255=Tumor)
-- **Layers 1-9**: Agent orientation + inventories (gold, bar, water, wheat, wood, spear, lantern, armor)
-- **Layers 10-18**: Walls/mines/magma/altars + ready/resource status
-- **Layers 19-20**: Action tint (combat/heal/freeze) + bread inventory
+- **Layer 1**: Agent orientation
+- **Layers 2-9**: Inventories (gold, bar, water, wheat, wood, spear, lantern, armor)
+- **Layer 10**: Walls
+- **Layer 11**: Magma
+- **Layer 12**: Altars
+- **Layer 13**: Altar hearts
+- **Layer 14**: Action tint (combat/heal)
+- **Layer 15**: Bread inventory
+- **Layer 16**: Stone inventory
+- **Layer 17**: Meat inventory
+- **Layer 18**: Fish inventory
+- **Layer 19**: Plant inventory
 
 ### Action Space
 
-Discrete 64 (`verb * 8 + argument`), where the argument is a direction (0..7):
+Discrete 240 (`verb * 24 + argument`). Most verbs interpret arguments 0..7 as directions; higher arguments are used for
+build choices and resource-planting variants.
 
-- **Directions**: N/S/E/W + diagonals
-- **Verbs**: 0=noop, 1=move, 2=attack, 3=use/craft, 4=swap, 5=give, 6=plant lantern, 7=plant wheat/tree
+- **Directions**: N/S/E/W + diagonals (0..7)
+- **Verbs**: 0=noop, 1=move, 2=attack, 3=use/craft, 4=swap, 5=give, 6=plant lantern, 7=plant wheat/tree, 8=build, 9=orient
 
 ### Architecture
 
 - **Nim backend**: High-performance simulation and rendering
-- **Python wrapper**: PufferLib-compatible interface for all 48 agents
+- **Python wrapper**: PufferLib-compatible interface for all 1000 agents
 - **Zero-copy communication**: Direct pointer passing for efficiency
 - **Web ready**: Emscripten support for WASM deployment
 
@@ -137,7 +150,7 @@ Discrete 64 (`verb * 8 + argument`), where the argument is a direction (0..7):
 
 ## Files
 
-**Core**: `tribal_village.nim` (entry), `src/environment.nim` (simulation), `src/ai.nim` (built-ins)  
+**Core**: `tribal_village.nim` (entry), `src/environment.nim` (simulation), `src/ai_core.nim` (built-ins)  
 **Rendering**: `src/renderer.nim`, `data/` (sprites/fonts/UI)  
 **Integration**: `src/ffi.nim` (C interface), `tribal_village_env/` (Python wrapper + CLI)  
 **Build**: `nimby.lock`, `tribal_village.nimble`, `pyproject.toml`

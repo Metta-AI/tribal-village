@@ -505,8 +505,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
                 agent.reward += env.config.heartReward
                 used = true
-            of UseArmory:
-              discard
             of UseClayOven:
               if thing.cooldown == 0:
                 if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):

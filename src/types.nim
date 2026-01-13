@@ -169,7 +169,6 @@ type
     Cow
     Corpse
     Skeleton
-    Armory
     ClayOven
     WeavingLoom
     Outpost

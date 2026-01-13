@@ -522,12 +522,6 @@ proc init(env: Environment) =
           if y < villageStruct.layout.len and x < villageStruct.layout[y].len:
             let worldPos = placementPosition + ivec2(x.int32, y.int32)
             case villageStruct.layout[y][x]:
-            of StructureArmoryChar:  # Armory at top-left
-              env.add(Thing(
-                kind: Armory,
-                pos: worldPos,
-                teamId: teamId
-              ))
             of StructureBlacksmithChar:  # Blacksmith
               env.add(Thing(
                 kind: Blacksmith,
