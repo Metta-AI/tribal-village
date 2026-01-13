@@ -220,21 +220,49 @@ def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
     w, h = img.size
     px = img.load()
     corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
-    corner_colors = [px[x, y][:3] for x, y in corners]
 
     def color_close(c, ref) -> bool:
         return all(abs(int(c[i]) - int(ref[i])) <= tol for i in range(3))
 
+    border_colors: dict[tuple[int, int, int], int] = {}
+    for x in range(w):
+        for y in (0, h - 1):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            key = (r // 8, g // 8, b // 8)
+            border_colors[key] = border_colors.get(key, 0) + 1
+    for y in range(h):
+        for x in (0, w - 1):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            key = (r // 8, g // 8, b // 8)
+            border_colors[key] = border_colors.get(key, 0) + 1
+
+    if border_colors:
+        top = sorted(border_colors.items(), key=lambda item: item[1], reverse=True)[:4]
+        bg_colors = [(k[0] * 8, k[1] * 8, k[2] * 8) for k, _ in top]
+    else:
+        bg_colors = [px[x, y][:3] for x, y in corners]
+
     visited = [[False] * h for _ in range(w)]
     q: deque[tuple[int, int]] = deque()
-    for x, y in corners:
-        q.append((x, y))
-        visited[x][y] = True
+    for x in range(w):
+        for y in (0, h - 1):
+            if not visited[x][y]:
+                q.append((x, y))
+                visited[x][y] = True
+    for y in range(h):
+        for x in (0, w - 1):
+            if not visited[x][y]:
+                q.append((x, y))
+                visited[x][y] = True
 
     while q:
         x, y = q.popleft()
         r, g, b, a = px[x, y]
-        if any(color_close((r, g, b), ref) for ref in corner_colors):
+        if a == 0 or any(color_close((r, g, b), ref) for ref in bg_colors):
             px[x, y] = (r, g, b, 0)
             for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
                 if 0 <= nx < w and 0 <= ny < h and not visited[nx][ny]:
@@ -324,6 +352,7 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=200, help="Output square size.")
     parser.add_argument("--postprocess", action="store_true")
     parser.add_argument("--postprocess-only", action="store_true")
+    parser.add_argument("--postprocess-tol", type=int, default=18, help="Background keying tolerance.")
     parser.add_argument(
         "--oriented",
         action="store_true",
@@ -381,7 +410,7 @@ def main() -> None:
                     continue
                 with Image.open(target) as existing:
                     img = existing.convert("RGBA")
-                img = apply_postprocess(img, args.size)
+                img = apply_postprocess(img, args.size, args.postprocess_tol)
                 img.save(target)
                 continue
             if not reference.exists():
@@ -393,7 +422,7 @@ def main() -> None:
                 client, args.model, prompt, args.seed + idx, args.size, reference
             )
             if args.postprocess:
-                img = apply_postprocess(img, args.size)
+                img = apply_postprocess(img, args.size, args.postprocess_tol)
             elif args.size and img.size != (args.size, args.size):
                 img = img.resize((args.size, args.size), Image.LANCZOS)
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -417,7 +446,7 @@ def main() -> None:
                     continue
                 with Image.open(target) as existing:
                     img = existing.convert("RGBA")
-                img = apply_postprocess(img, args.size)
+                img = apply_postprocess(img, args.size, args.postprocess_tol)
                 img.save(target)
                 continue
             if not source.exists():
@@ -426,7 +455,7 @@ def main() -> None:
                 img = existing.convert("RGBA")
             img = flip_horizontal(img)
             if args.postprocess:
-                img = apply_postprocess(img, args.size)
+                img = apply_postprocess(img, args.size, args.postprocess_tol)
             elif args.size and img.size != (args.size, args.size):
                 img = img.resize((args.size, args.size), Image.LANCZOS)
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -446,14 +475,14 @@ def main() -> None:
                     continue
                 with Image.open(target) as existing:
                     img = existing.convert("RGBA")
-                img = apply_postprocess(img, args.size)
+                img = apply_postprocess(img, args.size, args.postprocess_tol)
                 img.save(target)
                 continue
             if client is None:
                 raise SystemExit("Client not initialized for image generation.")
             img = generate_image(client, args.model, prompt, args.seed + idx, args.size)
             if args.postprocess:
-                img = apply_postprocess(img, args.size)
+                img = apply_postprocess(img, args.size, args.postprocess_tol)
             elif args.size and img.size != (args.size, args.size):
                 img = img.resize((args.size, args.size), Image.LANCZOS)
             target.parent.mkdir(parents=True, exist_ok=True)
