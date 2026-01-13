@@ -297,7 +297,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
       continue
     var hasThingOutput = false
     for output in recipe.outputs:
-      if output.key.kind == ItemKeyThing:
+      if isThingKey(output.key):
         hasThingOutput = true
         break
     if hasThingOutput:
@@ -308,7 +308,7 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
       else:
         var uses = false
         for output in recipe.outputs:
-          if output.key.kind == ItemKeyThing:
+          if isThingKey(output.key):
             uses = true
             break
         uses

@@ -1,5 +1,5 @@
 proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
-  if key.kind != ItemKeyThing:
+  if not isThingKey(key):
     return false
   let name = key.name
   for candidate in ThingKind:
@@ -103,7 +103,7 @@ proc add*(env: Environment, thing: Thing) =
       env.overlayGrid[thing.pos.x][thing.pos.y] = thing
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
-  if key.kind == ItemKeyThing and key.name == "Road":
+  if isThingKey(key) and key.name == "Road":
     if env.terrain[pos.x][pos.y] notin BuildableTerrain:
       return false
     env.terrain[pos.x][pos.y] = Road

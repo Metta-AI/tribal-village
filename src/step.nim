@@ -587,7 +587,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       for key in ObservedItemKeys:
         let count = getInv(agent, key)
         if count > 0:
-          invParts.add(itemKeyName(key) & "=" & $count)
+          invParts.add($key & "=" & $count)
       let invSummary = if invParts.len > 0: invParts.join(",") else: "-"
       entry.add(
         "  a" & $id &

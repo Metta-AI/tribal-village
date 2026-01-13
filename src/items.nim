@@ -49,6 +49,24 @@ const
   ArmorPoints* = 5        # Armor durability granted per craft
   BreadHealAmount* = 999  # Effectively "heal to full" per bread use
 
+  ItemKindNames: array[ItemKind, string] = [
+    "",        # ikNone
+    "gold",
+    "stone",
+    "bar",
+    "water",
+    "wheat",
+    "wood",
+    "spear",
+    "lantern",
+    "armor",
+    "bread",
+    "plant",
+    "fish",
+    "meat",
+    "hearts"
+  ]
+
   ItemNone* = ItemKey(kind: ItemKeyNone)
   ItemGold* = ItemKey(kind: ItemKeyItem, item: ikGold)
   ItemStone* = ItemKey(kind: ItemKeyItem, item: ikStone)
@@ -100,22 +118,7 @@ proc toItemKind*(key: ItemKey): ItemKind {.inline.} =
     ikNone
 
 proc itemKindName*(kind: ItemKind): string =
-  case kind
-  of ikNone: ""
-  of ikGold: "gold"
-  of ikStone: "stone"
-  of ikBar: "bar"
-  of ikWater: "water"
-  of ikWheat: "wheat"
-  of ikWood: "wood"
-  of ikSpear: "spear"
-  of ikLantern: "lantern"
-  of ikArmor: "armor"
-  of ikBread: "bread"
-  of ikPlant: "plant"
-  of ikFish: "fish"
-  of ikMeat: "meat"
-  of ikHearts: "hearts"
+  ItemKindNames[kind]
 
 proc itemKeyName*(key: ItemKey): string =
   case key.kind
@@ -125,6 +128,18 @@ proc itemKeyName*(key: ItemKey): string =
     itemKindName(key.item)
   of ItemKeyThing, ItemKeyOther:
     key.name
+
+proc `$`*(key: ItemKey): string =
+  itemKeyName(key)
+
+proc isItemKey*(key: ItemKey): bool =
+  key.kind == ItemKeyItem
+
+proc isThingKey*(key: ItemKey): bool =
+  key.kind == ItemKeyThing
+
+proc isOtherKey*(key: ItemKey): bool =
+  key.kind == ItemKeyOther
 
 proc `==`*(a, b: ItemKey): bool =
   if a.kind != b.kind:
