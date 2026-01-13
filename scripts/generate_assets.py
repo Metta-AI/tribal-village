@@ -278,6 +278,10 @@ def apply_postprocess(img: Image.Image, target_size: int, tol: int = 18) -> Imag
     return img
 
 
+def flip_horizontal(img: Image.Image) -> Image.Image:
+    return img.transpose(Image.FLIP_LEFT_RIGHT)
+
+
 def iter_rows(
     rows: Iterable[tuple[str, str]],
     only: set[str] | None,
@@ -296,6 +300,13 @@ def build_oriented_prompt(prompt: str) -> str:
         "Keep lighting consistent and preserve transparent background. "
         + prompt
     )
+
+
+FLIP_ORIENTATIONS = {
+    "e": "w",
+    "ne": "nw",
+    "se": "sw",
+}
 
 
 def main() -> None:
@@ -348,7 +359,11 @@ def main() -> None:
         oriented_rows = load_oriented_rows(prompt_path)
         if not oriented_rows:
             raise SystemExit("No oriented rows found (filenames containing {dir}).")
-        for idx, output in enumerate(iter_oriented_rows(oriented_rows, args.reference_dir, only)):
+        outputs = list(iter_oriented_rows(oriented_rows, args.reference_dir, only))
+        non_flip = [o for o in outputs if o.dir_key not in FLIP_ORIENTATIONS]
+        flip = [o for o in outputs if o.dir_key in FLIP_ORIENTATIONS]
+
+        for idx, output in enumerate(non_flip):
             if output.dir_key == args.reference_dir and not args.include_reference:
                 continue
             target = Path(output.filename)
@@ -377,6 +392,39 @@ def main() -> None:
             img = generate_oriented_image(
                 client, args.model, prompt, args.seed + idx, args.size, reference
             )
+            if args.postprocess:
+                img = apply_postprocess(img, args.size)
+            elif args.size and img.size != (args.size, args.size):
+                img = img.resize((args.size, args.size), Image.LANCZOS)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            img.save(target)
+
+        for output in flip:
+            target = Path(output.filename)
+            if not target.is_absolute():
+                target = out_dir / target
+            source_dir = FLIP_ORIENTATIONS[output.dir_key]
+            source_name = output.filename.replace(f".{output.dir_key}.", f".{source_dir}.")
+            source = Path(source_name)
+            if not source.is_absolute():
+                source = out_dir / source
+            if args.dry_run:
+                print(f"[dry-run] {target} <- flip {source}")
+                continue
+            if args.postprocess_only:
+                if not target.exists():
+                    print(f"[skip] missing {target}")
+                    continue
+                with Image.open(target) as existing:
+                    img = existing.convert("RGBA")
+                img = apply_postprocess(img, args.size)
+                img.save(target)
+                continue
+            if not source.exists():
+                raise SystemExit(f"Missing flip source image: {source}")
+            with Image.open(source) as existing:
+                img = existing.convert("RGBA")
+            img = flip_horizontal(img)
             if args.postprocess:
                 img = apply_postprocess(img, args.size)
             elif args.size and img.size != (args.size, args.size):
