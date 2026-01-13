@@ -4,6 +4,7 @@ const
   DividerHalfLengthMin = 6
   DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
+  FighterTrainKinds = [Castle, MangonelWorkshop, Stable, ArcheryRange, Barracks]
 
 proc fighterHasExit(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
@@ -53,6 +54,13 @@ proc fighterHasFood(agent: Thing): bool =
     if count > 0 and isFoodItem(key):
       return true
   false
+
+proc canAffordTrainCosts(env: Environment, teamId: int,
+                         costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  for cost in costs:
+    if env.stockpileCount(teamId, cost.res) < cost.count:
+      return false
+  true
 
 proc fighterIsCautious(env: Environment, agent: Thing): bool =
   var cautious = agent.hp * 2 < agent.maxHp
@@ -410,14 +418,26 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent.agentId)
-  controller.getBuildingCount(env, teamId, Barracks) > 0
+  for kind in FighterTrainKinds:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      continue
+    if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
+      continue
+    return true
+  false
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent.agentId)
-  let barracks = env.findNearestFriendlyThingSpiral(state, teamId, Barracks, controller.rng)
-  if not isNil(barracks):
-    return fighterActOrMove(controller, env, agent, agentId, state, barracks.pos, 3'u8)
+  for kind in FighterTrainKinds:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      continue
+    if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
+      continue
+    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
+    if isNil(building) or building.cooldown != 0:
+      continue
+    return fighterActOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
   0'u8
 
 proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
