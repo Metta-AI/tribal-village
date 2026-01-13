@@ -166,6 +166,7 @@ type
     UnitMonk
     UnitBatteringRam
     UnitMangonel
+    UnitBoat
 
   ThingKind* = enum
     Agent
@@ -173,6 +174,7 @@ type
     Door
     Tree
     Wheat
+    Fish
     Stone
     Gold
     Bush
@@ -232,6 +234,7 @@ type
     maxHp*: int
     attackDamage*: int
     unitClass*: AgentUnitClass
+    embarkedUnitClass*: AgentUnitClass
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
     # Tumor:

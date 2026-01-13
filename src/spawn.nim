@@ -625,7 +625,8 @@ proc init(env: Environment) =
             hp: hp,
             maxHp: AgentMaxHp,
             attackDamage: VillagerAttackDamage,
-            unitClass: UnitVillager
+            unitClass: UnitVillager,
+            embarkedUnitClass: UnitVillager
           ))
 
           totalAgentsSpawned += 1
@@ -659,6 +660,7 @@ proc init(env: Environment) =
       maxHp: AgentMaxHp,
       attackDamage: VillagerAttackDamage,
       unitClass: UnitVillager,
+      embarkedUnitClass: UnitVillager,
     ))
 
     totalAgentsSpawned += 1
@@ -982,6 +984,21 @@ proc init(env: Environment) =
 
     placeMineClusters(Stone, ItemStone, MapRoomObjectsStoneClusters, MapRoomObjectsStoneClusterCount)
     placeMineClusters(Gold, ItemGold, MapRoomObjectsGoldClusters, MapRoomObjectsGoldClusterCount)
+
+    let fishClusters = max(8, MapWidth div 20)
+    for _ in 0 ..< fishClusters:
+      var placed = false
+      for attempt in 0 ..< 20:
+        let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
+        let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+        if env.terrain[x][y] != Water:
+          continue
+        let size = randIntInclusive(r, 3, 7)
+        placeResourceCluster(env, x, y, size, 0.85, 0.45, Fish, ItemFish, {Water}, r)
+        placed = true
+        break
+      if not placed:
+        break
 
     for _ in 0 ..< 30:
       var attempts = 0

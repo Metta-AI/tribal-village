@@ -269,11 +269,11 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
           if max(abs(x - cx), abs(y - cy)) > radius:
             continue
           let occ = env.grid[x][y]
-          if not isNil(occ) and occ.kind in {Wheat, Stubble, Bush, Cow, Corpse}:
+          if not isNil(occ) and occ.kind in {Wheat, Stubble, Fish, Bush, Cow, Corpse}:
             hasNearbyFood = true
             break
           let overlay = env.overlayGrid[x][y]
-          if not isNil(overlay) and overlay.kind in {Wheat, Stubble, Bush, Cow, Corpse}:
+          if not isNil(overlay) and overlay.kind in {Wheat, Stubble, Fish, Bush, Cow, Corpse}:
             hasNearbyFood = true
             break
         if hasNearbyFood:
@@ -305,7 +305,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
       state.closestFoodPos = ivec2(-1, -1)
     else:
       let knownThing = env.getThing(state.closestFoodPos)
-      if isNil(knownThing) or knownThing.kind notin {Wheat, Stubble, Bush, Cow, Corpse}:
+      if isNil(knownThing) or knownThing.kind notin {Wheat, Stubble, Fish, Bush, Cow, Corpse}:
         state.closestFoodPos = ivec2(-1, -1)
       else:
         if isAdjacent(agent.pos, knownThing.pos):

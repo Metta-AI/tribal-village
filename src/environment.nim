@@ -201,6 +201,8 @@ proc spendCosts*(env: Environment, agent: Thing, source: PaymentSource,
 
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.unitClass = unitClass
+  if unitClass != UnitBoat:
+    agent.embarkedUnitClass = unitClass
   case unitClass
   of UnitVillager:
     agent.maxHp = VillagerMaxHp
@@ -226,7 +228,29 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   of UnitMangonel:
     agent.maxHp = MangonelMaxHp
     agent.attackDamage = MangonelAttackDamage
+  of UnitBoat:
+    agent.maxHp = VillagerMaxHp
+    agent.attackDamage = VillagerAttackDamage
   agent.hp = agent.maxHp
+
+proc applyUnitClassPreserveHp*(agent: Thing, unitClass: AgentUnitClass) =
+  let prevHp = agent.hp
+  applyUnitClass(agent, unitClass)
+  agent.hp = min(prevHp, agent.maxHp)
+
+proc embarkAgent*(agent: Thing) =
+  if agent.unitClass == UnitBoat:
+    return
+  agent.embarkedUnitClass = agent.unitClass
+  applyUnitClassPreserveHp(agent, UnitBoat)
+
+proc disembarkAgent*(agent: Thing) =
+  if agent.unitClass != UnitBoat:
+    return
+  var target = agent.embarkedUnitClass
+  if target == UnitBoat:
+    target = UnitVillager
+  applyUnitClassPreserveHp(agent, target)
 {.pop.}
 
 proc render*(env: Environment): string
@@ -329,6 +353,20 @@ proc hasDoor*(env: Environment, pos: IVec2): bool =
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   let door = env.getOverlayThing(pos)
   return isNil(door) or door.kind != Door or door.teamId == getTeamId(agent.agentId)
+
+proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
+  let overlay = env.getOverlayThing(pos)
+  if not isNil(overlay) and overlay.kind == Dock:
+    return true
+  let base = env.getThing(pos)
+  not isNil(base) and base.kind == Dock
+
+proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
+  if env.terrain[pos.x][pos.y] != Water:
+    return false
+  if agent.unitClass == UnitBoat:
+    return false
+  not env.hasDockAt(pos)
 {.pop.}
 
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
@@ -337,6 +375,10 @@ proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
+
+proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
+  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
+    (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] == Water
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
   ## Clear dynamic tint overlays for a tile
