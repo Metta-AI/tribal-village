@@ -2,7 +2,7 @@
 
 Date: 2026-01-13
 Owner: Design / Systems
-Status: Draft
+Status: In Progress
 
 ## 0) Scope & Non-Goals
 
@@ -39,7 +39,7 @@ Status: Draft
 ## 2) Unit Classes & Counter System
 
 ### Current State
-- Unit classes: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Siege.
+- Unit classes: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Battering Ram, Mangonel.
 - Combat includes armor absorption, spear AoE strikes, ranged attack ranges, and healing by monks.
 - Bonus damage vs class is implemented via a simple lookup table in `src/combat.nim`.
 - Training follows a one-building-per-unit approach:
@@ -80,7 +80,7 @@ Status: Draft
 ## 4) Market / Resource Conversion
 
 ### Current State
-- Market exists; it converts carried stockpile resources into food/gold using configurable rates and a cooldown.
+- Market exists; it converts carried stockpile resources into team stockpiles of food/gold using configurable rates and a cooldown.
 
 ### AoE2-Style Meaning
 - Markets enable late-game pivots and mitigate gold scarcity while preserving a cost/tax.
@@ -138,15 +138,15 @@ Status: Draft
 ## 8) Scoring / End-of-Episode Metric (Tint Territory)
 
 ### Current State
-- No explicit score-based win condition tied to map control.
+- Territory scoring exists and is run at the episode horizon.
 - Tint data exists per tile in `computedTintColors`; tumor tint is distinct (Clippy).
-- Frozen tiles are determined by proximity to Clippy tint but are not currently scored.
+- Frozen tiles are determined by proximity to Clippy tint and currently score like any other tile.
 
 ### AoE2-Style Meaning
 - AoE2 rewards territorial control indirectly through eco and pressure. For TV, we can make territory explicit via end-of-episode scoring without changing core mechanics.
 
 ### Goal (Definition)
-At step ~10000 (or `maxSteps`), compute a **territory score** for each team based on the number of tiles whose tint is closest to that team’s tint color, with tumors/clippies treated as an NPC team.
+At episode end (`env.config.maxSteps`), compute a **territory score** for each team based on the number of tiles whose tint is closest to that team’s tint color, with tumors/clippies treated as an NPC team.
 
 ### Data Inputs
 - `computedTintColors` per tile (dynamic influence only).
@@ -172,26 +172,21 @@ At step ~10000 (or `maxSteps`), compute a **territory score** for each team base
   - `territory_share = score / total_scored_tiles`
   - `neutral_tiles` count
 
-### Parameters (Tunable)
-- `NeutralThreshold` (float): minimum tint intensity to count a tile.
-- `ScoreWaterTiles` (bool): whether water tiles are included.
-- `ScoreMode` (enum):
-  - `FinalState`: compute only at episode end.
-  - `RollingAverage`: average over last N steps.
-  - `AreaUnderCurve`: sum per-step scores across the episode.
-- `ScoreHorizonSteps` (int): default ~10000 (or mirror `maxSteps`).
+### Parameters (Current)
+- `DefaultScoreNeutralThreshold = 0.05`
+- `DefaultScoreIncludeWater = false`
+- Score mode: `FinalState` only (computed at episode end).
+- Score horizon: `env.config.maxSteps`
 
 ### Implementation Notes
 - Use `computedTintColors` (not `combinedTileTint`) to avoid bias from base biome colors.
 - Ignore `actionTint` overlays; these are visual feedback, not territory.
 - Clippy is treated as a distinct “team” in scoring but does not need an agent ID.
 
-### Minimal Implementation Plan
-1. Add a scoring function in `environment.nim` (or a dedicated scoring module):
-   - `proc scoreTerritory*(env: Environment): TerritoryScore`
-2. Call it when `currentStep >= ScoreHorizonSteps` (or `maxSteps`) and store results on the environment.
-3. Expose scores through the FFI layer (optional; for Python logging).
-4. Log summary on episode end for debugging.
+### Implementation (Complete)
+- `proc scoreTerritory*(env: Environment): TerritoryScore` is in `src/environment.nim`.
+- Called at episode end in `src/step.nim` and stored on the environment.
+- Scores are available on `env.territoryScore` for logging/FFI when needed.
 
 ### Validation / Sanity Checks
 - If no tints present, all tiles should be neutral.
@@ -199,13 +194,13 @@ At step ~10000 (or `maxSteps`), compute a **territory score** for each team base
 - Clippy should capture tiles if tumor tint dominates or frozen areas spread.
 
 ### Changes Needed
-- **Add** scoring function and minimal config fields (threshold, horizon, mode).
+- **Optional**: expose score parameters in config/FFI if we want runtime tuning.
 - **No change** to housing, ages, or win-by-elimination rules.
 
 ---
 
 ## Summary of Proposed Changes
-- **Must-have**: doc clarity + scoring metric spec for tint-territory.
-- **Should-have**: tuning for unit counters and siege/fortification dynamics.
+- **Must-have**: tuning for unit counters and siege/fortification dynamics.
+- **Should-have**: market conversion tuning and territory scoring parameter tuning (if needed).
 - **Nice-to-have**: civ-style asymmetry, improved territory readability.
 - **Non-goals**: housing changes, age gates, conquest win condition.
