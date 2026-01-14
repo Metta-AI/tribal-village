@@ -21,10 +21,6 @@ type
     UseTrainAndCraft
     UseCraft
 
-  BuildingTickKind* = enum
-    TickNone
-    TickMillFertile
-
   BuildingInfo* = object
     displayName*: string
     spriteKey*: string
@@ -33,10 +29,6 @@ type
     buildIndex*: int
     buildCost*: seq[ItemAmount]
     buildCooldown*: int
-
-  ThingPlacementKind* = enum
-    PlacementBlocking
-    PlacementOverlay
 
 let BuildingRegistry* = block:
   var reg: array[ThingKind, BuildingInfo]
@@ -55,7 +47,6 @@ let BuildingRegistry* = block:
            renderColor: tuple[r, g, b: uint8],
            buildIndex = -1, buildCost: seq[ItemAmount] = @[],
            buildCooldown = 0) =
-    discard buildCooldown
     reg[kind] = BuildingInfo(
       displayName: displayName,
       spriteKey: spriteKey,
@@ -63,7 +54,7 @@ let BuildingRegistry* = block:
       renderColor: renderColor,
       buildIndex: buildIndex,
       buildCost: buildCost,
-      buildCooldown: 0
+      buildCooldown: buildCooldown
     )
 
   add(Altar, "Altar", "altar", 'a', (r: 220'u8, g: 0'u8, b: 220'u8))
@@ -209,6 +200,7 @@ let ItemCatalog* = block:
     (ItemPlant, "Plant", "plant", 'p'),
     (ItemFish, "Fish", "fish", 'f'),
     (ItemMeat, "Meat", "meat", 'm'),
+    (ItemRelic, "Relic", "bar", 'r'),
     (ItemHearts, "Hearts", "heart", 'h')
   ]:
     let (key, displayName, spriteKey, ascii) = entry
@@ -265,6 +257,7 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of TownCenter, Mill, LumberCamp, Quarry, MiningCamp, Dock: UseDropoff
   of Granary: UseDropoffAndStorage
   of Barrel: UseStorage
+  of University: UseCraft
   of Barracks, ArcheryRange, Stable, Monastery, Castle, MangonelWorkshop: UseTrain
   of SiegeWorkshop: UseTrainAndCraft
   else: UseNone
@@ -310,6 +303,17 @@ proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
   case kind
   of Granary: @[ItemWheat]
   of Blacksmith: @[ItemArmor, ItemSpear]
+  of Barrel: @[
+    ItemBread,
+    ItemMeat,
+    ItemFish,
+    ItemPlant,
+    ItemLantern,
+    ItemSpear,
+    ItemArmor,
+    ItemBar,
+    ItemRelic
+  ]
   else: @[]
 
 proc buildingCraftStation*(kind: ThingKind): CraftStation =
@@ -317,6 +321,7 @@ proc buildingCraftStation*(kind: ThingKind): CraftStation =
   of ClayOven: StationOven
   of WeavingLoom: StationLoom
   of Blacksmith: StationBlacksmith
+  of University: StationTable
   of SiegeWorkshop: StationSiegeWorkshop
   else: StationNone
 

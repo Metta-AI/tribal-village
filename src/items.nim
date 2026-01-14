@@ -21,6 +21,7 @@ type
     ikPlant = "plant"
     ikFish = "fish"
     ikMeat = "meat"
+    ikRelic = "relic"
     ikHearts = "hearts"
 
   ItemKeyKind* = enum
@@ -64,6 +65,7 @@ const
     "plant",
     "fish",
     "meat",
+    "relic",
     "hearts"
   ]
 
@@ -81,6 +83,7 @@ const
   ItemPlant* = ItemKey(kind: ItemKeyItem, item: ikPlant)
   ItemFish* = ItemKey(kind: ItemKeyItem, item: ikFish)
   ItemMeat* = ItemKey(kind: ItemKeyItem, item: ikMeat)
+  ItemRelic* = ItemKey(kind: ItemKeyItem, item: ikRelic)
   ItemHearts* = ItemKey(kind: ItemKeyItem, item: ikHearts)
 
   ObservedItemKeys* = [
@@ -238,6 +241,7 @@ defineInventoryAccessors(inventorySpear, ItemSpear)
 defineInventoryAccessors(inventoryLantern, ItemLantern)
 defineInventoryAccessors(inventoryArmor, ItemArmor)
 defineInventoryAccessors(inventoryBread, ItemBread)
+defineInventoryAccessors(inventoryRelic, ItemRelic)
 defineInventoryAccessors(hearts, ItemHearts)
 
 type

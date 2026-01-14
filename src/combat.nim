@@ -53,6 +53,12 @@ proc killAgent(env: Environment, victim: Thing) =
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0
   victim.reward += env.config.deathPenalty
+  let lanternCount = getInv(victim, ItemLantern)
+  let relicCount = getInv(victim, ItemRelic)
+  if lanternCount > 0:
+    setInv(victim, ItemLantern, 0)
+  if relicCount > 0:
+    setInv(victim, ItemRelic, 0)
   var dropInv = emptyInventory()
   var hasItems = false
   for key, count in victim.inventory.pairs:
@@ -63,6 +69,36 @@ proc killAgent(env: Environment, victim: Thing) =
   let corpse = Thing(kind: corpseKind, pos: deathPos)
   corpse.inventory = dropInv
   env.add(corpse)
+
+  if lanternCount > 0 or relicCount > 0:
+    var candidates: seq[IVec2] = @[]
+    for dy in -1 .. 1:
+      for dx in -1 .. 1:
+        if dx == 0 and dy == 0:
+          continue
+        let cand = deathPos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(cand):
+          continue
+        if env.isEmpty(cand) and not env.hasDoor(cand) and
+            not isBlockedTerrain(env.terrain[cand.x][cand.y]) and not isTileFrozen(cand, env):
+          candidates.add(cand)
+    var idx = 0
+    for _ in 0 ..< lanternCount:
+      if idx >= candidates.len:
+        break
+      let pos = candidates[idx]
+      inc idx
+      let lantern = Thing(kind: Lantern, pos: pos, teamId: getTeamId(victim), lanternHealthy: true)
+      env.add(lantern)
+    for _ in 0 ..< relicCount:
+      if idx >= candidates.len:
+        break
+      let pos = candidates[idx]
+      inc idx
+      let relic = Thing(kind: Relic, pos: pos)
+      relic.inventory = emptyInventory()
+      setInv(relic, ItemGold, 0)
+      env.add(relic)
 
   victim.inventory = emptyInventory()
   for key in ObservedItemKeys:

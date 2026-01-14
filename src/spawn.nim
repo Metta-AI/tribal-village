@@ -1023,7 +1023,10 @@ proc init(env: Environment) =
       if env.terrain[pos.x][pos.y] == Water:
         continue
       if env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos):
-        env.add(Thing(kind: Relic, pos: pos))
+        let relic = Thing(kind: Relic, pos: pos)
+        relic.inventory = emptyInventory()
+        setInv(relic, ItemGold, 1)
+        env.add(relic)
         inc relicsPlaced
 
     for _ in 0 ..< 30:

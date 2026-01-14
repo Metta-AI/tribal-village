@@ -105,6 +105,30 @@ proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
 proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
+  if agent.inventoryRelic > 0:
+    let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery, controller.rng)
+    if not isNil(monastery):
+      var dropPos = ivec2(-1, -1)
+      for d in Directions8:
+        let cand = monastery.pos + d
+        if not isValidPos(cand):
+          continue
+        if env.isEmpty(cand) and not env.hasDoor(cand) and
+            env.terrain[cand.x][cand.y] != Water and not isTileFrozen(cand, env):
+          dropPos = cand
+          break
+      if dropPos.x >= 0:
+        if isAdjacent(agent.pos, dropPos):
+          return controller.useAt(env, agent, agentId, state, dropPos)
+        return controller.moveTo(env, agent, agentId, state, dropPos)
+      return controller.moveTo(env, agent, agentId, state, monastery.pos)
+
+  let relic = env.findNearestThingSpiral(state, Relic, controller.rng)
+  if not isNil(relic):
+    if isAdjacent(agent.pos, relic.pos):
+      return controller.useAt(env, agent, agentId, state, relic.pos)
+    return controller.moveTo(env, agent, agentId, state, relic.pos)
+
   var bestEnemy: Thing = nil
   var bestDist = int.high
   for other in env.agents:
@@ -120,12 +144,6 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
       bestEnemy = other
   if not isNil(bestEnemy):
     return fighterActOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
-
-  let relic = env.findNearestThingSpiral(state, Relic, controller.rng)
-  if not isNil(relic):
-    if isAdjacent(agent.pos, relic.pos):
-      return controller.useAt(env, agent, agentId, state, relic.pos)
-    return controller.moveTo(env, agent, agentId, state, relic.pos)
 
   controller.moveNextSearch(env, agent, agentId, state)
 
