@@ -464,7 +464,7 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=200, help="Output square size.")
     parser.add_argument("--postprocess", action="store_true")
     parser.add_argument("--postprocess-only", action="store_true")
-    parser.add_argument("--postprocess-tol", type=int, default=18, help="Background keying tolerance.")
+    parser.add_argument("--postprocess-tol", type=int, default=35, help="Background keying tolerance.")
     parser.add_argument(
         "--oriented",
         action="store_true",
