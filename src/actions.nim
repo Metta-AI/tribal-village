@@ -1,4 +1,40 @@
 # This file is included by src/step.nim
+const UnitAttackTints: array[AgentUnitClass, TileColor] = [
+  # UnitVillager
+  TileColor(r: 0.88, g: 0.72, b: 0.38, intensity: 1.05),
+  # UnitManAtArms
+  TileColor(r: 0.65, g: 0.72, b: 0.88, intensity: 1.05),
+  # UnitArcher
+  TileColor(r: 0.20, g: 0.85, b: 0.70, intensity: 1.10),
+  # UnitScout
+  TileColor(r: 0.35, g: 0.90, b: 0.95, intensity: 1.10),
+  # UnitKnight
+  TileColor(r: 0.25, g: 0.45, b: 0.95, intensity: 1.15),
+  # UnitMonk
+  TileColor(r: 0.78, g: 0.60, b: 0.92, intensity: 1.10),
+  # UnitBatteringRam
+  TileColor(r: 0.78, g: 0.50, b: 0.22, intensity: 1.10),
+  # UnitMangonel
+  TileColor(r: 0.95, g: 0.35, b: 0.10, intensity: 1.20),
+  # UnitBoat
+  TileColor(r: 0.20, g: 0.60, b: 0.95, intensity: 1.08),
+]
+
+const UnitAttackTintDurations: array[AgentUnitClass, int8] = [
+  1'i8, # UnitVillager
+  2'i8, # UnitManAtArms
+  2'i8, # UnitArcher
+  1'i8, # UnitScout
+  3'i8, # UnitKnight
+  2'i8, # UnitMonk
+  3'i8, # UnitBatteringRam
+  3'i8, # UnitMangonel
+  2'i8, # UnitBoat
+]
+
+proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =
+  env.applyActionTint(pos, UnitAttackTints[unit], UnitAttackTintDurations[unit], ActionTintAttack)
+
 proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for id, actionValue in actions[]:
     let agent = env.agents[id]
@@ -277,6 +313,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
+              env.applyUnitAttackTint(agent.unitClass, healPos)
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -288,10 +325,13 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let right = ivec2(delta.y, -delta.x)
           for step in 1 .. MangonelAoELength:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+            env.applyUnitAttackTint(agent.unitClass, forward)
             if tryHitAt(forward):
               hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + left)
             if tryHitAt(forward + left):
               hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + right)
             if tryHitAt(forward + right):
               hit = true
           if hit:
@@ -304,6 +344,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var attackHit = false
           for distance in 1 .. rangedRange:
             let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+            env.applyUnitAttackTint(agent.unitClass, attackPos)
             if tryHitAt(attackPos):
               attackHit = true
               break
@@ -313,16 +354,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
           break attackAction
 
-        # Special combat visuals
-        if hasSpear:
-          let left = ivec2(-delta.y, delta.x)
-          let right = ivec2(delta.y, -delta.x)
-          let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
-          for step in 1 .. 3:
-            let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
-            env.applyActionTint(forward, tint, 2, ActionTintAttack)
-            env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
-            env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
+        # Armor overlay (defensive flash)
         if agent.inventoryArmor > 0:
           let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
           if abs(delta.x) == 1 and abs(delta.y) == 1:
@@ -347,11 +379,14 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let right = ivec2(delta.y, -delta.x)
           for step in 1 .. 3:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+            env.applyUnitAttackTint(agent.unitClass, forward)
             if tryHitAt(forward):
               hit = true
             # Keep spear width contiguous (no skipping): lateral offset is fixed 1 tile.
+            env.applyUnitAttackTint(agent.unitClass, forward + left)
             if tryHitAt(forward + left):
               hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + right)
             if tryHitAt(forward + right):
               hit = true
 
@@ -367,6 +402,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         for distance in 1 .. maxRange:
           let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+          env.applyUnitAttackTint(agent.unitClass, attackPos)
           if tryHitAt(attackPos):
             attackHit = true
             break
