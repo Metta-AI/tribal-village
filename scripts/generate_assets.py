@@ -298,7 +298,11 @@ def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
     return cropped
 
 
-def apply_postprocess(img: Image.Image, target_size: int, tol: int = 18) -> Image.Image:
+def apply_postprocess(
+    img: Image.Image,
+    target_size: int,
+    tol: int = 18,
+) -> Image.Image:
     if img.mode != "RGBA":
         img = img.convert("RGBA")
     img = flood_fill_bg(img, tol)
@@ -318,7 +322,12 @@ def tmp_path_for(target: Path, out_dir: Path, tmp_dir: Path) -> Path:
     return tmp_dir / relative
 
 
-def postprocess_to_target(source: Path, target: Path, size: int, tol: int) -> None:
+def postprocess_to_target(
+    source: Path,
+    target: Path,
+    size: int,
+    tol: int,
+) -> None:
     with Image.open(source) as existing:
         img = existing.convert("RGBA")
     img = apply_postprocess(img, size, tol)
