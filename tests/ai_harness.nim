@@ -1,4 +1,4 @@
-import std/unittest
+import std/[tables, unittest]
 import environment
 import agent_control
 import common
@@ -26,9 +26,10 @@ proc dirIndex(fromPos, toPos: IVec2): int =
   0
 
 proc makeEmptyEnv(): Environment =
-  result = newEnvironment()
+  result = Environment(config: defaultEnvironmentConfig())
   result.currentStep = 0
   result.shouldReset = false
+  result.observationsInitialized = false
   result.things.setLen(0)
   result.agents.setLen(0)
   result.stats.setLen(0)
@@ -42,11 +43,17 @@ proc makeEmptyEnv(): Environment =
       result.elevation[x][y] = 0
       result.baseTintColors[x][y] = BaseTileColorDefault
       result.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      result.tintMods[x][y] = TintModification(r: 0, g: 0, b: 0)
+      result.tintStrength[x][y] = 0
+      result.tumorTintMods[x][y] = TintModification(r: 0, g: 0, b: 0)
+      result.tumorStrength[x][y] = 0
   result.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
   result.actionTintPositions.setLen(0)
   result.activeTiles.positions.setLen(0)
+  result.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   result.tumorActiveTiles.positions.setLen(0)
-  result.altarColors.clear()
+  result.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  result.altarColors = initTable[IVec2, Color]()
   result.teamColors.setLen(0)
   result.agentColors.setLen(0)
 
@@ -217,6 +224,35 @@ suite "Mechanics":
     check infantry.hp == 3
     env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, cavalry.pos))
     check cavalry.hp == 4
+
+  test "boat embarks on dock and disembarks on land":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Water
+    discard addBuilding(env, Dock, ivec2(10, 10), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 11))
+
+    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
+    check env.agents[agent.agentId].pos == ivec2(10, 10)
+    check env.agents[agent.agentId].unitClass == UnitBoat
+
+    env.stepAction(agent.agentId, 1'u8, dirIndex(ivec2(10, 10), ivec2(10, 11)))
+    check env.agents[agent.agentId].pos == ivec2(10, 11)
+    check env.agents[agent.agentId].unitClass == UnitVillager
+
+  test "boat harvests fish on water":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Water
+    env.terrain[10][9] = Water
+    discard addBuilding(env, Dock, ivec2(10, 10), 0)
+    discard addResource(env, Fish, ivec2(10, 9), ItemFish, 1)
+    let agent = addAgentAt(env, 0, ivec2(10, 11))
+
+    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
+    check env.agents[agent.agentId].unitClass == UnitBoat
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(ivec2(10, 10), ivec2(10, 9)))
+    check getInv(env.agents[agent.agentId], ItemFish) == 1
+    check env.getOverlayThing(ivec2(10, 9)) == nil
 
   test "market converts carried resources to gold and food":
     let env = makeEmptyEnv()
