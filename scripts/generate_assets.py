@@ -359,7 +359,7 @@ def flood_fill_bg_legacy(img: Image.Image, tol: int = 18) -> Image.Image:
 
 def flood_fill_bg_cv2(img: Image.Image, tol: int = 18) -> Image.Image:
     if cv2 is None or np is None:
-        return flood_fill_bg_legacy(img, tol)
+        raise SystemExit("OpenCV (cv2) and numpy are required. Install with: pip install -e .")
     if img.mode != "RGBA":
         img = img.convert("RGBA")
 
