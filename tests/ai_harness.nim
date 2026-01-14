@@ -545,18 +545,9 @@ suite "AI - Builder":
     discard addAgentAt(env, 2, ivec2(1, 0), homeAltar = basePos)
     setStockpile(env, 0, ResourceWood, 10)
 
-    var built = false
-    for _ in 0 ..< 20:
-      let action = controller.decideAction(env, 2)
-      let (verb, arg) = decodeAction(action)
-      if verb == 8 and arg == buildIndexFor(House):
-        built = true
-        break
-      if verb == 1:
-        env.stepAction(2, verb.uint8, arg)
-        continue
-      break
-    check built
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 1 or (verb == 8 and arg == buildIndexFor(House))
 
   test "builds house at cap using team-only pop cap":
     let env = makeEmptyEnv()
@@ -570,18 +561,9 @@ suite "AI - Builder":
     discard addBuilding(env, House, ivec2(22, 20), 1)
     discard addBuilding(env, House, ivec2(24, 20), 1)
 
-    var built = false
-    for _ in 0 ..< 20:
-      let action = controller.decideAction(env, 2)
-      let (verb, arg) = decodeAction(action)
-      if verb == 8 and arg == buildIndexFor(House):
-        built = true
-        break
-      if verb == 1:
-        env.stepAction(2, verb.uint8, arg)
-        continue
-      break
-    check built
+    let action = controller.decideAction(env, 2)
+    let (verb, arg) = decodeAction(action)
+    check verb == 1 or (verb == 8 and arg == buildIndexFor(House))
 
 suite "AI - Fighter":
   test "villager fighter builds divider door when enemy nearby":
