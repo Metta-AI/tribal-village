@@ -253,7 +253,7 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
 proc applyBiomeZoneFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
                         zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
                         terrainType: TerrainType, biomeType: BiomeType,
-                        baseBiomeType: BiomeType) =
+                        baseBiomeType: BiomeType, forceOverride = false) =
   let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
   if x1 <= x0 or y1 <= y0:
     return
@@ -261,7 +261,7 @@ proc applyBiomeZoneFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMas
     for y in y0 ..< y1:
       if not zoneMask[x][y]:
         continue
-      if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
+      if not forceOverride and not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
         continue
       terrain[x][y] = terrainType
       biomes[x][y] = biomeType
@@ -514,7 +514,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, edgeChance)
     of BiomeSnow:
       applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeSnowTerrain, BiomeSnowType, baseBiomeType)
+        BiomeSnowTerrain, BiomeSnowType, baseBiomeType, forceOverride = true)
     of BiomeSwamp:
       applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
