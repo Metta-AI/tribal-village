@@ -1163,5 +1163,4 @@ proc newEnvironment*(config: EnvironmentConfig): Environment =
   result = Environment(config: config)
   result.init()
 
-# Initialize the global environment
-env = newEnvironment()
+# Global environment is initialized by entry points (e.g., tribal_village.nim).

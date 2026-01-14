@@ -8,6 +8,9 @@ when compileOption("profiler"):
 when defined(renderTiming):
   import std/monotimes
 
+# Initialize the global environment for the renderer/game loop.
+env = newEnvironment()
+
 let profileStepsStr = getEnv("TV_PROFILE_STEPS", "")
 if profileStepsStr.len > 0:
   let profileSteps = parseInt(profileStepsStr)
