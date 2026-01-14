@@ -176,12 +176,6 @@ def iter_oriented_rows(
         orientation_set = resolve_orientation_set(row.orientation_set)
         orientation_map = {key: text for key, text in orientation_set}
         row_reference_dir = row.reference_dir or reference_dir
-        if row_reference_dir not in orientation_map:
-            raise ValueError(
-                f"Unknown reference dir '{row_reference_dir}' for orient={row.orientation_set} "
-                f"(expected one of {sorted(orientation_map)})"
-            )
-        reference_orientation = orientation_map[row_reference_dir]
         for dir_key, orientation in orientation_set:
             if row.allowed_dirs and dir_key not in row.allowed_dirs:
                 continue
@@ -193,6 +187,12 @@ def iter_oriented_rows(
             out_name = row.filename_template.format(**subs)
             if only and out_name not in only and Path(out_name).name not in only:
                 continue
+            if row_reference_dir not in orientation_map:
+                raise ValueError(
+                    f"Unknown reference dir '{row_reference_dir}' for orient={row.orientation_set} "
+                    f"(expected one of {sorted(orientation_map)})"
+                )
+            reference_orientation = orientation_map[row_reference_dir]
             prompt = row.prompt_template.format(**subs)
             ref_subs = {
                 "dir": row_reference_dir,
