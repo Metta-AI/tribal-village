@@ -20,6 +20,10 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         step1.x += int32(delta.x)
         step1.y += int32(delta.y)
 
+        if isValidPos(step1) and env.elevation[step1.x][step1.y] != env.elevation[agent.pos.x][agent.pos.y]:
+          inc env.stats[id].actionInvalid
+          break moveAction
+
         # Prevent moving onto blocked terrain (bridges remain walkable).
         if env.isWaterBlockedForAgent(agent, step1):
           inc env.stats[id].actionInvalid
@@ -30,6 +34,10 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
         proc canEnter(pos: IVec2): bool =
+          if not isValidPos(pos):
+            return false
+          if env.elevation[pos.x][pos.y] != env.elevation[agent.pos.x][agent.pos.y]:
+            return false
           var canMove = env.isEmpty(pos)
           if canMove:
             return true
@@ -112,7 +120,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Roads accelerate movement in the direction of entry.
         if env.terrain[step1.x][step1.y] == Road:
           let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
-          if isValidPos(step2) and not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
+          if isValidPos(step2) and env.elevation[step2.x][step2.y] == env.elevation[agent.pos.x][agent.pos.y] and
+              not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
             if canEnter(step2):
               finalPos = step2
 
