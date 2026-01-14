@@ -250,6 +250,22 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
         terrain[x][y] = terrainType
         biomes[x][y] = biomeType
 
+proc applyBiomeZoneFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
+                        zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
+                        terrainType: TerrainType, biomeType: BiomeType,
+                        baseBiomeType: BiomeType) =
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
+  if x1 <= x0 or y1 <= y0:
+    return
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      if not zoneMask[x][y]:
+        continue
+      if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
+        continue
+      terrain[x][y] = terrainType
+      biomes[x][y] = biomeType
+
 proc evenlyDistributedZones*(r: var Rand, mapWidth, mapHeight, mapBorder: int, count: int,
                              maxFraction: float): seq[ZoneRect] =
   if count <= 0:
@@ -505,9 +521,8 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, snowEdgeChance, density = 0.25)
     of BiomeSwamp:
-      buildBiomeSwampMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSwampConfig())
-      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeSwampTerrain, BiomeSwampType, baseBiomeType, r, edgeChance)
+      applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
     of BiomeCity:
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
