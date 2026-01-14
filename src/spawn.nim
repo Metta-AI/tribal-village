@@ -48,15 +48,19 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
 proc applyBiomeElevation(env: Environment) =
+  let baseType = baseBiomeType()
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      case env.biomes[x][y]
-      of BiomeSnowType:
-        env.elevation[x][y] = 1
+      let biome = env.biomes[x][y]
+      case biome
       of BiomeSwampType:
         env.elevation[x][y] = -1
-      else:
+      of BiomeSnowType:
+        env.elevation[x][y] = 1
+      of BiomeNone, BiomeDungeonType:
         env.elevation[x][y] = 0
+      else:
+        env.elevation[x][y] = if biome == baseType: 0 else: 1
 
 proc init(env: Environment) =
   inc env.mapGeneration

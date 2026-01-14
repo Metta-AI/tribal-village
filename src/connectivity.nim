@@ -10,12 +10,19 @@ let ConnectDirs8 = [
 ]
 
 proc makeConnected*(env: Environment) =
+  let baseElevation =
+    if baseBiomeType() == BiomeSwampType: -1'i8
+    elif baseBiomeType() == BiomeSnowType: 1'i8
+    else: 0'i8
+
   proc isPlayablePos(pos: IVec2): bool =
     pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
       pos.y >= MapBorder and pos.y < MapHeight - MapBorder
 
   proc isPassableForConnect(env: Environment, pos: IVec2): bool =
     if not isValidPos(pos) or not isPlayablePos(pos):
+      return false
+    if env.elevation[pos.x][pos.y] != baseElevation:
       return false
     if not env.isEmpty(pos):
       return false
@@ -25,6 +32,8 @@ proc makeConnected*(env: Environment) =
 
   proc digCost(env: Environment, pos: IVec2): int =
     if not isValidPos(pos) or not isPlayablePos(pos):
+      return int.high
+    if env.elevation[pos.x][pos.y] != baseElevation:
       return int.high
     if isPassableForConnect(env, pos):
       return 1
@@ -44,6 +53,8 @@ proc makeConnected*(env: Environment) =
 
   proc digCell(env: Environment, pos: IVec2) =
     if not isValidPos(pos) or not isPlayablePos(pos):
+      return
+    if env.elevation[pos.x][pos.y] != baseElevation:
       return
     let thing = env.getThing(pos)
     if not isNil(thing):
