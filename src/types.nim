@@ -102,9 +102,23 @@ const
   ObservationHeight* = 11
 
   # Action tint observation codes (TintLayer values)
-  ActionTintAttack* = 1'u8   # red overlay when attacking
-  ActionTintShield* = 2'u8   # gold overlay when shielding (armor up)
-  ActionTintHeal* = 3'u8     # green overlay when healing
+  ActionTintNone* = 0'u8
+  ActionTintAttackVillager* = 1'u8
+  ActionTintAttackManAtArms* = 2'u8
+  ActionTintAttackArcher* = 3'u8
+  ActionTintAttackScout* = 4'u8
+  ActionTintAttackKnight* = 5'u8
+  ActionTintAttackMonk* = 6'u8
+  ActionTintAttackBatteringRam* = 7'u8
+  ActionTintAttackMangonel* = 8'u8
+  ActionTintAttackBoat* = 9'u8
+  ActionTintAttackTower* = 10'u8
+  ActionTintAttackCastle* = 11'u8
+  ActionTintAttackBonus* = 12'u8
+  ActionTintShield* = 20'u8
+  ActionTintHealMonk* = 30'u8
+  ActionTintHealBread* = 31'u8
+  ActionTintMixed* = 200'u8
 
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
@@ -284,6 +298,7 @@ type
   ActionTintCountdown* = array[MapWidth, array[MapHeight, int8]]
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
+  ActionTintCode* = array[MapWidth, array[MapHeight, uint8]]
 
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.
@@ -370,6 +385,7 @@ type
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
     actionTintFlags*: ActionTintFlags
+    actionTintCode*: ActionTintCode
     actionTintPositions*: seq[IVec2]
     thingsByKind*: array[ThingKind, seq[Thing]]
     cowHerdCounts*: seq[int]

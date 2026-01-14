@@ -98,6 +98,7 @@ proc init(env: Environment) =
   env.actionTintCountdown = default(ActionTintCountdown)
   env.actionTintColor = default(ActionTintColor)
   env.actionTintFlags = default(ActionTintFlags)
+  env.actionTintCode = default(ActionTintCode)
   env.actionTintPositions.setLen(0)
   env.shieldCountdown = default(array[MapAgents, int8])
 

@@ -20,6 +20,18 @@ const UnitAttackTints: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.20, g: 0.60, b: 0.95, intensity: 1.08),
 ]
 
+const UnitAttackObservationCodes: array[AgentUnitClass, uint8] = [
+  ActionTintAttackVillager,
+  ActionTintAttackManAtArms,
+  ActionTintAttackArcher,
+  ActionTintAttackScout,
+  ActionTintAttackKnight,
+  ActionTintAttackMonk,
+  ActionTintAttackBatteringRam,
+  ActionTintAttackMangonel,
+  ActionTintAttackBoat,
+]
+
 const UnitAttackTintDurations: array[AgentUnitClass, int8] = [
   1'i8, # UnitVillager
   2'i8, # UnitManAtArms
@@ -33,7 +45,7 @@ const UnitAttackTintDurations: array[AgentUnitClass, int8] = [
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =
-  env.applyActionTint(pos, UnitAttackTints[unit], UnitAttackTintDurations[unit], ActionTintAttack)
+  env.applyActionTint(pos, UnitAttackTints[unit], UnitAttackTintDurations[unit], UnitAttackObservationCodes[unit])
 
 proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for id, actionValue in actions[]:
@@ -269,7 +281,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if not isNil(target) and target.kind == Agent:
             if getTeamId(target) == attackerTeam:
               discard env.applyAgentHeal(target, 1)
-              env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
+              env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHealMonk)
               inc env.stats[id].actionAttack
             else:
               let newTeam = attackerTeam
@@ -478,7 +490,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               for dx in -1 .. 1:
                 for dy in -1 .. 1:
                   let p = agent.pos + ivec2(dx, dy)
-                  env.applyActionTint(p, tint, 2, ActionTintHeal)
+                  env.applyActionTint(p, tint, 2, ActionTintHealBread)
                   let occ = env.getThing(p)
                   if not occ.isNil and occ.kind == Agent:
                     let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)

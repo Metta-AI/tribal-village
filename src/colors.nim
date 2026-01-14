@@ -15,8 +15,14 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
     return
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
+  let existing = env.actionTintCode[pos.x][pos.y]
+  let nextCode = if existing == ActionTintNone or existing == tintCode:
+    tintCode
+  else:
+    ActionTintMixed
+  env.actionTintCode[pos.x][pos.y] = nextCode
   # Keep observation tint layer in sync so agents can “see” recent combat actions
-  env.updateObservations(TintLayer, pos, tintCode.int)
+  env.updateObservations(TintLayer, pos, nextCode.int)
   if not env.actionTintFlags[pos.x][pos.y]:
     env.actionTintFlags[pos.x][pos.y] = true
     env.actionTintPositions.add(pos)

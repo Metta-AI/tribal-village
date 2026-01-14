@@ -33,7 +33,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)
+      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttackBonus)
       damage += bonus
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
@@ -112,7 +112,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   if not attacker.isNil:
     let bonus = classBonusDamage(attacker.unitClass, target.unitClass)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttack)
+      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttackBonus)
     remaining += bonus
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
