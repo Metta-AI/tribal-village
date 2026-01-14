@@ -298,25 +298,25 @@ proc rebuildRenderCaches() =
 
         if edgeN and edgeE:
           let inside = isDiagHigh(1, -1)
-          let cornerKey = if inside: "cliff_corner_in_ne" else: "cliff_corner_out_ne"
+          let cornerKey = if inside: "oriented/cliff_corner_in_ne" else: "oriented/cliff_corner_out_ne"
           addCliff(cornerKey)
           edgeN = false
           edgeE = false
         if edgeE and edgeS:
           let inside = isDiagHigh(1, 1)
-          let cornerKey = if inside: "cliff_corner_in_se" else: "cliff_corner_out_se"
+          let cornerKey = if inside: "oriented/cliff_corner_in_se" else: "oriented/cliff_corner_out_se"
           addCliff(cornerKey)
           edgeE = false
           edgeS = false
         if edgeS and edgeW:
           let inside = isDiagHigh(-1, 1)
-          let cornerKey = if inside: "cliff_corner_in_sw" else: "cliff_corner_out_sw"
+          let cornerKey = if inside: "oriented/cliff_corner_in_sw" else: "oriented/cliff_corner_out_sw"
           addCliff(cornerKey)
           edgeS = false
           edgeW = false
         if edgeW and edgeN:
           let inside = isDiagHigh(-1, -1)
-          let cornerKey = if inside: "cliff_corner_in_nw" else: "cliff_corner_out_nw"
+          let cornerKey = if inside: "oriented/cliff_corner_in_nw" else: "oriented/cliff_corner_out_nw"
           addCliff(cornerKey)
           edgeW = false
           edgeN = false
