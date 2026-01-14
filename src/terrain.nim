@@ -513,10 +513,8 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, edgeChance)
     of BiomeSnow:
-      # Fill the entire zone to create a continuous snow plateau.
-      mask = zoneMask
-      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, edgeChance = 1.0, density = 1.0)
+      applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        BiomeSnowTerrain, BiomeSnowType, baseBiomeType)
     of BiomeSwamp:
       applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
