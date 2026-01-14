@@ -513,13 +513,10 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, edgeChance)
     of BiomeSnow:
-      # Blend snow into the zone, then add clustered accents for texture.
-      applyTerrainBlendToZone(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        TerrainSnow, BiomeSnowType, baseBiomeType, r, edgeChance, density = 0.25)
-      buildBiomeSnowMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSnowConfig())
-      let snowEdgeChance = max(edgeChance, 0.55)
+      # Fill the entire zone to create a continuous snow plateau.
+      mask = zoneMask
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, snowEdgeChance, density = 0.25)
+        BiomeSnowTerrain, BiomeSnowType, baseBiomeType, r, edgeChance = 1.0, density = 1.0)
     of BiomeSwamp:
       applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
