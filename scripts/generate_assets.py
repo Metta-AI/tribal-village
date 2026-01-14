@@ -11,6 +11,12 @@ from typing import Iterable, Iterator, NamedTuple
 from google import genai
 from google.genai import types
 from PIL import Image
+try:
+    import cv2  # type: ignore
+    import numpy as np  # type: ignore
+except Exception:
+    cv2 = None
+    np = None
 
 # Setup notes:
 # - Option A (API key): export GOOGLE_API_KEY=...
@@ -296,7 +302,7 @@ def generate_oriented_image(
     return img
 
 
-def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
+def flood_fill_bg_legacy(img: Image.Image, tol: int = 18) -> Image.Image:
     w, h = img.size
     px = img.load()
     corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
@@ -349,6 +355,74 @@ def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
                     visited[nx][ny] = True
                     q.append((nx, ny))
     return img
+
+
+def flood_fill_bg_cv2(img: Image.Image, tol: int = 18) -> Image.Image:
+    if cv2 is None or np is None:
+        return flood_fill_bg_legacy(img, tol)
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+
+    w, h = img.size
+    px = img.load()
+    border_colors: dict[tuple[int, int, int], int] = {}
+    for x in range(w):
+        for y in (0, h - 1):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            key = (r // 8, g // 8, b // 8)
+            border_colors[key] = border_colors.get(key, 0) + 1
+    for y in range(h):
+        for x in (0, w - 1):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            key = (r // 8, g // 8, b // 8)
+            border_colors[key] = border_colors.get(key, 0) + 1
+
+    if border_colors:
+        top = sorted(border_colors.items(), key=lambda item: item[1], reverse=True)[:4]
+        bg_colors = [(k[0] * 8, k[1] * 8, k[2] * 8) for k, _ in top]
+    else:
+        bg_colors = [px[x, y][:3] for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1))]
+
+    def color_close(c, ref) -> bool:
+        return all(abs(int(c[i]) - int(ref[i])) <= tol for i in range(3))
+
+    arr = np.array(img)
+    rgb = arr[:, :, :3].copy()
+    alpha = arr[:, :, 3]
+    if bg_colors:
+        rgb[alpha == 0] = bg_colors[0]
+
+    mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+    lo = (tol, tol, tol)
+    up = (tol, tol, tol)
+    flags = cv2.FLOODFILL_MASK_ONLY | (255 << 8)
+
+    for x in range(w):
+        for y in (0, h - 1):
+            if mask[y + 1, x + 1] != 0:
+                continue
+            r, g, b, a = px[x, y]
+            if a == 0 or any(color_close((r, g, b), ref) for ref in bg_colors):
+                cv2.floodFill(rgb, mask, (x, y), (0, 0, 0), loDiff=lo, upDiff=up, flags=flags)
+    for y in range(h):
+        for x in (0, w - 1):
+            if mask[y + 1, x + 1] != 0:
+                continue
+            r, g, b, a = px[x, y]
+            if a == 0 or any(color_close((r, g, b), ref) for ref in bg_colors):
+                cv2.floodFill(rgb, mask, (x, y), (0, 0, 0), loDiff=lo, upDiff=up, flags=flags)
+
+    fill_mask = mask[1:-1, 1:-1] != 0
+    arr[:, :, 3][fill_mask] = 0
+    return Image.fromarray(arr, "RGBA")
+
+
+def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
+    return flood_fill_bg_cv2(img, tol)
 
 
 def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
