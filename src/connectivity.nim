@@ -10,19 +10,12 @@ let ConnectDirs8 = [
 ]
 
 proc makeConnected*(env: Environment) =
-  let baseElevation =
-    if baseBiomeType() == BiomeSwampType: -1'i8
-    elif baseBiomeType() == BiomeSnowType: 1'i8
-    else: 0'i8
-
   proc isPlayablePos(pos: IVec2): bool =
     pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
       pos.y >= MapBorder and pos.y < MapHeight - MapBorder
 
   proc isPassableForConnect(env: Environment, pos: IVec2): bool =
     if not isValidPos(pos) or not isPlayablePos(pos):
-      return false
-    if env.elevation[pos.x][pos.y] != baseElevation:
       return false
     if not env.isEmpty(pos):
       return false
@@ -32,8 +25,6 @@ proc makeConnected*(env: Environment) =
 
   proc digCost(env: Environment, pos: IVec2): int =
     if not isValidPos(pos) or not isPlayablePos(pos):
-      return int.high
-    if env.elevation[pos.x][pos.y] != baseElevation:
       return int.high
     if isPassableForConnect(env, pos):
       return 1
@@ -53,8 +44,6 @@ proc makeConnected*(env: Environment) =
 
   proc digCell(env: Environment, pos: IVec2) =
     if not isValidPos(pos) or not isPlayablePos(pos):
-      return
-    if env.elevation[pos.x][pos.y] != baseElevation:
       return
     let thing = env.getThing(pos)
     if not isNil(thing):
@@ -91,6 +80,8 @@ proc makeConnected*(env: Environment) =
             let ny = pos.y + d.y
             let npos = ivec2(nx.int32, ny.int32)
             if not isPassableForConnect(env, npos):
+              continue
+            if not env.canTraverseElevation(pos, npos):
               continue
             let ix = nx.int
             let iy = ny.int
@@ -146,6 +137,8 @@ proc makeConnected*(env: Environment) =
         if nx < 0 or ny < 0 or nx >= MapWidth or ny >= MapHeight:
           continue
         let npos = ivec2(nx.int32, ny.int32)
+        if not env.canTraverseElevation(ivec2(x.int32, y.int32), npos):
+          continue
         let stepCost = digCost(env, npos)
         if stepCost == int.high:
           continue
@@ -172,6 +165,7 @@ proc makeConnected*(env: Environment) =
     var prev: seq[int] = @[]
     computeDistances(env, labels, largest.int16, dist, prev)
     let inf = MapWidth * MapHeight * ConnectMaxEdgeCost + 1
+    var anyDig = false
     for label in 1 .. componentCount:
       if label == largest:
         continue
@@ -192,3 +186,6 @@ proc makeConnected*(env: Environment) =
           let y = cur div MapWidth
           digCell(env, ivec2(x.int32, y.int32))
           cur = prev[cur]
+        anyDig = true
+    if not anyDig:
+      break

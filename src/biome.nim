@@ -135,6 +135,30 @@ const
     (dx: 0, dy: -1)
   ]
 
+proc clearZoneMask(mask: var MaskGrid, mapWidth, mapHeight: int,
+                   zoneX, zoneY, zoneW, zoneH: int) =
+  for x in zoneX ..< zoneX + zoneW:
+    for y in zoneY ..< zoneY + zoneH:
+      if x >= 0 and x < mapWidth and y >= 0 and y < mapHeight:
+        mask[x][y] = false
+
+template forClusterCenters(mapWidth, mapHeight, mapBorder: int,
+                           period, jitter: int, prob: float,
+                           r: var Rand, body: untyped) =
+  for ay in countup(mapBorder, mapHeight - mapBorder - 1, period):
+    for ax in countup(mapBorder, mapWidth - mapBorder - 1, period):
+      if randFloat(r) > prob:
+        continue
+      var cx {.inject.} = ax
+      var cy {.inject.} = ay
+      if jitter > 0:
+        cx += randIntInclusive(r, -jitter, jitter)
+        cy += randIntInclusive(r, -jitter, jitter)
+      if cx < mapBorder or cx >= mapWidth - mapBorder or
+         cy < mapBorder or cy >= mapHeight - mapBorder:
+        continue
+      body
+
 proc buildClusterBiomeMask(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
                            r: var Rand,
                            clusterPeriod, clusterMinRadius, clusterMaxRadius: int,
@@ -148,19 +172,7 @@ proc buildClusterBiomeMask(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
   let jitterVal = max(0, jitter)
   let fillBase = clusterFill
 
-  for ay in countup(mapBorder, mapHeight - mapBorder - 1, period):
-    for ax in countup(mapBorder, mapWidth - mapBorder - 1, period):
-      if randFloat(r) > clusterProb:
-        continue
-      var cx = ax
-      var cy = ay
-      if jitterVal > 0:
-        cx += randIntInclusive(r, -jitterVal, jitterVal)
-        cy += randIntInclusive(r, -jitterVal, jitterVal)
-      if cx < mapBorder or cx >= mapWidth - mapBorder or
-         cy < mapBorder or cy >= mapHeight - mapBorder:
-        continue
-
+  forClusterCenters(mapWidth, mapHeight, mapBorder, period, jitterVal, clusterProb, r):
       let radius = if maxRadius > 0: randIntInclusive(r, minRadius, maxRadius) else: 0
       if radius == 0:
         mask[cx][cy] = true
@@ -231,10 +243,7 @@ proc buildClusterBiomeMask(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
 proc buildDungeonMazeMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
                            zoneX, zoneY, zoneW, zoneH: int,
                            r: var Rand, cfg: DungeonMazeConfig) =
-  for x in zoneX ..< zoneX + zoneW:
-    for y in zoneY ..< zoneY + zoneH:
-      if x >= 0 and x < mapWidth and y >= 0 and y < mapHeight:
-        mask[x][y] = false
+  clearZoneMask(mask, mapWidth, mapHeight, zoneX, zoneY, zoneW, zoneH)
 
   var w = zoneW
   var h = zoneH
@@ -309,10 +318,7 @@ proc buildDungeonMazeMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
 proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
                              zoneX, zoneY, zoneW, zoneH: int,
                              r: var Rand, cfg: DungeonRadialConfig) =
-  for x in zoneX ..< zoneX + zoneW:
-    for y in zoneY ..< zoneY + zoneH:
-      if x >= 0 and x < mapWidth and y >= 0 and y < mapHeight:
-        mask[x][y] = false
+  clearZoneMask(mask, mapWidth, mapHeight, zoneX, zoneY, zoneW, zoneH)
 
   if zoneW < 3 or zoneH < 3:
     return
@@ -591,19 +597,7 @@ proc buildBiomeSnowMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int
   let jitter = max(0, cfg.jitter)
   let fillBase = cfg.clusterFill
 
-  for ay in countup(mapBorder, mapHeight - mapBorder - 1, period):
-    for ax in countup(mapBorder, mapWidth - mapBorder - 1, period):
-      if randFloat(r) > cfg.clusterProb:
-        continue
-      var cx = ax
-      var cy = ay
-      if jitter > 0:
-        cx += randIntInclusive(r, -jitter, jitter)
-        cy += randIntInclusive(r, -jitter, jitter)
-      if cx < mapBorder or cx >= mapWidth - mapBorder or
-         cy < mapBorder or cy >= mapHeight - mapBorder:
-        continue
-
+  forClusterCenters(mapWidth, mapHeight, mapBorder, period, jitter, cfg.clusterProb, r):
       let radius = randIntInclusive(r, minRadius, maxRadius)
       let fill = fillBase * (0.7 + 0.3 * randFloat(r))
       for dx in -radius .. radius:
