@@ -4,19 +4,14 @@ from __future__ import annotations
 import argparse
 import io
 import os
-from collections import deque
 from pathlib import Path
 from typing import Iterable, Iterator, NamedTuple
 
 from google import genai
 from google.genai import types
 from PIL import Image
-try:
-    import cv2  # type: ignore
-    import numpy as np  # type: ignore
-except Exception:
-    cv2 = None
-    np = None
+import cv2  # type: ignore
+import numpy as np  # type: ignore
 
 # Setup notes:
 # - Option A (API key): export GOOGLE_API_KEY=...
@@ -304,64 +299,7 @@ def generate_oriented_image(
     return img
 
 
-def flood_fill_bg_legacy(img: Image.Image, tol: int = 18) -> Image.Image:
-    w, h = img.size
-    px = img.load()
-    corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
-
-    def color_close(c, ref) -> bool:
-        return all(abs(int(c[i]) - int(ref[i])) <= tol for i in range(3))
-
-    border_colors: dict[tuple[int, int, int], int] = {}
-    for x in range(w):
-        for y in (0, h - 1):
-            r, g, b, a = px[x, y]
-            if a == 0:
-                continue
-            key = (r // 8, g // 8, b // 8)
-            border_colors[key] = border_colors.get(key, 0) + 1
-    for y in range(h):
-        for x in (0, w - 1):
-            r, g, b, a = px[x, y]
-            if a == 0:
-                continue
-            key = (r // 8, g // 8, b // 8)
-            border_colors[key] = border_colors.get(key, 0) + 1
-
-    if border_colors:
-        top = sorted(border_colors.items(), key=lambda item: item[1], reverse=True)[:4]
-        bg_colors = [(k[0] * 8, k[1] * 8, k[2] * 8) for k, _ in top]
-    else:
-        bg_colors = [px[x, y][:3] for x, y in corners]
-
-    visited = [[False] * h for _ in range(w)]
-    q: deque[tuple[int, int]] = deque()
-    for x in range(w):
-        for y in (0, h - 1):
-            if not visited[x][y]:
-                q.append((x, y))
-                visited[x][y] = True
-    for y in range(h):
-        for x in (0, w - 1):
-            if not visited[x][y]:
-                q.append((x, y))
-                visited[x][y] = True
-
-    while q:
-        x, y = q.popleft()
-        r, g, b, a = px[x, y]
-        if a == 0 or any(color_close((r, g, b), ref) for ref in bg_colors):
-            px[x, y] = (r, g, b, 0)
-            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                if 0 <= nx < w and 0 <= ny < h and not visited[nx][ny]:
-                    visited[nx][ny] = True
-                    q.append((nx, ny))
-    return img
-
-
 def flood_fill_bg_cv2(img: Image.Image, tol: int = 18) -> Image.Image:
-    if cv2 is None or np is None:
-        raise SystemExit("OpenCV (cv2) and numpy are required. Install with: pip install -e .")
     if img.mode != "RGBA":
         img = img.convert("RGBA")
 
@@ -427,10 +365,53 @@ def flood_fill_bg(img: Image.Image, tol: int = 18) -> Image.Image:
     return flood_fill_bg_cv2(img, tol)
 
 
+def alpha_bbox_cv2(
+    alpha: np.ndarray,
+    min_border_fraction: float = 0.004,
+    min_border_pixels: int = 64,
+    min_alpha: int = 1,
+) -> tuple[int, int, int, int] | None:
+    mask = (alpha >= min_alpha).astype("uint8")
+    if not mask.any():
+        return None
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    if num <= 1:
+        return None
+    total_area = int(mask.sum())
+    min_border_area = max(min_border_pixels, int(total_area * min_border_fraction))
+    h, w = mask.shape
+    keep: list[int] = []
+    for idx in range(1, num):
+        left = stats[idx, cv2.CC_STAT_LEFT]
+        top = stats[idx, cv2.CC_STAT_TOP]
+        width = stats[idx, cv2.CC_STAT_WIDTH]
+        height = stats[idx, cv2.CC_STAT_HEIGHT]
+        area = stats[idx, cv2.CC_STAT_AREA]
+        touches_border = (
+            left == 0
+            or top == 0
+            or left + width >= w
+            or top + height >= h
+        )
+        if touches_border and area < min_border_area:
+            continue
+        keep.append(idx)
+    if not keep:
+        ys, xs = np.where(mask)
+        if len(xs) == 0:
+            return None
+        return (int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1))
+    left = int(min(stats[idx, cv2.CC_STAT_LEFT] for idx in keep))
+    top = int(min(stats[idx, cv2.CC_STAT_TOP] for idx in keep))
+    right = int(max(stats[idx, cv2.CC_STAT_LEFT] + stats[idx, cv2.CC_STAT_WIDTH] for idx in keep))
+    bottom = int(max(stats[idx, cv2.CC_STAT_TOP] + stats[idx, cv2.CC_STAT_HEIGHT] for idx in keep))
+    return (left, top, right, bottom)
+
+
 def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
     w, h = img.size
     alpha = img.getchannel("A")
-    bbox = alpha.getbbox()
+    bbox = alpha_bbox_cv2(np.array(alpha))
     if not bbox:
         return img
     minx, miny, maxx, maxy = bbox
