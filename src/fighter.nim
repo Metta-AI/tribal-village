@@ -7,15 +7,12 @@ const
   FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
   FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
 
-proc fighterHasExit(env: Environment, agent: Thing): bool =
+proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
     let np = agent.pos + d
     if canEnterForMove(env, agent, agent.pos, np):
-      return true
-  false
-
-proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
-  not fighterHasExit(env, agent)
+      return false
+  true
 
 proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thing,
                             state: var AgentState): Thing =
@@ -49,12 +46,6 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
   state.fighterEnemyAgentId = bestEnemyId
   if bestEnemyId >= 0:
     return env.agents[bestEnemyId]
-
-proc fighterHasFood(agent: Thing): bool =
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isFoodItem(key):
-      return true
-  false
 
 proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
   let teamId = getTeamId(agent)
@@ -467,7 +458,10 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
-  fighterHasFood(agent)
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isFoodItem(key):
+      return true
+  false
 
 proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint8 =

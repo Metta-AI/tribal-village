@@ -40,9 +40,6 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
 ]
 
-proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
-  BonusDamageByClass[attacker][target]
-
 proc bonusCritTint(attacker: AgentUnitClass): TileColor {.inline.} =
   BonusDamageTintByClass[attacker]
 
@@ -152,7 +149,7 @@ proc killAgent(env: Environment, victim: Thing) =
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
   var remaining = max(1, amount)
   if not attacker.isNil:
-    let bonus = classBonusDamage(attacker.unitClass, target.unitClass)
+    let bonus = BonusDamageByClass[attacker.unitClass][target.unitClass]
     if bonus > 0:
       env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
     remaining = max(1, remaining + bonus)

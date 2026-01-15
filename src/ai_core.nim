@@ -138,19 +138,16 @@ proc clampToPlayable(pos: IVec2): IVec2 {.inline.} =
   result.x = min(MapWidth - MapBorder - 1, max(MapBorder, pos.x))
   result.y = min(MapHeight - MapBorder - 1, max(MapBorder, pos.y))
 
-proc spiralDir(dir: int, clockwise: bool): int =
-  if clockwise:
-    return dir
-  case dir
-  of 1: 3
-  of 3: 1
-  else: dir
-
 proc getNextSpiralPoint(state: var AgentState): IVec2 =
   ## Advance the spiral one step using incremental state.
   let clockwise = state.spiralClockwise
   let arcLen = (state.spiralArcsCompleted div 2) + 1
-  let direction = spiralDir(state.spiralArcsCompleted mod 4, clockwise)
+  var direction = state.spiralArcsCompleted mod 4
+  if not clockwise:
+    case direction
+    of 1: direction = 3
+    of 3: direction = 1
+    else: discard
   let delta = case direction
     of 0: ivec2(0, -1)  # North
     of 1: ivec2(1, 0)   # East

@@ -14,15 +14,6 @@ const
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
 
-proc builderHasDropoffItems(agent: Thing): bool =
-  for key, count in agent.inventory.pairs:
-    if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
-      return true
-  false
-
-proc builderNeedsPopCap(env: Environment, teamId: int): bool =
-  needsPopCapHouse(env, teamId)
-
 proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
                         kinds: openArray[ThingKind]): bool =
   for kind in kinds:
@@ -50,7 +41,10 @@ proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: T
 
 proc canStartBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
-  builderHasDropoffItems(agent)
+  for key, count in agent.inventory.pairs:
+    if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
+      return true
+  false
 
 proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
@@ -67,7 +61,7 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
 proc canStartBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  builderNeedsPopCap(env, teamId)
+  needsPopCapHouse(env, teamId)
 
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
