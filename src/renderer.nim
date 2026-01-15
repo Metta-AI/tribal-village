@@ -486,6 +486,27 @@ proc drawWalls*() =
     bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
                   angle = 0, scale = SpriteScale, tint = wallTint)
 
+const OrientationDirKeys = [
+  "n",  # N
+  "s",  # S
+  "w",  # W
+  "e",  # E
+  "nw", # NW
+  "ne", # NE
+  "sw", # SW
+  "se"  # SE
+]
+const TumorDirKeys = [
+  "n", # N
+  "s", # S
+  "w", # W
+  "e", # E
+  "w", # NW
+  "e", # NE
+  "w", # SW
+  "e"  # SE
+]
+
 proc drawObjects*() =
   var teamPopCounts: array[MapRoomObjectsHouses, int]
   var teamHouseCounts: array[MapRoomObjectsHouses, int]
@@ -558,15 +579,7 @@ proc drawObjects*() =
       of UnitBatteringRam: "oriented/battering_ram"
       of UnitMangonel: "oriented/mangonel"
       of UnitBoat: "oriented/boat"
-    let dirKey = case agent.orientation:
-      of N: "n"
-      of S: "s"
-      of E: "e"
-      of W: "w"
-      of NE: "ne"
-      of NW: "nw"
-      of SE: "se"
-      of SW: "sw"
+    let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
     bxy.drawImage(
       agentImage,
@@ -623,11 +636,7 @@ proc drawObjects*() =
       bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Tumor):
-    let spriteDir = case thing.orientation:
-      of N: "n"
-      of S: "s"
-      of E, NE, SE: "e"
-      of W, NW, SW: "w"
+    let spriteDir = TumorDirKeys[thing.orientation.int]
     let spritePrefix = if thing.hasClaimedTerritory:
       "oriented/tumor."
     else:
