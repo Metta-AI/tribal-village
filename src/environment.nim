@@ -247,8 +247,6 @@ proc disembarkAgent*(agent: Thing) =
   applyUnitClassPreserveHp(agent, target)
 {.pop.}
 
-proc render*(env: Environment): string
-
 proc scoreTerritory*(env: Environment): TerritoryScore =
   ## Compute territory ownership by nearest tint color (teams + clippy).
   var score: TerritoryScore
@@ -763,10 +761,6 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
   choices[BuildIndexDoor] = thingItem("Door")
   choices
 
-include "connectivity"
-include "spawn"
-include "step"
-
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
     for x in 0 ..< MapWidth:
@@ -791,3 +785,7 @@ proc render*(env: Environment): string =
             cell = $ThingCatalog[kind].ascii
       result.add(cell)
     result.add("\n")
+
+include "connectivity"
+include "spawn"
+include "step"

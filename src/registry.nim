@@ -109,7 +109,15 @@ let BuildingRegistry* = block:
 
   reg
 
-proc toSnakeCase(name: string): string
+proc toSnakeCase(name: string): string =
+  result = ""
+  for i, ch in name:
+    if ch.isUpperAscii:
+      if i > 0:
+        result.add('_')
+      result.add(ch.toLowerAscii)
+    else:
+      result.add(ch)
 
 {.push inline.}
 proc isBuildingKind*(kind: ThingKind): bool =
@@ -370,16 +378,6 @@ proc buildingTrainCooldown*(kind: ThingKind): int =
 
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
-
-proc toSnakeCase(name: string): string =
-  result = ""
-  for i, ch in name:
-    if ch.isUpperAscii:
-      if i > 0:
-        result.add('_')
-      result.add(ch.toLowerAscii)
-    else:
-      result.add(ch)
 
 proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
   for kind in ThingKind:
