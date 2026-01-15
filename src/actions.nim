@@ -343,25 +343,14 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var hit = false
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
-          let left2 = ivec2(left.x * 2, left.y * 2)
-          let right2 = ivec2(right.x * 2, right.y * 2)
+          let offsets = [ivec2(0, 0), left, right, left * 2, right * 2]
           for step in 1 .. MangonelAoELength:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
-            env.applyUnitAttackTint(agent.unitClass, forward)
-            if tryHitAt(forward):
-              hit = true
-            env.applyUnitAttackTint(agent.unitClass, forward + left)
-            if tryHitAt(forward + left):
-              hit = true
-            env.applyUnitAttackTint(agent.unitClass, forward + right)
-            if tryHitAt(forward + right):
-              hit = true
-            env.applyUnitAttackTint(agent.unitClass, forward + left2)
-            if tryHitAt(forward + left2):
-              hit = true
-            env.applyUnitAttackTint(agent.unitClass, forward + right2)
-            if tryHitAt(forward + right2):
-              hit = true
+            for offset in offsets:
+              let attackPos = forward + offset
+              env.applyUnitAttackTint(agent.unitClass, attackPos)
+              if tryHitAt(attackPos):
+                hit = true
           if hit:
             inc env.stats[id].actionAttack
           else:
