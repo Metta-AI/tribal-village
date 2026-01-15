@@ -19,10 +19,32 @@ const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
 ]
 
-const BonusDamageTint = TileColor(r: 1.0, g: 0.45, b: 0.15, intensity: 1.15)
+const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
+  # UnitVillager
+  TileColor(r: 1.00, g: 0.35, b: 0.30, intensity: 1.20),
+  # UnitManAtArms
+  TileColor(r: 1.00, g: 0.65, b: 0.20, intensity: 1.20),
+  # UnitArcher
+  TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.20),
+  # UnitScout
+  TileColor(r: 0.30, g: 1.00, b: 0.35, intensity: 1.18),
+  # UnitKnight
+  TileColor(r: 0.25, g: 0.95, b: 0.90, intensity: 1.18),
+  # UnitMonk
+  TileColor(r: 0.30, g: 0.60, b: 1.00, intensity: 1.18),
+  # UnitBatteringRam
+  TileColor(r: 0.55, g: 0.40, b: 1.00, intensity: 1.18),
+  # UnitMangonel
+  TileColor(r: 0.85, g: 0.40, b: 1.00, intensity: 1.20),
+  # UnitBoat
+  TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
+]
 
 proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
   BonusDamageByClass[attacker][target]
+
+proc bonusCritTint(attacker: AgentUnitClass): TileColor {.inline.} =
+  BonusDamageTintByClass[attacker]
 
 proc inTankAura(env: Environment, target: Thing): bool =
   let teamId = getTeamId(target)
@@ -53,7 +75,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttackBonus)
+      env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
       damage += bonus
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
@@ -132,7 +154,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   if not attacker.isNil:
     let bonus = classBonusDamage(attacker.unitClass, target.unitClass)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttackBonus)
+      env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
     remaining = max(1, remaining + bonus)
   if inTankAura(env, target):
     remaining = max(1, (remaining + 1) div 2)

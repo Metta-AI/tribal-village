@@ -32,7 +32,7 @@ When a bonus applies (class counters or siege-vs-structure), the target tile rec
 - `BonusDamageTint` in `src/combat.nim`
 - Applied via `env.applyActionTint` when bonus damage > 0
 
-This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits a specific `TintLayer` code for bonus hits.
+This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits a specific `TintLayer` code for bonus hits. Bonus flashes now use **per‑attacker colors** so you can tell which unit type scored the critical hit.
 
 ## Action Tint Observation Codes
 The action tint layer now exposes more detail so agents can tell what kind of event occurred:
