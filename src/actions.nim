@@ -394,18 +394,14 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var hit = false
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
+          let offsets = [ivec2(0, 0), left, right]
           for step in 1 .. 3:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
-            env.applyUnitAttackTint(agent.unitClass, forward)
-            if tryHitAt(forward):
-              hit = true
-            # Keep spear width contiguous (no skipping): lateral offset is fixed 1 tile.
-            env.applyUnitAttackTint(agent.unitClass, forward + left)
-            if tryHitAt(forward + left):
-              hit = true
-            env.applyUnitAttackTint(agent.unitClass, forward + right)
-            if tryHitAt(forward + right):
-              hit = true
+            for offset in offsets:
+              let attackPos = forward + offset
+              env.applyUnitAttackTint(agent.unitClass, attackPos)
+              if tryHitAt(attackPos):
+                hit = true
 
           if hit:
             agent.inventorySpear = max(0, agent.inventorySpear - 1)
