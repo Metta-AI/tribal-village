@@ -839,22 +839,51 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       dec remaining
       idx += stride
 
-  # Add a simple road grid that criss-crosses the map.
-  template paintRoadVertical(x: int) =
-    for y in mapBorder ..< mapHeight - mapBorder:
-      if inCorner(x, y):
-        continue
-      if terrain[x][y] in {Water, Bridge}:
-        continue
-      terrain[x][y] = Road
+  # Add a meandering road grid that criss-crosses the map.
+  let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
 
-  template paintRoadHorizontal(y: int) =
-    for x in mapBorder ..< mapWidth - mapBorder:
-      if inCorner(x, y):
-        continue
-      if terrain[x][y] in {Water, Bridge}:
-        continue
-      terrain[x][y] = Road
+  template carveRoadPath(startPos, goalPos: IVec2, side: int) =
+    var current = startPos
+    let maxSteps = mapWidth * mapHeight
+    var steps = 0
+    if terrain[current.x][current.y] notin {Water, Bridge}:
+      terrain[current.x][current.y] = Road
+    while current != goalPos and steps < maxSteps:
+      var bestScore = int.high
+      var best: seq[IVec2] = @[]
+      for d in dirs:
+        let nx = current.x + d.x
+        let ny = current.y + d.y
+        if nx < mapBorder or nx >= mapWidth - mapBorder or
+           ny < mapBorder or ny >= mapHeight - mapBorder:
+          continue
+        if inCorner(nx, ny):
+          continue
+        let terrainHere = terrain[nx][ny]
+        if terrainHere == Water:
+          continue
+        var score = abs(goalPos.x - nx).int + abs(goalPos.y - ny).int
+        if terrainHere == Bridge:
+          score -= 2
+        elif terrainHere == Road:
+          score -= 1
+        if side < 0 and ny >= riverMid:
+          score += 4
+        elif side > 0 and ny <= riverMid:
+          score += 4
+        score += randIntInclusive(r, 0, 2)
+        if score < bestScore:
+          bestScore = score
+          best.setLen(0)
+          best.add(ivec2(nx, ny))
+        elif score == bestScore:
+          best.add(ivec2(nx, ny))
+      if best.len == 0:
+        break
+      current = best[randIntExclusive(r, 0, best.len)]
+      if terrain[current.x][current.y] notin {Water, Bridge}:
+        terrain[current.x][current.y] = Road
+      inc steps
 
   let verticalCount = randIntInclusive(r, 4, 5)
   let playWidth = mapWidth - 2 * mapBorder
@@ -877,9 +906,15 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     riverMid = sumY div riverPath.len
 
   for x in roadXs:
+    let start = ivec2(x.int32, (mapBorder + 1).int32)
+    let goal = ivec2(x.int32, (mapHeight - mapBorder - 2).int32)
     if x >= 0 and x < riverYByX.len and riverYByX[x] >= 0:
-      placeBridgeMain(terrain, ivec2(x.int32, riverYByX[x].int32))
-    paintRoadVertical(x)
+      let bridgeCenter = ivec2(x.int32, riverYByX[x].int32)
+      placeBridgeMain(terrain, bridgeCenter)
+      carveRoadPath(start, bridgeCenter, 0)
+      carveRoadPath(bridgeCenter, goal, 0)
+    else:
+      carveRoadPath(start, goal, 0)
 
   let northCount = randIntInclusive(r, 1, 2)
   let southCount = randIntInclusive(r, 1, 2)
@@ -889,7 +924,9 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     let nStride = max(1, (northMax - northMin) div (northCount + 1))
     var y = northMin + nStride
     for _ in 0 ..< northCount:
-      paintRoadHorizontal(y)
+      let start = ivec2((mapBorder + 1).int32, y.int32)
+      let goal = ivec2((mapWidth - mapBorder - 2).int32, y.int32)
+      carveRoadPath(start, goal, -1)
       y += nStride
 
   let southMin = max(mapBorder + 2, riverMid + (RiverWidth div 2) + 3)
@@ -898,7 +935,9 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     let sStride = max(1, (southMax - southMin) div (southCount + 1))
     var y = southMin + sStride
     for _ in 0 ..< southCount:
-      paintRoadHorizontal(y)
+      let start = ivec2((mapBorder + 1).int32, y.int32)
+      let goal = ivec2((mapWidth - mapBorder - 2).int32, y.int32)
+      carveRoadPath(start, goal, 1)
       y += sStride
 
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
