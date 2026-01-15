@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import io
 import os
+from collections import deque
 from pathlib import Path
 from typing import Iterable, Iterator, NamedTuple
 
@@ -408,7 +409,11 @@ def alpha_bbox_cv2(
     return (left, top, right, bottom)
 
 
-def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
+def crop_to_content(
+    img: Image.Image,
+    target_size: int,
+    padding_frac: float = 0.1,
+) -> Image.Image:
     w, h = img.size
     alpha = img.getchannel("A")
     bbox = alpha_bbox_cv2(np.array(alpha))
@@ -418,6 +423,9 @@ def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
     box_w = maxx - minx
     box_h = maxy - miny
     side = max(box_w, box_h)
+    if padding_frac > 0:
+        pad = int(round(side * padding_frac))
+        side = side + pad * 2
     cx = minx + box_w // 2
     cy = miny + box_h // 2
     half = side // 2
@@ -436,43 +444,54 @@ def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
 
 
 def purple_bg_mask(arr: np.ndarray) -> np.ndarray:
-    rgb = arr[:, :, :3].astype("int16")
-    r = rgb[:, :, 0]
-    g = rgb[:, :, 1]
-    b = rgb[:, :, 2]
+    # Use HSV to capture magenta/purple backgrounds even when hue drifts.
+    bgr = arr[:, :, :3][:, :, ::-1]
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    h = hsv[:, :, 0]
+    s = hsv[:, :, 1]
+    v = hsv[:, :, 2]
     alpha = arr[:, :, 3]
-    rb_diff = np.abs(r - b)
-    return (alpha > 0) & (r >= 140) & (b >= 140) & (g <= 120) & (rb_diff <= 80)
+    return (
+        (alpha > 0)
+        & (h >= 100)
+        & (h <= 150)
+        & (s >= 80)
+        & (v >= 80)
+    )
 
 
-def key_out_purple_bg(img: Image.Image) -> Image.Image:
+def flood_fill_purple_bg(img: Image.Image) -> Image.Image:
     if img.mode != "RGBA":
         img = img.convert("RGBA")
     arr = np.array(img)
     mask = purple_bg_mask(arr).astype("uint8")
     if not mask.any():
         return img
-    num, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    if num <= 1:
-        return img
     h, w = mask.shape
-    clear = np.zeros(mask.shape, dtype=bool)
-    for idx in range(1, num):
-        left = stats[idx, cv2.CC_STAT_LEFT]
-        top = stats[idx, cv2.CC_STAT_TOP]
-        width = stats[idx, cv2.CC_STAT_WIDTH]
-        height = stats[idx, cv2.CC_STAT_HEIGHT]
-        touches_border = (
-            left == 0
-            or top == 0
-            or left + width >= w
-            or top + height >= h
-        )
-        if touches_border:
-            clear |= labels == idx
-    if not clear.any():
-        return img
-    arr[:, :, 3][clear] = 0
+    visited = np.zeros(mask.shape, dtype=bool)
+    q: deque[tuple[int, int]] = deque()
+
+    def enqueue(x: int, y: int) -> None:
+        if mask[y, x] == 1 and not visited[y, x]:
+            visited[y, x] = True
+            q.append((x, y))
+
+    for x in range(w):
+        enqueue(x, 0)
+        enqueue(x, h - 1)
+    for y in range(h):
+        enqueue(0, y)
+        enqueue(w - 1, y)
+
+    while q:
+        x, y = q.popleft()
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 <= nx < w and 0 <= ny < h and mask[ny, nx] == 1 and not visited[ny, nx]:
+                visited[ny, nx] = True
+                q.append((nx, ny))
+
+    if visited.any():
+        arr[:, :, 3][visited] = 0
     return Image.fromarray(arr, "RGBA")
 
 
@@ -486,9 +505,11 @@ def apply_postprocess(
     if img.mode != "RGBA":
         img = img.convert("RGBA")
     if purple_bg:
-        img = key_out_purple_bg(img)
-    img = flood_fill_bg(img, tol)
-    img = crop_to_content(img, target_size)
+        img = flood_fill_purple_bg(img)
+        img = crop_to_content(img, target_size)
+    else:
+        img = flood_fill_bg(img, tol)
+        img = crop_to_content(img, target_size)
     if purple_to_white:
         px = img.load()
         w, h = img.size
@@ -636,7 +657,11 @@ def main() -> None:
                 non_flip.append(output)
 
         for idx, output in enumerate(non_flip):
-            if output.dir_key == args.reference_dir and not args.include_reference:
+            if (
+                output.dir_key == args.reference_dir
+                and not args.include_reference
+                and not args.postprocess_only
+            ):
                 continue
             target = Path(output.filename)
             if not target.is_absolute():
