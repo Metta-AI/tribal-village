@@ -454,14 +454,58 @@ def crop_to_content(img: Image.Image, target_size: int) -> Image.Image:
     return cropped
 
 
+def purple_bg_mask(arr: np.ndarray) -> np.ndarray:
+    rgb = arr[:, :, :3].astype("int16")
+    r = rgb[:, :, 0]
+    g = rgb[:, :, 1]
+    b = rgb[:, :, 2]
+    alpha = arr[:, :, 3]
+    rb_diff = np.abs(r - b)
+    return (alpha > 0) & (r >= 140) & (b >= 140) & (g <= 120) & (rb_diff <= 80)
+
+
+def key_out_purple_bg(img: Image.Image) -> Image.Image:
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    arr = np.array(img)
+    mask = purple_bg_mask(arr).astype("uint8")
+    if not mask.any():
+        return img
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    if num <= 1:
+        return img
+    h, w = mask.shape
+    clear = np.zeros(mask.shape, dtype=bool)
+    for idx in range(1, num):
+        left = stats[idx, cv2.CC_STAT_LEFT]
+        top = stats[idx, cv2.CC_STAT_TOP]
+        width = stats[idx, cv2.CC_STAT_WIDTH]
+        height = stats[idx, cv2.CC_STAT_HEIGHT]
+        touches_border = (
+            left == 0
+            or top == 0
+            or left + width >= w
+            or top + height >= h
+        )
+        if touches_border:
+            clear |= labels == idx
+    if not clear.any():
+        return img
+    arr[:, :, 3][clear] = 0
+    return Image.fromarray(arr, "RGBA")
+
+
 def apply_postprocess(
     img: Image.Image,
     target_size: int,
     tol: int = 18,
     purple_to_white: bool = False,
+    purple_bg: bool = False,
 ) -> Image.Image:
     if img.mode != "RGBA":
         img = img.convert("RGBA")
+    if purple_bg:
+        img = key_out_purple_bg(img)
     img = flood_fill_bg(img, tol)
     img = crop_to_content(img, target_size)
     if purple_to_white:
@@ -495,10 +539,11 @@ def postprocess_to_target(
     size: int,
     tol: int,
     purple_to_white: bool,
+    purple_bg: bool,
 ) -> None:
     with Image.open(source) as existing:
         img = existing.convert("RGBA")
-    img = apply_postprocess(img, size, tol, purple_to_white)
+    img = apply_postprocess(img, size, tol, purple_to_white, purple_bg)
     target.parent.mkdir(parents=True, exist_ok=True)
     img.save(target)
 
@@ -518,7 +563,7 @@ def build_oriented_prompt(prompt: str) -> str:
     return (
         "Use the provided reference image as the same unit. "
         "Match palette, silhouette, proportions, and line weight. "
-        "Keep lighting consistent and preserve transparent background. "
+        "Keep lighting consistent and preserve the background described in the prompt. "
         + prompt
     )
 
@@ -557,6 +602,11 @@ def main() -> None:
         "--postprocess-purple-to-white",
         action="store_true",
         help="Replace bright purple pixels with white for team tinting.",
+    )
+    parser.add_argument(
+        "--postprocess-purple-bg",
+        action="store_true",
+        help="Key out solid royal purple backgrounds before other postprocessing.",
     )
     parser.add_argument(
         "--oriented",
@@ -631,6 +681,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
+                    args.postprocess_purple_bg,
                 )
                 continue
             if not reference.exists():
@@ -650,6 +701,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
+                    args.postprocess_purple_bg,
                 )
             else:
                 if args.size and img.size != (args.size, args.size):
@@ -682,6 +734,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
+                    args.postprocess_purple_bg,
                 )
                 continue
             raw_source = tmp_path_for(source, out_dir, tmp_dir)
@@ -701,6 +754,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
+                    args.postprocess_purple_bg,
                 )
             else:
                 if args.size and img.size != (args.size, args.size):
@@ -728,6 +782,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
+                    args.postprocess_purple_bg,
                 )
                 continue
             if client is None:
@@ -742,6 +797,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
+                    args.postprocess_purple_bg,
                 )
             else:
                 if args.size and img.size != (args.size, args.size):
