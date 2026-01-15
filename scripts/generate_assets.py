@@ -32,8 +32,8 @@ ORIENTATION_TEMPLATES = [
     ("w", "Left-facing profile view."),
     ("ne", "Three-quarter back view facing up-right (northeast), facing away from camera."),
     ("nw", "Three-quarter back view facing up-left (northwest), facing away from camera."),
-    ("se", "Three-quarter view facing down-right (southeast)."),
-    ("sw", "Three-quarter view facing down-left (southwest)."),
+    ("se", "Three-quarter view facing down-right (southeast), looking left."),
+    ("sw", "Three-quarter view facing down-left (southwest), looking right."),
 ]
 EDGE_ORIENTATIONS = [
     ("ew", "Horizontal cliff edge segment running east-west; higher ground on the north (top) side."),
@@ -456,11 +456,22 @@ def apply_postprocess(
     img: Image.Image,
     target_size: int,
     tol: int = 18,
+    purple_to_white: bool = False,
 ) -> Image.Image:
     if img.mode != "RGBA":
         img = img.convert("RGBA")
     img = flood_fill_bg(img, tol)
     img = crop_to_content(img, target_size)
+    if purple_to_white:
+        px = img.load()
+        w, h = img.size
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = px[x, y]
+                if a == 0:
+                    continue
+                if r >= 180 and b >= 180 and g <= 120:
+                    px[x, y] = (255, 255, 255, a)
     return img
 
 
@@ -481,10 +492,11 @@ def postprocess_to_target(
     target: Path,
     size: int,
     tol: int,
+    purple_to_white: bool,
 ) -> None:
     with Image.open(source) as existing:
         img = existing.convert("RGBA")
-    img = apply_postprocess(img, size, tol)
+    img = apply_postprocess(img, size, tol, purple_to_white)
     target.parent.mkdir(parents=True, exist_ok=True)
     img.save(target)
 
@@ -539,6 +551,11 @@ def main() -> None:
     parser.add_argument("--postprocess", action="store_true")
     parser.add_argument("--postprocess-only", action="store_true")
     parser.add_argument("--postprocess-tol", type=int, default=35, help="Background keying tolerance.")
+    parser.add_argument(
+        "--postprocess-purple-to-white",
+        action="store_true",
+        help="Replace bright purple pixels with white for team tinting.",
+    )
     parser.add_argument(
         "--oriented",
         action="store_true",
@@ -595,6 +612,9 @@ def main() -> None:
             reference = Path(output.reference_filename)
             if not reference.is_absolute():
                 reference = out_dir / reference
+            raw_reference = tmp_path_for(reference, out_dir, tmp_dir)
+            if raw_reference.exists():
+                reference = raw_reference
             if args.dry_run:
                 print(f"[dry-run] {target} <- {output.prompt[:80]}... (ref {reference})")
                 continue
@@ -603,7 +623,13 @@ def main() -> None:
                 if not source.exists():
                     print(f"[skip] missing {source}")
                     continue
-                postprocess_to_target(source, target, args.size, args.postprocess_tol)
+                postprocess_to_target(
+                    source,
+                    target,
+                    args.size,
+                    args.postprocess_tol,
+                    args.postprocess_purple_to_white,
+                )
                 continue
             if not reference.exists():
                 raise SystemExit(f"Missing reference image: {reference}")
@@ -616,7 +642,13 @@ def main() -> None:
             if args.postprocess:
                 raw_target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(raw_target)
-                postprocess_to_target(raw_target, target, args.size, args.postprocess_tol)
+                postprocess_to_target(
+                    raw_target,
+                    target,
+                    args.size,
+                    args.postprocess_tol,
+                    args.postprocess_purple_to_white,
+                )
             else:
                 if args.size and img.size != (args.size, args.size):
                     img = img.resize((args.size, args.size), Image.LANCZOS)
@@ -642,7 +674,13 @@ def main() -> None:
                 if not source.exists():
                     print(f"[skip] missing {source}")
                     continue
-                postprocess_to_target(source, target, args.size, args.postprocess_tol)
+                postprocess_to_target(
+                    source,
+                    target,
+                    args.size,
+                    args.postprocess_tol,
+                    args.postprocess_purple_to_white,
+                )
                 continue
             raw_source = tmp_path_for(source, out_dir, tmp_dir)
             if raw_source.exists():
@@ -655,7 +693,13 @@ def main() -> None:
             if args.postprocess:
                 raw_target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(raw_target)
-                postprocess_to_target(raw_target, target, args.size, args.postprocess_tol)
+                postprocess_to_target(
+                    raw_target,
+                    target,
+                    args.size,
+                    args.postprocess_tol,
+                    args.postprocess_purple_to_white,
+                )
             else:
                 if args.size and img.size != (args.size, args.size):
                     img = img.resize((args.size, args.size), Image.LANCZOS)
@@ -676,7 +720,13 @@ def main() -> None:
                 if not source.exists():
                     print(f"[skip] missing {source}")
                     continue
-                postprocess_to_target(source, target, args.size, args.postprocess_tol)
+                postprocess_to_target(
+                    source,
+                    target,
+                    args.size,
+                    args.postprocess_tol,
+                    args.postprocess_purple_to_white,
+                )
                 continue
             if client is None:
                 raise SystemExit("Client not initialized for image generation.")
@@ -684,7 +734,13 @@ def main() -> None:
             if args.postprocess:
                 raw_target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(raw_target)
-                postprocess_to_target(raw_target, target, args.size, args.postprocess_tol)
+                postprocess_to_target(
+                    raw_target,
+                    target,
+                    args.size,
+                    args.postprocess_tol,
+                    args.postprocess_purple_to_white,
+                )
             else:
                 if args.size and img.size != (args.size, args.size):
                     img = img.resize((args.size, args.size), Image.LANCZOS)
