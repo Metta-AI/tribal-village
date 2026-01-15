@@ -288,36 +288,31 @@ proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, tea
   result = findNearestFriendlyThing(env, nextSearchPos, teamId, kind)
   return result
 
-proc countNearbyTerrain*(env: Environment, center: IVec2, radius: int,
-                         allowed: set[TerrainType]): int =
-  let cx = center.x.int
-  let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
-  for x in startX..endX:
-    for y in startY..endY:
+template forNearbyCells(center: IVec2, radius: int, body: untyped) =
+  let cx {.inject.} = center.x.int
+  let cy {.inject.} = center.y.int
+  let startX {.inject.} = max(0, cx - radius)
+  let endX {.inject.} = min(MapWidth - 1, cx + radius)
+  let startY {.inject.} = max(0, cy - radius)
+  let endY {.inject.} = min(MapHeight - 1, cy + radius)
+  for x {.inject.} in startX..endX:
+    for y {.inject.} in startY..endY:
       if max(abs(x - cx), abs(y - cy)) > radius:
         continue
-      if env.terrain[x][y] in allowed:
-        inc result
+      body
+
+proc countNearbyTerrain*(env: Environment, center: IVec2, radius: int,
+                         allowed: set[TerrainType]): int =
+  forNearbyCells(center, radius):
+    if env.terrain[x][y] in allowed:
+      inc result
 
 proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
                         allowed: set[ThingKind]): int =
-  let cx = center.x.int
-  let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
-  for x in startX..endX:
-    for y in startY..endY:
-      if max(abs(x - cx), abs(y - cy)) > radius:
-        continue
-      let occ = env.grid[x][y]
-      if not isNil(occ) and occ.kind in allowed:
-        inc result
+  forNearbyCells(center, radius):
+    let occ = env.grid[x][y]
+    if not isNil(occ) and occ.kind in allowed:
+      inc result
 
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =

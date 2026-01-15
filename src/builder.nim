@@ -23,6 +23,21 @@ proc builderHasDropoffItems(agent: Thing): bool =
 proc builderNeedsPopCap(env: Environment, teamId: int): bool =
   needsPopCapHouse(env, teamId)
 
+proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
+                        kinds: openArray[ThingKind]): bool =
+  for kind in kinds:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      return true
+  false
+
+proc buildFirstMissing(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState, teamId: int,
+                       kinds: openArray[ThingKind]): uint8 =
+  for kind in kinds:
+    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+    if did: return act
+  0'u8
+
 proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                    agentId: int, state: var AgentState): bool =
   hasPlantInputs(agent)
@@ -67,18 +82,12 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
 proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                        agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  for kind in CoreInfrastructureKinds:
-    if controller.getBuildingCount(env, teamId, kind) == 0:
-      return true
-  false
+  anyMissingBuilding(controller, env, teamId, CoreInfrastructureKinds)
 
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  for kind in CoreInfrastructureKinds:
-    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
-    if did: return act
-  0'u8
+  buildFirstMissing(controller, env, agent, agentId, state, teamId, CoreInfrastructureKinds)
 
 proc canStartBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
@@ -147,18 +156,12 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
 proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  for kind in TechBuildingKinds:
-    if controller.getBuildingCount(env, teamId, kind) == 0:
-      return true
-  false
+  anyMissingBuilding(controller, env, teamId, TechBuildingKinds)
 
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  for kind in TechBuildingKinds:
-    let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
-    if did: return act
-  0'u8
+  buildFirstMissing(controller, env, agent, agentId, state, teamId, TechBuildingKinds)
 
 proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =

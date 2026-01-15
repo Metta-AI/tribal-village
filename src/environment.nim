@@ -87,43 +87,35 @@ include "colors"
 const
   DefaultScoreNeutralThreshold = 0.05'f32
   DefaultScoreIncludeWater = false
+  ItemObsLayerByKind: array[ItemKind, int16] = [
+    -1, # ikNone
+    AgentInventoryGoldLayer.int16,
+    AgentInventoryStoneLayer.int16,
+    AgentInventoryBarLayer.int16,
+    AgentInventoryWaterLayer.int16,
+    AgentInventoryWheatLayer.int16,
+    AgentInventoryWoodLayer.int16,
+    AgentInventorySpearLayer.int16,
+    AgentInventoryLanternLayer.int16,
+    AgentInventoryArmorLayer.int16,
+    AgentInventoryBreadLayer.int16,
+    AgentInventoryPlantLayer.int16,
+    AgentInventoryFishLayer.int16,
+    AgentInventoryMeatLayer.int16,
+    -1, # ikRelic
+    -1  # ikHearts
+  ]
 
 {.push inline.}
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
   ## Update observation layer for agent inventory - uses ItemKind enum for type safety
   if key.kind != ItemKeyItem:
     return
-  let kind = key.item
+  let layerId = ItemObsLayerByKind[key.item]
+  if layerId < 0:
+    return
   let value = getInv(agent, key)
-  case kind
-  of ikGold:
-    env.updateObservations(AgentInventoryGoldLayer, agent.pos, value)
-  of ikStone:
-    env.updateObservations(AgentInventoryStoneLayer, agent.pos, value)
-  of ikBar:
-    env.updateObservations(AgentInventoryBarLayer, agent.pos, value)
-  of ikWater:
-    env.updateObservations(AgentInventoryWaterLayer, agent.pos, value)
-  of ikWheat:
-    env.updateObservations(AgentInventoryWheatLayer, agent.pos, value)
-  of ikWood:
-    env.updateObservations(AgentInventoryWoodLayer, agent.pos, value)
-  of ikSpear:
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, value)
-  of ikLantern:
-    env.updateObservations(AgentInventoryLanternLayer, agent.pos, value)
-  of ikArmor:
-    env.updateObservations(AgentInventoryArmorLayer, agent.pos, value)
-  of ikBread:
-    env.updateObservations(AgentInventoryBreadLayer, agent.pos, value)
-  of ikMeat:
-    env.updateObservations(AgentInventoryMeatLayer, agent.pos, value)
-  of ikFish:
-    env.updateObservations(AgentInventoryFishLayer, agent.pos, value)
-  of ikPlant:
-    env.updateObservations(AgentInventoryPlantLayer, agent.pos, value)
-  else:
-    discard  # Non-observed items (hearts, none)
+  env.updateObservations(ObservationName(layerId.int), agent.pos, value)
 
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
   ## Type-safe overload using ItemKind enum
@@ -203,38 +195,36 @@ proc spendCosts*(env: Environment, agent: Thing, source: PaymentSource,
   of PayNone:
     false
 
+const
+  UnitMaxHpByClass: array[AgentUnitClass, int] = [
+    VillagerMaxHp,
+    ManAtArmsMaxHp,
+    ArcherMaxHp,
+    ScoutMaxHp,
+    KnightMaxHp,
+    MonkMaxHp,
+    BatteringRamMaxHp,
+    MangonelMaxHp,
+    VillagerMaxHp
+  ]
+  UnitAttackDamageByClass: array[AgentUnitClass, int] = [
+    VillagerAttackDamage,
+    ManAtArmsAttackDamage,
+    ArcherAttackDamage,
+    ScoutAttackDamage,
+    KnightAttackDamage,
+    MonkAttackDamage,
+    BatteringRamAttackDamage,
+    MangonelAttackDamage,
+    VillagerAttackDamage
+  ]
+
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.unitClass = unitClass
   if unitClass != UnitBoat:
     agent.embarkedUnitClass = unitClass
-  case unitClass
-  of UnitVillager:
-    agent.maxHp = VillagerMaxHp
-    agent.attackDamage = VillagerAttackDamage
-  of UnitManAtArms:
-    agent.maxHp = ManAtArmsMaxHp
-    agent.attackDamage = ManAtArmsAttackDamage
-  of UnitArcher:
-    agent.maxHp = ArcherMaxHp
-    agent.attackDamage = ArcherAttackDamage
-  of UnitScout:
-    agent.maxHp = ScoutMaxHp
-    agent.attackDamage = ScoutAttackDamage
-  of UnitKnight:
-    agent.maxHp = KnightMaxHp
-    agent.attackDamage = KnightAttackDamage
-  of UnitMonk:
-    agent.maxHp = MonkMaxHp
-    agent.attackDamage = MonkAttackDamage
-  of UnitBatteringRam:
-    agent.maxHp = BatteringRamMaxHp
-    agent.attackDamage = BatteringRamAttackDamage
-  of UnitMangonel:
-    agent.maxHp = MangonelMaxHp
-    agent.attackDamage = MangonelAttackDamage
-  of UnitBoat:
-    agent.maxHp = VillagerMaxHp
-    agent.attackDamage = VillagerAttackDamage
+  agent.maxHp = UnitMaxHpByClass[unitClass]
+  agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
 
 proc applyUnitClassPreserveHp*(agent: Thing, unitClass: AgentUnitClass) =
