@@ -591,6 +591,9 @@ proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
+  var riverYByX: seq[int] = newSeq[int](mapWidth)
+  for x in 0 ..< mapWidth:
+    riverYByX[x] = -1
 
   # Reserve corners for villages so river doesn't block them
   let reserve = max(8, min(mapWidth, mapHeight) div 10)
@@ -686,6 +689,8 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
   # Place water tiles for main river (skip reserved corners)
   for pos in riverPath:
+    if pos.x >= 0 and pos.x < mapWidth:
+      riverYByX[pos.x] = pos.y.int
     for dx in -RiverWidth div 2 .. RiverWidth div 2:
       for dy in -RiverWidth div 2 .. RiverWidth div 2:
         let waterPos = pos + ivec2(dx.int32, dy.int32)
@@ -778,9 +783,21 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       let upstream = if forkUpIdx > 0: mainCandidates[0 ..< min(forkUpIdx, mainCandidates.len)] else: @[]
       placeFrom(upstream, false)
     if branchUpCandidates.len > 0:
-      placeFrom(branchUpCandidates, true)
+      let firstIdx = branchUpCandidates.len div 3
+      let secondIdx = max(firstIdx + 1, (branchUpCandidates.len * 2) div 3)
+      placeBridgeBranch(terrain, branchUpCandidates[firstIdx])
+      placed.add(branchUpCandidates[firstIdx])
+      if secondIdx < branchUpCandidates.len:
+        placeBridgeBranch(terrain, branchUpCandidates[secondIdx])
+        placed.add(branchUpCandidates[secondIdx])
     if branchDownCandidates.len > 0:
-      placeFrom(branchDownCandidates, true)
+      let firstIdx = branchDownCandidates.len div 3
+      let secondIdx = max(firstIdx + 1, (branchDownCandidates.len * 2) div 3)
+      placeBridgeBranch(terrain, branchDownCandidates[firstIdx])
+      placed.add(branchDownCandidates[firstIdx])
+      if secondIdx < branchDownCandidates.len:
+        placeBridgeBranch(terrain, branchDownCandidates[secondIdx])
+        placed.add(branchDownCandidates[secondIdx])
     if forkDownIdx >= 0 and forkDownIdx < mainCandidates.len:
       let downstream = mainCandidates[min(forkDownIdx, mainCandidates.len - 1) ..< mainCandidates.len]
       placeFrom(downstream, false)
@@ -821,6 +838,68 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       placeBridgeBranch(terrain, center)
       dec remaining
       idx += stride
+
+  # Add a simple road grid that criss-crosses the map.
+  template paintRoadVertical(x: int) =
+    for y in mapBorder ..< mapHeight - mapBorder:
+      if inCorner(x, y):
+        continue
+      if terrain[x][y] in {Water, Bridge}:
+        continue
+      terrain[x][y] = Road
+
+  template paintRoadHorizontal(y: int) =
+    for x in mapBorder ..< mapWidth - mapBorder:
+      if inCorner(x, y):
+        continue
+      if terrain[x][y] in {Water, Bridge}:
+        continue
+      terrain[x][y] = Road
+
+  let verticalCount = randIntInclusive(r, 4, 5)
+  let playWidth = mapWidth - 2 * mapBorder
+  let vStride = max(1, playWidth div (verticalCount + 1))
+  var vIdx = vStride
+  var roadXs: seq[int] = @[]
+  while roadXs.len < verticalCount and vIdx < mapWidth - mapBorder:
+    let jitter = max(1, vStride div 4)
+    var x = vIdx + randIntInclusive(r, -jitter, jitter)
+    x = max(mapBorder + 2, min(mapWidth - mapBorder - 3, x))
+    if x notin roadXs:
+      roadXs.add(x)
+    vIdx += vStride
+
+  var riverMid = mapHeight div 2
+  if riverPath.len > 0:
+    var sumY = 0
+    for pos in riverPath:
+      sumY += pos.y.int
+    riverMid = sumY div riverPath.len
+
+  for x in roadXs:
+    if x >= 0 and x < riverYByX.len and riverYByX[x] >= 0:
+      placeBridgeMain(terrain, ivec2(x.int32, riverYByX[x].int32))
+    paintRoadVertical(x)
+
+  let northCount = randIntInclusive(r, 1, 2)
+  let southCount = randIntInclusive(r, 1, 2)
+  let northMin = mapBorder + 2
+  let northMax = min(mapHeight - mapBorder - 3, riverMid - (RiverWidth div 2) - 3)
+  if northMax >= northMin:
+    let nStride = max(1, (northMax - northMin) div (northCount + 1))
+    var y = northMin + nStride
+    for _ in 0 ..< northCount:
+      paintRoadHorizontal(y)
+      y += nStride
+
+  let southMin = max(mapBorder + 2, riverMid + (RiverWidth div 2) + 3)
+  let southMax = mapHeight - mapBorder - 3
+  if southMax >= southMin:
+    let sStride = max(1, (southMax - southMin) div (southCount + 1))
+    var y = southMin + sStride
+    for _ in 0 ..< southCount:
+      paintRoadHorizontal(y)
+      y += sStride
 
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                   mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
