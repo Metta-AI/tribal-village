@@ -527,23 +527,17 @@ proc drawObjects*() =
       let pos {.inject.} = thing.pos
       body
 
-  drawThings(Tree):
-    let treeSprite = thingSpriteKey(thing.kind)
-    bxy.drawImage(treeSprite, pos.vec2, angle = 0, scale = SpriteScale)
-    if isTileFrozen(pos, env):
-      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+  proc drawFrosted(thingKind: ThingKind) =
+    for thing in env.thingsByKind[thingKind]:
+      let pos = thing.pos
+      let spriteKey = thingSpriteKey(thing.kind)
+      bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
+      if isTileFrozen(pos, env):
+        bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
 
-  drawThings(Wheat):
-    let spriteKey = thingSpriteKey(thing.kind)
-    bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
-    if isTileFrozen(pos, env):
-      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
-
-  drawThings(Stubble):
-    let spriteKey = thingSpriteKey(thing.kind)
-    bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
-    if isTileFrozen(pos, env):
-      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+  drawFrosted(Tree)
+  drawFrosted(Wheat)
+  drawFrosted(Stubble)
 
   drawThings(Agent):
     let agent = thing
