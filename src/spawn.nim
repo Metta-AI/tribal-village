@@ -47,6 +47,16 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
       if randChance(r, chance):
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
+proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
+                                sizeMin, sizeMax: int, baseDensity, falloffRate: float,
+                                kind: ThingKind, item: ItemKey, allowedBiome: BiomeType) =
+  for _ in 0 ..< count:
+    let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
+    let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+    let size = randIntInclusive(r, sizeMin, sizeMax)
+    placeResourceCluster(env, x, y, size, baseDensity, falloffRate,
+      kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
+
 proc applyBiomeElevation(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -1103,19 +1113,11 @@ proc init(env: Environment) =
           placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
           placed = true
 
-    for _ in 0 ..< max(10, MapWidth div 20):
-      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-      let size = randIntInclusive(r, 2, 5)
-      placeResourceCluster(env, x, y, size, 0.65, 0.4, Cactus, ItemPlant, ResourceGround, r,
-        allowedBiomes = {BiomeDesertType})
+    placeBiomeResourceClusters(env, r, max(10, MapWidth div 20),
+      2, 5, 0.65, 0.4, Cactus, ItemPlant, BiomeDesertType)
 
-    for _ in 0 ..< max(10, MapWidth div 30):
-      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-      let size = randIntInclusive(r, 2, 6)
-      placeResourceCluster(env, x, y, size, 0.7, 0.45, Stalagmite, ItemStone, ResourceGround, r,
-        allowedBiomes = {BiomeCavesType})
+    placeBiomeResourceClusters(env, r, max(10, MapWidth div 30),
+      2, 6, 0.7, 0.45, Stalagmite, ItemStone, BiomeCavesType)
 
   # Ensure the world is a single connected component after terrain and structures.
   env.makeConnected()
