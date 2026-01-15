@@ -77,9 +77,6 @@ proc isCarryingStockpile(agent: Thing): bool =
       return true
   false
 
-proc gathererHasPlantInputs(agent: Thing): bool =
-  agent.inventoryWheat > 0 or agent.inventoryWood > 0
-
 proc findNearestMagma(env: Environment, agent: Thing): Thing =
   var bestDist = int.high
   var best: Thing = nil
@@ -107,7 +104,7 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
 
 proc canStartGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
-  state.gathererTask != TaskHearts and gathererHasPlantInputs(agent)
+  state.gathererTask != TaskHearts and hasPlantInputs(agent)
 
 proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =

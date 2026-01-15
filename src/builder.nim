@@ -14,9 +14,6 @@ const
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
 
-proc builderHasPlantInputs(agent: Thing): bool =
-  agent.inventoryWheat > 0 or agent.inventoryWood > 0
-
 proc builderHasDropoffItems(agent: Thing): bool =
   for key, count in agent.inventory.pairs:
     if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
@@ -28,7 +25,7 @@ proc builderNeedsPopCap(env: Environment, teamId: int): bool =
 
 proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                    agentId: int, state: var AgentState): bool =
-  builderHasPlantInputs(agent)
+  hasPlantInputs(agent)
 
 proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
@@ -111,7 +108,7 @@ proc optBuilderMillNearResource(controller: Controller, env: Environment, agent:
 
 proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
-  if not builderHasPlantInputs(agent):
+  if not hasPlantInputs(agent):
     return false
   let teamId = getTeamId(agent)
   controller.getBuildingCount(env, teamId, Mill) >= 2
