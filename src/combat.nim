@@ -19,10 +19,52 @@ const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
 ]
 
-const BonusDamageTint = TileColor(r: 1.0, g: 0.45, b: 0.15, intensity: 1.15)
+const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
+  # UnitVillager
+  TileColor(r: 1.00, g: 0.35, b: 0.30, intensity: 1.20),
+  # UnitManAtArms
+  TileColor(r: 1.00, g: 0.65, b: 0.20, intensity: 1.20),
+  # UnitArcher
+  TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.20),
+  # UnitScout
+  TileColor(r: 0.30, g: 1.00, b: 0.35, intensity: 1.18),
+  # UnitKnight
+  TileColor(r: 0.25, g: 0.95, b: 0.90, intensity: 1.18),
+  # UnitMonk
+  TileColor(r: 0.30, g: 0.60, b: 1.00, intensity: 1.18),
+  # UnitBatteringRam
+  TileColor(r: 0.55, g: 0.40, b: 1.00, intensity: 1.18),
+  # UnitMangonel
+  TileColor(r: 0.85, g: 0.40, b: 1.00, intensity: 1.20),
+  # UnitBoat
+  TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
+]
 
 proc classBonusDamage(attacker, target: AgentUnitClass): int {.inline.} =
   BonusDamageByClass[attacker][target]
+
+proc bonusCritTint(attacker: AgentUnitClass): TileColor {.inline.} =
+  BonusDamageTintByClass[attacker]
+
+proc inTankAura(env: Environment, target: Thing): bool =
+  let teamId = getTeamId(target)
+  if teamId < 0:
+    return false
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if getTeamId(agent) != teamId:
+      continue
+    if agent.unitClass notin {UnitManAtArms, UnitKnight}:
+      continue
+    if isThingFrozen(agent, env):
+      continue
+    let radius = if agent.unitClass == UnitKnight: 2 else: 1
+    let dx = abs(agent.pos.x - target.pos.x)
+    let dy = abs(agent.pos.y - target.pos.y)
+    if max(dx, dy) <= radius:
+      return true
+  return false
 
 proc isAttackableStructure*(kind: ThingKind): bool {.inline.} =
   kind in {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
@@ -33,7 +75,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttackBonus)
+      env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
       damage += bonus
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
@@ -108,12 +150,14 @@ proc killAgent(env: Environment, victim: Thing) =
 # Apply damage to an agent; respects armor and marks terminated when HP <= 0.
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
-  var remaining = amount
+  var remaining = max(1, amount)
   if not attacker.isNil:
     let bonus = classBonusDamage(attacker.unitClass, target.unitClass)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTint, 2, ActionTintAttackBonus)
-    remaining += bonus
+      env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
+    remaining = max(1, remaining + bonus)
+  if inTankAura(env, target):
+    remaining = max(1, (remaining + 1) div 2)
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)

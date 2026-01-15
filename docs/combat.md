@@ -32,7 +32,7 @@ When a bonus applies (class counters or siege-vs-structure), the target tile rec
 - `BonusDamageTint` in `src/combat.nim`
 - Applied via `env.applyActionTint` when bonus damage > 0
 
-This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits a specific `TintLayer` code for bonus hits.
+This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits a specific `TintLayer` code for bonus hits. Bonus flashes now use **per‑attacker colors** so you can tell which unit type scored the critical hit.
 
 ## Action Tint Observation Codes
 The action tint layer now exposes more detail so agents can tell what kind of event occurred:
@@ -42,6 +42,27 @@ The action tint layer now exposes more detail so agents can tell what kind of ev
 - Shield code for armor band flashes
 - Bonus/critical hit code
 - Mixed code when multiple events overlap on the same tile
+
+## Tank Auras (Defensive)
+- **Man-at-Arms**: 3x3 defensive aura (gold tint).
+- **Knight**: 5x5 defensive aura (gold tint).
+- Allies standing inside the aura take **half damage** (rounded up, minimum 1 before armor).
+- Overlapping tank auras do not stack; the strongest defensive aura applies.
+
+## Monk Healing Aura
+- If any ally within a monk’s 5x5 area is injured, the monk emits a green healing aura.
+- Allies in the 5x5 heal **1 HP per step** (no stacking across multiple monks).
+- The aura is visible as a 5x5 green tint; healing occurs only when needed.
+
+## DPS Attack Patterns (Visual + Damage)
+- **Archer**: line shot to range (stops on first hit).
+- **Scout**: short jab (2-tile line, stops on first hit).
+- **Battering Ram**: 2-tile line strike (stops on first hit).
+- **Mangonel**: widened area strike (5-wide line over its range).
+- **Boat**: 3-wide forward band (broadside).
+
+## Cavalry Movement
+- **Scouts** and **Knights** attempt to move 2 tiles per step; if blocked, they stop before the obstacle.
 
 ## Why This Change
 - AoE-like gameplay relies on clear, readable counters.

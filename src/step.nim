@@ -7,6 +7,13 @@ const
   CastleAttackTint = TileColor(r: 0.35, g: 0.25, b: 0.85, intensity: 1.15)
   TowerAttackTintDuration = 2'i8
   CastleAttackTintDuration = 3'i8
+  TankAuraTint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.05)
+  MonkAuraTint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.05)
+  TankAuraTintDuration = 1'i8
+  MonkAuraTintDuration = 1'i8
+  ManAtArmsAuraRadius = 1
+  KnightAuraRadius = 2
+  MonkAuraRadius = 2
 
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
@@ -137,6 +144,82 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       discard
 
+  proc applyTankAuraTints(env: Environment) =
+    for agent in env.agents:
+      if not isAgentAlive(env, agent):
+        continue
+      if isThingFrozen(agent, env):
+        continue
+      let radius = case agent.unitClass
+        of UnitManAtArms: ManAtArmsAuraRadius
+        of UnitKnight: KnightAuraRadius
+        else: -1
+      if radius < 0:
+        continue
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          let pos = agent.pos + ivec2(dx.int32, dy.int32)
+          env.applyAuraTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
+
+  proc applyMonkHealingAura(env: Environment) =
+    var healFlags: array[MapAgents, bool]
+    for monk in env.agents:
+      if not isAgentAlive(env, monk):
+        continue
+      if monk.unitClass != UnitMonk:
+        continue
+      if isThingFrozen(monk, env):
+        continue
+      let teamId = getTeamId(monk)
+      var needsHeal = false
+      for ally in env.agents:
+        if not isAgentAlive(env, ally):
+          continue
+        if getTeamId(ally) != teamId:
+          continue
+        let dx = abs(ally.pos.x - monk.pos.x)
+        let dy = abs(ally.pos.y - monk.pos.y)
+        if max(dx, dy) > MonkAuraRadius:
+          continue
+        if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
+          needsHeal = true
+          break
+      if not needsHeal:
+        continue
+
+      for dx in -MonkAuraRadius .. MonkAuraRadius:
+        for dy in -MonkAuraRadius .. MonkAuraRadius:
+          let pos = monk.pos + ivec2(dx.int32, dy.int32)
+          if not isValidPos(pos):
+            continue
+          let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+          let existingCode = env.actionTintCode[pos.x][pos.y]
+          if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield, ActionTintHealMonk}:
+            if existingCode != ActionTintMixed:
+              env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+              env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+            continue
+          env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
+
+      for ally in env.agents:
+        if not isAgentAlive(env, ally):
+          continue
+        if getTeamId(ally) != teamId:
+          continue
+        let dx = abs(ally.pos.x - monk.pos.x)
+        let dy = abs(ally.pos.y - monk.pos.y)
+        if max(dx, dy) > MonkAuraRadius:
+          continue
+        if not isThingFrozen(ally, env):
+          healFlags[ally.agentId] = true
+
+    for agentId in 0 ..< env.agents.len:
+      if not healFlags[agentId]:
+        continue
+      let target = env.agents[agentId]
+      if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
+        target.hp = min(target.maxHp, target.hp + 1)
+
   if env.cowHerdCounts.len > 0:
     for i in 0 ..< env.cowHerdCounts.len:
       env.cowHerdCounts[i] = 0
@@ -181,7 +264,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
               continue
             let terrain = env.terrain[pos.x][pos.y]
-            if terrain in {Empty, Grass, Sand, Snow, Dune, Road}:
+            if terrain in BuildableTerrain:
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
         thing.cooldown = 10
@@ -460,6 +543,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   if tumorsToRemove.len > 0:
     for tumor in tumorsToRemove:
       removeThing(env, tumor)
+
+  applyTankAuraTints(env)
+  applyMonkHealingAura(env)
 
   when defined(stepTiming):
     if timing:

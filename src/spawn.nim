@@ -47,6 +47,16 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
       if randChance(r, chance):
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
+proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
+                                sizeMin, sizeMax: int, baseDensity, falloffRate: float,
+                                kind: ThingKind, item: ItemKey, allowedBiome: BiomeType) =
+  for _ in 0 ..< count:
+    let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
+    let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+    let size = randIntInclusive(r, sizeMin, sizeMax)
+    placeResourceCluster(env, x, y, size, baseDensity, falloffRate,
+      kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
+
 proc applyBiomeElevation(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -58,6 +68,54 @@ proc applyBiomeElevation(env: Environment) =
         env.elevation[x][y] = 1
       else:
         env.elevation[x][y] = 0
+
+proc isRampTerrain(terrain: TerrainType): bool {.inline.} =
+  terrain in {RampUpN, RampUpS, RampUpW, RampUpE, RampDownN, RampDownS, RampDownW, RampDownE}
+
+proc rampUpForDir(dx, dy: int): TerrainType =
+  if dx == 0 and dy == -1:
+    RampUpN
+  elif dx == 0 and dy == 1:
+    RampUpS
+  elif dx == -1 and dy == 0:
+    RampUpW
+  else:
+    RampUpE
+
+proc rampDownForDir(dx, dy: int): TerrainType =
+  if dx == 0 and dy == -1:
+    RampDownN
+  elif dx == 0 and dy == 1:
+    RampDownS
+  elif dx == -1 and dy == 0:
+    RampDownW
+  else:
+    RampDownE
+
+proc applyCliffRamps(env: Environment) =
+  var cliffCount = 0
+  let dirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+  for x in MapBorder ..< MapWidth - MapBorder:
+    for y in MapBorder ..< MapHeight - MapBorder:
+      if env.terrain[x][y] == Water or isRampTerrain(env.terrain[x][y]):
+        continue
+      let elev = env.elevation[x][y]
+      for d in dirs:
+        let nx = x + d.x.int
+        let ny = y + d.y.int
+        if nx < MapBorder or nx >= MapWidth - MapBorder or
+           ny < MapBorder or ny >= MapHeight - MapBorder:
+          continue
+        let nelev = env.elevation[nx][ny]
+        if nelev <= elev:
+          continue
+        if env.terrain[nx][ny] == Water or isRampTerrain(env.terrain[nx][ny]):
+          continue
+        inc cliffCount
+        if cliffCount mod 5 != 0:
+          continue
+        env.terrain[x][y] = rampUpForDir(d.x.int, d.y.int)
+        env.terrain[nx][ny] = rampDownForDir(-d.x.int, -d.y.int)
 
 proc init(env: Environment) =
   inc env.mapGeneration
@@ -102,6 +160,7 @@ proc init(env: Environment) =
   # Initialize terrain with all features
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
   env.applyBiomeElevation()
+  env.applyCliffRamps()
   env.applyBiomeBaseColors()
 
   # Resource nodes are spawned as Things later; base terrain stays walkable.
@@ -1054,19 +1113,11 @@ proc init(env: Environment) =
           placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
           placed = true
 
-    for _ in 0 ..< max(10, MapWidth div 20):
-      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-      let size = randIntInclusive(r, 2, 5)
-      placeResourceCluster(env, x, y, size, 0.65, 0.4, Cactus, ItemPlant, ResourceGround, r,
-        allowedBiomes = {BiomeDesertType})
+    placeBiomeResourceClusters(env, r, max(10, MapWidth div 20),
+      2, 5, 0.65, 0.4, Cactus, ItemPlant, BiomeDesertType)
 
-    for _ in 0 ..< max(10, MapWidth div 30):
-      let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-      let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
-      let size = randIntInclusive(r, 2, 6)
-      placeResourceCluster(env, x, y, size, 0.7, 0.45, Stalagmite, ItemStone, ResourceGround, r,
-        allowedBiomes = {BiomeCavesType})
+    placeBiomeResourceClusters(env, r, max(10, MapWidth div 30),
+      2, 6, 0.7, 0.45, Stalagmite, ItemStone, BiomeCavesType)
 
   # Ensure the world is a single connected component after terrain and structures.
   env.makeConnected()

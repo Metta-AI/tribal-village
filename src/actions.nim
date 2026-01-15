@@ -139,6 +139,9 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 break
           return relocated
 
+        let isCavalry = agent.unitClass in {UnitScout, UnitKnight}
+        let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
+
         var finalPos = step1
         if not canEnterFrom(agent.pos, step1):
           let blocker = env.getThing(step1)
@@ -165,13 +168,18 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionInvalid
           break moveAction
 
-        # Roads accelerate movement in the direction of entry.
-        if env.terrain[step1.x][step1.y] == Road:
-          let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
+        if isCavalry:
           if isValidPos(step2) and
               not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
             if canEnterFrom(step1, step2):
               finalPos = step2
+        else:
+          # Roads accelerate movement in the direction of entry.
+          if env.terrain[step1.x][step1.y] == Road:
+            if isValidPos(step2) and
+                not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
+              if canEnterFrom(step1, step2):
+                finalPos = step2
 
         env.grid[agent.pos.x][agent.pos.y] = nil
         # Clear old position and set new position
@@ -335,6 +343,8 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var hit = false
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
+          let left2 = ivec2(left.x * 2, left.y * 2)
+          let right2 = ivec2(right.x * 2, right.y * 2)
           for step in 1 .. MangonelAoELength:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
             env.applyUnitAttackTint(agent.unitClass, forward)
@@ -345,6 +355,12 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               hit = true
             env.applyUnitAttackTint(agent.unitClass, forward + right)
             if tryHitAt(forward + right):
+              hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + left2)
+            if tryHitAt(forward + left2):
+              hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + right2)
+            if tryHitAt(forward + right2):
               hit = true
           if hit:
             inc env.stats[id].actionAttack
@@ -405,6 +421,49 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if hit:
             agent.inventorySpear = max(0, agent.inventorySpear - 1)
             env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
+            inc env.stats[id].actionAttack
+          else:
+            inc env.stats[id].actionInvalid
+          break attackAction
+
+        if agent.unitClass == UnitScout:
+          var hit = false
+          for distance in 1 .. 2:
+            let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+            env.applyUnitAttackTint(agent.unitClass, attackPos)
+            if tryHitAt(attackPos):
+              hit = true
+              break
+          if hit:
+            inc env.stats[id].actionAttack
+          else:
+            inc env.stats[id].actionInvalid
+          break attackAction
+
+        if agent.unitClass == UnitBatteringRam:
+          var hit = false
+          for distance in 1 .. 2:
+            let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+            env.applyUnitAttackTint(agent.unitClass, attackPos)
+            if tryHitAt(attackPos):
+              hit = true
+              break
+          if hit:
+            inc env.stats[id].actionAttack
+          else:
+            inc env.stats[id].actionInvalid
+          break attackAction
+
+        if agent.unitClass == UnitBoat:
+          var hit = false
+          let left = ivec2(-delta.y, delta.x)
+          let right = ivec2(delta.y, -delta.x)
+          let forward = agent.pos + ivec2(delta.x, delta.y)
+          for pos in [forward, forward + left, forward + right]:
+            env.applyUnitAttackTint(agent.unitClass, pos)
+            if tryHitAt(pos):
+              hit = true
+          if hit:
             inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
