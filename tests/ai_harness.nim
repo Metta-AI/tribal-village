@@ -314,65 +314,26 @@ suite "AI - Gatherer":
     let (verb, _) = decodeAction(controller.decideAction(env, 0))
     check verb == 3
 
-  test "task food uses wheat":
-    let env = makeEmptyEnv()
-    let controller = newController(3)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 0)
-    setStockpile(env, 0, ResourceWood, 5)
-    setStockpile(env, 0, ResourceStone, 5)
-    setStockpile(env, 0, ResourceGold, 5)
+  const gathererCases = [
+    (name: "task food uses wheat", seed: 3, kind: Wheat, item: ItemWheat, target: ResourceFood),
+    (name: "task wood uses tree", seed: 4, kind: Tree, item: ItemWood, target: ResourceWood),
+    (name: "task stone uses stone", seed: 5, kind: Stone, item: ItemStone, target: ResourceStone),
+    (name: "task gold uses gold", seed: 6, kind: Gold, item: ItemGold, target: ResourceGold)
+  ]
 
-    let (verb, _) = decodeAction(controller.decideAction(env, 0))
-    check verb == 3
+  for gathererCase in gathererCases:
+    test gathererCase.name:
+      let env = makeEmptyEnv()
+      let controller = newController(gathererCase.seed)
+      let altarPos = ivec2(10, 10)
+      discard addAltar(env, altarPos, 0, 12)
+      discard addResource(env, gathererCase.kind, ivec2(10, 9), gathererCase.item, 3)
+      discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
+      fillStockpile(env, 0, 5)
+      setStockpile(env, 0, gathererCase.target, 0)
 
-  test "task wood uses tree":
-    let env = makeEmptyEnv()
-    let controller = newController(4)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Tree, ivec2(10, 9), ItemWood, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 5)
-    setStockpile(env, 0, ResourceWood, 0)
-    setStockpile(env, 0, ResourceStone, 5)
-    setStockpile(env, 0, ResourceGold, 5)
-
-    let (verb, _) = decodeAction(controller.decideAction(env, 0))
-    check verb == 3
-
-  test "task stone uses stone":
-    let env = makeEmptyEnv()
-    let controller = newController(5)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Stone, ivec2(10, 9), ItemStone, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 5)
-    setStockpile(env, 0, ResourceWood, 5)
-    setStockpile(env, 0, ResourceStone, 0)
-    setStockpile(env, 0, ResourceGold, 5)
-
-    let (verb, _) = decodeAction(controller.decideAction(env, 0))
-    check verb == 3
-
-  test "task gold uses gold":
-    let env = makeEmptyEnv()
-    let controller = newController(6)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Gold, ivec2(10, 9), ItemGold, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 5)
-    setStockpile(env, 0, ResourceWood, 5)
-    setStockpile(env, 0, ResourceStone, 5)
-    setStockpile(env, 0, ResourceGold, 0)
-
-    let (verb, _) = decodeAction(controller.decideAction(env, 0))
-    check verb == 3
+      let (verb, _) = decodeAction(controller.decideAction(env, 0))
+      check verb == 3
 
 suite "AI - Builder":
   test "drops off carried resources":
