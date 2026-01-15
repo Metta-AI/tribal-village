@@ -623,24 +623,16 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
 
 include "placement"
 
-proc grantWood(env: Environment, agent: Thing, amount: int = 1): bool =
+proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): bool =
   if amount <= 0:
     return true
   for _ in 0 ..< amount:
-    if not env.giveItem(agent, ItemWood):
-      return false
-  true
-
-proc grantWheat(env: Environment, agent: Thing, amount: int = 1): bool =
-  if amount <= 0:
-    return true
-  for _ in 0 ..< amount:
-    if not env.giveItem(agent, ItemWheat):
+    if not env.giveItem(agent, key):
       return false
   true
 
 proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
-  if not env.grantWood(agent):
+  if not env.grantItem(agent, ItemWood):
     return false
   agent.reward += env.config.woodReward
   removeThing(env, tree)
@@ -657,7 +649,7 @@ proc harvestWheat(env: Environment, agent: Thing, wheat: Thing): bool =
   if stored <= 0:
     removeThing(env, wheat)
     return true
-  if not env.grantWheat(agent):
+  if not env.grantItem(agent, ItemWheat):
     return false
   agent.reward += env.config.wheatReward
   removeThing(env, wheat)

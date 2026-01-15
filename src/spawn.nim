@@ -72,25 +72,15 @@ proc applyBiomeElevation(env: Environment) =
 proc isRampTerrain(terrain: TerrainType): bool {.inline.} =
   terrain in {RampUpN, RampUpS, RampUpW, RampUpE, RampDownN, RampDownS, RampDownW, RampDownE}
 
-proc rampUpForDir(dx, dy: int): TerrainType =
+proc rampForDir(dx, dy: int, up: bool): TerrainType =
   if dx == 0 and dy == -1:
-    RampUpN
+    if up: RampUpN else: RampDownN
   elif dx == 0 and dy == 1:
-    RampUpS
+    if up: RampUpS else: RampDownS
   elif dx == -1 and dy == 0:
-    RampUpW
+    if up: RampUpW else: RampDownW
   else:
-    RampUpE
-
-proc rampDownForDir(dx, dy: int): TerrainType =
-  if dx == 0 and dy == -1:
-    RampDownN
-  elif dx == 0 and dy == 1:
-    RampDownS
-  elif dx == -1 and dy == 0:
-    RampDownW
-  else:
-    RampDownE
+    if up: RampUpE else: RampDownE
 
 proc applyCliffRamps(env: Environment) =
   var cliffCount = 0
@@ -114,8 +104,8 @@ proc applyCliffRamps(env: Environment) =
         inc cliffCount
         if cliffCount mod 5 != 0:
           continue
-        env.terrain[x][y] = rampUpForDir(d.x.int, d.y.int)
-        env.terrain[nx][ny] = rampDownForDir(-d.x.int, -d.y.int)
+        env.terrain[x][y] = rampForDir(d.x.int, d.y.int, true)
+        env.terrain[nx][ny] = rampForDir(-d.x.int, -d.y.int, false)
 
 proc init(env: Environment) =
   inc env.mapGeneration
