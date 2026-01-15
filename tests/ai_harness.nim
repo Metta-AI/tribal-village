@@ -151,7 +151,7 @@ suite "Mechanics - Combat":
 
     env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, infantry.pos))
 
-    check infantry.hp == 3
+    check infantry.hp == 4
     env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, cavalry.pos))
     check cavalry.hp == 4
 
@@ -175,7 +175,7 @@ suite "Mechanics - Combat":
 
     env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, ally.pos))
 
-    check ally.hp == 2
+    check ally.hp == 3
 
   test "guard tower attacks enemy in range":
     let env = makeEmptyEnv()
