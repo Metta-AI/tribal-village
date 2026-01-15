@@ -27,6 +27,18 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
     env.actionTintFlags[pos.x][pos.y] = true
     env.actionTintPositions.add(pos)
 
+proc applyAuraTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
+  if not isValidPos(pos):
+    return
+  let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+  let existingCode = env.actionTintCode[pos.x][pos.y]
+  if existingCountdown > 0 and existingCode != ActionTintNone and existingCode != tintCode:
+    if existingCode != ActionTintMixed:
+      env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+      env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+    return
+  env.applyActionTint(pos, tintColor, duration, tintCode)
+
 proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]

@@ -36,8 +36,8 @@ ORIENTATION_TEMPLATES = [
     ("sw", "Three-quarter view facing down-left (southwest), looking right."),
 ]
 EDGE_ORIENTATIONS = [
-    ("ew", "Horizontal cliff edge segment running east-west; higher ground on the north (top) side."),
-    ("ns", "Vertical cliff edge segment running north-south; higher ground on the east (right) side."),
+    ("ew", "Horizontal cliff edge segment running east-west; neutral wall segment with no inside/outside cues."),
+    ("ns", "Vertical cliff edge segment running north-south; neutral wall segment with no inside/outside cues."),
 ]
 
 CORNER_ORIENTATIONS = [
