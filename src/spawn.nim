@@ -70,17 +70,7 @@ proc applyBiomeElevation(env: Environment) =
         env.elevation[x][y] = 0
 
 proc isRampTerrain(terrain: TerrainType): bool {.inline.} =
-  terrain in {RampUpN, RampUpS, RampUpW, RampUpE, RampDownN, RampDownS, RampDownW, RampDownE}
-
-proc rampForDir(dx, dy: int, up: bool): TerrainType =
-  if dx == 0 and dy == -1:
-    if up: RampUpN else: RampDownN
-  elif dx == 0 and dy == 1:
-    if up: RampUpS else: RampDownS
-  elif dx == -1 and dy == 0:
-    if up: RampUpW else: RampDownW
-  else:
-    if up: RampUpE else: RampDownE
+  terrain == Road
 
 proc applyCliffRamps(env: Environment) =
   var cliffCount = 0
@@ -104,8 +94,8 @@ proc applyCliffRamps(env: Environment) =
         inc cliffCount
         if cliffCount mod 5 != 0:
           continue
-        env.terrain[x][y] = rampForDir(d.x.int, d.y.int, true)
-        env.terrain[nx][ny] = rampForDir(-d.x.int, -d.y.int, false)
+        env.terrain[x][y] = Road
+        env.terrain[nx][ny] = Road
 
 proc init(env: Environment) =
   inc env.mapGeneration
