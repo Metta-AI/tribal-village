@@ -321,11 +321,14 @@ proc rebuildRenderCaches() =
           edgeW = false
           edgeN = false
 
-        # Edges are neutral; corners communicate inside/outside.
-        if edgeN or edgeS:
+        if edgeN:
           addCliff("cliff_edge_ew")
-        if edgeE or edgeW:
+        if edgeS:
+          addCliff("cliff_edge_ew_s")
+        if edgeE:
           addCliff("cliff_edge_ns")
+        if edgeW:
+          addCliff("cliff_edge_ns_w")
 
   renderCacheGeneration = env.mapGeneration
 

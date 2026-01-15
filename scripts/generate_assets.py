@@ -36,15 +36,17 @@ ORIENTATION_TEMPLATES = [
     ("sw", "Three-quarter view facing down-left (southwest), looking right."),
 ]
 EDGE_ORIENTATIONS = [
-    ("ew", "Horizontal cliff edge segment running east-west; neutral wall segment with no inside/outside cues."),
-    ("ns", "Vertical cliff edge segment running north-south; neutral wall segment with no inside/outside cues."),
+    ("ew", "Horizontal cliff edge segment running east-west; higher ground on the north (top) side, lower ground on the south (bottom) side."),
+    ("ew_s", "Horizontal cliff edge segment running east-west; higher ground on the south (bottom) side, lower ground on the north (top) side."),
+    ("ns", "Vertical cliff edge segment running north-south; higher ground on the east (right) side, lower ground on the west (left) side."),
+    ("ns_w", "Vertical cliff edge segment running north-south; higher ground on the west (left) side, lower ground on the east (right) side."),
 ]
 
 CORNER_ORIENTATIONS = [
-    ("ne", "Right-angle corner with edges on the north and east sides, oriented to the northeast."),
-    ("nw", "Right-angle corner with edges on the north and west sides, oriented to the northwest."),
-    ("se", "Right-angle corner with edges on the south and east sides, oriented to the southeast."),
-    ("sw", "Right-angle corner with edges on the south and west sides, oriented to the southwest."),
+    ("ne", "Right-angle corner with edges on the north and east sides; the inside of the corner is the southwest quadrant."),
+    ("nw", "Right-angle corner with edges on the north and west sides; the inside of the corner is the southeast quadrant."),
+    ("se", "Right-angle corner with edges on the south and east sides; the inside of the corner is the northwest quadrant."),
+    ("sw", "Right-angle corner with edges on the south and west sides; the inside of the corner is the northeast quadrant."),
 ]
 
 ORIENTATION_SETS = {
