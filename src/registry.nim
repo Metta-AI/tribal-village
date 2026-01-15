@@ -152,6 +152,14 @@ let TerrainCatalog* = block:
   add(Dune, "Dune", "", 'd')
   add(Sand, "Sand", "", 's')
   add(Snow, "Snow", "", 'n')
+  add(RampUpN, "Ramp Up (N)", "road", '^')
+  add(RampUpS, "Ramp Up (S)", "road", 'v')
+  add(RampUpW, "Ramp Up (W)", "road", '<')
+  add(RampUpE, "Ramp Up (E)", "road", '>')
+  add(RampDownN, "Ramp Down (N)", "road", 'N')
+  add(RampDownS, "Ramp Down (S)", "road", 'S')
+  add(RampDownW, "Ramp Down (W)", "road", 'W')
+  add(RampDownE, "Ramp Down (E)", "road", 'E')
   reg
 
 let ThingCatalog* = block:
