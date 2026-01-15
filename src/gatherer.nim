@@ -71,12 +71,6 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
     task = best[0]
   state.gathererTask = task
 
-proc isCarryingStockpile(agent: Thing): bool =
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      return true
-  false
-
 proc findNearestMagma(env: Environment, agent: Thing): Thing =
   var bestDist = int.high
   var best: Thing = nil
@@ -114,7 +108,10 @@ proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: 
 
 proc canStartGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  isCarryingStockpile(agent)
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      return true
+  false
 
 proc canStartGathererMarket(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
