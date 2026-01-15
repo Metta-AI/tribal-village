@@ -553,6 +553,17 @@ proc drawObjects*() =
       of 2, 3: "oriented/builder"
       of 4, 5: "oriented/fighter"
       else: "oriented/gatherer"
+    let baseKey =
+      case agent.unitClass
+      of UnitVillager: roleKey
+      of UnitManAtArms: "oriented/man_at_arms"
+      of UnitArcher: "oriented/archer"
+      of UnitScout: "oriented/scout"
+      of UnitKnight: "oriented/knight"
+      of UnitMonk: "oriented/monk"
+      of UnitBatteringRam: "oriented/battering_ram"
+      of UnitMangonel: "oriented/mangonel"
+      of UnitBoat: "oriented/boat"
     let dirKey = case agent.orientation:
       of N: "n"
       of S: "s"
@@ -562,7 +573,7 @@ proc drawObjects*() =
       of NW: "nw"
       of SE: "se"
       of SW: "sw"
-    let agentImage = roleKey & "." & dirKey
+    let agentImage = baseKey & "." & dirKey
     bxy.drawImage(
       agentImage,
       pos.vec2,
