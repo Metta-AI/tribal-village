@@ -2,6 +2,17 @@ const
   WallRingRadius = 7
   WallRingRadiusSlack = 1
   WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
+  CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
+  TechBuildingKinds = [
+    WeavingLoom, ClayOven, Blacksmith,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
+    Outpost, Castle, Market, Monastery
+  ]
+  CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
+    (kind: LumberCamp, nearbyKinds: {Tree}, minCount: 6),
+    (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
+    (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
+  ]
 
 proc builderHasPlantInputs(agent: Thing): bool =
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
@@ -13,25 +24,7 @@ proc builderHasDropoffItems(agent: Thing): bool =
   false
 
 proc builderNeedsPopCap(env: Environment, teamId: int): bool =
-  var popCount = 0
-  for otherAgent in env.agents:
-    if not isAgentAlive(env, otherAgent):
-      continue
-    if getTeamId(otherAgent) == teamId:
-      inc popCount
-  var popCap = 0
-  var hasBase = false
-  for thing in env.things:
-    if thing.isNil or thing.teamId != teamId:
-      continue
-    if isBuildingKind(thing.kind):
-      hasBase = true
-      let cap = buildingPopCap(thing.kind)
-      if cap > 0:
-        popCap += cap
-  let buffer = HousePopCap
-  (popCap > 0 and popCount >= popCap - buffer) or
-    (popCap == 0 and hasBase and popCount >= buffer)
+  needsPopCapHouse(env, teamId)
 
 proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                    agentId: int, state: var AgentState): bool =
@@ -77,7 +70,7 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
 proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                        agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  for kind in [Granary, LumberCamp, Quarry, MiningCamp]:
+  for kind in CoreInfrastructureKinds:
     if controller.getBuildingCount(env, teamId, kind) == 0:
       return true
   false
@@ -85,7 +78,7 @@ proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment,
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  for kind in [Granary, LumberCamp, Quarry, MiningCamp]:
+  for kind in CoreInfrastructureKinds:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
   0'u8
@@ -132,16 +125,11 @@ proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thi
 proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  for entry in [
-    (LumberCamp, {Tree}, 6),
-    (MiningCamp, {Gold}, 6),
-    (Quarry, {Stone, Stalagmite}, 6)
-  ]:
-    let (kind, nearbyKinds, minCount) = entry
-    let nearbyCount = countNearbyThings(env, agent.pos, 4, nearbyKinds)
-    if nearbyCount < minCount:
+  for entry in CampThresholds:
+    let nearbyCount = countNearbyThings(env, agent.pos, 4, entry.nearbyKinds)
+    if nearbyCount < entry.minCount:
       continue
-    let dist = nearestFriendlyBuildingDistance(env, teamId, [kind], agent.pos)
+    let dist = nearestFriendlyBuildingDistance(env, teamId, [entry.kind], agent.pos)
     if dist > 3:
       return true
   false
@@ -149,17 +137,12 @@ proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agen
 proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  for entry in [
-    (LumberCamp, {Tree}, 6),
-    (MiningCamp, {Gold}, 6),
-    (Quarry, {Stone, Stalagmite}, 6)
-  ]:
-    let (kind, nearbyKinds, minCount) = entry
-    let nearbyCount = countNearbyThings(env, agent.pos, 4, nearbyKinds)
+  for entry in CampThresholds:
+    let nearbyCount = countNearbyThings(env, agent.pos, 4, entry.nearbyKinds)
     let (did, act) = controller.tryBuildCampThreshold(
-      env, agent, agentId, state, teamId, kind,
-      nearbyCount, minCount,
-      [kind]
+      env, agent, agentId, state, teamId, entry.kind,
+      nearbyCount, entry.minCount,
+      [entry.kind]
     )
     if did: return act
   0'u8
@@ -167,9 +150,7 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
 proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  for kind in [WeavingLoom, ClayOven, Blacksmith,
-               Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
-               Outpost, Castle, Market, Monastery]:
+  for kind in TechBuildingKinds:
     if controller.getBuildingCount(env, teamId, kind) == 0:
       return true
   false
@@ -177,9 +158,7 @@ proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agen
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  for kind in [WeavingLoom, ClayOven, Blacksmith,
-               Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
-               Outpost, Castle, Market, Monastery]:
+  for kind in TechBuildingKinds:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
   0'u8
