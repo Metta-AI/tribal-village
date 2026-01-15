@@ -2,7 +2,7 @@
 
 Date: 2026-01-13
 Owner: Design / Systems
-Status: In Progress
+Status: In Progress (Civ asymmetry remaining)
 
 ## 0) Scope & Non-Goals
 
@@ -36,7 +36,7 @@ Status: In Progress
 
 ---
 
-## 2) Unit Classes & Counter System
+## 2) Unit Classes & Counter System (Complete)
 
 ### Current State
 - Unit classes: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Battering Ram, Mangonel.
@@ -56,11 +56,11 @@ Status: In Progress
 - Counters should be decisive at scale, not subtle.
 
 ### Changes Needed
-- **Balance tuning** only: adjust the bonus damage table and baseline stats to make counters decisive but not oppressive.
+- **Done.** Balance tuning complete; counters are decisive without being oppressive.
 
 ---
 
-## 3) Siege & Fortification Dynamics
+## 3) Siege & Fortification Dynamics (Complete)
 
 ### Current State
 - Walls, doors, town centers, and other buildings create choke points.
@@ -71,13 +71,12 @@ Status: In Progress
 - Fortifications should shape movement and raid routes; siege should be the efficient solution to hardened defenses.
 
 ### Changes Needed
-- **Balance tuning** so siege clearly outperforms regular units at breaking defenses.
-- Ensure defenses are meaningful without siege (slow to break, strong HP).
+- **Done.** Siege vs. defense balance tuned; defenses remain meaningful without siege.
 - No new mechanics required.
 
 ---
 
-## 4) Market / Resource Conversion
+## 4) Market / Resource Conversion (Complete)
 
 ### Current State
 - Market exists; it converts carried stockpile resources into team stockpiles of food/gold using configurable rates and a cooldown.
@@ -86,12 +85,12 @@ Status: In Progress
 - Markets enable late-game pivots and mitigate gold scarcity while preserving a cost/tax.
 
 ### Changes Needed
-- **Tune** conversion rates/cooldown to match desired scarcity (avoid infinite gold via perfect conversion).
+- **Done.** Conversion rates/cooldown tuned to match scarcity goals.
 - No new systems required.
 
 ---
 
-## 5) Map Control & Territory Feel
+## 5) Map Control & Territory Feel (Complete)
 
 ### Current State
 - Tint system reflects team influence (agents, lanterns) and tumor influence; frozen tiles are non-interactable.
@@ -101,12 +100,11 @@ Status: In Progress
 - Map control should feel valuable even without explicit age gates: forward control means better access, safer economy, and stronger staging.
 
 ### Changes Needed
-- **Optional**: adjust tint influence radius/strength for clearer territory control.
-- **Optional**: align resource spawns or incentives to promote forward outposts.
+- **Done.** Tint influence and incentives tuned to promote forward control.
 
 ---
 
-## 6) Civilization / Team Asymmetry
+## 6) Civilization / Team Asymmetry (Remaining)
 
 ### Current State
 - Teams currently share the same unit access and costs.
@@ -115,12 +113,12 @@ Status: In Progress
 - AoE2 civs feel distinct via tech tree differences and small systemic bonuses.
 
 ### Changes Needed
-- **Optional, low-risk**: small team modifiers (gather rate, build cost, unit HP/attack offsets).
+- **Remaining (optional, low-risk)**: small team modifiers (gather rate, build cost, unit HP/attack offsets).
 - Avoid asymmetric rules that break the shared action/obs interface.
 
 ---
 
-## 7) UI / Readability
+## 7) UI / Readability (Complete)
 
 ### Current State
 - Tile tint shows influence; action tints show combat/heal flashes.
@@ -130,12 +128,11 @@ Status: In Progress
 - AoE2 communicates control and counters visually; players quickly read map control and combat outcomes.
 
 ### Changes Needed
-- **Optional**: strengthen tint contrast or add legend cues in render overlay.
-- Maintain readability for RL agents (avoid noisy overlays in observation layers).
+- **Done.** Tint contrast/legend cues tuned while preserving RL readability.
 
 ---
 
-## 8) Scoring / End-of-Episode Metric (Tint Territory)
+## 8) Scoring / End-of-Episode Metric (Tint Territory) (Complete)
 
 ### Current State
 - Territory scoring exists and is run at the episode horizon.
@@ -194,13 +191,12 @@ At episode end (`env.config.maxSteps`), compute a **territory score** for each t
 - Clippy should capture tiles if tumor tint dominates or frozen areas spread.
 
 ### Changes Needed
-- **Optional**: expose score parameters in config/FFI if we want runtime tuning.
+- **Done.** Scoring parameters tuned as needed.
 - **No change** to housing, ages, or win-by-elimination rules.
 
 ---
 
 ## Summary of Proposed Changes
-- **Must-have**: tuning for unit counters and siege/fortification dynamics.
-- **Should-have**: market conversion tuning and territory scoring parameter tuning (if needed).
-- **Nice-to-have**: civ-style asymmetry, improved territory readability.
+- **Complete**: unit counters, siege/fortification dynamics, market conversion tuning, map control readability, UI readability, territory scoring.
+- **Remaining (optional)**: civ-style asymmetry.
 - **Non-goals**: housing changes, age gates, conquest win condition.
