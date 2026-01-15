@@ -13,82 +13,33 @@ proc clearMask*(mask: var MaskGrid, mapWidth, mapHeight: int, value = false) =
     for y in 0 ..< mapHeight:
       mask[x][y] = value
 
-proc expandMask(mask: MaskGrid, mapWidth, mapHeight: int): MaskGrid =
-  var outMask: MaskGrid
-  for x in 0 ..< mapWidth:
-    for y in 0 ..< mapHeight:
-      if not mask[x][y]:
-        continue
-      for dx in -1 .. 1:
-        for dy in -1 .. 1:
-          if dx == 0 and dy == 0:
-            continue
-          let nx = x + dx
-          let ny = y + dy
-          if nx >= 0 and nx < mapWidth and ny >= 0 and ny < mapHeight:
-            outMask[nx][ny] = true
-  outMask
-
 proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, depth: int, r: var Rand) =
   if depth <= 0 or prob <= 0.0:
     return
 
-  var wall: MaskGrid
-  var empty: MaskGrid
-  for x in 0 ..< mapWidth:
-    for y in 0 ..< mapHeight:
-      wall[x][y] = mask[x][y]
-      empty[x][y] = not mask[x][y]
+  for layer in 0 ..< depth:
+    let edgeProb = prob * (float(depth - layer) / float(depth))
+    var boundary: MaskGrid
+    for x in depth ..< mapWidth - depth:
+      for y in depth ..< mapHeight - depth:
+        let v = mask[x][y]
+        var isBoundary = false
+        for dx in -1 .. 1:
+          for dy in -1 .. 1:
+            if dx == 0 and dy == 0:
+              continue
+            if mask[x + dx][y + dy] != v:
+              isBoundary = true
+              break
+          if isBoundary:
+            break
+        if isBoundary:
+          boundary[x][y] = true
 
-  let wallExpand = expandMask(wall, mapWidth, mapHeight)
-  let emptyExpand = expandMask(empty, mapWidth, mapHeight)
-
-  var boundary: MaskGrid
-  for x in 0 ..< mapWidth:
-    for y in 0 ..< mapHeight:
-      boundary[x][y] = (wallExpand[x][y] and empty[x][y]) or (emptyExpand[x][y] and wall[x][y])
-
-  var dist: array[MaxBiomeSize, array[MaxBiomeSize, int]]
-  var seen: MaskGrid
-  var frontier: MaskGrid
-
-  for x in 0 ..< mapWidth:
-    for y in 0 ..< mapHeight:
-      if boundary[x][y]:
-        dist[x][y] = 0
-        seen[x][y] = true
-        frontier[x][y] = true
-      else:
-        dist[x][y] = -1
-
-  var currentDepth = 0
-  while currentDepth < depth:
-    inc currentDepth
-    let expanded = expandMask(frontier, mapWidth, mapHeight)
-    var nextFrontier: MaskGrid
-    var any = false
-    for x in 0 ..< mapWidth:
-      for y in 0 ..< mapHeight:
-        if expanded[x][y] and not seen[x][y]:
-          nextFrontier[x][y] = true
-          seen[x][y] = true
-          dist[x][y] = currentDepth
-          any = true
-    if not any:
-      break
-    frontier = nextFrontier
-
-  for x in 0 ..< mapWidth:
-    for y in 0 ..< mapHeight:
-      let d = dist[x][y]
-      if d < 0 or d > depth:
-        continue
-      if x < depth or y < depth or x >= mapWidth - depth or y >= mapHeight - depth:
-        continue
-      let effective = if d < 1: 1 else: d
-      let edgeProb = prob * (float(depth - effective + 1) / float(depth))
-      if randFloat(r) < edgeProb:
-        mask[x][y] = not mask[x][y]
+    for x in depth ..< mapWidth - depth:
+      for y in depth ..< mapHeight - depth:
+        if boundary[x][y] and randFloat(r) < edgeProb:
+          mask[x][y] = not mask[x][y]
 
 template ditherIf(mask: var MaskGrid, mapWidth, mapHeight: int,
                   enabled: bool, prob: float, depth: int, r: var Rand) =
@@ -126,14 +77,6 @@ type
     pondRadiusMax*: int = 5
     pondTilesPerPond*: int = 1000
     pondEdgeDitherProb*: float = 0.25
-
-const
-  Directions = [
-    (dx: 1, dy: 0),
-    (dx: -1, dy: 0),
-    (dx: 0, dy: 1),
-    (dx: 0, dy: -1)
-  ]
 
 proc clearZoneMask(mask: var MaskGrid, mapWidth, mapHeight: int,
                    zoneX, zoneY, zoneW, zoneH: int) =
@@ -179,66 +122,18 @@ proc buildClusterBiomeMask(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
         continue
 
       let fill = fillBase * (0.6 + 0.4 * randFloat(r))
-      let branchCount = randIntInclusive(r, 2, 4)
-      let maxSteps = max(3, radius * 3)
-      let maxDist2 = (radius + 1) * (radius + 1)
-
-      var xs = newSeq[int](branchCount)
-      var ys = newSeq[int](branchCount)
-      var dirIdx = newSeq[int](branchCount)
-      for i in 0 ..< branchCount:
-        xs[i] = cx
-        ys[i] = cy
-        dirIdx[i] = randIntExclusive(r, 0, Directions.len)
-
-      for step in 0 ..< maxSteps:
-        for i in 0 ..< branchCount:
-          let x = xs[i]
-          let y = ys[i]
-          if x >= mapBorder and x < mapWidth - mapBorder and
-             y >= mapBorder and y < mapHeight - mapBorder:
-            if randFloat(r) <= fill:
-              mask[x][y] = true
-
-          if randFloat(r) < 0.35:
-            dirIdx[i] = randIntExclusive(r, 0, Directions.len)
-
-          var dx = Directions[dirIdx[i]].dx
-          var dy = Directions[dirIdx[i]].dy
-          var nx = x + dx
-          var ny = y + dy
-          let dist2 = (nx - cx) * (nx - cx) + (ny - cy) * (ny - cy)
-          if dist2 > maxDist2:
-            dirIdx[i] = randIntExclusive(r, 0, Directions.len)
-            dx = Directions[dirIdx[i]].dx
-            dy = Directions[dirIdx[i]].dy
-            nx = x + dx
-            ny = y + dy
-          xs[i] = nx
-          ys[i] = ny
-
-        if step > 1:
-          for i in 0 ..< branchCount:
-            if randFloat(r) < 0.12:
-              let spurDir = randIntExclusive(r, 0, Directions.len)
-              let sdx = Directions[spurDir].dx
-              let sdy = Directions[spurDir].dy
-              let sx = xs[i] + sdx
-              let sy = ys[i] + sdy
-              let dist2 = (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy)
-              if dist2 <= maxDist2:
-                if sx >= mapBorder and sx < mapWidth - mapBorder and
-                   sy >= mapBorder and sy < mapHeight - mapBorder:
-                  if randFloat(r) <= fill:
-                    mask[sx][sy] = true
-                let sx2 = sx + sdx
-                let sy2 = sy + sdy
-                let dist2b = (sx2 - cx) * (sx2 - cx) + (sy2 - cy) * (sy2 - cy)
-                if dist2b <= maxDist2:
-                  if sx2 >= mapBorder and sx2 < mapWidth - mapBorder and
-                     sy2 >= mapBorder and sy2 < mapHeight - mapBorder:
-                    if randFloat(r) <= fill:
-                      mask[sx2][sy2] = true
+      let radius2 = radius * radius
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          if dx * dx + dy * dy > radius2:
+            continue
+          let x = cx + dx
+          let y = cy + dy
+          if x < mapBorder or x >= mapWidth - mapBorder or
+             y < mapBorder or y >= mapHeight - mapBorder:
+            continue
+          if randFloat(r) <= fill:
+            mask[x][y] = true
 
 proc buildDungeonMazeMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
                            zoneX, zoneY, zoneW, zoneH: int,

@@ -106,7 +106,7 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   if agent.inventoryRelic > 0:
-    let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery, controller.rng)
+    let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
     if not isNil(monastery):
       var dropPos = ivec2(-1, -1)
       for d in Directions8:
@@ -123,7 +123,7 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
         return controller.moveTo(env, agent, agentId, state, dropPos)
       return controller.moveTo(env, agent, agentId, state, monastery.pos)
 
-  let relic = env.findNearestThingSpiral(state, Relic, controller.rng)
+  let relic = env.findNearestThingSpiral(state, Relic)
   if not isNil(relic):
     if isAdjacent(agent.pos, relic.pos):
       return controller.useAt(env, agent, agentId, state, relic.pos)
@@ -185,7 +185,7 @@ proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
   state.basePosition = basePos
   var safePos = basePos
   for kind in [Outpost, Barracks, TownCenter, Monastery]:
-    let safe = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
+    let safe = env.findNearestFriendlyThingSpiral(state, teamId, kind)
     if not isNil(safe):
       safePos = safe.pos
       break
@@ -417,7 +417,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
 
     let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
     for _ in 0 ..< 18:
-      let candidate = getNextSpiralPoint(state, controller.rng)
+      let candidate = getNextSpiralPoint(state)
       if chebyshevDist(candidate, basePos) < desiredRadius:
         continue
       if not isLanternPlacementValid(env, candidate):
@@ -441,7 +441,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
       if didBuild: return buildAct
 
     let hasLanternInput = agent.inventoryWheat > 0 or agent.inventoryWood > 0
-    let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom, controller.rng)
+    let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom)
     if hasLanternInput:
       if not isNil(loom):
         return fighterActOrMove(controller, env, agent, agentId, state, loom.pos, 3'u8)
@@ -455,7 +455,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
       return controller.moveNextSearch(env, agent, agentId, state)
 
     for kind in [Wheat, Stubble]:
-      let wheat = env.findNearestThingSpiral(state, kind, controller.rng)
+      let wheat = env.findNearestThingSpiral(state, kind)
       if isNil(wheat):
         continue
       return fighterActOrMove(controller, env, agent, agentId, state, wheat.pos, 3'u8)
@@ -503,7 +503,7 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
       continue
     if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
       continue
-    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind, controller.rng)
+    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
     if isNil(building) or building.cooldown != 0:
       continue
     return fighterActOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
@@ -538,7 +538,7 @@ proc canStartFighterAggressive(controller: Controller, env: Environment, agent: 
 proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
   for kind in [Tumor, Spawner]:
-    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    let target = env.findNearestThingSpiral(state, kind)
     if not isNil(target):
       return fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)

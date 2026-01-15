@@ -140,7 +140,7 @@ proc optGathererMarket(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   state.basePosition = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market, controller.rng)
+  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
   if isNil(market):
     return 0'u8
   if isAdjacent(agent.pos, market.pos):
@@ -188,7 +188,7 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
   if agent.inventoryBar > 0:
     var altarPos = agent.homeAltar
     if altarPos.x < 0:
-      let altar = env.findNearestThingSpiral(state, Altar, controller.rng)
+      let altar = env.findNearestThingSpiral(state, Altar)
       if not isNil(altar):
         altarPos = altar.pos
     if altarPos.x >= 0:
@@ -344,7 +344,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
         return controller.moveTo(env, agent, agentId, state, knownThing.pos)
 
   for kind in [Wheat, Stubble]:
-    let wheat = env.findNearestThingSpiral(state, kind, controller.rng)
+    let wheat = env.findNearestThingSpiral(state, kind)
     if isNil(wheat):
       continue
     if wheat.pos == state.pathBlockedTarget:
