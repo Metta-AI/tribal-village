@@ -583,6 +583,9 @@ FLIP_ORIENTATIONS = {
     "edge": {},
 }
 
+def oriented_uses_purple_bg(output: OrientedOutput) -> bool:
+    return output.orientation_set == "unit"
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate image assets from TSV prompts.")
@@ -687,7 +690,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
-                    args.postprocess_purple_bg,
+                    oriented_uses_purple_bg(output) or args.postprocess_purple_bg,
                 )
                 continue
             if not reference.exists():
@@ -698,7 +701,9 @@ def main() -> None:
             img = generate_oriented_image(
                 client, args.model, prompt, args.seed + idx, args.size, reference
             )
-            if args.postprocess:
+            use_purple = oriented_uses_purple_bg(output)
+            do_postprocess = args.postprocess or use_purple
+            if do_postprocess:
                 raw_target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(raw_target)
                 postprocess_to_target(
@@ -707,7 +712,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
-                    args.postprocess_purple_bg,
+                    use_purple or args.postprocess_purple_bg,
                 )
             else:
                 if args.size and img.size != (args.size, args.size):
@@ -740,7 +745,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
-                    args.postprocess_purple_bg,
+                    oriented_uses_purple_bg(output) or args.postprocess_purple_bg,
                 )
                 continue
             raw_source = tmp_path_for(source, out_dir, tmp_dir)
@@ -751,7 +756,9 @@ def main() -> None:
             with Image.open(source) as existing:
                 img = existing.convert("RGBA")
             img = flip_horizontal(img)
-            if args.postprocess:
+            use_purple = oriented_uses_purple_bg(output)
+            do_postprocess = args.postprocess or use_purple
+            if do_postprocess:
                 raw_target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(raw_target)
                 postprocess_to_target(
@@ -760,7 +767,7 @@ def main() -> None:
                     args.size,
                     args.postprocess_tol,
                     args.postprocess_purple_to_white,
-                    args.postprocess_purple_bg,
+                    use_purple or args.postprocess_purple_bg,
                 )
             else:
                 if args.size and img.size != (args.size, args.size):
