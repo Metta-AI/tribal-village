@@ -274,6 +274,28 @@ proc applyBiomeZoneFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMas
       terrain[x][y] = terrainType
       biomes[x][y] = biomeType
 
+type
+  MaskBuilder[T] = proc(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                        r: var Rand, cfg: T) {.nimcall.}
+
+proc applyBiomeZoneMask[T](terrain: var TerrainGrid, biomes: var BiomeGrid,
+                           zoneMask: MaskGrid, zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
+                           r: var Rand, edgeChance: float,
+                           builder: MaskBuilder[T], cfg: T,
+                           terrainType: TerrainType, biomeType: BiomeType,
+                           baseBiomeType: BiomeType) =
+  var mask: MaskGrid
+  builder(mask, mapWidth, mapHeight, mapBorder, r, cfg)
+  applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+    terrainType, biomeType, baseBiomeType, r, edgeChance)
+
+proc applyBaseBiomeMask[T](terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int,
+                           r: var Rand, builder: MaskBuilder[T], cfg: T,
+                           terrainType: TerrainType) =
+  var mask: MaskGrid
+  builder(mask, mapWidth, mapHeight, mapBorder, r, cfg)
+  applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, terrainType)
+
 proc evenlyDistributedZones*(r: var Rand, mapWidth, mapHeight, mapBorder: int, count: int,
                              maxFraction: float): seq[ZoneRect] =
   if count <= 0:
@@ -499,27 +521,26 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
             selected = kinds[i]
             break
         selected
-    var mask: MaskGrid
     var zoneMask: MaskGrid
     buildZoneBlobMask(zoneMask, mapWidth, mapHeight, mapBorder, zone, r)
     case biome:
     of BiomeBase:
       discard
     of BiomeForest:
-      buildBiomeForestMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeForestConfig())
-      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeForestTerrain, BiomeForestType, baseBiomeType, r, edgeChance)
+      applyBiomeZoneMask(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        r, edgeChance, buildBiomeForestMask, BiomeForestConfig(),
+        BiomeForestTerrain, BiomeForestType, baseBiomeType)
     of BiomeDesert:
       # Blend sand into the zone so edges ease into the base biome, then layer dunes.
       applyTerrainBlendToZone(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         TerrainSand, BiomeDesertType, baseBiomeType, r, edgeChance, density = 0.3)
-      buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
-      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        TerrainDune, BiomeDesertType, baseBiomeType, r, edgeChance)
+      applyBiomeZoneMask(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        r, edgeChance, buildBiomeDesertMask, BiomeDesertConfig(),
+        TerrainDune, BiomeDesertType, baseBiomeType)
     of BiomeCaves:
-      buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
-      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomeCavesTerrain, BiomeCavesType, baseBiomeType, r, edgeChance)
+      applyBiomeZoneMask(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        r, edgeChance, buildBiomeCavesMask, BiomeCavesConfig(),
+        BiomeCavesTerrain, BiomeCavesType, baseBiomeType)
     of BiomeSnow:
       applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSnowTerrain, BiomeSnowType, baseBiomeType)
@@ -527,6 +548,7 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyBiomeZoneFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
     of BiomeCity:
+      var mask: MaskGrid
       var roadMask: MaskGrid
       buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
       applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
@@ -534,38 +556,38 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
       applyBiomeMaskToZone(terrain, biomes, roadMask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
         BiomeCityRoadTerrain, BiomeCityType, baseBiomeType, r, edgeChance)
     of BiomePlains:
-      buildBiomePlainsMask(mask, mapWidth, mapHeight, mapBorder, r, BiomePlainsConfig())
-      applyBiomeMaskToZone(terrain, biomes, mask, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        BiomePlainsTerrain, BiomePlainsType, baseBiomeType, r, edgeChance)
+      applyBiomeZoneMask(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        r, edgeChance, buildBiomePlainsMask, BiomePlainsConfig(),
+        BiomePlainsTerrain, BiomePlainsType, baseBiomeType)
 
 proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
-  var mask: MaskGrid
   case BaseBiome:
   of BiomeBase:
     discard
   of BiomeForest:
-    buildBiomeForestMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeForestConfig())
-    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeForestTerrain)
+    applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
+      buildBiomeForestMask, BiomeForestConfig(), BiomeForestTerrain)
   of BiomeDesert:
-    buildBiomeDesertMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeDesertConfig())
-    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeDesertTerrain)
+    applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
+      buildBiomeDesertMask, BiomeDesertConfig(), BiomeDesertTerrain)
   of BiomeCaves:
-    buildBiomeCavesMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeCavesConfig())
-    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeCavesTerrain)
+    applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
+      buildBiomeCavesMask, BiomeCavesConfig(), BiomeCavesTerrain)
   of BiomeCity:
+    var mask: MaskGrid
     var roadMask: MaskGrid
     buildBiomeCityMasks(mask, roadMask, mapWidth, mapHeight, mapBorder, r, BiomeCityConfig())
     applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeCityBlockTerrain)
     applyMaskToTerrain(terrain, roadMask, mapWidth, mapHeight, mapBorder, BiomeCityRoadTerrain)
   of BiomePlains:
-    buildBiomePlainsMask(mask, mapWidth, mapHeight, mapBorder, r, BiomePlainsConfig())
-    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomePlainsTerrain)
+    applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
+      buildBiomePlainsMask, BiomePlainsConfig(), BiomePlainsTerrain)
   of BiomeSnow:
-    buildBiomeSnowMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSnowConfig())
-    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeSnowTerrain)
+    applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
+      buildBiomeSnowMask, BiomeSnowConfig(), BiomeSnowTerrain)
   of BiomeSwamp:
-    buildBiomeSwampMask(mask, mapWidth, mapHeight, mapBorder, r, BiomeSwampConfig())
-    applyMaskToTerrain(terrain, mask, mapWidth, mapHeight, mapBorder, BiomeSwampTerrain)
+    applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
+      buildBiomeSwampMask, BiomeSwampConfig(), BiomeSwampTerrain)
 
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
