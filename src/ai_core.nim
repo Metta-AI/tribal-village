@@ -119,14 +119,6 @@ proc updateClosestSeen(state: var AgentState, basePos: IVec2, candidate: IVec2, 
   if chebyshevDist(candidate, basePos) < chebyshevDist(current, basePos):
     current = candidate
 
-proc applyDirectionOffset(offset: var IVec2, direction: int, distance: int32) =
-  case direction:
-  of 0: offset.y -= distance  # North
-  of 1: offset.x += distance  # East
-  of 2: offset.y += distance  # South
-  of 3: offset.x -= distance  # West
-  else: discard
-
 const Directions8 = [
   ivec2(0, -1),  # 0: North
   ivec2(0, 1),   # 1: South
@@ -154,46 +146,29 @@ proc spiralDir(dir: int, clockwise: bool): int =
   of 3: 1
   else: dir
 
-proc getNextSpiralPoint(state: var AgentState, rng: var Rand): IVec2 =
-  ## Generate next position in expanding spiral search pattern
-  # Track current position in spiral
-  var totalOffset = ivec2(0, 0)
-  var currentArcLength = 1
-  var direction = 0
+proc getNextSpiralPoint(state: var AgentState): IVec2 =
+  ## Advance the spiral one step using incremental state.
   let clockwise = state.spiralClockwise
+  let arcLen = (state.spiralArcsCompleted div 2) + 1
+  let direction = spiralDir(state.spiralArcsCompleted mod 4, clockwise)
+  let delta = case direction
+    of 0: ivec2(0, -1)  # North
+    of 1: ivec2(1, 0)   # East
+    of 2: ivec2(0, 1)   # South
+    else: ivec2(-1, 0)  # West
 
-  # Rebuild position by simulating all steps up to current point
-  for arcNum in 0 ..< state.spiralArcsCompleted:
-    let arcLen = (arcNum div 2) + 1  # 1,1,2,2,3,3,4,4...
-    let dir = spiralDir(arcNum mod 4, clockwise)  # Direction cycles 0,1,2,3 (N,E,S,W)
-    applyDirectionOffset(totalOffset, dir, int32(arcLen))
-
-  # Add partial progress in current arc
-  currentArcLength = (state.spiralArcsCompleted div 2) + 1
-  direction = spiralDir(state.spiralArcsCompleted mod 4, clockwise)
-
-  # Add steps taken in current arc
-  applyDirectionOffset(totalOffset, direction, int32(state.spiralStepsInArc))
-
-  # Calculate next step
+  let nextPos = clampToPlayable(state.lastSearchPosition + delta)
+  state.lastSearchPosition = nextPos
   state.spiralStepsInArc += 1
-
-  # Check if we completed the current arc
-  if state.spiralStepsInArc > currentArcLength:
-    # Move to next arc
+  if state.spiralStepsInArc > arcLen:
     state.spiralArcsCompleted += 1
     state.spiralStepsInArc = 1
-
-    # Reset spiral after ~100 arcs (radius ~50) to avoid going too far
     if state.spiralArcsCompleted > 100:
-      state.spiralArcsCompleted = 0  # Reset to start of spiral
+      state.spiralArcsCompleted = 0
       state.spiralStepsInArc = 1
-      # Don't return to base immediately, continue spiral from current area
+      # Continue from the current area.
       state.basePosition = state.lastSearchPosition
-
-  # Calculate next position
-  applyDirectionOffset(totalOffset, direction, 1)
-  result = clampToPlayable(state.basePosition + totalOffset)
+  result = state.lastSearchPosition
 
 proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
   result = nil
@@ -237,7 +212,7 @@ proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: T
         minDist = dist
         result = thing
 
-proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: ThingKind, rng: var Rand): Thing =
+proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: ThingKind): Thing =
   ## Find nearest thing using spiral search pattern - more systematic than random search
   let cachedPos = state.cachedThingPos[kind]
   if cachedPos.x >= 0:
@@ -262,8 +237,7 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
   # If not found, advance spiral search (multiple steps) to cover ground faster
   var nextSearchPos = state.lastSearchPosition
   for _ in 0 ..< SpiralAdvanceSteps:
-    nextSearchPos = getNextSpiralPoint(state, rng)
-  state.lastSearchPosition = nextSearchPos
+    nextSearchPos = getNextSpiralPoint(state)
 
   # Search from new spiral position
   result = findNearestThing(env, nextSearchPos, kind)
@@ -271,7 +245,7 @@ proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: Thing
     state.cachedThingPos[kind] = result.pos
   return result
 
-proc findNearestWaterSpiral(env: Environment, state: var AgentState, rng: var Rand): IVec2 =
+proc findNearestWaterSpiral(env: Environment, state: var AgentState): IVec2 =
   let cachedPos = state.cachedWaterPos
   if cachedPos.x >= 0:
     if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
@@ -291,15 +265,14 @@ proc findNearestWaterSpiral(env: Environment, state: var AgentState, rng: var Ra
 
   var nextSearchPos = state.lastSearchPosition
   for _ in 0 ..< SpiralAdvanceSteps:
-    nextSearchPos = getNextSpiralPoint(state, rng)
-  state.lastSearchPosition = nextSearchPos
+    nextSearchPos = getNextSpiralPoint(state)
   result = findNearestWater(env, nextSearchPos)
   if result.x >= 0:
     state.cachedWaterPos = result
   return result
 
 proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, teamId: int,
-                                    kind: ThingKind, rng: var Rand): Thing =
+                                    kind: ThingKind): Thing =
   ## Find nearest team-owned thing using spiral search pattern
   result = findNearestFriendlyThing(env, state.lastSearchPosition, teamId, kind)
   if not isNil(result):
@@ -311,8 +284,7 @@ proc findNearestFriendlyThingSpiral(env: Environment, state: var AgentState, tea
 
   var nextSearchPos = state.lastSearchPosition
   for _ in 0 ..< SpiralAdvanceSteps:
-    nextSearchPos = getNextSpiralPoint(state, rng)
-  state.lastSearchPosition = nextSearchPos
+    nextSearchPos = getNextSpiralPoint(state)
   result = findNearestFriendlyThing(env, nextSearchPos, teamId, kind)
   return result
 
@@ -396,183 +368,72 @@ proc sameTeam(agentA, agentB: Thing): bool =
 
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
-  ## Prefer the closest tumor; fall back to spawners or enemy agents if present.
-  var bestTumor = (dir: -1, dist: int.high)
-  var bestSpawner = (dir: -1, dist: int.high)
-  var bestEnemy = (dir: -1, dist: int.high)
-  var bestStructure = (dir: -1, dist: int.high)
-
+  ## Simplified: pick the closest aligned target within range using a priority order.
   if agent.unitClass == UnitMonk:
     return -1
 
-  let rangedRange = case agent.unitClass
+  let maxRange = case agent.unitClass
     of UnitArcher: ArcherBaseRange
-    else: 0
+    of UnitMangonel: MangonelAoELength
+    else:
+      if agent.inventorySpear > 0: 2 else: 1
 
-  if rangedRange > 0:
-    for dirIdx in 0 .. 7:
-      let delta = getOrientationDelta(Orientation(dirIdx))
-      for distance in 1 .. rangedRange:
-        let targetPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
-        if not isValidPos(targetPos):
-          continue
-        let target = env.grid[targetPos.x][targetPos.y]
-        if isNil(target):
-          continue
-        if target.kind == Agent and (not isAgentAlive(env, target) or sameTeam(agent, target)):
-          continue
-        let dist = int(chebyshevDist(agent.pos, target.pos))
-        case target.kind
-        of Tumor:
-          if dist < bestTumor.dist:
-            bestTumor = (dirIdx, dist)
-          break
-        of Spawner:
-          if dist < bestSpawner.dist:
-            bestSpawner = (dirIdx, dist)
-          break
-        of Agent:
-          if dist < bestEnemy.dist:
-            bestEnemy = (dirIdx, dist)
-          break
-        else:
-          discard
-          break
-
-    if bestTumor.dir >= 0: return bestTumor.dir
-    if bestSpawner.dir >= 0: return bestSpawner.dir
-    if bestEnemy.dir >= 0: return bestEnemy.dir
-
-  if agent.unitClass == UnitMangonel:
-    for thing in env.things:
-      if thing.kind == Agent:
-        if not isAgentAlive(env, thing):
-          continue
-        if sameTeam(agent, thing):
-          continue
-      elif isAttackableStructure(thing.kind):
-        if thing.teamId == getTeamId(agent):
-          continue
-      elif thing.kind notin {Tumor, Spawner}:
-        continue
-      if not isValidPos(thing.pos):
-        continue
-      if env.grid[thing.pos.x][thing.pos.y] != thing:
-        continue
-      let dirIdx = block:
-        var bestDir = -1
-        var bestStep = int.high
-        for checkDir in 0 .. 7:
-          let d = getOrientationDelta(Orientation(checkDir))
-          let left = ivec2(-d.y, d.x)
-          let right = ivec2(d.y, -d.x)
-          for step in 1 .. MangonelAoELength:
-            let forward = agent.pos + ivec2(d.x * step, d.y * step)
-            if forward == thing.pos or forward + left == thing.pos or forward + right == thing.pos:
-              if step < bestStep:
-                bestStep = step
-                bestDir = checkDir
-              break
-        bestDir
-      if dirIdx < 0:
-        continue
-      let dist = int(chebyshevDist(agent.pos, thing.pos))
-      case thing.kind
-      of Tumor:
-        if dist < bestTumor.dist:
-          bestTumor = (dirIdx, dist)
-      of Spawner:
-        if dist < bestSpawner.dist:
-          bestSpawner = (dirIdx, dist)
-      of Agent:
-        if dist < bestEnemy.dist:
-          bestEnemy = (dirIdx, dist)
+  proc targetPriority(kind: ThingKind): int =
+    if agent.unitClass == UnitMangonel:
+      if isAttackableStructure(kind):
+        return 0
+      case kind
+      of Tumor: 1
+      of Spawner: 2
+      of Agent: 3
+      else: 4
+    else:
+      case kind
+      of Tumor: 0
+      of Spawner: 1
+      of Agent: 2
       else:
-        if dist < bestStructure.dist:
-          bestStructure = (dirIdx, dist)
+        if isAttackableStructure(kind): 3 else: 4
 
-    if bestStructure.dir >= 0: return bestStructure.dir
-    if bestTumor.dir >= 0: return bestTumor.dir
-    if bestSpawner.dir >= 0: return bestSpawner.dir
-    if bestEnemy.dir >= 0: return bestEnemy.dir
+  var bestDir = -1
+  var bestDist = int.high
+  var bestPriority = int.high
 
-  if agent.inventorySpear > 0:
-    for thing in env.things:
-      if thing.kind notin {Tumor, Spawner, Agent}:
+  for thing in env.things:
+    if thing.kind == Agent:
+      if not isAgentAlive(env, thing):
         continue
-      # Safety: skip stale things whose grid entry was already cleared (can happen after destruction
-      # but before env.things is pruned). Without this, agents may attack an empty tile where the
-      # object used to live.
-      if not isValidPos(thing.pos):
+      if sameTeam(agent, thing):
         continue
-      if env.grid[thing.pos.x][thing.pos.y] != thing:
+    elif thing.kind in {Tumor, Spawner}:
+      discard
+    elif isAttackableStructure(thing.kind):
+      if thing.teamId == getTeamId(agent):
         continue
-      if thing.kind == Agent:
-        if not isAgentAlive(env, thing):
-          continue
-        if sameTeam(agent, thing):
-          continue
-      let dirIdx = block:
-        var bestDir = -1
-        var bestStep = int.high
-        for checkDir in 0 .. 7:
-          let d = getOrientationDelta(Orientation(checkDir))
-          let left = ivec2(-d.y, d.x)
-          let right = ivec2(d.y, -d.x)
-          for step in 1 .. 3:
-            let forward = agent.pos + ivec2(d.x * step, d.y * step)
-            if forward == thing.pos or forward + left == thing.pos or forward + right == thing.pos:
-              if step < bestStep:
-                bestStep = step
-                bestDir = checkDir
-              break
-        bestDir
-      if dirIdx < 0:
-        continue
-      let dist = int(chebyshevDist(agent.pos, thing.pos))
-      case thing.kind
-      of Tumor:
-        if dist < bestTumor.dist:
-          bestTumor = (dirIdx, dist)
-      of Spawner:
-        if dist < bestSpawner.dist:
-          bestSpawner = (dirIdx, dist)
-      of Agent:
-        if dist < bestEnemy.dist:
-          bestEnemy = (dirIdx, dist)
-      else:
-        discard
-
-    if bestTumor.dir >= 0: return bestTumor.dir
-    if bestSpawner.dir >= 0: return bestSpawner.dir
-    if bestEnemy.dir >= 0: return bestEnemy.dir
-
-  # Fallback for non-spear attacks: 1-tile direct neighbors.
-  for dirIdx in 0 .. 7:
-    let delta = getOrientationDelta(Orientation(dirIdx))
-    let targetPos = agent.pos + ivec2(delta.x, delta.y)
-    if not isValidPos(targetPos):
-      continue
-    let door = env.getOverlayThing(targetPos)
-    if not isNil(door) and door.kind == Door and door.teamId != getTeamId(agent):
-      return dirIdx
-    let occupant = env.grid[targetPos.x][targetPos.y]
-    if isNil(occupant):
+    else:
       continue
 
-    if isAttackableStructure(occupant.kind) and occupant.teamId != getTeamId(agent):
-      if agent.unitClass in {UnitBatteringRam, UnitMangonel}:
-        return dirIdx
-    elif occupant.kind == Tumor:
-      return dirIdx
-    elif occupant.kind == Spawner and bestSpawner.dir < 0:
-      bestSpawner = (dirIdx, 1)
-    elif occupant.kind == Agent and bestEnemy.dir < 0 and isAgentAlive(env, occupant) and not sameTeam(agent, occupant):
-      bestEnemy = (dirIdx, 1)
+    if not isValidPos(thing.pos):
+      continue
+    if env.grid[thing.pos.x][thing.pos.y] != thing and env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
+      continue
 
-  if bestSpawner.dir >= 0: return bestSpawner.dir
-  if bestEnemy.dir >= 0: return bestEnemy.dir
-  return -1
+    let dx = thing.pos.x - agent.pos.x
+    let dy = thing.pos.y - agent.pos.y
+    if not (dx == 0 or dy == 0 or abs(dx) == abs(dy)):
+      continue
+    let dist = int(chebyshevDist(agent.pos, thing.pos))
+    if dist > maxRange:
+      continue
+
+    let dir = vecToOrientation(ivec2(signi(dx), signi(dy)))
+    let priority = targetPriority(thing.kind)
+    if priority < bestPriority or (priority == bestPriority and dist < bestDist):
+      bestPriority = priority
+      bestDist = dist
+      bestDir = dir
+
+  return bestDir
 
 proc isPassable(env: Environment, agent: Thing, pos: IVec2): bool =
   ## Consider lantern tiles passable for generic checks and respect doors/water.
@@ -829,7 +690,7 @@ proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agen
                     state: var AgentState): uint8 =
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, getMoveTowards(
-      env, agent, agent.pos, getNextSpiralPoint(state, controller.rng),
+      env, agent, agent.pos, getNextSpiralPoint(state),
       controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
     ).uint8))
 
@@ -939,7 +800,7 @@ proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thi
 
 proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
-  let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith, controller.rng)
+  let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
   if not isNil(smith):
     if isAdjacent(agent.pos, smith.pos):
       return (true, controller.useAt(env, agent, agentId, state, smith.pos))
@@ -949,7 +810,7 @@ proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
                           res: StockpileResource, rng: var Rand): Thing =
   template tryKind(kind: ThingKind): Thing =
-    env.findNearestFriendlyThingSpiral(state, teamId, kind, rng)
+    env.findNearestFriendlyThingSpiral(state, teamId, kind)
   case res
   of ResourceFood:
     result = tryKind(Granary)
@@ -1027,7 +888,7 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
     env, agent, agentId, state, state.closestWoodPos, {Stump, Tree}, 3'u8)
   if didKnown: return (didKnown, actKnown)
   for kind in [Stump, Tree]:
-    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
       continue
     if target.pos == state.pathBlockedTarget:
@@ -1045,7 +906,7 @@ proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId
     env, agent, agentId, state, state.closestStonePos, {Stone, Stalagmite}, 3'u8)
   if didKnown: return (didKnown, actKnown)
   for kind in [Stone, Stalagmite]:
-    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
       continue
     if target.pos == state.pathBlockedTarget:
@@ -1062,7 +923,7 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestGoldPos, {Gold}, 3'u8)
   if didKnown: return (didKnown, actKnown)
-  let target = env.findNearestThingSpiral(state, Gold, controller.rng)
+  let target = env.findNearestThingSpiral(state, Gold)
   if not isNil(target):
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[Gold] = ivec2(-1, -1)
@@ -1086,7 +947,7 @@ proc ensureWater(controller: Controller, env: Environment, agent: Thing, agentId
       return (true, controller.useAt(env, agent, agentId, state, state.closestWaterPos))
     return (true, controller.moveTo(env, agent, agentId, state, state.closestWaterPos))
 
-  let target = findNearestWaterSpiral(env, state, controller.rng)
+  let target = findNearestWaterSpiral(env, state)
   if target.x >= 0:
     if target == state.pathBlockedTarget:
       state.cachedWaterPos = ivec2(-1, -1)
@@ -1100,7 +961,7 @@ proc ensureWater(controller: Controller, env: Environment, agent: Thing, agentId
 proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
   for kind in [Wheat, Stubble]:
-    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
       continue
     if target.pos == state.pathBlockedTarget:
@@ -1114,7 +975,7 @@ proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): tuple[did: bool, action: uint8] =
   for (kind, verb) in [(Corpse, 3'u8), (Cow, 2'u8), (Bush, 3'u8), (Fish, 3'u8)]:
-    let target = env.findNearestThingSpiral(state, kind, controller.rng)
+    let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
       continue
     if target.pos == state.pathBlockedTarget:

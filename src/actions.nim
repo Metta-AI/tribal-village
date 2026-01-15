@@ -617,7 +617,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         of Wheat:
           used = env.harvestWheat(agent, thing)
         of Stubble:
-          if env.grantWheat(agent):
+          if env.grantItem(agent, ItemWheat):
             agent.reward += env.config.wheatReward
             let remaining = getInv(thing, ItemWheat) - 1
             if remaining <= 0:
@@ -636,7 +636,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         of Fish:
           takeFromThing(ItemFish)
         of Stump:
-          if env.grantWood(agent):
+          if env.grantItem(agent, ItemWood):
             agent.reward += env.config.woodReward
             let remaining = getInv(thing, ItemWood) - 1
             if remaining <= 0:

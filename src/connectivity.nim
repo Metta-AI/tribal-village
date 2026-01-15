@@ -2,7 +2,6 @@ const
   ConnectWallCost = 5
   ConnectTerrainCost = 6
   ConnectWaterCost = 50
-  ConnectMaxEdgeCost = ConnectWaterCost
 
 let ConnectDirs8 = [
   ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1),
@@ -98,37 +97,25 @@ proc makeConnected*(env: Environment) =
                         dist: var seq[int],
                         prev: var seq[int]) =
     let size = MapWidth * MapHeight
-    let inf = size * ConnectMaxEdgeCost + 1
     dist.setLen(size)
     prev.setLen(size)
     for i in 0 ..< size:
-      dist[i] = inf
+      dist[i] = -1
       prev[i] = -1
 
-    let bucketCount = ConnectMaxEdgeCost + 1
-    var buckets: seq[seq[int]] = newSeq[seq[int]](bucketCount)
-    var heads: seq[int] = newSeq[int](bucketCount)
-
+    var queue: seq[int] = @[]
+    var head = 0
     for x in MapBorder ..< MapWidth - MapBorder:
       for y in MapBorder ..< MapHeight - MapBorder:
         if labels[x][y] == sourceLabel:
           let idx = y * MapWidth + x
           dist[idx] = 0
           prev[idx] = -2
-          buckets[0].add(idx)
+          queue.add(idx)
 
-    var processed = 0
-    var currentCost = 0
-    while processed < size and currentCost <= inf:
-      let b = currentCost mod bucketCount
-      if heads[b] >= buckets[b].len:
-        inc currentCost
-        continue
-      let idx = buckets[b][heads[b]]
-      inc heads[b]
-      if dist[idx] < currentCost:
-        continue
-      inc processed
+    while head < queue.len:
+      let idx = queue[head]
+      inc head
       let x = idx mod MapWidth
       let y = idx div MapWidth
       for d in ConnectDirs8:
@@ -139,15 +126,13 @@ proc makeConnected*(env: Environment) =
         let npos = ivec2(nx.int32, ny.int32)
         if not env.canTraverseElevation(ivec2(x.int32, y.int32), npos):
           continue
-        let stepCost = digCost(env, npos)
-        if stepCost == int.high:
+        if digCost(env, npos) == int.high:
           continue
         let nidx = ny * MapWidth + nx
-        let newCost = currentCost + stepCost
-        if newCost < dist[nidx]:
-          dist[nidx] = newCost
+        if dist[nidx] < 0:
+          dist[nidx] = dist[idx] + 1
           prev[nidx] = idx
-          buckets[newCost mod bucketCount].add(nidx)
+          queue.add(nidx)
 
   var labels: array[MapWidth, array[MapHeight, int16]]
   var counts: seq[int] = @[]
@@ -164,7 +149,7 @@ proc makeConnected*(env: Environment) =
     var dist: seq[int] = @[]
     var prev: seq[int] = @[]
     computeDistances(env, labels, largest.int16, dist, prev)
-    let inf = MapWidth * MapHeight * ConnectMaxEdgeCost + 1
+    let inf = MapWidth * MapHeight + 1
     var anyDig = false
     for label in 1 .. componentCount:
       if label == largest:
@@ -176,7 +161,7 @@ proc makeConnected*(env: Environment) =
           if labels[x][y] != label.int16:
             continue
           let idx = y * MapWidth + x
-          if dist[idx] < bestDist:
+          if dist[idx] >= 0 and dist[idx] < bestDist:
             bestDist = dist[idx]
             bestIdx = idx
       if bestIdx >= 0 and bestDist < inf:
