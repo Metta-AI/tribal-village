@@ -105,7 +105,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ### Observation Space
 
-20 layers, 11x11 grid per agent:
+21 layers, 11x11 grid per agent:
 
 - **Layer 0**: Team-aware agent presence (1..8=teams, 255=Tumor)
 - **Layer 1**: Agent orientation
@@ -114,12 +114,13 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 - **Layer 11**: Magma
 - **Layer 12**: Altars
 - **Layer 13**: Altar hearts
-- **Layer 14**: Action tint (combat/heal)
+- **Layer 14**: Action tint code (per-unit attacks, shields, heals, bonuses, mixed)
 - **Layer 15**: Bread inventory
 - **Layer 16**: Stone inventory
 - **Layer 17**: Meat inventory
 - **Layer 18**: Fish inventory
 - **Layer 19**: Plant inventory
+- **Layer 20**: Obscured (target tile above observer elevation)
 
 ### Action Space
 

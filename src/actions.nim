@@ -1,4 +1,52 @@
 # This file is included by src/step.nim
+const UnitAttackTints: array[AgentUnitClass, TileColor] = [
+  # UnitVillager
+  TileColor(r: 0.95, g: 0.25, b: 0.20, intensity: 1.10),
+  # UnitManAtArms
+  TileColor(r: 0.95, g: 0.55, b: 0.15, intensity: 1.10),
+  # UnitArcher
+  TileColor(r: 0.95, g: 0.85, b: 0.20, intensity: 1.10),
+  # UnitScout
+  TileColor(r: 0.30, g: 0.90, b: 0.30, intensity: 1.10),
+  # UnitKnight
+  TileColor(r: 0.20, g: 0.90, b: 0.85, intensity: 1.12),
+  # UnitMonk
+  TileColor(r: 0.25, g: 0.55, b: 0.95, intensity: 1.12),
+  # UnitBatteringRam
+  TileColor(r: 0.45, g: 0.35, b: 0.90, intensity: 1.12),
+  # UnitMangonel
+  TileColor(r: 0.75, g: 0.35, b: 0.95, intensity: 1.18),
+  # UnitBoat
+  TileColor(r: 0.95, g: 0.35, b: 0.75, intensity: 1.12),
+]
+
+const UnitAttackObservationCodes: array[AgentUnitClass, uint8] = [
+  ActionTintAttackVillager,
+  ActionTintAttackManAtArms,
+  ActionTintAttackArcher,
+  ActionTintAttackScout,
+  ActionTintAttackKnight,
+  ActionTintAttackMonk,
+  ActionTintAttackBatteringRam,
+  ActionTintAttackMangonel,
+  ActionTintAttackBoat,
+]
+
+const UnitAttackTintDurations: array[AgentUnitClass, int8] = [
+  1'i8, # UnitVillager
+  2'i8, # UnitManAtArms
+  2'i8, # UnitArcher
+  1'i8, # UnitScout
+  3'i8, # UnitKnight
+  2'i8, # UnitMonk
+  3'i8, # UnitBatteringRam
+  3'i8, # UnitMangonel
+  2'i8, # UnitBoat
+]
+
+proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =
+  env.applyActionTint(pos, UnitAttackTints[unit], UnitAttackTintDurations[unit], UnitAttackObservationCodes[unit])
+
 proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for id, actionValue in actions[]:
     let agent = env.agents[id]
@@ -20,7 +68,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         step1.x += int32(delta.x)
         step1.y += int32(delta.y)
 
-        if isValidPos(step1) and env.elevation[step1.x][step1.y] != env.elevation[agent.pos.x][agent.pos.y]:
+        if not env.canTraverseElevation(agent.pos, step1):
           inc env.stats[id].actionInvalid
           break moveAction
 
@@ -33,10 +81,10 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           break moveAction
 
         # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
-        proc canEnter(pos: IVec2): bool =
+        proc canEnterFrom(fromPos, pos: IVec2): bool =
           if not isValidPos(pos):
             return false
-          if env.elevation[pos.x][pos.y] != env.elevation[agent.pos.x][agent.pos.y]:
+          if not env.canTraverseElevation(fromPos, pos):
             return false
           var canMove = env.isEmpty(pos)
           if canMove:
@@ -92,7 +140,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           return relocated
 
         var finalPos = step1
-        if not canEnter(step1):
+        if not canEnterFrom(agent.pos, step1):
           let blocker = env.getThing(step1)
           if not isNil(blocker):
             if blocker.kind == Agent and not isThingFrozen(blocker, env) and
@@ -120,9 +168,9 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Roads accelerate movement in the direction of entry.
         if env.terrain[step1.x][step1.y] == Road:
           let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
-          if isValidPos(step2) and env.elevation[step2.x][step2.y] == env.elevation[agent.pos.x][agent.pos.y] and
+          if isValidPos(step2) and
               not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
-            if canEnter(step2):
+            if canEnterFrom(step1, step2):
               finalPos = step2
 
         env.grid[agent.pos.x][agent.pos.y] = nil
@@ -233,7 +281,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if not isNil(target) and target.kind == Agent:
             if getTeamId(target) == attackerTeam:
               discard env.applyAgentHeal(target, 1)
-              env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHeal)
+              env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHealMonk)
               inc env.stats[id].actionAttack
             else:
               let newTeam = attackerTeam
@@ -277,6 +325,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
+              env.applyUnitAttackTint(agent.unitClass, healPos)
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -288,10 +337,13 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let right = ivec2(delta.y, -delta.x)
           for step in 1 .. MangonelAoELength:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+            env.applyUnitAttackTint(agent.unitClass, forward)
             if tryHitAt(forward):
               hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + left)
             if tryHitAt(forward + left):
               hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + right)
             if tryHitAt(forward + right):
               hit = true
           if hit:
@@ -304,6 +356,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var attackHit = false
           for distance in 1 .. rangedRange:
             let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+            env.applyUnitAttackTint(agent.unitClass, attackPos)
             if tryHitAt(attackPos):
               attackHit = true
               break
@@ -313,16 +366,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
           break attackAction
 
-        # Special combat visuals
-        if hasSpear:
-          let left = ivec2(-delta.y, delta.x)
-          let right = ivec2(delta.y, -delta.x)
-          let tint = TileColor(r: 0.9, g: 0.15, b: 0.15, intensity: 1.15)
-          for step in 1 .. 3:
-            let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
-            env.applyActionTint(forward, tint, 2, ActionTintAttack)
-            env.applyActionTint(forward + left, tint, 2, ActionTintAttack)
-            env.applyActionTint(forward + right, tint, 2, ActionTintAttack)
+        # Armor overlay (defensive flash)
         if agent.inventoryArmor > 0:
           let tint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.1)
           if abs(delta.x) == 1 and abs(delta.y) == 1:
@@ -347,11 +391,14 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let right = ivec2(delta.y, -delta.x)
           for step in 1 .. 3:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+            env.applyUnitAttackTint(agent.unitClass, forward)
             if tryHitAt(forward):
               hit = true
             # Keep spear width contiguous (no skipping): lateral offset is fixed 1 tile.
+            env.applyUnitAttackTint(agent.unitClass, forward + left)
             if tryHitAt(forward + left):
               hit = true
+            env.applyUnitAttackTint(agent.unitClass, forward + right)
             if tryHitAt(forward + right):
               hit = true
 
@@ -367,6 +414,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         for distance in 1 .. maxRange:
           let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+          env.applyUnitAttackTint(agent.unitClass, attackPos)
           if tryHitAt(attackPos):
             attackHit = true
             break
@@ -442,7 +490,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               for dx in -1 .. 1:
                 for dy in -1 .. 1:
                   let p = agent.pos + ivec2(dx, dy)
-                  env.applyActionTint(p, tint, 2, ActionTintHeal)
+                  env.applyActionTint(p, tint, 2, ActionTintHealBread)
                   let occ = env.getThing(p)
                   if not occ.isNil and occ.kind == Agent:
                     let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)

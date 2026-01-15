@@ -48,7 +48,6 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
 proc applyBiomeElevation(env: Environment) =
-  let baseType = baseBiomeType()
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let biome = env.biomes[x][y]
@@ -57,10 +56,8 @@ proc applyBiomeElevation(env: Environment) =
         env.elevation[x][y] = -1
       of BiomeSnowType:
         env.elevation[x][y] = 1
-      of BiomeNone, BiomeDungeonType:
-        env.elevation[x][y] = 0
       else:
-        env.elevation[x][y] = if biome == baseType: 0 else: 1
+        env.elevation[x][y] = 0
 
 proc init(env: Environment) =
   inc env.mapGeneration
@@ -98,6 +95,7 @@ proc init(env: Environment) =
   env.actionTintCountdown = default(ActionTintCountdown)
   env.actionTintColor = default(ActionTintColor)
   env.actionTintFlags = default(ActionTintFlags)
+  env.actionTintCode = default(ActionTintCode)
   env.actionTintPositions.setLen(0)
   env.shieldCountdown = default(array[MapAgents, int8])
 

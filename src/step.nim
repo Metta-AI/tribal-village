@@ -2,6 +2,12 @@
 include "runtime_flags"
 include "actions"
 
+const
+  TowerAttackTint = TileColor(r: 0.95, g: 0.70, b: 0.25, intensity: 1.10)
+  CastleAttackTint = TileColor(r: 0.35, g: 0.25, b: 0.85, intensity: 1.15)
+  TowerAttackTintDuration = 2'i8
+  CastleAttackTintDuration = 3'i8
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -41,11 +47,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.actionTintCountdown[x][y] = next
         if next == 0:
           env.actionTintFlags[x][y] = false
+          env.actionTintCode[x][y] = ActionTintNone
           env.updateObservations(TintLayer, pos, 0)
         env.actionTintPositions[writeIdx] = pos
         inc writeIdx
       else:
         env.actionTintFlags[x][y] = false
+        env.actionTintCode[x][y] = ActionTintNone
         env.updateObservations(TintLayer, pos, 0)
     env.actionTintPositions.setLen(writeIdx)
 
@@ -111,6 +119,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           bestTarget = thing
     if isNil(bestTarget):
       return
+    let tint = if tower.kind == Castle: CastleAttackTint else: TowerAttackTint
+    let tintCode = if tower.kind == Castle: ActionTintAttackCastle else: ActionTintAttackTower
+    let tintDuration = if tower.kind == Castle: CastleAttackTintDuration else: TowerAttackTintDuration
+    env.applyActionTint(bestTarget.pos, tint, tintDuration, tintCode)
     case bestTarget.kind
     of Agent:
       discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))

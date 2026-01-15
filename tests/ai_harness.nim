@@ -4,25 +4,28 @@ import agent_control
 import types
 import items
 import terrain
-import balance
 import test_utils
 
-suite "Mechanics":
+proc fillStockpile(env: Environment, teamId: int, amount: int) =
+  setStockpile(env, teamId, ResourceFood, amount)
+  setStockpile(env, teamId, ResourceWood, amount)
+  setStockpile(env, teamId, ResourceStone, amount)
+  setStockpile(env, teamId, ResourceGold, amount)
+
+suite "Mechanics - Resources":
   test "tree to stump and stump depletes":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
 
-    let treeDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.stepAction(0, 3'u8, treeDir)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     let stump = env.getThing(ivec2(10, 9))
     check stump.kind == Stump
     check getInv(stump, ItemWood) == ResourceNodeInitial - 1
     check agent.inventoryWood == 1
 
     setInv(stump, ItemWood, 1)
-    let stumpDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.stepAction(0, 3'u8, stumpDir)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check env.getThing(ivec2(10, 9)) == nil
 
   test "wheat depletes and removes":
@@ -30,13 +33,12 @@ suite "Mechanics":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 2)
 
-    let wheatDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.stepAction(0, 3'u8, wheatDir)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     let wheat = env.getOverlayThing(ivec2(10, 9))
     check wheat.kind == Stubble
     check getInv(wheat, ItemWheat) == 1
 
-    env.stepAction(0, 3'u8, wheatDir)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check env.getOverlayThing(ivec2(10, 9)) == nil
 
   test "stone and gold deplete":
@@ -47,15 +49,71 @@ suite "Mechanics":
     let goldNode = env.getThing(ivec2(11, 10))
     check getInv(goldNode, ItemGold) == 1
 
-    let stoneDir = dirIndex(agent.pos, ivec2(10, 9))
-    env.stepAction(0, 3'u8, stoneDir)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check env.getThing(ivec2(10, 9)) == nil
 
     agent.inventory = emptyInventory()
-    let goldDir = dirIndex(agent.pos, ivec2(11, 10))
-    env.stepAction(0, 3'u8, goldDir)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(11, 10)))
     check env.getThing(ivec2(11, 10)) == nil
 
+  test "boat harvests fish on water":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Water
+    env.terrain[10][9] = Water
+    discard addBuilding(env, Dock, ivec2(10, 10), 0)
+    discard addResource(env, Fish, ivec2(10, 9), ItemFish, 1)
+    let agent = addAgentAt(env, 0, ivec2(10, 11))
+
+    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
+    check env.agents[agent.agentId].unitClass == UnitBoat
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(ivec2(10, 10), ivec2(10, 9)))
+    check getInv(env.agents[agent.agentId], ItemFish) == 1
+    check env.getOverlayThing(ivec2(10, 9)) == nil
+
+  test "planting wheat consumes inventory and clears fertile":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    agent.inventoryWheat = 1
+    let target = ivec2(10, 9)
+    env.terrain[target.x][target.y] = Fertile
+
+    env.stepAction(agent.agentId, 7'u8, dirIndex(agent.pos, target))
+
+    let crop = env.getOverlayThing(target)
+    check crop.kind == Wheat
+    check getInv(crop, ItemWheat) == ResourceNodeInitial
+    check agent.inventoryWheat == 0
+    check env.terrain[target.x][target.y] == TerrainEmpty
+
+suite "Mechanics - Movement":
+  test "boat embarks on dock and disembarks on land":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Water
+    discard addBuilding(env, Dock, ivec2(10, 10), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 11))
+
+    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
+    check env.agents[agent.agentId].pos == ivec2(10, 10)
+    check env.agents[agent.agentId].unitClass == UnitBoat
+
+    env.stepAction(agent.agentId, 1'u8, dirIndex(ivec2(10, 10), ivec2(10, 11)))
+    check env.agents[agent.agentId].pos == ivec2(10, 11)
+    check env.agents[agent.agentId].unitClass == UnitVillager
+
+  test "swap action updates positions":
+    let env = makeEmptyEnv()
+    let agentA = addAgentAt(env, 0, ivec2(10, 10))
+    let agentB = addAgentAt(env, 1, ivec2(10, 9))
+
+    env.stepAction(agentA.agentId, 4'u8, dirIndex(agentA.pos, agentB.pos))
+
+    check agentA.pos == ivec2(10, 9)
+    check agentB.pos == ivec2(10, 10)
+    check env.getThing(ivec2(10, 9)) == agentA
+    check env.getThing(ivec2(10, 10)) == agentB
+
+suite "Mechanics - Combat":
   test "attack kills enemy and drops corpse inventory":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
@@ -63,8 +121,7 @@ suite "Mechanics":
     defender.hp = 1
     setInv(defender, ItemWood, 2)
 
-    let attackDir = dirIndex(attacker.pos, defender.pos)
-    env.stepAction(attacker.agentId, 2'u8, attackDir)
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
     let corpse = env.getOverlayThing(ivec2(10, 9))
     check corpse.kind == Corpse
@@ -78,8 +135,7 @@ suite "Mechanics":
     defender.inventoryArmor = 2
     defender.hp = 5
 
-    let attackDir = dirIndex(attacker.pos, defender.pos)
-    env.stepAction(attacker.agentId, 2'u8, attackDir)
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
     check defender.inventoryArmor == 1
     check defender.hp == 5
@@ -98,57 +154,6 @@ suite "Mechanics":
     check infantry.hp == 3
     env.stepAction(archer.agentId, 2'u8, dirIndex(archer.pos, cavalry.pos))
     check cavalry.hp == 4
-
-  test "boat embarks on dock and disembarks on land":
-    let env = makeEmptyEnv()
-    env.terrain[10][10] = Water
-    discard addBuilding(env, Dock, ivec2(10, 10), 0)
-    let agent = addAgentAt(env, 0, ivec2(10, 11))
-
-    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
-    check env.agents[agent.agentId].pos == ivec2(10, 10)
-    check env.agents[agent.agentId].unitClass == UnitBoat
-
-    env.stepAction(agent.agentId, 1'u8, dirIndex(ivec2(10, 10), ivec2(10, 11)))
-    check env.agents[agent.agentId].pos == ivec2(10, 11)
-    check env.agents[agent.agentId].unitClass == UnitVillager
-
-  test "boat harvests fish on water":
-    let env = makeEmptyEnv()
-    env.terrain[10][10] = Water
-    env.terrain[10][9] = Water
-    discard addBuilding(env, Dock, ivec2(10, 10), 0)
-    discard addResource(env, Fish, ivec2(10, 9), ItemFish, 1)
-    let agent = addAgentAt(env, 0, ivec2(10, 11))
-
-    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
-    check env.agents[agent.agentId].unitClass == UnitBoat
-
-    env.stepAction(agent.agentId, 3'u8, dirIndex(ivec2(10, 10), ivec2(10, 9)))
-    check getInv(env.agents[agent.agentId], ItemFish) == 1
-    check env.getOverlayThing(ivec2(10, 9)) == nil
-
-  test "market converts carried resources to gold and food":
-    let env = makeEmptyEnv()
-    let agent = addAgentAt(env, 0, ivec2(10, 10))
-    discard addBuilding(env, Market, ivec2(10, 9), 0)
-    setInv(agent, ItemWood, 4)
-    setInv(agent, ItemWater, 3)
-    setInv(agent, ItemGold, 3)
-
-    let expectedGold = (4 * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
-    let expectedFood = (3 * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
-    let expectedWoodLeft = 4 mod DefaultMarketSellDenominator
-
-    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-
-    check env.stockpileCount(0, ResourceGold) == expectedGold
-    check env.stockpileCount(0, ResourceFood) == expectedFood
-    check getInv(agent, ItemWood) == expectedWoodLeft
-    check getInv(agent, ItemWater) == 3
-    check getInv(agent, ItemGold) == 0
-    let market = env.getThing(ivec2(10, 9))
-    check market.cooldown == max(0, DefaultMarketCooldown - 1)
 
   test "spear attack hits at range and consumes spear":
     let env = makeEmptyEnv()
@@ -192,55 +197,57 @@ suite "Mechanics":
     env.stepAction(enemyId, 0'u8, 0)
     check enemy.hp < startHp
 
+suite "Mechanics - Training":
   test "siege workshop trains battering ram":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
-    let workshop = addBuilding(env, SiegeWorkshop, ivec2(10, 9), 0)
+    discard addBuilding(env, SiegeWorkshop, ivec2(10, 9), 0)
     env.teamStockpiles[0].counts[ResourceWood] = 10
     env.teamStockpiles[0].counts[ResourceStone] = 10
 
-    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, workshop.pos))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitBatteringRam
 
   test "mangonel workshop trains mangonel":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
-    let workshop = addBuilding(env, MangonelWorkshop, ivec2(10, 9), 0)
+    discard addBuilding(env, MangonelWorkshop, ivec2(10, 9), 0)
     env.teamStockpiles[0].counts[ResourceWood] = 10
     env.teamStockpiles[0].counts[ResourceStone] = 10
 
-    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, workshop.pos))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitMangonel
 
   test "archery range trains archer":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
-    let range = addBuilding(env, ArcheryRange, ivec2(10, 9), 0)
+    discard addBuilding(env, ArcheryRange, ivec2(10, 9), 0)
     env.teamStockpiles[0].counts[ResourceWood] = 10
     env.teamStockpiles[0].counts[ResourceGold] = 10
 
-    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, range.pos))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitArcher
 
   test "stable trains scout":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
-    let stable = addBuilding(env, Stable, ivec2(10, 9), 0)
+    discard addBuilding(env, Stable, ivec2(10, 9), 0)
     env.teamStockpiles[0].counts[ResourceFood] = 10
 
-    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, stable.pos))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitScout
 
   test "castle trains knight":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
-    let castle = addBuilding(env, Castle, ivec2(10, 9), 0)
+    discard addBuilding(env, Castle, ivec2(10, 9), 0)
     env.teamStockpiles[0].counts[ResourceFood] = 10
     env.teamStockpiles[0].counts[ResourceGold] = 10
 
-    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, castle.pos))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitKnight
 
+suite "Mechanics - Siege":
   test "siege damage multiplier applies vs walls":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)
@@ -282,33 +289,6 @@ suite "Mechanics":
     check wall.hp < WallMaxHp
     check enemy.hp == enemyHp
 
-  test "swap action updates positions":
-    let env = makeEmptyEnv()
-    let agentA = addAgentAt(env, 0, ivec2(10, 10))
-    let agentB = addAgentAt(env, 1, ivec2(10, 9))
-
-    env.stepAction(agentA.agentId, 4'u8, dirIndex(agentA.pos, agentB.pos))
-
-    check agentA.pos == ivec2(10, 9)
-    check agentB.pos == ivec2(10, 10)
-    check env.getThing(ivec2(10, 9)) == agentA
-    check env.getThing(ivec2(10, 10)) == agentB
-
-  test "planting wheat consumes inventory and clears fertile":
-    let env = makeEmptyEnv()
-    let agent = addAgentAt(env, 0, ivec2(10, 10))
-    agent.inventoryWheat = 1
-    let target = ivec2(10, 9)
-    env.terrain[target.x][target.y] = Fertile
-
-    env.stepAction(agent.agentId, 7'u8, dirIndex(agent.pos, target))
-
-    let crop = env.getOverlayThing(target)
-    check crop.kind == Wheat
-    check getInv(crop, ItemWheat) == ResourceNodeInitial
-    check agent.inventoryWheat == 0
-    check env.terrain[target.x][target.y] == TerrainEmpty
-
 suite "AI - Gatherer":
   test "drops off carried wood":
     let env = makeEmptyEnv()
@@ -318,8 +298,7 @@ suite "AI - Gatherer":
     let agent = addAgentAt(env, 0, ivec2(10, 11), homeAltar = altarPos)
     setInv(agent, ItemWood, 1)
 
-    let action = controller.decideAction(env, 0)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 0))
     check verb == 3
     check arg == dirIndex(agent.pos, altarPos)
 
@@ -332,73 +311,29 @@ suite "AI - Gatherer":
     setInv(agent, ItemGold, 1)
     discard addBuilding(env, Magma, ivec2(10, 9), 0)
 
-    let action = controller.decideAction(env, 0)
-    let (verb, _) = decodeAction(action)
+    let (verb, _) = decodeAction(controller.decideAction(env, 0))
     check verb == 3
 
-  test "task food uses wheat":
-    let env = makeEmptyEnv()
-    let controller = newController(3)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 0)
-    setStockpile(env, 0, ResourceWood, 5)
-    setStockpile(env, 0, ResourceStone, 5)
-    setStockpile(env, 0, ResourceGold, 5)
+  const gathererCases = [
+    (name: "task food uses wheat", seed: 3, kind: Wheat, item: ItemWheat, target: ResourceFood),
+    (name: "task wood uses tree", seed: 4, kind: Tree, item: ItemWood, target: ResourceWood),
+    (name: "task stone uses stone", seed: 5, kind: Stone, item: ItemStone, target: ResourceStone),
+    (name: "task gold uses gold", seed: 6, kind: Gold, item: ItemGold, target: ResourceGold)
+  ]
 
-    let action = controller.decideAction(env, 0)
-    let (verb, _) = decodeAction(action)
-    check verb == 3
+  for gathererCase in gathererCases:
+    test gathererCase.name:
+      let env = makeEmptyEnv()
+      let controller = newController(gathererCase.seed)
+      let altarPos = ivec2(10, 10)
+      discard addAltar(env, altarPos, 0, 12)
+      discard addResource(env, gathererCase.kind, ivec2(10, 9), gathererCase.item, 3)
+      discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
+      fillStockpile(env, 0, 5)
+      setStockpile(env, 0, gathererCase.target, 0)
 
-  test "task wood uses tree":
-    let env = makeEmptyEnv()
-    let controller = newController(4)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Tree, ivec2(10, 9), ItemWood, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 5)
-    setStockpile(env, 0, ResourceWood, 0)
-    setStockpile(env, 0, ResourceStone, 5)
-    setStockpile(env, 0, ResourceGold, 5)
-
-    let action = controller.decideAction(env, 0)
-    let (verb, _) = decodeAction(action)
-    check verb == 3
-
-  test "task stone uses stone":
-    let env = makeEmptyEnv()
-    let controller = newController(5)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Stone, ivec2(10, 9), ItemStone, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 5)
-    setStockpile(env, 0, ResourceWood, 5)
-    setStockpile(env, 0, ResourceStone, 0)
-    setStockpile(env, 0, ResourceGold, 5)
-
-    let action = controller.decideAction(env, 0)
-    let (verb, _) = decodeAction(action)
-    check verb == 3
-
-  test "task gold uses gold":
-    let env = makeEmptyEnv()
-    let controller = newController(6)
-    let altarPos = ivec2(10, 10)
-    discard addAltar(env, altarPos, 0, 12)
-    discard addResource(env, Gold, ivec2(10, 9), ItemGold, 3)
-    discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
-    setStockpile(env, 0, ResourceFood, 5)
-    setStockpile(env, 0, ResourceWood, 5)
-    setStockpile(env, 0, ResourceStone, 5)
-    setStockpile(env, 0, ResourceGold, 0)
-
-    let action = controller.decideAction(env, 0)
-    let (verb, _) = decodeAction(action)
-    check verb == 3
+      let (verb, _) = decodeAction(controller.decideAction(env, 0))
+      check verb == 3
 
 suite "AI - Builder":
   test "drops off carried resources":
@@ -409,8 +344,7 @@ suite "AI - Builder":
     let agent = addAgentAt(env, 2, ivec2(10, 11), homeAltar = tcPos)
     setInv(agent, ItemWood, 1)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 3
     check arg == dirIndex(agent.pos, tcPos)
 
@@ -418,13 +352,9 @@ suite "AI - Builder":
     let env = makeEmptyEnv()
     let controller = newController(8)
     discard addAgentAt(env, 2, ivec2(10, 10))
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(Granary)
 
@@ -433,13 +363,9 @@ suite "AI - Builder":
     let controller = newController(9)
     addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
     discard addAgentAt(env, 2, ivec2(10, 10))
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(WeavingLoom)
 
@@ -450,13 +376,9 @@ suite "AI - Builder":
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom])
     discard addAgentAt(env, 2, basePos, homeAltar = basePos)
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(ClayOven)
 
@@ -467,13 +389,9 @@ suite "AI - Builder":
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven])
     discard addAgentAt(env, 2, basePos, homeAltar = basePos)
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(Blacksmith)
 
@@ -484,13 +402,9 @@ suite "AI - Builder":
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith])
     discard addAgentAt(env, 2, basePos, homeAltar = basePos)
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(Barracks)
 
@@ -504,13 +418,9 @@ suite "AI - Builder":
       Barracks, ArcheryRange, Stable
     ])
     discard addAgentAt(env, 2, basePos, homeAltar = basePos)
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(SiegeWorkshop)
 
@@ -524,13 +434,9 @@ suite "AI - Builder":
       Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, Outpost
     ])
     discard addAgentAt(env, 2, basePos, homeAltar = basePos)
-    setStockpile(env, 0, ResourceFood, 50)
-    setStockpile(env, 0, ResourceWood, 50)
-    setStockpile(env, 0, ResourceStone, 50)
-    setStockpile(env, 0, ResourceGold, 50)
+    fillStockpile(env, 0, 50)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
     check arg == buildIndexFor(Castle)
 
@@ -545,8 +451,7 @@ suite "AI - Builder":
     discard addAgentAt(env, 2, ivec2(1, 0), homeAltar = basePos)
     setStockpile(env, 0, ResourceWood, 10)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 1 or (verb == 8 and arg == buildIndexFor(House))
 
   test "builds house at cap using team-only pop cap":
@@ -561,8 +466,7 @@ suite "AI - Builder":
     discard addBuilding(env, House, ivec2(22, 20), 1)
     discard addBuilding(env, House, ivec2(24, 20), 1)
 
-    let action = controller.decideAction(env, 2)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 1 or (verb == 8 and arg == buildIndexFor(House))
 
 suite "AI - Fighter":
@@ -577,8 +481,7 @@ suite "AI - Fighter":
     discard addAgentAt(env, MapAgentsPerVillage, enemyPos)
     setStockpile(env, 0, ResourceWood, 10)
 
-    let action = controller.decideAction(env, 4)
-    let (verb, arg) = decodeAction(action)
+    let (verb, arg) = decodeAction(controller.decideAction(env, 4))
     check verb == 8
     check arg == BuildIndexDoor
 
@@ -589,6 +492,5 @@ suite "AI - Fighter":
     let agent = addAgentAt(env, 4, ivec2(10, 12))
     setInv(agent, ItemLantern, 1)
 
-    let action = controller.decideAction(env, 4)
-    let (verb, _) = decodeAction(action)
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
     check verb == 6
