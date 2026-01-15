@@ -17,6 +17,14 @@ type
     Dune
     Sand
     Snow
+    RampUpN
+    RampUpS
+    RampUpW
+    RampUpE
+    RampDownN
+    RampDownS
+    RampDownW
+    RampDownE
 
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[MaxTerrainSize, array[MaxTerrainSize, TerrainType]]

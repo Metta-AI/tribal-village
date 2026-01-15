@@ -369,6 +369,55 @@ proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {
   not env.hasDockAt(pos)
 {.pop.}
 
+type RampKind = enum
+  RampNone
+  RampUp
+  RampDown
+
+proc rampInfo(terrain: TerrainType): tuple[kind: RampKind, dx: int32, dy: int32] {.inline.} =
+  case terrain
+  of RampUpN: (kind: RampUp, dx: 0, dy: -1)
+  of RampUpS: (kind: RampUp, dx: 0, dy: 1)
+  of RampUpW: (kind: RampUp, dx: -1, dy: 0)
+  of RampUpE: (kind: RampUp, dx: 1, dy: 0)
+  of RampDownN: (kind: RampDown, dx: 0, dy: -1)
+  of RampDownS: (kind: RampDown, dx: 0, dy: 1)
+  of RampDownW: (kind: RampDown, dx: -1, dy: 0)
+  of RampDownE: (kind: RampDown, dx: 1, dy: 0)
+  else: (kind: RampNone, dx: 0, dy: 0)
+
+proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
+  ## Allow flat movement or a 1-elevation step when a ramp connects the tiles.
+  if not isValidPos(fromPos) or not isValidPos(toPos):
+    return false
+  let dx = toPos.x - fromPos.x
+  let dy = toPos.y - fromPos.y
+  if abs(dx) + abs(dy) != 1:
+    return false
+  let elevFrom = env.elevation[fromPos.x][fromPos.y]
+  let elevTo = env.elevation[toPos.x][toPos.y]
+  if elevFrom == elevTo:
+    return true
+  if abs(elevFrom - elevTo) != 1:
+    return false
+
+  let lowPos = if elevFrom < elevTo: fromPos else: toPos
+  let highPos = if elevFrom < elevTo: toPos else: fromPos
+  let dirX = highPos.x - lowPos.x
+  let dirY = highPos.y - lowPos.y
+
+  let lowTerrain = env.terrain[lowPos.x][lowPos.y]
+  let (lowKind, lowDx, lowDy) = rampInfo(lowTerrain)
+  if lowKind == RampUp and lowDx == dirX and lowDy == dirY:
+    return true
+
+  let highTerrain = env.terrain[highPos.x][highPos.y]
+  let (highKind, highDx, highDy) = rampInfo(highTerrain)
+  if highKind == RampDown and highDx == -dirX and highDy == -dirY:
+    return true
+
+  false
+
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
   terrain in BuildableTerrain
 
