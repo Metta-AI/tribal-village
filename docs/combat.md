@@ -5,7 +5,7 @@ Owner: Design / Systems
 Status: Draft
 
 ## Overview
-We introduced AoE-style class counters using explicit bonus damage by unit class, and a distinct combat overlay when a bonus ("critical") hit lands. This improves readability and makes the counter system visible without changing core actions or the observation layout.
+We introduced AoE-style class counters using explicit bonus damage by unit class, plus per-unit combat overlays and distinct bonus-hit flashes. This improves readability and makes the counter system visible while also emitting richer action tint observation codes for agents.
 
 ## Counter Bonuses (Class vs Class)
 The counter system lives in `src/combat.nim` as a lookup table:
@@ -32,7 +32,16 @@ When a bonus applies (class counters or siege-vs-structure), the target tile rec
 - `BonusDamageTint` in `src/combat.nim`
 - Applied via `env.applyActionTint` when bonus damage > 0
 
-This makes counter hits visually identifiable in the renderer (a "critical hit" signal). It does not change observations beyond the existing `TintLayer` code used for action tints.
+This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits a specific `TintLayer` code for bonus hits.
+
+## Action Tint Observation Codes
+The action tint layer now exposes more detail so agents can tell what kind of event occurred:
+- Per-unit attack codes (villager, man-at-arms, archer, scout, knight, monk, battering ram, mangonel, boat)
+- Tower and castle attack codes
+- Heal codes (monk heal vs bread heal)
+- Shield code for armor band flashes
+- Bonus/critical hit code
+- Mixed code when multiple events overlap on the same tile
 
 ## Why This Change
 - AoE-like gameplay relies on clear, readable counters.

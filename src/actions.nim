@@ -1,23 +1,23 @@
 # This file is included by src/step.nim
 const UnitAttackTints: array[AgentUnitClass, TileColor] = [
   # UnitVillager
-  TileColor(r: 0.88, g: 0.72, b: 0.38, intensity: 1.05),
+  TileColor(r: 0.95, g: 0.25, b: 0.20, intensity: 1.10),
   # UnitManAtArms
-  TileColor(r: 0.65, g: 0.72, b: 0.88, intensity: 1.05),
+  TileColor(r: 0.95, g: 0.55, b: 0.15, intensity: 1.10),
   # UnitArcher
-  TileColor(r: 0.20, g: 0.85, b: 0.70, intensity: 1.10),
+  TileColor(r: 0.95, g: 0.85, b: 0.20, intensity: 1.10),
   # UnitScout
-  TileColor(r: 0.35, g: 0.90, b: 0.95, intensity: 1.10),
+  TileColor(r: 0.30, g: 0.90, b: 0.30, intensity: 1.10),
   # UnitKnight
-  TileColor(r: 0.25, g: 0.45, b: 0.95, intensity: 1.15),
+  TileColor(r: 0.20, g: 0.90, b: 0.85, intensity: 1.12),
   # UnitMonk
-  TileColor(r: 0.78, g: 0.60, b: 0.92, intensity: 1.10),
+  TileColor(r: 0.25, g: 0.55, b: 0.95, intensity: 1.12),
   # UnitBatteringRam
-  TileColor(r: 0.78, g: 0.50, b: 0.22, intensity: 1.10),
+  TileColor(r: 0.45, g: 0.35, b: 0.90, intensity: 1.12),
   # UnitMangonel
-  TileColor(r: 0.95, g: 0.35, b: 0.10, intensity: 1.20),
+  TileColor(r: 0.75, g: 0.35, b: 0.95, intensity: 1.18),
   # UnitBoat
-  TileColor(r: 0.20, g: 0.60, b: 0.95, intensity: 1.08),
+  TileColor(r: 0.95, g: 0.35, b: 0.75, intensity: 1.12),
 ]
 
 const UnitAttackObservationCodes: array[AgentUnitClass, uint8] = [

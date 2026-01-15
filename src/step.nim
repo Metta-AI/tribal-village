@@ -3,8 +3,8 @@ include "runtime_flags"
 include "actions"
 
 const
-  TowerAttackTint = TileColor(r: 0.95, g: 0.55, b: 0.20, intensity: 1.10)
-  CastleAttackTint = TileColor(r: 0.55, g: 0.35, b: 0.95, intensity: 1.15)
+  TowerAttackTint = TileColor(r: 0.95, g: 0.70, b: 0.25, intensity: 1.10)
+  CastleAttackTint = TileColor(r: 0.35, g: 0.25, b: 0.85, intensity: 1.15)
   TowerAttackTintDuration = 2'i8
   CastleAttackTintDuration = 3'i8
 
