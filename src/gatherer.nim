@@ -137,9 +137,10 @@ proc optGathererMarket(controller: Controller, env: Environment, agent: Thing,
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
   if isNil(market):
     return 0'u8
-  if isAdjacent(agent.pos, market.pos):
-    return controller.useAt(env, agent, agentId, state, market.pos)
-  controller.moveTo(env, agent, agentId, state, market.pos)
+  return (if isAdjacent(agent.pos, market.pos):
+    controller.useAt(env, agent, agentId, state, market.pos)
+  else:
+    controller.moveTo(env, agent, agentId, state, market.pos))
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -156,9 +157,10 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
     if didKnown: return actKnown
     if not isNil(magmaGlobal):
       updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
-      if isAdjacent(agent.pos, magmaGlobal.pos):
-        return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
-      return controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
+      return (if isAdjacent(agent.pos, magmaGlobal.pos):
+        controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
+      else:
+        controller.moveTo(env, agent, agentId, state, magmaGlobal.pos))
 
   let (didDrop, dropAct) = controller.dropoffCarrying(
     env, agent, agentId, state,
@@ -186,18 +188,20 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
       if not isNil(altar):
         altarPos = altar.pos
     if altarPos.x >= 0:
-      if isAdjacent(agent.pos, altarPos):
-        return controller.useAt(env, agent, agentId, state, altarPos)
-      return controller.moveTo(env, agent, agentId, state, altarPos)
+      return (if isAdjacent(agent.pos, altarPos):
+        controller.useAt(env, agent, agentId, state, altarPos)
+      else:
+        controller.moveTo(env, agent, agentId, state, altarPos))
   if agent.inventoryGold > 0:
     let (didKnown, actKnown) = controller.tryMoveToKnownResource(
       env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
     if didKnown: return actKnown
     if not isNil(magmaGlobal):
       updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
-      if isAdjacent(agent.pos, magmaGlobal.pos):
-        return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
-      return controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
+      return (if isAdjacent(agent.pos, magmaGlobal.pos):
+        controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
+      else:
+        controller.moveTo(env, agent, agentId, state, magmaGlobal.pos))
     return controller.moveNextSearch(env, agent, agentId, state)
   if state.closestMagmaPos.x < 0 and isNil(magmaGlobal):
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -317,9 +321,10 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
         if target.x < 0:
           target = findFertileTarget(env, agent.pos, fertileRadius, state.pathBlockedTarget)
         if target.x >= 0:
-          if isAdjacent(agent.pos, target):
-            return controller.useAt(env, agent, agentId, state, target)
-          return controller.moveTo(env, agent, agentId, state, target)
+          return (if isAdjacent(agent.pos, target):
+            controller.useAt(env, agent, agentId, state, target)
+          else:
+            controller.moveTo(env, agent, agentId, state, target))
       else:
         let (didWater, actWater) = controller.ensureWater(env, agent, agentId, state)
         if didWater: return actWater
@@ -332,10 +337,11 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
       if isNil(knownThing) or knownThing.kind notin FoodKinds:
         state.closestFoodPos = ivec2(-1, -1)
       else:
-        if isAdjacent(agent.pos, knownThing.pos):
-          return controller.actAt(env, agent, agentId, state, knownThing.pos,
+        return (if isAdjacent(agent.pos, knownThing.pos):
+          controller.actAt(env, agent, agentId, state, knownThing.pos,
             (if knownThing.kind == Cow: 2'u8 else: 3'u8))
-        return controller.moveTo(env, agent, agentId, state, knownThing.pos)
+        else:
+          controller.moveTo(env, agent, agentId, state, knownThing.pos))
 
   for kind in [Wheat, Stubble]:
     let wheat = env.findNearestThingSpiral(state, kind)
@@ -345,9 +351,10 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
     updateClosestSeen(state, state.basePosition, wheat.pos, state.closestFoodPos)
-    if isAdjacent(agent.pos, wheat.pos):
-      return controller.useAt(env, agent, agentId, state, wheat.pos)
-    return controller.moveTo(env, agent, agentId, state, wheat.pos)
+    return (if isAdjacent(agent.pos, wheat.pos):
+      controller.useAt(env, agent, agentId, state, wheat.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, wheat.pos))
 
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
   if didHunt: return actHunt

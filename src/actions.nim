@@ -605,14 +605,18 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
         of Wheat:
           used = env.harvestWheat(agent, thing)
-        of Stubble:
-          if env.grantItem(agent, ItemWheat):
-            agent.reward += env.config.wheatReward
-            let remaining = getInv(thing, ItemWheat) - 1
+        of Stubble, Stump:
+          let (key, reward) = if thing.kind == Stubble:
+            (ItemWheat, env.config.wheatReward)
+          else:
+            (ItemWood, env.config.woodReward)
+          if env.grantItem(agent, key):
+            agent.reward += reward
+            let remaining = getInv(thing, key) - 1
             if remaining <= 0:
               removeThing(env, thing)
             else:
-              setInv(thing, ItemWheat, remaining)
+              setInv(thing, key, remaining)
             used = true
         of Stone:
           takeFromThing(ItemStone)
@@ -624,15 +628,6 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           takeFromThing(ItemStone)
         of Fish:
           takeFromThing(ItemFish)
-        of Stump:
-          if env.grantItem(agent, ItemWood):
-            agent.reward += env.config.woodReward
-            let remaining = getInv(thing, ItemWood) - 1
-            if remaining <= 0:
-              removeThing(env, thing)
-            else:
-              setInv(thing, ItemWood, remaining)
-            used = true
         of Tree:
           used = env.harvestTree(agent, thing)
         of Corpse:

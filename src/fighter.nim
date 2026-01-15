@@ -109,16 +109,18 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
           dropPos = cand
           break
       if dropPos.x >= 0:
-        if isAdjacent(agent.pos, dropPos):
-          return controller.useAt(env, agent, agentId, state, dropPos)
-        return controller.moveTo(env, agent, agentId, state, dropPos)
+        return (if isAdjacent(agent.pos, dropPos):
+          controller.useAt(env, agent, agentId, state, dropPos)
+        else:
+          controller.moveTo(env, agent, agentId, state, dropPos))
       return controller.moveTo(env, agent, agentId, state, monastery.pos)
 
   let relic = env.findNearestThingSpiral(state, Relic)
   if not isNil(relic):
-    if isAdjacent(agent.pos, relic.pos):
-      return controller.useAt(env, agent, agentId, state, relic.pos)
-    return controller.moveTo(env, agent, agentId, state, relic.pos)
+    return (if isAdjacent(agent.pos, relic.pos):
+      controller.useAt(env, agent, agentId, state, relic.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, relic.pos))
 
   var bestEnemy: Thing = nil
   var bestDist = int.high

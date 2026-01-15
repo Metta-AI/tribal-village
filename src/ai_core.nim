@@ -786,17 +786,19 @@ proc tryMoveToKnownResource(controller: Controller, env: Environment, agent: Thi
   if isNil(thing) or thing.kind notin allowed or isThingFrozen(thing, env):
     pos = ivec2(-1, -1)
     return (false, 0'u8)
-  if isAdjacent(agent.pos, pos):
-    return (true, actAt(controller, env, agent, agentId, state, pos, verb))
-  return (true, moveTo(controller, env, agent, agentId, state, pos))
+  return (true, if isAdjacent(agent.pos, pos):
+    actAt(controller, env, agent, agentId, state, pos, verb)
+  else:
+    moveTo(controller, env, agent, agentId, state, pos))
 
 proc moveToNearestSmith(controller: Controller, env: Environment, agent: Thing, agentId: int,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
   let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
   if not isNil(smith):
-    if isAdjacent(agent.pos, smith.pos):
-      return (true, controller.useAt(env, agent, agentId, state, smith.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, smith.pos))
+    return (true, if isAdjacent(agent.pos, smith.pos):
+      controller.useAt(env, agent, agentId, state, smith.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, smith.pos))
   (false, 0'u8)
 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
@@ -854,9 +856,10 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
     if hasFood:
       let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
       if not isNil(dropoff):
-        if isAdjacent(agent.pos, dropoff.pos):
-          return (true, controller.useAt(env, agent, agentId, state, dropoff.pos))
-        return (true, controller.moveTo(env, agent, agentId, state, dropoff.pos))
+        return (true, if isAdjacent(agent.pos, dropoff.pos):
+          controller.useAt(env, agent, agentId, state, dropoff.pos)
+        else:
+          controller.moveTo(env, agent, agentId, state, dropoff.pos))
 
   # Wood dropoff
   for entry in [
@@ -868,9 +871,10 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
       continue
     let dropoff = findDropoffBuilding(env, state, teamId, entry.res, controller.rng)
     if not isNil(dropoff):
-      if isAdjacent(agent.pos, dropoff.pos):
-        return (true, controller.useAt(env, agent, agentId, state, dropoff.pos))
-      return (true, controller.moveTo(env, agent, agentId, state, dropoff.pos))
+      return (true, if isAdjacent(agent.pos, dropoff.pos):
+        controller.useAt(env, agent, agentId, state, dropoff.pos)
+      else:
+        controller.moveTo(env, agent, agentId, state, dropoff.pos))
 
   (false, 0'u8)
 
@@ -887,9 +891,10 @@ proc ensureWood(controller: Controller, env: Environment, agent: Thing, agentId:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+    return (true, if isAdjacent(agent.pos, target.pos):
+      controller.useAt(env, agent, agentId, state, target.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -905,9 +910,10 @@ proc ensureStone(controller: Controller, env: Environment, agent: Thing, agentId
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+    return (true, if isAdjacent(agent.pos, target.pos):
+      controller.useAt(env, agent, agentId, state, target.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -921,9 +927,10 @@ proc ensureGold(controller: Controller, env: Environment, agent: Thing, agentId:
       state.cachedThingPos[Gold] = ivec2(-1, -1)
       return (true, controller.moveNextSearch(env, agent, agentId, state))
     updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+    return (true, if isAdjacent(agent.pos, target.pos):
+      controller.useAt(env, agent, agentId, state, target.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWater(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -935,9 +942,10 @@ proc ensureWater(controller: Controller, env: Environment, agent: Thing, agentId
          isTileFrozen(state.closestWaterPos, env):
       state.closestWaterPos = ivec2(-1, -1)
   if state.closestWaterPos.x >= 0:
-    if isAdjacent(agent.pos, state.closestWaterPos):
-      return (true, controller.useAt(env, agent, agentId, state, state.closestWaterPos))
-    return (true, controller.moveTo(env, agent, agentId, state, state.closestWaterPos))
+    return (true, if isAdjacent(agent.pos, state.closestWaterPos):
+      controller.useAt(env, agent, agentId, state, state.closestWaterPos)
+    else:
+      controller.moveTo(env, agent, agentId, state, state.closestWaterPos))
 
   let target = findNearestWaterSpiral(env, state)
   if target.x >= 0:
@@ -945,9 +953,10 @@ proc ensureWater(controller: Controller, env: Environment, agent: Thing, agentId
       state.cachedWaterPos = ivec2(-1, -1)
       return (true, controller.moveNextSearch(env, agent, agentId, state))
     updateClosestSeen(state, state.basePosition, target, state.closestWaterPos)
-    if isAdjacent(agent.pos, target):
-      return (true, controller.useAt(env, agent, agentId, state, target))
-    return (true, controller.moveTo(env, agent, agentId, state, target))
+    return (true, if isAdjacent(agent.pos, target):
+      controller.useAt(env, agent, agentId, state, target)
+    else:
+      controller.moveTo(env, agent, agentId, state, target))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -959,9 +968,10 @@ proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
-    if isAdjacent(agent.pos, target.pos):
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+    return (true, if isAdjacent(agent.pos, target.pos):
+      controller.useAt(env, agent, agentId, state, target.pos)
+    else:
+      controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -974,9 +984,11 @@ proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agen
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
-    if isAdjacent(agent.pos, target.pos):
-      if verb == 2'u8:
-        return (true, controller.actAt(env, agent, agentId, state, target.pos, verb))
-      return (true, controller.useAt(env, agent, agentId, state, target.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, target.pos))
+    return (true, if isAdjacent(agent.pos, target.pos):
+      (if verb == 2'u8:
+        controller.actAt(env, agent, agentId, state, target.pos, verb)
+      else:
+        controller.useAt(env, agent, agentId, state, target.pos))
+    else:
+      controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
