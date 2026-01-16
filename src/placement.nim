@@ -9,14 +9,16 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   false
 
 proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool, hearts = 0) =
+  let obs = if present: 1 else: 0
+  let heartsObs = if present: hearts else: 0
   case kind
   of Wall:
-    env.updateObservations(WallLayer, pos, if present: 1 else: 0)
+    env.updateObservations(WallLayer, pos, obs)
   of Magma:
-    env.updateObservations(MagmaLayer, pos, if present: 1 else: 0)
+    env.updateObservations(MagmaLayer, pos, obs)
   of Altar:
-    env.updateObservations(altarLayer, pos, if present: 1 else: 0)
-    env.updateObservations(altarHeartsLayer, pos, if present: hearts else: 0)
+    env.updateObservations(altarLayer, pos, obs)
+    env.updateObservations(altarHeartsLayer, pos, heartsObs)
   else:
     discard
 
@@ -137,11 +139,12 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   var kind: ThingKind
   if not parseThingKey(key, kind):
     return false
+  let isBuilding = isBuildingKind(kind)
   let placed = Thing(
     kind: kind,
     pos: pos
   )
-  if isBuildingKind(kind) and kind != Barrel:
+  if isBuilding and kind != Barrel:
     placed.teamId = getTeamId(agent)
   if kind == Door:
     placed.hp = DoorMaxHearts
@@ -157,12 +160,12 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
     placed.homeSpawner = pos
   else:
     discard
-  if isBuildingKind(kind):
+  if isBuilding:
     let capacity = buildingBarrelCapacity(kind)
     if capacity > 0:
       placed.barrelCapacity = capacity
   env.add(placed)
-  if isBuildingKind(kind):
+  if isBuilding:
     let radius = buildingFertileRadius(kind)
     if radius > 0:
       for dx in -radius .. radius:
