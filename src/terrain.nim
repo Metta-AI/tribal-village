@@ -17,8 +17,6 @@ type
     Dune
     Sand
     Snow
-    CliffUp
-    CliffDown
     RampUpN
     RampUpS
     RampUpW
@@ -151,8 +149,6 @@ const
   TerrainDune* = TerrainType.Dune
   TerrainSand* = TerrainType.Sand
   TerrainSnow* = TerrainType.Snow
-  TerrainCliffUp* = TerrainType.CliffUp
-  TerrainCliffDown* = TerrainType.CliffDown
   BuildableTerrain* = {Empty, Grass, Sand, Snow, Dune, Road}
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
@@ -300,24 +296,37 @@ proc applyBiomeZoneFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMas
       terrain[x][y] = terrainType
       biomes[x][y] = biomeType
 
-proc applyBiomeZoneCliffRing(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
+proc applyBiomeZoneInsetFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
                              zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
-                             cliffTerrain, biomeTerrain: TerrainType,
+                             biomeTerrain: TerrainType,
                              biomeType, baseBiomeType: BiomeType) =
   var ringMask: MaskGrid
   var innerMask: MaskGrid
   splitCliffRing(zoneMask, mapWidth, mapHeight, ringMask, innerMask)
-  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
-  if x1 <= x0 or y1 <= y0:
-    return
-  for x in x0 ..< x1:
-    for y in y0 ..< y1:
-      if not ringMask[x][y]:
-        continue
-      if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
-        continue
-      terrain[x][y] = cliffTerrain
-      biomes[x][y] = baseBiomeType
+  var hasInner = false
+  for x in 0 ..< mapWidth:
+    for y in 0 ..< mapHeight:
+      if innerMask[x][y]:
+        hasInner = true
+        break
+    if hasInner:
+      break
+  if not hasInner:
+    let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
+    if x1 > x0 and y1 > y0:
+      let cx = (x0 + x1 - 1) div 2
+      let cy = (y0 + y1 - 1) div 2
+      if zoneMask[cx][cy]:
+        innerMask[cx][cy] = true
+      else:
+        for x in x0 ..< x1:
+          for y in y0 ..< y1:
+            if zoneMask[x][y]:
+              innerMask[x][y] = true
+              hasInner = true
+              break
+          if hasInner:
+            break
   applyBiomeZoneFill(terrain, biomes, innerMask, zone, mapWidth, mapHeight, mapBorder,
     biomeTerrain, biomeType, baseBiomeType)
 
@@ -589,11 +598,11 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
         r, edgeChance, buildBiomeCavesMask, BiomeCavesConfig(),
         BiomeCavesTerrain, BiomeCavesType, baseBiomeType)
     of BiomeSnow:
-      applyBiomeZoneCliffRing(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        TerrainCliffUp, BiomeSnowTerrain, BiomeSnowType, baseBiomeType)
+      applyBiomeZoneInsetFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        BiomeSnowTerrain, BiomeSnowType, baseBiomeType)
     of BiomeSwamp:
-      applyBiomeZoneCliffRing(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
-        TerrainCliffDown, BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
+      applyBiomeZoneInsetFill(terrain, biomes, zoneMask, zone, mapWidth, mapHeight, mapBorder,
+        BiomeSwampTerrain, BiomeSwampType, baseBiomeType)
     of BiomeCity:
       var mask: MaskGrid
       var roadMask: MaskGrid
