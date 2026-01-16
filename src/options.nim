@@ -22,33 +22,30 @@ type OptionDef* = object
              agentId: int, state: var AgentState): uint8
   interruptible*: bool
 
-proc clearActiveOption(state: var AgentState) =
-  state.activeOptionId = -1
-  state.activeOptionTicks = 0
-
 proc runOptions*(controller: Controller, env: Environment, agent: Thing,
                  agentId: int, state: var AgentState,
                  roleOptions: openArray[OptionDef]): uint8 =
+  let optionCount = roleOptions.len
   # Handle active option first (if any).
-  if state.activeOptionId >= 0 and state.activeOptionId < roleOptions.len:
+  if state.activeOptionId in 0 ..< optionCount:
     let activeIdx = state.activeOptionId
-    let activeDef = roleOptions[activeIdx]
-    if activeDef.interruptible:
+    if roleOptions[activeIdx].interruptible:
       for i in 0 ..< activeIdx:
         if roleOptions[i].canStart(controller, env, agent, agentId, state):
           state.activeOptionId = i
           state.activeOptionTicks = 0
           break
-    if state.activeOptionId >= 0 and state.activeOptionId < roleOptions.len:
-      inc state.activeOptionTicks
-      let action = roleOptions[state.activeOptionId].act(
-        controller, env, agent, agentId, state)
-      if action != 0'u8:
-        if roleOptions[state.activeOptionId].shouldTerminate(
-            controller, env, agent, agentId, state):
-          clearActiveOption(state)
-        return action
-      clearActiveOption(state)
+    inc state.activeOptionTicks
+    let action = roleOptions[state.activeOptionId].act(
+      controller, env, agent, agentId, state)
+    if action != 0'u8:
+      if roleOptions[state.activeOptionId].shouldTerminate(
+          controller, env, agent, agentId, state):
+        state.activeOptionId = -1
+        state.activeOptionTicks = 0
+      return action
+    state.activeOptionId = -1
+    state.activeOptionTicks = 0
 
   # Otherwise, scan options in priority order and use the first that acts.
   for i, opt in roleOptions:
@@ -59,8 +56,10 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
     let action = opt.act(controller, env, agent, agentId, state)
     if action != 0'u8:
       if opt.shouldTerminate(controller, env, agent, agentId, state):
-        clearActiveOption(state)
+        state.activeOptionId = -1
+        state.activeOptionTicks = 0
       return action
-    clearActiveOption(state)
+    state.activeOptionId = -1
+    state.activeOptionTicks = 0
 
   return 0'u8
