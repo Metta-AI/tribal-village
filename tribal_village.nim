@@ -155,7 +155,12 @@ proc display() =
   updateArea(rootArea)
 
   let panelRectInt = worldMapPanel.rect
-  let panelRect = panelRectInt.rect
+  let panelRect = Rect(
+    x: panelRectInt.x.float32,
+    y: panelRectInt.y.float32,
+    w: panelRectInt.w.float32,
+    h: panelRectInt.h.float32
+  )
 
   if panelRectInt.w != lastPanelSize.x or
      panelRectInt.h != lastPanelSize.y or
