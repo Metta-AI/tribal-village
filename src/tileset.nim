@@ -148,9 +148,11 @@ proc generateDfViewAssets*() =
       noteMissing(token)
       continue
 
-    let sheet = getSheet(entry.tilesetIdx, sheetPath)
-    let tile = extractTile(sheet, entry.tileIndex)
-    let scaled = scaleNearest(tile, TargetSize, TargetSize)
+    let scaled = scaleNearest(
+      extractTile(getSheet(entry.tilesetIdx, sheetPath), entry.tileIndex),
+      TargetSize,
+      TargetSize
+    )
 
     createDir(parentDir(outPath))
     writeFile(outPath, encodePng(scaled))
@@ -162,9 +164,11 @@ proc generateDfViewAssets*() =
     if entry.tilesetIdx in tilesets:
       let sheetPath = tilesets[entry.tilesetIdx]
       if fileExists(sheetPath):
-        let sheet = getSheet(entry.tilesetIdx, sheetPath)
-        let tile = extractTile(sheet, entry.tileIndex)
-        let scaled = scaleNearest(tile, TargetSize, TargetSize)
+        let scaled = scaleNearest(
+          extractTile(getSheet(entry.tilesetIdx, sheetPath), entry.tileIndex),
+          TargetSize,
+          TargetSize
+        )
         let outPath = MapDir / "road.png"
         if not fileExists(outPath):
           createDir(parentDir(outPath))
