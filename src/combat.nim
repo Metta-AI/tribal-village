@@ -40,9 +40,6 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
 ]
 
-proc bonusCritTint(attacker: AgentUnitClass): TileColor {.inline.} =
-  BonusDamageTintByClass[attacker]
-
 proc inTankAura(env: Environment, target: Thing): bool =
   let teamId = getTeamId(target)
   if teamId < 0:
@@ -72,7 +69,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
-      env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
+      env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
       damage += bonus
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
@@ -151,7 +148,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   if not attacker.isNil:
     let bonus = BonusDamageByClass[attacker.unitClass][target.unitClass]
     if bonus > 0:
-      env.applyActionTint(target.pos, bonusCritTint(attacker.unitClass), 2, ActionTintAttackBonus)
+      env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
     remaining = max(1, remaining + bonus)
   if inTankAura(env, target):
     remaining = max(1, (remaining + 1) div 2)

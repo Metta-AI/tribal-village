@@ -19,14 +19,6 @@ type
     tilesetIdx: int
     tileIndex: int
 
-proc isDigitsOnly(s: string): bool =
-  if s.len == 0:
-    return false
-  for ch in s:
-    if ch < '0' or ch > '9':
-      return false
-  true
-
 proc scaleNearest(src: Image, dstW, dstH: int): Image =
   result = newImage(dstW, dstH)
   for y in 0 ..< dstH:
@@ -59,7 +51,7 @@ proc generateDfViewAssets*() =
     if parts.len < 4:
       continue
     let idxStr = parts[^1]
-    if not isDigitsOnly(idxStr):
+    if idxStr.len == 0 or not idxStr.allCharsInSet(Digits):
       continue
     let idx = parseInt(idxStr)
     let filename = parts[1]
@@ -85,13 +77,13 @@ proc generateDfViewAssets*() =
     var tilesetIdx = -1
     var tileIndex = -1
     for i in countdown(parts.len - 1, 0):
-      if not isDigitsOnly(parts[i]):
+      if parts[i].len == 0 or not parts[i].allCharsInSet(Digits):
         continue
       let value = parseInt(parts[i])
       if value notin tilesets:
         continue
       for j in i + 1 ..< parts.len:
-        if isDigitsOnly(parts[j]):
+        if parts[j].len > 0 and parts[j].allCharsInSet(Digits):
           tilesetIdx = value
           tileIndex = parseInt(parts[j])
           break

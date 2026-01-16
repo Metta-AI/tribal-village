@@ -60,36 +60,34 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
   of ExternalNN:
     # Use external neural network callback
     if not isNil(globalController.externalActionCallback):
-      let actions = globalController.externalActionCallback()
-      return actions
-    else:
-      # Try to read actions from file (for Python neural network control across processes)
-      let actionsFile = "actions.tmp"
-      if fileExists(actionsFile):
-        try:
-          let content = readFile(actionsFile)
-          let lines = content.replace("\r", "").replace("\n\n", "\n").split('\n')
-          if lines.len >= MapAgents:
-            var fileActions: array[MapAgents, uint8]
-            for i in 0..<MapAgents:
-              if i < lines.len:
-                let parts = lines[i].split(',')
-                if parts.len >= 2:
-                  fileActions[i] = encodeAction(parseInt(parts[0]).uint8, parseInt(parts[1]).uint8)
-                elif parts.len == 1 and parts[0].len > 0:
-                  fileActions[i] = parseInt(parts[0]).uint8
-                  
-            # Delete the file after reading to avoid stale actions
-            try:
-              removeFile(actionsFile)
-            except:
-              discard  # Could not remove actions file
-              
-            return fileActions
-        except Exception:
-          discard  # Error reading actions file
-      
-      # FAIL HARD: ExternalNN controller configured but no actions available!
-      echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
-      echo "Python environment must call setExternalActionsFromPython() to provide actions!"
-      raise newException(ValueError, "ExternalNN controller has no actions - Python communication failed!")
+      return globalController.externalActionCallback()
+
+    # Try to read actions from file (for Python neural network control across processes)
+    let actionsFile = "actions.tmp"
+    if fileExists(actionsFile):
+      try:
+        let content = readFile(actionsFile)
+        let lines = content.replace("\r", "").replace("\n\n", "\n").split('\n')
+        if lines.len >= MapAgents:
+          var fileActions: array[MapAgents, uint8]
+          for i in 0 ..< MapAgents:
+            let parts = lines[i].split(',')
+            if parts.len >= 2:
+              fileActions[i] = encodeAction(parseInt(parts[0]).uint8, parseInt(parts[1]).uint8)
+            elif parts.len == 1 and parts[0].len > 0:
+              fileActions[i] = parseInt(parts[0]).uint8
+
+          # Delete the file after reading to avoid stale actions
+          try:
+            removeFile(actionsFile)
+          except:
+            discard  # Could not remove actions file
+
+          return fileActions
+      except Exception:
+        discard  # Error reading actions file
+
+    # FAIL HARD: ExternalNN controller configured but no actions available!
+    echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
+    echo "Python environment must call setExternalActionsFromPython() to provide actions!"
+    raise newException(ValueError, "ExternalNN controller has no actions - Python communication failed!")
