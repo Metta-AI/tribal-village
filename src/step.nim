@@ -711,6 +711,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.territoryScored = true
     env.shouldReset = true
 
+  maybeLogReplayStep(env, actions)
+  if env.shouldReset:
+    maybeFinalizeReplay(env)
+
   if logRenderEnabled and (env.currentStep mod logRenderEvery == 0):
     var entry = "STEP " & $env.currentStep & "\n"
     var teamSeen: array[MapRoomObjectsHouses, bool]
@@ -800,6 +804,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       writeFile(logRenderPath, output)
 
 proc reset*(env: Environment) =
+  maybeFinalizeReplay(env)
   env.currentStep = 0
   env.shouldReset = false
   env.terminated.clear()
