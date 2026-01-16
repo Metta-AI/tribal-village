@@ -845,6 +845,8 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   template carveRoadPath(startPos, goalPos: IVec2, side: int) =
     var current = startPos
     var prevDir = ivec2(0, 0)
+    var segmentDir = ivec2(0, 0)
+    var segmentStepsLeft = 0
     let maxSteps = mapWidth * mapHeight
     var steps = 0
     var stagnation = 0
@@ -852,79 +854,88 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     if terrain[current.x][current.y] notin {Water, Bridge}:
       terrain[current.x][current.y] = Road
     while current != goalPos and steps < maxSteps:
-      var candidates: seq[(IVec2, IVec2)] = @[]
-      for d in dirs:
-        let nx = current.x + d.x
-        let ny = current.y + d.y
-        if nx < mapBorder or nx >= mapWidth - mapBorder or
-           ny < mapBorder or ny >= mapHeight - mapBorder:
-          continue
-        if inCorner(nx, ny):
-          continue
-        let terrainHere = terrain[nx][ny]
-        if terrainHere == Water:
-          continue
-        candidates.add((d, ivec2(nx, ny)))
-      if candidates.len == 0:
-        break
+      if segmentStepsLeft <= 0 or stagnation > 10 or steps > (maxSteps div 2):
+        let dxGoal = goalPos.x - current.x
+        let dyGoal = goalPos.y - current.y
+        let baseDir = block:
+          let sx = (if dxGoal < 0: -1'i32 elif dxGoal > 0: 1'i32 else: 0'i32)
+          let sy = (if dyGoal < 0: -1'i32 elif dyGoal > 0: 1'i32 else: 0'i32)
+          if abs(dxGoal) >= abs(dyGoal):
+            ivec2(sx, 0)
+          else:
+            ivec2(0, sy)
+        if baseDir.x == 0 and baseDir.y == 0:
+          break
+        let orthoA = ivec2(baseDir.y, baseDir.x)
+        let orthoB = ivec2(-baseDir.y, -baseDir.x)
+        let roll = randFloat(r)
+        if roll < 0.5:
+          segmentDir = baseDir
+        elif roll < 0.75:
+          segmentDir = orthoA
+        else:
+          segmentDir = orthoB
+        segmentStepsLeft = randIntInclusive(r, 5, 10)
 
-      let forceGreedy = stagnation > 8 or steps > maxSteps div 2
-      var nextPos: IVec2
-      var chosen = false
-
-      if not forceGreedy and (prevDir.x != 0 or prevDir.y != 0):
-        let straightPos = current + prevDir
-        var straightOk = false
-        for cand in candidates:
-          if cand[1] == straightPos:
-            straightOk = true
-            break
-        if straightOk and randChance(r, 0.5):
-          nextPos = straightPos
-          chosen = true
-
-      if not chosen:
+      let nextPos = current + segmentDir
+      var moved = false
+      if nextPos.x >= mapBorder and nextPos.x < mapWidth - mapBorder and
+         nextPos.y >= mapBorder and nextPos.y < mapHeight - mapBorder and
+         not inCorner(nextPos.x, nextPos.y) and terrain[nextPos.x][nextPos.y] != Water and
+         not (side < 0 and nextPos.y >= riverMid) and
+         not (side > 0 and nextPos.y <= riverMid):
+        prevDir = segmentDir
+        current = nextPos
+        dec segmentStepsLeft
+        moved = true
+      else:
+        segmentStepsLeft = 0
         var bestScore = int.high
         var best: seq[IVec2] = @[]
-        for cand in candidates:
-          let nx = cand[1].x
-          let ny = cand[1].y
+        for d in dirs:
+          let nx = current.x + d.x
+          let ny = current.y + d.y
+          if nx < mapBorder or nx >= mapWidth - mapBorder or
+             ny < mapBorder or ny >= mapHeight - mapBorder:
+            continue
+          if inCorner(nx, ny):
+            continue
           let terrainHere = terrain[nx][ny]
+          if terrainHere == Water:
+            continue
+          if side < 0 and ny >= riverMid:
+            continue
+          if side > 0 and ny <= riverMid:
+            continue
           var score = abs(goalPos.x - nx).int + abs(goalPos.y - ny).int
           if terrainHere == Bridge:
             score -= 2
           elif terrainHere == Road:
             score -= 1
-          if side < 0 and ny >= riverMid:
-            score += 4
-          elif side > 0 and ny <= riverMid:
-            score += 4
-          if cand[0] != prevDir:
-            score += 1
-          if score > lastDist:
-            score += 2
-          score += randIntInclusive(r, 0, 3)
+          score += randIntInclusive(r, 0, 2)
           if score < bestScore:
             bestScore = score
             best.setLen(0)
-            best.add(cand[1])
+            best.add(ivec2(nx, ny))
           elif score == bestScore:
-            best.add(cand[1])
+            best.add(ivec2(nx, ny))
         if best.len == 0:
           break
-        nextPos = best[randIntExclusive(r, 0, best.len)]
+        let fallback = best[randIntExclusive(r, 0, best.len)]
+        prevDir = fallback - current
+        current = fallback
+        moved = true
 
-      prevDir = nextPos - current
-      current = nextPos
-      if terrain[current.x][current.y] notin {Water, Bridge}:
-        terrain[current.x][current.y] = Road
-      let newDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
-      if newDist >= lastDist:
-        inc stagnation
-      else:
-        stagnation = 0
-      lastDist = newDist
-      inc steps
+      if moved:
+        if terrain[current.x][current.y] notin {Water, Bridge}:
+          terrain[current.x][current.y] = Road
+        let newDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
+        if newDist >= lastDist:
+          inc stagnation
+        else:
+          stagnation = 0
+        lastDist = newDist
+        inc steps
 
   let verticalCount = randIntInclusive(r, 4, 5)
   let playWidth = mapWidth - 2 * mapBorder
