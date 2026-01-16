@@ -267,18 +267,34 @@ proc rebuildRenderCaches() =
         waterPositions.add(ivec2(x, y))
 
       let elev = env.elevation[x][y]
-      var lowN = false
-      var lowE = false
-      var lowS = false
-      var lowW = false
-      if y > 0 and env.elevation[x][y - 1] < elev:
-        lowN = true
-      if x < MapWidth - 1 and env.elevation[x + 1][y] < elev:
-        lowE = true
-      if y < MapHeight - 1 and env.elevation[x][y + 1] < elev:
-        lowS = true
-      if x > 0 and env.elevation[x - 1][y] < elev:
-        lowW = true
+      proc rowLower(dy: int): bool =
+        let ny = y + dy
+        if ny < 0 or ny >= MapHeight:
+          return false
+        for dx in -1 .. 1:
+          let nx = x + dx
+          if nx < 0 or nx >= MapWidth:
+            return false
+          if env.elevation[nx][ny] >= elev:
+            return false
+        true
+
+      proc colLower(dx: int): bool =
+        let nx = x + dx
+        if nx < 0 or nx >= MapWidth:
+          return false
+        for dy in -1 .. 1:
+          let ny = y + dy
+          if ny < 0 or ny >= MapHeight:
+            return false
+          if env.elevation[nx][ny] >= elev:
+            return false
+        true
+
+      let lowN = rowLower(-1)
+      let lowS = rowLower(1)
+      let lowW = colLower(-1)
+      let lowE = colLower(1)
 
       template addCliff(spriteKey: string) =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
