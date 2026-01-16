@@ -2,6 +2,7 @@ const
   ConnectWallCost = 5
   ConnectTerrainCost = 6
   ConnectWaterCost = 50
+  ConnectDiggableKinds = {Wall, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite, Stump}
 
 let ConnectDirs8 = [
   ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1),
@@ -9,12 +10,12 @@ let ConnectDirs8 = [
 ]
 
 proc makeConnected*(env: Environment) =
-  proc isPlayablePos(pos: IVec2): bool =
+  template inPlayableBounds(pos: IVec2): bool =
     pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
       pos.y >= MapBorder and pos.y < MapHeight - MapBorder
 
   proc isPassableForConnect(env: Environment, pos: IVec2): bool =
-    if not isValidPos(pos) or not isPlayablePos(pos):
+    if not isValidPos(pos) or not inPlayableBounds(pos):
       return false
     if not env.isEmpty(pos):
       return false
@@ -23,30 +24,28 @@ proc makeConnected*(env: Environment) =
     true
 
   proc digCost(env: Environment, pos: IVec2): int =
-    if not isValidPos(pos) or not isPlayablePos(pos):
+    if not isValidPos(pos) or not inPlayableBounds(pos):
       return int.high
     if isPassableForConnect(env, pos):
       return 1
     let thing = env.getThing(pos)
     if not isNil(thing):
-      if thing.kind in {Wall, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
+      if thing.kind in ConnectDiggableKinds:
         return ConnectWallCost
       return int.high
     let terrain = env.terrain[pos.x][pos.y]
     if terrain == Water:
       return ConnectWaterCost
-    if terrain in {Dune, Snow}:
-      return ConnectTerrainCost
-    if isBlockedTerrain(terrain):
+    if terrain in {Dune, Snow} or isBlockedTerrain(terrain):
       return ConnectTerrainCost
     1
 
   proc digCell(env: Environment, pos: IVec2) =
-    if not isValidPos(pos) or not isPlayablePos(pos):
+    if not isValidPos(pos) or not inPlayableBounds(pos):
       return
     let thing = env.getThing(pos)
     if not isNil(thing):
-      if thing.kind in {Wall, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite, Stump}:
+      if thing.kind in ConnectDiggableKinds:
         removeThing(env, thing)
       else:
         return
@@ -118,13 +117,14 @@ proc makeConnected*(env: Environment) =
       inc head
       let x = idx mod MapWidth
       let y = idx div MapWidth
+      let curPos = ivec2(x.int32, y.int32)
       for d in ConnectDirs8:
         let nx = x + d.x.int
         let ny = y + d.y.int
         if nx < 0 or ny < 0 or nx >= MapWidth or ny >= MapHeight:
           continue
         let npos = ivec2(nx.int32, ny.int32)
-        if not env.canTraverseElevation(ivec2(x.int32, y.int32), npos):
+        if not env.canTraverseElevation(curPos, npos):
           continue
         if digCost(env, npos) == int.high:
           continue
