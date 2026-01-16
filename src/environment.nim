@@ -1,9 +1,33 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import terrain, items, common, biome
-import types, registry, balance
+import types, registry
 export terrain, items, common
-export types, registry, balance
+export types, registry
+
+const
+  ## Default tumor behavior constants
+  DefaultTumorBranchRange* = 5
+  DefaultTumorBranchMinAge* = 2
+  DefaultTumorBranchChance* = 0.1
+  DefaultTumorAdjacencyDeathChance* = 1.0 / 3.0
+
+  ## Default village spacing constants
+  DefaultMinVillageSpacing* = 22
+  DefaultSpawnerMinDistance* = 20
+  DefaultInitialActiveAgents* = 6
+
+  ## Default combat constants
+  DefaultSpearCharges* = 5
+  DefaultArmorPoints* = 5
+  DefaultBreadHealAmount* = 999
+
+  ## Default market tuning
+  DefaultMarketSellNumerator* = 1
+  DefaultMarketSellDenominator* = 2
+  DefaultMarketBuyFoodNumerator* = 1
+  DefaultMarketBuyFoodDenominator* = 1
+  DefaultMarketCooldown* = 2
 
 ## Error types and FFI error state management.
 type
@@ -652,7 +676,7 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
   return ivec2(-1, -1)  # No empty position found
 
 
-# Tumor constants from balance.nim
+  # Tumor constants from shared tuning defaults.
 const
   TumorBranchRange = DefaultTumorBranchRange
   TumorBranchMinAge = DefaultTumorBranchMinAge
