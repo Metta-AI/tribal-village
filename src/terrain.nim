@@ -626,6 +626,8 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   proc buildBranch(start: IVec2, dirY: int, r: var Rand): seq[IVec2] =
     var path: seq[IVec2] = @[]
     var secondaryPos = start
+    var lastValid = start
+    var hasValid = false
     let maxSteps = max(mapWidth * 2, mapHeight * 2)
     var steps = 0
     while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
@@ -637,11 +639,36 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
          secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
         if not inCorner(secondaryPos.x, secondaryPos.y):
           path.add(secondaryPos)
+          lastValid = secondaryPos
+          hasValid = true
       else:
         break
       inc steps
     # Ensure the branch touches the edge vertically with a short vertical run
-    var tip = secondaryPos
+    var tip = (if hasValid: lastValid else: start)
+    let safeMinX = left + reserve
+    let safeMaxX = right - reserve - 1
+    var edgeX = tip.x.int
+    if safeMinX <= safeMaxX:
+      if edgeX < safeMinX:
+        edgeX = safeMinX
+      elif edgeX > safeMaxX:
+        edgeX = safeMaxX
+    else:
+      edgeX = max(mapBorder, min(mapWidth - mapBorder - 1, edgeX))
+    if edgeX != tip.x.int:
+      let stepX = (if edgeX > tip.x.int: 1 else: -1)
+      var x = tip.x.int
+      while x != edgeX:
+        x += stepX
+        let drift = ivec2(x.int32, tip.y)
+        if drift.x >= mapBorder and drift.x < mapWidth - mapBorder and
+           drift.y >= mapBorder and drift.y < mapHeight - mapBorder:
+          if not inCorner(drift.x, drift.y):
+            path.add(drift)
+            lastValid = drift
+            hasValid = true
+      tip = (if hasValid: lastValid else: tip)
     var pushSteps = 0
     let maxPush = mapHeight
     if dirY < 0:
