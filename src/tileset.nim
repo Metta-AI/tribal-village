@@ -108,6 +108,17 @@ proc generateDfViewAssets*() =
   var created = 0
   var missing: seq[string]
 
+  proc noteMissing(token: string) =
+    if token notin missing:
+      missing.add(token)
+
+  proc getSheet(tilesetIdx: int, sheetPath: string): Image =
+    if tilesetIdx in sheetCache:
+      return sheetCache[tilesetIdx]
+    let img = readImage(sheetPath)
+    sheetCache[tilesetIdx] = img
+    img
+
   for def in DfTokenCatalog:
     let token = def.token
     let outPath = if def.placement == DfBuilding:
@@ -132,29 +143,20 @@ proc generateDfViewAssets*() =
         else: ""
 
     if lookupToken.len == 0 or lookupToken notin overrides:
-      if token notin missing:
-        missing.add(token)
+      noteMissing(token)
       continue
 
     let entry = overrides[lookupToken]
     if entry.tilesetIdx notin tilesets:
-      if token notin missing:
-        missing.add(token)
+      noteMissing(token)
       continue
 
     let sheetPath = tilesets[entry.tilesetIdx]
     if not fileExists(sheetPath):
-      if token notin missing:
-        missing.add(token)
+      noteMissing(token)
       continue
 
-    let sheet = if entry.tilesetIdx in sheetCache:
-      sheetCache[entry.tilesetIdx]
-    else:
-      let img = readImage(sheetPath)
-      sheetCache[entry.tilesetIdx] = img
-      img
-
+    let sheet = getSheet(entry.tilesetIdx, sheetPath)
     let tile = extractTile(sheet, entry.tileIndex)
     let scaled = scaleNearest(tile, TargetSize, TargetSize)
 
@@ -168,12 +170,7 @@ proc generateDfViewAssets*() =
     if entry.tilesetIdx in tilesets:
       let sheetPath = tilesets[entry.tilesetIdx]
       if fileExists(sheetPath):
-        let sheet = if entry.tilesetIdx in sheetCache:
-          sheetCache[entry.tilesetIdx]
-        else:
-          let img = readImage(sheetPath)
-          sheetCache[entry.tilesetIdx] = img
-          img
+        let sheet = getSheet(entry.tilesetIdx, sheetPath)
         let tile = extractTile(sheet, entry.tileIndex)
         let scaled = scaleNearest(tile, TargetSize, TargetSize)
         let outPath = MapDir / "road.png"
@@ -182,8 +179,7 @@ proc generateDfViewAssets*() =
           writeFile(outPath, encodePng(scaled))
           inc created
   else:
-    if "road" notin missing:
-      missing.add("road")
+    noteMissing("road")
 
   if created > 0:
     echo "DF tileset: generated ", created, " sprites"
