@@ -28,10 +28,6 @@ type FloorSpriteKind = enum
   FloorCave
   FloorDungeon
 
-type CliffSprite = object
-  pos: IVec2
-  key: string
-
 const UnitClassLabels: array[AgentUnitClass, string] = [
   "Villager",
   "Man-at-Arms",
@@ -47,7 +43,6 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
 var
   floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
   waterPositions: seq[IVec2] = @[]
-  cliffSprites: seq[CliffSprite] = @[]
   renderCacheGeneration = -1
 
 template configureHeartFont(ctx: var Context) =
@@ -241,7 +236,6 @@ proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
     floorSpritePositions[kind].setLen(0)
   waterPositions.setLen(0)
-  cliffSprites.setLen(0)
 
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -265,55 +259,6 @@ proc rebuildRenderCaches() =
 
       if env.terrain[x][y] == Water:
         waterPositions.add(ivec2(x, y))
-
-      let elev = env.elevation[x][y]
-      var lowN = false
-      var lowE = false
-      var lowS = false
-      var lowW = false
-      if y > 0 and env.elevation[x][y - 1] < elev:
-        lowN = true
-      if x < MapWidth - 1 and env.elevation[x + 1][y] < elev:
-        lowE = true
-      if y < MapHeight - 1 and env.elevation[x][y + 1] < elev:
-        lowS = true
-      if x > 0 and env.elevation[x - 1][y] < elev:
-        lowW = true
-
-      template addCliff(spriteKey: string) =
-        cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
-
-      if lowN or lowE or lowS or lowW:
-        proc isDiagHigh(dx, dy: int): bool =
-          let nx = x + dx
-          let ny = y + dy
-          if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
-            return false
-          env.elevation[nx][ny] >= elev
-
-        proc cornerKey(dir: string, diagHigh: bool): string =
-          if diagHigh:
-            "oriented/cliff_corner_out_" & dir
-          else:
-            "oriented/cliff_corner_in_" & dir
-
-        if lowN:
-          addCliff("cliff_edge_ew_s")
-        if lowS:
-          addCliff("cliff_edge_ew")
-        if lowE:
-          addCliff("cliff_edge_ns_w")
-        if lowW:
-          addCliff("cliff_edge_ns")
-
-        if lowN and lowE:
-          addCliff(cornerKey("ne", isDiagHigh(1, -1)))
-        if lowE and lowS:
-          addCliff(cornerKey("se", isDiagHigh(1, 1)))
-        if lowS and lowW:
-          addCliff(cornerKey("sw", isDiagHigh(-1, 1)))
-        if lowW and lowN:
-          addCliff(cornerKey("nw", isDiagHigh(-1, -1)))
 
   renderCacheGeneration = env.mapGeneration
 
@@ -522,9 +467,6 @@ proc drawObjects*() =
   if waterKey.len > 0:
     for pos in waterPositions:
       bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
-
-  for cliff in cliffSprites:
-    bxy.drawImage(cliff.key, cliff.pos.vec2, angle = 0, scale = SpriteScale)
 
   template drawThings(thingKind: ThingKind, body: untyped) =
     for thing in env.thingsByKind[thingKind]:
