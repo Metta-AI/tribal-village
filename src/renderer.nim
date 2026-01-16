@@ -284,8 +284,18 @@ proc rebuildRenderCaches() =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
 
       if lowN or lowE or lowS or lowW:
-        proc cornerKey(dir: string): string =
-          "oriented/cliff_corner_in_" & dir
+        proc isDiagHigh(dx, dy: int): bool =
+          let nx = x + dx
+          let ny = y + dy
+          if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
+            return false
+          env.elevation[nx][ny] >= elev
+
+        proc cornerKey(dir: string, diagHigh: bool): string =
+          if diagHigh:
+            "oriented/cliff_corner_out_" & dir
+          else:
+            "oriented/cliff_corner_in_" & dir
 
         if lowN:
           addCliff("cliff_edge_ew_s")
@@ -297,13 +307,13 @@ proc rebuildRenderCaches() =
           addCliff("cliff_edge_ns")
 
         if lowN and lowE:
-          addCliff(cornerKey("ne"))
+          addCliff(cornerKey("ne", isDiagHigh(1, -1)))
         if lowE and lowS:
-          addCliff(cornerKey("se"))
+          addCliff(cornerKey("se", isDiagHigh(1, 1)))
         if lowS and lowW:
-          addCliff(cornerKey("sw"))
+          addCliff(cornerKey("sw", isDiagHigh(-1, 1)))
         if lowW and lowN:
-          addCliff(cornerKey("nw"))
+          addCliff(cornerKey("nw", isDiagHigh(-1, -1)))
 
   renderCacheGeneration = env.mapGeneration
 
