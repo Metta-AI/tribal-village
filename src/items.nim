@@ -159,15 +159,6 @@ proc isFoodItem*(key: ItemKey): bool =
   ## Check if an ItemKey is a food item
   key.kind == ItemKeyItem and key.item in {ikWheat, ikBread, ikFish, ikMeat, ikPlant}
 
-proc isStockpileResourceKey*(key: ItemKey): bool =
-  if key.kind != ItemKeyItem:
-    return false
-  case key.item
-  of ikWood, ikGold, ikStone, ikWater:
-    true
-  else:
-    isFoodItem(key)
-
 proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
   if isFoodItem(key):
     return ResourceFood
@@ -179,6 +170,9 @@ proc stockpileResourceForItem*(key: ItemKey): StockpileResource =
   of ikStone: ResourceStone
   of ikWater: ResourceWater
   else: ResourceNone
+
+proc isStockpileResourceKey*(key: ItemKey): bool =
+  stockpileResourceForItem(key) != ResourceNone
 
 proc emptyInventory*(): Inventory =
   initTable[ItemKey, int]()
