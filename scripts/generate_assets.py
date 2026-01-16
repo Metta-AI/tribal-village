@@ -32,10 +32,10 @@ ORIENTATION_TEMPLATES = [
     ("sw", "Three-quarter view facing down-left (southwest), looking right."),
 ]
 EDGE_ORIENTATIONS = [
-    ("ew", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; higher ground on the north (top) side, lower ground on the south (bottom) side."),
-    ("ew_s", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; higher ground on the south (bottom) side, lower ground on the north (top) side."),
-    ("ns", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; higher ground on the east (right) side, lower ground on the west (left) side."),
-    ("ns_w", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; higher ground on the west (left) side, lower ground on the east (right) side."),
+    ("ew", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; rock face on the south (bottom) side, flat rim on the north (top) side."),
+    ("ew_s", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; rock face on the north (top) side, flat rim on the south (bottom) side."),
+    ("ns", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; rock face on the west (left) side, flat rim on the east (right) side."),
+    ("ns_w", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; rock face on the east (right) side, flat rim on the west (left) side."),
 ]
 
 CORNER_ORIENTATIONS = [
