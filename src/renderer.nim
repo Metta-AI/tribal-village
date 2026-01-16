@@ -288,6 +288,10 @@ proc rebuildRenderCaches() =
       let lowSBand = lowSW and lowS and lowSE
       let lowWBand = lowNW and lowW and lowSW
       let lowEBand = lowNE and lowE and lowSE
+      let onlyLowN = lowN and not (lowNW or lowNE or lowW or lowE or lowSW or lowS or lowSE)
+      let onlyLowS = lowS and not (lowNW or lowN or lowNE or lowW or lowE or lowSW or lowSE)
+      let onlyLowW = lowW and not (lowNW or lowN or lowNE or lowE or lowSW or lowS or lowSE)
+      let onlyLowE = lowE and not (lowNW or lowN or lowNE or lowW or lowSW or lowS or lowSE)
 
       proc hasRampDropAt(tx, ty, dx, dy: int): bool =
         if tx < 0 or tx >= MapWidth or ty < 0 or ty >= MapHeight:
@@ -314,14 +318,15 @@ proc rebuildRenderCaches() =
       template addCliff(spriteKey: string) =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
 
-      if lowNBand or lowEBand or lowSBand or lowWBand or lowNE or lowSE or lowSW or lowNW:
-        if lowNBand and not rampN:
+      if lowNBand or lowEBand or lowSBand or lowWBand or onlyLowN or onlyLowS or onlyLowE or onlyLowW or
+         lowNE or lowSE or lowSW or lowNW:
+        if (lowNBand or onlyLowN) and not rampN:
           addCliff("cliff_edge_ew_s")
-        if lowSBand and not rampS:
+        if (lowSBand or onlyLowS) and not rampS:
           addCliff("cliff_edge_ew")
-        if lowEBand and not rampE:
+        if (lowEBand or onlyLowE) and not rampE:
           addCliff("cliff_edge_ns_w")
-        if lowWBand and not rampW:
+        if (lowWBand or onlyLowW) and not rampW:
           addCliff("cliff_edge_ns")
 
         template addCornerIn(dir: string) =
