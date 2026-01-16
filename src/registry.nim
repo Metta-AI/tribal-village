@@ -43,10 +43,58 @@ let BuildingRegistry* = block:
       buildCooldown: 0
     )
 
-  proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char,
-           renderColor: tuple[r, g, b: uint8],
-           buildIndex = -1, buildCost: seq[ItemAmount] = @[],
-           buildCooldown = 0) =
+  for entry in [
+    (Altar, "Altar", "altar", 'a', (r: 220'u8, g: 0'u8, b: 220'u8), -1, @[], 0),
+    (TownCenter, "Town Center", "town_center", 'N', (r: 190'u8, g: 180'u8, b: 140'u8),
+      1, @[(ItemWood, 14)], 16),
+    (House, "House", "house", 'h', (r: 170'u8, g: 140'u8, b: 110'u8),
+      0, @[(ItemWood, 1)], 10),
+    (Door, "Door", "door", 'D', (r: 120'u8, g: 100'u8, b: 80'u8),
+      BuildIndexDoor, @[(ItemWood, 1)], 6),
+    (ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
+      20, @[(ItemWood, 4)], 12),
+    (WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),
+      21, @[(ItemWood, 3)], 12),
+    (Outpost, "Outpost", "outpost", '^', (r: 120'u8, g: 120'u8, b: 140'u8),
+      13, @[(ItemWood, 1)], 8),
+    (GuardTower, "Guard Tower", "guard_tower", 'T', (r: 110'u8, g: 110'u8, b: 130'u8),
+      BuildIndexGuardTower, @[(ItemWood, 5)], 12),
+    (Barrel, "Barrel", "barrel", 'b', (r: 150'u8, g: 110'u8, b: 60'u8),
+      22, @[(ItemWood, 2)], 10),
+    (Mill, "Mill", "mill", 'm', (r: 210'u8, g: 200'u8, b: 170'u8),
+      2, @[(ItemWood, 5)], 12),
+    (Granary, "Granary", "granary", 'n', (r: 220'u8, g: 200'u8, b: 150'u8),
+      5, @[(ItemWood, 5)], 12),
+    (LumberCamp, "Lumber Camp", "lumber_camp", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
+      3, @[(ItemWood, 5)], 10),
+    (Quarry, "Quarry", "quarry", 'Q', (r: 120'u8, g: 120'u8, b: 120'u8),
+      4, @[(ItemWood, 5)], 12),
+    (MiningCamp, "Mining Camp", "mining_camp", 'M', (r: 200'u8, g: 190'u8, b: 120'u8),
+      15, @[(ItemWood, 5)], 12),
+    (Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
+      8, @[(ItemWood, 9)], 12),
+    (ArcheryRange, "Archery Range", "archery_range", 'g', (r: 140'u8, g: 120'u8, b: 180'u8),
+      9, @[(ItemWood, 9)], 12),
+    (Stable, "Stable", "stable", 's', (r: 120'u8, g: 90'u8, b: 60'u8),
+      10, @[(ItemWood, 9)], 12),
+    (SiegeWorkshop, "Siege Workshop", "siege_workshop", 'i', (r: 120'u8, g: 120'u8, b: 160'u8),
+      11, @[(ItemWood, 10)], 14),
+    (MangonelWorkshop, "Mangonel Workshop", "mangonel_workshop", 'j', (r: 120'u8, g: 130'u8, b: 160'u8),
+      BuildIndexMangonelWorkshop, @[(ItemWood, 10), (ItemStone, 4)], 14),
+    (Blacksmith, "Blacksmith", "blacksmith", 'k', (r: 90'u8, g: 90'u8, b: 90'u8),
+      16, @[(ItemWood, 8)], 12),
+    (Market, "Market", "market", 'e', (r: 200'u8, g: 170'u8, b: 120'u8),
+      7, @[(ItemWood, 9)], 12),
+    (Dock, "Dock", "dock", 'd', (r: 80'u8, g: 140'u8, b: 200'u8),
+      6, @[(ItemWood, 8)], 12),
+    (Monastery, "Monastery", "monastery", 'y', (r: 220'u8, g: 200'u8, b: 120'u8),
+      17, @[(ItemWood, 9)], 12),
+    (University, "University", "university", 'u', (r: 140'u8, g: 160'u8, b: 200'u8),
+      18, @[(ItemWood, 10)], 14),
+    (Castle, "Castle", "castle", 'c', (r: 120'u8, g: 120'u8, b: 120'u8),
+      12, @[(ItemStone, 33)], 20)
+  ]:
+    let (kind, displayName, spriteKey, ascii, renderColor, buildIndex, buildCost, buildCooldown) = entry
     reg[kind] = BuildingInfo(
       displayName: displayName,
       spriteKey: spriteKey,
@@ -56,56 +104,6 @@ let BuildingRegistry* = block:
       buildCost: buildCost,
       buildCooldown: buildCooldown
     )
-
-  add(Altar, "Altar", "altar", 'a', (r: 220'u8, g: 0'u8, b: 220'u8))
-  add(TownCenter, "Town Center", "town_center", 'N', (r: 190'u8, g: 180'u8, b: 140'u8),
-      buildIndex = 1, buildCost = @[(ItemWood, 14)], buildCooldown = 16)
-  add(House, "House", "house", 'h', (r: 170'u8, g: 140'u8, b: 110'u8),
-      buildIndex = 0, buildCost = @[(ItemWood, 1)], buildCooldown = 10)
-  add(Door, "Door", "door", 'D', (r: 120'u8, g: 100'u8, b: 80'u8),
-      buildIndex = BuildIndexDoor, buildCost = @[(ItemWood, 1)], buildCooldown = 6)
-  add(ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
-      buildIndex = 20, buildCost = @[(ItemWood, 4)], buildCooldown = 12)
-  add(WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),
-      buildIndex = 21, buildCost = @[(ItemWood, 3)], buildCooldown = 12)
-  add(Outpost, "Outpost", "outpost", '^', (r: 120'u8, g: 120'u8, b: 140'u8),
-      buildIndex = 13, buildCost = @[(ItemWood, 1)], buildCooldown = 8)
-  add(GuardTower, "Guard Tower", "guard_tower", 'T', (r: 110'u8, g: 110'u8, b: 130'u8),
-      buildIndex = BuildIndexGuardTower, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(Barrel, "Barrel", "barrel", 'b', (r: 150'u8, g: 110'u8, b: 60'u8),
-      buildIndex = 22, buildCost = @[(ItemWood, 2)], buildCooldown = 10)
-  add(Mill, "Mill", "mill", 'm', (r: 210'u8, g: 200'u8, b: 170'u8),
-      buildIndex = 2, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(Granary, "Granary", "granary", 'n', (r: 220'u8, g: 200'u8, b: 150'u8),
-      buildIndex = 5, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(LumberCamp, "Lumber Camp", "lumber_camp", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
-      buildIndex = 3, buildCost = @[(ItemWood, 5)], buildCooldown = 10)
-  add(Quarry, "Quarry", "quarry", 'Q', (r: 120'u8, g: 120'u8, b: 120'u8),
-      buildIndex = 4, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(MiningCamp, "Mining Camp", "mining_camp", 'M', (r: 200'u8, g: 190'u8, b: 120'u8),
-      buildIndex = 15, buildCost = @[(ItemWood, 5)], buildCooldown = 12)
-  add(Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
-      buildIndex = 8, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
-  add(ArcheryRange, "Archery Range", "archery_range", 'g', (r: 140'u8, g: 120'u8, b: 180'u8),
-      buildIndex = 9, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
-  add(Stable, "Stable", "stable", 's', (r: 120'u8, g: 90'u8, b: 60'u8),
-      buildIndex = 10, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
-  add(SiegeWorkshop, "Siege Workshop", "siege_workshop", 'i', (r: 120'u8, g: 120'u8, b: 160'u8),
-      buildIndex = 11, buildCost = @[(ItemWood, 10)], buildCooldown = 14)
-  add(MangonelWorkshop, "Mangonel Workshop", "mangonel_workshop", 'j', (r: 120'u8, g: 130'u8, b: 160'u8),
-      buildIndex = BuildIndexMangonelWorkshop, buildCost = @[(ItemWood, 10), (ItemStone, 4)], buildCooldown = 14)
-  add(Blacksmith, "Blacksmith", "blacksmith", 'k', (r: 90'u8, g: 90'u8, b: 90'u8),
-      buildIndex = 16, buildCost = @[(ItemWood, 8)], buildCooldown = 12)
-  add(Market, "Market", "market", 'e', (r: 200'u8, g: 170'u8, b: 120'u8),
-      buildIndex = 7, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
-  add(Dock, "Dock", "dock", 'd', (r: 80'u8, g: 140'u8, b: 200'u8),
-      buildIndex = 6, buildCost = @[(ItemWood, 8)], buildCooldown = 12)
-  add(Monastery, "Monastery", "monastery", 'y', (r: 220'u8, g: 200'u8, b: 120'u8),
-      buildIndex = 17, buildCost = @[(ItemWood, 9)], buildCooldown = 12)
-  add(University, "University", "university", 'u', (r: 140'u8, g: 160'u8, b: 200'u8),
-      buildIndex = 18, buildCost = @[(ItemWood, 10)], buildCooldown = 14)
-  add(Castle, "Castle", "castle", 'c', (r: 120'u8, g: 120'u8, b: 120'u8),
-      buildIndex = 12, buildCost = @[(ItemStone, 33)], buildCooldown = 20)
 
   reg
 
@@ -148,18 +146,18 @@ let TerrainCatalog* = block:
   for terrain in TerrainType:
     reg[terrain] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
 
-  proc add(terrain: TerrainType, displayName, spriteKey: string, ascii: char) =
+  for (terrain, displayName, spriteKey, ascii) in [
+    (Empty, "Empty", "", ' '),
+    (Water, "Water", "", '~'),
+    (Bridge, "Bridge", "", '='),
+    (Fertile, "Fertile", "", 'f'),
+    (Road, "Road", "", 'r'),
+    (Grass, "Grass", "", 'g'),
+    (Dune, "Dune", "", 'd'),
+    (Sand, "Sand", "", 's'),
+    (Snow, "Snow", "", 'n')
+  ]:
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
-
-  add(Empty, "Empty", "", ' ')
-  add(Water, "Water", "", '~')
-  add(Bridge, "Bridge", "", '=')
-  add(Fertile, "Fertile", "", 'f')
-  add(Road, "Road", "", 'r')
-  add(Grass, "Grass", "", 'g')
-  add(Dune, "Dune", "", 'd')
-  add(Sand, "Sand", "", 's')
-  add(Snow, "Snow", "", 'n')
   reg
 
 let ThingCatalog* = block:
@@ -167,29 +165,29 @@ let ThingCatalog* = block:
   for kind in ThingKind:
     reg[kind] = CatalogEntry(displayName: "", spriteKey: "", ascii: '?')
 
-  proc add(kind: ThingKind, displayName, spriteKey: string, ascii: char) =
+  for (kind, displayName, spriteKey, ascii) in [
+    (Agent, "Agent", "gatherer", '@'),
+    (Wall, "Wall", "oriented/wall", '#'),
+    (Tree, "Tree", "tree", 't'),
+    (Wheat, "Wheat", "wheat", 'w'),
+    (Fish, "Fish", "fish", 'f'),
+    (Relic, "Relic", "bar", 'r'),
+    (Stone, "Stone", "stone", 'S'),
+    (Gold, "Gold", "gold", 'G'),
+    (Bush, "Bush", "bush", 'b'),
+    (Cactus, "Cactus", "cactus", 'c'),
+    (Stalagmite, "Stalagmite", "stalagmite", 'm'),
+    (Magma, "Magma", "magma", 'v'),
+    (Spawner, "Spawner", "spawner", 'Z'),
+    (Tumor, "Tumor", "tumor", 'X'),
+    (Cow, "Cow", "oriented/cow", 'w'),
+    (Corpse, "Corpse", "corpse", 'C'),
+    (Skeleton, "Skeleton", "skeleton", 'K'),
+    (Stump, "Stump", "stump", 'p'),
+    (Stubble, "Stubble", "stubble", 'u'),
+    (Lantern, "Lantern", "lantern", 'l')
+  ]:
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
-
-  add(Agent, "Agent", "gatherer", '@')
-  add(Wall, "Wall", "oriented/wall", '#')
-  add(Tree, "Tree", "tree", 't')
-  add(Wheat, "Wheat", "wheat", 'w')
-  add(Fish, "Fish", "fish", 'f')
-  add(Relic, "Relic", "bar", 'r')
-  add(Stone, "Stone", "stone", 'S')
-  add(Gold, "Gold", "gold", 'G')
-  add(Bush, "Bush", "bush", 'b')
-  add(Cactus, "Cactus", "cactus", 'c')
-  add(Stalagmite, "Stalagmite", "stalagmite", 'm')
-  add(Magma, "Magma", "magma", 'v')
-  add(Spawner, "Spawner", "spawner", 'Z')
-  add(Tumor, "Tumor", "tumor", 'X')
-  add(Cow, "Cow", "oriented/cow", 'w')
-  add(Corpse, "Corpse", "corpse", 'C')
-  add(Skeleton, "Skeleton", "skeleton", 'K')
-  add(Stump, "Stump", "stump", 'p')
-  add(Stubble, "Stubble", "stubble", 'u')
-  add(Lantern, "Lantern", "lantern", 'l')
   reg
 
 let ItemCatalog* = block:
