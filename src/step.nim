@@ -159,7 +159,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       for dx in -radius .. radius:
         for dy in -radius .. radius:
           let pos = agent.pos + ivec2(dx.int32, dy.int32)
-          env.applyAuraTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
+          if not isValidPos(pos):
+            continue
+          let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+          let existingCode = env.actionTintCode[pos.x][pos.y]
+          if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield}:
+            if existingCode != ActionTintMixed:
+              env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+              env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+            continue
+          env.applyActionTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
 
   proc applyMonkHealingAura(env: Environment) =
     var healFlags: array[MapAgents, bool]
