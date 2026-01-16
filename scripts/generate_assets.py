@@ -584,7 +584,7 @@ FLIP_ORIENTATIONS = {
 }
 
 def oriented_uses_purple_bg(output: OrientedOutput) -> bool:
-    return output.orientation_set == "unit"
+    return output.orientation_set in {"unit", "corner", "edge"}
 
 
 def main() -> None:
