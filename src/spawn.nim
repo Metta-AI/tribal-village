@@ -477,7 +477,7 @@ proc init(env: Environment) =
 
       # Keep villages spaced apart (Chebyshev) to avoid crowding
       if canPlace:
-        const MinVillageSpacing = DefaultMinVillageSpacing  # from balance.nim
+        const MinVillageSpacing = DefaultMinVillageSpacing
         let candidateCenter = candidatePos + villageStruct.centerPos
         for c in villageCenters:
           let dx = abs(c.x - candidateCenter.x)
@@ -723,7 +723,7 @@ proc init(env: Environment) =
     if thing.kind == Altar:
       altarPositionsNow.add(thing.pos)
 
-  let minDist = DefaultSpawnerMinDistance  # from balance.nim
+  let minDist = DefaultSpawnerMinDistance
   let minDist2 = minDist * minDist
 
   for i in 0 ..< numVillages:
