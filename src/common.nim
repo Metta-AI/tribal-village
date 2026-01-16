@@ -70,7 +70,6 @@ var
   lastSimTime*: float64 = nowSeconds()
 
 const
-  DefaultPlaySpeed* = 0.1
   SlowPlaySpeed* = 0.2
   FastPlaySpeed* = 0.02
   FasterPlaySpeed* = 0.005
@@ -78,7 +77,6 @@ const
   FooterHeight* = 64
 
 var
-  followSelection*: bool = false
   mouseCaptured*: bool = false
   mouseCapturedPanel*: Panel = nil
   mouseDownPos*: Vec2 = vec2(0, 0)
@@ -87,10 +85,6 @@ var
 proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).
   window.mousePos.vec2 / window.contentScale
-
-proc rect*(irect: IRect): Rect =
-  ## Convert integer IRect to floating point Rect
-  Rect(x: irect.x.float32, y: irect.y.float32, w: irect.w.float32, h: irect.h.float32)
 
 type
   OrientationDelta* = tuple[x, y: int]
