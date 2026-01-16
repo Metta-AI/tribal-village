@@ -60,21 +60,6 @@ proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
       return true
   false
 
-proc fighterIsCautious(env: Environment, agent: Thing): bool =
-  var cautious = agent.hp * 2 < agent.maxHp
-  if cautious:
-    for other in env.agents:
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      if not sameTeam(agent, other):
-        continue
-      if chebyshevDist(agent.pos, other.pos) <= 4'i32:
-        cautious = false
-        break
-  cautious
-
 proc fighterActOrMove(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState,
                       targetPos: IVec2, verb: uint8): uint8 =
@@ -522,7 +507,18 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
 
 proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
-  not fighterIsCautious(env, agent)
+  if agent.hp * 2 >= agent.maxHp:
+    return true
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if not sameTeam(agent, other):
+      continue
+    if chebyshevDist(agent.pos, other.pos) <= 4'i32:
+      return true
+  false
 
 proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
