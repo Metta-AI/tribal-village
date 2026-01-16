@@ -60,13 +60,6 @@ proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
       return true
   false
 
-proc canAffordTrainCosts(env: Environment, teamId: int,
-                         costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
-  for cost in costs:
-    if env.stockpileCount(teamId, cost.res) < cost.count:
-      return false
-  true
-
 proc fighterIsCautious(env: Environment, agent: Thing): bool =
   var cautious = agent.hp * 2 < agent.maxHp
   if cautious:
@@ -483,7 +476,7 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
-    if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
+    if not env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
       continue
     return true
   false
@@ -497,7 +490,7 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
-    if not canAffordTrainCosts(env, teamId, buildingTrainCosts(kind)):
+    if not env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
       continue
     let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
     if isNil(building) or building.cooldown != 0:

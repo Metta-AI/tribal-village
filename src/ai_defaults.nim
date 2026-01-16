@@ -402,7 +402,7 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
     let (didKnown, actKnown) = controller.tryMoveToKnownResource(
       env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
     if didKnown: return (true, actKnown)
-    let magmaGlobal = findNearestMagma(env, agent)
+    let magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
     if not isNil(magmaGlobal):
       updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
       if isAdjacent(agent.pos, magmaGlobal.pos):

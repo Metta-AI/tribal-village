@@ -167,12 +167,13 @@ proc getNextSpiralPoint(state: var AgentState): IVec2 =
       state.basePosition = state.lastSearchPosition
   result = state.lastSearchPosition
 
-proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind): Thing =
+proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind,
+                      maxDist: int = SearchRadius): Thing =
   result = nil
   var minDist = 999999
   for thing in env.thingsByKind[kind]:
     let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-    if dist < minDist and dist < SearchRadius:
+    if dist < minDist and dist < maxDist:
       minDist = dist
       result = thing
 

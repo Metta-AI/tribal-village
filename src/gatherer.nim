@@ -71,16 +71,6 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
     task = best[0]
   state.gathererTask = task
 
-proc findNearestMagma(env: Environment, agent: Thing): Thing =
-  var bestDist = int.high
-  var best: Thing = nil
-  for magma in env.thingsByKind[Magma]:
-    let dist = abs(magma.pos.x - agent.pos.x) + abs(magma.pos.y - agent.pos.y)
-    if dist < bestDist:
-      bestDist = dist
-      best = magma
-  best
-
 proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState,
                           teamId: int, kind: ThingKind,
@@ -149,7 +139,7 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
   let heartsPriority = state.gathererTask == TaskHearts
   var magmaGlobal: Thing = nil
   if heartsPriority:
-    magmaGlobal = findNearestMagma(env, agent)
+    magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
 
   if agent.inventoryGold > 0 and heartsPriority:
     let (didKnown, actKnown) = controller.tryMoveToKnownResource(
@@ -179,7 +169,7 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
-  let magmaGlobal = findNearestMagma(env, agent)
+  let magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
 
   if agent.inventoryBar > 0:
     var altarPos = agent.homeAltar
