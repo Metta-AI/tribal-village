@@ -16,10 +16,8 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
   let existing = env.actionTintCode[pos.x][pos.y]
-  let nextCode = if existing == ActionTintNone or existing == tintCode:
-    tintCode
-  else:
-    ActionTintMixed
+  let nextCode =
+    if existing == ActionTintNone or existing == tintCode: tintCode else: ActionTintMixed
   env.actionTintCode[pos.x][pos.y] = nextCode
   # Keep observation tint layer in sync so agents can “see” recent combat actions
   env.updateObservations(TintLayer, pos, nextCode.int)
@@ -31,10 +29,11 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
   let overlay = env.computedTintColors[x][y]
   let alpha = max(0.0'f32, min(1.0'f32, overlay.intensity))
+  let invAlpha = 1.0'f32 - alpha
   TileColor(
-    r: base.r * (1.0 - alpha) + overlay.r * alpha,
-    g: base.g * (1.0 - alpha) + overlay.g * alpha,
-    b: base.b * (1.0 - alpha) + overlay.b * alpha,
+    r: base.r * invAlpha + overlay.r * alpha,
+    g: base.g * invAlpha + overlay.g * alpha,
+    b: base.b * invAlpha + overlay.b * alpha,
     intensity: base.intensity + (1.0'f32 - base.intensity) * alpha
   )
 
@@ -48,9 +47,7 @@ proc isTileFrozen*(pos: IVec2, env: Environment): bool =
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
-  if thing.frozen > 0:
-    return true
-  return isTileFrozen(thing.pos, env)
+  thing.frozen > 0 or isTileFrozen(thing.pos, env)
 
 proc biomeBaseColor*(biome: BiomeType): TileColor =
   case biome:
