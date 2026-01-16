@@ -342,19 +342,19 @@ proc rebuildRenderCaches() =
         if edgeN and edgeE:
           addCornerIn("ne")
         elif lowNE and not (lowN or lowE or lowNW or lowW or lowS or lowSE or lowSW):
-          addCornerOut("ne")
+          addCornerOut("sw")
         if edgeE and edgeS:
           addCornerIn("se")
         elif lowSE and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSW):
-          addCornerOut("se")
+          addCornerOut("nw")
         if edgeS and edgeW:
           addCornerIn("sw")
         elif lowSW and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSE):
-          addCornerOut("sw")
+          addCornerOut("ne")
         if edgeW and edgeN:
           addCornerIn("nw")
         elif lowNW and not (lowN or lowE or lowNE or lowW or lowS or lowSE or lowSW):
-          addCornerOut("nw")
+          addCornerOut("se")
 
         if not isRoad:
           if lowN and not lowE and hasRampDropAt(x + 1, y, 0, -1):
