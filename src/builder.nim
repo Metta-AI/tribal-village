@@ -29,6 +29,10 @@ proc buildFirstMissing(controller: Controller, env: Environment, agent: Thing,
     if did: return act
   0'u8
 
+template millResourceCount(env: Environment, pos: IVec2): int =
+  countNearbyThings(env, pos, 4, {Wheat, Stubble}) +
+    countNearbyTerrain(env, pos, 4, {Fertile})
+
 proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                    agentId: int, state: var AgentState): bool =
   hasPlantInputs(agent)
@@ -89,9 +93,7 @@ proc canStartBuilderMillNearResource(controller: Controller, env: Environment, a
       max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10:
     return false
   let teamId = getTeamId(agent)
-  let resourceCount =
-    countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
-      countNearbyTerrain(env, agent.pos, 4, {Fertile})
+  let resourceCount = millResourceCount(env, agent.pos)
   if resourceCount < 8:
     return false
   nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos) > 5
@@ -101,8 +103,7 @@ proc optBuilderMillNearResource(controller: Controller, env: Environment, agent:
   let teamId = getTeamId(agent)
   let (didMill, actMill) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, Mill,
-    countNearbyThings(env, agent.pos, 4, {Wheat, Stubble}) +
-      countNearbyTerrain(env, agent.pos, 4, {Fertile}),
+    millResourceCount(env, agent.pos),
     8,
     [Mill, Granary, TownCenter], 5
   )
@@ -166,69 +167,67 @@ proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Th
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent)
-  if agent.homeAltar.x >= 0 and
-      controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
-      env.stockpileCount(teamId, ResourceWood) >= 3:
-    let altarPos = agent.homeAltar
-    var doorTarget = ivec2(-1, -1)
-    var wallTarget = ivec2(-1, -1)
-    var outpostTarget = ivec2(-1, -1)
-    block findRing:
-      for radius in WallRingRadii:
-        for dx in -radius .. radius:
-          for dy in -radius .. radius:
-            if max(abs(dx), abs(dy)) != radius:
-              continue
-            let pos = altarPos + ivec2(dx.int32, dy.int32)
-            if not isValidPos(pos):
-              continue
-            if env.terrain[pos.x][pos.y] == TerrainRoad:
-              continue
-            let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
-            if isDoorSlot:
-              if outpostTarget.x < 0 and env.hasDoor(pos):
-                let stepX = signi(altarPos.x - pos.x)
-                let stepY = signi(altarPos.y - pos.y)
-                let outpostPos = pos + ivec2(stepX * 2, stepY * 2)
-                if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
-                    env.canPlace(outpostPos):
-                  outpostTarget = outpostPos
-              if doorTarget.x < 0 and env.canPlace(pos):
-                doorTarget = pos
-            elif wallTarget.x < 0 and env.canPlace(pos):
-              wallTarget = pos
-    let buildDoorFirst = if doorTarget.x >= 0 and wallTarget.x >= 0:
-      (env.currentStep mod 2) == 0
+  if not canStartBuilderWallRing(controller, env, agent, agentId, state):
+    return 0'u8
+  let altarPos = agent.homeAltar
+  var doorTarget = ivec2(-1, -1)
+  var wallTarget = ivec2(-1, -1)
+  var outpostTarget = ivec2(-1, -1)
+  block findRing:
+    for radius in WallRingRadii:
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          if max(abs(dx), abs(dy)) != radius:
+            continue
+          let pos = altarPos + ivec2(dx.int32, dy.int32)
+          if not isValidPos(pos):
+            continue
+          if env.terrain[pos.x][pos.y] == TerrainRoad:
+            continue
+          let isDoorSlot = (dx == 0 or dy == 0 or abs(dx) == abs(dy))
+          if isDoorSlot:
+            if outpostTarget.x < 0 and env.hasDoor(pos):
+              let stepX = signi(altarPos.x - pos.x)
+              let stepY = signi(altarPos.y - pos.y)
+              let outpostPos = pos + ivec2(stepX * 2, stepY * 2)
+              if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
+                  env.canPlace(outpostPos):
+                outpostTarget = outpostPos
+            if doorTarget.x < 0 and env.canPlace(pos):
+              doorTarget = pos
+          elif wallTarget.x < 0 and env.canPlace(pos):
+            wallTarget = pos
+  let buildDoorFirst = if doorTarget.x >= 0 and wallTarget.x >= 0:
+    (env.currentStep mod 2) == 0
+  else:
+    doorTarget.x >= 0
+  if buildDoorFirst and doorTarget.x >= 0:
+    if env.canAffordBuild(agent, thingItem("Door")):
+      let (didDoor, actDoor) = goToAdjacentAndBuild(
+        controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
+      )
+      if didDoor: return actDoor
     else:
-      doorTarget.x >= 0
-    if buildDoorFirst and doorTarget.x >= 0:
-      if env.canAffordBuild(agent, thingItem("Door")):
-        let (didDoor, actDoor) = goToAdjacentAndBuild(
-          controller, env, agent, agentId, state, doorTarget, BuildIndexDoor
-        )
-        if didDoor: return actDoor
-      else:
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-    if outpostTarget.x >= 0:
-      if env.canAffordBuild(agent, thingItem("Outpost")):
-        let (didOutpost, actOutpost) = goToAdjacentAndBuild(
-          controller, env, agent, agentId, state, outpostTarget, buildIndexFor(Outpost)
-        )
-        if didOutpost: return actOutpost
-      else:
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-    if (not buildDoorFirst) and wallTarget.x >= 0:
-      if env.canAffordBuild(agent, thingItem("Wall")):
-        let (did, act) = goToAdjacentAndBuild(
-          controller, env, agent, agentId, state, wallTarget, BuildIndexWall
-        )
-        if did: return act
-      else:
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
+  if outpostTarget.x >= 0:
+    if env.canAffordBuild(agent, thingItem("Outpost")):
+      let (didOutpost, actOutpost) = goToAdjacentAndBuild(
+        controller, env, agent, agentId, state, outpostTarget, buildIndexFor(Outpost)
+      )
+      if didOutpost: return actOutpost
+    else:
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
+  if (not buildDoorFirst) and wallTarget.x >= 0:
+    if env.canAffordBuild(agent, thingItem("Wall")):
+      let (did, act) = goToAdjacentAndBuild(
+        controller, env, agent, agentId, state, wallTarget, BuildIndexWall
+      )
+      if did: return act
+    else:
+      let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+      if didWood: return actWood
   0'u8
 
 proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
