@@ -411,21 +411,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
           break attackAction
 
-        if agent.unitClass == UnitScout:
-          var hit = false
-          for distance in 1 .. 2:
-            let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
-            env.applyUnitAttackTint(agent.unitClass, attackPos)
-            if tryHitAt(attackPos):
-              hit = true
-              break
-          if hit:
-            inc env.stats[id].actionAttack
-          else:
-            inc env.stats[id].actionInvalid
-          break attackAction
-
-        if agent.unitClass == UnitBatteringRam:
+        if agent.unitClass in {UnitScout, UnitBatteringRam}:
           var hit = false
           for distance in 1 .. 2:
             let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
