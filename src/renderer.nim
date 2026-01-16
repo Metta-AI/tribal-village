@@ -267,6 +267,7 @@ proc rebuildRenderCaches() =
         waterPositions.add(ivec2(x, y))
 
       let elev = env.elevation[x][y]
+      let isRoad = env.terrain[x][y] == Road
       proc isLower(dx, dy: int): bool =
         let nx = x + dx
         let ny = y + dy
@@ -288,17 +289,39 @@ proc rebuildRenderCaches() =
       let lowWBand = lowNW and lowW and lowSW
       let lowEBand = lowNE and lowE and lowSE
 
+      proc hasRampDropAt(tx, ty, dx, dy: int): bool =
+        if tx < 0 or tx >= MapWidth or ty < 0 or ty >= MapHeight:
+          return false
+        let nx = tx + dx
+        let ny = ty + dy
+        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
+          return false
+        let elevFrom = env.elevation[tx][ty]
+        let elevTo = env.elevation[nx][ny]
+        if elevFrom <= elevTo:
+          return false
+        if int(elevFrom) - int(elevTo) != 1:
+          return false
+        let fromTerrain = env.terrain[tx][ty]
+        let toTerrain = env.terrain[nx][ny]
+        fromTerrain == Road or toTerrain == Road
+
+      let rampN = hasRampDropAt(x, y, 0, -1)
+      let rampS = hasRampDropAt(x, y, 0, 1)
+      let rampW = hasRampDropAt(x, y, -1, 0)
+      let rampE = hasRampDropAt(x, y, 1, 0)
+
       template addCliff(spriteKey: string) =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
 
       if lowNBand or lowEBand or lowSBand or lowWBand or lowNE or lowSE or lowSW or lowNW:
-        if lowNBand:
+        if lowNBand and not rampN:
           addCliff("cliff_edge_ew_s")
-        if lowSBand:
+        if lowSBand and not rampS:
           addCliff("cliff_edge_ew")
-        if lowEBand:
+        if lowEBand and not rampE:
           addCliff("cliff_edge_ns_w")
-        if lowWBand:
+        if lowWBand and not rampW:
           addCliff("cliff_edge_ns")
 
         template addCornerIn(dir: string) =
@@ -306,23 +329,45 @@ proc rebuildRenderCaches() =
         template addCornerOut(dir: string) =
           addCliff("oriented/cliff_corner_out_" & dir)
 
-        if lowNBand and lowEBand:
+        let edgeN = lowNBand and not rampN
+        let edgeS = lowSBand and not rampS
+        let edgeW = lowWBand and not rampW
+        let edgeE = lowEBand and not rampE
+
+        if edgeN and edgeE:
           addCornerIn("ne")
         elif lowNE and not (lowN or lowE or lowNW or lowW or lowS or lowSE or lowSW):
           addCornerOut("ne")
-        if lowEBand and lowSBand:
+        if edgeE and edgeS:
           addCornerIn("se")
         elif lowSE and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSW):
           addCornerOut("se")
-        if lowSBand and lowWBand:
+        if edgeS and edgeW:
           addCornerIn("sw")
         elif lowSW and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSE):
           addCornerOut("sw")
-        if lowWBand and lowNBand:
+        if edgeW and edgeN:
           addCornerIn("nw")
         elif lowNW and not (lowN or lowE or lowNE or lowW or lowS or lowSE or lowSW):
           addCornerOut("nw")
 
+        if not isRoad:
+          if lowN and not lowE and hasRampDropAt(x + 1, y, 0, -1):
+            addCornerIn("ne")
+          if lowN and not lowW and hasRampDropAt(x - 1, y, 0, -1):
+            addCornerIn("nw")
+          if lowS and not lowE and hasRampDropAt(x + 1, y, 0, 1):
+            addCornerIn("se")
+          if lowS and not lowW and hasRampDropAt(x - 1, y, 0, 1):
+            addCornerIn("sw")
+          if lowE and not lowN and hasRampDropAt(x, y - 1, 1, 0):
+            addCornerIn("ne")
+          if lowE and not lowS and hasRampDropAt(x, y + 1, 1, 0):
+            addCornerIn("se")
+          if lowW and not lowN and hasRampDropAt(x, y - 1, -1, 0):
+            addCornerIn("nw")
+          if lowW and not lowS and hasRampDropAt(x, y + 1, -1, 0):
+            addCornerIn("sw")
   renderCacheGeneration = env.mapGeneration
 
 proc drawFloor*() =

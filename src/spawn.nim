@@ -90,7 +90,7 @@ proc applyCliffRamps(env: Environment) =
         if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road:
           continue
         inc cliffCount
-        if cliffCount mod 5 != 0:
+        if cliffCount mod 10 != 0:
           continue
         env.terrain[x][y] = Road
         env.terrain[nx][ny] = Road
