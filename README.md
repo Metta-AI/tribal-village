@@ -124,8 +124,8 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ### Action Space
 
-Discrete 240 (`verb * 24 + argument`). Most verbs interpret arguments 0..7 as directions; higher arguments are used for
-build choices and resource-planting variants.
+Discrete 250 (`verb * 25 + argument`). Most verbs interpret arguments 0..7 as directions; higher arguments (8..24) are
+used for build choices and resource-planting variants.
 
 - **Directions**: N/S/E/W + diagonals (0..7)
 - **Verbs**: 0=noop, 1=move, 2=attack, 3=use/craft, 4=swap, 5=give, 6=plant lantern, 7=plant wheat/tree, 8=build, 9=orient
@@ -139,7 +139,9 @@ build choices and resource-planting variants.
 
 ## Build
 
-- Native shared library for Python: `nim c --app:lib ... src/ffi.nim` (see Quick Start step 3)
+- Native shared library for Python:
+  `nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.(so|dylib|dll) src/ffi.nim`
+  (the CLI runs this automatically via `tribal_village_env.build.ensure_nim_library_current`).
 - Native desktop viewer: `nim r -d:release tribal_village.nim`
 - WebAssembly demo (requires Emscripten): command in `scripts/` section below; outputs `build/web/tribal_village.html`
 
