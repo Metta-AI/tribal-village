@@ -267,6 +267,7 @@ proc rebuildRenderCaches() =
         waterPositions.add(ivec2(x, y))
 
       let elev = env.elevation[x][y]
+      let isRoad = env.terrain[x][y] == Road
       proc rowLower(dy: int): bool =
         let ny = y + dy
         if ny < 0 or ny >= MapHeight:
@@ -296,6 +297,28 @@ proc rebuildRenderCaches() =
       let lowW = colLower(-1)
       let lowE = colLower(1)
 
+      proc hasRampDropAt(tx, ty, dx, dy: int): bool =
+        if tx < 0 or tx >= MapWidth or ty < 0 or ty >= MapHeight:
+          return false
+        let nx = tx + dx
+        let ny = ty + dy
+        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
+          return false
+        let elevFrom = env.elevation[tx][ty]
+        let elevTo = env.elevation[nx][ny]
+        if elevFrom <= elevTo:
+          return false
+        if int(elevFrom) - int(elevTo) != 1:
+          return false
+        let fromTerrain = env.terrain[tx][ty]
+        let toTerrain = env.terrain[nx][ny]
+        fromTerrain == Road or toTerrain == Road
+
+      let rampN = hasRampDropAt(x, y, 0, -1)
+      let rampS = hasRampDropAt(x, y, 0, 1)
+      let rampW = hasRampDropAt(x, y, -1, 0)
+      let rampE = hasRampDropAt(x, y, 1, 0)
+
       template addCliff(spriteKey: string) =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
 
@@ -313,14 +336,32 @@ proc rebuildRenderCaches() =
           else:
             "oriented/cliff_corner_in_" & dir
 
-        if lowN:
+        if lowN and not rampN:
           addCliff("cliff_edge_ew_s")
-        if lowS:
+        if lowS and not rampS:
           addCliff("cliff_edge_ew")
-        if lowE:
+        if lowE and not rampE:
           addCliff("cliff_edge_ns_w")
-        if lowW:
+        if lowW and not rampW:
           addCliff("cliff_edge_ns")
+
+        if not isRoad:
+          if lowN and not lowE and hasRampDropAt(x + 1, y, 0, -1):
+            addCliff("oriented/cliff_corner_in_ne")
+          if lowN and not lowW and hasRampDropAt(x - 1, y, 0, -1):
+            addCliff("oriented/cliff_corner_in_nw")
+          if lowS and not lowE and hasRampDropAt(x + 1, y, 0, 1):
+            addCliff("oriented/cliff_corner_in_se")
+          if lowS and not lowW and hasRampDropAt(x - 1, y, 0, 1):
+            addCliff("oriented/cliff_corner_in_sw")
+          if lowE and not lowN and hasRampDropAt(x, y - 1, 1, 0):
+            addCliff("oriented/cliff_corner_in_ne")
+          if lowE and not lowS and hasRampDropAt(x, y + 1, 1, 0):
+            addCliff("oriented/cliff_corner_in_se")
+          if lowW and not lowN and hasRampDropAt(x, y - 1, -1, 0):
+            addCliff("oriented/cliff_corner_in_nw")
+          if lowW and not lowS and hasRampDropAt(x, y + 1, -1, 0):
+            addCliff("oriented/cliff_corner_in_sw")
 
         if lowN and lowE:
           addCliff(cornerKey("ne", isDiagHigh(1, -1)))
