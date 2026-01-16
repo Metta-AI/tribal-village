@@ -18,6 +18,18 @@ Status: In Progress (Civ asymmetry remaining)
 
 ---
 
+## Major Differences vs AoE2 (Current)
+
+- **No age progression**: no age gates or age upgrades.
+- **No conquest win condition**: outcomes are not based on elimination.
+- **Explicit territory scoring**: tint-based control is scored at episode end.
+- **Action-tint driven feedback**: combat and control readability use tint overlays (for both players and agents).
+- **Auras instead of single-target support**: tank mitigation and monk healing operate as area effects.
+- **Market is conversion-only**: no trade route economy; conversion rates/cooldown are tuned instead.
+- **No civ asymmetry yet**: teams are currently symmetric; civ-style modifiers are optional future work.
+
+---
+
 ## 1) Economy & Resource Pressure (Complete)
 
 ### Current State

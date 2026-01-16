@@ -874,6 +874,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     var prevDir = ivec2(0, 0)
     var segmentDir = ivec2(0, 0)
     var segmentStepsLeft = 0
+    var diagToggle = false
     let maxSteps = mapWidth * mapHeight
     var steps = 0
     var stagnation = 0
@@ -895,23 +896,32 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
           break
         let orthoA = ivec2(baseDir.y, baseDir.x)
         let orthoB = ivec2(-baseDir.y, -baseDir.x)
+        let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
+        let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
         let roll = randFloat(r)
-        if roll < 0.5:
+        if roll < 0.6:
+          segmentDir = if randChance(r, 0.5): diagA else: diagB
+        elif roll < 0.9:
           segmentDir = baseDir
-        elif roll < 0.75:
-          segmentDir = orthoA
         else:
-          segmentDir = orthoB
+          segmentDir = if randChance(r, 0.5): orthoA else: orthoB
         segmentStepsLeft = randIntInclusive(r, 5, 10)
+        diagToggle = randChance(r, 0.5)
 
-      let nextPos = current + segmentDir
+      let stepDir = if segmentDir.x != 0 and segmentDir.y != 0:
+        let dir = if diagToggle: ivec2(segmentDir.x, 0) else: ivec2(0, segmentDir.y)
+        diagToggle = not diagToggle
+        dir
+      else:
+        segmentDir
+      let nextPos = current + stepDir
       var moved = false
       if nextPos.x >= mapBorder and nextPos.x < mapWidth - mapBorder and
          nextPos.y >= mapBorder and nextPos.y < mapHeight - mapBorder and
          not inCorner(nextPos.x, nextPos.y) and terrain[nextPos.x][nextPos.y] != Water and
          not (side < 0 and nextPos.y >= riverMid) and
          not (side > 0 and nextPos.y <= riverMid):
-        prevDir = segmentDir
+        prevDir = stepDir
         current = nextPos
         dec segmentStepsLeft
         moved = true

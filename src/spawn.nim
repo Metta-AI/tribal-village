@@ -61,23 +61,20 @@ proc applyBiomeElevation(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let biome = env.biomes[x][y]
-      case biome
-      of BiomeSwampType:
-        env.elevation[x][y] = -1
-      of BiomeSnowType:
-        env.elevation[x][y] = 1
-      else:
-        env.elevation[x][y] = 0
-
-proc isRampTerrain(terrain: TerrainType): bool {.inline.} =
-  terrain == Road
+      env.elevation[x][y] =
+        if biome == BiomeSwampType:
+          -1
+        elif biome == BiomeSnowType:
+          1
+        else:
+          0
 
 proc applyCliffRamps(env: Environment) =
   var cliffCount = 0
   let dirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
-      if env.terrain[x][y] == Water or isRampTerrain(env.terrain[x][y]):
+      if env.terrain[x][y] == Water or env.terrain[x][y] == Road:
         continue
       let elev = env.elevation[x][y]
       for d in dirs:
@@ -89,7 +86,7 @@ proc applyCliffRamps(env: Environment) =
         let nelev = env.elevation[nx][ny]
         if nelev <= elev:
           continue
-        if env.terrain[nx][ny] == Water or isRampTerrain(env.terrain[nx][ny]):
+        if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road:
           continue
         inc cliffCount
         if cliffCount mod 5 != 0:
@@ -306,11 +303,6 @@ proc init(env: Environment) =
       return fallback
     center
   proc placeStartingRoads(center: IVec2, teamId: int, r: var Rand) =
-    proc signi(x: int32): int32 =
-      if x < 0: -1
-      elif x > 0: 1
-      else: 0
-
     proc placeRoad(pos: IVec2) =
       if not isValidPos(pos):
         return
@@ -343,10 +335,12 @@ proc init(env: Environment) =
         continue
       var pos = center
       while pos.x != anchor.x:
-        pos.x += signi(anchor.x - pos.x)
+        let delta = anchor.x - pos.x
+        pos.x += (if delta < 0: -1 elif delta > 0: 1 else: 0)
         placeRoad(pos)
       while pos.y != anchor.y:
-        pos.y += signi(anchor.y - pos.y)
+        let delta = anchor.y - pos.y
+        pos.y += (if delta < 0: -1 elif delta > 0: 1 else: 0)
         placeRoad(pos)
 
     var maxEast = 0
@@ -890,16 +884,18 @@ proc init(env: Environment) =
             break
         if nearWater or attempt > 10:
           let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
-          placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
-          placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
+          for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
+            placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
+              Wheat, ItemWheat, ResourceGround, r)
           placed = true
           break
       if not placed:
         let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
         let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
         let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
-        placeResourceCluster(env, x, y, fieldSize, 1.0, 0.3, Wheat, ItemWheat, ResourceGround, r)
-        placeResourceCluster(env, x, y, fieldSize + 1, 0.5, 0.3, Wheat, ItemWheat, ResourceGround, r)
+        for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
+          placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
+            Wheat, ItemWheat, ResourceGround, r)
 
     proc placeTreeOasis(centerX, centerY: int) =
       let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
