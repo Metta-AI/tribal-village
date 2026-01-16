@@ -267,69 +267,61 @@ proc rebuildRenderCaches() =
         waterPositions.add(ivec2(x, y))
 
       let elev = env.elevation[x][y]
-      proc rowLower(dy: int): bool =
-        let ny = y + dy
-        if ny < 0 or ny >= MapHeight:
-          return false
-        for dx in -1 .. 1:
-          let nx = x + dx
-          if nx < 0 or nx >= MapWidth:
-            return false
-          if env.elevation[nx][ny] >= elev:
-            return false
-        true
-
-      proc colLower(dx: int): bool =
+      proc isLower(dx, dy: int): bool =
         let nx = x + dx
-        if nx < 0 or nx >= MapWidth:
+        let ny = y + dy
+        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
           return false
-        for dy in -1 .. 1:
-          let ny = y + dy
-          if ny < 0 or ny >= MapHeight:
-            return false
-          if env.elevation[nx][ny] >= elev:
-            return false
-        true
+        env.elevation[nx][ny] < elev
 
-      let lowN = rowLower(-1)
-      let lowS = rowLower(1)
-      let lowW = colLower(-1)
-      let lowE = colLower(1)
+      let lowNW = isLower(-1, -1)
+      let lowN = isLower(0, -1)
+      let lowNE = isLower(1, -1)
+      let lowW = isLower(-1, 0)
+      let lowE = isLower(1, 0)
+      let lowSW = isLower(-1, 1)
+      let lowS = isLower(0, 1)
+      let lowSE = isLower(1, 1)
+
+      let lowNBand = lowNW and lowN and lowNE
+      let lowSBand = lowSW and lowS and lowSE
+      let lowWBand = lowNW and lowW and lowSW
+      let lowEBand = lowNE and lowE and lowSE
 
       template addCliff(spriteKey: string) =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
 
-      if lowN or lowE or lowS or lowW:
-        proc isDiagHigh(dx, dy: int): bool =
-          let nx = x + dx
-          let ny = y + dy
-          if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
-            return false
-          env.elevation[nx][ny] >= elev
-
-        proc cornerKey(dir: string, diagHigh: bool): string =
-          if diagHigh:
-            "oriented/cliff_corner_out_" & dir
-          else:
-            "oriented/cliff_corner_in_" & dir
-
-        if lowN:
+      if lowNBand or lowEBand or lowSBand or lowWBand or lowNE or lowSE or lowSW or lowNW:
+        if lowNBand:
           addCliff("cliff_edge_ew_s")
-        if lowS:
+        if lowSBand:
           addCliff("cliff_edge_ew")
-        if lowE:
+        if lowEBand:
           addCliff("cliff_edge_ns_w")
-        if lowW:
+        if lowWBand:
           addCliff("cliff_edge_ns")
 
-        if lowN and lowE:
-          addCliff(cornerKey("ne", isDiagHigh(1, -1)))
-        if lowE and lowS:
-          addCliff(cornerKey("se", isDiagHigh(1, 1)))
-        if lowS and lowW:
-          addCliff(cornerKey("sw", isDiagHigh(-1, 1)))
-        if lowW and lowN:
-          addCliff(cornerKey("nw", isDiagHigh(-1, -1)))
+        template addCornerIn(dir: string) =
+          addCliff("oriented/cliff_corner_in_" & dir)
+        template addCornerOut(dir: string) =
+          addCliff("oriented/cliff_corner_out_" & dir)
+
+        if lowNBand and lowEBand:
+          addCornerIn("ne")
+        elif lowNE and not (lowN or lowE or lowNW or lowW or lowS or lowSE or lowSW):
+          addCornerOut("ne")
+        if lowEBand and lowSBand:
+          addCornerIn("se")
+        elif lowSE and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSW):
+          addCornerOut("se")
+        if lowSBand and lowWBand:
+          addCornerIn("sw")
+        elif lowSW and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSE):
+          addCornerOut("sw")
+        if lowWBand and lowNBand:
+          addCornerIn("nw")
+        elif lowNW and not (lowN or lowE or lowNE or lowW or lowS or lowSE or lowSW):
+          addCornerOut("nw")
 
   renderCacheGeneration = env.mapGeneration
 
