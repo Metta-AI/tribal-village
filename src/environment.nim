@@ -324,41 +324,29 @@ proc rebuildObservations*(env: Environment) =
 
 {.push inline.}
 proc getThing*(env: Environment, pos: IVec2): Thing =
-  if not isValidPos(pos):
-    return nil
-  return env.grid[pos.x][pos.y]
+  if not isValidPos(pos): nil else: env.grid[pos.x][pos.y]
 
 proc getOverlayThing*(env: Environment, pos: IVec2): Thing =
-  if not isValidPos(pos):
-    return nil
-  return env.overlayGrid[pos.x][pos.y]
+  if not isValidPos(pos): nil else: env.overlayGrid[pos.x][pos.y]
 
 proc isEmpty*(env: Environment, pos: IVec2): bool =
-  if not isValidPos(pos):
-    return false
-  return isNil(env.grid[pos.x][pos.y])
+  isValidPos(pos) and isNil(env.grid[pos.x][pos.y])
 
 proc hasDoor*(env: Environment, pos: IVec2): bool =
   let door = env.getOverlayThing(pos)
-  return not isNil(door) and door.kind == Door
+  not isNil(door) and door.kind == Door
 
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   let door = env.getOverlayThing(pos)
-  return isNil(door) or door.kind != Door or door.teamId == getTeamId(agent)
+  isNil(door) or door.kind != Door or door.teamId == getTeamId(agent)
 
 proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
   let overlay = env.getOverlayThing(pos)
-  if not isNil(overlay) and overlay.kind == Dock:
-    return true
   let base = env.getThing(pos)
-  not isNil(base) and base.kind == Dock
+  (not isNil(overlay) and overlay.kind == Dock) or (not isNil(base) and base.kind == Dock)
 
 proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
-  if env.terrain[pos.x][pos.y] != Water:
-    return false
-  if agent.unitClass == UnitBoat:
-    return false
-  not env.hasDockAt(pos)
+  env.terrain[pos.x][pos.y] == Water and agent.unitClass != UnitBoat and not env.hasDockAt(pos)
 {.pop.}
 
 proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
