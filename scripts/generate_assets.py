@@ -32,17 +32,17 @@ ORIENTATION_TEMPLATES = [
     ("sw", "Three-quarter view facing down-left (southwest), looking right."),
 ]
 EDGE_ORIENTATIONS = [
-    ("ew", "Horizontal cliff edge segment running east-west; higher ground on the north (top) side, lower ground on the south (bottom) side."),
-    ("ew_s", "Horizontal cliff edge segment running east-west; higher ground on the south (bottom) side, lower ground on the north (top) side."),
-    ("ns", "Vertical cliff edge segment running north-south; higher ground on the east (right) side, lower ground on the west (left) side."),
-    ("ns_w", "Vertical cliff edge segment running north-south; higher ground on the west (left) side, lower ground on the east (right) side."),
+    ("ew", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; higher ground on the north (top) side, lower ground on the south (bottom) side."),
+    ("ew_s", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; higher ground on the south (bottom) side, lower ground on the north (top) side."),
+    ("ns", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; higher ground on the east (right) side, lower ground on the west (left) side."),
+    ("ns_w", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; higher ground on the west (left) side, lower ground on the east (right) side."),
 ]
 
 CORNER_ORIENTATIONS = [
-    ("ne", "Right-angle corner with edges on the north and east sides; the inside of the corner is the southwest quadrant."),
-    ("nw", "Right-angle corner with edges on the north and west sides; the inside of the corner is the southeast quadrant."),
-    ("se", "Right-angle corner with edges on the south and east sides; the inside of the corner is the northwest quadrant."),
-    ("sw", "Right-angle corner with edges on the south and west sides; the inside of the corner is the northeast quadrant."),
+    ("ne", "Right-angle corner with edges on the north and east sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the southwest quadrant."),
+    ("nw", "Right-angle corner with edges on the north and west sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the southeast quadrant."),
+    ("se", "Right-angle corner with edges on the south and east sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the northwest quadrant."),
+    ("sw", "Right-angle corner with edges on the south and west sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the northeast quadrant."),
 ]
 
 ORIENTATION_SETS = {

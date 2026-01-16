@@ -284,11 +284,6 @@ proc rebuildRenderCaches() =
         cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
 
       if highN or highE or highS or highW:
-        var edgeN = highN
-        var edgeE = highE
-        var edgeS = highS
-        var edgeW = highW
-
         proc isDiagHigh(dx, dy: int): bool =
           let nx = x + dx
           let ny = y + dy
@@ -296,39 +291,30 @@ proc rebuildRenderCaches() =
             return false
           env.elevation[nx][ny] > elev
 
-        if edgeN and edgeE:
-          let inside = isDiagHigh(1, -1)
-          let cornerKey = if inside: "oriented/cliff_corner_in_ne" else: "oriented/cliff_corner_out_ne"
-          addCliff(cornerKey)
-          edgeN = false
-          edgeE = false
-        if edgeE and edgeS:
-          let inside = isDiagHigh(1, 1)
-          let cornerKey = if inside: "oriented/cliff_corner_in_se" else: "oriented/cliff_corner_out_se"
-          addCliff(cornerKey)
-          edgeE = false
-          edgeS = false
-        if edgeS and edgeW:
-          let inside = isDiagHigh(-1, 1)
-          let cornerKey = if inside: "oriented/cliff_corner_in_sw" else: "oriented/cliff_corner_out_sw"
-          addCliff(cornerKey)
-          edgeS = false
-          edgeW = false
-        if edgeW and edgeN:
-          let inside = isDiagHigh(-1, -1)
-          let cornerKey = if inside: "oriented/cliff_corner_in_nw" else: "oriented/cliff_corner_out_nw"
-          addCliff(cornerKey)
-          edgeW = false
-          edgeN = false
+        proc cornerKey(dir: string, diagHigh: bool): string =
+          # Diagonal high means the higher terrain wraps the corner (convex).
+          if diagHigh:
+            "oriented/cliff_corner_out_" & dir
+          else:
+            "oriented/cliff_corner_in_" & dir
 
-        if edgeN:
+        if highN:
           addCliff("cliff_edge_ew")
-        if edgeS:
+        if highS:
           addCliff("cliff_edge_ew_s")
-        if edgeE:
+        if highE:
           addCliff("cliff_edge_ns")
-        if edgeW:
+        if highW:
           addCliff("cliff_edge_ns_w")
+
+        if highN and highE:
+          addCliff(cornerKey("ne", isDiagHigh(1, -1)))
+        if highE and highS:
+          addCliff(cornerKey("se", isDiagHigh(1, 1)))
+        if highS and highW:
+          addCliff(cornerKey("sw", isDiagHigh(-1, 1)))
+        if highW and highN:
+          addCliff(cornerKey("nw", isDiagHigh(-1, -1)))
 
   renderCacheGeneration = env.mapGeneration
 
