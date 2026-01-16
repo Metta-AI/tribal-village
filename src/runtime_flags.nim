@@ -1,26 +1,21 @@
 # This file is included by src/step.nim
 import std/os
+
+proc parseEnvInt(raw: string, fallback: int): int =
+  if raw.len == 0:
+    return fallback
+  try:
+    parseInt(raw)
+  except ValueError:
+    fallback
+
 when defined(stepTiming):
   import std/[os, monotimes]
 
   let stepTimingTargetStr = getEnv("TV_STEP_TIMING", "")
   let stepTimingWindowStr = getEnv("TV_STEP_TIMING_WINDOW", "0")
-  let stepTimingTarget = block:
-    if stepTimingTargetStr.len == 0:
-      -1
-    else:
-      try:
-        parseInt(stepTimingTargetStr)
-      except ValueError:
-        -1
-  let stepTimingWindow = block:
-    if stepTimingWindowStr.len == 0:
-      0
-    else:
-      try:
-        parseInt(stepTimingWindowStr)
-      except ValueError:
-        0
+  let stepTimingTarget = parseEnvInt(stepTimingTargetStr, -1)
+  let stepTimingWindow = parseEnvInt(stepTimingWindowStr, 0)
 
   proc msBetween(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
@@ -36,21 +31,9 @@ let logRenderEnabled = block:
   let raw = getEnv("TV_LOG_RENDER", "")
   raw.len > 0 and raw != "0" and raw != "false"
 let logRenderWindow = block:
-  let raw = getEnv("TV_LOG_RENDER_WINDOW", "100")
-  let parsed =
-    try:
-      parseInt(raw)
-    except ValueError:
-      100
-  max(100, parsed)
+  max(100, parseEnvInt(getEnv("TV_LOG_RENDER_WINDOW", "100"), 100))
 let logRenderEvery = block:
-  let raw = getEnv("TV_LOG_RENDER_EVERY", "1")
-  let parsed =
-    try:
-      parseInt(raw)
-    except ValueError:
-      1
-  max(1, parsed)
+  max(1, parseEnvInt(getEnv("TV_LOG_RENDER_EVERY", "1"), 1))
 let logRenderPath = block:
   let raw = getEnv("TV_LOG_RENDER_PATH", "")
   if raw.len > 0: raw else: "tribal_village.log"
