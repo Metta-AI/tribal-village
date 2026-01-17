@@ -38,17 +38,26 @@ EDGE_ORIENTATIONS = [
     ("ns_w", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; rock face on the east (right) side, flat rim on the west (left) side."),
 ]
 
-CORNER_ORIENTATIONS = [
-    ("ne", "Right-angle corner with edges on the north and east sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the southwest quadrant."),
-    ("nw", "Right-angle corner with edges on the north and west sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the southeast quadrant."),
-    ("se", "Right-angle corner with edges on the south and east sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the northwest quadrant."),
-    ("sw", "Right-angle corner with edges on the south and west sides; both legs touch the tile edges with no diagonal bridge; the inside of the corner is the northeast quadrant."),
+CORNER_IN_ORIENTATIONS = [
+    ("ne", "Concave corner with legs on the north and east edges; both legs touch tile edges; flat rim/ground is inside in the southwest quadrant."),
+    ("nw", "Concave corner with legs on the north and west edges; both legs touch tile edges; flat rim/ground is inside in the southeast quadrant."),
+    ("se", "Concave corner with legs on the south and east edges; both legs touch tile edges; flat rim/ground is inside in the northwest quadrant."),
+    ("sw", "Concave corner with legs on the south and west edges; both legs touch tile edges; flat rim/ground is inside in the northeast quadrant."),
+]
+
+CORNER_OUT_ORIENTATIONS = [
+    ("ne", "Convex corner with legs on the north and east edges; rocky face is inside in the northeast quadrant; flat rim/ground outside in the southwest quadrant."),
+    ("nw", "Convex corner with legs on the north and west edges; rocky face is inside in the northwest quadrant; flat rim/ground outside in the southeast quadrant."),
+    ("se", "Convex corner with legs on the south and east edges; rocky face is inside in the southeast quadrant; flat rim/ground outside in the northwest quadrant."),
+    ("sw", "Convex corner with legs on the south and west edges; rocky face is inside in the southwest quadrant; flat rim/ground outside in the northeast quadrant."),
 ]
 
 ORIENTATION_SETS = {
     "unit": ORIENTATION_TEMPLATES,
     "edge": EDGE_ORIENTATIONS,
-    "corner": CORNER_ORIENTATIONS,
+    "corner": CORNER_IN_ORIENTATIONS,
+    "corner_in": CORNER_IN_ORIENTATIONS,
+    "corner_out": CORNER_OUT_ORIENTATIONS,
 }
 
 
