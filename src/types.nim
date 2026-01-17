@@ -97,7 +97,7 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 21
+  ObservationLayers* = 22
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -172,6 +172,7 @@ type
     AgentInventoryFishLayer = 18
     AgentInventoryPlantLayer = 19
     ObscuredLayer = 20    # 1 when target tile is above observer elevation
+    CliffLayer = 21       # 1 when a cliff overlay is present
 
 
   AgentUnitClass* = enum
@@ -231,6 +232,18 @@ type
     University
     Castle
     Stubble  # Harvested wheat residue
+    CliffEdgeN
+    CliffEdgeE
+    CliffEdgeS
+    CliffEdgeW
+    CliffCornerInNE
+    CliffCornerInSE
+    CliffCornerInSW
+    CliffCornerInNW
+    CliffCornerOutNE
+    CliffCornerOutSE
+    CliffCornerOutSW
+    CliffCornerOutNW
 
   Thing* = ref object
     kind*: ThingKind
@@ -299,6 +312,25 @@ type
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
   ActionTintCode* = array[MapWidth, array[MapHeight, uint8]]
+
+const
+  CliffKinds* = {
+    CliffEdgeN,
+    CliffEdgeE,
+    CliffEdgeS,
+    CliffEdgeW,
+    CliffCornerInNE,
+    CliffCornerInSE,
+    CliffCornerInSW,
+    CliffCornerInNW,
+    CliffCornerOutNE,
+    CliffCornerOutSE,
+    CliffCornerOutSW,
+    CliffCornerOutNW
+  }
+
+template isCliffKind*(kind: ThingKind): bool =
+  kind in CliffKinds
 
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.

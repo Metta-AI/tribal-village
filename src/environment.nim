@@ -341,6 +341,10 @@ proc rebuildObservations*(env: Environment) =
       env.updateObservations(altarHeartsLayer, thing.pos, getInv(thing, ItemHearts))
     of Tumor:
       env.updateObservations(AgentLayer, thing.pos, 255)
+    of CliffEdgeN, CliffEdgeE, CliffEdgeS, CliffEdgeW,
+       CliffCornerInNE, CliffCornerInSE, CliffCornerInSW, CliffCornerInNW,
+       CliffCornerOutNE, CliffCornerOutSE, CliffCornerOutSW, CliffCornerOutNW:
+      env.updateObservations(CliffLayer, thing.pos, 1)
     else:
       discard
 

@@ -19,6 +19,10 @@ proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool
   of Altar:
     env.updateObservations(altarLayer, pos, obs)
     env.updateObservations(altarHeartsLayer, pos, heartsObs)
+  of CliffEdgeN, CliffEdgeE, CliffEdgeS, CliffEdgeW,
+     CliffCornerInNE, CliffCornerInSE, CliffCornerInSW, CliffCornerInNW,
+     CliffCornerOutNE, CliffCornerOutSE, CliffCornerOutSW, CliffCornerOutNW:
+    env.updateObservations(CliffLayer, pos, obs)
   else:
     discard
 
@@ -52,7 +56,8 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
     return false
   if thing.kind in {Agent, Tumor, Tree, Wheat, Fish, Relic, Stubble, Stone, Gold, Bush, Cactus, Stalagmite,
-                    Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern}:
+                    Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern} or
+      thing.kind in CliffKinds:
     return false
 
   let key = thingItem($thing.kind)

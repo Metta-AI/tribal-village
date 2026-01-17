@@ -28,10 +28,6 @@ type FloorSpriteKind = enum
   FloorCave
   FloorDungeon
 
-type CliffSprite = object
-  pos: IVec2
-  key: string
-
 const UnitClassLabels: array[AgentUnitClass, string] = [
   "Villager",
   "Man-at-Arms",
@@ -44,10 +40,24 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Boat"
 ]
 
+const CliffDrawOrder = [
+  CliffEdgeN,
+  CliffEdgeE,
+  CliffEdgeS,
+  CliffEdgeW,
+  CliffCornerInNE,
+  CliffCornerInSE,
+  CliffCornerInSW,
+  CliffCornerInNW,
+  CliffCornerOutNE,
+  CliffCornerOutSE,
+  CliffCornerOutSW,
+  CliffCornerOutNW
+]
+
 var
   floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
   waterPositions: seq[IVec2] = @[]
-  cliffSprites: seq[CliffSprite] = @[]
   renderCacheGeneration = -1
 
 template configureHeartFont(ctx: var Context) =
@@ -241,7 +251,6 @@ proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
     floorSpritePositions[kind].setLen(0)
   waterPositions.setLen(0)
-  cliffSprites.setLen(0)
 
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -265,114 +274,6 @@ proc rebuildRenderCaches() =
 
       if env.terrain[x][y] == Water:
         waterPositions.add(ivec2(x, y))
-
-      let elev = env.elevation[x][y]
-      let isRoad = env.terrain[x][y] == Road
-      proc isLower(dx, dy: int): bool =
-        let nx = x + dx
-        let ny = y + dy
-        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
-          return false
-        env.elevation[nx][ny] < elev
-
-      let lowNW = isLower(-1, -1)
-      let lowN = isLower(0, -1)
-      let lowNE = isLower(1, -1)
-      let lowW = isLower(-1, 0)
-      let lowE = isLower(1, 0)
-      let lowSW = isLower(-1, 1)
-      let lowS = isLower(0, 1)
-      let lowSE = isLower(1, 1)
-
-      let lowNBand = lowNW and lowN and lowNE
-      let lowSBand = lowSW and lowS and lowSE
-      let lowWBand = lowNW and lowW and lowSW
-      let lowEBand = lowNE and lowE and lowSE
-      let onlyLowN = lowN and not (lowNW or lowNE or lowW or lowE or lowSW or lowS or lowSE)
-      let onlyLowS = lowS and not (lowNW or lowN or lowNE or lowW or lowE or lowSW or lowSE)
-      let onlyLowW = lowW and not (lowNW or lowN or lowNE or lowE or lowSW or lowS or lowSE)
-      let onlyLowE = lowE and not (lowNW or lowN or lowNE or lowW or lowSW or lowS or lowSE)
-
-      proc hasRampDropAt(tx, ty, dx, dy: int): bool =
-        if tx < 0 or tx >= MapWidth or ty < 0 or ty >= MapHeight:
-          return false
-        let nx = tx + dx
-        let ny = ty + dy
-        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
-          return false
-        let elevFrom = env.elevation[tx][ty]
-        let elevTo = env.elevation[nx][ny]
-        if elevFrom <= elevTo:
-          return false
-        if int(elevFrom) - int(elevTo) != 1:
-          return false
-        let fromTerrain = env.terrain[tx][ty]
-        let toTerrain = env.terrain[nx][ny]
-        fromTerrain == Road or toTerrain == Road
-
-      let rampN = hasRampDropAt(x, y, 0, -1)
-      let rampS = hasRampDropAt(x, y, 0, 1)
-      let rampW = hasRampDropAt(x, y, -1, 0)
-      let rampE = hasRampDropAt(x, y, 1, 0)
-
-      template addCliff(spriteKey: string) =
-        cliffSprites.add(CliffSprite(pos: ivec2(x, y), key: spriteKey))
-
-      if lowNBand or lowEBand or lowSBand or lowWBand or onlyLowN or onlyLowS or onlyLowE or onlyLowW or
-         lowNE or lowSE or lowSW or lowNW:
-        if (lowNBand or onlyLowN) and not rampN:
-          addCliff("cliff_edge_ew_s")
-        if (lowSBand or onlyLowS) and not rampS:
-          addCliff("cliff_edge_ew")
-        if (lowEBand or onlyLowE) and not rampE:
-          addCliff("cliff_edge_ns_w")
-        if (lowWBand or onlyLowW) and not rampW:
-          addCliff("cliff_edge_ns")
-
-        template addCornerIn(dir: string) =
-          addCliff("oriented/cliff_corner_in_" & dir)
-        template addCornerOut(dir: string) =
-          addCliff("oriented/cliff_corner_out_" & dir)
-
-        let edgeN = lowNBand and not rampN
-        let edgeS = lowSBand and not rampS
-        let edgeW = lowWBand and not rampW
-        let edgeE = lowEBand and not rampE
-
-        if edgeN and edgeE:
-          addCornerIn("ne")
-        elif lowNE and not (lowN or lowE or lowNW or lowW or lowS or lowSE or lowSW):
-          addCornerOut("sw")
-        if edgeE and edgeS:
-          addCornerIn("se")
-        elif lowSE and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSW):
-          addCornerOut("nw")
-        if edgeS and edgeW:
-          addCornerIn("sw")
-        elif lowSW and not (lowN or lowE or lowNE or lowW or lowS or lowNW or lowSE):
-          addCornerOut("ne")
-        if edgeW and edgeN:
-          addCornerIn("nw")
-        elif lowNW and not (lowN or lowE or lowNE or lowW or lowS or lowSE or lowSW):
-          addCornerOut("se")
-
-        if not isRoad:
-          if lowN and not lowE and hasRampDropAt(x + 1, y, 0, -1):
-            addCornerIn("ne")
-          if lowN and not lowW and hasRampDropAt(x - 1, y, 0, -1):
-            addCornerIn("nw")
-          if lowS and not lowE and hasRampDropAt(x + 1, y, 0, 1):
-            addCornerIn("se")
-          if lowS and not lowW and hasRampDropAt(x - 1, y, 0, 1):
-            addCornerIn("sw")
-          if lowE and not lowN and hasRampDropAt(x, y - 1, 1, 0):
-            addCornerIn("ne")
-          if lowE and not lowS and hasRampDropAt(x, y + 1, 1, 0):
-            addCornerIn("se")
-          if lowW and not lowN and hasRampDropAt(x, y - 1, -1, 0):
-            addCornerIn("nw")
-          if lowW and not lowS and hasRampDropAt(x, y + 1, -1, 0):
-            addCornerIn("sw")
   renderCacheGeneration = env.mapGeneration
 
 proc drawFloor*() =
@@ -581,8 +482,10 @@ proc drawObjects*() =
     for pos in waterPositions:
       bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
 
-  for cliff in cliffSprites:
-    bxy.drawImage(cliff.key, cliff.pos.vec2, angle = 0, scale = SpriteScale)
+  for kind in CliffDrawOrder:
+    let spriteKey = thingSpriteKey(kind)
+    for cliff in env.thingsByKind[kind]:
+      bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
 
   template drawThings(thingKind: ThingKind, body: untyped) =
     for thing in env.thingsByKind[thingKind]:
@@ -700,7 +603,8 @@ proc drawObjects*() =
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.5, 0.5, 0.5, 1.0))
 
   for kind in ThingKind:
-    if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Lantern}:
+    if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Lantern} or
+        kind in CliffKinds:
       continue
     if isBuildingKind(kind):
       for thing in env.thingsByKind[kind]:
