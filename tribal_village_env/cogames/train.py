@@ -14,12 +14,7 @@ from rich.console import Console
 
 from cogames.policy.signal_handler import DeferSigintContextManager
 from cogames.train import _resolve_vector_counts
-from mettagrid.policy.loader import (
-    find_policy_checkpoints,
-    get_policy_class_shorthand,
-    initialize_or_load_policy,
-    resolve_policy_data_path,
-)
+from mettagrid.policy.loader import get_policy_class_shorthand, initialize_or_load_policy
 from mettagrid.policy.policy import PolicySpec
 from pufferlib import pufferl
 from pufferlib import vector as pvector
@@ -93,12 +88,17 @@ class FlattenVecEnv:
 
     def recv(self):
         result = self.inner.recv()
+        has_teacher_actions = False
         if len(result) == 8:
-            o, r, d, t, _ta, infos, env_ids, masks = result
-            ta = _ta
-        else:
+            o, r, d, t, ta, infos, env_ids, masks = result
+            has_teacher_actions = True
+        elif len(result) == 7:
             o, r, d, t, infos, env_ids, masks = result
             ta = None
+        else:
+            raise RuntimeError(
+                f"Unexpected vecenv recv payload (expected 7 or 8 items, got {len(result)})."
+            )
 
         o = np.asarray(o).reshape(
             self.agents_per_batch, *self.single_observation_space.shape
@@ -117,7 +117,9 @@ class FlattenVecEnv:
             else np.arange(self.agents_per_batch, dtype=np.int32)
         )
         infos = infos if isinstance(infos, list) else []
-        return o, r, d, t, ta, infos, env_ids, mask
+        if has_teacher_actions:
+            return o, r, d, t, ta, infos, env_ids, mask
+        return o, r, d, t, infos, env_ids, mask
 
     def close(self):
         if hasattr(self.inner, "close"):
@@ -224,9 +226,9 @@ def train(settings: dict[str, Any]) -> None:
 
     initial_weights_path = settings.get("initial_weights_path")
     resolved_initial_weights = (
-        resolve_policy_data_path(initial_weights_path)
-        if initial_weights_path is not None
-        else None
+        os.path.expanduser(initial_weights_path[7:])
+        if initial_weights_path and initial_weights_path.startswith("file://")
+        else initial_weights_path
     )
 
     policy_spec = PolicySpec(
@@ -328,14 +330,11 @@ def train(settings: dict[str, Any]) -> None:
             trainer.train()
 
     trainer.print_dashboard()
-    trainer.close()
+    final_checkpoint = trainer.close()
     vecenv.close()
 
     console.rule("[bold green]Training Summary")
-    checkpoints = find_policy_checkpoints(settings["checkpoints_path"], env_name)
-
-    if checkpoints:
-        final_checkpoint = checkpoints[-1]
+    if final_checkpoint:
         console.print(f"Final checkpoint: [cyan]{final_checkpoint}[/cyan]")
         if trainer.epoch < checkpoint_interval:
             console.print(
@@ -345,10 +344,8 @@ def train(settings: dict[str, Any]) -> None:
             )
 
         policy_shorthand = get_policy_class_shorthand(settings["policy_class_path"])
-        policy_arg = (
-            policy_shorthand if policy_shorthand else settings["policy_class_path"]
-        )
-        policy_with_checkpoint = f"{policy_arg}:{final_checkpoint}"
+        policy_arg = policy_shorthand or settings["policy_class_path"]
+        policy_with_checkpoint = f"class={policy_arg},data={final_checkpoint}"
 
         console.print()
         console.print("To continue training this policy:", style="bold")
@@ -358,7 +355,7 @@ def train(settings: dict[str, Any]) -> None:
     else:
         console.print()
         console.print(
-            f"[yellow]No checkpoint files found. Check {settings['checkpoints_path']} for saved models.[/yellow]"
+            f"[yellow]No checkpoint file reported. Check {settings['checkpoints_path']} for saved models.[/yellow]"
         )
 
     console.rule("[bold green]End Training")
