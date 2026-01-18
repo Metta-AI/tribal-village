@@ -302,26 +302,6 @@ proc optBuilderMarketTrade(controller: Controller, env: Environment, agent: Thin
   else:
     controller.moveTo(env, agent, agentId, state, market.pos))
 
-proc findNearestNeutralHub(env: Environment, pos: IVec2): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.teamId >= 0:
-      continue
-    if not isBuildingKind(thing.kind):
-      continue
-    if thing.kind notin {Castle, Market, Outpost, University, Blacksmith, Barracks,
-                         ArcheryRange, Stable, SiegeWorkshop, Monastery, TownCenter,
-                         Mill, Granary, LumberCamp, Quarry, MiningCamp, Dock}:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      best = thing
-  best
-
 proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
   if agent.inventory.len != 0:
