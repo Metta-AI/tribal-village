@@ -584,9 +584,9 @@ proc drawObjects*() =
   drawThings(Tumor):
     let spriteDir = TumorDirKeys[thing.orientation.int]
     let spritePrefix = if thing.hasClaimedTerritory:
-      "oriented/tumor."
+      "oriented/tumor.expired."
     else:
-      "oriented/tumor.color."
+      "oriented/tumor."
     let baseImage = spritePrefix & spriteDir
     bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = SpriteScale)
 

@@ -172,7 +172,7 @@ let ThingCatalog* = block:
     (Tree, "Tree", "tree", 't'),
     (Wheat, "Wheat", "wheat", 'w'),
     (Fish, "Fish", "fish", 'f'),
-    (Relic, "Relic", "bar", 'r'),
+    (Relic, "Relic", "goblet", 'r'),
     (Stone, "Stone", "stone", 'S'),
     (Gold, "Gold", "gold", 'G'),
     (Bush, "Bush", "bush", 'b'),
@@ -221,7 +221,7 @@ let ItemCatalog* = block:
     (ItemPlant, "Plant", "plant", 'p'),
     (ItemFish, "Fish", "fish", 'f'),
     (ItemMeat, "Meat", "meat", 'm'),
-    (ItemRelic, "Relic", "bar", 'r'),
+    (ItemRelic, "Relic", "goblet", 'r'),
     (ItemHearts, "Hearts", "heart", 'h')
   ]:
     let (key, displayName, spriteKey, ascii) = entry
