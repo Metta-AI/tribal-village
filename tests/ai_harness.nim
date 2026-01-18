@@ -34,12 +34,12 @@ suite "Mechanics - Resources":
     discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, 2)
 
     env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    let wheat = env.getOverlayThing(ivec2(10, 9))
+    let wheat = env.getBackgroundThing(ivec2(10, 9))
     check wheat.kind == Stubble
     check getInv(wheat, ItemWheat) == 1
 
     env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    check env.getOverlayThing(ivec2(10, 9)) == nil
+    check env.getBackgroundThing(ivec2(10, 9)) == nil
 
   test "stone and gold deplete":
     let env = makeEmptyEnv()
@@ -69,7 +69,7 @@ suite "Mechanics - Resources":
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(ivec2(10, 10), ivec2(10, 9)))
     check getInv(env.agents[agent.agentId], ItemFish) == 1
-    check env.getOverlayThing(ivec2(10, 9)) == nil
+    check env.getBackgroundThing(ivec2(10, 9)) == nil
 
   test "planting wheat consumes inventory and clears fertile":
     let env = makeEmptyEnv()
@@ -80,7 +80,7 @@ suite "Mechanics - Resources":
 
     env.stepAction(agent.agentId, 7'u8, dirIndex(agent.pos, target))
 
-    let crop = env.getOverlayThing(target)
+    let crop = env.getBackgroundThing(target)
     check crop.kind == Wheat
     check getInv(crop, ItemWheat) == ResourceNodeInitial
     check agent.inventoryWheat == 0
@@ -123,7 +123,7 @@ suite "Mechanics - Combat":
 
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
-    let corpse = env.getOverlayThing(ivec2(10, 9))
+    let corpse = env.getBackgroundThing(ivec2(10, 9))
     check corpse.kind == Corpse
     check getInv(corpse, ItemWood) == 2
     check env.terminated[defender.agentId] == 1.0

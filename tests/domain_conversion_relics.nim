@@ -50,11 +50,11 @@ suite "Relics":
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, relicPos))
     check agent.inventoryRelic == 1
     check getInv(agent, ItemGold) == 1
-    check env.getOverlayThing(relicPos) == nil
+    check env.getBackgroundThing(relicPos) == nil
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, relicPos))
     check agent.inventoryRelic == 0
-    let dropped = env.getOverlayThing(relicPos)
+    let dropped = env.getBackgroundThing(relicPos)
     check not isNil(dropped)
     check dropped.kind == Relic
     check getInv(dropped, ItemGold) == 0

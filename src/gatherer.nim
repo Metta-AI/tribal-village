@@ -290,8 +290,8 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
           if not isNil(occ) and occ.kind in FoodKinds:
             hasNearbyFood = true
             break
-          let overlay = env.overlayGrid[x][y]
-          if not isNil(overlay) and overlay.kind in FoodKinds:
+          let background = env.backgroundGrid[x][y]
+          if not isNil(background) and background.kind in FoodKinds:
             hasNearbyFood = true
             break
         if hasNearbyFood:

@@ -602,7 +602,7 @@ type
     things*: seq[Thing]
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking units
-    overlayGrid*: array[MapWidth, array[MapHeight, Thing]]   # Background (non-blocking) units
+    backgroundGrid*: array[MapWidth, array[MapHeight, Thing]]   # Background (non-blocking) units
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid

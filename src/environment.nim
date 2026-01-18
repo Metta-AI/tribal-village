@@ -106,7 +106,7 @@ proc updateObservations(
     if not isNil(blockingThing):
       agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
 
-    let backgroundThing = env.overlayGrid[worldX][worldY]
+    let backgroundThing = env.backgroundGrid[worldX][worldY]
     if not isNil(backgroundThing):
       agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
 
@@ -353,7 +353,7 @@ proc rebuildObservations*(env: Environment) =
     if not isNil(blockingThing):
       agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
 
-    let backgroundThing = env.overlayGrid[worldX][worldY]
+    let backgroundThing = env.backgroundGrid[worldX][worldY]
     if not isNil(backgroundThing):
       agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
 
@@ -399,23 +399,23 @@ proc rebuildObservations*(env: Environment) =
 proc getThing*(env: Environment, pos: IVec2): Thing =
   if not isValidPos(pos): nil else: env.grid[pos.x][pos.y]
 
-proc getOverlayThing*(env: Environment, pos: IVec2): Thing =
-  if not isValidPos(pos): nil else: env.overlayGrid[pos.x][pos.y]
+proc getBackgroundThing*(env: Environment, pos: IVec2): Thing =
+  if not isValidPos(pos): nil else: env.backgroundGrid[pos.x][pos.y]
 
 proc isEmpty*(env: Environment, pos: IVec2): bool =
   ## True when no blocking unit occupies the tile.
   isValidPos(pos) and isNil(env.grid[pos.x][pos.y])
 
 proc hasDoor*(env: Environment, pos: IVec2): bool =
-  let door = env.getOverlayThing(pos)
+  let door = env.getBackgroundThing(pos)
   not isNil(door) and door.kind == Door
 
 proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
-  let door = env.getOverlayThing(pos)
+  let door = env.getBackgroundThing(pos)
   isNil(door) or door.kind != Door or door.teamId == getTeamId(agent)
 
 proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
-  let background = env.getOverlayThing(pos)
+  let background = env.getBackgroundThing(pos)
   not isNil(background) and background.kind == Dock
 
 proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
@@ -445,11 +445,11 @@ proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
   terrain in BuildableTerrain
 
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
-  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
+  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
-  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
+  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] == Water
 
 proc resetTileColor*(env: Environment, pos: IVec2) =
@@ -690,7 +690,7 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   ## Check if a position is within map bounds, empty, and not blocked terrain
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
     pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
-    env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
+    env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     not isBlockedTerrain(env.terrain[pos.x][pos.y])
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
@@ -806,7 +806,7 @@ proc render*(env: Environment): string =
         else:
           cell = $ThingCatalog[kind].ascii
       else:
-        let backgroundThing = env.overlayGrid[x][y]
+        let backgroundThing = env.backgroundGrid[x][y]
         if not isNil(backgroundThing):
           let kind = backgroundThing.kind
           if isBuildingKind(kind):
