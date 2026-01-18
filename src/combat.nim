@@ -1,25 +1,17 @@
-const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
-  # Attacker: UnitVillager
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitManAtArms (infantry > cavalry)
-  [0, 0, 0, 1, 1, 0, 0, 0, 0, 0],
-  # Attacker: UnitArcher (archer > infantry)
-  [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitScout (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitKnight (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitMonk
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitBatteringRam
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitMangonel
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitGoblin
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  # Attacker: UnitBoat
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-]
+const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = block:
+  var table: array[AgentUnitClass, array[AgentUnitClass, int]]
+  for (attacker, target, value) in [
+    # Infantry > cavalry
+    (UnitManAtArms, UnitScout, 1),
+    (UnitManAtArms, UnitKnight, 1),
+    # Archer > infantry
+    (UnitArcher, UnitManAtArms, 1),
+    # Cavalry > archer
+    (UnitScout, UnitArcher, 1),
+    (UnitKnight, UnitArcher, 1)
+  ]:
+    table[attacker][target] = value
+  table
 
 const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   # UnitVillager
