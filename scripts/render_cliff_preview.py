@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import glob
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 
-SPRITES = [
+SPRITE = tuple[str, Path, set[tuple[int, int]]]
+
+DEFAULT_SPRITES: list[SPRITE] = [
     (
         "Edge N",
         Path("data/cliff_edge_ew_s.png"),
@@ -78,6 +81,52 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def parse_low_cells(raw: str) -> set[tuple[int, int]]:
+    if not raw:
+        return set()
+    cells: set[tuple[int, int]] = set()
+    for token in raw.replace("|", ";").split(";"):
+        token = token.strip()
+        if not token:
+            continue
+        if "," not in token:
+            raise ValueError(f"Invalid low cell token '{token}', expected 'dx,dy'. sees examples: -1,0;0,1")
+        dx_raw, dy_raw = token.split(",", 1)
+        cells.add((int(dx_raw), int(dy_raw)))
+    return cells
+
+
+def load_manifest(path: Path) -> list[SPRITE]:
+    sprites: list[SPRITE] = []
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) not in (2, 3):
+            raise ValueError(f"Invalid manifest line (expected 2-3 columns): {raw}")
+        label = parts[0].strip()
+        sprite_path = Path(parts[1].strip())
+        low_cells = parse_low_cells(parts[2].strip()) if len(parts) == 3 else set()
+        sprites.append((label, sprite_path, low_cells))
+    return sprites
+
+
+def label_from_path(path: Path) -> str:
+    return path.stem.replace("_", " ").replace(".", " ")
+
+
+def load_from_globs(patterns: list[str]) -> list[SPRITE]:
+    paths: list[Path] = []
+    for pattern in patterns:
+        matches = [Path(p) for p in glob.glob(pattern)]
+        paths.extend(sorted(matches))
+    sprites: list[SPRITE] = []
+    for path in paths:
+        sprites.append((label_from_path(path), path, set()))
+    return sprites
+
+
 def draw_grid(low_cells: set[tuple[int, int]], cell: int, padding: int) -> Image.Image:
     grid_size = cell * 3
     img = Image.new("RGBA", (grid_size + padding * 2, grid_size + padding * 2), (0, 0, 0, 0))
@@ -115,7 +164,13 @@ def draw_grid(low_cells: set[tuple[int, int]], cell: int, padding: int) -> Image
     return img
 
 
-def render_preview(output_path: Path) -> None:
+def render_preview(
+    output_path: Path,
+    sprites: list[SPRITE],
+    title: str,
+    sprite_size: int,
+    show_paths: bool,
+) -> None:
     label_font = load_font(16)
     small_font = load_font(12)
 
@@ -124,30 +179,30 @@ def render_preview(output_path: Path) -> None:
     grid_img = draw_grid(set(), cell, padding)
     grid_w, grid_h = grid_img.size
 
-    sprite_w = sprite_h = 200
+    sprite_w = sprite_h = sprite_size
     row_height = max(sprite_h, grid_h) + 16
     label_width = 160
     gap = 16
     width = label_width + grid_w + gap + sprite_w + gap
-    height = row_height * len(SPRITES) + 20
+    height = row_height * len(sprites) + 20
 
     canvas = Image.new("RGBA", (width, height), (15, 15, 15, 255))
     draw = ImageDraw.Draw(canvas)
 
-    title = "Cliff Preview (3x3 H/L vs Sprite)"
     draw.text((12, 8), title, fill=(235, 235, 235, 255), font=label_font)
 
     y = 28
-    for label, sprite_path, low_cells in SPRITES:
+    for label, sprite_path, low_cells in sprites:
         row_top = y
         # label
         draw.text((12, row_top + 6), label, fill=(235, 235, 235, 255), font=label_font)
-        draw.text(
-            (12, row_top + 26),
-            sprite_path.as_posix(),
-            fill=(150, 150, 150, 255),
-            font=small_font,
-        )
+        if show_paths:
+            draw.text(
+                (12, row_top + 26),
+                sprite_path.as_posix(),
+                fill=(150, 150, 150, 255),
+                font=small_font,
+            )
 
         # grid
         grid_img = draw_grid(low_cells, cell, padding)
@@ -183,15 +238,63 @@ def render_preview(output_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Render cliff sprite preview sheet.")
+    parser = argparse.ArgumentParser(
+        description="Render a sprite preview sheet with a 3x3 grid and sprite column."
+    )
     parser.add_argument(
         "--out",
         type=Path,
         default=Path("data/tmp/cliff_preview.png"),
         help="Output path for the preview image.",
     )
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="Optional TSV: label<TAB>path<TAB>low_cells (dx,dy;dx,dy).",
+    )
+    parser.add_argument(
+        "--glob",
+        action="append",
+        default=[],
+        help="Glob pattern for sprite paths (repeatable).",
+    )
+    parser.add_argument(
+        "--title",
+        type=str,
+        help="Custom preview title.",
+    )
+    parser.add_argument(
+        "--sprite-size",
+        type=int,
+        default=200,
+        help="Sprite render size (default: 200).",
+    )
+    parser.add_argument(
+        "--no-paths",
+        action="store_true",
+        help="Hide sprite file paths under labels.",
+    )
     args = parser.parse_args()
-    render_preview(args.out)
+    if args.manifest:
+        sprites = load_manifest(args.manifest)
+        title = args.title or f"Sprite Preview ({args.manifest.as_posix()})"
+    elif args.glob:
+        sprites = load_from_globs(args.glob)
+        title = args.title or "Sprite Preview (Glob)"
+    else:
+        sprites = DEFAULT_SPRITES
+        title = args.title or "Cliff Preview (3x3 H/L vs Sprite)"
+
+    if not sprites:
+        raise SystemExit("No sprites found to render.")
+
+    render_preview(
+        args.out,
+        sprites,
+        title,
+        sprite_size=args.sprite_size,
+        show_paths=not args.no_paths,
+    )
 
 
 if __name__ == "__main__":
