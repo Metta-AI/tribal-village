@@ -443,6 +443,8 @@ proc init(env: Environment) =
       if env.terrain[x][y] != BiomeCityBlockTerrain:
         continue
       let pos = ivec2(x.int32, y.int32)
+      if not isNil(env.getBackgroundThing(pos)):
+        continue
       if env.hasDoor(pos):
         continue
       let existing = env.getThing(pos)
@@ -526,6 +528,8 @@ proc init(env: Environment) =
         if env.terrain[x][y] == Water:
           continue
         let pos = ivec2(x.int32, y.int32)
+        if not isNil(env.getBackgroundThing(pos)):
+          continue
         if env.hasDoor(pos):
           continue
         let existing = env.getThing(pos)
@@ -537,14 +541,18 @@ proc init(env: Environment) =
         env.add(Thing(kind: Wall, pos: pos))
 
   if MapBorder > 0:
+    proc addBorderWall(pos: IVec2) =
+      if not isNil(env.getBackgroundThing(pos)):
+        return
+      env.add(Thing(kind: Wall, pos: pos))
     for x in 0 ..< MapWidth:
       for j in 0 ..< MapBorder:
-        env.add(Thing(kind: Wall, pos: ivec2(x, j)))
-        env.add(Thing(kind: Wall, pos: ivec2(x, MapHeight - j - 1)))
+        addBorderWall(ivec2(x, j))
+        addBorderWall(ivec2(x, MapHeight - j - 1))
     for y in 0 ..< MapHeight:
       for j in 0 ..< MapBorder:
-        env.add(Thing(kind: Wall, pos: ivec2(j, y)))
-        env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
+        addBorderWall(ivec2(j, y))
+        addBorderWall(ivec2(MapWidth - j - 1, y))
 
   # Place neutral trading hub near map center before villages.
   env.placeTradingHub(r)
@@ -850,6 +858,8 @@ proc init(env: Environment) =
 
       # Add the walls
       for wallPos in elements.walls:
+        if not isNil(env.getBackgroundThing(wallPos)):
+          continue
         env.add(Thing(
           kind: Wall,
           pos: wallPos,
@@ -984,6 +994,8 @@ proc init(env: Environment) =
   # Now place additional random walls after villages to avoid blocking corner placement
   for i in 0 ..< MapRoomObjectsWalls:
     let pos = r.randomEmptyPos(env)
+    if not isNil(env.getBackgroundThing(pos)):
+      continue
     env.add(Thing(kind: Wall, pos: pos))
 
   # If there are still agents to spawn (e.g., if not enough villages), spawn them randomly
