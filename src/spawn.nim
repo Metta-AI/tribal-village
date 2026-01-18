@@ -1371,31 +1371,6 @@ proc init(env: Environment) =
   maybeStartReplayEpisode(env)
 
 
-proc defaultEnvironmentConfig*(): EnvironmentConfig =
-  ## Create default environment configuration
-  EnvironmentConfig(
-    # Core game parameters
-    maxSteps: 10000,
-
-    # Combat configuration
-    tumorSpawnRate: 0.1,
-
-    # Reward configuration (only arena_basic_easy_shaped rewards active)
-    heartReward: 1.0,      # Arena: heart reward
-    oreReward: 0.1,        # Arena: gold mining reward
-    barReward: 0.8,        # Arena: bar smelting reward
-    woodReward: 0.0,       # Disabled - not in arena
-    waterReward: 0.0,      # Disabled - not in arena
-    wheatReward: 0.0,      # Disabled - not in arena
-    spearReward: 0.0,      # Disabled - not in arena
-    armorReward: 0.0,      # Disabled - not in arena
-    foodReward: 0.0,       # Disabled - not in arena
-    clothReward: 0.0,      # Disabled - not in arena
-    tumorKillReward: 0.0, # Disabled - not in arena
-    survivalPenalty: -0.01,
-    deathPenalty: -5.0
-  )
-
 proc newEnvironment*(): Environment =
   ## Create a new environment with default configuration
   result = Environment(config: defaultEnvironmentConfig())

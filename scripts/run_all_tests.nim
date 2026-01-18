@@ -1,0 +1,4 @@
+include "../tests/ai_harness.nim"
+include "../tests/domain_conversion_relics.nim"
+include "../tests/domain_economy_buildings.nim"
+include "../tests/domain_navigation_spawn.nim"
