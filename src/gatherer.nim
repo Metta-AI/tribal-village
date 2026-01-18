@@ -398,6 +398,13 @@ let GathererOptions = [
     interruptible: true
   ),
   OptionDef(
+    name: "GathererStoreValuables",
+    canStart: canStartStoreValuables,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optStoreValuables,
+    interruptible: true
+  ),
+  OptionDef(
     name: "GathererFallbackSearch",
     canStart: optionsAlwaysCanStart,
     shouldTerminate: optionsAlwaysTerminate,

@@ -592,6 +592,27 @@ let FighterOptions = [
     interruptible: true
   ),
   OptionDef(
+    name: "FighterSmeltGold",
+    canStart: canStartSmeltGold,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optSmeltGold,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterCraftBread",
+    canStart: canStartCraftBread,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optCraftBread,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterStoreValuables",
+    canStart: canStartStoreValuables,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optStoreValuables,
+    interruptible: true
+  ),
+  OptionDef(
     name: "FighterAggressive",
     canStart: canStartFighterAggressive,
     shouldTerminate: optionsAlwaysTerminate,
