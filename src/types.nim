@@ -38,6 +38,8 @@ const
   MapRoomObjectsGoldClusterCount* = 28
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
+  MapRoomObjectsBears* = 6
+  MapRoomObjectsWolves* = 12
   MapRoomObjectsRelics* = 12
 
   # Agent Parameters
@@ -69,6 +71,15 @@ const
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
   CowMilkCooldown* = 25
+  BearMaxHp* = 6
+  BearAttackDamage* = 2
+  BearAggroRadius* = 6
+  WolfMaxHp* = 3
+  WolfAttackDamage* = 1
+  WolfPackMinSize* = 3
+  WolfPackMaxSize* = 5
+  WolfPackAggroRadius* = 7
+  WolfPackCohesionRadius* = 3
   ResourceCarryCapacity* = 5
   MineDepositAmount* = 100
   TownCenterPopCap* = 0
@@ -185,6 +196,8 @@ type
     ThingSpawnerLayer
     ThingTumorLayer
     ThingCowLayer
+    ThingBearLayer
+    ThingWolfLayer
     ThingCorpseLayer
     ThingSkeletonLayer
     ThingClayOvenLayer
@@ -286,6 +299,8 @@ type
     Spawner
     Tumor
     Cow
+    Bear
+    Wolf
     Corpse
     Skeleton
     ClayOven
@@ -359,6 +374,7 @@ type
     teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
+    packId*: int               # Wolf pack grouping id
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
@@ -532,6 +548,7 @@ type
     biomes*: BiomeGrid
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)
     computedTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Dynamic tint overlay (lanterns/tumors)
+    tintLocked*: array[MapWidth, array[MapHeight, bool]]  # Tiles that ignore dynamic tint overlays
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
     tintStrength*: array[MapWidth, array[MapHeight, int32]]  # Tint strength accumulation
     activeTiles*: ActiveTiles  # Sparse list of tiles to process
@@ -549,6 +566,11 @@ type
     cowHerdSumY*: seq[int]
     cowHerdDrift*: seq[IVec2]
     cowHerdTargets*: seq[IVec2]
+    wolfPackCounts*: seq[int]
+    wolfPackSumX*: seq[int]
+    wolfPackSumY*: seq[int]
+    wolfPackDrift*: seq[IVec2]
+    wolfPackTargets*: seq[IVec2]
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     territoryScore*: TerritoryScore
     territoryScored*: bool

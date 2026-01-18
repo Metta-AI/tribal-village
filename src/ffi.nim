@@ -242,6 +242,8 @@ proc tribal_village_render_rgb(
                 of Spawner: (r: 255'u8, g: 170'u8, b: 0'u8)
                 of Tumor: (r: 160'u8, g: 32'u8, b: 240'u8)
                 of Cow: (r: 230'u8, g: 230'u8, b: 230'u8)
+                of Bear: (r: 140'u8, g: 90'u8, b: 40'u8)
+                of Wolf: (r: 130'u8, g: 130'u8, b: 130'u8)
                 of Skeleton: (r: 210'u8, g: 210'u8, b: 210'u8)
                 of Stump: (r: 110'u8, g: 85'u8, b: 55'u8)
                 of Lantern: (r: 255'u8, g: 240'u8, b: 128'u8)

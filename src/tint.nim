@@ -71,6 +71,8 @@ proc updateTintModifications(env: Environment) =
     for tileX in minX .. maxX:
       let dx = tileX - baseX
       for tileY in minY .. maxY:
+        if env.tintLocked[tileX][tileY]:
+          continue
         let dy = tileY - baseY
         let dist = abs(dx) + abs(dy)
         let falloff = max(1, radius * 2 + 1 - dist)
@@ -97,7 +99,8 @@ proc updateTintModifications(env: Environment) =
 
     of Lantern:
       if thing.lanternHealthy:
-        addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
+        if thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+          addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
     of Tumor:
       let minX = max(0, baseX - 2)
       let maxX = min(MapWidth - 1, baseX + 2)
@@ -106,6 +109,8 @@ proc updateTintModifications(env: Environment) =
       for tileX in minX .. maxX:
         let dx = tileX - baseX
         for tileY in minY .. maxY:
+          if env.tintLocked[tileX][tileY]:
+            continue
           let dy = tileY - baseY
           let manDist = abs(dx) + abs(dy)
           let falloff = max(1, 5 - manDist)
@@ -125,6 +130,9 @@ proc applyTintModifications(env: Environment) =
   # Apply modifications only to tiles touched this frame
   proc applyTintAt(tileX, tileY: int) =
     if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
+      return
+    if env.tintLocked[tileX][tileY]:
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
       return
 
     let dynTint = env.tintMods[tileX][tileY]

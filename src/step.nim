@@ -143,6 +143,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var tumorsToProcess: seq[Thing] = @[]
 
   proc tryTowerAttack(tower: Thing, range: int) =
+    if tower.teamId < 0:
+      return
     var bestTarget: Thing = nil
     var bestDist = int.high
     for agent in env.agents:
@@ -271,6 +273,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.cowHerdSumX[i] = 0
       env.cowHerdSumY[i] = 0
 
+  if env.wolfPackCounts.len > 0:
+    for i in 0 ..< env.wolfPackCounts.len:
+      env.wolfPackCounts[i] = 0
+      env.wolfPackSumX[i] = 0
+      env.wolfPackSumY[i] = 0
+
   # Precompute team pop caps while scanning things
   var teamPopCaps: array[MapRoomObjectsHouses, int]
   for thing in env.things:
@@ -372,6 +380,21 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.cowHerdCounts[herd] += 1
       env.cowHerdSumX[herd] += thing.pos.x.int
       env.cowHerdSumY[herd] += thing.pos.y.int
+    elif thing.kind == Wolf:
+      let pack = thing.packId
+      if pack >= env.wolfPackCounts.len:
+        let oldLen = env.wolfPackCounts.len
+        let newLen = pack + 1
+        env.wolfPackCounts.setLen(newLen)
+        env.wolfPackSumX.setLen(newLen)
+        env.wolfPackSumY.setLen(newLen)
+        env.wolfPackDrift.setLen(newLen)
+        env.wolfPackTargets.setLen(newLen)
+        for i in oldLen ..< newLen:
+          env.wolfPackTargets[i] = ivec2(-1, -1)
+      env.wolfPackCounts[pack] += 1
+      env.wolfPackSumX[pack] += thing.pos.x.int
+      env.wolfPackSumY[pack] += thing.pos.y.int
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
@@ -388,6 +411,45 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if abs(dx) >= abs(dy):
       return ivec2((if dx > 0: 1 else: -1), 0)
     return ivec2(0, (if dy > 0: 1 else: -1))
+
+  proc findNearestPredatorTarget(center: IVec2, radius: int): IVec2 =
+    var bestDist = int.high
+    var best = ivec2(-1, -1)
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let pos = center + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        let dist = max(abs(dx), abs(dy))
+        if dist > radius:
+          continue
+        let thing = env.getThing(pos)
+        if isNil(thing):
+          continue
+        if thing.kind == Tumor and not thing.hasClaimedTerritory:
+          if dist < bestDist:
+            bestDist = dist
+            best = pos
+    if best.x >= 0:
+      return best
+    bestDist = int.high
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let pos = center + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        let dist = max(abs(dx), abs(dy))
+        if dist > radius:
+          continue
+        let thing = env.getThing(pos)
+        if isNil(thing) or thing.kind != Agent:
+          continue
+        if not isAgentAlive(env, thing):
+          continue
+        if dist < bestDist:
+          bestDist = dist
+          best = pos
+    best
 
   let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
@@ -433,6 +495,44 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.cowHerdTargets[herdId] = candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
     env.cowHerdDrift[herdId] = stepToward(center, env.cowHerdTargets[herdId])
 
+  for packId in 0 ..< env.wolfPackCounts.len:
+    if env.wolfPackCounts[packId] <= 0:
+      env.wolfPackDrift[packId] = ivec2(0, 0)
+      continue
+    let packAccCount = max(1, env.wolfPackCounts[packId])
+    let center = ivec2((env.wolfPackSumX[packId] div packAccCount).int32,
+                       (env.wolfPackSumY[packId] div packAccCount).int32)
+    let huntTarget = findNearestPredatorTarget(center, WolfPackAggroRadius)
+    if huntTarget.x >= 0:
+      env.wolfPackTargets[packId] = huntTarget
+    else:
+      let target = env.wolfPackTargets[packId]
+      let targetInvalid = target.x < 0 or target.y < 0
+      let distToTarget = if targetInvalid:
+        0
+      else:
+        max(abs(center.x - target.x), abs(center.y - target.y))
+      let nearBorder = center.x <= cornerMin or center.y <= cornerMin or
+                       center.x >= cornerMaxX or center.y >= cornerMaxY
+      if targetInvalid or (nearBorder and distToTarget <= 3):
+        var bestDist = -1
+        var candidates: seq[IVec2] = @[]
+        for corner in cornerTargets:
+          if corner == target:
+            continue
+          let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
+          if dist > bestDist:
+            candidates.setLen(0)
+            candidates.add(corner)
+            bestDist = dist
+          elif dist == bestDist:
+            candidates.add(corner)
+        if candidates.len == 0:
+          env.wolfPackTargets[packId] = cornerTargets[randIntInclusive(stepRng, 0, 3)]
+        else:
+          env.wolfPackTargets[packId] = candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
+    env.wolfPackDrift[packId] = stepToward(center, env.wolfPackTargets[packId])
+
   for thing in env.thingsByKind[Cow]:
     if thing.cooldown > 0:
       thing.cooldown -= 1
@@ -471,6 +571,105 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           thing.orientation = Orientation.W
         elif desired.x > 0:
           thing.orientation = Orientation.E
+
+  for thing in env.thingsByKind[Wolf]:
+    if thing.cooldown > 0:
+      thing.cooldown -= 1
+    let pack = thing.packId
+    let packAccCount = max(1, env.wolfPackCounts[pack])
+    let center = ivec2((env.wolfPackSumX[pack] div packAccCount).int32,
+                       (env.wolfPackSumY[pack] div packAccCount).int32)
+    let packTarget = env.wolfPackTargets[pack]
+    let drift = env.wolfPackDrift[pack]
+    let distFromCenter = max(abs(center.x - thing.pos.x), abs(center.y - thing.pos.y))
+    var desired = ivec2(0, 0)
+    if distFromCenter > WolfPackCohesionRadius:
+      desired = stepToward(thing.pos, center)
+    elif packTarget.x >= 0:
+      let distToTarget = max(abs(packTarget.x - thing.pos.x), abs(packTarget.y - thing.pos.y))
+      if distToTarget > 1:
+        desired = stepToward(thing.pos, packTarget)
+    elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.55:
+      desired = stepToward(thing.pos, center + drift * 3)
+    elif randFloat(stepRng) < 0.1:
+      let dirIdx = randIntInclusive(stepRng, 0, 3)
+      desired = case dirIdx
+        of 0: ivec2(-1, 0)
+        of 1: ivec2(1, 0)
+        of 2: ivec2(0, -1)
+        else: ivec2(0, 1)
+
+    if desired != ivec2(0, 0):
+      let nextPos = thing.pos + desired
+      if isValidPos(nextPos) and not env.hasDoor(nextPos) and
+         not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
+        env.grid[thing.pos.x][thing.pos.y] = nil
+        thing.pos = nextPos
+        env.grid[nextPos.x][nextPos.y] = thing
+        if desired.x < 0:
+          thing.orientation = Orientation.W
+        elif desired.x > 0:
+          thing.orientation = Orientation.E
+
+  for thing in env.thingsByKind[Bear]:
+    if thing.cooldown > 0:
+      thing.cooldown -= 1
+    let target = findNearestPredatorTarget(thing.pos, BearAggroRadius)
+    var desired = ivec2(0, 0)
+    if target.x >= 0:
+      let dist = max(abs(target.x - thing.pos.x), abs(target.y - thing.pos.y))
+      if dist > 1:
+        desired = stepToward(thing.pos, target)
+    elif randFloat(stepRng) < 0.12:
+      let dirIdx = randIntInclusive(stepRng, 0, 3)
+      desired = case dirIdx
+        of 0: ivec2(-1, 0)
+        of 1: ivec2(1, 0)
+        of 2: ivec2(0, -1)
+        else: ivec2(0, 1)
+
+    if desired != ivec2(0, 0):
+      let nextPos = thing.pos + desired
+      if isValidPos(nextPos) and not env.hasDoor(nextPos) and
+         not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
+        env.grid[thing.pos.x][thing.pos.y] = nil
+        thing.pos = nextPos
+        env.grid[nextPos.x][nextPos.y] = thing
+        if desired.x < 0:
+          thing.orientation = Orientation.W
+        elif desired.x > 0:
+          thing.orientation = Orientation.E
+
+  proc predatorTryAttack(predator: Thing) =
+    for offset in CardinalOffsets:
+      let pos = predator.pos + offset
+      if not isValidPos(pos):
+        continue
+      let target = env.getThing(pos)
+      if isNil(target):
+        continue
+      if target.kind == Tumor and not target.hasClaimedTerritory:
+        env.grid[pos.x][pos.y] = nil
+        env.updateObservations(AgentLayer, pos, 0)
+        env.updateObservations(AgentOrientationLayer, pos, 0)
+        removeThing(env, target)
+        return
+    for offset in CardinalOffsets:
+      let pos = predator.pos + offset
+      if not isValidPos(pos):
+        continue
+      let target = env.getThing(pos)
+      if isNil(target) or target.kind != Agent:
+        continue
+      if not isAgentAlive(env, target):
+        continue
+      discard env.applyAgentDamage(target, max(1, predator.attackDamage))
+      return
+
+  for thing in env.thingsByKind[Wolf]:
+    predatorTryAttack(thing)
+  for thing in env.thingsByKind[Bear]:
+    predatorTryAttack(thing)
 
   when defined(stepTiming):
     if timing:
@@ -543,8 +742,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for newTumor in newTumorBranches:
     env.add(newTumor)
 
-  # Resolve agent contact: agents adjacent to tumors risk lethal creep
+  # Resolve contact: agents and predators adjacent to tumors risk lethal creep
   var tumorsToRemove: seq[Thing] = @[]
+  var predatorsToRemove: seq[Thing] = @[]
 
   let thingCount = env.things.len
   for i in 0 ..< thingCount:
@@ -557,38 +757,54 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         continue
 
       let occupant = env.getThing(adjPos)
-      if isNil(occupant) or occupant.kind != Agent:
+      if isNil(occupant) or occupant.kind notin {Agent, Bear, Wolf}:
         continue
 
-      # Shield check: block death if shield active and tumor is in shield band
-      var blocked = false
-      if env.shieldCountdown[occupant.agentId] > 0:
-        let ori = occupant.orientation
-        let d = getOrientationDelta(ori)
-        let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
-        let forward = occupant.pos + ivec2(d.x, d.y)
-        for offset in -1 .. 1:
-          let shieldPos = forward + ivec2(perp.x * offset, perp.y * offset)
-          if shieldPos == tumor.pos:
-            blocked = true
+      if occupant.kind == Agent:
+        # Shield check: block death if shield active and tumor is in shield band
+        var blocked = false
+        if env.shieldCountdown[occupant.agentId] > 0:
+          let ori = occupant.orientation
+          let d = getOrientationDelta(ori)
+          let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
+          let forward = occupant.pos + ivec2(d.x, d.y)
+          for offset in -1 .. 1:
+            let shieldPos = forward + ivec2(perp.x * offset, perp.y * offset)
+            if shieldPos == tumor.pos:
+              blocked = true
+              break
+        if blocked:
+          continue
+
+        if randFloat(stepRng) < TumorAdjacencyDeathChance:
+          let killed = env.applyAgentDamage(occupant, 1)
+          if killed and tumor notin tumorsToRemove:
+            tumorsToRemove.add(tumor)
+            env.grid[tumor.pos.x][tumor.pos.y] = nil
+            env.updateObservations(AgentLayer, tumor.pos, 0)
+            env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
+          if killed:
             break
-      if blocked:
-        continue
-
-      if randFloat(stepRng) < TumorAdjacencyDeathChance:
-        let killed = env.applyAgentDamage(occupant, 1)
-        if killed and tumor notin tumorsToRemove:
-          tumorsToRemove.add(tumor)
-          env.grid[tumor.pos.x][tumor.pos.y] = nil
-          env.updateObservations(AgentLayer, tumor.pos, 0)
-          env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
-        if killed:
-          break
+      else:
+        if randFloat(stepRng) < TumorAdjacencyDeathChance:
+          if occupant notin predatorsToRemove:
+            predatorsToRemove.add(occupant)
+            env.grid[occupant.pos.x][occupant.pos.y] = nil
+            env.updateObservations(ThingAgentLayer, occupant.pos, 0)
+          if tumor notin tumorsToRemove:
+            tumorsToRemove.add(tumor)
+            env.grid[tumor.pos.x][tumor.pos.y] = nil
+            env.updateObservations(AgentLayer, tumor.pos, 0)
+            env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
 
   # Remove tumors cleared by lethal contact this step
   if tumorsToRemove.len > 0:
     for tumor in tumorsToRemove:
       removeThing(env, tumor)
+
+  if predatorsToRemove.len > 0:
+    for predator in predatorsToRemove:
+      removeThing(env, predator)
 
   applyTankAuraTints(env)
   applyMonkHealingAura(env)
@@ -867,6 +1083,11 @@ proc reset*(env: Environment) =
   env.cowHerdSumY.setLen(0)
   env.cowHerdDrift.setLen(0)
   env.cowHerdTargets.setLen(0)
+  env.wolfPackCounts.setLen(0)
+  env.wolfPackSumX.setLen(0)
+  env.wolfPackSumY.setLen(0)
+  env.wolfPackDrift.setLen(0)
+  env.wolfPackTargets.setLen(0)
   # Clear colors (now stored in Environment)
   env.agentColors.setLen(0)
   env.teamColors.setLen(0)

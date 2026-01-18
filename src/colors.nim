@@ -13,6 +13,8 @@ const WarmVillagePalette* = [
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
   if not isValidPos(pos):
     return
+  if env.tintLocked[pos.x][pos.y]:
+    return
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
   let existing = env.actionTintCode[pos.x][pos.y]
@@ -27,6 +29,8 @@ proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duratio
 
 proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   let base = env.baseTintColors[x][y]
+  if env.tintLocked[x][y]:
+    return base
   let overlay = env.computedTintColors[x][y]
   let alpha = max(0.0'f32, min(1.0'f32, overlay.intensity))
   let invAlpha = 1.0'f32 - alpha

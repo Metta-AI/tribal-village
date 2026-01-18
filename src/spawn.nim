@@ -15,6 +15,8 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
 const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
   TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
+  TradingHubSize = 15
+  TradingHubTint = TileColor(r: 0.58, g: 0.58, b: 0.58, intensity: 1.0)
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
@@ -180,6 +182,68 @@ proc applyCliffs(env: Environment) =
       if hasCliff:
         env.addCliffThing(kind, ivec2(x.int32, y.int32))
 
+proc placeTradingHub(env: Environment) =
+  let centerX = MapWidth div 2
+  let centerY = MapHeight div 2
+  let half = TradingHubSize div 2
+  let x0 = centerX - half
+  let x1 = centerX + half
+  let y0 = centerY - half
+  let y1 = centerY + half
+
+  for x in x0 .. x1:
+    for y in y0 .. y1:
+      if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      let existing = env.getThing(pos)
+      if not isNil(existing):
+        removeThing(env, existing)
+      let overlay = env.getOverlayThing(pos)
+      if not isNil(overlay):
+        removeThing(env, overlay)
+      env.terrain[x][y] = Empty
+      env.resetTileColor(pos)
+      env.baseTintColors[x][y] = TradingHubTint
+      env.tintLocked[x][y] = true
+
+  for x in x0 .. x1:
+    if x < 0 or x >= MapWidth:
+      continue
+    if y0 >= 0 and y0 < MapHeight and x != centerX and x != x0 and x != x1:
+      env.add(Thing(kind: Wall, pos: ivec2(x.int32, y0.int32), teamId: -1))
+    if y1 >= 0 and y1 < MapHeight and x != centerX and x != x0 and x != x1:
+      env.add(Thing(kind: Wall, pos: ivec2(x.int32, y1.int32), teamId: -1))
+  if y0 + 1 <= y1 - 1:
+    for y in (y0 + 1) .. (y1 - 1):
+      if y < 0 or y >= MapHeight:
+        continue
+      if x0 >= 0 and x0 < MapWidth:
+        env.add(Thing(kind: Wall, pos: ivec2(x0.int32, y.int32), teamId: -1))
+      if x1 >= 0 and x1 < MapWidth:
+        env.add(Thing(kind: Wall, pos: ivec2(x1.int32, y.int32), teamId: -1))
+
+  let cornerNW = ivec2(x0.int32, y0.int32)
+  let cornerSW = ivec2(x0.int32, y1.int32)
+  let cornerNE = ivec2(x1.int32, y0.int32)
+  let cornerSE = ivec2(x1.int32, y1.int32)
+  if isValidPos(cornerNW):
+    env.add(Thing(kind: GuardTower, pos: cornerNW, teamId: -1))
+  if isValidPos(cornerSW):
+    env.add(Thing(kind: GuardTower, pos: cornerSW, teamId: -1))
+  if isValidPos(cornerNE):
+    env.add(Thing(kind: GuardTower, pos: cornerNE, teamId: -1))
+  if isValidPos(cornerSE):
+    env.add(Thing(kind: GuardTower, pos: cornerSE, teamId: -1))
+
+  let center = ivec2(centerX.int32, centerY.int32)
+  env.add(Thing(kind: Castle, pos: center, teamId: -1))
+
+  for offset in [ivec2(0, -3), ivec2(0, 3), ivec2(-3, 0), ivec2(3, 0)]:
+    let marketPos = center + offset
+    if isValidPos(marketPos) and env.isEmpty(marketPos):
+      env.add(Thing(kind: Market, pos: marketPos, teamId: -1))
+
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -212,6 +276,7 @@ proc init(env: Environment) =
   env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
   env.tintStrength = default(array[MapWidth, array[MapHeight, int32]])
   env.tumorStrength = default(array[MapWidth, array[MapHeight, int32]])
+  env.tintLocked = default(array[MapWidth, array[MapHeight, bool]])
 
   # Clear action tints
   env.actionTintCountdown = default(ActionTintCountdown)
@@ -340,6 +405,9 @@ proc init(env: Environment) =
       for j in 0 ..< MapBorder:
         env.add(Thing(kind: Wall, pos: ivec2(j, y)))
         env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
+
+  # Place neutral trading hub near map center before villages.
+  env.placeTradingHub()
 
   # Agents will now spawn with their villages below
   # Clear and prepare village colors arrays (use Environment fields)
@@ -1230,6 +1298,68 @@ proc init(env: Environment) =
       if cowsPlaced >= MapRoomObjectsCows:
         break
     inc herdId
+
+  # Bears spawn as solitary predators across open terrain.
+  var bearsPlaced = 0
+  while bearsPlaced < MapRoomObjectsBears:
+    let pos = r.randomEmptyPos(env)
+    if env.terrain[pos.x][pos.y] != Empty:
+      continue
+    if env.biomes[pos.x][pos.y] == BiomeDungeonType:
+      continue
+    let bear = Thing(
+      kind: Bear,
+      pos: pos,
+      orientation: Orientation.W,
+      maxHp: BearMaxHp,
+      hp: BearMaxHp,
+      attackDamage: BearAttackDamage
+    )
+    env.add(bear)
+    inc bearsPlaced
+
+  # Wolves spawn in packs (3-5) across open terrain.
+  var wolvesPlaced = 0
+  var packId = 0
+  while wolvesPlaced < MapRoomObjectsWolves:
+    let remaining = MapRoomObjectsWolves - wolvesPlaced
+    var packSize: int
+    if remaining <= WolfPackMaxSize:
+      packSize = remaining
+    else:
+      packSize = randIntInclusive(r, WolfPackMinSize, WolfPackMaxSize)
+      let remainder = remaining - packSize
+      if remainder > 0 and remainder < WolfPackMinSize:
+        packSize -= (WolfPackMinSize - remainder)
+    let center = r.randomEmptyPos(env)
+    if env.terrain[center.x][center.y] != Empty:
+      continue
+    if env.biomes[center.x][center.y] == BiomeDungeonType:
+      continue
+    var packPositions = env.findEmptyPositionsAround(center, 4)
+    packPositions.insert(center, 0)
+    var filtered: seq[IVec2] = @[]
+    for pos in packPositions:
+      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
+        filtered.add(pos)
+    if filtered.len < WolfPackMinSize:
+      continue
+    let toPlace = min(packSize, filtered.len)
+    for i in 0 ..< toPlace:
+      let wolf = Thing(
+        kind: Wolf,
+        pos: filtered[i],
+        orientation: Orientation.W,
+        packId: packId,
+        maxHp: WolfMaxHp,
+        hp: WolfMaxHp,
+        attackDamage: WolfAttackDamage
+      )
+      env.add(wolf)
+      inc wolvesPlaced
+      if wolvesPlaced >= MapRoomObjectsWolves:
+        break
+    inc packId
 
   # Initialize altar locations for all spawners
   var altarPositions: seq[IVec2] = @[]
