@@ -37,6 +37,7 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Monk",
   "Battering Ram",
   "Mangonel",
+  "Goblin",
   "Boat"
 ]
 
@@ -524,6 +525,7 @@ proc drawObjects*() =
       of UnitMonk: "oriented/monk"
       of UnitBatteringRam: "oriented/battering_ram"
       of UnitMangonel: "oriented/mangonel"
+      of UnitGoblin: "oriented/goblin"
       of UnitBoat: "oriented/boat"
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey

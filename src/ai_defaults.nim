@@ -386,6 +386,8 @@ include "gatherer"
 include "builder"
 include "fighter"
 
+const GoblinAvoidRadius = 6
+
 proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
   let teamId = getTeamId(agent)
@@ -476,6 +478,45 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     controller.agentsInitialized[agentId] = true
 
   var state = controller.agents[agentId]
+
+  if agent.unitClass == UnitGoblin:
+    var totalRelicsHeld = 0
+    for other in env.agents:
+      if not isAgentAlive(env, other):
+        continue
+      if other.unitClass == UnitGoblin:
+        totalRelicsHeld += other.inventoryRelic
+    if totalRelicsHeld >= MapRoomObjectsRelics and env.thingsByKind[Relic].len == 0:
+      return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
+
+    var nearestThreat: Thing = nil
+    var threatDist = int.high
+    for other in env.agents:
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if other.unitClass == UnitGoblin:
+        continue
+      let dist = int(chebyshevDist(agent.pos, other.pos))
+      if dist < threatDist:
+        threatDist = dist
+        nearestThreat = other
+
+    if not isNil(nearestThreat) and threatDist <= GoblinAvoidRadius:
+      let dx = signi(agent.pos.x - nearestThreat.pos.x)
+      let dy = signi(agent.pos.y - nearestThreat.pos.y)
+      let awayTarget = clampToPlayable(agent.pos + ivec2(dx * 6, dy * 6))
+      return controller.moveTo(env, agent, agentId, state, awayTarget)
+
+    let relic = env.findNearestThingSpiral(state, Relic)
+    if not isNil(relic):
+      return (if isAdjacent(agent.pos, relic.pos):
+        controller.useAt(env, agent, agentId, state, relic.pos)
+      else:
+        controller.moveTo(env, agent, agentId, state, relic.pos))
+
+    return controller.moveNextSearch(env, agent, agentId, state)
 
   # --- Simple bail-out to avoid getting stuck/oscillation ---
   # Update recent positions history (ring buffer size 12)

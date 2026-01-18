@@ -16,6 +16,8 @@ const UnitAttackTints: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.45, g: 0.35, b: 0.90, intensity: 1.12),
   # UnitMangonel
   TileColor(r: 0.75, g: 0.35, b: 0.95, intensity: 1.18),
+  # UnitGoblin
+  TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.12),
   # UnitBoat
   TileColor(r: 0.95, g: 0.35, b: 0.75, intensity: 1.12),
 ]
@@ -29,6 +31,7 @@ const UnitAttackObservationCodes: array[AgentUnitClass, uint8] = [
   ActionTintAttackMonk,
   ActionTintAttackBatteringRam,
   ActionTintAttackMangonel,
+  ActionTintAttackVillager,
   ActionTintAttackBoat,
 ]
 
@@ -41,6 +44,7 @@ const UnitAttackTintDurations: array[AgentUnitClass, int8] = [
   2'i8, # UnitMonk
   3'i8, # UnitBatteringRam
   3'i8, # UnitMangonel
+  1'i8, # UnitGoblin
   2'i8, # UnitBoat
 ]
 
@@ -565,7 +569,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
         case thing.kind:
         of Relic:
-          if agent.unitClass == UnitMonk:
+          if agent.unitClass in {UnitMonk, UnitGoblin}:
             let stored = getInv(thing, ItemGold)
             if stored > 0:
               if env.giveItem(agent, ItemGold):

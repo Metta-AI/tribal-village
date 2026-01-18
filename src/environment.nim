@@ -250,6 +250,7 @@ const
     MonkMaxHp,
     BatteringRamMaxHp,
     MangonelMaxHp,
+    GoblinMaxHp,
     VillagerMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
@@ -261,6 +262,7 @@ const
     MonkAttackDamage,
     BatteringRamAttackDamage,
     MangonelAttackDamage,
+    GoblinAttackDamage,
     VillagerAttackDamage
   ]
 
@@ -696,7 +698,8 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   ## Check if a position is within map bounds, empty, and not blocked terrain
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
     pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
-    env.isEmpty(pos) and not env.hasDoor(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
+    env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
+    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
     true
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =

@@ -29,7 +29,9 @@ const
   # Eight bases with 125 agents each -> 1000 agents total.
   MapRoomObjectsHouses* = 8
   MapAgentsPerVillage* = 125
-  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerVillage  # Agent slots across all villages
+  MapRoomObjectsGoblinAgents* = 6
+  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerVillage + MapRoomObjectsGoblinAgents
+    ## Agent slots across all villages plus goblins
   MapRoomObjectsMagmaPools* = 44
   MapRoomObjectsMagmaClusters* = 28
   MapRoomObjectsStoneClusters* = 48
@@ -41,6 +43,8 @@ const
   MapRoomObjectsBears* = 6
   MapRoomObjectsWolves* = 12
   MapRoomObjectsRelics* = 12
+  MapRoomObjectsGoblinHuts* = 3
+  MapRoomObjectsGoblinTotems* = 2
 
   # Agent Parameters
   MapObjectAgentMaxInventory* = 5
@@ -92,6 +96,7 @@ const
   MonkAttackDamage* = 0
   BatteringRamAttackDamage* = 2
   MangonelAttackDamage* = 2
+  GoblinAttackDamage* = 1
   VillagerMaxHp* = AgentMaxHp
   ManAtArmsMaxHp* = 7
   ArcherMaxHp* = 4
@@ -100,6 +105,7 @@ const
   MonkMaxHp* = 4
   BatteringRamMaxHp* = 18
   MangonelMaxHp* = 12
+  GoblinMaxHp* = 4
   ArcherBaseRange* = 3
   MangonelBaseRange* = 3
   MangonelAoELength* = 4
@@ -225,6 +231,9 @@ type
     ThingMonasteryLayer
     ThingUniversityLayer
     ThingCastleLayer
+    ThingGoblinHiveLayer
+    ThingGoblinHutLayer
+    ThingGoblinTotemLayer
     ThingStubbleLayer
     ThingCliffEdgeNLayer
     ThingCliffEdgeELayer
@@ -279,6 +288,7 @@ type
     UnitMonk
     UnitBatteringRam
     UnitMangonel
+    UnitGoblin
     UnitBoat
 
   ThingKind* = enum
@@ -328,6 +338,9 @@ type
     Monastery
     University
     Castle
+    GoblinHive
+    GoblinHut
+    GoblinTotem
     Stubble  # Harvested wheat residue
     CliffEdgeN
     CliffEdgeE
