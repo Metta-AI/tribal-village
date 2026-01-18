@@ -274,6 +274,70 @@ proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thi
       discard
   0'u8
 
+proc canStartBuilderMarketTrade(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  if controller.getBuildingCount(env, teamId, Market) == 0:
+    return false
+  if agent.inventoryGold > 0 and env.stockpileCount(teamId, ResourceFood) < 10:
+    return true
+  var hasNonFood = false
+  for key, count in agent.inventory.pairs:
+    if count <= 0 or not isStockpileResourceKey(key):
+      continue
+    let res = stockpileResourceForItem(key)
+    if res notin {ResourceFood, ResourceWater, ResourceGold}:
+      hasNonFood = true
+      break
+  hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
+
+proc optBuilderMarketTrade(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
+  if isNil(market):
+    return 0'u8
+  return (if isAdjacent(agent.pos, market.pos):
+    controller.useAt(env, agent, agentId, state, market.pos)
+  else:
+    controller.moveTo(env, agent, agentId, state, market.pos))
+
+proc findNearestNeutralHub(env: Environment, pos: IVec2): Thing =
+  var best: Thing = nil
+  var bestDist = int.high
+  for thing in env.things:
+    if thing.isNil:
+      continue
+    if thing.teamId >= 0:
+      continue
+    if not isBuildingKind(thing.kind):
+      continue
+    if thing.kind notin {Castle, Market, Outpost, University, Blacksmith, Barracks,
+                         ArcheryRange, Stable, SiegeWorkshop, Monastery, TownCenter,
+                         Mill, Granary, LumberCamp, Quarry, MiningCamp, Dock}:
+      continue
+    let dist = int(chebyshevDist(thing.pos, pos))
+    if dist < bestDist:
+      bestDist = dist
+      best = thing
+  best
+
+proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  if agent.inventory.len != 0:
+    return false
+  let hub = findNearestNeutralHub(env, agent.pos)
+  not isNil(hub) and chebyshevDist(agent.pos, hub.pos) > 6'i32
+
+proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): uint8 =
+  let hub = findNearestNeutralHub(env, agent.pos)
+  if isNil(hub):
+    return 0'u8
+  if isAdjacent(agent.pos, hub.pos):
+    return 0'u8
+  controller.moveTo(env, agent, agentId, state, hub.pos)
+
 proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
@@ -347,6 +411,20 @@ let BuilderOptions = [
     canStart: canStartBuilderGatherScarce,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderGatherScarce,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMarketTrade",
+    canStart: canStartBuilderMarketTrade,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderMarketTrade,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderVisitTradingHub",
+    canStart: canStartBuilderVisitTradingHub,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderVisitTradingHub,
     interruptible: true
   ),
   OptionDef(

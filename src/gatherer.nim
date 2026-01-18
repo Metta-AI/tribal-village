@@ -350,6 +350,63 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
 
+proc findIrrigationTarget(env: Environment, center: IVec2, radius: int): IVec2 =
+  let cx = center.x.int
+  let cy = center.y.int
+  let startX = max(0, cx - radius)
+  let endX = min(MapWidth - 1, cx + radius)
+  let startY = max(0, cy - radius)
+  let endY = min(MapHeight - 1, cy + radius)
+  var bestDist = int.high
+  var bestPos = ivec2(-1, -1)
+  for x in startX .. endX:
+    for y in startY .. endY:
+      if max(abs(x - cx), abs(y - cy)) > radius:
+        continue
+      if env.terrain[x][y] notin {Empty, Grass, Dune, Sand, Snow}:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      if not env.isEmpty(pos) or env.hasDoor(pos) or not isNil(env.getBackgroundThing(pos)):
+        continue
+      if isTileFrozen(pos, env):
+        continue
+      let dist = abs(x - cx) + abs(y - cy)
+      if dist < bestDist:
+        bestDist = dist
+        bestPos = pos
+  bestPos
+
+proc canStartGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  agent.inventoryWater > 0
+
+proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let target = findIrrigationTarget(env, basePos, 6)
+  if target.x < 0:
+    return 0'u8
+  if isAdjacent(agent.pos, target):
+    return controller.useAt(env, agent, agentId, state, target)
+  controller.moveTo(env, agent, agentId, state, target)
+
+proc canStartGathererScavenge(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  var total = 0
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      total += count
+  max(0, ResourceCarryCapacity - total) > 0 and env.thingsByKind[Skeleton].len > 0
+
+proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  let skeleton = env.findNearestThingSpiral(state, Skeleton)
+  if isNil(skeleton):
+    return 0'u8
+  if isAdjacent(agent.pos, skeleton.pos):
+    return controller.useAt(env, agent, agentId, state, skeleton.pos)
+  controller.moveTo(env, agent, agentId, state, skeleton.pos)
+
 proc optGathererFallbackSearch(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
@@ -395,6 +452,20 @@ let GathererOptions = [
     canStart: canStartGathererFood,
     shouldTerminate: optionsAlwaysTerminate,
     act: optGathererFood,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererIrrigate",
+    canStart: canStartGathererIrrigate,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererIrrigate,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererScavenge",
+    canStart: canStartGathererScavenge,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererScavenge,
     interruptible: true
   ),
   OptionDef(
