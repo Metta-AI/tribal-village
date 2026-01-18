@@ -814,33 +814,6 @@ proc init(env: Environment) =
         return pos
       ivec2(-1, -1)
 
-    proc placeDepositCluster(r: var Rand, kind: ThingKind, item: ItemKey, count: int,
-                             minRadius, maxRadius: int) =
-      var spot = findSpot(r, minRadius, maxRadius, ResourceGround)
-      if spot.x < 0:
-        spot = r.randomEmptyPos(env)
-      addResourceNode(env, spot, kind, item, MineDepositAmount)
-      if count <= 1:
-        return
-      var candidates = env.findEmptyPositionsAround(spot, 2)
-      let toPlace = min(count - 1, candidates.len)
-      for i in 0 ..< toPlace:
-        addResourceNode(env, candidates[i], kind, item, MineDepositAmount)
-
-    proc placeMagmaCluster(r: var Rand, minRadius, maxRadius: int) =
-      var spot = findSpot(r, minRadius, maxRadius, ResourceGround)
-      if spot.x < 0:
-        spot = r.randomEmptyPos(env)
-      if env.isSpawnable(spot) and env.terrain[spot.x][spot.y] in ResourceGround:
-        env.add(Thing(kind: Magma, pos: spot))
-      var candidates = env.findEmptyPositionsAround(spot, 2)
-      let extraCount = randIntInclusive(r, 1, 2)
-      let toPlace = min(extraCount, candidates.len)
-      for i in 0 ..< toPlace:
-        let pos = candidates[i]
-        if env.isSpawnable(pos) and env.terrain[pos.x][pos.y] in ResourceGround:
-          env.add(Thing(kind: Magma, pos: pos))
-
     var woodSpot = findSpot(r, 6, 12, ResourceGround)
     if woodSpot.x < 0:
       woodSpot = r.randomEmptyPos(env)
@@ -853,9 +826,43 @@ proc init(env: Environment) =
     placeResourceCluster(env, foodSpot.x, foodSpot.y,
       randIntInclusive(r, 4, 7), 0.85, 0.35, Wheat, ItemWheat, ResourceGround, r)
 
-    placeDepositCluster(r, Stone, ItemStone, randIntInclusive(r, 3, 4), 7, 14)
-    placeDepositCluster(r, Gold, ItemGold, randIntInclusive(r, 3, 4), 8, 15)
-    placeMagmaCluster(r, 9, 16)
+    block:
+      let count = randIntInclusive(r, 3, 4)
+      var spot = findSpot(r, 7, 14, ResourceGround)
+      if spot.x < 0:
+        spot = r.randomEmptyPos(env)
+      addResourceNode(env, spot, Stone, ItemStone, MineDepositAmount)
+      if count > 1:
+        var candidates = env.findEmptyPositionsAround(spot, 2)
+        let toPlace = min(count - 1, candidates.len)
+        for i in 0 ..< toPlace:
+          addResourceNode(env, candidates[i], Stone, ItemStone, MineDepositAmount)
+
+    block:
+      let count = randIntInclusive(r, 3, 4)
+      var spot = findSpot(r, 8, 15, ResourceGround)
+      if spot.x < 0:
+        spot = r.randomEmptyPos(env)
+      addResourceNode(env, spot, Gold, ItemGold, MineDepositAmount)
+      if count > 1:
+        var candidates = env.findEmptyPositionsAround(spot, 2)
+        let toPlace = min(count - 1, candidates.len)
+        for i in 0 ..< toPlace:
+          addResourceNode(env, candidates[i], Gold, ItemGold, MineDepositAmount)
+
+    block:
+      var spot = findSpot(r, 9, 16, ResourceGround)
+      if spot.x < 0:
+        spot = r.randomEmptyPos(env)
+      if env.isSpawnable(spot) and env.terrain[spot.x][spot.y] in ResourceGround:
+        env.add(Thing(kind: Magma, pos: spot))
+      var candidates = env.findEmptyPositionsAround(spot, 2)
+      let extraCount = randIntInclusive(r, 1, 2)
+      let toPlace = min(extraCount, candidates.len)
+      for i in 0 ..< toPlace:
+        let pos = candidates[i]
+        if env.isSpawnable(pos) and env.terrain[pos.x][pos.y] in ResourceGround:
+          env.add(Thing(kind: Magma, pos: pos))
 
   proc placeStartingHouses(center: IVec2, teamId: int, r: var Rand) =
     let count = randIntInclusive(r, 4, 5)
