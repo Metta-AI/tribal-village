@@ -72,7 +72,7 @@ CORNER_IN_ORIENTATIONS = [
 CORNER_OUT_ORIENTATIONS = [
     (
         "ne",
-        "Convex (outie) corner: cliff legs run along the north and east edges. Low/drop pocket is inside the corner in the northeast quadrant; high ground/rim with grass is outside the corner in the southwest quadrant.",
+        "Convex (outie) corner: a cliff descends from the north edge and curves eastward continuing along the east edge. The higher ground (rim with grass) is on the near/inside side of the cliff; the northeast quadrant is lower ground (drop pocket).",
     ),
     (
         "nw",
