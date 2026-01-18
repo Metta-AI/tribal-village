@@ -69,31 +69,12 @@ CORNER_IN_ORIENTATIONS = [
     ),
 ]
 
-CORNER_OUT_ORIENTATIONS = [
-    (
-        "ne",
-        "Convex (outie) corner: a cliff descends from the north edge and curves eastward continuing along the east edge. The higher ground (rim with grass) is on the near/inside side of the cliff; the northeast quadrant is lower ground (drop pocket).",
-    ),
-    (
-        "nw",
-        "Convex (outie) corner: mostly high ground/rim, about three-quarters of the tile elevated. The cliff forms along the north and west edges, with only a shallow low pocket in the northwest corner; the rest of the tile is higher ground with grass on the rim.",
-    ),
-    (
-        "se",
-        "Convex (outie) corner: cliff legs run along the south and east edges. Low/drop pocket is inside the corner in the southeast quadrant; high ground/rim with grass is outside the corner in the northwest quadrant.",
-    ),
-    (
-        "sw",
-        "Convex (outie) corner: cliff legs run along the south and west edges. Low/drop pocket is inside the corner in the southwest quadrant; high ground/rim with grass is outside the corner in the northeast quadrant.",
-    ),
-]
 
 ORIENTATION_SETS = {
     "unit": ORIENTATION_TEMPLATES,
     "edge": EDGE_ORIENTATIONS,
     "corner": CORNER_IN_ORIENTATIONS,
     "corner_in": CORNER_IN_ORIENTATIONS,
-    "corner_out": CORNER_OUT_ORIENTATIONS,
 }
 
 
@@ -642,17 +623,13 @@ FLIP_ORIENTATIONS = {
         "nw": "ne",
         "sw": "se",
     },
-    "corner_out": {
-        "ne": "nw",
-        "se": "sw",
-    },
     "edge": {
         "ns_w": "ns",
     },
 }
 
 def oriented_uses_purple_bg(output: OrientedOutput) -> bool:
-    return output.orientation_set in {"unit", "corner", "edge", "corner_in", "corner_out"}
+    return output.orientation_set in {"unit", "corner", "edge", "corner_in"}
 
 
 def main() -> None:
