@@ -680,15 +680,15 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     riverPath.add(currentPos)
 
     currentPos.x += 1  # Always move right
-    if randChance(r, 0.04):
+    if randChance(r, 0.02):
       targetY = randIntInclusive(r, yMin, yMax)
     let dyBias = if targetY < currentPos.y.int: -1 elif targetY > currentPos.y.int: 1 else: 0
-    if randChance(r, 0.25):
+    if randChance(r, 0.12):
       yVel += dyBias
-    elif randChance(r, 0.08):
+    elif randChance(r, 0.03):
       yVel += sample(r, [-1, 1])
     yVel = max(-1, min(1, yVel))
-    if yVel != 0 or randChance(r, 0.15):
+    if yVel != 0 or randChance(r, 0.08):
       currentPos.y += yVel.int32
     if currentPos.y < yMin.int32:
       currentPos.y = yMin.int32
@@ -707,13 +707,13 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     var yBranchVel = dirY
     while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
       secondaryPos.x += 1
-      if randChance(r, 0.15):
+      if randChance(r, 0.08):
         yBranchVel += sample(r, [-1, 1])
       yBranchVel = max(-1, min(1, yBranchVel))
       if yBranchVel == 0:
         yBranchVel = dirY
       secondaryPos.y += yBranchVel.int32
-      if randChance(r, 0.08):
+      if randChance(r, 0.04):
         secondaryPos.y += sample(r, [-1, 0, 1]).int32
       if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
          secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:

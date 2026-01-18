@@ -18,6 +18,8 @@ const
   TradingHubSize = 15
   TradingHubTint = TileColor(r: 0.58, g: 0.58, b: 0.58, intensity: 1.0)
 
+type TreeOasis = tuple[center: IVec2, rx: int, ry: int]
+
 proc randInteriorPos(r: var Rand, pad: int): IVec2 =
   let x = randIntInclusive(r, MapBorder + pad, MapWidth - MapBorder - pad)
   let y = randIntInclusive(r, MapBorder + pad, MapHeight - MapBorder - pad)
@@ -25,6 +27,10 @@ proc randInteriorPos(r: var Rand, pad: int): IVec2 =
 
 template isSpawnable(env: Environment, pos: IVec2): bool =
   env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos)
+
+proc setTerrain(env: Environment, pos: IVec2, kind: TerrainType) {.inline.} =
+  env.terrain[pos.x][pos.y] = kind
+  env.resetTileColor(pos)
 
 proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
@@ -36,6 +42,9 @@ proc isNearWater(env: Environment, x, y, radius: int): bool =
       if env.terrain[checkX][checkY] == Water:
         return true
   false
+
+proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =
+  isNearWater(env, pos.x.int, pos.y.int, radius)
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
@@ -206,35 +215,20 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   let y0 = centerY - half
   let y1 = centerY + half
 
-  proc clearThings(pos: IVec2) =
-    let existing = env.getThing(pos)
-    if not isNil(existing):
-      removeThing(env, existing)
-    let background = env.getBackgroundThing(pos)
-    if not isNil(background):
-      removeThing(env, background)
-
   for x in x0 .. x1:
     for y in y0 .. y1:
       if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
         continue
       let pos = ivec2(x.int32, y.int32)
-      clearThings(pos)
-      env.terrain[x][y] = Empty
-      env.resetTileColor(pos)
+      let existing = env.getThing(pos)
+      if not isNil(existing):
+        removeThing(env, existing)
+      let background = env.getBackgroundThing(pos)
+      if not isNil(background):
+        removeThing(env, background)
+      setTerrain(env, pos, Empty)
       env.baseTintColors[x][y] = TradingHubTint
       env.tintLocked[x][y] = true
-
-  proc paintRoad(x, y: int) =
-    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
-        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
-      return
-    let pos = ivec2(x.int32, y.int32)
-    if env.terrain[x][y] == Water:
-      env.terrain[x][y] = Bridge
-    else:
-      env.terrain[x][y] = Road
-    env.resetTileColor(pos)
 
   proc extendRoad(startX, startY, dx, dy: int) =
     var x = startX
@@ -242,8 +236,12 @@ proc placeTradingHub(env: Environment, r: var Rand) =
     while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
         y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
       let outsideHub = x < x0 or x > x1 or y < y0 or y > y1
+      let pos = ivec2(x.int32, y.int32)
       let existing = env.terrain[x][y]
-      paintRoad(x, y)
+      if env.terrain[x][y] == Water:
+        setTerrain(env, pos, Bridge)
+      else:
+        setTerrain(env, pos, Road)
       if outsideHub and existing in {Road, Bridge}:
         break
       x += dx
@@ -254,16 +252,13 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   extendRoad(roadX, centerY, -1, 0)
   extendRoad(roadX, centerY, 0, 1)
   extendRoad(roadX, centerY, 0, -1)
-  proc isHubRoad(x, y: int): bool =
-    x == roadX or y == centerY
-
   proc canPlaceHubThing(x, y: int): bool =
     if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
         y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
       return false
     if env.terrain[x][y] in {Water, Road, Bridge}:
       return false
-    if isHubRoad(x, y):
+    if x == roadX or y == centerY:
       return false
     let pos = ivec2(x.int32, y.int32)
     if not env.isEmpty(pos):
@@ -284,31 +279,47 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
   let wallMinY = max(MapBorder + 1, y0 - 2)
   let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
-  let wallJitter = 2
-  let wallChance = 0.65
+  let wallChance = 0.6
+  let driftChance = 0.45
+  let topMin = wallMinY
+  let topMax = min(wallMaxY, y0 + 2)
+  let bottomMin = max(wallMinY, y1 - 2)
+  let bottomMax = wallMaxY
+  var topY = y0 - 1
+  var bottomY = y1 + 1
 
   for x in wallMinX .. wallMaxX:
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(x, max(wallMinY, min(wallMaxY, y0 - 1 + jitter)))
+      tryAddWall(x, topY)
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(x, max(wallMinY, min(wallMaxY, y1 + 1 + jitter)))
+      tryAddWall(x, bottomY)
+    if randChance(r, driftChance):
+      topY = max(topMin, min(topMax, topY + randIntInclusive(r, -1, 1)))
+    if randChance(r, driftChance):
+      bottomY = max(bottomMin, min(bottomMax, bottomY + randIntInclusive(r, -1, 1)))
 
+  let leftMin = wallMinX
+  let leftMax = min(wallMaxX, x0 + 2)
+  let rightMin = max(wallMinX, x1 - 2)
+  let rightMax = wallMaxX
+  var leftX = x0 - 1
+  var rightX = x1 + 1
   for y in wallMinY .. wallMaxY:
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(max(wallMinX, min(wallMaxX, x0 - 1 + jitter)), y)
+      tryAddWall(leftX, y)
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(max(wallMinX, min(wallMaxX, x1 + 1 + jitter)), y)
+      tryAddWall(rightX, y)
+    if randChance(r, driftChance):
+      leftX = max(leftMin, min(leftMax, leftX + randIntInclusive(r, -1, 1)))
+    if randChance(r, driftChance):
+      rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(r, -1, 1)))
 
-  let spurCount = randIntInclusive(r, 6, 10)
+  let spurCount = randIntInclusive(r, 8, 14)
   let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
   for _ in 0 ..< spurCount:
     let startX = randIntInclusive(r, x0 + 1, x1 - 1)
     let startY = randIntInclusive(r, y0 + 1, y1 - 1)
-    if isHubRoad(startX, startY):
+    if startX == roadX or startY == centerY:
       continue
     let dir = spurDirs[randIntInclusive(r, 0, spurDirs.len - 1)]
     let length = randIntInclusive(r, 2, 4)
@@ -385,6 +396,36 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       building.barrelCapacity = capacity
     env.add(building)
     inc extraPlaced
+  let scatterPool = [
+    House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
+    LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
+  ]
+  let scatterTarget = randIntInclusive(r, 18, 30)
+  let scatterRadius = half + 8
+  let scatterInner = half + 2
+  var scatterPlaced = 0
+  var scatterAttempts = 0
+  while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
+    inc scatterAttempts
+    let x = randIntInclusive(r, centerX - scatterRadius, centerX + scatterRadius)
+    let y = randIntInclusive(r, centerY - scatterRadius, centerY + scatterRadius)
+    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
+        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
+      continue
+    if x >= x0 and x <= x1 and y >= y0 and y <= y1:
+      continue
+    let dist = max(abs(x - centerX), abs(y - centerY))
+    if dist < scatterInner or dist > scatterRadius:
+      continue
+    if not canPlaceHubThing(x, y):
+      continue
+    let kind = scatterPool[randIntInclusive(r, 0, scatterPool.len - 1)]
+    let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
+    let capacity = buildingBarrelCapacity(kind)
+    if capacity > 0:
+      building.barrelCapacity = capacity
+    env.add(building)
+    inc scatterPlaced
 
 proc placeTemple(env: Environment, r: var Rand, villageCenters: seq[IVec2]) =
   const TempleMinDistance = 10
@@ -461,13 +502,68 @@ proc init(env: Environment) =
   # Water features override biome terrain before elevation/cliffs.
   applySwampWater(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, r, BiomeSwampConfig())
   env.terrain.generateRiver(MapWidth, MapHeight, MapBorder, r)
+  var treeOases: seq[TreeOasis] = @[]
+  if UseTreeOases:
+    template canPlaceOasisWater(pos: IVec2): bool =
+      env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos) and
+        env.terrain[pos.x][pos.y] notin {Road, Bridge}
+
+    proc carveTreeOasisWater(center: IVec2, rx, ry: int) =
+      let centerX = center.x.int
+      let centerY = center.y.int
+      for ox in -(rx + 1) .. (rx + 1):
+        for oy in -(ry + 1) .. (ry + 1):
+          let px = centerX + ox
+          let py = centerY + oy
+          if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
+            continue
+          let waterPos = ivec2(px.int32, py.int32)
+          if not canPlaceOasisWater(waterPos):
+            continue
+          let dx = ox.float / rx.float
+          let dy = oy.float / ry.float
+          let dist = dx * dx + dy * dy
+          if dist <= 1.0 + (randFloat(r) - 0.5) * 0.35:
+            setTerrain(env, waterPos, Water)
+
+      for _ in 0 ..< randIntInclusive(r, 1, 2):
+        var pos = center
+        for _ in 0 ..< randIntInclusive(r, 4, 10):
+          let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
+                               ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
+          pos += dir
+          if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
+             pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
+            break
+          if not canPlaceOasisWater(pos):
+            continue
+          setTerrain(env, pos, Water)
+
+    let numGroves = randIntInclusive(r, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
+    for _ in 0 ..< numGroves:
+      var placed = false
+      for attempt in 0 ..< 16:
+        let pos = randInteriorPos(r, 3)
+        if isNearWater(env, pos, 5) or attempt > 10:
+          let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+          let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+          carveTreeOasisWater(pos, rx, ry)
+          treeOases.add((center: pos, rx: rx, ry: ry))
+          placed = true
+          break
+      if not placed:
+        let pos = randInteriorPos(r, 3)
+        let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+        let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+        carveTreeOasisWater(pos, rx, ry)
+        treeOases.add((center: pos, rx: rx, ry: ry))
   env.applyBiomeElevation()
   env.applyCliffRamps()
   env.applyCliffs()
-  env.applyBiomeBaseColors()
 
   # Resource nodes are spawned as Things later; base terrain stays walkable.
 
+  # Blocking structures pass (city/dungeon/border walls).
   # Convert city blocks into walls (roads remain passable).
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
@@ -486,7 +582,7 @@ proc init(env: Environment) =
           removeThing(env, existing)
         else:
           continue
-      env.terrain[x][y] = Empty
+      setTerrain(env, pos, Empty)
       env.add(Thing(kind: Wall, pos: pos))
 
   # Add sparse dungeon walls using procedural dungeon masks.
@@ -507,25 +603,11 @@ proc init(env: Environment) =
       var zoneMask: MaskGrid
       buildZoneBlobMask(zoneMask, MapWidth, MapHeight, MapBorder, zone, r)
 
-      # Tint the dungeon zone background with a soft edge blend.
-      let dungeonBlendDepth = 4
       for x in x0 ..< x1:
         for y in y0 ..< y1:
           if not zoneMask[x][y]:
             continue
           env.biomes[x][y] = BiomeDungeonType
-          let edge = maskEdgeDistance(zoneMask, MapWidth, MapHeight, x, y, dungeonBlendDepth)
-          let t = if dungeonBlendDepth <= 0: 1.0'f32 else:
-            min(1.0'f32, max(0.0'f32, edge.float32 / dungeonBlendDepth.float32))
-          let dungeonColor = biomeBaseColor(BiomeDungeonType)
-          let base = env.baseTintColors[x][y]
-          let tClamped = max(0.0'f32, min(1.0'f32, t))
-          env.baseTintColors[x][y] = TileColor(
-            r: base.r * (1.0 - tClamped) + dungeonColor.r * tClamped,
-            g: base.g * (1.0 - tClamped) + dungeonColor.g * tClamped,
-            b: base.b * (1.0 - tClamped) + dungeonColor.b * tClamped,
-            intensity: base.intensity * (1.0 - tClamped) + dungeonColor.intensity * tClamped
-          )
       var mask: MaskGrid
       let dungeonKind = if UseSequentialDungeonZones:
         inc seqIdx
@@ -573,6 +655,9 @@ proc init(env: Environment) =
             continue
         env.add(Thing(kind: Wall, pos: pos))
 
+  # Apply biome colors after dungeon biomes are finalized.
+  env.applyBiomeBaseColors()
+
   if MapBorder > 0:
     proc addBorderWall(pos: IVec2) =
       if not isNil(env.getBackgroundThing(pos)):
@@ -604,10 +689,8 @@ proc init(env: Environment) =
     var candidates: seq[IVec2] = @[]
     for dx in -3 .. 3:
       for dy in -3 .. 3:
-        if dx == 0 and dy == 0:
-          continue
         let dist = max(abs(dx), abs(dy))
-        if dist < 1 or dist > 3:
+        if dist == 0 or dist > 3:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
         if pos == center + ivec2(2, -2) or pos == center + ivec2(2, 2) or
@@ -618,9 +701,7 @@ proc init(env: Environment) =
       let j = randIntInclusive(r, 0, i)
       swap(candidates[i], candidates[j])
     for pos in candidates:
-      if not isValidPos(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water:
+      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
         continue
       let existing = env.getThing(pos)
       if not isNil(existing):
@@ -628,9 +709,7 @@ proc init(env: Environment) =
           removeThing(env, existing)
         else:
           continue
-      if env.hasDoor(pos):
-        continue
-      if not env.isEmpty(pos):
+      if env.hasDoor(pos) or not env.isEmpty(pos):
         continue
       env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
       return pos
@@ -642,11 +721,7 @@ proc init(env: Environment) =
     center
   proc placeStartingRoads(center: IVec2, teamId: int, r: var Rand) =
     proc placeRoad(pos: IVec2) =
-      if not isValidPos(pos):
-        return
-      if env.terrain[pos.x][pos.y] == Water:
-        return
-      if env.hasDoor(pos):
+      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or env.hasDoor(pos):
         return
       let existing = env.getThing(pos)
       if not isNil(existing):
@@ -655,8 +730,7 @@ proc init(env: Environment) =
         else:
           return
       if env.terrain[pos.x][pos.y] != Road:
-        env.terrain[pos.x][pos.y] = Road
-        env.resetTileColor(pos)
+        setTerrain(env, pos, Road)
 
     var anchors: seq[IVec2] = @[center]
     for thing in env.things:
@@ -714,11 +788,8 @@ proc init(env: Environment) =
             if radius > 0 and max(abs(dx), abs(dy)) != radius:
               continue
             let pos = center + entry.offset + ivec2(dx.int32, dy.int32)
-            if not isValidPos(pos):
-              continue
-            if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
-              continue
-            if env.hasDoor(pos):
+            if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or
+                isTileFrozen(pos, env) or env.hasDoor(pos):
               continue
             let existing = env.getThing(pos)
             if not isNil(existing):
@@ -753,11 +824,8 @@ proc init(env: Environment) =
         if dist < minRadius or dist > maxRadius:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] notin allowedTerrain:
-          continue
-        if not env.isSpawnable(pos):
+        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+            not env.isSpawnable(pos):
           continue
         return pos
       for attempt in 0 ..< 40:
@@ -768,11 +836,8 @@ proc init(env: Environment) =
         if dist < minRadius or dist > radius:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] notin allowedTerrain:
-          continue
-        if not env.isSpawnable(pos):
+        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+            not env.isSpawnable(pos):
           continue
         return pos
       ivec2(-1, -1)
@@ -832,11 +897,8 @@ proc init(env: Environment) =
       if dist < 3 or dist > 5:
         continue
       let pos = center + ivec2(dx.int32, dy.int32)
-      if not isValidPos(pos):
-        continue
-      if env.hasDoor(pos) or not env.isEmpty(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
+      if not isValidPos(pos) or env.hasDoor(pos) or not env.isEmpty(pos) or
+          env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
         continue
       env.add(Thing(
         kind: House,
@@ -919,8 +981,7 @@ proc init(env: Environment) =
                 continue
             # Clear any terrain features (wheat, trees) but keep blocked terrain
             if not isBlockedTerrain(env.terrain[clearX][clearY]):
-              env.terrain[clearX][clearY] = Empty
-              env.resetTileColor(ivec2(clearX.int32, clearY.int32))
+              setTerrain(env, ivec2(clearX.int32, clearY.int32), Empty)
 
       # Generate a distinct warm color for this village (avoid cool/blue hues)
       let villageColor = WarmVillagePalette[i]
@@ -1186,8 +1247,7 @@ proc init(env: Environment) =
         for dy in -HiveRadius .. HiveRadius:
           let pos = center + ivec2(dx, dy)
           if isValidPos(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]):
-            env.terrain[pos.x][pos.y] = Empty
-            env.resetTileColor(pos)
+            setTerrain(env, pos, Empty)
       return center
     var fallback = r.randomEmptyPos(env)
     var tries = 0
@@ -1335,8 +1395,7 @@ proc init(env: Environment) =
           let clearPos = targetPos + ivec2(dx, dy)
           if clearPos.x >= 0 and clearPos.x < MapWidth and clearPos.y >= 0 and clearPos.y < MapHeight:
             if not isBlockedTerrain(env.terrain[clearPos.x][clearPos.y]):
-              env.terrain[clearPos.x][clearPos.y] = Empty
-              env.resetTileColor(clearPos)
+              setTerrain(env, clearPos, Empty)
 
       env.add(Thing(
         kind: Spawner,
@@ -1425,8 +1484,7 @@ proc init(env: Environment) =
         let pos = randInteriorPos(r, 3)
         let x = pos.x.int
         let y = pos.y.int
-        let nearWater = env.isNearWater(x, y, 5)
-        if nearWater or attempt > 10:
+        if isNearWater(env, pos, 5) or attempt > 10:
           let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
           for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
             placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
@@ -1442,71 +1500,23 @@ proc init(env: Environment) =
           placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
             Wheat, ItemWheat, ResourceGround, r)
 
-    proc placeTreeOasis(centerX, centerY: int) =
-      let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-      let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-      template canPlaceWater(pos: IVec2): bool =
-        env.isSpawnable(pos) and env.terrain[pos.x][pos.y] notin {Road, Bridge}
-      for ox in -(rx + 1) .. (rx + 1):
-        for oy in -(ry + 1) .. (ry + 1):
-          let px = centerX + ox
-          let py = centerY + oy
-          if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
-            continue
-          let waterPos = ivec2(px.int32, py.int32)
-          if not canPlaceWater(waterPos):
-            continue
-          let dx = ox.float / rx.float
-          let dy = oy.float / ry.float
-          let dist = dx * dx + dy * dy
-          if dist <= 1.0 + (randFloat(r) - 0.5) * 0.35:
-            env.terrain[px][py] = Water
-            env.resetTileColor(waterPos)
-
-      for _ in 0 ..< randIntInclusive(r, 1, 2):
-        var pos = ivec2(centerX.int32, centerY.int32)
-        for _ in 0 ..< randIntInclusive(r, 4, 10):
-          let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
-                               ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
-          pos += dir
-          if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
-             pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
-            break
-          if not canPlaceWater(pos):
-            continue
-          env.terrain[pos.x][pos.y] = Water
-          env.resetTileColor(pos)
-
-      for ox in -(rx + 2) .. (rx + 2):
-        for oy in -(ry + 2) .. (ry + 2):
+    proc placeTreeOasisTrees(oasis: TreeOasis) =
+      let centerX = oasis.center.x.int
+      let centerY = oasis.center.y.int
+      for ox in -(oasis.rx + 2) .. (oasis.rx + 2):
+        for oy in -(oasis.ry + 2) .. (oasis.ry + 2):
           let px = centerX + ox
           let py = centerY + oy
           if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
             continue
           if env.terrain[px][py] == Water:
             continue
-          let nearWater = env.isNearWater(px, py, 1)
-          if nearWater and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
-            addResourceNode(env, ivec2(px.int32, py.int32), Tree, ItemWood)
+          let pos = ivec2(px.int32, py.int32)
+          if isNearWater(env, pos, 1) and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
+            addResourceNode(env, pos, Tree, ItemWood)
 
-    if UseTreeOases:
-      let numGroves = randIntInclusive(r, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
-      for _ in 0 ..< numGroves:
-        var placed = false
-        for attempt in 0 ..< 16:
-          let pos = randInteriorPos(r, 3)
-          let x = pos.x.int
-          let y = pos.y.int
-          let nearWater = env.isNearWater(x, y, 5)
-          if nearWater or attempt > 10:
-            placeTreeOasis(x, y)
-            placed = true
-            break
-        if not placed:
-          let pos = randInteriorPos(r, 3)
-          let x = pos.x.int
-          let y = pos.y.int
-          placeTreeOasis(x, y)
+    for oasis in treeOases:
+      placeTreeOasisTrees(oasis)
 
     if UseLegacyTreeClusters:
       let numGroves = randIntInclusive(r, TreeGroveClusterCountMin, TreeGroveClusterCountMax)
@@ -1601,8 +1611,7 @@ proc init(env: Environment) =
         let pos = randInteriorPos(r, 2)
         let x = pos.x.int
         let y = pos.y.int
-        let nearWater = env.isNearWater(x, y, 4)
-        if nearWater or attempts >= 10:
+        if isNearWater(env, pos, 4) or attempts >= 10:
           let size = randIntInclusive(r, 3, 7)
           placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
           placed = true
