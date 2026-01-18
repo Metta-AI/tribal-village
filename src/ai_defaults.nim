@@ -386,6 +386,8 @@ include "options"
 include "gatherer"
 include "builder"
 include "fighter"
+include "roles"
+include "evolution"
 
 const GoblinAvoidRadius = 6
 

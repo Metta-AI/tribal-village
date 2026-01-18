@@ -148,9 +148,6 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
   )
   if isBuilding and kind != Barrel:
     placed.teamId = getTeamId(agent)
-  if kind == Door:
-    placed.hp = DoorMaxHearts
-    placed.maxHp = DoorMaxHearts
   case kind
   of Lantern:
     placed.teamId = getTeamId(agent)
