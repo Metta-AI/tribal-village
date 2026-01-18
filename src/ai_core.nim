@@ -410,7 +410,11 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
 
     if not isValidPos(thing.pos):
       continue
-    if env.grid[thing.pos.x][thing.pos.y] != thing and env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
+    let placed = if thingBlocksMovement(thing.kind):
+      env.grid[thing.pos.x][thing.pos.y]
+    else:
+      env.overlayGrid[thing.pos.x][thing.pos.y]
+    if placed != thing:
       continue
 
     let dx = thing.pos.x - agent.pos.x
