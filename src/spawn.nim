@@ -211,26 +211,6 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       env.baseTintColors[x][y] = TradingHubTint
       env.tintLocked[x][y] = true
 
-  let riverThrough = randChance(r, 0.55)
-  let riverX = centerX
-  let riverWest = max(MapBorder + 1, x0 - 2)
-  let riverEast = min(MapWidth - MapBorder - 2, x1 + 2)
-
-  proc carveRiverAt(x: int) =
-    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1:
-      return
-    for y in (MapBorder + 1) .. (MapHeight - MapBorder - 2):
-      let pos = ivec2(x.int32, y.int32)
-      clearThings(pos)
-      env.terrain[x][y] = Water
-      env.resetTileColor(pos)
-
-  if riverThrough:
-    carveRiverAt(riverX)
-  else:
-    carveRiverAt(riverWest)
-    carveRiverAt(riverEast)
-
   proc paintRoad(x, y: int) =
     if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
         y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
@@ -255,7 +235,7 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       x += dx
       y += dy
 
-  let roadX = if riverThrough: min(centerX + 1, x1 - 1) else: centerX
+  let roadX = centerX
   extendRoad(roadX, centerY, 1, 0)
   extendRoad(roadX, centerY, -1, 0)
   extendRoad(roadX, centerY, 0, 1)
