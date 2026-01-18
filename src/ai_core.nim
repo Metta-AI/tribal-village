@@ -338,6 +338,8 @@ proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kin
         continue
       if not isBuildingKind(thing.kind):
         continue
+      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsHouses:
+        continue
       controller.buildingCounts[thing.teamId][thing.kind] += 1
   controller.buildingCounts[teamId][kind]
 

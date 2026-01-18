@@ -15,6 +15,9 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
 const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
   TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
+  TradingHubSize = 15
+  TradingHubGateInset = 0
+  TradingHubTint = TileColor(r: 0.58, g: 0.58, b: 0.58, intensity: 1.0)
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
@@ -180,6 +183,69 @@ proc applyCliffs(env: Environment) =
       if hasCliff:
         env.addCliffThing(kind, ivec2(x.int32, y.int32))
 
+proc placeTradingHub(env: Environment) =
+  let centerX = MapWidth div 2
+  let centerY = MapHeight div 2
+  let half = TradingHubSize div 2
+  let x0 = centerX - half
+  let x1 = centerX + half
+  let y0 = centerY - half
+  let y1 = centerY + half
+
+  proc clearHubTile(x, y: int) =
+    if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
+      return
+    let pos = ivec2(x.int32, y.int32)
+    let existing = env.getThing(pos)
+    if not isNil(existing):
+      removeThing(env, existing)
+    let overlay = env.getOverlayThing(pos)
+    if not isNil(overlay):
+      removeThing(env, overlay)
+    env.terrain[x][y] = Empty
+    env.resetTileColor(pos)
+    env.baseTintColors[x][y] = TradingHubTint
+    env.tintLocked[x][y] = true
+
+  for x in x0 .. x1:
+    for y in y0 .. y1:
+      clearHubTile(x, y)
+
+  let gateNorth = ivec2(centerX.int32, (y0 + TradingHubGateInset).int32)
+  let gateSouth = ivec2(centerX.int32, (y1 - TradingHubGateInset).int32)
+  let corners = [
+    ivec2(x0.int32, y0.int32),
+    ivec2(x0.int32, y1.int32),
+    ivec2(x1.int32, y0.int32),
+    ivec2(x1.int32, y1.int32)
+  ]
+
+  proc placeWall(pos: IVec2) =
+    if pos == gateNorth or pos == gateSouth:
+      return
+    for corner in corners:
+      if pos == corner:
+        return
+    env.add(Thing(kind: Wall, pos: pos, teamId: -1))
+
+  for x in x0 .. x1:
+    placeWall(ivec2(x.int32, y0.int32))
+    placeWall(ivec2(x.int32, y1.int32))
+  for y in y0 .. y1:
+    placeWall(ivec2(x0.int32, y.int32))
+    placeWall(ivec2(x1.int32, y.int32))
+
+  for corner in corners:
+    env.add(Thing(kind: GuardTower, pos: corner, teamId: -1))
+
+  let center = ivec2(centerX.int32, centerY.int32)
+  env.add(Thing(kind: Castle, pos: center, teamId: -1))
+
+  for offset in [ivec2(0, -3), ivec2(0, 3), ivec2(-3, 0), ivec2(3, 0)]:
+    let marketPos = center + offset
+    if isValidPos(marketPos) and env.isEmpty(marketPos):
+      env.add(Thing(kind: Market, pos: marketPos, teamId: -1))
+
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -212,6 +278,7 @@ proc init(env: Environment) =
   env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
   env.tintStrength = default(array[MapWidth, array[MapHeight, int32]])
   env.tumorStrength = default(array[MapWidth, array[MapHeight, int32]])
+  env.tintLocked = default(array[MapWidth, array[MapHeight, bool]])
 
   # Clear action tints
   env.actionTintCountdown = default(ActionTintCountdown)
@@ -340,6 +407,9 @@ proc init(env: Environment) =
       for j in 0 ..< MapBorder:
         env.add(Thing(kind: Wall, pos: ivec2(j, y)))
         env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
+
+  # Place neutral trading hub near map center before villages.
+  env.placeTradingHub()
 
   # Agents will now spawn with their villages below
   # Clear and prepare village colors arrays (use Environment fields)

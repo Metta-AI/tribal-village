@@ -597,8 +597,12 @@ proc drawObjects*() =
   drawThings(Lantern):
     let lanternKey = "lantern"
     if thing.lanternHealthy:
-      let teamColor = env.teamColors[thing.teamId]
-      bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = teamColor)
+      let teamId = thing.teamId
+      if teamId >= 0 and teamId < env.teamColors.len:
+        let teamColor = env.teamColors[teamId]
+        bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = teamColor)
+      else:
+        bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.6, 0.6, 0.6, 1.0))
     else:
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.5, 0.5, 0.5, 1.0))
 
@@ -620,13 +624,20 @@ proc drawObjects*() =
         let spriteKey = buildingSpriteKey(thing.kind)
         let tint =
           if thing.kind == Door:
-            let base = env.teamColors[thing.teamId]
-            color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
+            let teamId = thing.teamId
+            if teamId >= 0 and teamId < env.teamColors.len:
+              let base = env.teamColors[teamId]
+              color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
+            else:
+              color(0.6, 0.6, 0.6, 0.9)
           else:
             color(1, 1, 1, 1)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
+          let teamId = thing.teamId
+          if teamId < 0 or teamId >= MapRoomObjectsHouses:
+            continue
           let icon = case res
             of ResourceFood: itemSpriteKey(ItemWheat)
             of ResourceWood: itemSpriteKey(ItemWood)
@@ -634,7 +645,7 @@ proc drawObjects*() =
             of ResourceGold: itemSpriteKey(ItemGold)
             of ResourceWater: itemSpriteKey(ItemWater)
             of ResourceNone: ""
-          let count = env.teamStockpiles[thing.teamId].counts[res]
+          let count = env.teamStockpiles[teamId].counts[res]
           let iconScale = 1/320
           let labelScale = 1/200
           let iconPos = pos.vec2 + vec2(-0.18, -0.62)
