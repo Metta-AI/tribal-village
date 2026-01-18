@@ -88,6 +88,7 @@ const
   MineDepositAmount* = 100
   TownCenterPopCap* = 0
   HousePopCap* = 4
+  MaxHousePopCap* = 28
   VillagerAttackDamage* = 1
   ManAtArmsAttackDamage* = 2
   ArcherAttackDamage* = 1

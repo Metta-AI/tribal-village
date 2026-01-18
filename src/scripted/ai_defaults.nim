@@ -303,6 +303,8 @@ proc needsPopCapHouse(env: Environment, teamId: int): bool =
       let cap = buildingPopCap(thing.kind)
       if cap > 0:
         popCap += cap
+  if popCap >= MaxHousePopCap:
+    return false
   let buffer = HousePopCap
   (popCap > 0 and popCount >= popCap - buffer) or
     (popCap == 0 and hasBase and popCount >= buffer)

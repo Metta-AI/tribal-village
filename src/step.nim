@@ -404,6 +404,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if not thing.hasClaimedTerritory:
         tumorsToProcess.add(thing)
 
+  for teamId in 0 ..< teamPopCaps.len:
+    if teamPopCaps[teamId] > MaxHousePopCap:
+      teamPopCaps[teamId] = MaxHousePopCap
+
   if towerRemovals.len > 0:
     for target in towerRemovals:
       removeThing(env, target)
