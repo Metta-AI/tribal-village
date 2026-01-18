@@ -61,11 +61,11 @@ CORNER_IN_ORIENTATIONS = [
     ),
     (
         "se",
-        "Concave (innie) corner: cliff legs run along the south and east edges. Low/drop is outside the corner on S+E; high ground/rim with grass is inside the corner in the northwest quadrant.",
+        "Concave (innie) corner: cliff runs in from the west edge and turns toward the north edge. Low/drop is outside the corner on S+E; high ground/rim with grass is inside the corner in the northwest quadrant.",
     ),
     (
         "sw",
-        "Concave (innie) corner: cliff legs run along the south and west edges. Low/drop is outside the corner on S+W; high ground/rim with grass is inside the corner in the northeast quadrant.",
+        "Concave (innie) corner: cliff runs in from the east edge and turns toward the north edge. Low/drop is outside the corner on S+W; high ground/rim with grass is inside the corner in the northeast quadrant.",
     ),
 ]
 
