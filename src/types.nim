@@ -32,8 +32,8 @@ const
   MapRoomObjectsGoblinAgents* = 6
   MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerVillage + MapRoomObjectsGoblinAgents
     ## Agent slots across all villages plus goblins
-  MapRoomObjectsMagmaPools* = 44
-  MapRoomObjectsMagmaClusters* = 28
+  MapRoomObjectsMagmaPools* = 72
+  MapRoomObjectsMagmaClusters* = 36
   MapRoomObjectsStoneClusters* = 48
   MapRoomObjectsStoneClusterCount* = 28
   MapRoomObjectsGoldClusters* = 48
