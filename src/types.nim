@@ -42,7 +42,7 @@ const
   MapRoomObjectsCows* = 24
   MapRoomObjectsBears* = 6
   MapRoomObjectsWolves* = 12
-  MapRoomObjectsRelics* = 12
+  MapRoomObjectsRelics* = 18
   MapRoomObjectsGoblinHuts* = 3
   MapRoomObjectsGoblinTotems* = 2
 
