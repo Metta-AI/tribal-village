@@ -71,7 +71,8 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if target.hp > 0:
     return false
   if target.kind == Wall:
-    updateThingObs(env, target.kind, target.pos, false)
+    if isValidPos(target.pos):
+      env.updateObservations(ThingAgentLayer, target.pos, 0)
   removeThing(env, target)
   true
 

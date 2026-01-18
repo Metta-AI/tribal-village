@@ -478,8 +478,31 @@ const
     CliffCornerOutNW
   }
 
-template isCliffKind*(kind: ThingKind): bool =
-  kind in CliffKinds
+const
+  BackgroundThingKinds* = {
+    Door,
+    Wheat,
+    Stubble,
+    Tree,
+    Fish,
+    Relic,
+    Lantern,
+    Corpse,
+    Skeleton,
+    Dock,
+    CliffEdgeN,
+    CliffEdgeE,
+    CliffEdgeS,
+    CliffEdgeW,
+    CliffCornerInNE,
+    CliffCornerInSE,
+    CliffCornerInSW,
+    CliffCornerInNW,
+    CliffCornerOutNE,
+    CliffCornerOutSE,
+    CliffCornerOutSW,
+    CliffCornerOutNW
+  }
 
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.
@@ -578,8 +601,8 @@ type
     observationsInitialized*: bool  # Track whether observation tensors are populated
     things*: seq[Thing]
     agents*: seq[Thing]
-    grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking things
-    overlayGrid*: array[MapWidth, array[MapHeight, Thing]]   # Non-blocking/background things
+    grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking units
+    overlayGrid*: array[MapWidth, array[MapHeight, Thing]]   # Background (non-blocking) units
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid

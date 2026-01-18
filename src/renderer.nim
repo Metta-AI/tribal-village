@@ -624,12 +624,12 @@ proc drawObjects*() =
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
-        if thingBlocksMovement(thing.kind):
-          if env.grid[thing.pos.x][thing.pos.y] != thing:
-            continue
+        let placed = if thingBlocksMovement(thing.kind):
+          env.grid[thing.pos.x][thing.pos.y]
         else:
-          if env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
-            continue
+          env.overlayGrid[thing.pos.x][thing.pos.y]
+        if placed != thing:
+          continue
         let pos = thing.pos
         let spriteKey = buildingSpriteKey(thing.kind)
         let tint =
@@ -682,12 +682,12 @@ proc drawObjects*() =
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
-        if thingBlocksMovement(thing.kind):
-          if env.grid[thing.pos.x][thing.pos.y] != thing:
-            continue
+        let placed = if thingBlocksMovement(thing.kind):
+          env.grid[thing.pos.x][thing.pos.y]
         else:
-          if env.overlayGrid[thing.pos.x][thing.pos.y] != thing:
-            continue
+          env.overlayGrid[thing.pos.x][thing.pos.y]
+        if placed != thing:
+          continue
         let pos = thing.pos
         let infected = isTileFrozen(pos, env)
         var spriteKey = thingSpriteKey(thing.kind)

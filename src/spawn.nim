@@ -328,7 +328,7 @@ proc init(env: Environment) =
       env.baseTintColors[x][y] = BaseTileColorDefault
       env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
-  # Clear overlay grid (non-blocking things like doors and cliffs)
+  # Clear background grid (non-blocking things like doors and cliffs)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.overlayGrid[x][y] = nil

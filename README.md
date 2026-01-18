@@ -1,7 +1,8 @@
 # Tribal Village Environment
 
-Multi‑agent RL playground in Nim with a Python wrapper (PufferLib compatible). 1000 agent slots (8 teams, 125 per team;
-6 active per team at start) compete for resources while hostile tumors spread a freezing “clippy” tint across the map.
+Multi‑agent RL playground in Nim with a Python wrapper (PufferLib compatible). 1000 village agent slots (8 teams, 125 per
+team; 6 active per team at start) plus 6 goblin agents compete for resources while hostile tumors spread a freezing
+“clippy” tint across the map.
 Code: <https://github.com/Metta-AI/tribal-village>
 
 <img width="2932" height="1578" alt="image" src="https://github.com/user-attachments/assets/b1736191-ff85-48fa-b5cf-f47e441fd118" />
@@ -85,23 +86,27 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 ## Game Overview
 
 - Map: 234x148 grid, procedural rivers/fields/trees/biomes.
-- Agents: 1000 slots (8 teams, 125 per team; 6 active per team at start).
-- Resources: gold, stone, water, wheat, wood, bars, spears, lanterns, armor, bread, plants, meat (plus team stockpiles for
-  food/wood/stone/gold/water).
-- Threats: tumors spread dark clippy tint; frozen tiles/objects cannot be harvested or used until thawed.
+- Agents: 1000 village slots (8 teams, 125 per team; 6 active per team at start) plus 6 goblin agents. Dormant village
+  slots can respawn at altars by spending hearts.
+- Units: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Battering Ram, Mangonel, Boat, Goblin.
+- Resources: gold, stone, water, wheat, wood, bars, spears, lanterns, armor, bread, plants, fish, meat, relics (plus team
+  stockpiles for food/wood/stone/gold/water).
+- Threats: tumors from spawners spread clippy tint; frozen tiles/objects can't be used until thawed. Bears, wolves, and
+  goblins roam the map.
 - Coalition touches we enjoyed while building it:
   - Territory control via lanterns
   - Tiny async loops (e.g., craft armor from bars and hand off to teammates)
   - Tank / DPS / healer roles that synergize in combat
-  - Hearts power respawns for your squad
+  - Altars + hearts power respawns for your squad
   - Note: most production building cooldowns are currently 0 (use/craft actions are available every step)
 
 ### Core Gameplay Loop
 
-1. **Gather** resources (mine gold, harvest wheat, chop wood, collect water)
-2. **Craft** items using specialized buildings (forge spears, weave lanterns, etc.)
-3. **Cooperate** within teams and compete across teams
-4. **Defend** against tumors using crafted spears
+1. **Gather** resources (mine gold/stone, harvest wheat, chop wood, collect water, hunt fish/meat, forage plants)
+2. **Craft** items using specialized buildings (forge spears/armor, bake bread, weave lanterns, etc.)
+3. **Build & train** structures and units (barracks, archery range, stables, siege, monastery, castle)
+4. **Cooperate** within teams and compete across teams
+5. **Defend** against tumors, goblins, and wildlife using trained units and crafted gear
 
 ## Controls
 
@@ -114,22 +119,22 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ### Observation Space
 
-21 layers, 11x11 grid per agent:
+84 layers, 11x11 grid per agent:
 
-- **Layer 0**: Team-aware agent presence (1..8=teams, 255=Tumor)
-- **Layer 1**: Agent orientation
-- **Layers 2-9**: Inventories (gold, bar, water, wheat, wood, spear, lantern, armor)
-- **Layer 10**: Walls
-- **Layer 11**: Magma
-- **Layer 12**: Altars
-- **Layer 13**: Altar hearts
-- **Layer 14**: Action tint code (per-unit attacks, shields, heals, bonuses, mixed)
-- **Layer 15**: Bread inventory
-- **Layer 16**: Stone inventory
-- **Layer 17**: Meat inventory
-- **Layer 18**: Fish inventory
-- **Layer 19**: Plant inventory
-- **Layer 20**: Obscured (target tile above observer elevation)
+- **Terrain layers (17)**: Empty, Water, Bridge, Fertile, Road, Grass, Dune, Sand, Snow,
+  RampUpN/S/W/E, RampDownN/S/W/E
+- **Thing layers (62)**: Agent, Wall, Door, Tree, Wheat, Fish, Relic, Stone, Gold, Bush, Cactus, Stalagmite, Magma,
+  Altar, Spawner, Tumor, Cow, Bear, Wolf, Corpse, Skeleton, ClayOven, WeavingLoom, Outpost, GuardTower, Barrel, Mill,
+  Granary, LumberCamp, Quarry, MiningCamp, Stump, Lantern, TownCenter, House, Barracks, ArcheryRange, Stable,
+  SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock, Monastery, University, Castle, GoblinHive, GoblinHut,
+  GoblinTotem, Stubble, CliffEdgeN/E/S/W, CliffCornerInNE/SE/SW/NW, CliffCornerOutNE/SE/SW/NW
+- **TeamLayer**: team id + 1 for agents and team-owned buildings, 0 otherwise
+- **AgentOrientationLayer**: orientation + 1 for agents, 0 otherwise
+- **AgentUnitClassLayer**: unit class + 1 for agents, 0 otherwise
+- **TintLayer**: action/combat tint codes (`ActionTint*` in `src/types.nim`)
+- **ObscuredLayer**: 1 when target tile is above observer elevation (all other layers zeroed)
+
+Inventory is **not** encoded in spatial observations (see `src/environment.nim`).
 
 ### Action Space
 
