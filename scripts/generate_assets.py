@@ -38,7 +38,7 @@ EDGE_ORIENTATIONS = [
     ),
     (
         "ew_s",
-        "Horizontal cliff edge segment running east-west, spanning fully from left edge to right edge with no diagonal sections. A bluff that descends downward: high ground/rim with grass tufts sits on the south (bottom) side; the drop/cliff face is on the north (top) side.",
+        "Horizontal cliff edge segment running east-west, spanning fully from left edge to right edge with no diagonal sections. Depict higher ground on the south (bottom) side that descends northward down a cliff face to a lower plain on the north (top) side. Grass tufts only on the high rim.",
     ),
     (
         "ns",
@@ -72,7 +72,7 @@ CORNER_IN_ORIENTATIONS = [
 CORNER_OUT_ORIENTATIONS = [
     (
         "ne",
-        "Convex (outie) corner: cliff legs run along the north and east edges. Low/drop pocket is inside the corner in the northeast quadrant; high ground/rim with grass is outside the corner in the southwest quadrant.",
+        "Convex (outie) corner: a cliff descends from the north edge and curves eastward continuing along the east edge. The higher ground (rim with grass) is on the near/inside side of the cliff; the northeast quadrant is lower ground (drop pocket).",
     ),
     (
         "nw",
