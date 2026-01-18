@@ -25,28 +25,30 @@ proc randInteriorPos(r: var Rand, pad: int): IVec2 =
   let y = randIntInclusive(r, MapBorder + pad, MapHeight - MapBorder - pad)
   ivec2(x.int32, y.int32)
 
+template isSpawnable(env: Environment, pos: IVec2): bool =
+  env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos)
+
 proc setTerrain(env: Environment, pos: IVec2, kind: TerrainType) {.inline.} =
   env.terrain[pos.x][pos.y] = kind
   env.resetTileColor(pos)
 
-proc hasNearbyWater(env: Environment, center: IVec2, radius: int): bool =
-  let cx = center.x.int
-  let cy = center.y.int
+proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
-    let x = cx + dx
-    if x < 0 or x >= MapWidth:
-      continue
     for dy in -radius .. radius:
-      let y = cy + dy
-      if y < 0 or y >= MapHeight:
+      let checkX = x + dx
+      let checkY = y + dy
+      if checkX < 0 or checkX >= MapWidth or checkY < 0 or checkY >= MapHeight:
         continue
-      if env.terrain[x][y] == Water:
+      if env.terrain[checkX][checkY] == Water:
         return true
   false
 
+proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =
+  isNearWater(env, pos.x.int, pos.y.int, radius)
+
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
-  if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
+  if not env.isSpawnable(pos):
     return
   let node = Thing(kind: kind, pos: pos)
   node.inventory = emptyInventory()
@@ -286,26 +288,42 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
   let wallMinY = max(MapBorder + 1, y0 - 2)
   let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
-  let wallJitter = 2
-  let wallChance = 0.65
+  let wallChance = 0.6
+  let driftChance = 0.45
+  let topMin = wallMinY
+  let topMax = min(wallMaxY, y0 + 2)
+  let bottomMin = max(wallMinY, y1 - 2)
+  let bottomMax = wallMaxY
+  var topY = y0 - 1
+  var bottomY = y1 + 1
 
   for x in wallMinX .. wallMaxX:
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(x, max(wallMinY, min(wallMaxY, y0 - 1 + jitter)))
+      tryAddWall(x, topY)
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(x, max(wallMinY, min(wallMaxY, y1 + 1 + jitter)))
+      tryAddWall(x, bottomY)
+    if randChance(r, driftChance):
+      topY = max(topMin, min(topMax, topY + randIntInclusive(r, -1, 1)))
+    if randChance(r, driftChance):
+      bottomY = max(bottomMin, min(bottomMax, bottomY + randIntInclusive(r, -1, 1)))
 
+  let leftMin = wallMinX
+  let leftMax = min(wallMaxX, x0 + 2)
+  let rightMin = max(wallMinX, x1 - 2)
+  let rightMax = wallMaxX
+  var leftX = x0 - 1
+  var rightX = x1 + 1
   for y in wallMinY .. wallMaxY:
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(max(wallMinX, min(wallMaxX, x0 - 1 + jitter)), y)
+      tryAddWall(leftX, y)
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(max(wallMinX, min(wallMaxX, x1 + 1 + jitter)), y)
+      tryAddWall(rightX, y)
+    if randChance(r, driftChance):
+      leftX = max(leftMin, min(leftMax, leftX + randIntInclusive(r, -1, 1)))
+    if randChance(r, driftChance):
+      rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(r, -1, 1)))
 
-  let spurCount = randIntInclusive(r, 6, 10)
+  let spurCount = randIntInclusive(r, 8, 14)
   let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
   for _ in 0 ..< spurCount:
     let startX = randIntInclusive(r, x0 + 1, x1 - 1)
@@ -387,6 +405,37 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       building.barrelCapacity = capacity
     env.add(building)
     inc extraPlaced
+
+  let scatterPool = [
+    House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
+    LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
+  ]
+  let scatterTarget = randIntInclusive(r, 18, 30)
+  let scatterRadius = half + 8
+  let scatterInner = half + 2
+  var scatterPlaced = 0
+  var scatterAttempts = 0
+  while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
+    inc scatterAttempts
+    let x = randIntInclusive(r, centerX - scatterRadius, centerX + scatterRadius)
+    let y = randIntInclusive(r, centerY - scatterRadius, centerY + scatterRadius)
+    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
+        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
+      continue
+    if x >= x0 and x <= x1 and y >= y0 and y <= y1:
+      continue
+    let dist = max(abs(x - centerX), abs(y - centerY))
+    if dist < scatterInner or dist > scatterRadius:
+      continue
+    if not canPlaceHubThing(x, y):
+      continue
+    let kind = scatterPool[randIntInclusive(r, 0, scatterPool.len - 1)]
+    let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
+    let capacity = buildingBarrelCapacity(kind)
+    if capacity > 0:
+      building.barrelCapacity = capacity
+    env.add(building)
+    inc scatterPlaced
 
 proc init(env: Environment) =
   inc env.mapGeneration
@@ -476,7 +525,7 @@ proc init(env: Environment) =
       var placed = false
       for attempt in 0 ..< 16:
         let pos = randInteriorPos(r, 3)
-        if hasNearbyWater(env, pos, 5) or attempt > 10:
+        if isNearWater(env, pos, 5) or attempt > 10:
           let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
           let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
           carveTreeOasisWater(pos, rx, ry)
@@ -773,9 +822,7 @@ proc init(env: Environment) =
           continue
         if env.terrain[pos.x][pos.y] notin allowedTerrain:
           continue
-        if env.hasDoor(pos):
-          continue
-        if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)):
+        if not env.isSpawnable(pos):
           continue
         return pos
       for attempt in 0 ..< 40:
@@ -790,9 +837,7 @@ proc init(env: Environment) =
           continue
         if env.terrain[pos.x][pos.y] notin allowedTerrain:
           continue
-        if env.hasDoor(pos):
-          continue
-        if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)):
+        if not env.isSpawnable(pos):
           continue
         return pos
       ivec2(-1, -1)
@@ -814,16 +859,14 @@ proc init(env: Environment) =
       var spot = findSpot(r, minRadius, maxRadius, ResourceGround)
       if spot.x < 0:
         spot = r.randomEmptyPos(env)
-      if env.isEmpty(spot) and isNil(env.getBackgroundThing(spot)) and not env.hasDoor(spot) and
-          env.terrain[spot.x][spot.y] in ResourceGround:
+      if env.isSpawnable(spot) and env.terrain[spot.x][spot.y] in ResourceGround:
         env.add(Thing(kind: Magma, pos: spot))
       var candidates = env.findEmptyPositionsAround(spot, 2)
       let extraCount = randIntInclusive(r, 1, 2)
       let toPlace = min(extraCount, candidates.len)
       for i in 0 ..< toPlace:
         let pos = candidates[i]
-        if env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos) and
-            env.terrain[pos.x][pos.y] in ResourceGround:
+        if env.isSpawnable(pos) and env.terrain[pos.x][pos.y] in ResourceGround:
           env.add(Thing(kind: Magma, pos: pos))
 
     var woodSpot = findSpot(r, 6, 12, ResourceGround)
@@ -1442,7 +1485,7 @@ proc init(env: Environment) =
         let pos = randInteriorPos(r, 3)
         let x = pos.x.int
         let y = pos.y.int
-        if hasNearbyWater(env, pos, 5) or attempt > 10:
+        if isNearWater(env, pos, 5) or attempt > 10:
           let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
           for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
             placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
@@ -1470,7 +1513,7 @@ proc init(env: Environment) =
           if env.terrain[px][py] == Water:
             continue
           let pos = ivec2(px.int32, py.int32)
-          if hasNearbyWater(env, pos, 1) and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
+          if isNearWater(env, pos, 1) and randChance(r, 0.7) and env.terrain[px][py] in TreeGround:
             addResourceNode(env, pos, Tree, ItemWood)
 
     for oasis in treeOases:
@@ -1554,7 +1597,7 @@ proc init(env: Environment) =
       let pos = r.randomEmptyPos(env)
       if env.terrain[pos.x][pos.y] == Water:
         continue
-      if env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos):
+      if env.isSpawnable(pos):
         let relic = Thing(kind: Relic, pos: pos)
         relic.inventory = emptyInventory()
         setInv(relic, ItemGold, 1)
@@ -1569,7 +1612,7 @@ proc init(env: Environment) =
         let pos = randInteriorPos(r, 2)
         let x = pos.x.int
         let y = pos.y.int
-        if hasNearbyWater(env, pos, 4) or attempts >= 10:
+        if isNearWater(env, pos, 4) or attempts >= 10:
           let size = randIntInclusive(r, 3, 7)
           placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
           placed = true

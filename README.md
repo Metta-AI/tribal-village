@@ -85,12 +85,13 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ## Game Overview
 
-- Map: 234x148 grid, procedural rivers/fields/trees/biomes.
+- Map: 234x148 grid with procedural rivers/bridges, cliffs + ramps, biome zones
+  (forest/desert/caves/city/plains/snow/swamp), dungeon wall patches, and a neutral trading hub at center.
 - Agents: 1000 village slots (8 teams, 125 per team; 6 active per team at start) plus 6 goblin agents. Dormant village
   slots can respawn at altars by spending hearts.
 - Units: Villager, Man-at-Arms, Archer, Scout, Knight, Monk, Battering Ram, Mangonel, Boat, Goblin.
-- Resources: gold, stone, water, wheat, wood, bars, spears, lanterns, armor, bread, plants, fish, meat, relics (plus team
-  stockpiles for food/wood/stone/gold/water).
+- Resources: gold, stone, water, wheat, wood, bars, spears, lanterns, armor, bread, plants, fish, meat, relics, hearts
+  (plus team stockpiles for food/wood/stone/gold/water).
 - Threats: tumors from spawners spread clippy tint; frozen tiles/objects can't be used until thawed. Bears, wolves, and
   goblins roam the map.
 - Coalition touches we enjoyed while building it:
@@ -104,7 +105,8 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 1. **Gather** resources (mine gold/stone, harvest wheat, chop wood, collect water, hunt fish/meat, forage plants)
 2. **Craft** items using specialized buildings (forge spears/armor, bake bread, weave lanterns, etc.)
-3. **Build & train** structures and units (barracks, archery range, stables, siege, monastery, castle)
+3. **Build & train** structures and units (town centers, blacksmiths, markets, docks, universities,
+   barracks/archery/stables/siege/monastery/castle, plus walls/doors/roads)
 4. **Cooperate** within teams and compete across teams
 5. **Defend** against tumors, goblins, and wildlife using trained units and crafted gear
 
@@ -119,7 +121,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ### Observation Space
 
-84 layers, 11x11 grid per agent:
+84 layers, 11x11 grid per agent (see `ObservationName` in `src/types.nim`):
 
 - **Terrain layers (17)**: Empty, Water, Bridge, Fertile, Road, Grass, Dune, Sand, Snow,
   RampUpN/S/W/E, RampDownN/S/W/E
@@ -128,7 +130,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
   Granary, LumberCamp, Quarry, MiningCamp, Stump, Lantern, TownCenter, House, Barracks, ArcheryRange, Stable,
   SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock, Monastery, University, Castle, GoblinHive, GoblinHut,
   GoblinTotem, Stubble, CliffEdgeN/E/S/W, CliffCornerInNE/SE/SW/NW, CliffCornerOutNE/SE/SW/NW
-- **TeamLayer**: team id + 1 for agents and team-owned buildings, 0 otherwise
+- **TeamLayer**: team id + 1 for agents and team-owned buildings, 0 otherwise (neutral buildings use 0)
 - **AgentOrientationLayer**: orientation + 1 for agents, 0 otherwise
 - **AgentUnitClassLayer**: unit class + 1 for agents, 0 otherwise
 - **TintLayer**: action/combat tint codes (`ActionTint*` in `src/types.nim`)
