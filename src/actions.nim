@@ -503,7 +503,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           of Empty, Grass, Dune, Sand, Snow, Road:
             if env.hasDoor(targetPos):
               used = false
-            elif agent.inventoryRelic > 0:
+            elif agent.inventoryRelic > 0 and agent.unitClass == UnitMonk:
               let canDrop = env.isEmpty(targetPos) and not env.hasDoor(targetPos) and
                 not isTileFrozen(targetPos, env) and env.terrain[targetPos.x][targetPos.y] != Water
               if canDrop:
@@ -565,20 +565,21 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
         case thing.kind:
         of Relic:
-          let stored = getInv(thing, ItemGold)
-          if stored > 0:
-            if env.giveItem(agent, ItemGold):
-              setInv(thing, ItemGold, stored - 1)
+          if agent.unitClass == UnitMonk:
+            let stored = getInv(thing, ItemGold)
+            if stored > 0:
+              if env.giveItem(agent, ItemGold):
+                setInv(thing, ItemGold, stored - 1)
+              else:
+                used = false
+                break useAction
+            if agent.inventoryRelic < MapObjectAgentMaxInventory:
+              agent.inventoryRelic = agent.inventoryRelic + 1
+              env.updateAgentInventoryObs(agent, ItemRelic)
+              removeThing(env, thing)
+              used = true
             else:
-              used = false
-              break useAction
-          if agent.inventoryRelic < MapObjectAgentMaxInventory:
-            agent.inventoryRelic = agent.inventoryRelic + 1
-            env.updateAgentInventoryObs(agent, ItemRelic)
-            removeThing(env, thing)
-            used = true
-          else:
-            used = stored > 0
+              used = stored > 0
         of Lantern:
           if agent.inventoryLantern < MapObjectAgentMaxInventory:
             agent.inventoryLantern = agent.inventoryLantern + 1
