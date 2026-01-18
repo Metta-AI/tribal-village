@@ -674,8 +674,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--include-reference",
+        dest="include_reference",
         action="store_true",
-        help="Also generate the reference orientation instead of skipping it.",
+        default=True,
+        help="Generate the reference orientation too (enabled by default).",
+    )
+    parser.add_argument(
+        "--no-include-reference",
+        dest="include_reference",
+        action="store_false",
+        help="Skip the reference orientation.",
     )
     parser.add_argument("--only", default="", help="Comma-separated filenames to generate.")
     parser.add_argument("--dry-run", action="store_true")
