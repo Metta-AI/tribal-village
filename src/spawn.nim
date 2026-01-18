@@ -96,11 +96,12 @@ proc applyCliffRamps(env: Environment) =
         env.terrain[nx][ny] = Road
 
 proc addCliffThing(env: Environment, kind: ThingKind, pos: IVec2) =
+  if not isValidPos(pos):
+    return
+  if not isNil(env.getOverlayThing(pos)):
+    return
   let cliff = Thing(kind: kind, pos: pos)
-  env.things.add(cliff)
-  cliff.thingsIndex = env.things.len - 1
-  env.thingsByKind[kind].add(cliff)
-  cliff.kindListIndex = env.thingsByKind[kind].len - 1
+  env.add(cliff)
 
 proc applyCliffs(env: Environment) =
   for x in 0 ..< MapWidth:
