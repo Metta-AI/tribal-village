@@ -76,7 +76,7 @@ CORNER_OUT_ORIENTATIONS = [
     ),
     (
         "nw",
-        "Convex (outie) corner: cliff legs run along the north and west edges. Low/drop pocket is inside the corner in the northwest quadrant; high ground/rim with grass is outside the corner in the southeast quadrant.",
+        "Convex (outie) corner: mostly high ground/rim, about three-quarters of the tile elevated. The cliff forms along the north and west edges, with only a shallow low pocket in the northwest corner; the rest of the tile is higher ground with grass on the rim.",
     ),
     (
         "se",
@@ -643,8 +643,8 @@ FLIP_ORIENTATIONS = {
         "sw": "se",
     },
     "corner_out": {
-        "nw": "ne",
-        "sw": "se",
+        "ne": "nw",
+        "se": "sw",
     },
     "edge": {
         "ns_w": "ns",
