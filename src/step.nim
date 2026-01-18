@@ -141,6 +141,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Combined single-pass object updates and tumor collection
   var newTumorsToSpawn: seq[Thing] = @[]
   var tumorsToProcess: seq[Thing] = @[]
+  var towerRemovals: seq[Thing] = @[]
 
   proc tryTowerAttack(tower: Thing, range: int) =
     if tower.teamId < 0:
@@ -171,10 +172,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     case bestTarget.kind
     of Agent:
       discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))
-    of Tumor:
-      removeThing(env, bestTarget)
-    of Spawner:
-      removeThing(env, bestTarget)
+    of Tumor, Spawner:
+      if bestTarget notin towerRemovals:
+        towerRemovals.add(bestTarget)
     else:
       discard
 
@@ -278,6 +278,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Precompute team pop caps while scanning things
   var teamPopCaps: array[MapRoomObjectsHouses, int]
   for thing in env.things:
+    if towerRemovals.len > 0 and thing in towerRemovals:
+      continue
     if thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses and isBuildingKind(thing.kind):
       let add = buildingPopCap(thing.kind)
       if add > 0:
@@ -401,6 +403,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Only collect mobile clippies for processing (planted ones are static)
       if not thing.hasClaimedTerritory:
         tumorsToProcess.add(thing)
+
+  if towerRemovals.len > 0:
+    for target in towerRemovals:
+      removeThing(env, target)
 
   proc stepToward(fromPos, toPos: IVec2): IVec2 =
     let dx = toPos.x - fromPos.x
@@ -624,6 +630,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var newTumorBranches: seq[Thing] = @[]
 
   for tumor in tumorsToProcess:
+    if env.getThing(tumor.pos) != tumor:
+      continue
     tumor.turnsAlive += 1
     if tumor.turnsAlive < TumorBranchMinAge:
       continue
