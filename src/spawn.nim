@@ -63,6 +63,9 @@ proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
 proc applyBiomeElevation(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
+      if env.terrain[x][y] in {Water, Bridge}:
+        env.elevation[x][y] = 0
+        continue
       let biome = env.biomes[x][y]
       env.elevation[x][y] =
         if biome == BiomeSwampType:
@@ -100,6 +103,8 @@ proc applyCliffRamps(env: Environment) =
 proc applyCliffs(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
+      if env.terrain[x][y] == Water:
+        continue
       let elev = env.elevation[x][y]
       proc isLower(dx, dy: int): bool =
         let nx = x + dx
