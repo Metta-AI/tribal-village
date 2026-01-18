@@ -52,7 +52,7 @@ const
   # Building Parameters
   MapObjectAltarInitialHearts* = 5
   MapObjectAltarCooldown* = 0
-  MapObjectAltarRespawnCost* = 1
+  MapObjectAltarRespawnCost* = 0
   MapObjectAltarAutoSpawnThreshold* = 5
   BarrelCapacity* = 50
   ResourceNodeInitial* = 25
@@ -87,7 +87,7 @@ const
   ResourceCarryCapacity* = 5
   MineDepositAmount* = 100
   TownCenterPopCap* = 0
-  HousePopCap* = 2
+  HousePopCap* = 4
   VillagerAttackDamage* = 1
   ManAtArmsAttackDamage* = 2
   ArcherAttackDamage* = 1

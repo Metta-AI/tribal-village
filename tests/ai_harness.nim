@@ -449,6 +449,7 @@ suite "AI - Builder":
     discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = basePos)
     discard addAgentAt(env, 1, ivec2(10, 11), homeAltar = basePos)
     discard addAgentAt(env, 2, ivec2(1, 0), homeAltar = basePos)
+    discard addAgentAt(env, 3, ivec2(11, 10), homeAltar = basePos)
     setStockpile(env, 0, ResourceWood, 10)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
