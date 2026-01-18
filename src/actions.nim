@@ -240,14 +240,10 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             return false
           case target.kind
           of Tumor:
-            env.grid[pos.x][pos.y] = nil
-            env.updateObservations(AgentLayer, pos, 0)
-            env.updateObservations(AgentOrientationLayer, pos, 0)
             removeThing(env, target)
             agent.reward += env.config.tumorKillReward
             return true
           of Spawner:
-            env.grid[pos.x][pos.y] = nil
             removeThing(env, target)
             return true
           of Agent:

@@ -172,12 +172,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of Agent:
       discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))
     of Tumor:
-      env.grid[bestTarget.pos.x][bestTarget.pos.y] = nil
-      env.updateObservations(AgentLayer, bestTarget.pos, 0)
-      env.updateObservations(AgentOrientationLayer, bestTarget.pos, 0)
       removeThing(env, bestTarget)
     of Spawner:
-      env.grid[bestTarget.pos.x][bestTarget.pos.y] = nil
       removeThing(env, bestTarget)
     else:
       discard
@@ -639,9 +635,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if isNil(target):
             continue
           if target.kind == Tumor and not target.hasClaimedTerritory:
-            env.grid[pos.x][pos.y] = nil
-            env.updateObservations(AgentLayer, pos, 0)
-            env.updateObservations(AgentOrientationLayer, pos, 0)
             removeThing(env, target)
             break predatorAttack
           if target.kind == Agent and isAgentAlive(env, target) and agentTarget.isNil:
@@ -759,8 +752,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if killed and tumor notin tumorsToRemove:
             tumorsToRemove.add(tumor)
             env.grid[tumor.pos.x][tumor.pos.y] = nil
-            env.updateObservations(AgentLayer, tumor.pos, 0)
-            env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
           if killed:
             break
       else:
@@ -768,12 +759,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if occupant notin predatorsToRemove:
             predatorsToRemove.add(occupant)
             env.grid[occupant.pos.x][occupant.pos.y] = nil
-            env.updateObservations(ThingAgentLayer, occupant.pos, 0)
           if tumor notin tumorsToRemove:
             tumorsToRemove.add(tumor)
             env.grid[tumor.pos.x][tumor.pos.y] = nil
-            env.updateObservations(AgentLayer, tumor.pos, 0)
-            env.updateObservations(AgentOrientationLayer, tumor.pos, 0)
 
   # Remove tumors cleared by lethal contact this step
   if tumorsToRemove.len > 0:
