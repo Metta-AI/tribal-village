@@ -1012,13 +1012,16 @@ proc init(env: Environment) =
 
     totalAgentsSpawned += 1
 
-  # Place a goblin hive and surrounding goblin structures, then spawn goblin agents.
-  var goblinHivePos = ivec2(-1, -1)
-  block:
+  # Place goblin hives with surrounding structures, then spawn goblin agents.
+  const GoblinHiveCount = 2
+  var goblinHivePositions: seq[IVec2] = @[]
+
+  proc findGoblinHivePos(existing: seq[IVec2]): IVec2 =
     const HiveRadius = 2
     let minGoblinDist = DefaultSpawnerMinDistance
     let minGoblinDist2 = minGoblinDist * minGoblinDist
-    var placed = false
+    let minHiveDist = max(4, DefaultSpawnerMinDistance div 2)
+    let minHiveDist2 = minHiveDist * minHiveDist
     for attempt in 0 ..< 200:
       let center = r.randomEmptyPos(env)
       if env.terrain[center.x][center.y] == Water:
@@ -1028,6 +1031,14 @@ proc init(env: Environment) =
         let dx = int(center.x) - int(altar.pos.x)
         let dy = int(center.y) - int(altar.pos.y)
         if dx * dx + dy * dy < minGoblinDist2:
+          okDistance = false
+          break
+      if not okDistance:
+        continue
+      for hive in existing:
+        let dx = int(center.x) - int(hive.x)
+        let dy = int(center.y) - int(hive.y)
+        if dx * dx + dy * dy < minHiveDist2:
           okDistance = false
           break
       if not okDistance:
@@ -1053,64 +1064,85 @@ proc init(env: Environment) =
           if isValidPos(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]):
             env.terrain[pos.x][pos.y] = Empty
             env.resetTileColor(pos)
-      goblinHivePos = center
-      placed = true
-      break
-    if not placed:
-      goblinHivePos = r.randomEmptyPos(env)
-
-  env.add(Thing(kind: GoblinHive, pos: goblinHivePos, teamId: -1))
-
-  var goblinSpots = env.findEmptyPositionsAround(goblinHivePos, 2)
-  if goblinSpots.len == 0:
-    goblinSpots = env.findEmptyPositionsAround(goblinHivePos, 3)
-
-  for _ in 0 ..< MapRoomObjectsGoblinHuts:
-    if goblinSpots.len == 0:
-      break
-    let idx = randIntInclusive(r, 0, goblinSpots.len - 1)
-    let pos = goblinSpots[idx]
-    goblinSpots[idx] = goblinSpots[^1]
-    goblinSpots.setLen(goblinSpots.len - 1)
-    env.add(Thing(kind: GoblinHut, pos: pos, teamId: -1))
-
-  for _ in 0 ..< MapRoomObjectsGoblinTotems:
-    if goblinSpots.len == 0:
-      break
-    let idx = randIntInclusive(r, 0, goblinSpots.len - 1)
-    let pos = goblinSpots[idx]
-    goblinSpots[idx] = goblinSpots[^1]
-    goblinSpots.setLen(goblinSpots.len - 1)
-    env.add(Thing(kind: GoblinTotem, pos: pos, teamId: -1))
+      return center
+    var fallback = r.randomEmptyPos(env)
+    var tries = 0
+    while tries < 50:
+      var ok = env.terrain[fallback.x][fallback.y] != Water
+      if ok:
+        for hive in existing:
+          let dx = int(fallback.x) - int(hive.x)
+          let dy = int(fallback.y) - int(hive.y)
+          if dx * dx + dy * dy < minHiveDist2:
+            ok = false
+            break
+      if ok:
+        break
+      fallback = r.randomEmptyPos(env)
+      inc tries
+    fallback
 
   let goblinTint = color(0.35, 0.80, 0.35, 1.0)
-  for _ in 0 ..< MapRoomObjectsGoblinAgents:
-    let agentId = totalAgentsSpawned
-    var agentPos = ivec2(-1, -1)
-    if goblinSpots.len > 0:
+  for hiveIndex in 0 ..< GoblinHiveCount:
+    let goblinHivePos = findGoblinHivePos(goblinHivePositions)
+    goblinHivePositions.add(goblinHivePos)
+    env.add(Thing(kind: GoblinHive, pos: goblinHivePos, teamId: -1))
+
+    var goblinSpots = env.findEmptyPositionsAround(goblinHivePos, 2)
+    if goblinSpots.len == 0:
+      goblinSpots = env.findEmptyPositionsAround(goblinHivePos, 3)
+
+    let hutCount = MapRoomObjectsGoblinHuts div GoblinHiveCount +
+      (if hiveIndex < MapRoomObjectsGoblinHuts mod GoblinHiveCount: 1 else: 0)
+    for _ in 0 ..< hutCount:
+      if goblinSpots.len == 0:
+        break
       let idx = randIntInclusive(r, 0, goblinSpots.len - 1)
-      agentPos = goblinSpots[idx]
+      let pos = goblinSpots[idx]
       goblinSpots[idx] = goblinSpots[^1]
       goblinSpots.setLen(goblinSpots.len - 1)
-    else:
-      agentPos = r.randomEmptyPos(env)
-    env.agentColors[agentId] = goblinTint
-    env.terminated[agentId] = 0.0
-    env.add(Thing(
-      kind: Agent,
-      agentId: agentId,
-      pos: agentPos,
-      orientation: Orientation(randIntInclusive(r, 0, 3)),
-      homeAltar: goblinHivePos,
-      frozen: 0,
-      hp: GoblinMaxHp,
-      maxHp: GoblinMaxHp,
-      attackDamage: GoblinAttackDamage,
-      unitClass: UnitGoblin,
-      embarkedUnitClass: UnitGoblin,
-      teamIdOverride: MapRoomObjectsHouses
-    ))
-    totalAgentsSpawned += 1
+      env.add(Thing(kind: GoblinHut, pos: pos, teamId: -1))
+
+    let totemCount = MapRoomObjectsGoblinTotems div GoblinHiveCount +
+      (if hiveIndex < MapRoomObjectsGoblinTotems mod GoblinHiveCount: 1 else: 0)
+    for _ in 0 ..< totemCount:
+      if goblinSpots.len == 0:
+        break
+      let idx = randIntInclusive(r, 0, goblinSpots.len - 1)
+      let pos = goblinSpots[idx]
+      goblinSpots[idx] = goblinSpots[^1]
+      goblinSpots.setLen(goblinSpots.len - 1)
+      env.add(Thing(kind: GoblinTotem, pos: pos, teamId: -1))
+
+    let agentCount = MapRoomObjectsGoblinAgents div GoblinHiveCount +
+      (if hiveIndex < MapRoomObjectsGoblinAgents mod GoblinHiveCount: 1 else: 0)
+    for _ in 0 ..< agentCount:
+      let agentId = totalAgentsSpawned
+      var agentPos = ivec2(-1, -1)
+      if goblinSpots.len > 0:
+        let idx = randIntInclusive(r, 0, goblinSpots.len - 1)
+        agentPos = goblinSpots[idx]
+        goblinSpots[idx] = goblinSpots[^1]
+        goblinSpots.setLen(goblinSpots.len - 1)
+      else:
+        agentPos = r.randomEmptyPos(env)
+      env.agentColors[agentId] = goblinTint
+      env.terminated[agentId] = 0.0
+      env.add(Thing(
+        kind: Agent,
+        agentId: agentId,
+        pos: agentPos,
+        orientation: Orientation(randIntInclusive(r, 0, 3)),
+        homeAltar: goblinHivePos,
+        frozen: 0,
+        hp: GoblinMaxHp,
+        maxHp: GoblinMaxHp,
+        attackDamage: GoblinAttackDamage,
+        unitClass: UnitGoblin,
+        embarkedUnitClass: UnitGoblin,
+        teamIdOverride: MapRoomObjectsHouses
+      ))
+      totalAgentsSpawned += 1
 
   # Random spawner placement with minimum distance from villages and other spawners
   # Gather altar positions for distance checks
