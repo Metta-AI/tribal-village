@@ -9,6 +9,7 @@ type
     maxTierSize*: int
     mutationRate*: float32
     lockFitnessThreshold*: float32
+    maxBehaviorsPerRole*: int
 
 proc defaultEvolutionConfig*(): EvolutionConfig =
   EvolutionConfig(
@@ -17,28 +18,34 @@ proc defaultEvolutionConfig*(): EvolutionConfig =
     minTierSize: 1,
     maxTierSize: 3,
     mutationRate: 0.15,
-    lockFitnessThreshold: 0.7
+    lockFitnessThreshold: 0.7,
+    maxBehaviorsPerRole: 12
   )
 
-proc sampleUniqueIds(rng: var Rand, maxId: int, count: int,
-                     used: var seq[int]): seq[int] =
-  if maxId <= 0 or count <= 0:
+proc sampleUniqueIdsWeighted(rng: var Rand, catalog: RoleCatalog, count: int,
+                             used: var seq[int]): seq[int] =
+  if catalog.behaviors.len == 0 or count <= 0:
     return @[]
-  var attempts = 0
-  let maxAttempts = maxId * 4
-  while result.len < count and attempts < maxAttempts:
-    let id = randIntExclusive(rng, 0, maxId)
-    var exists = false
+  var candidates: seq[int] = @[]
+  var weights: seq[float32] = @[]
+  for behavior in catalog.behaviors:
+    var already = false
     for usedId in used:
-      if usedId == id:
-        exists = true
+      if usedId == behavior.id:
+        already = true
         break
-    if not exists:
-      used.add id
-      result.add id
-    inc attempts
-  if result.len == 0:
-    let fallback = randIntExclusive(rng, 0, maxId)
+    if already:
+      continue
+    candidates.add behavior.id
+    weights.add behaviorSelectionWeight(behavior)
+  while result.len < count and candidates.len > 0:
+    let idx = weightedPickIndex(rng, weights)
+    result.add candidates[idx]
+    used.add candidates[idx]
+    candidates.delete(idx)
+    weights.delete(idx)
+  if result.len == 0 and catalog.behaviors.len > 0:
+    let fallback = randIntExclusive(rng, 0, catalog.behaviors.len)
     result.add fallback
     used.add fallback
 
@@ -52,7 +59,8 @@ proc sampleRole*(catalog: var RoleCatalog, rng: var Rand,
   var used: seq[int] = @[]
   for _ in 0 ..< tierCount:
     let tierSize = randIntInclusive(rng, config.minTierSize, config.maxTierSize)
-    let ids = sampleUniqueIds(rng, behaviorCount, min(tierSize, behaviorCount), used)
+    let cap = min(tierSize, config.maxBehaviorsPerRole)
+    let ids = sampleUniqueIdsWeighted(rng, catalog, min(cap, behaviorCount), used)
     let selection = if randChance(rng, 0.5): TierShuffle else: TierFixed
     tiers.add RoleTier(behaviorIds: ids, selection: selection)
   let name = generateRoleName(catalog, tiers)
@@ -94,14 +102,16 @@ proc mutateRole*(catalog: RoleCatalog, rng: var Rand, role: RoleDef,
       result.tiers[i].selection = if result.tiers[i].selection == TierFixed: TierShuffle else: TierFixed
 
 proc recordRoleScore*(role: var RoleDef, score: float32,
-                      won: bool, alpha: float32 = 0.2) =
-  inc role.games
-  if won:
-    inc role.wins
-  if role.games == 1:
-    role.fitness = score
-  else:
-    role.fitness = role.fitness * (1 - alpha) + score * alpha
+                      won: bool, alpha: float32 = 0.2, weight: int = 1) =
+  let count = max(1, weight)
+  for _ in 0 ..< count:
+    inc role.games
+    if won:
+      inc role.wins
+    if role.games == 1:
+      role.fitness = score
+    else:
+      role.fitness = role.fitness * (1 - alpha) + score * alpha
 
 proc lockRoleNameIfFit*(role: var RoleDef, threshold: float32) =
   if role.fitness >= threshold:
@@ -111,3 +121,16 @@ proc roleSelectionWeight*(role: RoleDef): float32 =
   if role.games <= 0:
     return 0.1
   max(0.1, role.fitness)
+
+proc pickRoleIdWeighted*(catalog: RoleCatalog, rng: var Rand,
+                         roleIds: openArray[int]): int =
+  if roleIds.len == 0:
+    return -1
+  var weights: seq[float32] = @[]
+  for id in roleIds:
+    if id >= 0 and id < catalog.roles.len:
+      weights.add roleSelectionWeight(catalog.roles[id])
+    else:
+      weights.add 0.0
+  let idx = weightedPickIndex(rng, weights)
+  roleIds[idx]

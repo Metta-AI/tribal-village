@@ -731,6 +731,20 @@ proc optTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
     return controller.actAt(env, agent, agentId, state, target, 6'u8)
   controller.moveTo(env, agent, agentId, state, target)
 
+proc canStartTempleFusion(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  agent.unitClass == UnitVillager and env.thingsByKind[Temple].len > 0 and
+    randChance(controller.rng, 0.01)
+
+proc optTempleFusion(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  let temple = env.findNearestThingSpiral(state, Temple)
+  if isNil(temple):
+    return 0'u8
+  if isAdjacent(agent.pos, temple.pos):
+    return controller.useAt(env, agent, agentId, state, temple.pos)
+  controller.moveTo(env, agent, agentId, state, temple.pos)
+
 let MetaBehaviorOptions* = [
   OptionDef(
     name: "BehaviorLanternFrontierPush",
@@ -905,6 +919,13 @@ let MetaBehaviorOptions* = [
     canStart: canStartTerritorySweeper,
     shouldTerminate: optionsAlwaysTerminate,
     act: optTerritorySweeper,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorTempleFusion",
+    canStart: canStartTempleFusion,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optTempleFusion,
     interruptible: true
   )
 ]

@@ -396,7 +396,6 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       building.barrelCapacity = capacity
     env.add(building)
     inc extraPlaced
-
   let scatterPool = [
     House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
     LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
@@ -427,6 +426,35 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       building.barrelCapacity = capacity
     env.add(building)
     inc scatterPlaced
+
+proc placeTemple(env: Environment, r: var Rand, villageCenters: seq[IVec2]) =
+  const TempleMinDistance = 10
+  let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
+  var placed = false
+  for _ in 0 ..< 200:
+    let dx = randIntInclusive(r, -14, 14)
+    let dy = randIntInclusive(r, -14, 14)
+    let pos = center + ivec2(dx.int32, dy.int32)
+    if not isValidPos(pos):
+      continue
+    if env.terrain[pos.x][pos.y] == Water:
+      continue
+    if not env.isSpawnable(pos):
+      continue
+    var tooClose = false
+    for v in villageCenters:
+      let dist = max(abs(v.x - pos.x), abs(v.y - pos.y))
+      if dist < TempleMinDistance:
+        tooClose = true
+        break
+    if tooClose:
+      continue
+    env.add(Thing(kind: Temple, pos: pos, teamId: -1))
+    placed = true
+    break
+  if not placed:
+    let fallback = r.randomEmptyPos(env)
+    env.add(Thing(kind: Temple, pos: fallback, teamId: -1))
 
 proc init(env: Environment) =
   inc env.mapGeneration
@@ -1140,6 +1168,8 @@ proc init(env: Environment) =
             break
 
       # Note: Door gaps are placed instead of walls for defendable entrances
+
+  placeTemple(env, r, villageCenters)
 
   # Now place additional random walls after villages to avoid blocking corner placement
   for i in 0 ..< MapRoomObjectsWalls:

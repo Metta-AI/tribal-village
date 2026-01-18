@@ -2,9 +2,9 @@
 ## Simplified AI system - clean and efficient
 ## Replaces the 1200+ line complex system with ~150 lines
 import std/[tables, sets, algorithm]
-import entropy
+import ../entropy
 import vmath
-import ./environment, common, terrain
+import ../environment, ../common, ../terrain
 
 type
   # Meta roles with focused responsibilities (AoE-style)
@@ -12,6 +12,7 @@ type
     Gatherer   # Dynamic resource gatherer (food/wood/stone/gold + hearts)
     Builder    # Builds structures and expands the base
     Fighter    # Combat & hunting
+    Scripted   # Evolutionary/scripted role
 
   GathererTask = enum
     TaskFood

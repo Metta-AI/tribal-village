@@ -324,6 +324,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tryTowerAttack(thing, CastleRange)
       if thing.cooldown > 0:
         dec thing.cooldown
+    elif thing.kind == Temple:
+      if thing.cooldown > 0:
+        dec thing.cooldown
     elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
                                          UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
@@ -1003,6 +1006,7 @@ proc reset*(env: Environment) =
   env.thingsByKind = default(array[ThingKind, seq[Thing]])
   env.agents.setLen(0)
   env.stats.setLen(0)
+  env.templeInteractions.setLen(0)
   env.grid.clear()
   env.observations.clear()
   env.observationsInitialized = false

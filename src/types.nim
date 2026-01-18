@@ -336,6 +336,7 @@ type
     Market
     Dock
     Monastery
+    Temple
     University
     Castle
     GoblinHive
@@ -412,6 +413,11 @@ type
     actionBuild*: int    # Action 8: BUILD
     actionPlantResource*: int  # Action 7: Plant wheat/tree onto fertile tile
     actionOrient*: int   # Action 9: ORIENT
+
+  TempleInteraction* = object
+    agentId*: int
+    teamId*: int
+    pos*: IVec2
 
   TileColor* = object
     r*, g*, b*: float32      # RGB color components
@@ -644,6 +650,7 @@ type
     terminated*: array[MapAgents, float32]
     truncated*: array[MapAgents, float32]
     stats*: seq[Stats]
+    templeInteractions*: seq[TempleInteraction]
     # Color management
     agentColors*: seq[Color]           ## Per-agent colors for rendering
     teamColors*: seq[Color]            ## Per-team colors for rendering
