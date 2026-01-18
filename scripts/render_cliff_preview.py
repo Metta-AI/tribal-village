@@ -239,12 +239,12 @@ def render_preview(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render a sprite preview sheet with a 3x3 grid and sprite column."
+        description="Render an asset preview sheet with a 3x3 grid and sprite column."
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("data/tmp/cliff_preview.png"),
+        default=Path("data/tmp/asset_preview.png"),
         help="Output path for the preview image.",
     )
     parser.add_argument(
@@ -277,13 +277,13 @@ def main() -> None:
     args = parser.parse_args()
     if args.manifest:
         sprites = load_manifest(args.manifest)
-        title = args.title or f"Sprite Preview ({args.manifest.as_posix()})"
+        title = args.title or f"Asset Preview ({args.manifest.as_posix()})"
     elif args.glob:
         sprites = load_from_globs(args.glob)
-        title = args.title or "Sprite Preview (Glob)"
+        title = args.title or "Asset Preview (Glob)"
     else:
         sprites = DEFAULT_SPRITES
-        title = args.title or "Cliff Preview (3x3 H/L vs Sprite)"
+        title = args.title or "Asset Preview (Cliff Set)"
 
     if not sprites:
         raise SystemExit("No sprites found to render.")
