@@ -110,10 +110,6 @@ proc updateObservations(
     if not isNil(overlayThing):
       agentObs[][ThingLayerStart + ord(overlayThing.kind)][obsX][obsY] = 1
 
-    let cliffKind = env.cliffGrid[worldX][worldY]
-    if cliffKind >= 0:
-      agentObs[][ThingLayerStart + cliffKind.int][obsX][obsY] = 1
-
     var teamValue = 0
     var orientValue = 0
     var classValue = 0
@@ -360,10 +356,6 @@ proc rebuildObservations*(env: Environment) =
     let overlayThing = env.overlayGrid[worldX][worldY]
     if not isNil(overlayThing):
       agentObs[][ThingLayerStart + ord(overlayThing.kind)][obsX][obsY] = 1
-
-    let cliffKind = env.cliffGrid[worldX][worldY]
-    if cliffKind >= 0:
-      agentObs[][ThingLayerStart + cliffKind.int][obsX][obsY] = 1
 
     var teamValue = 0
     var orientValue = 0

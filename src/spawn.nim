@@ -16,7 +16,6 @@ const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
   TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
   TradingHubSize = 15
-  TradingHubGateInset = 0
   TradingHubTint = TileColor(r: 0.58, g: 0.58, b: 0.58, intensity: 1.0)
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
@@ -192,51 +191,50 @@ proc placeTradingHub(env: Environment) =
   let y0 = centerY - half
   let y1 = centerY + half
 
-  proc clearHubTile(x, y: int) =
-    if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
-      return
-    let pos = ivec2(x.int32, y.int32)
-    let existing = env.getThing(pos)
-    if not isNil(existing):
-      removeThing(env, existing)
-    let overlay = env.getOverlayThing(pos)
-    if not isNil(overlay):
-      removeThing(env, overlay)
-    env.terrain[x][y] = Empty
-    env.resetTileColor(pos)
-    env.baseTintColors[x][y] = TradingHubTint
-    env.tintLocked[x][y] = true
-
   for x in x0 .. x1:
     for y in y0 .. y1:
-      clearHubTile(x, y)
-
-  let gateNorth = ivec2(centerX.int32, (y0 + TradingHubGateInset).int32)
-  let gateSouth = ivec2(centerX.int32, (y1 - TradingHubGateInset).int32)
-  let corners = [
-    ivec2(x0.int32, y0.int32),
-    ivec2(x0.int32, y1.int32),
-    ivec2(x1.int32, y0.int32),
-    ivec2(x1.int32, y1.int32)
-  ]
-
-  proc placeWall(pos: IVec2) =
-    if pos == gateNorth or pos == gateSouth:
-      return
-    for corner in corners:
-      if pos == corner:
-        return
-    env.add(Thing(kind: Wall, pos: pos, teamId: -1))
+      if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      let existing = env.getThing(pos)
+      if not isNil(existing):
+        removeThing(env, existing)
+      let overlay = env.getOverlayThing(pos)
+      if not isNil(overlay):
+        removeThing(env, overlay)
+      env.terrain[x][y] = Empty
+      env.resetTileColor(pos)
+      env.baseTintColors[x][y] = TradingHubTint
+      env.tintLocked[x][y] = true
 
   for x in x0 .. x1:
-    placeWall(ivec2(x.int32, y0.int32))
-    placeWall(ivec2(x.int32, y1.int32))
-  for y in y0 .. y1:
-    placeWall(ivec2(x0.int32, y.int32))
-    placeWall(ivec2(x1.int32, y.int32))
+    if x < 0 or x >= MapWidth:
+      continue
+    if y0 >= 0 and y0 < MapHeight and x != centerX and x != x0 and x != x1:
+      env.add(Thing(kind: Wall, pos: ivec2(x.int32, y0.int32), teamId: -1))
+    if y1 >= 0 and y1 < MapHeight and x != centerX and x != x0 and x != x1:
+      env.add(Thing(kind: Wall, pos: ivec2(x.int32, y1.int32), teamId: -1))
+  if y0 + 1 <= y1 - 1:
+    for y in (y0 + 1) .. (y1 - 1):
+      if y < 0 or y >= MapHeight:
+        continue
+      if x0 >= 0 and x0 < MapWidth:
+        env.add(Thing(kind: Wall, pos: ivec2(x0.int32, y.int32), teamId: -1))
+      if x1 >= 0 and x1 < MapWidth:
+        env.add(Thing(kind: Wall, pos: ivec2(x1.int32, y.int32), teamId: -1))
 
-  for corner in corners:
-    env.add(Thing(kind: GuardTower, pos: corner, teamId: -1))
+  let cornerNW = ivec2(x0.int32, y0.int32)
+  let cornerSW = ivec2(x0.int32, y1.int32)
+  let cornerNE = ivec2(x1.int32, y0.int32)
+  let cornerSE = ivec2(x1.int32, y1.int32)
+  if isValidPos(cornerNW):
+    env.add(Thing(kind: GuardTower, pos: cornerNW, teamId: -1))
+  if isValidPos(cornerSW):
+    env.add(Thing(kind: GuardTower, pos: cornerSW, teamId: -1))
+  if isValidPos(cornerNE):
+    env.add(Thing(kind: GuardTower, pos: cornerNE, teamId: -1))
+  if isValidPos(cornerSE):
+    env.add(Thing(kind: GuardTower, pos: cornerSE, teamId: -1))
 
   let center = ivec2(centerX.int32, centerY.int32)
   env.add(Thing(kind: Castle, pos: center, teamId: -1))
@@ -260,11 +258,10 @@ proc init(env: Environment) =
       env.baseTintColors[x][y] = BaseTileColorDefault
       env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
 
-  # Clear overlay grid (non-blocking things like doors)
+  # Clear overlay grid (non-blocking things like doors and cliffs)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.overlayGrid[x][y] = nil
-      env.cliffGrid[x][y] = -1
       env.elevation[x][y] = 0
 
   # Reset team stockpiles
@@ -1474,31 +1471,6 @@ proc init(env: Environment) =
   # Individual action updates will populate observations as needed
   maybeStartReplayEpisode(env)
 
-
-proc defaultEnvironmentConfig*(): EnvironmentConfig =
-  ## Create default environment configuration
-  EnvironmentConfig(
-    # Core game parameters
-    maxSteps: 10000,
-
-    # Combat configuration
-    tumorSpawnRate: 0.1,
-
-    # Reward configuration (only arena_basic_easy_shaped rewards active)
-    heartReward: 1.0,      # Arena: heart reward
-    oreReward: 0.1,        # Arena: gold mining reward
-    barReward: 0.8,        # Arena: bar smelting reward
-    woodReward: 0.0,       # Disabled - not in arena
-    waterReward: 0.0,      # Disabled - not in arena
-    wheatReward: 0.0,      # Disabled - not in arena
-    spearReward: 0.0,      # Disabled - not in arena
-    armorReward: 0.0,      # Disabled - not in arena
-    foodReward: 0.0,       # Disabled - not in arena
-    clothReward: 0.0,      # Disabled - not in arena
-    tumorKillReward: 0.0, # Disabled - not in arena
-    survivalPenalty: -0.01,
-    deathPenalty: -5.0
-  )
 
 proc newEnvironment*(): Environment =
   ## Create a new environment with default configuration

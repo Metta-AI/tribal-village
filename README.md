@@ -154,6 +154,13 @@ used for build choices and resource-planting variants.
 - Native desktop viewer: `nim r -d:release tribal_village.nim`
 - WebAssembly demo (requires Emscripten): command in `scripts/` section below; outputs `build/web/tribal_village.html`
 
+## Asset Workflow
+
+- Add or update prompts in `data/prompts/assets.tsv`.
+- Generate sprites via `python scripts/generate_assets.py` (requires `GOOGLE_API_KEY` or gcloud ADC).
+- For oriented units, keep the solid royal purple background in prompts and let the script postprocess/key it out.
+- Use `python scripts/render_asset_preview.py` to review oriented sets (e.g., `--glob "data/oriented/tumor*.png"`).
+
 ### PufferLib Rendering
 
 - Python bindings default to `render_mode="rgb_array"` and stream full-map RGB frames via Nim.

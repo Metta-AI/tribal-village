@@ -1,6 +1,6 @@
 ## Headless driver for profiling the Nim environment without the renderer.
 ## Build with profiling enabled, e.g.:
-##   nim r --nimcache:./nimcache --profiler:on --stackTrace:on profile_env.nim
+##   nim r --nimcache:./nimcache --profiler:on --stackTrace:on scripts/profile_env.nim
 
 import nimprof
 import std/random
