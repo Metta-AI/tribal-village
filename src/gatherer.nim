@@ -411,7 +411,7 @@ proc optGathererFallbackSearch(controller: Controller, env: Environment, agent: 
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
-let GathererOptions = [
+let GathererOptions* = [
   OptionDef(
     name: "GathererPlantOnFertile",
     canStart: canStartGathererPlantOnFertile,

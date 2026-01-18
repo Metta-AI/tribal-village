@@ -578,7 +578,7 @@ proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
-let FighterOptions = [
+let FighterOptions* = [
   OptionDef(
     name: "FighterBreakout",
     canStart: canStartFighterBreakout,

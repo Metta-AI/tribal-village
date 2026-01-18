@@ -461,6 +461,8 @@ proc optSmeltGold(controller: Controller, env: Environment, agent: Thing,
 include "gatherer"
 include "builder"
 include "fighter"
+include "roles"
+include "evolution"
 
 const GoblinAvoidRadius = 6
 

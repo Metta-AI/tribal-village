@@ -342,7 +342,7 @@ proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
-let BuilderOptions = [
+let BuilderOptions* = [
   OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
