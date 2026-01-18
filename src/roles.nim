@@ -184,3 +184,5 @@ proc seedDefaultBehaviorCatalog*(catalog: var RoleCatalog) =
     catalog.addBehaviorSet(BuilderOptions, BehaviorBuilder)
   when declared(FighterOptions):
     catalog.addBehaviorSet(FighterOptions, BehaviorFighter)
+  when declared(MetaBehaviorOptions):
+    catalog.addBehaviorSet(MetaBehaviorOptions, BehaviorCustom)

@@ -284,26 +284,42 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
   let wallMinY = max(MapBorder + 1, y0 - 2)
   let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
-  let wallJitter = 2
-  let wallChance = 0.65
+  let wallChance = 0.6
+  let driftChance = 0.45
+  let topMin = wallMinY
+  let topMax = min(wallMaxY, y0 + 2)
+  let bottomMin = max(wallMinY, y1 - 2)
+  let bottomMax = wallMaxY
+  var topY = y0 - 1
+  var bottomY = y1 + 1
 
   for x in wallMinX .. wallMaxX:
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(x, max(wallMinY, min(wallMaxY, y0 - 1 + jitter)))
+      tryAddWall(x, topY)
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(x, max(wallMinY, min(wallMaxY, y1 + 1 + jitter)))
+      tryAddWall(x, bottomY)
+    if randChance(r, driftChance):
+      topY = max(topMin, min(topMax, topY + randIntInclusive(r, -1, 1)))
+    if randChance(r, driftChance):
+      bottomY = max(bottomMin, min(bottomMax, bottomY + randIntInclusive(r, -1, 1)))
 
+  let leftMin = wallMinX
+  let leftMax = min(wallMaxX, x0 + 2)
+  let rightMin = max(wallMinX, x1 - 2)
+  let rightMax = wallMaxX
+  var leftX = x0 - 1
+  var rightX = x1 + 1
   for y in wallMinY .. wallMaxY:
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(max(wallMinX, min(wallMaxX, x0 - 1 + jitter)), y)
+      tryAddWall(leftX, y)
     if randChance(r, wallChance):
-      let jitter = randIntInclusive(r, -wallJitter, wallJitter)
-      tryAddWall(max(wallMinX, min(wallMaxX, x1 + 1 + jitter)), y)
+      tryAddWall(rightX, y)
+    if randChance(r, driftChance):
+      leftX = max(leftMin, min(leftMax, leftX + randIntInclusive(r, -1, 1)))
+    if randChance(r, driftChance):
+      rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(r, -1, 1)))
 
-  let spurCount = randIntInclusive(r, 6, 10)
+  let spurCount = randIntInclusive(r, 8, 14)
   let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
   for _ in 0 ..< spurCount:
     let startX = randIntInclusive(r, x0 + 1, x1 - 1)
@@ -385,6 +401,37 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       building.barrelCapacity = capacity
     env.add(building)
     inc extraPlaced
+
+  let scatterPool = [
+    House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
+    LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
+  ]
+  let scatterTarget = randIntInclusive(r, 18, 30)
+  let scatterRadius = half + 8
+  let scatterInner = half + 2
+  var scatterPlaced = 0
+  var scatterAttempts = 0
+  while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
+    inc scatterAttempts
+    let x = randIntInclusive(r, centerX - scatterRadius, centerX + scatterRadius)
+    let y = randIntInclusive(r, centerY - scatterRadius, centerY + scatterRadius)
+    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
+        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
+      continue
+    if x >= x0 and x <= x1 and y >= y0 and y <= y1:
+      continue
+    let dist = max(abs(x - centerX), abs(y - centerY))
+    if dist < scatterInner or dist > scatterRadius:
+      continue
+    if not canPlaceHubThing(x, y):
+      continue
+    let kind = scatterPool[randIntInclusive(r, 0, scatterPool.len - 1)]
+    let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
+    let capacity = buildingBarrelCapacity(kind)
+    if capacity > 0:
+      building.barrelCapacity = capacity
+    env.add(building)
+    inc scatterPlaced
 
 proc init(env: Environment) =
   inc env.mapGeneration
