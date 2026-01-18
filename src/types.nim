@@ -548,6 +548,7 @@ type
     biomes*: BiomeGrid
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)
     computedTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Dynamic tint overlay (lanterns/tumors)
+    tintLocked*: array[MapWidth, array[MapHeight, bool]]  # Tiles that ignore dynamic tint overlays
     tintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Unified tint modifications
     tintStrength*: array[MapWidth, array[MapHeight, int32]]  # Tint strength accumulation
     activeTiles*: ActiveTiles  # Sparse list of tiles to process

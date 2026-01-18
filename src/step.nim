@@ -143,6 +143,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var tumorsToProcess: seq[Thing] = @[]
 
   proc tryTowerAttack(tower: Thing, range: int) =
+    if tower.teamId < 0:
+      return
     var bestTarget: Thing = nil
     var bestDist = int.high
     for agent in env.agents:
