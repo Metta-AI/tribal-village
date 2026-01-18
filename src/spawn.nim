@@ -97,14 +97,6 @@ proc applyCliffRamps(env: Environment) =
         env.terrain[x][y] = Road
         env.terrain[nx][ny] = Road
 
-proc addCliffThing(env: Environment, kind: ThingKind, pos: IVec2) =
-  if not isValidPos(pos):
-    return
-  if not isNil(env.getOverlayThing(pos)):
-    return
-  let cliff = Thing(kind: kind, pos: pos)
-  env.add(cliff)
-
 proc applyCliffs(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -180,7 +172,7 @@ proc applyCliffs(env: Environment) =
           hasCliff = true
 
       if hasCliff:
-        env.addCliffThing(kind, ivec2(x.int32, y.int32))
+        env.add(Thing(kind: kind, pos: ivec2(x.int32, y.int32)))
 
 proc placeTradingHub(env: Environment, r: var Rand) =
   let centerX = MapWidth div 2
@@ -1432,6 +1424,22 @@ proc init(env: Environment) =
   # Ensure the world is a single connected component after terrain and structures.
   env.makeConnected()
 
+  proc chooseGroupSize(remaining, minSize, maxSize: int): int =
+    if remaining <= maxSize:
+      return remaining
+    result = randIntInclusive(r, minSize, maxSize)
+    let remainder = remaining - result
+    if remainder > 0 and remainder < minSize:
+      result -= (minSize - remainder)
+
+  proc collectGroupPositions(center: IVec2, radius: int): seq[IVec2] =
+    var positions = env.findEmptyPositionsAround(center, radius)
+    positions.insert(center, 0)
+    result = @[]
+    for pos in positions:
+      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
+        result.add(pos)
+
 
   # Cows spawn in herds (5-10) across open terrain.
   const MinHerdSize = 5
@@ -1439,26 +1447,13 @@ proc init(env: Environment) =
   var cowsPlaced = 0
   var herdId = 0
   while cowsPlaced < MapRoomObjectsCows:
-    let remaining = MapRoomObjectsCows - cowsPlaced
-    var herdSize: int
-    if remaining <= MaxHerdSize:
-      herdSize = remaining
-    else:
-      herdSize = randIntInclusive(r, MinHerdSize, MaxHerdSize)
-      let remainder = remaining - herdSize
-      if remainder > 0 and remainder < MinHerdSize:
-        herdSize -= (MinHerdSize - remainder)
+    let herdSize = chooseGroupSize(MapRoomObjectsCows - cowsPlaced, MinHerdSize, MaxHerdSize)
     let center = r.randomEmptyPos(env)
     if env.terrain[center.x][center.y] != Empty:
       continue
     if env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
-    var herdPositions = env.findEmptyPositionsAround(center, 3)
-    herdPositions.insert(center, 0)
-    var filtered: seq[IVec2] = @[]
-    for pos in herdPositions:
-      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
-        filtered.add(pos)
+    let filtered = collectGroupPositions(center, 3)
     if filtered.len < 5:
       continue
     let toPlace = min(herdSize, filtered.len)
@@ -1500,26 +1495,13 @@ proc init(env: Environment) =
   var wolvesPlaced = 0
   var packId = 0
   while wolvesPlaced < MapRoomObjectsWolves:
-    let remaining = MapRoomObjectsWolves - wolvesPlaced
-    var packSize: int
-    if remaining <= WolfPackMaxSize:
-      packSize = remaining
-    else:
-      packSize = randIntInclusive(r, WolfPackMinSize, WolfPackMaxSize)
-      let remainder = remaining - packSize
-      if remainder > 0 and remainder < WolfPackMinSize:
-        packSize -= (WolfPackMinSize - remainder)
+    let packSize = chooseGroupSize(MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize)
     let center = r.randomEmptyPos(env)
     if env.terrain[center.x][center.y] != Empty:
       continue
     if env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
-    var packPositions = env.findEmptyPositionsAround(center, 4)
-    packPositions.insert(center, 0)
-    var filtered: seq[IVec2] = @[]
-    for pos in packPositions:
-      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
-        filtered.add(pos)
+    let filtered = collectGroupPositions(center, 4)
     if filtered.len < WolfPackMinSize:
       continue
     let toPlace = min(packSize, filtered.len)
