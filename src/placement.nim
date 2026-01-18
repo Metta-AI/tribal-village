@@ -8,13 +8,10 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
       return true
   false
 
-proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool, hearts = 0) =
-  if isValidPos(pos):
-    env.updateObservations(ThingAgentLayer, pos, 0)
-
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
-    if thingBlocksMovement(thing.kind):
+    let isBlocking = thingBlocksMovement(thing.kind)
+    if isBlocking:
       env.grid[thing.pos.x][thing.pos.y] = nil
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = nil
@@ -66,12 +63,14 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
     env.updateAgentInventoryObs(agent, itemKey)
   setInv(agent, key, current + 1)
   env.updateAgentInventoryObs(agent, key)
-  updateThingObs(env, thing.kind, thing.pos, false)
+  if isValidPos(thing.pos):
+    env.updateObservations(ThingAgentLayer, thing.pos, 0)
   removeThing(env, thing)
   true
 
 proc add*(env: Environment, thing: Thing) =
-  if isValidPos(thing.pos) and not thingBlocksMovement(thing.kind):
+  let isBlocking = thingBlocksMovement(thing.kind)
+  if isValidPos(thing.pos) and not isBlocking:
     let existing = env.overlayGrid[thing.pos.x][thing.pos.y]
     if not isNil(existing) and (existing.kind in CliffKinds or thing.kind in CliffKinds):
       return
@@ -120,7 +119,7 @@ proc add*(env: Environment, thing: Thing) =
     env.agents.add(thing)
     env.stats.add(Stats())
   if isValidPos(thing.pos):
-    if thingBlocksMovement(thing.kind):
+    if isBlocking:
       env.grid[thing.pos.x][thing.pos.y] = thing
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = thing
@@ -183,7 +182,8 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
             env.terrain[fertilePos.x][fertilePos.y] = Fertile
             env.resetTileColor(fertilePos)
             env.updateObservations(ThingAgentLayer, fertilePos, 0)
-  updateThingObs(env, kind, pos, true, placed.hearts)
+  if isValidPos(pos):
+    env.updateObservations(ThingAgentLayer, pos, 0)
   if kind == Altar:
     let teamId = placed.teamId
     if teamId >= 0 and teamId < env.teamColors.len:

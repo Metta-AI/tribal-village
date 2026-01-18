@@ -102,28 +102,28 @@ proc updateObservations(
     let terrain = env.terrain[worldX][worldY]
     agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
 
-    let baseThing = env.grid[worldX][worldY]
-    if not isNil(baseThing):
-      agentObs[][ThingLayerStart + ord(baseThing.kind)][obsX][obsY] = 1
+    let blockingThing = env.grid[worldX][worldY]
+    if not isNil(blockingThing):
+      agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
 
-    let overlayThing = env.overlayGrid[worldX][worldY]
-    if not isNil(overlayThing):
-      agentObs[][ThingLayerStart + ord(overlayThing.kind)][obsX][obsY] = 1
+    let backgroundThing = env.overlayGrid[worldX][worldY]
+    if not isNil(backgroundThing):
+      agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
 
     var teamValue = 0
     var orientValue = 0
     var classValue = 0
-    if not isNil(baseThing) and baseThing.kind == Agent:
-      teamValue = getTeamId(baseThing) + 1
-      orientValue = ord(baseThing.orientation) + 1
-      classValue = ord(baseThing.unitClass) + 1
+    if not isNil(blockingThing) and blockingThing.kind == Agent:
+      teamValue = getTeamId(blockingThing) + 1
+      orientValue = ord(blockingThing.orientation) + 1
+      classValue = ord(blockingThing.unitClass) + 1
     else:
       let teamId = block:
-        let baseTeam = teamIdForObs(baseThing)
-        if baseTeam >= 0:
-          baseTeam
+        let blockingTeam = teamIdForObs(blockingThing)
+        if blockingTeam >= 0:
+          blockingTeam
         else:
-          teamIdForObs(overlayThing)
+          teamIdForObs(backgroundThing)
       if teamId >= 0:
         teamValue = teamId + 1
     agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
@@ -349,28 +349,28 @@ proc rebuildObservations*(env: Environment) =
     let terrain = env.terrain[worldX][worldY]
     agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
 
-    let baseThing = env.grid[worldX][worldY]
-    if not isNil(baseThing):
-      agentObs[][ThingLayerStart + ord(baseThing.kind)][obsX][obsY] = 1
+    let blockingThing = env.grid[worldX][worldY]
+    if not isNil(blockingThing):
+      agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
 
-    let overlayThing = env.overlayGrid[worldX][worldY]
-    if not isNil(overlayThing):
-      agentObs[][ThingLayerStart + ord(overlayThing.kind)][obsX][obsY] = 1
+    let backgroundThing = env.overlayGrid[worldX][worldY]
+    if not isNil(backgroundThing):
+      agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
 
     var teamValue = 0
     var orientValue = 0
     var classValue = 0
-    if not isNil(baseThing) and baseThing.kind == Agent:
-      teamValue = getTeamId(baseThing) + 1
-      orientValue = ord(baseThing.orientation) + 1
-      classValue = ord(baseThing.unitClass) + 1
+    if not isNil(blockingThing) and blockingThing.kind == Agent:
+      teamValue = getTeamId(blockingThing) + 1
+      orientValue = ord(blockingThing.orientation) + 1
+      classValue = ord(blockingThing.unitClass) + 1
     else:
       let teamId = block:
-        let baseTeam = teamIdForObs(baseThing)
-        if baseTeam >= 0:
-          baseTeam
+        let blockingTeam = teamIdForObs(blockingThing)
+        if blockingTeam >= 0:
+          blockingTeam
         else:
-          teamIdForObs(overlayThing)
+          teamIdForObs(backgroundThing)
       if teamId >= 0:
         teamValue = teamId + 1
     agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
@@ -403,6 +403,7 @@ proc getOverlayThing*(env: Environment, pos: IVec2): Thing =
   if not isValidPos(pos): nil else: env.overlayGrid[pos.x][pos.y]
 
 proc isEmpty*(env: Environment, pos: IVec2): bool =
+  ## True when no blocking unit occupies the tile.
   isValidPos(pos) and isNil(env.grid[pos.x][pos.y])
 
 proc hasDoor*(env: Environment, pos: IVec2): bool =
@@ -797,18 +798,18 @@ proc render*(env: Environment): string =
       var cell = " "
       # First check terrain
       cell = $TerrainCatalog[env.terrain[x][y]].ascii
-      # Then override with objects if present (blocking first, overlay second)
-      let blocking = env.grid[x][y]
-      if not isNil(blocking):
-        let kind = blocking.kind
+      # Then override with objects if present (blocking first, background second)
+      let blockingThing = env.grid[x][y]
+      if not isNil(blockingThing):
+        let kind = blockingThing.kind
         if isBuildingKind(kind):
           cell = $BuildingRegistry[kind].ascii
         else:
           cell = $ThingCatalog[kind].ascii
       else:
-        let overlay = env.overlayGrid[x][y]
-        if not isNil(overlay):
-          let kind = overlay.kind
+        let backgroundThing = env.overlayGrid[x][y]
+        if not isNil(backgroundThing):
+          let kind = backgroundThing.kind
           if isBuildingKind(kind):
             cell = $BuildingRegistry[kind].ascii
           else:
