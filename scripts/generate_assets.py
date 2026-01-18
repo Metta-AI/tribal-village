@@ -50,29 +50,9 @@ EDGE_ORIENTATIONS = [
     ),
 ]
 
-CORNER_OUT_ORIENTATIONS = [
-    (
-        "ne",
-        "Convex (outie) corner: a cliff descends from the north edge and curves eastward continuing along the east edge. The higher ground (rim with grass) is on the near/inside side of the cliff; the northeast quadrant is lower ground (drop pocket).",
-    ),
-    (
-        "nw",
-        "Convex (outie) corner: mostly high ground/rim, about three-quarters of the tile elevated. The cliff forms along the north and west edges, with only a shallow low pocket in the northwest corner; the rest of the tile is higher ground with grass on the rim.",
-    ),
-    (
-        "se",
-        "Convex (outie) corner: cliff legs run along the south and east edges. Low/drop pocket is inside the corner in the southeast quadrant; high ground/rim with grass is outside the corner in the northwest quadrant.",
-    ),
-    (
-        "sw",
-        "Convex (outie) corner: cliff legs run along the south and west edges. Low/drop pocket is inside the corner in the southwest quadrant; high ground/rim with grass is outside the corner in the northeast quadrant.",
-    ),
-]
-
 ORIENTATION_SETS = {
     "unit": ORIENTATION_TEMPLATES,
     "edge": EDGE_ORIENTATIONS,
-    "corner_out": CORNER_OUT_ORIENTATIONS,
 }
 
 
@@ -551,23 +531,35 @@ def flip_horizontal(img: Image.Image) -> Image.Image:
     return img.transpose(Image.FLIP_LEFT_RIGHT)
 
 
-def maybe_derive_corner_in_variants(target: Path, out_dir: Path) -> None:
+def maybe_derive_corner_variants(target: Path, out_dir: Path) -> None:
     try:
         relative = target.relative_to(out_dir)
     except ValueError:
         relative = target
-    if relative.as_posix() != "oriented/cliff_corner_in_nw.png":
+    rel = relative.as_posix()
+    if rel == "oriented/cliff_corner_in_nw.png":
+        with Image.open(target) as existing:
+            base = existing.convert("RGBA")
+        corner_dir = target.parent
+        img_ne = flip_horizontal(base)
+        img_sw = base.transpose(Image.ROTATE_90)
+        img_se = flip_horizontal(img_sw)
+        corner_dir.mkdir(parents=True, exist_ok=True)
+        img_ne.save(corner_dir / "cliff_corner_in_ne.png")
+        img_sw.save(corner_dir / "cliff_corner_in_sw.png")
+        img_se.save(corner_dir / "cliff_corner_in_se.png")
         return
-    with Image.open(target) as existing:
-        base = existing.convert("RGBA")
-    corner_dir = target.parent
-    img_ne = flip_horizontal(base)
-    img_sw = base.transpose(Image.ROTATE_90)
-    img_se = flip_horizontal(img_sw)
-    corner_dir.mkdir(parents=True, exist_ok=True)
-    img_ne.save(corner_dir / "cliff_corner_in_ne.png")
-    img_sw.save(corner_dir / "cliff_corner_in_sw.png")
-    img_se.save(corner_dir / "cliff_corner_in_se.png")
+    if rel == "oriented/cliff_corner_out_se.png":
+        with Image.open(target) as existing:
+            base = existing.convert("RGBA")
+        corner_dir = target.parent
+        img_sw = flip_horizontal(base)
+        img_ne = base.transpose(Image.ROTATE_90)
+        img_nw = flip_horizontal(img_ne)
+        corner_dir.mkdir(parents=True, exist_ok=True)
+        img_sw.save(corner_dir / "cliff_corner_out_sw.png")
+        img_ne.save(corner_dir / "cliff_corner_out_ne.png")
+        img_nw.save(corner_dir / "cliff_corner_out_nw.png")
 
 
 def swap_orientation_token(filename: str, old: str, new: str) -> str:
@@ -632,17 +624,13 @@ FLIP_ORIENTATIONS = {
         "ne": "nw",
         "se": "sw",
     },
-    "corner_out": {
-        "ne": "nw",
-        "se": "sw",
-    },
     "edge": {
         "ns_w": "ns",
     },
 }
 
 def oriented_uses_purple_bg(output: OrientedOutput) -> bool:
-    return output.orientation_set in {"unit", "edge", "corner_out"}
+    return output.orientation_set in {"unit", "edge"}
 
 
 def main() -> None:
@@ -855,7 +843,7 @@ def main() -> None:
                     args.postprocess_purple_to_white,
                     args.postprocess_purple_bg,
                 )
-                maybe_derive_corner_in_variants(target, out_dir)
+                maybe_derive_corner_variants(target, out_dir)
                 continue
             if client is None:
                 raise SystemExit("Client not initialized for image generation.")
@@ -871,13 +859,13 @@ def main() -> None:
                     args.postprocess_purple_to_white,
                     args.postprocess_purple_bg,
                 )
-                maybe_derive_corner_in_variants(target, out_dir)
+                maybe_derive_corner_variants(target, out_dir)
             else:
                 if args.size and img.size != (args.size, args.size):
                     img = img.resize((args.size, args.size), Image.LANCZOS)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(target)
-                maybe_derive_corner_in_variants(target, out_dir)
+                maybe_derive_corner_variants(target, out_dir)
 
 
 if __name__ == "__main__":
