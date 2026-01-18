@@ -267,7 +267,7 @@ proc placeTradingHub(env: Environment, r: var Rand) =
     let pos = ivec2(x.int32, y.int32)
     if not env.isEmpty(pos):
       return false
-    if not isNil(env.getOverlayThing(pos)) or env.hasDoor(pos):
+    if not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
       return false
     true
 
