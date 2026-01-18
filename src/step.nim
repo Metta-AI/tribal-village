@@ -277,7 +277,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Precompute team pop caps while scanning things
   var teamPopCaps: array[MapRoomObjectsHouses, int]
-  for thing in env.things:
+  let thingsCount = env.things.len
+  for i in 0 ..< thingsCount:
+    let thing = env.things[i]
     if towerRemovals.len > 0 and thing in towerRemovals:
       continue
     if thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses and isBuildingKind(thing.kind):
