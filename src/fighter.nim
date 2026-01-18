@@ -505,17 +505,6 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
   0'u8
 
-proc findNearestPredator(env: Environment, pos: IVec2): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for kind in [Bear, Wolf]:
-    for thing in env.thingsByKind[kind]:
-      let dist = int(chebyshevDist(thing.pos, pos))
-      if dist < bestDist:
-        bestDist = dist
-        best = thing
-  best
-
 proc canStartFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestPredator(env, agent.pos))
@@ -526,17 +515,6 @@ proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Th
   if isNil(target):
     return 0'u8
   fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
-
-proc findNearestGoblinStructure(env: Environment, pos: IVec2): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for kind in [GoblinHive, GoblinHut, GoblinTotem]:
-    for thing in env.thingsByKind[kind]:
-      let dist = int(chebyshevDist(thing.pos, pos))
-      if dist < bestDist:
-        bestDist = dist
-        best = thing
-  best
 
 proc canStartFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =

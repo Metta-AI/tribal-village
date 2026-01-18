@@ -350,32 +350,6 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
 
-proc findIrrigationTarget(env: Environment, center: IVec2, radius: int): IVec2 =
-  let cx = center.x.int
-  let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
-  var bestDist = int.high
-  var bestPos = ivec2(-1, -1)
-  for x in startX .. endX:
-    for y in startY .. endY:
-      if max(abs(x - cx), abs(y - cy)) > radius:
-        continue
-      if env.terrain[x][y] notin {Empty, Grass, Dune, Sand, Snow}:
-        continue
-      let pos = ivec2(x.int32, y.int32)
-      if not env.isEmpty(pos) or env.hasDoor(pos) or not isNil(env.getBackgroundThing(pos)):
-        continue
-      if isTileFrozen(pos, env):
-        continue
-      let dist = abs(x - cx) + abs(y - cy)
-      if dist < bestDist:
-        bestDist = dist
-        bestPos = pos
-  bestPos
-
 proc canStartGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
   agent.inventoryWater > 0
