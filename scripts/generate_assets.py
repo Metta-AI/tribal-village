@@ -563,6 +563,17 @@ def maybe_derive_cliff_variants(target: Path, out_dir: Path) -> None:
         img_ne.save(corner_dir / "cliff_corner_out_ne.png")
         img_nw.save(corner_dir / "cliff_corner_out_nw.png")
         return
+    if rel == "cliff_edge_ew.png":
+        with Image.open(target) as existing:
+            base = existing.convert("RGBA")
+        edge_dir = target.parent
+        img_ew_s = base.transpose(Image.ROTATE_180)
+        img_ns_w = base.transpose(Image.ROTATE_90)
+        img_ns = base.transpose(Image.ROTATE_270)
+        edge_dir.mkdir(parents=True, exist_ok=True)
+        img_ew_s.save(edge_dir / "cliff_edge_ew_s.png")
+        img_ns_w.save(edge_dir / "cliff_edge_ns_w.png")
+        img_ns.save(edge_dir / "cliff_edge_ns.png")
 
 
 def swap_orientation_token(filename: str, old: str, new: str) -> str:
