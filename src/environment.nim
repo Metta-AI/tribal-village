@@ -690,9 +690,8 @@ proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
   ## Check if a position is within map bounds, empty, and not blocked terrain
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
     pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
-    env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
-    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
-    true
+    env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and
+    not isBlockedTerrain(env.terrain[pos.x][pos.y])
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
   ## Generate a random position within map boundaries
