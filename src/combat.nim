@@ -1,22 +1,24 @@
 const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = [
   # Attacker: UnitVillager
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitManAtArms (infantry > cavalry)
-  [0, 0, 0, 1, 1, 0, 0, 0, 0],
+  [0, 0, 0, 1, 1, 0, 0, 0, 0, 0],
   # Attacker: UnitArcher (archer > infantry)
-  [0, 1, 0, 0, 0, 0, 0, 0, 0],
+  [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitScout (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitKnight (cavalry > archer)
-  [0, 0, 1, 0, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitMonk
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitBatteringRam
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitMangonel
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  # Attacker: UnitGoblin
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   # Attacker: UnitBoat
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ]
 
 const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
@@ -36,6 +38,8 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.55, g: 0.40, b: 1.00, intensity: 1.18),
   # UnitMangonel
   TileColor(r: 0.85, g: 0.40, b: 1.00, intensity: 1.20),
+  # UnitGoblin
+  TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.18),
   # UnitBoat
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
 ]
