@@ -431,8 +431,11 @@ proc init(env: Environment) =
   env.actionTintPositions.setLen(0)
   env.shieldCountdown = default(array[MapAgents, int8])
 
-  # Initialize terrain with all features
+  # Initialize base terrain and biomes (dry pass).
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
+  # Water features override biome terrain before elevation/cliffs.
+  applySwampWater(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, r, BiomeSwampConfig())
+  env.terrain.generateRiver(MapWidth, MapHeight, MapBorder, r)
   env.applyBiomeElevation()
   env.applyCliffRamps()
   env.applyCliffs()
@@ -716,6 +719,88 @@ proc init(env: Environment) =
           if placed: break
         if placed: break
 
+  proc placeStartingResourceNodes(center: IVec2, r: var Rand) =
+    proc findSpot(r: var Rand, minRadius, maxRadius: int, allowedTerrain: set[TerrainType]): IVec2 =
+      for attempt in 0 ..< 40:
+        let dx = randIntInclusive(r, -maxRadius, maxRadius)
+        let dy = randIntInclusive(r, -maxRadius, maxRadius)
+        let dist = max(abs(dx), abs(dy))
+        if dist < minRadius or dist > maxRadius:
+          continue
+        let pos = center + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        if env.terrain[pos.x][pos.y] notin allowedTerrain:
+          continue
+        if env.hasDoor(pos):
+          continue
+        if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)):
+          continue
+        return pos
+      for attempt in 0 ..< 40:
+        let radius = maxRadius + 4
+        let dx = randIntInclusive(r, -radius, radius)
+        let dy = randIntInclusive(r, -radius, radius)
+        let dist = max(abs(dx), abs(dy))
+        if dist < minRadius or dist > radius:
+          continue
+        let pos = center + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        if env.terrain[pos.x][pos.y] notin allowedTerrain:
+          continue
+        if env.hasDoor(pos):
+          continue
+        if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)):
+          continue
+        return pos
+      ivec2(-1, -1)
+
+    proc placeDepositCluster(r: var Rand, kind: ThingKind, item: ItemKey, count: int,
+                             minRadius, maxRadius: int) =
+      var spot = findSpot(r, minRadius, maxRadius, ResourceGround)
+      if spot.x < 0:
+        spot = r.randomEmptyPos(env)
+      addResourceNode(env, spot, kind, item, MineDepositAmount)
+      if count <= 1:
+        return
+      var candidates = env.findEmptyPositionsAround(spot, 2)
+      let toPlace = min(count - 1, candidates.len)
+      for i in 0 ..< toPlace:
+        addResourceNode(env, candidates[i], kind, item, MineDepositAmount)
+
+    proc placeMagmaCluster(r: var Rand, minRadius, maxRadius: int) =
+      var spot = findSpot(r, minRadius, maxRadius, ResourceGround)
+      if spot.x < 0:
+        spot = r.randomEmptyPos(env)
+      if env.isEmpty(spot) and isNil(env.getBackgroundThing(spot)) and not env.hasDoor(spot) and
+          env.terrain[spot.x][spot.y] in ResourceGround:
+        env.add(Thing(kind: Magma, pos: spot))
+      var candidates = env.findEmptyPositionsAround(spot, 2)
+      let extraCount = randIntInclusive(r, 1, 2)
+      let toPlace = min(extraCount, candidates.len)
+      for i in 0 ..< toPlace:
+        let pos = candidates[i]
+        if env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos) and
+            env.terrain[pos.x][pos.y] in ResourceGround:
+          env.add(Thing(kind: Magma, pos: pos))
+
+    var woodSpot = findSpot(r, 6, 12, ResourceGround)
+    if woodSpot.x < 0:
+      woodSpot = r.randomEmptyPos(env)
+    placeResourceCluster(env, woodSpot.x, woodSpot.y,
+      randIntInclusive(r, 5, 8), 0.85, 0.4, Tree, ItemWood, ResourceGround, r)
+
+    var foodSpot = findSpot(r, 5, 11, ResourceGround)
+    if foodSpot.x < 0:
+      foodSpot = r.randomEmptyPos(env)
+    placeResourceCluster(env, foodSpot.x, foodSpot.y,
+      randIntInclusive(r, 4, 7), 0.85, 0.35, Wheat, ItemWheat, ResourceGround, r)
+
+    placeDepositCluster(r, Stone, ItemStone, randIntInclusive(r, 3, 4), 7, 14)
+    placeDepositCluster(r, Gold, ItemGold, randIntInclusive(r, 3, 4), 8, 15)
+    placeMagmaCluster(r, 9, 16)
+
   proc placeStartingHouses(center: IVec2, teamId: int, r: var Rand) =
     let count = randIntInclusive(r, 4, 5)
     var placed = 0
@@ -860,6 +945,7 @@ proc init(env: Environment) =
       placeStartingResourceBuildings(elements.center, teamId)
       placeStartingHouses(elements.center, teamId, r)
       placeStartingRoads(elements.center, teamId, r)
+      placeStartingResourceNodes(elements.center, r)
 
       # Add the walls
       for wallPos in elements.walls:

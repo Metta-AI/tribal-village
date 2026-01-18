@@ -909,7 +909,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for agent in env.agents:
       if agent.isNil:
         continue
-      teamSeen[getTeamId(agent)] = true
+      let teamId = getTeamId(agent)
+      if teamId >= 0 and teamId < teamSeen.len:
+        teamSeen[teamId] = true
     entry.add("Stockpiles:\n")
     for teamId, seen in teamSeen:
       if not seen:
