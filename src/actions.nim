@@ -72,6 +72,11 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         step1.x += int32(delta.x)
         step1.y += int32(delta.y)
 
+        if step1.x < MapBorder.int32 or step1.x >= (MapWidth - MapBorder).int32 or
+            step1.y < MapBorder.int32 or step1.y >= (MapHeight - MapBorder).int32:
+          inc env.stats[id].actionInvalid
+          break moveAction
+
         if not env.canTraverseElevation(agent.pos, step1):
           inc env.stats[id].actionInvalid
           break moveAction
@@ -87,6 +92,9 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
         proc canEnterFrom(fromPos, pos: IVec2): bool =
           if not isValidPos(pos):
+            return false
+          if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
+              pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
             return false
           if not env.canTraverseElevation(fromPos, pos):
             return false
@@ -112,12 +120,16 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
           let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
           if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
+              ahead2.x >= MapBorder.int32 and ahead2.x < (MapWidth - MapBorder).int32 and
+              ahead2.y >= MapBorder.int32 and ahead2.y < (MapHeight - MapBorder).int32 and
               not env.isWaterBlockedForAgent(agent, ahead2) and spacingOk(ahead2):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead2
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
             relocated = true
           elif isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
+              ahead1.x >= MapBorder.int32 and ahead1.x < (MapWidth - MapBorder).int32 and
+              ahead1.y >= MapBorder.int32 and ahead1.y < (MapHeight - MapBorder).int32 and
               not env.isWaterBlockedForAgent(agent, ahead1) and spacingOk(ahead1):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead1
@@ -131,6 +143,9 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   continue
                 let alt = ivec2(pos.x + dx, pos.y + dy)
                 if not isValidPos(alt):
+                  continue
+                if alt.x < MapBorder.int32 or alt.x >= (MapWidth - MapBorder).int32 or
+                    alt.y < MapBorder.int32 or alt.y >= (MapHeight - MapBorder).int32:
                   continue
                 if env.isEmpty(alt) and not env.hasDoor(alt) and
                     not env.isWaterBlockedForAgent(agent, alt) and spacingOk(alt):
