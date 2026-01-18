@@ -630,6 +630,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for kind in [Wolf, Bear]:
     for predator in env.thingsByKind[kind]:
       block predatorAttack:
+        var agentTarget: Thing = nil
         for offset in CardinalOffsets:
           let pos = predator.pos + offset
           if not isValidPos(pos):
@@ -643,17 +644,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             env.updateObservations(AgentOrientationLayer, pos, 0)
             removeThing(env, target)
             break predatorAttack
-        for offset in CardinalOffsets:
-          let pos = predator.pos + offset
-          if not isValidPos(pos):
-            continue
-          let target = env.getThing(pos)
-          if isNil(target) or target.kind != Agent:
-            continue
-          if not isAgentAlive(env, target):
-            continue
-          discard env.applyAgentDamage(target, max(1, predator.attackDamage))
-          break predatorAttack
+          if target.kind == Agent and isAgentAlive(env, target) and agentTarget.isNil:
+            agentTarget = target
+        if not agentTarget.isNil:
+          discard env.applyAgentDamage(agentTarget, max(1, predator.attackDamage))
 
   when defined(stepTiming):
     if timing:
