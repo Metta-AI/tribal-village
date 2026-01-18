@@ -72,8 +72,13 @@ proc add*(env: Environment, thing: Thing) =
   let isBlocking = thingBlocksMovement(thing.kind)
   if isValidPos(thing.pos) and not isBlocking:
     let existing = env.backgroundGrid[thing.pos.x][thing.pos.y]
-    if not isNil(existing) and (existing.kind in CliffKinds or thing.kind in CliffKinds):
-      return
+    if not isNil(existing):
+      if existing.kind in CliffKinds:
+        # Cliffs always own their tile; don't place other background things on top.
+        return
+      if thing.kind in CliffKinds:
+        # Cliffs take precedence over other background overlays.
+        removeThing(env, existing)
   if thing.kind in {Wall, Door, Outpost, GuardTower, TownCenter, Castle}:
     if thing.maxHp <= 0:
       case thing.kind
