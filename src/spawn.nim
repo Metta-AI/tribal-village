@@ -182,7 +182,7 @@ proc applyCliffs(env: Environment) =
       if hasCliff:
         env.addCliffThing(kind, ivec2(x.int32, y.int32))
 
-proc placeTradingHub(env: Environment) =
+proc placeTradingHub(env: Environment, r: var Rand) =
   let centerX = MapWidth div 2
   let centerY = MapHeight div 2
   let half = TradingHubSize div 2
@@ -207,20 +207,75 @@ proc placeTradingHub(env: Environment) =
       env.baseTintColors[x][y] = TradingHubTint
       env.tintLocked[x][y] = true
 
+  let riverThrough = randChance(r, 0.55)
+  let riverX = centerX
+  let riverWest = max(MapBorder + 1, x0 - 2)
+  let riverEast = min(MapWidth - MapBorder - 2, x1 + 2)
+
+  proc carveRiverAt(x: int) =
+    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1:
+      return
+    for y in (MapBorder + 1) .. (MapHeight - MapBorder - 2):
+      let pos = ivec2(x.int32, y.int32)
+      let existing = env.getThing(pos)
+      if not isNil(existing):
+        removeThing(env, existing)
+      let overlay = env.getOverlayThing(pos)
+      if not isNil(overlay):
+        removeThing(env, overlay)
+      env.terrain[x][y] = Water
+      env.resetTileColor(pos)
+
+  if riverThrough:
+    carveRiverAt(riverX)
+  else:
+    carveRiverAt(riverWest)
+    carveRiverAt(riverEast)
+
+  proc paintRoad(x, y: int) =
+    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
+        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
+      return
+    let pos = ivec2(x.int32, y.int32)
+    if env.terrain[x][y] == Water:
+      env.terrain[x][y] = Bridge
+    else:
+      env.terrain[x][y] = Road
+    env.resetTileColor(pos)
+
+  proc extendRoad(startX, startY, dx, dy: int) =
+    var x = startX
+    var y = startY
+    while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
+        y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
+      let outsideHub = x < x0 or x > x1 or y < y0 or y > y1
+      let existing = env.terrain[x][y]
+      paintRoad(x, y)
+      if outsideHub and existing in {Road, Bridge}:
+        break
+      x += dx
+      y += dy
+
+  let roadX = if riverThrough: min(centerX + 1, x1 - 1) else: centerX
+  extendRoad(roadX, centerY, 1, 0)
+  extendRoad(roadX, centerY, -1, 0)
+  extendRoad(roadX, centerY, 0, 1)
+  extendRoad(roadX, centerY, 0, -1)
+
   for x in x0 .. x1:
     if x < 0 or x >= MapWidth:
       continue
-    if y0 >= 0 and y0 < MapHeight and x != centerX and x != x0 and x != x1:
+    if y0 >= 0 and y0 < MapHeight and x != centerX and x != roadX and x != x0 and x != x1:
       env.add(Thing(kind: Wall, pos: ivec2(x.int32, y0.int32), teamId: -1))
-    if y1 >= 0 and y1 < MapHeight and x != centerX and x != x0 and x != x1:
+    if y1 >= 0 and y1 < MapHeight and x != centerX and x != roadX and x != x0 and x != x1:
       env.add(Thing(kind: Wall, pos: ivec2(x.int32, y1.int32), teamId: -1))
   if y0 + 1 <= y1 - 1:
     for y in (y0 + 1) .. (y1 - 1):
       if y < 0 or y >= MapHeight:
         continue
-      if x0 >= 0 and x0 < MapWidth:
+      if y != centerY and x0 >= 0 and x0 < MapWidth:
         env.add(Thing(kind: Wall, pos: ivec2(x0.int32, y.int32), teamId: -1))
-      if x1 >= 0 and x1 < MapWidth:
+      if y != centerY and x1 >= 0 and x1 < MapWidth:
         env.add(Thing(kind: Wall, pos: ivec2(x1.int32, y.int32), teamId: -1))
 
   let cornerNW = ivec2(x0.int32, y0.int32)
@@ -238,11 +293,34 @@ proc placeTradingHub(env: Environment) =
 
   let center = ivec2(centerX.int32, centerY.int32)
   env.add(Thing(kind: Castle, pos: center, teamId: -1))
-
-  for offset in [ivec2(0, -3), ivec2(0, 3), ivec2(-3, 0), ivec2(3, 0)]:
-    let marketPos = center + offset
-    if isValidPos(marketPos) and env.isEmpty(marketPos):
-      env.add(Thing(kind: Market, pos: marketPos, teamId: -1))
+  var hubBuildings = @[
+    Market, Market, Market, Outpost, Blacksmith, ClayOven, WeavingLoom,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, Monastery, University,
+    House, Granary, Mill, LumberCamp, Quarry, MiningCamp
+  ]
+  for i in countdown(hubBuildings.len - 1, 1):
+    let j = randIntInclusive(r, 0, i)
+    swap(hubBuildings[i], hubBuildings[j])
+  var placed = 0
+  for kind in hubBuildings:
+    if placed >= 14:
+      break
+    var attempts = 0
+    var placedHere = false
+    while attempts < 80 and not placedHere:
+      inc attempts
+      let x = randIntInclusive(r, x0 + 1, x1 - 1)
+      let y = randIntInclusive(r, y0 + 1, y1 - 1)
+      if x == centerX or y == centerY:
+        continue
+      let pos = ivec2(x.int32, y.int32)
+      if not isValidPos(pos) or not env.isEmpty(pos):
+        continue
+      if env.terrain[x][y] in {Water, Road, Bridge}:
+        continue
+      env.add(Thing(kind: kind, pos: pos, teamId: -1))
+      inc placed
+      placedHere = true
 
 proc init(env: Environment) =
   inc env.mapGeneration
@@ -406,7 +484,7 @@ proc init(env: Environment) =
         env.add(Thing(kind: Wall, pos: ivec2(MapWidth - j - 1, y)))
 
   # Place neutral trading hub near map center before villages.
-  env.placeTradingHub()
+  env.placeTradingHub(r)
 
   # Agents will now spawn with their villages below
   # Clear and prepare village colors arrays (use Environment fields)
