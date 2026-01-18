@@ -4,8 +4,8 @@
 
 import std/os, std/strutils
 
-include "ai_core"
-include "ai_defaults"
+include "scripted/ai_core"
+include "scripted/ai_defaults"
 
 const
   ActionsFile = "actions.tmp"
@@ -57,7 +57,7 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
     var actions: array[MapAgents, uint8]
     for i in 0 ..< env.agents.len:
       actions[i] = globalController.aiController.decideAction(env, i)
-    globalController.aiController.updateController()
+    globalController.aiController.updateController(env)
     return actions
     
   of ExternalNN:

@@ -389,6 +389,211 @@ include "fighter"
 include "roles"
 include "evolution"
 
+const
+  ScriptedRoleHistoryPath = "data/role_history.json"
+  ScriptedScoreStep = 5000
+  ScriptedGeneratedRoleCount = 16
+  ScriptedRoleExplorationChance = 0.08
+  ScriptedRoleMutationChance = 0.25
+
+type
+  ScriptedRoleState = object
+    initialized: bool
+    catalog: RoleCatalog
+    roleOptionsCache: seq[seq[OptionDef]]
+    roleOptionsCached: seq[bool]
+    roleAssignments: array[MapAgents, int]
+    roleIsScripted: array[MapAgents, bool]
+    coreRoleIds: array[AgentRole, int]
+    lastEpisodeStep: int
+    scoredAtStep: bool
+    evolutionConfig: EvolutionConfig
+    rolePool: seq[int]
+
+var scriptedState: ScriptedRoleState
+
+proc resetScriptedAssignments(state: var ScriptedRoleState) =
+  for i in 0 ..< MapAgents:
+    state.roleAssignments[i] = -1
+    state.roleIsScripted[i] = false
+
+proc ensureRoleCache(state: var ScriptedRoleState) =
+  if state.roleOptionsCache.len < state.catalog.roles.len:
+    let needed = state.catalog.roles.len - state.roleOptionsCache.len
+    for _ in 0 ..< needed:
+      state.roleOptionsCache.add @[]
+      state.roleOptionsCached.add false
+
+proc buildCoreRole(catalog: var RoleCatalog, name: string,
+                   options: openArray[OptionDef]): int =
+  let existing = findRoleId(catalog, name)
+  if existing >= 0:
+    return existing
+  var ids: seq[int] = @[]
+  for opt in options:
+    let id = findBehaviorId(catalog, opt.name)
+    if id >= 0:
+      ids.add id
+  let tier = RoleTier(behaviorIds: ids, selection: TierFixed)
+  let role = newRoleDef(catalog, name, @[tier], "core")
+  registerRole(catalog, role)
+
+proc rebuildRolePool(state: var ScriptedRoleState) =
+  state.rolePool.setLen(0)
+  for role in state.catalog.roles:
+    if role.origin != "core":
+      state.rolePool.add role.id
+  if state.rolePool.len == 0:
+    for roleId in state.coreRoleIds:
+      if roleId >= 0:
+        state.rolePool.add roleId
+
+proc generateRandomRole(state: var ScriptedRoleState, rng: var Rand,
+                        origin: string): int =
+  var role = sampleRole(state.catalog, rng, state.evolutionConfig)
+  if randChance(rng, ScriptedRoleMutationChance):
+    role = mutateRole(state.catalog, rng, role, state.evolutionConfig.mutationRate)
+  role.origin = origin
+  let id = registerRole(state.catalog, role)
+  ensureRoleCache(state)
+  if origin != "core":
+    state.rolePool.add id
+  id
+
+proc initScriptedState(controller: Controller) =
+  if scriptedState.initialized:
+    return
+  scriptedState.evolutionConfig = defaultEvolutionConfig()
+  scriptedState.catalog = initRoleCatalog()
+  scriptedState.catalog.seedDefaultBehaviorCatalog()
+  scriptedState.catalog.loadRoleHistory(ScriptedRoleHistoryPath)
+  scriptedState.coreRoleIds = [
+    buildCoreRole(scriptedState.catalog, "GathererCore", GathererOptions),
+    buildCoreRole(scriptedState.catalog, "BuilderCore", BuilderOptions),
+    buildCoreRole(scriptedState.catalog, "FighterCore", FighterOptions),
+    -1
+  ]
+  ensureRoleCache(scriptedState)
+  var nonCore = 0
+  for role in scriptedState.catalog.roles:
+    if role.origin != "core":
+      inc nonCore
+  while nonCore < ScriptedGeneratedRoleCount:
+    discard generateRandomRole(scriptedState, controller.rng, "sampled")
+    inc nonCore
+  rebuildRolePool(scriptedState)
+  resetScriptedAssignments(scriptedState)
+  scriptedState.scoredAtStep = false
+  scriptedState.lastEpisodeStep = -1
+  scriptedState.initialized = true
+
+proc assignScriptedRole(controller: Controller, agentId: int,
+                        state: var AgentState) =
+  initScriptedState(controller)
+  var roleId = -1
+  if randChance(controller.rng, ScriptedRoleExplorationChance):
+    roleId = generateRandomRole(scriptedState, controller.rng, "explore")
+  else:
+    roleId = pickRoleIdWeighted(scriptedState.catalog, controller.rng, scriptedState.rolePool)
+  if roleId < 0:
+    roleId = scriptedState.coreRoleIds[Gatherer]
+  scriptedState.roleAssignments[agentId] = roleId
+  scriptedState.roleIsScripted[agentId] = true
+  state.role = Scripted
+  state.activeOptionId = -1
+  state.activeOptionTicks = 0
+
+proc roleOptionsFor(agentId: int, rng: var Rand): seq[OptionDef] =
+  let roleId = scriptedState.roleAssignments[agentId]
+  if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
+    return @[]
+  ensureRoleCache(scriptedState)
+  if not scriptedState.roleOptionsCached[roleId]:
+    scriptedState.roleOptionsCache[roleId] =
+      materializeRoleOptions(scriptedState.catalog, scriptedState.catalog.roles[roleId], rng)
+    scriptedState.roleOptionsCached[roleId] = true
+  scriptedState.roleOptionsCache[roleId]
+
+proc applyScriptedScoring(controller: Controller, env: Environment) =
+  discard controller
+  let score = env.scoreTerritory()
+  let total = max(1, score.scoredTiles)
+  var teamScores: array[MapRoomObjectsHouses, float32]
+  for teamId in 0 ..< MapRoomObjectsHouses:
+    teamScores[teamId] = float32(score.teamTiles[teamId]) / float32(total)
+  var roleTeamCounts: Table[(int, int), int]
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    let roleId = scriptedState.roleAssignments[agent.agentId]
+    if roleId < 0:
+      continue
+    let teamId = getTeamId(agent)
+    if teamId < 0 or teamId >= MapRoomObjectsHouses:
+      continue
+    let key = (roleId, teamId)
+    roleTeamCounts[key] = roleTeamCounts.getOrDefault(key, 0) + 1
+  for key, count in roleTeamCounts.pairs:
+    let roleId = key[0]
+    let teamId = key[1]
+    if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
+      continue
+    if teamId < 0 or teamId >= MapRoomObjectsHouses:
+      continue
+    let sampleTeamScore = teamScores[teamId]
+    let weight = min(4, count)
+    recordRoleScore(scriptedState.catalog.roles[roleId], sampleTeamScore, sampleTeamScore >= 0.5, weight = weight)
+    lockRoleNameIfFit(scriptedState.catalog.roles[roleId], scriptedState.evolutionConfig.lockFitnessThreshold)
+    for tier in scriptedState.catalog.roles[roleId].tiers:
+      for behaviorId in tier.behaviorIds:
+        if behaviorId >= 0 and behaviorId < scriptedState.catalog.behaviors.len:
+          recordBehaviorScore(scriptedState.catalog.behaviors[behaviorId], sampleTeamScore, weight = weight)
+          inc scriptedState.catalog.behaviors[behaviorId].uses
+  scriptedState.catalog.saveRoleHistory(ScriptedRoleHistoryPath)
+
+proc processTempleInteractions(controller: Controller, env: Environment) =
+  if env.templeInteractions.len < 2:
+    env.templeInteractions.setLen(0)
+    return
+  var used = newSeq[bool](env.templeInteractions.len)
+  for i in 0 ..< env.templeInteractions.len:
+    if used[i]:
+      continue
+    let a = env.templeInteractions[i]
+    for j in i + 1 ..< env.templeInteractions.len:
+      if used[j]:
+        continue
+      let b = env.templeInteractions[j]
+      if a.pos != b.pos or a.teamId != b.teamId:
+        continue
+      used[i] = true
+      used[j] = true
+      let roleA = scriptedState.roleAssignments[a.agentId]
+      let roleB = scriptedState.roleAssignments[b.agentId]
+      if roleA < 0 or roleB < 0 or
+          roleA >= scriptedState.catalog.roles.len or roleB >= scriptedState.catalog.roles.len:
+        break
+      var hybrid = recombineRoles(scriptedState.catalog, controller.rng,
+        scriptedState.catalog.roles[roleA], scriptedState.catalog.roles[roleB])
+      if randChance(controller.rng, ScriptedRoleMutationChance):
+        hybrid = mutateRole(scriptedState.catalog, controller.rng, hybrid, scriptedState.evolutionConfig.mutationRate)
+      hybrid.origin = "temple"
+      let newRoleId = registerRole(scriptedState.catalog, hybrid)
+      ensureRoleCache(scriptedState)
+      scriptedState.rolePool.add newRoleId
+      for agentId in [a.agentId, b.agentId]:
+        if agentId < 0 or agentId >= MapAgents:
+          continue
+        scriptedState.roleAssignments[agentId] = newRoleId
+        scriptedState.roleIsScripted[agentId] = true
+        var state = controller.agents[agentId]
+        state.role = Scripted
+        state.activeOptionId = -1
+        state.activeOptionTicks = 0
+        controller.agents[agentId] = state
+      break
+  env.templeInteractions.setLen(0)
+
 const GoblinAvoidRadius = 6
 
 proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
@@ -420,6 +625,14 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
     if didGold: return (true, actGold)
 
   (false, 0'u8)
+
+proc decideScripted(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  updateGathererTask(controller, env, agent, state)
+  let options = roleOptionsFor(agentId, controller.rng)
+  if options.len == 0:
+    return 0'u8
+  return runOptions(controller, env, agent, agentId, state, options)
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 
@@ -427,15 +640,17 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if not isAgentAlive(env, agent):
     return encodeAction(0'u8, 0'u8)
 
+  initScriptedState(controller)
+
   # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
   if not controller.agentsInitialized[agentId]:
-    let role =
-      case agentId mod MapAgentsPerVillage
+    let slot = agentId mod MapAgentsPerVillage
+    var role =
+      case slot
       of 0, 1: Gatherer
       of 2, 3: Builder
       of 4, 5: Fighter
-      else:
-        sample(controller.rng, [Gatherer, Builder, Fighter])
+      else: Scripted
 
     var initState = AgentState(
       role: role,
@@ -477,6 +692,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
+    if role == Scripted:
+      assignScriptedRole(controller, agentId, initState)
+    else:
+      scriptedState.roleAssignments[agentId] = scriptedState.coreRoleIds[role]
+      scriptedState.roleIsScripted[agentId] = false
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
@@ -667,8 +887,20 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   of Gatherer: return decideGatherer(controller, env, agent, agentId, state)
   of Builder: return decideBuilder(controller, env, agent, agentId, state)
   of Fighter: return decideFighter(controller, env, agent, agentId, state)
+  of Scripted: return decideScripted(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
-proc updateController*(controller: Controller) =
-  # No complex state to update - keep it simple
-  discard
+proc updateController*(controller: Controller, env: Environment) =
+  initScriptedState(controller)
+  if scriptedState.lastEpisodeStep >= 0 and env.currentStep < scriptedState.lastEpisodeStep:
+    for i in 0 ..< MapAgents:
+      controller.agentsInitialized[i] = false
+    controller.buildingCountsStep = -1
+    resetScriptedAssignments(scriptedState)
+    scriptedState.scoredAtStep = false
+    scriptedState.lastEpisodeStep = -1
+  if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
+    applyScriptedScoring(controller, env)
+    scriptedState.scoredAtStep = true
+  processTempleInteractions(controller, env)
+  scriptedState.lastEpisodeStep = env.currentStep

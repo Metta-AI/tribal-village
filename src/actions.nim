@@ -684,6 +684,15 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
             else:
               setInv(thing, ItemFish, remaining)
             used = true
+        of Temple:
+          if agent.unitClass == UnitVillager and thing.cooldown == 0:
+            env.templeInteractions.add TempleInteraction(
+              agentId: agent.agentId,
+              teamId: getTeamId(agent),
+              pos: thing.pos
+            )
+            thing.cooldown = 12
+            used = true
         else:
           if isBuildingKind(thing.kind):
             let useKind = buildingUseKind(thing.kind)
