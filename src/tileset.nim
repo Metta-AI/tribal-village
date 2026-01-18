@@ -111,6 +111,16 @@ proc generateDfViewAssets*() =
     sheetCache[tilesetIdx] = img
     img
 
+  proc writeScaledTile(outPath: string, tilesetIdx: int, tileIndex: int, sheetPath: string) =
+    let scaled = scaleNearest(
+      extractTile(getSheet(tilesetIdx, sheetPath), tileIndex),
+      TargetSize,
+      TargetSize
+    )
+    createDir(parentDir(outPath))
+    writeFile(outPath, encodePng(scaled))
+    inc created
+
   for def in DfTokenCatalog:
     let token = def.token
     let outPath = if def.placement == DfBuilding:
@@ -148,15 +158,7 @@ proc generateDfViewAssets*() =
       noteMissing(token)
       continue
 
-    let scaled = scaleNearest(
-      extractTile(getSheet(entry.tilesetIdx, sheetPath), entry.tileIndex),
-      TargetSize,
-      TargetSize
-    )
-
-    createDir(parentDir(outPath))
-    writeFile(outPath, encodePng(scaled))
-    inc created
+    writeScaledTile(outPath, entry.tilesetIdx, entry.tileIndex, sheetPath)
 
   # Replace the road sprite with a constructed floor tile when available.
   if "ConstructedFloor" in overrides:
@@ -164,16 +166,9 @@ proc generateDfViewAssets*() =
     if entry.tilesetIdx in tilesets:
       let sheetPath = tilesets[entry.tilesetIdx]
       if fileExists(sheetPath):
-        let scaled = scaleNearest(
-          extractTile(getSheet(entry.tilesetIdx, sheetPath), entry.tileIndex),
-          TargetSize,
-          TargetSize
-        )
         let outPath = MapDir / "road.png"
         if not fileExists(outPath):
-          createDir(parentDir(outPath))
-          writeFile(outPath, encodePng(scaled))
-          inc created
+          writeScaledTile(outPath, entry.tilesetIdx, entry.tileIndex, sheetPath)
   else:
     noteMissing("road")
 

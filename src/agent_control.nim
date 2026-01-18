@@ -7,6 +7,9 @@ import std/os, std/strutils
 include "ai_core"
 include "ai_defaults"
 
+const
+  ActionsFile = "actions.tmp"
+
 type
   ControllerType* = enum
     BuiltinAI,      # Use built-in Nim AI controller
@@ -52,7 +55,7 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
   of BuiltinAI:
     # Use built-in AI controller
     var actions: array[MapAgents, uint8]
-    for i, agent in env.agents:
+    for i in 0 ..< env.agents.len:
       actions[i] = globalController.aiController.decideAction(env, i)
     globalController.aiController.updateController()
     return actions
@@ -63,10 +66,9 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
       return globalController.externalActionCallback()
 
     # Try to read actions from file (for Python neural network control across processes)
-    let actionsFile = "actions.tmp"
-    if fileExists(actionsFile):
+    if fileExists(ActionsFile):
       try:
-        let content = readFile(actionsFile)
+        let content = readFile(ActionsFile)
         let lines = content.replace("\r", "").replace("\n\n", "\n").split('\n')
         if lines.len >= MapAgents:
           var fileActions: array[MapAgents, uint8]
@@ -79,15 +81,15 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
 
           # Delete the file after reading to avoid stale actions
           try:
-            removeFile(actionsFile)
-          except:
+            removeFile(ActionsFile)
+          except OSError:
             discard  # Could not remove actions file
 
           return fileActions
-      except Exception:
+      except CatchableError:
         discard  # Error reading actions file
 
     # FAIL HARD: ExternalNN controller configured but no actions available!
     echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
-    echo "Python environment must call setExternalActionsFromPython() to provide actions!"
+    echo "Python environment must call setExternalActionCallback() or provide " & ActionsFile & "!"
     raise newException(ValueError, "ExternalNN controller has no actions - Python communication failed!")

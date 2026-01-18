@@ -18,6 +18,11 @@ const
   TradingHubSize = 15
   TradingHubTint = TileColor(r: 0.58, g: 0.58, b: 0.58, intensity: 1.0)
 
+proc randInteriorPos(r: var Rand, pad: int): IVec2 =
+  let x = randIntInclusive(r, MapBorder + pad, MapWidth - MapBorder - pad)
+  let y = randIntInclusive(r, MapBorder + pad, MapHeight - MapBorder - pad)
+  ivec2(x.int32, y.int32)
+
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
   if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
@@ -54,10 +59,9 @@ proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
                                 sizeMin, sizeMax: int, baseDensity, falloffRate: float,
                                 kind: ThingKind, item: ItemKey, allowedBiome: BiomeType) =
   for _ in 0 ..< count:
-    let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-    let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+    let pos = randInteriorPos(r, 2)
     let size = randIntInclusive(r, sizeMin, sizeMax)
-    placeResourceCluster(env, x, y, size, baseDensity, falloffRate,
+    placeResourceCluster(env, pos.x.int, pos.y.int, size, baseDensity, falloffRate,
       kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
 
 proc applyBiomeElevation(env: Environment) =
@@ -188,17 +192,20 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   let y0 = centerY - half
   let y1 = centerY + half
 
+  proc clearThings(pos: IVec2) =
+    let existing = env.getThing(pos)
+    if not isNil(existing):
+      removeThing(env, existing)
+    let background = env.getBackgroundThing(pos)
+    if not isNil(background):
+      removeThing(env, background)
+
   for x in x0 .. x1:
     for y in y0 .. y1:
       if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
         continue
       let pos = ivec2(x.int32, y.int32)
-      let existing = env.getThing(pos)
-      if not isNil(existing):
-        removeThing(env, existing)
-      let background = env.getBackgroundThing(pos)
-      if not isNil(background):
-        removeThing(env, background)
+      clearThings(pos)
       env.terrain[x][y] = Empty
       env.resetTileColor(pos)
       env.baseTintColors[x][y] = TradingHubTint
@@ -214,12 +221,7 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       return
     for y in (MapBorder + 1) .. (MapHeight - MapBorder - 2):
       let pos = ivec2(x.int32, y.int32)
-      let existing = env.getThing(pos)
-      if not isNil(existing):
-        removeThing(env, existing)
-      let background = env.getBackgroundThing(pos)
-      if not isNil(background):
-        removeThing(env, background)
+      clearThings(pos)
       env.terrain[x][y] = Water
       env.resetTileColor(pos)
 
@@ -960,7 +962,7 @@ proc init(env: Environment) =
       for doorPos in elements.doors:
         if doorPos.x >= 0 and doorPos.x < MapWidth and doorPos.y >= 0 and doorPos.y < MapHeight:
           if env.isEmpty(doorPos) and not env.hasDoor(doorPos):
-            env.add(Thing(kind: Door, pos: doorPos, teamId: teamId, hp: DoorMaxHearts, maxHp: DoorMaxHearts))
+            env.add(Thing(kind: Door, pos: doorPos, teamId: teamId))
 
       # Add the interior buildings from the layout
       for y in 0 ..< villageStruct.height:
@@ -1401,8 +1403,9 @@ proc init(env: Environment) =
     for _ in 0 ..< randIntInclusive(r, WheatFieldClusterCountMin, WheatFieldClusterCountMax):
       var placed = false
       for attempt in 0 ..< 20:
-        let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-        let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+        let pos = randInteriorPos(r, 3)
+        let x = pos.x.int
+        let y = pos.y.int
         var nearWater = false
         for dx in -5 .. 5:
           for dy in -5 .. 5:
@@ -1422,8 +1425,9 @@ proc init(env: Environment) =
           placed = true
           break
       if not placed:
-        let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-        let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+        let pos = randInteriorPos(r, 3)
+        let x = pos.x.int
+        let y = pos.y.int
         let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
         for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
           placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
@@ -1493,8 +1497,9 @@ proc init(env: Environment) =
       for _ in 0 ..< numGroves:
         var placed = false
         for attempt in 0 ..< 16:
-          let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-          let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+          let pos = randInteriorPos(r, 3)
+          let x = pos.x.int
+          let y = pos.y.int
           var nearWater = false
           for dx in -5 .. 5:
             for dy in -5 .. 5:
@@ -1511,15 +1516,17 @@ proc init(env: Environment) =
             placed = true
             break
         if not placed:
-          let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-          let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+          let pos = randInteriorPos(r, 3)
+          let x = pos.x.int
+          let y = pos.y.int
           placeTreeOasis(x, y)
 
     if UseLegacyTreeClusters:
       let numGroves = randIntInclusive(r, TreeGroveClusterCountMin, TreeGroveClusterCountMax)
       for _ in 0 ..< numGroves:
-        let x = randIntInclusive(r, MapBorder + 3, MapWidth - MapBorder - 3)
-        let y = randIntInclusive(r, MapBorder + 3, MapHeight - MapBorder - 3)
+        let pos = randInteriorPos(r, 3)
+        let x = pos.x.int
+        let y = pos.y.int
         let groveSize = randIntInclusive(r, 3, 10)
         placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, r)
 
@@ -1573,8 +1580,9 @@ proc init(env: Environment) =
     for _ in 0 ..< fishClusters:
       var placed = false
       for attempt in 0 ..< 20:
-        let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-        let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+        let pos = randInteriorPos(r, 2)
+        let x = pos.x.int
+        let y = pos.y.int
         if env.terrain[x][y] != Water:
           continue
         let size = randIntInclusive(r, 3, 7)
@@ -1603,8 +1611,9 @@ proc init(env: Environment) =
       var placed = false
       while attempts < 12 and not placed:
         inc attempts
-        let x = randIntInclusive(r, MapBorder + 2, MapWidth - MapBorder - 2)
-        let y = randIntInclusive(r, MapBorder + 2, MapHeight - MapBorder - 2)
+        let pos = randInteriorPos(r, 2)
+        let x = pos.x.int
+        let y = pos.y.int
         var nearWater = false
         for dx in -4 .. 4:
           for dy in -4 .. 4:
