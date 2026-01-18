@@ -5,6 +5,7 @@ import argparse
 import io
 import os
 from collections import deque
+import re
 from pathlib import Path
 from typing import Iterable, Iterator, NamedTuple
 
@@ -97,7 +98,8 @@ def resolve_orientation_set(name: str) -> list[tuple[str, str]]:
 def parse_dirs(raw: str | None) -> set[str] | None:
     if not raw:
         return None
-    return {part.strip() for part in raw.split(",") if part.strip()}
+    parts = [part.strip() for part in re.split(r"[|;,]", raw) if part.strip()]
+    return set(parts)
 
 
 def expand_oriented_row(
