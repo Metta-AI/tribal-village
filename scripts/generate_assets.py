@@ -32,24 +32,60 @@ ORIENTATION_TEMPLATES = [
     ("sw", "Three-quarter view facing down-left (southwest), looking right."),
 ]
 EDGE_ORIENTATIONS = [
-    ("ew", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; rock face on the south (bottom) side, flat rim on the north (top) side."),
-    ("ew_s", "Horizontal cliff edge segment running east-west, spanning fully from the left edge to the right edge with no diagonal sections; rock face on the north (top) side, flat rim on the south (bottom) side."),
-    ("ns", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; rock face on the west (left) side, flat rim on the east (right) side."),
-    ("ns_w", "Vertical cliff edge segment running north-south, spanning fully from the top edge to the bottom edge with no diagonal sections; rock face on the east (right) side, flat rim on the west (left) side."),
+    (
+        "ew",
+        "Horizontal cliff edge segment running east-west, spanning fully from left edge to right edge with no diagonal sections. High ground/rim with grass tufts is on the north (top) side; low ground/rock face drop is on the south (bottom) side.",
+    ),
+    (
+        "ew_s",
+        "Horizontal cliff edge segment running east-west, spanning fully from left edge to right edge with no diagonal sections. High ground/rim with grass tufts is on the south (bottom) side; low ground/rock face drop is on the north (top) side.",
+    ),
+    (
+        "ns",
+        "Vertical cliff edge segment running north-south, spanning fully from top edge to bottom edge with no diagonal sections. High ground/rim with grass tufts is on the east (right) side; low ground/rock face drop is on the west (left) side.",
+    ),
+    (
+        "ns_w",
+        "Vertical cliff edge segment running north-south, spanning fully from top edge to bottom edge with no diagonal sections. High ground/rim with grass tufts is on the west (left) side; low ground/rock face drop is on the east (right) side.",
+    ),
 ]
 
 CORNER_IN_ORIENTATIONS = [
-    ("ne", "Concave corner with legs on the north and east edges; both legs touch tile edges; flat rim/ground is inside in the southwest quadrant."),
-    ("nw", "Concave corner with legs on the north and west edges; both legs touch tile edges; flat rim/ground is inside in the southeast quadrant."),
-    ("se", "Concave corner with legs on the south and east edges; both legs touch tile edges; flat rim/ground is inside in the northwest quadrant."),
-    ("sw", "Concave corner with legs on the south and west edges; both legs touch tile edges; flat rim/ground is inside in the northeast quadrant."),
+    (
+        "ne",
+        "Concave (innie) corner: cliff legs run along the north and east edges. Low/drop is outside the corner on N+E; high ground/rim with grass is inside the corner in the southwest quadrant.",
+    ),
+    (
+        "nw",
+        "Concave (innie) corner: cliff legs run along the north and west edges. Low/drop is outside the corner on N+W; high ground/rim with grass is inside the corner in the southeast quadrant.",
+    ),
+    (
+        "se",
+        "Concave (innie) corner: cliff legs run along the south and east edges. Low/drop is outside the corner on S+E; high ground/rim with grass is inside the corner in the northwest quadrant.",
+    ),
+    (
+        "sw",
+        "Concave (innie) corner: cliff legs run along the south and west edges. Low/drop is outside the corner on S+W; high ground/rim with grass is inside the corner in the northeast quadrant.",
+    ),
 ]
 
 CORNER_OUT_ORIENTATIONS = [
-    ("ne", "Convex corner with legs on the north and east edges; rocky face is inside in the northeast quadrant; flat rim/ground outside in the southwest quadrant."),
-    ("nw", "Convex corner with legs on the north and west edges; rocky face is inside in the northwest quadrant; flat rim/ground outside in the southeast quadrant."),
-    ("se", "Convex corner with legs on the south and east edges; rocky face is inside in the southeast quadrant; flat rim/ground outside in the northwest quadrant."),
-    ("sw", "Convex corner with legs on the south and west edges; rocky face is inside in the southwest quadrant; flat rim/ground outside in the northeast quadrant."),
+    (
+        "ne",
+        "Convex (outie) corner: cliff legs run along the north and east edges. Low/drop pocket is inside the corner in the northeast quadrant; high ground/rim with grass is outside the corner in the southwest quadrant.",
+    ),
+    (
+        "nw",
+        "Convex (outie) corner: cliff legs run along the north and west edges. Low/drop pocket is inside the corner in the northwest quadrant; high ground/rim with grass is outside the corner in the southeast quadrant.",
+    ),
+    (
+        "se",
+        "Convex (outie) corner: cliff legs run along the south and east edges. Low/drop pocket is inside the corner in the southeast quadrant; high ground/rim with grass is outside the corner in the northwest quadrant.",
+    ),
+    (
+        "sw",
+        "Convex (outie) corner: cliff legs run along the south and west edges. Low/drop pocket is inside the corner in the southwest quadrant; high ground/rim with grass is outside the corner in the northeast quadrant.",
+    ),
 ]
 
 ORIENTATION_SETS = {
@@ -536,6 +572,19 @@ def flip_horizontal(img: Image.Image) -> Image.Image:
     return img.transpose(Image.FLIP_LEFT_RIGHT)
 
 
+def swap_orientation_token(filename: str, old: str, new: str) -> str:
+    replacements = [
+        (f".{old}.", f".{new}."),
+        (f"_{old}.", f"_{new}."),
+        (f"_{old}_", f"_{new}_"),
+        (f"/{old}.", f"/{new}."),
+    ]
+    for src, dst in replacements:
+        if src in filename:
+            return filename.replace(src, dst)
+    return filename.replace(old, new, 1)
+
+
 def tmp_path_for(target: Path, out_dir: Path, tmp_dir: Path) -> Path:
     try:
         relative = target.relative_to(out_dir)
@@ -589,11 +638,21 @@ FLIP_ORIENTATIONS = {
         "ne": "nw",
         "se": "sw",
     },
-    "edge": {},
+    "corner_in": {
+        "nw": "ne",
+        "sw": "se",
+    },
+    "corner_out": {
+        "nw": "ne",
+        "sw": "se",
+    },
+    "edge": {
+        "ns_w": "ns",
+    },
 }
 
 def oriented_uses_purple_bg(output: OrientedOutput) -> bool:
-    return output.orientation_set in {"unit", "corner", "edge"}
+    return output.orientation_set in {"unit", "corner", "edge", "corner_in", "corner_out"}
 
 
 def main() -> None:
@@ -736,7 +795,7 @@ def main() -> None:
             raw_target = tmp_path_for(target, out_dir, tmp_dir)
             flip_map = FLIP_ORIENTATIONS.get(output.orientation_set, {})
             source_dir = flip_map[output.dir_key]
-            source_name = output.filename.replace(f".{output.dir_key}.", f".{source_dir}.")
+            source_name = swap_orientation_token(output.filename, output.dir_key, source_dir)
             source = Path(source_name)
             if not source.is_absolute():
                 source = out_dir / source
