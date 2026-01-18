@@ -38,7 +38,7 @@ EDGE_ORIENTATIONS = [
     ),
     (
         "ew_s",
-        "Horizontal cliff edge segment running east-west, spanning fully from left edge to right edge with no diagonal sections. High ground/rim with grass tufts is on the south (bottom) side; low ground/rock face drop is on the north (top) side.",
+        "Horizontal cliff edge segment running east-west, spanning fully from left edge to right edge with no diagonal sections. A bluff that descends downward: high ground/rim with grass tufts sits on the south (bottom) side; the drop/cliff face is on the north (top) side.",
     ),
     (
         "ns",
