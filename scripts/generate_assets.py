@@ -531,7 +531,7 @@ def flip_horizontal(img: Image.Image) -> Image.Image:
     return img.transpose(Image.FLIP_LEFT_RIGHT)
 
 
-def maybe_derive_corner_variants(target: Path, out_dir: Path) -> None:
+def maybe_derive_cliff_variants(target: Path, out_dir: Path) -> None:
     try:
         relative = target.relative_to(out_dir)
     except ValueError:
@@ -560,6 +560,7 @@ def maybe_derive_corner_variants(target: Path, out_dir: Path) -> None:
         img_sw.save(corner_dir / "cliff_corner_out_sw.png")
         img_ne.save(corner_dir / "cliff_corner_out_ne.png")
         img_nw.save(corner_dir / "cliff_corner_out_nw.png")
+        return
 
 
 def swap_orientation_token(filename: str, old: str, new: str) -> str:
@@ -843,7 +844,7 @@ def main() -> None:
                     args.postprocess_purple_to_white,
                     args.postprocess_purple_bg,
                 )
-                maybe_derive_corner_variants(target, out_dir)
+                maybe_derive_cliff_variants(target, out_dir)
                 continue
             if client is None:
                 raise SystemExit("Client not initialized for image generation.")
@@ -859,13 +860,13 @@ def main() -> None:
                     args.postprocess_purple_to_white,
                     args.postprocess_purple_bg,
                 )
-                maybe_derive_corner_variants(target, out_dir)
+                maybe_derive_cliff_variants(target, out_dir)
             else:
                 if args.size and img.size != (args.size, args.size):
                     img = img.resize((args.size, args.size), Image.LANCZOS)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 img.save(target)
-                maybe_derive_corner_variants(target, out_dir)
+                maybe_derive_cliff_variants(target, out_dir)
 
 
 if __name__ == "__main__":
