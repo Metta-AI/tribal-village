@@ -18,8 +18,6 @@ proc removeThing(env: Environment, thing: Thing) =
       env.grid[thing.pos.x][thing.pos.y] = nil
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = nil
-    if thing.kind in CliffKinds:
-      env.cliffGrid[thing.pos.x][thing.pos.y] = -1
     env.updateObservations(ThingAgentLayer, thing.pos, 0)
   let idx = thing.thingsIndex
   if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
@@ -73,6 +71,10 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   true
 
 proc add*(env: Environment, thing: Thing) =
+  if isValidPos(thing.pos) and not thingBlocksMovement(thing.kind):
+    let existing = env.overlayGrid[thing.pos.x][thing.pos.y]
+    if not isNil(existing) and (existing.kind in CliffKinds or thing.kind in CliffKinds):
+      return
   if thing.kind in {Wall, Door, Outpost, GuardTower, TownCenter, Castle}:
     if thing.maxHp <= 0:
       case thing.kind
@@ -122,8 +124,6 @@ proc add*(env: Environment, thing: Thing) =
       env.grid[thing.pos.x][thing.pos.y] = thing
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = thing
-    if thing.kind in CliffKinds:
-      env.cliffGrid[thing.pos.x][thing.pos.y] = ord(thing.kind).int16
     env.updateObservations(ThingAgentLayer, thing.pos, 0)
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =

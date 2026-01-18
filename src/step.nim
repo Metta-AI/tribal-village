@@ -413,8 +413,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     return ivec2(0, (if dy > 0: 1 else: -1))
 
   proc findNearestPredatorTarget(center: IVec2, radius: int): IVec2 =
-    var bestDist = int.high
-    var best = ivec2(-1, -1)
+    var bestTumorDist = int.high
+    var bestTumor = ivec2(-1, -1)
+    var bestAgentDist = int.high
+    var bestAgent = ivec2(-1, -1)
     for dx in -radius .. radius:
       for dy in -radius .. radius:
         let pos = center + ivec2(dx.int32, dy.int32)
@@ -427,29 +429,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if isNil(thing):
           continue
         if thing.kind == Tumor and not thing.hasClaimedTerritory:
-          if dist < bestDist:
-            bestDist = dist
-            best = pos
-    if best.x >= 0:
-      return best
-    bestDist = int.high
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        let dist = max(abs(dx), abs(dy))
-        if dist > radius:
-          continue
-        let thing = env.getThing(pos)
-        if isNil(thing) or thing.kind != Agent:
-          continue
-        if not isAgentAlive(env, thing):
-          continue
-        if dist < bestDist:
-          bestDist = dist
-          best = pos
-    best
+          if dist < bestTumorDist:
+            bestTumorDist = dist
+            bestTumor = pos
+        elif thing.kind == Agent and isAgentAlive(env, thing):
+          if dist < bestAgentDist:
+            bestAgentDist = dist
+            bestAgent = pos
+    if bestTumor.x >= 0: bestTumor else: bestAgent
 
   let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
@@ -640,36 +627,33 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         elif desired.x > 0:
           thing.orientation = Orientation.E
 
-  proc predatorTryAttack(predator: Thing) =
-    for offset in CardinalOffsets:
-      let pos = predator.pos + offset
-      if not isValidPos(pos):
-        continue
-      let target = env.getThing(pos)
-      if isNil(target):
-        continue
-      if target.kind == Tumor and not target.hasClaimedTerritory:
-        env.grid[pos.x][pos.y] = nil
-        env.updateObservations(AgentLayer, pos, 0)
-        env.updateObservations(AgentOrientationLayer, pos, 0)
-        removeThing(env, target)
-        return
-    for offset in CardinalOffsets:
-      let pos = predator.pos + offset
-      if not isValidPos(pos):
-        continue
-      let target = env.getThing(pos)
-      if isNil(target) or target.kind != Agent:
-        continue
-      if not isAgentAlive(env, target):
-        continue
-      discard env.applyAgentDamage(target, max(1, predator.attackDamage))
-      return
-
-  for thing in env.thingsByKind[Wolf]:
-    predatorTryAttack(thing)
-  for thing in env.thingsByKind[Bear]:
-    predatorTryAttack(thing)
+  for kind in [Wolf, Bear]:
+    for predator in env.thingsByKind[kind]:
+      block predatorAttack:
+        for offset in CardinalOffsets:
+          let pos = predator.pos + offset
+          if not isValidPos(pos):
+            continue
+          let target = env.getThing(pos)
+          if isNil(target):
+            continue
+          if target.kind == Tumor and not target.hasClaimedTerritory:
+            env.grid[pos.x][pos.y] = nil
+            env.updateObservations(AgentLayer, pos, 0)
+            env.updateObservations(AgentOrientationLayer, pos, 0)
+            removeThing(env, target)
+            break predatorAttack
+        for offset in CardinalOffsets:
+          let pos = predator.pos + offset
+          if not isValidPos(pos):
+            continue
+          let target = env.getThing(pos)
+          if isNil(target) or target.kind != Agent:
+            continue
+          if not isAgentAlive(env, target):
+            continue
+          discard env.applyAgentDamage(target, max(1, predator.attackDamage))
+          break predatorAttack
 
   when defined(stepTiming):
     if timing:

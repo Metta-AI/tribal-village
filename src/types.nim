@@ -539,9 +539,8 @@ type
     observationsInitialized*: bool  # Track whether observation tensors are populated
     things*: seq[Thing]
     agents*: seq[Thing]
-    grid*: array[MapWidth, array[MapHeight, Thing]]
-    overlayGrid*: array[MapWidth, array[MapHeight, Thing]]
-    cliffGrid*: array[MapWidth, array[MapHeight, int16]]
+    grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking things
+    overlayGrid*: array[MapWidth, array[MapHeight, Thing]]   # Non-blocking/background things
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
