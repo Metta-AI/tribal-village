@@ -575,10 +575,8 @@ proc init(env: Environment) =
     var candidates: seq[IVec2] = @[]
     for dx in -3 .. 3:
       for dy in -3 .. 3:
-        if dx == 0 and dy == 0:
-          continue
         let dist = max(abs(dx), abs(dy))
-        if dist < 1 or dist > 3:
+        if dist == 0 or dist > 3:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
         if pos == center + ivec2(2, -2) or pos == center + ivec2(2, 2) or
@@ -589,9 +587,7 @@ proc init(env: Environment) =
       let j = randIntInclusive(r, 0, i)
       swap(candidates[i], candidates[j])
     for pos in candidates:
-      if not isValidPos(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water:
+      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
         continue
       let existing = env.getThing(pos)
       if not isNil(existing):
@@ -599,9 +595,7 @@ proc init(env: Environment) =
           removeThing(env, existing)
         else:
           continue
-      if env.hasDoor(pos):
-        continue
-      if not env.isEmpty(pos):
+      if env.hasDoor(pos) or not env.isEmpty(pos):
         continue
       env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
       return pos
@@ -613,11 +607,7 @@ proc init(env: Environment) =
     center
   proc placeStartingRoads(center: IVec2, teamId: int, r: var Rand) =
     proc placeRoad(pos: IVec2) =
-      if not isValidPos(pos):
-        return
-      if env.terrain[pos.x][pos.y] == Water:
-        return
-      if env.hasDoor(pos):
+      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or env.hasDoor(pos):
         return
       let existing = env.getThing(pos)
       if not isNil(existing):
@@ -685,11 +675,8 @@ proc init(env: Environment) =
             if radius > 0 and max(abs(dx), abs(dy)) != radius:
               continue
             let pos = center + entry.offset + ivec2(dx.int32, dy.int32)
-            if not isValidPos(pos):
-              continue
-            if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
-              continue
-            if env.hasDoor(pos):
+            if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or
+                isTileFrozen(pos, env) or env.hasDoor(pos):
               continue
             let existing = env.getThing(pos)
             if not isNil(existing):
@@ -724,11 +711,8 @@ proc init(env: Environment) =
         if dist < minRadius or dist > maxRadius:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] notin allowedTerrain:
-          continue
-        if not env.isSpawnable(pos):
+        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+            not env.isSpawnable(pos):
           continue
         return pos
       for attempt in 0 ..< 40:
@@ -739,11 +723,8 @@ proc init(env: Environment) =
         if dist < minRadius or dist > radius:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] notin allowedTerrain:
-          continue
-        if not env.isSpawnable(pos):
+        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+            not env.isSpawnable(pos):
           continue
         return pos
       ivec2(-1, -1)
@@ -803,11 +784,8 @@ proc init(env: Environment) =
       if dist < 3 or dist > 5:
         continue
       let pos = center + ivec2(dx.int32, dy.int32)
-      if not isValidPos(pos):
-        continue
-      if env.hasDoor(pos) or not env.isEmpty(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
+      if not isValidPos(pos) or env.hasDoor(pos) or not env.isEmpty(pos) or
+          env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
         continue
       env.add(Thing(
         kind: House,
