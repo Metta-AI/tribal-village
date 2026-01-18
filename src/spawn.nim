@@ -101,6 +101,8 @@ proc addCliffThing(env: Environment, kind: ThingKind, pos: IVec2) =
   cliff.thingsIndex = env.things.len - 1
   env.thingsByKind[kind].add(cliff)
   cliff.kindListIndex = env.thingsByKind[kind].len - 1
+  if isValidPos(pos):
+    env.cliffGrid[pos.x][pos.y] = ord(kind).int16
 
 proc applyCliffs(env: Environment) =
   for x in 0 ..< MapWidth:
@@ -197,6 +199,7 @@ proc init(env: Environment) =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.overlayGrid[x][y] = nil
+      env.cliffGrid[x][y] = -1
       env.elevation[x][y] = 0
 
   # Reset team stockpiles

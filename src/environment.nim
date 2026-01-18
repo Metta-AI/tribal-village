@@ -73,77 +73,98 @@ proc clear[T](s: var openarray[T]) =
   zeroMem(p, s.len * sizeof(T))
 
 
-{.push inline.}
 proc updateObservations(
   env: Environment,
   layer: ObservationName,
   pos: IVec2,
   value: int
 ) =
-  ## Ultra-optimized observation update - early bailout and minimal calculations
-  let layerId = ord(layer)
+  ## Incremental observation update for a single world tile.
+  discard layer
+  discard value
+  if not isValidPos(pos):
+    return
 
-  # Ultra-fast observation update with minimal calculations
+  proc teamIdForObs(thing: Thing): int =
+    if thing.isNil:
+      return -1
+    if thing.kind == Agent:
+      return getTeamId(thing)
+    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses:
+      return thing.teamId
+    -1
 
-  # Still need to check all agents but with optimized early exit
+  proc writeTileObs(agentId, obsX, obsY, worldX, worldY: int) =
+    var agentObs = addr env.observations[agentId]
+    for layerId in 0 ..< ObservationLayers:
+      agentObs[][layerId][obsX][obsY] = 0
+
+    let terrain = env.terrain[worldX][worldY]
+    agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
+
+    let baseThing = env.grid[worldX][worldY]
+    if not isNil(baseThing):
+      agentObs[][ThingLayerStart + ord(baseThing.kind)][obsX][obsY] = 1
+
+    let overlayThing = env.overlayGrid[worldX][worldY]
+    if not isNil(overlayThing):
+      agentObs[][ThingLayerStart + ord(overlayThing.kind)][obsX][obsY] = 1
+
+    let cliffKind = env.cliffGrid[worldX][worldY]
+    if cliffKind >= 0:
+      agentObs[][ThingLayerStart + cliffKind.int][obsX][obsY] = 1
+
+    var teamValue = 0
+    var orientValue = 0
+    var classValue = 0
+    if not isNil(baseThing) and baseThing.kind == Agent:
+      teamValue = getTeamId(baseThing) + 1
+      orientValue = ord(baseThing.orientation) + 1
+      classValue = ord(baseThing.unitClass) + 1
+    else:
+      let teamId = block:
+        let baseTeam = teamIdForObs(baseThing)
+        if baseTeam >= 0:
+          baseTeam
+        else:
+          teamIdForObs(overlayThing)
+      if teamId >= 0:
+        teamValue = teamId + 1
+    agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
+    agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
+    agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
+    agentObs[][ord(TintLayer)][obsX][obsY] = env.actionTintCode[worldX][worldY]
+
   let agentCount = env.agents.len
   for agentId in 0 ..< agentCount:
-    if not isAgentAlive(env, env.agents[agentId]):
+    let agent = env.agents[agentId]
+    if not isAgentAlive(env, agent):
       continue
-    let agentPos = env.agents[agentId].pos
-
-    # Ultra-fast bounds check using compile-time constants
+    let agentPos = agent.pos
     let dx = pos.x - agentPos.x
     let dy = pos.y - agentPos.y
     if dx < -ObservationRadius or dx > ObservationRadius or
        dy < -ObservationRadius or dy > ObservationRadius:
       continue
-
-    let x = dx + ObservationRadius
-    let y = dy + ObservationRadius
-    var agentLayer = addr env.observations[agentId][layerId]
-    agentLayer[][x][y] = value.uint8
+    let obsX = dx + ObservationRadius
+    let obsY = dy + ObservationRadius
+    writeTileObs(agentId, obsX, obsY, pos.x, pos.y)
   env.observationsInitialized = true
-{.pop.}
 
 include "colors"
 
 const
   DefaultScoreNeutralThreshold = 0.05'f32
   DefaultScoreIncludeWater = false
-  ItemObsLayerByKind: array[ItemKind, int16] = [
-    -1, # ikNone
-    AgentInventoryGoldLayer.int16,
-    AgentInventoryStoneLayer.int16,
-    AgentInventoryBarLayer.int16,
-    AgentInventoryWaterLayer.int16,
-    AgentInventoryWheatLayer.int16,
-    AgentInventoryWoodLayer.int16,
-    AgentInventorySpearLayer.int16,
-    AgentInventoryLanternLayer.int16,
-    AgentInventoryArmorLayer.int16,
-    AgentInventoryBreadLayer.int16,
-    AgentInventoryPlantLayer.int16,
-    AgentInventoryFishLayer.int16,
-    AgentInventoryMeatLayer.int16,
-    -1, # ikRelic
-    -1  # ikHearts
-  ]
 
 {.push inline.}
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
-  ## Update observation layer for agent inventory - uses ItemKind enum for type safety
-  if key.kind != ItemKeyItem:
-    return
-  let layerId = ItemObsLayerByKind[key.item]
-  if layerId < 0:
-    return
-  let value = getInv(agent, key)
-  env.updateObservations(ObservationName(layerId.int), agent.pos, value)
+  ## Inventory observations are not encoded in the spatial observation layers.
+  discard
 
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
   ## Type-safe overload using ItemKind enum
-  env.updateAgentInventoryObs(agent, toItemKey(kind))
+  discard
 
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
   env.teamStockpiles[teamId].counts[res]
@@ -309,44 +330,74 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
 
 
 proc rebuildObservations*(env: Environment) =
-  ## Recompute all observation layers from the current environment state when needed.
+  ## Recompute all observation layers from the current environment state.
   env.observations.clear()
   env.observationsInitialized = false
 
-  # Populate agent-centric layers (presence, orientation, inventory).
-  for agent in env.agents:
-    if agent.isNil:
-      continue
-    if not isAgentAlive(env, agent):
-      continue
-    if not isValidPos(agent.pos):
-      continue
-    let teamValue = getTeamId(agent) + 1
-    env.updateObservations(AgentLayer, agent.pos, teamValue)
-    env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-    for key in ObservedItemKeys:
-      env.updateAgentInventoryObs(agent, key)
-
-  # Populate environment object layers.
-  for thing in env.things:
+  proc teamIdForObs(thing: Thing): int =
     if thing.isNil:
-      continue
-    case thing.kind
-    of Wall:
-      env.updateObservations(WallLayer, thing.pos, 1)
-    of Magma:
-      env.updateObservations(MagmaLayer, thing.pos, 1)
-    of Altar:
-      env.updateObservations(altarLayer, thing.pos, 1)
-      env.updateObservations(altarHeartsLayer, thing.pos, getInv(thing, ItemHearts))
-    of Tumor:
-      env.updateObservations(AgentLayer, thing.pos, 255)
-    of CliffEdgeN, CliffEdgeE, CliffEdgeS, CliffEdgeW,
-       CliffCornerInNE, CliffCornerInSE, CliffCornerInSW, CliffCornerInNW,
-       CliffCornerOutNE, CliffCornerOutSE, CliffCornerOutSW, CliffCornerOutNW:
-      env.updateObservations(CliffLayer, thing.pos, 1)
+      return -1
+    if thing.kind == Agent:
+      return getTeamId(thing)
+    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses:
+      return thing.teamId
+    -1
+
+  proc writeTileObs(agentId, obsX, obsY, worldX, worldY: int) =
+    var agentObs = addr env.observations[agentId]
+    for layerId in 0 ..< ObservationLayers:
+      agentObs[][layerId][obsX][obsY] = 0
+
+    let terrain = env.terrain[worldX][worldY]
+    agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
+
+    let baseThing = env.grid[worldX][worldY]
+    if not isNil(baseThing):
+      agentObs[][ThingLayerStart + ord(baseThing.kind)][obsX][obsY] = 1
+
+    let overlayThing = env.overlayGrid[worldX][worldY]
+    if not isNil(overlayThing):
+      agentObs[][ThingLayerStart + ord(overlayThing.kind)][obsX][obsY] = 1
+
+    let cliffKind = env.cliffGrid[worldX][worldY]
+    if cliffKind >= 0:
+      agentObs[][ThingLayerStart + cliffKind.int][obsX][obsY] = 1
+
+    var teamValue = 0
+    var orientValue = 0
+    var classValue = 0
+    if not isNil(baseThing) and baseThing.kind == Agent:
+      teamValue = getTeamId(baseThing) + 1
+      orientValue = ord(baseThing.orientation) + 1
+      classValue = ord(baseThing.unitClass) + 1
     else:
-      discard
+      let teamId = block:
+        let baseTeam = teamIdForObs(baseThing)
+        if baseTeam >= 0:
+          baseTeam
+        else:
+          teamIdForObs(overlayThing)
+      if teamId >= 0:
+        teamValue = teamId + 1
+    agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
+    agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
+    agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
+    agentObs[][ord(TintLayer)][obsX][obsY] = env.actionTintCode[worldX][worldY]
+
+  for agentId in 0 ..< env.agents.len:
+    let agent = env.agents[agentId]
+    if agent.isNil or not isAgentAlive(env, agent) or not isValidPos(agent.pos):
+      continue
+    let agentPos = agent.pos
+    for obsX in 0 ..< ObservationWidth:
+      let worldX = agentPos.x + (obsX - ObservationRadius)
+      if worldX < 0 or worldX >= MapWidth:
+        continue
+      for obsY in 0 ..< ObservationHeight:
+        let worldY = agentPos.y + (obsY - ObservationRadius)
+        if worldY < 0 or worldY >= MapHeight:
+          continue
+        writeTileObs(agentId, obsX, obsY, worldX, worldY)
 
   env.observationsInitialized = true
 
@@ -533,7 +584,6 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   applyUnitClass(agent, unitClass)
   if agent.inventorySpear > 0:
     agent.inventorySpear = 0
-    env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
   building.cooldown = cooldown
   true
 

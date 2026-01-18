@@ -9,22 +9,8 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   false
 
 proc updateThingObs(env: Environment, kind: ThingKind, pos: IVec2, present: bool, hearts = 0) =
-  let obs = if present: 1 else: 0
-  let heartsObs = if present: hearts else: 0
-  case kind
-  of Wall:
-    env.updateObservations(WallLayer, pos, obs)
-  of Magma:
-    env.updateObservations(MagmaLayer, pos, obs)
-  of Altar:
-    env.updateObservations(altarLayer, pos, obs)
-    env.updateObservations(altarHeartsLayer, pos, heartsObs)
-  of CliffEdgeN, CliffEdgeE, CliffEdgeS, CliffEdgeW,
-     CliffCornerInNE, CliffCornerInSE, CliffCornerInSW, CliffCornerInNW,
-     CliffCornerOutNE, CliffCornerOutSE, CliffCornerOutSW, CliffCornerOutNW:
-    env.updateObservations(CliffLayer, pos, obs)
-  else:
-    discard
+  if isValidPos(pos):
+    env.updateObservations(ThingAgentLayer, pos, 0)
 
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
@@ -32,6 +18,9 @@ proc removeThing(env: Environment, thing: Thing) =
       env.grid[thing.pos.x][thing.pos.y] = nil
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = nil
+    if thing.kind in CliffKinds:
+      env.cliffGrid[thing.pos.x][thing.pos.y] = -1
+    env.updateObservations(ThingAgentLayer, thing.pos, 0)
   let idx = thing.thingsIndex
   if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
     let lastIdx = env.things.len - 1
@@ -133,6 +122,9 @@ proc add*(env: Environment, thing: Thing) =
       env.grid[thing.pos.x][thing.pos.y] = thing
     else:
       env.overlayGrid[thing.pos.x][thing.pos.y] = thing
+    if thing.kind in CliffKinds:
+      env.cliffGrid[thing.pos.x][thing.pos.y] = ord(thing.kind).int16
+    env.updateObservations(ThingAgentLayer, thing.pos, 0)
 
 proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
   if isThingKey(key) and key.name == "Road":
@@ -140,6 +132,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
       return false
     env.terrain[pos.x][pos.y] = Road
     env.resetTileColor(pos)
+    env.updateObservations(ThingAgentLayer, pos, 0)
     return true
   var kind: ThingKind
   if not parseThingKey(key, kind):
@@ -189,6 +182,7 @@ proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2)
           if isBuildableTerrain(terrain):
             env.terrain[fertilePos.x][fertilePos.y] = Fertile
             env.resetTileColor(fertilePos)
+            env.updateObservations(ThingAgentLayer, fertilePos, 0)
   updateThingObs(env, kind, pos, true, placed.hearts)
   if kind == Altar:
     let teamId = placed.teamId

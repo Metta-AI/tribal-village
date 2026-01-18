@@ -312,6 +312,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if terrain in BuildableTerrain:
               env.terrain[pos.x][pos.y] = Fertile
               env.resetTileColor(pos)
+              env.updateObservations(ThingAgentLayer, pos, 0)
         thing.cooldown = 10
     elif thing.kind == GuardTower:
       tryTowerAttack(thing, GuardTowerRange)

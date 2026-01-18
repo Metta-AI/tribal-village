@@ -998,6 +998,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         env.terrain[targetPos.x][targetPos.y] = Empty
         env.resetTileColor(targetPos)
+        env.updateObservations(ThingAgentLayer, targetPos, 0)
 
         # Consuming fertility (terrain replaced above)
         inc env.stats[id].actionPlantResource
@@ -1061,11 +1062,13 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if env.canPlace(pos, checkFrozen = false):
                   env.terrain[pos.x][pos.y] = Road
                   env.resetTileColor(pos)
+                  env.updateObservations(ThingAgentLayer, pos, 0)
               while pos.y != anchor.y:
                 pos.y += (if anchor.y < pos.y: -1'i32 elif anchor.y > pos.y: 1'i32 else: 0'i32)
                 if env.canPlace(pos, checkFrozen = false):
                   env.terrain[pos.x][pos.y] = Road
                   env.resetTileColor(pos)
+                  env.updateObservations(ThingAgentLayer, pos, 0)
           inc env.stats[id].actionBuild
         else:
           inc env.stats[id].actionInvalid

@@ -97,7 +97,6 @@ const
   MinTintEpsilon* = 5
 
   # Observation System
-  ObservationLayers* = 22
   ObservationWidth* = 11
   ObservationHeight* = 11
 
@@ -151,30 +150,113 @@ template safeTintAdd*(tintMod: var int32, delta: int): void =
 
 type
   ObservationName* = enum
-    AgentLayer = 0        # Team-aware: 0=empty, 1=team0, 2=team1, 3=team2, 255=Tumor
-    AgentOrientationLayer = 1
-    AgentInventoryGoldLayer = 2
-    AgentInventoryBarLayer = 3
-    AgentInventoryWaterLayer = 4
-    AgentInventoryWheatLayer = 5
-    AgentInventoryWoodLayer = 6
-    AgentInventorySpearLayer = 7
-    AgentInventoryLanternLayer = 8
-    AgentInventoryArmorLayer = 9
-    WallLayer = 10
-    MagmaLayer = 11
-    altarLayer = 12
-    altarHeartsLayer = 13  # Hearts for respawning
-    TintLayer = 14        # Unified tint layer for all environmental effects
-    AgentInventoryBreadLayer = 15  # Bread baked from clay oven
-    AgentInventoryStoneLayer = 16  # Stone (AoE2 resource)
-    AgentInventoryMeatLayer = 17
-    AgentInventoryFishLayer = 18
-    AgentInventoryPlantLayer = 19
-    ObscuredLayer = 20    # 1 when target tile is above observer elevation
-    CliffLayer = 21       # 1 when a cliff overlay is present
+    TerrainEmptyLayer = 0
+    TerrainWaterLayer
+    TerrainBridgeLayer
+    TerrainFertileLayer
+    TerrainRoadLayer
+    TerrainGrassLayer
+    TerrainDuneLayer
+    TerrainSandLayer
+    TerrainSnowLayer
+    TerrainRampUpNLayer
+    TerrainRampUpSLayer
+    TerrainRampUpWLayer
+    TerrainRampUpELayer
+    TerrainRampDownNLayer
+    TerrainRampDownSLayer
+    TerrainRampDownWLayer
+    TerrainRampDownELayer
 
+    ThingAgentLayer
+    ThingWallLayer
+    ThingDoorLayer
+    ThingTreeLayer
+    ThingWheatLayer
+    ThingFishLayer
+    ThingRelicLayer
+    ThingStoneLayer
+    ThingGoldLayer
+    ThingBushLayer
+    ThingCactusLayer
+    ThingStalagmiteLayer
+    ThingMagmaLayer
+    ThingAltarLayer
+    ThingSpawnerLayer
+    ThingTumorLayer
+    ThingCowLayer
+    ThingCorpseLayer
+    ThingSkeletonLayer
+    ThingClayOvenLayer
+    ThingWeavingLoomLayer
+    ThingOutpostLayer
+    ThingGuardTowerLayer
+    ThingBarrelLayer
+    ThingMillLayer
+    ThingGranaryLayer
+    ThingLumberCampLayer
+    ThingQuarryLayer
+    ThingMiningCampLayer
+    ThingStumpLayer
+    ThingLanternLayer
+    ThingTownCenterLayer
+    ThingHouseLayer
+    ThingBarracksLayer
+    ThingArcheryRangeLayer
+    ThingStableLayer
+    ThingSiegeWorkshopLayer
+    ThingMangonelWorkshopLayer
+    ThingBlacksmithLayer
+    ThingMarketLayer
+    ThingDockLayer
+    ThingMonasteryLayer
+    ThingUniversityLayer
+    ThingCastleLayer
+    ThingStubbleLayer
+    ThingCliffEdgeNLayer
+    ThingCliffEdgeELayer
+    ThingCliffEdgeSLayer
+    ThingCliffEdgeWLayer
+    ThingCliffCornerInNELayer
+    ThingCliffCornerInSELayer
+    ThingCliffCornerInSWLayer
+    ThingCliffCornerInNWLayer
+    ThingCliffCornerOutNELayer
+    ThingCliffCornerOutSELayer
+    ThingCliffCornerOutSWLayer
+    ThingCliffCornerOutNWLayer
 
+    TeamLayer                 # Team id + 1, 0 = none/neutral
+    AgentOrientationLayer     # Orientation enum + 1, 0 = none
+    AgentUnitClassLayer       # Unit class enum + 1, 0 = none
+    TintLayer                 # Action/combat tint codes
+    ObscuredLayer             # 1 when target tile is above observer elevation
+
+const
+  ## Legacy layer aliases used by existing update calls. These no longer map to
+  ## distinct observation channels, but keep the incremental update sites intact.
+  LegacyObsLayer* = ThingAgentLayer
+  AgentLayer* = ThingAgentLayer
+  WallLayer* = ThingWallLayer
+  MagmaLayer* = ThingMagmaLayer
+  altarLayer* = ThingAltarLayer
+  altarHeartsLayer* = ThingAltarLayer
+  CliffLayer* = ThingCliffEdgeNLayer
+  AgentInventoryGoldLayer* = LegacyObsLayer
+  AgentInventoryStoneLayer* = LegacyObsLayer
+  AgentInventoryBarLayer* = LegacyObsLayer
+  AgentInventoryWaterLayer* = LegacyObsLayer
+  AgentInventoryWheatLayer* = LegacyObsLayer
+  AgentInventoryWoodLayer* = LegacyObsLayer
+  AgentInventorySpearLayer* = LegacyObsLayer
+  AgentInventoryLanternLayer* = LegacyObsLayer
+  AgentInventoryArmorLayer* = LegacyObsLayer
+  AgentInventoryBreadLayer* = LegacyObsLayer
+  AgentInventoryMeatLayer* = LegacyObsLayer
+  AgentInventoryFishLayer* = LegacyObsLayer
+  AgentInventoryPlantLayer* = LegacyObsLayer
+
+type
   AgentUnitClass* = enum
     UnitVillager
     UnitManAtArms
@@ -245,6 +327,14 @@ type
     CliffCornerOutSW
     CliffCornerOutNW
 
+const
+  TerrainLayerStart* = ord(TerrainEmptyLayer)
+  TerrainLayerCount* = ord(TerrainType.high) + 1
+  ThingLayerStart* = ord(ThingAgentLayer)
+  ThingLayerCount* = ord(ThingKind.high) + 1
+  ObservationLayers* = ord(ObservationName.high) + 1
+
+type
   Thing* = ref object
     kind*: ThingKind
     pos*: IVec2
@@ -312,6 +402,36 @@ type
   ActionTintColor* = array[MapWidth, array[MapHeight, TileColor]]
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
   ActionTintCode* = array[MapWidth, array[MapHeight, uint8]]
+
+const
+  TeamOwnedKinds* = {
+    Agent,
+    Door,
+    Lantern,
+    Altar,
+    TownCenter,
+    House,
+    Barracks,
+    ArcheryRange,
+    Stable,
+    SiegeWorkshop,
+    MangonelWorkshop,
+    Blacksmith,
+    Market,
+    Dock,
+    Monastery,
+    University,
+    Castle,
+    Outpost,
+    GuardTower,
+    ClayOven,
+    WeavingLoom,
+    Mill,
+    Granary,
+    LumberCamp,
+    Quarry,
+    MiningCamp
+  }
 
 const
   CliffKinds* = {
@@ -405,6 +525,7 @@ type
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]
     overlayGrid*: array[MapWidth, array[MapHeight, Thing]]
+    cliffGrid*: array[MapWidth, array[MapHeight, int16]]
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
     terrain*: TerrainGrid
