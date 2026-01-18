@@ -43,6 +43,15 @@ tribal-village train --steps 1000000 --parallel-envs 8 --num-workers 4 --log-out
 cogames train-tribal -p class=tribal --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
 ```
 
+If you want to train via the metta workspace, use the helper wrapper from this repo:
+
+```bash
+# Uses metta/.venv via uv and the local tribal-village checkout.
+scripts/train_metta.sh --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
+# Override the metta repo location if needed:
+METTA_DIR=/path/to/metta scripts/train_metta.sh --steps 1000000 --parallel-envs 8 --num-workers 4
+```
+
 ## Configuration (Python)
 
 Pass a config dict to the Python wrapper (rendering + gameplay tuning):
