@@ -268,7 +268,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if door.teamId == oldTeam:
                     door.teamId = attackerTeam
             return true
-          of Cow:
+          of Cow, Bear, Wolf:
             if not env.giveItem(agent, ItemMeat):
               return false
             removeThing(env, target)

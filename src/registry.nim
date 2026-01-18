@@ -182,6 +182,8 @@ let ThingCatalog* = block:
     (Spawner, "Spawner", "spawner", 'Z'),
     (Tumor, "Tumor", "tumor", 'X'),
     (Cow, "Cow", "oriented/cow", 'w'),
+    (Bear, "Bear", "oriented/bear", 'B'),
+    (Wolf, "Wolf", "oriented/wolf", 'W'),
     (Corpse, "Corpse", "corpse", 'C'),
     (Skeleton, "Skeleton", "skeleton", 'K'),
     (Stump, "Stump", "stump", 'p'),

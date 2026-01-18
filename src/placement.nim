@@ -45,7 +45,7 @@ proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
   if isBuildingKind(thing.kind):
     return false
   if thing.kind in {Agent, Tumor, Tree, Wheat, Fish, Relic, Stubble, Stone, Gold, Bush, Cactus, Stalagmite,
-                    Cow, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern} or
+                    Cow, Bear, Wolf, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern} or
       thing.kind in CliffKinds:
     return false
 

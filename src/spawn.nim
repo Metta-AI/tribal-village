@@ -1231,6 +1231,68 @@ proc init(env: Environment) =
         break
     inc herdId
 
+  # Bears spawn as solitary predators across open terrain.
+  var bearsPlaced = 0
+  while bearsPlaced < MapRoomObjectsBears:
+    let pos = r.randomEmptyPos(env)
+    if env.terrain[pos.x][pos.y] != Empty:
+      continue
+    if env.biomes[pos.x][pos.y] == BiomeDungeonType:
+      continue
+    let bear = Thing(
+      kind: Bear,
+      pos: pos,
+      orientation: Orientation.W,
+      maxHp: BearMaxHp,
+      hp: BearMaxHp,
+      attackDamage: BearAttackDamage
+    )
+    env.add(bear)
+    inc bearsPlaced
+
+  # Wolves spawn in packs (3-5) across open terrain.
+  var wolvesPlaced = 0
+  var packId = 0
+  while wolvesPlaced < MapRoomObjectsWolves:
+    let remaining = MapRoomObjectsWolves - wolvesPlaced
+    var packSize: int
+    if remaining <= WolfPackMaxSize:
+      packSize = remaining
+    else:
+      packSize = randIntInclusive(r, WolfPackMinSize, WolfPackMaxSize)
+      let remainder = remaining - packSize
+      if remainder > 0 and remainder < WolfPackMinSize:
+        packSize -= (WolfPackMinSize - remainder)
+    let center = r.randomEmptyPos(env)
+    if env.terrain[center.x][center.y] != Empty:
+      continue
+    if env.biomes[center.x][center.y] == BiomeDungeonType:
+      continue
+    var packPositions = env.findEmptyPositionsAround(center, 4)
+    packPositions.insert(center, 0)
+    var filtered: seq[IVec2] = @[]
+    for pos in packPositions:
+      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
+        filtered.add(pos)
+    if filtered.len < WolfPackMinSize:
+      continue
+    let toPlace = min(packSize, filtered.len)
+    for i in 0 ..< toPlace:
+      let wolf = Thing(
+        kind: Wolf,
+        pos: filtered[i],
+        orientation: Orientation.W,
+        packId: packId,
+        maxHp: WolfMaxHp,
+        hp: WolfMaxHp,
+        attackDamage: WolfAttackDamage
+      )
+      env.add(wolf)
+      inc wolvesPlaced
+      if wolvesPlaced >= MapRoomObjectsWolves:
+        break
+    inc packId
+
   # Initialize altar locations for all spawners
   var altarPositions: seq[IVec2] = @[]
   for thing in env.things:

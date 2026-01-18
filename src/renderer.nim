@@ -594,6 +594,14 @@ proc drawObjects*() =
     let cowSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
     bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = SpriteScale)
 
+  drawThings(Bear):
+    let bearSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
+    bxy.drawImage(bearSprite, pos.vec2, angle = 0, scale = SpriteScale)
+
+  drawThings(Wolf):
+    let wolfSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
+    bxy.drawImage(wolfSprite, pos.vec2, angle = 0, scale = SpriteScale)
+
   drawThings(Lantern):
     let lanternKey = "lantern"
     if thing.lanternHealthy:
@@ -603,7 +611,7 @@ proc drawObjects*() =
       bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.5, 0.5, 0.5, 1.0))
 
   for kind in ThingKind:
-    if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Lantern} or
+    if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
         kind in CliffKinds:
       continue
     if isBuildingKind(kind):
