@@ -27,8 +27,9 @@ proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IV
 
 const FoodKinds = {Wheat, Stubble, Fish, Bush, Cow, Corpse}
 
-proc gathererAltarInfo(controller: Controller, env: Environment, agent: Thing,
-                       state: var AgentState, teamId: int): tuple[pos: IVec2, hearts: int, found: bool] =
+proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
+                        state: var AgentState) =
+  let teamId = getTeamId(agent)
   var altarPos = ivec2(-1, -1)
   var altarHearts = 0
   if agent.homeAltar.x >= 0:
@@ -46,14 +47,9 @@ proc gathererAltarInfo(controller: Controller, env: Environment, agent: Thing,
         bestDist = dist
         altarPos = altar.pos
         altarHearts = altar.hearts
-  (altarPos, altarHearts, altarPos.x >= 0)
-
-proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
-                        state: var AgentState) =
-  let teamId = getTeamId(agent)
-  let altar = gathererAltarInfo(controller, env, agent, state, teamId)
+  let altarFound = altarPos.x >= 0
   var task = TaskFood
-  if altar.found and altar.hearts < 10:
+  if altarFound and altarHearts < 10:
     task = TaskHearts
   else:
     var ordered: seq[(GathererTask, int)] = @[
@@ -62,8 +58,8 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
       (TaskStone, env.stockpileCount(teamId, ResourceStone)),
       (TaskGold, env.stockpileCount(teamId, ResourceGold))
     ]
-    if altar.found:
-      ordered.insert((TaskHearts, altar.hearts), 0)
+    if altarFound:
+      ordered.insert((TaskHearts, altarHearts), 0)
     var best = ordered[0]
     for i in 1 ..< ordered.len:
       if ordered[i][1] < best[1]:

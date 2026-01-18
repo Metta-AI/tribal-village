@@ -601,14 +601,30 @@ const GoblinAvoidRadius = 6
 proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
   let teamId = getTeamId(agent)
-  let altar = gathererAltarInfo(controller, env, agent, state, teamId)
-  if (not altar.found) or altar.hearts >= 10:
+  var altarPos = ivec2(-1, -1)
+  var altarHearts = 0
+  if agent.homeAltar.x >= 0:
+    let homeAltar = env.getThing(agent.homeAltar)
+    if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
+      altarPos = homeAltar.pos
+      altarHearts = homeAltar.hearts
+  if altarPos.x < 0:
+    var bestDist = int.high
+    for altar in env.thingsByKind[Altar]:
+      if altar.teamId != teamId:
+        continue
+      let dist = abs(altar.pos.x - agent.pos.x) + abs(altar.pos.y - agent.pos.y)
+      if dist < bestDist:
+        bestDist = dist
+        altarPos = altar.pos
+        altarHearts = altar.hearts
+  if altarPos.x < 0 or altarHearts >= 10:
     return (false, 0'u8)
 
   if agent.inventoryBar > 0:
-    if isAdjacent(agent.pos, altar.pos):
-      return (true, controller.useAt(env, agent, agentId, state, altar.pos))
-    return (true, controller.moveTo(env, agent, agentId, state, altar.pos))
+    if isAdjacent(agent.pos, altarPos):
+      return (true, controller.useAt(env, agent, agentId, state, altarPos))
+    return (true, controller.moveTo(env, agent, agentId, state, altarPos))
 
   if agent.inventoryGold > 0:
     let (didKnown, actKnown) = controller.tryMoveToKnownResource(

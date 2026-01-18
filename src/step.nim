@@ -178,91 +178,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       discard
 
-  proc applyTankAuraTints(env: Environment) =
-    for agent in env.agents:
-      if not isAgentAlive(env, agent):
-        continue
-      if isThingFrozen(agent, env):
-        continue
-      let radius = case agent.unitClass
-        of UnitManAtArms: ManAtArmsAuraRadius
-        of UnitKnight: KnightAuraRadius
-        else: -1
-      if radius < 0:
-        continue
-      for dx in -radius .. radius:
-        for dy in -radius .. radius:
-          let pos = agent.pos + ivec2(dx.int32, dy.int32)
-          if not isValidPos(pos):
-            continue
-          let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
-          let existingCode = env.actionTintCode[pos.x][pos.y]
-          if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield}:
-            if existingCode != ActionTintMixed:
-              env.actionTintCode[pos.x][pos.y] = ActionTintMixed
-              env.updateObservations(TintLayer, pos, ActionTintMixed.int)
-            continue
-          env.applyActionTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
-
-  proc applyMonkHealingAura(env: Environment) =
-    var healFlags: array[MapAgents, bool]
-    for monk in env.agents:
-      if not isAgentAlive(env, monk):
-        continue
-      if monk.unitClass != UnitMonk:
-        continue
-      if isThingFrozen(monk, env):
-        continue
-      let teamId = getTeamId(monk)
-      var needsHeal = false
-      for ally in env.agents:
-        if not isAgentAlive(env, ally):
-          continue
-        if getTeamId(ally) != teamId:
-          continue
-        let dx = abs(ally.pos.x - monk.pos.x)
-        let dy = abs(ally.pos.y - monk.pos.y)
-        if max(dx, dy) > MonkAuraRadius:
-          continue
-        if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
-          needsHeal = true
-          break
-      if not needsHeal:
-        continue
-
-      for dx in -MonkAuraRadius .. MonkAuraRadius:
-        for dy in -MonkAuraRadius .. MonkAuraRadius:
-          let pos = monk.pos + ivec2(dx.int32, dy.int32)
-          if not isValidPos(pos):
-            continue
-          let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
-          let existingCode = env.actionTintCode[pos.x][pos.y]
-          if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield, ActionTintHealMonk}:
-            if existingCode != ActionTintMixed:
-              env.actionTintCode[pos.x][pos.y] = ActionTintMixed
-              env.updateObservations(TintLayer, pos, ActionTintMixed.int)
-            continue
-          env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
-
-      for ally in env.agents:
-        if not isAgentAlive(env, ally):
-          continue
-        if getTeamId(ally) != teamId:
-          continue
-        let dx = abs(ally.pos.x - monk.pos.x)
-        let dy = abs(ally.pos.y - monk.pos.y)
-        if max(dx, dy) > MonkAuraRadius:
-          continue
-        if not isThingFrozen(ally, env):
-          healFlags[ally.agentId] = true
-
-    for agentId in 0 ..< env.agents.len:
-      if not healFlags[agentId]:
-        continue
-      let target = env.agents[agentId]
-      if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
-        target.hp = min(target.maxHp, target.hp + 1)
-
   if env.cowHerdCounts.len > 0:
     for i in 0 ..< env.cowHerdCounts.len:
       env.cowHerdCounts[i] = 0
@@ -758,8 +673,90 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for predator in predatorsToRemove:
       removeThing(env, predator)
 
-  applyTankAuraTints(env)
-  applyMonkHealingAura(env)
+  # Tank aura tints
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if isThingFrozen(agent, env):
+      continue
+    let radius = case agent.unitClass
+      of UnitManAtArms: ManAtArmsAuraRadius
+      of UnitKnight: KnightAuraRadius
+      else: -1
+    if radius < 0:
+      continue
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let pos = agent.pos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+        let existingCode = env.actionTintCode[pos.x][pos.y]
+        if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield}:
+          if existingCode != ActionTintMixed:
+            env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+            env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+          continue
+        env.applyActionTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
+
+  # Monk aura tints + healing
+  var healFlags: array[MapAgents, bool]
+  for monk in env.agents:
+    if not isAgentAlive(env, monk):
+      continue
+    if monk.unitClass != UnitMonk:
+      continue
+    if isThingFrozen(monk, env):
+      continue
+    let teamId = getTeamId(monk)
+    var needsHeal = false
+    for ally in env.agents:
+      if not isAgentAlive(env, ally):
+        continue
+      if getTeamId(ally) != teamId:
+        continue
+      let dx = abs(ally.pos.x - monk.pos.x)
+      let dy = abs(ally.pos.y - monk.pos.y)
+      if max(dx, dy) > MonkAuraRadius:
+        continue
+      if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
+        needsHeal = true
+        break
+    if not needsHeal:
+      continue
+
+    for dx in -MonkAuraRadius .. MonkAuraRadius:
+      for dy in -MonkAuraRadius .. MonkAuraRadius:
+        let pos = monk.pos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+        let existingCode = env.actionTintCode[pos.x][pos.y]
+        if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield, ActionTintHealMonk}:
+          if existingCode != ActionTintMixed:
+            env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+            env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+          continue
+        env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
+
+    for ally in env.agents:
+      if not isAgentAlive(env, ally):
+        continue
+      if getTeamId(ally) != teamId:
+        continue
+      let dx = abs(ally.pos.x - monk.pos.x)
+      let dy = abs(ally.pos.y - monk.pos.y)
+      if max(dx, dy) > MonkAuraRadius:
+        continue
+      if not isThingFrozen(ally, env):
+        healFlags[ally.agentId] = true
+
+  for agentId in 0 ..< env.agents.len:
+    if not healFlags[agentId]:
+      continue
+    let target = env.agents[agentId]
+    if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
+      target.hp = min(target.maxHp, target.hp + 1)
 
   when defined(stepTiming):
     if timing:
