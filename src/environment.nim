@@ -415,9 +415,8 @@ proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
   isNil(door) or door.kind != Door or door.teamId == getTeamId(agent)
 
 proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
-  let overlay = env.getOverlayThing(pos)
-  let base = env.getThing(pos)
-  (not isNil(overlay) and overlay.kind == Dock) or (not isNil(base) and base.kind == Dock)
+  let background = env.getOverlayThing(pos)
+  not isNil(background) and background.kind == Dock
 
 proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
   env.terrain[pos.x][pos.y] == Water and agent.unitClass != UnitBoat and not env.hasDockAt(pos)
