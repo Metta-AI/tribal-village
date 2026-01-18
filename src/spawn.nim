@@ -230,24 +230,18 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       env.baseTintColors[x][y] = TradingHubTint
       env.tintLocked[x][y] = true
 
-  proc paintRoad(x, y: int) =
-    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
-        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
-      return
-    let pos = ivec2(x.int32, y.int32)
-    if env.terrain[x][y] == Water:
-      setTerrain(env, pos, Bridge)
-    else:
-      setTerrain(env, pos, Road)
-
   proc extendRoad(startX, startY, dx, dy: int) =
     var x = startX
     var y = startY
     while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
         y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
       let outsideHub = x < x0 or x > x1 or y < y0 or y > y1
+      let pos = ivec2(x.int32, y.int32)
       let existing = env.terrain[x][y]
-      paintRoad(x, y)
+      if env.terrain[x][y] == Water:
+        setTerrain(env, pos, Bridge)
+      else:
+        setTerrain(env, pos, Road)
       if outsideHub and existing in {Road, Bridge}:
         break
       x += dx
@@ -258,16 +252,13 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   extendRoad(roadX, centerY, -1, 0)
   extendRoad(roadX, centerY, 0, 1)
   extendRoad(roadX, centerY, 0, -1)
-  proc isHubRoad(x, y: int): bool =
-    x == roadX or y == centerY
-
   proc canPlaceHubThing(x, y: int): bool =
     if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
         y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
       return false
     if env.terrain[x][y] in {Water, Road, Bridge}:
       return false
-    if isHubRoad(x, y):
+    if x == roadX or y == centerY:
       return false
     let pos = ivec2(x.int32, y.int32)
     if not env.isEmpty(pos):
@@ -328,7 +319,7 @@ proc placeTradingHub(env: Environment, r: var Rand) =
   for _ in 0 ..< spurCount:
     let startX = randIntInclusive(r, x0 + 1, x1 - 1)
     let startY = randIntInclusive(r, y0 + 1, y1 - 1)
-    if isHubRoad(startX, startY):
+    if startX == roadX or startY == centerY:
       continue
     let dir = spurDirs[randIntInclusive(r, 0, spurDirs.len - 1)]
     let length = randIntInclusive(r, 2, 4)
@@ -670,10 +661,8 @@ proc init(env: Environment) =
     var candidates: seq[IVec2] = @[]
     for dx in -3 .. 3:
       for dy in -3 .. 3:
-        if dx == 0 and dy == 0:
-          continue
         let dist = max(abs(dx), abs(dy))
-        if dist < 1 or dist > 3:
+        if dist == 0 or dist > 3:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
         if pos == center + ivec2(2, -2) or pos == center + ivec2(2, 2) or
@@ -684,9 +673,7 @@ proc init(env: Environment) =
       let j = randIntInclusive(r, 0, i)
       swap(candidates[i], candidates[j])
     for pos in candidates:
-      if not isValidPos(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water:
+      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
         continue
       let existing = env.getThing(pos)
       if not isNil(existing):
@@ -694,9 +681,7 @@ proc init(env: Environment) =
           removeThing(env, existing)
         else:
           continue
-      if env.hasDoor(pos):
-        continue
-      if not env.isEmpty(pos):
+      if env.hasDoor(pos) or not env.isEmpty(pos):
         continue
       env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
       return pos
@@ -708,11 +693,7 @@ proc init(env: Environment) =
     center
   proc placeStartingRoads(center: IVec2, teamId: int, r: var Rand) =
     proc placeRoad(pos: IVec2) =
-      if not isValidPos(pos):
-        return
-      if env.terrain[pos.x][pos.y] == Water:
-        return
-      if env.hasDoor(pos):
+      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or env.hasDoor(pos):
         return
       let existing = env.getThing(pos)
       if not isNil(existing):
@@ -779,11 +760,8 @@ proc init(env: Environment) =
             if radius > 0 and max(abs(dx), abs(dy)) != radius:
               continue
             let pos = center + entry.offset + ivec2(dx.int32, dy.int32)
-            if not isValidPos(pos):
-              continue
-            if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
-              continue
-            if env.hasDoor(pos):
+            if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or
+                isTileFrozen(pos, env) or env.hasDoor(pos):
               continue
             let existing = env.getThing(pos)
             if not isNil(existing):
@@ -818,11 +796,8 @@ proc init(env: Environment) =
         if dist < minRadius or dist > maxRadius:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] notin allowedTerrain:
-          continue
-        if not env.isSpawnable(pos):
+        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+            not env.isSpawnable(pos):
           continue
         return pos
       for attempt in 0 ..< 40:
@@ -833,11 +808,8 @@ proc init(env: Environment) =
         if dist < minRadius or dist > radius:
           continue
         let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] notin allowedTerrain:
-          continue
-        if not env.isSpawnable(pos):
+        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+            not env.isSpawnable(pos):
           continue
         return pos
       ivec2(-1, -1)
@@ -897,11 +869,8 @@ proc init(env: Environment) =
       if dist < 3 or dist > 5:
         continue
       let pos = center + ivec2(dx.int32, dy.int32)
-      if not isValidPos(pos):
-        continue
-      if env.hasDoor(pos) or not env.isEmpty(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
+      if not isValidPos(pos) or env.hasDoor(pos) or not env.isEmpty(pos) or
+          env.terrain[pos.x][pos.y] == Water or isTileFrozen(pos, env):
         continue
       env.add(Thing(
         kind: House,

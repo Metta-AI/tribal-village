@@ -68,18 +68,14 @@ proc addBehaviorSet*(catalog: var RoleCatalog, options: openArray[OptionDef],
   for opt in options:
     discard catalog.addBehavior(opt, source)
 
-proc stripPrefix(name, prefix: string): string =
-  if name.len >= prefix.len and name[0 ..< prefix.len] == prefix:
-    if prefix.len <= name.high:
-      return name[prefix.len .. ^1]
-    return ""
-  name
-
 proc shortBehaviorName*(name: string): string =
   var resultName = name
-  resultName = stripPrefix(resultName, "Gatherer")
-  resultName = stripPrefix(resultName, "Builder")
-  resultName = stripPrefix(resultName, "Fighter")
+  for prefix in ["Gatherer", "Builder", "Fighter"]:
+    if resultName.len >= prefix.len and resultName[0 ..< prefix.len] == prefix:
+      resultName = if prefix.len <= resultName.high:
+        resultName[prefix.len .. ^1]
+      else:
+        ""
   if resultName.len == 0:
     return name
   resultName
