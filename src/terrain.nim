@@ -505,9 +505,9 @@ proc zoneCount*(area: int, divisor: int, minCount: int, maxCount: int): int =
   let raw = max(1, area div divisor)
   clamp(raw, minCount, maxCount)
 
-proc applySwampWater(terrain: var TerrainGrid, biomes: var BiomeGrid,
-                     mapWidth, mapHeight, mapBorder: int,
-                     r: var Rand, cfg: BiomeSwampConfig) =
+proc applySwampWater*(terrain: var TerrainGrid, biomes: var BiomeGrid,
+                      mapWidth, mapHeight, mapBorder: int,
+                      r: var Rand, cfg: BiomeSwampConfig) =
   var swampTiles: seq[IVec2] = @[]
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:
@@ -1111,7 +1111,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                   mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
-  ## Initialize terrain with all features
+  ## Initialize base terrain and biomes (no water features).
   var r = initRand(seed)
 
   if mapWidth > terrain.len or mapHeight > terrain[0].len:
@@ -1132,9 +1132,6 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
     applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, r)
   if UseBiomeZones:
     applyBiomeZones(terrain, biomes, mapWidth, mapHeight, mapBorder, r)
-  applySwampWater(terrain, biomes, mapWidth, mapHeight, mapBorder, r, BiomeSwampConfig())
-
-  terrain.generateRiver(mapWidth, mapHeight, mapBorder, r)
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],

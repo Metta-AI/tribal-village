@@ -431,8 +431,11 @@ proc init(env: Environment) =
   env.actionTintPositions.setLen(0)
   env.shieldCountdown = default(array[MapAgents, int8])
 
-  # Initialize terrain with all features
+  # Initialize base terrain and biomes (dry pass).
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
+  # Water features override biome terrain before elevation/cliffs.
+  applySwampWater(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, r, BiomeSwampConfig())
+  env.terrain.generateRiver(MapWidth, MapHeight, MapBorder, r)
   env.applyBiomeElevation()
   env.applyCliffRamps()
   env.applyCliffs()
