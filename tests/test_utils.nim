@@ -35,7 +35,7 @@ proc makeEmptyEnv*(): Environment =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       result.grid[x][y] = nil
-      result.overlayGrid[x][y] = nil
+      result.backgroundGrid[x][y] = nil
       result.terrain[x][y] = TerrainEmpty
       result.biomes[x][y] = BiomeBaseType
       result.elevation[x][y] = 0

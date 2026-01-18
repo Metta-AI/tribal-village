@@ -413,7 +413,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
     let placed = if thingBlocksMovement(thing.kind):
       env.grid[thing.pos.x][thing.pos.y]
     else:
-      env.overlayGrid[thing.pos.x][thing.pos.y]
+      env.backgroundGrid[thing.pos.x][thing.pos.y]
     if placed != thing:
       continue
 
@@ -667,7 +667,7 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
         if env.terrain[x][y] != TerrainType.Fertile:
           continue
         let candPos = ivec2(x.int32, y.int32)
-        if env.isEmpty(candPos) and isNil(env.getOverlayThing(candPos)) and not env.hasDoor(candPos):
+        if env.isEmpty(candPos) and isNil(env.getBackgroundThing(candPos)) and not env.hasDoor(candPos):
           let dist = abs(x - ax) + abs(y - ay)
           if dist < minDist:
             minDist = dist

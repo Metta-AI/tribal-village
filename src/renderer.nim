@@ -627,7 +627,7 @@ proc drawObjects*() =
         let placed = if thingBlocksMovement(thing.kind):
           env.grid[thing.pos.x][thing.pos.y]
         else:
-          env.overlayGrid[thing.pos.x][thing.pos.y]
+          env.backgroundGrid[thing.pos.x][thing.pos.y]
         if placed != thing:
           continue
         let pos = thing.pos
@@ -685,7 +685,7 @@ proc drawObjects*() =
         let placed = if thingBlocksMovement(thing.kind):
           env.grid[thing.pos.x][thing.pos.y]
         else:
-          env.overlayGrid[thing.pos.x][thing.pos.y]
+          env.backgroundGrid[thing.pos.x][thing.pos.y]
         if placed != thing:
           continue
         let pos = thing.pos
@@ -835,13 +835,13 @@ proc drawSelectionLabel*(panelRect: IRect) =
 
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
-  let overlay = env.overlayGrid[selectedPos.x][selectedPos.y]
+  let background = env.backgroundGrid[selectedPos.x][selectedPos.y]
   if not isNil(thing):
     label = displayNameFor(thing)
     appendResourceCount(label, thing)
-  elif not isNil(overlay):
-    label = displayNameFor(overlay)
-    appendResourceCount(label, overlay)
+  elif not isNil(background):
+    label = displayNameFor(background)
+    appendResourceCount(label, background)
   else:
     let terrain = env.terrain[selectedPos.x][selectedPos.y]
     let name = TerrainCatalog[terrain].displayName

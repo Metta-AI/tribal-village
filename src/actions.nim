@@ -224,7 +224,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         proc tryHitAt(pos: IVec2): bool =
           if not isValidPos(pos):
             return false
-          let door = env.getOverlayThing(pos)
+          let door = env.getBackgroundThing(pos)
           if not isNil(door) and door.kind == Door and door.teamId != attackerTeam:
             discard env.applyStructureDamage(door, damageAmount, agent)
             return true
@@ -235,7 +235,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
               return true
           var target = env.getThing(pos)
           if isNil(target):
-            target = env.getOverlayThing(pos)
+            target = env.getBackgroundThing(pos)
           if isNil(target):
             return false
           case target.kind
@@ -481,7 +481,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         var thing = env.getThing(targetPos)
         if isNil(thing):
-          thing = env.getOverlayThing(targetPos)
+          thing = env.getBackgroundThing(targetPos)
         template setInvAndObs(key: ItemKey, value: int) =
           setInv(agent, key, value)
           env.updateAgentInventoryObs(agent, key)
@@ -968,7 +968,7 @@ proc applyActions(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
 
         # Occupancy checks
-        if not env.isEmpty(targetPos) or not isNil(env.getOverlayThing(targetPos)) or env.hasDoor(targetPos) or
+        if not env.isEmpty(targetPos) or not isNil(env.getBackgroundThing(targetPos)) or env.hasDoor(targetPos) or
             isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
           inc env.stats[id].actionInvalid
           break plantResourceAction

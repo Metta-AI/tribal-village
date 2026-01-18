@@ -20,7 +20,7 @@ const
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
-  if not env.isEmpty(pos) or not isNil(env.getOverlayThing(pos)) or env.hasDoor(pos):
+  if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
     return
   let node = Thing(kind: kind, pos: pos)
   node.inventory = emptyInventory()
@@ -191,9 +191,9 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       let existing = env.getThing(pos)
       if not isNil(existing):
         removeThing(env, existing)
-      let overlay = env.getOverlayThing(pos)
-      if not isNil(overlay):
-        removeThing(env, overlay)
+      let background = env.getBackgroundThing(pos)
+      if not isNil(background):
+        removeThing(env, background)
       env.terrain[x][y] = Empty
       env.resetTileColor(pos)
       env.baseTintColors[x][y] = TradingHubTint
@@ -212,9 +212,9 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       let existing = env.getThing(pos)
       if not isNil(existing):
         removeThing(env, existing)
-      let overlay = env.getOverlayThing(pos)
-      if not isNil(overlay):
-        removeThing(env, overlay)
+      let background = env.getBackgroundThing(pos)
+      if not isNil(background):
+        removeThing(env, background)
       env.terrain[x][y] = Water
       env.resetTileColor(pos)
 
@@ -267,7 +267,7 @@ proc placeTradingHub(env: Environment, r: var Rand) =
     let pos = ivec2(x.int32, y.int32)
     if not env.isEmpty(pos):
       return false
-    if not isNil(env.getOverlayThing(pos)) or env.hasDoor(pos):
+    if not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
       return false
     true
 
@@ -402,7 +402,7 @@ proc init(env: Environment) =
   # Clear background grid (non-blocking things like doors and cliffs)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      env.overlayGrid[x][y] = nil
+      env.backgroundGrid[x][y] = nil
       env.elevation[x][y] = 0
 
   # Reset team stockpiles
@@ -1050,7 +1050,7 @@ proc init(env: Environment) =
           if not isValidPos(pos):
             areaValid = false
             break
-          if not env.isEmpty(pos) or not isNil(env.getOverlayThing(pos)) or
+          if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)) or
               isBlockedTerrain(env.terrain[pos.x][pos.y]):
             areaValid = false
             break
@@ -1330,7 +1330,7 @@ proc init(env: Environment) =
       let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       template canPlaceWater(pos: IVec2): bool =
-        env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos) and
+        env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos) and
           env.terrain[pos.x][pos.y] notin {Road, Bridge}
       for ox in -(rx + 1) .. (rx + 1):
         for oy in -(ry + 1) .. (ry + 1):
@@ -1488,7 +1488,7 @@ proc init(env: Environment) =
       let pos = r.randomEmptyPos(env)
       if env.terrain[pos.x][pos.y] == Water:
         continue
-      if env.isEmpty(pos) and isNil(env.getOverlayThing(pos)) and not env.hasDoor(pos):
+      if env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos):
         let relic = Thing(kind: Relic, pos: pos)
         relic.inventory = emptyInventory()
         setInv(relic, ItemGold, 1)
