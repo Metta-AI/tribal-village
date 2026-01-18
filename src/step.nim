@@ -412,6 +412,20 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       return ivec2((if dx > 0: 1 else: -1), 0)
     return ivec2(0, (if dy > 0: 1 else: -1))
 
+  proc tryStep(thing: Thing, desired: IVec2) =
+    if desired == ivec2(0, 0):
+      return
+    let nextPos = thing.pos + desired
+    if isValidPos(nextPos) and not env.hasDoor(nextPos) and
+       not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
+      env.grid[thing.pos.x][thing.pos.y] = nil
+      thing.pos = nextPos
+      env.grid[nextPos.x][nextPos.y] = thing
+      if desired.x < 0:
+        thing.orientation = Orientation.W
+      elif desired.x > 0:
+        thing.orientation = Orientation.E
+
   proc findNearestPredatorTarget(center: IVec2, radius: int): IVec2 =
     var bestTumorDist = int.high
     var bestTumor = ivec2(-1, -1)
@@ -540,24 +554,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.6:
       desired = stepToward(thing.pos, herdTarget)
     elif randFloat(stepRng) < 0.08:
-      let dirIdx = randIntInclusive(stepRng, 0, 3)
-      desired = case dirIdx
-        of 0: ivec2(-1, 0)
-        of 1: ivec2(1, 0)
-        of 2: ivec2(0, -1)
-        else: ivec2(0, 1)
+      desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
-    if desired != ivec2(0, 0):
-      let nextPos = thing.pos + desired
-      if isValidPos(nextPos) and not env.hasDoor(nextPos) and
-         not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
-        env.grid[thing.pos.x][thing.pos.y] = nil
-        thing.pos = nextPos
-        env.grid[nextPos.x][nextPos.y] = thing
-        if desired.x < 0:
-          thing.orientation = Orientation.W
-        elif desired.x > 0:
-          thing.orientation = Orientation.E
+    tryStep(thing, desired)
 
   for thing in env.thingsByKind[Wolf]:
     if thing.cooldown > 0:
@@ -579,24 +578,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.55:
       desired = stepToward(thing.pos, center + drift * 3)
     elif randFloat(stepRng) < 0.1:
-      let dirIdx = randIntInclusive(stepRng, 0, 3)
-      desired = case dirIdx
-        of 0: ivec2(-1, 0)
-        of 1: ivec2(1, 0)
-        of 2: ivec2(0, -1)
-        else: ivec2(0, 1)
+      desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
-    if desired != ivec2(0, 0):
-      let nextPos = thing.pos + desired
-      if isValidPos(nextPos) and not env.hasDoor(nextPos) and
-         not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
-        env.grid[thing.pos.x][thing.pos.y] = nil
-        thing.pos = nextPos
-        env.grid[nextPos.x][nextPos.y] = thing
-        if desired.x < 0:
-          thing.orientation = Orientation.W
-        elif desired.x > 0:
-          thing.orientation = Orientation.E
+    tryStep(thing, desired)
 
   for thing in env.thingsByKind[Bear]:
     if thing.cooldown > 0:
@@ -608,24 +592,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if dist > 1:
         desired = stepToward(thing.pos, target)
     elif randFloat(stepRng) < 0.12:
-      let dirIdx = randIntInclusive(stepRng, 0, 3)
-      desired = case dirIdx
-        of 0: ivec2(-1, 0)
-        of 1: ivec2(1, 0)
-        of 2: ivec2(0, -1)
-        else: ivec2(0, 1)
+      desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
-    if desired != ivec2(0, 0):
-      let nextPos = thing.pos + desired
-      if isValidPos(nextPos) and not env.hasDoor(nextPos) and
-         not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
-        env.grid[thing.pos.x][thing.pos.y] = nil
-        thing.pos = nextPos
-        env.grid[nextPos.x][nextPos.y] = thing
-        if desired.x < 0:
-          thing.orientation = Orientation.W
-        elif desired.x > 0:
-          thing.orientation = Orientation.E
+    tryStep(thing, desired)
 
   for kind in [Wolf, Bear]:
     for predator in env.thingsByKind[kind]:
