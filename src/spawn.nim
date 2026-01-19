@@ -25,12 +25,18 @@ proc randInteriorPos(r: var Rand, pad: int): IVec2 =
   let y = randIntInclusive(r, MapBorder + pad, MapHeight - MapBorder - pad)
   ivec2(x.int32, y.int32)
 
-template isSpawnable(env: Environment, pos: IVec2): bool =
-  env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos)
-
 proc setTerrain(env: Environment, pos: IVec2, kind: TerrainType) {.inline.} =
   env.terrain[pos.x][pos.y] = kind
   env.resetTileColor(pos)
+
+proc clearTile(env: Environment, pos: IVec2, kind: TerrainType = Empty) {.inline.} =
+  let existing = env.getThing(pos)
+  if not isNil(existing):
+    removeThing(env, existing)
+  let background = env.getBackgroundThing(pos)
+  if not isNil(background):
+    removeThing(env, background)
+  setTerrain(env, pos, kind)
 
 proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
@@ -101,13 +107,7 @@ proc placeTradingHub(env: Environment, r: var Rand) =
       if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
         continue
       let pos = ivec2(x.int32, y.int32)
-      let existing = env.getThing(pos)
-      if not isNil(existing):
-        removeThing(env, existing)
-      let background = env.getBackgroundThing(pos)
-      if not isNil(background):
-        removeThing(env, background)
-      setTerrain(env, pos, Empty)
+      clearTile(env, pos, Empty)
       env.baseTintColors[x][y] = TradingHubTint
       env.tintLocked[x][y] = true
 
