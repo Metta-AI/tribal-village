@@ -303,7 +303,7 @@ proc needsPopCapHouse(env: Environment, teamId: int): bool =
       let cap = buildingPopCap(thing.kind)
       if cap > 0:
         popCap += cap
-  if popCap >= MapAgentsPerVillage:
+  if popCap >= MapAgentsPerTeam:
     return false
   let buffer = HousePopCap
   (popCap > 0 and popCount >= popCap - buffer) or
@@ -700,7 +700,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
   if not controller.agentsInitialized[agentId]:
-    let slot = agentId mod MapAgentsPerVillage
+    let slot = agentId mod MapAgentsPerTeam
     var role =
       case slot mod 6
       of 0, 1: Gatherer

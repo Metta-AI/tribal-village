@@ -477,7 +477,7 @@ proc drawObjects*() =
   drawThings(Agent):
     let agent = thing
     let roleKey =
-      case agent.agentId mod MapAgentsPerVillage
+      case agent.agentId mod MapAgentsPerTeam
       of 0, 1: "oriented/gatherer"
       of 2, 3: "oriented/builder"
       of 4, 5: "oriented/fighter"
@@ -636,7 +636,7 @@ proc drawObjects*() =
           let teamId = thing.teamId
           if teamId >= 0 and teamId < MapRoomObjectsTeams:
             let popCount = teamPopCounts[teamId]
-            let popCap = min(MapAgentsPerVillage, teamHouseCounts[teamId] * HousePopCap)
+            let popCap = min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
             let iconScale = 1/320
             let labelScale = 1/200
             let iconPos = pos.vec2 + vec2(-0.18, -0.62)

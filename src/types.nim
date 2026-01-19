@@ -29,9 +29,9 @@ const
   # Eight teams with 125 agents each -> 1000 agents total.
   MapRoomObjectsTeams* = 8
   GoblinTeamId* = MapRoomObjectsTeams
-  MapAgentsPerVillage* = 125
+  MapAgentsPerTeam* = 125
   MapRoomObjectsGoblinAgents* = 6
-  MapRoomObjectsAgents* = MapRoomObjectsTeams * MapAgentsPerVillage + MapRoomObjectsGoblinAgents
+  MapRoomObjectsAgents* = MapRoomObjectsTeams * MapAgentsPerTeam + MapRoomObjectsGoblinAgents
     ## Agent slots across all teams plus goblins
   MapRoomObjectsMagmaPools* = 72
   MapRoomObjectsMagmaClusters* = 36
@@ -144,12 +144,12 @@ const
 
   # Compile-time optimization constants
   ObservationRadius* = ObservationWidth div 2  # 5 - computed once
-  MapAgentsPerVillageFloat* = MapAgentsPerVillage.float32  # Avoid runtime conversion
+  MapAgentsPerTeamFloat* = MapAgentsPerTeam.float32  # Avoid runtime conversion
 
 {.push inline.}
 proc getTeamId*(agentId: int): int =
   ## Inline team ID calculation - frequently used
-  agentId div MapAgentsPerVillage
+  agentId div MapAgentsPerTeam
 
 
 template isValidPos*(pos: IVec2): bool =

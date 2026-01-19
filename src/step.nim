@@ -1373,7 +1373,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let altarHearts = thing.hearts.float32
         for agent in env.agents:
           if agent.homeAltar == thing.pos:
-            agent.reward += altarHearts / MapAgentsPerVillageFloat
+            agent.reward += altarHearts / MapAgentsPerTeamFloat
     elif thing.kind == Magma:
       if thing.cooldown > 0:
         dec thing.cooldown
@@ -1485,8 +1485,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         tumorsToProcess.add(thing)
 
   for teamId in 0 ..< teamPopCaps.len:
-    if teamPopCaps[teamId] > MapAgentsPerVillage:
-      teamPopCaps[teamId] = MapAgentsPerVillage
+    if teamPopCaps[teamId] > MapAgentsPerTeam:
+      teamPopCaps[teamId] = MapAgentsPerTeam
 
   if towerRemovals.len > 0:
     for target in towerRemovals:
@@ -2012,8 +2012,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if teamPopCounts[teamId] >= teamPopCaps[teamId]:
       continue
     # Find a dormant agent slot for this team.
-    let teamStart = teamId * MapAgentsPerVillage
-    let teamEnd = teamStart + MapAgentsPerVillage
+    let teamStart = teamId * MapAgentsPerTeam
+    let teamEnd = teamStart + MapAgentsPerTeam
     var childId = -1
     for id in teamStart ..< teamEnd:
       if env.terminated[id] == 1.0:
@@ -2189,7 +2189,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       logEntry.add(
         "  a" & $id &
         " t" & $getTeamId(agent) &
-        " " & (case agent.agentId mod MapAgentsPerVillage:
+        " " & (case agent.agentId mod MapAgentsPerTeam:
           of 0, 1: "gatherer"
           of 2, 3: "builder"
           of 4, 5: "fighter"
