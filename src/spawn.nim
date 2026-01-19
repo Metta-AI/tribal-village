@@ -87,256 +87,6 @@ proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
     placeResourceCluster(env, pos.x.int, pos.y.int, size, baseDensity, falloffRate,
       kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
 
-proc placeTradingHub(env: Environment, r: var Rand) =
-  let centerX = MapWidth div 2
-  let centerY = MapHeight div 2
-  let half = TradingHubSize div 2
-  let x0 = centerX - half
-  let x1 = centerX + half
-  let y0 = centerY - half
-  let y1 = centerY + half
-
-  for x in x0 .. x1:
-    for y in y0 .. y1:
-      if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
-        continue
-      let pos = ivec2(x.int32, y.int32)
-      let existing = env.getThing(pos)
-      if not isNil(existing):
-        removeThing(env, existing)
-      let background = env.getBackgroundThing(pos)
-      if not isNil(background):
-        removeThing(env, background)
-      setTerrain(env, pos, Empty)
-      env.baseTintColors[x][y] = TradingHubTint
-      env.tintLocked[x][y] = true
-
-  proc extendRoad(startX, startY, dx, dy: int) =
-    var x = startX
-    var y = startY
-    while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
-        y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
-      let outsideHub = x < x0 or x > x1 or y < y0 or y > y1
-      let pos = ivec2(x.int32, y.int32)
-      let existing = env.terrain[x][y]
-      if env.terrain[x][y] == Water:
-        setTerrain(env, pos, Bridge)
-      else:
-        setTerrain(env, pos, Road)
-      if outsideHub and existing in {Road, Bridge}:
-        break
-      x += dx
-      y += dy
-
-  let roadX = centerX
-  extendRoad(roadX, centerY, 1, 0)
-  extendRoad(roadX, centerY, -1, 0)
-  extendRoad(roadX, centerY, 0, 1)
-  extendRoad(roadX, centerY, 0, -1)
-  proc canPlaceHubThing(x, y: int): bool =
-    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
-        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
-      return false
-    if env.terrain[x][y] in {Water, Road, Bridge}:
-      return false
-    if x == roadX or y == centerY:
-      return false
-    let pos = ivec2(x.int32, y.int32)
-    if not env.isEmpty(pos):
-      return false
-    if not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
-      return false
-    true
-
-  var wallPositions: seq[IVec2] = @[]
-  proc tryAddWall(x, y: int) =
-    if not canPlaceHubThing(x, y):
-      return
-    let pos = ivec2(x.int32, y.int32)
-    env.add(Thing(kind: Wall, pos: pos, teamId: -1))
-    wallPositions.add(pos)
-
-  let wallMinX = max(MapBorder + 1, x0 - 2)
-  let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
-  let wallMinY = max(MapBorder + 1, y0 - 2)
-  let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
-  let wallChance = 0.6
-  let driftChance = 0.45
-  let topMin = wallMinY
-  let topMax = min(wallMaxY, y0 + 2)
-  let bottomMin = max(wallMinY, y1 - 2)
-  let bottomMax = wallMaxY
-  var topY = y0 - 1
-  var bottomY = y1 + 1
-
-  for x in wallMinX .. wallMaxX:
-    if randChance(r, wallChance):
-      tryAddWall(x, topY)
-    if randChance(r, wallChance):
-      tryAddWall(x, bottomY)
-    if randChance(r, driftChance):
-      topY = max(topMin, min(topMax, topY + randIntInclusive(r, -1, 1)))
-    if randChance(r, driftChance):
-      bottomY = max(bottomMin, min(bottomMax, bottomY + randIntInclusive(r, -1, 1)))
-
-  let leftMin = wallMinX
-  let leftMax = min(wallMaxX, x0 + 2)
-  let rightMin = max(wallMinX, x1 - 2)
-  let rightMax = wallMaxX
-  var leftX = x0 - 1
-  var rightX = x1 + 1
-  for y in wallMinY .. wallMaxY:
-    if randChance(r, wallChance):
-      tryAddWall(leftX, y)
-    if randChance(r, wallChance):
-      tryAddWall(rightX, y)
-    if randChance(r, driftChance):
-      leftX = max(leftMin, min(leftMax, leftX + randIntInclusive(r, -1, 1)))
-    if randChance(r, driftChance):
-      rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(r, -1, 1)))
-
-  let spurCount = randIntInclusive(r, 8, 14)
-  let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
-  for _ in 0 ..< spurCount:
-    let startX = randIntInclusive(r, x0 + 1, x1 - 1)
-    let startY = randIntInclusive(r, y0 + 1, y1 - 1)
-    if startX == roadX or startY == centerY:
-      continue
-    let dir = spurDirs[randIntInclusive(r, 0, spurDirs.len - 1)]
-    let length = randIntInclusive(r, 2, 4)
-    var pos = ivec2(startX.int32, startY.int32)
-    for _ in 0 ..< length:
-      tryAddWall(pos.x.int, pos.y.int)
-      pos = pos + dir
-
-  var towerSlots = min(4, wallPositions.len)
-  while towerSlots > 0 and wallPositions.len > 0:
-    let idx = randIntInclusive(r, 0, wallPositions.len - 1)
-    let pos = wallPositions[idx]
-    let wallThing = env.getThing(pos)
-    if not isNil(wallThing) and wallThing.kind == Wall:
-      removeThing(env, wallThing)
-      env.add(Thing(kind: GuardTower, pos: pos, teamId: -1))
-      dec towerSlots
-    wallPositions[idx] = wallPositions[^1]
-    wallPositions.setLen(wallPositions.len - 1)
-
-  let center = ivec2(centerX.int32, centerY.int32)
-  env.add(Thing(kind: Castle, pos: center, teamId: -1))
-  var hubBuildings = @[
-    Market, Market, Market, Outpost, Blacksmith, ClayOven, WeavingLoom,
-    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
-    Monastery, University, House, House, Granary, Mill,
-    LumberCamp, Quarry, MiningCamp, Barrel
-  ]
-  for i in countdown(hubBuildings.len - 1, 1):
-    let j = randIntInclusive(r, 0, i)
-    swap(hubBuildings[i], hubBuildings[j])
-  var placed = 0
-  let mainTarget = min(hubBuildings.len, randIntInclusive(r, 16, 20))
-  for kind in hubBuildings:
-    if placed >= mainTarget:
-      break
-    var attempts = 0
-    var placedHere = false
-    while attempts < 80 and not placedHere:
-      inc attempts
-      let x = randIntInclusive(r, x0 + 1, x1 - 1)
-      let y = randIntInclusive(r, y0 + 1, y1 - 1)
-      if x == centerX or y == centerY:
-        continue
-      let pos = ivec2(x.int32, y.int32)
-      if not canPlaceHubThing(x, y):
-        continue
-      if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
-        continue
-      let building = Thing(kind: kind, pos: pos, teamId: -1)
-      let capacity = buildingBarrelCapacity(kind)
-      if capacity > 0:
-        building.barrelCapacity = capacity
-      env.add(building)
-      inc placed
-      placedHere = true
-
-  let minorPool = [House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill]
-  let extraTarget = randIntInclusive(r, 10, 18)
-  var extraPlaced = 0
-  var extraAttempts = 0
-  while extraPlaced < extraTarget and extraAttempts < extraTarget * 60:
-    inc extraAttempts
-    let x = randIntInclusive(r, x0 + 1, x1 - 1)
-    let y = randIntInclusive(r, y0 + 1, y1 - 1)
-    if not canPlaceHubThing(x, y):
-      continue
-    if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
-      continue
-    let kind = minorPool[randIntInclusive(r, 0, minorPool.len - 1)]
-    let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
-    let capacity = buildingBarrelCapacity(kind)
-    if capacity > 0:
-      building.barrelCapacity = capacity
-    env.add(building)
-    inc extraPlaced
-  let scatterPool = [
-    House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
-    LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
-  ]
-  let scatterTarget = randIntInclusive(r, 18, 30)
-  let scatterRadius = half + 8
-  let scatterInner = half + 2
-  var scatterPlaced = 0
-  var scatterAttempts = 0
-  while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
-    inc scatterAttempts
-    let x = randIntInclusive(r, centerX - scatterRadius, centerX + scatterRadius)
-    let y = randIntInclusive(r, centerY - scatterRadius, centerY + scatterRadius)
-    if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
-        y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
-      continue
-    if x >= x0 and x <= x1 and y >= y0 and y <= y1:
-      continue
-    let dist = max(abs(x - centerX), abs(y - centerY))
-    if dist < scatterInner or dist > scatterRadius:
-      continue
-    if not canPlaceHubThing(x, y):
-      continue
-    let kind = scatterPool[randIntInclusive(r, 0, scatterPool.len - 1)]
-    let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
-    let capacity = buildingBarrelCapacity(kind)
-    if capacity > 0:
-      building.barrelCapacity = capacity
-    env.add(building)
-    inc scatterPlaced
-
-proc placeTemple(env: Environment, r: var Rand, villageCenters: seq[IVec2]) =
-  const TempleMinDistance = 10
-  let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
-  var placed = false
-  for _ in 0 ..< 200:
-    let dx = randIntInclusive(r, -14, 14)
-    let dy = randIntInclusive(r, -14, 14)
-    let pos = center + ivec2(dx.int32, dy.int32)
-    if not isValidPos(pos):
-      continue
-    if env.terrain[pos.x][pos.y] == Water:
-      continue
-    if not env.isSpawnable(pos):
-      continue
-    var tooClose = false
-    for v in villageCenters:
-      let dist = max(abs(v.x - pos.x), abs(v.y - pos.y))
-      if dist < TempleMinDistance:
-        tooClose = true
-        break
-    if tooClose:
-      continue
-    env.add(Thing(kind: Temple, pos: pos, teamId: -1))
-    placed = true
-    break
-  if not placed:
-    let fallback = r.randomEmptyPos(env)
-    env.add(Thing(kind: Temple, pos: fallback, teamId: -1))
-
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -666,7 +416,255 @@ proc init(env: Environment) =
         addBorderWall(ivec2(MapWidth - j - 1, y))
 
   # Place neutral trading hub near map center before villages.
-  env.placeTradingHub(r)
+  block tradingHub:
+    let centerX = MapWidth div 2
+    let centerY = MapHeight div 2
+    let half = TradingHubSize div 2
+    let x0 = centerX - half
+    let x1 = centerX + half
+    let y0 = centerY - half
+    let y1 = centerY + half
+
+    for x in x0 .. x1:
+      for y in y0 .. y1:
+        if x < 0 or x >= MapWidth or y < 0 or y >= MapHeight:
+          continue
+        let pos = ivec2(x.int32, y.int32)
+        let existing = env.getThing(pos)
+        if not isNil(existing):
+          removeThing(env, existing)
+        let background = env.getBackgroundThing(pos)
+        if not isNil(background):
+          removeThing(env, background)
+        setTerrain(env, pos, Empty)
+        env.baseTintColors[x][y] = TradingHubTint
+        env.tintLocked[x][y] = true
+
+    proc extendRoad(startX, startY, dx, dy: int) =
+      var x = startX
+      var y = startY
+      while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
+          y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
+        let outsideHub = x < x0 or x > x1 or y < y0 or y > y1
+        let pos = ivec2(x.int32, y.int32)
+        let existing = env.terrain[x][y]
+        if env.terrain[x][y] == Water:
+          setTerrain(env, pos, Bridge)
+        else:
+          setTerrain(env, pos, Road)
+        if outsideHub and existing in {Road, Bridge}:
+          break
+        x += dx
+        y += dy
+
+    let roadX = centerX
+    extendRoad(roadX, centerY, 1, 0)
+    extendRoad(roadX, centerY, -1, 0)
+    extendRoad(roadX, centerY, 0, 1)
+    extendRoad(roadX, centerY, 0, -1)
+    proc canPlaceHubThing(x, y: int): bool =
+      if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
+          y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
+        return false
+      if env.terrain[x][y] in {Water, Road, Bridge}:
+        return false
+      if x == roadX or y == centerY:
+        return false
+      let pos = ivec2(x.int32, y.int32)
+      if not env.isEmpty(pos):
+        return false
+      if not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
+        return false
+      true
+
+    var wallPositions: seq[IVec2] = @[]
+    proc tryAddWall(x, y: int) =
+      if not canPlaceHubThing(x, y):
+        return
+      let pos = ivec2(x.int32, y.int32)
+      env.add(Thing(kind: Wall, pos: pos, teamId: -1))
+      wallPositions.add(pos)
+
+    let wallMinX = max(MapBorder + 1, x0 - 2)
+    let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
+    let wallMinY = max(MapBorder + 1, y0 - 2)
+    let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
+    let wallChance = 0.6
+    let driftChance = 0.45
+    let topMin = wallMinY
+    let topMax = min(wallMaxY, y0 + 2)
+    let bottomMin = max(wallMinY, y1 - 2)
+    let bottomMax = wallMaxY
+    var topY = y0 - 1
+    var bottomY = y1 + 1
+
+    for x in wallMinX .. wallMaxX:
+      if randChance(r, wallChance):
+        tryAddWall(x, topY)
+      if randChance(r, wallChance):
+        tryAddWall(x, bottomY)
+      if randChance(r, driftChance):
+        topY = max(topMin, min(topMax, topY + randIntInclusive(r, -1, 1)))
+      if randChance(r, driftChance):
+        bottomY = max(bottomMin, min(bottomMax, bottomY + randIntInclusive(r, -1, 1)))
+
+    let leftMin = wallMinX
+    let leftMax = min(wallMaxX, x0 + 2)
+    let rightMin = max(wallMinX, x1 - 2)
+    let rightMax = wallMaxX
+    var leftX = x0 - 1
+    var rightX = x1 + 1
+    for y in wallMinY .. wallMaxY:
+      if randChance(r, wallChance):
+        tryAddWall(leftX, y)
+      if randChance(r, wallChance):
+        tryAddWall(rightX, y)
+      if randChance(r, driftChance):
+        leftX = max(leftMin, min(leftMax, leftX + randIntInclusive(r, -1, 1)))
+      if randChance(r, driftChance):
+        rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(r, -1, 1)))
+
+    let spurCount = randIntInclusive(r, 8, 14)
+    let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
+    for _ in 0 ..< spurCount:
+      let startX = randIntInclusive(r, x0 + 1, x1 - 1)
+      let startY = randIntInclusive(r, y0 + 1, y1 - 1)
+      if startX == roadX or startY == centerY:
+        continue
+      let dir = spurDirs[randIntInclusive(r, 0, spurDirs.len - 1)]
+      let length = randIntInclusive(r, 2, 4)
+      var pos = ivec2(startX.int32, startY.int32)
+      for _ in 0 ..< length:
+        tryAddWall(pos.x.int, pos.y.int)
+        pos = pos + dir
+
+    var towerSlots = min(4, wallPositions.len)
+    while towerSlots > 0 and wallPositions.len > 0:
+      let idx = randIntInclusive(r, 0, wallPositions.len - 1)
+      let pos = wallPositions[idx]
+      let wallThing = env.getThing(pos)
+      if not isNil(wallThing) and wallThing.kind == Wall:
+        removeThing(env, wallThing)
+        env.add(Thing(kind: GuardTower, pos: pos, teamId: -1))
+        dec towerSlots
+      wallPositions[idx] = wallPositions[^1]
+      wallPositions.setLen(wallPositions.len - 1)
+
+    let center = ivec2(centerX.int32, centerY.int32)
+    env.add(Thing(kind: Castle, pos: center, teamId: -1))
+    var hubBuildings = @[
+      Market, Market, Market, Outpost, Blacksmith, ClayOven, WeavingLoom,
+      Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
+      Monastery, University, House, House, Granary, Mill,
+      LumberCamp, Quarry, MiningCamp, Barrel
+    ]
+    for i in countdown(hubBuildings.len - 1, 1):
+      let j = randIntInclusive(r, 0, i)
+      swap(hubBuildings[i], hubBuildings[j])
+    var placed = 0
+    let mainTarget = min(hubBuildings.len, randIntInclusive(r, 16, 20))
+    for kind in hubBuildings:
+      if placed >= mainTarget:
+        break
+      var attempts = 0
+      var placedHere = false
+      while attempts < 80 and not placedHere:
+        inc attempts
+        let x = randIntInclusive(r, x0 + 1, x1 - 1)
+        let y = randIntInclusive(r, y0 + 1, y1 - 1)
+        if x == centerX or y == centerY:
+          continue
+        let pos = ivec2(x.int32, y.int32)
+        if not canPlaceHubThing(x, y):
+          continue
+        if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
+          continue
+        let building = Thing(kind: kind, pos: pos, teamId: -1)
+        let capacity = buildingBarrelCapacity(kind)
+        if capacity > 0:
+          building.barrelCapacity = capacity
+        env.add(building)
+        inc placed
+        placedHere = true
+
+    let minorPool = [House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill]
+    let extraTarget = randIntInclusive(r, 10, 18)
+    var extraPlaced = 0
+    var extraAttempts = 0
+    while extraPlaced < extraTarget and extraAttempts < extraTarget * 60:
+      inc extraAttempts
+      let x = randIntInclusive(r, x0 + 1, x1 - 1)
+      let y = randIntInclusive(r, y0 + 1, y1 - 1)
+      if not canPlaceHubThing(x, y):
+        continue
+      if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
+        continue
+      let kind = minorPool[randIntInclusive(r, 0, minorPool.len - 1)]
+      let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
+      let capacity = buildingBarrelCapacity(kind)
+      if capacity > 0:
+        building.barrelCapacity = capacity
+      env.add(building)
+      inc extraPlaced
+    let scatterPool = [
+      House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
+      LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
+    ]
+    let scatterTarget = randIntInclusive(r, 18, 30)
+    let scatterRadius = half + 8
+    let scatterInner = half + 2
+    var scatterPlaced = 0
+    var scatterAttempts = 0
+    while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
+      inc scatterAttempts
+      let x = randIntInclusive(r, centerX - scatterRadius, centerX + scatterRadius)
+      let y = randIntInclusive(r, centerY - scatterRadius, centerY + scatterRadius)
+      if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
+          y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
+        continue
+      if x >= x0 and x <= x1 and y >= y0 and y <= y1:
+        continue
+      let dist = max(abs(x - centerX), abs(y - centerY))
+      if dist < scatterInner or dist > scatterRadius:
+        continue
+      if not canPlaceHubThing(x, y):
+        continue
+      let kind = scatterPool[randIntInclusive(r, 0, scatterPool.len - 1)]
+      let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
+      let capacity = buildingBarrelCapacity(kind)
+      if capacity > 0:
+        building.barrelCapacity = capacity
+      env.add(building)
+      inc scatterPlaced
+
+  proc placeTemple(env: Environment, r: var Rand, villageCenters: seq[IVec2]) =
+    const TempleMinDistance = 10
+    let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
+    var placed = false
+    for _ in 0 ..< 200:
+      let dx = randIntInclusive(r, -14, 14)
+      let dy = randIntInclusive(r, -14, 14)
+      let pos = center + ivec2(dx.int32, dy.int32)
+      if not isValidPos(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == Water:
+        continue
+      if not env.isSpawnable(pos):
+        continue
+      var tooClose = false
+      for v in villageCenters:
+        let dist = max(abs(v.x - pos.x), abs(v.y - pos.y))
+        if dist < TempleMinDistance:
+          tooClose = true
+          break
+      if tooClose:
+        continue
+      env.add(Thing(kind: Temple, pos: pos, teamId: -1))
+      placed = true
+      break
+    if not placed:
+      let fallback = r.randomEmptyPos(env)
+      env.add(Thing(kind: Temple, pos: fallback, teamId: -1))
 
   # Agents will now spawn with their villages below
   # Clear and prepare village colors arrays (use Environment fields)
