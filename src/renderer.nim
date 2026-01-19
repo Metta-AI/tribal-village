@@ -95,10 +95,7 @@ proc useSelections*(blockSelection = false) =
     mouseDownPos = logicalMousePos(window)
 
   if window.buttonReleased[MouseLeft]:
-    let mouseUpPos = logicalMousePos(window)
-    let dragDistance = (mouseUpPos - mouseDownPos).length
-    let clickThreshold = 3.0
-    if dragDistance <= clickThreshold:
+    if (logicalMousePos(window) - mouseDownPos).length <= 3.0:
       selection = nil
       let
         mousePos = bxy.getTransform().inverse * window.mousePos.vec2
@@ -128,10 +125,7 @@ type FooterButton* = object
   active*: bool
 
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
-  let footerY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
-  let buttonHeight = FooterHeight.float32 - FooterPadding * 2.0
-  let playIcon = if play: "ui/pause" else: "ui/play"
-  let iconKeys = [playIcon, "ui/stepForward", "ui/turtle", "ui/speed", "", "ui/rabbit"]
+  let iconKeys = [if play: "ui/pause" else: "ui/play", "ui/stepForward", "ui/turtle", "ui/speed", "", "ui/rabbit"]
   let labels = ["Pause", "Step", "Slow", "Fast", ">>", "Super"]
   var buttonWidths: array[labels.len, float32]
   var labelKeys: array[labels.len, string]
@@ -190,9 +184,9 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       else: FooterSuper
     let rect = Rect(
       x: x,
-      y: footerY + FooterPadding,
+      y: panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32 + FooterPadding,
       w: buttonWidths[i],
-      h: buttonHeight
+      h: FooterHeight.float32 - FooterPadding * 2.0
     )
     let active = case kind
       of FooterSlow:

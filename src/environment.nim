@@ -437,9 +437,7 @@ proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inli
   if abs(elevFrom - elevTo) != 1:
     return false
 
-  let fromTerrain = env.terrain[fromPos.x][fromPos.y]
-  let toTerrain = env.terrain[toPos.x][toPos.y]
-  (fromTerrain == Road or toTerrain == Road)
+  env.terrain[fromPos.x][fromPos.y] == Road or env.terrain[toPos.x][toPos.y] == Road
 
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
   terrain in BuildableTerrain
