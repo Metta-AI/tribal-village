@@ -91,9 +91,36 @@ signature and expected artifacts.
 **Outputs:** Updated README sections for features + observation layout.
 **Likely files:** `README.md`, `src/types.nim`, `src/environment.nim`, `src/ffi.nim`.
 
+### /assets:normalize
+**Intent:** Normalize sprite assets (transparency + size) in batch.
+**Typical prompt:** "make all PNGs 256x256 and true transparent".
+**Inputs:** Target folders, target size, skip rules.
+**Outputs:** Updated PNGs + summary of changed files.
+**Likely files:** `data/*.png`, `data/oriented/*.png`.
+
+### /assets:split_quadrants
+**Intent:** Split a 2x2 sprite sheet into four standalone PNGs.
+**Typical prompt:** "split this image into 4 items (quadrants)".
+**Inputs:** Source image, quadrant mapping, output paths.
+**Outputs:** Four new PNGs, ready for registry mapping.
+
+### /assets:oriented_generate
+**Intent:** Generate or regenerate oriented sprites using prompts.
+**Typical prompt:** "regenerate oriented sprites with purple background".
+**Inputs:** Prompt rows, orientation set, optional `--only` filter.
+**Outputs:** New oriented sprites + optional preview sheet.
+**Likely files:** `data/prompts/assets.tsv`, `scripts/generate_assets.py`, `data/oriented/*.png`.
+
+### /assets:wire_sprites
+**Intent:** Hook newly added sprites into the registry and code.
+**Typical prompt:** "wire the new PNGs to the correct ThingKinds".
+**Inputs:** ThingKind / ItemKey list, target sprite paths, fallback rules.
+**Outputs:** Code changes to map new assets correctly.
+**Likely files:** `src/registry.nim`, `src/tileset.nim`.
+
 ### /worldgen-hub-variation
 **Intent:** Make the central trading hub feel more organic and busy without blocking roads.
-**Typical prompt:** "add more buildings around hub, keep roads clear" or "make walls less boxy".
+**Typical prompt:** "add more buildings around hub, keep roads clear" / "make walls less boxy".
 **Outputs:** Updated hub placement and wall generation.
 **Likely files:** `src/spawn.nim` (trading hub block).
 
@@ -103,11 +130,30 @@ signature and expected artifacts.
 **Outputs:** Tweaked river drift probabilities.
 **Likely files:** `src/terrain.nim` (`generateRiver`).
 
+### /worldgen:biome_tune
+**Intent:** Adjust biome or terrain distribution parameters.
+**Typical prompt:** "make biomes 2x larger" / "change snow biome density".
+**Inputs:** Target biome(s), desired size/count/density changes.
+**Outputs:** Updated worldgen parameters + short summary.
+
+### /worldgen:resource_clusters
+**Intent:** Rebalance resource clustering and wildlife spawns.
+**Typical prompt:** "increase cow herds and resource clumps".
+**Inputs:** Resource types, cluster size/density goals.
+**Outputs:** Updated cluster logic + placement summary.
+**Likely files:** `src/spawn.nim`.
+
 ### /spawn-goblin-hives
 **Intent:** Ensure a fixed count of goblin nests/hives per map.
 **Typical prompt:** "every map should spawn two goblin nests".
 **Outputs:** Updated spawn logic and spacing checks.
 **Likely files:** `src/spawn.nim` (goblin hive block).
+
+### /ai:role_audit
+**Intent:** Audit scripted roles and summarize behavior coverage.
+**Typical prompt:** "audit AI roles and note interesting/uninteresting ones".
+**Inputs:** Scope (core roles, scripted roles, or both).
+**Outputs:** Short audit report + optional suggestion list.
 
 ### /ai-add-behaviors
 **Intent:** Add new behavior options to the AI pool without changing core gatherer/builder/fighter logic.
@@ -119,6 +165,17 @@ signature and expected artifacts.
 **Intent:** Generate a list of new, scoped behaviors aligned to territory control objectives.
 **Typical prompt:** "outline 25 new behaviors for meta-role system".
 **Outputs:** Behavior list with brief descriptions (no code changes).
+
+### /include-sprawl-map
+**Intent:** Map include chains and explain how modules relate.
+**Typical prompt:** "map include sprawl and explain callsites".
+**Outputs:** Clear include graph + callsite notes.
+**Likely files:** `src/agent_control.nim`, `src/scripted/*.nim`.
+
+### /ai-chain-modularize-plan
+**Intent:** Produce a concrete modularization plan for the AI include chain.
+**Typical prompt:** "how would you modularize ai chain?".
+**Outputs:** Step plan with proposed module boundaries and low-risk sequencing.
 
 ### /inline-one-offs
 **Intent:** Inline single-use helpers and remove small layers of indirection.
@@ -132,16 +189,11 @@ signature and expected artifacts.
 **Typical prompt:** "audit for cleanup/conciseness" or "overly complex logic".
 **Outputs:** Ranked list of candidates; no code changes unless requested.
 
-### /include-sprawl-map
-**Intent:** Map include chains and explain how modules relate.
-**Typical prompt:** "map include sprawl and explain callsites".
-**Outputs:** Clear include graph + callsite notes.
-**Likely files:** `src/agent_control.nim`, `src/scripted/*.nim`.
-
-### /ai-chain-modularize-plan
-**Intent:** Produce a modularization plan for the AI include chain.
-**Typical prompt:** "how would you modularize ai chain?".
-**Outputs:** Step plan with proposed module boundaries and low-risk sequencing.
+### /merge:resolve
+**Intent:** Resolve merge conflicts with repo-specific priorities.
+**Typical prompt:** "resolve conflicts; keep bumped counts".
+**Inputs:** Branch target + priority rules.
+**Outputs:** Clean merge commit and test report.
 
 ### /codex-log-docs
 **Intent:** Read Codex logs for this repo and synthesize docs in `docs/`.
@@ -331,3 +383,8 @@ provide an actionable rename plan.
 
 **Output:**
 - Rename plan (and patch if applied).
+
+## Notes
+These templates are intentionally short. If you want any of them expanded into
+full skills (with scripts or reusable patches), we can scaffold them under
+`$CODEX_HOME/skills` and link them here.
