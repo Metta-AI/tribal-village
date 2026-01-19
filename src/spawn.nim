@@ -124,7 +124,7 @@ proc init(env: Environment) =
       env.elevation[x][y] = 0
 
   # Reset team stockpiles
-  env.teamStockpiles = default(array[MapRoomObjectsHouses, TeamStockpile])
+  env.teamStockpiles = default(array[MapRoomObjectsVillages, TeamStockpile])
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
@@ -679,9 +679,9 @@ proc init(env: Environment) =
   env.teamColors.setLen(0)  # Clear team colors
   env.altarColors.clear()  # Clear altar colors from previous game
   # Spawn villages with altars, town centers, and associated agents (tribes)
-  let numVillages = MapRoomObjectsHouses
+  let numVillages = MapRoomObjectsVillages
   var totalAgentsSpawned = 0
-  let villageAgentCap = MapRoomObjectsHouses * MapAgentsPerVillage
+  let villageAgentCap = MapRoomObjectsVillages * MapAgentsPerVillage
   var villageCenters: seq[IVec2] = @[]
   proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
     var candidates: seq[IVec2] = @[]
@@ -1329,7 +1329,7 @@ proc init(env: Environment) =
         attackDamage: GoblinAttackDamage,
         unitClass: UnitGoblin,
         embarkedUnitClass: UnitGoblin,
-        teamIdOverride: MapRoomObjectsHouses
+        teamIdOverride: MapRoomObjectsVillages
       ))
       totalAgentsSpawned += 1
 

@@ -303,7 +303,7 @@ proc needsPopCapHouse(env: Environment, teamId: int): bool =
       let cap = buildingPopCap(thing.kind)
       if cap > 0:
         popCap += cap
-  if popCap >= MaxHousePopCap:
+  if popCap >= MapAgentsPerVillage:
     return false
   let buffer = HousePopCap
   (popCap > 0 and popCount >= popCap - buffer) or
@@ -541,8 +541,8 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
   discard controller
   let score = env.scoreTerritory()
   let total = max(1, score.scoredTiles)
-  var teamScores: array[MapRoomObjectsHouses, float32]
-  for teamId in 0 ..< MapRoomObjectsHouses:
+  var teamScores: array[MapRoomObjectsVillages, float32]
+  for teamId in 0 ..< MapRoomObjectsVillages:
     teamScores[teamId] = float32(score.teamTiles[teamId]) / float32(total)
   var roleTeamCounts: Table[(int, int), int]
   for agent in env.agents:
@@ -552,7 +552,7 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
     if roleId < 0:
       continue
     let teamId = getTeamId(agent)
-    if teamId < 0 or teamId >= MapRoomObjectsHouses:
+    if teamId < 0 or teamId >= MapRoomObjectsVillages:
       continue
     let key = (roleId, teamId)
     roleTeamCounts[key] = roleTeamCounts.getOrDefault(key, 0) + 1
@@ -561,7 +561,7 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
     let teamId = key[1]
     if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
       continue
-    if teamId < 0 or teamId >= MapRoomObjectsHouses:
+    if teamId < 0 or teamId >= MapRoomObjectsVillages:
       continue
     let sampleTeamScore = teamScores[teamId]
     let weight = min(4, count)

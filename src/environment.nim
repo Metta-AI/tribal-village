@@ -90,7 +90,7 @@ proc updateObservations(
       return -1
     if thing.kind == Agent:
       return getTeamId(thing)
-    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses:
+    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsVillages:
       return thing.teamId
     -1
 
@@ -293,7 +293,7 @@ proc disembarkAgent*(agent: Thing) =
 proc scoreTerritory*(env: Environment): TerritoryScore =
   ## Compute territory ownership by nearest tint color (teams + clippy).
   var score: TerritoryScore
-  let teamCount = min(env.teamColors.len, MapRoomObjectsHouses)
+  let teamCount = min(env.teamColors.len, MapRoomObjectsVillages)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if not DefaultScoreIncludeWater and env.terrain[x][y] == Water:
@@ -309,7 +309,7 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
       let dgc = tint.g - ClippyTint.g
       let dbc = tint.b - ClippyTint.b
       bestDist = drc * drc + dgc * dgc + dbc * dbc
-      bestTeam = MapRoomObjectsHouses
+      bestTeam = MapRoomObjectsVillages
       for teamId in 0 ..< teamCount:
         let t = env.teamColors[teamId]
         let dr = tint.r - t.r
@@ -319,9 +319,9 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
         if dist < bestDist:
           bestDist = dist
           bestTeam = teamId
-      if bestTeam == MapRoomObjectsHouses:
+      if bestTeam == MapRoomObjectsVillages:
         inc score.clippyTiles
-      elif bestTeam >= 0 and bestTeam < MapRoomObjectsHouses:
+      elif bestTeam >= 0 and bestTeam < MapRoomObjectsVillages:
         inc score.teamTiles[bestTeam]
       inc score.scoredTiles
   score
@@ -337,7 +337,7 @@ proc rebuildObservations*(env: Environment) =
       return -1
     if thing.kind == Agent:
       return getTeamId(thing)
-    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsHouses:
+    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsVillages:
       return thing.teamId
     -1
 

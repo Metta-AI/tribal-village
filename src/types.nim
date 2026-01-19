@@ -27,10 +27,10 @@ const
 
   # World Objects
   # Eight bases with 125 agents each -> 1000 agents total.
-  MapRoomObjectsHouses* = 8
+  MapRoomObjectsVillages* = 8
   MapAgentsPerVillage* = 125
   MapRoomObjectsGoblinAgents* = 6
-  MapRoomObjectsAgents* = MapRoomObjectsHouses * MapAgentsPerVillage + MapRoomObjectsGoblinAgents
+  MapRoomObjectsAgents* = MapRoomObjectsVillages * MapAgentsPerVillage + MapRoomObjectsGoblinAgents
     ## Agent slots across all villages plus goblins
   MapRoomObjectsMagmaPools* = 72
   MapRoomObjectsMagmaClusters* = 36
@@ -88,7 +88,6 @@ const
   MineDepositAmount* = 100
   TownCenterPopCap* = 0
   HousePopCap* = 4
-  MaxHousePopCap* = 28
   VillagerAttackDamage* = 1
   ManAtArmsAttackDamage* = 2
   ArcherAttackDamage* = 1
@@ -597,7 +596,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
 
 type
   TerritoryScore* = object
-    teamTiles*: array[MapRoomObjectsHouses, int]
+    teamTiles*: array[MapRoomObjectsVillages, int]
     clippyTiles*: int
     neutralTiles*: int
     scoredTiles*: int
@@ -618,7 +617,7 @@ type
     grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking units
     backgroundGrid*: array[MapWidth, array[MapHeight, Thing]]   # Background (non-blocking) units
     elevation*: ElevationGrid
-    teamStockpiles*: array[MapRoomObjectsHouses, TeamStockpile]
+    teamStockpiles*: array[MapRoomObjectsVillages, TeamStockpile]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)

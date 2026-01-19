@@ -80,7 +80,7 @@ proc agentHasAnyItem*(agent: Thing, keys: openArray[ItemKey]): bool =
 proc canStartStoreValuables*(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  if teamId < 0 or teamId >= MapRoomObjectsHouses:
+  if teamId < 0 or teamId >= MapRoomObjectsVillages:
     return false
   if controller.getBuildingCount(env, teamId, Blacksmith) > 0 and
       agentHasAnyItem(agent, buildingStorageItems(Blacksmith)):
