@@ -36,26 +36,6 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
 ]
 
-proc inTankAura(env: Environment, target: Thing): bool =
-  let teamId = getTeamId(target)
-  if teamId < 0:
-    return false
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if getTeamId(agent) != teamId:
-      continue
-    if agent.unitClass notin {UnitManAtArms, UnitKnight}:
-      continue
-    if isThingFrozen(agent, env):
-      continue
-    let radius = if agent.unitClass == UnitKnight: 2 else: 1
-    let dx = abs(agent.pos.x - target.pos.x)
-    let dy = abs(agent.pos.y - target.pos.y)
-    if max(dx, dy) <= radius:
-      return true
-  return false
-
 proc isAttackableStructure*(kind: ThingKind): bool {.inline.} =
   kind in {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
 
@@ -146,8 +126,25 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     if bonus > 0:
       env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
     remaining = max(1, remaining + bonus)
-  if inTankAura(env, target):
-    remaining = max(1, (remaining + 1) div 2)
+  block tankAura:
+    let teamId = getTeamId(target)
+    if teamId < 0:
+      break tankAura
+    for agent in env.agents:
+      if not isAgentAlive(env, agent):
+        continue
+      if getTeamId(agent) != teamId:
+        continue
+      if agent.unitClass notin {UnitManAtArms, UnitKnight}:
+        continue
+      if isThingFrozen(agent, env):
+        continue
+      let radius = if agent.unitClass == UnitKnight: 2 else: 1
+      let dx = abs(agent.pos.x - target.pos.x)
+      let dy = abs(agent.pos.y - target.pos.y)
+      if max(dx, dy) <= radius:
+        remaining = max(1, (remaining + 1) div 2)
+        break tankAura
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)

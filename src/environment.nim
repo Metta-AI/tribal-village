@@ -69,8 +69,7 @@ proc raiseMapFullError*() {.noreturn.} =
   raise newTribalError(ErrMapFull, "Failed to find an empty position, map too full!")
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
-  let p = cast[pointer](s[0].addr)
-  zeroMem(p, s.len * sizeof(T))
+  zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
 
 proc updateObservations(
@@ -271,9 +270,8 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.hp = agent.maxHp
 
 proc applyUnitClassPreserveHp*(agent: Thing, unitClass: AgentUnitClass) =
-  let prevHp = agent.hp
   applyUnitClass(agent, unitClass)
-  agent.hp = min(prevHp, agent.maxHp)
+  agent.hp = min(agent.hp, agent.maxHp)
 
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass == UnitBoat:
@@ -293,7 +291,6 @@ proc disembarkAgent*(agent: Thing) =
 proc scoreTerritory*(env: Environment): TerritoryScore =
   ## Compute territory ownership by nearest tint color (teams + clippy).
   var score: TerritoryScore
-  let teamCount = min(env.teamColors.len, MapRoomObjectsVillages)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if not DefaultScoreIncludeWater and env.terrain[x][y] == Water:
@@ -310,7 +307,7 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
       let dbc = tint.b - ClippyTint.b
       bestDist = drc * drc + dgc * dgc + dbc * dbc
       bestTeam = MapRoomObjectsVillages
-      for teamId in 0 ..< teamCount:
+      for teamId in 0 ..< min(env.teamColors.len, MapRoomObjectsVillages):
         let t = env.teamColors[teamId]
         let dr = tint.r - t.r
         let dg = tint.g - t.g

@@ -19,21 +19,6 @@ type
     tilesetIdx: int
     tileIndex: int
 
-proc scaleNearest(src: Image, dstW, dstH: int): Image =
-  result = newImage(dstW, dstH)
-  for y in 0 ..< dstH:
-    let sy = (y * src.height) div dstH
-    for x in 0 ..< dstW:
-      let sx = (x * src.width) div dstW
-      result[x, y] = src[sx, sy]
-
-proc extractTile(sheet: Image, tileIndex: int): Image =
-  let col = tileIndex mod TilesPerRow
-  let row = tileIndex div TilesPerRow
-  let x = col * TileSize
-  let y = row * TileSize
-  result = sheet.subImage(x, y, TileSize, TileSize)
-
 proc generateDfViewAssets*() =
   when defined(emscripten):
     return
@@ -112,11 +97,18 @@ proc generateDfViewAssets*() =
     img
 
   proc writeScaledTile(outPath: string, tilesetIdx: int, tileIndex: int, sheetPath: string) =
-    let scaled = scaleNearest(
-      extractTile(getSheet(tilesetIdx, sheetPath), tileIndex),
-      TargetSize,
-      TargetSize
-    )
+    let sheet = getSheet(tilesetIdx, sheetPath)
+    let col = tileIndex mod TilesPerRow
+    let row = tileIndex div TilesPerRow
+    let x0 = col * TileSize
+    let y0 = row * TileSize
+    let src = sheet.subImage(x0, y0, TileSize, TileSize)
+    let scaled = newImage(TargetSize, TargetSize)
+    for y in 0 ..< TargetSize:
+      let sy = (y * src.height) div TargetSize
+      for x in 0 ..< TargetSize:
+        let sx = (x * src.width) div TargetSize
+        scaled[x, y] = src[sx, sy]
     createDir(parentDir(outPath))
     writeFile(outPath, encodePng(scaled))
     inc created
