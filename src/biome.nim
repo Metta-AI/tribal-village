@@ -18,17 +18,15 @@ proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, dep
     return
 
   for layer in 0 ..< depth:
-    let edgeProb = prob * (float(depth - layer) / float(depth))
     var boundary: MaskGrid
     for x in depth ..< mapWidth - depth:
       for y in depth ..< mapHeight - depth:
-        let v = mask[x][y]
         var isBoundary = false
         for dx in -1 .. 1:
           for dy in -1 .. 1:
             if dx == 0 and dy == 0:
               continue
-            if mask[x + dx][y + dy] != v:
+            if mask[x + dx][y + dy] != mask[x][y]:
               isBoundary = true
               break
           if isBoundary:
@@ -38,7 +36,7 @@ proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, dep
 
     for x in depth ..< mapWidth - depth:
       for y in depth ..< mapHeight - depth:
-        if boundary[x][y] and randFloat(r) < edgeProb:
+        if boundary[x][y] and randFloat(r) < prob * (float(depth - layer) / float(depth)):
           mask[x][y] = not mask[x][y]
 
 template ditherIf(mask: var MaskGrid, mapWidth, mapHeight: int,
@@ -112,20 +110,17 @@ proc buildClusterBiomeMask(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
   let period = max(3, clusterPeriod)
   let minRadius = max(0, clusterMinRadius)
   let maxRadius = max(minRadius, clusterMaxRadius)
-  let jitterVal = max(0, jitter)
-  let fillBase = clusterFill
 
-  forClusterCenters(mapWidth, mapHeight, mapBorder, period, jitterVal, clusterProb, r):
+  forClusterCenters(mapWidth, mapHeight, mapBorder, period, max(0, jitter), clusterProb, r):
       let radius = if maxRadius > 0: randIntInclusive(r, minRadius, maxRadius) else: 0
       if radius == 0:
         mask[cx][cy] = true
         continue
 
-      let fill = fillBase * (0.6 + 0.4 * randFloat(r))
-      let radius2 = radius * radius
+      let fill = clusterFill * (0.6 + 0.4 * randFloat(r))
       for dx in -radius .. radius:
         for dy in -radius .. radius:
-          if dx * dx + dy * dy > radius2:
+          if dx * dx + dy * dy > radius * radius:
             continue
           let x = cx + dx
           let y = cy + dy
@@ -329,8 +324,7 @@ proc buildBiomeForestMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
             if nx >= 0 and nx < mapWidth and ny >= 0 and ny < mapHeight:
               if mask[nx][ny]:
                 inc neighbors
-        let grow = neighbors >= cfg.neighborThreshold and randFloat(r) < cfg.growthProb
-        nextMask[x][y] = grow or mask[x][y]
+        nextMask[x][y] = (neighbors >= cfg.neighborThreshold and randFloat(r) < cfg.growthProb) or mask[x][y]
     mask = nextMask
 
   ditherIf(mask, mapWidth, mapHeight, cfg.ditherEdges, cfg.ditherProb, cfg.ditherDepth, r)
@@ -350,16 +344,14 @@ proc buildBiomeDesertMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
   mask.clearMask(mapWidth, mapHeight)
 
   let period = max(2, cfg.dunePeriod)
-  let width = max(1, cfg.ridgeWidth)
-  let theta = cfg.angle
-  let cosT = cos(theta)
-  let sinT = sin(theta)
+  let cosT = cos(cfg.angle)
+  let sinT = sin(cfg.angle)
 
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:
       let xr = x.float * cosT + y.float * sinT
       var modv = xr - floor(xr / period.float) * period.float
-      if modv < width.float:
+      if modv < max(1, cfg.ridgeWidth).float:
         mask[x][y] = true
       if mask[x][y] and randFloat(r) < cfg.noiseProb:
         mask[x][y] = false
@@ -400,9 +392,8 @@ proc buildBiomeCavesMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: in
               inc neighbors
             elif mask[nx][ny]:
               inc neighbors
-        let birth = neighbors > cfg.birthLimit
-        let death = neighbors < cfg.deathLimit
-        nextMask[x][y] = birth or ((not death) and mask[x][y])
+        nextMask[x][y] = (neighbors > cfg.birthLimit) or
+          (neighbors >= cfg.deathLimit and mask[x][y])
     mask = nextMask
 
   ditherIf(mask, mapWidth, mapHeight, cfg.ditherEdges, cfg.ditherProb, cfg.ditherDepth, r)

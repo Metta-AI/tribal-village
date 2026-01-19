@@ -40,7 +40,6 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
     let agentPos = agent.pos
     if not isValidPos(agentPos):
       continue
-    let baseElevation = env.elevation[agentPos.x][agentPos.y]
     let agentBase = agentId * ObsAgentStride
     for x in 0 ..< ObservationWidth:
       let worldX = agentPos.x + (x - radius)
@@ -49,7 +48,7 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
         let worldY = agentPos.y + (y - radius)
         var obscured = false
         if worldX >= 0 and worldX < MapWidth and worldY >= 0 and worldY < MapHeight:
-          if env.elevation[worldX][worldY] > baseElevation:
+          if env.elevation[worldX][worldY] > env.elevation[agentPos.x][agentPos.y]:
             obscured = true
         let obscuredIndex = agentBase + ObscuredLayerIndex * ObsTileStride + xOffset + y
         obs_buffer[obscuredIndex] = (if obscured: 1'u8 else: 0'u8)
