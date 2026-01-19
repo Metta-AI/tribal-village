@@ -392,6 +392,7 @@ include "roles"
 include "evolution"
 
 const
+  EvolutionEnabled = defined(enableEvolution)
   ScriptedRoleHistoryPath = "data/role_history.json"
   ScriptedScoreStep = 5000
   ScriptedGeneratedRoleCount = 16
@@ -465,6 +466,12 @@ proc generateRandomRole(state: var ScriptedRoleState, rng: var Rand,
 proc initScriptedState(controller: Controller) =
   if scriptedState.initialized:
     return
+  scriptedState.lastEpisodeStep = -1
+  scriptedState.scoredAtStep = false
+  resetScriptedAssignments(scriptedState)
+  if not EvolutionEnabled:
+    scriptedState.initialized = true
+    return
   scriptedState.evolutionConfig = defaultEvolutionConfig()
   scriptedState.catalog = initRoleCatalog()
   scriptedState.catalog.seedDefaultBehaviorCatalog()
@@ -485,12 +492,15 @@ proc initScriptedState(controller: Controller) =
     inc nonCore
   rebuildRolePool(scriptedState)
   resetScriptedAssignments(scriptedState)
-  scriptedState.scoredAtStep = false
-  scriptedState.lastEpisodeStep = -1
   scriptedState.initialized = true
 
 proc assignScriptedRole(controller: Controller, agentId: int,
                         state: var AgentState) =
+  if not EvolutionEnabled:
+    state.role = Gatherer
+    state.activeOptionId = -1
+    state.activeOptionTicks = 0
+    return
   initScriptedState(controller)
   var roleId = -1
   if randChance(controller.rng, ScriptedRoleExplorationChance):
@@ -646,6 +656,8 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
 
 proc decideScripted(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
+  if not EvolutionEnabled:
+    return decideGatherer(controller, env, agent, agentId, state)
   updateGathererTask(controller, env, agent, state)
   let options = roleOptionsFor(agentId, controller.rng)
   if options.len == 0:
@@ -664,11 +676,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   if not controller.agentsInitialized[agentId]:
     let slot = agentId mod MapAgentsPerVillage
     var role =
-      case slot
+      case slot mod 6
       of 0, 1: Gatherer
       of 2, 3: Builder
-      of 4, 5: Fighter
-      else: Scripted
+      else: Fighter
 
     var initState = AgentState(
       role: role,
@@ -710,11 +721,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
-    if role == Scripted:
-      assignScriptedRole(controller, agentId, initState)
-    else:
-      scriptedState.roleAssignments[agentId] = scriptedState.coreRoleIds[role]
-      scriptedState.roleIsScripted[agentId] = false
+    if EvolutionEnabled:
+      if role == Scripted:
+        assignScriptedRole(controller, agentId, initState)
+      else:
+        scriptedState.roleAssignments[agentId] = scriptedState.coreRoleIds[role]
+        scriptedState.roleIsScripted[agentId] = false
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
@@ -905,7 +917,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   of Gatherer: return decideGatherer(controller, env, agent, agentId, state)
   of Builder: return decideBuilder(controller, env, agent, agentId, state)
   of Fighter: return decideFighter(controller, env, agent, agentId, state)
-  of Scripted: return decideScripted(controller, env, agent, agentId, state)
+  of Scripted:
+    if EvolutionEnabled:
+      return decideScripted(controller, env, agent, agentId, state)
+    return decideGatherer(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =
@@ -917,8 +932,9 @@ proc updateController*(controller: Controller, env: Environment) =
     resetScriptedAssignments(scriptedState)
     scriptedState.scoredAtStep = false
     scriptedState.lastEpisodeStep = -1
-  if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
-    applyScriptedScoring(controller, env)
-    scriptedState.scoredAtStep = true
-  processTempleInteractions(controller, env)
+  if EvolutionEnabled:
+    if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
+      applyScriptedScoring(controller, env)
+      scriptedState.scoredAtStep = true
+    processTempleInteractions(controller, env)
   scriptedState.lastEpisodeStep = env.currentStep
