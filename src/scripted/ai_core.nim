@@ -24,6 +24,7 @@ type
   # Minimal state tracking with spiral search
   AgentState = object
     role: AgentRole
+    roleId: int
     activeOptionId: int
     activeOptionTicks: int
     gathererTask: GathererTask

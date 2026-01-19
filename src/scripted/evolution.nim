@@ -53,7 +53,7 @@ proc sampleRole*(catalog: var RoleCatalog, rng: var Rand,
                  config: EvolutionConfig = defaultEvolutionConfig()): RoleDef =
   let behaviorCount = catalog.behaviors.len
   if behaviorCount == 0:
-    return RoleDef(name: "EmptyRole")
+    return RoleDef(name: "EmptyRole", kind: Scripted)
   let tierCount = randIntInclusive(rng, config.minTiers, config.maxTiers)
   var tiers: seq[RoleTier] = @[]
   var used: seq[int] = @[]
@@ -64,12 +64,12 @@ proc sampleRole*(catalog: var RoleCatalog, rng: var Rand,
     let selection = if randChance(rng, 0.5): TierShuffle else: TierFixed
     tiers.add RoleTier(behaviorIds: ids, selection: selection)
   let name = generateRoleName(catalog, tiers)
-  newRoleDef(catalog, name, tiers, "sampled")
+  newRoleDef(catalog, name, tiers, "sampled", Scripted)
 
 proc recombineRoles*(catalog: var RoleCatalog, rng: var Rand,
                      left, right: RoleDef): RoleDef =
   if left.tiers.len == 0 and right.tiers.len == 0:
-    return RoleDef(name: "EmptyRole")
+    return RoleDef(name: "EmptyRole", kind: Scripted)
   if left.tiers.len == 0:
     return right
   if right.tiers.len == 0:
@@ -84,7 +84,8 @@ proc recombineRoles*(catalog: var RoleCatalog, rng: var Rand,
   if tiers.len == 0:
     tiers.add left.tiers[0]
   let name = generateRoleName(catalog, tiers)
-  newRoleDef(catalog, name, tiers, "recombined")
+  let kind = if left.kind == right.kind: left.kind else: Scripted
+  newRoleDef(catalog, name, tiers, "recombined", kind)
 
 proc mutateRole*(catalog: RoleCatalog, rng: var Rand, role: RoleDef,
                  mutationRate: float32 = 0.15): RoleDef =
