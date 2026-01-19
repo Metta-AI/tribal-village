@@ -76,3 +76,7 @@ At episode end, `scoreTerritory` counts tiles by nearest tint color:
 - “Freeze” is **tint-based**, not hunger-based. It depends on clippy tint strength.
 - The action tint layer is for combat events, not territory ownership.
 - Water tiles always clear computed tint; clippy does not “freeze” water.
+
+## See Also
+- `docs/combat_visuals.md`
+- `docs/observation_space.md`

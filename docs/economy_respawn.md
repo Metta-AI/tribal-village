@@ -95,3 +95,7 @@ The temple then goes on cooldown (25 steps).
 - Market only trades **stockpile** items; other items stay in inventory.
 - Respawn heart cost is currently zero by default, so hearts are not consumed unless
   the constant is raised.
+
+## See Also
+- `docs/population_and_housing.md`
+- `docs/temple_hybridization.md`
