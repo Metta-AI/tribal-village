@@ -89,6 +89,67 @@ control objectives.\
 **Outputs:** New or updated docs (AI, worldgen, observation space, etc.).
 **Likely files:** `docs/*.md`.
 
+### /roles-evolution-plan
+**Intent:** Outline or revise the scripted/evolutionary role system.\
+**Typical prompt:** "outline how roles evolve and integrate with AI".\
+**Inputs:** goals + constraints (core roles kept, scoring step, etc).\
+**Outputs:** plan + checklist for `docs/evolution.md`.\
+**Notes:** pairs well with `/scripted-refactor` and `/role-homogenize`.
+
+### /scripted-refactor
+**Intent:** Move AI logic into `src/scripted/` modules.\
+**Typical prompt:** "move AI code into scripted folder".\
+**Inputs:** source files + target module boundaries.\
+**Outputs:** updated includes and file layout.\
+**Notes:** keep gatherer/builder/fighter intact; avoid breaking tests.
+
+### /role-homogenize
+**Intent:** Make core roles share the same RoleDef/tier pipeline as evolved roles.\
+**Typical prompt:** "homogenize roles and options across core + evolution".\
+**Inputs:** roles to map (default: gatherer/builder/fighter).\
+**Outputs:** unified role materialization and decision routing.\
+**Notes:** preserve role tags for heuristics (gatherer tasks, pop-cap logic).
+
+### /temple-asset
+**Intent:** Create or update temple artwork.\
+**Typical prompt:** "generate a distinct temple asset".\
+**Inputs:** prompt edits + asset filename.\
+**Outputs:** updated `data/prompts/assets.tsv`, regenerated `temple.png`, preview.\
+**Notes:** runs `scripts/generate_assets.py`.
+
+### /temple-hybrid-hookup
+**Intent:** Wire temple adjacency to hybrid role generation.\
+**Typical prompt:** "if two agents stand near temple, spawn hybrid".\
+**Inputs:** trigger rules, costs (heart), cooldown.\
+**Outputs:** spawn logic + hybrid request enqueue + role recombination.\
+**Notes:** keep assignment toggles so experimentation is opt-in.
+
+### /training-smoke
+**Intent:** Validate training pipeline or metta integration.\
+**Typical prompt:** "run a small training job and log outputs".\
+**Inputs:** local vs metta, steps/envs/workers, logging.\
+**Outputs:** successful training run or actionable fixes.\
+**Notes:** may touch `pyproject.toml` optional deps.
+
+### /repo-history-slim
+**Intent:** Identify large blobs and propose history cleanup.\
+**Typical prompt:** "clone is huge; prune history".\
+**Inputs:** size thresholds and target branches.\
+**Outputs:** largest-blob report + filter-repo commands + coordination steps.\
+**Notes:** must warn about force-push + re-clone requirements.
+
+### /terrain-cliff-audit
+**Intent:** Audit cliff overlays and precedence vs walls/background layers.\
+**Typical prompt:** "cliffs should be the only overlay on a tile".\
+**Inputs:** overlay precedence rules.\
+**Outputs:** audit summary + fixes in placement/spawn/renderer.
+
+### /combat-visuals-palette
+**Intent:** Define combat overlays (auras, crits, counters, healing zones).\
+**Typical prompt:** "give unit types distinct combat visuals".\
+**Inputs:** unit types + visual language.\
+**Outputs:** palette recommendations and overlay behavior specs.
+
 ## Candidate Additions (log-derived)
 
 ### /cleanup-sweep
