@@ -14,32 +14,20 @@ proc makeConnected*(env: Environment) =
     pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
       pos.y >= MapBorder and pos.y < MapHeight - MapBorder
 
-  proc isPassableForConnect(env: Environment, pos: IVec2): bool =
-    if not isValidPos(pos) or not inPlayableBounds(pos):
-      return false
-    if not env.isEmpty(pos):
-      return false
-    if isBlockedTerrain(env.terrain[pos.x][pos.y]):
-      return false
-    true
-
   proc digCost(env: Environment, pos: IVec2): int =
     if not isValidPos(pos) or not inPlayableBounds(pos):
       return int.high
-    if isPassableForConnect(env, pos):
+    let terrain = env.terrain[pos.x][pos.y]
+    if env.isEmpty(pos):
+      if terrain == Water:
+        return ConnectWaterCost
+      if terrain in {Dune, Snow} or isBlockedTerrain(terrain):
+        return ConnectTerrainCost
       return 1
     let thing = env.getThing(pos)
-    if not isNil(thing):
-      if thing.kind in ConnectDiggableKinds:
-        return ConnectWallCost
-      return int.high
-    let terrain = env.terrain[pos.x][pos.y]
-    if terrain == Water:
-      return ConnectWaterCost
-    if terrain in {Dune, Snow} or isBlockedTerrain(terrain):
-      return ConnectTerrainCost
-    1
-
+    if not isNil(thing) and thing.kind in ConnectDiggableKinds:
+      return ConnectWallCost
+    int.high
   proc digCell(env: Environment, pos: IVec2) =
     if not isValidPos(pos) or not inPlayableBounds(pos):
       return
@@ -62,7 +50,7 @@ proc makeConnected*(env: Environment) =
     var label = 0
     for x in MapBorder ..< MapWidth - MapBorder:
       for y in MapBorder ..< MapHeight - MapBorder:
-        if labels[x][y] != 0 or not isPassableForConnect(env, ivec2(x, y)):
+        if labels[x][y] != 0 or digCost(env, ivec2(x, y)) != 1:
           continue
         inc label
         var queue: seq[IVec2] = @[ivec2(x, y)]
@@ -77,7 +65,7 @@ proc makeConnected*(env: Environment) =
             let nx = pos.x + d.x
             let ny = pos.y + d.y
             let npos = ivec2(nx.int32, ny.int32)
-            if not isPassableForConnect(env, npos):
+            if digCost(env, npos) != 1:
               continue
             if not env.canTraverseElevation(pos, npos):
               continue

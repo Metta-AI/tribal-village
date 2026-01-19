@@ -137,6 +137,20 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     let verb = actionValue.int div ActionArgumentCount
     let argument = actionValue.int mod ActionArgumentCount
+    template invalidAndBreak(label: untyped) =
+      inc env.stats[id].actionInvalid
+      break label
+
+    template validateStep(label: untyped, fromPos, toPos: IVec2) =
+      if not isValidPos(toPos):
+        invalidAndBreak(label)
+      if toPos.x < MapBorder.int32 or toPos.x >= (MapWidth - MapBorder).int32 or
+          toPos.y < MapBorder.int32 or toPos.y >= (MapHeight - MapBorder).int32:
+        invalidAndBreak(label)
+      if not env.canTraverseElevation(fromPos, toPos):
+        invalidAndBreak(label)
+      if env.isWaterBlockedForAgent(agent, toPos):
+        invalidAndBreak(label)
 
     case verb:
     of 0:
@@ -150,19 +164,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         step1.x += int32(delta.x)
         step1.y += int32(delta.y)
 
-        if step1.x < MapBorder.int32 or step1.x >= (MapWidth - MapBorder).int32 or
-            step1.y < MapBorder.int32 or step1.y >= (MapHeight - MapBorder).int32:
-          inc env.stats[id].actionInvalid
-          break moveAction
-
-        if not env.canTraverseElevation(agent.pos, step1):
-          inc env.stats[id].actionInvalid
-          break moveAction
-
-        # Prevent moving onto blocked terrain (bridges remain walkable).
-        if env.isWaterBlockedForAgent(agent, step1):
-          inc env.stats[id].actionInvalid
-          break moveAction
+        validateStep(moveAction, agent.pos, step1)
         if not env.canAgentPassDoor(agent, step1):
           inc env.stats[id].actionInvalid
           break moveAction
@@ -300,8 +302,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       block attackAction:
         ## Attack an entity in the given direction. Spears extend range to 2 tiles.
         if argument > 7:
-          inc env.stats[id].actionInvalid
-          break attackAction
+          invalidAndBreak(attackAction)
         let attackOrientation = Orientation(argument)
         agent.orientation = attackOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -553,8 +554,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       block useAction:
         ## Use terrain or building with a single action in a direction.
         if argument > 7:
-          inc env.stats[id].actionInvalid
-          break useAction
+          invalidAndBreak(useAction)
         let useOrientation = Orientation(argument)
         agent.orientation = useOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -952,8 +952,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       block swapAction:
         ## Swap
         if argument > 7:
-          inc env.stats[id].actionInvalid
-          break swapAction
+          invalidAndBreak(swapAction)
         let dir = Orientation(argument)
         agent.orientation = dir
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -977,8 +976,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       block putAction:
         ## Give items to adjacent teammate in the given direction.
         if argument > 7:
-          inc env.stats[id].actionInvalid
-          break putAction
+          invalidAndBreak(putAction)
         let dir = Orientation(argument)
         agent.orientation = dir
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -1170,18 +1168,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             targetPos = pos
             break
         if targetPos.x < 0:
-          inc env.stats[id].actionInvalid
-          break buildFromChoices
+          invalidAndBreak(buildFromChoices)
 
         let teamId = getTeamId(agent)
         let costs = buildCostsForKey(key)
         if costs.len == 0:
-          inc env.stats[id].actionInvalid
-          break buildFromChoices
+          invalidAndBreak(buildFromChoices)
         let payment = choosePayment(env, agent, costs)
         if payment == PayNone:
-          inc env.stats[id].actionInvalid
-          break buildFromChoices
+          invalidAndBreak(buildFromChoices)
 
         var placedOk = false
         var placedKind: ThingKind
@@ -1285,8 +1280,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       block orientAction:
         ## Change orientation without moving.
         if argument < 0 or argument > 7:
-          inc env.stats[id].actionInvalid
-          break orientAction
+          invalidAndBreak(orientAction)
         let newOrientation = Orientation(argument)
         if agent.orientation != newOrientation:
           agent.orientation = newOrientation

@@ -689,7 +689,7 @@ proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): se
   for dx in -radius .. radius:
     for dy in -radius .. radius:
       if dx == 0 and dy == 0:
-        continue  # Skip the center position
+        continue
       let pos = ivec2(center.x + dx, center.y + dy)
       if env.isValidEmptyPosition(pos):
         result.add(pos)
@@ -699,14 +699,13 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
   for dx in -radius .. radius:
     for dy in -radius .. radius:
       if dx == 0 and dy == 0:
-        continue  # Skip the center position
+        continue
       let pos = ivec2(center.x + dx, center.y + dy)
       if env.isValidEmptyPosition(pos):
         return pos
-  return ivec2(-1, -1)  # No empty position found
+  ivec2(-1, -1)
 
-
-  # Tumor constants from shared tuning defaults.
+# Tumor constants from shared tuning defaults.
 const
   TumorBranchRange = DefaultTumorBranchRange
   TumorBranchMinAge = DefaultTumorBranchMinAge
