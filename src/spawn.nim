@@ -705,7 +705,7 @@ proc init(env: Environment) =
   # Spawn teams with altars, town centers, and associated agents.
   let numTeams = MapRoomObjectsTeams
   var totalAgentsSpawned = 0
-  let totalTeamAgentCap = MapRoomObjectsTeams * MapAgentsPerVillage
+  let totalTeamAgentCap = MapRoomObjectsTeams * MapAgentsPerTeam
   var villageCenters: seq[IVec2] = @[]
   proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
     var candidates: seq[IVec2] = @[]
@@ -992,7 +992,7 @@ proc init(env: Environment) =
       let teamId = env.teamColors.len - 1
 
       # Spawn agent slots for this team (six active, the rest dormant)
-      let agentsForThisTeam = min(MapAgentsPerVillage, totalTeamAgentCap - totalAgentsSpawned)
+      let agentsForThisTeam = min(MapAgentsPerTeam, totalTeamAgentCap - totalAgentsSpawned)
 
       # Add the altar with initial hearts and team bounds
       let altar = Thing(
@@ -1125,7 +1125,7 @@ proc init(env: Environment) =
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
 
         for j in 0 ..< agentsForThisTeam:
-          let agentId = teamId * MapAgentsPerVillage + j
+          let agentId = teamId * MapAgentsPerTeam + j
 
           # Store the team color for this agent (shared by all agents of the team)
           env.agentColors[agentId] = env.teamColors[teamId]

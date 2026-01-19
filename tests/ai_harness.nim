@@ -117,7 +117,7 @@ suite "Mechanics - Combat":
   test "attack kills enemy and drops corpse inventory":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
-    let defender = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9))
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
     defender.hp = 1
     setInv(defender, ItemWood, 2)
 
@@ -131,7 +131,7 @@ suite "Mechanics - Combat":
   test "armor absorbs damage before hp":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
-    let defender = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9))
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
     defender.inventoryArmor = 2
     defender.hp = 5
 
@@ -143,8 +143,8 @@ suite "Mechanics - Combat":
   test "class bonus damage applies on counter hit":
     let env = makeEmptyEnv()
     let archer = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitArcher)
-    let infantry = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9), unitClass = UnitManAtArms)
-    let cavalry = addAgentAt(env, MapAgentsPerVillage * 2, ivec2(12, 10), unitClass = UnitScout)
+    let infantry = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9), unitClass = UnitManAtArms)
+    let cavalry = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(12, 10), unitClass = UnitScout)
     archer.attackDamage = 1
     infantry.hp = 5
     cavalry.hp = 5
@@ -159,7 +159,7 @@ suite "Mechanics - Combat":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
     attacker.inventorySpear = 1
-    let defender = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 8))
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 8))
     defender.hp = 2
 
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
@@ -180,7 +180,7 @@ suite "Mechanics - Combat":
   test "guard tower attacks enemy in range":
     let env = makeEmptyEnv()
     discard addBuilding(env, GuardTower, ivec2(10, 10), 0)
-    let enemyId = MapAgentsPerVillage
+    let enemyId = MapAgentsPerTeam
     let enemy = addAgentAt(env, enemyId, ivec2(10, 13))
     let startHp = enemy.hp
 
@@ -190,7 +190,7 @@ suite "Mechanics - Combat":
   test "castle attacks enemy in range":
     let env = makeEmptyEnv()
     discard addBuilding(env, Castle, ivec2(10, 10), 0)
-    let enemyId = MapAgentsPerVillage
+    let enemyId = MapAgentsPerTeam
     let enemy = addAgentAt(env, enemyId, ivec2(10, 15))
     let startHp = enemy.hp
 
@@ -252,7 +252,7 @@ suite "Mechanics - Siege":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)
     applyUnitClass(attacker, UnitBatteringRam)
-    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerVillage)
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerTeam)
     wall.hp = WallMaxHp
     wall.maxHp = WallMaxHp
     env.add(wall)
@@ -263,9 +263,9 @@ suite "Mechanics - Siege":
   test "mangonel extended attack hits multiple targets":
     let env = makeEmptyEnv()
     let mangonel = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMangonel)
-    let enemyA = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 8))
-    let enemyB = addAgentAt(env, MapAgentsPerVillage + 1, ivec2(9, 8))
-    let enemyC = addAgentAt(env, MapAgentsPerVillage + 2, ivec2(11, 8))
+    let enemyA = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 8))
+    let enemyB = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(9, 8))
+    let enemyC = addAgentAt(env, MapAgentsPerTeam + 2, ivec2(11, 8))
     let hpA = enemyA.hp
     let hpB = enemyB.hp
     let hpC = enemyC.hp
@@ -278,11 +278,11 @@ suite "Mechanics - Siege":
   test "siege prefers attacking blocking wall":
     let env = makeEmptyEnv()
     let ram = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)
-    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerVillage)
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerTeam)
     wall.hp = WallMaxHp
     wall.maxHp = WallMaxHp
     env.add(wall)
-    let enemy = addAgentAt(env, MapAgentsPerVillage, ivec2(9, 10))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(9, 10))
     let enemyHp = enemy.hp
 
     env.stepAction(ram.agentId, 2'u8, dirIndex(ram.pos, wall.pos))
@@ -479,7 +479,7 @@ suite "AI - Fighter":
     let agentPos = ivec2(10, 17)
     let enemyPos = ivec2(10, 26)
     discard addAgentAt(env, 4, agentPos, homeAltar = basePos, orientation = S)
-    discard addAgentAt(env, MapAgentsPerVillage, enemyPos)
+    discard addAgentAt(env, MapAgentsPerTeam, enemyPos)
     setStockpile(env, 0, ResourceWood, 10)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 4))

@@ -14,7 +14,7 @@ suite "Conversion":
     discard addAltar(env, altarPos, 0, 10)
     discard addBuilding(env, House, ivec2(12, 11), 0)
     let monk = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos, unitClass = UnitMonk)
-    let enemy = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
 
     env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, enemy.pos))
 
@@ -31,7 +31,7 @@ suite "Conversion":
       let pos = if i == 0: ivec2(10, 10) else: ivec2(20 + i.int32, 20)
       let unitClass = if i == 0: UnitMonk else: UnitVillager
       discard addAgentAt(env, i, pos, homeAltar = altarPos, unitClass = unitClass)
-    let enemy = addAgentAt(env, MapAgentsPerVillage, ivec2(10, 9))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
 
     env.stepAction(0, 2'u8, dirIndex(ivec2(10, 10), enemy.pos))
 
@@ -63,7 +63,7 @@ suite "Relics":
     let env = makeEmptyEnv()
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
     let victimPos = ivec2(10, 9)
-    let victim = addAgentAt(env, MapAgentsPerVillage, victimPos)
+    let victim = addAgentAt(env, MapAgentsPerTeam, victimPos)
     victim.hp = 1
     victim.inventoryRelic = 1
     victim.inventoryLantern = 1
