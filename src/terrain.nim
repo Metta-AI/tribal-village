@@ -697,76 +697,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       currentPos.y = yMax.int32
       yVel = -1
 
-  proc buildBranch(start: IVec2, dirY: int, r: var Rand): seq[IVec2] =
-    var path: seq[IVec2] = @[]
-    var secondaryPos = start
-    var lastValid = start
-    var hasValid = false
-    let maxSteps = max(mapWidth * 2, mapHeight * 2)
-    var steps = 0
-    var yBranchVel = dirY
-    while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
-      secondaryPos.x += 1
-      if randChance(r, 0.08):
-        yBranchVel += sample(r, [-1, 1])
-      yBranchVel = max(-1, min(1, yBranchVel))
-      if yBranchVel == 0:
-        yBranchVel = dirY
-      secondaryPos.y += yBranchVel.int32
-      if randChance(r, 0.04):
-        secondaryPos.y += sample(r, [-1, 0, 1]).int32
-      if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
-         secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
-        if not inCorner(secondaryPos.x, secondaryPos.y):
-          path.add(secondaryPos)
-          lastValid = secondaryPos
-          hasValid = true
-      else:
-        break
-      inc steps
-    # Ensure the branch touches the edge vertically with a short vertical run
-    var tip = (if hasValid: lastValid else: start)
-    let safeMinX = left + reserve
-    let safeMaxX = right - reserve - 1
-    var edgeX = tip.x.int
-    if safeMinX <= safeMaxX:
-      if edgeX < safeMinX:
-        edgeX = safeMinX
-      elif edgeX > safeMaxX:
-        edgeX = safeMaxX
-    else:
-      edgeX = max(mapBorder, min(mapWidth - mapBorder - 1, edgeX))
-    if edgeX != tip.x.int:
-      let stepX = (if edgeX > tip.x.int: 1 else: -1)
-      var x = tip.x.int
-      while x != edgeX:
-        x += stepX
-        let drift = ivec2(x.int32, tip.y)
-        if drift.x >= mapBorder and drift.x < mapWidth - mapBorder and
-           drift.y >= mapBorder and drift.y < mapHeight - mapBorder:
-          if not inCorner(drift.x, drift.y):
-            path.add(drift)
-            lastValid = drift
-            hasValid = true
-      tip = (if hasValid: lastValid else: tip)
-    var pushSteps = 0
-    let maxPush = mapHeight
-    if dirY < 0:
-      while tip.y > mapBorder and pushSteps < maxPush:
-        dec tip.y
-        if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
-          if not inCorner(tip.x, tip.y):
-            path.add(tip)
-        inc pushSteps
-    else:
-      while tip.y < mapHeight - mapBorder and pushSteps < maxPush:
-        inc tip.y
-        if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
-          if not inCorner(tip.x, tip.y):
-            path.add(tip)
-        inc pushSteps
-    path
-
   var branchUpPath: seq[IVec2] = @[]
   var branchDownPath: seq[IVec2] = @[]
   var forkUp: IVec2
@@ -791,8 +721,131 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   if riverPath.len > 0:
     forkUpIdx = riverPath.find(forkUp)
     forkDownIdx = riverPath.find(forkDown)
-    branchUpPath = buildBranch(forkUp, -1, r)
-    branchDownPath = buildBranch(forkDown, 1, r)
+    block buildUp:
+      let dirY = -1
+      var path: seq[IVec2] = @[]
+      var secondaryPos = forkUp
+      var lastValid = forkUp
+      var hasValid = false
+      let maxSteps = max(mapWidth * 2, mapHeight * 2)
+      var steps = 0
+      var yBranchVel = dirY
+      while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
+        secondaryPos.x += 1
+        if randChance(r, 0.08):
+          yBranchVel += sample(r, [-1, 1])
+        yBranchVel = max(-1, min(1, yBranchVel))
+        if yBranchVel == 0:
+          yBranchVel = dirY
+        secondaryPos.y += yBranchVel.int32
+        if randChance(r, 0.04):
+          secondaryPos.y += sample(r, [-1, 0, 1]).int32
+        if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
+           secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
+          if not inCorner(secondaryPos.x, secondaryPos.y):
+            path.add(secondaryPos)
+            lastValid = secondaryPos
+            hasValid = true
+        else:
+          break
+        inc steps
+      # Ensure the branch touches the edge vertically with a short vertical run
+      var tip = (if hasValid: lastValid else: forkUp)
+      let safeMinX = left + reserve
+      let safeMaxX = right - reserve - 1
+      var edgeX = tip.x.int
+      if safeMinX <= safeMaxX:
+        if edgeX < safeMinX:
+          edgeX = safeMinX
+        elif edgeX > safeMaxX:
+          edgeX = safeMaxX
+      else:
+        edgeX = max(mapBorder, min(mapWidth - mapBorder - 1, edgeX))
+      if edgeX != tip.x.int:
+        let stepX = (if edgeX > tip.x.int: 1 else: -1)
+        var x = tip.x.int
+        while x != edgeX:
+          x += stepX
+          let drift = ivec2(x.int32, tip.y)
+          if drift.x >= mapBorder and drift.x < mapWidth - mapBorder and
+             drift.y >= mapBorder and drift.y < mapHeight - mapBorder:
+            if not inCorner(drift.x, drift.y):
+              path.add(drift)
+              lastValid = drift
+              hasValid = true
+        tip = (if hasValid: lastValid else: tip)
+      var pushSteps = 0
+      let maxPush = mapHeight
+      while tip.y > mapBorder and pushSteps < maxPush:
+        dec tip.y
+        if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
+          if not inCorner(tip.x, tip.y):
+            path.add(tip)
+        inc pushSteps
+      branchUpPath = path
+
+    block buildDown:
+      let dirY = 1
+      var path: seq[IVec2] = @[]
+      var secondaryPos = forkDown
+      var lastValid = forkDown
+      var hasValid = false
+      let maxSteps = max(mapWidth * 2, mapHeight * 2)
+      var steps = 0
+      var yBranchVel = dirY
+      while secondaryPos.y > mapBorder + RiverWidth and secondaryPos.y < mapHeight - mapBorder - RiverWidth and steps < maxSteps:
+        secondaryPos.x += 1
+        if randChance(r, 0.08):
+          yBranchVel += sample(r, [-1, 1])
+        yBranchVel = max(-1, min(1, yBranchVel))
+        if yBranchVel == 0:
+          yBranchVel = dirY
+        secondaryPos.y += yBranchVel.int32
+        if randChance(r, 0.04):
+          secondaryPos.y += sample(r, [-1, 0, 1]).int32
+        if secondaryPos.x >= mapBorder and secondaryPos.x < mapWidth - mapBorder and
+           secondaryPos.y >= mapBorder and secondaryPos.y < mapHeight - mapBorder:
+          if not inCorner(secondaryPos.x, secondaryPos.y):
+            path.add(secondaryPos)
+            lastValid = secondaryPos
+            hasValid = true
+        else:
+          break
+        inc steps
+      # Ensure the branch touches the edge vertically with a short vertical run
+      var tip = (if hasValid: lastValid else: forkDown)
+      let safeMinX = left + reserve
+      let safeMaxX = right - reserve - 1
+      var edgeX = tip.x.int
+      if safeMinX <= safeMaxX:
+        if edgeX < safeMinX:
+          edgeX = safeMinX
+        elif edgeX > safeMaxX:
+          edgeX = safeMaxX
+      else:
+        edgeX = max(mapBorder, min(mapWidth - mapBorder - 1, edgeX))
+      if edgeX != tip.x.int:
+        let stepX = (if edgeX > tip.x.int: 1 else: -1)
+        var x = tip.x.int
+        while x != edgeX:
+          x += stepX
+          let drift = ivec2(x.int32, tip.y)
+          if drift.x >= mapBorder and drift.x < mapWidth - mapBorder and
+             drift.y >= mapBorder and drift.y < mapHeight - mapBorder:
+            if not inCorner(drift.x, drift.y):
+              path.add(drift)
+              lastValid = drift
+              hasValid = true
+        tip = (if hasValid: lastValid else: tip)
+      var pushSteps = 0
+      let maxPush = mapHeight
+      while tip.y < mapHeight - mapBorder and pushSteps < maxPush:
+        inc tip.y
+        if tip.x >= mapBorder and tip.x < mapWidth and tip.y >= mapBorder and tip.y < mapHeight:
+          if not inCorner(tip.x, tip.y):
+            path.add(tip)
+        inc pushSteps
+      branchDownPath = path
 
   # Place water tiles for main river (skip reserved corners)
   for pos in riverPath:

@@ -36,38 +36,6 @@ proc removeThing(env: Environment, thing: Thing) =
   if thing.kind == Altar and env.altarColors.hasKey(thing.pos):
     env.altarColors.del(thing.pos)
 
-proc tryPickupThing(env: Environment, agent: Thing, thing: Thing): bool =
-  if isBuildingKind(thing.kind):
-    return false
-  if thing.kind in {Agent, Tumor, Tree, Wheat, Fish, Relic, Stubble, Stone, Gold, Bush, Cactus, Stalagmite,
-                    Cow, Bear, Wolf, Corpse, Skeleton, Spawner, Stump, Wall, Magma, Lantern} or
-      thing.kind in CliffKinds:
-    return false
-
-  let key = thingItem($thing.kind)
-  let current = getInv(agent, key)
-  if current >= MapObjectAgentMaxInventory:
-    return false
-  var resourceNeeded = 0
-  for itemKey, count in thing.inventory.pairs:
-    if isStockpileResourceKey(itemKey):
-      resourceNeeded += count
-    else:
-      let capacity = MapObjectAgentMaxInventory - getInv(agent, itemKey)
-      if capacity < count:
-        return false
-  if resourceNeeded > stockpileCapacityLeft(agent):
-    return false
-  for itemKey, count in thing.inventory.pairs:
-    setInv(agent, itemKey, getInv(agent, itemKey) + count)
-    env.updateAgentInventoryObs(agent, itemKey)
-  setInv(agent, key, current + 1)
-  env.updateAgentInventoryObs(agent, key)
-  if isValidPos(thing.pos):
-    env.updateObservations(ThingAgentLayer, thing.pos, 0)
-  removeThing(env, thing)
-  true
-
 proc add*(env: Environment, thing: Thing) =
   let isBlocking = thingBlocksMovement(thing.kind)
   if isValidPos(thing.pos) and not isBlocking:
@@ -129,65 +97,3 @@ proc add*(env: Environment, thing: Thing) =
     else:
       env.backgroundGrid[thing.pos.x][thing.pos.y] = thing
     env.updateObservations(ThingAgentLayer, thing.pos, 0)
-
-proc placeThingFromKey(env: Environment, agent: Thing, key: ItemKey, pos: IVec2): bool =
-  if isThingKey(key) and key.name == "Road":
-    if not isBuildableTerrain(env.terrain[pos.x][pos.y]):
-      return false
-    env.terrain[pos.x][pos.y] = Road
-    env.resetTileColor(pos)
-    env.updateObservations(ThingAgentLayer, pos, 0)
-    return true
-  var kind: ThingKind
-  if not parseThingKey(key, kind):
-    return false
-  let isBuilding = isBuildingKind(kind)
-  let placed = Thing(
-    kind: kind,
-    pos: pos
-  )
-  if isBuilding and kind != Barrel:
-    placed.teamId = getTeamId(agent)
-  case kind
-  of Lantern:
-    placed.teamId = getTeamId(agent)
-    placed.lanternHealthy = true
-  of Altar:
-    placed.inventory = emptyInventory()
-    placed.hearts = 0
-  of Spawner:
-    placed.homeSpawner = pos
-  else:
-    discard
-  if isBuilding:
-    let capacity = buildingBarrelCapacity(kind)
-    if capacity > 0:
-      placed.barrelCapacity = capacity
-  env.add(placed)
-  if isBuilding:
-    let radius = buildingFertileRadius(kind)
-    if radius > 0:
-      for dx in -radius .. radius:
-        for dy in -radius .. radius:
-          if dx == 0 and dy == 0:
-            continue
-          if max(abs(dx), abs(dy)) > radius:
-            continue
-          let fertilePos = placed.pos + ivec2(dx.int32, dy.int32)
-          if not isValidPos(fertilePos):
-            continue
-          if not env.isEmpty(fertilePos) or env.hasDoor(fertilePos) or
-             isBlockedTerrain(env.terrain[fertilePos.x][fertilePos.y]) or isTileFrozen(fertilePos, env):
-            continue
-          let terrain = env.terrain[fertilePos.x][fertilePos.y]
-          if isBuildableTerrain(terrain):
-            env.terrain[fertilePos.x][fertilePos.y] = Fertile
-            env.resetTileColor(fertilePos)
-            env.updateObservations(ThingAgentLayer, fertilePos, 0)
-  if isValidPos(pos):
-    env.updateObservations(ThingAgentLayer, pos, 0)
-  if kind == Altar:
-    let teamId = placed.teamId
-    if teamId >= 0 and teamId < env.teamColors.len:
-      env.altarColors[pos] = env.teamColors[teamId]
-  true

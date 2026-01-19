@@ -665,22 +665,6 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   env.add(stump)
   true
 
-proc harvestWheat(env: Environment, agent: Thing, wheat: Thing): bool =
-  let stored = getInv(wheat, ItemWheat)
-  if stored <= 0:
-    removeThing(env, wheat)
-    return true
-  if not env.grantItem(agent, ItemWheat):
-    return false
-  agent.reward += env.config.wheatReward
-  removeThing(env, wheat)
-  let stubble = Thing(kind: Stubble, pos: wheat.pos)
-  stubble.inventory = emptyInventory()
-  let remaining = stored - 1
-  if remaining > 0:
-    setInv(stubble, ItemWheat, remaining)
-  env.add(stubble)
-  true
 include "combat"
 
 # ============== CLIPPY AI ==============
