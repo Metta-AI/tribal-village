@@ -1,6 +1,6 @@
 # This file is included by src/ai_defaults.nim
 ## Meta-role definitions and behavior registry for evolutionary roles.
-import std/[json, os, strutils]
+import std/json
 
 type
   BehaviorSource* = enum

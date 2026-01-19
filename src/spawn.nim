@@ -25,12 +25,28 @@ proc randInteriorPos(r: var Rand, pad: int): IVec2 =
   let y = randIntInclusive(r, MapBorder + pad, MapHeight - MapBorder - pad)
   ivec2(x.int32, y.int32)
 
-template isSpawnable(env: Environment, pos: IVec2): bool =
-  env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos)
-
 proc setTerrain(env: Environment, pos: IVec2, kind: TerrainType) {.inline.} =
   env.terrain[pos.x][pos.y] = kind
   env.resetTileColor(pos)
+
+proc clearTile(env: Environment, pos: IVec2, kind: TerrainType = Empty) {.inline.} =
+  let existing = env.getThing(pos)
+  if not isNil(existing):
+    removeThing(env, existing)
+  let background = env.getBackgroundThing(pos)
+  if not isNil(background):
+    removeThing(env, background)
+  setTerrain(env, pos, kind)
+
+proc appendUniquePositions(target: var seq[IVec2], extra: openArray[IVec2]) =
+  for pos in extra:
+    var exists = false
+    for candidate in target:
+      if candidate == pos:
+        exists = true
+        break
+    if not exists:
+      target.add(pos)
 
 proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
@@ -1453,15 +1469,7 @@ proc init(env: Environment) =
 
     var candidates = env.findEmptyPositionsAround(center, 1)
     if candidates.len < clusterSize - 1:
-      let extra = env.findEmptyPositionsAround(center, 2)
-      for pos in extra:
-        var exists = false
-        for c in candidates:
-          if c == pos:
-            exists = true
-            break
-        if not exists:
-          candidates.add(pos)
+      appendUniquePositions(candidates, env.findEmptyPositionsAround(center, 2))
 
     let toPlace = min(clusterSize - 1, candidates.len)
     for i in 0 ..< toPlace:
@@ -1554,15 +1562,7 @@ proc init(env: Environment) =
 
         var candidates = env.findEmptyPositionsAround(center, 1)
         if candidates.len < clusterSize - 1:
-          let extra = env.findEmptyPositionsAround(center, 2)
-          for pos in extra:
-            var exists = false
-            for c in candidates:
-              if c == pos:
-                exists = true
-                break
-            if not exists:
-              candidates.add(pos)
+          appendUniquePositions(candidates, env.findEmptyPositionsAround(center, 2))
 
         let toPlace = min(clusterSize - 1, candidates.len)
         for i in 0 ..< toPlace:
