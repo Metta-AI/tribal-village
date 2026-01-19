@@ -18,7 +18,7 @@ const
   # Map Layout
   MapLayoutRoomsX* = 1
   MapLayoutRoomsY* = 1
-  MapBorder* = 4
+  MapBorder* = 1
   MapRoomWidth* = 230  # ~20% smaller than 288
   MapRoomHeight* = 144  # ~20% smaller than 180
   MapRoomBorder* = 0
