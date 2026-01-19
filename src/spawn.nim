@@ -922,8 +922,8 @@ proc init(env: Environment) =
         teamId: teamId
       ))
       inc placed
-  doAssert WarmVillagePalette.len >= numTeams,
-    "WarmVillagePalette must cover all base colors without reuse."
+  doAssert WarmTeamPalette.len >= numTeams,
+    "WarmTeamPalette must cover all base colors without reuse."
   for i in 0 ..< numTeams:
     let villageStruct = block:
       ## Small town starter: altar + town center, no walls.
@@ -987,7 +987,7 @@ proc init(env: Environment) =
               setTerrain(env, ivec2(clearX.int32, clearY.int32), Empty)
 
       # Generate a distinct warm color for this team (avoid cool/blue hues)
-      let teamColor = WarmVillagePalette[i]
+      let teamColor = WarmTeamPalette[i]
       env.teamColors.add(teamColor)
       let teamId = env.teamColors.len - 1
 

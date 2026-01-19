@@ -1,4 +1,4 @@
-const WarmVillagePalette* = [
+const WarmTeamPalette* = [
   # Eight bright, evenly spaced tints (similar brightness, varied hue; away from clippy purple)
   color(0.910, 0.420, 0.420, 1.0),  # team 0: soft red        (#e86b6b)
   color(0.940, 0.650, 0.420, 1.0),  # team 1: soft orange     (#f0a86b)
