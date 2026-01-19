@@ -35,6 +35,28 @@ but makes ownership and symbol boundaries hard to reason about.
   resource positions, active option tracking, path hints).
 - `agent_control.getActions()` delegates to the controller for BuiltinAI.
 
+## Default role assignment
+By default, each team spawns six active agents with fixed roles:
+- Slot 0-1: Gatherer
+- Slot 2-3: Builder
+- Slot 4-5: Fighter
+
+This mapping is defined in `decideAction()` in `src/scripted/ai_defaults.nim`.
+
+## Role highlights (behavior intent)
+These are high-level intent summaries; the exact option ordering lives in the
+role option lists.
+
+- **Gatherer**: selects a task based on stockpiles and altar hearts; gathers
+  food/wood/stone/gold, plants on fertile tiles, and builds small camps near
+  dense resources. Uses markets and stockpiles to drop off when carrying.
+- **Builder**: focuses on pop-cap houses, core infrastructure and tech
+  buildings, mills near fertile clusters, and defensive rings (walls/doors/
+  outposts) around the altar.
+- **Fighter**: defends against nearby enemies, retreats on low HP, breaks out
+  of enclosures, hunts wildlife, and supports monk/relic behaviors when
+  applicable.
+
 ## The behavior (OptionDef) system
 `src/scripted/options.nim` defines the minimal behavior contract:
 

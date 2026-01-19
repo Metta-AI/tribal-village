@@ -68,6 +68,14 @@ These codes are written into the tint layer per world tile as events occur.
 - `rebuildObservations()` reconstructs full observation buffers from scratch.
 - The FFI entrypoints copy the buffer directly and apply the obscured mask.
 
+Notes:
+- The `layer` parameter on `updateObservations()` is legacy; the function
+  rebuilds all layers for the tile by reading `env.terrain`, `env.grid`, and
+  `env.backgroundGrid`.
+- Inventory counts are not encoded in the spatial layers. Inventory update
+  hooks exist but are currently no-ops, so inventories must be tracked outside
+  the observation tensor.
+
 If you change the observation layout (layers or meanings), update:
 - `ObservationName` and related constants in `src/types.nim`.
 - Any docs or README sections describing the observation space.
