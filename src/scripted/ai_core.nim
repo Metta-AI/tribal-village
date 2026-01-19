@@ -70,7 +70,7 @@ type
     agents: array[MapAgents, AgentState]
     agentsInitialized: array[MapAgents, bool]
     buildingCountsStep: int
-    buildingCounts: array[MapRoomObjectsVillages, array[ThingKind, int]]
+    buildingCounts: array[MapRoomObjectsTeams, array[ThingKind, int]]
 
 proc newController*(seed: int): Controller =
   result = Controller(
@@ -333,13 +333,13 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
 proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
   if controller.buildingCountsStep != env.currentStep:
     controller.buildingCountsStep = env.currentStep
-    controller.buildingCounts = default(array[MapRoomObjectsVillages, array[ThingKind, int]])
+    controller.buildingCounts = default(array[MapRoomObjectsTeams, array[ThingKind, int]])
     for thing in env.things:
       if thing.isNil:
         continue
       if not isBuildingKind(thing.kind):
         continue
-      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsVillages:
+      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
         continue
       controller.buildingCounts[thing.teamId][thing.kind] += 1
   controller.buildingCounts[teamId][kind]

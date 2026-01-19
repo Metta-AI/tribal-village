@@ -420,16 +420,16 @@ const TumorDirKeys = [
 ]
 
 proc drawObjects*() =
-  var teamPopCounts: array[MapRoomObjectsVillages, int]
-  var teamHouseCounts: array[MapRoomObjectsVillages, int]
+  var teamPopCounts: array[MapRoomObjectsTeams, int]
+  var teamHouseCounts: array[MapRoomObjectsTeams, int]
   for agent in env.agents:
     if isAgentAlive(env, agent):
       let teamId = getTeamId(agent)
-      if teamId >= 0 and teamId < MapRoomObjectsVillages:
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
         inc teamPopCounts[teamId]
   for house in env.thingsByKind[House]:
     let teamId = house.teamId
-    if teamId >= 0 and teamId < MapRoomObjectsVillages:
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
       inc teamHouseCounts[teamId]
 
   for pos in env.actionTintPositions:
@@ -613,7 +613,7 @@ proc drawObjects*() =
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let teamId = thing.teamId
-          if teamId < 0 or teamId >= MapRoomObjectsVillages:
+          if teamId < 0 or teamId >= MapRoomObjectsTeams:
             continue
           let icon = case res
             of ResourceFood: itemSpriteKey(ItemWheat)
@@ -634,7 +634,7 @@ proc drawObjects*() =
             bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
         if thing.kind == TownCenter:
           let teamId = thing.teamId
-          if teamId >= 0 and teamId < MapRoomObjectsVillages:
+          if teamId >= 0 and teamId < MapRoomObjectsTeams:
             let popCount = teamPopCounts[teamId]
             let popCap = min(MapAgentsPerVillage, teamHouseCounts[teamId] * HousePopCap)
             let iconScale = 1/320

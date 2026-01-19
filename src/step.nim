@@ -386,7 +386,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               inc env.stats[id].actionAttack
             else:
               let newTeam = attackerTeam
-              if newTeam < 0 or newTeam >= MapRoomObjectsVillages:
+              if newTeam < 0 or newTeam >= MapRoomObjectsTeams:
                 inc env.stats[id].actionInvalid
                 break attackAction
               var popCap = 0
@@ -1354,13 +1354,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.wolfPackSumY[i] = 0
 
   # Precompute team pop caps while scanning things
-  var teamPopCaps: array[MapRoomObjectsVillages, int]
+  var teamPopCaps: array[MapRoomObjectsTeams, int]
   let thingsCount = env.things.len
   for i in 0 ..< thingsCount:
     let thing = env.things[i]
     if towerRemovals.len > 0 and thing in towerRemovals:
       continue
-    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsVillages and isBuildingKind(thing.kind):
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams and isBuildingKind(thing.kind):
       let add = buildingPopCap(thing.kind)
       if add > 0:
         teamPopCaps[thing.teamId] += add
@@ -1931,12 +1931,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.enforceZeroHpDeaths()
 
   # Precompute team population counts (Town Centers + Houses already counted above)
-  var teamPopCounts: array[MapRoomObjectsVillages, int]
+  var teamPopCounts: array[MapRoomObjectsTeams, int]
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
     let teamId = getTeamId(agent)
-    if teamId >= 0 and teamId < MapRoomObjectsVillages:
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
       inc teamPopCounts[teamId]
 
   # Respawn dead agents at their altars
@@ -1946,7 +1946,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     # Check if agent is dead and has a home altar
     if env.terminated[agentId] == 1.0 and agent.homeAltar.x >= 0:
       let teamId = getTeamId(agent)
-      if teamId < 0 or teamId >= MapRoomObjectsVillages:
+      if teamId < 0 or teamId >= MapRoomObjectsTeams:
         continue
       if teamPopCounts[teamId] >= teamPopCaps[teamId]:
         continue
@@ -1999,7 +1999,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if candidate.unitClass == UnitGoblin:
         continue
       let candTeam = getTeamId(candidate)
-      if candTeam < 0 or candTeam >= MapRoomObjectsVillages:
+      if candTeam < 0 or candTeam >= MapRoomObjectsTeams:
         continue
       if parentA.isNil:
         parentA = candidate
@@ -2155,7 +2155,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   if logRenderEnabled and (env.currentStep mod logRenderEvery == 0):
     var entry = "STEP " & $env.currentStep & "\n"
-    var teamSeen: array[MapRoomObjectsVillages, bool]
+    var teamSeen: array[MapRoomObjectsTeams, bool]
     for agent in env.agents:
       if agent.isNil:
         continue

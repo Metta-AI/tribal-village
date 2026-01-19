@@ -541,8 +541,8 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
   discard controller
   let score = env.scoreTerritory()
   let total = max(1, score.scoredTiles)
-  var teamScores: array[MapRoomObjectsVillages, float32]
-  for teamId in 0 ..< MapRoomObjectsVillages:
+  var teamScores: array[MapRoomObjectsTeams, float32]
+  for teamId in 0 ..< MapRoomObjectsTeams:
     teamScores[teamId] = float32(score.teamTiles[teamId]) / float32(total)
   var roleTeamCounts: Table[(int, int), int]
   for agent in env.agents:
@@ -552,7 +552,7 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
     if roleId < 0:
       continue
     let teamId = getTeamId(agent)
-    if teamId < 0 or teamId >= MapRoomObjectsVillages:
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
       continue
     let key = (roleId, teamId)
     roleTeamCounts[key] = roleTeamCounts.getOrDefault(key, 0) + 1
@@ -561,7 +561,7 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
     let teamId = key[1]
     if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
       continue
-    if teamId < 0 or teamId >= MapRoomObjectsVillages:
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
       continue
     let sampleTeamScore = teamScores[teamId]
     let weight = min(4, count)

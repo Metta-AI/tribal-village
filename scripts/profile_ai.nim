@@ -17,22 +17,22 @@ proc parseEnvInt(name: string, fallback: int): int =
   except ValueError:
     fallback
 
-proc countHouses(env: Environment): array[MapRoomObjectsVillages, int] =
-  var counts: array[MapRoomObjectsVillages, int]
+proc countHouses(env: Environment): array[MapRoomObjectsTeams, int] =
+  var counts: array[MapRoomObjectsTeams, int]
   for house in env.thingsByKind[House]:
     let teamId = house.teamId
     if teamId >= 0 and teamId < counts.len:
       inc counts[teamId]
   counts
 
-proc updateMaxHearts(env: Environment, maxHearts: var array[MapRoomObjectsVillages, int]) =
+proc updateMaxHearts(env: Environment, maxHearts: var array[MapRoomObjectsTeams, int]) =
   for altar in env.thingsByKind[Altar]:
     let teamId = altar.teamId
     if teamId >= 0 and teamId < maxHearts.len:
       if altar.hearts > maxHearts[teamId]:
         maxHearts[teamId] = altar.hearts
 
-proc formatCounts(label: string, counts: array[MapRoomObjectsVillages, int]): string =
+proc formatCounts(label: string, counts: array[MapRoomObjectsTeams, int]): string =
   var parts: seq[string] = @[]
   for teamId in 0 ..< counts.len:
     parts.add("t" & $teamId & "=" & $counts[teamId])
@@ -48,7 +48,7 @@ when isMainModule:
 
   let baselineHouses = countHouses(env)
   var maxHouses = baselineHouses
-  var maxHearts: array[MapRoomObjectsVillages, int]
+  var maxHearts: array[MapRoomObjectsTeams, int]
   for teamId in 0 ..< maxHearts.len:
     maxHearts[teamId] = MapObjectAltarInitialHearts
   updateMaxHearts(env, maxHearts)

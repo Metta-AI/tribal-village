@@ -89,7 +89,7 @@ proc updateObservations(
       return -1
     if thing.kind == Agent:
       return getTeamId(thing)
-    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsVillages:
+    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
       return thing.teamId
     -1
 
@@ -306,8 +306,8 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
       let dgc = tint.g - ClippyTint.g
       let dbc = tint.b - ClippyTint.b
       bestDist = drc * drc + dgc * dgc + dbc * dbc
-      bestTeam = MapRoomObjectsVillages
-      for teamId in 0 ..< min(env.teamColors.len, MapRoomObjectsVillages):
+      bestTeam = MapRoomObjectsTeams
+      for teamId in 0 ..< min(env.teamColors.len, MapRoomObjectsTeams):
         let t = env.teamColors[teamId]
         let dr = tint.r - t.r
         let dg = tint.g - t.g
@@ -316,9 +316,9 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
         if dist < bestDist:
           bestDist = dist
           bestTeam = teamId
-      if bestTeam == MapRoomObjectsVillages:
+      if bestTeam == MapRoomObjectsTeams:
         inc score.clippyTiles
-      elif bestTeam >= 0 and bestTeam < MapRoomObjectsVillages:
+      elif bestTeam >= 0 and bestTeam < MapRoomObjectsTeams:
         inc score.teamTiles[bestTeam]
       inc score.scoredTiles
   score
@@ -334,7 +334,7 @@ proc rebuildObservations*(env: Environment) =
       return -1
     if thing.kind == Agent:
       return getTeamId(thing)
-    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsVillages:
+    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
       return thing.teamId
     -1
 

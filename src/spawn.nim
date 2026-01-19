@@ -123,7 +123,7 @@ proc init(env: Environment) =
       env.elevation[x][y] = 0
 
   # Reset team stockpiles
-  env.teamStockpiles = default(array[MapRoomObjectsVillages, TeamStockpile])
+  env.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
 
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
@@ -669,15 +669,15 @@ proc init(env: Environment) =
       let fallback = r.randomEmptyPos(env)
       env.add(Thing(kind: Temple, pos: fallback, teamId: -1))
 
-  # Agents will now spawn with their villages below
-  # Clear and prepare village colors arrays (use Environment fields)
+  # Agents will now spawn with their teams below
+  # Clear and prepare team colors arrays (use Environment fields)
   env.agentColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
   env.teamColors.setLen(0)  # Clear team colors
   env.altarColors.clear()  # Clear altar colors from previous game
-  # Spawn villages with altars, town centers, and associated agents (tribes)
-  let numVillages = MapRoomObjectsVillages
+  # Spawn teams with altars, town centers, and associated agents.
+  let numTeams = MapRoomObjectsTeams
   var totalAgentsSpawned = 0
-  let villageAgentCap = MapRoomObjectsVillages * MapAgentsPerVillage
+  let totalTeamAgentCap = MapRoomObjectsTeams * MapAgentsPerVillage
   var villageCenters: seq[IVec2] = @[]
   proc placeStartingTownCenter(center: IVec2, teamId: int, r: var Rand): IVec2 =
     var candidates: seq[IVec2] = @[]
@@ -907,9 +907,9 @@ proc init(env: Environment) =
         teamId: teamId
       ))
       inc placed
-  doAssert WarmVillagePalette.len >= numVillages,
+  doAssert WarmVillagePalette.len >= numTeams,
     "WarmVillagePalette must cover all base colors without reuse."
-  for i in 0 ..< numVillages:
+  for i in 0 ..< numTeams:
     let villageStruct = block:
       ## Small town starter: altar + town center, no walls.
       const size = 7
@@ -984,15 +984,15 @@ proc init(env: Environment) =
             if not isBlockedTerrain(env.terrain[clearX][clearY]):
               setTerrain(env, ivec2(clearX.int32, clearY.int32), Empty)
 
-      # Generate a distinct warm color for this village (avoid cool/blue hues)
-      let villageColor = WarmVillagePalette[i]
-      env.teamColors.add(villageColor)
+      # Generate a distinct warm color for this team (avoid cool/blue hues)
+      let teamColor = WarmVillagePalette[i]
+      env.teamColors.add(teamColor)
       let teamId = env.teamColors.len - 1
 
-      # Spawn agent slots for this village (six active, the rest dormant)
-      let agentsForThisVillage = min(MapAgentsPerVillage, villageAgentCap - totalAgentsSpawned)
+      # Spawn agent slots for this team (six active, the rest dormant)
+      let agentsForThisTeam = min(MapAgentsPerVillage, totalTeamAgentCap - totalAgentsSpawned)
 
-      # Add the altar with initial hearts and village bounds
+      # Add the altar with initial hearts and team bounds
       let altar = Thing(
         kind: Altar,
         pos: elements.center,
@@ -1002,7 +1002,7 @@ proc init(env: Environment) =
       altar.hearts = MapObjectAltarInitialHearts
       env.add(altar)
       villageCenters.add(elements.center)
-      env.altarColors[elements.center] = villageColor  # Associate altar position with village color
+      env.altarColors[elements.center] = teamColor  # Associate altar position with team color
 
       discard placeStartingTownCenter(elements.center, teamId, r)
 
@@ -1016,9 +1016,9 @@ proc init(env: Environment) =
               if villageStruct.layout[dy][dx] == ' ':
                 continue
             env.baseTintColors[tileX][tileY] = TileColor(
-              r: villageColor.r,
-              g: villageColor.g,
-              b: villageColor.b,
+              r: teamColor.r,
+              g: teamColor.g,
+              b: teamColor.b,
               intensity: 1.0
             )
 
@@ -1118,20 +1118,20 @@ proc init(env: Environment) =
               ))
             else:
               discard
-      if agentsForThisVillage > 0:
+      if agentsForThisTeam > 0:
         # Get nearby positions around the altar
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
 
-        for j in 0 ..< agentsForThisVillage:
+        for j in 0 ..< agentsForThisTeam:
           let agentId = teamId * MapAgentsPerVillage + j
 
-          # Store the village color for this agent (shared by all agents of the village)
+          # Store the team color for this agent (shared by all agents of the team)
           env.agentColors[agentId] = env.teamColors[teamId]
 
           var agentPos = ivec2(-1, -1)
           var frozen = 0
           var hp = 0
-          if j < min(6, agentsForThisVillage):
+          if j < min(6, agentsForThisTeam):
             if j < nearbyPositions.len:
               agentPos = nearbyPositions[j]
             else:
@@ -1158,7 +1158,7 @@ proc init(env: Environment) =
           ))
 
           totalAgentsSpawned += 1
-          if totalAgentsSpawned >= villageAgentCap:
+          if totalAgentsSpawned >= totalTeamAgentCap:
             break
 
       # Note: Door gaps are placed instead of walls for defendable entrances
@@ -1172,13 +1172,13 @@ proc init(env: Environment) =
       continue
     env.add(Thing(kind: Wall, pos: pos))
 
-  # If there are still agents to spawn (e.g., if not enough villages), spawn them randomly
+  # If there are still agents to spawn (e.g., if not enough teams), spawn them randomly
   # They will get a neutral color
-  while totalAgentsSpawned < villageAgentCap:
+  while totalAgentsSpawned < totalTeamAgentCap:
     let agentPos = r.randomEmptyPos(env)
     let agentId = totalAgentsSpawned
 
-    # Store neutral color for agents without a village
+    # Store neutral color for agents without a team
     env.agentColors[agentId] = color(0.5, 0.5, 0.5, 1.0)  # Gray for unaffiliated agents
 
     env.add(Thing(
@@ -1325,11 +1325,11 @@ proc init(env: Environment) =
         attackDamage: GoblinAttackDamage,
         unitClass: UnitGoblin,
         embarkedUnitClass: UnitGoblin,
-        teamIdOverride: MapRoomObjectsVillages
+        teamIdOverride: GoblinTeamId
       ))
       totalAgentsSpawned += 1
 
-  # Random spawner placement with minimum distance from villages and other spawners
+  # Random spawner placement with minimum distance from teams and other spawners
   # Gather altar positions for distance checks
   var altarPositionsNow: seq[IVec2] = @[]
   var spawnerPositions: seq[IVec2] = @[]
@@ -1340,7 +1340,7 @@ proc init(env: Environment) =
   let minDist = DefaultSpawnerMinDistance
   let minDist2 = minDist * minDist
 
-  for i in 0 ..< numVillages:
+  for i in 0 ..< numTeams:
     let spawnerStruct = Structure(width: 3, height: 3, centerPos: ivec2(1, 1))
     var placed = false
     var targetPos: IVec2
@@ -1373,7 +1373,7 @@ proc init(env: Environment) =
 
       # Enforce min distance from any altar and other spawners
       var okDistance = true
-      # Check distance from villages (altars)
+      # Check distance from teams (altars)
       for ap in altarPositionsNow:
         let dx = int(targetPos.x) - int(ap.x)
         let dy = int(targetPos.y) - int(ap.y)

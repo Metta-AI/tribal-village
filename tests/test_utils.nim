@@ -45,14 +45,14 @@ proc makeEmptyEnv*(): Environment =
       result.tintStrength[x][y] = 0
       result.tumorTintMods[x][y] = TintModification(r: 0, g: 0, b: 0)
       result.tumorStrength[x][y] = 0
-  result.teamStockpiles = default(array[MapRoomObjectsVillages, TeamStockpile])
+  result.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
   result.actionTintPositions.setLen(0)
   result.activeTiles.positions.setLen(0)
   result.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   result.tumorActiveTiles.positions.setLen(0)
   result.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
   result.altarColors = initTable[IVec2, Color]()
-  result.teamColors = newSeq[Color](MapRoomObjectsVillages)
+  result.teamColors = newSeq[Color](MapRoomObjectsTeams)
   result.agentColors = newSeq[Color](MapAgents)
 
 proc addAgentAt*(env: Environment, agentId: int, pos: IVec2,
