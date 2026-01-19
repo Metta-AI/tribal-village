@@ -651,17 +651,18 @@ proc init(env: Environment) =
   # Apply biome colors after dungeon biomes are finalized.
   env.applyBiomeBaseColors()
 
-  if MapBorder > 0:
+  let wallLayers = max(0, MapBorder - 1)
+  if wallLayers > 0:
     proc addBorderWall(pos: IVec2) =
       if not isNil(env.getBackgroundThing(pos)):
         return
       env.add(Thing(kind: Wall, pos: pos))
     for x in 0 ..< MapWidth:
-      for j in 0 ..< MapBorder:
+      for j in 0 ..< wallLayers:
         addBorderWall(ivec2(x, j))
         addBorderWall(ivec2(x, MapHeight - j - 1))
     for y in 0 ..< MapHeight:
-      for j in 0 ..< MapBorder:
+      for j in 0 ..< wallLayers:
         addBorderWall(ivec2(j, y))
         addBorderWall(ivec2(MapWidth - j - 1, y))
 
