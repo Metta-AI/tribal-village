@@ -431,9 +431,12 @@ proc ensureRoleCache(state: var ScriptedRoleState) =
       state.roleOptionsCached.add false
 
 proc buildCoreRole(catalog: var RoleCatalog, name: string,
-                   options: openArray[OptionDef]): int =
+                   options: openArray[OptionDef],
+                   kind: AgentRole): int =
   let existing = findRoleId(catalog, name)
   if existing >= 0:
+    catalog.roles[existing].kind = kind
+    catalog.roles[existing].origin = "core"
     return existing
   var ids: seq[int] = @[]
   for opt in options:
@@ -441,7 +444,7 @@ proc buildCoreRole(catalog: var RoleCatalog, name: string,
     if id >= 0:
       ids.add id
   let tier = RoleTier(behaviorIds: ids, selection: TierFixed)
-  let role = newRoleDef(catalog, name, @[tier], "core")
+  let role = newRoleDef(catalog, name, @[tier], "core", kind)
   registerRole(catalog, role)
 
 proc rebuildRolePool(state: var ScriptedRoleState) =
@@ -472,62 +475,60 @@ proc initScriptedState(controller: Controller) =
   scriptedState.lastEpisodeStep = -1
   scriptedState.scoredAtStep = false
   resetScriptedAssignments(scriptedState)
-  if not EvolutionEnabled:
-    scriptedState.initialized = true
-    return
   scriptedState.evolutionConfig = defaultEvolutionConfig()
   scriptedState.catalog = initRoleCatalog()
   scriptedState.catalog.seedDefaultBehaviorCatalog()
-  scriptedState.catalog.loadRoleHistory(ScriptedRoleHistoryPath)
+  if EvolutionEnabled:
+    scriptedState.catalog.loadRoleHistory(ScriptedRoleHistoryPath)
   scriptedState.coreRoleIds = [
-    buildCoreRole(scriptedState.catalog, "GathererCore", GathererOptions),
-    buildCoreRole(scriptedState.catalog, "BuilderCore", BuilderOptions),
-    buildCoreRole(scriptedState.catalog, "FighterCore", FighterOptions),
+    buildCoreRole(scriptedState.catalog, "GathererCore", GathererOptions, Gatherer),
+    buildCoreRole(scriptedState.catalog, "BuilderCore", BuilderOptions, Builder),
+    buildCoreRole(scriptedState.catalog, "FighterCore", FighterOptions, Fighter),
     -1
   ]
   ensureRoleCache(scriptedState)
-  var nonCore = 0
-  for role in scriptedState.catalog.roles:
-    if role.origin != "core":
+  if EvolutionEnabled:
+    var nonCore = 0
+    for role in scriptedState.catalog.roles:
+      if role.origin != "core":
+        inc nonCore
+    while nonCore < ScriptedGeneratedRoleCount:
+      discard generateRandomRole(scriptedState, controller.rng, "sampled")
       inc nonCore
-  while nonCore < ScriptedGeneratedRoleCount:
-    discard generateRandomRole(scriptedState, controller.rng, "sampled")
-    inc nonCore
   rebuildRolePool(scriptedState)
   resetScriptedAssignments(scriptedState)
   scriptedState.initialized = true
 
-proc assignScriptedRole(controller: Controller, agentId: int,
-                        state: var AgentState) =
-  if not EvolutionEnabled:
-    state.role = Gatherer
-    state.activeOptionId = -1
-    state.activeOptionTicks = 0
-    return
-  initScriptedState(controller)
-  if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
-    let roleId = scriptedState.pendingHybridRoles[agentId]
-    scriptedState.roleAssignments[agentId] = roleId
-    scriptedState.roleIsScripted[agentId] = true
-    state.role = Scripted
-    state.activeOptionId = -1
-    state.activeOptionTicks = 0
-    return
-  var roleId = -1
-  if randChance(controller.rng, ScriptedRoleExplorationChance):
-    roleId = generateRandomRole(scriptedState, controller.rng, "explore")
-  else:
-    roleId = pickRoleIdWeighted(scriptedState.catalog, controller.rng, scriptedState.rolePool)
-  if roleId < 0:
-    roleId = scriptedState.coreRoleIds[Gatherer]
+proc setAgentRole(agentId: int, state: var AgentState, roleId: int) =
+  state.roleId = roleId
   scriptedState.roleAssignments[agentId] = roleId
-  scriptedState.roleIsScripted[agentId] = true
-  state.role = Scripted
+  if roleId >= 0 and roleId < scriptedState.catalog.roles.len:
+    state.role = scriptedState.catalog.roles[roleId].kind
+    scriptedState.roleIsScripted[agentId] = scriptedState.catalog.roles[roleId].origin != "core"
+  else:
+    scriptedState.roleIsScripted[agentId] = false
   state.activeOptionId = -1
   state.activeOptionTicks = 0
 
-proc roleOptionsFor(agentId: int, rng: var Rand): seq[OptionDef] =
-  let roleId = scriptedState.roleAssignments[agentId]
+proc assignScriptedRole(controller: Controller, agentId: int,
+                        state: var AgentState) =
+  initScriptedState(controller)
+  if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
+    let roleId = scriptedState.pendingHybridRoles[agentId]
+    scriptedState.pendingHybridRoles[agentId] = -1
+    setAgentRole(agentId, state, roleId)
+    return
+  var roleId = -1
+  if EvolutionEnabled:
+    if randChance(controller.rng, ScriptedRoleExplorationChance):
+      roleId = generateRandomRole(scriptedState, controller.rng, "explore")
+    else:
+      roleId = pickRoleIdWeighted(scriptedState.catalog, controller.rng, scriptedState.rolePool)
+  if roleId < 0:
+    roleId = scriptedState.coreRoleIds[Gatherer]
+  setAgentRole(agentId, state, roleId)
+
+proc roleOptionsFor(roleId: int, rng: var Rand): seq[OptionDef] =
   if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
     return @[]
   ensureRoleCache(scriptedState)
@@ -536,6 +537,8 @@ proc roleOptionsFor(agentId: int, rng: var Rand): seq[OptionDef] =
       materializeRoleOptions(scriptedState.catalog, scriptedState.catalog.roles[roleId], rng)
     scriptedState.roleOptionsCached[roleId] = true
   scriptedState.roleOptionsCache[roleId]
+
+proc roleIdForAgent(controller: Controller, agentId: int): int
 
 proc applyScriptedScoring(controller: Controller, env: Environment) =
   discard controller
@@ -548,7 +551,7 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
-    let roleId = scriptedState.roleAssignments[agent.agentId]
+    let roleId = roleIdForAgent(controller, agent.agentId)
     if roleId < 0:
       continue
     let teamId = getTeamId(agent)
@@ -575,6 +578,10 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
   scriptedState.catalog.saveRoleHistory(ScriptedRoleHistoryPath)
 
 proc roleIdForAgent(controller: Controller, agentId: int): int =
+  if controller.agentsInitialized[agentId]:
+    let stateRoleId = controller.agents[agentId].roleId
+    if stateRoleId >= 0 and stateRoleId < scriptedState.catalog.roles.len:
+      return stateRoleId
   let assigned = scriptedState.roleAssignments[agentId]
   if assigned >= 0 and assigned < scriptedState.catalog.roles.len:
     return assigned
@@ -616,8 +623,6 @@ proc processTempleHybridRequests(controller: Controller, env: Environment) =
     scriptedState.rolePool.add newRoleId
     scriptedState.pendingHybridRoles[req.childId] = newRoleId
     if ScriptedTempleAssignEnabled:
-      scriptedState.roleAssignments[req.childId] = newRoleId
-      scriptedState.roleIsScripted[req.childId] = true
       controller.agentsInitialized[req.childId] = false
   env.templeHybridRequests.setLen(0)
 
@@ -669,15 +674,21 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
 
   (false, 0'u8)
 
-proc decideScripted(controller: Controller, env: Environment, agent: Thing,
-                    agentId: int, state: var AgentState): uint8 =
-  if not EvolutionEnabled:
-    return decideGatherer(controller, env, agent, agentId, state)
-  updateGathererTask(controller, env, agent, state)
-  let options = roleOptionsFor(agentId, controller.rng)
+proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): uint8 =
+  if state.role == Gatherer:
+    updateGathererTask(controller, env, agent, state)
+  var roleId = state.roleId
+  if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
+    roleId = roleIdForAgent(controller, agentId)
+  let options = roleOptionsFor(roleId, controller.rng)
   if options.len == 0:
     return 0'u8
   return runOptions(controller, env, agent, agentId, state, options)
+
+proc decideScripted(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  decideRoleFromCatalog(controller, env, agent, agentId, state)
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 
@@ -698,6 +709,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     var initState = AgentState(
       role: role,
+      roleId: -1,
       activeOptionId: -1,
       activeOptionTicks: 0,
       gathererTask: TaskFood,
@@ -736,12 +748,17 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
-    if EvolutionEnabled:
-      if role == Scripted:
-        assignScriptedRole(controller, agentId, initState)
-      else:
-        scriptedState.roleAssignments[agentId] = scriptedState.coreRoleIds[role]
-        scriptedState.roleIsScripted[agentId] = false
+    if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
+      let pending = scriptedState.pendingHybridRoles[agentId]
+      scriptedState.pendingHybridRoles[agentId] = -1
+      setAgentRole(agentId, initState, pending)
+    elif role == Scripted:
+      assignScriptedRole(controller, agentId, initState)
+    else:
+      var roleId = scriptedState.coreRoleIds[role]
+      if roleId < 0:
+        roleId = scriptedState.coreRoleIds[Gatherer]
+      setAgentRole(agentId, initState, roleId)
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
@@ -927,15 +944,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
         if didHouse: return houseAct
 
-  # Role-based decision making
-  case state.role:
-  of Gatherer: return decideGatherer(controller, env, agent, agentId, state)
-  of Builder: return decideBuilder(controller, env, agent, agentId, state)
-  of Fighter: return decideFighter(controller, env, agent, agentId, state)
-  of Scripted:
-    if EvolutionEnabled:
-      return decideScripted(controller, env, agent, agentId, state)
-    return decideGatherer(controller, env, agent, agentId, state)
+  # Role-based decision making (unified priority lists)
+  return decideRoleFromCatalog(controller, env, agent, agentId, state)
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =

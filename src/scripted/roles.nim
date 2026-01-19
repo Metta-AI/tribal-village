@@ -31,6 +31,7 @@ type
   RoleDef* = object
     id*: int
     name*: string
+    kind*: AgentRole
     tiers*: seq[RoleTier]
     origin*: string
     lockedName*: bool
@@ -124,10 +125,11 @@ proc generateRoleName*(catalog: var RoleCatalog, tiers: seq[RoleTier]): string =
   baseName & "-" & $suffix
 
 proc newRoleDef*(catalog: var RoleCatalog, name: string, tiers: seq[RoleTier],
-                 origin: string): RoleDef =
+                 origin: string, kind: AgentRole = Scripted): RoleDef =
   result = RoleDef(
     id: catalog.nextRoleId,
     name: name,
+    kind: kind,
     tiers: tiers,
     origin: origin,
     lockedName: false,
@@ -157,6 +159,21 @@ proc parseTierSelection(value: string): TierSelection =
   of "weighted": TierWeighted
   else: TierFixed
 
+proc roleKindToString(kind: AgentRole): string =
+  case kind
+  of Gatherer: "gatherer"
+  of Builder: "builder"
+  of Fighter: "fighter"
+  of Scripted: "scripted"
+
+proc parseRoleKind(value: string): AgentRole =
+  case value.toLowerAscii()
+  of "gatherer": Gatherer
+  of "builder": Builder
+  of "fighter": Fighter
+  of "scripted": Scripted
+  else: Scripted
+
 proc roleTierToJson(tier: RoleTier, catalog: RoleCatalog): JsonNode =
   result = newJObject()
   result["selection"] = %tierSelectionToString(tier.selection)
@@ -174,6 +191,7 @@ proc roleTierToJson(tier: RoleTier, catalog: RoleCatalog): JsonNode =
 proc roleToJson(role: RoleDef, catalog: RoleCatalog): JsonNode =
   result = newJObject()
   result["name"] = %role.name
+  result["kind"] = %roleKindToString(role.kind)
   result["origin"] = %role.origin
   result["locked"] = %role.lockedName
   result["fitness"] = %role.fitness
@@ -258,6 +276,8 @@ proc applyRoleHistory(catalog: var RoleCatalog, node: JsonNode) =
     let name = entry{"name"}.getStr()
     let existing = findRoleId(catalog, name)
     if existing >= 0:
+      if entry.hasKey("kind"):
+        catalog.roles[existing].kind = parseRoleKind(entry["kind"].getStr())
       if entry.hasKey("fitness"):
         catalog.roles[existing].fitness = entry["fitness"].getFloat().float32
       if entry.hasKey("games"):
@@ -271,7 +291,10 @@ proc applyRoleHistory(catalog: var RoleCatalog, node: JsonNode) =
     if tiers.len == 0:
       continue
     let origin = entry{"origin"}.getStr()
-    var role = newRoleDef(catalog, name, tiers, origin)
+    var kind = Scripted
+    if entry.hasKey("kind"):
+      kind = parseRoleKind(entry["kind"].getStr())
+    var role = newRoleDef(catalog, name, tiers, origin, kind)
     if entry.hasKey("fitness"):
       role.fitness = entry["fitness"].getFloat().float32
     if entry.hasKey("games"):
