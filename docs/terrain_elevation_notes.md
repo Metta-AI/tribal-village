@@ -31,6 +31,19 @@ Elevation is assigned per tile in `applyBiomeElevation` in `src/spawn.nim`:
 - A 1-level step is allowed only if either tile is a Road (ramp).
 - Larger elevation deltas are blocked.
 
+## Ramp Tiles (Defined, Not Wired)
+Terrain enums include ramp tiles (`RampUp*`, `RampDown*`) but they are not placed
+or checked by `canTraverseElevation`. Roads currently act as ramps.
+
+If you want true ramp tiles:
+- Place them during generation (instead of roads).
+- Update `canTraverseElevation` to accept ramp tiles.
+- Register ramp visuals in the terrain catalog / renderer.
+
+## Cliff Overlays
+Cliffs are background Things and do not block movement themselves. They visualize
+where elevation changes occur. See `docs/terrain_cliffs.md` for sprite details.
+
 ## Connectivity Pass
 `makeConnected` in `src/connectivity.nim` runs after generation:
 - Labels connected components on walkable tiles.
