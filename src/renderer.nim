@@ -343,33 +343,6 @@ proc ensureHeartCountLabel(count: int): string =
 
   result = key
 
-proc ensureOverlayLabel(text: string): string =
-  ## Cache small overlay labels like "x 5" or "x 5/10".
-  if text.len == 0:
-    return ""
-  if text in overlayLabelImages:
-    return overlayLabelImages[text]
-
-  var measureCtx = newContext(1, 1)
-  configureHeartFont(measureCtx)
-  let metrics = measureCtx.measureText(text)
-
-  let padding = HeartCountPadding
-  let labelWidth = max(1, metrics.width.int + padding * 2)
-  let labelHeight = max(1, measureCtx.fontSize.int + padding * 2)
-
-  var ctx = newContext(labelWidth, labelHeight)
-  configureHeartFont(ctx)
-  ctx.fillStyle.color = color(0, 0, 0, 0.7)
-  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(padding.float32, padding.float32))
-
-  let key = "overlay_label/" & text.replace(" ", "_").replace("/", "_")
-  bxy.addImage(key, ctx.image, mipmaps = false)
-  overlayLabelImages[text] = key
-  result = key
-
 let wallSprites = block:
   var sprites = newSeq[string](16)
   for i in 0 .. 15:
@@ -675,7 +648,32 @@ proc drawObjects*() =
             let iconPos = pos.vec2 + vec2(-0.18, -0.62)
             bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0, scale = iconScale,
               tint = color(1, 1, 1, 1))
-            let popLabel = ensureOverlayLabel("x " & $popCount & "/" & $popCap)
+            let popText = "x " & $popCount & "/" & $popCap
+            let popLabel = block:
+              if popText.len == 0:
+                ""
+              elif popText in overlayLabelImages:
+                overlayLabelImages[popText]
+              else:
+                var measureCtx = newContext(1, 1)
+                configureHeartFont(measureCtx)
+                let metrics = measureCtx.measureText(popText)
+
+                let padding = HeartCountPadding
+                let labelWidth = max(1, metrics.width.int + padding * 2)
+                let labelHeight = max(1, measureCtx.fontSize.int + padding * 2)
+
+                var ctx = newContext(labelWidth, labelHeight)
+                configureHeartFont(ctx)
+                ctx.fillStyle.color = color(0, 0, 0, 0.7)
+                ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
+                ctx.fillStyle.color = color(1, 1, 1, 1)
+                ctx.fillText(popText, vec2(padding.float32, padding.float32))
+
+                let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
+                bxy.addImage(key, ctx.image, mipmaps = false)
+                overlayLabelImages[popText] = key
+                key
             let popLabelPos = iconPos + vec2(0.14, -0.08)
             bxy.drawImage(popLabel, popLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
     else:
