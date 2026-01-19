@@ -1,0 +1,97 @@
+# Economy, Stockpiles, and Respawning
+
+Date: 2026-01-19
+Owner: Docs / Systems
+Status: Draft
+
+## Overview
+The economy is split into **agent inventory** and **team stockpiles**. Agents gather and
+craft locally, then deposit or trade into stockpiles via buildings. Altars store hearts
+and drive respawning.
+
+Key files:
+- `src/items.nim` (item kinds and inventory helpers)
+- `src/environment.nim` (inventory/stockpile helpers)
+- `src/step.nim` (use/craft/market/respawn logic)
+- `src/registry.nim` (building use/craft/train definitions)
+- `src/types.nim` (core constants)
+
+## Inventory vs Stockpile
+**Inventory**:
+- Per-agent table keyed by `ItemKey`.
+- Capacity: `MapObjectAgentMaxInventory` (5) per non-stockpile item.
+
+**Stockpile resources**:
+- Food, wood, stone, gold, water.
+- Carried capacity limited by `ResourceCarryCapacity` (5 total across these items).
+- `giveItem` enforces these limits; `grantItem` bypasses some checks for special cases.
+
+## Resource Nodes
+Common resource nodes are Things with inventory counts:
+- Tree -> wood
+- Wheat -> wheat (becomes stubble)
+- Stone / Gold -> mined with larger deposits (`MineDepositAmount`)
+- Fish, plants, meat (from animals)
+
+Nodes typically decrement their stored count and remove themselves at zero.
+
+## Crafting and Production
+Crafting is done via `use` on specific buildings (when off cooldown):
+- **Magma**: smelt gold into bars.
+- **Clay Oven**: bread from wheat.
+- **Weaving Loom**: lantern/cloth from wheat or wood.
+- **Blacksmith**: spears/armor.
+
+Buildings can also serve as storage and dropoff points.
+
+## Market (Trade)
+Markets convert carried stockpile goods into team stockpiles:
+- Gold -> food at `DefaultMarketBuyFoodNumerator/Denominator`.
+- Wood/stone/food -> gold at `DefaultMarketSellNumerator/Denominator`.
+- Water is not traded.
+
+Trading is per-agent inventory; the market adds resources directly to team stockpiles and
+then clears or reduces carried inventory.
+
+## Altars and Hearts
+Altars are team-owned buildings that store **hearts**:
+- Using a bar at an altar increments hearts (cooldown applies).
+- Hearts are used for respawns and temple hybrid spawns.
+- Altars are capturable: attacking reduces hearts; when hearts reach 0 the altar switches
+  teams, and doors from the old team flip to the new team.
+
+Constants:
+- `MapObjectAltarInitialHearts`
+- `MapObjectAltarRespawnCost` (currently 0 by default)
+
+## Population Cap
+Each step computes team pop-cap from buildings (`buildingPopCap`):
+- Town centers and houses contribute pop-cap.
+- Cap is clamped to `MapAgentsPerVillage`.
+
+Pop-cap gates:
+- Respawns
+- Monk conversion (cannot convert if target team is at cap)
+- Temple hybrid spawns
+
+## Respawning
+During each step, dead agents with a home altar can respawn if:
+- Their team is below pop-cap.
+- Their altar exists and has enough hearts.
+- An empty tile exists near the altar.
+
+Respawn clears inventory and resets the unit to villager class.
+
+## Temple Hybrid Spawns
+Temples can spawn a new villager when:
+- Two adjacent living teammates stand near a temple.
+- The team has a dormant agent slot.
+- The home altar has enough hearts.
+
+The temple then goes on cooldown (25 steps).
+
+## Common Gotchas (from recent sessions)
+- Pop-cap silently blocks conversions/respawns; it is recalculated each step.
+- Market only trades **stockpile** items; other items stay in inventory.
+- Respawn heart cost is currently zero by default, so hearts are not consumed unless
+  the constant is raised.
