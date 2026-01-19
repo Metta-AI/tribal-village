@@ -420,6 +420,13 @@ type
     teamId*: int
     pos*: IVec2
 
+  TempleHybridRequest* = object
+    parentA*: int
+    parentB*: int
+    childId*: int
+    teamId*: int
+    pos*: IVec2
+
   TileColor* = object
     r*, g*, b*: float32      # RGB color components
     intensity*: float32      # Overall intensity/brightness modifier
@@ -652,6 +659,7 @@ type
     truncated*: array[MapAgents, float32]
     stats*: seq[Stats]
     templeInteractions*: seq[TempleInteraction]
+    templeHybridRequests*: seq[TempleHybridRequest]
     # Color management
     agentColors*: seq[Color]           ## Per-agent colors for rendering
     teamColors*: seq[Color]            ## Per-team colors for rendering

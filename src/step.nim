@@ -817,6 +817,79 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           for key in ObservedItemKeys:
             env.updateAgentInventoryObs(agent, key)
 
+  # Temple hybrid spawn: two adjacent agents + heart -> spawn a new villager.
+  for temple in env.thingsByKind[Temple]:
+    if temple.cooldown > 0:
+      continue
+    var parentA: Thing = nil
+    var parentB: Thing = nil
+    var teamId = -1
+    for d in AdjacentOffsets8:
+      let pos = temple.pos + d
+      if not isValidPos(pos):
+        continue
+      let candidate = env.grid[pos.x][pos.y]
+      if isNil(candidate) or candidate.kind != Agent:
+        continue
+      if not isAgentAlive(env, candidate):
+        continue
+      if candidate.unitClass == UnitGoblin:
+        continue
+      let candTeam = getTeamId(candidate)
+      if candTeam < 0 or candTeam >= MapRoomObjectsHouses:
+        continue
+      if parentA.isNil:
+        parentA = candidate
+        teamId = candTeam
+      elif candTeam == teamId and candidate.agentId != parentA.agentId:
+        parentB = candidate
+        break
+    if parentA.isNil or parentB.isNil:
+      continue
+    if teamPopCounts[teamId] >= teamPopCaps[teamId]:
+      continue
+    # Find a dormant agent slot for this team.
+    let teamStart = teamId * MapAgentsPerVillage
+    let teamEnd = teamStart + MapAgentsPerVillage
+    var childId = -1
+    for id in teamStart ..< teamEnd:
+      if env.terminated[id] == 1.0:
+        childId = id
+        break
+    if childId < 0:
+      continue
+    let spawnPos = env.findFirstEmptyPositionAround(temple.pos, 2)
+    if spawnPos.x < 0:
+      continue
+    let altarThing = env.getThing(parentA.homeAltar)
+    if isNil(altarThing) or altarThing.kind != ThingKind.Altar:
+      continue
+    if altarThing.hearts < MapObjectAltarRespawnCost:
+      continue
+    # Consume heart and spawn the child.
+    altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
+    env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
+    let child = env.agents[childId]
+    child.pos = spawnPos
+    child.inventory = emptyInventory()
+    child.frozen = 0
+    applyUnitClass(child, UnitVillager)
+    env.terminated[childId] = 0.0
+    env.grid[child.pos.x][child.pos.y] = child
+    inc teamPopCounts[teamId]
+    env.updateObservations(AgentLayer, child.pos, getTeamId(child) + 1)
+    env.updateObservations(AgentOrientationLayer, child.pos, child.orientation.int)
+    for key in ObservedItemKeys:
+      env.updateAgentInventoryObs(child, key)
+    env.templeHybridRequests.add TempleHybridRequest(
+      parentA: parentA.agentId,
+      parentB: parentB.agentId,
+      childId: childId,
+      teamId: teamId,
+      pos: temple.pos
+    )
+    temple.cooldown = 25
+
   when defined(stepTiming):
     if timing:
       tNow = getMonoTime()
@@ -1018,6 +1091,7 @@ proc reset*(env: Environment) =
   env.agents.setLen(0)
   env.stats.setLen(0)
   env.templeInteractions.setLen(0)
+  env.templeHybridRequests.setLen(0)
   env.grid.clear()
   env.observations.clear()
   env.observationsInitialized = false

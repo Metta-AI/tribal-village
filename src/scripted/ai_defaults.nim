@@ -397,6 +397,7 @@ const
   ScriptedGeneratedRoleCount = 16
   ScriptedRoleExplorationChance = 0.08
   ScriptedRoleMutationChance = 0.25
+  ScriptedTempleAssignEnabled = false
 
 type
   ScriptedRoleState = object
@@ -406,6 +407,7 @@ type
     roleOptionsCached: seq[bool]
     roleAssignments: array[MapAgents, int]
     roleIsScripted: array[MapAgents, bool]
+    pendingHybridRoles: array[MapAgents, int]
     coreRoleIds: array[AgentRole, int]
     lastEpisodeStep: int
     scoredAtStep: bool
@@ -418,6 +420,7 @@ proc resetScriptedAssignments(state: var ScriptedRoleState) =
   for i in 0 ..< MapAgents:
     state.roleAssignments[i] = -1
     state.roleIsScripted[i] = false
+    state.pendingHybridRoles[i] = -1
 
 proc ensureRoleCache(state: var ScriptedRoleState) =
   if state.roleOptionsCache.len < state.catalog.roles.len:
@@ -492,6 +495,14 @@ proc initScriptedState(controller: Controller) =
 proc assignScriptedRole(controller: Controller, agentId: int,
                         state: var AgentState) =
   initScriptedState(controller)
+  if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
+    let roleId = scriptedState.pendingHybridRoles[agentId]
+    scriptedState.roleAssignments[agentId] = roleId
+    scriptedState.roleIsScripted[agentId] = true
+    state.role = Scripted
+    state.activeOptionId = -1
+    state.activeOptionTicks = 0
+    return
   var roleId = -1
   if randChance(controller.rng, ScriptedRoleExplorationChance):
     roleId = generateRandomRole(scriptedState, controller.rng, "explore")
@@ -553,48 +564,52 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
           inc scriptedState.catalog.behaviors[behaviorId].uses
   scriptedState.catalog.saveRoleHistory(ScriptedRoleHistoryPath)
 
-proc processTempleInteractions(controller: Controller, env: Environment) =
-  if env.templeInteractions.len < 2:
-    env.templeInteractions.setLen(0)
+proc roleIdForAgent(controller: Controller, agentId: int): int =
+  let assigned = scriptedState.roleAssignments[agentId]
+  if assigned >= 0 and assigned < scriptedState.catalog.roles.len:
+    return assigned
+  let stateRole = controller.agents[agentId].role
+  let coreId = scriptedState.coreRoleIds[stateRole]
+  if coreId >= 0:
+    return coreId
+  scriptedState.coreRoleIds[Gatherer]
+
+proc injectBehavior(role: var RoleDef, rng: var Rand, catalog: RoleCatalog) =
+  if role.tiers.len == 0 or catalog.behaviors.len == 0:
     return
-  var used = newSeq[bool](env.templeInteractions.len)
-  for i in 0 ..< env.templeInteractions.len:
-    if used[i]:
+  let newId = randIntExclusive(rng, 0, catalog.behaviors.len)
+  for id in role.tiers[0].behaviorIds:
+    if id == newId:
+      return
+  role.tiers[0].behaviorIds.add newId
+
+proc processTempleHybridRequests(controller: Controller, env: Environment) =
+  if env.templeHybridRequests.len == 0:
+    return
+  for req in env.templeHybridRequests:
+    if req.childId < 0 or req.childId >= MapAgents:
       continue
-    let a = env.templeInteractions[i]
-    for j in i + 1 ..< env.templeInteractions.len:
-      if used[j]:
-        continue
-      let b = env.templeInteractions[j]
-      if a.pos != b.pos or a.teamId != b.teamId:
-        continue
-      used[i] = true
-      used[j] = true
-      let roleA = scriptedState.roleAssignments[a.agentId]
-      let roleB = scriptedState.roleAssignments[b.agentId]
-      if roleA < 0 or roleB < 0 or
-          roleA >= scriptedState.catalog.roles.len or roleB >= scriptedState.catalog.roles.len:
-        break
-      var hybrid = recombineRoles(scriptedState.catalog, controller.rng,
-        scriptedState.catalog.roles[roleA], scriptedState.catalog.roles[roleB])
-      if randChance(controller.rng, ScriptedRoleMutationChance):
-        hybrid = mutateRole(scriptedState.catalog, controller.rng, hybrid, scriptedState.evolutionConfig.mutationRate)
-      hybrid.origin = "temple"
-      let newRoleId = registerRole(scriptedState.catalog, hybrid)
-      ensureRoleCache(scriptedState)
-      scriptedState.rolePool.add newRoleId
-      for agentId in [a.agentId, b.agentId]:
-        if agentId < 0 or agentId >= MapAgents:
-          continue
-        scriptedState.roleAssignments[agentId] = newRoleId
-        scriptedState.roleIsScripted[agentId] = true
-        var state = controller.agents[agentId]
-        state.role = Scripted
-        state.activeOptionId = -1
-        state.activeOptionTicks = 0
-        controller.agents[agentId] = state
-      break
-  env.templeInteractions.setLen(0)
+    let roleAId = roleIdForAgent(controller, req.parentA)
+    let roleBId = roleIdForAgent(controller, req.parentB)
+    if roleAId < 0 or roleBId < 0:
+      continue
+    let roleA = scriptedState.catalog.roles[roleAId]
+    let roleB = scriptedState.catalog.roles[roleBId]
+    var hybrid = recombineRoles(scriptedState.catalog, controller.rng, roleA, roleB)
+    if randChance(controller.rng, ScriptedRoleMutationChance):
+      hybrid = mutateRole(scriptedState.catalog, controller.rng, hybrid, scriptedState.evolutionConfig.mutationRate)
+    if randChance(controller.rng, 0.35):
+      injectBehavior(hybrid, controller.rng, scriptedState.catalog)
+    hybrid.origin = "temple"
+    let newRoleId = registerRole(scriptedState.catalog, hybrid)
+    ensureRoleCache(scriptedState)
+    scriptedState.rolePool.add newRoleId
+    scriptedState.pendingHybridRoles[req.childId] = newRoleId
+    if ScriptedTempleAssignEnabled:
+      scriptedState.roleAssignments[req.childId] = newRoleId
+      scriptedState.roleIsScripted[req.childId] = true
+      controller.agentsInitialized[req.childId] = false
+  env.templeHybridRequests.setLen(0)
 
 const GoblinAvoidRadius = 6
 
@@ -920,5 +935,5 @@ proc updateController*(controller: Controller, env: Environment) =
   if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
     applyScriptedScoring(controller, env)
     scriptedState.scoredAtStep = true
-  processTempleInteractions(controller, env)
+  processTempleHybridRequests(controller, env)
   scriptedState.lastEpisodeStep = env.currentStep
