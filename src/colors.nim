@@ -122,13 +122,13 @@ proc applyBiomeBaseColors*(env: Environment) =
 
           let raw = 1.0'f32 - (float32(minDist - 1) / float32(BiomeEdgeBlendRadius))
           let clamped = max(0.0'f32, min(1.0'f32, raw))
-          let t = clamped * clamped * (3.0'f32 - 2.0'f32 * clamped)
-          let invT = 1.0'f32 - t
+          let easeT = clamped * clamped * (3.0'f32 - 2.0'f32 * clamped)
+          let invT = 1.0'f32 - easeT
           color = TileColor(
-            r: color.r * invT + neighborColor.r * t,
-            g: color.g * invT + neighborColor.g * t,
-            b: color.b * invT + neighborColor.b * t,
-            intensity: color.intensity * invT + neighborColor.intensity * t
+            r: color.r * invT + neighborColor.r * easeT,
+            g: color.g * invT + neighborColor.g * easeT,
+            b: color.b * invT + neighborColor.b * easeT,
+            intensity: color.intensity * invT + neighborColor.intensity * easeT
           )
       colors[x][y] = color
 
@@ -152,11 +152,11 @@ proc applyBiomeBaseColors*(env: Environment) =
               let ny = y + dy
               if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
                 continue
-              let c = colors[nx][ny]
-              sumR += c.r * neighborWeight
-              sumG += c.g * neighborWeight
-              sumB += c.b * neighborWeight
-              sumI += c.intensity * neighborWeight
+              let neighborColor = colors[nx][ny]
+              sumR += neighborColor.r * neighborWeight
+              sumG += neighborColor.g * neighborWeight
+              sumB += neighborColor.b * neighborWeight
+              sumI += neighborColor.intensity * neighborWeight
               total += neighborWeight
           temp[x][y] = TileColor(
             r: sumR / total,

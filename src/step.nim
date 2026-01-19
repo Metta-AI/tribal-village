@@ -84,9 +84,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         continue
       let x = pos.x
       let y = pos.y
-      let c = env.actionTintCountdown[x][y]
-      if c > 0:
-        let next = c - 1
+      let countdown = env.actionTintCountdown[x][y]
+      if countdown > 0:
+        let next = countdown - 1
         env.actionTintCountdown[x][y] = next
         if next == 0:
           env.actionTintFlags[x][y] = false
@@ -186,14 +186,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var relocated = false
           # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
           template spacingOk(nextPos: IVec2): bool =
-            var ok = true
+            var isSpaced = true
             for t in env.thingsByKind[Lantern]:
               if t != blocker:
                 let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
                 if dist < 3'i32:
-                  ok = false
+                  isSpaced = false
                   break
-            ok
+            isSpaced
           # Preferred push positions in move direction
           let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
           let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
@@ -478,8 +478,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let perp = if delta.x != 0: ivec2(0, 1) else: ivec2(1, 0)
             let forward = agent.pos + ivec2(delta.x, delta.y)
             for offset in -1 .. 1:
-              let p = forward + ivec2(perp.x * offset, perp.y * offset)
-              env.applyActionTint(p, tint, 2, ActionTintShield)
+              let pos = forward + ivec2(perp.x * offset, perp.y * offset)
+              env.applyActionTint(pos, tint, 2, ActionTintShield)
           env.shieldCountdown[agent.agentId] = 2
 
         # Spear: area strike (3 forward + diagonals)
@@ -612,9 +612,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               let tint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1)
               for dx in -1 .. 1:
                 for dy in -1 .. 1:
-                  let p = agent.pos + ivec2(dx, dy)
-                  env.applyActionTint(p, tint, 2, ActionTintHealBread)
-                  let occ = env.getThing(p)
+                  let pos = agent.pos + ivec2(dx, dy)
+                  env.applyActionTint(pos, tint, 2, ActionTintHealBread)
+                  let occ = env.getThing(pos)
                   if not occ.isNil and occ.kind == Agent:
                     let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)
                     if healAmt > 0:
@@ -857,10 +857,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   for entry in carried:
                     let key = entry.key
                     let count = entry.count
-                    let res = stockpileResourceForItem(key)
-                    if res == ResourceWater:
+                    let stockpileRes = stockpileResourceForItem(key)
+                    if stockpileRes == ResourceWater:
                       continue
-                    if res == ResourceGold:
+                    if stockpileRes == ResourceGold:
                       let gained = (count * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
                       if gained <= 0:
                         continue
@@ -2154,7 +2154,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     maybeFinalizeReplay(env)
 
   if logRenderEnabled and (env.currentStep mod logRenderEvery == 0):
-    var entry = "STEP " & $env.currentStep & "\n"
+    var logEntry = "STEP " & $env.currentStep & "\n"
     var teamSeen: array[MapRoomObjectsTeams, bool]
     for agent in env.agents:
       if agent.isNil:
@@ -2162,18 +2162,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       let teamId = getTeamId(agent)
       if teamId >= 0 and teamId < teamSeen.len:
         teamSeen[teamId] = true
-    entry.add("Stockpiles:\n")
+    logEntry.add("Stockpiles:\n")
     for teamId, seen in teamSeen:
       if not seen:
         continue
-      entry.add(
+      logEntry.add(
         "  t" & $teamId &
         " food=" & $env.stockpileCount(teamId, ResourceFood) &
         " wood=" & $env.stockpileCount(teamId, ResourceWood) &
         " stone=" & $env.stockpileCount(teamId, ResourceStone) &
         " gold=" & $env.stockpileCount(teamId, ResourceGold) & "\n"
       )
-    entry.add("Agents:\n")
+    logEntry.add("Agents:\n")
     for id, agent in env.agents:
       if agent.isNil:
         continue
@@ -2186,7 +2186,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if count > 0:
           invParts.add($key & "=" & $count)
       let invSummary = if invParts.len > 0: invParts.join(",") else: "-"
-      entry.add(
+      logEntry.add(
         "  a" & $id &
         " t" & $getTeamId(agent) &
         " " & (case agent.agentId mod MapAgentsPerVillage:
@@ -2224,13 +2224,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         " hp=" & $agent.hp & "/" & $agent.maxHp &
         " inv=" & invSummary & "\n"
       )
-    entry.add("Map:\n")
-    entry.add(env.render())
+    logEntry.add("Map:\n")
+    logEntry.add(env.render())
     if logRenderBuffer.len < logRenderWindow:
-      logRenderBuffer.add(entry)
+      logRenderBuffer.add(logEntry)
       logRenderCount = logRenderBuffer.len
     else:
-      logRenderBuffer[logRenderHead] = entry
+      logRenderBuffer[logRenderHead] = logEntry
       logRenderHead = (logRenderHead + 1) mod logRenderWindow
       logRenderCount = logRenderWindow
 
@@ -2238,8 +2238,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       var output = newStringOfCap(logRenderCount * 512)
       output.add("=== tribal-village log window (" & $logRenderCount & " steps) ===\n")
       for i in 0 ..< logRenderCount:
-        let idx = (logRenderHead + i) mod logRenderCount
-        output.add(logRenderBuffer[idx])
+        let renderIdx = (logRenderHead + i) mod logRenderCount
+        output.add(logRenderBuffer[renderIdx])
         output.add("\n")
       writeFile(logRenderPath, output)
 

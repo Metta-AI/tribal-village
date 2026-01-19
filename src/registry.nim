@@ -399,7 +399,7 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
     let costs = BuildingRegistry[kind].buildCost
     if costs.len == 0:
       continue
-    let id = toSnakeCase($kind)
+    let recipeId = toSnakeCase($kind)
     let station = StationTable
     let cooldown = BuildingRegistry[kind].buildCooldown
-    addRecipe(recipes, id, station, costs, @[(thingItem($kind), 1)], cooldown)
+    addRecipe(recipes, recipeId, station, costs, @[(thingItem($kind), 1)], cooldown)

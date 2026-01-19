@@ -308,10 +308,10 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
       bestDist = drc * drc + dgc * dgc + dbc * dbc
       bestTeam = MapRoomObjectsTeams
       for teamId in 0 ..< min(env.teamColors.len, MapRoomObjectsTeams):
-        let t = env.teamColors[teamId]
-        let dr = tint.r - t.r
-        let dg = tint.g - t.g
-        let db = tint.b - t.b
+        let teamColor = env.teamColors[teamId]
+        let dr = tint.r - teamColor.r
+        let dg = tint.g - teamColor.g
+        let db = tint.b - teamColor.b
         let dist = dr * dr + dg * dg + db * db
         if dist < bestDist:
           bestDist = dist
@@ -549,8 +549,8 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
       continue
     if not isStockpileResourceKey(key):
       continue
-    let res = stockpileResourceForItem(key)
-    if res in allowed:
+    let stockpileRes = stockpileResourceForItem(key)
+    if stockpileRes in allowed:
       depositKeys.add(key)
   if depositKeys.len == 0:
     return false
@@ -558,8 +558,8 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
     let count = getInv(agent, key)
     if count <= 0:
       continue
-    let res = stockpileResourceForItem(key)
-    env.addToStockpile(teamId, res, count)
+    let stockpileRes = stockpileResourceForItem(key)
+    env.addToStockpile(teamId, stockpileRes, count)
     setInv(agent, key, 0)
     env.updateAgentInventoryObs(agent, key)
   true
@@ -604,8 +604,8 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
     var canApply = true
     for input in recipe.inputs:
       if useStockpile and isStockpileResourceKey(input.key):
-        let res = stockpileResourceForItem(input.key)
-        if env.stockpileCount(teamId, res) < input.count:
+        let stockpileRes = stockpileResourceForItem(input.key)
+        if env.stockpileCount(teamId, stockpileRes) < input.count:
           canApply = false
           break
       elif getInv(agent, input.key) < input.count:
@@ -765,9 +765,9 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
       continue
     if not buildingBuildable(kind):
       continue
-    let idx = BuildingRegistry[kind].buildIndex
-    if idx >= 0 and idx < choices.len:
-      choices[idx] = thingItem($kind)
+    let buildIndex = BuildingRegistry[kind].buildIndex
+    if buildIndex >= 0 and buildIndex < choices.len:
+      choices[buildIndex] = thingItem($kind)
   choices[BuildIndexWall] = thingItem("Wall")
   choices[BuildIndexRoad] = thingItem("Road")
   choices[BuildIndexDoor] = thingItem("Door")

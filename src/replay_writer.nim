@@ -158,20 +158,20 @@ proc ensureReplayObject(writer: ReplayWriter, thing: Thing): ReplayObject =
   if writer.objects.len < objectId:
     writer.objects.setLen(objectId)
   if writer.objects[objectId - 1].isNil:
-    let obj = ReplayObject(id: objectId)
-    obj.constFields = initTable[string, JsonNode]()
-    obj.series = initTable[string, ReplaySeries]()
-    obj.constFields["id"] = newJInt(objectId)
-    obj.constFields["type_name"] = newJString(toReplayTypeName(thing.kind))
+    let replayObj = ReplayObject(id: objectId)
+    replayObj.constFields = initTable[string, JsonNode]()
+    replayObj.series = initTable[string, ReplaySeries]()
+    replayObj.constFields["id"] = newJInt(objectId)
+    replayObj.constFields["type_name"] = newJString(toReplayTypeName(thing.kind))
     if thing.kind == Agent:
-      obj.constFields["agent_id"] = newJInt(thing.agentId)
-      obj.constFields["group_id"] = newJInt(getTeamId(thing))
-      obj.constFields["inventory_max"] = newJInt(MapObjectAgentMaxInventory)
+      replayObj.constFields["agent_id"] = newJInt(thing.agentId)
+      replayObj.constFields["group_id"] = newJInt(getTeamId(thing))
+      replayObj.constFields["inventory_max"] = newJInt(MapObjectAgentMaxInventory)
     elif thing.barrelCapacity > 0:
-      obj.constFields["inventory_max"] = newJInt(thing.barrelCapacity)
+      replayObj.constFields["inventory_max"] = newJInt(thing.barrelCapacity)
     else:
-      obj.constFields["inventory_max"] = newJInt(0)
-    writer.objects[objectId - 1] = obj
+      replayObj.constFields["inventory_max"] = newJInt(0)
+    writer.objects[objectId - 1] = replayObj
   writer.objects[objectId - 1]
 
 proc actionSuccess(writer: ReplayWriter, agentId: int, env: Environment): bool =
@@ -205,33 +205,33 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
   for thing in env.things:
     if thing.isNil:
       continue
-    let obj = writer.ensureReplayObject(thing)
-    let idx = obj.id - 1
-    if idx >= seen.len:
+    let replayObj = writer.ensureReplayObject(thing)
+    let objectIdx = replayObj.id - 1
+    if objectIdx >= seen.len:
       let oldLen = seen.len
-      seen.setLen(idx + 1)
+      seen.setLen(objectIdx + 1)
       for i in oldLen ..< seen.len:
         seen[i] = false
-    seen[idx] = true
-    obj.active = true
+    seen[objectIdx] = true
+    replayObj.active = true
 
-    obj.addSeries("location", stepIndex, locationNode(thing.pos))
-    obj.addSeries("orientation", stepIndex, newJInt(thing.orientation.int))
-    obj.addSeries("inventory", stepIndex, inventoryNode(thing))
-    obj.addSeries("color", stepIndex, newJInt(resolveColor(thing)))
+    replayObj.addSeries("location", stepIndex, locationNode(thing.pos))
+    replayObj.addSeries("orientation", stepIndex, newJInt(thing.orientation.int))
+    replayObj.addSeries("inventory", stepIndex, inventoryNode(thing))
+    replayObj.addSeries("color", stepIndex, newJInt(resolveColor(thing)))
 
     if thing.kind == Agent:
       let agentId = thing.agentId
       let actionValue = actions[][agentId]
       let verb = actionValue.int div ActionArgumentCount
       let arg = actionValue.int mod ActionArgumentCount
-      obj.addSeries("action_id", stepIndex, newJInt(verb))
-      obj.addSeries("action_param", stepIndex, newJInt(arg))
-      obj.addSeries("action_success", stepIndex, newJBool(writer.actionSuccess(agentId, env)))
-      obj.addSeries("current_reward", stepIndex, newJFloat(thing.reward.float))
+      replayObj.addSeries("action_id", stepIndex, newJInt(verb))
+      replayObj.addSeries("action_param", stepIndex, newJInt(arg))
+      replayObj.addSeries("action_success", stepIndex, newJBool(writer.actionSuccess(agentId, env)))
+      replayObj.addSeries("current_reward", stepIndex, newJFloat(thing.reward.float))
       writer.totalRewards[agentId] += thing.reward
-      obj.addSeries("total_reward", stepIndex, newJFloat(writer.totalRewards[agentId].float))
-      obj.addSeries("is_frozen", stepIndex, newJBool(thing.frozen > 0))
+      replayObj.addSeries("total_reward", stepIndex, newJFloat(writer.totalRewards[agentId].float))
+      replayObj.addSeries("is_frozen", stepIndex, newJBool(thing.frozen > 0))
 
   for idx, obj in writer.objects:
     if obj.isNil:
@@ -284,8 +284,8 @@ proc maybeFinalizeReplay*(env: Environment) =
   let writer = replayWriter
   if writer.isNil or not writer.active:
     return
-  let data = buildReplayJson(writer, env)
-  let jsonData = $data
+  let replayJson = buildReplayJson(writer, env)
+  let jsonData = $replayJson
   let compressed = zippy.compress(jsonData, dataFormat = dfZlib)
   if writer.outputPath.len > 0:
     let dir = parentDir(writer.outputPath)

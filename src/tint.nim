@@ -22,18 +22,18 @@ proc updateTintModifications(env: Environment) =
     let tileY = pos.y.int
     let current = env.tintMods[tileX][tileY]
     let strength = env.tintStrength[tileX][tileY]
-    let r = int(round(current.r.float32 * TrailDecay))
+    let decayedR = int(round(current.r.float32 * TrailDecay))
     let g = int(round(current.g.float32 * TrailDecay))
     let b = int(round(current.b.float32 * TrailDecay))
-    let s = int(round(strength.float32 * TrailDecay))
-    if abs(s) < MinTintEpsilon:
+    let decayedStrength = int(round(strength.float32 * TrailDecay))
+    if abs(decayedStrength) < MinTintEpsilon:
       env.tintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tintStrength[tileX][tileY] = 0
       env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
       env.activeTiles.flags[tileX][tileY] = false
       continue
-    env.tintMods[tileX][tileY] = TintModification(r: r.int32, g: g.int32, b: b.int32)
-    env.tintStrength[tileX][tileY] = s.int32
+    env.tintMods[tileX][tileY] = TintModification(r: decayedR.int32, g: g.int32, b: b.int32)
+    env.tintStrength[tileX][tileY] = decayedStrength.int32
     env.activeTiles.positions[writeIdx] = pos
     inc writeIdx
   env.activeTiles.positions.setLen(writeIdx)
@@ -47,17 +47,17 @@ proc updateTintModifications(env: Environment) =
     let tileY = pos.y.int
     let current = env.tumorTintMods[tileX][tileY]
     let strength = env.tumorStrength[tileX][tileY]
-    let r = int(round(current.r.float32 * TumorDecay))
+    let decayedR = int(round(current.r.float32 * TumorDecay))
     let g = int(round(current.g.float32 * TumorDecay))
     let b = int(round(current.b.float32 * TumorDecay))
-    let s = int(round(strength.float32 * TumorDecay))
-    if abs(s) < MinTintEpsilon:
+    let decayedStrength = int(round(strength.float32 * TumorDecay))
+    if abs(decayedStrength) < MinTintEpsilon:
       env.tumorTintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tumorStrength[tileX][tileY] = 0
       env.tumorActiveTiles.flags[tileX][tileY] = false
       continue
-    env.tumorTintMods[tileX][tileY] = TintModification(r: r.int32, g: g.int32, b: b.int32)
-    env.tumorStrength[tileX][tileY] = s.int32
+    env.tumorTintMods[tileX][tileY] = TintModification(r: decayedR.int32, g: g.int32, b: b.int32)
+    env.tumorStrength[tileX][tileY] = decayedStrength.int32
     env.tumorActiveTiles.positions[writeIdx] = pos
     inc writeIdx
   env.tumorActiveTiles.positions.setLen(writeIdx)

@@ -107,16 +107,16 @@ proc makeConnected*(env: Environment) =
     for x in MapBorder ..< MapWidth - MapBorder:
       for y in MapBorder ..< MapHeight - MapBorder:
         if labels[x][y] == sourceLabel:
-          let idx = y * MapWidth + x
-          dist[idx] = 0
-          prev[idx] = -2
-          queue.add(idx)
+          let cellIdx = y * MapWidth + x
+          dist[cellIdx] = 0
+          prev[cellIdx] = -2
+          queue.add(cellIdx)
 
     while head < queue.len:
-      let idx = queue[head]
+      let cellIdx = queue[head]
       inc head
-      let x = idx mod MapWidth
-      let y = idx div MapWidth
+      let x = cellIdx mod MapWidth
+      let y = cellIdx div MapWidth
       let curPos = ivec2(x.int32, y.int32)
       for d in ConnectDirs8:
         let nx = x + d.x.int
@@ -128,11 +128,11 @@ proc makeConnected*(env: Environment) =
           continue
         if digCost(env, npos) == int.high:
           continue
-        let nidx = ny * MapWidth + nx
-        if dist[nidx] < 0:
-          dist[nidx] = dist[idx] + 1
-          prev[nidx] = idx
-          queue.add(nidx)
+        let neighborIdx = ny * MapWidth + nx
+        if dist[neighborIdx] < 0:
+          dist[neighborIdx] = dist[cellIdx] + 1
+          prev[neighborIdx] = cellIdx
+          queue.add(neighborIdx)
 
   var labels: array[MapWidth, array[MapHeight, int16]]
   var counts: seq[int] = @[]
@@ -160,17 +160,17 @@ proc makeConnected*(env: Environment) =
         for y in MapBorder ..< MapHeight - MapBorder:
           if labels[x][y] != label.int16:
             continue
-          let idx = y * MapWidth + x
-          if dist[idx] >= 0 and dist[idx] < bestDist:
-            bestDist = dist[idx]
-            bestIdx = idx
+          let cellIdx = y * MapWidth + x
+          if dist[cellIdx] >= 0 and dist[cellIdx] < bestDist:
+            bestDist = dist[cellIdx]
+            bestIdx = cellIdx
       if bestIdx >= 0 and bestDist < inf:
-        var cur = bestIdx
-        while cur >= 0 and prev[cur] >= 0:
-          let x = cur mod MapWidth
-          let y = cur div MapWidth
+        var currentIdx = bestIdx
+        while currentIdx >= 0 and prev[currentIdx] >= 0:
+          let x = currentIdx mod MapWidth
+          let y = currentIdx div MapWidth
           digCell(env, ivec2(x.int32, y.int32))
-          cur = prev[cur]
+          currentIdx = prev[currentIdx]
         anyDig = true
     if not anyDig:
       break

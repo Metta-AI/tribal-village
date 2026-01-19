@@ -38,11 +38,11 @@ proc generateDfViewAssets*() =
     let idxStr = parts[^1]
     if idxStr.len == 0 or not idxStr.allCharsInSet(Digits):
       continue
-    let idx = parseInt(idxStr)
+    let tilesetIdx = parseInt(idxStr)
     let filename = parts[1]
     if filename.len == 0:
       continue
-    tilesets[idx] = ArtDir / filename
+    tilesets[tilesetIdx] = ArtDir / filename
   if tilesets.len == 0:
     return
 
@@ -64,12 +64,12 @@ proc generateDfViewAssets*() =
     for i in countdown(parts.len - 1, 0):
       if parts[i].len == 0 or not parts[i].allCharsInSet(Digits):
         continue
-      let value = parseInt(parts[i])
-      if value notin tilesets:
+      let tilesetIdxValue = parseInt(parts[i])
+      if tilesetIdxValue notin tilesets:
         continue
       for j in i + 1 ..< parts.len:
         if parts[j].len > 0 and parts[j].allCharsInSet(Digits):
-          tilesetIdx = value
+          tilesetIdx = tilesetIdxValue
           tileIndex = parseInt(parts[j])
           break
       if tilesetIdx != -1:
@@ -140,27 +140,27 @@ proc generateDfViewAssets*() =
       noteMissing(token)
       continue
 
-    let entry = overrides[lookupToken]
-    if entry.tilesetIdx notin tilesets:
+    let overrideEntry = overrides[lookupToken]
+    if overrideEntry.tilesetIdx notin tilesets:
       noteMissing(token)
       continue
 
-    let sheetPath = tilesets[entry.tilesetIdx]
+    let sheetPath = tilesets[overrideEntry.tilesetIdx]
     if not fileExists(sheetPath):
       noteMissing(token)
       continue
 
-    writeScaledTile(outPath, entry.tilesetIdx, entry.tileIndex, sheetPath)
+    writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
 
   # Replace the road sprite with a constructed floor tile when available.
   if "ConstructedFloor" in overrides:
-    let entry = overrides["ConstructedFloor"]
-    if entry.tilesetIdx in tilesets:
-      let sheetPath = tilesets[entry.tilesetIdx]
+    let overrideEntry = overrides["ConstructedFloor"]
+    if overrideEntry.tilesetIdx in tilesets:
+      let sheetPath = tilesets[overrideEntry.tilesetIdx]
       if fileExists(sheetPath):
         let outPath = MapDir / "road.png"
         if not fileExists(outPath):
-          writeScaledTile(outPath, entry.tilesetIdx, entry.tileIndex, sheetPath)
+          writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
   else:
     noteMissing("road")
 

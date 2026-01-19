@@ -8,8 +8,8 @@ type
     state: uint64
 
 proc initRand*(seed: int): Rand =
-  let s = if seed == 0: DefaultSeed else: uint64(seed)
-  result.state = s
+  let seedValue = if seed == 0: DefaultSeed else: uint64(seed)
+  result.state = seedValue
 
 proc next*(r: var Rand): uint64 =
   var x = r.state

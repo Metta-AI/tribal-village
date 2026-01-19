@@ -16,13 +16,13 @@ proc removeThing(env: Environment, thing: Thing) =
     else:
       env.backgroundGrid[thing.pos.x][thing.pos.y] = nil
     env.updateObservations(ThingAgentLayer, thing.pos, 0)
-  let idx = thing.thingsIndex
-  if idx >= 0 and idx < env.things.len and env.things[idx] == thing:
+  let thingIdx = thing.thingsIndex
+  if thingIdx >= 0 and thingIdx < env.things.len and env.things[thingIdx] == thing:
     let lastIdx = env.things.len - 1
-    if idx != lastIdx:
+    if thingIdx != lastIdx:
       let last = env.things[lastIdx]
-      env.things[idx] = last
-      last.thingsIndex = idx
+      env.things[thingIdx] = last
+      last.thingsIndex = thingIdx
     env.things.setLen(lastIdx)
   let kindIdx = thing.kindListIndex
   if kindIdx >= 0 and kindIdx < env.thingsByKind[thing.kind].len and

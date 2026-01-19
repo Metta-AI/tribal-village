@@ -56,8 +56,8 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
           for layer in 0 ..< ObservationLayers:
             if layer == ObscuredLayerIndex:
               continue
-            let idx = agentBase + layer * ObsTileStride + xOffset + y
-            obs_buffer[idx] = 0
+            let bufferIdx = agentBase + layer * ObsTileStride + xOffset + y
+            obs_buffer[bufferIdx] = 0
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
@@ -213,10 +213,10 @@ proc tribal_village_render_rgb(
           var bByte = toByte(color.b)
 
           if globalEnv.actionTintCountdown[x][y] > 0:
-            let c = globalEnv.actionTintColor[x][y]
-            rByte = toByte(c.r)
-            gByte = toByte(c.g)
-            bByte = toByte(c.b)
+            let tint = globalEnv.actionTintColor[x][y]
+            rByte = toByte(tint.r)
+            gByte = toByte(tint.g)
+            bByte = toByte(tint.b)
 
           let thing = globalEnv.grid[x][y]
           if not isNil(thing):
@@ -253,10 +253,10 @@ proc tribal_village_render_rgb(
 
           let xBase = (y * scaleY + sy) * (width * 3) + x * scaleX * 3
           for sx in 0 ..< scaleX:
-            let idx = xBase + sx * 3
-            out_buffer[idx] = rByte
-            out_buffer[idx + 1] = gByte
-            out_buffer[idx + 2] = bByte
+            let bufferIdx = xBase + sx * 3
+            out_buffer[bufferIdx] = rByte
+            out_buffer[bufferIdx + 1] = gByte
+            out_buffer[bufferIdx + 2] = bByte
     return 1
   except:
     return 0
@@ -276,9 +276,9 @@ proc tribal_village_render_ansi(
   ## Write an ANSI string render into out_buffer (null-terminated).
   ## Returns number of bytes written (excluding terminator). 0 on error.
   try:
-    let s = render(globalEnv)  # environment.render*(env: Environment): string
-    let n = min(s.len, max(0, buf_len - 1).int)
-    copyMem(out_buffer, cast[pointer](s.cstring), n)
+    let rendered = render(globalEnv)  # environment.render*(env: Environment): string
+    let n = min(rendered.len, max(0, buf_len - 1).int)
+    copyMem(out_buffer, cast[pointer](rendered.cstring), n)
     out_buffer[n] = '\0'  # null-terminate
     return n.int32
   except:

@@ -171,8 +171,8 @@ proc applyMaskToTerrain(terrain: var TerrainGrid, mask: MaskGrid, mapWidth, mapH
 proc blendChanceForDistance(dist, depth: int, edgeChance: float): float =
   if depth <= 0:
     return 1.0
-  let t = min(1.0, dist.float / depth.float)
-  edgeChance + (1.0 - edgeChance) * t
+  let blendT = min(1.0, dist.float / depth.float)
+  edgeChance + (1.0 - edgeChance) * blendT
 
 proc canApplyBiome(currentBiome, biomeType, baseBiomeType: BiomeType): bool =
   currentBiome == BiomeNone or currentBiome == baseBiomeType or currentBiome == biomeType
@@ -971,33 +971,33 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   var remaining = desiredBridges - placed.len
   if remaining > 0 and mainCandidates.len > 0:
     let stride = max(1, mainCandidates.len div (remaining + 1))
-    var idx = stride
-    while remaining > 0 and idx < mainCandidates.len:
-      let center = mainCandidates[idx]
+    var candidateIdx = stride
+    while remaining > 0 and candidateIdx < mainCandidates.len:
+      let center = mainCandidates[candidateIdx]
       uniqueAdd(center, placed)
       placeBridgeMain(terrain, center)
       dec remaining
-      idx += stride
+      candidateIdx += stride
 
   if remaining > 0 and branchUpCandidates.len > 0:
     let stride = max(1, branchUpCandidates.len div (remaining + 1))
-    var idx = stride
-    while remaining > 0 and idx < branchUpCandidates.len:
-      let center = branchUpCandidates[idx]
+    var candidateIdx = stride
+    while remaining > 0 and candidateIdx < branchUpCandidates.len:
+      let center = branchUpCandidates[candidateIdx]
       uniqueAdd(center, placed)
       placeBridgeBranch(terrain, center)
       dec remaining
-      idx += stride
+      candidateIdx += stride
 
   if remaining > 0 and branchDownCandidates.len > 0:
     let stride = max(1, branchDownCandidates.len div (remaining + 1))
-    var idx = stride
-    while remaining > 0 and idx < branchDownCandidates.len:
-      let center = branchDownCandidates[idx]
+    var candidateIdx = stride
+    while remaining > 0 and candidateIdx < branchDownCandidates.len:
+      let center = branchDownCandidates[candidateIdx]
       uniqueAdd(center, placed)
       placeBridgeBranch(terrain, center)
       dec remaining
-      idx += stride
+      candidateIdx += stride
 
   # Add a meandering road grid that criss-crosses the map.
   let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
@@ -1165,7 +1165,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                   mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
   ## Initialize base terrain and biomes (no water features).
-  var r = initRand(seed)
+  var rng = initRand(seed)
 
   if mapWidth > terrain.len or mapHeight > terrain[0].len:
     raise newException(ValueError, "Map size exceeds TerrainGrid bounds")
@@ -1182,9 +1182,9 @@ proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
       biomes[x][y] = baseBiomeType
 
   if UseBiomeTerrain:
-    applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, r)
+    applyBaseBiome(terrain, mapWidth, mapHeight, mapBorder, rng)
   if UseBiomeZones:
-    applyBiomeZones(terrain, biomes, mapWidth, mapHeight, mapBorder, r)
+    applyBiomeZones(terrain, biomes, mapWidth, mapHeight, mapBorder, rng)
 
 proc getStructureElements*(structure: Structure, topLeft: IVec2): tuple[
     walls: seq[IVec2],
