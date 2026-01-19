@@ -38,6 +38,15 @@ proc clearTile(env: Environment, pos: IVec2, kind: TerrainType = Empty) {.inline
     removeThing(env, background)
   setTerrain(env, pos, kind)
 
+type AttemptPredicate = proc(pos: IVec2, attempt: int): bool {.closure.}
+
+proc pickInteriorPos(r: var Rand, pad, attempts: int, accept: AttemptPredicate): IVec2 =
+  for attempt in 0 ..< attempts:
+    let pos = randInteriorPos(r, pad)
+    if accept(pos, attempt):
+      return pos
+  randInteriorPos(r, pad)
+
 proc appendUniquePositions(target: var seq[IVec2], extra: openArray[IVec2]) =
   for pos in extra:
     var exists = false
@@ -432,22 +441,13 @@ proc init(env: Environment) =
 
     let numGroves = randIntInclusive(r, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
     for _ in 0 ..< numGroves:
-      var placed = false
-      for attempt in 0 ..< 16:
-        let pos = randInteriorPos(r, 3)
-        if isNearWater(env, pos, 5) or attempt > 10:
-          let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-          let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-          carveTreeOasisWater(pos, rx, ry)
-          treeOases.add((center: pos, rx: rx, ry: ry))
-          placed = true
-          break
-      if not placed:
-        let pos = randInteriorPos(r, 3)
-        let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-        let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-        carveTreeOasisWater(pos, rx, ry)
-        treeOases.add((center: pos, rx: rx, ry: ry))
+      let pos = pickInteriorPos(r, 3, 16, proc(pos: IVec2, attempt: int): bool =
+        isNearWater(env, pos, 5) or attempt > 10
+      )
+      let rx = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+      let ry = randIntInclusive(r, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
+      carveTreeOasisWater(pos, rx, ry)
+      treeOases.add((center: pos, rx: rx, ry: ry))
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if env.terrain[x][y] in {Water, Bridge}:
@@ -1481,26 +1481,13 @@ proc init(env: Environment) =
   block:
     # Wheat fields.
     for _ in 0 ..< randIntInclusive(r, WheatFieldClusterCountMin, WheatFieldClusterCountMax):
-      var placed = false
-      for attempt in 0 ..< 20:
-        let pos = randInteriorPos(r, 3)
-        let x = pos.x.int
-        let y = pos.y.int
-        if isNearWater(env, pos, 5) or attempt > 10:
-          let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
-          for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
-            placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
-              Wheat, ItemWheat, ResourceGround, r)
-          placed = true
-          break
-      if not placed:
-        let pos = randInteriorPos(r, 3)
-        let x = pos.x.int
-        let y = pos.y.int
-        let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
-        for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
-          placeResourceCluster(env, x, y, fieldSize + sizeDelta, density, 0.3,
-            Wheat, ItemWheat, ResourceGround, r)
+      let pos = pickInteriorPos(r, 3, 20, proc(pos: IVec2, attempt: int): bool =
+        isNearWater(env, pos, 5) or attempt > 10
+      )
+      let fieldSize = randIntInclusive(r, WheatFieldSizeMin, WheatFieldSizeMax)
+      for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
+        placeResourceCluster(env, pos.x.int, pos.y.int, fieldSize + sizeDelta, density, 0.3,
+          Wheat, ItemWheat, ResourceGround, r)
 
     proc placeTreeOasisTrees(oasis: TreeOasis) =
       let centerX = oasis.center.x.int
@@ -1598,17 +1585,11 @@ proc init(env: Environment) =
         inc relicsPlaced
 
     for _ in 0 ..< 30:
-      var attempts = 0
-      var placed = false
-      while attempts < 12 and not placed:
-        inc attempts
-        let pos = randInteriorPos(r, 2)
-        let x = pos.x.int
-        let y = pos.y.int
-        if isNearWater(env, pos, 4) or attempts >= 10:
-          let size = randIntInclusive(r, 3, 7)
-          placeResourceCluster(env, x, y, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
-          placed = true
+      let pos = pickInteriorPos(r, 2, 12, proc(pos: IVec2, attempt: int): bool =
+        isNearWater(env, pos, 4) or attempt >= 9
+      )
+      let size = randIntInclusive(r, 3, 7)
+      placeResourceCluster(env, pos.x.int, pos.y.int, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, r)
 
     placeBiomeResourceClusters(env, r, max(10, MapWidth div 20),
       2, 5, 0.65, 0.4, Cactus, ItemPlant, BiomeDesertType)
