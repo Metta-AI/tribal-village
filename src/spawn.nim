@@ -90,8 +90,7 @@ proc placeResourceCluster(env: Environment, centerX, centerY: int, size: int,
       let dist = sqrt((dx * dx + dy * dy).float)
       if dist > radius.float:
         continue
-      let chance = baseDensity - (dist / radius.float) * falloffRate
-      if randChance(r, chance):
+      if randChance(r, baseDensity - (dist / radius.float) * falloffRate):
         addResourceNode(env, ivec2(x.int32, y.int32), kind, item)
 
 proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
@@ -210,20 +209,18 @@ proc init(env: Environment) =
           0
 
   var cliffCount = 0
-  let cliffDirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
       if env.terrain[x][y] == Water or env.terrain[x][y] == Road:
         continue
       let elev = env.elevation[x][y]
-      for d in cliffDirs:
+      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
         let nx = x + d.x.int
         let ny = y + d.y.int
         if nx < MapBorder or nx >= MapWidth - MapBorder or
            ny < MapBorder or ny >= MapHeight - MapBorder:
           continue
-        let nelev = env.elevation[nx][ny]
-        if nelev <= elev:
+        if env.elevation[nx][ny] <= elev:
           continue
         if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road:
           continue
@@ -452,14 +449,13 @@ proc init(env: Environment) =
       var y = startY
       while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
           y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
-        let outsideHub = x < x0 or x > x1 or y < y0 or y > y1
         let pos = ivec2(x.int32, y.int32)
         let existing = env.terrain[x][y]
         if env.terrain[x][y] == Water:
           setTerrain(env, pos, Bridge)
         else:
           setTerrain(env, pos, Road)
-        if outsideHub and existing in {Road, Bridge}:
+        if (x < x0 or x > x1 or y < y0 or y > y1) and existing in {Road, Bridge}:
           break
         x += dx
         y += dy
