@@ -29,15 +29,6 @@ proc setTerrain(env: Environment, pos: IVec2, kind: TerrainType) {.inline.} =
   env.terrain[pos.x][pos.y] = kind
   env.resetTileColor(pos)
 
-proc clearTile(env: Environment, pos: IVec2, kind: TerrainType = Empty) {.inline.} =
-  let existing = env.getThing(pos)
-  if not isNil(existing):
-    removeThing(env, existing)
-  let background = env.getBackgroundThing(pos)
-  if not isNil(background):
-    removeThing(env, background)
-  setTerrain(env, pos, kind)
-
 type AttemptPredicate = proc(pos: IVec2, attempt: int): bool {.closure.}
 
 proc pickInteriorPos(r: var Rand, pad, attempts: int, accept: AttemptPredicate): IVec2 =
