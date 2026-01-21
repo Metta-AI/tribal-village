@@ -1004,7 +1004,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       branchDownCandidates.add(pos)
 
   let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
-  let desiredBridges = max(randIntInclusive(r, 4, 5), (if hasBranch: 3 else: 0)) * 2
+  let desiredBridges = max(randIntInclusive(r, 3, 4), (if hasBranch: 3 else: 0)) * 2
 
   var placed: seq[IVec2] = @[]
   template placeFrom(cands: seq[IVec2], useBranch: bool) =
