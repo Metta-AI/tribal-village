@@ -41,8 +41,8 @@ const
   MapRoomObjectsGoldClusterCount* = 28
   MapRoomObjectsWalls* = 30
   MapRoomObjectsCows* = 24
-  MapRoomObjectsBears* = 2
-  MapRoomObjectsWolves* = 9
+  MapRoomObjectsBears* = 6
+  MapRoomObjectsWolves* = 12
   MapRoomObjectsRelics* = 18
   MapRoomObjectsGoblinHuts* = 3
   MapRoomObjectsGoblinTotems* = 2
