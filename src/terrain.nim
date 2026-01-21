@@ -878,9 +878,92 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place bridges across the river and any tributary branch.
-  # Bridges are three tiles wide (east-west) and span across the river north-south,
-  # with a slight overhang so they clear diagonal banks.
+  # Bridges are three tiles wide and span across the river, with a slight overhang
+  # and a diagonal stair-step option for prettier diagonal crossings.
+  proc slopeSignForMain(center: IVec2): int =
+    let x = center.x.int
+    let y = center.y.int
+    for step in 1 .. 3:
+      let right = x + step
+      if right < riverYByX.len and riverYByX[right] >= 0:
+        let dy = riverYByX[right] - y
+        if dy != 0:
+          return (if dy > 0: 1 else: -1)
+      let left = x - step
+      if left >= 0 and riverYByX[left] >= 0:
+        let dy = y - riverYByX[left]
+        if dy != 0:
+          return (if dy > 0: 1 else: -1)
+    0
+
+  proc slopeSignForPath(path: seq[IVec2], center: IVec2): int =
+    let idx = path.find(center)
+    if idx < 0:
+      return 0
+    for step in 1 .. 3:
+      let fwd = idx + step
+      if fwd < path.len:
+        let dx = (path[fwd].x - center.x).int
+        let dy = (path[fwd].y - center.y).int
+        if dx != 0 and dy != 0:
+          return (if dy > 0: 1 else: -1)
+      let back = idx - step
+      if back >= 0:
+        let dx = (center.x - path[back].x).int
+        let dy = (center.y - path[back].y).int
+        if dx != 0 and dy != 0:
+          return (if dy > 0: 1 else: -1)
+    0
+
+  proc placeBridgeDiagonal(t: var TerrainGrid, center: IVec2, slopeSign: int) =
+    let bridgeOverhang = 1
+    let scanSpan = RiverWidth div 2 + 3
+    let dirX = 1
+    let dirY = if slopeSign > 0: -1 else: 1
+    let widthX = dirX
+    let widthY = -dirY
+
+    template setBridgeTile(x, y: int) =
+      if x >= mapBorder and x < mapWidth - mapBorder and
+         y >= mapBorder and y < mapHeight - mapBorder:
+        if not inCorner(x, y):
+          t[x][y] = Bridge
+
+    var minStep = high(int)
+    var maxStep = low(int)
+    for w in -1 .. 1:
+      for step in -scanSpan .. scanSpan:
+        let x = center.x.int + dirX * step + widthX * w
+        let y = center.y.int + dirY * step + widthY * w
+        if x < mapBorder or x >= mapWidth - mapBorder or
+           y < mapBorder or y >= mapHeight - mapBorder:
+          continue
+        if inCorner(x, y):
+          continue
+        if t[x][y] in {Water, Bridge}:
+          if step < minStep:
+            minStep = step
+          if step > maxStep:
+            maxStep = step
+    if minStep > maxStep:
+      return
+    let startStep = minStep - bridgeOverhang
+    let endStep = maxStep + bridgeOverhang
+    let spanSteps = endStep - startStep
+    for w in -1 .. 1:
+      var x = center.x.int + dirX * startStep + widthX * w
+      var y = center.y.int + dirY * startStep + widthY * w
+      setBridgeTile(x, y)
+      for _ in 0 ..< spanSteps:
+        x += dirX
+        setBridgeTile(x, y)
+        y += dirY
+        setBridgeTile(x, y)
   proc placeBridgeMain(t: var TerrainGrid, center: IVec2) =
+    let slopeSign = slopeSignForMain(center)
+    if slopeSign != 0:
+      placeBridgeDiagonal(t, center, slopeSign)
+      return
     let bridgeOverhang = 1
     let scanSpan = RiverWidth div 2 + 2
     let scanStartY = max(mapBorder, int(center.y) - scanSpan)
@@ -911,6 +994,12 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
   # Branch bridges run horizontally (east-west span) across the tributary.
   proc placeBridgeBranch(t: var TerrainGrid, center: IVec2) =
+    var slopeSign = slopeSignForPath(branchUpPath, center)
+    if slopeSign == 0:
+      slopeSign = slopeSignForPath(branchDownPath, center)
+    if slopeSign != 0:
+      placeBridgeDiagonal(t, center, slopeSign)
+      return
     let bridgeOverhang = 1
     let scanSpan = RiverWidth div 2 + 2
     let scanStartX = max(mapBorder, int(center.x) - scanSpan)
@@ -1067,13 +1156,13 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
         let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
         let roll = randFloat(r)
-        if roll < 0.6:
+        if roll < 0.35:
           segmentDir = if randChance(r, 0.5): diagA else: diagB
-        elif roll < 0.9:
+        elif roll < 0.92:
           segmentDir = baseDir
         else:
           segmentDir = if randChance(r, 0.5): orthoA else: orthoB
-        segmentStepsLeft = randIntInclusive(r, 5, 10)
+        segmentStepsLeft = randIntInclusive(r, 7, 12)
         diagToggle = randChance(r, 0.5)
 
       let stepDir = if segmentDir.x != 0 and segmentDir.y != 0:
