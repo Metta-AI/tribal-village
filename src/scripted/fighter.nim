@@ -663,7 +663,3 @@ let FighterOptions* = [
     interruptible: true
   )
 ]
-
-proc decideFighter(controller: Controller, env: Environment, agent: Thing,
-                  agentId: int, state: var AgentState): uint8 =
-  return runOptions(controller, env, agent, agentId, state, FighterOptions)

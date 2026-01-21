@@ -436,7 +436,3 @@ let BuilderOptions* = [
     interruptible: true
   )
 ]
-
-proc decideBuilder(controller: Controller, env: Environment, agent: Thing,
-                  agentId: int, state: var AgentState): uint8 =
-  return runOptions(controller, env, agent, agentId, state, BuilderOptions)

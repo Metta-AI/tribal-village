@@ -686,9 +686,6 @@ proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thin
     return 0'u8
   return runOptions(controller, env, agent, agentId, state, options)
 
-proc decideScripted(controller: Controller, env: Environment, agent: Thing,
-                    agentId: int, state: var AgentState): uint8 =
-  decideRoleFromCatalog(controller, env, agent, agentId, state)
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]
 

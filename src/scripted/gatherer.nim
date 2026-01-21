@@ -453,8 +453,3 @@ let GathererOptions* = [
     interruptible: true
   )
 ]
-
-proc decideGatherer(controller: Controller, env: Environment, agent: Thing,
-                    agentId: int, state: var AgentState): uint8 =
-  updateGathererTask(controller, env, agent, state)
-  return runOptions(controller, env, agent, agentId, state, GathererOptions)
