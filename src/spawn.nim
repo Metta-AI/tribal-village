@@ -367,7 +367,7 @@ proc init(env: Environment) =
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
     let dungeonKinds = [DungeonMaze, DungeonRadial]
-    var count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    var count = zoneCount(DungeonZoneMinCount, DungeonZoneMaxCount, rng)
     if UseSequentialDungeonZones:
       count = max(count, dungeonKinds.len)
     var dungeonWalls: MaskGrid
@@ -583,17 +583,21 @@ proc init(env: Environment) =
 
     let center = ivec2(centerX.int32, centerY.int32)
     env.add(Thing(kind: Castle, pos: center, teamId: -1))
-    var hubBuildings = @[
+    let hubBuildingMultiplier = 3
+    let baseHubBuildings = @[
       Market, Market, Market, Outpost, Blacksmith, ClayOven, WeavingLoom,
       Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
       Monastery, University, House, House, Granary, Mill,
       LumberCamp, Quarry, MiningCamp, Barrel
     ]
+    var hubBuildings: seq[ThingKind] = @[]
+    for _ in 0 ..< hubBuildingMultiplier:
+      hubBuildings.add(baseHubBuildings)
     for i in countdown(hubBuildings.len - 1, 1):
       let j = randIntInclusive(rng, 0, i)
       swap(hubBuildings[i], hubBuildings[j])
     var placed = 0
-    let mainTarget = min(hubBuildings.len, randIntInclusive(rng, 16, 20))
+    let mainTarget = min(hubBuildings.len, randIntInclusive(rng, 16, 20) * hubBuildingMultiplier)
     for kind in hubBuildings:
       if placed >= mainTarget:
         break
@@ -619,7 +623,7 @@ proc init(env: Environment) =
         placedHere = true
 
     let minorPool = [House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill]
-    let extraTarget = randIntInclusive(rng, 10, 18)
+    let extraTarget = randIntInclusive(rng, 10, 18) * hubBuildingMultiplier
     var extraPlaced = 0
     var extraAttempts = 0
     while extraPlaced < extraTarget and extraAttempts < extraTarget * 60:
@@ -641,7 +645,7 @@ proc init(env: Environment) =
       House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
       LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
     ]
-    let scatterTarget = randIntInclusive(rng, 18, 30)
+    let scatterTarget = randIntInclusive(rng, 18, 30) * hubBuildingMultiplier
     let scatterRadius = half + 8
     let scatterInner = half + 2
     var scatterPlaced = 0

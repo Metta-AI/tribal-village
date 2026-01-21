@@ -108,9 +108,7 @@ const
   TreeOasisClusterCountMax* = 30
   TreeOasisWaterRadiusMin* = 1
   TreeOasisWaterRadiusMax* = 2
-  # Slightly lower biome/dungeon density for less crowded maps.
-  BiomeZoneDivisor* = 5000
-  DungeonZoneDivisor* = 7800
+  # Biome/dungeon zone counts are direct knobs (no map-size scaling).
   BiomeZoneMinCount* = 5
   BiomeZoneMaxCount* = 16
   DungeonZoneMinCount* = 4
@@ -501,9 +499,12 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
   mask[cx][cy] = true
   ditherEdges(mask, mapWidth, mapHeight, ZoneBlobDitherProb, ZoneBlobDitherDepth, r)
 
-proc zoneCount*(area: int, divisor: int, minCount: int, maxCount: int): int =
-  let raw = max(1, area div divisor)
-  clamp(raw, minCount, maxCount)
+proc zoneCount*(minCount: int, maxCount: int, r: var Rand): int =
+  let lo = min(minCount, maxCount)
+  let hi = max(minCount, maxCount)
+  if hi <= 0:
+    return 0
+  randIntInclusive(r, max(0, lo), hi)
 
 proc applySwampWater*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                       mapWidth, mapHeight, mapBorder: int,
@@ -547,7 +548,7 @@ proc applySwampWater*(terrain: var TerrainGrid, biomes: var BiomeGrid,
 
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
-  var count = zoneCount(mapWidth * mapHeight, BiomeZoneDivisor, BiomeZoneMinCount, BiomeZoneMaxCount)
+  var count = zoneCount(BiomeZoneMinCount, BiomeZoneMaxCount, r)
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow, BiomeSwamp]
   let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8, 0.7]
   if UseSequentialBiomeZones:
