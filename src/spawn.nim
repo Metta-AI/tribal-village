@@ -577,7 +577,8 @@ proc init(env: Environment) =
 
     let center = ivec2(centerX.int32, centerY.int32)
     env.add(Thing(kind: Castle, pos: center, teamId: -1))
-    let hubBuildingMultiplier = 3
+    let hubCoreMultiplier = 2
+    let hubScatterMultiplier = 3
     let baseHubBuildings = @[
       Market, Market, Market, Outpost, Blacksmith, ClayOven, WeavingLoom,
       Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
@@ -585,13 +586,13 @@ proc init(env: Environment) =
       LumberCamp, Quarry, MiningCamp, Barrel
     ]
     var hubBuildings: seq[ThingKind] = @[]
-    for _ in 0 ..< hubBuildingMultiplier:
+    for _ in 0 ..< hubCoreMultiplier:
       hubBuildings.add(baseHubBuildings)
     for i in countdown(hubBuildings.len - 1, 1):
       let j = randIntInclusive(rng, 0, i)
       swap(hubBuildings[i], hubBuildings[j])
     var placed = 0
-    let mainTarget = min(hubBuildings.len, randIntInclusive(rng, 16, 20) * hubBuildingMultiplier)
+    let mainTarget = min(hubBuildings.len, randIntInclusive(rng, 10, 14) * hubCoreMultiplier)
     for kind in hubBuildings:
       if placed >= mainTarget:
         break
@@ -619,7 +620,7 @@ proc init(env: Environment) =
         placedHere = true
 
     let minorPool = [House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill]
-    let extraTarget = randIntInclusive(rng, 10, 18) * hubBuildingMultiplier
+    let extraTarget = randIntInclusive(rng, 6, 10) * hubCoreMultiplier
     var extraPlaced = 0
     var extraAttempts = 0
     while extraPlaced < extraTarget and extraAttempts < extraTarget * 60:
@@ -643,9 +644,9 @@ proc init(env: Environment) =
       House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
       LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
     ]
-    let scatterTarget = randIntInclusive(rng, 18, 30) * hubBuildingMultiplier
-    let scatterRadius = half + 8
-    let scatterInner = half + 2
+    let scatterTarget = randIntInclusive(rng, 24, 36) * hubScatterMultiplier
+    let scatterRadius = half + 18
+    let scatterInner = half + 4
     var scatterPlaced = 0
     var scatterAttempts = 0
     while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
