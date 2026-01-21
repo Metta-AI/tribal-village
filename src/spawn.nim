@@ -367,12 +367,10 @@ proc init(env: Environment) =
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
     let dungeonKinds = [DungeonMaze, DungeonRadial]
-    var count = zoneCount(DungeonZoneMinCount, DungeonZoneMaxCount, rng)
-    if UseSequentialDungeonZones:
-      count = max(count, dungeonKinds.len)
+    let count = dungeonKinds.len
     var dungeonWalls: MaskGrid
     dungeonWalls.clearMask(MapWidth, MapHeight)
-    var seqIdx = randIntInclusive(rng, 0, dungeonKinds.len - 1)
+    var seqIdx = 0
     for zone in evenlyDistributedZones(rng, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction):
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
@@ -388,14 +386,10 @@ proc init(env: Environment) =
             continue
           env.biomes[x][y] = BiomeDungeonType
       var mask: MaskGrid
-      let dungeonKind = if UseSequentialDungeonZones:
+      let dungeonKind = block:
+        let selected = dungeonKinds[seqIdx mod dungeonKinds.len]
         inc seqIdx
-        dungeonKinds[(seqIdx - 1) mod dungeonKinds.len]
-      else:
-        if randFloat(rng) * 1.6 <= 1.0:
-          DungeonMaze
-        else:
-          DungeonRadial
+        selected
       case dungeonKind:
       of DungeonMaze:
         buildDungeonMazeMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, rng, DungeonMazeConfig())
@@ -614,10 +608,12 @@ proc init(env: Environment) =
           continue
         if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
           continue
-        let building = Thing(kind: kind, pos: pos, teamId: -1)
-        let capacity = buildingBarrelCapacity(kind)
-        if capacity > 0:
-          building.barrelCapacity = capacity
+        let building = Thing(
+          kind: kind,
+          pos: pos,
+          teamId: -1,
+          barrelCapacity: buildingBarrelCapacity(kind)
+        )
         env.add(building)
         inc placed
         placedHere = true
@@ -635,10 +631,12 @@ proc init(env: Environment) =
       if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
         continue
       let kind = minorPool[randIntInclusive(rng, 0, minorPool.len - 1)]
-      let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
-      let capacity = buildingBarrelCapacity(kind)
-      if capacity > 0:
-        building.barrelCapacity = capacity
+      let building = Thing(
+        kind: kind,
+        pos: ivec2(x.int32, y.int32),
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      )
       env.add(building)
       inc extraPlaced
     let scatterPool = [
@@ -654,9 +652,6 @@ proc init(env: Environment) =
       inc scatterAttempts
       let x = randIntInclusive(rng, centerX - scatterRadius, centerX + scatterRadius)
       let y = randIntInclusive(rng, centerY - scatterRadius, centerY + scatterRadius)
-      if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
-          y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
-        continue
       if x >= x0 and x <= x1 and y >= y0 and y <= y1:
         continue
       let dist = max(abs(x - centerX), abs(y - centerY))
@@ -665,10 +660,12 @@ proc init(env: Environment) =
       if not canPlaceHubThing(x, y):
         continue
       let kind = scatterPool[randIntInclusive(rng, 0, scatterPool.len - 1)]
-      let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
-      let capacity = buildingBarrelCapacity(kind)
-      if capacity > 0:
-        building.barrelCapacity = capacity
+      let building = Thing(
+        kind: kind,
+        pos: ivec2(x.int32, y.int32),
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      )
       env.add(building)
       inc scatterPlaced
 

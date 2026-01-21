@@ -108,9 +108,7 @@ proc optStoreValuables*(controller: Controller, env: Environment, agent: Thing,
     target = env.findNearestFriendlyThingSpiral(state, teamId, Barrel)
   if isNil(target):
     return 0'u8
-  if isAdjacent(agent.pos, target.pos):
-    return controller.useAt(env, agent, agentId, state, target.pos)
-  controller.moveTo(env, agent, agentId, state, target.pos)
+  return actOrMove(controller, env, agent, agentId, state, target.pos, 3'u8)
 
 proc canStartCraftBread*(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
@@ -686,9 +684,7 @@ proc optRelicRaider(controller: Controller, env: Environment, agent: Thing,
   let relic = env.findNearestThingSpiral(state, Relic)
   if isNil(relic):
     return 0'u8
-  if isAdjacent(agent.pos, relic.pos):
-    return controller.useAt(env, agent, agentId, state, relic.pos)
-  controller.moveTo(env, agent, agentId, state, relic.pos)
+  return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
 proc canStartRelicCourier(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
@@ -741,9 +737,7 @@ proc optFertileExpansion(controller: Controller, env: Environment, agent: Thing,
     let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
     let target = findIrrigationTarget(env, basePos, 6)
     if target.x >= 0:
-      if isAdjacent(agent.pos, target):
-        return controller.useAt(env, agent, agentId, state, target)
-      return controller.moveTo(env, agent, agentId, state, target)
+      return actOrMove(controller, env, agent, agentId, state, target, 3'u8)
   0'u8
 
 proc canStartMarketManipulator(controller: Controller, env: Environment, agent: Thing,
@@ -769,10 +763,7 @@ proc optMarketManipulator(controller: Controller, env: Environment, agent: Thing
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
   if isNil(market):
     return 0'u8
-  return (if isAdjacent(agent.pos, market.pos):
-    controller.useAt(env, agent, agentId, state, market.pos)
-  else:
-    controller.moveTo(env, agent, agentId, state, market.pos))
+  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
 
 proc canStartStockpileDistributor(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
@@ -794,9 +785,7 @@ proc optDockControl(controller: Controller, env: Environment, agent: Thing,
     let fish = env.findNearestThingSpiral(state, Fish)
     if isNil(fish):
       return 0'u8
-    if isAdjacent(agent.pos, fish.pos):
-      return controller.useAt(env, agent, agentId, state, fish.pos)
-    return controller.moveTo(env, agent, agentId, state, fish.pos)
+    return actOrMove(controller, env, agent, agentId, state, fish.pos, 3'u8)
 
   let (water, stand) = findNearestWaterEdge(env, state)
   if water.x < 0 or stand.x < 0:
