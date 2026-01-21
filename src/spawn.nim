@@ -1608,9 +1608,10 @@ proc init(env: Environment) =
         break
     inc herdId
 
-  # Bears spawn as solitary predators across open terrain.
+  # Bears spawn as solitary predators across open terrain (1-2 per map).
+  let bearTarget = randIntInclusive(rng, 1, MapRoomObjectsBears)
   var bearsPlaced = 0
-  while bearsPlaced < MapRoomObjectsBears:
+  while bearsPlaced < bearTarget:
     let pos = rng.randomEmptyPos(env)
     if env.terrain[pos.x][pos.y] != Empty:
       continue
@@ -1627,7 +1628,7 @@ proc init(env: Environment) =
     env.add(bear)
     inc bearsPlaced
 
-  # Wolves spawn in packs (3-5) across open terrain.
+  # Wolves spawn in 2-3 packs (3-5 each) across open terrain.
   var wolvesPlaced = 0
   var packId = 0
   while wolvesPlaced < MapRoomObjectsWolves:
