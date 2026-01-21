@@ -19,8 +19,8 @@ const
   MapLayoutRoomsX* = 1
   MapLayoutRoomsY* = 1
   MapBorder* = 1
-  MapRoomWidth* = 265  # ~8% smaller than 288
-  MapRoomHeight* = 166  # ~8% smaller than 180
+  MapRoomWidth* = 305  # ~6% larger than 288
+  MapRoomHeight* = 191  # ~6% larger than 180
   MapRoomBorder* = 0
 
   AgentMaxHp* = 5

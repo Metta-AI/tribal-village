@@ -109,10 +109,10 @@ const
   TreeOasisWaterRadiusMin* = 1
   TreeOasisWaterRadiusMax* = 2
   # Biome/dungeon zone counts are direct knobs (no map-size scaling).
-  BiomeZoneMinCount* = 5
-  BiomeZoneMaxCount* = 16
-  DungeonZoneMinCount* = 4
-  DungeonZoneMaxCount* = 14
+  BiomeZoneMinCount* = 6
+  BiomeZoneMaxCount* = 18
+  DungeonZoneMinCount* = 2
+  DungeonZoneMaxCount* = 8
   BiomeZoneMaxFraction* = 0.48
   DungeonZoneMaxFraction* = 0.24
   ZoneMinSize* = 18
