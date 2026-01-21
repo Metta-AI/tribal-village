@@ -94,8 +94,6 @@ const
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
   UseDungeonZones* = true
-  UseSequentialBiomeZones* = true
-  UseSequentialDungeonZones* = true
   UseLegacyTreeClusters* = true
   UseTreeOases* = true
   WheatFieldClusterCountMin* = 98
@@ -538,33 +536,16 @@ proc applySwampWater*(terrain: var TerrainGrid, biomes: var BiomeGrid,
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow, BiomeSwamp]
-  let weights = [1.0, 1.0, 0.6, 0.6, 1.0, 0.8, 0.7]
   let count = kinds.len
   let baseBiomeType = baseBiomeType()
-  var seqIdx = randIntInclusive(r, 0, kinds.len - 1)
+  var seqIdx = 0
   let edgeChance = 0.25
   let zones = evenlyDistributedZones(r, mapWidth, mapHeight, mapBorder, count, BiomeZoneMaxFraction)
   for zone in zones:
-    let biome = if UseSequentialBiomeZones:
+    let biome = block:
       let selected = kinds[seqIdx mod kinds.len]
       inc seqIdx
       selected
-    else:
-      var total = 0.0
-      for w in weights:
-        total += max(0.0, w)
-      if total <= 0.0:
-        kinds[0]
-      else:
-        let roll = randFloat(r) * total
-        var accum = 0.0
-        var selected = kinds[^1]
-        for i, w in weights:
-          accum += max(0.0, w)
-          if roll <= accum:
-            selected = kinds[i]
-            break
-        selected
     var zoneMask: MaskGrid
     buildZoneBlobMask(zoneMask, mapWidth, mapHeight, mapBorder, zone, r)
     case biome:

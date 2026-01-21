@@ -370,7 +370,7 @@ proc init(env: Environment) =
     let count = dungeonKinds.len
     var dungeonWalls: MaskGrid
     dungeonWalls.clearMask(MapWidth, MapHeight)
-    var seqIdx = randIntInclusive(rng, 0, dungeonKinds.len - 1)
+    var seqIdx = 0
     for zone in evenlyDistributedZones(rng, MapWidth, MapHeight, MapBorder, count, DungeonZoneMaxFraction):
       let x0 = max(MapBorder, zone.x)
       let y0 = max(MapBorder, zone.y)
@@ -386,14 +386,10 @@ proc init(env: Environment) =
             continue
           env.biomes[x][y] = BiomeDungeonType
       var mask: MaskGrid
-      let dungeonKind = if UseSequentialDungeonZones:
+      let dungeonKind = block:
+        let selected = dungeonKinds[seqIdx mod dungeonKinds.len]
         inc seqIdx
-        dungeonKinds[(seqIdx - 1) mod dungeonKinds.len]
-      else:
-        if randFloat(rng) * 1.6 <= 1.0:
-          DungeonMaze
-        else:
-          DungeonRadial
+        selected
       case dungeonKind:
       of DungeonMaze:
         buildDungeonMazeMask(mask, MapWidth, MapHeight, zone.x, zone.y, zone.w, zone.h, rng, DungeonMazeConfig())
