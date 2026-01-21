@@ -324,8 +324,8 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
           allowGold = true
         )
         if didDrop: return actDrop
-        let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
-        if didStone: return actStone
+        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+        if didWood: return actWood
       let (didWall, wallAct) = goToAdjacentAndBuild(
         controller, env, agent, agentId, state, targetPos, BuildIndexWall
       )

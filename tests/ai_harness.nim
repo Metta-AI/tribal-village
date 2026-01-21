@@ -369,13 +369,25 @@ suite "AI - Builder":
     check verb == 8
     check arg == buildIndexFor(WeavingLoom)
 
-  test "builds clay oven after weaving loom":
+  test "builds wall ring before tech buildings":
     let env = makeEmptyEnv()
     let controller = newController(14)
     let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
+    env.currentStep = 1
+    discard addAgentAt(env, 2, ivec2(3, 5), homeAltar = basePos)
+    fillStockpile(env, 0, 50)
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
+    check verb == 8
+    check arg == BuildIndexWall
+
+  test "builds clay oven after weaving loom":
+    let env = makeEmptyEnv()
+    let controller = newController(14)
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom])
-    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
@@ -385,10 +397,9 @@ suite "AI - Builder":
   test "builds blacksmith after clay oven":
     let env = makeEmptyEnv()
     let controller = newController(15)
-    let basePos = ivec2(10, 10)
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven])
-    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
@@ -398,10 +409,9 @@ suite "AI - Builder":
   test "builds barracks after blacksmith":
     let env = makeEmptyEnv()
     let controller = newController(16)
-    let basePos = ivec2(10, 10)
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith])
-    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
@@ -411,13 +421,12 @@ suite "AI - Builder":
   test "builds siege workshop after stable":
     let env = makeEmptyEnv()
     let controller = newController(17)
-    let basePos = ivec2(10, 10)
     addBuildings(env, 0, ivec2(12, 10), @[
       Granary, LumberCamp, Quarry, MiningCamp,
       WeavingLoom, ClayOven, Blacksmith,
       Barracks, ArcheryRange, Stable
     ])
-    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
@@ -427,13 +436,12 @@ suite "AI - Builder":
   test "builds castle after outpost":
     let env = makeEmptyEnv()
     let controller = newController(18)
-    let basePos = ivec2(10, 10)
     addBuildings(env, 0, ivec2(12, 10), @[
       Granary, LumberCamp, Quarry, MiningCamp,
       WeavingLoom, ClayOven, Blacksmith,
       Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, Outpost
     ])
-    discard addAgentAt(env, 2, basePos, homeAltar = basePos)
+    discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))

@@ -373,17 +373,17 @@ let BuilderOptions* = [
     interruptible: true
   ),
   OptionDef(
-    name: "BuilderTechBuildings",
-    canStart: canStartBuilderTechBuildings,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderTechBuildings,
-    interruptible: true
-  ),
-  OptionDef(
     name: "BuilderWallRing",
     canStart: canStartBuilderWallRing,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderWallRing,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderTechBuildings",
+    canStart: canStartBuilderTechBuildings,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderTechBuildings,
     interruptible: true
   ),
   OptionDef(

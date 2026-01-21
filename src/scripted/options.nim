@@ -233,6 +233,35 @@ proc findFrozenEdgeCandidate(env: Environment, basePos: IVec2): IVec2 =
           return cand
   ivec2(-1, -1)
 
+proc findWallChokeCandidate(env: Environment, basePos: IVec2): IVec2 =
+  let radius = 8
+  for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
+    for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
+      let pos = ivec2(x.int32, y.int32)
+      if env.terrain[x][y] == TerrainRoad:
+        continue
+      if not env.canPlace(pos):
+        continue
+      let north = env.getThing(pos + ivec2(0, -1))
+      let south = env.getThing(pos + ivec2(0, 1))
+      let east = env.getThing(pos + ivec2(1, 0))
+      let west = env.getThing(pos + ivec2(-1, 0))
+      let northDoor = env.getBackgroundThing(pos + ivec2(0, -1))
+      let southDoor = env.getBackgroundThing(pos + ivec2(0, 1))
+      let eastDoor = env.getBackgroundThing(pos + ivec2(1, 0))
+      let westDoor = env.getBackgroundThing(pos + ivec2(-1, 0))
+      let northWall = (not isNil(north) and north.kind == Wall) or
+        (not isNil(northDoor) and northDoor.kind == Door)
+      let southWall = (not isNil(south) and south.kind == Wall) or
+        (not isNil(southDoor) and southDoor.kind == Door)
+      let eastWall = (not isNil(east) and east.kind == Wall) or
+        (not isNil(eastDoor) and eastDoor.kind == Door)
+      let westWall = (not isNil(west) and west.kind == Wall) or
+        (not isNil(westDoor) and westDoor.kind == Door)
+      if northWall or southWall or eastWall or westWall:
+        return pos
+  ivec2(-1, -1)
+
 proc findDoorChokeCandidate(env: Environment, basePos: IVec2): IVec2 =
   let radius = 8
   for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
@@ -479,6 +508,20 @@ proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, 6)), 3, 6)
   let (did, act) = goToAdjacentAndBuild(
     controller, env, agent, agentId, state, target, buildIndexFor(Outpost)
+  )
+  if did: return act
+  0'u8
+
+proc canStartWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Wall"))
+
+proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let target = findWallChokeCandidate(env, basePos)
+  let (did, act) = goToAdjacentAndBuild(
+    controller, env, agent, agentId, state, target, BuildIndexWall
   )
   if did: return act
   0'u8
@@ -807,6 +850,13 @@ let MetaBehaviorOptions* = [
     canStart: canStartOutpostNetwork,
     shouldTerminate: optionsAlwaysTerminate,
     act: optOutpostNetwork,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorWallChokeFortify",
+    canStart: canStartWallChokeFortify,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optWallChokeFortify,
     interruptible: true
   ),
   OptionDef(
