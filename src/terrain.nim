@@ -861,22 +861,16 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place water tiles for tributary branches (skip reserved corners)
-  for pos in branchUpPath:
-    for dx in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
-      for dy in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
-        let waterPos = pos + ivec2(dx.int32, dy.int32)
-        if waterPos.x >= 0 and waterPos.x < mapWidth and
-           waterPos.y >= 0 and waterPos.y < mapHeight:
-          if not inCorner(waterPos.x, waterPos.y):
-            terrain[waterPos.x][waterPos.y] = Water
-  for pos in branchDownPath:
-    for dx in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
-      for dy in -(RiverWidth div 2 - 1) .. (RiverWidth div 2 - 1):
-        let waterPos = pos + ivec2(dx.int32, dy.int32)
-        if waterPos.x >= 0 and waterPos.x < mapWidth and
-           waterPos.y >= 0 and waterPos.y < mapHeight:
-          if not inCorner(waterPos.x, waterPos.y):
-            terrain[waterPos.x][waterPos.y] = Water
+  let branchRadius = RiverWidth div 2 - 1
+  for path in [branchUpPath, branchDownPath]:
+    for pos in path:
+      for dx in -branchRadius .. branchRadius:
+        for dy in -branchRadius .. branchRadius:
+          let waterPos = pos + ivec2(dx.int32, dy.int32)
+          if waterPos.x >= 0 and waterPos.x < mapWidth and
+             waterPos.y >= 0 and waterPos.y < mapHeight:
+            if not inCorner(waterPos.x, waterPos.y):
+              terrain[waterPos.x][waterPos.y] = Water
 
   # Place bridges across the river and any tributary branch.
   # Bridges are three tiles wide and span across the river, with a slight overhang
@@ -984,25 +978,19 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       placeBridgeSpan(t, center, ivec2(1, 0), ivec2(0, 1))
 
   var mainCandidates: seq[IVec2] = @[]
-  for pos in riverPath:
-    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
-       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-       not inCorner(pos.x, pos.y):
-      mainCandidates.add(pos)
-
   var branchUpCandidates: seq[IVec2] = @[]
-  for pos in branchUpPath:
-    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
-       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-       not inCorner(pos.x, pos.y):
-      branchUpCandidates.add(pos)
-
   var branchDownCandidates: seq[IVec2] = @[]
-  for pos in branchDownPath:
-    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
-       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-       not inCorner(pos.x, pos.y):
-      branchDownCandidates.add(pos)
+  let candidateGroups: array[3, tuple[path: seq[IVec2], target: ptr seq[IVec2]]] = [
+    (path: riverPath, target: addr mainCandidates),
+    (path: branchUpPath, target: addr branchUpCandidates),
+    (path: branchDownPath, target: addr branchDownCandidates)
+  ]
+  for group in candidateGroups:
+    for pos in group.path:
+      if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
+         pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
+         not inCorner(pos.x, pos.y):
+        group.target[].add(pos)
 
   let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
   let desiredBridges = max(randIntInclusive(r, 3, 4), (if hasBranch: 3 else: 0)) * 2
@@ -1021,22 +1009,15 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     if forkUpIdx >= 0:
       let upstream = if forkUpIdx > 0: mainCandidates[0 ..< min(forkUpIdx, mainCandidates.len)] else: @[]
       placeFrom(upstream, false)
-    if branchUpCandidates.len > 0:
-      let firstIdx = branchUpCandidates.len div 3
-      let secondIdx = max(firstIdx + 1, (branchUpCandidates.len * 2) div 3)
-      placeBridgeBranch(terrain, branchUpCandidates[firstIdx])
-      placed.add(branchUpCandidates[firstIdx])
-      if secondIdx < branchUpCandidates.len:
-        placeBridgeBranch(terrain, branchUpCandidates[secondIdx])
-        placed.add(branchUpCandidates[secondIdx])
-    if branchDownCandidates.len > 0:
-      let firstIdx = branchDownCandidates.len div 3
-      let secondIdx = max(firstIdx + 1, (branchDownCandidates.len * 2) div 3)
-      placeBridgeBranch(terrain, branchDownCandidates[firstIdx])
-      placed.add(branchDownCandidates[firstIdx])
-      if secondIdx < branchDownCandidates.len:
-        placeBridgeBranch(terrain, branchDownCandidates[secondIdx])
-        placed.add(branchDownCandidates[secondIdx])
+    for candidates in [branchUpCandidates, branchDownCandidates]:
+      if candidates.len > 0:
+        let firstIdx = candidates.len div 3
+        let secondIdx = max(firstIdx + 1, (candidates.len * 2) div 3)
+        placeBridgeBranch(terrain, candidates[firstIdx])
+        placed.add(candidates[firstIdx])
+        if secondIdx < candidates.len:
+          placeBridgeBranch(terrain, candidates[secondIdx])
+          placed.add(candidates[secondIdx])
     if forkDownIdx >= 0 and forkDownIdx < mainCandidates.len:
       let downstream = mainCandidates[min(forkDownIdx, mainCandidates.len - 1) ..< mainCandidates.len]
       placeFrom(downstream, false)
@@ -1048,33 +1029,25 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     list.add(pos)
 
   var remaining = desiredBridges - placed.len
-  if remaining > 0 and mainCandidates.len > 0:
-    let stride = max(1, mainCandidates.len div (remaining + 1))
+  let remainingGroups: array[3, tuple[cands: seq[IVec2], useBranch: bool]] = [
+    (cands: mainCandidates, useBranch: false),
+    (cands: branchUpCandidates, useBranch: true),
+    (cands: branchDownCandidates, useBranch: true)
+  ]
+  for group in remainingGroups:
+    if remaining <= 0:
+      break
+    if group.cands.len == 0:
+      continue
+    let stride = max(1, group.cands.len div (remaining + 1))
     var candidateIdx = stride
-    while remaining > 0 and candidateIdx < mainCandidates.len:
-      let center = mainCandidates[candidateIdx]
+    while remaining > 0 and candidateIdx < group.cands.len:
+      let center = group.cands[candidateIdx]
       uniqueAdd(center, placed)
-      placeBridgeMain(terrain, center)
-      dec remaining
-      candidateIdx += stride
-
-  if remaining > 0 and branchUpCandidates.len > 0:
-    let stride = max(1, branchUpCandidates.len div (remaining + 1))
-    var candidateIdx = stride
-    while remaining > 0 and candidateIdx < branchUpCandidates.len:
-      let center = branchUpCandidates[candidateIdx]
-      uniqueAdd(center, placed)
-      placeBridgeBranch(terrain, center)
-      dec remaining
-      candidateIdx += stride
-
-  if remaining > 0 and branchDownCandidates.len > 0:
-    let stride = max(1, branchDownCandidates.len div (remaining + 1))
-    var candidateIdx = stride
-    while remaining > 0 and candidateIdx < branchDownCandidates.len:
-      let center = branchDownCandidates[candidateIdx]
-      uniqueAdd(center, placed)
-      placeBridgeBranch(terrain, center)
+      if group.useBranch:
+        placeBridgeBranch(terrain, center)
+      else:
+        placeBridgeMain(terrain, center)
       dec remaining
       candidateIdx += stride
 

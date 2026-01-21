@@ -614,10 +614,12 @@ proc init(env: Environment) =
           continue
         if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
           continue
-        let building = Thing(kind: kind, pos: pos, teamId: -1)
-        let capacity = buildingBarrelCapacity(kind)
-        if capacity > 0:
-          building.barrelCapacity = capacity
+        let building = Thing(
+          kind: kind,
+          pos: pos,
+          teamId: -1,
+          barrelCapacity: buildingBarrelCapacity(kind)
+        )
         env.add(building)
         inc placed
         placedHere = true
@@ -635,10 +637,12 @@ proc init(env: Environment) =
       if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
         continue
       let kind = minorPool[randIntInclusive(rng, 0, minorPool.len - 1)]
-      let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
-      let capacity = buildingBarrelCapacity(kind)
-      if capacity > 0:
-        building.barrelCapacity = capacity
+      let building = Thing(
+        kind: kind,
+        pos: ivec2(x.int32, y.int32),
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      )
       env.add(building)
       inc extraPlaced
     let scatterPool = [
@@ -654,9 +658,6 @@ proc init(env: Environment) =
       inc scatterAttempts
       let x = randIntInclusive(rng, centerX - scatterRadius, centerX + scatterRadius)
       let y = randIntInclusive(rng, centerY - scatterRadius, centerY + scatterRadius)
-      if x < MapBorder + 1 or x >= MapWidth - MapBorder - 1 or
-          y < MapBorder + 1 or y >= MapHeight - MapBorder - 1:
-        continue
       if x >= x0 and x <= x1 and y >= y0 and y <= y1:
         continue
       let dist = max(abs(x - centerX), abs(y - centerY))
@@ -665,10 +666,12 @@ proc init(env: Environment) =
       if not canPlaceHubThing(x, y):
         continue
       let kind = scatterPool[randIntInclusive(rng, 0, scatterPool.len - 1)]
-      let building = Thing(kind: kind, pos: ivec2(x.int32, y.int32), teamId: -1)
-      let capacity = buildingBarrelCapacity(kind)
-      if capacity > 0:
-        building.barrelCapacity = capacity
+      let building = Thing(
+        kind: kind,
+        pos: ivec2(x.int32, y.int32),
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      )
       env.add(building)
       inc scatterPlaced
 
