@@ -1110,13 +1110,13 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
         let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
         let roll = randFloat(r)
-        if roll < 0.6:
+        if roll < 0.35:
           segmentDir = if randChance(r, 0.5): diagA else: diagB
-        elif roll < 0.9:
+        elif roll < 0.92:
           segmentDir = baseDir
         else:
           segmentDir = if randChance(r, 0.5): orthoA else: orthoB
-        segmentStepsLeft = randIntInclusive(r, 5, 10)
+        segmentStepsLeft = randIntInclusive(r, 7, 12)
         diagToggle = randChance(r, 0.5)
 
       let stepDir = if segmentDir.x != 0 and segmentDir.y != 0:
