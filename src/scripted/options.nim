@@ -22,6 +22,9 @@ type OptionDef* = object
              agentId: int, state: var AgentState): uint8
   interruptible*: bool
 
+const
+  EnemyWallFortifyRadius = 12
+
 template resetActiveOption(state: var AgentState) =
   state.activeOptionId = -1
   state.activeOptionTicks = 0
@@ -158,6 +161,30 @@ proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing 
       bestDist = dist
       best = thing
   best
+
+proc findNearestEnemyPresence(env: Environment, pos: IVec2,
+                              teamId: int): tuple[target: IVec2, dist: int] =
+  var bestPos = ivec2(-1, -1)
+  var bestDist = int.high
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if getTeamId(agent) == teamId:
+      continue
+    let dist = int(chebyshevDist(agent.pos, pos))
+    if dist < bestDist:
+      bestDist = dist
+      bestPos = agent.pos
+  for thing in env.things:
+    if thing.isNil or not isBuildingKind(thing.kind):
+      continue
+    if thing.teamId < 0 or thing.teamId == teamId:
+      continue
+    let dist = int(chebyshevDist(thing.pos, pos))
+    if dist < bestDist:
+      bestDist = dist
+      bestPos = thing.pos
+  (target: bestPos, dist: bestDist)
 
 proc findNearestNeutralHub(env: Environment, pos: IVec2): Thing =
   var best: Thing = nil
@@ -512,6 +539,29 @@ proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
   if did: return act
   0'u8
 
+proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  if not env.canAffordBuild(agent, thingItem("Wall")):
+    return false
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
+  enemyPos.x >= 0 and dist <= EnemyWallFortifyRadius
+
+proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
+  if enemyPos.x < 0 or dist > EnemyWallFortifyRadius:
+    return 0'u8
+  let target = findDirectionalBuildPos(env, basePos, enemyPos, 2, 6)
+  let (did, act) = goToAdjacentAndBuild(
+    controller, env, agent, agentId, state, target, BuildIndexWall
+  )
+  if did: return act
+  0'u8
+
 proc canStartWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Wall"))
@@ -850,6 +900,13 @@ let MetaBehaviorOptions* = [
     canStart: canStartOutpostNetwork,
     shouldTerminate: optionsAlwaysTerminate,
     act: optOutpostNetwork,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorEnemyWallFortify",
+    canStart: canStartEnemyWallFortify,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optEnemyWallFortify,
     interruptible: true
   ),
   OptionDef(
