@@ -878,31 +878,66 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
             terrain[waterPos.x][waterPos.y] = Water
 
   # Place bridges across the river and any tributary branch.
-  # Bridges are three tiles wide (east-west) and span across the river north-south.
+  # Bridges are three tiles wide (east-west) and span across the river north-south,
+  # with a slight overhang so they clear diagonal banks.
   proc placeBridgeMain(t: var TerrainGrid, center: IVec2) =
-    let startY = max(mapBorder, int(center.y) - (RiverWidth div 2 + 1))
-    let endY = min(mapHeight - mapBorder - 1, int(center.y) + (RiverWidth div 2 + 1))
+    let bridgeOverhang = 1
+    let scanSpan = RiverWidth div 2 + 2
+    let scanStartY = max(mapBorder, int(center.y) - scanSpan)
+    let scanEndY = min(mapHeight - mapBorder - 1, int(center.y) + scanSpan)
     let baseX = max(mapBorder, min(mapWidth - mapBorder - 3, int(center.x) - 1))
+    var minY = high(int)
+    var maxY = low(int)
+    for dx in 0 .. 2:
+      let x = baseX + dx
+      for y in scanStartY .. scanEndY:
+        if inCorner(x, y):
+          continue
+        if t[x][y] in {Water, Bridge}:
+          if y < minY:
+            minY = y
+          if y > maxY:
+            maxY = y
+    if minY > maxY:
+      return
+    let startY = max(mapBorder, minY - bridgeOverhang)
+    let endY = min(mapHeight - mapBorder - 1, maxY + bridgeOverhang)
     for dx in 0 .. 2:
       for y in startY .. endY:
         let x = baseX + dx
         if inCorner(x, y):
           continue
-        if t[x][y] == Water:
-          t[x][y] = Bridge
+        t[x][y] = Bridge
 
   # Branch bridges run horizontally (east-west span) across the tributary.
   proc placeBridgeBranch(t: var TerrainGrid, center: IVec2) =
-    let startX = max(mapBorder, int(center.x) - (RiverWidth div 2 + 1))
-    let endX = min(mapWidth - mapBorder - 1, int(center.x) + (RiverWidth div 2 + 1))
+    let bridgeOverhang = 1
+    let scanSpan = RiverWidth div 2 + 2
+    let scanStartX = max(mapBorder, int(center.x) - scanSpan)
+    let scanEndX = min(mapWidth - mapBorder - 1, int(center.x) + scanSpan)
     let baseY = max(mapBorder, min(mapHeight - mapBorder - 3, int(center.y) - 1))
+    var minX = high(int)
+    var maxX = low(int)
+    for dy in 0 .. 2:
+      let y = baseY + dy
+      for x in scanStartX .. scanEndX:
+        if inCorner(x, y):
+          continue
+        if t[x][y] in {Water, Bridge}:
+          if x < minX:
+            minX = x
+          if x > maxX:
+            maxX = x
+    if minX > maxX:
+      return
+    let startX = max(mapBorder, minX - bridgeOverhang)
+    let endX = min(mapWidth - mapBorder - 1, maxX + bridgeOverhang)
     for dy in 0 .. 2:
       for x in startX .. endX:
         let y = baseY + dy
         if inCorner(x, y):
           continue
-        if t[x][y] == Water:
-          t[x][y] = Bridge
+        t[x][y] = Bridge
 
   var mainCandidates: seq[IVec2] = @[]
   for pos in riverPath:
