@@ -453,6 +453,11 @@ proc canEnterForMove(env: Environment, agent: Thing, fromPos, toPos: IVec2): boo
   ## Directional passability check that mirrors move logic (lantern pushing rules).
   if not isValidPos(toPos):
     return false
+  if toPos.x < MapBorder.int32 or toPos.x >= (MapWidth - MapBorder).int32 or
+      toPos.y < MapBorder.int32 or toPos.y >= (MapHeight - MapBorder).int32:
+    return false
+  if not env.canTraverseElevation(fromPos, toPos):
+    return false
   if env.isWaterBlockedForAgent(agent, toPos):
     return false
   if not env.canAgentPassDoor(agent, toPos):
