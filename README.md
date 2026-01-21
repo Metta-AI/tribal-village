@@ -85,7 +85,7 @@ These gameplay settings map to `EnvironmentConfig` in `src/environment.nim`.
 
 ## Game Overview
 
-- Map: 234x148 grid with procedural rivers/bridges, cliffs + ramps, biome zones
+- Map: 266x167 grid with procedural rivers/bridges, cliffs + ramps, biome zones
   (forest/desert/caves/city/plains/snow/swamp), dungeon wall patches, and a neutral trading hub at center.
 - Agents: 1000 village slots (8 teams, 125 per team; 6 active per team at start) plus 6 goblin agents. Dormant village
   slots can respawn at altars by spending hearts.

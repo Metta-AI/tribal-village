@@ -367,7 +367,7 @@ proc init(env: Environment) =
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
     let dungeonKinds = [DungeonMaze, DungeonRadial]
-    var count = zoneCount(MapWidth * MapHeight, DungeonZoneDivisor, DungeonZoneMinCount, DungeonZoneMaxCount)
+    var count = zoneCount(DungeonZoneMinCount, DungeonZoneMaxCount, rng)
     if UseSequentialDungeonZones:
       count = max(count, dungeonKinds.len)
     var dungeonWalls: MaskGrid
