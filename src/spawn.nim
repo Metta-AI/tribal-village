@@ -62,21 +62,19 @@ proc tryPickEmptyPos(r: var Rand, env: Environment, attempts: int,
       return true
   false
 
-proc appendUniquePositions(target: var seq[IVec2], extra: openArray[IVec2]) =
-  for pos in extra:
-    var exists = false
-    for candidate in target:
-      if candidate == pos:
-        exists = true
-        break
-    if not exists:
-      target.add(pos)
-
 proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
                        secondaryRadius: int, minCount: int): seq[IVec2] =
   result = env.findEmptyPositionsAround(center, primaryRadius)
   if secondaryRadius > 0 and result.len < minCount:
-    appendUniquePositions(result, env.findEmptyPositionsAround(center, secondaryRadius))
+    let extras = env.findEmptyPositionsAround(center, secondaryRadius)
+    for pos in extras:
+      var exists = false
+      for candidate in result:
+        if candidate == pos:
+          exists = true
+          break
+      if not exists:
+        result.add(pos)
 
 proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
