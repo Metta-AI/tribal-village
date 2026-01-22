@@ -158,11 +158,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of 1:
       block moveAction:
         let moveOrientation = Orientation(argument)
-        let delta = getOrientationDelta(moveOrientation)
-
-        var step1 = agent.pos
-        step1.x += int32(delta.x)
-        step1.y += int32(delta.y)
+        let delta = orientationToVec(moveOrientation)
+        let step1 = agent.pos + delta
 
         validateStep(moveAction, agent.pos, step1)
         if not env.canAgentPassDoor(agent, step1):
@@ -197,8 +194,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   break
             isSpaced
           # Preferred push positions in move direction
-          let ahead1 = ivec2(pos.x + delta.x, pos.y + delta.y)
-          let ahead2 = ivec2(pos.x + delta.x * 2, pos.y + delta.y * 2)
+          let ahead1 = pos + delta
+          let ahead2 = pos + ivec2(delta.x * 2'i32, delta.y * 2'i32)
           if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
               ahead2.x >= MapBorder.int32 and ahead2.x < (MapWidth - MapBorder).int32 and
               ahead2.y >= MapBorder.int32 and ahead2.y < (MapHeight - MapBorder).int32 and
@@ -239,7 +236,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           return relocated
 
         let isCavalry = agent.unitClass in {UnitScout, UnitKnight}
-        let step2 = ivec2(agent.pos.x + delta.x.int32 * 2, agent.pos.y + delta.y.int32 * 2)
+        let step2 = agent.pos + ivec2(delta.x * 2'i32, delta.y * 2'i32)
 
         var finalPos = step1
         if not canEnterFrom(agent.pos, step1):
@@ -306,7 +303,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let attackOrientation = Orientation(argument)
         agent.orientation = attackOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-        let delta = getOrientationDelta(attackOrientation)
+        let delta = orientationToVec(attackOrientation)
         let attackerTeam = getTeamId(agent)
         let damageAmount = max(1, agent.attackDamage)
         let rangedRange = case agent.unitClass
@@ -378,7 +375,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             return false
 
         if agent.unitClass == UnitMonk:
-          let healPos = agent.pos + ivec2(delta.x, delta.y)
+          let healPos = agent.pos + delta
           let target = env.getThing(healPos)
           if not isNil(target) and target.kind == Agent:
             if getTeamId(target) == attackerTeam:
@@ -439,7 +436,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let right = ivec2(delta.y, -delta.x)
           let offsets = [ivec2(0, 0), left, right, left * 2, right * 2]
           for step in 1 .. MangonelAoELength:
-            let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
+            let forward = agent.pos + ivec2(delta.x * step.int32, delta.y * step.int32)
             for offset in offsets:
               let attackPos = forward + offset
               env.applyUnitAttackTint(agent.unitClass, attackPos)
@@ -454,7 +451,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if rangedRange > 0:
           var attackHit = false
           for distance in 1 .. rangedRange:
-            let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+            let attackPos = agent.pos + ivec2(delta.x * distance.int32, delta.y * distance.int32)
             env.applyUnitAttackTint(agent.unitClass, attackPos)
             if tryHitAt(attackPos):
               attackHit = true
@@ -523,7 +520,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           var hit = false
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
-          let forward = agent.pos + ivec2(delta.x, delta.y)
+          let forward = agent.pos + delta
           for pos in [forward, forward + left, forward + right]:
             env.applyUnitAttackTint(agent.unitClass, pos)
             if tryHitAt(pos):
@@ -537,7 +534,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var attackHit = false
 
         for distance in 1 .. maxRange:
-          let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
+          let attackPos = agent.pos + ivec2(delta.x * distance.int32, delta.y * distance.int32)
           env.applyUnitAttackTint(agent.unitClass, attackPos)
           if tryHitAt(attackPos):
             attackHit = true
@@ -558,10 +555,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let useOrientation = Orientation(argument)
         agent.orientation = useOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-        let delta = getOrientationDelta(useOrientation)
-        var targetPos = agent.pos
-        targetPos.x += int32(delta.x)
-        targetPos.y += int32(delta.y)
+        let delta = orientationToVec(useOrientation)
+        let targetPos = agent.pos + delta
 
         if not isValidPos(targetPos):
           inc env.stats[id].actionInvalid
@@ -980,8 +975,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let dir = Orientation(argument)
         agent.orientation = dir
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-        let delta = getOrientationDelta(dir)
-        let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
+        let delta = orientationToVec(dir)
+        let targetPos = agent.pos + delta
         if not isValidPos(targetPos):
           inc env.stats[id].actionInvalid
           break putAction
@@ -1054,10 +1049,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let plantOrientation = Orientation(argument)
         agent.orientation = plantOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-        let delta = getOrientationDelta(plantOrientation)
-        var targetPos = agent.pos
-        targetPos.x += int32(delta.x)
-        targetPos.y += int32(delta.y)
+        let delta = orientationToVec(plantOrientation)
+        let targetPos = agent.pos + delta
 
         # Check if position is empty and not water
         if not env.isEmpty(targetPos) or env.hasDoor(targetPos) or isBlockedTerrain(env.terrain[targetPos.x][targetPos.y]) or isTileFrozen(targetPos, env):
@@ -1106,8 +1099,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let orientation = Orientation(dirIndex)
         agent.orientation = orientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-        let delta = getOrientationDelta(orientation)
-        let targetPos = ivec2(agent.pos.x + delta.x.int32, agent.pos.y + delta.y.int32)
+        let delta = orientationToVec(orientation)
+        let targetPos = agent.pos + delta
 
         # Occupancy checks
         if not env.isEmpty(targetPos) or not isNil(env.getBackgroundThing(targetPos)) or env.hasDoor(targetPos) or
@@ -1792,9 +1785,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var blocked = false
         if env.shieldCountdown[occupant.agentId] > 0:
           let ori = occupant.orientation
-          let d = getOrientationDelta(ori)
+          let d = orientationToVec(ori)
           let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
-          let forward = occupant.pos + ivec2(d.x, d.y)
+          let forward = occupant.pos + d
           for offset in -1 .. 1:
             let shieldPos = forward + ivec2(perp.x * offset, perp.y * offset)
             if shieldPos == tumor.pos:

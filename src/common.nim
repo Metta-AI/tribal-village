@@ -117,13 +117,10 @@ proc encodeAction*(verb: uint8, argument: uint8): uint8 =
   uint8(verb.int * ActionArgumentCount + argument.int)
 
 {.push inline.}
-proc getOrientationDelta*(orient: Orientation): OrientationDelta =
-  OrientationDeltas[orient.int]
-{.pop.}
-
 proc orientationToVec*(orientation: Orientation): IVec2 =
   let delta = OrientationDeltas[orientation.int]
   ivec2(delta.x.int32, delta.y.int32)
+{.pop.}
 
 {.push inline.}
 proc ivec2*(x, y: int): IVec2 =
