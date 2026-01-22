@@ -48,32 +48,34 @@ proc add*(env: Environment, thing: Thing) =
         # Cliffs take precedence over other background overlays.
         removeThing(env, existing)
   if thing.kind in {Wall, Door, Outpost, GuardTower, TownCenter, Castle}:
-    if thing.maxHp <= 0:
+    if thing.maxHp <= 0 or thing.attackDamage <= 0:
       case thing.kind
       of Wall:
-        thing.maxHp = WallMaxHp
+        if thing.maxHp <= 0:
+          thing.maxHp = WallMaxHp
       of Door:
-        thing.maxHp = DoorMaxHearts
+        if thing.maxHp <= 0:
+          thing.maxHp = DoorMaxHearts
       of Outpost:
-        thing.maxHp = OutpostMaxHp
+        if thing.maxHp <= 0:
+          thing.maxHp = OutpostMaxHp
       of GuardTower:
-        thing.maxHp = GuardTowerMaxHp
+        if thing.maxHp <= 0:
+          thing.maxHp = GuardTowerMaxHp
+        if thing.attackDamage <= 0:
+          thing.attackDamage = GuardTowerAttackDamage
       of TownCenter:
-        thing.maxHp = TownCenterMaxHp
+        if thing.maxHp <= 0:
+          thing.maxHp = TownCenterMaxHp
       of Castle:
-        thing.maxHp = CastleMaxHp
+        if thing.maxHp <= 0:
+          thing.maxHp = CastleMaxHp
+        if thing.attackDamage <= 0:
+          thing.attackDamage = CastleAttackDamage
       else:
         discard
     if thing.hp <= 0:
       thing.hp = thing.maxHp
-    if thing.attackDamage <= 0:
-      case thing.kind
-      of GuardTower:
-        thing.attackDamage = GuardTowerAttackDamage
-      of Castle:
-        thing.attackDamage = CastleAttackDamage
-      else:
-        discard
   if thing.kind == Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, MineDepositAmount)

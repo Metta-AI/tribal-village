@@ -269,15 +269,11 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
 
-proc applyUnitClassPreserveHp*(agent: Thing, unitClass: AgentUnitClass) =
-  applyUnitClass(agent, unitClass)
-  agent.hp = min(agent.hp, agent.maxHp)
-
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass == UnitBoat:
     return
   agent.embarkedUnitClass = agent.unitClass
-  applyUnitClassPreserveHp(agent, UnitBoat)
+  applyUnitClass(agent, UnitBoat)
 
 proc disembarkAgent*(agent: Thing) =
   if agent.unitClass != UnitBoat:
@@ -285,7 +281,7 @@ proc disembarkAgent*(agent: Thing) =
   var target = agent.embarkedUnitClass
   if target == UnitBoat:
     target = UnitVillager
-  applyUnitClassPreserveHp(agent, target)
+  applyUnitClass(agent, target)
 {.pop.}
 
 proc scoreTerritory*(env: Environment): TerritoryScore =
