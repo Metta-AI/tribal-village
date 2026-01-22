@@ -1587,12 +1587,10 @@ proc init(env: Environment) =
   while cowsPlaced < MapRoomObjectsCows:
     let herdSize = chooseGroupSize(MapRoomObjectsCows - cowsPlaced, MinHerdSize, MaxHerdSize)
     let center = rng.randomEmptyPos(env)
-    if env.terrain[center.x][center.y] != Empty:
-      continue
-    if env.biomes[center.x][center.y] == BiomeDungeonType:
+    if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
     let filtered = collectGroupPositions(center, 3)
-    if filtered.len < 5:
+    if filtered.len < MinHerdSize:
       continue
     let toPlace = min(herdSize, filtered.len)
     for i in 0 ..< toPlace:
@@ -1614,9 +1612,7 @@ proc init(env: Environment) =
   var bearsPlaced = 0
   while bearsPlaced < MapRoomObjectsBears:
     let pos = rng.randomEmptyPos(env)
-    if env.terrain[pos.x][pos.y] != Empty:
-      continue
-    if env.biomes[pos.x][pos.y] == BiomeDungeonType:
+    if env.terrain[pos.x][pos.y] != Empty or env.biomes[pos.x][pos.y] == BiomeDungeonType:
       continue
     let bear = Thing(
       kind: Bear,
@@ -1635,9 +1631,7 @@ proc init(env: Environment) =
   while wolvesPlaced < MapRoomObjectsWolves:
     let packSize = chooseGroupSize(MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize)
     let center = rng.randomEmptyPos(env)
-    if env.terrain[center.x][center.y] != Empty:
-      continue
-    if env.biomes[center.x][center.y] == BiomeDungeonType:
+    if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
     let filtered = collectGroupPositions(center, 4)
     if filtered.len < WolfPackMinSize:

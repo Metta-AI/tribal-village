@@ -1335,17 +1335,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       discard
 
-  if env.cowHerdCounts.len > 0:
-    for i in 0 ..< env.cowHerdCounts.len:
-      env.cowHerdCounts[i] = 0
-      env.cowHerdSumX[i] = 0
-      env.cowHerdSumY[i] = 0
+  for i in 0 ..< env.cowHerdCounts.len:
+    env.cowHerdCounts[i] = 0
+    env.cowHerdSumX[i] = 0
+    env.cowHerdSumY[i] = 0
 
-  if env.wolfPackCounts.len > 0:
-    for i in 0 ..< env.wolfPackCounts.len:
-      env.wolfPackCounts[i] = 0
-      env.wolfPackSumX[i] = 0
-      env.wolfPackSumY[i] = 0
+  for i in 0 ..< env.wolfPackCounts.len:
+    env.wolfPackCounts[i] = 0
+    env.wolfPackSumX[i] = 0
+    env.wolfPackSumY[i] = 0
 
   # Precompute team pop caps while scanning things
   var teamPopCaps: array[MapRoomObjectsTeams, int]
