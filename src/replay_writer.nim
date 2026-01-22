@@ -174,14 +174,6 @@ proc ensureReplayObject(writer: ReplayWriter, thing: Thing): ReplayObject =
     writer.objects[objectId - 1] = replayObj
   writer.objects[objectId - 1]
 
-proc actionSuccess(writer: ReplayWriter, agentId: int, env: Environment): bool =
-  if agentId < 0 or agentId >= env.stats.len:
-    return false
-  let invalidNow = env.stats[agentId].actionInvalid
-  let success = invalidNow == writer.lastInvalidCounts[agentId]
-  writer.lastInvalidCounts[agentId] = invalidNow
-  success
-
 proc resolveColor(thing: Thing): int =
   if thing.kind == Agent:
     return getTeamId(thing)
@@ -225,9 +217,14 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
       let actionValue = actions[][agentId]
       let verb = actionValue.int div ActionArgumentCount
       let arg = actionValue.int mod ActionArgumentCount
+      var actionSuccess = false
+      if agentId >= 0 and agentId < env.stats.len:
+        let invalidNow = env.stats[agentId].actionInvalid
+        actionSuccess = invalidNow == writer.lastInvalidCounts[agentId]
+        writer.lastInvalidCounts[agentId] = invalidNow
       replayObj.addSeries("action_id", stepIndex, newJInt(verb))
       replayObj.addSeries("action_param", stepIndex, newJInt(arg))
-      replayObj.addSeries("action_success", stepIndex, newJBool(writer.actionSuccess(agentId, env)))
+      replayObj.addSeries("action_success", stepIndex, newJBool(actionSuccess))
       replayObj.addSeries("current_reward", stepIndex, newJFloat(thing.reward.float))
       writer.totalRewards[agentId] += thing.reward
       replayObj.addSeries("total_reward", stepIndex, newJFloat(writer.totalRewards[agentId].float))
