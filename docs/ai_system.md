@@ -9,8 +9,7 @@ The built-in AI lives under `src/scripted/` and is wired in through
 `src/agent_control.nim`. The system is intentionally lightweight: agents select
 from a prioritized list of **behaviors (OptionDef)** rather than running a large
 monolithic policy. The gatherer/builder/fighter roles are the current stable
-baselines; a separate scripted/evolutionary path exists for future role
-synthesis.
+baselines; a separate scripted/evolutionary path exists for generated roles.
 
 ## Current AI wiring (include chain)
 This is the current include-based chain (flat scope):
@@ -34,6 +33,18 @@ but makes ownership and symbol boundaries hard to reason about.
 - `Controller` owns per-agent `AgentState` (spiral search state, cached
   resource positions, active option tracking, path hints).
 - `agent_control.getActions()` delegates to the controller for BuiltinAI.
+
+## Role model and catalog
+Scripted roles use a lightweight catalog model (`src/scripted/roles.nim`):
+- **RoleDef**: `tiers`, `origin`, `kind` (Gatherer/Builder/Fighter/Scripted).
+- **RoleTier**: ordered behavior IDs with a selection mode:
+  - fixed (keep order)
+  - shuffle (randomize each materialization)
+  - weighted (weighted shuffle)
+- **RoleCatalog**: maps behavior names to OptionDefs and holds all roles.
+
+Roles are materialized into an ordered OptionDef list using
+`materializeRoleOptions`, then executed via `runOptions`.
 
 ## Default role assignment
 By default, each team spawns six active agents with fixed roles:
@@ -82,8 +93,27 @@ continue.
 - **Behavior pool:** `src/scripted/options.nim`
 - **Role composition:** `src/scripted/gatherer.nim`, `builder.nim`,
   `fighter.nim`, plus defaults in `ai_defaults.nim`
-- **Scripted/evolutionary roles:** `src/scripted/roles.nim` and
-  `src/scripted/evolution.nim` (see `docs/evolution.md`)
+- **Role catalog + evolution:** `src/scripted/roles.nim`,
+  `src/scripted/evolution.nim`
+
+## Runtime assignment
+`initScriptedState` seeds the catalog from default behaviors and sets up the
+core roles. When compiled with `-d:enableEvolution`, it also loads history,
+creates sampled roles, and builds the weighted role pool.
+
+At assignment time:
+- Core roles use their RoleDef entries.
+- Scripted roles are selected from the role pool (weighted by fitness).
+- Exploration can force a newly generated role.
+
+## Evolution toggle and persistence
+Evolution is gated behind `-d:enableEvolution`:
+- Disabled: only core roles are used; no role history is loaded.
+- Enabled: role history is loaded and updated; generated roles enter the pool.
+
+Role and behavior fitness are saved to `data/role_history.json` after scoring
+(default: step 5000). This file is intended to be committed so role genomes
+are easy to diff and audit.
 
 ## Adding a new behavior (recommended pattern)
 1) Implement `canStart` (fast, side-effect free).
@@ -105,7 +135,7 @@ If/when we refactor the include chain, a minimal, low-risk modularization is:
 Goal: replace `include` with explicit `import` to reduce accidental coupling
 without changing behavior.
 
-## Debugging & profiling hooks
+## Debugging and profiling hooks
 - `scripts/profile_ai.nim`: quick AI profiling entrypoint.
 - `scripts/run_all_tests.nim`: run the full Nim test sequence.
 

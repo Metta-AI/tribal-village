@@ -11,7 +11,6 @@ and creature spawns.
 
 Related docs:
 - `docs/terrain_biomes.md`
-- `docs/terrain_cliffs.md`
 - `docs/world_generation.md`
 
 Key implementation files:

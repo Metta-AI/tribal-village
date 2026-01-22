@@ -4,8 +4,9 @@ Date: 2026-01-19
 Owner: Design / Systems
 Status: Draft
 
-## Generation Pipeline (High Level)
-Map generation is staged so terrain, biomes, elevation, and cliffs stay consistent:
+## Generation pipeline (high level)
+Map generation is staged so terrain, biomes, elevation, and cliffs stay
+consistent:
 1) `initTerrain` sets base terrain + biome types (no water yet).
 2) `applyBiomeZones` overlays biome zones (forest/desert/caves/city/plains/snow/swamp).
 3) `applySwampWater` paints water ponds inside swamp biomes.
@@ -15,54 +16,78 @@ Map generation is staged so terrain, biomes, elevation, and cliffs stay consiste
 7) `applyCliffRamps` adds occasional road ramps across elevation changes.
 8) `applyCliffs` places cliff overlays where higher tiles border lower tiles.
 
-See: `src/terrain.nim` and `src/spawn.nim`.
+Primary files:
+- `src/terrain.nim` (biomes, river, terrain masks)
+- `src/spawn.nim` (elevation, ramps, cliffs)
 
-## Biome Zones and Masks
-Biome zones are blob-shaped regions distributed across the map. The zone selection order is
-sequential by default (`UseSequentialBiomeZones = true`) so every biome appears at least once
-on most maps. Each zone has its own mask, then each biome applies additional rules:
+## Biome zones and masks
+Biome zones are blob-shaped regions distributed across the map. The zone
+selection order is sequential by default (`UseSequentialBiomeZones = true`) so
+most maps include every biome at least once. Each zone has its own mask, then
+each biome applies additional rules:
 
 - Forest / Caves / Plains
   - Uses a biome-specific mask to dither edges and add internal texture.
 - Desert
   - Blends sand into the zone edges (low density), then applies dunes on top.
 - City
-  - Separate block and road masks. Blocks later become walls, roads remain passable.
+  - Separate block and road masks. Blocks later become walls, roads remain
+    passable.
 - Snow / Swamp
-  - Uses an inset fill (inner mask only) so the biome core is solid and the edge ring
-    is left as base biome. This supports clear elevation/cliff boundaries.
+  - Uses an inset fill so the biome core is solid and the edge ring is left as
+    base biome. This supports clear elevation/cliff boundaries.
 
-Zones do not freely overwrite each other. `canApplyBiome` only allows overwriting if the
-current biome is base, empty, or the same biome. This keeps overlaps stable and predictable.
+Zones do not freely overwrite each other. `canApplyBiome` only allows
+overwriting if the current biome is base, empty, or the same biome. This keeps
+overlaps stable and predictable.
 
-## Elevation Rules
-Elevation is derived from biome type in `applyBiomeElevation`:
-- Snow = +1
-- Swamp = -1
-- Everything else = 0
-- Water / bridge tiles are forced to 0
+## Elevation rules
+Elevation is assigned per tile in `applyBiomeElevation` (`src/spawn.nim`):
+- Swamp tiles: elevation `-1`
+- Snow tiles: elevation `+1`
+- All other tiles: elevation `0`
+- Water and bridges are forced to elevation `0`
 
-This means snow forms plateaus and swamp forms basins relative to the base terrain.
+This means snow forms plateaus and swamp forms basins relative to base terrain.
 
-## Cliffs and Ramps
-Cliffs are visual overlays that mark elevation transitions:
-- `applyCliffs` checks each tile against its neighbors and drops an oriented cliff overlay
-  wherever a higher tile borders a lower tile.
-- Cliffs are background things (non-blocking). Movement is restricted by elevation, not
-  by cliffs directly.
-- `applyCliffRamps` sometimes converts adjacent tiles to `Road` to create a ramp between
-  elevation steps (roads are the ramp mechanic).
+## Cliffs and ramps
+Cliffs are visual overlays generated from elevation deltas:
+- `applyCliffs` scans each tile and compares neighbor elevations.
+- If a neighbor is lower, a cliff edge or corner overlay is placed.
+- Cardinal adjacency yields edge or inner-corner pieces.
+- Diagonal-only gaps yield outer-corner pieces.
 
-Placement rules in `src/placement.nim` ensure cliffs own their tile: other background things
-cannot overwrite a cliff, and cliffs can replace existing background overlays.
+Cliff overlays are background Things (non-blocking). Movement is restricted by
+`env.canTraverseElevation`, not by cliffs directly.
 
-## Movement and Observation Effects
-- `canTraverseElevation` allows movement on the same elevation, or a 1-step height change
-  if either the source or destination tile is `Road`.
-- The observation system masks tiles above the agent's elevation via `ObscuredLayer` in
-  `src/ffi.nim` (`applyObscuredMask`). Higher tiles are blanked out for that agent.
+Ramps are implemented by converting adjacent tiles to `Road` in
+`applyCliffRamps`:
+- A 1-level step is allowed if either tile is a road.
+- Larger elevation deltas are blocked.
 
-## Practical Notes
+Terrain enums include ramp tiles (`RampUp*`, `RampDown*`) but they are not
+currently placed or checked. Roads are the ramp mechanic today.
+
+## Rendering and assets (cliffs)
+- Draw order is defined in `renderer.nim` (`CliffDrawOrder`) to keep edges clean.
+- Observation layers exist for each cliff piece
+  (`ThingCliffEdgeNLayer`, `ThingCliffCornerInNELayer`, etc.).
+- Assets are registered in `registry.nim` and map to sprite keys like
+  `cliff_edge_ew`, `cliff_edge_ns`, and `oriented/cliff_corner_*`.
+
+## Movement and observation effects
+`env.canTraverseElevation` allows movement on the same elevation, or a 1-step
+height change when a road connects the tiles. The observation system masks tiles
+above the agent's elevation via `ObscuredLayer` in `src/ffi.nim`
+(`applyObscuredMask`).
+
+## Connectivity pass
+`makeConnected` in `src/connectivity.nim` runs after generation:
+- Labels connected components on walkable tiles.
+- Digs minimal paths through walls/terrain if multiple components exist.
+- Uses `env.canTraverseElevation`, so ramps matter for connectivity.
+
+## Practical notes
 - Zone masks are blob + dither based, so biome edges are intentionally irregular.
-- Snow and swamp zones are contiguous in their cores, but can still inherit holes from
-  the zone mask itself. The inset fill only guarantees the inner region is filled.
+- Snow and swamp zones are contiguous in their cores, but can still inherit
+  holes from the zone mask itself.

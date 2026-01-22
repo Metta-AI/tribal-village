@@ -206,7 +206,7 @@ signature and expected artifacts.
 **Intent:** Outline or revise the scripted/evolutionary role system.
 **Typical prompt:** "outline how roles evolve and integrate with AI".
 **Inputs:** goals + constraints (core roles kept, scoring step, etc).
-**Outputs:** plan + checklist for `docs/evolution.md`.
+**Outputs:** plan + checklist for `docs/ai_system.md`.
 **Notes:** pairs well with `/scripted-refactor` and `/role-homogenize`.
 
 ### /scripted-refactor
