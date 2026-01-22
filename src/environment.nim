@@ -72,6 +72,52 @@ proc clear[T](s: var openarray[T]) =
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
 
+proc observationTeamId(thing: Thing): int {.inline.} =
+  if thing.isNil:
+    return -1
+  if thing.kind == Agent:
+    return getTeamId(thing)
+  if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+    return thing.teamId
+  -1
+
+proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) =
+  var agentObs = addr env.observations[agentId]
+  for layerId in 0 ..< ObservationLayers:
+    agentObs[][layerId][obsX][obsY] = 0
+
+  let terrain = env.terrain[worldX][worldY]
+  agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
+
+  let blockingThing = env.grid[worldX][worldY]
+  if not isNil(blockingThing):
+    agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
+
+  let backgroundThing = env.backgroundGrid[worldX][worldY]
+  if not isNil(backgroundThing):
+    agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
+
+  var teamValue = 0
+  var orientValue = 0
+  var classValue = 0
+  if not isNil(blockingThing) and blockingThing.kind == Agent:
+    teamValue = getTeamId(blockingThing) + 1
+    orientValue = ord(blockingThing.orientation) + 1
+    classValue = ord(blockingThing.unitClass) + 1
+  else:
+    let teamId = block:
+      let blockingTeam = observationTeamId(blockingThing)
+      if blockingTeam >= 0:
+        blockingTeam
+      else:
+        observationTeamId(backgroundThing)
+    if teamId >= 0:
+      teamValue = teamId + 1
+  agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
+  agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
+  agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
+  agentObs[][ord(TintLayer)][obsX][obsY] = env.actionTintCode[worldX][worldY]
+
 proc updateObservations(
   env: Environment,
   layer: ObservationName,
@@ -83,52 +129,6 @@ proc updateObservations(
   discard value
   if not isValidPos(pos):
     return
-
-  proc teamIdForObs(thing: Thing): int =
-    if thing.isNil:
-      return -1
-    if thing.kind == Agent:
-      return getTeamId(thing)
-    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
-      return thing.teamId
-    -1
-
-  proc writeTileObs(agentId, obsX, obsY, worldX, worldY: int) =
-    var agentObs = addr env.observations[agentId]
-    for layerId in 0 ..< ObservationLayers:
-      agentObs[][layerId][obsX][obsY] = 0
-
-    let terrain = env.terrain[worldX][worldY]
-    agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
-
-    let blockingThing = env.grid[worldX][worldY]
-    if not isNil(blockingThing):
-      agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
-
-    let backgroundThing = env.backgroundGrid[worldX][worldY]
-    if not isNil(backgroundThing):
-      agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
-
-    var teamValue = 0
-    var orientValue = 0
-    var classValue = 0
-    if not isNil(blockingThing) and blockingThing.kind == Agent:
-      teamValue = getTeamId(blockingThing) + 1
-      orientValue = ord(blockingThing.orientation) + 1
-      classValue = ord(blockingThing.unitClass) + 1
-    else:
-      let teamId = block:
-        let blockingTeam = teamIdForObs(blockingThing)
-        if blockingTeam >= 0:
-          blockingTeam
-        else:
-          teamIdForObs(backgroundThing)
-      if teamId >= 0:
-        teamValue = teamId + 1
-    agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
-    agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
-    agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
-    agentObs[][ord(TintLayer)][obsX][obsY] = env.actionTintCode[worldX][worldY]
 
   let agentCount = env.agents.len
   for agentId in 0 ..< agentCount:
@@ -143,7 +143,7 @@ proc updateObservations(
       continue
     let obsX = dx + ObservationRadius
     let obsY = dy + ObservationRadius
-    writeTileObs(agentId, obsX, obsY, pos.x, pos.y)
+    writeTileObs(env, agentId, obsX, obsY, pos.x, pos.y)
   env.observationsInitialized = true
 
 include "colors"
@@ -269,15 +269,11 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
 
-proc applyUnitClassPreserveHp*(agent: Thing, unitClass: AgentUnitClass) =
-  applyUnitClass(agent, unitClass)
-  agent.hp = min(agent.hp, agent.maxHp)
-
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass == UnitBoat:
     return
   agent.embarkedUnitClass = agent.unitClass
-  applyUnitClassPreserveHp(agent, UnitBoat)
+  applyUnitClass(agent, UnitBoat)
 
 proc disembarkAgent*(agent: Thing) =
   if agent.unitClass != UnitBoat:
@@ -285,7 +281,7 @@ proc disembarkAgent*(agent: Thing) =
   var target = agent.embarkedUnitClass
   if target == UnitBoat:
     target = UnitVillager
-  applyUnitClassPreserveHp(agent, target)
+  applyUnitClass(agent, target)
 {.pop.}
 
 proc scoreTerritory*(env: Environment): TerritoryScore =
@@ -329,52 +325,6 @@ proc rebuildObservations*(env: Environment) =
   env.observations.clear()
   env.observationsInitialized = false
 
-  proc teamIdForObs(thing: Thing): int =
-    if thing.isNil:
-      return -1
-    if thing.kind == Agent:
-      return getTeamId(thing)
-    if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
-      return thing.teamId
-    -1
-
-  proc writeTileObs(agentId, obsX, obsY, worldX, worldY: int) =
-    var agentObs = addr env.observations[agentId]
-    for layerId in 0 ..< ObservationLayers:
-      agentObs[][layerId][obsX][obsY] = 0
-
-    let terrain = env.terrain[worldX][worldY]
-    agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
-
-    let blockingThing = env.grid[worldX][worldY]
-    if not isNil(blockingThing):
-      agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
-
-    let backgroundThing = env.backgroundGrid[worldX][worldY]
-    if not isNil(backgroundThing):
-      agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
-
-    var teamValue = 0
-    var orientValue = 0
-    var classValue = 0
-    if not isNil(blockingThing) and blockingThing.kind == Agent:
-      teamValue = getTeamId(blockingThing) + 1
-      orientValue = ord(blockingThing.orientation) + 1
-      classValue = ord(blockingThing.unitClass) + 1
-    else:
-      let teamId = block:
-        let blockingTeam = teamIdForObs(blockingThing)
-        if blockingTeam >= 0:
-          blockingTeam
-        else:
-          teamIdForObs(backgroundThing)
-      if teamId >= 0:
-        teamValue = teamId + 1
-    agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
-    agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
-    agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
-    agentObs[][ord(TintLayer)][obsX][obsY] = env.actionTintCode[worldX][worldY]
-
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
     if agent.isNil or not isAgentAlive(env, agent) or not isValidPos(agent.pos):
@@ -388,7 +338,7 @@ proc rebuildObservations*(env: Environment) =
         let worldY = agentPos.y + (obsY - ObservationRadius)
         if worldY < 0 or worldY >= MapHeight:
           continue
-        writeTileObs(agentId, obsX, obsY, worldX, worldY)
+        writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
   env.observationsInitialized = true
 

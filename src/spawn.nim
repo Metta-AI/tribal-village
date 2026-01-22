@@ -500,15 +500,6 @@ proc init(env: Environment) =
         return false
       true
 
-    proc addNeutralBuilding(kind: ThingKind, pos: IVec2) =
-      let building = Thing(
-        kind: kind,
-        pos: pos,
-        teamId: -1,
-        barrelCapacity: buildingBarrelCapacity(kind)
-      )
-      env.add(building)
-
     var wallPositions: seq[IVec2] = @[]
     proc tryAddWall(x, y: int) =
       if not canPlaceHubThing(x, y):
@@ -616,7 +607,12 @@ proc init(env: Environment) =
           continue
         if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
           continue
-        addNeutralBuilding(kind, pos)
+        env.add(Thing(
+          kind: kind,
+          pos: pos,
+          teamId: -1,
+          barrelCapacity: buildingBarrelCapacity(kind)
+        ))
         inc placed
         placedHere = true
 
@@ -633,7 +629,12 @@ proc init(env: Environment) =
       if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
         continue
       let kind = minorPool[randIntInclusive(rng, 0, minorPool.len - 1)]
-      addNeutralBuilding(kind, ivec2(x.int32, y.int32))
+      env.add(Thing(
+        kind: kind,
+        pos: ivec2(x.int32, y.int32),
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      ))
       inc extraPlaced
     let scatterPool = [
       House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
@@ -656,7 +657,12 @@ proc init(env: Environment) =
       if not canPlaceHubThing(x, y):
         continue
       let kind = scatterPool[randIntInclusive(rng, 0, scatterPool.len - 1)]
-      addNeutralBuilding(kind, ivec2(x.int32, y.int32))
+      env.add(Thing(
+        kind: kind,
+        pos: ivec2(x.int32, y.int32),
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      ))
       inc scatterPlaced
 
   proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
@@ -1576,12 +1582,10 @@ proc init(env: Environment) =
   while cowsPlaced < MapRoomObjectsCows:
     let herdSize = chooseGroupSize(MapRoomObjectsCows - cowsPlaced, MinHerdSize, MaxHerdSize)
     let center = rng.randomEmptyPos(env)
-    if env.terrain[center.x][center.y] != Empty:
-      continue
-    if env.biomes[center.x][center.y] == BiomeDungeonType:
+    if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
     let filtered = collectGroupPositions(center, 3)
-    if filtered.len < 5:
+    if filtered.len < MinHerdSize:
       continue
     let toPlace = min(herdSize, filtered.len)
     for i in 0 ..< toPlace:
@@ -1603,9 +1607,7 @@ proc init(env: Environment) =
   var bearsPlaced = 0
   while bearsPlaced < MapRoomObjectsBears:
     let pos = rng.randomEmptyPos(env)
-    if env.terrain[pos.x][pos.y] != Empty:
-      continue
-    if env.biomes[pos.x][pos.y] == BiomeDungeonType:
+    if env.terrain[pos.x][pos.y] != Empty or env.biomes[pos.x][pos.y] == BiomeDungeonType:
       continue
     let bear = Thing(
       kind: Bear,
@@ -1624,9 +1626,7 @@ proc init(env: Environment) =
   while wolvesPlaced < MapRoomObjectsWolves:
     let packSize = chooseGroupSize(MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize)
     let center = rng.randomEmptyPos(env)
-    if env.terrain[center.x][center.y] != Empty:
-      continue
-    if env.biomes[center.x][center.y] == BiomeDungeonType:
+    if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
     let filtered = collectGroupPositions(center, 4)
     if filtered.len < WolfPackMinSize:

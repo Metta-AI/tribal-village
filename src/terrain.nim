@@ -536,11 +536,10 @@ proc applySwampWater*(terrain: var TerrainGrid, biomes: var BiomeGrid,
 proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, mapHeight, mapBorder: int,
                      r: var Rand) =
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow, BiomeSwamp]
-  let count = kinds.len
   let baseBiomeType = baseBiomeType()
   var seqIdx = 0
   let edgeChance = 0.25
-  let zones = evenlyDistributedZones(r, mapWidth, mapHeight, mapBorder, count, BiomeZoneMaxFraction)
+  let zones = evenlyDistributedZones(r, mapWidth, mapHeight, mapBorder, kinds.len, BiomeZoneMaxFraction)
   for zone in zones:
     let biome = block:
       let selected = kinds[seqIdx mod kinds.len]
