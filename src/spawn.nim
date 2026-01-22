@@ -62,21 +62,19 @@ proc tryPickEmptyPos(r: var Rand, env: Environment, attempts: int,
       return true
   false
 
-proc appendUniquePositions(target: var seq[IVec2], extra: openArray[IVec2]) =
-  for pos in extra:
-    var exists = false
-    for candidate in target:
-      if candidate == pos:
-        exists = true
-        break
-    if not exists:
-      target.add(pos)
-
 proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
                        secondaryRadius: int, minCount: int): seq[IVec2] =
   result = env.findEmptyPositionsAround(center, primaryRadius)
   if secondaryRadius > 0 and result.len < minCount:
-    appendUniquePositions(result, env.findEmptyPositionsAround(center, secondaryRadius))
+    let extras = env.findEmptyPositionsAround(center, secondaryRadius)
+    for pos in extras:
+      var exists = false
+      for candidate in result:
+        if candidate == pos:
+          exists = true
+          break
+      if not exists:
+        result.add(pos)
 
 proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
@@ -1578,12 +1576,10 @@ proc init(env: Environment) =
   while cowsPlaced < MapRoomObjectsCows:
     let herdSize = chooseGroupSize(MapRoomObjectsCows - cowsPlaced, MinHerdSize, MaxHerdSize)
     let center = rng.randomEmptyPos(env)
-    if env.terrain[center.x][center.y] != Empty:
-      continue
-    if env.biomes[center.x][center.y] == BiomeDungeonType:
+    if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
     let filtered = collectGroupPositions(center, 3)
-    if filtered.len < 5:
+    if filtered.len < MinHerdSize:
       continue
     let toPlace = min(herdSize, filtered.len)
     for i in 0 ..< toPlace:
@@ -1605,9 +1601,7 @@ proc init(env: Environment) =
   var bearsPlaced = 0
   while bearsPlaced < MapRoomObjectsBears:
     let pos = rng.randomEmptyPos(env)
-    if env.terrain[pos.x][pos.y] != Empty:
-      continue
-    if env.biomes[pos.x][pos.y] == BiomeDungeonType:
+    if env.terrain[pos.x][pos.y] != Empty or env.biomes[pos.x][pos.y] == BiomeDungeonType:
       continue
     let bear = Thing(
       kind: Bear,
@@ -1626,9 +1620,7 @@ proc init(env: Environment) =
   while wolvesPlaced < MapRoomObjectsWolves:
     let packSize = chooseGroupSize(MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize)
     let center = rng.randomEmptyPos(env)
-    if env.terrain[center.x][center.y] != Empty:
-      continue
-    if env.biomes[center.x][center.y] == BiomeDungeonType:
+    if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
     let filtered = collectGroupPositions(center, 4)
     if filtered.len < WolfPackMinSize:

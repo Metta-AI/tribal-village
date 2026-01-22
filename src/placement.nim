@@ -47,41 +47,38 @@ proc add*(env: Environment, thing: Thing) =
       if thing.kind in CliffKinds:
         # Cliffs take precedence over other background overlays.
         removeThing(env, existing)
-  if thing.kind in {Wall, Door, Outpost, GuardTower, TownCenter, Castle}:
-    if thing.maxHp <= 0 or thing.attackDamage <= 0:
-      case thing.kind
-      of Wall:
-        if thing.maxHp <= 0:
-          thing.maxHp = WallMaxHp
-      of Door:
-        if thing.maxHp <= 0:
-          thing.maxHp = DoorMaxHearts
-      of Outpost:
-        if thing.maxHp <= 0:
-          thing.maxHp = OutpostMaxHp
-      of GuardTower:
-        if thing.maxHp <= 0:
-          thing.maxHp = GuardTowerMaxHp
-        if thing.attackDamage <= 0:
-          thing.attackDamage = GuardTowerAttackDamage
-      of TownCenter:
-        if thing.maxHp <= 0:
-          thing.maxHp = TownCenterMaxHp
-      of Castle:
-        if thing.maxHp <= 0:
-          thing.maxHp = CastleMaxHp
-        if thing.attackDamage <= 0:
-          thing.attackDamage = CastleAttackDamage
-      else:
-        discard
+  let defaultMaxHp =
+    case thing.kind
+    of Wall: WallMaxHp
+    of Door: DoorMaxHearts
+    of Outpost: OutpostMaxHp
+    of GuardTower: GuardTowerMaxHp
+    of TownCenter: TownCenterMaxHp
+    of Castle: CastleMaxHp
+    else: 0
+  if defaultMaxHp > 0:
+    if thing.maxHp <= 0:
+      thing.maxHp = defaultMaxHp
     if thing.hp <= 0:
       thing.hp = thing.maxHp
-  if thing.kind == Stone:
+
+  let defaultAttackDamage =
+    case thing.kind
+    of GuardTower: GuardTowerAttackDamage
+    of Castle: CastleAttackDamage
+    else: 0
+  if defaultAttackDamage > 0 and thing.attackDamage <= 0:
+    thing.attackDamage = defaultAttackDamage
+
+  case thing.kind
+  of Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, MineDepositAmount)
-  elif thing.kind == Gold:
+  of Gold:
     if getInv(thing, ItemGold) <= 0:
       setInv(thing, ItemGold, MineDepositAmount)
+  else:
+    discard
   env.things.add(thing)
   thing.thingsIndex = env.things.len - 1
   env.thingsByKind[thing.kind].add(thing)
