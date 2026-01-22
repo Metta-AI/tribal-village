@@ -8,10 +8,6 @@ proc optionsAlwaysTerminate*(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): bool =
   true
 
-proc optionsNeverTerminate*(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
-  false
-
 type OptionDef* = object
   name*: string
   canStart*: proc(controller: Controller, env: Environment, agent: Thing,
