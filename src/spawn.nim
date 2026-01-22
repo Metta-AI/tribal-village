@@ -62,21 +62,19 @@ proc tryPickEmptyPos(r: var Rand, env: Environment, attempts: int,
       return true
   false
 
-proc appendUniquePositions(target: var seq[IVec2], extra: openArray[IVec2]) =
-  for pos in extra:
-    var exists = false
-    for candidate in target:
-      if candidate == pos:
-        exists = true
-        break
-    if not exists:
-      target.add(pos)
-
 proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
                        secondaryRadius: int, minCount: int): seq[IVec2] =
   result = env.findEmptyPositionsAround(center, primaryRadius)
   if secondaryRadius > 0 and result.len < minCount:
-    appendUniquePositions(result, env.findEmptyPositionsAround(center, secondaryRadius))
+    let extras = env.findEmptyPositionsAround(center, secondaryRadius)
+    for pos in extras:
+      var exists = false
+      for candidate in result:
+        if candidate == pos:
+          exists = true
+          break
+      if not exists:
+        result.add(pos)
 
 proc isNearWater(env: Environment, x, y, radius: int): bool =
   for dx in -radius .. radius:
@@ -502,6 +500,15 @@ proc init(env: Environment) =
         return false
       true
 
+    proc addNeutralBuilding(kind: ThingKind, pos: IVec2) =
+      let building = Thing(
+        kind: kind,
+        pos: pos,
+        teamId: -1,
+        barrelCapacity: buildingBarrelCapacity(kind)
+      )
+      env.add(building)
+
     var wallPositions: seq[IVec2] = @[]
     proc tryAddWall(x, y: int) =
       if not canPlaceHubThing(x, y):
@@ -609,13 +616,7 @@ proc init(env: Environment) =
           continue
         if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
           continue
-        let building = Thing(
-          kind: kind,
-          pos: pos,
-          teamId: -1,
-          barrelCapacity: buildingBarrelCapacity(kind)
-        )
-        env.add(building)
+        addNeutralBuilding(kind, pos)
         inc placed
         placedHere = true
 
@@ -632,13 +633,7 @@ proc init(env: Environment) =
       if abs(x - centerX) <= 1 and abs(y - centerY) <= 1:
         continue
       let kind = minorPool[randIntInclusive(rng, 0, minorPool.len - 1)]
-      let building = Thing(
-        kind: kind,
-        pos: ivec2(x.int32, y.int32),
-        teamId: -1,
-        barrelCapacity: buildingBarrelCapacity(kind)
-      )
-      env.add(building)
+      addNeutralBuilding(kind, ivec2(x.int32, y.int32))
       inc extraPlaced
     let scatterPool = [
       House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
@@ -661,13 +656,7 @@ proc init(env: Environment) =
       if not canPlaceHubThing(x, y):
         continue
       let kind = scatterPool[randIntInclusive(rng, 0, scatterPool.len - 1)]
-      let building = Thing(
-        kind: kind,
-        pos: ivec2(x.int32, y.int32),
-        teamId: -1,
-        barrelCapacity: buildingBarrelCapacity(kind)
-      )
-      env.add(building)
+      addNeutralBuilding(kind, ivec2(x.int32, y.int32))
       inc scatterPlaced
 
   proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
