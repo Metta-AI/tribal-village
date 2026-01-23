@@ -353,11 +353,7 @@ proc buildingHasCraftStation*(kind: ThingKind): bool =
   buildingCraftStation(kind) != StationNone
 
 proc buildingHasTrain*(kind: ThingKind): bool =
-  case kind
-  of Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, Monastery, Castle:
-    true
-  else:
-    false
+  kind in {Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, Monastery, Castle}
 
 proc buildingTrainUnit*(kind: ThingKind): AgentUnitClass =
   case kind
@@ -390,10 +386,15 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
       continue
     if not buildingBuildable(kind):
       continue
-    let costs = BuildingRegistry[kind].buildCost
+    let info = BuildingRegistry[kind]
+    let costs = info.buildCost
     if costs.len == 0:
       continue
-    let recipeId = toSnakeCase($kind)
-    let station = StationTable
-    let cooldown = BuildingRegistry[kind].buildCooldown
-    addRecipe(recipes, recipeId, station, costs, @[(thingItem($kind), 1)], cooldown)
+    addRecipe(
+      recipes,
+      toSnakeCase($kind),
+      StationTable,
+      costs,
+      @[(thingItem($kind), 1)],
+      info.buildCooldown
+    )
