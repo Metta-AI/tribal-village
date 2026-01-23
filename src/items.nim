@@ -182,9 +182,7 @@ proc getInv*[T](thing: T, key: ItemKey): int =
 
 proc getInv*[T](thing: T, kind: ItemKind): int =
   ## Type-safe overload using ItemKind enum
-  if kind == ikNone:
-    return 0
-  getInv(thing, ItemKey(kind: ItemKeyItem, item: kind))
+  getInv(thing, toItemKey(kind))
 
 proc setInv*[T](thing: T, key: ItemKey, value: int) =
   if key.kind == ItemKeyNone:
@@ -197,9 +195,7 @@ proc setInv*[T](thing: T, key: ItemKey, value: int) =
 
 proc setInv*[T](thing: T, kind: ItemKind, value: int) =
   ## Type-safe overload using ItemKind enum
-  if kind == ikNone:
-    return
-  setInv(thing, ItemKey(kind: ItemKeyItem, item: kind), value)
+  setInv(thing, toItemKey(kind), value)
 
 proc canSpendInventory*[T](agent: T, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
   for cost in costs:

@@ -145,17 +145,15 @@ proc generateDfViewAssets*() =
     writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
 
   # Replace the road sprite with a constructed floor tile when available.
-  if "ConstructedFloor" in overrides:
-    let overrideEntry = overrides["ConstructedFloor"]
-    if overrideEntry.tilesetIdx in tilesets:
-      let sheetPath = tilesets[overrideEntry.tilesetIdx]
-      if fileExists(sheetPath):
-        let outPath = MapDir / "road.png"
-        if not fileExists(outPath):
-          writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
-  else:
+  let overrideEntry = overrides.getOrDefault("ConstructedFloor", OverrideEntry(tilesetIdx: -1, tileIndex: -1))
+  let sheetPath = tilesets.getOrDefault(overrideEntry.tilesetIdx, "")
+  if overrideEntry.tilesetIdx < 0 or sheetPath.len == 0 or not fileExists(sheetPath):
     if "road" notin missing:
       missing.add("road")
+  else:
+    let outPath = MapDir / "road.png"
+    if not fileExists(outPath):
+      writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
 
   if created > 0:
     echo "DF tileset: generated ", created, " sprites"
