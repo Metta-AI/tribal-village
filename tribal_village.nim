@@ -339,7 +339,22 @@ proc display() =
     clearUiCapture = true
     blockSelection = true
 
-  useSelections(blockSelection)
+  if not blockSelection:
+    if window.buttonPressed[MouseLeft]:
+      mouseDownPos = logicalMousePos(window)
+
+    if window.buttonReleased[MouseLeft]:
+      if (logicalMousePos(window) - mouseDownPos).length <= 3.0:
+        selection = nil
+        let
+          mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+          gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
+        if gridPos.x >= 0 and gridPos.x < MapWidth and
+           gridPos.y >= 0 and gridPos.y < MapHeight:
+          selectedPos = gridPos
+          let thing = env.grid[gridPos.x][gridPos.y]
+          if not isNil(thing):
+            selection = thing
 
   if selection != nil and selection.kind == Agent:
     let agent = selection
