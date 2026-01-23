@@ -135,10 +135,6 @@ proc buildingSpriteKey*(kind: ThingKind): string =
   let key = BuildingRegistry[kind].spriteKey
   if key.len == 0: toSnakeCase($kind) else: key
 
-proc buildingDisplayName*(kind: ThingKind): string =
-  BuildingRegistry[kind].displayName
-
-
 type
   CatalogEntry* = object
     displayName*: string
@@ -249,7 +245,7 @@ proc thingSpriteKey*(kind: ThingKind): string =
 
 proc thingDisplayName*(kind: ThingKind): string =
   if isBuildingKind(kind):
-    return buildingDisplayName(kind)
+    return BuildingRegistry[kind].displayName
   let name = ThingCatalog[kind].displayName
   if name.len > 0: name else: $kind
 
