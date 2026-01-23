@@ -886,7 +886,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             of UseTrain:
               if thing.cooldown == 0 and buildingHasTrain(thing.kind):
                 if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
-                    buildingTrainCosts(thing.kind), buildingTrainCooldown(thing.kind)):
+                    buildingTrainCosts(thing.kind), 0):
                   used = true
             of UseTrainAndCraft:
               if thing.cooldown == 0:
@@ -894,7 +894,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   used = true
                 elif buildingHasTrain(thing.kind):
                   if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
-                      buildingTrainCosts(thing.kind), buildingTrainCooldown(thing.kind)):
+                      buildingTrainCosts(thing.kind), 0):
                     used = true
             of UseCraft:
               if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
