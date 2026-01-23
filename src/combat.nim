@@ -118,15 +118,12 @@ proc killAgent(env: Environment, victim: Thing) =
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
   var remaining = max(1, amount)
-  if not attacker.isNil:
-    let bonus = BonusDamageByClass[attacker.unitClass][target.unitClass]
-    if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
+  let bonus = if attacker.isNil: 0 else: BonusDamageByClass[attacker.unitClass][target.unitClass]
+  if bonus > 0:
+    env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
     remaining = max(1, remaining + bonus)
-  block tankAura:
-    let teamId = getTeamId(target)
-    if teamId < 0:
-      break tankAura
+  let teamId = getTeamId(target)
+  if teamId >= 0:
     for agent in env.agents:
       if not isAgentAlive(env, agent):
         continue
@@ -141,7 +138,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
       let dy = abs(agent.pos.y - target.pos.y)
       if max(dx, dy) <= radius:
         remaining = max(1, (remaining + 1) div 2)
-        break tankAura
+        break
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
