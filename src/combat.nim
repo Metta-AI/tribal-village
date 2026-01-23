@@ -93,20 +93,18 @@ proc killAgent(env: Environment, victim: Thing) =
         if env.isEmpty(cand) and not env.hasDoor(cand) and
             not isBlockedTerrain(env.terrain[cand.x][cand.y]) and not isTileFrozen(cand, env):
           candidates.add(cand)
-    var candidateIdx = 0
-    for _ in 0 ..< lanternCount:
-      if candidateIdx >= candidates.len:
-        break
-      let pos = candidates[candidateIdx]
-      inc candidateIdx
-      let lantern = Thing(kind: Lantern, pos: pos, teamId: getTeamId(victim), lanternHealthy: true)
+    let lanternSlots = min(lanternCount, candidates.len)
+    for i in 0 ..< lanternSlots:
+      let lantern = Thing(
+        kind: Lantern,
+        pos: candidates[i],
+        teamId: getTeamId(victim),
+        lanternHealthy: true
+      )
       env.add(lantern)
-    for _ in 0 ..< relicCount:
-      if candidateIdx >= candidates.len:
-        break
-      let pos = candidates[candidateIdx]
-      inc candidateIdx
-      let relic = Thing(kind: Relic, pos: pos)
+    let relicSlots = min(relicCount, candidates.len - lanternSlots)
+    for i in 0 ..< relicSlots:
+      let relic = Thing(kind: Relic, pos: candidates[lanternSlots + i])
       relic.inventory = emptyInventory()
       setInv(relic, ItemGold, 0)
       env.add(relic)
