@@ -40,16 +40,15 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
     let agentPos = agent.pos
     if not isValidPos(agentPos):
       continue
+    let baseElevation = env.elevation[agentPos.x][agentPos.y]
     let agentBase = agentId * ObsAgentStride
     for x in 0 ..< ObservationWidth:
       let worldX = agentPos.x + (x - radius)
       let xOffset = x * ObservationHeight
       for y in 0 ..< ObservationHeight:
         let worldY = agentPos.y + (y - radius)
-        var obscured = false
-        if worldX >= 0 and worldX < MapWidth and worldY >= 0 and worldY < MapHeight:
-          if env.elevation[worldX][worldY] > env.elevation[agentPos.x][agentPos.y]:
-            obscured = true
+        let inBounds = worldX >= 0 and worldX < MapWidth and worldY >= 0 and worldY < MapHeight
+        let obscured = inBounds and env.elevation[worldX][worldY] > baseElevation
         let obscuredIndex = agentBase + ObscuredLayerIndex * ObsTileStride + xOffset + y
         obs_buffer[obscuredIndex] = (if obscured: 1'u8 else: 0'u8)
         if obscured:
@@ -194,6 +193,32 @@ proc tribal_village_render_rgb(
   out_w: int32,
   out_h: int32
 ): int32 {.exportc, dynlib.} =
+  proc thingTintBytes(thing: Thing): tuple[r, g, b: uint8] =
+    if isBuildingKind(thing.kind):
+      let tint = BuildingRegistry[thing.kind].renderColor
+      return (tint.r, tint.g, tint.b)
+    case thing.kind
+    of Agent: (255'u8, 255'u8, 0'u8)
+    of Wall: (96'u8, 96'u8, 96'u8)
+    of Tree: (34'u8, 139'u8, 34'u8)
+    of Wheat: (200'u8, 180'u8, 90'u8)
+    of Stubble: (175'u8, 150'u8, 70'u8)
+    of Stone: (140'u8, 140'u8, 140'u8)
+    of Gold: (220'u8, 190'u8, 80'u8)
+    of Bush: (60'u8, 120'u8, 60'u8)
+    of Cactus: (80'u8, 140'u8, 60'u8)
+    of Stalagmite: (150'u8, 150'u8, 170'u8)
+    of Magma: (0'u8, 200'u8, 200'u8)
+    of Spawner: (255'u8, 170'u8, 0'u8)
+    of Tumor: (160'u8, 32'u8, 240'u8)
+    of Cow: (230'u8, 230'u8, 230'u8)
+    of Bear: (140'u8, 90'u8, 40'u8)
+    of Wolf: (130'u8, 130'u8, 130'u8)
+    of Skeleton: (210'u8, 210'u8, 210'u8)
+    of Stump: (110'u8, 85'u8, 55'u8)
+    of Lantern: (255'u8, 240'u8, 128'u8)
+    else: (180'u8, 180'u8, 180'u8)
+
   let width = int(out_w)
   let height = int(out_h)
 
@@ -203,48 +228,16 @@ proc tribal_village_render_rgb(
     for y in 0 ..< MapHeight:
       for sy in 0 ..< scaleY:
         for x in 0 ..< MapWidth:
-          proc baseTintBytes(): tuple[r, g, b: uint8] =
-            let color = combinedTileTint(globalEnv, x, y)
-            (toByte(color.r), toByte(color.g), toByte(color.b))
-
-          proc actionTintBytes(): tuple[r, g, b: uint8] =
-            let tint = globalEnv.actionTintColor[x][y]
-            (toByte(tint.r), toByte(tint.g), toByte(tint.b))
-
-          proc thingTintBytes(thing: Thing): tuple[r, g, b: uint8] =
-            if isBuildingKind(thing.kind):
-              let tint = BuildingRegistry[thing.kind].renderColor
-              return (tint.r, tint.g, tint.b)
-            case thing.kind
-            of Agent: (255'u8, 255'u8, 0'u8)
-            of Wall: (96'u8, 96'u8, 96'u8)
-            of Tree: (34'u8, 139'u8, 34'u8)
-            of Wheat: (200'u8, 180'u8, 90'u8)
-            of Stubble: (175'u8, 150'u8, 70'u8)
-            of Stone: (140'u8, 140'u8, 140'u8)
-            of Gold: (220'u8, 190'u8, 80'u8)
-            of Bush: (60'u8, 120'u8, 60'u8)
-            of Cactus: (80'u8, 140'u8, 60'u8)
-            of Stalagmite: (150'u8, 150'u8, 170'u8)
-            of Magma: (0'u8, 200'u8, 200'u8)
-            of Spawner: (255'u8, 170'u8, 0'u8)
-            of Tumor: (160'u8, 32'u8, 240'u8)
-            of Cow: (230'u8, 230'u8, 230'u8)
-            of Bear: (140'u8, 90'u8, 40'u8)
-            of Wolf: (130'u8, 130'u8, 130'u8)
-            of Skeleton: (210'u8, 210'u8, 210'u8)
-            of Stump: (110'u8, 85'u8, 55'u8)
-            of Lantern: (255'u8, 240'u8, 128'u8)
-            else: (180'u8, 180'u8, 180'u8)
-
           let thing = globalEnv.grid[x][y]
           let (rByte, gByte, bByte) =
             if not isNil(thing):
               thingTintBytes(thing)
             elif globalEnv.actionTintCountdown[x][y] > 0:
-              actionTintBytes()
+              let tint = globalEnv.actionTintColor[x][y]
+              (toByte(tint.r), toByte(tint.g), toByte(tint.b))
             else:
-              baseTintBytes()
+              let color = combinedTileTint(globalEnv, x, y)
+              (toByte(color.r), toByte(color.g), toByte(color.b))
 
           let xBase = (y * scaleY + sy) * (width * 3) + x * scaleX * 3
           for sx in 0 ..< scaleX:

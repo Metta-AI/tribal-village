@@ -87,7 +87,6 @@ proc logicalMousePos*(window: Window): Vec2 =
   window.mousePos.vec2 / window.contentScale
 
 type
-  OrientationDelta* = tuple[x, y: int]
   Orientation* = enum
     N = 0  # North (Up)
     S = 1  # South (Down) 
@@ -98,15 +97,21 @@ type
     SW = 6 # Southwest (Down-Left)
     SE = 7 # Southeast (Down-Right)
 
-const OrientationDeltas*: array[8, OrientationDelta] = [
-  (x: 0, y: -1),   # N (North)
-  (x: 0, y: 1),    # S (South)
-  (x: -1, y: 0),   # W (West)
-  (x: 1, y: 0),    # E (East)
-  (x: -1, y: -1),  # NW (Northwest)
-  (x: 1, y: -1),   # NE (Northeast)
-  (x: -1, y: 1),   # SW (Southwest)
-  (x: 1, y: 1)     # SE (Southeast)
+{.push inline.}
+proc ivec2*(x, y: int): IVec2 =
+  result.x = x.int32
+  result.y = y.int32
+{.pop.}
+
+const OrientationDeltas*: array[8, IVec2] = [
+  ivec2(0, -1),   # N (North)
+  ivec2(0, 1),    # S (South)
+  ivec2(-1, 0),   # W (West)
+  ivec2(1, 0),    # E (East)
+  ivec2(-1, -1),  # NW (Northwest)
+  ivec2(1, -1),   # NE (Northeast)
+  ivec2(-1, 1),   # SW (Southwest)
+  ivec2(1, 1)     # SE (Southeast)
 ]
 
 const
@@ -118,14 +123,7 @@ proc encodeAction*(verb: uint8, argument: uint8): uint8 =
 
 {.push inline.}
 proc orientationToVec*(orientation: Orientation): IVec2 =
-  let delta = OrientationDeltas[orientation.int]
-  ivec2(delta.x.int32, delta.y.int32)
-{.pop.}
-
-{.push inline.}
-proc ivec2*(x, y: int): IVec2 =
-  result.x = x.int32
-  result.y = y.int32
+  OrientationDeltas[orientation.int]
 {.pop.}
 
 const
