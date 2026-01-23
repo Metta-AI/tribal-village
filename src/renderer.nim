@@ -811,7 +811,8 @@ proc drawSelectionLabel*(panelRect: IRect) =
     elif isBuildingKind(t.kind):
       BuildingRegistry[t.kind].displayName
     else:
-      thingDisplayName(t.kind)
+      let name = ThingCatalog[t.kind].displayName
+      if name.len > 0: name else: $t.kind
 
   var label = ""
   let thing = env.grid[selectedPos.x][selectedPos.y]
