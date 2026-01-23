@@ -133,9 +133,7 @@ proc thingBlocksMovement*(kind: ThingKind): bool =
 
 proc buildingSpriteKey*(kind: ThingKind): string =
   let key = BuildingRegistry[kind].spriteKey
-  if key.len > 0:
-    return key
-  toSnakeCase($kind)
+  if key.len == 0: toSnakeCase($kind) else: key
 
 proc buildingDisplayName*(kind: ThingKind): string =
   BuildingRegistry[kind].displayName
@@ -238,9 +236,7 @@ proc terrainSpriteKey*(terrain: TerrainType): string =
   if terrain == Empty:
     return ""
   let key = TerrainCatalog[terrain].spriteKey
-  if key.len > 0:
-    return key
-  toSnakeCase($terrain)
+  if key.len == 0: toSnakeCase($terrain) else: key
 
 
 proc thingSpriteKey*(kind: ThingKind): string =
@@ -298,7 +294,8 @@ proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
   else: ResourceNone
 
 proc buildingBuildable*(kind: ThingKind): bool =
-  BuildingRegistry[kind].buildIndex >= 0 and BuildingRegistry[kind].buildCost.len > 0
+  let info = BuildingRegistry[kind]
+  info.buildIndex >= 0 and info.buildCost.len > 0
 
 proc buildingPopCap*(kind: ThingKind): int =
   case kind
