@@ -184,21 +184,22 @@ proc spendStockpile*(env: Environment, teamId: int,
 
 proc canSpendStockpile*(env: Environment, teamId: int,
                         costs: openArray[tuple[key: ItemKey, count: int]]): bool =
-  var resCosts: seq[tuple[res: StockpileResource, count: int]] = @[]
   for cost in costs:
-    if not isStockpileResourceKey(cost.key):
+    let res = stockpileResourceForItem(cost.key)
+    if res == ResourceNone:
       return false
-    resCosts.add((res: stockpileResourceForItem(cost.key), count: cost.count))
-  env.canSpendStockpile(teamId, resCosts)
+    if env.teamStockpiles[teamId].counts[res] < cost.count:
+      return false
+  true
 
 proc spendStockpile*(env: Environment, teamId: int,
                      costs: openArray[tuple[key: ItemKey, count: int]]): bool =
-  var resCosts: seq[tuple[res: StockpileResource, count: int]] = @[]
+  if not env.canSpendStockpile(teamId, costs):
+    return false
   for cost in costs:
-    if not isStockpileResourceKey(cost.key):
-      return false
-    resCosts.add((res: stockpileResourceForItem(cost.key), count: cost.count))
-  env.spendStockpile(teamId, resCosts)
+    let res = stockpileResourceForItem(cost.key)
+    env.teamStockpiles[teamId].counts[res] -= cost.count
+  true
 
 proc spendInventory*(env: Environment, agent: Thing,
                      costs: openArray[tuple[key: ItemKey, count: int]]): bool =
