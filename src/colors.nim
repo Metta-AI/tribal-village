@@ -111,7 +111,7 @@ proc applyBiomeBaseColors*(env: Environment) =
               sumI += otherColor.intensity
               inc count
 
-        if count > 0 and minDist <= BiomeEdgeBlendRadius:
+        if count > 0:
           let invCount = 1.0'f32 / count.float32
           let neighborColor = TileColor(
             r: sumR * invCount,
@@ -120,9 +120,9 @@ proc applyBiomeBaseColors*(env: Environment) =
             intensity: sumI * invCount
           )
 
-          let raw = 1.0'f32 - (float32(minDist - 1) / float32(BiomeEdgeBlendRadius))
-          let clamped = max(0.0'f32, min(1.0'f32, raw))
-          let easeT = clamped * clamped * (3.0'f32 - 2.0'f32 * clamped)
+          let blendT = max(0.0'f32, min(1.0'f32,
+            1.0'f32 - (float32(minDist - 1) / float32(BiomeEdgeBlendRadius))))
+          let easeT = blendT * blendT * (3.0'f32 - 2.0'f32 * blendT)
           let invT = 1.0'f32 - easeT
           color = TileColor(
             r: color.r * invT + neighborColor.r * easeT,
