@@ -1262,41 +1262,36 @@ proc init(env: Environment) =
     var goblinSpots = env.findEmptyPositionsAround(goblinHivePos, 2)
     if goblinSpots.len == 0:
       goblinSpots = env.findEmptyPositionsAround(goblinHivePos, 3)
+    template popGoblinSpot(): IVec2 =
+      (block:
+        let spotIdx = randIntInclusive(rng, 0, goblinSpots.len - 1)
+        let pos = goblinSpots[spotIdx]
+        goblinSpots[spotIdx] = goblinSpots[^1]
+        goblinSpots.setLen(goblinSpots.len - 1)
+        pos)
 
     let hutCount = MapRoomObjectsGoblinHuts div GoblinHiveCount +
       (if hiveIndex < MapRoomObjectsGoblinHuts mod GoblinHiveCount: 1 else: 0)
-    for _ in 0 ..< hutCount:
-      if goblinSpots.len == 0:
-        break
-      let spotIdx = randIntInclusive(rng, 0, goblinSpots.len - 1)
-      let pos = goblinSpots[spotIdx]
-      goblinSpots[spotIdx] = goblinSpots[^1]
-      goblinSpots.setLen(goblinSpots.len - 1)
-      env.add(Thing(kind: GoblinHut, pos: pos, teamId: -1))
+    var hutsRemaining = hutCount
+    while hutsRemaining > 0 and goblinSpots.len > 0:
+      dec hutsRemaining
+      env.add(Thing(kind: GoblinHut, pos: popGoblinSpot(), teamId: -1))
 
     let totemCount = MapRoomObjectsGoblinTotems div GoblinHiveCount +
       (if hiveIndex < MapRoomObjectsGoblinTotems mod GoblinHiveCount: 1 else: 0)
-    for _ in 0 ..< totemCount:
-      if goblinSpots.len == 0:
-        break
-      let spotIdx = randIntInclusive(rng, 0, goblinSpots.len - 1)
-      let pos = goblinSpots[spotIdx]
-      goblinSpots[spotIdx] = goblinSpots[^1]
-      goblinSpots.setLen(goblinSpots.len - 1)
-      env.add(Thing(kind: GoblinTotem, pos: pos, teamId: -1))
+    var totemsRemaining = totemCount
+    while totemsRemaining > 0 and goblinSpots.len > 0:
+      dec totemsRemaining
+      env.add(Thing(kind: GoblinTotem, pos: popGoblinSpot(), teamId: -1))
 
     let agentCount = MapRoomObjectsGoblinAgents div GoblinHiveCount +
       (if hiveIndex < MapRoomObjectsGoblinAgents mod GoblinHiveCount: 1 else: 0)
     for _ in 0 ..< agentCount:
       let agentId = totalAgentsSpawned
-      var agentPos = ivec2(-1, -1)
-      if goblinSpots.len > 0:
-        let spotIdx = randIntInclusive(rng, 0, goblinSpots.len - 1)
-        agentPos = goblinSpots[spotIdx]
-        goblinSpots[spotIdx] = goblinSpots[^1]
-        goblinSpots.setLen(goblinSpots.len - 1)
+      let agentPos = if goblinSpots.len > 0:
+        popGoblinSpot()
       else:
-        agentPos = rng.randomEmptyPos(env)
+        rng.randomEmptyPos(env)
       env.agentColors[agentId] = goblinTint
       env.terminated[agentId] = 0.0
       env.add(Thing(
