@@ -532,14 +532,10 @@ proc applyBiomeZones(terrain: var TerrainGrid, biomes: var BiomeGrid, mapWidth, 
                      r: var Rand) =
   let kinds = [BiomeForest, BiomeDesert, BiomeCaves, BiomeCity, BiomePlains, BiomeSnow, BiomeSwamp]
   let baseBiomeType = baseBiomeType()
-  var seqIdx = 0
   let edgeChance = 0.25
   let zones = evenlyDistributedZones(r, mapWidth, mapHeight, mapBorder, kinds.len, BiomeZoneMaxFraction)
-  for zone in zones:
-    let biome = block:
-      let selected = kinds[seqIdx mod kinds.len]
-      inc seqIdx
-      selected
+  for idx, zone in zones:
+    let biome = kinds[idx mod kinds.len]
     var zoneMask: MaskGrid
     buildZoneBlobMask(zoneMask, mapWidth, mapHeight, mapBorder, zone, r)
     case biome:
