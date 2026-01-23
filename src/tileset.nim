@@ -85,10 +85,6 @@ proc generateDfViewAssets*() =
   var created = 0
   var missing: seq[string]
 
-  proc noteMissing(token: string) =
-    if token notin missing:
-      missing.add(token)
-
   proc writeScaledTile(outPath: string, tilesetIdx: int, tileIndex: int, sheetPath: string) =
     var sheet: Image
     if tilesetIdx in sheetCache:
@@ -135,17 +131,20 @@ proc generateDfViewAssets*() =
         else: ""
 
     if lookupToken.len == 0 or lookupToken notin overrides:
-      noteMissing(token)
+      if token notin missing:
+        missing.add(token)
       continue
 
     let overrideEntry = overrides[lookupToken]
     if overrideEntry.tilesetIdx notin tilesets:
-      noteMissing(token)
+      if token notin missing:
+        missing.add(token)
       continue
 
     let sheetPath = tilesets[overrideEntry.tilesetIdx]
     if not fileExists(sheetPath):
-      noteMissing(token)
+      if token notin missing:
+        missing.add(token)
       continue
 
     writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
@@ -160,7 +159,8 @@ proc generateDfViewAssets*() =
         if not fileExists(outPath):
           writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
   else:
-    noteMissing("road")
+    if "road" notin missing:
+      missing.add("road")
 
   if created > 0:
     echo "DF tileset: generated ", created, " sprites"
