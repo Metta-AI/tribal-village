@@ -48,25 +48,26 @@ type
     active: bool
 
 var replayWriter*: ReplayWriter = nil
-proc ensureWriter(): ReplayWriter =
-  if not replayWriter.isNil:
-    return replayWriter
-  let basePath = getEnv("TV_REPLAY_PATH", "")
-  let baseDir = getEnv("TV_REPLAY_DIR", "")
-  if basePath.len == 0 and baseDir.len == 0:
-    return nil
-  let baseName = getEnv("TV_REPLAY_NAME", DefaultReplayBaseName)
-  let label = getEnv("TV_REPLAY_LABEL", "Tribal Village Replay")
-  replayWriter = ReplayWriter(
-    enabled: true,
-    baseDir: baseDir,
-    basePath: basePath,
-    baseName: baseName,
-    label: label
-  )
-  replayWriter
 
-proc resetEpisode(writer: ReplayWriter) =
+proc maybeStartReplayEpisode*(env: Environment) =
+  discard env
+  var writer = replayWriter
+  if writer.isNil:
+    let basePath = getEnv("TV_REPLAY_PATH", "")
+    let baseDir = getEnv("TV_REPLAY_DIR", "")
+    if basePath.len == 0 and baseDir.len == 0:
+      return
+    let baseName = getEnv("TV_REPLAY_NAME", DefaultReplayBaseName)
+    let label = getEnv("TV_REPLAY_LABEL", "Tribal Village Replay")
+    writer = ReplayWriter(
+      enabled: true,
+      baseDir: baseDir,
+      basePath: basePath,
+      baseName: baseName,
+      label: label
+    )
+    replayWriter = writer
+  inc writer.episodeIndex
   writer.thingIds.clear()
   writer.objects.setLen(0)
   writer.nextId = 1
@@ -74,8 +75,6 @@ proc resetEpisode(writer: ReplayWriter) =
   writer.lastInvalidCounts = default(array[MapAgents, int])
   writer.maxStep = -1
   writer.active = true
-
-proc computeOutputPath(writer: ReplayWriter) =
   if writer.basePath.len > 0:
     writer.outputPath = writer.basePath
   else:
@@ -86,15 +85,6 @@ proc computeOutputPath(writer: ReplayWriter) =
     else:
       writer.outputPath = fileName
   writer.fileName = extractFilename(writer.outputPath)
-
-proc maybeStartReplayEpisode*(env: Environment) =
-  discard env
-  let writer = ensureWriter()
-  if writer.isNil:
-    return
-  inc writer.episodeIndex
-  writer.resetEpisode()
-  writer.computeOutputPath()
 
 proc seriesAdd(series: var ReplaySeries, step: int, value: JsonNode) =
   if not series.hasLast:
