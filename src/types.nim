@@ -509,8 +509,9 @@ const
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.
   if agent.teamIdOverride >= 0:
-    return agent.teamIdOverride
-  getTeamId(agent.agentId)
+    agent.teamIdOverride
+  else:
+    getTeamId(agent.agentId)
 
 proc hasPlantInputs*(agent: Thing): bool =
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
