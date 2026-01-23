@@ -89,15 +89,13 @@ proc generateDfViewAssets*() =
     if token notin missing:
       missing.add(token)
 
-  proc getSheet(tilesetIdx: int, sheetPath: string): Image =
-    if tilesetIdx in sheetCache:
-      return sheetCache[tilesetIdx]
-    let img = readImage(sheetPath)
-    sheetCache[tilesetIdx] = img
-    img
-
   proc writeScaledTile(outPath: string, tilesetIdx: int, tileIndex: int, sheetPath: string) =
-    let sheet = getSheet(tilesetIdx, sheetPath)
+    var sheet: Image
+    if tilesetIdx in sheetCache:
+      sheet = sheetCache[tilesetIdx]
+    else:
+      sheet = readImage(sheetPath)
+      sheetCache[tilesetIdx] = sheet
     let col = tileIndex mod TilesPerRow
     let row = tileIndex div TilesPerRow
     let x0 = col * TileSize

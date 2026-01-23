@@ -49,24 +49,6 @@ type
 
 var replayWriter*: ReplayWriter = nil
 
-proc toReplayTypeName(kind: ThingKind): string =
-  buildingSpriteKey(kind)
-
-proc buildItemNames(): JsonNode =
-  result = newJArray()
-  for kind in ItemKind:
-    result.add(newJString(itemKindName(kind)))
-
-proc buildTypeNames(): JsonNode =
-  result = newJArray()
-  for kind in ThingKind:
-    result.add(newJString(toReplayTypeName(kind)))
-
-proc buildActionNames(): JsonNode =
-  result = newJArray()
-  for name in ReplayActionNames:
-    result.add(newJString(name))
-
 proc ensureWriter(): ReplayWriter =
   if not replayWriter.isNil:
     return replayWriter
@@ -162,7 +144,7 @@ proc ensureReplayObject(writer: ReplayWriter, thing: Thing): ReplayObject =
     replayObj.constFields = initTable[string, JsonNode]()
     replayObj.series = initTable[string, ReplaySeries]()
     replayObj.constFields["id"] = newJInt(objectId)
-    replayObj.constFields["type_name"] = newJString(toReplayTypeName(thing.kind))
+    replayObj.constFields["type_name"] = newJString(buildingSpriteKey(thing.kind))
     if thing.kind == Agent:
       replayObj.constFields["agent_id"] = newJInt(thing.agentId)
       replayObj.constFields["group_id"] = newJInt(getTeamId(thing))
@@ -249,9 +231,18 @@ proc seriesToJson(series: ReplaySeries): JsonNode =
 proc buildReplayJson(writer: ReplayWriter, env: Environment): JsonNode =
   result = newJObject()
   result["version"] = newJInt(ReplayVersion)
-  result["action_names"] = buildActionNames()
-  result["item_names"] = buildItemNames()
-  result["type_names"] = buildTypeNames()
+  var actionNames = newJArray()
+  for name in ReplayActionNames:
+    actionNames.add(newJString(name))
+  result["action_names"] = actionNames
+  var itemNames = newJArray()
+  for kind in ItemKind:
+    itemNames.add(newJString(itemKindName(kind)))
+  result["item_names"] = itemNames
+  var typeNames = newJArray()
+  for kind in ThingKind:
+    typeNames.add(newJString(buildingSpriteKey(kind)))
+  result["type_names"] = typeNames
   result["num_agents"] = newJInt(MapAgents)
   let maxSteps = if writer.maxStep >= 0: writer.maxStep + 1 else: 0
   result["max_steps"] = newJInt(maxSteps)
