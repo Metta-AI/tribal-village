@@ -144,7 +144,6 @@ const
 
   # Compile-time optimization constants
   ObservationRadius* = ObservationWidth div 2  # 5 - computed once
-  MapAgentsPerTeamFloat* = MapAgentsPerTeam.float32  # Avoid runtime conversion
 
 {.push inline.}
 proc getTeamId*(agentId: int): int =
