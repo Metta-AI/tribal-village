@@ -981,11 +981,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
       placeFrom(downstream, false)
 
   # Fill remaining bridges by spreading along main river first, then branch.
-  proc uniqueAdd(pos: IVec2, list: var seq[IVec2]) =
-    for p in list:
-      if p == pos: return
-    list.add(pos)
-
   var remaining = desiredBridges - placed.len
   let remainingGroups: array[3, tuple[cands: seq[IVec2], useBranch: bool]] = [
     (cands: mainCandidates, useBranch: false),
@@ -1001,7 +996,13 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     var candidateIdx = stride
     while remaining > 0 and candidateIdx < group.cands.len:
       let center = group.cands[candidateIdx]
-      uniqueAdd(center, placed)
+      var alreadyPlaced = false
+      for p in placed:
+        if p == center:
+          alreadyPlaced = true
+          break
+      if not alreadyPlaced:
+        placed.add(center)
       if group.useBranch:
         placeBridgeBranch(terrain, center)
       else:
