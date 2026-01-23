@@ -54,7 +54,7 @@ proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
       continue
     if not isBuildingKind(thing.kind):
       continue
-    if not isAttackableStructure(thing.kind):
+    if thing.kind notin AttackableStructures:
       continue
     if chebyshevDist(agent.pos, thing.pos) <= ObservationRadius.int32:
       return true

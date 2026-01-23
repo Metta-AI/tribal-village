@@ -377,7 +377,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
 
   proc targetPriority(kind: ThingKind): int =
     if agent.unitClass == UnitMangonel:
-      if isAttackableStructure(kind):
+      if kind in AttackableStructures:
         return 0
       case kind
       of Tumor: 1
@@ -390,7 +390,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
       of Spawner: 1
       of Agent: 2
       else:
-        if isAttackableStructure(kind): 3 else: 4
+        if kind in AttackableStructures: 3 else: 4
 
   var bestDir = -1
   var bestDist = int.high
@@ -404,7 +404,7 @@ proc findAttackOpportunity(env: Environment, agent: Thing): int =
         continue
     elif thing.kind in {Tumor, Spawner}:
       discard
-    elif isAttackableStructure(thing.kind):
+    elif thing.kind in AttackableStructures:
       if thing.teamId == getTeamId(agent):
         continue
     else:

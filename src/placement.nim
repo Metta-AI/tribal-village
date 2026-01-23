@@ -62,13 +62,11 @@ proc add*(env: Environment, thing: Thing) =
     if thing.hp <= 0:
       thing.hp = thing.maxHp
 
-  let defaultAttackDamage =
+  if thing.attackDamage <= 0:
     case thing.kind
-    of GuardTower: GuardTowerAttackDamage
-    of Castle: CastleAttackDamage
-    else: 0
-  if defaultAttackDamage > 0 and thing.attackDamage <= 0:
-    thing.attackDamage = defaultAttackDamage
+    of GuardTower: thing.attackDamage = GuardTowerAttackDamage
+    of Castle: thing.attackDamage = CastleAttackDamage
+    else: discard
 
   case thing.kind
   of Stone:

@@ -36,8 +36,7 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
 ]
 
-proc isAttackableStructure*(kind: ThingKind): bool {.inline.} =
-  kind in {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
+const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
 
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =

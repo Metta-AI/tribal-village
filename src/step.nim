@@ -317,7 +317,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             discard env.applyStructureDamage(door, damageAmount, agent)
             return true
           let structure = env.getThing(pos)
-          if not isNil(structure) and isAttackableStructure(structure.kind):
+          if not isNil(structure) and structure.kind in AttackableStructures:
             if structure.teamId != attackerTeam:
               discard env.applyStructureDamage(structure, damageAmount, agent)
               return true
