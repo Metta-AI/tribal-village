@@ -38,8 +38,6 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
-    if not isValidPos(agentPos):
-      continue
     let baseElevation = env.elevation[agentPos.x][agentPos.y]
     let agentBase = agentId * ObsAgentStride
     for x in 0 ..< ObservationWidth:
