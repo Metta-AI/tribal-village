@@ -394,8 +394,6 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
     if not buildingBuildable(kind):
       continue
     let costs = BuildingRegistry[kind].buildCost
-    if costs.len == 0:
-      continue
     let recipeId = toSnakeCase($kind)
     let station = StationTable
     let cooldown = BuildingRegistry[kind].buildCooldown
