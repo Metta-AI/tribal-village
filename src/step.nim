@@ -1511,8 +1511,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if not isValidPos(pos):
           continue
         let dist = max(abs(dx), abs(dy))
-        if dist > radius:
-          continue
         let thing = env.getThing(pos)
         if isNil(thing):
           continue
