@@ -126,14 +126,14 @@ proc updateTintModifications(env: Environment) =
 
 proc applyTintModifications(env: Environment) =
   ## Apply tint modifications to entity positions and their surrounding areas
-
-  # Apply modifications only to tiles touched this frame
-  proc applyTintAt(tileX, tileY: int) =
+  for pos in env.activeTiles.positions:
+    let tileX = pos.x.int
+    let tileY = pos.y.int
     if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
-      return
+      continue
     if env.tintLocked[tileX][tileY]:
       env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
-      return
+      continue
 
     let dynTint = env.tintMods[tileX][tileY]
     let tumorTint = env.tumorTintMods[tileX][tileY]
@@ -144,11 +144,11 @@ proc applyTintModifications(env: Environment) =
 
     if abs(strength) < MinTintEpsilon:
       env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
-      return
+      continue
 
     if env.terrain[tileX][tileY] == Water:
       env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
-      return
+      continue
 
     let alpha = min(1.0'f32, strength.float32 / TintStrengthScale)
     let invStrength = if strength != 0: 1.0'f32 / strength.float32 else: 0.0'f32
@@ -162,12 +162,40 @@ proc applyTintModifications(env: Environment) =
       intensity: alpha
     )
 
-  for pos in env.activeTiles.positions:
-    applyTintAt(pos.x.int, pos.y.int)
-
   for pos in env.tumorActiveTiles.positions:
     let tileX = pos.x.int
     let tileY = pos.y.int
     if env.activeTiles.flags[tileX][tileY]:
       continue
-    applyTintAt(tileX, tileY)
+    if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
+      continue
+    if env.tintLocked[tileX][tileY]:
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      continue
+
+    let dynTint = env.tintMods[tileX][tileY]
+    let tumorTint = env.tumorTintMods[tileX][tileY]
+    let rTint = dynTint.r + tumorTint.r
+    let gTint = dynTint.g + tumorTint.g
+    let bTint = dynTint.b + tumorTint.b
+    let strength = env.tintStrength[tileX][tileY] + env.tumorStrength[tileX][tileY]
+
+    if abs(strength) < MinTintEpsilon:
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      continue
+
+    if env.terrain[tileX][tileY] == Water:
+      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      continue
+
+    let alpha = min(1.0'f32, strength.float32 / TintStrengthScale)
+    let invStrength = if strength != 0: 1.0'f32 / strength.float32 else: 0.0'f32
+    let clampedR = min(1.2'f32, max(0.0'f32, rTint.float32 * invStrength))
+    let clampedG = min(1.2'f32, max(0.0'f32, gTint.float32 * invStrength))
+    let clampedB = min(1.2'f32, max(0.0'f32, bTint.float32 * invStrength))
+    env.computedTintColors[tileX][tileY] = TileColor(
+      r: clampedR,
+      g: clampedG,
+      b: clampedB,
+      intensity: alpha
+    )
