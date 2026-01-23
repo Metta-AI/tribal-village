@@ -86,19 +86,15 @@ proc maybeStartReplayEpisode*(env: Environment) =
       writer.outputPath = fileName
   writer.fileName = extractFilename(writer.outputPath)
 
-proc seriesAdd(series: var ReplaySeries, step: int, value: JsonNode) =
+proc addSeries(obj: ReplayObject, key: string, step: int, value: JsonNode) =
+  var series = obj.series.mgetOrPut(key, ReplaySeries())
   if not series.hasLast:
     series.changes.add((step: step, value: value))
     series.last = value
     series.hasLast = true
-    return
-  if series.last != value:
+  elif series.last != value:
     series.changes.add((step: step, value: value))
     series.last = value
-
-proc addSeries(obj: ReplayObject, key: string, step: int, value: JsonNode) =
-  var series = obj.series.mgetOrPut(key, ReplaySeries())
-  series.seriesAdd(step, value)
   obj.series[key] = series
 
 proc inventoryNode(thing: Thing): JsonNode =
@@ -145,15 +141,6 @@ proc ensureReplayObject(writer: ReplayWriter, thing: Thing): ReplayObject =
     writer.objects[objectId - 1] = replayObj
   writer.objects[objectId - 1]
 
-proc resolveColor(thing: Thing): int =
-  if thing.kind == Agent:
-    return getTeamId(thing)
-  if isBuildingKind(thing.kind):
-    return max(0, thing.teamId)
-  if thing.kind == Lantern:
-    return max(0, thing.teamId)
-  0
-
 proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   let writer = replayWriter
   if writer.isNil or not writer.active:
@@ -181,7 +168,12 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
     replayObj.addSeries("location", stepIndex, locationNode(thing.pos))
     replayObj.addSeries("orientation", stepIndex, newJInt(thing.orientation.int))
     replayObj.addSeries("inventory", stepIndex, inventoryNode(thing))
-    replayObj.addSeries("color", stepIndex, newJInt(resolveColor(thing)))
+    var color = 0
+    if thing.kind == Agent:
+      color = getTeamId(thing)
+    elif isBuildingKind(thing.kind) or thing.kind == Lantern:
+      color = max(0, thing.teamId)
+    replayObj.addSeries("color", stepIndex, newJInt(color))
 
     if thing.kind == Agent:
       let agentId = thing.agentId
