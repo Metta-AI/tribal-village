@@ -671,16 +671,12 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     if pos.y > mapBorder + RiverWidth + 2 and pos.y < mapHeight - mapBorder - RiverWidth - 2 and
        not inCorner(pos.x, pos.y):
       forkCandidates.add(pos)
-  if forkCandidates.len > 0:
-    let upIdx = forkCandidates.len div 3
-    let downIdx = max(upIdx + 1, (forkCandidates.len * 2) div 3)
-    forkUp = forkCandidates[upIdx]
-    forkDown = forkCandidates[min(downIdx, forkCandidates.len - 1)]
-  elif riverPath.len > 0:
-    let upIdx = riverPath.len div 3
-    let downIdx = max(upIdx + 1, (riverPath.len * 2) div 3)
-    forkUp = riverPath[upIdx]
-    forkDown = riverPath[min(downIdx, riverPath.len - 1)]
+  let forkSource = if forkCandidates.len > 0: forkCandidates else: riverPath
+  if forkSource.len > 0:
+    let upIdx = forkSource.len div 3
+    let downIdx = max(upIdx + 1, (forkSource.len * 2) div 3)
+    forkUp = forkSource[upIdx]
+    forkDown = forkSource[min(downIdx, forkSource.len - 1)]
   if riverPath.len > 0:
     forkUpIdx = riverPath.find(forkUp)
     forkDownIdx = riverPath.find(forkDown)
