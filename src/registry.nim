@@ -243,13 +243,6 @@ proc thingSpriteKey*(kind: ThingKind): string =
     return key
   toSnakeCase($kind)
 
-proc thingDisplayName*(kind: ThingKind): string =
-  if isBuildingKind(kind):
-    return BuildingRegistry[kind].displayName
-  let name = ThingCatalog[kind].displayName
-  if name.len > 0: name else: $kind
-
-
 proc itemSpriteKey*(key: ItemKey): string =
   if isThingKey(key):
     for kind in ThingKind:
