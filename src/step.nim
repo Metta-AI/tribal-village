@@ -1484,7 +1484,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     return ivec2(0, (if dy > 0: 1 else: -1))
 
   proc tryStep(thing: Thing, desired: IVec2) =
-    if desired == ivec2(0, 0):
+    if desired.x == 0 and desired.y == 0:
       return
     let nextPos = thing.pos + desired
     if isValidPos(nextPos) and not env.hasDoor(nextPos) and
