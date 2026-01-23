@@ -115,9 +115,9 @@ let BuildingRegistry* = block:
 
 proc toSnakeCase(name: string): string =
   result = ""
-  for i, ch in name:
+  for ch in name:
     if ch.isUpperAscii:
-      if i > 0:
+      if result.len > 0:
         result.add('_')
       result.add(ch.toLowerAscii)
     else:
