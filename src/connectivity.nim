@@ -15,7 +15,7 @@ proc makeConnected*(env: Environment) =
       pos.y >= MapBorder and pos.y < MapHeight - MapBorder
 
   proc digCost(env: Environment, pos: IVec2): int =
-    if not isValidPos(pos) or not inPlayableBounds(pos):
+    if not inPlayableBounds(pos):
       return int.high
     let terrain = env.terrain[pos.x][pos.y]
     if env.isEmpty(pos):
@@ -29,7 +29,7 @@ proc makeConnected*(env: Environment) =
       return ConnectWallCost
     int.high
   proc digCell(env: Environment, pos: IVec2) =
-    if not isValidPos(pos) or not inPlayableBounds(pos):
+    if not inPlayableBounds(pos):
       return
     let thing = env.getThing(pos)
     if not isNil(thing):
@@ -109,8 +109,6 @@ proc makeConnected*(env: Environment) =
       for d in ConnectDirs8:
         let nx = x + d.x.int
         let ny = y + d.y.int
-        if nx < 0 or ny < 0 or nx >= MapWidth or ny >= MapHeight:
-          continue
         let npos = ivec2(nx.int32, ny.int32)
         if not env.canTraverseElevation(curPos, npos):
           continue

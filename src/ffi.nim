@@ -142,8 +142,7 @@ proc tribal_village_step_with_pointers(
   try:
     # Read actions directly from buffer (no conversion)
     var actions: array[MapAgents, uint8]
-    for i in 0..<MapAgents:
-      actions[i] = actions_buffer[i]
+    copyMem(addr actions[0], actions_buffer, sizeof(actions))
 
     # Step environment
     globalEnv.step(unsafeAddr actions)
