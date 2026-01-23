@@ -519,8 +519,7 @@ proc drawObjects*() =
       bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
     else:
       if amt <= HeartPlusThreshold:
-        let drawCount = amt
-        for i in 0 ..< drawCount:
+        for i in 0 ..< amt:
           let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
           bxy.drawImage("heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
       else:
@@ -664,7 +663,7 @@ proc drawObjects*() =
           continue
         let pos = thing.pos
         let infected = isTileFrozen(pos, env)
-        var spriteKey = thingSpriteKey(thing.kind)
+        let spriteKey = thingSpriteKey(thing.kind)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
         if infected and thing.kind in {Magma, Stump}:
           bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
