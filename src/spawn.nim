@@ -76,19 +76,18 @@ proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
       if not exists:
         result.add(pos)
 
-proc isNearWater(env: Environment, x, y, radius: int): bool =
+proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =
+  let startX = pos.x.int
+  let startY = pos.y.int
   for dx in -radius .. radius:
     for dy in -radius .. radius:
-      let checkX = x + dx
-      let checkY = y + dy
+      let checkX = startX + dx
+      let checkY = startY + dy
       if checkX < 0 or checkX >= MapWidth or checkY < 0 or checkY >= MapHeight:
         continue
       if env.terrain[checkX][checkY] == Water:
         return true
   false
-
-proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =
-  isNearWater(env, pos.x.int, pos.y.int, radius)
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
