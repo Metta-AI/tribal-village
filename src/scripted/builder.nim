@@ -36,7 +36,7 @@ template millResourceCount(env: Environment, pos: IVec2): int =
 
 proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                    agentId: int, state: var AgentState): bool =
-  hasPlantInputs(agent)
+  agent.inventoryWheat > 0 or agent.inventoryWood > 0
 
 proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
@@ -113,7 +113,7 @@ proc optBuilderMillNearResource(controller: Controller, env: Environment, agent:
 
 proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
-  if not hasPlantInputs(agent):
+  if agent.inventoryWheat <= 0 and agent.inventoryWood <= 0:
     return false
   let teamId = getTeamId(agent)
   controller.getBuildingCount(env, teamId, Mill) >= 2
