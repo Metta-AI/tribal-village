@@ -78,10 +78,13 @@ type
 
 proc clearZoneMask(mask: var MaskGrid, mapWidth, mapHeight: int,
                    zoneX, zoneY, zoneW, zoneH: int) =
-  for x in zoneX ..< zoneX + zoneW:
-    for y in zoneY ..< zoneY + zoneH:
-      if x >= 0 and x < mapWidth and y >= 0 and y < mapHeight:
-        mask[x][y] = false
+  let startX = max(0, zoneX)
+  let endX = min(mapWidth, zoneX + zoneW)
+  let startY = max(0, zoneY)
+  let endY = min(mapHeight, zoneY + zoneH)
+  for x in startX ..< endX:
+    for y in startY ..< endY:
+      mask[x][y] = false
 
 template forClusterCenters(mapWidth, mapHeight, mapBorder: int,
                            period, jitter: int, prob: float,
