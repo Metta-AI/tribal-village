@@ -158,10 +158,7 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
     let replayObj = writer.ensureReplayObject(thing)
     let objectIdx = replayObj.id - 1
     if objectIdx >= seen.len:
-      let oldLen = seen.len
       seen.setLen(objectIdx + 1)
-      for i in oldLen ..< seen.len:
-        seen[i] = false
     seen[objectIdx] = true
     replayObj.active = true
 
