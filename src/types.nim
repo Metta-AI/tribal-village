@@ -662,10 +662,7 @@ var selectedPos*: IVec2 = ivec2(-1, -1)
 
 # Helper function for checking if agent is alive
 proc isAgentAlive*(env: Environment, agent: Thing): bool =
-  if agent.isNil:
-    return false
-  if env.terminated[agent.agentId] != 0.0:
-    return false
-  if not isValidPos(agent.pos):
-    return false
-  return env.grid[agent.pos.x][agent.pos.y] == agent
+  not agent.isNil and
+    env.terminated[agent.agentId] == 0.0 and
+    isValidPos(agent.pos) and
+    env.grid[agent.pos.x][agent.pos.y] == agent
