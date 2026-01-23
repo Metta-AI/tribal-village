@@ -721,25 +721,15 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
 proc render*(env: Environment): string =
   for y in 0 ..< MapHeight:
     for x in 0 ..< MapWidth:
-      var cell = " "
       # First check terrain
-      cell = $TerrainCatalog[env.terrain[x][y]].ascii
+      var cell = $TerrainCatalog[env.terrain[x][y]].ascii
       # Then override with objects if present (blocking first, background second)
       let blockingThing = env.grid[x][y]
-      if not isNil(blockingThing):
-        let kind = blockingThing.kind
-        if isBuildingKind(kind):
-          cell = $BuildingRegistry[kind].ascii
-        else:
-          cell = $ThingCatalog[kind].ascii
-      else:
-        let backgroundThing = env.backgroundGrid[x][y]
-        if not isNil(backgroundThing):
-          let kind = backgroundThing.kind
-          if isBuildingKind(kind):
-            cell = $BuildingRegistry[kind].ascii
-          else:
-            cell = $ThingCatalog[kind].ascii
+      let thing = if not isNil(blockingThing): blockingThing else: env.backgroundGrid[x][y]
+      if not isNil(thing):
+        let kind = thing.kind
+        let ascii = if isBuildingKind(kind): BuildingRegistry[kind].ascii else: ThingCatalog[kind].ascii
+        cell = $ascii
       result.add(cell)
     result.add("\n")
 
