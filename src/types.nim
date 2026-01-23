@@ -503,20 +503,8 @@ const
     Lantern,
     Corpse,
     Skeleton,
-    Dock,
-    CliffEdgeN,
-    CliffEdgeE,
-    CliffEdgeS,
-    CliffEdgeW,
-    CliffCornerInNE,
-    CliffCornerInSE,
-    CliffCornerInSW,
-    CliffCornerInNW,
-    CliffCornerOutNE,
-    CliffCornerOutSE,
-    CliffCornerOutSW,
-    CliffCornerOutNW
-  }
+    Dock
+  } + CliffKinds
 
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.
