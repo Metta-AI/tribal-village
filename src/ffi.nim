@@ -185,12 +185,8 @@ proc tribal_village_get_map_height(): int32 {.exportc, dynlib.} =
 
 # Render full map as HxWx3 RGB (uint8)
 proc toByte(value: float32): uint8 =
-  var iv = int(value * 255.0)
-  if iv < 0:
-    iv = 0
-  elif iv > 255:
-    iv = 255
-  result = uint8(iv)
+  let iv = max(0, min(255, int(value * 255.0)))
+  uint8(iv)
 
 proc tribal_village_render_rgb(
   env: pointer,
@@ -207,49 +203,48 @@ proc tribal_village_render_rgb(
     for y in 0 ..< MapHeight:
       for sy in 0 ..< scaleY:
         for x in 0 ..< MapWidth:
-          let color = combinedTileTint(globalEnv, x, y)
-          var rByte = toByte(color.r)
-          var gByte = toByte(color.g)
-          var bByte = toByte(color.b)
+          proc baseTintBytes(): tuple[r, g, b: uint8] =
+            let color = combinedTileTint(globalEnv, x, y)
+            (toByte(color.r), toByte(color.g), toByte(color.b))
 
-          if globalEnv.actionTintCountdown[x][y] > 0:
+          proc actionTintBytes(): tuple[r, g, b: uint8] =
             let tint = globalEnv.actionTintColor[x][y]
-            rByte = toByte(tint.r)
-            gByte = toByte(tint.g)
-            bByte = toByte(tint.b)
+            (toByte(tint.r), toByte(tint.g), toByte(tint.b))
 
-          let thing = globalEnv.grid[x][y]
-          if not isNil(thing):
+          proc thingTintBytes(thing: Thing): tuple[r, g, b: uint8] =
             if isBuildingKind(thing.kind):
               let tint = BuildingRegistry[thing.kind].renderColor
-              rByte = tint.r
-              gByte = tint.g
-              bByte = tint.b
+              return (tint.r, tint.g, tint.b)
+            case thing.kind
+            of Agent: (255'u8, 255'u8, 0'u8)
+            of Wall: (96'u8, 96'u8, 96'u8)
+            of Tree: (34'u8, 139'u8, 34'u8)
+            of Wheat: (200'u8, 180'u8, 90'u8)
+            of Stubble: (175'u8, 150'u8, 70'u8)
+            of Stone: (140'u8, 140'u8, 140'u8)
+            of Gold: (220'u8, 190'u8, 80'u8)
+            of Bush: (60'u8, 120'u8, 60'u8)
+            of Cactus: (80'u8, 140'u8, 60'u8)
+            of Stalagmite: (150'u8, 150'u8, 170'u8)
+            of Magma: (0'u8, 200'u8, 200'u8)
+            of Spawner: (255'u8, 170'u8, 0'u8)
+            of Tumor: (160'u8, 32'u8, 240'u8)
+            of Cow: (230'u8, 230'u8, 230'u8)
+            of Bear: (140'u8, 90'u8, 40'u8)
+            of Wolf: (130'u8, 130'u8, 130'u8)
+            of Skeleton: (210'u8, 210'u8, 210'u8)
+            of Stump: (110'u8, 85'u8, 55'u8)
+            of Lantern: (255'u8, 240'u8, 128'u8)
+            else: (180'u8, 180'u8, 180'u8)
+
+          let thing = globalEnv.grid[x][y]
+          let (rByte, gByte, bByte) =
+            if not isNil(thing):
+              thingTintBytes(thing)
+            elif globalEnv.actionTintCountdown[x][y] > 0:
+              actionTintBytes()
             else:
-              let tint = case thing.kind
-                of Agent: (r: 255'u8, g: 255'u8, b: 0'u8)
-                of Wall: (r: 96'u8, g: 96'u8, b: 96'u8)
-                of Tree: (r: 34'u8, g: 139'u8, b: 34'u8)
-                of Wheat: (r: 200'u8, g: 180'u8, b: 90'u8)
-                of Stubble: (r: 175'u8, g: 150'u8, b: 70'u8)
-                of Stone: (r: 140'u8, g: 140'u8, b: 140'u8)
-                of Gold: (r: 220'u8, g: 190'u8, b: 80'u8)
-                of Bush: (r: 60'u8, g: 120'u8, b: 60'u8)
-                of Cactus: (r: 80'u8, g: 140'u8, b: 60'u8)
-                of Stalagmite: (r: 150'u8, g: 150'u8, b: 170'u8)
-                of Magma: (r: 0'u8, g: 200'u8, b: 200'u8)
-                of Spawner: (r: 255'u8, g: 170'u8, b: 0'u8)
-                of Tumor: (r: 160'u8, g: 32'u8, b: 240'u8)
-                of Cow: (r: 230'u8, g: 230'u8, b: 230'u8)
-                of Bear: (r: 140'u8, g: 90'u8, b: 40'u8)
-                of Wolf: (r: 130'u8, g: 130'u8, b: 130'u8)
-                of Skeleton: (r: 210'u8, g: 210'u8, b: 210'u8)
-                of Stump: (r: 110'u8, g: 85'u8, b: 55'u8)
-                of Lantern: (r: 255'u8, g: 240'u8, b: 128'u8)
-                else: (r: 180'u8, g: 180'u8, b: 180'u8)
-              rByte = tint.r
-              gByte = tint.g
-              bByte = tint.b
+              baseTintBytes()
 
           let xBase = (y * scaleY + sy) * (width * 3) + x * scaleX * 3
           for sx in 0 ..< scaleX:
