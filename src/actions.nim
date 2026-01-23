@@ -23,5 +23,5 @@ const UnitAttackTints: array[AgentUnitClass, tuple[tint: TileColor, duration: in
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =
-  let tintDef = UnitAttackTints[unit]
-  env.applyActionTint(pos, tintDef.tint, tintDef.duration, tintDef.code)
+  let (tint, duration, code) = UnitAttackTints[unit]
+  env.applyActionTint(pos, tint, duration, code)
