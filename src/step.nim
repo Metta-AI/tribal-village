@@ -141,17 +141,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       inc env.stats[id].actionInvalid
       break label
 
-    template validateStep(label: untyped, fromPos, toPos: IVec2) =
-      if not isValidPos(toPos):
-        invalidAndBreak(label)
-      if toPos.x < MapBorder.int32 or toPos.x >= (MapWidth - MapBorder).int32 or
-          toPos.y < MapBorder.int32 or toPos.y >= (MapHeight - MapBorder).int32:
-        invalidAndBreak(label)
-      if not env.canTraverseElevation(fromPos, toPos):
-        invalidAndBreak(label)
-      if env.isWaterBlockedForAgent(agent, toPos):
-        invalidAndBreak(label)
-
     case verb:
     of 0:
       inc env.stats[id].actionNoop
@@ -161,7 +150,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let delta = orientationToVec(moveOrientation)
         let step1 = agent.pos + delta
 
-        validateStep(moveAction, agent.pos, step1)
+        if not isValidPos(step1):
+          invalidAndBreak(moveAction)
+        if step1.x < MapBorder.int32 or step1.x >= (MapWidth - MapBorder).int32 or
+            step1.y < MapBorder.int32 or step1.y >= (MapHeight - MapBorder).int32:
+          invalidAndBreak(moveAction)
+        if not env.canTraverseElevation(agent.pos, step1):
+          invalidAndBreak(moveAction)
+        if env.isWaterBlockedForAgent(agent, step1):
+          invalidAndBreak(moveAction)
         if not env.canAgentPassDoor(agent, step1):
           inc env.stats[id].actionInvalid
           break moveAction
