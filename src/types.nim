@@ -512,9 +512,6 @@ proc getTeamId*(agent: Thing): int =
   else:
     getTeamId(agent.agentId)
 
-proc hasPlantInputs*(agent: Thing): bool =
-  agent.inventoryWheat > 0 or agent.inventoryWood > 0
-
 const
   BaseTileColorDefault* = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)
   BiomeColorForest* = TileColor(r: 0.45, g: 0.60, b: 0.40, intensity: 1.0)
