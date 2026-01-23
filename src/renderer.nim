@@ -482,7 +482,6 @@ proc drawObjects*() =
     )
 
   drawThings(Altar):
-    let baseImage = "altar"
     let altarTint = block:
       if env.altarColors.hasKey(pos):
         env.altarColors[pos]
@@ -499,7 +498,7 @@ proc drawObjects*() =
       tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
     )
     bxy.drawImage(
-      baseImage,
+      "altar",
       pos.vec2,
       angle = 0,
       scale = SpriteScale,
@@ -536,16 +535,28 @@ proc drawObjects*() =
     bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Cow):
-    let cowSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
-    bxy.drawImage(cowSprite, pos.vec2, angle = 0, scale = SpriteScale)
+    bxy.drawImage(
+      if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow",
+      pos.vec2,
+      angle = 0,
+      scale = SpriteScale
+    )
 
   drawThings(Bear):
-    let bearSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
-    bxy.drawImage(bearSprite, pos.vec2, angle = 0, scale = SpriteScale)
+    bxy.drawImage(
+      if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow",
+      pos.vec2,
+      angle = 0,
+      scale = SpriteScale
+    )
 
   drawThings(Wolf):
-    let wolfSprite = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
-    bxy.drawImage(wolfSprite, pos.vec2, angle = 0, scale = SpriteScale)
+    bxy.drawImage(
+      if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow",
+      pos.vec2,
+      angle = 0,
+      scale = SpriteScale
+    )
 
   drawThings(Lantern):
     let lanternKey = "lantern"

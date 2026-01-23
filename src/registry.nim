@@ -388,8 +388,6 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
       continue
     let info = BuildingRegistry[kind]
     let costs = info.buildCost
-    if costs.len == 0:
-      continue
     addRecipe(
       recipes,
       toSnakeCase($kind),
