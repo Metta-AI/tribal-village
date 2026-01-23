@@ -67,10 +67,10 @@ proc newTribalError*(kind: TribalErrorKind, message: string): ref TribalError =
 proc raiseMapFullError*() {.noreturn.} =
   ## Raise an error when the map is too full to place entities
   raise newTribalError(ErrMapFull, "Failed to find an empty position, map too full!")
+
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
-
 
 proc observationTeamId(thing: Thing): int {.inline.} =
   if thing.isNil:
@@ -322,12 +322,12 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
-  env.observations.clear()
+  zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
 
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
-    if agent.isNil or not isAgentAlive(env, agent) or not isValidPos(agent.pos):
+    if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
     for obsX in 0 ..< ObservationWidth:
