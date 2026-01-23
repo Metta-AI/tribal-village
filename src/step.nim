@@ -1355,7 +1355,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let altarHearts = thing.hearts.float32
         for agent in env.agents:
           if agent.homeAltar == thing.pos:
-            agent.reward += altarHearts / MapAgentsPerTeamFloat
+            agent.reward += altarHearts / MapAgentsPerTeam.float32
     elif thing.kind == Magma:
       if thing.cooldown > 0:
         dec thing.cooldown
