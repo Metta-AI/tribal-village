@@ -48,7 +48,6 @@ type
     active: bool
 
 var replayWriter*: ReplayWriter = nil
-
 proc ensureWriter(): ReplayWriter =
   if not replayWriter.isNil:
     return replayWriter
@@ -161,7 +160,7 @@ proc resolveColor(thing: Thing): int =
     return getTeamId(thing)
   if isBuildingKind(thing.kind):
     return max(0, thing.teamId)
-  if thing.kind in {Lantern, Door, Outpost, GuardTower, TownCenter, Castle, Altar}:
+  if thing.kind == Lantern:
     return max(0, thing.teamId)
   0
 
@@ -237,7 +236,7 @@ proc buildReplayJson(writer: ReplayWriter, env: Environment): JsonNode =
   result["action_names"] = actionNames
   var itemNames = newJArray()
   for kind in ItemKind:
-    itemNames.add(newJString(itemKindName(kind)))
+    itemNames.add(newJString(ItemKindNames[kind]))
   result["item_names"] = itemNames
   var typeNames = newJArray()
   for kind in ThingKind:

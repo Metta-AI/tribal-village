@@ -50,7 +50,7 @@ const
   ArmorPoints* = 5        # Armor durability granted per craft
   BreadHealAmount* = 999  # Effectively "heal to full" per bread use
 
-  ItemKindNames: array[ItemKind, string] = [
+  ItemKindNames*: array[ItemKind, string] = [
     "",        # ikNone
     "gold",
     "stone",
@@ -109,15 +109,12 @@ proc toItemKey*(kind: ItemKind): ItemKey {.inline.} =
   else:
     ItemKey(kind: ItemKeyItem, item: kind)
 
-proc itemKindName*(kind: ItemKind): string =
-  ItemKindNames[kind]
-
 proc `$`*(key: ItemKey): string =
   case key.kind
   of ItemKeyNone:
     ""
   of ItemKeyItem:
-    itemKindName(key.item)
+    ItemKindNames[key.item]
   of ItemKeyThing, ItemKeyOther:
     key.name
 
@@ -181,9 +178,7 @@ proc emptyInventory*(): Inventory =
 proc getInv*[T](thing: T, key: ItemKey): int =
   if key.kind == ItemKeyNone:
     return 0
-  if thing.inventory.hasKey(key):
-    return thing.inventory[key]
-  0
+  thing.inventory.getOrDefault(key, 0)
 
 proc getInv*[T](thing: T, kind: ItemKind): int =
   ## Type-safe overload using ItemKind enum
