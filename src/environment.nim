@@ -72,15 +72,6 @@ proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
-proc observationTeamId(thing: Thing): int {.inline.} =
-  if thing.isNil:
-    return -1
-  if thing.kind == Agent:
-    return getTeamId(thing)
-  if thing.kind in TeamOwnedKinds and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
-    return thing.teamId
-  -1
-
 proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) =
   var agentObs = addr env.observations[agentId]
   for layerId in 0 ..< ObservationLayers:
@@ -105,12 +96,23 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) =
     orientValue = ord(blockingThing.orientation) + 1
     classValue = ord(blockingThing.unitClass) + 1
   else:
-    let teamId = block:
-      let blockingTeam = observationTeamId(blockingThing)
-      if blockingTeam >= 0:
-        blockingTeam
+    let teamId =
+      if not blockingThing.isNil:
+        if blockingThing.kind == Agent:
+          getTeamId(blockingThing)
+        elif blockingThing.kind in TeamOwnedKinds and blockingThing.teamId >= 0 and blockingThing.teamId < MapRoomObjectsTeams:
+          blockingThing.teamId
+        else:
+          -1
+      elif not backgroundThing.isNil:
+        if backgroundThing.kind == Agent:
+          getTeamId(backgroundThing)
+        elif backgroundThing.kind in TeamOwnedKinds and backgroundThing.teamId >= 0 and backgroundThing.teamId < MapRoomObjectsTeams:
+          backgroundThing.teamId
+        else:
+          -1
       else:
-        observationTeamId(backgroundThing)
+        -1
     if teamId >= 0:
       teamValue = teamId + 1
   agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
