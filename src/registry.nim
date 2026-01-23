@@ -270,7 +270,7 @@ proc itemSpriteKey*(key: ItemKey): string =
   of ItemKeyOther:
     key.name
   of ItemKeyItem:
-    itemKindName(key.item)
+    ItemKindNames[key.item]
   else:
     ""
 

@@ -55,7 +55,7 @@ proc toReplayTypeName(kind: ThingKind): string =
 proc buildItemNames(): JsonNode =
   result = newJArray()
   for kind in ItemKind:
-    result.add(newJString(itemKindName(kind)))
+    result.add(newJString(ItemKindNames[kind]))
 
 proc buildTypeNames(): JsonNode =
   result = newJArray()
