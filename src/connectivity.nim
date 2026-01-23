@@ -109,8 +109,6 @@ proc makeConnected*(env: Environment) =
       for d in ConnectDirs8:
         let nx = x + d.x.int
         let ny = y + d.y.int
-        if nx < 0 or ny < 0 or nx >= MapWidth or ny >= MapHeight:
-          continue
         let npos = ivec2(nx.int32, ny.int32)
         if not env.canTraverseElevation(curPos, npos):
           continue
