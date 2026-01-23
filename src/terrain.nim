@@ -868,9 +868,9 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
     template setBridgeTile(x, y: int) =
       if x >= mapBorder and x < mapWidth - mapBorder and
-         y >= mapBorder and y < mapHeight - mapBorder:
-        if not inCorner(x, y):
-          t[x][y] = Bridge
+         y >= mapBorder and y < mapHeight - mapBorder and
+         not inCorner(x, y):
+        t[x][y] = Bridge
 
     proc hasWaterAt(grid: var TerrainGrid, step: int): bool =
       for w in -1 .. 1:
