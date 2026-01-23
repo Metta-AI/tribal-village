@@ -2213,11 +2213,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     logEntry.add(env.render())
     if logRenderBuffer.len < logRenderWindow:
       logRenderBuffer.add(logEntry)
-      logRenderCount = logRenderBuffer.len
     else:
       logRenderBuffer[logRenderHead] = logEntry
       logRenderHead = (logRenderHead + 1) mod logRenderWindow
-      logRenderCount = logRenderWindow
+    logRenderCount = min(logRenderBuffer.len, logRenderWindow)
 
     if logRenderCount > 0:
       var output = newStringOfCap(logRenderCount * 512)
