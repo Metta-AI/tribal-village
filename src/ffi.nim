@@ -166,20 +166,20 @@ proc tribal_village_step_with_pointers(
     return 0
 
 proc tribal_village_get_num_agents(): int32 {.exportc, dynlib.} =
-  return MapAgents.int32
+  MapAgents.int32
 
 proc tribal_village_get_obs_layers(): int32 {.exportc, dynlib.} =
-  return ObservationLayers.int32
+  ObservationLayers.int32
 
 proc tribal_village_get_obs_width(): int32 {.exportc, dynlib.} =
-  return ObservationWidth.int32
+  ObservationWidth.int32
 
 
 proc tribal_village_get_map_width(): int32 {.exportc, dynlib.} =
-  return MapWidth.int32
+  MapWidth.int32
 
 proc tribal_village_get_map_height(): int32 {.exportc, dynlib.} =
-  return MapHeight.int32
+  MapHeight.int32
 
 # Render full map as HxWx3 RGB (uint8)
 proc toByte(value: float32): uint8 =
@@ -248,7 +248,7 @@ proc tribal_village_render_rgb(
   except:
     return 0
 proc tribal_village_get_obs_height(): int32 {.exportc, dynlib.} =
-  return ObservationHeight.int32
+  ObservationHeight.int32
 
 proc tribal_village_destroy(env: pointer) {.exportc, dynlib.} =
   ## Clean up environment

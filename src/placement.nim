@@ -1,17 +1,15 @@
 proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   if not isThingKey(key):
     return false
-  let name = key.name
   for candidate in ThingKind:
-    if $candidate == name:
+    if $candidate == key.name:
       kind = candidate
       return true
   false
 
 proc removeThing(env: Environment, thing: Thing) =
   if isValidPos(thing.pos):
-    let isBlocking = thingBlocksMovement(thing.kind)
-    if isBlocking:
+    if thingBlocksMovement(thing.kind):
       env.grid[thing.pos.x][thing.pos.y] = nil
     else:
       env.backgroundGrid[thing.pos.x][thing.pos.y] = nil
