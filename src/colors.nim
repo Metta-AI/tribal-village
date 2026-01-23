@@ -11,9 +11,7 @@ const WarmTeamPalette* = [
 ]
 
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
-  if not isValidPos(pos):
-    return
-  if env.tintLocked[pos.x][pos.y]:
+  if not isValidPos(pos) or env.tintLocked[pos.x][pos.y]:
     return
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration

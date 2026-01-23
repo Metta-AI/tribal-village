@@ -144,7 +144,6 @@ const
 
   # Compile-time optimization constants
   ObservationRadius* = ObservationWidth div 2  # 5 - computed once
-  MapAgentsPerTeamFloat* = MapAgentsPerTeam.float32  # Avoid runtime conversion
 
 {.push inline.}
 proc getTeamId*(agentId: int): int =
@@ -509,8 +508,9 @@ const
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.
   if agent.teamIdOverride >= 0:
-    return agent.teamIdOverride
-  getTeamId(agent.agentId)
+    agent.teamIdOverride
+  else:
+    getTeamId(agent.agentId)
 
 proc hasPlantInputs*(agent: Thing): bool =
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
