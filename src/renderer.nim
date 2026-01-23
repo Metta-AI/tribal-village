@@ -809,7 +809,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
     if t.kind == Agent:
       UnitClassLabels[t.unitClass]
     elif isBuildingKind(t.kind):
-      buildingDisplayName(t.kind)
+      BuildingRegistry[t.kind].displayName
     else:
       thingDisplayName(t.kind)
 
