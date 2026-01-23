@@ -11,9 +11,7 @@ const WarmTeamPalette* = [
 ]
 
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
-  if not isValidPos(pos):
-    return
-  if env.tintLocked[pos.x][pos.y]:
+  if not isValidPos(pos) or env.tintLocked[pos.x][pos.y]:
     return
   env.actionTintColor[pos.x][pos.y] = tintColor
   env.actionTintCountdown[pos.x][pos.y] = duration
@@ -53,25 +51,25 @@ proc isThingFrozen*(thing: Thing, env: Environment): bool =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
   thing.frozen > 0 or isTileFrozen(thing.pos, env)
 
-proc biomeBaseColor*(biome: BiomeType): TileColor =
-  case biome:
-  of BiomeBaseType: BaseTileColorDefault
-  of BiomeForestType: BiomeColorForest
-  of BiomeDesertType: BiomeColorDesert
-  of BiomeCavesType: BiomeColorCaves
-  of BiomeCityType: BiomeColorCity
-  of BiomePlainsType: BiomeColorPlains
-  of BiomeSnowType: BiomeColorSnow
-  of BiomeSwampType: BiomeColorSwamp
-  of BiomeDungeonType: BiomeColorDungeon
-  else: BaseTileColorDefault
-
 proc applyBiomeBaseColors*(env: Environment) =
+  template baseColor(biome: BiomeType): TileColor =
+    case biome:
+    of BiomeBaseType: BaseTileColorDefault
+    of BiomeForestType: BiomeColorForest
+    of BiomeDesertType: BiomeColorDesert
+    of BiomeCavesType: BiomeColorCaves
+    of BiomeCityType: BiomeColorCity
+    of BiomePlainsType: BiomeColorPlains
+    of BiomeSnowType: BiomeColorSnow
+    of BiomeSwampType: BiomeColorSwamp
+    of BiomeDungeonType: BiomeColorDungeon
+    else: BaseTileColorDefault
+
   var colors: array[MapWidth, array[MapHeight, TileColor]]
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let baseBiome = env.biomes[x][y]
-      var color = biomeBaseColor(baseBiome)
+      var color = baseColor(baseBiome)
       if BiomeEdgeBlendRadius > 0 and baseBiome != BiomeNone:
         var minDist = BiomeEdgeBlendRadius + 1
         var sumR = 0.0'f32
@@ -96,7 +94,7 @@ proc applyBiomeBaseColors*(env: Environment) =
             let otherBiome = env.biomes[nx][ny]
             if otherBiome == baseBiome or otherBiome == BiomeNone:
               continue
-            let otherColor = biomeBaseColor(otherBiome)
+            let otherColor = baseColor(otherBiome)
             if dist < minDist:
               minDist = dist
               sumR = otherColor.r
