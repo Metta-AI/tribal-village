@@ -18,6 +18,7 @@ proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, dep
     return
 
   for layer in 0 ..< depth:
+    let layerProb = prob * (float(depth - layer) / float(depth))
     var boundary: MaskGrid
     for x in depth ..< mapWidth - depth:
       for y in depth ..< mapHeight - depth:
@@ -36,7 +37,7 @@ proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, dep
 
     for x in depth ..< mapWidth - depth:
       for y in depth ..< mapHeight - depth:
-        if boundary[x][y] and randFloat(r) < prob * (float(depth - layer) / float(depth)):
+        if boundary[x][y] and randFloat(r) < layerProb:
           mask[x][y] = not mask[x][y]
 
 template ditherIf(mask: var MaskGrid, mapWidth, mapHeight: int,
@@ -183,9 +184,7 @@ proc buildDungeonMazeMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
       discard stack.pop()
       continue
 
-    let pick = candidates[randIntExclusive(r, 0, candidates.len)]
-    let nx = pick[0]
-    let ny = pick[1]
+    let (nx, ny) = candidates[randIntExclusive(r, 0, candidates.len)]
     visited[nx][ny] = true
 
     let x1 = 1 + cx * 2
