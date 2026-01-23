@@ -554,15 +554,15 @@ proc drawObjects*() =
 
   drawThings(Lantern):
     let lanternKey = "lantern"
-    if thing.lanternHealthy:
+    let tint = if thing.lanternHealthy:
       let teamId = thing.teamId
       if teamId >= 0 and teamId < env.teamColors.len:
-        let teamColor = env.teamColors[teamId]
-        bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = teamColor)
+        env.teamColors[teamId]
       else:
-        bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.6, 0.6, 0.6, 1.0))
+        color(0.6, 0.6, 0.6, 1.0)
     else:
-      bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = color(0.5, 0.5, 0.5, 1.0))
+      color(0.5, 0.5, 0.5, 1.0)
+    bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
 
   for kind in ThingKind:
     if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
@@ -583,11 +583,12 @@ proc drawObjects*() =
         let tint =
           if thing.kind == Door:
             let teamId = thing.teamId
-            if teamId >= 0 and teamId < env.teamColors.len:
-              let base = env.teamColors[teamId]
-              color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
-            else:
-              color(0.6, 0.6, 0.6, 0.9)
+            let base =
+              if teamId >= 0 and teamId < env.teamColors.len:
+                env.teamColors[teamId]
+              else:
+                color(0.6, 0.6, 0.6, 0.9)
+            color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
           else:
             color(1, 1, 1, 1)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)

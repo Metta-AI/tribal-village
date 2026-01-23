@@ -177,16 +177,11 @@ proc splitCliffRing(mask: MaskGrid, mapWidth, mapHeight: int,
     for y in 0 ..< mapHeight:
       if not mask[x][y]:
         continue
-      var boundary = false
-      if y == 0 or not mask[x][y - 1]:
-        boundary = true
-      elif x == mapWidth - 1 or not mask[x + 1][y]:
-        boundary = true
-      elif y == mapHeight - 1 or not mask[x][y + 1]:
-        boundary = true
-      elif x == 0 or not mask[x - 1][y]:
-        boundary = true
-      if boundary:
+      let northOpen = y == 0 or not mask[x][y - 1]
+      let eastOpen = x == mapWidth - 1 or not mask[x + 1][y]
+      let southOpen = y == mapHeight - 1 or not mask[x][y + 1]
+      let westOpen = x == 0 or not mask[x - 1][y]
+      if northOpen or eastOpen or southOpen or westOpen:
         ringMask[x][y] = true
       else:
         innerMask[x][y] = true
