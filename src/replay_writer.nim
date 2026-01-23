@@ -49,18 +49,15 @@ type
 
 var replayWriter*: ReplayWriter = nil
 
-proc toReplayTypeName(kind: ThingKind): string =
-  buildingSpriteKey(kind)
-
 proc buildItemNames(): JsonNode =
   result = newJArray()
   for kind in ItemKind:
-    result.add(newJString(itemKindName(kind)))
+    result.add(newJString(ItemKindNames[kind]))
 
 proc buildTypeNames(): JsonNode =
   result = newJArray()
   for kind in ThingKind:
-    result.add(newJString(toReplayTypeName(kind)))
+    result.add(newJString(buildingSpriteKey(kind)))
 
 proc buildActionNames(): JsonNode =
   result = newJArray()
@@ -162,7 +159,7 @@ proc ensureReplayObject(writer: ReplayWriter, thing: Thing): ReplayObject =
     replayObj.constFields = initTable[string, JsonNode]()
     replayObj.series = initTable[string, ReplaySeries]()
     replayObj.constFields["id"] = newJInt(objectId)
-    replayObj.constFields["type_name"] = newJString(toReplayTypeName(thing.kind))
+    replayObj.constFields["type_name"] = newJString(buildingSpriteKey(thing.kind))
     if thing.kind == Agent:
       replayObj.constFields["agent_id"] = newJInt(thing.agentId)
       replayObj.constFields["group_id"] = newJInt(getTeamId(thing))
@@ -179,7 +176,7 @@ proc resolveColor(thing: Thing): int =
     return getTeamId(thing)
   if isBuildingKind(thing.kind):
     return max(0, thing.teamId)
-  if thing.kind in {Lantern, Door, Outpost, GuardTower, TownCenter, Castle, Altar}:
+  if thing.kind == Lantern:
     return max(0, thing.teamId)
   0
 
