@@ -68,12 +68,7 @@ proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
   if secondaryRadius > 0 and result.len < minCount:
     let extras = env.findEmptyPositionsAround(center, secondaryRadius)
     for pos in extras:
-      var exists = false
-      for candidate in result:
-        if candidate == pos:
-          exists = true
-          break
-      if not exists:
+      if pos notin result:
         result.add(pos)
 
 proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =

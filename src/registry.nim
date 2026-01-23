@@ -384,9 +384,6 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   of Castle: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)]
   else: @[]
 
-proc buildingTrainCooldown*(kind: ThingKind): int =
-  0
-
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 
