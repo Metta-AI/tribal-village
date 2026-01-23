@@ -130,24 +130,22 @@ proc generateDfViewAssets*() =
         of "BRANCH": "WOOD"
         else: ""
 
+    var isMissing = false
     if lookupToken.len == 0 or lookupToken notin overrides:
-      if token notin missing:
-        missing.add(token)
-      continue
+      isMissing = true
+    else:
+      let overrideEntry = overrides[lookupToken]
+      if overrideEntry.tilesetIdx notin tilesets:
+        isMissing = true
+      else:
+        let sheetPath = tilesets[overrideEntry.tilesetIdx]
+        if not fileExists(sheetPath):
+          isMissing = true
+        else:
+          writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
 
-    let overrideEntry = overrides[lookupToken]
-    if overrideEntry.tilesetIdx notin tilesets:
-      if token notin missing:
-        missing.add(token)
-      continue
-
-    let sheetPath = tilesets[overrideEntry.tilesetIdx]
-    if not fileExists(sheetPath):
-      if token notin missing:
-        missing.add(token)
-      continue
-
-    writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
+    if isMissing and token notin missing:
+      missing.add(token)
 
   # Replace the road sprite with a constructed floor tile when available.
   if "ConstructedFloor" in overrides:
