@@ -365,22 +365,6 @@ proc findNearestGoblinStructure(env: Environment, pos: IVec2): Thing =
         best = thing
   best
 
-proc findNearestWaterEdge(env: Environment, state: var AgentState): tuple[water, stand: IVec2] =
-  let water = findNearestWaterSpiral(env, state)
-  if water.x < 0:
-    return (ivec2(-1, -1), ivec2(-1, -1))
-  for d in AdjacentOffsets8:
-    let stand = water + d
-    if not isValidPos(stand):
-      continue
-    if env.terrain[stand.x][stand.y] == Water:
-      continue
-    if env.isEmpty(stand) and not env.hasDoor(stand) and
-        not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
-        not isTileFrozen(stand, env):
-      return (water, stand)
-  (water, ivec2(-1, -1))
-
 proc canStartLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   agent.inventoryLantern > 0
@@ -780,8 +764,21 @@ proc optDockControl(controller: Controller, env: Environment, agent: Thing,
       return 0'u8
     return actOrMove(controller, env, agent, agentId, state, fish.pos, 3'u8)
 
-  let (water, stand) = findNearestWaterEdge(env, state)
-  if water.x < 0 or stand.x < 0:
+  # Find water and adjacent standing position (inlined from findNearestWaterEdge)
+  let water = findNearestWaterSpiral(env, state)
+  if water.x < 0:
+    return 0'u8
+  var stand = ivec2(-1, -1)
+  for d in AdjacentOffsets8:
+    let pos = water + d
+    if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
+      continue
+    if env.isEmpty(pos) and not env.hasDoor(pos) and
+        not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
+        not isTileFrozen(pos, env):
+      stand = pos
+      break
+  if stand.x < 0:
     return 0'u8
   if stand == agent.pos:
     return saveStateAndReturn(controller, agentId, state,
