@@ -1,6 +1,7 @@
 # Dead Code Review - tribal-village
 
 **Generated:** 2026-01-24
+**Updated:** 2026-01-24
 **Scope:** src/*.nim, src/scripted/*.nim, tests/*.nim
 
 This document catalogs potentially dead code, unused exports, and vestigial functionality.
@@ -11,43 +12,31 @@ This document catalogs potentially dead code, unused exports, and vestigial func
 
 After thorough analysis of the codebase, the overwhelming majority of exported symbols are actively used. The codebase is well-organized with most exports serving clear purposes across module boundaries.
 
-### Categories of Findings
+### Dead Code Removed (2026-01-24)
 
-1. **Legacy/Deprecated Layer Aliases** - Old names kept for backward compatibility
-2. **Configuration Constants** - Exported but only used as configuration toggles
-3. **Structure Character Constants** - Some exported but only used within terrain.nim
-4. **Potentially Unused Procs** - Very few found
+The following dead code was identified and removed:
 
----
+1. **Unused Layer Alias Constants** (types.nim) - 11 constants removed:
+   - `WallLayer`, `MagmaLayer`, `altarLayer`, `CliffLayer`
+   - `AgentInventoryStoneLayer`, `AgentInventoryWaterLayer`, `AgentInventoryLanternLayer`
+   - `AgentInventoryBreadLayer`, `AgentInventoryMeatLayer`, `AgentInventoryFishLayer`, `AgentInventoryPlantLayer`
 
-## Findings
+2. **Dead Import** (tests/domain_economy_buildings.nim):
+   - Removed `import balance` - the module doesn't exist
 
-### 1. Legacy Layer Alias Constants (types.nim, lines 260-279)
+### Layer Aliases Retained (types.nim, lines 260-268)
 
-| Item | File | Line | Evidence | Confidence | Risks |
-|------|------|------|----------|------------|-------|
-| `LegacyObsLayer` | src/types.nim | 260 | Used only as alias base for AgentInventory*Layer constants | Investigate | Low - backward compat |
-| `AgentLayer` | src/types.nim | 261 | Alias for ThingAgentLayer, not directly referenced elsewhere | Investigate | Low - clarity helper |
-| `WallLayer` | src/types.nim | 262 | Alias for ThingWallLayer, not directly referenced elsewhere | Investigate | Low - clarity helper |
-| `MagmaLayer` | src/types.nim | 263 | Alias for ThingMagmaLayer, not directly referenced elsewhere | Investigate | Low - clarity helper |
-| `CliffLayer` | src/types.nim | 266 | Alias for ThingCliffEdgeNLayer, not directly referenced elsewhere | Investigate | Low - clarity helper |
-| `AgentInventoryGoldLayer` | src/types.nim | 267 | Points to LegacyObsLayer, used in step.nim:745 | Used | N/A |
-| `AgentInventoryStoneLayer` | src/types.nim | 268 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-| `AgentInventoryBarLayer` | src/types.nim | 269 | Points to LegacyObsLayer, used in step.nim:746 | Used | N/A |
-| `AgentInventoryWaterLayer` | src/types.nim | 270 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-| `AgentInventoryWheatLayer` | src/types.nim | 271 | Points to LegacyObsLayer, used in step.nim:1126 | Used | N/A |
-| `AgentInventoryWoodLayer` | src/types.nim | 272 | Points to LegacyObsLayer, used in step.nim:1116 | Used | N/A |
-| `AgentInventorySpearLayer` | src/types.nim | 273 | Points to LegacyObsLayer, used in step.nim:496,543 | Used | N/A |
-| `AgentInventoryLanternLayer` | src/types.nim | 274 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-| `AgentInventoryArmorLayer` | src/types.nim | 275 | Points to LegacyObsLayer, used in combat.nim:146 | Used | N/A |
-| `AgentInventoryBreadLayer` | src/types.nim | 276 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-| `AgentInventoryMeatLayer` | src/types.nim | 277 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-| `AgentInventoryFishLayer` | src/types.nim | 278 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-| `AgentInventoryPlantLayer` | src/types.nim | 279 | Alias to LegacyObsLayer, no direct usage | Investigate | Low |
-
-**Analysis:** These are backward-compatibility aliases. Many point to a generic layer constant rather than individual layers. Some (`AgentInventoryStoneLayer`, `AgentInventoryWaterLayer`, etc.) are exported but never directly referenced - they may exist for documentation or future use.
-
-**Risk of Removal:** Low - These are compile-time constants. Removing unused aliases would have no runtime impact but could break external code that references them.
+| Item | File | Status | Evidence |
+|------|------|--------|----------|
+| `LegacyObsLayer` | src/types.nim | Kept | Base alias for AgentInventory*Layer constants |
+| `AgentLayer` | src/types.nim | Kept | Used in step.nim (lines 251, 252, 279, 292, 423, 962, 963, 1958, 2023) and combat.nim |
+| `altarHeartsLayer` | src/types.nim | Kept | Used in step.nim (lines 348, 803, 1941, 2014) |
+| `AgentInventoryGoldLayer` | src/types.nim | Kept | Used in step.nim |
+| `AgentInventoryBarLayer` | src/types.nim | Kept | Used in step.nim |
+| `AgentInventoryWheatLayer` | src/types.nim | Kept | Used in step.nim |
+| `AgentInventoryWoodLayer` | src/types.nim | Kept | Used in step.nim |
+| `AgentInventorySpearLayer` | src/types.nim | Kept | Used in step.nim |
+| `AgentInventoryArmorLayer` | src/types.nim | Kept | Used in combat.nim |
 
 ---
 

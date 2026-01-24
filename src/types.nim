@@ -259,24 +259,13 @@ const
   ## distinct observation channels, but keep the incremental update sites intact.
   LegacyObsLayer* = ThingAgentLayer
   AgentLayer* = ThingAgentLayer
-  WallLayer* = ThingWallLayer
-  MagmaLayer* = ThingMagmaLayer
-  altarLayer* = ThingAltarLayer
   altarHeartsLayer* = ThingAltarLayer
-  CliffLayer* = ThingCliffEdgeNLayer
   AgentInventoryGoldLayer* = LegacyObsLayer
-  AgentInventoryStoneLayer* = LegacyObsLayer
   AgentInventoryBarLayer* = LegacyObsLayer
-  AgentInventoryWaterLayer* = LegacyObsLayer
   AgentInventoryWheatLayer* = LegacyObsLayer
   AgentInventoryWoodLayer* = LegacyObsLayer
   AgentInventorySpearLayer* = LegacyObsLayer
-  AgentInventoryLanternLayer* = LegacyObsLayer
   AgentInventoryArmorLayer* = LegacyObsLayer
-  AgentInventoryBreadLayer* = LegacyObsLayer
-  AgentInventoryMeatLayer* = LegacyObsLayer
-  AgentInventoryFishLayer* = LegacyObsLayer
-  AgentInventoryPlantLayer* = LegacyObsLayer
 
 type
   AgentUnitClass* = enum

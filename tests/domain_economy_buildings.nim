@@ -1,7 +1,6 @@
 import std/unittest
 import environment
 import items
-import balance
 import test_utils
 
 suite "Market":
