@@ -118,9 +118,7 @@ proc optCraftBread*(controller: Controller, env: Environment, agent: Thing,
   let oven = env.findNearestFriendlyThingSpiral(state, teamId, ClayOven)
   if isNil(oven) or oven.cooldown != 0:
     return 0'u8
-  if isAdjacent(agent.pos, oven.pos):
-    return controller.useAt(env, agent, agentId, state, oven.pos)
-  controller.moveTo(env, agent, agentId, state, oven.pos)
+  return actOrMove(controller, env, agent, agentId, state, oven.pos, 3'u8)
 
 proc canStartSmeltGold*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): bool =
@@ -138,9 +136,7 @@ proc optSmeltGold*(controller: Controller, env: Environment, agent: Thing,
   if isNil(magmaGlobal):
     return 0'u8
   updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
-  if isAdjacent(agent.pos, magmaGlobal.pos):
-    return controller.useAt(env, agent, agentId, state, magmaGlobal.pos)
-  controller.moveTo(env, agent, agentId, state, magmaGlobal.pos)
+  return actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8)
 
 proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing =
   var best: Thing = nil
@@ -256,10 +252,10 @@ proc findIrrigationTarget(env: Environment, center: IVec2, radius: int): IVec2 =
         bestPos = pos
   bestPos
 
-proc findNearestPredator(env: Environment, pos: IVec2): Thing =
+proc findNearestThingOfKinds(env: Environment, pos: IVec2, kinds: openArray[ThingKind]): Thing =
   var best: Thing = nil
   var bestDist = int.high
-  for kind in [Bear, Wolf]:
+  for kind in kinds:
     for thing in env.thingsByKind[kind]:
       let dist = int(chebyshevDist(thing.pos, pos))
       if dist < bestDist:
@@ -267,16 +263,11 @@ proc findNearestPredator(env: Environment, pos: IVec2): Thing =
         best = thing
   best
 
+proc findNearestPredator(env: Environment, pos: IVec2): Thing =
+  findNearestThingOfKinds(env, pos, [Bear, Wolf])
+
 proc findNearestGoblinStructure(env: Environment, pos: IVec2): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for kind in [GoblinHive, GoblinHut, GoblinTotem]:
-    for thing in env.thingsByKind[kind]:
-      let dist = int(chebyshevDist(thing.pos, pos))
-      if dist < bestDist:
-        bestDist = dist
-        best = thing
-  best
+  findNearestThingOfKinds(env, pos, [GoblinHive, GoblinHut, GoblinTotem])
 
 proc canStartLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
@@ -289,9 +280,7 @@ proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thi
   let target = findLanternFrontierCandidate(env, state, teamId, basePos)
   if target.x < 0:
     return 0'u8
-  if isAdjacent(agent.pos, target):
-    return controller.actAt(env, agent, agentId, state, target, 6'u8)
-  controller.moveTo(env, agent, agentId, state, target)
+  return actOrMove(controller, env, agent, agentId, state, target, 6'u8)
 
 proc canStartLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
@@ -324,9 +313,7 @@ proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
           target = cand
   if target.x < 0:
     return 0'u8
-  if isAdjacent(agentPos, target):
-    return controller.actAt(env, agent, agentId, state, target, 6'u8)
-  controller.moveTo(env, agent, agentId, state, target)
+  return actOrMove(controller, env, agent, agentId, state, target, 6'u8)
 
 proc canStartLanternRecovery(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
@@ -351,9 +338,7 @@ proc optLanternRecovery(controller: Controller, env: Environment, agent: Thing,
             break search
   if target.x < 0:
     return 0'u8
-  if isAdjacent(agent.pos, target):
-    return controller.actAt(env, agent, agentId, state, target, 6'u8)
-  controller.moveTo(env, agent, agentId, state, target)
+  return actOrMove(controller, env, agent, agentId, state, target, 6'u8)
 
 proc canStartLanternLogistics(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
@@ -365,10 +350,7 @@ proc optLanternLogistics(controller: Controller, env: Environment, agent: Thing,
   let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom)
   if agent.inventoryWood > 0 or agent.inventoryWheat > 0:
     if not isNil(loom):
-      return (if isAdjacent(agent.pos, loom.pos):
-        controller.useAt(env, agent, agentId, state, loom.pos)
-      else:
-        controller.moveTo(env, agent, agentId, state, loom.pos))
+      return actOrMove(controller, env, agent, agentId, state, loom.pos, 3'u8)
   if agent.inventoryWood == 0:
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
@@ -796,9 +778,7 @@ proc optTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
   let target = findLanternFrontierCandidate(env, state, teamId, basePos)
   if target.x < 0 or agent.inventoryLantern <= 0:
     return 0'u8
-  if isAdjacent(agent.pos, target):
-    return controller.actAt(env, agent, agentId, state, target, 6'u8)
-  controller.moveTo(env, agent, agentId, state, target)
+  return actOrMove(controller, env, agent, agentId, state, target, 6'u8)
 
 proc canStartTempleFusion(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
@@ -810,9 +790,7 @@ proc optTempleFusion(controller: Controller, env: Environment, agent: Thing,
   let temple = env.findNearestThingSpiral(state, Temple)
   if isNil(temple):
     return 0'u8
-  if isAdjacent(agent.pos, temple.pos):
-    return controller.useAt(env, agent, agentId, state, temple.pos)
-  controller.moveTo(env, agent, agentId, state, temple.pos)
+  return actOrMove(controller, env, agent, agentId, state, temple.pos, 3'u8)
 
 let MetaBehaviorOptions* = [
   OptionDef(

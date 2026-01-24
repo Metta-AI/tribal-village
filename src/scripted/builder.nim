@@ -315,10 +315,7 @@ proc optBuilderMarketTrade(controller: Controller, env: Environment, agent: Thin
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
   if isNil(market) or market.cooldown != 0:
     return 0'u8
-  return (if isAdjacent(agent.pos, market.pos):
-    controller.useAt(env, agent, agentId, state, market.pos)
-  else:
-    controller.moveTo(env, agent, agentId, state, market.pos))
+  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
 
 proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =

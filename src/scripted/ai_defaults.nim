@@ -793,10 +793,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     let relic = env.findNearestThingSpiral(state, Relic)
     if not isNil(relic):
-      return (if isAdjacent(agent.pos, relic.pos):
-        controller.useAt(env, agent, agentId, state, relic.pos)
-      else:
-        controller.moveTo(env, agent, agentId, state, relic.pos))
+      return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
     return controller.moveNextSearch(env, agent, agentId, state)
 

@@ -60,13 +60,6 @@ proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
       return true
   false
 
-proc fighterActOrMove(controller: Controller, env: Environment, agent: Thing,
-                      agentId: int, state: var AgentState,
-                      targetPos: IVec2, verb: uint8): uint8 =
-  if isAdjacent(agent.pos, targetPos):
-    return controller.actAt(env, agent, agentId, state, targetPos, verb)
-  return controller.moveTo(env, agent, agentId, state, targetPos)
-
 proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitMonk
@@ -87,18 +80,12 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
           dropPos = cand
           break
       if dropPos.x >= 0:
-        return (if isAdjacent(agent.pos, dropPos):
-          controller.useAt(env, agent, agentId, state, dropPos)
-        else:
-          controller.moveTo(env, agent, agentId, state, dropPos))
+        return actOrMove(controller, env, agent, agentId, state, dropPos, 3'u8)
       return controller.moveTo(env, agent, agentId, state, monastery.pos)
 
   let relic = env.findNearestThingSpiral(state, Relic)
   if not isNil(relic):
-    return (if isAdjacent(agent.pos, relic.pos):
-      controller.useAt(env, agent, agentId, state, relic.pos)
-    else:
-      controller.moveTo(env, agent, agentId, state, relic.pos))
+    return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
   var bestEnemy: Thing = nil
   var bestDist = int.high
@@ -114,7 +101,7 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
       bestDist = dist
       bestEnemy = other
   if not isNil(bestEnemy):
-    return fighterActOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
+    return actOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
 
   controller.moveNextSearch(env, agent, agentId, state)
 
@@ -400,7 +387,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
 
   if target.x >= 0:
     if agent.inventoryLantern > 0:
-      return fighterActOrMove(controller, env, agent, agentId, state, target, 6'u8)
+      return actOrMove(controller, env, agent, agentId, state, target, 6'u8)
 
     if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
       if chebyshevDist(agent.pos, basePos) > 2'i32:
@@ -415,7 +402,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom)
     if hasLanternInput:
       if not isNil(loom):
-        return fighterActOrMove(controller, env, agent, agentId, state, loom.pos, 3'u8)
+        return actOrMove(controller, env, agent, agentId, state, loom.pos, 3'u8)
       return controller.moveNextSearch(env, agent, agentId, state)
 
     let food = env.stockpileCount(teamId, ResourceFood)
@@ -429,7 +416,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
       let wheat = env.findNearestThingSpiral(state, kind)
       if isNil(wheat):
         continue
-      return fighterActOrMove(controller, env, agent, agentId, state, wheat.pos, 3'u8)
+      return actOrMove(controller, env, agent, agentId, state, wheat.pos, 3'u8)
     let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
     if didWood: return actWood
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -480,7 +467,7 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
     let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
     if isNil(building) or building.cooldown != 0:
       continue
-    return fighterActOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+    return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
   0'u8
 
 proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
@@ -514,7 +501,7 @@ proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Th
   let target = findNearestPredator(env, agent.pos)
   if isNil(target):
     return 0'u8
-  fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
+  actOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
 
 proc canStartFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
@@ -525,7 +512,7 @@ proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thi
   let target = findNearestGoblinStructure(env, agent.pos)
   if isNil(target):
     return 0'u8
-  fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
+  actOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
 
 proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
@@ -547,7 +534,7 @@ proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing
   for kind in [Tumor, Spawner]:
     let target = env.findNearestThingSpiral(state, kind)
     if not isNil(target):
-      return fighterActOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
+      return actOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
   if didHunt: return actHunt
   0'u8
