@@ -144,9 +144,11 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
     allowFood = true, allowWood = true, allowStone = true, allowGold = not heartsPriority
   )
   if didDrop: return dropAct
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos,
-      controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)).uint8))
+  let dir = getMoveTowards(env, agent, agent.pos, basePos,
+    controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1))
+  if dir < 0:
+    return saveStateAndReturn(controller, agentId, state, 0'u8)  # Noop when blocked
+  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dir.uint8))
 
 proc canStartGathererHearts(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =

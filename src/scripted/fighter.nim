@@ -392,9 +392,10 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
       if chebyshevDist(agent.pos, basePos) > 2'i32:
         let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
-        return saveStateAndReturn(controller, agentId, state,
-          encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, basePos,
-            controller.rng, avoidDir).uint8))
+        let dir = getMoveTowards(env, agent, agent.pos, basePos, controller.rng, avoidDir)
+        if dir >= 0:
+          return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dir.uint8))
+        # Fall through to try building if can't move
       let (didBuild, buildAct) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, WeavingLoom)
       if didBuild: return buildAct
 

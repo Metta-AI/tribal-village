@@ -545,7 +545,7 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2,
       return bestDir
     if avoidCandidate >= 0:
       return avoidCandidate
-    return randIntInclusive(rng, 0, 7)
+    return -1
 
   let dx = clampedTarget.x - fromPos.x
   let dy = clampedTarget.y - fromPos.y
@@ -575,8 +575,8 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2,
   if avoidCandidate >= 0:
     return avoidCandidate
 
-  # All blocked, try random movement.
-  return randIntInclusive(rng, 0, 7)
+  # All blocked - return -1 to signal no valid move (caller should noop)
+  return -1
 
 proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
   ## A* path from start to target (or passable neighbor), returns path including start.
@@ -706,18 +706,21 @@ proc tryPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                  encodeAction(7'u8, plantArg.uint8)))
       else:
         let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
+        let dir = getMoveTowards(env, agent, agent.pos, fertilePos, controller.rng, avoidDir)
+        if dir < 0:
+          return (false, 0'u8)  # Can't move toward fertile, let other option handle it
         return (true, saveStateAndReturn(controller, agentId, state,
-                 encodeAction(1'u8, getMoveTowards(env, agent, agent.pos, fertilePos,
-                   controller.rng, avoidDir).uint8)))
+                 encodeAction(1'u8, dir.uint8)))
   return (false, 0'u8)
 
 proc moveNextSearch(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): uint8 =
-  return saveStateAndReturn(controller, agentId, state,
-    encodeAction(1'u8, getMoveTowards(
-      env, agent, agent.pos, getNextSpiralPoint(state),
-      controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
-    ).uint8))
+  let dir = getMoveTowards(
+    env, agent, agent.pos, getNextSpiralPoint(state),
+    controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1))
+  if dir < 0:
+    return saveStateAndReturn(controller, agentId, state, 0'u8)  # Noop when blocked
+  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dir.uint8))
 
 proc isAdjacent(a, b: IVec2): bool =
   let dx = abs(a.x - b.x)
@@ -796,9 +799,11 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
     env, agent, agent.pos, targetPos, controller.rng,
     (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   )
+  if dirIdx < 0:
+    return saveStateAndReturn(controller, agentId, state, 0'u8)  # Noop when blocked
   if state.role == Builder and state.lastPosition == agent.pos + Directions8[dirIdx]:
     let altDir = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, dirIdx)
-    if altDir != dirIdx:
+    if altDir >= 0 and altDir != dirIdx:
       dirIdx = altDir
   return saveStateAndReturn(controller, agentId, state,
     encodeAction(1'u8, dirIdx.uint8))
