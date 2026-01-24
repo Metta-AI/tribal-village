@@ -63,7 +63,7 @@ proc tribal_village_create(): pointer {.exportc, dynlib.} =
     globalEnv = newEnvironment(config)
     initGlobalController(ExternalNN)
     return cast[pointer](globalEnv)
-  except:
+  except CatchableError:
     return nil
 
 proc tribal_village_set_config(
@@ -98,7 +98,7 @@ proc tribal_village_set_config(
     applyFloat(deathPenalty, incoming.deathPenalty)
     globalEnv.config = config
     return 1
-  except:
+  except CatchableError:
     return 0
 
 proc tribal_village_reset_and_get_obs(
@@ -125,7 +125,7 @@ proc tribal_village_reset_and_get_obs(
       truncations_buffer[i] = 0
 
     return 1
-  except:
+  except CatchableError:
     return 0
 
 proc tribal_village_step_with_pointers(
@@ -160,7 +160,7 @@ proc tribal_village_step_with_pointers(
       truncations_buffer[i] = if globalEnv.truncated[i] > 0.0: 1 else: 0
 
     return 1
-  except:
+  except CatchableError:
     return 0
 
 proc tribal_village_get_num_agents(): int32 {.exportc, dynlib.} =
@@ -243,7 +243,7 @@ proc tribal_village_render_rgb(
             out_buffer[bufferIdx + 1] = gByte
             out_buffer[bufferIdx + 2] = bByte
     return 1
-  except:
+  except CatchableError:
     return 0
 proc tribal_village_get_obs_height(): int32 {.exportc, dynlib.} =
   ObservationHeight.int32
@@ -266,7 +266,7 @@ proc tribal_village_render_ansi(
     copyMem(out_buffer, cast[pointer](rendered.cstring), n)
     out_buffer[n] = '\0'  # null-terminate
     return n.int32
-  except:
+  except CatchableError:
     return 0
 
 # ============== FFI Error Query Functions ==============
