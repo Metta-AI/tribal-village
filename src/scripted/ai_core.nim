@@ -79,6 +79,18 @@ proc newController*(seed: int): Controller =
     buildingCountsStep: -1
   )
 
+proc getAgentRole*(controller: Controller, agentId: int): AgentRole =
+  ## Get the role of an agent (for profiling)
+  if agentId >= 0 and agentId < MapAgents and controller.agentsInitialized[agentId]:
+    return controller.agents[agentId].role
+  return Gatherer  # Default
+
+proc isAgentInitialized*(controller: Controller, agentId: int): bool =
+  ## Check if an agent has been initialized (for profiling)
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agentsInitialized[agentId]
+  return false
+
 # Helper proc to save state and return action
 proc saveStateAndReturn(controller: Controller, agentId: int, state: AgentState, action: uint8): uint8 =
   var nextState = state
@@ -179,14 +191,17 @@ proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind,
       minDist = dist
       result = thing
 
+proc radiusBounds*(center: IVec2, radius: int): tuple[startX, endX, startY, endY: int] {.inline.} =
+  let cx = center.x.int
+  let cy = center.y.int
+  (max(0, cx - radius), min(MapWidth - 1, cx + radius),
+   max(0, cy - radius), min(MapHeight - 1, cy + radius))
+
 proc findNearestWater(env: Environment, pos: IVec2): IVec2 =
   result = ivec2(-1, -1)
+  let (startX, endX, startY, endY) = radiusBounds(pos, SearchRadius)
   let cx = pos.x.int
   let cy = pos.y.int
-  let startX = max(0, cx - SearchRadius)
-  let endX = min(MapWidth - 1, cx + SearchRadius)
-  let startY = max(0, cy - SearchRadius)
-  let endY = min(MapHeight - 1, cy + SearchRadius)
   var minDist = int.high
   for x in startX .. endX:
     for y in startY .. endY:
@@ -362,6 +377,10 @@ proc neighborDirIndex(fromPos, toPos: IVec2): int =
 
 proc sameTeam(agentA, agentB: Thing): bool =
   getTeamId(agentA) == getTeamId(agentB)
+
+proc getBasePos*(agent: Thing): IVec2 =
+  ## Return the agent's home altar position if valid, otherwise the agent's current position.
+  if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
 
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.

@@ -116,7 +116,7 @@ proc optCraftBread*(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let oven = env.findNearestFriendlyThingSpiral(state, teamId, ClayOven)
-  if isNil(oven):
+  if isNil(oven) or oven.cooldown != 0:
     return 0'u8
   if isAdjacent(agent.pos, oven.pos):
     return controller.useAt(env, agent, agentId, state, oven.pos)
@@ -129,7 +129,7 @@ proc canStartSmeltGold*(controller: Controller, env: Environment, agent: Thing,
 
 proc optSmeltGold*(controller: Controller, env: Environment, agent: Thing,
                    agentId: int, state: var AgentState): uint8 =
-  state.basePosition = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  state.basePosition = agent.getBasePos()
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
   if didKnown:
@@ -321,12 +321,9 @@ proc findDirectionalBuildPos(env: Environment, basePos: IVec2, targetPos: IVec2,
   ivec2(-1, -1)
 
 proc findIrrigationTarget(env: Environment, center: IVec2, radius: int): IVec2 =
+  let (startX, endX, startY, endY) = radiusBounds(center, radius)
   let cx = center.x.int
   let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
   var bestDist = int.high
   var bestPos = ivec2(-1, -1)
   for x in startX .. endX:
@@ -391,7 +388,7 @@ proc canStartLanternFrontierPush(controller: Controller, env: Environment, agent
 proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let target = findLanternFrontierCandidate(env, state, teamId, basePos)
   if target.x < 0:
     return 0'u8
@@ -419,7 +416,7 @@ proc canStartLanternRecovery(controller: Controller, env: Environment, agent: Th
 
 proc optLanternRecovery(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let target = findFrozenEdgeCandidate(env, basePos)
   if target.x < 0:
     return 0'u8
@@ -507,7 +504,7 @@ proc canStartGuardTowerBorder(controller: Controller, env: Environment, agent: T
 
 proc optGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(6, 0)), 4, 7)
@@ -523,7 +520,7 @@ proc canStartOutpostNetwork(controller: Controller, env: Environment, agent: Thi
 
 proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, 6)), 3, 6)
@@ -539,13 +536,13 @@ proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: T
     return false
   if not env.canAffordBuild(agent, thingItem("Wall")):
     return false
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
   enemyPos.x >= 0 and dist <= EnemyWallFortifyRadius
 
 proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
   if enemyPos.x < 0 or dist > EnemyWallFortifyRadius:
     return 0'u8
@@ -562,7 +559,7 @@ proc canStartWallChokeFortify(controller: Controller, env: Environment, agent: T
 
 proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let target = findWallChokeCandidate(env, basePos)
   let (did, act) = goToAdjacentAndBuild(
     controller, env, agent, agentId, state, target, BuildIndexWall
@@ -576,7 +573,7 @@ proc canStartDoorChokeFortify(controller: Controller, env: Environment, agent: T
 
 proc optDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let target = findDoorChokeCandidate(env, basePos)
   let (did, act) = goToAdjacentAndBuild(
     controller, env, agent, agentId, state, target, buildIndexFor(Door)
@@ -590,7 +587,7 @@ proc canStartRoadExpansion(controller: Controller, env: Environment, agent: Thin
 
 proc optRoadExpansion(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(8, 0)), 2, 5)
@@ -606,7 +603,7 @@ proc canStartCastleAnchor(controller: Controller, env: Environment, agent: Thing
 
 proc optCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, -8)), 5, 9)
@@ -730,7 +727,7 @@ proc optFertileExpansion(controller: Controller, env: Environment, agent: Thing,
     let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
     if didPlant: return actPlant
   if agent.inventoryWater > 0:
-    let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+    let basePos = agent.getBasePos()
     let target = findIrrigationTarget(env, basePos, 6)
     if target.x >= 0:
       return actOrMove(controller, env, agent, agentId, state, target, 3'u8)
@@ -757,7 +754,7 @@ proc optMarketManipulator(controller: Controller, env: Environment, agent: Thing
                            agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market):
+  if isNil(market) or market.cooldown != 0:
     return 0'u8
   return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
 
@@ -801,7 +798,7 @@ proc optTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
   if not isNil(enemy):
     return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let target = findLanternFrontierCandidate(env, state, teamId, basePos)
   if target.x < 0 or agent.inventoryLantern <= 0:
     return 0'u8

@@ -152,7 +152,7 @@ proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
   if agent.hp * 3 > agent.maxHp:
     return 0'u8
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
   var safePos = basePos
   for kind in [Outpost, Barracks, TownCenter, Monastery]:
@@ -182,7 +182,7 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
   if isNil(enemy):
     return 0'u8
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
 
   var enemyBase: Thing = nil
@@ -340,7 +340,7 @@ proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Th
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
   var target = ivec2(-1, -1)
   var unlit: Thing = nil

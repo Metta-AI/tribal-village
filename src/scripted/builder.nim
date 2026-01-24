@@ -313,7 +313,7 @@ proc optBuilderMarketTrade(controller: Controller, env: Environment, agent: Thin
                            agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market):
+  if isNil(market) or market.cooldown != 0:
     return 0'u8
   return (if isAdjacent(agent.pos, market.pos):
     controller.useAt(env, agent, agentId, state, market.pos)

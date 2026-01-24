@@ -1,10 +1,7 @@
 proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IVec2): IVec2 =
+  let (startX, endX, startY, endY) = radiusBounds(center, radius)
   let cx = center.x.int
   let cy = center.y.int
-  let startX = max(0, cx - radius)
-  let endX = min(MapWidth - 1, cx + radius)
-  let startY = max(0, cy - radius)
-  let endY = min(MapHeight - 1, cy + radius)
   var bestDist = int.high
   var bestPos = ivec2(-1, -1)
   for x in startX .. endX:
@@ -119,9 +116,9 @@ proc canStartGathererMarket(controller: Controller, env: Environment, agent: Thi
 proc optGathererMarket(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  state.basePosition = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  state.basePosition = agent.getBasePos()
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market):
+  if isNil(market) or market.cooldown != 0:
     return 0'u8
   return (if isAdjacent(agent.pos, market.pos):
     controller.useAt(env, agent, agentId, state, market.pos)
@@ -130,7 +127,7 @@ proc optGathererMarket(controller: Controller, env: Environment, agent: Thing,
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
   let heartsPriority = state.gathererTask == TaskHearts
   var magmaGlobal: Thing = nil
@@ -163,7 +160,7 @@ proc canStartGathererHearts(controller: Controller, env: Environment, agent: Thi
 
 proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
   let magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
 
@@ -246,7 +243,7 @@ proc canStartGathererFood(controller: Controller, env: Environment, agent: Thing
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
 
   let buildGranary = gathererTryBuildCamp(
@@ -270,13 +267,10 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
 
   block waterFertile:
     block:
+      let radius = 4
+      let (startX, endX, startY, endY) = radiusBounds(agent.pos, radius)
       let cx = agent.pos.x.int
       let cy = agent.pos.y.int
-      let radius = 4
-      let startX = max(0, cx - radius)
-      let endX = min(MapWidth - 1, cx + radius)
-      let startY = max(0, cy - radius)
-      let endY = min(MapHeight - 1, cy + radius)
       var hasNearbyFood = false
       for x in startX .. endX:
         for y in startY .. endY:
@@ -320,7 +314,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
       state.closestFoodPos = ivec2(-1, -1)
     else:
       let knownThing = env.getThing(state.closestFoodPos)
-      if isNil(knownThing) or knownThing.kind notin FoodKinds:
+      if isNil(knownThing) or knownThing.kind notin FoodKinds or isThingFrozen(knownThing, env):
         state.closestFoodPos = ivec2(-1, -1)
       else:
         return (if isAdjacent(agent.pos, knownThing.pos):
@@ -352,7 +346,7 @@ proc canStartGathererIrrigate(controller: Controller, env: Environment, agent: T
 
 proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let target = findIrrigationTarget(env, basePos, 6)
   if target.x < 0:
     return 0'u8
