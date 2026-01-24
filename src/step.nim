@@ -2056,6 +2056,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
+  # Rebuild all observations in one pass (much faster than incremental updates)
+  # This replaces all the updateObservations calls throughout the step which were
+  # O(updates * agents). Now we do O(agents * observation_tiles) once at the end.
+  env.rebuildObservations()
+
   when defined(stepTiming):
     if timing:
       tNow = getMonoTime()

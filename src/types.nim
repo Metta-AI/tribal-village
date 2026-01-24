@@ -647,7 +647,7 @@ var selection*: Thing = nil
 var selectedPos*: IVec2 = ivec2(-1, -1)
 
 # Helper function for checking if agent is alive
-proc isAgentAlive*(env: Environment, agent: Thing): bool =
+proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
   not agent.isNil and
     env.terminated[agent.agentId] == 0.0 and
     isValidPos(agent.pos) and

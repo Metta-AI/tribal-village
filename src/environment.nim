@@ -72,14 +72,16 @@ proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
-proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) =
+proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
+  ## Write observation data for a single tile. Called from rebuildObservations
+  ## which already zeroed all observation memory, so we only set non-zero values.
   var agentObs = addr env.observations[agentId]
-  for layerId in 0 ..< ObservationLayers:
-    agentObs[][layerId][obsX][obsY] = 0
 
+  # Terrain layer (one-hot encoded)
   let terrain = env.terrain[worldX][worldY]
   agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
 
+  # Thing layers
   let blockingThing = env.grid[worldX][worldY]
   if not isNil(blockingThing):
     agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
@@ -88,6 +90,7 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) =
   if not isNil(backgroundThing):
     agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
 
+  # Agent-specific layers (team, orientation, class)
   var teamValue = 0
   var orientValue = 0
   var classValue = 0
@@ -96,57 +99,44 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) =
     orientValue = ord(blockingThing.orientation) + 1
     classValue = ord(blockingThing.unitClass) + 1
   else:
+    # Check team ownership for non-agent things
     let teamId =
-      if not blockingThing.isNil:
-        if blockingThing.kind == Agent:
-          getTeamId(blockingThing)
-        elif blockingThing.kind in TeamOwnedKinds and blockingThing.teamId >= 0 and blockingThing.teamId < MapRoomObjectsTeams:
-          blockingThing.teamId
-        else:
-          -1
-      elif not backgroundThing.isNil:
-        if backgroundThing.kind == Agent:
-          getTeamId(backgroundThing)
-        elif backgroundThing.kind in TeamOwnedKinds and backgroundThing.teamId >= 0 and backgroundThing.teamId < MapRoomObjectsTeams:
-          backgroundThing.teamId
-        else:
-          -1
+      if not blockingThing.isNil and blockingThing.kind in TeamOwnedKinds and
+         blockingThing.teamId >= 0 and blockingThing.teamId < MapRoomObjectsTeams:
+        blockingThing.teamId
+      elif not backgroundThing.isNil and backgroundThing.kind in TeamOwnedKinds and
+           backgroundThing.teamId >= 0 and backgroundThing.teamId < MapRoomObjectsTeams:
+        backgroundThing.teamId
       else:
         -1
     if teamId >= 0:
       teamValue = teamId + 1
-  agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
-  agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
-  agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
-  agentObs[][ord(TintLayer)][obsX][obsY] = env.actionTintCode[worldX][worldY]
+
+  # Only write non-zero values (memory already zeroed)
+  if teamValue != 0:
+    agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
+  if orientValue != 0:
+    agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
+  if classValue != 0:
+    agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
+
+  let tintCode = env.actionTintCode[worldX][worldY]
+  if tintCode != 0:
+    agentObs[][ord(TintLayer)][obsX][obsY] = tintCode
 
 proc updateObservations(
   env: Environment,
   layer: ObservationName,
   pos: IVec2,
   value: int
-) =
-  ## Incremental observation update for a single world tile.
+) {.inline.} =
+  ## No-op: observations are rebuilt in batch at end of step() for efficiency.
+  ## Previously iterated ALL agents per tile update which was O(updates * agents).
+  ## Now rebuildObservations is called once at end of step() which is O(agents * tiles).
+  discard env
   discard layer
+  discard pos
   discard value
-  if not isValidPos(pos):
-    return
-
-  let agentCount = env.agents.len
-  for agentId in 0 ..< agentCount:
-    let agent = env.agents[agentId]
-    if not isAgentAlive(env, agent):
-      continue
-    let agentPos = agent.pos
-    let dx = pos.x - agentPos.x
-    let dy = pos.y - agentPos.y
-    if dx < -ObservationRadius or dx > ObservationRadius or
-       dy < -ObservationRadius or dy > ObservationRadius:
-      continue
-    let obsX = dx + ObservationRadius
-    let obsY = dy + ObservationRadius
-    writeTileObs(env, agentId, obsX, obsY, pos.x, pos.y)
-  env.observationsInitialized = true
 
 include "colors"
 

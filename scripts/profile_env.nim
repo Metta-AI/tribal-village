@@ -4,7 +4,7 @@
 
 import nimprof
 import std/random
-import src/environment
+import environment
 
 when isMainModule:
   var env = newEnvironment()
