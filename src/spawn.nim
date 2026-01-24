@@ -124,123 +124,6 @@ proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
     placeResourceCluster(env, pos.x.int, pos.y.int, size, baseDensity, falloffRate,
       kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
 
-proc applyBiomeElevation(env: Environment) =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      if env.terrain[x][y] in {Water, Bridge}:
-        env.elevation[x][y] = 0
-        continue
-      let biome = env.biomes[x][y]
-      env.elevation[x][y] =
-        if biome == BiomeSwampType:
-          -1
-        elif biome == BiomeSnowType:
-          1
-        else:
-          0
-
-proc applyCliffRamps(env: Environment) =
-  var cliffCount = 0
-  for x in MapBorder ..< MapWidth - MapBorder:
-    for y in MapBorder ..< MapHeight - MapBorder:
-      if env.terrain[x][y] == Water or env.terrain[x][y] == Road:
-        continue
-      let elev = env.elevation[x][y]
-      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
-        let nx = x + d.x.int
-        let ny = y + d.y.int
-        if nx < MapBorder or nx >= MapWidth - MapBorder or
-           ny < MapBorder or ny >= MapHeight - MapBorder:
-          continue
-        if env.elevation[nx][ny] <= elev:
-          continue
-        if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road:
-          continue
-        inc cliffCount
-        if cliffCount mod 10 != 0:
-          continue
-        env.terrain[x][y] = Road
-        env.terrain[nx][ny] = Road
-
-proc applyCliffs(env: Environment) =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      if env.terrain[x][y] == Water:
-        continue
-      let elev = env.elevation[x][y]
-      proc isLower(dx, dy: int): bool =
-        let nx = x + dx
-        let ny = y + dy
-        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
-          return false
-        env.elevation[nx][ny] < elev
-
-      let lowN = isLower(0, -1)
-      let lowE = isLower(1, 0)
-      let lowS = isLower(0, 1)
-      let lowW = isLower(-1, 0)
-      let lowNE = isLower(1, -1)
-      let lowSE = isLower(1, 1)
-      let lowSW = isLower(-1, 1)
-      let lowNW = isLower(-1, -1)
-
-      let cardinalCount =
-        (if lowN: 1 else: 0) +
-        (if lowE: 1 else: 0) +
-        (if lowS: 1 else: 0) +
-        (if lowW: 1 else: 0)
-      let diagonalCount =
-        (if lowNE: 1 else: 0) +
-        (if lowSE: 1 else: 0) +
-        (if lowSW: 1 else: 0) +
-        (if lowNW: 1 else: 0)
-
-      var kind: ThingKind
-      var hasCliff = false
-
-      if cardinalCount == 2:
-        if lowN and lowE:
-          kind = CliffCornerInNE
-          hasCliff = true
-        elif lowE and lowS:
-          kind = CliffCornerInSE
-          hasCliff = true
-        elif lowS and lowW:
-          kind = CliffCornerInSW
-          hasCliff = true
-        elif lowW and lowN:
-          kind = CliffCornerInNW
-          hasCliff = true
-      elif cardinalCount == 1:
-        if lowN:
-          kind = CliffEdgeN
-          hasCliff = true
-        elif lowE:
-          kind = CliffEdgeE
-          hasCliff = true
-        elif lowS:
-          kind = CliffEdgeS
-          hasCliff = true
-        elif lowW:
-          kind = CliffEdgeW
-          hasCliff = true
-      elif cardinalCount == 0 and diagonalCount == 1:
-        if lowNE:
-          kind = CliffCornerOutNE
-          hasCliff = true
-        elif lowSE:
-          kind = CliffCornerOutSE
-          hasCliff = true
-        elif lowSW:
-          kind = CliffCornerOutSW
-          hasCliff = true
-        elif lowNW:
-          kind = CliffCornerOutNW
-          hasCliff = true
-
-      if hasCliff:
-        env.add(Thing(kind: kind, pos: ivec2(x.int32, y.int32)))
-
 proc init(env: Environment) =
   inc env.mapGeneration
   # Use current time for random seed to get different maps each time
@@ -332,9 +215,120 @@ proc init(env: Environment) =
       let ry = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       carveTreeOasisWater(pos, rx, ry)
       treeOases.add((center: pos, rx: rx, ry: ry))
-  env.applyBiomeElevation()
-  env.applyCliffRamps()
-  env.applyCliffs()
+  # Apply biome elevation (inlined)
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.terrain[x][y] in {Water, Bridge}:
+        env.elevation[x][y] = 0
+        continue
+      let biome = env.biomes[x][y]
+      env.elevation[x][y] =
+        if biome == BiomeSwampType:
+          -1
+        elif biome == BiomeSnowType:
+          1
+        else:
+          0
+  # Apply cliff ramps (inlined)
+  var cliffCount = 0
+  for x in MapBorder ..< MapWidth - MapBorder:
+    for y in MapBorder ..< MapHeight - MapBorder:
+      if env.terrain[x][y] == Water or env.terrain[x][y] == Road:
+        continue
+      let elev = env.elevation[x][y]
+      for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
+        let nx = x + d.x.int
+        let ny = y + d.y.int
+        if nx < MapBorder or nx >= MapWidth - MapBorder or
+           ny < MapBorder or ny >= MapHeight - MapBorder:
+          continue
+        if env.elevation[nx][ny] <= elev:
+          continue
+        if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road:
+          continue
+        inc cliffCount
+        if cliffCount mod 10 != 0:
+          continue
+        env.terrain[x][y] = Road
+        env.terrain[nx][ny] = Road
+  # Apply cliffs (inlined)
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.terrain[x][y] == Water:
+        continue
+      let elev = env.elevation[x][y]
+      proc isLower(dx, dy: int): bool =
+        let nx = x + dx
+        let ny = y + dy
+        if nx < 0 or nx >= MapWidth or ny < 0 or ny >= MapHeight:
+          return false
+        env.elevation[nx][ny] < elev
+
+      let lowN = isLower(0, -1)
+      let lowE = isLower(1, 0)
+      let lowS = isLower(0, 1)
+      let lowW = isLower(-1, 0)
+      let lowNE = isLower(1, -1)
+      let lowSE = isLower(1, 1)
+      let lowSW = isLower(-1, 1)
+      let lowNW = isLower(-1, -1)
+
+      let cardinalCount =
+        (if lowN: 1 else: 0) +
+        (if lowE: 1 else: 0) +
+        (if lowS: 1 else: 0) +
+        (if lowW: 1 else: 0)
+      let diagonalCount =
+        (if lowNE: 1 else: 0) +
+        (if lowSE: 1 else: 0) +
+        (if lowSW: 1 else: 0) +
+        (if lowNW: 1 else: 0)
+
+      var kind: ThingKind
+      var hasCliff = false
+
+      if cardinalCount == 2:
+        if lowN and lowE:
+          kind = CliffCornerInNE
+          hasCliff = true
+        elif lowE and lowS:
+          kind = CliffCornerInSE
+          hasCliff = true
+        elif lowS and lowW:
+          kind = CliffCornerInSW
+          hasCliff = true
+        elif lowW and lowN:
+          kind = CliffCornerInNW
+          hasCliff = true
+      elif cardinalCount == 1:
+        if lowN:
+          kind = CliffEdgeN
+          hasCliff = true
+        elif lowE:
+          kind = CliffEdgeE
+          hasCliff = true
+        elif lowS:
+          kind = CliffEdgeS
+          hasCliff = true
+        elif lowW:
+          kind = CliffEdgeW
+          hasCliff = true
+      elif cardinalCount == 0 and diagonalCount == 1:
+        if lowNE:
+          kind = CliffCornerOutNE
+          hasCliff = true
+        elif lowSE:
+          kind = CliffCornerOutSE
+          hasCliff = true
+        elif lowSW:
+          kind = CliffCornerOutSW
+          hasCliff = true
+        elif lowNW:
+          kind = CliffCornerOutNW
+          hasCliff = true
+
+      if hasCliff:
+        env.add(Thing(kind: kind, pos: ivec2(x.int32, y.int32)))
 
   # Resource nodes are spawned as Things later; base terrain stays walkable.
 

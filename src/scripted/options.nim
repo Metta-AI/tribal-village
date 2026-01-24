@@ -217,80 +217,6 @@ proc findLanternFrontierCandidate(env: Environment, state: var AgentState,
     return candidate
   ivec2(-1, -1)
 
-proc findLanternGapCandidate(env: Environment, agentPos: IVec2,
-                             teamId: int): IVec2 =
-  var best = ivec2(-1, -1)
-  var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil or thing.teamId != teamId or not isBuildingKind(thing.kind):
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    for dx in -2 .. 2:
-      for dy in -2 .. 2:
-        if abs(dx) + abs(dy) > 2:
-          continue
-        let cand = thing.pos + ivec2(dx.int32, dy.int32)
-        if not isLanternPlacementValid(env, cand):
-          continue
-        if hasTeamLanternNear(env, teamId, cand):
-          continue
-        let dist = abs(cand.x - agentPos.x).int + abs(cand.y - agentPos.y).int
-        if dist < bestDist:
-          bestDist = dist
-          best = cand
-  best
-
-proc findWallChokeCandidate(env: Environment, basePos: IVec2): IVec2 =
-  let radius = 8
-  for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
-    for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
-      let pos = ivec2(x.int32, y.int32)
-      if env.terrain[x][y] == TerrainRoad:
-        continue
-      if not env.canPlace(pos):
-        continue
-      let north = env.getThing(pos + ivec2(0, -1))
-      let south = env.getThing(pos + ivec2(0, 1))
-      let east = env.getThing(pos + ivec2(1, 0))
-      let west = env.getThing(pos + ivec2(-1, 0))
-      let northDoor = env.getBackgroundThing(pos + ivec2(0, -1))
-      let southDoor = env.getBackgroundThing(pos + ivec2(0, 1))
-      let eastDoor = env.getBackgroundThing(pos + ivec2(1, 0))
-      let westDoor = env.getBackgroundThing(pos + ivec2(-1, 0))
-      let northWall = (not isNil(north) and north.kind == Wall) or
-        (not isNil(northDoor) and northDoor.kind == Door)
-      let southWall = (not isNil(south) and south.kind == Wall) or
-        (not isNil(southDoor) and southDoor.kind == Door)
-      let eastWall = (not isNil(east) and east.kind == Wall) or
-        (not isNil(eastDoor) and eastDoor.kind == Door)
-      let westWall = (not isNil(west) and west.kind == Wall) or
-        (not isNil(westDoor) and westDoor.kind == Door)
-      if northWall or southWall or eastWall or westWall:
-        return pos
-  ivec2(-1, -1)
-
-proc findDoorChokeCandidate(env: Environment, basePos: IVec2): IVec2 =
-  let radius = 8
-  for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
-    for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
-      let pos = ivec2(x.int32, y.int32)
-      if env.terrain[x][y] == TerrainRoad:
-        continue
-      if not env.canPlace(pos):
-        continue
-      let north = env.getThing(pos + ivec2(0, -1))
-      let south = env.getThing(pos + ivec2(0, 1))
-      let east = env.getThing(pos + ivec2(1, 0))
-      let west = env.getThing(pos + ivec2(-1, 0))
-      let nsWall = (not isNil(north) and north.kind == Wall) and
-                   (not isNil(south) and south.kind == Wall)
-      let ewWall = (not isNil(east) and east.kind == Wall) and
-                   (not isNil(west) and west.kind == Wall)
-      if nsWall or ewWall:
-        return pos
-  ivec2(-1, -1)
-
 proc findDirectionalBuildPos(env: Environment, basePos: IVec2, targetPos: IVec2,
                              minStep, maxStep: int): IVec2 =
   if targetPos.x < 0:
@@ -374,10 +300,31 @@ proc canStartLanternGapFill(controller: Controller, env: Environment, agent: Thi
 proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  let target = findLanternGapCandidate(env, agent.pos, teamId)
+  let agentPos = agent.pos
+  # Find lantern gap candidate (inlined)
+  var target = ivec2(-1, -1)
+  var bestDist = int.high
+  for thing in env.things:
+    if thing.isNil or thing.teamId != teamId or not isBuildingKind(thing.kind):
+      continue
+    if hasTeamLanternNear(env, teamId, thing.pos):
+      continue
+    for dx in -2 .. 2:
+      for dy in -2 .. 2:
+        if abs(dx) + abs(dy) > 2:
+          continue
+        let cand = thing.pos + ivec2(dx.int32, dy.int32)
+        if not isLanternPlacementValid(env, cand):
+          continue
+        if hasTeamLanternNear(env, teamId, cand):
+          continue
+        let dist = abs(cand.x - agentPos.x).int + abs(cand.y - agentPos.y).int
+        if dist < bestDist:
+          bestDist = dist
+          target = cand
   if target.x < 0:
     return 0'u8
-  if isAdjacent(agent.pos, target):
+  if isAdjacent(agentPos, target):
     return controller.actAt(env, agent, agentId, state, target, 6'u8)
   controller.moveTo(env, agent, agentId, state, target)
 
@@ -544,7 +491,36 @@ proc canStartWallChokeFortify(controller: Controller, env: Environment, agent: T
 proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
-  let target = findWallChokeCandidate(env, basePos)
+  # Find wall choke candidate (inlined)
+  var target = ivec2(-1, -1)
+  let radius = 8
+  block search:
+    for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
+      for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
+        let pos = ivec2(x.int32, y.int32)
+        if env.terrain[x][y] == TerrainRoad:
+          continue
+        if not env.canPlace(pos):
+          continue
+        let north = env.getThing(pos + ivec2(0, -1))
+        let south = env.getThing(pos + ivec2(0, 1))
+        let east = env.getThing(pos + ivec2(1, 0))
+        let west = env.getThing(pos + ivec2(-1, 0))
+        let northDoor = env.getBackgroundThing(pos + ivec2(0, -1))
+        let southDoor = env.getBackgroundThing(pos + ivec2(0, 1))
+        let eastDoor = env.getBackgroundThing(pos + ivec2(1, 0))
+        let westDoor = env.getBackgroundThing(pos + ivec2(-1, 0))
+        let northWall = (not isNil(north) and north.kind == Wall) or
+          (not isNil(northDoor) and northDoor.kind == Door)
+        let southWall = (not isNil(south) and south.kind == Wall) or
+          (not isNil(southDoor) and southDoor.kind == Door)
+        let eastWall = (not isNil(east) and east.kind == Wall) or
+          (not isNil(eastDoor) and eastDoor.kind == Door)
+        let westWall = (not isNil(west) and west.kind == Wall) or
+          (not isNil(westDoor) and westDoor.kind == Door)
+        if northWall or southWall or eastWall or westWall:
+          target = pos
+          break search
   let (did, act) = goToAdjacentAndBuild(
     controller, env, agent, agentId, state, target, BuildIndexWall
   )
@@ -558,7 +534,28 @@ proc canStartDoorChokeFortify(controller: Controller, env: Environment, agent: T
 proc optDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
-  let target = findDoorChokeCandidate(env, basePos)
+  # Find door choke candidate (inlined)
+  var target = ivec2(-1, -1)
+  let radius = 8
+  block search:
+    for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
+      for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
+        let pos = ivec2(x.int32, y.int32)
+        if env.terrain[x][y] == TerrainRoad:
+          continue
+        if not env.canPlace(pos):
+          continue
+        let north = env.getThing(pos + ivec2(0, -1))
+        let south = env.getThing(pos + ivec2(0, 1))
+        let east = env.getThing(pos + ivec2(1, 0))
+        let west = env.getThing(pos + ivec2(-1, 0))
+        let nsWall = (not isNil(north) and north.kind == Wall) and
+                     (not isNil(south) and south.kind == Wall)
+        let ewWall = (not isNil(east) and east.kind == Wall) and
+                     (not isNil(west) and west.kind == Wall)
+        if nsWall or ewWall:
+          target = pos
+          break search
   let (did, act) = goToAdjacentAndBuild(
     controller, env, agent, agentId, state, target, buildIndexFor(Door)
   )
