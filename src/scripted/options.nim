@@ -241,19 +241,6 @@ proc findLanternGapCandidate(env: Environment, agentPos: IVec2,
           best = cand
   best
 
-proc findFrozenEdgeCandidate(env: Environment, basePos: IVec2): IVec2 =
-  let radius = 8
-  for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
-    for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
-      let pos = ivec2(x.int32, y.int32)
-      if not isTileFrozen(pos, env):
-        continue
-      for d in AdjacentOffsets8:
-        let cand = pos + d
-        if isLanternPlacementValid(env, cand):
-          return cand
-  ivec2(-1, -1)
-
 proc findWallChokeCandidate(env: Environment, basePos: IVec2): IVec2 =
   let radius = 8
   for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
@@ -401,7 +388,20 @@ proc canStartLanternRecovery(controller: Controller, env: Environment, agent: Th
 proc optLanternRecovery(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
-  let target = findFrozenEdgeCandidate(env, basePos)
+  # Find frozen edge candidate (inlined)
+  var target = ivec2(-1, -1)
+  let radius = 8
+  block search:
+    for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
+      for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
+        let pos = ivec2(x.int32, y.int32)
+        if not isTileFrozen(pos, env):
+          continue
+        for d in AdjacentOffsets8:
+          let cand = pos + d
+          if isLanternPlacementValid(env, cand):
+            target = cand
+            break search
   if target.x < 0:
     return 0'u8
   if isAdjacent(agent.pos, target):
