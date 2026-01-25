@@ -183,13 +183,8 @@ proc getNextSpiralPoint(state: var AgentState): IVec2 =
 
 proc findNearestThing(env: Environment, pos: IVec2, kind: ThingKind,
                       maxDist: int = SearchRadius): Thing =
-  result = nil
-  var minDist = 999999
-  for thing in env.thingsByKind[kind]:
-    let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-    if dist < minDist and dist < maxDist:
-      minDist = dist
-      result = thing
+  ## Find nearest thing of a kind using spatial index for O(1) cell lookup
+  findNearestThingSpatial(env, pos, kind, maxDist)
 
 proc radiusBounds*(center: IVec2, radius: int): tuple[startX, endX, startY, endY: int] {.inline.} =
   let cx = center.x.int
@@ -218,14 +213,8 @@ proc findNearestWater(env: Environment, pos: IVec2): IVec2 =
         result = pos
 
 proc findNearestFriendlyThing(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
-  result = nil
-  var minDist = 999999
-  for thing in env.thingsByKind[kind]:
-    if thing.teamId == teamId:
-      let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-      if dist < minDist and dist < SearchRadius:
-        minDist = dist
-        result = thing
+  ## Find nearest team-owned thing using spatial index for O(1) cell lookup
+  findNearestFriendlyThingSpatial(env, pos, teamId, kind, SearchRadius)
 
 proc findNearestThingSpiral(env: Environment, state: var AgentState, kind: ThingKind): Thing =
   ## Find nearest thing using spiral search pattern - more systematic than random search

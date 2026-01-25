@@ -2,8 +2,10 @@ import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import terrain, items, common, biome
 import types, registry
+import spatial_index
 export terrain, items, common
 export types, registry
+export spatial_index
 
 const
   ## Default tumor behavior constants

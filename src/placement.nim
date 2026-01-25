@@ -8,6 +8,8 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
   false
 
 proc removeThing(env: Environment, thing: Thing) =
+  # Remove from spatial index before clearing position
+  removeFromSpatialIndex(env, thing)
   if isValidPos(thing.pos):
     if thingBlocksMovement(thing.kind):
       env.grid[thing.pos.x][thing.pos.y] = nil
@@ -92,3 +94,5 @@ proc add*(env: Environment, thing: Thing) =
     else:
       env.backgroundGrid[thing.pos.x][thing.pos.y] = thing
     env.updateObservations(ThingAgentLayer, thing.pos, 0)
+    # Add to spatial index
+    addToSpatialIndex(env, thing)
