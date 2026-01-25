@@ -98,7 +98,10 @@ proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
   var minDist = int.high
 
   let (cx, cy) = cellCoords(pos)
-  let cellRadius = (maxDist + SpatialCellSize - 1) div SpatialCellSize
+  # Clamp maxDist to avoid overflow when computing cellRadius
+  # Max meaningful search is the map diagonal, but we cap to grid size for safety
+  let clampedMaxDist = min(maxDist, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
 
   for dx in -cellRadius .. cellRadius:
     for dy in -cellRadius .. cellRadius:
@@ -122,7 +125,9 @@ proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
   var minDist = int.high
 
   let (cx, cy) = cellCoords(pos)
-  let cellRadius = (maxDist + SpatialCellSize - 1) div SpatialCellSize
+  # Clamp maxDist to avoid overflow when computing cellRadius
+  let clampedMaxDist = min(maxDist, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
 
   for dx in -cellRadius .. cellRadius:
     for dy in -cellRadius .. cellRadius:
