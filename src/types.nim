@@ -660,6 +660,9 @@ type
     stats*: seq[Stats]
     templeInteractions*: seq[TempleInteraction]
     templeHybridRequests*: seq[TempleHybridRequest]
+    # Tint tracking for incremental updates
+    lastAgentPos*: array[MapAgents, IVec2]  # Track agent positions for delta tint
+    lastLanternPos*: seq[IVec2]              # Track lantern positions for delta tint
     # Color management
     agentColors*: seq[Color]           ## Per-agent colors for rendering
     teamColors*: seq[Color]            ## Per-team colors for rendering

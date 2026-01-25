@@ -165,6 +165,11 @@ proc init(env: Environment) =
   env.actionTintPositions.setLen(0)
   env.shieldCountdown = default(array[MapAgents, int8])
 
+  # Initialize tint tracking to invalid positions (ensures tint added on first step)
+  for i in 0 ..< MapAgents:
+    env.lastAgentPos[i] = ivec2(-1, -1)
+  env.lastLanternPos.setLen(0)
+
   # Initialize base terrain and biomes (dry pass).
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
   # Water features override biome terrain before elevation/cliffs.

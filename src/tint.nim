@@ -84,6 +84,7 @@ proc updateTintModifications(env: Environment) =
         safeTintAdd(env.tintMods[tileX][tileY].b, int(color.b * strength))
 
   # Process all entities and mark their affected positions as active
+  # Optimization: only add tint for entities that moved since last step
   for thing in env.things:
     let pos = thing.pos
     if not isValidPos(pos):
@@ -94,8 +95,15 @@ proc updateTintModifications(env: Environment) =
     case thing.kind
     of Agent:
       let agentId = thing.agentId
-      if agentId < env.agentColors.len:
-        addTintArea(baseX, baseY, env.agentColors[agentId], radius = 2, scale = 90)
+      if agentId >= 0 and agentId < MapAgents:
+        # Skip tint update if agent hasn't moved (delta optimization)
+        let lastPos = env.lastAgentPos[agentId]
+        if lastPos == pos and isValidPos(lastPos):
+          continue  # Agent hasn't moved, skip expensive radius iteration
+        # Update tracking and add tint for moved agents
+        env.lastAgentPos[agentId] = pos
+        if agentId < env.agentColors.len:
+          addTintArea(baseX, baseY, env.agentColors[agentId], radius = 2, scale = 90)
 
     of Lantern:
       if thing.lanternHealthy:
