@@ -164,6 +164,33 @@ let StoreValuablesOption* = OptionDef(
   interruptible: true
 )
 
+# EmergencyHeal: eat bread when HP < 50% (high priority survival behavior)
+proc canStartEmergencyHeal*(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp
+
+proc optEmergencyHeal*(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): uint8 =
+  # Find a valid adjacent position to use bread (eating uses the Use action)
+  for d in AdjacentOffsets8:
+    let target = agent.pos + d
+    if not env.hasDoor(target) and
+        isValidPos(target) and
+        env.isEmpty(target) and
+        not isBlockedTerrain(env.terrain[target.x][target.y]) and
+        env.canAgentPassDoor(agent, target):
+      let dirIdx = neighborDirIndex(agent.pos, target)
+      return encodeAction(3'u8, dirIdx.uint8)
+  return 0'u8
+
+let EmergencyHealOption* = OptionDef(
+  name: "EmergencyHeal",
+  canStart: canStartEmergencyHeal,
+  shouldTerminate: optionsAlwaysTerminate,
+  act: optEmergencyHeal,
+  interruptible: true
+)
+
 proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing =
   var best: Thing = nil
   var bestDist = int.high
