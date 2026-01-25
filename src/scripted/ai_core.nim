@@ -1014,7 +1014,8 @@ proc ensureWheat(controller: Controller, env: Environment, agent: Thing, agentId
 
 proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState): tuple[did: bool, action: uint8] =
-  for (kind, verb) in [(Corpse, 3'u8), (Cow, 2'u8), (Bush, 3'u8), (Fish, 3'u8)]:
+  let teamId = getTeamId(agent)
+  for kind in [Corpse, Cow, Bush, Fish]:
     let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
       continue
@@ -1022,6 +1023,13 @@ proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agen
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
+    # For cows: milk (interact) if healthy and food not critical, kill (attack) otherwise
+    let verb = if kind == Cow:
+      let foodCritical = env.stockpileCount(teamId, ResourceFood) < 3
+      let cowHealthy = target.hp * 2 >= target.maxHp
+      if cowHealthy and not foodCritical: 3'u8 else: 2'u8
+    else:
+      3'u8
     return (true, if isAdjacent(agent.pos, target.pos):
       (if verb == 2'u8:
         controller.actAt(env, agent, agentId, state, target.pos, verb)

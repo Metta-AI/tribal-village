@@ -346,8 +346,14 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
       if isNil(knownThing) or knownThing.kind notin FoodKinds or isThingFrozen(knownThing, env):
         state.closestFoodPos = ivec2(-1, -1)
       else:
-        return actOrMove(controller, env, agent, agentId, state, knownThing.pos,
-          (if knownThing.kind == Cow: 2'u8 else: 3'u8))
+        # For cows: milk (interact) if healthy and food not critical, kill (attack) otherwise
+        let verb = if knownThing.kind == Cow:
+          let foodCritical = env.stockpileCount(teamId, ResourceFood) < 3
+          let cowHealthy = knownThing.hp * 2 >= knownThing.maxHp
+          if cowHealthy and not foodCritical: 3'u8 else: 2'u8
+        else:
+          3'u8
+        return actOrMove(controller, env, agent, agentId, state, knownThing.pos, verb)
 
   for kind in [Wheat, Stubble]:
     let wheat = env.findNearestThingSpiral(state, kind)
