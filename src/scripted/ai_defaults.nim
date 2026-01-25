@@ -398,7 +398,7 @@ const
   ScriptedGeneratedRoleCount = 16
   ScriptedRoleExplorationChance = 0.08
   ScriptedRoleMutationChance = 0.25
-  ScriptedTempleAssignEnabled = false
+  ScriptedTempleAssignEnabled = true
 
 type
   ScriptedRoleState = object
@@ -958,5 +958,6 @@ proc updateController*(controller: Controller, env: Environment) =
     if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
       applyScriptedScoring(controller, env)
       scriptedState.scoredAtStep = true
+  if ScriptedTempleAssignEnabled:
     processTempleHybridRequests(controller, env)
   scriptedState.lastEpisodeStep = env.currentStep
