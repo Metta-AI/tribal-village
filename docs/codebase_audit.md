@@ -160,8 +160,12 @@ Cross-cutting behaviors available to evolutionary roles:
 3. **Unused Constants** (builder.nim:1-16)
    - `WallRingRadiusSlack`, `DividerDoor*` constants defined but wall ring uses simple radius check
 
-4. **Legacy Observation Layers** (types.nim:257-268)
-   - `LegacyObsLayer`, `AgentInventory*Layer` aliases defined but unused
+4. **Legacy Observation Layers** (types.nim:257-268) - **USED**
+   - `AgentLayer` alias used in step.nim (lines 251, 252, 279, 292, 423, 962, 963, 1958, 2023) and combat.nim:62
+   - `altarHeartsLayer` alias used in step.nim (lines 348, 803, 1941, 2014)
+   - `AgentInventoryGoldLayer` used in step.nim:745
+   - `AgentInventoryBarLayer` used in step.nim:746
+   - `AgentInventoryArmorLayer` used in combat.nim:146
 
 ### 3.2 Feature Flag Dependencies
 
@@ -299,11 +303,9 @@ let MyRoleOptions* = [
 
 ### Low Priority
 
-7. **Clean up legacy observation layer aliases** in types.nim
+7. **Review all behaviors for consistent interruptible usage**
 
-8. **Review all behaviors for consistent interruptible usage**
-
-9. **Add behavior fitness tracking** for non-evolutionary builds (useful metrics)
+8. **Add behavior fitness tracking** for non-evolutionary builds (useful metrics)
 
 ## 8. Architecture Diagram
 
