@@ -15,6 +15,7 @@ const
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
   BuilderThreatRadius* = 15  # Distance from home altar to consider "under threat"
+  BuilderFleeRadius* = 8    # Radius at which builders flee from enemies (same as gatherer)
 
 proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   ## Check if the builder's home area is under threat from enemies.
@@ -41,6 +42,47 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
     if dist <= BuilderThreatRadius:
       return true
   false
+
+proc builderFindNearbyEnemy(env: Environment, agent: Thing): Thing =
+  ## Find nearest enemy agent within flee radius
+  let teamId = getTeamId(agent)
+  let fleeRadius = BuilderFleeRadius.int32
+  var bestEnemyDist = int.high
+  var bestEnemy: Thing = nil
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > fleeRadius.int:
+      continue
+    if dist < bestEnemyDist:
+      bestEnemyDist = dist
+      bestEnemy = other
+  bestEnemy
+
+proc canStartBuilderFlee(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): bool =
+  not isNil(builderFindNearbyEnemy(env, agent))
+
+proc shouldTerminateBuilderFlee(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  isNil(builderFindNearbyEnemy(env, agent))
+
+proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  ## Flee toward home altar when enemies are nearby.
+  ## This causes builders to abandon construction when threatened.
+  let enemy = builderFindNearbyEnemy(env, agent)
+  if isNil(enemy):
+    return 0'u8
+  # Move toward home altar for safety
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+  controller.moveTo(env, agent, agentId, state, basePos)
 
 proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
                         kinds: openArray[ThingKind]): bool =
@@ -384,6 +426,13 @@ proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: T
 
 let BuilderOptions* = [
   OptionDef(
+    name: "BuilderFlee",
+    canStart: canStartBuilderFlee,
+    shouldTerminate: shouldTerminateBuilderFlee,
+    act: optBuilderFlee,
+    interruptible: false  # Flee is not interruptible - survival is priority
+  ),
+  OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
     shouldTerminate: optionsAlwaysTerminate,
@@ -480,9 +529,16 @@ let BuilderOptions* = [
 ]
 
 # BuilderOptionsThreat: Reordered priorities for when under threat.
-# Priority order: WallRing -> TechBuildings -> Infrastructure
-# (vs safe mode: Infrastructure -> TechBuildings -> WallRing)
+# Priority order: Flee -> WallRing -> TechBuildings -> Infrastructure
+# (vs safe mode: Flee -> Infrastructure -> TechBuildings -> WallRing)
 let BuilderOptionsThreat* = [
+  OptionDef(
+    name: "BuilderFlee",
+    canStart: canStartBuilderFlee,
+    shouldTerminate: shouldTerminateBuilderFlee,
+    act: optBuilderFlee,
+    interruptible: false  # Flee is not interruptible - survival is priority
+  ),
   OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,

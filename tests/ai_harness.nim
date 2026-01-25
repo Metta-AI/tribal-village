@@ -515,6 +515,23 @@ suite "AI - Builder":
     check verb == 8
     check arg == BuildIndexWall
 
+  test "flees toward altar when enemy very close":
+    let env = makeEmptyEnv()
+    let controller = newController(100)
+    let altarPos = ivec2(10, 10)
+    discard addAltar(env, altarPos, 0, 12)
+    # Place builder away from altar
+    let agent = addAgentAt(env, 2, ivec2(15, 10), homeAltar = altarPos)
+    # Place enemy within flee radius (8 tiles) of builder
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(17, 10))
+    fillStockpile(env, 0, 50)
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
+    # Should try to move (verb 1) toward the altar (west direction)
+    check verb == 1
+    # West direction is index 2
+    check arg == 2
+
 suite "AI - Fighter":
   test "villager fighter builds divider door when enemy nearby":
     let env = makeEmptyEnv()
