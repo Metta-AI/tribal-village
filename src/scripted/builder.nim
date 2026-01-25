@@ -78,6 +78,14 @@ proc canStartBuilderDropoffCarrying(controller: Controller, env: Environment, ag
       return true
   false
 
+proc shouldTerminateBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
+                                           agentId: int, state: var AgentState): bool =
+  # Terminate when no longer carrying resources
+  for key, count in agent.inventory.pairs:
+    if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
+      return false
+  true
+
 proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
   let (didDrop, dropAct) = controller.dropoffCarrying(
@@ -95,6 +103,12 @@ proc canStartBuilderPopCap(controller: Controller, env: Environment, agent: Thin
   let teamId = getTeamId(agent)
   needsPopCapHouse(env, teamId)
 
+proc shouldTerminateBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  # Terminate when pop cap house no longer needed
+  let teamId = getTeamId(agent)
+  not needsPopCapHouse(env, teamId)
+
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -109,6 +123,12 @@ proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment,
                                        agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
   anyMissingBuilding(controller, env, teamId, CoreInfrastructureKinds)
+
+proc shouldTerminateBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
+                                              agentId: int, state: var AgentState): bool =
+  # Terminate when all core infrastructure is built
+  let teamId = getTeamId(agent)
+  not anyMissingBuilding(controller, env, teamId, CoreInfrastructureKinds)
 
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
@@ -180,6 +200,12 @@ proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agen
                                   agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
   anyMissingBuilding(controller, env, teamId, TechBuildingKinds)
+
+proc shouldTerminateBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  # Terminate when all tech buildings are built
+  let teamId = getTeamId(agent)
+  not anyMissingBuilding(controller, env, teamId, TechBuildingKinds)
 
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
@@ -290,6 +316,22 @@ proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent
     best = stone
   best < 5
 
+proc shouldTerminateBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  # Terminate when resources are no longer scarce or not a villager
+  if agent.unitClass != UnitVillager:
+    return true
+  let teamId = getTeamId(agent)
+  let food = env.stockpileCount(teamId, ResourceFood)
+  let wood = env.stockpileCount(teamId, ResourceWood)
+  let stone = env.stockpileCount(teamId, ResourceStone)
+  var best = food
+  if wood < best:
+    best = wood
+  if stone < best:
+    best = stone
+  best >= 5
+
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -375,21 +417,21 @@ let BuilderOptions* = [
   OptionDef(
     name: "BuilderDropoffCarrying",
     canStart: canStartBuilderDropoffCarrying,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderDropoffCarrying,
     act: optBuilderDropoffCarrying,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderPopCap",
     canStart: canStartBuilderPopCap,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderPopCap,
     act: optBuilderPopCap,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderCoreInfrastructure",
     canStart: canStartBuilderCoreInfrastructure,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderCoreInfrastructure,
     act: optBuilderCoreInfrastructure,
     interruptible: true
   ),
@@ -424,14 +466,14 @@ let BuilderOptions* = [
   OptionDef(
     name: "BuilderTechBuildings",
     canStart: canStartBuilderTechBuildings,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderTechBuildings,
     act: optBuilderTechBuildings,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderGatherScarce",
     canStart: canStartBuilderGatherScarce,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderGatherScarce,
     act: optBuilderGatherScarce,
     interruptible: true
   ),

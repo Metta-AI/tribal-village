@@ -64,6 +64,11 @@ proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitMonk
 
+proc shouldTerminateFighterMonk(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  # Terminate when no longer a monk
+  agent.unitClass != UnitMonk
+
 proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -431,6 +436,14 @@ proc canStartFighterDropoffFood(controller: Controller, env: Environment, agent:
       return true
   false
 
+proc shouldTerminateFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  # Terminate when no longer carrying food
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isFoodItem(key):
+      return false
+  true
+
 proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint8 =
   let (didFoodDrop, foodDropAct) =
@@ -476,6 +489,15 @@ proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent
   if agent.inventoryArmor < ArmorPoints:
     return true
   agent.unitClass == UnitManAtArms and agent.inventorySpear == 0
+
+proc shouldTerminateFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  # Terminate when fully geared (armor at max, and spear if ManAtArms)
+  if agent.inventoryArmor < ArmorPoints:
+    return false
+  if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
+    return false
+  true
 
 proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
@@ -597,6 +619,11 @@ proc canStartFighterHuntPredators(controller: Controller, env: Environment, agen
                                   agentId: int, state: var AgentState): bool =
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestPredator(env, agent.pos))
 
+proc shouldTerminateFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  # Terminate when HP drops below threshold or no predator nearby
+  agent.hp * 2 < agent.maxHp or isNil(findNearestPredator(env, agent.pos))
+
 proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
   let target = findNearestPredator(env, agent.pos)
@@ -607,6 +634,11 @@ proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Th
 proc canStartFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestGoblinStructure(env, agent.pos))
+
+proc shouldTerminateFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  # Terminate when HP drops below threshold or no goblin structure nearby
+  agent.hp * 2 < agent.maxHp or isNil(findNearestGoblinStructure(env, agent.pos))
 
 proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
@@ -629,6 +661,22 @@ proc canStartFighterAggressive(controller: Controller, env: Environment, agent: 
     if chebyshevDist(agent.pos, other.pos) <= 4'i32:
       return true
   false
+
+proc shouldTerminateFighterAggressive(controller: Controller, env: Environment, agent: Thing,
+                                      agentId: int, state: var AgentState): bool =
+  # Terminate when HP drops low and no allies nearby for support
+  if agent.hp * 2 >= agent.maxHp:
+    return false
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if not sameTeam(agent, other):
+      continue
+    if chebyshevDist(agent.pos, other.pos) <= 4'i32:
+      return false
+  true
 
 proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
@@ -662,7 +710,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterMonk",
     canStart: canStartFighterMonk,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterMonk,
     act: optFighterMonk,
     interruptible: true
   ),
@@ -683,7 +731,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterDropoffFood",
     canStart: canStartFighterDropoffFood,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterDropoffFood,
     act: optFighterDropoffFood,
     interruptible: true
   ),
@@ -697,7 +745,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterMaintainGear",
     canStart: canStartFighterMaintainGear,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterMaintainGear,
     act: optFighterMaintainGear,
     interruptible: true
   ),
@@ -711,14 +759,14 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterHuntPredators",
     canStart: canStartFighterHuntPredators,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterHuntPredators,
     act: optFighterHuntPredators,
     interruptible: true
   ),
   OptionDef(
     name: "FighterClearGoblins",
     canStart: canStartFighterClearGoblins,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterClearGoblins,
     act: optFighterClearGoblins,
     interruptible: true
   ),
@@ -728,7 +776,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterAggressive",
     canStart: canStartFighterAggressive,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterAggressive,
     act: optFighterAggressive,
     interruptible: true
   ),

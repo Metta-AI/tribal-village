@@ -138,6 +138,14 @@ proc canStartGathererCarrying(controller: Controller, env: Environment, agent: T
       return true
   false
 
+proc shouldTerminateGathererCarrying(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  # Terminate when no longer carrying resources
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      return false
+  true
+
 proc canStartGathererMarket(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
@@ -196,6 +204,11 @@ proc canStartGathererHearts(controller: Controller, env: Environment, agent: Thi
                             agentId: int, state: var AgentState): bool =
   state.gathererTask == TaskHearts
 
+proc shouldTerminateGathererHearts(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  # Terminate when task changes away from hearts
+  state.gathererTask != TaskHearts
+
 proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -227,6 +240,11 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
 proc canStartGathererResource(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
   state.gathererTask in {TaskGold, TaskWood, TaskStone}
+
+proc shouldTerminateGathererResource(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  # Terminate when task changes to a different resource type (food or hearts)
+  state.gathererTask notin {TaskGold, TaskWood, TaskStone}
 
 proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -271,6 +289,11 @@ proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
 proc canStartGathererFood(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   state.gathererTask == TaskFood
+
+proc shouldTerminateGathererFood(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  # Terminate when task changes away from food
+  state.gathererTask != TaskFood
 
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -373,6 +396,11 @@ proc canStartGathererIrrigate(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   agent.inventoryWater > 0
 
+proc shouldTerminateGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  # Terminate when no longer carrying water
+  agent.inventoryWater <= 0
+
 proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -388,6 +416,15 @@ proc canStartGathererScavenge(controller: Controller, env: Environment, agent: T
     if count > 0 and isStockpileResourceKey(key):
       total += count
   max(0, ResourceCarryCapacity - total) > 0 and env.thingsByKind[Skeleton].len > 0
+
+proc shouldTerminateGathererScavenge(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  # Terminate when inventory is full or no more skeletons
+  var total = 0
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      total += count
+  max(0, ResourceCarryCapacity - total) <= 0 or env.thingsByKind[Skeleton].len == 0
 
 proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -488,42 +525,42 @@ let GathererOptions* = [
   OptionDef(
     name: "GathererCarryingStockpile",
     canStart: canStartGathererCarrying,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererCarrying,
     act: optGathererCarrying,
     interruptible: true
   ),
   OptionDef(
     name: "GathererHearts",
     canStart: canStartGathererHearts,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererHearts,
     act: optGathererHearts,
     interruptible: true
   ),
   OptionDef(
     name: "GathererResource",
     canStart: canStartGathererResource,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererResource,
     act: optGathererResource,
     interruptible: true
   ),
   OptionDef(
     name: "GathererFood",
     canStart: canStartGathererFood,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererFood,
     act: optGathererFood,
     interruptible: true
   ),
   OptionDef(
     name: "GathererIrrigate",
     canStart: canStartGathererIrrigate,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererIrrigate,
     act: optGathererIrrigate,
     interruptible: true
   ),
   OptionDef(
     name: "GathererScavenge",
     canStart: canStartGathererScavenge,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererScavenge,
     act: optGathererScavenge,
     interruptible: true
   ),
