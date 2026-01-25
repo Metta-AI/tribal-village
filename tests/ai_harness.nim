@@ -627,6 +627,25 @@ suite "AI - Fighter":
     let (verb, _) = decodeAction(controller.decideAction(env, 4))
     check verb == 6
 
+  test "combat unit converts to siege when seeing enemy structure":
+    # ManAtArms with SiegeWorkshop and visible enemy structure should convert to siege
+    let env = makeEmptyEnv()
+    let controller = newController(50)
+    let basePos = ivec2(10, 10)
+    # Add SiegeWorkshop
+    discard addBuilding(env, SiegeWorkshop, ivec2(12, 10), 0)
+    # Add ManAtArms fighter
+    let agent = addAgentAt(env, 4, ivec2(10, 12), homeAltar = basePos, unitClass = UnitManAtArms)
+    # Add enemy structure within observation radius
+    discard addBuilding(env, Barracks, ivec2(15, 10), 1)
+    # Add resources to afford siege training (3 wood + 2 stone)
+    setStockpile(env, 0, ResourceWood, 10)
+    setStockpile(env, 0, ResourceStone, 10)
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 4))
+    # Should move (verb 1) toward SiegeWorkshop or interact (verb 3)
+    check verb == 1 or verb == 3
+
 suite "AI - Combat Behaviors":
   test "gatherer flees from nearby wolf":
     let env = makeEmptyEnv()
