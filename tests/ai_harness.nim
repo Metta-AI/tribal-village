@@ -113,6 +113,75 @@ suite "Mechanics - Movement":
     check env.getThing(ivec2(10, 9)) == agentA
     check env.getThing(ivec2(10, 10)) == agentB
 
+  test "snow terrain slows movement":
+    let env = makeEmptyEnv()
+    # Set up a path with snow terrain
+    env.terrain[10][10] = Grass  # Starting position
+    env.terrain[10][9] = Snow    # Destination
+    env.terrain[10][8] = Grass   # For continued movement
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    check agent.movementDebt == 0.0'f32
+
+    # Move onto snow - should accumulate 0.2 debt (1.0 - 0.8 = 0.2)
+    env.stepAction(agent.agentId, 1'u8, 0)  # Move N
+    check agent.pos == ivec2(10, 9)
+    check agent.movementDebt >= 0.19'f32 and agent.movementDebt <= 0.21'f32
+
+    # Test debt accumulation prevents movement when >= 1.0
+    agent.movementDebt = 1.0'f32
+    env.stepAction(agent.agentId, 1'u8, 0)  # Try to move N
+    check agent.pos == ivec2(10, 9)  # Should NOT have moved (debt was >= 1.0)
+    check agent.movementDebt >= -0.01'f32 and agent.movementDebt <= 0.01'f32  # Debt consumed
+
+    # Now agent can move again
+    env.stepAction(agent.agentId, 1'u8, 0)  # Move N
+    check agent.pos == ivec2(10, 8)  # Should have moved (debt was ~0)
+
+  test "sand terrain applies moderate penalty":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Grass
+    env.terrain[10][9] = Sand  # 0.9 modifier = 0.1 penalty
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    env.stepAction(agent.agentId, 1'u8, 0)  # Move N onto sand
+    check agent.pos == ivec2(10, 9)
+    check agent.movementDebt >= 0.09'f32 and agent.movementDebt <= 0.11'f32
+
+  test "dune terrain applies moderate penalty":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Grass
+    env.terrain[10][9] = Dune  # 0.85 modifier = 0.15 penalty
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    env.stepAction(agent.agentId, 1'u8, 0)  # Move N onto dune
+    check agent.pos == ivec2(10, 9)
+    check agent.movementDebt >= 0.14'f32 and agent.movementDebt <= 0.16'f32
+
+  test "grass terrain has no penalty":
+    let env = makeEmptyEnv()
+    env.terrain[10][10] = Grass
+    env.terrain[10][9] = Grass
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    env.stepAction(agent.agentId, 1'u8, 0)  # Move N onto grass
+    check agent.pos == ivec2(10, 9)
+    check agent.movementDebt == 0.0'f32  # No penalty for grass
+
+  test "boats ignore terrain penalties":
+    let env = makeEmptyEnv()
+    # Set up dock on water and snow adjacent (for contrast)
+    env.terrain[10][10] = Water
+    env.terrain[10][9] = Snow  # Adjacent snow tile for comparison
+    discard addBuilding(env, Dock, ivec2(10, 10), 0)
+
+    let agent = addAgentAt(env, 0, ivec2(10, 11))
+
+    # Embark on dock
+    env.stepAction(agent.agentId, 1'u8, dirIndex(agent.pos, ivec2(10, 10)))
+    check agent.unitClass == UnitBoat
+    check agent.movementDebt == 0.0'f32  # Boats don't accumulate terrain debt
+
 suite "Mechanics - Combat":
   test "attack kills enemy and drops corpse inventory":
     let env = makeEmptyEnv()

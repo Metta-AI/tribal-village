@@ -146,6 +146,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       inc env.stats[id].actionNoop
     of 1:
       block moveAction:
+        # Check terrain movement debt - agents with debt >= 1.0 skip their move
+        if agent.movementDebt >= 1.0'f32:
+          agent.movementDebt -= 1.0'f32
+          agent.orientation = Orientation(argument)  # Still update orientation
+          env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+          break moveAction  # Skip movement but don't count as invalid
+
         let moveOrientation = Orientation(argument)
         let delta = orientationToVec(moveOrientation)
         let step1 = agent.pos + delta
@@ -292,6 +299,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Update observations for new position only
         env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
+
+        # Accumulate terrain movement debt (boats are unaffected by terrain penalties)
+        if agent.unitClass != UnitBoat:
+          let terrainModifier = getTerrainSpeedModifier(env.terrain[agent.pos.x][agent.pos.y])
+          if terrainModifier < 1.0'f32:
+            agent.movementDebt += (1.0'f32 - terrainModifier)
+
         inc env.stats[id].actionMove
     of 2:
       block attackAction:

@@ -29,6 +29,39 @@ type
   ## Sized to comfortably exceed current MapWidth/MapHeight.
   TerrainGrid* = array[MaxTerrainSize, array[MaxTerrainSize, TerrainType]]
 
+const
+  ## Terrain movement speed modifiers.
+  ## Values < 1.0 slow movement, values > 1.0 speed it up.
+  ## Default terrain has modifier 1.0 (no effect).
+  TerrainSpeedModifier*: array[TerrainType, float32] = [
+    Empty: 1.0'f32,
+    Water: 1.0'f32,      # Water movement handled separately (boats)
+    Bridge: 1.0'f32,
+    Fertile: 1.0'f32,
+    Road: 1.0'f32,       # Roads already give double-step bonus in step.nim
+    Grass: 1.0'f32,
+    Dune: 0.85'f32,      # 15% slower on dunes
+    Sand: 0.9'f32,       # 10% slower in sand
+    Snow: 0.8'f32,       # 20% slower in snow
+    RampUpN: 1.0'f32,    # Ramps already have special handling
+    RampUpS: 1.0'f32,
+    RampUpW: 1.0'f32,
+    RampUpE: 1.0'f32,
+    RampDownN: 1.0'f32,
+    RampDownS: 1.0'f32,
+    RampDownW: 1.0'f32,
+    RampDownE: 1.0'f32,
+  ]
+
+proc getTerrainSpeedModifier*(terrain: TerrainType): float32 {.inline.} =
+  ## Get the movement speed modifier for a terrain type.
+  TerrainSpeedModifier[terrain]
+
+proc hasTerrainPenalty*(terrain: TerrainType): bool {.inline.} =
+  ## Check if terrain has a movement penalty (modifier < 1.0).
+  TerrainSpeedModifier[terrain] < 1.0'f32
+
+type
   Structure* = object
     width*, height*: int
     centerPos*: IVec2
