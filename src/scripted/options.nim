@@ -249,7 +249,8 @@ proc findDirectionalBuildPos(env: Environment, basePos: IVec2, targetPos: IVec2,
     let pos = basePos + ivec2(dx * step.int32, dy * step.int32)
     if not isValidPos(pos):
       continue
-    if env.terrain[pos.x][pos.y] == TerrainRoad:
+    let posTerrain = env.terrain[pos.x][pos.y]
+    if posTerrain == TerrainRoad or isRampTerrain(posTerrain):
       continue
     if env.canPlace(pos):
       return pos
@@ -506,7 +507,8 @@ proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
     for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
       for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
         let pos = ivec2(x.int32, y.int32)
-        if env.terrain[x][y] == TerrainRoad:
+        let posTerrain = env.terrain[x][y]
+        if posTerrain == TerrainRoad or isRampTerrain(posTerrain):
           continue
         if not env.canPlace(pos):
           continue
@@ -549,7 +551,8 @@ proc optDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
     for x in max(0, basePos.x.int - radius) .. min(MapWidth - 1, basePos.x.int + radius):
       for y in max(0, basePos.y.int - radius) .. min(MapHeight - 1, basePos.y.int + radius):
         let pos = ivec2(x.int32, y.int32)
-        if env.terrain[x][y] == TerrainRoad:
+        let posTerrain = env.terrain[x][y]
+        if posTerrain == TerrainRoad or isRampTerrain(posTerrain):
           continue
         if not env.canPlace(pos):
           continue

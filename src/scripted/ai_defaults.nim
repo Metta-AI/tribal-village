@@ -23,8 +23,9 @@ proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agen
         continue
       if not env.canPlace(candidate):
         continue
-      # Avoid building on roads so they stay clear for traffic.
-      if env.terrain[candidate.x][candidate.y] == TerrainRoad:
+      # Avoid building on roads/ramps so they stay clear for traffic.
+      let candidateTerrain = env.terrain[candidate.x][candidate.y]
+      if candidateTerrain == TerrainRoad or isRampTerrain(candidateTerrain):
         continue
       buildPos = candidate
       break
@@ -48,7 +49,9 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
     state.buildLockSteps = 0
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0:
-    if env.canPlace(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad:
+    let buildTargetTerrain = env.terrain[state.buildTarget.x][state.buildTarget.y]
+    if env.canPlace(state.buildTarget) and buildTargetTerrain != TerrainRoad and
+        not isRampTerrain(buildTargetTerrain):
       target = state.buildTarget
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
@@ -61,7 +64,8 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
     return (false, 0'u8)
   if not env.canPlace(target):
     return (false, 0'u8)
-  if env.terrain[target.x][target.y] == TerrainRoad:
+  let targetTerrain = env.terrain[target.x][target.y]
+  if targetTerrain == TerrainRoad or isRampTerrain(targetTerrain):
     return (false, 0'u8)
   if chebyshevDist(agent.pos, target) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
@@ -94,7 +98,9 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0 and
       state.buildStand.x >= 0:
-    if env.canPlace(state.buildTarget) and env.terrain[state.buildTarget.x][state.buildTarget.y] != TerrainRoad and
+    let buildTargetTerrain2 = env.terrain[state.buildTarget.x][state.buildTarget.y]
+    if env.canPlace(state.buildTarget) and buildTargetTerrain2 != TerrainRoad and
+        not isRampTerrain(buildTargetTerrain2) and
         isValidPos(state.buildStand) and not env.hasDoor(state.buildStand) and
         not isBlockedTerrain(env.terrain[state.buildStand.x][state.buildStand.y]) and
         not isTileFrozen(state.buildStand, env) and
@@ -113,7 +119,8 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
     return (false, 0'u8)
   if not env.canPlace(target):
     return (false, 0'u8)
-  if env.terrain[target.x][target.y] == TerrainRoad:
+  let targetTerrain2 = env.terrain[target.x][target.y]
+  if targetTerrain2 == TerrainRoad or isRampTerrain(targetTerrain2):
     return (false, 0'u8)
   if not isValidPos(stand) or env.hasDoor(stand) or
       isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env) or
@@ -182,8 +189,9 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
         let pos = ivec2(x.int32, y.int32)
         if not env.canPlace(pos):
           continue
-        # Avoid building on roads so they stay clear for traffic.
-        if env.terrain[pos.x][pos.y] == TerrainRoad:
+        # Avoid building on roads/ramps so they stay clear for traffic.
+        let posTerrain = env.terrain[pos.x][pos.y]
+        if posTerrain == TerrainRoad or isRampTerrain(posTerrain):
           continue
         for d in CardinalOffsets:
           let stand = pos + d
@@ -259,7 +267,8 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
       let pos = ivec2(x.int32, y.int32)
       if not env.canPlace(pos):
         continue
-      if env.terrain[pos.x][pos.y] == TerrainRoad:
+      let posTerrainHere = env.terrain[pos.x][pos.y]
+      if posTerrainHere == TerrainRoad or isRampTerrain(posTerrainHere):
         continue
       for d in CardinalOffsets:
         let stand = pos + d
@@ -325,7 +334,9 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
         let dist = chebyshevDist(basePos, pos).int
         if dist < 5 or dist > 15:
           continue
-        if not env.canPlace(pos) or env.terrain[pos.x][pos.y] == TerrainRoad:
+        let posTerrainOutpost = env.terrain[pos.x][pos.y]
+        if not env.canPlace(pos) or posTerrainOutpost == TerrainRoad or
+            isRampTerrain(posTerrainOutpost):
           continue
         var standPos = ivec2(-1, -1)
         for d in CardinalOffsets:

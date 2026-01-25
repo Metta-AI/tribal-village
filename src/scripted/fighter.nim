@@ -241,7 +241,8 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
     let pos = midPos + ivec2(lineDir.x * offset, lineDir.y * offset)
     if not isValidPos(pos):
       continue
-    if env.terrain[pos.x][pos.y] == TerrainRoad:
+    let posTerrain = env.terrain[pos.x][pos.y]
+    if posTerrain == TerrainRoad or isRampTerrain(posTerrain):
       continue
     let distToAgent = int(chebyshevDist(agent.pos, pos))
     let raw = (offset + DividerDoorOffset) mod DividerDoorSpacing
@@ -250,8 +251,9 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
     if isDoorSlot:
       if env.hasDoor(pos):
         let outpostPos = pos + normal
-        if isValidPos(outpostPos) and env.terrain[outpostPos.x][outpostPos.y] != TerrainRoad and
-            env.canPlace(outpostPos):
+        let outpostTerrain = env.terrain[outpostPos.x][outpostPos.y]
+        if isValidPos(outpostPos) and outpostTerrain != TerrainRoad and
+            not isRampTerrain(outpostTerrain) and env.canPlace(outpostPos):
           let outDist = int(chebyshevDist(agent.pos, outpostPos))
           if outDist < bestOutpostDist:
             bestOutpostDist = outDist

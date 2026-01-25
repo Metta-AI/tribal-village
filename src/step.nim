@@ -267,8 +267,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if canEnterFrom(step1, step2):
               finalPos = step2
         else:
-          # Roads accelerate movement in the direction of entry.
-          if env.terrain[step1.x][step1.y] == Road:
+          # Roads and ramps accelerate movement in the direction of entry.
+          let step1Terrain = env.terrain[step1.x][step1.y]
+          if step1Terrain == Road or isRampTerrain(step1Terrain):
             if isValidPos(step2) and
                 not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
               if canEnterFrom(step1, step2):
@@ -595,7 +596,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if env.giveItem(agent, ItemWater):
               agent.reward += env.config.waterReward
               used = true
-          of Empty, Grass, Dune, Sand, Snow, Road:
+          of Empty, Grass, Dune, Sand, Snow, Road,
+             RampUpN, RampUpS, RampUpW, RampUpE,
+             RampDownN, RampDownS, RampDownW, RampDownE:
             if env.hasDoor(targetPos):
               used = false
             elif agent.inventoryRelic > 0 and agent.unitClass == UnitMonk:

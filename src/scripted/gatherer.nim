@@ -56,7 +56,7 @@ proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IV
       if not env.isEmpty(pos) or env.hasDoor(pos) or isTileFrozen(pos, env):
         continue
       let terrain = env.terrain[x][y]
-      if terrain notin BuildableTerrain or terrain == Road:
+      if terrain notin BuildableTerrain or terrain == Road or isRampTerrain(terrain):
         continue
       let dist = abs(x - cx) + abs(y - cy)
       if dist < bestDist:

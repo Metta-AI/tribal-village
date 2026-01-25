@@ -230,10 +230,13 @@ proc init(env: Environment) =
         else:
           0
   # Apply cliff ramps (inlined)
+  # Places ramp terrain tiles at elevation transitions.
+  # Lower tile gets RampUp* (going up), higher tile gets RampDown* (coming down).
   var cliffCount = 0
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
-      if env.terrain[x][y] == Water or env.terrain[x][y] == Road:
+      if env.terrain[x][y] == Water or env.terrain[x][y] == Road or
+         isRampTerrain(env.terrain[x][y]):
         continue
       let elev = env.elevation[x][y]
       for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
@@ -244,13 +247,30 @@ proc init(env: Environment) =
           continue
         if env.elevation[nx][ny] <= elev:
           continue
-        if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road:
+        if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road or
+           isRampTerrain(env.terrain[nx][ny]):
           continue
         inc cliffCount
         if cliffCount mod 10 != 0:
           continue
-        env.terrain[x][y] = Road
-        env.terrain[nx][ny] = Road
+        # Assign ramp types based on direction to neighbor.
+        # d indicates direction from (x,y) to higher neighbor (nx,ny).
+        if d.x == 0 and d.y == -1:
+          # Neighbor is North: lower goes up north, higher comes down from south
+          env.terrain[x][y] = RampUpN
+          env.terrain[nx][ny] = RampDownS
+        elif d.x == 1 and d.y == 0:
+          # Neighbor is East
+          env.terrain[x][y] = RampUpE
+          env.terrain[nx][ny] = RampDownW
+        elif d.x == 0 and d.y == 1:
+          # Neighbor is South
+          env.terrain[x][y] = RampUpS
+          env.terrain[nx][ny] = RampDownN
+        else:
+          # Neighbor is West (d.x == -1, d.y == 0)
+          env.terrain[x][y] = RampUpW
+          env.terrain[nx][ny] = RampDownE
   # Apply cliffs (inlined)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:

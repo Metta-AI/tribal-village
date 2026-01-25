@@ -244,7 +244,8 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
         if not isValidPos(pos):
           inc blocked
           continue
-        if env.terrain[pos.x][pos.y] == TerrainRoad:
+        let posTerrain = env.terrain[pos.x][pos.y]
+        if posTerrain == TerrainRoad or isRampTerrain(posTerrain):
           inc blocked
           continue
         let wallThing = env.getThing(pos)

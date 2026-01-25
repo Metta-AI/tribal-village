@@ -141,10 +141,17 @@ const
   TerrainDune* = TerrainType.Dune
   TerrainSand* = TerrainType.Sand
   TerrainSnow* = TerrainType.Snow
-  BuildableTerrain* = {Empty, Grass, Sand, Snow, Dune, Road}
+  RampTerrain* = {RampUpN, RampUpS, RampUpW, RampUpE,
+                   RampDownN, RampDownS, RampDownW, RampDownE}
+  BuildableTerrain* = {Empty, Grass, Sand, Snow, Dune, Road,
+                        RampUpN, RampUpS, RampUpW, RampUpE,
+                        RampDownN, RampDownS, RampDownW, RampDownE}
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain == Water
+
+template isRampTerrain*(terrain: TerrainType): bool =
+  terrain in RampTerrain
 
 const
   RiverWidth* = 6
