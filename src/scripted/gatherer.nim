@@ -1,3 +1,45 @@
+const GathererFleeRadius = 8  # Smaller than fighter detection - flee early to survive
+
+proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
+  ## Find nearest enemy agent within flee radius
+  let teamId = getTeamId(agent)
+  let fleeRadius = GathererFleeRadius.int32
+  var bestEnemyDist = int.high
+  var bestEnemy: Thing = nil
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > fleeRadius.int:
+      continue
+    if dist < bestEnemyDist:
+      bestEnemyDist = dist
+      bestEnemy = other
+  bestEnemy
+
+proc canStartGathererFlee(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  not isNil(gathererFindNearbyEnemy(env, agent))
+
+proc shouldTerminateGathererFlee(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  isNil(gathererFindNearbyEnemy(env, agent))
+
+proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  ## Flee toward home altar when enemies are nearby
+  let enemy = gathererFindNearbyEnemy(env, agent)
+  if isNil(enemy):
+    return 0'u8
+  # Move toward home altar for safety
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+  controller.moveTo(env, agent, agentId, state, basePos)
+
 proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IVec2): IVec2 =
   let (startX, endX, startY, endY) = radiusBounds(center, radius)
   let cx = center.x.int
@@ -364,19 +406,19 @@ proc findNearestPredatorInRadius(env: Environment, pos: IVec2, radius: int): Thi
         best = thing
   best
 
-proc canStartGathererFlee(controller: Controller, env: Environment, agent: Thing,
+proc canStartGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   ## Gatherers flee when a predator is within the flee radius
   let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
   not isNil(predator)
 
-proc shouldTerminateGathererFlee(controller: Controller, env: Environment, agent: Thing,
+proc shouldTerminateGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   ## Stop fleeing when no predators are within the flee radius
   let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
   isNil(predator)
 
-proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
+proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   ## Flee away from predators toward friendly structures
   let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
@@ -414,6 +456,13 @@ let GathererOptions* = [
     canStart: canStartGathererFlee,
     shouldTerminate: shouldTerminateGathererFlee,
     act: optGathererFlee,
+    interruptible: false  # Flee is not interruptible - survival is priority
+  ),
+  OptionDef(
+    name: "GathererPredatorFlee",
+    canStart: canStartGathererPredatorFlee,
+    shouldTerminate: shouldTerminateGathererPredatorFlee,
+    act: optGathererPredatorFlee,
     interruptible: false  # Flee is not interruptible - survival is priority
   ),
   OptionDef(

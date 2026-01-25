@@ -335,6 +335,22 @@ suite "AI - Gatherer":
       let (verb, _) = decodeAction(controller.decideAction(env, 0))
       check verb == 3
 
+  test "flees toward altar when enemy nearby":
+    let env = makeEmptyEnv()
+    let controller = newController(100)
+    let altarPos = ivec2(10, 10)
+    discard addAltar(env, altarPos, 0, 12)
+    # Place gatherer away from altar
+    let agent = addAgentAt(env, 0, ivec2(15, 10), homeAltar = altarPos)
+    # Place enemy within flee radius (8 tiles)
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(17, 10))
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 0))
+    # Should try to move (verb 1) toward the altar (west direction)
+    check verb == 1
+    # West direction is index 2
+    check arg == 2
+
 suite "AI - Builder":
   test "drops off carried resources":
     let env = makeEmptyEnv()
