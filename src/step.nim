@@ -359,6 +359,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           of Cow, Bear, Wolf:
             if not env.giveItem(agent, ItemMeat):
               return false
+            # Check if killed wolf is pack leader - scatter the pack
+            if target.kind == Wolf and target.isPackLeader:
+              let pack = target.packId
+              # Clear pack leader tracking
+              if pack < env.wolfPackLeaders.len:
+                env.wolfPackLeaders[pack] = nil
+              # Scatter remaining pack members
+              for wolf in env.thingsByKind[Wolf]:
+                if wolf.packId == pack and wolf != target:
+                  wolf.scatteredSteps = ScatteredDuration
             removeThing(env, target)
             if ResourceNodeInitial > 1:
               let corpse = Thing(kind: Corpse, pos: pos)
@@ -1497,11 +1507,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       elif desired.x > 0:
         thing.orientation = Orientation.E
 
+  # Military unit classes that draw predator aggro (fighters)
+  const FighterUnitClasses = {UnitManAtArms, UnitArcher, UnitScout, UnitKnight}
+
   proc findNearestPredatorTarget(center: IVec2, radius: int): IVec2 =
     var bestTumorDist = int.high
     var bestTumor = ivec2(-1, -1)
-    var bestAgentDist = int.high
-    var bestAgent = ivec2(-1, -1)
+    var bestFighterDist = int.high
+    var bestFighter = ivec2(-1, -1)
+    var bestVillagerDist = int.high
+    var bestVillager = ivec2(-1, -1)
     for dx in -radius .. radius:
       for dy in -radius .. radius:
         let pos = center + ivec2(dx.int32, dy.int32)
@@ -1516,10 +1531,19 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             bestTumorDist = dist
             bestTumor = pos
         elif thing.kind == Agent and isAgentAlive(env, thing):
-          if dist < bestAgentDist:
-            bestAgentDist = dist
-            bestAgent = pos
-    if bestTumor.x >= 0: bestTumor else: bestAgent
+          # Fighters draw aggro over villagers
+          if thing.unitClass in FighterUnitClasses:
+            if dist < bestFighterDist:
+              bestFighterDist = dist
+              bestFighter = pos
+          else:
+            if dist < bestVillagerDist:
+              bestVillagerDist = dist
+              bestVillager = pos
+    # Priority: tumor > fighter > villager
+    if bestTumor.x >= 0: bestTumor
+    elif bestFighter.x >= 0: bestFighter
+    else: bestVillager
 
   let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
@@ -1630,6 +1654,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for thing in env.thingsByKind[Wolf]:
     if thing.cooldown > 0:
       thing.cooldown -= 1
+
+    # Handle scattered state - wolves move randomly after pack leader dies
+    if thing.scatteredSteps > 0:
+      thing.scatteredSteps -= 1
+      # Scattered wolves wander randomly
+      if randFloat(stepRng) < 0.4:
+        let desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
+        tryStep(thing, desired)
+      continue
+
     let pack = thing.packId
     let packAccCount = max(1, env.wolfPackCounts[pack])
     let center = ivec2((env.wolfPackSumX[pack] div packAccCount).int32,

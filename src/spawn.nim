@@ -1613,6 +1613,7 @@ proc init(env: Environment) =
     if filtered.len < WolfPackMinSize:
       continue
     let toPlace = min(chooseGroupSize(MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize), filtered.len)
+    var packLeader: Thing = nil
     for i in 0 ..< toPlace:
       let wolf = Thing(
         kind: Wolf,
@@ -1621,12 +1622,19 @@ proc init(env: Environment) =
         packId: packId,
         maxHp: WolfMaxHp,
         hp: WolfMaxHp,
-        attackDamage: WolfAttackDamage
+        attackDamage: WolfAttackDamage,
+        isPackLeader: i == 0  # First wolf in pack is the leader
       )
       env.add(wolf)
+      if i == 0:
+        packLeader = wolf
       inc wolvesPlaced
       if wolvesPlaced >= MapRoomObjectsWolves:
         break
+    # Track pack leader
+    while env.wolfPackLeaders.len <= packId:
+      env.wolfPackLeaders.add(nil)
+    env.wolfPackLeaders[packId] = packLeader
     inc packId
 
   # Initialize altar locations for all spawners

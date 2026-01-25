@@ -503,3 +503,59 @@ suite "AI - Fighter":
 
     let (verb, _) = decodeAction(controller.decideAction(env, 4))
     check verb == 6
+
+suite "AI - Combat Behaviors":
+  test "gatherer flees from nearby wolf":
+    let env = makeEmptyEnv()
+    let controller = newController(20)
+    let basePos = ivec2(10, 10)
+    discard addAltar(env, basePos, 0, 10)
+    let agent = addAgentAt(env, 0, ivec2(15, 10), homeAltar = basePos)
+    # Add wolf within flee radius (5 tiles)
+    let wolf = Thing(kind: Wolf, pos: ivec2(14, 10), packId: 0, hp: WolfMaxHp, maxHp: WolfMaxHp)
+    env.add(wolf)
+    env.wolfPackCounts.add(1)
+    env.wolfPackSumX.add(wolf.pos.x)
+    env.wolfPackSumY.add(wolf.pos.y)
+    env.wolfPackDrift.add(ivec2(0, 0))
+    env.wolfPackTargets.add(ivec2(-1, -1))
+    env.wolfPackLeaders.add(wolf)
+    wolf.isPackLeader = true
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 0))
+    # Agent should move (verb 1) away from wolf
+    check verb == 1
+    # Direction 3 is East, 5 is NE, 7 is SE - all move away from wolf at west
+    check arg.int in {3, 5, 7}
+
+  test "wolf pack scatters when leader killed":
+    let env = makeEmptyEnv()
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    attacker.attackDamage = 10  # One-hit kill
+    # Create pack with leader and two followers
+    let leaderPos = ivec2(10, 9)
+    let leader = Thing(kind: Wolf, pos: leaderPos, packId: 0, hp: 1, maxHp: WolfMaxHp, isPackLeader: true)
+    let follower1 = Thing(kind: Wolf, pos: ivec2(10, 8), packId: 0, hp: WolfMaxHp, maxHp: WolfMaxHp)
+    let follower2 = Thing(kind: Wolf, pos: ivec2(11, 9), packId: 0, hp: WolfMaxHp, maxHp: WolfMaxHp)
+    env.add(leader)
+    env.add(follower1)
+    env.add(follower2)
+    env.wolfPackCounts.add(3)
+    env.wolfPackSumX.add(leader.pos.x + follower1.pos.x + follower2.pos.x)
+    env.wolfPackSumY.add(leader.pos.y + follower1.pos.y + follower2.pos.y)
+    env.wolfPackDrift.add(ivec2(0, 0))
+    env.wolfPackTargets.add(ivec2(-1, -1))
+    env.wolfPackLeaders.add(leader)
+
+    # Followers not scattered before leader death
+    check follower1.scatteredSteps == 0
+    check follower2.scatteredSteps == 0
+
+    # Kill the leader
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, leaderPos))
+
+    # Followers should now be scattered (may have decremented by 1 during wolf step)
+    check follower1.scatteredSteps >= ScatteredDuration - 1
+    check follower2.scatteredSteps >= ScatteredDuration - 1
+    # Leader should be removed
+    check env.getThing(leaderPos) == nil or env.getThing(leaderPos).kind != Wolf

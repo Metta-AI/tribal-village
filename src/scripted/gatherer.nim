@@ -352,7 +352,70 @@ proc optGathererFallbackSearch(controller: Controller, env: Environment, agent: 
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
+proc findNearestPredatorInRadius(env: Environment, pos: IVec2, radius: int): Thing =
+  ## Find the nearest wolf or bear within the given radius
+  var best: Thing = nil
+  var bestDist = int.high
+  for kind in [Wolf, Bear]:
+    for thing in env.thingsByKind[kind]:
+      let dist = int(max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)))
+      if dist <= radius and dist < bestDist:
+        bestDist = dist
+        best = thing
+  best
+
+proc canStartGathererFlee(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  ## Gatherers flee when a predator is within the flee radius
+  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
+  not isNil(predator)
+
+proc shouldTerminateGathererFlee(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Stop fleeing when no predators are within the flee radius
+  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
+  isNil(predator)
+
+proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  ## Flee away from predators toward friendly structures
+  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
+  if isNil(predator):
+    return 0'u8
+
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+
+  # Try all directions and pick the one that maximizes distance from predator
+  var bestDir = -1
+  var bestScore = int.low
+  for dirIdx in 0 .. 7:
+    let delta = Directions8[dirIdx]
+    let newPos = agent.pos + delta
+    if not canEnterForMove(env, agent, agent.pos, newPos):
+      continue
+    # Score: distance from predator + proximity to base
+    let distFromPredator = max(abs(newPos.x - predator.pos.x), abs(newPos.y - predator.pos.y))
+    let distToBase = max(abs(newPos.x - basePos.x), abs(newPos.y - basePos.y))
+    let score = distFromPredator * 2 - distToBase  # Prioritize getting away from predator
+    if score > bestScore:
+      bestScore = score
+      bestDir = dirIdx
+
+  if bestDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, bestDir.uint8))
+
+  # If can't move, just noop
+  return saveStateAndReturn(controller, agentId, state, 0'u8)
+
 let GathererOptions* = [
+  OptionDef(
+    name: "GathererFlee",
+    canStart: canStartGathererFlee,
+    shouldTerminate: shouldTerminateGathererFlee,
+    act: optGathererFlee,
+    interruptible: false  # Flee is not interruptible - survival is priority
+  ),
   OptionDef(
     name: "GathererPlantOnFertile",
     canStart: canStartGathererPlantOnFertile,

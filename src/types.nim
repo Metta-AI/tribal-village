@@ -85,6 +85,8 @@ const
   WolfPackMaxSize* = 5
   WolfPackAggroRadius* = 7
   WolfPackCohesionRadius* = 3
+  GathererFleeRadius* = 5        # Radius at which gatherers flee from predators
+  ScatteredDuration* = 10        # Number of steps wolves stay scattered after leader death
   ResourceCarryCapacity* = 5
   MineDepositAmount* = 100
   TownCenterPopCap* = 0
@@ -378,6 +380,8 @@ type
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     herdId*: int               # Cow herd grouping id
     packId*: int               # Wolf pack grouping id
+    isPackLeader*: bool        # Whether this wolf is the pack leader
+    scatteredSteps*: int       # Remaining steps of scattered state after leader death
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
@@ -620,6 +624,7 @@ type
     wolfPackSumY*: seq[int]
     wolfPackDrift*: seq[IVec2]
     wolfPackTargets*: seq[IVec2]
+    wolfPackLeaders*: seq[Thing]  # Leader wolf for each pack (nil if dead)
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     territoryScore*: TerritoryScore
     territoryScored*: bool
