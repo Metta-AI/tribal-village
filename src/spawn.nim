@@ -1667,6 +1667,9 @@ proc init(env: Environment) =
   # Individual action updates will populate observations as needed
   maybeStartReplayEpisode(env)
 
+  # Build initial spatial index for efficient nearest-thing queries
+  rebuildSpatialIndex(env)
+
 
 proc newEnvironment*(): Environment =
   ## Create a new environment with default configuration

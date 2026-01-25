@@ -398,6 +398,21 @@ type
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
+const
+  # Spatial index constants
+  SpatialCellSize* = 16  # Tiles per spatial cell
+  SpatialCellsX* = (MapWidth + SpatialCellSize - 1) div SpatialCellSize
+  SpatialCellsY* = (MapHeight + SpatialCellSize - 1) div SpatialCellSize
+
+type
+  SpatialCell* = object
+    things*: seq[Thing]
+
+  SpatialIndex* = object
+    cells*: array[SpatialCellsX, array[SpatialCellsY, SpatialCell]]
+    # Per-kind indices for faster filtered queries
+    kindCells*: array[ThingKind, array[SpatialCellsX, array[SpatialCellsY, seq[Thing]]]]
+
   Stats* = ref object
     # Agent Stats - simplified actions:
     actionInvalid*: int
@@ -619,6 +634,7 @@ type
     actionTintCode*: ActionTintCode
     actionTintPositions*: seq[IVec2]
     thingsByKind*: array[ThingKind, seq[Thing]]
+    spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     cowHerdCounts*: seq[int]
     cowHerdSumX*: seq[int]
     cowHerdSumY*: seq[int]

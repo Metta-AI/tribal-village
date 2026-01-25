@@ -2112,6 +2112,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # O(updates * agents). Now we do O(agents * observation_tiles) once at the end.
   env.rebuildObservations()
 
+  # Rebuild spatial index after all position changes are complete
+  # This ensures O(1) nearest-thing queries for the next step's AI decisions
+  env.rebuildSpatialIndex()
+
   when defined(stepTiming):
     if timing:
       tNow = getMonoTime()
