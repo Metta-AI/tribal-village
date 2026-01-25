@@ -747,6 +747,7 @@ let FighterOptions* = [
     act: optFighterRetreat,
     interruptible: true
   ),
+  EmergencyHealOption,
   OptionDef(
     name: "FighterMonk",
     canStart: canStartFighterMonk,

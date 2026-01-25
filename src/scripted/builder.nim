@@ -432,6 +432,7 @@ let BuilderOptions* = [
     act: optBuilderFlee,
     interruptible: false  # Flee is not interruptible - survival is priority
   ),
+  EmergencyHealOption,
   OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
@@ -539,6 +540,7 @@ let BuilderOptionsThreat* = [
     act: optBuilderFlee,
     interruptible: false  # Flee is not interruptible - survival is priority
   ),
+  EmergencyHealOption,
   OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
