@@ -552,7 +552,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
   ## Create default environment configuration
   EnvironmentConfig(
     # Core game parameters
-    maxSteps: 10000,
+    maxSteps: 3000,
 
     # Combat configuration
     tumorSpawnRate: 0.1,
