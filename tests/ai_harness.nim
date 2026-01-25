@@ -494,6 +494,27 @@ suite "AI - Builder":
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 1 or (verb == 8 and arg == buildIndexFor(House))
 
+  test "prioritizes wall ring under threat":
+    # Without threat: builder should build WeavingLoom (tech) after core infra
+    # With threat: builder should prioritize wall ring over tech
+    let env = makeEmptyEnv()
+    let controller = newController(15)
+    let basePos = ivec2(10, 10)
+    addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
+    env.currentStep = 1
+    discard addAgentAt(env, 2, ivec2(3, 5), homeAltar = basePos)
+    fillStockpile(env, 0, 50)
+
+    # Add enemy agent within threat radius (15 tiles from base)
+    let enemyAgent = addAgentAt(env, MapAgentsPerTeam, ivec2(18, 10))
+    enemyAgent.teamId = 1
+    env.terminated[MapAgentsPerTeam] = 0.0
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
+    # Under threat, should build wall (defensive priority)
+    check verb == 8
+    check arg == BuildIndexWall
+
 suite "AI - Fighter":
   test "villager fighter builds divider door when enemy nearby":
     let env = makeEmptyEnv()

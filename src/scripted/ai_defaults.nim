@@ -681,6 +681,9 @@ proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thin
   var roleId = state.roleId
   if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
     roleId = roleIdForAgent(controller, agentId)
+  # Dynamic defense priority: Builders use threat-aware option ordering
+  if state.role == Builder and isBuilderUnderThreat(env, agent):
+    return runOptions(controller, env, agent, agentId, state, BuilderOptionsThreat)
   let options = roleOptionsFor(roleId, controller.rng)
   if options.len == 0:
     return 0'u8

@@ -14,6 +14,33 @@ const
     (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
+  BuilderThreatRadius* = 15  # Distance from home altar to consider "under threat"
+
+proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
+  ## Check if the builder's home area is under threat from enemies.
+  ## Returns true if any enemy agent or building is within BuilderThreatRadius of home altar.
+  let teamId = getTeamId(agent)
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  # Check for enemy agents
+  for other in env.agents:
+    if not isAgentAlive(env, other):
+      continue
+    let otherTeamId = getTeamId(other)
+    if otherTeamId == teamId or otherTeamId < 0:
+      continue
+    let dist = int(chebyshevDist(basePos, other.pos))
+    if dist <= BuilderThreatRadius:
+      return true
+  # Check for enemy buildings
+  for thing in env.things:
+    if thing.isNil or not isBuildingKind(thing.kind):
+      continue
+    if thing.teamId < 0 or thing.teamId == teamId:
+      continue
+    let dist = int(chebyshevDist(basePos, thing.pos))
+    if dist <= BuilderThreatRadius:
+      return true
+  false
 
 proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
                         kinds: openArray[ThingKind]): bool =
@@ -399,6 +426,127 @@ let BuilderOptions* = [
     canStart: canStartBuilderTechBuildings,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderTechBuildings,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderGatherScarce",
+    canStart: canStartBuilderGatherScarce,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderGatherScarce,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMarketTrade",
+    canStart: canStartBuilderMarketTrade,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderMarketTrade,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderVisitTradingHub",
+    canStart: canStartBuilderVisitTradingHub,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderVisitTradingHub,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderSmeltGold",
+    canStart: canStartSmeltGold,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optSmeltGold,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCraftBread",
+    canStart: canStartCraftBread,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optCraftBread,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderStoreValuables",
+    canStart: canStartStoreValuables,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optStoreValuables,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderFallbackSearch,
+    interruptible: true
+  )
+]
+
+# BuilderOptionsThreat: Reordered priorities for when under threat.
+# Priority order: WallRing -> TechBuildings -> Infrastructure
+# (vs safe mode: Infrastructure -> TechBuildings -> WallRing)
+let BuilderOptionsThreat* = [
+  OptionDef(
+    name: "BuilderPlantOnFertile",
+    canStart: canStartBuilderPlantOnFertile,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantOnFertile,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderDropoffCarrying",
+    canStart: canStartBuilderDropoffCarrying,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderDropoffCarrying,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPopCap",
+    canStart: canStartBuilderPopCap,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPopCap,
+    interruptible: true
+  ),
+  # Threat mode: WallRing first (defensive priority)
+  OptionDef(
+    name: "BuilderWallRing",
+    canStart: canStartBuilderWallRing,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderWallRing,
+    interruptible: true
+  ),
+  # Threat mode: TechBuildings second (military capability)
+  OptionDef(
+    name: "BuilderTechBuildings",
+    canStart: canStartBuilderTechBuildings,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderTechBuildings,
+    interruptible: true
+  ),
+  # Threat mode: CoreInfrastructure deprioritized
+  OptionDef(
+    name: "BuilderCoreInfrastructure",
+    canStart: canStartBuilderCoreInfrastructure,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCoreInfrastructure,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMillNearResource",
+    canStart: canStartBuilderMillNearResource,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderMillNearResource,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPlantIfMills",
+    canStart: canStartBuilderPlantIfMills,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantIfMills,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCampThreshold",
+    canStart: canStartBuilderCampThreshold,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCampThreshold,
     interruptible: true
   ),
   OptionDef(
