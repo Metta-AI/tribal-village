@@ -6,7 +6,35 @@ import ../entropy
 import vmath
 import ../environment, ../common, ../terrain
 
+const
+  MaxPathNodes* = 512     # Slightly more than 250 exploration limit
+  MaxPathLength* = 256    # Max reconstructed path length
+  MaxPathGoals* = 10      # Max goal positions (8 neighbors + direct)
+
 type
+  ## Pre-allocated pathfinding scratch space to avoid per-call allocations.
+  ## Uses generation counters for O(1) validity checks without clearing arrays.
+  PathfindingCache* = object
+    generation: int32
+    # Generation-stamped membership for O(1) open set lookup
+    inOpenSetGen: array[MapWidth, array[MapHeight, int32]]
+    # Generation-stamped gScore values
+    gScoreGen: array[MapWidth, array[MapHeight, int32]]
+    gScoreVal: array[MapWidth, array[MapHeight, int32]]
+    # Generation-stamped cameFrom for path reconstruction
+    cameFromGen: array[MapWidth, array[MapHeight, int32]]
+    cameFromVal: array[MapWidth, array[MapHeight, IVec2]]
+    # Open set array for iteration (with active flags for removal)
+    openSet: array[MaxPathNodes, IVec2]
+    openSetLen: int
+    openSetActive: array[MaxPathNodes, bool]
+    # Goals array
+    goals: array[MaxPathGoals, IVec2]
+    goalsLen: int
+    # Result path buffer
+    path: array[MaxPathLength, IVec2]
+    pathLen: int
+
   # Meta roles with focused responsibilities (AoE-style)
   AgentRole* = enum
     Gatherer   # Dynamic resource gatherer (food/wood/stone/gold + hearts)
@@ -72,6 +100,7 @@ type
     agentsInitialized: array[MapAgents, bool]
     buildingCountsStep: int
     buildingCounts: array[MapRoomObjectsTeams, array[ThingKind, int]]
+    pathCache*: PathfindingCache  # Pre-allocated pathfinding scratch space
 
 proc newController*(seed: int): Controller =
   result = Controller(
@@ -567,71 +596,107 @@ proc getMoveTowards(env: Environment, agent: Thing, fromPos, toPos: IVec2,
   # All blocked - return -1 to signal no valid move (caller should noop)
   return -1
 
-proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
+proc findPath(controller: Controller, env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
   ## A* path from start to target (or passable neighbor), returns path including start.
-  var goals: seq[IVec2] = @[]
+  ## Uses pre-allocated cache to avoid per-call allocations.
+
+  # Increment generation for this call - makes all previous data stale
+  inc controller.pathCache.generation
+  let gen = controller.pathCache.generation
+
+  # Build goals list (target or passable neighbors)
+  controller.pathCache.goalsLen = 0
   if isPassable(env, agent, targetPos):
-    goals.add(targetPos)
+    controller.pathCache.goals[0] = targetPos
+    controller.pathCache.goalsLen = 1
   else:
     for d in Directions8:
       let candidate = targetPos + d
       if isValidPos(candidate) and isPassable(env, agent, candidate):
-        goals.add(candidate)
+        if controller.pathCache.goalsLen < MaxPathGoals:
+          controller.pathCache.goals[controller.pathCache.goalsLen] = candidate
+          inc controller.pathCache.goalsLen
 
-  if goals.len == 0:
+  if controller.pathCache.goalsLen == 0:
     return @[]
-  for g in goals:
-    if g == fromPos:
+
+  # Check if already at goal
+  for i in 0 ..< controller.pathCache.goalsLen:
+    if controller.pathCache.goals[i] == fromPos:
       return @[fromPos]
 
-  proc heuristic(loc: IVec2): int =
-    var best = int.high
-    for g in goals:
-      let d = int(chebyshevDist(loc, g))
+  # Heuristic: minimum chebyshev distance to any goal
+  proc heuristic(cache: PathfindingCache, loc: IVec2): int32 =
+    var best = int32.high
+    for i in 0 ..< cache.goalsLen:
+      let d = int32(chebyshevDist(loc, cache.goals[i]))
       if d < best:
         best = d
     best
 
-  var openSet = initHashSet[IVec2]()
-  openSet.incl(fromPos)
-  var cameFrom = initTable[IVec2, IVec2]()
-  var gScore = initTable[IVec2, int]()
-  var fScore = initTable[IVec2, int]()
-  gScore[fromPos] = 0
-  fScore[fromPos] = heuristic(fromPos)
+  # Initialize open set with starting position
+  controller.pathCache.openSetLen = 1
+  controller.pathCache.openSet[0] = fromPos
+  controller.pathCache.openSetActive[0] = true
+  controller.pathCache.inOpenSetGen[fromPos.x][fromPos.y] = gen
+
+  # Initialize gScore and fScore for start
+  controller.pathCache.gScoreGen[fromPos.x][fromPos.y] = gen
+  controller.pathCache.gScoreVal[fromPos.x][fromPos.y] = 0
+  let startH = heuristic(controller.pathCache, fromPos)
 
   var explored = 0
-  while openSet.len > 0:
+  while true:
     if explored > 250:
       return @[]
 
-    var currentIter = false
+    # Find node in open set with lowest fScore
+    var currentIdx = -1
     var current: IVec2
-    var bestF = int.high
-    for n in openSet:
-      let f = (if fScore.hasKey(n): fScore[n] else: int.high)
-      if not currentIter or f < bestF:
+    var bestF = int32.high
+    for i in 0 ..< controller.pathCache.openSetLen:
+      if not controller.pathCache.openSetActive[i]:
+        continue
+      let n = controller.pathCache.openSet[i]
+      # Calculate fScore: gScore + heuristic
+      let g = controller.pathCache.gScoreVal[n.x][n.y]
+      let h = heuristic(controller.pathCache, n)
+      let f = g + h
+      if f < bestF:
         bestF = f
         current = n
-        currentIter = true
+        currentIdx = i
 
-    if not currentIter:
-      return @[]
+    if currentIdx < 0:
+      return @[]  # Open set is empty
 
-    for g in goals:
-      if current == g:
+    # Check if current is a goal
+    for i in 0 ..< controller.pathCache.goalsLen:
+      if current == controller.pathCache.goals[i]:
+        # Reconstruct path
+        controller.pathCache.pathLen = 0
         var cur = current
-        result = @[cur]
-        var cf = cameFrom
-        while cf.hasKey(cur):
-          cur = cf[cur]
-          result.add(cur)
-        result.reverse()
+        while true:
+          if controller.pathCache.pathLen >= MaxPathLength:
+            break
+          controller.pathCache.path[controller.pathCache.pathLen] = cur
+          inc controller.pathCache.pathLen
+          # Check if we have a parent
+          if controller.pathCache.cameFromGen[cur.x][cur.y] != gen:
+            break
+          cur = controller.pathCache.cameFromVal[cur.x][cur.y]
+
+        # Build result seq in correct order (path is reversed)
+        result = newSeq[IVec2](controller.pathCache.pathLen)
+        for j in 0 ..< controller.pathCache.pathLen:
+          result[j] = controller.pathCache.path[controller.pathCache.pathLen - 1 - j]
         return result
 
-    openSet.excl(current)
+    # Remove current from open set
+    controller.pathCache.openSetActive[currentIdx] = false
     inc explored
 
+    # Explore neighbors
     for dirIdx in 0 .. 7:
       let nextPos = current + Directions8[dirIdx]
       if not isValidPos(nextPos):
@@ -639,13 +704,28 @@ proc findPath(env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IV
       if not canEnterForMove(env, agent, current, nextPos):
         continue
 
-      let tentativeG = (if gScore.hasKey(current): gScore[current] else: int.high) + 1
-      let nextG = (if gScore.hasKey(nextPos): gScore[nextPos] else: int.high)
+      # Get current gScore (or int32.high if not visited)
+      let currentG = controller.pathCache.gScoreVal[current.x][current.y]
+      let tentativeG = currentG + 1
+
+      # Get neighbor's current gScore
+      let neighborHasScore = controller.pathCache.gScoreGen[nextPos.x][nextPos.y] == gen
+      let nextG = if neighborHasScore: controller.pathCache.gScoreVal[nextPos.x][nextPos.y] else: int32.high
+
       if tentativeG < nextG:
-        cameFrom[nextPos] = current
-        gScore[nextPos] = tentativeG
-        fScore[nextPos] = tentativeG + heuristic(nextPos)
-        openSet.incl(nextPos)
+        # Update cameFrom
+        controller.pathCache.cameFromGen[nextPos.x][nextPos.y] = gen
+        controller.pathCache.cameFromVal[nextPos.x][nextPos.y] = current
+        # Update gScore
+        controller.pathCache.gScoreGen[nextPos.x][nextPos.y] = gen
+        controller.pathCache.gScoreVal[nextPos.x][nextPos.y] = tentativeG
+        # Add to open set if not already there
+        if controller.pathCache.inOpenSetGen[nextPos.x][nextPos.y] != gen:
+          if controller.pathCache.openSetLen < MaxPathNodes:
+            controller.pathCache.openSet[controller.pathCache.openSetLen] = nextPos
+            controller.pathCache.openSetActive[controller.pathCache.openSetLen] = true
+            inc controller.pathCache.openSetLen
+            controller.pathCache.inOpenSetGen[nextPos.x][nextPos.y] = gen
 
   @[]
 
@@ -754,12 +834,12 @@ proc moveTo(controller: Controller, env: Environment, agent: Thing, agentId: int
   if max(abs(targetPos.x - agent.pos.x), abs(targetPos.y - agent.pos.y)) >= 6'i32 or stuck:
     if state.pathBlockedTarget != targetPos or stuck:
       if state.plannedTarget != targetPos or state.plannedPath.len == 0 or stuck:
-        state.plannedPath = findPath(env, agent, agent.pos, targetPos)
+        state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
         state.plannedTarget = targetPos
         state.plannedPathIndex = 0
       elif state.plannedPathIndex < state.plannedPath.len and
            state.plannedPath[state.plannedPathIndex] != agent.pos:
-        state.plannedPath = findPath(env, agent, agent.pos, targetPos)
+        state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
         state.plannedTarget = targetPos
         state.plannedPathIndex = 0
       if state.plannedPath.len >= 2 and state.plannedPathIndex < state.plannedPath.len - 1:
