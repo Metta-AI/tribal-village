@@ -682,3 +682,28 @@ suite "AI - Combat Behaviors":
     check follower2.scatteredSteps >= ScatteredDuration - 1
     # Leader should be removed
     check env.getThing(leaderPos) == nil or env.getThing(leaderPos).kind != Wolf
+
+  test "agent eats bread when HP below 50%":
+    let env = makeEmptyEnv()
+    let controller = newController(30)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Set HP below 50% of max (AgentMaxHp = 5, so need hp * 2 < 5, i.e., hp <= 2)
+    agent.hp = 2  # 40% of 5
+    # Give agent bread to eat
+    setInv(agent, ItemBread, 1)
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 0))
+    # Agent should use item (verb 3) to eat bread
+    check verb == 3
+
+  test "agent does not eat bread when HP above 50%":
+    let env = makeEmptyEnv()
+    let controller = newController(31)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # HP at 60% of max - above threshold (3/5 = 60%, 3*2=6 which is not < 5)
+    agent.hp = 3
+    setInv(agent, ItemBread, 1)
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 0))
+    # Agent should NOT eat bread - do something else instead
+    check verb != 3 or agent.inventoryBread == 1

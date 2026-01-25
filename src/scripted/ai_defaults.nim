@@ -908,20 +908,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   else:
     state.basePosition = agent.pos
 
-  # Emergency self-heal: eat bread if below half HP (applies to all roles)
-  if agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp:
-    let healDirs = AdjacentOffsets8
-    for d in healDirs:
-      let target = agent.pos + d
-      if not env.hasDoor(target) and
-          isValidPos(target) and
-          env.isEmpty(target) and
-          not isBlockedTerrain(env.terrain[target.x][target.y]) and
-          env.canAgentPassDoor(agent, target):
-        let dirIdx = neighborDirIndex(agent.pos, target)
-        return saveStateAndReturn(
-          controller, agentId, state,
-          encodeAction(3'u8, dirIdx.uint8))
+  # Emergency self-heal is now handled by EmergencyHealOption in the options framework
+  # (see options.nim:EmergencyHealOption - enabled for all roles via their option arrays)
 
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:

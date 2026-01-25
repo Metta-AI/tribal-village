@@ -482,6 +482,7 @@ let GathererOptions* = [
     act: optGathererPredatorFlee,
     interruptible: false  # Flee is not interruptible - survival is priority
   ),
+  EmergencyHealOption,
   OptionDef(
     name: "GathererPlantOnFertile",
     canStart: canStartGathererPlantOnFertile,
