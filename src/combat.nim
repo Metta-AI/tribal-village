@@ -16,24 +16,49 @@ const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = bl
 const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   # UnitVillager
   TileColor(r: 1.00, g: 0.35, b: 0.30, intensity: 1.20),
-  # UnitManAtArms
+  # UnitManAtArms (infantry counter - orange)
   TileColor(r: 1.00, g: 0.65, b: 0.20, intensity: 1.20),
-  # UnitArcher
+  # UnitArcher (archer counter - yellow)
   TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.20),
-  # UnitScout
+  # UnitScout (cavalry counter - green)
   TileColor(r: 0.30, g: 1.00, b: 0.35, intensity: 1.18),
-  # UnitKnight
+  # UnitKnight (cavalry counter - cyan)
   TileColor(r: 0.25, g: 0.95, b: 0.90, intensity: 1.18),
   # UnitMonk
   TileColor(r: 0.30, g: 0.60, b: 1.00, intensity: 1.18),
-  # UnitBatteringRam
-  TileColor(r: 0.55, g: 0.40, b: 1.00, intensity: 1.18),
-  # UnitMangonel
-  TileColor(r: 0.85, g: 0.40, b: 1.00, intensity: 1.20),
+  # UnitBatteringRam (siege - stronger purple, higher intensity)
+  TileColor(r: 0.55, g: 0.40, b: 1.00, intensity: 1.40),
+  # UnitMangonel (siege - stronger pink-purple, higher intensity)
+  TileColor(r: 0.85, g: 0.40, b: 1.00, intensity: 1.40),
   # UnitGoblin
   TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.18),
   # UnitBoat
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
+]
+
+# Action tint codes for class-specific bonus damage
+# Maps attacker unit class to the appropriate observation code
+const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
+  # UnitVillager - no counter bonus
+  ActionTintAttackBonus,
+  # UnitManAtArms - infantry counter (beats cavalry)
+  ActionTintBonusInfantry,
+  # UnitArcher - archer counter (beats infantry)
+  ActionTintBonusArcher,
+  # UnitScout - cavalry counter (beats archers)
+  ActionTintBonusCavalry,
+  # UnitKnight - cavalry counter (beats archers)
+  ActionTintBonusCavalry,
+  # UnitMonk - no counter bonus
+  ActionTintAttackBonus,
+  # UnitBatteringRam - siege bonus (beats structures)
+  ActionTintBonusSiege,
+  # UnitMangonel - siege bonus (beats structures)
+  ActionTintBonusSiege,
+  # UnitGoblin - no counter bonus
+  ActionTintAttackBonus,
+  # UnitBoat - no counter bonus
+  ActionTintAttackBonus,
 ]
 
 const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
@@ -44,7 +69,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
+      env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])
       damage += bonus
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
@@ -120,7 +145,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   var remaining = max(1, amount)
   let bonus = if attacker.isNil: 0 else: BonusDamageByClass[attacker.unitClass][target.unitClass]
   if bonus > 0:
-    env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, ActionTintAttackBonus)
+    env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])
     remaining = max(1, remaining + bonus)
   let teamId = getTeamId(target)
   if teamId >= 0:

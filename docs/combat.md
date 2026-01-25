@@ -29,10 +29,17 @@ Structure bonus damage is handled in `applyStructureDamage` using `SiegeStructur
 
 ## Critical-Hit Overlay
 When a bonus applies (class counters or siege-vs-structure), the target tile receives a distinct action tint:
-- `BonusDamageTint` in `src/combat.nim`
+- `BonusDamageTintByClass` in `src/combat.nim` defines per-attacker colors
+- `BonusTintCodeByClass` maps attackers to class-specific observation codes
 - Applied via `env.applyActionTint` when bonus damage > 0
 
-This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits a specific `TintLayer` code for bonus hits. Bonus flashes now use **per‑attacker colors** so you can tell which unit type scored the critical hit.
+This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits **class-specific `TintLayer` codes** for bonus hits:
+- `ActionTintBonusArcher` (13) - archer counter hits on infantry
+- `ActionTintBonusInfantry` (14) - infantry counter hits on cavalry
+- `ActionTintBonusCavalry` (15) - cavalry counter hits on archers
+- `ActionTintBonusSiege` (16) - siege bonus hits on structures
+
+Bonus flashes use **per‑attacker colors** so you can tell which unit type scored the critical hit. Siege units (battering ram, mangonel) have stronger intensity (1.40 vs 1.18-1.20) for more visible feedback against structures.
 
 ## Action Tint Observation Codes
 The action tint layer now exposes more detail so agents can tell what kind of event occurred:
@@ -40,8 +47,10 @@ The action tint layer now exposes more detail so agents can tell what kind of ev
 - Tower and castle attack codes
 - Heal codes (monk heal vs bread heal)
 - Shield code for armor band flashes
-- Bonus/critical hit code
+- Class-specific bonus/critical hit codes (archer, infantry, cavalry, siege)
 - Mixed code when multiple events overlap on the same tile
+
+See `docs/observation_space.md` for the full list of tint codes.
 
 ## Tank Auras (Defensive)
 - **Man-at-Arms**: 3x3 defensive aura (gold tint).
@@ -70,7 +79,7 @@ The action tint layer now exposes more detail so agents can tell what kind of ev
 - The overlay provides immediate feedback without adding new UI systems.
 
 ## Future Improvements (Optional)
-- Class-specific overlays (different tint per counter type).
-- Stronger feedback on siege vs buildings.
+- ~~Class-specific overlays (different tint per counter type).~~ (Done: tv-ch8)
+- ~~Stronger feedback on siege vs buildings.~~ (Done: tv-ch8, intensity 1.40)
 - Particle/sound hooks in the renderer for critical hits.
 - Balance pass once training costs and resource scarcity are tuned.
