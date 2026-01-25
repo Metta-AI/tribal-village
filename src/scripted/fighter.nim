@@ -493,6 +493,106 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
   0'u8
 
+const
+  KiteTriggerDistance = 3  # Distance at which kiting triggers (within archer range)
+
+proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
+  ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
+  let teamId = getTeamId(agent)
+  var bestEnemy: Thing = nil
+  var bestDist = int.high
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    # Melee units are: Villager, ManAtArms, Scout, Knight, BatteringRam, Goblin
+    # Non-melee: Archer, Mangonel, Monk, Boat
+    if other.unitClass in {UnitArcher, UnitMangonel, UnitMonk, UnitBoat}:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist < bestDist:
+      bestDist = dist
+      bestEnemy = other
+  bestEnemy
+
+proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): bool =
+  ## Kiting triggers for archers when a melee enemy is within trigger distance
+  if agent.unitClass != UnitArcher:
+    return false
+  let meleeEnemy = findNearestMeleeEnemy(env, agent)
+  if isNil(meleeEnemy):
+    return false
+  let dist = int(chebyshevDist(agent.pos, meleeEnemy.pos))
+  dist <= KiteTriggerDistance
+
+proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  ## Move away from the nearest melee enemy while staying within attack range
+  let meleeEnemy = findNearestMeleeEnemy(env, agent)
+  if isNil(meleeEnemy):
+    return 0'u8
+
+  let dist = int(chebyshevDist(agent.pos, meleeEnemy.pos))
+  # If already at safe distance, no need to kite
+  if dist > KiteTriggerDistance:
+    return 0'u8
+
+  # Calculate direction away from enemy
+  let dx = agent.pos.x - meleeEnemy.pos.x
+  let dy = agent.pos.y - meleeEnemy.pos.y
+  let awayDir = ivec2(signi(dx), signi(dy))
+
+  # Try to move in the direction away from enemy
+  # Check multiple directions, preferring directly away, then diagonals
+  var candidates: seq[IVec2] = @[]
+  # Primary direction: directly away
+  if awayDir.x != 0 or awayDir.y != 0:
+    candidates.add(awayDir)
+  # Secondary: perpendicular directions (allows strafing)
+  if awayDir.x != 0 and awayDir.y != 0:
+    # Diagonal away - try the two perpendicular diagonals
+    candidates.add(ivec2(awayDir.x, 0))
+    candidates.add(ivec2(0, awayDir.y))
+  elif awayDir.x != 0:
+    # Moving horizontally - can strafe vertically
+    candidates.add(ivec2(awayDir.x, 1))
+    candidates.add(ivec2(awayDir.x, -1))
+  elif awayDir.y != 0:
+    # Moving vertically - can strafe horizontally
+    candidates.add(ivec2(1, awayDir.y))
+    candidates.add(ivec2(-1, awayDir.y))
+
+  # Try each candidate direction
+  for dir in candidates:
+    let targetPos = agent.pos + dir
+    if not isValidPos(targetPos):
+      continue
+    if not canEnterForMove(env, agent, agent.pos, targetPos):
+      continue
+    # Check that we maintain attack range (stay within ArcherBaseRange of any enemy)
+    # For now, just move away - the attack opportunity check will handle attacking
+    let dirIdx = vecToOrientation(dir)
+    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dirIdx.uint8))
+
+  # If can't move directly away, try any direction that increases distance
+  for dirIdx in 0 .. 7:
+    let dir = Directions8[dirIdx]
+    let targetPos = agent.pos + dir
+    if not isValidPos(targetPos):
+      continue
+    if not canEnterForMove(env, agent, agent.pos, targetPos):
+      continue
+    let newDist = int(chebyshevDist(targetPos, meleeEnemy.pos))
+    if newDist > dist:
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dirIdx.uint8))
+
+  # Can't kite, return 0 to let other options handle it
+  0'u8
+
 proc canStartFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestPredator(env, agent.pos))
@@ -599,6 +699,13 @@ let FighterOptions* = [
     canStart: canStartFighterMaintainGear,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterMaintainGear,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterKite",
+    canStart: canStartFighterKite,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optFighterKite,
     interruptible: true
   ),
   OptionDef(
