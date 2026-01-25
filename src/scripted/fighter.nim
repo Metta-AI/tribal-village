@@ -722,27 +722,9 @@ let FighterOptions* = [
     act: optFighterClearGoblins,
     interruptible: true
   ),
-  OptionDef(
-    name: "FighterSmeltGold",
-    canStart: canStartSmeltGold,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optSmeltGold,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "FighterCraftBread",
-    canStart: canStartCraftBread,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optCraftBread,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "FighterStoreValuables",
-    canStart: canStartStoreValuables,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optStoreValuables,
-    interruptible: true
-  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
   OptionDef(
     name: "FighterAggressive",
     canStart: canStartFighterAggressive,

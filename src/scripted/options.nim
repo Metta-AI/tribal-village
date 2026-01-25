@@ -138,6 +138,32 @@ proc optSmeltGold*(controller: Controller, env: Environment, agent: Thing,
   updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
   return actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8)
 
+# Shared OptionDef constants for behaviors used across multiple roles
+# These can be directly included in role option arrays to reduce duplication
+let SmeltGoldOption* = OptionDef(
+  name: "SmeltGold",
+  canStart: canStartSmeltGold,
+  shouldTerminate: optionsAlwaysTerminate,
+  act: optSmeltGold,
+  interruptible: true
+)
+
+let CraftBreadOption* = OptionDef(
+  name: "CraftBread",
+  canStart: canStartCraftBread,
+  shouldTerminate: optionsAlwaysTerminate,
+  act: optCraftBread,
+  interruptible: true
+)
+
+let StoreValuablesOption* = OptionDef(
+  name: "StoreValuables",
+  canStart: canStartStoreValuables,
+  shouldTerminate: optionsAlwaysTerminate,
+  act: optStoreValuables,
+  interruptible: true
+)
+
 proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing =
   var best: Thing = nil
   var bestDist = int.high
