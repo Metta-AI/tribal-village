@@ -146,32 +146,6 @@ proc shouldTerminateGathererCarrying(controller: Controller, env: Environment, a
       return false
   true
 
-proc canStartGathererMarket(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  if controller.getBuildingCount(env, teamId, Market) == 0:
-    return false
-  if agent.inventoryGold > 0 and env.stockpileCount(teamId, ResourceFood) < 10:
-    return true
-  var hasNonFood = false
-  for key, count in agent.inventory.pairs:
-    if count <= 0 or not isStockpileResourceKey(key):
-      continue
-    let res = stockpileResourceForItem(key)
-    if res notin {ResourceFood, ResourceWater, ResourceGold}:
-      hasNonFood = true
-      break
-  hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
-
-proc optGathererMarket(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent)
-  state.basePosition = agent.getBasePos()
-  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market) or market.cooldown != 0:
-    return 0'u8
-  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
-
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -517,9 +491,9 @@ let GathererOptions* = [
   ),
   OptionDef(
     name: "GathererMarketTrade",
-    canStart: canStartGathererMarket,
+    canStart: canStartMarketTrade,
     shouldTerminate: optionsAlwaysTerminate,
-    act: optGathererMarket,
+    act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(

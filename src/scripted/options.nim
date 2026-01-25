@@ -722,8 +722,13 @@ proc optFertileExpansion(controller: Controller, env: Environment, agent: Thing,
       return actOrMove(controller, env, agent, agentId, state, target, 3'u8)
   0'u8
 
-proc canStartMarketManipulator(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): bool =
+proc canStartMarketTrade*(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  ## Shared market trading initiation condition used by Gatherer, Builder, and Scripted roles.
+  ## Returns true when:
+  ## - Team has a Market building
+  ## - Agent has gold AND team needs food (stockpile < 10), OR
+  ## - Agent has non-food/water/gold resources AND team needs gold (stockpile < 5)
   let teamId = getTeamId(agent)
   if controller.getBuildingCount(env, teamId, Market) == 0:
     return false
@@ -739,9 +744,12 @@ proc canStartMarketManipulator(controller: Controller, env: Environment, agent: 
       break
   hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
 
-proc optMarketManipulator(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): uint8 =
+proc optMarketTrade*(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  ## Shared market trading action used by Gatherer, Builder, and Scripted roles.
+  ## Moves to nearest friendly Market and interacts with it.
   let teamId = getTeamId(agent)
+  state.basePosition = agent.getBasePos()
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
   if isNil(market) or market.cooldown != 0:
     return 0'u8
@@ -982,9 +990,9 @@ let MetaBehaviorOptions* = [
   ),
   OptionDef(
     name: "BehaviorMarketManipulator",
-    canStart: canStartMarketManipulator,
+    canStart: canStartMarketTrade,
     shouldTerminate: optionsAlwaysTerminate,
-    act: optMarketManipulator,
+    act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(

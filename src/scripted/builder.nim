@@ -361,31 +361,6 @@ proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thi
       discard
   0'u8
 
-proc canStartBuilderMarketTrade(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  if controller.getBuildingCount(env, teamId, Market) == 0:
-    return false
-  if agent.inventoryGold > 0 and env.stockpileCount(teamId, ResourceFood) < 10:
-    return true
-  var hasNonFood = false
-  for key, count in agent.inventory.pairs:
-    if count <= 0 or not isStockpileResourceKey(key):
-      continue
-    let res = stockpileResourceForItem(key)
-    if res notin {ResourceFood, ResourceWater, ResourceGold}:
-      hasNonFood = true
-      break
-  hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
-
-proc optBuilderMarketTrade(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): uint8 =
-  let teamId = getTeamId(agent)
-  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market) or market.cooldown != 0:
-    return 0'u8
-  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
-
 proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
   if agent.inventory.len != 0:
@@ -479,9 +454,9 @@ let BuilderOptions* = [
   ),
   OptionDef(
     name: "BuilderMarketTrade",
-    canStart: canStartBuilderMarketTrade,
+    canStart: canStartMarketTrade,
     shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderMarketTrade,
+    act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(
@@ -582,9 +557,9 @@ let BuilderOptionsThreat* = [
   ),
   OptionDef(
     name: "BuilderMarketTrade",
-    canStart: canStartBuilderMarketTrade,
+    canStart: canStartMarketTrade,
     shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderMarketTrade,
+    act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(
