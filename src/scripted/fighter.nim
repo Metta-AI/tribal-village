@@ -486,6 +486,44 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
     return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
   0'u8
 
+proc canStartFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  ## True siege conversion: combat units (ManAtArms, Knight) can convert to siege
+  ## when they see enemy structures and a SiegeWorkshop is available.
+  if agent.unitClass notin {UnitManAtArms, UnitKnight}:
+    return false
+  if not fighterSeesEnemyStructure(env, agent):
+    return false
+  let teamId = getTeamId(agent)
+  if controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0:
+    return false
+  if not env.canSpendStockpile(teamId, buildingTrainCosts(SiegeWorkshop)):
+    return false
+  true
+
+proc shouldTerminateFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  ## Terminate when unit class changes (became siege) or conditions no longer met
+  if agent.unitClass notin {UnitManAtArms, UnitKnight}:
+    return true
+  if not fighterSeesEnemyStructure(env, agent):
+    return true
+  let teamId = getTeamId(agent)
+  if controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0:
+    return true
+  if not env.canSpendStockpile(teamId, buildingTrainCosts(SiegeWorkshop)):
+    return true
+  false
+
+proc optFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): uint8 =
+  ## Move to SiegeWorkshop and interact to convert to battering ram
+  let teamId = getTeamId(agent)
+  let building = env.findNearestFriendlyThingSpiral(state, teamId, SiegeWorkshop)
+  if isNil(building) or building.cooldown != 0:
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+
 proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   if agent.inventoryArmor < ArmorPoints:
@@ -742,6 +780,13 @@ let FighterOptions* = [
     canStart: canStartFighterTrain,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterTrain,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterBecomeSiege",
+    canStart: canStartFighterBecomeSiege,
+    shouldTerminate: shouldTerminateFighterBecomeSiege,
+    act: optFighterBecomeSiege,
     interruptible: true
   ),
   OptionDef(
