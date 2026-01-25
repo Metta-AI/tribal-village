@@ -43,7 +43,10 @@ type
     of ItemKeyThing, ItemKeyOther:
       name*: string
 
-  Inventory* = Table[ItemKey, int]
+  ## Optimized inventory: array for ItemKind, Table for rare items
+  Inventory* = object
+    items*: array[ItemKind, int]  # O(1) direct indexing for common items
+    extra*: Table[ItemKey, int]   # Hash table for ItemKeyThing/ItemKeyOther
 
 const
   SpearCharges* = 5       # Spears forged per craft & max carried
@@ -172,30 +175,98 @@ proc isStockpileResourceKey*(key: ItemKey): bool =
   stockpileResourceForItem(key) != ResourceNone
 
 proc emptyInventory*(): Inventory =
-  initTable[ItemKey, int]()
+  Inventory(extra: initTable[ItemKey, int]())
+
+proc len*(inv: Inventory): int {.inline.} =
+  ## Count non-zero items in inventory
+  result = inv.extra.len
+  for kind in ItemKind:
+    if kind != ikNone and inv.items[kind] > 0:
+      inc result
+
+proc hasKey*(inv: Inventory, key: ItemKey): bool {.inline.} =
+  ## Check if inventory has non-zero count for key
+  case key.kind
+  of ItemKeyNone:
+    false
+  of ItemKeyItem:
+    inv.items[key.item] > 0
+  of ItemKeyThing, ItemKeyOther:
+    inv.extra.hasKey(key)
+
+iterator pairs*(inv: Inventory): (ItemKey, int) =
+  ## Iterate over all non-zero items in inventory
+  for kind in ItemKind:
+    if kind != ikNone and inv.items[kind] > 0:
+      yield (toItemKey(kind), inv.items[kind])
+  for key, count in inv.extra.pairs:
+    yield (key, count)
+
+proc `[]=`*(inv: var Inventory, key: ItemKey, value: int) {.inline.} =
+  ## Set inventory value by ItemKey
+  case key.kind
+  of ItemKeyNone:
+    discard
+  of ItemKeyItem:
+    inv.items[key.item] = max(0, value)
+  of ItemKeyThing, ItemKeyOther:
+    if value <= 0:
+      if inv.extra.hasKey(key):
+        inv.extra.del(key)
+    else:
+      inv.extra[key] = value
+
+proc `[]`*(inv: Inventory, key: ItemKey): int {.inline.} =
+  ## Get inventory value by ItemKey
+  case key.kind
+  of ItemKeyNone:
+    0
+  of ItemKeyItem:
+    inv.items[key.item]
+  of ItemKeyThing, ItemKeyOther:
+    inv.extra.getOrDefault(key, 0)
+
+proc del*(inv: var Inventory, key: ItemKey) {.inline.} =
+  ## Remove item from inventory (set to 0)
+  case key.kind
+  of ItemKeyNone:
+    discard
+  of ItemKeyItem:
+    inv.items[key.item] = 0
+  of ItemKeyThing, ItemKeyOther:
+    if inv.extra.hasKey(key):
+      inv.extra.del(key)
 
 {.push inline.}
 proc getInv*[T](thing: T, key: ItemKey): int =
-  if key.kind == ItemKeyNone:
-    return 0
-  thing.inventory.getOrDefault(key, 0)
+  case key.kind
+  of ItemKeyNone:
+    0
+  of ItemKeyItem:
+    thing.inventory.items[key.item]
+  of ItemKeyThing, ItemKeyOther:
+    thing.inventory.extra.getOrDefault(key, 0)
 
 proc getInv*[T](thing: T, kind: ItemKind): int =
-  ## Type-safe overload using ItemKind enum
-  getInv(thing, toItemKey(kind))
+  ## Type-safe overload using ItemKind enum - O(1) array access
+  thing.inventory.items[kind]
 
 proc setInv*[T](thing: T, key: ItemKey, value: int) =
-  if key.kind == ItemKeyNone:
-    return
-  if value <= 0:
-    if thing.inventory.hasKey(key):
-      thing.inventory.del(key)
-  else:
-    thing.inventory[key] = value
+  case key.kind
+  of ItemKeyNone:
+    discard
+  of ItemKeyItem:
+    thing.inventory.items[key.item] = max(0, value)
+  of ItemKeyThing, ItemKeyOther:
+    if value <= 0:
+      if thing.inventory.extra.hasKey(key):
+        thing.inventory.extra.del(key)
+    else:
+      thing.inventory.extra[key] = value
 
 proc setInv*[T](thing: T, kind: ItemKind, value: int) =
-  ## Type-safe overload using ItemKind enum
-  setInv(thing, toItemKey(kind), value)
+  ## Type-safe overload using ItemKind enum - O(1) array access
+  thing.inventory.items[kind] = max(0, value)
 
 proc canSpendInventory*[T](agent: T, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
   for cost in costs:
