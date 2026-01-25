@@ -40,7 +40,7 @@ suite "Conversion":
 suite "Relics":
   test "relic pickup grants gold and drop restores relic":
     let env = makeEmptyEnv()
-    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMonk)
     let relicPos = ivec2(10, 9)
     let relic = Thing(kind: Relic, pos: relicPos)
     relic.inventory = emptyInventory()
