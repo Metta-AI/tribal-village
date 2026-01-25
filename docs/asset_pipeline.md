@@ -81,6 +81,58 @@ Previews render a 3x3 grid with a sprite column to verify orientation and edge a
 - Cliff overlays commonly use **200x200** sprites.
 - Oriented sprites live in `data/oriented/` and follow `{dir}` naming.
 
+## Missing Asset Audit (2026-01-25)
+
+The following oriented sprites are missing or incomplete:
+
+| Entity | Status | Bead |
+|--------|--------|------|
+| Bear | Missing all 8 directions | tv-wisp-oip8 |
+| Wolf | Missing all 8 directions | tv-wisp-ihxq |
+| Cow | Has cow.png/cow.r.png only, needs 8 directions | tv-wisp-nt7q |
+
+All other oriented unit sprites (gatherer, builder, fighter, man_at_arms, archer, scout, knight, monk, battering_ram, mangonel, boat, goblin, tumor) have complete 8-direction sets.
+
+### Finding Missing Assets
+
+To audit assets vs code definitions:
+
+```bash
+# List all entity kinds in code
+grep -E "^\s+\w+$" src/types.nim | head -60
+
+# List entities with oriented spriteKeys in registry
+grep 'oriented/' src/registry.nim
+
+# List existing oriented sprites
+ls data/oriented/*.png | sort
+
+# Cross-reference to find gaps
+```
+
+## Authentication Setup
+
+The `generate_assets.py` script requires Google Cloud authentication:
+
+### Option A: API Key (Simplest)
+```bash
+export GOOGLE_API_KEY=your_api_key_here
+```
+Get a key from: https://makersuite.google.com/app/apikey
+
+### Option B: Application Default Credentials (ADC)
+```bash
+gcloud auth application-default login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+### Option C: Vertex AI (Enterprise)
+```bash
+export GOOGLE_CLOUD_PROJECT=your-project-id
+export GOOGLE_CLOUD_LOCATION=us-central1
+gcloud auth application-default login
+```
+
 ## Troubleshooting Checklist
 1. Confirm the prompt row exists in `data/prompts/assets.tsv`.
 2. Verify the output file is in `data/` or `data/oriented/`.
