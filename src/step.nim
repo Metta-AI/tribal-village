@@ -984,6 +984,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             )
             thing.cooldown = 12
             used = true
+        of Wall, Door:
+          # Repair damaged walls and doors when friendly agent interacts
+          if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp:
+            thing.hp = min(thing.maxHp, thing.hp + 1)
+            used = true
         else:
           if isBuildingKind(thing.kind):
             let useKind = buildingUseKind(thing.kind)

@@ -87,21 +87,42 @@ proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
 proc findDamagedBuilding*(env: Environment, agent: Thing): Thing =
   ## Find nearest damaged friendly building that needs repair.
   ## Returns nil if no damaged building found.
+  ## Includes walls and doors which have hp but aren't in BuildingRegistry.
   let teamId = getTeamId(agent)
   var best: Thing = nil
   var bestDist = int.high
   for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
+    if thing.isNil:
+      continue
+    # Check if it's a repairable structure (building, wall, or door)
+    let isRepairable = isBuildingKind(thing.kind) or thing.kind in {Wall, Door}
+    if not isRepairable:
       continue
     if thing.teamId != teamId:
       continue
-    if thing.hp >= thing.maxHp:
-      continue  # Not damaged
+    if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
+      continue  # Not damaged or doesn't have hp
     let dist = int(chebyshevDist(thing.pos, agent.pos))
     if dist < bestDist:
       bestDist = dist
       best = thing
   best
+
+proc canStartBuilderRepair(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  not isNil(findDamagedBuilding(env, agent))
+
+proc shouldTerminateBuilderRepair(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  isNil(findDamagedBuilding(env, agent))
+
+proc optBuilderRepair(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  ## Move to and repair a damaged friendly building.
+  let building = findDamagedBuilding(env, agent)
+  if isNil(building):
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
 
 proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
                         kinds: openArray[ThingKind]): bool =
@@ -502,6 +523,13 @@ let BuilderOptions* = [
     interruptible: true
   ),
   OptionDef(
+    name: "BuilderRepair",
+    canStart: canStartBuilderRepair,
+    shouldTerminate: shouldTerminateBuilderRepair,
+    act: optBuilderRepair,
+    interruptible: true
+  ),
+  OptionDef(
     name: "BuilderWallRing",
     canStart: canStartBuilderWallRing,
     shouldTerminate: optionsAlwaysTerminate,
@@ -589,7 +617,15 @@ let BuilderOptionsThreat* = [
     act: optBuilderWallRing,
     interruptible: true
   ),
-  # Threat mode: TechBuildings second (military capability)
+  # Threat mode: Repair second (maintain defensive structures)
+  OptionDef(
+    name: "BuilderRepair",
+    canStart: canStartBuilderRepair,
+    shouldTerminate: shouldTerminateBuilderRepair,
+    act: optBuilderRepair,
+    interruptible: true
+  ),
+  # Threat mode: TechBuildings third (military capability)
   OptionDef(
     name: "BuilderTechBuildings",
     canStart: canStartBuilderTechBuildings,

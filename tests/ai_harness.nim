@@ -601,6 +601,24 @@ suite "AI - Builder":
     # West direction is index 2
     check arg == 2
 
+  test "repairs damaged friendly building":
+    let env = makeEmptyEnv()
+    let controller = newController(20)
+    let basePos = ivec2(10, 10)
+    # Create all core infrastructure so builder doesn't prioritize building
+    addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
+    # Create a damaged wall near the builder
+    let wall = addBuilding(env, Wall, ivec2(10, 9), 0)
+    wall.hp = 5  # Damaged (maxHp is 10)
+    # Place builder adjacent to the wall
+    discard addAgentAt(env, 2, ivec2(10, 10), homeAltar = basePos)
+    fillStockpile(env, 0, 50)
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 2))
+    # Should interact (verb 3) with the damaged wall to repair it
+    check verb == 3
+    check arg == dirIndex(ivec2(10, 10), ivec2(10, 9))
+
 suite "AI - Fighter":
   test "villager fighter builds divider door when enemy nearby":
     let env = makeEmptyEnv()
