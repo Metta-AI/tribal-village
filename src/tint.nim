@@ -108,9 +108,17 @@ proc updateTintModifications(env: Environment) =
 
     of Lantern:
       if thing.lanternHealthy:
+        # Skip tint update if lantern hasn't moved (delta optimization).
+        if thing.lastTintPos == pos and isValidPos(thing.lastTintPos):
+          continue
+        thing.lastTintPos = pos
         if thing.teamId >= 0 and thing.teamId < env.teamColors.len:
           addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
     of Tumor:
+      # Skip tint update if tumor hasn't moved (delta optimization).
+      if thing.lastTintPos == pos and isValidPos(thing.lastTintPos):
+        continue
+      thing.lastTintPos = pos
       let minX = max(0, baseX - 2)
       let maxX = min(MapWidth - 1, baseX + 2)
       let minY = max(0, baseY - 2)
