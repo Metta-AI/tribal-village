@@ -51,6 +51,169 @@ const
   KnightAuraRadius = 2
   MonkAuraRadius = 2
 
+proc stepDecayActionTints(env: Environment) =
+  ## Decay short-lived action tints, removing expired ones
+  if env.actionTintPositions.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.actionTintPositions.len:
+      let pos = env.actionTintPositions[readIdx]
+      if not isValidPos(pos):
+        continue
+      let x = pos.x
+      let y = pos.y
+      let countdown = env.actionTintCountdown[x][y]
+      if countdown > 0:
+        let next = countdown - 1
+        env.actionTintCountdown[x][y] = next
+        if next == 0:
+          env.actionTintFlags[x][y] = false
+          env.actionTintCode[x][y] = ActionTintNone
+          env.updateObservations(TintLayer, pos, 0)
+        env.actionTintPositions[writeIdx] = pos
+        inc writeIdx
+      else:
+        env.actionTintFlags[x][y] = false
+        env.actionTintCode[x][y] = ActionTintNone
+        env.updateObservations(TintLayer, pos, 0)
+    env.actionTintPositions.setLen(writeIdx)
+
+proc stepDecayShields(env: Environment) =
+  ## Decay shield countdown timers for all agents
+  for i in 0 ..< MapAgents:
+    if env.shieldCountdown[i] > 0:
+      env.shieldCountdown[i] = env.shieldCountdown[i] - 1
+
+proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
+                        towerRemovals: var seq[Thing]) =
+  ## Have a tower attack the nearest valid target in range
+  if tower.teamId < 0:
+    return
+  var bestTarget: Thing = nil
+  var bestDist = int.high
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if tower.teamId == getTeamId(agent):
+      continue
+    let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
+    if dist <= range and dist < bestDist:
+      bestDist = dist
+      bestTarget = agent
+  for kind in [Tumor, Spawner]:
+    for thing in env.thingsByKind[kind]:
+      let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
+      if dist <= range and dist < bestDist:
+        bestDist = dist
+        bestTarget = thing
+  if isNil(bestTarget):
+    return
+  let tint = if tower.kind == Castle: CastleAttackTint else: TowerAttackTint
+  let tintCode = if tower.kind == Castle: ActionTintAttackCastle else: ActionTintAttackTower
+  let tintDuration = if tower.kind == Castle: CastleAttackTintDuration else: TowerAttackTintDuration
+  env.applyActionTint(bestTarget.pos, tint, tintDuration, tintCode)
+  case bestTarget.kind
+  of Agent:
+    discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))
+  of Tumor, Spawner:
+    if bestTarget notin towerRemovals:
+      towerRemovals.add(bestTarget)
+  else:
+    discard
+
+proc stepApplySurvivalPenalty(env: Environment) =
+  ## Apply per-step survival penalty to all living agents
+  if env.config.survivalPenalty != 0.0:
+    for agent in env.agents:
+      if isAgentAlive(env, agent):
+        agent.reward += env.config.survivalPenalty
+
+proc stepApplyTankAuras(env: Environment) =
+  ## Apply tank (ManAtArms/Knight) aura tints to nearby tiles
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if isThingFrozen(agent, env):
+      continue
+    let radius = case agent.unitClass
+      of UnitManAtArms: ManAtArmsAuraRadius
+      of UnitKnight: KnightAuraRadius
+      else: -1
+    if radius < 0:
+      continue
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let pos = agent.pos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+        let existingCode = env.actionTintCode[pos.x][pos.y]
+        if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield}:
+          if existingCode != ActionTintMixed:
+            env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+            env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+          continue
+        env.applyActionTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
+
+proc stepApplyMonkAuras(env: Environment) =
+  ## Apply monk aura tints and heal nearby allies
+  var healFlags: array[MapAgents, bool]
+  for monk in env.agents:
+    if not isAgentAlive(env, monk):
+      continue
+    if monk.unitClass != UnitMonk:
+      continue
+    if isThingFrozen(monk, env):
+      continue
+    let teamId = getTeamId(monk)
+    var needsHeal = false
+    for ally in env.agents:
+      if not isAgentAlive(env, ally):
+        continue
+      if getTeamId(ally) != teamId:
+        continue
+      let dx = abs(ally.pos.x - monk.pos.x)
+      let dy = abs(ally.pos.y - monk.pos.y)
+      if max(dx, dy) > MonkAuraRadius:
+        continue
+      if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
+        needsHeal = true
+        break
+    if not needsHeal:
+      continue
+
+    for dx in -MonkAuraRadius .. MonkAuraRadius:
+      for dy in -MonkAuraRadius .. MonkAuraRadius:
+        let pos = monk.pos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
+        let existingCode = env.actionTintCode[pos.x][pos.y]
+        if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield, ActionTintHealMonk}:
+          if existingCode != ActionTintMixed:
+            env.actionTintCode[pos.x][pos.y] = ActionTintMixed
+            env.updateObservations(TintLayer, pos, ActionTintMixed.int)
+          continue
+        env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
+
+    for ally in env.agents:
+      if not isAgentAlive(env, ally):
+        continue
+      if getTeamId(ally) != teamId:
+        continue
+      let dx = abs(ally.pos.x - monk.pos.x)
+      let dy = abs(ally.pos.y - monk.pos.y)
+      if max(dx, dy) > MonkAuraRadius:
+        continue
+      if not isThingFrozen(ally, env):
+        healFlags[ally.agentId] = true
+
+  for agentId in 0 ..< env.agents.len:
+    if not healFlags[agentId]:
+      continue
+    let target = env.agents[agentId]
+    if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
+      target.hp = min(target.maxHp, target.hp + 1)
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -76,29 +239,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tTotalStart = tStart
 
   # Decay short-lived action tints
-  if env.actionTintPositions.len > 0:
-    var writeIdx = 0
-    for readIdx in 0 ..< env.actionTintPositions.len:
-      let pos = env.actionTintPositions[readIdx]
-      if not isValidPos(pos):
-        continue
-      let x = pos.x
-      let y = pos.y
-      let countdown = env.actionTintCountdown[x][y]
-      if countdown > 0:
-        let next = countdown - 1
-        env.actionTintCountdown[x][y] = next
-        if next == 0:
-          env.actionTintFlags[x][y] = false
-          env.actionTintCode[x][y] = ActionTintNone
-          env.updateObservations(TintLayer, pos, 0)
-        env.actionTintPositions[writeIdx] = pos
-        inc writeIdx
-      else:
-        env.actionTintFlags[x][y] = false
-        env.actionTintCode[x][y] = ActionTintNone
-        env.updateObservations(TintLayer, pos, 0)
-    env.actionTintPositions.setLen(writeIdx)
+  env.stepDecayActionTints()
 
   when defined(stepTiming):
     if timing:
@@ -107,9 +248,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Decay shields
-  for i in 0 ..< MapAgents:
-    if env.shieldCountdown[i] > 0:
-      env.shieldCountdown[i] = env.shieldCountdown[i] - 1
+  env.stepDecayShields()
 
   when defined(stepTiming):
     if timing:
@@ -1317,41 +1456,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var tumorsToProcess: seq[Thing] = @[]
   var towerRemovals: seq[Thing] = @[]
 
-  proc tryTowerAttack(tower: Thing, range: int) =
-    if tower.teamId < 0:
-      return
-    var bestTarget: Thing = nil
-    var bestDist = int.high
-    for agent in env.agents:
-      if not isAgentAlive(env, agent):
-        continue
-      if tower.teamId == getTeamId(agent):
-        continue
-      let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
-      if dist <= range and dist < bestDist:
-        bestDist = dist
-        bestTarget = agent
-    for kind in [Tumor, Spawner]:
-      for thing in env.thingsByKind[kind]:
-        let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
-        if dist <= range and dist < bestDist:
-          bestDist = dist
-          bestTarget = thing
-    if isNil(bestTarget):
-      return
-    let tint = if tower.kind == Castle: CastleAttackTint else: TowerAttackTint
-    let tintCode = if tower.kind == Castle: ActionTintAttackCastle else: ActionTintAttackTower
-    let tintDuration = if tower.kind == Castle: CastleAttackTintDuration else: TowerAttackTintDuration
-    env.applyActionTint(bestTarget.pos, tint, tintDuration, tintCode)
-    case bestTarget.kind
-    of Agent:
-      discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))
-    of Tumor, Spawner:
-      if bestTarget notin towerRemovals:
-        towerRemovals.add(bestTarget)
-    else:
-      discard
-
   for i in 0 ..< env.cowHerdCounts.len:
     env.cowHerdCounts[i] = 0
     env.cowHerdSumX[i] = 0
@@ -1410,9 +1514,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.updateObservations(ThingAgentLayer, pos, 0)
         thing.cooldown = 10
     elif thing.kind == GuardTower:
-      tryTowerAttack(thing, GuardTowerRange)
+      env.stepTryTowerAttack(thing, GuardTowerRange, towerRemovals)
     elif thing.kind == Castle:
-      tryTowerAttack(thing, CastleRange)
+      env.stepTryTowerAttack(thing, CastleRange, towerRemovals)
       if thing.cooldown > 0:
         dec thing.cooldown
     elif thing.kind == Temple:
@@ -1868,89 +1972,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       removeThing(env, predator)
 
   # Tank aura tints
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if isThingFrozen(agent, env):
-      continue
-    let radius = case agent.unitClass
-      of UnitManAtArms: ManAtArmsAuraRadius
-      of UnitKnight: KnightAuraRadius
-      else: -1
-    if radius < 0:
-      continue
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        let pos = agent.pos + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
-        let existingCode = env.actionTintCode[pos.x][pos.y]
-        if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield}:
-          if existingCode != ActionTintMixed:
-            env.actionTintCode[pos.x][pos.y] = ActionTintMixed
-            env.updateObservations(TintLayer, pos, ActionTintMixed.int)
-          continue
-        env.applyActionTint(pos, TankAuraTint, TankAuraTintDuration, ActionTintShield)
+  env.stepApplyTankAuras()
 
   # Monk aura tints + healing
-  var healFlags: array[MapAgents, bool]
-  for monk in env.agents:
-    if not isAgentAlive(env, monk):
-      continue
-    if monk.unitClass != UnitMonk:
-      continue
-    if isThingFrozen(monk, env):
-      continue
-    let teamId = getTeamId(monk)
-    var needsHeal = false
-    for ally in env.agents:
-      if not isAgentAlive(env, ally):
-        continue
-      if getTeamId(ally) != teamId:
-        continue
-      let dx = abs(ally.pos.x - monk.pos.x)
-      let dy = abs(ally.pos.y - monk.pos.y)
-      if max(dx, dy) > MonkAuraRadius:
-        continue
-      if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
-        needsHeal = true
-        break
-    if not needsHeal:
-      continue
-
-    for dx in -MonkAuraRadius .. MonkAuraRadius:
-      for dy in -MonkAuraRadius .. MonkAuraRadius:
-        let pos = monk.pos + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
-        let existingCode = env.actionTintCode[pos.x][pos.y]
-        if existingCountdown > 0 and existingCode notin {ActionTintNone, ActionTintShield, ActionTintHealMonk}:
-          if existingCode != ActionTintMixed:
-            env.actionTintCode[pos.x][pos.y] = ActionTintMixed
-            env.updateObservations(TintLayer, pos, ActionTintMixed.int)
-          continue
-        env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
-
-    for ally in env.agents:
-      if not isAgentAlive(env, ally):
-        continue
-      if getTeamId(ally) != teamId:
-        continue
-      let dx = abs(ally.pos.x - monk.pos.x)
-      let dy = abs(ally.pos.y - monk.pos.y)
-      if max(dx, dy) > MonkAuraRadius:
-        continue
-      if not isThingFrozen(ally, env):
-        healFlags[ally.agentId] = true
-
-  for agentId in 0 ..< env.agents.len:
-    if not healFlags[agentId]:
-      continue
-    let target = env.agents[agentId]
-    if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
-      target.hp = min(target.maxHp, target.hp + 1)
+  env.stepApplyMonkAuras()
 
   when defined(stepTiming):
     if timing:
@@ -2091,10 +2116,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Apply per-step survival penalty to all living agents
-  if env.config.survivalPenalty != 0.0:
-    for agent in env.agents:
-      if isAgentAlive(env, agent):  # Only alive agents
-        agent.reward += env.config.survivalPenalty
+  env.stepApplySurvivalPenalty()
 
   when defined(stepTiming):
     if timing:
