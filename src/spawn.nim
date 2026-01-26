@@ -124,12 +124,9 @@ proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
     placeResourceCluster(env, pos.x.int, pos.y.int, size, baseDensity, falloffRate,
       kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
 
-proc init(env: Environment) =
+proc initState(env: Environment) =
+  ## Reset all environment state to prepare for a new game.
   inc env.mapGeneration
-  # Use current time for random seed to get different maps each time
-  let seed = int(nowSeconds() * 1000)
-  var rng = initRand(seed)
-
   env.thingsByKind = default(array[ThingKind, seq[Thing]])
 
   # Initialize tile colors to base terrain colors (neutral gray-brown)
@@ -169,6 +166,10 @@ proc init(env: Environment) =
   for i in 0 ..< MapAgents:
     env.lastAgentPos[i] = ivec2(-1, -1)
   env.lastLanternPos.setLen(0)
+
+proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeOasis] =
+  ## Initialize terrain, biomes, water features, elevation, and cliffs.
+  ## Returns tree oasis positions for later tree placement.
 
   # Initialize base terrain and biomes (dry pass).
   initTerrain(env.terrain, env.biomes, MapWidth, MapHeight, MapBorder, seed)
@@ -452,7 +453,10 @@ proc init(env: Environment) =
         addBorderWall(ivec2(j, y))
         addBorderWall(ivec2(MapWidth - j - 1, y))
 
-  # Place neutral trading hub near map center before villages.
+  result = treeOases
+
+proc initTradingHub(env: Environment, rng: var Rand) =
+  ## Place neutral trading hub near map center before villages.
   block tradingHub:
     let centerX = MapWidth div 2
     let centerY = MapHeight div 2
@@ -678,41 +682,42 @@ proc init(env: Environment) =
       ))
       inc scatterPlaced
 
-  proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
-    const TempleMinDistance = 10
-    let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
-    var placed = false
-    for _ in 0 ..< 200:
-      let dx = randIntInclusive(rng, -14, 14)
-      let dy = randIntInclusive(rng, -14, 14)
-      let pos = center + ivec2(dx.int32, dy.int32)
-      if not isValidPos(pos):
-        continue
-      if env.terrain[pos.x][pos.y] == Water:
-        continue
-      if not env.isSpawnable(pos):
-        continue
-      var tooClose = false
-      for v in villageCenters:
-        let dist = max(abs(v.x - pos.x), abs(v.y - pos.y))
-        if dist < TempleMinDistance:
-          tooClose = true
-          break
-      if tooClose:
-        continue
-      env.add(Thing(kind: Temple, pos: pos, teamId: -1))
-      placed = true
-      break
-    if not placed:
-      let fallback = rng.randomEmptyPos(env)
-      env.add(Thing(kind: Temple, pos: fallback, teamId: -1))
+proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
+  const TempleMinDistance = 10
+  let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
+  var placed = false
+  for _ in 0 ..< 200:
+    let dx = randIntInclusive(rng, -14, 14)
+    let dy = randIntInclusive(rng, -14, 14)
+    let pos = center + ivec2(dx.int32, dy.int32)
+    if not isValidPos(pos):
+      continue
+    if env.terrain[pos.x][pos.y] == Water:
+      continue
+    if not env.isSpawnable(pos):
+      continue
+    var tooClose = false
+    for v in villageCenters:
+      let dist = max(abs(v.x - pos.x), abs(v.y - pos.y))
+      if dist < TempleMinDistance:
+        tooClose = true
+        break
+    if tooClose:
+      continue
+    env.add(Thing(kind: Temple, pos: pos, teamId: -1))
+    placed = true
+    break
+  if not placed:
+    let fallback = rng.randomEmptyPos(env)
+    env.add(Thing(kind: Temple, pos: fallback, teamId: -1))
 
-  # Agents will now spawn with their teams below
+proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
+  ## Spawn teams with altars, town centers, and associated agents.
+  ## Returns village center positions.
   # Clear and prepare team colors arrays (use Environment fields)
   env.agentColors.setLen(MapRoomObjectsAgents)  # Allocate space for all agents
   env.teamColors.setLen(0)  # Clear team colors
   env.altarColors.clear()  # Clear altar colors from previous game
-  # Spawn teams with altars, town centers, and associated agents.
   let numTeams = MapRoomObjectsTeams
   var totalAgentsSpawned = 0
   let totalTeamAgentCap = MapRoomObjectsTeams * MapAgentsPerTeam
@@ -1210,6 +1215,13 @@ proc init(env: Environment) =
 
     totalAgentsSpawned += 1
 
+  result = villageCenters
+
+proc initNeutralStructures(env: Environment, rng: var Rand) =
+  ## Place goblin hives, spawners, and other neutral structures.
+  let numTeams = MapRoomObjectsTeams
+  var totalAgentsSpawned = MapRoomObjectsTeams * MapAgentsPerTeam
+
   # Place goblin hives with surrounding structures, then spawn goblin agents.
   const GoblinHiveCount = 2
   var goblinHivePositions: seq[IVec2] = @[]
@@ -1409,6 +1421,8 @@ proc init(env: Environment) =
         for i in 0 ..< spawnCount:
           env.add(createTumor(nearbyPositions[i], targetPos, rng))
 
+proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
+  ## Spawn resource nodes (magma, trees, wheat, ore, plants) as Things.
   # Magma spawns in slightly larger clusters (3-4) for higher local density.
   var poolsPlaced = 0
   let magmaClusterCount = max(1, min(MapRoomObjectsMagmaClusters, max(1, MapRoomObjectsMagmaPools div 2)))
@@ -1562,9 +1576,8 @@ proc init(env: Environment) =
     placeBiomeResourceClusters(env, rng, max(10, MapWidth div 30),
       2, 6, 0.7, 0.45, Stalagmite, ItemStone, BiomeCavesType)
 
-  # Ensure the world is a single connected component after terrain and structures.
-  env.makeConnected()
-
+proc initWildlife(env: Environment, rng: var Rand) =
+  ## Spawn wildlife: cows, bears, and wolves.
   proc chooseGroupSize(remaining, minSize, maxSize: int): int =
     if remaining <= maxSize:
       return remaining
@@ -1662,11 +1675,10 @@ proc init(env: Environment) =
     env.wolfPackLeaders[packId] = packLeader
     inc packId
 
-  # Initialize altar locations for all spawners
-  var altarPositions: seq[IVec2] = @[]
-  for thing in env.things:
-    if thing.kind == Altar:
-      altarPositions.add(thing.pos)
+proc initFinalize(env: Environment) =
+  ## Final initialization steps: connectivity, replay, spatial index.
+  # Ensure the world is a single connected component after terrain and structures.
+  env.makeConnected()
 
   # Initialize observations only when first needed (lazy approach)
   # Individual action updates will populate observations as needed
@@ -1674,6 +1686,35 @@ proc init(env: Environment) =
 
   # Build initial spatial index for efficient nearest-thing queries
   rebuildSpatialIndex(env)
+
+proc init(env: Environment) =
+  ## Initialize the environment by orchestrating all initialization phases.
+  let seed = int(nowSeconds() * 1000)
+  var rng = initRand(seed)
+
+  # Phase 1: Reset all state
+  initState(env)
+
+  # Phase 2: Terrain, biomes, water features, elevation, cliffs
+  let treeOases = initTerrainAndBiomes(env, rng, seed)
+
+  # Phase 3: Central trading hub
+  initTradingHub(env, rng)
+
+  # Phase 4: Teams, villages, altars, agents
+  discard initTeams(env, rng)
+
+  # Phase 5: Goblin hives, spawners, neutral structures
+  initNeutralStructures(env, rng)
+
+  # Phase 6: Resource nodes (magma, trees, wheat, ore, plants)
+  initResources(env, rng, treeOases)
+
+  # Phase 7: Wildlife (cows, bears, wolves)
+  initWildlife(env, rng)
+
+  # Phase 8: Connectivity, replay, spatial index
+  initFinalize(env)
 
 
 proc newEnvironment*(): Environment =
