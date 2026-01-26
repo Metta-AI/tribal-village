@@ -844,11 +844,58 @@ proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing
   if didHunt: return actHunt
   0'u8
 
+# Battering Ram AI: Simple forward movement with attack-on-block behavior
+# 1. Move forward in current orientation
+# 2. If blocked, attack blocking target
+# 3. If target destroyed, resume moving forward
+
+proc canStartBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  agent.unitClass == UnitBatteringRam
+
+proc shouldTerminateBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  # Never terminates - battering ram always uses this behavior
+  agent.unitClass != UnitBatteringRam
+
+proc optBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  ## Simple battering ram AI: move forward, attack blockers
+  let delta = OrientationDeltas[agent.orientation.int]
+  let forwardPos = agent.pos + delta
+
+  # Check if there's something blocking forward movement
+  let blocking = env.getThing(forwardPos)
+  if not isNil(blocking):
+    # Attack the blocking thing (verb 2 = attack)
+    return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u8)
+
+  # Check for blocking agent
+  let blockingAgent = env.grid[forwardPos.x][forwardPos.y]
+  if not isNil(blockingAgent) and blockingAgent.agentId != agent.agentId:
+    return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u8)
+
+  # Check terrain passability
+  if not canEnterForMove(env, agent, agent.pos, forwardPos):
+    # Something blocks us (wall, terrain) - try to attack forward
+    return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u8)
+
+  # Path is clear - move forward (verb 1 = move)
+  let dirIdx = agent.orientation.int
+  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dirIdx.uint8))
+
 proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
 let FighterOptions* = [
+  OptionDef(
+    name: "BatteringRamAdvance",
+    canStart: canStartBatteringRamAdvance,
+    shouldTerminate: shouldTerminateBatteringRamAdvance,
+    act: optBatteringRamAdvance,
+    interruptible: false  # Battering ram AI is not interruptible - it just advances and attacks
+  ),
   OptionDef(
     name: "FighterBreakout",
     canStart: canStartFighterBreakout,
