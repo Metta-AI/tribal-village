@@ -39,10 +39,13 @@ var logRenderCount = 0
 include "actions"
 
 const
+  # Tower/Castle attack visuals
   TowerAttackTint = TileColor(r: 0.95, g: 0.70, b: 0.25, intensity: 1.10)
   CastleAttackTint = TileColor(r: 0.35, g: 0.25, b: 0.85, intensity: 1.15)
   TowerAttackTintDuration = 2'i8
   CastleAttackTintDuration = 3'i8
+
+  # Aura tints and radii
   TankAuraTint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.05)
   MonkAuraTint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.05)
   TankAuraTintDuration = 1'i8
@@ -50,6 +53,24 @@ const
   ManAtArmsAuraRadius = 1
   KnightAuraRadius = 2
   MonkAuraRadius = 2
+
+  # Mill and spawner behavior
+  MillFertileCooldown = 10
+  MaxTumorsPerSpawner = 3
+  TumorSpawnCooldownBase = 20.0
+  TumorSpawnDisabledCooldown = 1000
+
+  # Wildlife movement probabilities
+  CowHerdFollowChance = 0.6
+  CowRandomMoveChance = 0.08
+  WolfPackFollowChance = 0.55
+  WolfRandomMoveChance = 0.1
+  WolfScatteredMoveChance = 0.4
+  BearRandomMoveChance = 0.12
+
+  # Temple cooldowns
+  TempleInteractionCooldown = 12
+  TempleHybridCooldown = 25
 
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
@@ -982,7 +1003,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               teamId: getTeamId(agent),
               pos: thing.pos
             )
-            thing.cooldown = 12
+            thing.cooldown = TempleInteractionCooldown
             used = true
         of Wall, Door:
           # Repair damaged walls and doors when friendly agent interacts
@@ -1511,7 +1532,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         thing.cooldown -= 1
       else:
         env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
-        thing.cooldown = 10
+        thing.cooldown = MillFertileCooldown
     elif thing.kind == GuardTower:
       env.stepTryTowerAttack(thing, GuardTowerRange, towerRemovals)
     elif thing.kind == Castle:
@@ -1541,8 +1562,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               inc nearbyTumorCount
 
         # Spawn a new Tumor with reasonable limits to prevent unbounded growth
-        let maxTumorsPerSpawner = 3  # Keep only a few active tumors near the spawner
-        if nearbyTumorCount < maxTumorsPerSpawner:
+        if nearbyTumorCount < MaxTumorsPerSpawner:
           # Find first empty position (no allocation)
           let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
           if spawnPos.x >= 0:
@@ -1554,9 +1574,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             # Reset spawner cooldown based on spawn rate
             # Convert spawn rate (0.0-1.0) to cooldown steps (higher rate = lower cooldown)
             let cooldown = if env.config.tumorSpawnRate > 0.0:
-              max(1, int(20.0 / env.config.tumorSpawnRate))  # Base 20 steps, scaled by rate
+              max(1, int(TumorSpawnCooldownBase / env.config.tumorSpawnRate))
             else:
-              1000  # Very long cooldown if spawn disabled
+              TumorSpawnDisabledCooldown
             thing.cooldown = cooldown
     elif thing.kind == Cow:
       let herd = thing.herdId
@@ -1747,9 +1767,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     var desired = ivec2(0, 0)
     if dist > 1:
       desired = stepToward(thing.pos, herdTarget)
-    elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.6:
+    elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < CowHerdFollowChance:
       desired = stepToward(thing.pos, herdTarget)
-    elif randFloat(stepRng) < 0.08:
+    elif randFloat(stepRng) < CowRandomMoveChance:
       desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
     tryStep(thing, desired)
@@ -1762,7 +1782,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if thing.scatteredSteps > 0:
       thing.scatteredSteps -= 1
       # Scattered wolves wander randomly
-      if randFloat(stepRng) < 0.4:
+      if randFloat(stepRng) < WolfScatteredMoveChance:
         let desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
         tryStep(thing, desired)
       continue
@@ -1781,9 +1801,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       let distToTarget = max(abs(packTarget.x - thing.pos.x), abs(packTarget.y - thing.pos.y))
       if distToTarget > 1:
         desired = stepToward(thing.pos, packTarget)
-    elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < 0.55:
+    elif (drift.x != 0 or drift.y != 0) and randFloat(stepRng) < WolfPackFollowChance:
       desired = stepToward(thing.pos, center + drift * 3)
-    elif randFloat(stepRng) < 0.1:
+    elif randFloat(stepRng) < WolfRandomMoveChance:
       desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
     tryStep(thing, desired)
@@ -1797,7 +1817,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       let dist = max(abs(target.x - thing.pos.x), abs(target.y - thing.pos.y))
       if dist > 1:
         desired = stepToward(thing.pos, target)
-    elif randFloat(stepRng) < 0.12:
+    elif randFloat(stepRng) < BearRandomMoveChance:
       desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
     tryStep(thing, desired)
@@ -2076,7 +2096,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       teamId: teamId,
       pos: temple.pos
     )
-    temple.cooldown = 25
+    temple.cooldown = TempleHybridCooldown
 
   when defined(stepTiming):
     if timing:
