@@ -358,6 +358,95 @@ suite "Mechanics - Siege":
     check wall.hp < WallMaxHp
     check enemy.hp == enemyHp
 
+suite "Mechanics - Construction":
+  test "villager working on construction increases hp":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Create a wall under construction (hp=1, maxHp=10)
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: 0)
+    wall.hp = 1
+    wall.maxHp = WallMaxHp  # 10
+    env.add(wall)
+
+    # Villager "uses" the construction site
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, wall.pos))
+
+    # With 1 builder, base gain is ConstructionHpPerAction * 1.0 = 1
+    check wall.hp == 2
+
+  test "multiple builders increase construction speed":
+    let env = makeEmptyEnv()
+    # Add two villagers adjacent to construction site
+    # Wall at (10, 9), agent1 at (10, 10), agent2 at (9, 9) - both adjacent
+    let agent1 = addAgentAt(env, 0, ivec2(10, 10))
+    let agent2 = addAgentAt(env, 1, ivec2(9, 9))
+
+    # Create a wall under construction
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: 0)
+    wall.hp = 1
+    wall.maxHp = WallMaxHp
+    env.add(wall)
+
+    # Both villagers work on construction in same step
+    while env.agents.len < MapAgents:
+      let nextId = env.agents.len
+      let a = Thing(kind: Agent, pos: ivec2(-1, -1), agentId: nextId)
+      env.add(a)
+      env.terminated[nextId] = 1.0
+
+    var actions: array[MapAgents, uint8]
+    for i in 0 ..< MapAgents:
+      actions[i] = 0
+    actions[agent1.agentId] = encodeAction(3'u8, dirIndex(agent1.pos, wall.pos).uint8)
+    actions[agent2.agentId] = encodeAction(3'u8, dirIndex(agent2.pos, wall.pos).uint8)
+    env.step(addr actions)
+
+    # With 2 builders: gain = ConstructionHpPerAction * 1.5 = 1.5, rounded to 2
+    check wall.hp == 3  # Started at 1, gained 2
+
+  test "construction completes when hp reaches maxHp":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Create a wall nearly complete
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: 0)
+    wall.hp = WallMaxHp - 1  # 9 hp, needs 1 more
+    wall.maxHp = WallMaxHp
+    env.add(wall)
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, wall.pos))
+
+    check wall.hp == WallMaxHp  # Completed
+
+  test "non-villager cannot contribute to construction":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitArcher)
+    applyUnitClass(agent, UnitArcher)
+
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: 0)
+    wall.hp = 1
+    wall.maxHp = WallMaxHp
+    env.add(wall)
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, wall.pos))
+
+    # Non-villager should not contribute to construction
+    check wall.hp == 1
+
+  test "cannot contribute to enemy construction":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Create enemy team wall under construction
+    let wall = Thing(kind: Wall, pos: ivec2(10, 9), teamId: MapAgentsPerTeam)  # Different team
+    wall.hp = 1
+    wall.maxHp = WallMaxHp
+    env.add(wall)
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, wall.pos))
+
+    # Should not contribute to enemy construction
+    check wall.hp == 1
+
 suite "AI - Gatherer":
   test "drops off carried wood":
     let env = makeEmptyEnv()

@@ -1011,9 +1011,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             thing.cooldown = TempleInteractionCooldown
             used = true
         of Wall, Door:
-          # Repair damaged walls and doors when friendly agent interacts
-          if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp:
-            thing.hp = min(thing.maxHp, thing.hp + 1)
+          # Construction/repair: villagers can work on walls and doors
+          if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp and
+             agent.unitClass == UnitVillager:
+            # Register this builder for the multi-builder bonus
+            constructionBuilders.mgetOrPut(thing.pos, 0) += 1
             used = true
         else:
           if isBuildingKind(thing.kind):
