@@ -410,6 +410,9 @@ type
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
 
+    # Tint tracking:
+    lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
+
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
 const
