@@ -221,6 +221,9 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
                        state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint8] =
   if controller.getBuildingCount(env, teamId, kind) != 0:
     return (false, 0'u8)
+  # Check if another builder has already claimed this building type this step
+  if controller.isBuildingClaimed(teamId, kind):
+    return (false, 0'u8)
   let idx = buildIndexFor(kind)
   if idx < 0:
     return (false, 0'u8)
@@ -229,6 +232,8 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
   if costs.len == 0:
     return (false, 0'u8)
   if choosePayment(env, agent, costs) == PayNone:
+    # Can't afford yet - claim and gather resources so other builders don't duplicate
+    controller.claimBuilding(teamId, kind)
     for cost in costs:
       case stockpileResourceForItem(cost.key)
       of ResourceWood:
@@ -245,6 +250,8 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
 
   let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
   if didAdjacent:
+    # Claim the building so other builders don't try to build the same thing
+    controller.claimBuilding(teamId, kind)
     return (didAdjacent, actAdjacent)
 
   let anchor =
@@ -289,9 +296,14 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
           standPos = stand
         break
   if buildPos.x >= 0:
+    # Claim the building so other builders don't try to build the same thing
+    controller.claimBuilding(teamId, kind)
     return goToStandAndBuild(controller, env, agent, agentId, state,
       standPos, buildPos, idx)
-  return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  let (didBuild, actBuild) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  if didBuild:
+    controller.claimBuilding(teamId, kind)
+  return (didBuild, actBuild)
 
 proc needsPopCapHouse(env: Environment, teamId: int): bool =
   var popCount = 0

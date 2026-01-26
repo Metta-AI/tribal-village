@@ -100,6 +100,7 @@ type
     agentsInitialized: array[MapAgents, bool]
     buildingCountsStep: int
     buildingCounts: array[MapRoomObjectsTeams, array[ThingKind, int]]
+    claimedBuildings: array[MapRoomObjectsTeams, set[ThingKind]]  # Buildings claimed by builders this step
     pathCache*: PathfindingCache  # Pre-allocated pathfinding scratch space
 
 proc newController*(seed: int): Controller =
@@ -368,6 +369,9 @@ proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kin
   if controller.buildingCountsStep != env.currentStep:
     controller.buildingCountsStep = env.currentStep
     controller.buildingCounts = default(array[MapRoomObjectsTeams, array[ThingKind, int]])
+    # Clear claimed buildings at start of new step - claims are per-step to prevent
+    # multiple builders from trying to build the same building type in the same step
+    controller.claimedBuildings = default(array[MapRoomObjectsTeams, set[ThingKind]])
     for thing in env.things:
       if thing.isNil:
         continue
@@ -377,6 +381,18 @@ proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kin
         continue
       controller.buildingCounts[thing.teamId][thing.kind] += 1
   controller.buildingCounts[teamId][kind]
+
+proc isBuildingClaimed*(controller: Controller, teamId: int, kind: ThingKind): bool =
+  ## Check if a building type is claimed by another builder this step.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  kind in controller.claimedBuildings[teamId]
+
+proc claimBuilding*(controller: Controller, teamId: int, kind: ThingKind) =
+  ## Claim a building type so other builders don't try to build the same thing.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  controller.claimedBuildings[teamId].incl(kind)
 
 proc canAffordBuild*(env: Environment, agent: Thing, key: ItemKey): bool =
   let costs = buildCostsForKey(key)
