@@ -97,12 +97,9 @@ proc killAgent(env: Environment, victim: Thing) =
   if relicCount > 0:
     setInv(victim, ItemRelic, 0)
   var dropInv = emptyInventory()
-  var hasItems = false
   for key, count in victim.inventory.pairs:
-    if count > 0:
-      dropInv[key] = count
-      hasItems = true
-  let corpse = Thing(kind: (if hasItems: Corpse else: Skeleton), pos: deathPos)
+    dropInv[key] = count
+  let corpse = Thing(kind: (if dropInv.len > 0: Corpse else: Skeleton), pos: deathPos)
   corpse.inventory = dropInv
   env.add(corpse)
 
