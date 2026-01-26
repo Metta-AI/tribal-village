@@ -64,8 +64,7 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
 
     if fileExists(ActionsFile):
       try:
-        let content = readFile(ActionsFile)
-        let lines = content.replace("\r", "").replace("\n\n", "\n").split("\n")
+        let lines = readFile(ActionsFile).replace("\r", "").replace("\n\n", "\n").split("\n")
         if lines.len >= MapAgents:
           var fileActions: array[MapAgents, uint8]
           for i in 0 ..< MapAgents:
@@ -75,10 +74,7 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
             elif parts.len == 1 and parts[0].len > 0:
               fileActions[i] = parseInt(parts[0]).uint8
 
-          try:
-            removeFile(ActionsFile)
-          except OSError:
-            discard
+          discard tryRemoveFile(ActionsFile)
 
           return fileActions
       except CatchableError:

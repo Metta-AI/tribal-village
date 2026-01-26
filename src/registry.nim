@@ -229,7 +229,7 @@ let ItemCatalog* = block:
   reg
 
 proc terrainSpriteKey*(terrain: TerrainType): string =
-  if terrain == Empty:
+  if terrain == Empty or isRampTerrain(terrain):
     return ""
   if terrain in RampTerrain:
     return ""
