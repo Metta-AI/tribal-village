@@ -1,6 +1,7 @@
 # This file is included by src/environment.nim
 import std/math
 import replay_writer
+
 proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   ## Create a new Tumor seed that can branch once before turning inert
   Thing(
@@ -682,6 +683,235 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       ))
       inc scatterPlaced
 
+proc placeStartingTownCenter(env: Environment, center: IVec2, teamId: int,
+                              rng: var Rand): IVec2 =
+  ## Place a town center near the altar for a team's starting village.
+  var candidates: seq[IVec2] = @[]
+  for dx in -3 .. 3:
+    for dy in -3 .. 3:
+      let dist = max(abs(dx), abs(dy))
+      if dist == 0 or dist > 3:
+        continue
+      let pos = center + ivec2(dx.int32, dy.int32)
+      # Skip corners where resource buildings go
+      if pos == center + ivec2(2, -2) or pos == center + ivec2(2, 2) or
+          pos == center + ivec2(-2, 2) or pos == center + ivec2(-2, -2):
+        continue
+      candidates.add(pos)
+  # Shuffle candidates for variety
+  for i in countdown(candidates.len - 1, 1):
+    let j = randIntInclusive(rng, 0, i)
+    swap(candidates[i], candidates[j])
+  for pos in candidates:
+    if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
+      continue
+    if not clearTreeElseSkip(env, pos):
+      continue
+    if env.hasDoor(pos) or not env.isEmpty(pos):
+      continue
+    env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
+    return pos
+  # Fallback: place directly east if possible
+  let fallback = center + ivec2(1, 0)
+  if isValidPos(fallback) and env.isEmpty(fallback) and
+      env.terrain[fallback.x][fallback.y] != Water and not env.hasDoor(fallback):
+    env.add(Thing(kind: TownCenter, pos: fallback, teamId: teamId))
+    return fallback
+  center
+
+proc placeStartingRoads(env: Environment, center: IVec2, teamId: int,
+                         rng: var Rand) =
+  ## Connect team buildings with roads extending from village center.
+  proc placeRoad(pos: IVec2) =
+    if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or env.hasDoor(pos):
+      return
+    if not clearTreeElseSkip(env, pos):
+      return
+    if env.terrain[pos.x][pos.y] != Road:
+      setTerrain(env, pos, Road)
+
+  var anchors: seq[IVec2] = @[center]
+  for thing in env.things:
+    if thing.teamId != teamId:
+      continue
+    if thing.kind notin {TownCenter, House, Granary, LumberCamp, Quarry, MiningCamp, Mill}:
+      continue
+    let dist = max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y))
+    if dist <= 7:
+      anchors.add(thing.pos)
+
+  # Connect anchors to center with L-shaped roads
+  for anchor in anchors:
+    if anchor == center:
+      continue
+    var pos = center
+    while pos.x != anchor.x:
+      let delta = anchor.x - pos.x
+      pos.x += (if delta < 0: -1 elif delta > 0: 1 else: 0)
+      placeRoad(pos)
+    while pos.y != anchor.y:
+      let delta = anchor.y - pos.y
+      pos.y += (if delta < 0: -1 elif delta > 0: 1 else: 0)
+      placeRoad(pos)
+
+  # Track road extents
+  var maxEast, maxWest, maxSouth, maxNorth = 0
+  for anchor in anchors:
+    let dx = (anchor.x - center.x).int
+    let dy = (anchor.y - center.y).int
+    if dx > maxEast: maxEast = dx
+    if dx < 0 and -dx > maxWest: maxWest = -dx
+    if dy > maxSouth: maxSouth = dy
+    if dy < 0 and -dy > maxNorth: maxNorth = -dy
+
+  # Extend roads beyond buildings
+  for (dir, baseDist) in [(ivec2(1, 0), maxEast), (ivec2(-1, 0), maxWest),
+                          (ivec2(0, 1), maxSouth), (ivec2(0, -1), maxNorth)]:
+    let extra = randIntInclusive(rng, 3, 4)
+    for step in 1 .. baseDist + extra:
+      let pos = center + ivec2(dir.x.int32 * step.int32, dir.y.int32 * step.int32)
+      placeRoad(pos)
+
+proc placeStartingResourceBuildings(env: Environment, center: IVec2, teamId: int) =
+  ## Place starting resource buildings at corners around the altar.
+  for entry in [
+    (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),
+    (offset: ivec2(2, 2), kind: Granary, res: ResourceFood),
+    (offset: ivec2(-2, 2), kind: Quarry, res: ResourceStone),
+    (offset: ivec2(-2, -2), kind: MiningCamp, res: ResourceGold)
+  ]:
+    var placed = false
+    for radius in 0 .. 2:
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          if radius > 0 and max(abs(dx), abs(dy)) != radius:
+            continue
+          let pos = center + entry.offset + ivec2(dx.int32, dy.int32)
+          if not isValidPos(pos) or isBlockedForPlacement(env, pos) or env.hasDoor(pos):
+            continue
+          if not clearTreeElseSkip(env, pos):
+            continue
+          if not env.isEmpty(pos):
+            continue
+          let building = Thing(kind: entry.kind, pos: pos, teamId: teamId)
+          let capacity = buildingBarrelCapacity(entry.kind)
+          if capacity > 0:
+            building.barrelCapacity = capacity
+          env.add(building)
+          env.teamStockpiles[teamId].counts[entry.res] =
+            max(env.teamStockpiles[teamId].counts[entry.res], 5)
+          placed = true
+          break
+        if placed: break
+      if placed: break
+
+proc findResourceSpot(env: Environment, center: IVec2, rng: var Rand,
+                      minRadius, maxRadius: int,
+                      allowedTerrain: set[TerrainType]): IVec2 =
+  ## Find a valid spot for resource placement within radius of center.
+  for attempt in 0 ..< 40:
+    let dx = randIntInclusive(rng, -maxRadius, maxRadius)
+    let dy = randIntInclusive(rng, -maxRadius, maxRadius)
+    let dist = max(abs(dx), abs(dy))
+    if dist < minRadius or dist > maxRadius:
+      continue
+    let pos = center + ivec2(dx.int32, dy.int32)
+    if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+        not env.isSpawnable(pos):
+      continue
+    return pos
+  # Extended search with larger radius
+  for attempt in 0 ..< 40:
+    let radius = maxRadius + 4
+    let dx = randIntInclusive(rng, -radius, radius)
+    let dy = randIntInclusive(rng, -radius, radius)
+    let dist = max(abs(dx), abs(dy))
+    if dist < minRadius or dist > radius:
+      continue
+    let pos = center + ivec2(dx.int32, dy.int32)
+    if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
+        not env.isSpawnable(pos):
+      continue
+    return pos
+  ivec2(-1, -1)
+
+proc placeStartingResourceNodes(env: Environment, center: IVec2, rng: var Rand) =
+  ## Place starting resource clusters (wood, food, stone, gold, magma) near village.
+  # Wood cluster
+  var woodSpot = findResourceSpot(env, center, rng, 6, 12, ResourceGround)
+  if woodSpot.x < 0:
+    woodSpot = rng.randomEmptyPos(env)
+  placeResourceCluster(env, woodSpot.x, woodSpot.y,
+    randIntInclusive(rng, 5, 8), 0.85, 0.4, Tree, ItemWood, ResourceGround, rng)
+
+  # Food cluster
+  var foodSpot = findResourceSpot(env, center, rng, 5, 11, ResourceGround)
+  if foodSpot.x < 0:
+    foodSpot = rng.randomEmptyPos(env)
+  placeResourceCluster(env, foodSpot.x, foodSpot.y,
+    randIntInclusive(rng, 4, 7), 0.85, 0.35, Wheat, ItemWheat, ResourceGround, rng)
+
+  # Stone cluster
+  block:
+    let count = randIntInclusive(rng, 3, 4)
+    var spot = findResourceSpot(env, center, rng, 7, 14, ResourceGround)
+    if spot.x < 0:
+      spot = rng.randomEmptyPos(env)
+    addResourceNode(env, spot, Stone, ItemStone, MineDepositAmount)
+    if count > 1:
+      var candidates = env.findEmptyPositionsAround(spot, 2)
+      let toPlace = min(count - 1, candidates.len)
+      for i in 0 ..< toPlace:
+        addResourceNode(env, candidates[i], Stone, ItemStone, MineDepositAmount)
+
+  # Gold cluster
+  block:
+    let count = randIntInclusive(rng, 3, 4)
+    var spot = findResourceSpot(env, center, rng, 8, 15, ResourceGround)
+    if spot.x < 0:
+      spot = rng.randomEmptyPos(env)
+    addResourceNode(env, spot, Gold, ItemGold, MineDepositAmount)
+    if count > 1:
+      var candidates = env.findEmptyPositionsAround(spot, 2)
+      let toPlace = min(count - 1, candidates.len)
+      for i in 0 ..< toPlace:
+        addResourceNode(env, candidates[i], Gold, ItemGold, MineDepositAmount)
+
+  # Magma cluster
+  block:
+    var spot = findResourceSpot(env, center, rng, 9, 16, ResourceGround)
+    if spot.x < 0:
+      spot = rng.randomEmptyPos(env)
+    if env.isSpawnable(spot) and env.terrain[spot.x][spot.y] in ResourceGround:
+      env.add(Thing(kind: Magma, pos: spot))
+    var candidates = env.findEmptyPositionsAround(spot, 2)
+    let extraCount = randIntInclusive(rng, 1, 2)
+    let toPlace = min(extraCount, candidates.len)
+    for i in 0 ..< toPlace:
+      let pos = candidates[i]
+      if env.isSpawnable(pos) and env.terrain[pos.x][pos.y] in ResourceGround:
+        env.add(Thing(kind: Magma, pos: pos))
+
+proc placeStartingHouses(env: Environment, center: IVec2, teamId: int,
+                          rng: var Rand) =
+  ## Place starting houses around the village center.
+  let count = randIntInclusive(rng, 4, 5)
+  var placed = 0
+  var attempts = 0
+  while placed < count and attempts < 120:
+    inc attempts
+    let dx = randIntInclusive(rng, -5, 5)
+    let dy = randIntInclusive(rng, -5, 5)
+    let dist = max(abs(dx), abs(dy))
+    if dist < 3 or dist > 5:
+      continue
+    let pos = center + ivec2(dx.int32, dy.int32)
+    if not isValidPos(pos) or env.hasDoor(pos) or not env.isEmpty(pos) or
+        isBlockedForPlacement(env, pos):
+      continue
+    env.add(Thing(kind: House, pos: pos, teamId: teamId))
+    inc placed
+
 proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
   const TempleMinDistance = 10
   let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
@@ -722,221 +952,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
   var totalAgentsSpawned = 0
   let totalTeamAgentCap = MapRoomObjectsTeams * MapAgentsPerTeam
   var villageCenters: seq[IVec2] = @[]
-  proc placeStartingTownCenter(center: IVec2, teamId: int, rng: var Rand): IVec2 =
-    var candidates: seq[IVec2] = @[]
-    for dx in -3 .. 3:
-      for dy in -3 .. 3:
-        let dist = max(abs(dx), abs(dy))
-        if dist == 0 or dist > 3:
-          continue
-        let pos = center + ivec2(dx.int32, dy.int32)
-        if pos == center + ivec2(2, -2) or pos == center + ivec2(2, 2) or
-            pos == center + ivec2(-2, 2) or pos == center + ivec2(-2, -2):
-          continue
-        candidates.add(pos)
-    for i in countdown(candidates.len - 1, 1):
-      let j = randIntInclusive(rng, 0, i)
-      swap(candidates[i], candidates[j])
-    for pos in candidates:
-      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
-        continue
-      if not clearTreeElseSkip(env, pos):
-        continue
-      if env.hasDoor(pos) or not env.isEmpty(pos):
-        continue
-      env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
-      return pos
-    # Fallback: place directly east if possible.
-    let fallback = center + ivec2(1, 0)
-    if isValidPos(fallback) and env.isEmpty(fallback) and env.terrain[fallback.x][fallback.y] != Water and not env.hasDoor(fallback):
-      env.add(Thing(kind: TownCenter, pos: fallback, teamId: teamId))
-      return fallback
-    center
-  proc placeStartingRoads(center: IVec2, teamId: int, rng: var Rand) =
-    proc placeRoad(pos: IVec2) =
-      if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water or env.hasDoor(pos):
-        return
-      if not clearTreeElseSkip(env, pos):
-        return
-      if env.terrain[pos.x][pos.y] != Road:
-        setTerrain(env, pos, Road)
 
-    var anchors: seq[IVec2] = @[center]
-    for thing in env.things:
-      if thing.teamId != teamId:
-        continue
-      if thing.kind notin {TownCenter, House, Granary, LumberCamp, Quarry, MiningCamp, Mill}:
-        continue
-      let dist = max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y))
-      if dist <= 7:
-        anchors.add(thing.pos)
-
-    for anchor in anchors:
-      if anchor == center:
-        continue
-      var pos = center
-      while pos.x != anchor.x:
-        let delta = anchor.x - pos.x
-        pos.x += (if delta < 0: -1 elif delta > 0: 1 else: 0)
-        placeRoad(pos)
-      while pos.y != anchor.y:
-        let delta = anchor.y - pos.y
-        pos.y += (if delta < 0: -1 elif delta > 0: 1 else: 0)
-        placeRoad(pos)
-
-    var maxEast = 0
-    var maxWest = 0
-    var maxSouth = 0
-    var maxNorth = 0
-    for anchor in anchors:
-      let dx = (anchor.x - center.x).int
-      let dy = (anchor.y - center.y).int
-      if dx > maxEast: maxEast = dx
-      if dx < 0 and -dx > maxWest: maxWest = -dx
-      if dy > maxSouth: maxSouth = dy
-      if dy < 0 and -dy > maxNorth: maxNorth = -dy
-
-    for (dir, baseDist) in [(ivec2(1, 0), maxEast), (ivec2(-1, 0), maxWest),
-                            (ivec2(0, 1), maxSouth), (ivec2(0, -1), maxNorth)]:
-      let extra = randIntInclusive(rng, 3, 4)
-      for step in 1 .. baseDist + extra:
-        let pos = center + ivec2(dir.x.int32 * step.int32, dir.y.int32 * step.int32)
-        placeRoad(pos)
-
-  proc placeStartingResourceBuildings(center: IVec2, teamId: int) =
-    for entry in [
-      (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),   # Lumber Camp
-      (offset: ivec2(2, 2), kind: Granary, res: ResourceFood),       # Granary
-      (offset: ivec2(-2, 2), kind: Quarry, res: ResourceStone),      # Quarry
-      (offset: ivec2(-2, -2), kind: MiningCamp, res: ResourceGold)   # Mining Camp
-    ]:
-      var placed = false
-      for radius in 0 .. 2:
-        for dx in -radius .. radius:
-          for dy in -radius .. radius:
-            if radius > 0 and max(abs(dx), abs(dy)) != radius:
-              continue
-            let pos = center + entry.offset + ivec2(dx.int32, dy.int32)
-            if not isValidPos(pos) or isBlockedForPlacement(env, pos) or env.hasDoor(pos):
-              continue
-            if not clearTreeElseSkip(env, pos):
-              continue
-            if not env.isEmpty(pos):
-              continue
-            let building = Thing(
-              kind: entry.kind,
-              pos: pos,
-              teamId: teamId
-            )
-            let capacity = buildingBarrelCapacity(entry.kind)
-            if capacity > 0:
-              building.barrelCapacity = capacity
-            env.add(building)
-            env.teamStockpiles[teamId].counts[entry.res] =
-              max(env.teamStockpiles[teamId].counts[entry.res], 5)
-            placed = true
-            break
-          if placed: break
-        if placed: break
-
-  proc placeStartingResourceNodes(center: IVec2, rng: var Rand) =
-    proc findSpot(rng: var Rand, minRadius, maxRadius: int, allowedTerrain: set[TerrainType]): IVec2 =
-      for attempt in 0 ..< 40:
-        let dx = randIntInclusive(rng, -maxRadius, maxRadius)
-        let dy = randIntInclusive(rng, -maxRadius, maxRadius)
-        let dist = max(abs(dx), abs(dy))
-        if dist < minRadius or dist > maxRadius:
-          continue
-        let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
-            not env.isSpawnable(pos):
-          continue
-        return pos
-      for attempt in 0 ..< 40:
-        let radius = maxRadius + 4
-        let dx = randIntInclusive(rng, -radius, radius)
-        let dy = randIntInclusive(rng, -radius, radius)
-        let dist = max(abs(dx), abs(dy))
-        if dist < minRadius or dist > radius:
-          continue
-        let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos) or env.terrain[pos.x][pos.y] notin allowedTerrain or
-            not env.isSpawnable(pos):
-          continue
-        return pos
-      ivec2(-1, -1)
-
-    var woodSpot = findSpot(rng, 6, 12, ResourceGround)
-    if woodSpot.x < 0:
-      woodSpot = rng.randomEmptyPos(env)
-    placeResourceCluster(env, woodSpot.x, woodSpot.y,
-      randIntInclusive(rng, 5, 8), 0.85, 0.4, Tree, ItemWood, ResourceGround, rng)
-
-    var foodSpot = findSpot(rng, 5, 11, ResourceGround)
-    if foodSpot.x < 0:
-      foodSpot = rng.randomEmptyPos(env)
-    placeResourceCluster(env, foodSpot.x, foodSpot.y,
-      randIntInclusive(rng, 4, 7), 0.85, 0.35, Wheat, ItemWheat, ResourceGround, rng)
-
-    block:
-      let count = randIntInclusive(rng, 3, 4)
-      var spot = findSpot(rng, 7, 14, ResourceGround)
-      if spot.x < 0:
-        spot = rng.randomEmptyPos(env)
-      addResourceNode(env, spot, Stone, ItemStone, MineDepositAmount)
-      if count > 1:
-        var candidates = env.findEmptyPositionsAround(spot, 2)
-        let toPlace = min(count - 1, candidates.len)
-        for i in 0 ..< toPlace:
-          addResourceNode(env, candidates[i], Stone, ItemStone, MineDepositAmount)
-
-    block:
-      let count = randIntInclusive(rng, 3, 4)
-      var spot = findSpot(rng, 8, 15, ResourceGround)
-      if spot.x < 0:
-        spot = rng.randomEmptyPos(env)
-      addResourceNode(env, spot, Gold, ItemGold, MineDepositAmount)
-      if count > 1:
-        var candidates = env.findEmptyPositionsAround(spot, 2)
-        let toPlace = min(count - 1, candidates.len)
-        for i in 0 ..< toPlace:
-          addResourceNode(env, candidates[i], Gold, ItemGold, MineDepositAmount)
-
-    block:
-      var spot = findSpot(rng, 9, 16, ResourceGround)
-      if spot.x < 0:
-        spot = rng.randomEmptyPos(env)
-      if env.isSpawnable(spot) and env.terrain[spot.x][spot.y] in ResourceGround:
-        env.add(Thing(kind: Magma, pos: spot))
-      var candidates = env.findEmptyPositionsAround(spot, 2)
-      let extraCount = randIntInclusive(rng, 1, 2)
-      let toPlace = min(extraCount, candidates.len)
-      for i in 0 ..< toPlace:
-        let pos = candidates[i]
-        if env.isSpawnable(pos) and env.terrain[pos.x][pos.y] in ResourceGround:
-          env.add(Thing(kind: Magma, pos: pos))
-
-  proc placeStartingHouses(center: IVec2, teamId: int, rng: var Rand) =
-    let count = randIntInclusive(rng, 4, 5)
-    var placed = 0
-    var attempts = 0
-    while placed < count and attempts < 120:
-      inc attempts
-      let dx = randIntInclusive(rng, -5, 5)
-      let dy = randIntInclusive(rng, -5, 5)
-      let dist = max(abs(dx), abs(dy))
-      if dist < 3 or dist > 5:
-        continue
-      let pos = center + ivec2(dx.int32, dy.int32)
-      if not isValidPos(pos) or env.hasDoor(pos) or not env.isEmpty(pos) or
-          isBlockedForPlacement(env, pos):
-        continue
-      env.add(Thing(
-        kind: House,
-        pos: pos,
-        teamId: teamId
-      ))
-      inc placed
   doAssert WarmTeamPalette.len >= numTeams,
     "WarmTeamPalette must cover all base colors without reuse."
   for i in 0 ..< numTeams:
@@ -1021,7 +1037,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
       villageCenters.add(elements.center)
       env.altarColors[elements.center] = teamColor  # Associate altar position with team color
 
-      discard placeStartingTownCenter(elements.center, teamId, rng)
+      discard placeStartingTownCenter(env, elements.center, teamId, rng)
 
       # Initialize base colors for village tiles to team color
       for dx in 0 ..< villageStruct.width:
@@ -1040,10 +1056,10 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
             )
 
       # Add nearby village resources first, then connect roads between them.
-      placeStartingResourceBuildings(elements.center, teamId)
-      placeStartingHouses(elements.center, teamId, rng)
-      placeStartingRoads(elements.center, teamId, rng)
-      placeStartingResourceNodes(elements.center, rng)
+      placeStartingResourceBuildings(env, elements.center, teamId)
+      placeStartingHouses(env, elements.center, teamId, rng)
+      placeStartingRoads(env, elements.center, teamId, rng)
+      placeStartingResourceNodes(env, elements.center, rng)
 
       # Add the walls
       for wallPos in elements.walls:
