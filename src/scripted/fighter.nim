@@ -197,6 +197,64 @@ proc evaluateEscapeRoute*(env: Environment, agent: Thing, dirIdx: int): float =
 
   score
 
+const
+  HealerSeekRadius = 30  # Max distance to search for friendly monks
+  MonkHealRadius = 2     # Distance to stay near monk for healing (matches MonkAuraRadius)
+
+proc findNearestFriendlyMonk(env: Environment, agent: Thing): Thing =
+  ## Find the nearest friendly monk to seek healing from.
+  let teamId = getTeamId(agent)
+  var bestMonk: Thing = nil
+  var bestDist = int.high
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) != teamId:
+      continue
+    if other.unitClass != UnitMonk:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > HealerSeekRadius:
+      continue
+    if dist < bestDist:
+      bestDist = dist
+      bestMonk = other
+  bestMonk
+
+proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  ## Seek healer when low HP and no bread available.
+  ## This is more targeted than generic retreat - actively seeks monk healing.
+  if agent.hp * 3 > agent.maxHp:  # Only when HP <= 33%
+    return false
+  if agent.inventoryBread > 0:  # Can self-heal with bread instead
+    return false
+  not isNil(findNearestFriendlyMonk(env, agent))
+
+proc shouldTerminateFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
+                                      agentId: int, state: var AgentState): bool =
+  ## Stop seeking healer when HP recovered or no monk available
+  if agent.hp * 3 > agent.maxHp:  # HP recovered above threshold
+    return true
+  if agent.inventoryBread > 0:  # Got bread, can self-heal
+    return true
+  isNil(findNearestFriendlyMonk(env, agent))  # No monk to seek
+
+proc optFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): uint8 =
+  ## Move toward the nearest friendly monk to benefit from their healing aura.
+  let monk = findNearestFriendlyMonk(env, agent)
+  if isNil(monk):
+    return 0'u8
+  let dist = int(chebyshevDist(agent.pos, monk.pos))
+  # Already within monk's healing aura - stay put and wait for healing
+  if dist <= MonkHealRadius:
+    return 0'u8
+  # Move toward the monk
+  controller.moveTo(env, agent, agentId, state, monk.pos)
+
 proc canStartFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
   agent.hp * 3 <= agent.maxHp
@@ -943,6 +1001,13 @@ let FighterOptions* = [
     interruptible: true
   ),
   EmergencyHealOption,
+  OptionDef(
+    name: "FighterSeekHealer",
+    canStart: canStartFighterSeekHealer,
+    shouldTerminate: shouldTerminateFighterSeekHealer,
+    act: optFighterSeekHealer,
+    interruptible: true
+  ),
   OptionDef(
     name: "FighterMonk",
     canStart: canStartFighterMonk,
