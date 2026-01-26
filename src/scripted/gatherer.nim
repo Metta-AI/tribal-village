@@ -11,6 +11,8 @@ const
   EarlyGameWeights = [0.5, 0.75, 1.0, 1.5]   # Food prioritized
   LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
   MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
+  # Anti-oscillation hysteresis: only switch task if difference exceeds threshold
+  TaskSwitchHysteresis = 5.0
 
 proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within flee radius
@@ -128,7 +130,21 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
     for i in 1 ..< ordered.len:
       if ordered[i][1] < best[1]:
         best = ordered[i]
-    task = best[0]
+    # Anti-oscillation hysteresis: only switch task if difference is significant
+    let currentTask = state.gathererTask
+    if currentTask != TaskHearts:  # Hearts task handled separately above
+      var currentScore = float.high
+      for item in ordered:
+        if item[0] == currentTask:
+          currentScore = item[1]
+          break
+      # Only switch if new best is significantly better than current
+      if best[1] >= currentScore - TaskSwitchHysteresis:
+        task = currentTask  # Keep current task
+      else:
+        task = best[0]
+    else:
+      task = best[0]
   state.gathererTask = task
 
 proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing,
