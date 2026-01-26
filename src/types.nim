@@ -259,6 +259,7 @@ type
     AgentUnitClassLayer       # Unit class enum + 1, 0 = none
     TintLayer                 # Action/combat tint codes
     ObscuredLayer             # 1 when target tile is above observer elevation
+    BiomeLayer                # BiomeType enum value (0=BiomeNone, 1=BiomeBaseType, etc.)
 
 const
   ## Legacy layer aliases used by existing update calls. These no longer map to

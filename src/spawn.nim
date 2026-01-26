@@ -181,7 +181,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
     template canPlaceOasisWater(pos: IVec2): bool =
       env.isSpawnable(pos) and env.terrain[pos.x][pos.y] notin {Road, Bridge}
 
-    proc carveTreeOasisWater(center: IVec2, rx, ry: int) =
+    proc carveTreeOasisWater(center: IVec2, rx, ry: int, r: var Rand) =
       let centerX = center.x.int
       let centerY = center.y.int
       for ox in -(rx + 1) .. (rx + 1):
@@ -196,13 +196,13 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
           let dx = ox.float / rx.float
           let dy = oy.float / ry.float
           let dist = dx * dx + dy * dy
-          if dist <= 1.0 + (randFloat(rng) - 0.5) * 0.35:
+          if dist <= 1.0 + (randFloat(r) - 0.5) * 0.35:
             setTerrain(env, waterPos, Water)
 
-      for _ in 0 ..< randIntInclusive(rng, 1, 2):
+      for _ in 0 ..< randIntInclusive(r, 1, 2):
         var pos = center
-        for _ in 0 ..< randIntInclusive(rng, 4, 10):
-          let dir = sample(rng, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
+        for _ in 0 ..< randIntInclusive(r, 4, 10):
+          let dir = sample(r, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
                                ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
           pos += dir
           if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
@@ -219,7 +219,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
       )
       let rx = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       let ry = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-      carveTreeOasisWater(pos, rx, ry)
+      carveTreeOasisWater(pos, rx, ry, rng)
       treeOases.add((center: pos, rx: rx, ry: ry))
   # Apply biome elevation (inlined)
   for x in 0 ..< MapWidth:
@@ -1226,17 +1226,17 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
   const GoblinHiveCount = 2
   var goblinHivePositions: seq[IVec2] = @[]
 
-  proc findGoblinHivePos(existing: seq[IVec2]): IVec2 =
+  proc findGoblinHivePos(e: Environment, r: var Rand, existing: seq[IVec2]): IVec2 =
     const HiveRadius = 2
     let minGoblinDist = DefaultSpawnerMinDistance
     let minGoblinDist2 = minGoblinDist * minGoblinDist
     let minHiveDist = max(4, DefaultSpawnerMinDistance div 2)
     let minHiveDist2 = minHiveDist * minHiveDist
     var center: IVec2
-    if tryPickEmptyPos(rng, env, 200, proc(candidate: IVec2, attempt: int): bool =
-      if env.terrain[candidate.x][candidate.y] == Water:
+    if tryPickEmptyPos(r, e, 200, proc(candidate: IVec2, attempt: int): bool =
+      if e.terrain[candidate.x][candidate.y] == Water:
         return false
-      for altar in env.thingsByKind[Altar]:
+      for altar in e.thingsByKind[Altar]:
         let dx = int(candidate.x) - int(altar.pos.x)
         let dy = int(candidate.y) - int(altar.pos.y)
         if dx * dx + dy * dy < minGoblinDist2:
@@ -1251,21 +1251,21 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
           let pos = candidate + ivec2(dx, dy)
           if not isValidPos(pos):
             return false
-          if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)) or
-              isBlockedTerrain(env.terrain[pos.x][pos.y]):
+          if not e.isEmpty(pos) or not isNil(e.getBackgroundThing(pos)) or
+              isBlockedTerrain(e.terrain[pos.x][pos.y]):
             return false
       true
     , center):
       for dx in -HiveRadius .. HiveRadius:
         for dy in -HiveRadius .. HiveRadius:
           let pos = center + ivec2(dx, dy)
-          if isValidPos(pos) and not isBlockedTerrain(env.terrain[pos.x][pos.y]):
-            setTerrain(env, pos, Empty)
+          if isValidPos(pos) and not isBlockedTerrain(e.terrain[pos.x][pos.y]):
+            setTerrain(e, pos, Empty)
       return center
-    var fallback = rng.randomEmptyPos(env)
+    var fallback = r.randomEmptyPos(e)
     var tries = 0
     while tries < 50:
-      var fallbackOk = env.terrain[fallback.x][fallback.y] != Water
+      var fallbackOk = e.terrain[fallback.x][fallback.y] != Water
       if fallbackOk:
         for hive in existing:
           let dx = int(fallback.x) - int(hive.x)
@@ -1275,13 +1275,13 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
             break
       if fallbackOk:
         break
-      fallback = rng.randomEmptyPos(env)
+      fallback = r.randomEmptyPos(e)
       inc tries
     fallback
 
   let goblinTint = color(0.35, 0.80, 0.35, 1.0)
   for hiveIndex in 0 ..< GoblinHiveCount:
-    let goblinHivePos = findGoblinHivePos(goblinHivePositions)
+    let goblinHivePos = findGoblinHivePos(env, rng, goblinHivePositions)
     goblinHivePositions.add(goblinHivePos)
     env.add(Thing(kind: GoblinHive, pos: goblinHivePos, teamId: -1))
 
@@ -1470,7 +1470,7 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
         placeResourceCluster(env, pos.x.int, pos.y.int, fieldSize + sizeDelta, density, 0.3,
           Wheat, ItemWheat, ResourceGround, rng)
 
-    proc placeTreeOasisTrees(oasis: TreeOasis) =
+    proc placeTreeOasisTrees(e: Environment, oasis: TreeOasis, r: var Rand) =
       let centerX = oasis.center.x.int
       let centerY = oasis.center.y.int
       for ox in -(oasis.rx + 2) .. (oasis.rx + 2):
@@ -1479,14 +1479,14 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
           let py = centerY + oy
           if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
             continue
-          if env.terrain[px][py] == Water:
+          if e.terrain[px][py] == Water:
             continue
           let pos = ivec2(px.int32, py.int32)
-          if isNearWater(env, pos, 1) and randChance(rng, 0.7) and env.terrain[px][py] in TreeGround:
-            addResourceNode(env, pos, Tree, ItemWood)
+          if isNearWater(e, pos, 1) and randChance(r, 0.7) and e.terrain[px][py] in TreeGround:
+            addResourceNode(e, pos, Tree, ItemWood)
 
     for oasis in treeOases:
-      placeTreeOasisTrees(oasis)
+      placeTreeOasisTrees(env, oasis, rng)
 
     if UseLegacyTreeClusters:
       let numGroves = randIntInclusive(rng, TreeGroveClusterCountMin, TreeGroveClusterCountMax)
@@ -1497,7 +1497,7 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
         let groveSize = randIntInclusive(rng, 3, 10)
         placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, rng)
 
-    proc buildClusterSizes(targetDeposits: int, clusterCount: int): seq[int] =
+    proc buildClusterSizes(r: var Rand, targetDeposits: int, clusterCount: int): seq[int] =
       let minCluster = 3
       let maxCluster = 4
       let minDeposits = clusterCount * minCluster
@@ -1508,30 +1508,30 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
         result[i] = minCluster
       var extras = clamped - minDeposits
       while extras > 0:
-        let clusterIdx = randIntInclusive(rng, 0, clusterCount - 1)
+        let clusterIdx = randIntInclusive(r, 0, clusterCount - 1)
         if result[clusterIdx] < maxCluster:
           inc result[clusterIdx]
           dec extras
 
-    proc placeMineClusters(depositKind: ThingKind, depositItem: ItemKey,
+    proc placeMineClusters(e: Environment, r: var Rand, depositKind: ThingKind, depositItem: ItemKey,
                            targetDeposits: int, clusterCount: int) =
       if targetDeposits <= 0 or clusterCount <= 0:
         return
-      let clusterSizes = buildClusterSizes(targetDeposits, clusterCount)
+      let clusterSizes = buildClusterSizes(r, targetDeposits, clusterCount)
       for clusterIndex in 0 ..< clusterSizes.len:
         let clusterSize = clusterSizes[clusterIndex]
-        let center = rng.randomEmptyPos(env)
+        let center = r.randomEmptyPos(e)
 
-        addResourceNode(env, center, depositKind, depositItem, MineDepositAmount)
+        addResourceNode(e, center, depositKind, depositItem, MineDepositAmount)
 
-        var candidates = gatherEmptyAround(env, center, 1, 2, clusterSize - 1)
+        var candidates = gatherEmptyAround(e, center, 1, 2, clusterSize - 1)
 
         let toPlace = min(clusterSize - 1, candidates.len)
         for i in 0 ..< toPlace:
-          addResourceNode(env, candidates[i], depositKind, depositItem, MineDepositAmount)
+          addResourceNode(e, candidates[i], depositKind, depositItem, MineDepositAmount)
 
-    placeMineClusters(Stone, ItemStone, MapRoomObjectsStoneClusters, MapRoomObjectsStoneClusterCount)
-    placeMineClusters(Gold, ItemGold, MapRoomObjectsGoldClusters, MapRoomObjectsGoldClusterCount)
+    placeMineClusters(env, rng, Stone, ItemStone, MapRoomObjectsStoneClusters, MapRoomObjectsStoneClusterCount)
+    placeMineClusters(env, rng, Gold, ItemGold, MapRoomObjectsGoldClusters, MapRoomObjectsGoldClusterCount)
 
     let fishClusters = max(8, MapWidth div 20)
     for _ in 0 ..< fishClusters:
@@ -1578,20 +1578,20 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
 
 proc initWildlife(env: Environment, rng: var Rand) =
   ## Spawn wildlife: cows, bears, and wolves.
-  proc chooseGroupSize(remaining, minSize, maxSize: int): int =
+  proc chooseGroupSize(r: var Rand, remaining, minSize, maxSize: int): int =
     if remaining <= maxSize:
       return remaining
-    result = randIntInclusive(rng, minSize, maxSize)
+    result = randIntInclusive(r, minSize, maxSize)
     let remainder = remaining - result
     if remainder > 0 and remainder < minSize:
       result -= (minSize - remainder)
 
-  proc collectGroupPositions(center: IVec2, radius: int): seq[IVec2] =
-    var positions = env.findEmptyPositionsAround(center, radius)
+  proc collectGroupPositions(e: Environment, center: IVec2, radius: int): seq[IVec2] =
+    var positions = e.findEmptyPositionsAround(center, radius)
     positions.insert(center, 0)
     result = @[]
     for pos in positions:
-      if env.terrain[pos.x][pos.y] == Empty and env.biomes[pos.x][pos.y] != BiomeDungeonType:
+      if e.terrain[pos.x][pos.y] == Empty and e.biomes[pos.x][pos.y] != BiomeDungeonType:
         result.add(pos)
 
 
@@ -1604,10 +1604,10 @@ proc initWildlife(env: Environment, rng: var Rand) =
     let center = rng.randomEmptyPos(env)
     if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
-    let filtered = collectGroupPositions(center, 3)
+    let filtered = collectGroupPositions(env, center, 3)
     if filtered.len < MinHerdSize:
       continue
-    let toPlace = min(chooseGroupSize(MapRoomObjectsCows - cowsPlaced, MinHerdSize, MaxHerdSize), filtered.len)
+    let toPlace = min(chooseGroupSize(rng, MapRoomObjectsCows - cowsPlaced, MinHerdSize, MaxHerdSize), filtered.len)
     for i in 0 ..< toPlace:
       let cow = Thing(
         kind: Cow,
@@ -1647,10 +1647,10 @@ proc initWildlife(env: Environment, rng: var Rand) =
     let center = rng.randomEmptyPos(env)
     if env.terrain[center.x][center.y] != Empty or env.biomes[center.x][center.y] == BiomeDungeonType:
       continue
-    let filtered = collectGroupPositions(center, 4)
+    let filtered = collectGroupPositions(env, center, 4)
     if filtered.len < WolfPackMinSize:
       continue
-    let toPlace = min(chooseGroupSize(MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize), filtered.len)
+    let toPlace = min(chooseGroupSize(rng, MapRoomObjectsWolves - wolvesPlaced, WolfPackMinSize, WolfPackMaxSize), filtered.len)
     var packLeader: Thing = nil
     for i in 0 ..< toPlace:
       let wolf = Thing(
