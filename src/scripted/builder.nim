@@ -1,7 +1,8 @@
 const
-  WallRingRadius = 7
+  WallRingBaseRadius = 5       # Starting radius for small villages
+  WallRingMaxRadius = 12       # Maximum wall ring radius
+  WallRingBuildingsPerRadius = 4  # Buildings needed to increase radius by 1
   WallRingRadiusSlack = 1
-  WallRingRadii = [WallRingRadius, WallRingRadius - WallRingRadiusSlack, WallRingRadius + WallRingRadiusSlack]
   WallRingMaxDoors = 2
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
@@ -16,6 +17,19 @@ const
   ]
   BuilderThreatRadius* = 15  # Distance from home altar to consider "under threat"
   BuilderFleeRadius* = 8    # Radius at which builders flee from enemies (same as gatherer)
+
+proc getTotalBuildingCount(controller: Controller, env: Environment, teamId: int): int =
+  ## Count total buildings for a team using the public getBuildingCount API.
+  for kind in ThingKind:
+    if isBuildingKind(kind):
+      result += controller.getBuildingCount(env, teamId, kind)
+
+proc calculateWallRingRadius(controller: Controller, env: Environment, teamId: int): int =
+  ## Calculate adaptive wall radius based on building count.
+  ## Starts at WallRingBaseRadius and grows by 1 for every WallRingBuildingsPerRadius buildings.
+  let totalBuildings = getTotalBuildingCount(controller, env, teamId)
+  let extraRadius = totalBuildings div WallRingBuildingsPerRadius
+  result = min(WallRingMaxRadius, WallRingBaseRadius + extraRadius)
 
 proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   ## Check if the builder's home area is under threat from enemies.
@@ -305,13 +319,17 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   if not canStartBuilderWallRing(controller, env, agent, agentId, state):
     return 0'u8
+  let teamId = getTeamId(agent)
   let altarPos = agent.homeAltar
   var wallTarget = ivec2(-1, -1)
   var doorTarget = ivec2(-1, -1)
   var ringDoorCount = 0
   var bestBlocked = int.high
   var bestDist = int.high
-  for radius in WallRingRadii:
+  # Calculate adaptive wall radius based on building count
+  let baseRadius = calculateWallRingRadius(controller, env, teamId)
+  let wallRingRadii = [baseRadius, baseRadius - WallRingRadiusSlack, baseRadius + WallRingRadiusSlack]
+  for radius in wallRingRadii:
     var blocked = 0
     var doorCount = 0
     var candidateWall = ivec2(-1, -1)
