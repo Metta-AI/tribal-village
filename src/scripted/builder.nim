@@ -84,6 +84,25 @@ proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
   state.basePosition = basePos
   controller.moveTo(env, agent, agentId, state, basePos)
 
+proc findDamagedBuilding*(env: Environment, agent: Thing): Thing =
+  ## Find nearest damaged friendly building that needs repair.
+  ## Returns nil if no damaged building found.
+  let teamId = getTeamId(agent)
+  var best: Thing = nil
+  var bestDist = int.high
+  for thing in env.things:
+    if thing.isNil or not isBuildingKind(thing.kind):
+      continue
+    if thing.teamId != teamId:
+      continue
+    if thing.hp >= thing.maxHp:
+      continue  # Not damaged
+    let dist = int(chebyshevDist(thing.pos, agent.pos))
+    if dist < bestDist:
+      bestDist = dist
+      best = thing
+  best
+
 proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
                         kinds: openArray[ThingKind]): bool =
   for kind in kinds:
