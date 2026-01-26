@@ -643,10 +643,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           break attackAction
 
         if agent.unitClass == UnitMangonel:
+          # "Large spear" attack: forward line 4 tiles with 1-tile side prongs
+          # per siege_fortifications_plan.md section 1.2
           var hit = false
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
-          let offsets = [ivec2(0, 0), left, right, left * 2, right * 2]
+          let offsets = [ivec2(0, 0), left, right]  # 1-tile side prongs
           for step in 1 .. MangonelAoELength:
             let forward = agent.pos + ivec2(delta.x * step.int32, delta.y * step.int32)
             for offset in offsets:
