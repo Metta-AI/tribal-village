@@ -7,6 +7,22 @@ const
   FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
   FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
 
+proc countNearbyAllies*(env: Environment, agent: Thing, radius: int = 5): int =
+  ## Count allied fighters within radius.
+  ## Fighters include: ManAtArms, Knight, Scout (combat units).
+  let teamId = getTeamId(agent)
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) != teamId:
+      continue
+    if other.unitClass notin {UnitManAtArms, UnitKnight, UnitScout}:
+      continue
+    if int(chebyshevDist(agent.pos, other.pos)) <= radius:
+      inc result
+
 proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
     let np = agent.pos + d
