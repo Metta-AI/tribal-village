@@ -444,9 +444,9 @@ proc drawObjects*() =
       body
 
   for kind in [Tree, Wheat, Stubble]:
+    let spriteKey = thingSpriteKey(kind)
     for thing in env.thingsByKind[kind]:
       let pos = thing.pos
-      let spriteKey = thingSpriteKey(thing.kind)
       bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
       if isTileFrozen(pos, env):
         bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
@@ -575,6 +575,7 @@ proc drawObjects*() =
         kind in CliffKinds:
       continue
     if isBuildingKind(kind):
+      let spriteKey = buildingSpriteKey(kind)
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
@@ -585,7 +586,6 @@ proc drawObjects*() =
         if placed != thing:
           continue
         let pos = thing.pos
-        let spriteKey = buildingSpriteKey(thing.kind)
         let tint =
           if thing.kind == Door:
             let teamId = thing.teamId
@@ -659,6 +659,7 @@ proc drawObjects*() =
             let popLabelPos = iconPos + vec2(0.14, -0.08)
             bxy.drawImage(popLabel, popLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
     else:
+      let spriteKey = thingSpriteKey(kind)
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
@@ -670,7 +671,6 @@ proc drawObjects*() =
           continue
         let pos = thing.pos
         let infected = isTileFrozen(pos, env)
-        let spriteKey = thingSpriteKey(thing.kind)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
         if infected and thing.kind in {Magma, Stump}:
           bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
