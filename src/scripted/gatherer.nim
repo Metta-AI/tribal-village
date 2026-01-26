@@ -1,5 +1,17 @@
 const GathererFleeRadius = 8  # Smaller than fighter detection - flee early to survive
 
+# Game phase thresholds for resource priority weighting
+# Early game: prioritize Food > Wood > Stone > Gold
+# Late game: prioritize Gold > Stone > Wood > Food
+const
+  EarlyGameThreshold = 0.33  # First third of game
+  LateGameThreshold = 0.66   # Last third of game
+  # Weights: lower value = higher priority (divides the stockpile count)
+  # Order: [Food, Wood, Stone, Gold]
+  EarlyGameWeights = [0.5, 0.75, 1.0, 1.5]   # Food prioritized
+  LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
+  MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
+
 proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within flee radius
   let teamId = getTeamId(agent)
@@ -91,14 +103,27 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
   if altarFound and altarHearts < 10:
     task = TaskHearts
   else:
-    var ordered: seq[(GathererTask, int)] = @[
-      (TaskFood, env.stockpileCount(teamId, ResourceFood)),
-      (TaskWood, env.stockpileCount(teamId, ResourceWood)),
-      (TaskStone, env.stockpileCount(teamId, ResourceStone)),
-      (TaskGold, env.stockpileCount(teamId, ResourceGold))
+    # Determine game phase and select appropriate weights
+    let gameProgress = if env.config.maxSteps > 0:
+      env.currentStep.float / env.config.maxSteps.float
+    else:
+      0.5  # Default to mid-game if maxSteps not set
+    let weights = if gameProgress < EarlyGameThreshold:
+      EarlyGameWeights
+    elif gameProgress >= LateGameThreshold:
+      LateGameWeights
+    else:
+      MidGameWeights
+    # Apply weights: lower weighted score = higher priority
+    # Weight < 1.0 makes resource appear more scarce (prioritized)
+    var ordered: seq[(GathererTask, float)] = @[
+      (TaskFood, env.stockpileCount(teamId, ResourceFood).float * weights[0]),
+      (TaskWood, env.stockpileCount(teamId, ResourceWood).float * weights[1]),
+      (TaskStone, env.stockpileCount(teamId, ResourceStone).float * weights[2]),
+      (TaskGold, env.stockpileCount(teamId, ResourceGold).float * weights[3])
     ]
     if altarFound:
-      ordered.insert((TaskHearts, altarHearts), 0)
+      ordered.insert((TaskHearts, altarHearts.float), 0)
     var best = ordered[0]
     for i in 1 ..< ordered.len:
       if ordered[i][1] < best[1]:
