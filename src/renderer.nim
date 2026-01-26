@@ -130,7 +130,7 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       ctx.fillStyle.color = color(1, 1, 1, 1)
       ctx.fillText(label, vec2(FooterLabelPadding, FooterLabelPadding))
       labelKey = "footer_label/" & label.replace(" ", "_").replace("/", "_")
-      bxy.addImage(labelKey, ctx.image, mipmaps = false)
+      bxy.addImage(labelKey, ctx.image)
       labelSize = ivec2(labelWidth, labelHeight)
       footerLabelImages[label] = labelKey
       footerLabelSizes[label] = labelSize
@@ -313,7 +313,7 @@ proc ensureHeartCountLabel(count: int): string =
   ctx.fillText(text, vec2(padding.float32, padding.float32))
 
   let key = "heart_count/" & $count
-  bxy.addImage(key, ctx.image, mipmaps = false)
+  bxy.addImage(key, ctx.image)
   heartCountImages[count] = key
 
   result = key
@@ -653,7 +653,7 @@ proc drawObjects*() =
                 ctx.fillText(popText, vec2(padding.float32, padding.float32))
 
                 let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
-                bxy.addImage(key, ctx.image, mipmaps = false)
+                bxy.addImage(key, ctx.image)
                 overlayLabelImages[popText] = key
                 key
             let popLabelPos = iconPos + vec2(0.14, -0.08)
@@ -850,7 +850,7 @@ proc drawSelectionLabel*(panelRect: IRect) =
     ctx.fillText(label, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
 
     key = "selection_label/" & label.replace(" ", "_").replace("/", "_")
-    bxy.addImage(key, ctx.image, mipmaps = false)
+    bxy.addImage(key, ctx.image)
     infoLabelImages[label] = key
     infoLabelSizes[label] = ivec2(labelWidth, labelHeight)
     labelSize = ivec2(labelWidth, labelHeight)
@@ -889,7 +889,7 @@ proc drawStepLabel*(panelRect: IRect) =
     ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
 
     stepLabelKey = "hud_step"
-    bxy.addImage(stepLabelKey, ctx.image, mipmaps = false)
+    bxy.addImage(stepLabelKey, ctx.image)
     key = stepLabelKey
   if key.len == 0:
     return
