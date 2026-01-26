@@ -125,6 +125,41 @@ proc placeBiomeResourceClusters(env: Environment, r: var Rand, count: int,
     placeResourceCluster(env, pos.x.int, pos.y.int, size, baseDensity, falloffRate,
       kind, item, ResourceGround, r, allowedBiomes = {allowedBiome})
 
+proc carveTreeOasisWater(env: Environment, center: IVec2, rx, ry: int, rng: var Rand) =
+  ## Carve water features for a tree oasis. Moved to module level to avoid
+  ## closure capture of var Rand which violates memory safety under ARC.
+  let centerX = center.x.int
+  let centerY = center.y.int
+  for ox in -(rx + 1) .. (rx + 1):
+    for oy in -(ry + 1) .. (ry + 1):
+      let px = centerX + ox
+      let py = centerY + oy
+      if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
+        continue
+      let waterPos = ivec2(px.int32, py.int32)
+      # Inline canPlaceOasisWater check to avoid closure capture
+      if not (env.isSpawnable(waterPos) and env.terrain[waterPos.x][waterPos.y] notin {Road, Bridge}):
+        continue
+      let dx = ox.float / rx.float
+      let dy = oy.float / ry.float
+      let dist = dx * dx + dy * dy
+      if dist <= 1.0 + (randFloat(rng) - 0.5) * 0.35:
+        setTerrain(env, waterPos, Water)
+
+  for _ in 0 ..< randIntInclusive(rng, 1, 2):
+    var pos = center
+    for _ in 0 ..< randIntInclusive(rng, 4, 10):
+      let dir = sample(rng, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
+                           ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
+      pos += dir
+      if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
+         pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
+        break
+      # Inline canPlaceOasisWater check
+      if not (env.isSpawnable(pos) and env.terrain[pos.x][pos.y] notin {Road, Bridge}):
+        continue
+      setTerrain(env, pos, Water)
+
 proc initState(env: Environment) =
   ## Reset all environment state to prepare for a new game.
   inc env.mapGeneration
@@ -179,40 +214,6 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
   env.terrain.generateRiver(MapWidth, MapHeight, MapBorder, rng)
   var treeOases: seq[TreeOasis] = @[]
   if UseTreeOases:
-    template canPlaceOasisWater(pos: IVec2): bool =
-      env.isSpawnable(pos) and env.terrain[pos.x][pos.y] notin {Road, Bridge}
-
-    proc carveTreeOasisWater(center: IVec2, rx, ry: int, rng: var Rand) =
-      let centerX = center.x.int
-      let centerY = center.y.int
-      for ox in -(rx + 1) .. (rx + 1):
-        for oy in -(ry + 1) .. (ry + 1):
-          let px = centerX + ox
-          let py = centerY + oy
-          if px < MapBorder or px >= MapWidth - MapBorder or py < MapBorder or py >= MapHeight - MapBorder:
-            continue
-          let waterPos = ivec2(px.int32, py.int32)
-          if not canPlaceOasisWater(waterPos):
-            continue
-          let dx = ox.float / rx.float
-          let dy = oy.float / ry.float
-          let dist = dx * dx + dy * dy
-          if dist <= 1.0 + (randFloat(rng) - 0.5) * 0.35:
-            setTerrain(env, waterPos, Water)
-
-      for _ in 0 ..< randIntInclusive(rng, 1, 2):
-        var pos = center
-        for _ in 0 ..< randIntInclusive(rng, 4, 10):
-          let dir = sample(rng, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
-                               ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
-          pos += dir
-          if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
-             pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
-            break
-          if not canPlaceOasisWater(pos):
-            continue
-          setTerrain(env, pos, Water)
-
     let numGroves = randIntInclusive(rng, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
     for _ in 0 ..< numGroves:
       let pos = pickInteriorPos(rng, 3, 16, proc(pos: IVec2, attempt: int): bool =
@@ -220,7 +221,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
       )
       let rx = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       let ry = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
-      carveTreeOasisWater(pos, rx, ry, rng)
+      carveTreeOasisWater(env, pos, rx, ry, rng)
       treeOases.add((center: pos, rx: rx, ry: ry))
   # Apply biome elevation (inlined)
   for x in 0 ..< MapWidth:
