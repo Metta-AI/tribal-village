@@ -1171,6 +1171,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
             attackDamage: VillagerAttackDamage,
             unitClass: UnitVillager,
             embarkedUnitClass: UnitVillager,
+            stance: StanceNoAttack,  # Villagers default to NoAttack
             teamIdOverride: -1
           ))
 
@@ -1210,6 +1211,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
       attackDamage: VillagerAttackDamage,
       unitClass: UnitVillager,
       embarkedUnitClass: UnitVillager,
+      stance: StanceNoAttack,  # Villagers default to NoAttack
       teamIdOverride: -1,
     ))
 
@@ -1332,6 +1334,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
         attackDamage: GoblinAttackDamage,
         unitClass: UnitGoblin,
         embarkedUnitClass: UnitGoblin,
+        stance: StanceDefensive,  # Goblins use Defensive stance
         teamIdOverride: GoblinTeamId
       ))
       totalAgentsSpawned += 1

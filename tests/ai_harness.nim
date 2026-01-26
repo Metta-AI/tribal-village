@@ -744,3 +744,51 @@ suite "AI - Combat Behaviors":
     let (verb, _) = decodeAction(controller.decideAction(env, 0))
     # Agent should NOT eat bread - do something else instead
     check verb != 3 or agent.inventoryBread == 1
+
+suite "AI - Stance Behavior":
+  test "NoAttack stance prevents auto-attack":
+    let env = makeEmptyEnv()
+    let controller = newController(40)
+    # Create agent with NoAttack stance (default for villagers)
+    let agent = addAgentAt(env, 0, ivec2(10, 10), stance = StanceNoAttack)
+    # Place enemy adjacent
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 0))
+    # Agent should NOT attack (verb 2) even though enemy is adjacent
+    check verb != 2
+
+  test "Defensive stance allows attack":
+    let env = makeEmptyEnv()
+    let controller = newController(41)
+    # Create agent with Defensive stance
+    let agent = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    # Place enemy adjacent
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 0))
+    # Agent should attack (verb 2) when enemy is adjacent
+    check verb == 2
+
+  test "default stance is NoAttack for villagers":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    check agent.stance == StanceNoAttack
+
+  test "applyUnitClass sets appropriate stance":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Start as villager with NoAttack
+    check agent.stance == StanceNoAttack
+
+    # Convert to ManAtArms - should get Defensive stance
+    applyUnitClass(agent, UnitManAtArms)
+    check agent.stance == StanceDefensive
+
+    # Convert to Archer - should get Defensive stance
+    applyUnitClass(agent, UnitArcher)
+    check agent.stance == StanceDefensive
+
+    # Convert back to Villager - should get NoAttack stance
+    applyUnitClass(agent, UnitVillager)
+    check agent.stance == StanceNoAttack

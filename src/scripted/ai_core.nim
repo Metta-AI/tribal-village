@@ -403,7 +403,11 @@ proc getBasePos*(agent: Thing): IVec2 =
 proc findAttackOpportunity(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Simplified: pick the closest aligned target within range using a priority order.
+  ## Respects agent stance: StanceNoAttack disables auto-attacking.
   if agent.unitClass == UnitMonk:
+    return -1
+  # NoAttack stance never auto-attacks
+  if agent.stance == StanceNoAttack:
     return -1
 
   let maxRange = case agent.unitClass

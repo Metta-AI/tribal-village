@@ -274,6 +274,12 @@ const
   AgentInventoryArmorLayer* = LegacyObsLayer
 
 type
+  AgentStance* = enum
+    StanceAggressive    ## Chase enemies, attack anything in sight
+    StanceDefensive     ## Attack enemies in range, return to position
+    StanceStandGround   ## Don't move, only attack what's in range
+    StanceNoAttack      ## Never auto-attack, useful for scouts
+
   AgentUnitClass* = enum
     UnitVillager
     UnitManAtArms
@@ -379,6 +385,7 @@ type
     maxHp*: int
     attackDamage*: int
     unitClass*: AgentUnitClass
+    stance*: AgentStance        # Combat stance mode (Aggressive/Defensive/StandGround/NoAttack)
     embarkedUnitClass*: AgentUnitClass
     teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning

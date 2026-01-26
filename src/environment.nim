@@ -251,6 +251,16 @@ const
     VillagerAttackDamage
   ]
 
+proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
+  ## Returns the default stance for a unit class.
+  ## Villagers use NoAttack (won't auto-attack).
+  ## Military units use Defensive (attack in range, return to position).
+  case unitClass
+  of UnitVillager, UnitMonk, UnitBoat:
+    StanceNoAttack
+  of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitGoblin:
+    StanceDefensive
+
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.unitClass = unitClass
   if unitClass != UnitBoat:
@@ -258,6 +268,7 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.maxHp = UnitMaxHpByClass[unitClass]
   agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
+  agent.stance = defaultStanceForClass(unitClass)
 
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass == UnitBoat:

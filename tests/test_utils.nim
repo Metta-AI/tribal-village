@@ -57,7 +57,7 @@ proc makeEmptyEnv*(): Environment =
 
 proc addAgentAt*(env: Environment, agentId: int, pos: IVec2,
                  homeAltar: IVec2 = ivec2(-1, -1), unitClass: AgentUnitClass = UnitVillager,
-                 orientation: Orientation = N): Thing =
+                 orientation: Orientation = N, stance: AgentStance = StanceNoAttack): Thing =
   while env.agents.len <= agentId:
     let nextId = env.agents.len
     let isTarget = nextId == agentId
@@ -71,6 +71,7 @@ proc addAgentAt*(env: Environment, agentId: int, pos: IVec2,
       maxHp: AgentMaxHp,
       attackDamage: 1,
       unitClass: (if isTarget: unitClass else: UnitVillager),
+      stance: (if isTarget: stance else: StanceNoAttack),
       homeAltar: (if isTarget: homeAltar else: ivec2(-1, -1))
     )
     env.add(agent)
@@ -125,6 +126,7 @@ proc stepAction*(env: Environment, agentId: int, verb: uint8, argument: int) =
       maxHp: AgentMaxHp,
       attackDamage: 1,
       unitClass: UnitVillager,
+      stance: StanceNoAttack,
       homeAltar: ivec2(-1, -1)
     )
     env.add(agent)
