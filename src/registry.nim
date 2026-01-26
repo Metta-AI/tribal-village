@@ -231,6 +231,8 @@ let ItemCatalog* = block:
 proc terrainSpriteKey*(terrain: TerrainType): string =
   if terrain == Empty:
     return ""
+  if terrain in RampTerrain:
+    return ""
   let key = TerrainCatalog[terrain].spriteKey
   if key.len == 0: toSnakeCase($terrain) else: key
 

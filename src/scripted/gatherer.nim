@@ -139,7 +139,7 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
           currentScore = item[1]
           break
       # Only switch if new best is significantly better than current
-      if best[1] >= currentScore - TaskSwitchHysteresis:
+      if best[1] > currentScore - TaskSwitchHysteresis:
         task = currentTask  # Keep current task
       else:
         task = best[0]
