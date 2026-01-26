@@ -159,7 +159,10 @@ proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int
   env.teamStockpiles[teamId].counts[res]
 
 proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
-  env.teamStockpiles[teamId].counts[res] += amount
+  ## Add resources to team stockpile, applying gather rate modifier
+  let modifier = env.teamModifiers[teamId].gatherRateMultiplier
+  let adjustedAmount = int(float32(amount) * modifier)
+  env.teamStockpiles[teamId].counts[res] += adjustedAmount
 
 proc canSpendStockpile*(env: Environment, teamId: int,
                         costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
@@ -262,6 +265,7 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
     StanceDefensive
 
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
+  ## Apply unit class stats without team modifiers (backwards compatibility)
   agent.unitClass = unitClass
   if unitClass != UnitBoat:
     agent.embarkedUnitClass = unitClass
@@ -269,6 +273,17 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
   agent.stance = defaultStanceForClass(unitClass)
+
+proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) =
+  ## Apply unit class stats with team modifier bonuses
+  agent.unitClass = unitClass
+  if unitClass != UnitBoat:
+    agent.embarkedUnitClass = unitClass
+  let teamId = getTeamId(agent)
+  let modifiers = env.teamModifiers[teamId]
+  agent.maxHp = UnitMaxHpByClass[unitClass] + modifiers.unitHpBonus[unitClass]
+  agent.attackDamage = UnitAttackDamageByClass[unitClass] + modifiers.unitAttackBonus[unitClass]
+  agent.hp = agent.maxHp
 
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass == UnitBoat:

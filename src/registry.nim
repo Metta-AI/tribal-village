@@ -369,6 +369,14 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 
+proc applyBuildCostMultiplier*(costs: seq[tuple[res: StockpileResource, count: int]],
+                                multiplier: float32): seq[tuple[res: StockpileResource, count: int]] =
+  ## Apply a build cost multiplier to a sequence of costs
+  result = @[]
+  for cost in costs:
+    let adjustedCount = max(1, int(float32(cost.count) * multiplier))
+    result.add((res: cost.res, count: adjustedCount))
+
 proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
   for kind in ThingKind:
     if not isBuildingKind(kind):

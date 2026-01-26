@@ -610,6 +610,13 @@ type
   TeamStockpile* = object
     counts*: array[StockpileResource, int]
 
+  TeamModifiers* = object
+    ## Civilization-style asymmetry modifiers for team differentiation
+    gatherRateMultiplier*: float32  ## 1.0 = normal gather rate
+    buildCostMultiplier*: float32   ## 1.0 = normal build costs
+    unitHpBonus*: array[AgentUnitClass, int]      ## Bonus HP per unit class
+    unitAttackBonus*: array[AgentUnitClass, int]  ## Bonus attack per unit class
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   Environment* = ref object
@@ -624,6 +631,7 @@ type
     backgroundGrid*: array[MapWidth, array[MapHeight, Thing]]   # Background (non-blocking) units
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsTeams, TeamStockpile]
+    teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)
@@ -688,3 +696,12 @@ proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
     env.terminated[agent.agentId] == 0.0 and
     isValidPos(agent.pos) and
     env.grid[agent.pos.x][agent.pos.y] == agent
+
+proc defaultTeamModifiers*(): TeamModifiers =
+  ## Create default (neutral) team modifiers with no bonuses
+  TeamModifiers(
+    gatherRateMultiplier: 1.0'f32,
+    buildCostMultiplier: 1.0'f32,
+    unitHpBonus: default(array[AgentUnitClass, int]),
+    unitAttackBonus: default(array[AgentUnitClass, int])
+  )
