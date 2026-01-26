@@ -328,6 +328,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Single RNG for entire step - more efficient than multiple initRand calls
   var stepRng = initRand(env.currentStep)
 
+  # Track builders per construction site for multi-builder speed bonus
+  var constructionBuilders: Table[IVec2, int]
+
   for id, actionValue in actions[]:
     let agent = env.agents[id]
     if not isAgentAlive(env, agent):
@@ -1012,115 +1015,123 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
         else:
           if isBuildingKind(thing.kind):
-            let useKind = buildingUseKind(thing.kind)
-            case useKind
-            of UseAltar:
-              if thing.cooldown == 0 and agent.inventoryBar >= 1:
-                decInv(ItemBar)
-                thing.hearts = thing.hearts + 1
-                thing.cooldown = MapObjectAltarCooldown
-                env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
-                agent.reward += env.config.heartReward
-                used = true
-            of UseClayOven:
-              if thing.cooldown == 0:
-                if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+            # Construction: villagers can work on buildings under construction
+            if thing.maxHp > 0 and thing.hp < thing.maxHp and
+               thing.teamId == getTeamId(agent) and agent.unitClass == UnitVillager:
+              # Register this builder for the multi-builder bonus
+              constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+              used = true
+            # Normal building use (skip if construction happened)
+            if not used:
+              let useKind = buildingUseKind(thing.kind)
+              case useKind
+              of UseAltar:
+                if thing.cooldown == 0 and agent.inventoryBar >= 1:
+                  decInv(ItemBar)
+                  thing.hearts = thing.hearts + 1
+                  thing.cooldown = MapObjectAltarCooldown
+                  env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
+                  agent.reward += env.config.heartReward
                   used = true
-                elif agent.inventoryWheat > 0:
-                  decInv(ItemWheat)
-                  incInv(ItemBread)
+              of UseClayOven:
+                if thing.cooldown == 0:
+                  if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+                  elif agent.inventoryWheat > 0:
+                    decInv(ItemWheat)
+                    incInv(ItemBread)
+                    thing.cooldown = 0
+                    agent.reward += env.config.foodReward
+                    used = true
+              of UseWeavingLoom:
+                if thing.cooldown == 0 and agent.inventoryLantern == 0 and
+                    (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
+                  if agent.inventoryWood > 0:
+                    decInv(ItemWood)
+                  else:
+                    decInv(ItemWheat)
+                  setInvAndObs(ItemLantern, 1)
                   thing.cooldown = 0
-                  agent.reward += env.config.foodReward
+                  agent.reward += env.config.clothReward
                   used = true
-            of UseWeavingLoom:
-              if thing.cooldown == 0 and agent.inventoryLantern == 0 and
-                  (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
-                if agent.inventoryWood > 0:
-                  decInv(ItemWood)
-                else:
-                  decInv(ItemWheat)
-                setInvAndObs(ItemLantern, 1)
-                thing.cooldown = 0
-                agent.reward += env.config.clothReward
-                used = true
-              elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
-                if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-                  used = true
-            of UseBlacksmith:
-              if thing.cooldown == 0:
-                if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-                  used = true
-              if not used and thing.teamId == getTeamId(agent):
-                if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
-                  used = true
-            of UseMarket:
-              if thing.cooldown == 0:
-                let teamId = getTeamId(agent)
-                if thing.teamId == teamId:
-                  var traded = false
-                  var carried: seq[tuple[key: ItemKey, count: int]] = @[]
-                  for key, count in agent.inventory.pairs:
-                    if count <= 0:
-                      continue
-                    if not isStockpileResourceKey(key):
-                      continue
-                    carried.add((key: key, count: count))
-                  for entry in carried:
-                    let key = entry.key
-                    let count = entry.count
-                    let stockpileRes = stockpileResourceForItem(key)
-                    if stockpileRes == ResourceWater:
-                      continue
-                    if stockpileRes == ResourceGold:
-                      let gained = (count * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
-                      if gained <= 0:
+                elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+                  if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+              of UseBlacksmith:
+                if thing.cooldown == 0:
+                  if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+                if not used and thing.teamId == getTeamId(agent):
+                  if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+                    used = true
+              of UseMarket:
+                if thing.cooldown == 0:
+                  let teamId = getTeamId(agent)
+                  if thing.teamId == teamId:
+                    var traded = false
+                    var carried: seq[tuple[key: ItemKey, count: int]] = @[]
+                    for key, count in agent.inventory.pairs:
+                      if count <= 0:
                         continue
-                      env.addToStockpile(teamId, ResourceFood, gained)
-                      setInv(agent, key, 0)
-                      env.updateAgentInventoryObs(agent, key)
-                      traded = true
-                    else:
-                      let gained = (count * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
-                      if gained > 0:
-                        env.addToStockpile(teamId, ResourceGold, gained)
-                        setInv(agent, key, count mod DefaultMarketSellDenominator)
+                      if not isStockpileResourceKey(key):
+                        continue
+                      carried.add((key: key, count: count))
+                    for entry in carried:
+                      let key = entry.key
+                      let count = entry.count
+                      let stockpileRes = stockpileResourceForItem(key)
+                      if stockpileRes == ResourceWater:
+                        continue
+                      if stockpileRes == ResourceGold:
+                        let gained = (count * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
+                        if gained <= 0:
+                          continue
+                        env.addToStockpile(teamId, ResourceFood, gained)
+                        setInv(agent, key, 0)
                         env.updateAgentInventoryObs(agent, key)
                         traded = true
-                  if traded:
-                    thing.cooldown = DefaultMarketCooldown
+                      else:
+                        let gained = (count * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
+                        if gained > 0:
+                          env.addToStockpile(teamId, ResourceGold, gained)
+                          setInv(agent, key, count mod DefaultMarketSellDenominator)
+                          env.updateAgentInventoryObs(agent, key)
+                          traded = true
+                    if traded:
+                      thing.cooldown = DefaultMarketCooldown
+                      used = true
+              of UseDropoff:
+                if thing.teamId == getTeamId(agent):
+                  if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
-            of UseDropoff:
-              if thing.teamId == getTeamId(agent):
-                if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+              of UseDropoffAndStorage:
+                if thing.teamId == getTeamId(agent):
+                  if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+                    used = true
+                  if not used and env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
+                    used = true
+              of UseStorage:
+                if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
                   used = true
-            of UseDropoffAndStorage:
-              if thing.teamId == getTeamId(agent):
-                if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
-                  used = true
-                if not used and env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
-                  used = true
-            of UseStorage:
-              if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
-                used = true
-            of UseTrain:
-              if thing.cooldown == 0 and buildingHasTrain(thing.kind):
-                if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
-                    buildingTrainCosts(thing.kind), 0):
-                  used = true
-            of UseTrainAndCraft:
-              if thing.cooldown == 0:
-                if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-                  used = true
-                elif buildingHasTrain(thing.kind):
+              of UseTrain:
+                if thing.cooldown == 0 and buildingHasTrain(thing.kind):
                   if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
                       buildingTrainCosts(thing.kind), 0):
                     used = true
-            of UseCraft:
-              if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
-                if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-                  used = true
-            of UseNone:
-              discard
+              of UseTrainAndCraft:
+                if thing.cooldown == 0:
+                  if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+                  elif buildingHasTrain(thing.kind):
+                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+                        buildingTrainCosts(thing.kind), 0):
+                      used = true
+              of UseCraft:
+                if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+                  if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+              of UseNone:
+                discard
 
         if not used:
           block pickupAttempt:
@@ -1425,6 +1436,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if capacity > 0:
               placed.barrelCapacity = capacity
           env.add(placed)
+          # Player-built buildings start under construction (hp=1)
+          # They need villagers to complete construction
+          if isBuilding and placed.maxHp > 0:
+            placed.hp = 1
           if isBuilding:
             let radius = buildingFertileRadius(placedKind)
             if radius > 0:
@@ -1481,6 +1496,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         inc env.stats[id].actionOrient
     else:
       inc env.stats[id].actionInvalid
+
+  # Apply multi-builder construction speed bonus
+  for pos, builderCount in constructionBuilders.pairs:
+    let thing = env.getThing(pos)
+    if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
+      continue
+    # Calculate effective HP gain with diminishing returns
+    # ConstructionBonusTable: [1.0, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
+    let tableIdx = min(builderCount, ConstructionBonusTable.high)
+    let multiplier = ConstructionBonusTable[tableIdx]
+    let hpGain = int(float32(ConstructionHpPerAction) * multiplier + 0.5)
+    thing.hp = min(thing.maxHp, thing.hp + hpGain)
 
   when defined(stepTiming):
     if timing:

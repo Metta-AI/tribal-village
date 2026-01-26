@@ -75,6 +75,13 @@ const
   BuildIndexDoor* = 19
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
+
+  # Construction speed bonus for multiple builders (AoE2-style)
+  # Formula: effectiveBuilders = 1 + sum(1/i for i in 2..n) where n is builder count
+  # Approx: 1 builder = 1.0x, 2 builders = 1.5x, 3 builders = 1.83x, 4 builders = 2.08x
+  ConstructionBonusTable* = [1.0'f32, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
+  ConstructionHpPerAction* = 1  # Base HP restored per construction action
+
   CowMilkCooldown* = 25
   BearMaxHp* = 6
   BearAttackDamage* = 2
