@@ -147,6 +147,39 @@ proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
       return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, dirIdx.uint8))
   0'u8
 
+proc evaluateEscapeRoute*(env: Environment, agent: Thing, dirIdx: int): float =
+  ## Score an escape route - higher is better.
+  ## Penalizes routes toward enemies, rewards routes away from enemies and toward allies.
+  var score = 0.0
+  let dir = Directions8[dirIdx]
+  let targetPos = agent.pos + dir
+  let escapeRadius = 10
+
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+
+    let currentDist = int(chebyshevDist(agent.pos, other.pos))
+    if currentDist > escapeRadius:
+      continue
+
+    let newDist = int(chebyshevDist(targetPos, other.pos))
+
+    if sameTeam(agent, other):
+      # Bonus for moving toward allies
+      if newDist < currentDist:
+        score += 3.0
+    else:
+      # Penalize moving toward enemies, reward moving away
+      if newDist < currentDist:
+        score -= 10.0  # Moving toward enemy
+      else:
+        score += 5.0   # Moving away from enemy
+
+  score
+
 proc canStartFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
   agent.hp * 3 <= agent.maxHp
