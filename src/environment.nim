@@ -126,6 +126,10 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
   if tintCode != 0:
     agentObs[][ord(TintLayer)][obsX][obsY] = tintCode
 
+  # Biome layer (enum value)
+  let biome = env.biomes[worldX][worldY]
+  agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(biome).uint8
+
 proc updateObservations(
   env: Environment,
   layer: ObservationName,

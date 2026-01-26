@@ -258,6 +258,7 @@ type
     AgentOrientationLayer     # Orientation enum + 1, 0 = none
     AgentUnitClassLayer       # Unit class enum + 1, 0 = none
     TintLayer                 # Action/combat tint codes
+    BiomeLayer                # Biome type enum value
     ObscuredLayer             # 1 when target tile is above observer elevation
 
 const
