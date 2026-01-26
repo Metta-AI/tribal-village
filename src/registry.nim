@@ -229,7 +229,7 @@ let ItemCatalog* = block:
   reg
 
 proc terrainSpriteKey*(terrain: TerrainType): string =
-  if terrain == Empty:
+  if terrain == Empty or isRampTerrain(terrain):
     return ""
   let key = TerrainCatalog[terrain].spriteKey
   if key.len == 0: toSnakeCase($terrain) else: key

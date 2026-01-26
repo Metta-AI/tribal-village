@@ -745,10 +745,12 @@ proc placeWaterPath(
     for dx in -radius .. radius:
       for dy in -radius .. radius:
         let waterPos = pos + ivec2(dx.int32, dy.int32)
-        if waterPos.x >= 0 and waterPos.x < mapWidth and
-           waterPos.y >= 0 and waterPos.y < mapHeight:
-          if not inCorner(waterPos.x, waterPos.y):
-            terrain[waterPos.x][waterPos.y] = Water
+        if waterPos.x < 0 or waterPos.x >= mapWidth or
+           waterPos.y < 0 or waterPos.y >= mapHeight:
+          continue
+        if inCorner(waterPos.x, waterPos.y):
+          continue
+        terrain[waterPos.x][waterPos.y] = Water
 
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
