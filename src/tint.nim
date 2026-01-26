@@ -95,15 +95,16 @@ proc updateTintModifications(env: Environment) =
     case thing.kind
     of Agent:
       let agentId = thing.agentId
-      if agentId >= 0 and agentId < MapAgents:
-        # Skip tint update if agent hasn't moved (delta optimization)
-        let lastPos = env.lastAgentPos[agentId]
-        if lastPos == pos and isValidPos(lastPos):
-          continue  # Agent hasn't moved, skip expensive radius iteration
-        # Update tracking and add tint for moved agents
-        env.lastAgentPos[agentId] = pos
-        if agentId < env.agentColors.len:
-          addTintArea(baseX, baseY, env.agentColors[agentId], radius = 2, scale = 90)
+      if agentId < 0 or agentId >= MapAgents:
+        continue
+      # Skip tint update if agent hasn't moved (delta optimization).
+      let lastPos = env.lastAgentPos[agentId]
+      if lastPos == pos and isValidPos(lastPos):
+        continue
+      # Update tracking and add tint for moved agents.
+      env.lastAgentPos[agentId] = pos
+      if agentId < env.agentColors.len:
+        addTintArea(baseX, baseY, env.agentColors[agentId], radius = 2, scale = 90)
 
     of Lantern:
       if thing.lanternHealthy:
@@ -134,13 +135,14 @@ proc updateTintModifications(env: Environment) =
 
 proc applyTintModifications(env: Environment) =
   ## Apply tint modifications to entity positions and their surrounding areas
+  let zeroTint = TileColor(r: 0, g: 0, b: 0, intensity: 0)
   for pos in env.activeTiles.positions:
     let tileX = pos.x.int
     let tileY = pos.y.int
     if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
       continue
     if env.tintLocked[tileX][tileY]:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[tileX][tileY] = zeroTint
       continue
 
     let dynTint = env.tintMods[tileX][tileY]
@@ -151,11 +153,11 @@ proc applyTintModifications(env: Environment) =
     let strength = env.tintStrength[tileX][tileY] + env.tumorStrength[tileX][tileY]
 
     if abs(strength) < MinTintEpsilon:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[tileX][tileY] = zeroTint
       continue
 
     if env.terrain[tileX][tileY] == Water:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[tileX][tileY] = zeroTint
       continue
 
     let alpha = min(1.0'f32, strength.float32 / TintStrengthScale)
@@ -178,7 +180,7 @@ proc applyTintModifications(env: Environment) =
     if tileX < 0 or tileX >= MapWidth or tileY < 0 or tileY >= MapHeight:
       continue
     if env.tintLocked[tileX][tileY]:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[tileX][tileY] = zeroTint
       continue
 
     let dynTint = env.tintMods[tileX][tileY]
@@ -189,11 +191,11 @@ proc applyTintModifications(env: Environment) =
     let strength = env.tintStrength[tileX][tileY] + env.tumorStrength[tileX][tileY]
 
     if abs(strength) < MinTintEpsilon:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[tileX][tileY] = zeroTint
       continue
 
     if env.terrain[tileX][tileY] == Water:
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+      env.computedTintColors[tileX][tileY] = zeroTint
       continue
 
     let alpha = min(1.0'f32, strength.float32 / TintStrengthScale)

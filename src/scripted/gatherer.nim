@@ -132,14 +132,16 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
         best = ordered[i]
     # Anti-oscillation hysteresis: only switch task if difference is significant
     let currentTask = state.gathererTask
-    if currentTask != TaskHearts:  # Hearts task handled separately above
+    if best[1] <= 0.0:
+      task = best[0]
+    elif currentTask != TaskHearts:  # Hearts task handled separately above
       var currentScore = float.high
       for item in ordered:
         if item[0] == currentTask:
           currentScore = item[1]
           break
       # Only switch if new best is significantly better than current
-      if best[1] >= currentScore - TaskSwitchHysteresis:
+      if best[1] > currentScore - TaskSwitchHysteresis:
         task = currentTask  # Keep current task
       else:
         task = best[0]
