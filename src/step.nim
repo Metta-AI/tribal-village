@@ -214,6 +214,44 @@ proc stepApplyMonkAuras(env: Environment) =
     if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
       target.hp = min(target.maxHp, target.hp + 1)
 
+proc isOutOfBounds(pos: IVec2): bool {.inline.} =
+  ## Check if position is outside the playable map area (within border margin)
+  pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
+  pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32
+
+proc isBlockedByShield(env: Environment, agent: Thing, tumorPos: IVec2): bool =
+  ## Check if a tumor position is blocked by the agent's active shield
+  if env.shieldCountdown[agent.agentId] <= 0:
+    return false
+  let d = orientationToVec(agent.orientation)
+  let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
+  let forward = agent.pos + d
+  for offset in -1 .. 1:
+    let shieldPos = forward + ivec2(perp.x * offset, perp.y * offset)
+    if shieldPos == tumorPos:
+      return true
+  return false
+
+proc applyFertileRadius(env: Environment, center: IVec2, radius: int) =
+  ## Apply fertile terrain in a Chebyshev radius around center, skipping blocked tiles
+  for dx in -radius .. radius:
+    for dy in -radius .. radius:
+      if dx == 0 and dy == 0:
+        continue
+      if max(abs(dx), abs(dy)) > radius:
+        continue
+      let pos = center + ivec2(dx.int32, dy.int32)
+      if not isValidPos(pos):
+        continue
+      if not env.isEmpty(pos) or env.hasDoor(pos) or
+         isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
+        continue
+      let terrain = env.terrain[pos.x][pos.y]
+      if terrain notin BuildableTerrain:
+        continue
+      env.terrain[pos.x][pos.y] = Fertile
+      env.resetTileColor(pos)
+      env.updateObservations(ThingAgentLayer, pos, 0)
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -296,10 +334,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let delta = orientationToVec(moveOrientation)
         let step1 = agent.pos + delta
 
-        if not isValidPos(step1):
-          invalidAndBreak(moveAction)
-        if step1.x < MapBorder.int32 or step1.x >= (MapWidth - MapBorder).int32 or
-            step1.y < MapBorder.int32 or step1.y >= (MapHeight - MapBorder).int32:
+        if not isValidPos(step1) or isOutOfBounds(step1):
           invalidAndBreak(moveAction)
         if not env.canTraverseElevation(agent.pos, step1):
           invalidAndBreak(moveAction)
@@ -311,10 +346,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         # Allow walking through planted lanterns by relocating the lantern, preferring push direction (up to 2 tiles ahead)
         proc canEnterFrom(fromPos, pos: IVec2): bool =
-          if not isValidPos(pos):
-            return false
-          if pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
-              pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32:
+          if not isValidPos(pos) or isOutOfBounds(pos):
             return false
           if not env.canTraverseElevation(fromPos, pos):
             return false
@@ -339,17 +371,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # Preferred push positions in move direction
           let ahead1 = pos + delta
           let ahead2 = pos + ivec2(delta.x * 2'i32, delta.y * 2'i32)
-          if isValidPos(ahead2) and env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
-              ahead2.x >= MapBorder.int32 and ahead2.x < (MapWidth - MapBorder).int32 and
-              ahead2.y >= MapBorder.int32 and ahead2.y < (MapHeight - MapBorder).int32 and
+          if isValidPos(ahead2) and not isOutOfBounds(ahead2) and
+              env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
               not env.isWaterBlockedForAgent(agent, ahead2) and spacingOk(ahead2):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead2
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
             relocated = true
-          elif isValidPos(ahead1) and env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
-              ahead1.x >= MapBorder.int32 and ahead1.x < (MapWidth - MapBorder).int32 and
-              ahead1.y >= MapBorder.int32 and ahead1.y < (MapHeight - MapBorder).int32 and
+          elif isValidPos(ahead1) and not isOutOfBounds(ahead1) and
+              env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
               not env.isWaterBlockedForAgent(agent, ahead1) and spacingOk(ahead1):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead1
@@ -362,10 +392,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if dx == 0 and dy == 0:
                   continue
                 let alt = ivec2(pos.x + dx, pos.y + dy)
-                if not isValidPos(alt):
-                  continue
-                if alt.x < MapBorder.int32 or alt.x >= (MapWidth - MapBorder).int32 or
-                    alt.y < MapBorder.int32 or alt.y >= (MapHeight - MapBorder).int32:
+                if not isValidPos(alt) or isOutOfBounds(alt):
                   continue
                 if env.isEmpty(alt) and not env.hasDoor(alt) and
                     not env.isWaterBlockedForAgent(agent, alt) and spacingOk(alt):
@@ -1375,23 +1402,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if isBuilding:
             let radius = buildingFertileRadius(placedKind)
             if radius > 0:
-              for dx in -radius .. radius:
-                for dy in -radius .. radius:
-                  if dx == 0 and dy == 0:
-                    continue
-                  if max(abs(dx), abs(dy)) > radius:
-                    continue
-                  let fertilePos = placed.pos + ivec2(dx.int32, dy.int32)
-                  if not isValidPos(fertilePos):
-                    continue
-                  if not env.isEmpty(fertilePos) or env.hasDoor(fertilePos) or
-                     isBlockedTerrain(env.terrain[fertilePos.x][fertilePos.y]) or isTileFrozen(fertilePos, env):
-                    continue
-                  let terrain = env.terrain[fertilePos.x][fertilePos.y]
-                  if isBuildableTerrain(terrain):
-                    env.terrain[fertilePos.x][fertilePos.y] = Fertile
-                    env.resetTileColor(fertilePos)
-                    env.updateObservations(ThingAgentLayer, fertilePos, 0)
+              env.applyFertileRadius(placed.pos, radius)
           if isValidPos(targetPos):
             env.updateObservations(ThingAgentLayer, targetPos, 0)
           if placedKind == Altar:
@@ -1494,24 +1505,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if thing.cooldown > 0:
         thing.cooldown -= 1
       else:
-        let radius = max(0, buildingFertileRadius(thing.kind))
-        for dx in -radius .. radius:
-          for dy in -radius .. radius:
-            if dx == 0 and dy == 0:
-              continue
-            if max(abs(dx), abs(dy)) > radius:
-              continue
-            let pos = thing.pos + ivec2(dx.int32, dy.int32)
-            if not isValidPos(pos):
-              continue
-            if not env.isEmpty(pos) or env.hasDoor(pos) or
-               isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
-              continue
-            let terrain = env.terrain[pos.x][pos.y]
-            if terrain in BuildableTerrain:
-              env.terrain[pos.x][pos.y] = Fertile
-              env.resetTileColor(pos)
-              env.updateObservations(ThingAgentLayer, pos, 0)
+        env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
         thing.cooldown = 10
     elif thing.kind == GuardTower:
       env.stepTryTowerAttack(thing, GuardTowerRange, towerRemovals)
@@ -1676,6 +1670,35 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     ivec2(cornerMaxX, cornerMaxY)
   ]
 
+  proc selectNewCornerTarget(center, currentTarget: IVec2): IVec2 =
+    ## Select a new corner target, preferring the farthest corner from center
+    var bestDist = -1
+    var candidates: seq[IVec2] = @[]
+    for corner in cornerTargets:
+      if corner == currentTarget:
+        continue
+      let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
+      if dist > bestDist:
+        candidates.setLen(0)
+        candidates.add(corner)
+        bestDist = dist
+      elif dist == bestDist:
+        candidates.add(corner)
+    if candidates.len == 0:
+      cornerTargets[randIntInclusive(stepRng, 0, 3)]
+    else:
+      candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
+
+  proc needsNewCornerTarget(center, target: IVec2): bool =
+    ## Check if herd/pack needs a new corner target
+    let targetInvalid = target.x < 0 or target.y < 0
+    if targetInvalid:
+      return true
+    let distToTarget = max(abs(center.x - target.x), abs(center.y - target.y))
+    let nearBorder = center.x <= cornerMin or center.y <= cornerMin or
+                     center.x >= cornerMaxX or center.y >= cornerMaxY
+    nearBorder and distToTarget <= 3
+
   for herdId in 0 ..< env.cowHerdCounts.len:
     if env.cowHerdCounts[herdId] <= 0:
       env.cowHerdDrift[herdId] = ivec2(0, 0)
@@ -1684,30 +1707,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let center = ivec2((env.cowHerdSumX[herdId] div herdAccCount).int32,
                        (env.cowHerdSumY[herdId] div herdAccCount).int32)
     let target = env.cowHerdTargets[herdId]
-    let targetInvalid = target.x < 0 or target.y < 0
-    let distToTarget = if targetInvalid:
-      0
-    else:
-      max(abs(center.x - target.x), abs(center.y - target.y))
-    let nearBorder = center.x <= cornerMin or center.y <= cornerMin or
-                     center.x >= cornerMaxX or center.y >= cornerMaxY
-    if targetInvalid or (nearBorder and distToTarget <= 3):
-      var bestDist = -1
-      var candidates: seq[IVec2] = @[]
-      for corner in cornerTargets:
-        if corner == target:
-          continue
-        let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
-        if dist > bestDist:
-          candidates.setLen(0)
-          candidates.add(corner)
-          bestDist = dist
-        elif dist == bestDist:
-          candidates.add(corner)
-      if candidates.len == 0:
-        env.cowHerdTargets[herdId] = cornerTargets[randIntInclusive(stepRng, 0, 3)]
-      else:
-        env.cowHerdTargets[herdId] = candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
+    if needsNewCornerTarget(center, target):
+      env.cowHerdTargets[herdId] = selectNewCornerTarget(center, target)
     env.cowHerdDrift[herdId] = stepToward(center, env.cowHerdTargets[herdId])
 
   for packId in 0 ..< env.wolfPackCounts.len:
@@ -1720,32 +1721,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let huntTarget = findNearestPredatorTarget(center, WolfPackAggroRadius)
     if huntTarget.x >= 0:
       env.wolfPackTargets[packId] = huntTarget
-    else:
-      let target = env.wolfPackTargets[packId]
-      let targetInvalid = target.x < 0 or target.y < 0
-      let distToTarget = if targetInvalid:
-        0
-      else:
-        max(abs(center.x - target.x), abs(center.y - target.y))
-      let nearBorder = center.x <= cornerMin or center.y <= cornerMin or
-                       center.x >= cornerMaxX or center.y >= cornerMaxY
-      if targetInvalid or (nearBorder and distToTarget <= 3):
-        var bestDist = -1
-        var candidates: seq[IVec2] = @[]
-        for corner in cornerTargets:
-          if corner == target:
-            continue
-          let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
-          if dist > bestDist:
-            candidates.setLen(0)
-            candidates.add(corner)
-            bestDist = dist
-          elif dist == bestDist:
-            candidates.add(corner)
-        if candidates.len == 0:
-          env.wolfPackTargets[packId] = cornerTargets[randIntInclusive(stepRng, 0, 3)]
-        else:
-          env.wolfPackTargets[packId] = candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
+    elif needsNewCornerTarget(center, env.wolfPackTargets[packId]):
+      env.wolfPackTargets[packId] = selectNewCornerTarget(center, env.wolfPackTargets[packId])
     env.wolfPackDrift[packId] = stepToward(center, env.wolfPackTargets[packId])
 
   for thing in env.thingsByKind[Cow]:
@@ -1931,21 +1908,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         continue
 
       if occupant.kind == Agent:
-        # Shield check: block death if shield active and tumor is in shield band
-        var blocked = false
-        if env.shieldCountdown[occupant.agentId] > 0:
-          let ori = occupant.orientation
-          let d = orientationToVec(ori)
-          let perp = if d.x != 0: ivec2(0, 1) else: ivec2(1, 0)
-          let forward = occupant.pos + d
-          for offset in -1 .. 1:
-            let shieldPos = forward + ivec2(perp.x * offset, perp.y * offset)
-            if shieldPos == tumor.pos:
-              blocked = true
-              break
-        if blocked:
+        if env.isBlockedByShield(occupant, tumor.pos):
           continue
-
         if randFloat(stepRng) < TumorAdjacencyDeathChance:
           let killed = env.applyAgentDamage(occupant, 1)
           if killed and tumor notin tumorsToRemove:
