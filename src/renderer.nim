@@ -282,7 +282,7 @@ proc drawTerrain*() =
       if terrain == Water:
         continue
       let spriteKey = terrainSpriteKey(terrain)
-      if spriteKey.len > 0:
+      if spriteKey.len > 0 and spriteKey in bxy:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
 
 proc ensureHeartCountLabel(count: int): string =
