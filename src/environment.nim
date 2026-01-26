@@ -160,7 +160,8 @@ proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int
 
 proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
   ## Add resources to team stockpile, applying gather rate modifier
-  let modifier = env.teamModifiers[teamId].gatherRateMultiplier
+  let rawModifier = env.teamModifiers[teamId].gatherRateMultiplier
+  let modifier = if rawModifier == 0.0'f32: 1.0'f32 else: rawModifier  # Default to 1.0 if uninitialized
   let adjustedAmount = int(float32(amount) * modifier)
   env.teamStockpiles[teamId].counts[res] += adjustedAmount
 

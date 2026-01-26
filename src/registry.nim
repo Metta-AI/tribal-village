@@ -372,9 +372,10 @@ proc buildIndexFor*(kind: ThingKind): int =
 proc applyBuildCostMultiplier*(costs: seq[tuple[res: StockpileResource, count: int]],
                                 multiplier: float32): seq[tuple[res: StockpileResource, count: int]] =
   ## Apply a build cost multiplier to a sequence of costs
+  let effectiveMultiplier = if multiplier == 0.0'f32: 1.0'f32 else: multiplier  # Default to 1.0 if uninitialized
   result = @[]
   for cost in costs:
-    let adjustedCount = max(1, int(float32(cost.count) * multiplier))
+    let adjustedCount = max(1, int(float32(cost.count) * effectiveMultiplier))
     result.add((res: cost.res, count: adjustedCount))
 
 proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
