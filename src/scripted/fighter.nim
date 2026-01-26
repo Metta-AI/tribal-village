@@ -573,6 +573,8 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
 
 const
   KiteTriggerDistance = 3  # Distance at which kiting triggers (within archer range)
+  AntiSiegeDetectionRadius = 12  # Distance to detect enemy siege units
+  SiegeNearStructureRadius = 5  # Siege units this close to friendly structures get priority
 
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
@@ -595,6 +597,71 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
       bestDist = dist
       bestEnemy = other
   bestEnemy
+
+proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): bool =
+  ## Check if enemy siege unit is close to any friendly structures
+  for thing in env.things:
+    if thing.isNil or thing.teamId != teamId:
+      continue
+    if not isBuildingKind(thing.kind):
+      continue
+    if thing.kind notin AttackableStructures:
+      continue
+    if int(chebyshevDist(siege.pos, thing.pos)) <= SiegeNearStructureRadius:
+      return true
+  false
+
+proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
+  ## Find the nearest enemy siege unit (BatteringRam or Mangonel)
+  ## If prioritizeThreatening is true, prefer siege units near friendly structures
+  let teamId = getTeamId(agent)
+  var bestEnemy: Thing = nil
+  var bestDist = int.high
+  var bestThreatening = false
+
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    # Only target siege units
+    if other.unitClass notin {UnitBatteringRam, UnitMangonel}:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > AntiSiegeDetectionRadius:
+      continue
+
+    let threatening = prioritizeThreatening and isSiegeThreateningStructure(env, other, teamId)
+
+    # Prefer threatening siege, then closest
+    if threatening and not bestThreatening:
+      bestThreatening = true
+      bestDist = dist
+      bestEnemy = other
+    elif threatening == bestThreatening and dist < bestDist:
+      bestDist = dist
+      bestEnemy = other
+  bestEnemy
+
+proc canStartFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  ## Anti-siege triggers when there's an enemy siege unit nearby
+  not isNil(findNearestSiegeEnemy(env, agent))
+
+proc shouldTerminateFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when no more siege units nearby
+  isNil(findNearestSiegeEnemy(env, agent))
+
+proc optFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  ## Move toward and attack enemy siege units
+  let siege = findNearestSiegeEnemy(env, agent)
+  if isNil(siege):
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, siege.pos, 2'u8)
 
 proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
@@ -818,6 +885,13 @@ let FighterOptions* = [
     canStart: canStartFighterKite,
     shouldTerminate: optionsAlwaysTerminate,
     act: optFighterKite,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterAntiSiege",
+    canStart: canStartFighterAntiSiege,
+    shouldTerminate: shouldTerminateFighterAntiSiege,
+    act: optFighterAntiSiege,
     interruptible: true
   ),
   OptionDef(
