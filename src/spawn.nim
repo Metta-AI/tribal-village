@@ -237,9 +237,53 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
           1
         else:
           0
-  # Apply cliff ramps (inlined)
+  # Apply cliff ramps with variable widths (inlined)
   # Places ramp terrain tiles at elevation transitions.
   # Lower tile gets RampUp* (going up), higher tile gets RampDown* (coming down).
+  # Ramp width varies from RampWidthMin to RampWidthMax tiles for visual variety.
+  proc canPlaceRampTile(env: Environment, tx, ty: int, expectedElev: int8): bool =
+    ## Check if a ramp tile can be placed at the given position.
+    if tx < MapBorder or tx >= MapWidth - MapBorder or
+       ty < MapBorder or ty >= MapHeight - MapBorder:
+      return false
+    if env.terrain[tx][ty] in {Water, Road} or isRampTerrain(env.terrain[tx][ty]):
+      return false
+    if env.elevation[tx][ty] != expectedElev:
+      return false
+    true
+
+  proc placeRampWithWidth(env: Environment, lowerX, lowerY, higherX, higherY: int,
+                          rampUpType, rampDownType: TerrainType,
+                          perpX, perpY: int, rng: var Rand) =
+    ## Place a ramp at the given location with variable width.
+    ## perpX, perpY define the perpendicular direction for width expansion.
+    let lowerElev = env.elevation[lowerX][lowerY]
+    let higherElev = env.elevation[higherX][higherY]
+
+    # Place center ramp tiles
+    env.terrain[lowerX][lowerY] = rampUpType
+    env.terrain[higherX][higherY] = rampDownType
+
+    # Determine width (1-3 tiles total, so 0-1 tiles on each side of center)
+    let width = randIntInclusive(rng, RampWidthMin, RampWidthMax)
+    let sideExtent = (width - 1) div 2  # How far to extend on each side
+
+    # Place additional tiles perpendicular to the ramp direction
+    for offset in 1 .. sideExtent:
+      for side in [-1, 1]:
+        let px = lowerX + perpX * offset * side
+        let py = lowerY + perpY * offset * side
+        let hx = higherX + perpX * offset * side
+        let hy = higherY + perpY * offset * side
+
+        # Place lower (ramp up) tile if valid
+        if canPlaceRampTile(env, px, py, lowerElev):
+          env.terrain[px][py] = rampUpType
+
+        # Place higher (ramp down) tile if valid
+        if canPlaceRampTile(env, hx, hy, higherElev):
+          env.terrain[hx][hy] = rampDownType
+
   var cliffCount = 0
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
@@ -259,26 +303,24 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
            isRampTerrain(env.terrain[nx][ny]):
           continue
         inc cliffCount
-        if cliffCount mod 10 != 0:
+        if cliffCount mod RampPlacementSpacing != 0:
           continue
         # Assign ramp types based on direction to neighbor.
         # d indicates direction from (x,y) to higher neighbor (nx,ny).
+        # perpX, perpY define the perpendicular axis for width expansion.
         if d.x == 0 and d.y == -1:
           # Neighbor is North: lower goes up north, higher comes down from south
-          env.terrain[x][y] = RampUpN
-          env.terrain[nx][ny] = RampDownS
+          # Perpendicular is East-West (x-axis)
+          placeRampWithWidth(env, x, y, nx, ny, RampUpN, RampDownS, 1, 0, rng)
         elif d.x == 1 and d.y == 0:
-          # Neighbor is East
-          env.terrain[x][y] = RampUpE
-          env.terrain[nx][ny] = RampDownW
+          # Neighbor is East: perpendicular is North-South (y-axis)
+          placeRampWithWidth(env, x, y, nx, ny, RampUpE, RampDownW, 0, 1, rng)
         elif d.x == 0 and d.y == 1:
-          # Neighbor is South
-          env.terrain[x][y] = RampUpS
-          env.terrain[nx][ny] = RampDownN
+          # Neighbor is South: perpendicular is East-West (x-axis)
+          placeRampWithWidth(env, x, y, nx, ny, RampUpS, RampDownN, 1, 0, rng)
         else:
-          # Neighbor is West (d.x == -1, d.y == 0)
-          env.terrain[x][y] = RampUpW
-          env.terrain[nx][ny] = RampDownE
+          # Neighbor is West (d.x == -1, d.y == 0): perpendicular is North-South (y-axis)
+          placeRampWithWidth(env, x, y, nx, ny, RampUpW, RampDownE, 0, 1, rng)
   # Apply cliffs (inlined)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
