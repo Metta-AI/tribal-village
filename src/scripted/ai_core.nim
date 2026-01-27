@@ -92,6 +92,8 @@ type
     plannedPath: seq[IVec2]
     plannedPathIndex: int
     pathBlockedTarget: IVec2
+    # Attack-move state: move to destination, attack enemies along the way
+    attackMoveTarget: IVec2  # Destination for attack-move (-1,-1 = inactive)
 
   # Simple controller
   Controller* = ref object

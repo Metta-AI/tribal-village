@@ -83,3 +83,35 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
   echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
   echo "Python environment must call setExternalActionCallback() or provide " & ActionsFile & "!"
   raise newException(ValueError, "ExternalNN controller has no actions - Python communication failed!")
+
+# Attack-Move API
+# These functions allow external code to set attack-move targets for agents.
+# Attack-move: unit moves toward destination, attacking any enemies encountered along the way.
+
+proc setAgentAttackMoveTarget*(agentId: int, target: IVec2) =
+  ## Set an attack-move target for an agent.
+  ## The agent will move toward the target while engaging enemies along the way.
+  ## Requires BuiltinAI controller.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.setAttackMoveTarget(agentId, target)
+
+proc setAgentAttackMoveTargetXY*(agentId: int, x, y: int32) =
+  ## Set an attack-move target for an agent using x,y coordinates.
+  setAgentAttackMoveTarget(agentId, ivec2(x, y))
+
+proc clearAgentAttackMoveTarget*(agentId: int) =
+  ## Clear the attack-move target for an agent, stopping attack-move behavior.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.clearAttackMoveTarget(agentId)
+
+proc getAgentAttackMoveTarget*(agentId: int): IVec2 =
+  ## Get the current attack-move target for an agent.
+  ## Returns (-1, -1) if no attack-move is active.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.getAttackMoveTarget(agentId)
+  ivec2(-1, -1)
+
+proc isAgentAttackMoveActive*(agentId: int): bool =
+  ## Check if an agent currently has an active attack-move target.
+  let target = getAgentAttackMoveTarget(agentId)
+  target.x >= 0

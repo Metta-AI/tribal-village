@@ -767,7 +767,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       plannedTarget: ivec2(-1, -1),
       plannedPath: @[],
       plannedPathIndex: 0,
-      pathBlockedTarget: ivec2(-1, -1)
+      pathBlockedTarget: ivec2(-1, -1),
+      attackMoveTarget: ivec2(-1, -1)
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
