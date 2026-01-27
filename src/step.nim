@@ -477,6 +477,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if canEnterFrom(step1, step2):
                 finalPos = step2
 
+        let originalPos = agent.pos  # Save for cliff fall damage check
         env.grid[agent.pos.x][agent.pos.y] = nil
         # Clear old position and set new position
         env.updateObservations(AgentLayer, agent.pos, 0)  # Clear old
@@ -500,6 +501,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let terrainModifier = getTerrainSpeedModifier(env.terrain[agent.pos.x][agent.pos.y])
           if terrainModifier < 1.0'f32:
             agent.movementDebt += (1.0'f32 - terrainModifier)
+
+        # Apply cliff fall damage when dropping elevation without a ramp/road
+        # Check both steps of movement (original→step1 and step1→finalPos if different)
+        if agent.unitClass != UnitBoat:
+          var fallDamage = 0
+          if env.willCauseCliffFallDamage(originalPos, step1):
+            fallDamage += CliffFallDamage
+          if finalPos != step1 and env.willCauseCliffFallDamage(step1, finalPos):
+            fallDamage += CliffFallDamage
+          if fallDamage > 0:
+            discard env.applyAgentDamage(agent, fallDamage)
 
         inc env.stats[id].actionMove
     of 2:
