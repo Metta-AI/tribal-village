@@ -403,6 +403,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
   (false, 0'u8)
 
 include "options"
+include "economy"
 
 include "gatherer"
 include "builder"
@@ -1005,6 +1006,9 @@ proc updateController*(controller: Controller, env: Environment) =
   initScriptedState(controller)
   # Clean up expired coordination requests
   clearExpiredRequests(env.currentStep)
+  # Update economy tracking for all teams
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    updateEconomy(controller, env, teamId)
   if scriptedState.lastEpisodeStep >= 0 and env.currentStep < scriptedState.lastEpisodeStep:
     for i in 0 ..< MapAgents:
       controller.agentsInitialized[i] = false
@@ -1015,6 +1019,8 @@ proc updateController*(controller: Controller, env: Environment) =
     # Clear shared threat maps on episode reset
     for teamId in 0 ..< MapRoomObjectsTeams:
       controller.clearThreatMap(teamId)
+    # Reset economy state on episode reset
+    resetEconomy()
   if EvolutionEnabled:
     if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
       applyScriptedScoring(controller, env)
