@@ -34,7 +34,7 @@ proc clearTreeElseSkip(env: Environment, pos: IVec2): bool =
   let existing = env.getThing(pos)
   if isNil(existing):
     return true
-  if existing.kind in {Tree}:
+  if existing.kind == Tree:
     removeThing(env, existing)
     return true
   false
@@ -1119,81 +1119,6 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
           if env.isEmpty(doorPos) and not env.hasDoor(doorPos):
             env.add(Thing(kind: Door, pos: doorPos, teamId: teamId))
 
-      # Add the interior buildings from the layout
-      for y in 0 ..< villageStruct.height:
-        for x in 0 ..< villageStruct.width:
-          if y < villageStruct.layout.len and x < villageStruct.layout[y].len:
-            let worldPos = placementPosition + ivec2(x.int32, y.int32)
-            case villageStruct.layout[y][x]:
-            of StructureBlacksmithChar:  # Blacksmith
-              env.add(Thing(
-                kind: Blacksmith,
-                pos: worldPos,
-                teamId: teamId,
-                barrelCapacity: buildingBarrelCapacity(Blacksmith)
-              ))
-            of StructureClayOvenChar:  # Clay Oven at bottom-left
-              env.add(Thing(
-                kind: ClayOven,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureWeavingLoomChar:  # Weaving Loom at bottom-right
-              env.add(Thing(
-                kind: WeavingLoom,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureTownCenterChar:  # Town Center
-              env.add(Thing(
-                kind: TownCenter,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureBarracksChar:  # Barracks
-              env.add(Thing(
-                kind: Barracks,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureArcheryRangeChar:  # Archery Range
-              env.add(Thing(
-                kind: ArcheryRange,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureStableChar:  # Stable
-              env.add(Thing(
-                kind: Stable,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureSiegeWorkshopChar:  # Siege Workshop
-              env.add(Thing(
-                kind: SiegeWorkshop,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureMarketChar:  # Market
-              env.add(Thing(
-                kind: Market,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureDockChar:  # Dock
-              env.add(Thing(
-                kind: Dock,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            of StructureUniversityChar:  # University
-              env.add(Thing(
-                kind: University,
-                pos: worldPos,
-                teamId: teamId
-              ))
-            else:
-              discard
       if agentsForThisTeam > 0:
         # Get nearby positions around the altar
         let nearbyPositions = env.findEmptyPositionsAround(elements.center, 3)
