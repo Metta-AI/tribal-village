@@ -507,6 +507,11 @@ proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): bool =
   true
 
+proc shouldTerminateFighterLanterns(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when agent has no lanterns and isn't a villager (can't craft more)
+  agent.inventoryLantern == 0 and agent.unitClass != UnitVillager
+
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -644,6 +649,22 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
       continue
     return true
   false
+
+proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer a villager (was trained) or can't afford any training
+  if agent.unitClass != UnitVillager:
+    return true
+  let teamId = getTeamId(agent)
+  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      continue
+    if env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
+      return false  # Can still train, don't terminate
+  true  # No training options available
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -839,6 +860,17 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
     return false
   let dist = int(chebyshevDist(agent.pos, meleeEnemy.pos))
   dist <= KiteTriggerDistance
+
+proc shouldTerminateFighterKite(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  ## Terminate when no melee enemy within trigger distance
+  if agent.unitClass != UnitArcher:
+    return true
+  let meleeEnemy = findNearestMeleeEnemy(env, agent)
+  if isNil(meleeEnemy):
+    return true
+  let dist = int(chebyshevDist(agent.pos, meleeEnemy.pos))
+  dist > KiteTriggerDistance
 
 proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
@@ -1192,7 +1224,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterLanterns",
     canStart: canStartFighterLanterns,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterLanterns,
     act: optFighterLanterns,
     interruptible: true
   ),
@@ -1206,7 +1238,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterTrain",
     canStart: canStartFighterTrain,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterTrain,
     act: optFighterTrain,
     interruptible: true
   ),
@@ -1227,7 +1259,7 @@ let FighterOptions* = [
   OptionDef(
     name: "FighterKite",
     canStart: canStartFighterKite,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFighterKite,
     act: optFighterKite,
     interruptible: true
   ),
