@@ -6,14 +6,21 @@ import items
 import terrain
 import test_utils
 
+proc initTestGlobalController*(seed: int) =
+  ## Initialize global controller for testing with Brutal difficulty (no decision delays).
+  initGlobalController(BuiltinAI, seed)
+  # Set Brutal difficulty for all teams to ensure deterministic test behavior
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    globalController.aiController.setDifficulty(teamId, DiffBrutal)
+
 suite "Patrol":
   test "patrol moves toward waypoint":
     let env = makeEmptyEnv()
     # Create agent at position (10, 10) with military unit class
     let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
 
-    # Initialize global controller with built-in AI
-    initGlobalController(BuiltinAI, 42)
+    # Initialize global controller with built-in AI and Brutal difficulty for testing
+    initTestGlobalController(42)
     let controller = globalController.aiController
     controller.setPatrol(0, ivec2(10, 10), ivec2(20, 10))
 
@@ -31,7 +38,7 @@ suite "Patrol":
     # Create agent very close to waypoint 2
     let agent = addAgentAt(env, 0, ivec2(19, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
 
-    initGlobalController(BuiltinAI, 42)
+    initTestGlobalController(42)
     let controller = globalController.aiController
     controller.setPatrol(0, ivec2(10, 10), ivec2(20, 10))
 
@@ -51,7 +58,7 @@ suite "Patrol":
     let enemyAgentId = 168  # Team 1
     let enemy = addAgentAt(env, enemyAgentId, ivec2(11, 10), unitClass = UnitGoblin, stance = StanceAggressive)
 
-    initGlobalController(BuiltinAI, 42)
+    initTestGlobalController(42)
     let controller = globalController.aiController
     controller.setPatrol(0, ivec2(5, 10), ivec2(15, 10))
 
@@ -64,7 +71,7 @@ suite "Patrol":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
 
-    initGlobalController(BuiltinAI, 42)
+    initTestGlobalController(42)
     let controller = globalController.aiController
     controller.setPatrol(0, ivec2(5, 10), ivec2(15, 10))
     check controller.isPatrolActive(0) == true
@@ -76,7 +83,7 @@ suite "Patrol":
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
 
-    initGlobalController(BuiltinAI, 42)
+    initTestGlobalController(42)
     let controller = globalController.aiController
     # Patrol not set, should not be active
     check controller.isPatrolActive(0) == false
