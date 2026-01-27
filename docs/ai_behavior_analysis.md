@@ -61,20 +61,22 @@ if agent.inventoryWater > 0:
 
 #### 1.3 Market Trade Without Validation
 
-**Location:** Lines 119-129 (`optGathererMarket`)
+**Status:** FIXED
 
+Market trading has been consolidated into shared functions in `options.nim`:
+- `canStartMarketTrade*` (line 755)
+- `optMarketTrade*` (line 777)
+
+The shared implementation now includes cooldown validation:
 ```nim
-proc optGathererMarket(...): uint8 =
+proc optMarketTrade*(...): uint8 =
   let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market):
+  if isNil(market) or market.cooldown != 0:  # Cooldown check added
     return 0'u8
-  return (if isAdjacent(agent.pos, market.pos):
-    controller.useAt(env, agent, agentId, state, market.pos)
-  else:
-    controller.moveTo(env, agent, agentId, state, market.pos))
+  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
 ```
 
-**Issue:** No validation that the market is usable (cooldown check missing). The use action fails if market.cooldown != 0.
+**Resolution:** The cooldown check is now included, preventing wasted actions when market is on cooldown.
 
 #### 1.4 Heart Priority with Missing Magma
 

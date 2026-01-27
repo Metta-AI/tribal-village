@@ -193,12 +193,16 @@ Multiple behaviors share building placement logic:
 
 ### 4.3 Market Trade Logic
 
-Duplicated across:
-- `canStartGathererMarket` / `optGathererMarket` (gatherer.nim)
-- `canStartBuilderMarketTrade` / `optBuilderMarketTrade` (builder.nim)
-- `canStartMarketManipulator` / `optMarketManipulator` (options.nim)
+**Status**: Consolidated
 
-**Recommendation**: Could consolidate into a single shared market behavior.
+Shared market trading behavior is now defined in `options.nim`:
+- `canStartMarketTrade*` - shared initiation condition (line 755)
+- `optMarketTrade*` - shared action proc (line 777)
+
+Used by:
+- `GathererOptions` in gatherer.nim (as "GathererMarketTrade")
+- `BuilderOptions` in builder.nim (as "BuilderMarketTrade")
+- `MetaBehaviorOptions` in options.nim (as "BehaviorMarketManipulator")
 
 ## 5. Inconsistent Patterns
 
