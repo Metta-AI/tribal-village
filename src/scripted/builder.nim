@@ -701,27 +701,9 @@ let BuilderOptionsThreat* = [
     act: optBuilderVisitTradingHub,
     interruptible: true
   ),
-  OptionDef(
-    name: "BuilderSmeltGold",
-    canStart: canStartSmeltGold,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optSmeltGold,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderCraftBread",
-    canStart: canStartCraftBread,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optCraftBread,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderStoreValuables",
-    canStart: canStartStoreValuables,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optStoreValuables,
-    interruptible: true
-  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
   OptionDef(
     name: "BuilderFallbackSearch",
     canStart: optionsAlwaysCanStart,
