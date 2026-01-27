@@ -97,6 +97,8 @@ type
     patrolPoint2: IVec2      # Second patrol waypoint
     patrolToSecondPoint: bool # True = heading to point2, False = heading to point1
     patrolActive: bool       # Whether patrol mode is enabled
+    # Attack-move state: move to destination, attack enemies along the way
+    attackMoveTarget: IVec2  # Destination for attack-move (-1,-1 = inactive)
 
   # Simple controller
   Controller* = ref object

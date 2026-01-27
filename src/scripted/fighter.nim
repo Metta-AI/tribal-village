@@ -934,6 +934,69 @@ proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing
   if didHunt: return actHunt
   0'u8
 
+# Attack-Move: Move to destination, attacking any enemies encountered along the way
+# Like AoE2's attack-move: path to destination, engage enemies in range, resume after combat
+
+const
+  AttackMoveDetectionRadius = 8  # Distance to detect enemies while attack-moving
+
+proc canStartFighterAttackMove*(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  ## Attack-move is active when the agent has a valid attack-move destination set.
+  ## Requires stance that allows movement to attack.
+  if not stanceAllowsMovementToAttack(agent):
+    return false
+  state.attackMoveTarget.x >= 0
+
+proc shouldTerminateFighterAttackMove*(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  ## Terminate when destination is reached or attack-move is cancelled.
+  if state.attackMoveTarget.x < 0:
+    return true
+  # Reached destination (within 1 tile)
+  chebyshevDist(agent.pos, state.attackMoveTarget) <= 1'i32
+
+proc optFighterAttackMove*(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): uint8 =
+  ## Attack-move behavior: move toward destination, but engage enemies along the way.
+  ## After defeating an enemy, resume path to destination.
+  if state.attackMoveTarget.x < 0:
+    return 0'u8
+
+  # Check if we've reached the destination
+  if chebyshevDist(agent.pos, state.attackMoveTarget) <= 1'i32:
+    # Clear the attack-move target - we've arrived
+    state.attackMoveTarget = ivec2(-1, -1)
+    return 0'u8
+
+  # Look for enemies within detection radius
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
+    if enemyDist <= AttackMoveDetectionRadius:
+      # Enemy found - engage!
+      return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+  # No enemy nearby - continue moving toward destination
+  controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
+
+proc setAttackMoveTarget*(controller: Controller, agentId: int, target: IVec2) =
+  ## Set an attack-move target for a specific agent.
+  ## The agent will move toward the target while engaging enemies along the way.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].attackMoveTarget = target
+
+proc clearAttackMoveTarget*(controller: Controller, agentId: int) =
+  ## Clear the attack-move target for a specific agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].attackMoveTarget = ivec2(-1, -1)
+
+proc getAttackMoveTarget*(controller: Controller, agentId: int): IVec2 =
+  ## Get the current attack-move target for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].attackMoveTarget
+  ivec2(-1, -1)
+
 # Battering Ram AI: Simple forward movement with attack-on-block behavior
 # 1. Move forward in current orientation
 # 2. If blocked, attack blocking target
@@ -1145,6 +1208,13 @@ let FighterOptions* = [
     canStart: canStartFighterAggressive,
     shouldTerminate: shouldTerminateFighterAggressive,
     act: optFighterAggressive,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterAttackMove",
+    canStart: canStartFighterAttackMove,
+    shouldTerminate: shouldTerminateFighterAttackMove,
+    act: optFighterAttackMove,
     interruptible: true
   ),
   OptionDef(

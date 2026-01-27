@@ -774,7 +774,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       patrolPoint1: existingState.patrolPoint1,
       patrolPoint2: existingState.patrolPoint2,
       patrolToSecondPoint: existingState.patrolToSecondPoint,
-      patrolActive: existingState.patrolActive
+      patrolActive: existingState.patrolActive,
+      attackMoveTarget: ivec2(-1, -1)
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
