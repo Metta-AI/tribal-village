@@ -573,7 +573,7 @@ suite "Mechanics - Construction":
 suite "AI - Gatherer":
   test "drops off carried wood":
     let env = makeEmptyEnv()
-    let controller = newController(1)
+    let controller = newTestController(1)
     let altarPos = ivec2(10, 10)
     discard addBuilding(env, TownCenter, altarPos, 0)
     let agent = addAgentAt(env, 0, ivec2(10, 11), homeAltar = altarPos)
@@ -585,7 +585,7 @@ suite "AI - Gatherer":
 
   test "task hearts uses magma when carrying gold":
     let env = makeEmptyEnv()
-    let controller = newController(2)
+    let controller = newTestController(2)
     let altarPos = ivec2(12, 10)
     discard addAltar(env, altarPos, 0, 0)
     let agent = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos)
@@ -605,7 +605,7 @@ suite "AI - Gatherer":
   for gathererCase in gathererCases:
     test gathererCase.name:
       let env = makeEmptyEnv()
-      let controller = newController(gathererCase.seed)
+      let controller = newTestController(gathererCase.seed)
       let altarPos = ivec2(10, 10)
       discard addAltar(env, altarPos, 0, 12)
       discard addResource(env, gathererCase.kind, ivec2(10, 9), gathererCase.item, 3)
@@ -618,7 +618,7 @@ suite "AI - Gatherer":
 
   test "flees toward altar when enemy nearby":
     let env = makeEmptyEnv()
-    let controller = newController(100)
+    let controller = newTestController(100)
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
     # Place gatherer away from altar
@@ -635,7 +635,7 @@ suite "AI - Gatherer":
 suite "AI - Builder":
   test "drops off carried resources":
     let env = makeEmptyEnv()
-    let controller = newController(7)
+    let controller = newTestController(7)
     let tcPos = ivec2(10, 10)
     discard addBuilding(env, TownCenter, tcPos, 0)
     let agent = addAgentAt(env, 2, ivec2(10, 11), homeAltar = tcPos)
@@ -647,7 +647,7 @@ suite "AI - Builder":
 
   test "builds core economy building when missing":
     let env = makeEmptyEnv()
-    let controller = newController(8)
+    let controller = newTestController(8)
     discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
 
@@ -657,7 +657,7 @@ suite "AI - Builder":
 
   test "builds production building after core economy":
     let env = makeEmptyEnv()
-    let controller = newController(9)
+    let controller = newTestController(9)
     addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
     discard addAgentAt(env, 2, ivec2(10, 10))
     fillStockpile(env, 0, 50)
@@ -668,7 +668,7 @@ suite "AI - Builder":
 
   test "builds tech buildings before wall ring in safe mode":
     let env = makeEmptyEnv()
-    let controller = newController(14)
+    let controller = newTestController(14)
     let basePos = ivec2(10, 10)
     addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
     env.currentStep = 1
@@ -681,7 +681,7 @@ suite "AI - Builder":
 
   test "builds clay oven after weaving loom":
     let env = makeEmptyEnv()
-    let controller = newController(14)
+    let controller = newTestController(14)
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom])
     discard addAgentAt(env, 2, ivec2(10, 10))
@@ -693,7 +693,7 @@ suite "AI - Builder":
 
   test "builds blacksmith after clay oven":
     let env = makeEmptyEnv()
-    let controller = newController(15)
+    let controller = newTestController(15)
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven])
     discard addAgentAt(env, 2, ivec2(10, 10))
@@ -705,7 +705,7 @@ suite "AI - Builder":
 
   test "builds barracks after blacksmith":
     let env = makeEmptyEnv()
-    let controller = newController(16)
+    let controller = newTestController(16)
     addBuildings(env, 0, ivec2(12, 10),
       @[Granary, LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith])
     discard addAgentAt(env, 2, ivec2(10, 10))
@@ -717,7 +717,7 @@ suite "AI - Builder":
 
   test "builds siege workshop after stable":
     let env = makeEmptyEnv()
-    let controller = newController(17)
+    let controller = newTestController(17)
     addBuildings(env, 0, ivec2(12, 10), @[
       Granary, LumberCamp, Quarry, MiningCamp,
       WeavingLoom, ClayOven, Blacksmith,
@@ -732,7 +732,7 @@ suite "AI - Builder":
 
   test "builds castle after outpost":
     let env = makeEmptyEnv()
-    let controller = newController(18)
+    let controller = newTestController(18)
     addBuildings(env, 0, ivec2(12, 10), @[
       Granary, LumberCamp, Quarry, MiningCamp,
       WeavingLoom, ClayOven, Blacksmith,
@@ -747,7 +747,7 @@ suite "AI - Builder":
 
   test "builds house when one house of room left":
     let env = makeEmptyEnv()
-    let controller = newController(12)
+    let controller = newTestController(12)
     let basePos = ivec2(10, 10)
     discard addBuilding(env, House, ivec2(8, 8), 0)
     discard addBuilding(env, House, ivec2(12, 8), 0)
@@ -762,7 +762,7 @@ suite "AI - Builder":
 
   test "builds house at cap using team-only pop cap":
     let env = makeEmptyEnv()
-    let controller = newController(13)
+    let controller = newTestController(13)
     let basePos = ivec2(10, 10)
     discard addBuilding(env, House, ivec2(8, 8), 0)
     discard addAgentAt(env, 0, ivec2(10, 10), homeAltar = basePos)
@@ -779,7 +779,7 @@ suite "AI - Builder":
     # Without threat: builder should build WeavingLoom (tech) after core infra
     # With threat: builder should prioritize wall ring over tech
     let env = makeEmptyEnv()
-    let controller = newController(15)
+    let controller = newTestController(15)
     let basePos = ivec2(10, 10)
     addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
     env.currentStep = 1
@@ -798,7 +798,7 @@ suite "AI - Builder":
 
   test "flees toward altar when enemy very close":
     let env = makeEmptyEnv()
-    let controller = newController(100)
+    let controller = newTestController(100)
     let altarPos = ivec2(10, 10)
     discard addAltar(env, altarPos, 0, 12)
     # Place builder away from altar
@@ -815,7 +815,7 @@ suite "AI - Builder":
 
   test "repairs damaged friendly building":
     let env = makeEmptyEnv()
-    let controller = newController(20)
+    let controller = newTestController(20)
     let basePos = ivec2(10, 10)
     # Create all core infrastructure so builder doesn't prioritize building
     addBuildings(env, 0, ivec2(12, 10), @[Granary, LumberCamp, Quarry, MiningCamp])
@@ -834,7 +834,7 @@ suite "AI - Builder":
 suite "AI - Fighter":
   test "villager fighter builds divider door when enemy nearby":
     let env = makeEmptyEnv()
-    let controller = newController(10)
+    let controller = newTestController(10)
     let basePos = ivec2(10, 10)
     discard addAltar(env, basePos, 0, 12)
     let agentPos = ivec2(10, 17)
@@ -849,7 +849,7 @@ suite "AI - Fighter":
 
   test "places lantern when target available":
     let env = makeEmptyEnv()
-    let controller = newController(11)
+    let controller = newTestController(11)
     discard addBuilding(env, TownCenter, ivec2(10, 10), 0)
     let agent = addAgentAt(env, 4, ivec2(10, 12))
     setInv(agent, ItemLantern, 1)
@@ -860,7 +860,7 @@ suite "AI - Fighter":
   test "combat unit converts to siege when seeing enemy structure":
     # ManAtArms with SiegeWorkshop and visible enemy structure should convert to siege
     let env = makeEmptyEnv()
-    let controller = newController(50)
+    let controller = newTestController(50)
     let basePos = ivec2(10, 10)
     # Add SiegeWorkshop
     discard addBuilding(env, SiegeWorkshop, ivec2(12, 10), 0)
@@ -879,7 +879,7 @@ suite "AI - Fighter":
   test "fighter prioritizes low HP enemy":
     # Fighter should prefer attacking a low HP enemy over a full HP enemy
     let env = makeEmptyEnv()
-    let controller = newController(30)
+    let controller = newTestController(30)
     let basePos = ivec2(10, 10)
     # Add fighter
     let fighter = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitManAtArms)
@@ -905,7 +905,7 @@ suite "AI - Fighter":
   test "fighter prioritizes enemy threatening ally":
     # Fighter should switch to attacking an enemy that is threatening an ally
     let env = makeEmptyEnv()
-    let controller = newController(40)
+    let controller = newTestController(40)
     let basePos = ivec2(10, 10)
     # Add fighter at some distance
     let fighter = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitManAtArms)
@@ -932,7 +932,7 @@ suite "AI - Fighter":
 suite "AI - Combat Behaviors":
   test "gatherer flees from nearby wolf":
     let env = makeEmptyEnv()
-    let controller = newController(20)
+    let controller = newTestController(20)
     let basePos = ivec2(10, 10)
     discard addAltar(env, basePos, 0, 10)
     let agent = addAgentAt(env, 0, ivec2(15, 10), homeAltar = basePos)
@@ -987,7 +987,7 @@ suite "AI - Combat Behaviors":
 
   test "agent eats bread when HP below 50%":
     let env = makeEmptyEnv()
-    let controller = newController(30)
+    let controller = newTestController(30)
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     # Set HP below 50% of max (AgentMaxHp = 5, so need hp * 2 < 5, i.e., hp <= 2)
     agent.hp = 2  # 40% of 5
@@ -1000,7 +1000,7 @@ suite "AI - Combat Behaviors":
 
   test "agent does not eat bread when HP above 50%":
     let env = makeEmptyEnv()
-    let controller = newController(31)
+    let controller = newTestController(31)
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     # HP at 60% of max - above threshold (3/5 = 60%, 3*2=6 which is not < 5)
     agent.hp = 3
@@ -1013,7 +1013,7 @@ suite "AI - Combat Behaviors":
 suite "AI - Stance Behavior":
   test "NoAttack stance prevents auto-attack":
     let env = makeEmptyEnv()
-    let controller = newController(40)
+    let controller = newTestController(40)
     # Create agent with NoAttack stance (default for villagers)
     let agent = addAgentAt(env, 0, ivec2(10, 10), stance = StanceNoAttack)
     # Place enemy adjacent
@@ -1025,7 +1025,7 @@ suite "AI - Stance Behavior":
 
   test "Defensive stance allows attack":
     let env = makeEmptyEnv()
-    let controller = newController(41)
+    let controller = newTestController(41)
     # Create agent with Defensive stance
     let agent = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
     # Place enemy adjacent
@@ -1114,7 +1114,7 @@ suite "Agent Idle Detection":
 
 suite "Shared Threat Map":
   test "threat is reported and can be queried":
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
     let threatPos = ivec2(20, 20)
     let currentStep: int32 = 100
@@ -1136,7 +1136,7 @@ suite "Shared Threat Map":
     check dist == 5  # chebyshev distance from (15,15) to (20,20)
 
   test "threats decay after ThreatDecaySteps":
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
     let threatPos = ivec2(20, 20)
     let reportStep: int32 = 100
@@ -1150,7 +1150,7 @@ suite "Shared Threat Map":
     check not controller.hasKnownThreats(teamId, staleStep)
 
   test "threat map clears on reset":
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
 
     # Report multiple threats
@@ -1164,7 +1164,7 @@ suite "Shared Threat Map":
 
   test "agent vision updates threat map":
     let env = makeEmptyEnv()
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
     let currentStep: int32 = env.currentStep.int32
 
@@ -1188,7 +1188,7 @@ suite "Shared Threat Map":
     check pos == enemy.pos
 
   test "threat map tracks multiple teams separately":
-    let controller = newController(42)
+    let controller = newTestController(42)
     let currentStep: int32 = 100
 
     # Report threat for team 0
@@ -1206,7 +1206,7 @@ suite "Shared Threat Map":
     check pos1 == ivec2(30, 30)
 
   test "threat strength aggregates in range":
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
     let currentStep: int32 = 100
 

@@ -118,6 +118,28 @@ type
     # Attack-move state: move to destination, attack enemies along the way
     attackMoveTarget: IVec2  # Destination for attack-move (-1,-1 = inactive)
 
+  # Difficulty levels for AI - affects decision quality and reaction time
+  DifficultyLevel* = enum
+    DiffEasy     # High delay, limited intelligence
+    DiffNormal   # Moderate delay, most features enabled
+    DiffHard     # Low delay, all features enabled
+    DiffBrutal   # No delay, all features, aggressive behavior
+
+  # Per-team difficulty configuration
+  DifficultyConfig* = object
+    level*: DifficultyLevel
+    # Decision delay: probability of returning NOOP to simulate thinking time
+    decisionDelayChance*: float32
+    # Feature toggles - disable advanced behaviors on lower difficulties
+    threatResponseEnabled*: bool     # Use shared threat map intelligence
+    advancedTargetingEnabled*: bool  # Use smart enemy selection (priority scoring)
+    coordinationEnabled*: bool       # Use inter-role coordination system
+    optimalBuildOrderEnabled*: bool  # Place buildings in optimal locations
+    # Adaptive mode - adjusts difficulty based on performance
+    adaptive*: bool
+    adaptiveTarget*: float32         # Target territory % (0.5 = balanced)
+    lastAdaptiveCheck*: int32        # Step when difficulty was last adjusted
+
   # Simple controller
   Controller* = ref object
     rng*: Rand
@@ -128,12 +150,171 @@ type
     claimedBuildings: array[MapRoomObjectsTeams, set[ThingKind]]  # Buildings claimed by builders this step
     pathCache*: PathfindingCache  # Pre-allocated pathfinding scratch space
     threatMaps*: array[MapRoomObjectsTeams, ThreatMap]  # Shared threat awareness per team
+    # Difficulty system - per-team configuration
+    difficulty*: array[MapRoomObjectsTeams, DifficultyConfig]
+
+proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
+  ## Create a default difficulty configuration for the given level.
+  ## Easy: High delay (30%), limited intelligence
+  ## Normal: Moderate delay (10%), most features enabled
+  ## Hard: Low delay (2%), all features enabled
+  ## Brutal: No delay, all features, aggressive behavior
+  case level
+  of DiffEasy:
+    result = DifficultyConfig(
+      level: DiffEasy,
+      decisionDelayChance: 0.30,
+      threatResponseEnabled: false,
+      advancedTargetingEnabled: false,
+      coordinationEnabled: false,
+      optimalBuildOrderEnabled: false,
+      adaptive: false,
+      adaptiveTarget: 0.5,
+      lastAdaptiveCheck: 0
+    )
+  of DiffNormal:
+    result = DifficultyConfig(
+      level: DiffNormal,
+      decisionDelayChance: 0.10,
+      threatResponseEnabled: true,
+      advancedTargetingEnabled: false,
+      coordinationEnabled: true,
+      optimalBuildOrderEnabled: true,
+      adaptive: false,
+      adaptiveTarget: 0.5,
+      lastAdaptiveCheck: 0
+    )
+  of DiffHard:
+    result = DifficultyConfig(
+      level: DiffHard,
+      decisionDelayChance: 0.02,
+      threatResponseEnabled: true,
+      advancedTargetingEnabled: true,
+      coordinationEnabled: true,
+      optimalBuildOrderEnabled: true,
+      adaptive: false,
+      adaptiveTarget: 0.5,
+      lastAdaptiveCheck: 0
+    )
+  of DiffBrutal:
+    result = DifficultyConfig(
+      level: DiffBrutal,
+      decisionDelayChance: 0.0,
+      threatResponseEnabled: true,
+      advancedTargetingEnabled: true,
+      coordinationEnabled: true,
+      optimalBuildOrderEnabled: true,
+      adaptive: false,
+      adaptiveTarget: 0.5,
+      lastAdaptiveCheck: 0
+    )
 
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
     buildingCountsStep: -1
   )
+  # Initialize all teams to Normal difficulty by default
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result.difficulty[teamId] = defaultDifficultyConfig(DiffNormal)
+
+proc getDifficulty*(controller: Controller, teamId: int): DifficultyConfig =
+  ## Get the difficulty configuration for a team.
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    return controller.difficulty[teamId]
+  return defaultDifficultyConfig(DiffNormal)
+
+proc setDifficulty*(controller: Controller, teamId: int, level: DifficultyLevel) =
+  ## Set the difficulty level for a team.
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    controller.difficulty[teamId] = defaultDifficultyConfig(level)
+
+proc setDifficultyConfig*(controller: Controller, teamId: int, config: DifficultyConfig) =
+  ## Set a custom difficulty configuration for a team.
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    controller.difficulty[teamId] = config
+
+proc enableAdaptiveDifficulty*(controller: Controller, teamId: int, targetTerritory: float32 = 0.5) =
+  ## Enable adaptive difficulty for a team. The AI will adjust its difficulty
+  ## based on territory control compared to the target percentage.
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    controller.difficulty[teamId].adaptive = true
+    controller.difficulty[teamId].adaptiveTarget = targetTerritory
+
+proc disableAdaptiveDifficulty*(controller: Controller, teamId: int) =
+  ## Disable adaptive difficulty for a team.
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    controller.difficulty[teamId].adaptive = false
+
+proc shouldApplyDecisionDelay*(controller: Controller, teamId: int): bool =
+  ## Check if the AI should apply a decision delay (return NOOP) based on difficulty.
+  ## Returns true with probability equal to decisionDelayChance.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  let chance = controller.difficulty[teamId].decisionDelayChance
+  if chance <= 0.0:
+    return false
+  randChance(controller.rng, chance)
+
+const
+  AdaptiveCheckInterval* = 500  # Check every 500 steps
+
+proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
+  ## Update difficulty levels for teams with adaptive mode enabled.
+  ## Adjusts difficulty up if team is doing too well, down if struggling.
+  ## Called periodically from updateController.
+  let currentStep = env.currentStep.int32
+  let score = env.scoreTerritory()
+  let totalTiles = max(1, score.scoredTiles)
+
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if not controller.difficulty[teamId].adaptive:
+      continue
+    # Only check periodically
+    let lastCheck = controller.difficulty[teamId].lastAdaptiveCheck
+    if currentStep - lastCheck < AdaptiveCheckInterval:
+      continue
+
+    controller.difficulty[teamId].lastAdaptiveCheck = currentStep
+    let teamTiles = score.teamTiles[teamId]
+    let territoryRatio = float32(teamTiles) / float32(totalTiles)
+    let target = controller.difficulty[teamId].adaptiveTarget
+    let currentLevel = controller.difficulty[teamId].level
+
+    # Adjust difficulty based on performance vs target
+    # If team is doing much better than target (>20% above), increase difficulty
+    # If team is doing much worse than target (>20% below), decrease difficulty
+    const Threshold = 0.15
+
+    if territoryRatio > target + Threshold:
+      # Team is doing too well - increase difficulty
+      let newLevel = case currentLevel
+        of DiffEasy: DiffNormal
+        of DiffNormal: DiffHard
+        of DiffHard: DiffBrutal
+        of DiffBrutal: DiffBrutal
+      if newLevel != currentLevel:
+        let adaptive = controller.difficulty[teamId].adaptive
+        let adaptiveTarget = controller.difficulty[teamId].adaptiveTarget
+        controller.difficulty[teamId] = defaultDifficultyConfig(newLevel)
+        controller.difficulty[teamId].adaptive = adaptive
+        controller.difficulty[teamId].adaptiveTarget = adaptiveTarget
+        controller.difficulty[teamId].lastAdaptiveCheck = currentStep
+
+    elif territoryRatio < target - Threshold:
+      # Team is struggling - decrease difficulty
+      let newLevel = case currentLevel
+        of DiffEasy: DiffEasy
+        of DiffNormal: DiffEasy
+        of DiffHard: DiffNormal
+        of DiffBrutal: DiffHard
+      if newLevel != currentLevel:
+        let adaptive = controller.difficulty[teamId].adaptive
+        let adaptiveTarget = controller.difficulty[teamId].adaptiveTarget
+        controller.difficulty[teamId] = defaultDifficultyConfig(newLevel)
+        controller.difficulty[teamId].adaptive = adaptive
+        controller.difficulty[teamId].adaptiveTarget = adaptiveTarget
+        controller.difficulty[teamId].lastAdaptiveCheck = currentStep
 
 proc getAgentRole*(controller: Controller, agentId: int): AgentRole =
   ## Get the role of an agent (for profiling)

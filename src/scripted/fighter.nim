@@ -79,8 +79,11 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
                             state: var AgentState): Thing =
   ## Find the best enemy target using smart target selection with periodic re-evaluation.
   ## Prioritizes: enemies threatening allies > low HP enemies > closest enemies.
+  ## On lower difficulties (advancedTargetingEnabled=false), simply picks the closest enemy.
   let enemyRadius = ObservationRadius.int32 * 2
   let teamId = getTeamId(agent)
+  let diffConfig = controller.getDifficulty(teamId)
+  let useAdvancedTargeting = diffConfig.advancedTargetingEnabled
 
   # Check if we should use cached target or re-evaluate
   # Re-evaluate every TargetSwapInterval ticks or if cache is stale
@@ -95,8 +98,9 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
         int(chebyshevDist(agent.pos, cached.pos)) <= enemyRadius.int:
       return cached
 
-  # Re-evaluate: find the best target based on scoring
+  # Re-evaluate: find the best target
   var bestScore = float.low
+  var bestDist = int.high
   var bestEnemyId = -1
 
   for idx, other in env.agents:
@@ -110,10 +114,17 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
     if dist > enemyRadius.int:
       continue
 
-    let score = scoreEnemy(env, agent, other, teamId)
-    if score > bestScore:
-      bestScore = score
-      bestEnemyId = idx
+    if useAdvancedTargeting:
+      # Smart targeting: use scoring based on HP, threat level, etc.
+      let score = scoreEnemy(env, agent, other, teamId)
+      if score > bestScore:
+        bestScore = score
+        bestEnemyId = idx
+    else:
+      # Simple targeting: just pick the closest enemy
+      if dist < bestDist:
+        bestDist = dist
+        bestEnemyId = idx
 
   state.fighterEnemyStep = env.currentStep
   state.fighterEnemyAgentId = bestEnemyId

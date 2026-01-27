@@ -1,5 +1,6 @@
 import std/[tables]
 import environment
+import agent_control
 import common
 import types
 import items
@@ -136,3 +137,10 @@ proc stepAction*(env: Environment, agentId: int, verb: uint8, argument: int) =
     actions[i] = 0
   actions[agentId] = encodeAction(verb, argument.uint8)
   env.step(addr actions)
+
+proc newTestController*(seed: int): Controller =
+  ## Create a controller configured for testing with Brutal difficulty (no decision delays).
+  ## This ensures deterministic test behavior without random NOOP actions.
+  result = newController(seed)
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result.setDifficulty(teamId, DiffBrutal)
