@@ -791,6 +791,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   var state = controller.agents[agentId]
 
+  # Update shared threat map with what this agent can see
+  # Decay old threats periodically (once per step, keyed by team)
+  let currentStep = env.currentStep.int32
+  let teamId = getTeamId(agent)
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    if controller.threatMaps[teamId].lastUpdateStep != currentStep:
+      controller.decayThreats(teamId, currentStep)
+    controller.updateThreatMapFromVision(env, agent, currentStep)
+
   if agent.unitClass == UnitGoblin:
     var totalRelicsHeld = 0
     for other in env.agents:
@@ -993,6 +1002,9 @@ proc updateController*(controller: Controller, env: Environment) =
     resetScriptedAssignments(scriptedState)
     scriptedState.scoredAtStep = false
     scriptedState.lastEpisodeStep = -1
+    # Clear shared threat maps on episode reset
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      controller.clearThreatMap(teamId)
   if EvolutionEnabled:
     if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
       applyScriptedScoring(controller, env)

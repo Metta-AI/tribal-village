@@ -1111,3 +1111,114 @@ suite "Agent Idle Detection":
     let centerY = ObservationRadius  # 5
     let idleLayerValue = env.observations[0][ord(AgentIdleLayer)][centerX][centerY]
     check idleLayerValue == 1
+
+suite "Shared Threat Map":
+  test "threat is reported and can be queried":
+    let controller = newController(42)
+    let teamId = 0
+    let threatPos = ivec2(20, 20)
+    let currentStep: int32 = 100
+
+    # Initially no threats
+    check not controller.hasKnownThreats(teamId, currentStep)
+
+    # Report a threat
+    controller.reportThreat(teamId, threatPos, strength = 2, currentStep,
+                            agentId = 10, isStructure = false)
+
+    # Now has known threats
+    check controller.hasKnownThreats(teamId, currentStep)
+
+    # Can find the threat
+    let (pos, dist, found) = controller.getNearestThreat(teamId, ivec2(15, 15), currentStep)
+    check found
+    check pos == threatPos
+    check dist == 5  # chebyshev distance from (15,15) to (20,20)
+
+  test "threats decay after ThreatDecaySteps":
+    let controller = newController(42)
+    let teamId = 0
+    let threatPos = ivec2(20, 20)
+    let reportStep: int32 = 100
+
+    # Report a threat
+    controller.reportThreat(teamId, threatPos, strength = 2, reportStep)
+    check controller.hasKnownThreats(teamId, reportStep)
+
+    # After ThreatDecaySteps, threat should be stale
+    let staleStep = reportStep + ThreatDecaySteps
+    check not controller.hasKnownThreats(teamId, staleStep)
+
+  test "threat map clears on reset":
+    let controller = newController(42)
+    let teamId = 0
+
+    # Report multiple threats
+    controller.reportThreat(teamId, ivec2(10, 10), strength = 1, currentStep = 50)
+    controller.reportThreat(teamId, ivec2(20, 20), strength = 2, currentStep = 50)
+    check controller.hasKnownThreats(teamId, 50)
+
+    # Clear the threat map
+    controller.clearThreatMap(teamId)
+    check not controller.hasKnownThreats(teamId, 50)
+
+  test "agent vision updates threat map":
+    let env = makeEmptyEnv()
+    let controller = newController(42)
+    let teamId = 0
+    let currentStep: int32 = env.currentStep.int32
+
+    # Add friendly agent at (10, 10)
+    discard addAgentAt(env, 0, ivec2(10, 10))
+    # Add enemy agent at (15, 10) - within ThreatVisionRange
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(15, 10))
+
+    # Initially no threats
+    check not controller.hasKnownThreats(teamId, currentStep)
+
+    # Update threat map from vision
+    controller.updateThreatMapFromVision(env, env.agents[0], currentStep)
+
+    # Now has known threats
+    check controller.hasKnownThreats(teamId, currentStep)
+
+    # Threat should be at enemy position
+    let (pos, dist, found) = controller.getNearestThreat(teamId, ivec2(10, 10), currentStep)
+    check found
+    check pos == enemy.pos
+
+  test "threat map tracks multiple teams separately":
+    let controller = newController(42)
+    let currentStep: int32 = 100
+
+    # Report threat for team 0
+    controller.reportThreat(0, ivec2(10, 10), strength = 1, currentStep)
+    # Report threat for team 1
+    controller.reportThreat(1, ivec2(30, 30), strength = 1, currentStep)
+
+    # Team 0 sees its threat, not team 1's
+    let (pos0, _, found0) = controller.getNearestThreat(0, ivec2(0, 0), currentStep)
+    check found0
+    check pos0 == ivec2(10, 10)
+
+    let (pos1, _, found1) = controller.getNearestThreat(1, ivec2(0, 0), currentStep)
+    check found1
+    check pos1 == ivec2(30, 30)
+
+  test "threat strength aggregates in range":
+    let controller = newController(42)
+    let teamId = 0
+    let currentStep: int32 = 100
+
+    # Report multiple threats nearby
+    controller.reportThreat(teamId, ivec2(10, 10), strength = 2, currentStep)
+    controller.reportThreat(teamId, ivec2(12, 10), strength = 3, currentStep)
+    controller.reportThreat(teamId, ivec2(50, 50), strength = 5, currentStep)
+
+    # Total strength in range 5 of (10, 10) should be 2 + 3 = 5
+    let totalNear = controller.getTotalThreatStrength(teamId, ivec2(10, 10), rangeVal = 5, currentStep)
+    check totalNear == 5
+
+    # Total strength in range 100 should include all = 10
+    let totalAll = controller.getTotalThreatStrength(teamId, ivec2(10, 10), rangeVal = 100, currentStep)
+    check totalAll == 10

@@ -10,8 +10,26 @@ const
   MaxPathNodes* = 512     # Slightly more than 250 exploration limit
   MaxPathLength* = 256    # Max reconstructed path length
   MaxPathGoals* = 10      # Max goal positions (8 neighbors + direct)
+  # Shared threat map configuration
+  MaxThreatEntries* = 64  # Max threats tracked per team
+  ThreatDecaySteps* = 50  # Steps before threat decays
+  ThreatVisionRange* = 12 # Range to detect threats
 
 type
+  ## Shared threat map entry for team coordination
+  ThreatEntry* = object
+    pos*: IVec2           # Position where threat was seen
+    strength*: int32      # Estimated threat strength (1 = single enemy)
+    lastSeen*: int32      # Step when threat was last observed
+    agentId*: int32       # ID of enemy agent (-1 if structure)
+    isStructure*: bool    # True if threat is a building
+
+  ## Shared threat map for a team - tracks enemy positions seen by any agent
+  ThreatMap* = object
+    entries*: array[MaxThreatEntries, ThreatEntry]
+    count*: int32
+    lastUpdateStep*: int32
+
   ## Pre-allocated pathfinding scratch space to avoid per-call allocations.
   ## Uses generation counters for O(1) validity checks without clearing arrays.
   PathfindingCache* = object
@@ -109,6 +127,7 @@ type
     buildingCounts: array[MapRoomObjectsTeams, array[ThingKind, int]]
     claimedBuildings: array[MapRoomObjectsTeams, set[ThingKind]]  # Buildings claimed by builders this step
     pathCache*: PathfindingCache  # Pre-allocated pathfinding scratch space
+    threatMaps*: array[MapRoomObjectsTeams, ThreatMap]  # Shared threat awareness per team
 
 proc newController*(seed: int): Controller =
   result = Controller(
@@ -160,6 +179,175 @@ proc chebyshevDist(a, b: IVec2): int32 =
   let dx = abs(a.x - b.x)
   let dy = abs(a.y - b.y)
   return (if dx > dy: dx else: dy)
+
+# ============================================================================
+# Shared Threat Map Functions
+# ============================================================================
+
+proc decayThreats*(controller: Controller, teamId: int, currentStep: int32) =
+  ## Remove threats that haven't been seen recently
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  var map = addr controller.threatMaps[teamId]
+  var writeIdx = 0
+  for readIdx in 0 ..< map.count:
+    let age = currentStep - map.entries[readIdx].lastSeen
+    if age < ThreatDecaySteps:
+      if writeIdx != readIdx:
+        map.entries[writeIdx] = map.entries[readIdx]
+      inc writeIdx
+  map.count = writeIdx.int32
+  map.lastUpdateStep = currentStep
+
+proc reportThreat*(controller: Controller, teamId: int, pos: IVec2,
+                   strength: int32, currentStep: int32,
+                   agentId: int32 = -1, isStructure: bool = false) =
+  ## Report a threat position to the team's shared threat map.
+  ## Called by any agent that spots an enemy.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  var map = addr controller.threatMaps[teamId]
+
+  # Check if threat already exists at this position or for this agent
+  for i in 0 ..< map.count:
+    let entry = addr map.entries[i]
+    # Update existing entry if same position or same enemy agent
+    if (entry.pos == pos) or (agentId >= 0 and entry.agentId == agentId):
+      entry.pos = pos
+      entry.strength = max(entry.strength, strength)
+      entry.lastSeen = currentStep
+      entry.agentId = agentId
+      entry.isStructure = isStructure
+      return
+
+  # Add new threat if space available
+  if map.count < MaxThreatEntries:
+    map.entries[map.count] = ThreatEntry(
+      pos: pos,
+      strength: strength,
+      lastSeen: currentStep,
+      agentId: agentId,
+      isStructure: isStructure
+    )
+    inc map.count
+
+proc getNearestThreat*(controller: Controller, teamId: int, pos: IVec2,
+                       currentStep: int32): tuple[pos: IVec2, dist: int32, found: bool] =
+  ## Get the nearest known threat to a position.
+  ## Returns the threat position and distance, or found=false if none.
+  result = (pos: ivec2(-1, -1), dist: int32.high, found: false)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  let map = addr controller.threatMaps[teamId]
+  for i in 0 ..< map.count:
+    let entry = map.entries[i]
+    let age = currentStep - entry.lastSeen
+    if age >= ThreatDecaySteps:
+      continue  # Skip stale threats
+    let dist = chebyshevDist(pos, entry.pos)
+    if dist < result.dist:
+      result = (pos: entry.pos, dist: dist, found: true)
+
+proc getThreatsInRange*(controller: Controller, teamId: int, pos: IVec2,
+                        rangeVal: int32, currentStep: int32): seq[ThreatEntry] =
+  ## Get all known threats within range of a position.
+  result = @[]
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  let map = addr controller.threatMaps[teamId]
+  for i in 0 ..< map.count:
+    let entry = map.entries[i]
+    let age = currentStep - entry.lastSeen
+    if age >= ThreatDecaySteps:
+      continue  # Skip stale threats
+    let dist = chebyshevDist(pos, entry.pos)
+    if dist <= rangeVal:
+      result.add entry
+
+proc getTotalThreatStrength*(controller: Controller, teamId: int, pos: IVec2,
+                              rangeVal: int32, currentStep: int32): int32 =
+  ## Get the total threat strength within range of a position.
+  result = 0
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  let map = addr controller.threatMaps[teamId]
+  for i in 0 ..< map.count:
+    let entry = map.entries[i]
+    let age = currentStep - entry.lastSeen
+    if age >= ThreatDecaySteps:
+      continue
+    let dist = chebyshevDist(pos, entry.pos)
+    if dist <= rangeVal:
+      result += entry.strength
+
+proc hasKnownThreats*(controller: Controller, teamId: int, currentStep: int32): bool =
+  ## Check if team has any known (non-stale) threats
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  let map = addr controller.threatMaps[teamId]
+  for i in 0 ..< map.count:
+    let age = currentStep - map.entries[i].lastSeen
+    if age < ThreatDecaySteps:
+      return true
+  false
+
+proc clearThreatMap*(controller: Controller, teamId: int) =
+  ## Clear all threats for a team (e.g., at episode reset)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  controller.threatMaps[teamId].count = 0
+  controller.threatMaps[teamId].lastUpdateStep = 0
+
+proc updateThreatMapFromVision*(controller: Controller, env: Environment,
+                                 agent: Thing, currentStep: int32) =
+  ## Scan agent's vision range and report any enemies to the team threat map.
+  ## Called each tick for each agent to share threat intelligence.
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+
+  # Scan for enemy agents within vision range
+  for other in env.agents:
+    if not isAgentAlive(env, other):
+      continue
+    let otherTeam = getTeamId(other)
+    if otherTeam == teamId or otherTeam < 0:
+      continue  # Skip allies and neutral
+    let dist = chebyshevDist(agent.pos, other.pos)
+    if dist <= ThreatVisionRange:
+      # Calculate threat strength based on unit class
+      var strength: int32 = 1
+      case other.unitClass
+      of UnitKnight: strength = 3
+      of UnitManAtArms: strength = 2
+      of UnitArcher: strength = 2
+      of UnitMangonel: strength = 4
+      of UnitMonk: strength = 1
+      else: strength = 1
+      controller.reportThreat(teamId, other.pos, strength, currentStep,
+                              agentId = other.agentId.int32, isStructure = false)
+
+  # Scan for enemy structures within vision range
+  for thing in env.things:
+    if thing.isNil or not isBuildingKind(thing.kind):
+      continue
+    if thing.teamId < 0 or thing.teamId == teamId:
+      continue  # Skip neutral and friendly
+    let dist = chebyshevDist(agent.pos, thing.pos)
+    if dist <= ThreatVisionRange:
+      # Calculate threat strength based on building type
+      var strength: int32 = 1
+      case thing.kind
+      of Castle: strength = 5
+      of GuardTower: strength = 3
+      of Barracks, ArcheryRange, Stable: strength = 2
+      else: strength = 1
+      controller.reportThreat(teamId, thing.pos, strength, currentStep,
+                              agentId = -1, isStructure = true)
+
+# ============================================================================
+# End Shared Threat Map Functions
+# ============================================================================
 
 proc updateClosestSeen(state: var AgentState, basePos: IVec2, candidate: IVec2, current: var IVec2) =
   if candidate.x < 0:
