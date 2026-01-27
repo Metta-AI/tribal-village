@@ -6,6 +6,10 @@ const
   DividerInvSqrt2 = 0.70710677'f32
   FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
   FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
+  # Target swapping constants
+  TargetSwapInterval = 10  # Re-evaluate target every N ticks
+  LowHpThreshold = 0.33    # Enemies below this HP ratio get priority
+  AllyThreatRadius = 2     # Distance at which enemy is considered threatening an ally
 
 proc stanceAllowsChase*(agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -47,10 +51,54 @@ proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
       return false
   true
 
+proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
+  ## Check if an enemy is close enough to any ally to be considered a threat.
+  ## Returns true if the enemy is within AllyThreatRadius of any friendly unit.
+  for other in env.agents:
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) != teamId:
+      continue
+    if int(chebyshevDist(enemy.pos, other.pos)) <= AllyThreatRadius:
+      return true
+  false
+
+proc scoreEnemy(env: Environment, agent: Thing, enemy: Thing, teamId: int): float =
+  ## Score an enemy for target selection. Higher score = better target.
+  ## Considers: distance, HP ratio, and threat to allies.
+  var score = 0.0
+  let dist = int(chebyshevDist(agent.pos, enemy.pos))
+
+  # Base score from distance (closer is better, max ~20 points for adjacent)
+  score += float(20 - min(dist, 20))
+
+  # Bonus for low HP enemies (easier to finish off) - up to 15 points
+  let hpRatio = if enemy.maxHp > 0: float(enemy.hp) / float(enemy.maxHp) else: 1.0
+  if hpRatio <= LowHpThreshold:
+    score += 15.0  # High priority for very low HP targets
+  elif hpRatio <= 0.5:
+    score += 10.0  # Medium priority for half-HP targets
+  elif hpRatio <= 0.75:
+    score += 5.0   # Small bonus for wounded targets
+
+  # Bonus for enemies threatening allies - up to 20 points
+  if isThreateningAlly(env, enemy, teamId):
+    score += 20.0
+
+  score
+
 proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thing,
                             state: var AgentState): Thing =
+  ## Find the best enemy target using smart target selection with periodic re-evaluation.
+  ## Prioritizes: enemies threatening allies > low HP enemies > closest enemies.
   let enemyRadius = ObservationRadius.int32 * 2
-  if state.fighterEnemyStep == env.currentStep and
+  let teamId = getTeamId(agent)
+
+  # Check if we should use cached target or re-evaluate
+  # Re-evaluate every TargetSwapInterval ticks or if cache is stale
+  let shouldReevaluate = (env.currentStep - state.fighterEnemyStep) >= TargetSwapInterval
+
+  if not shouldReevaluate and state.fighterEnemyStep >= 0 and
       state.fighterEnemyAgentId >= 0 and state.fighterEnemyAgentId < MapAgents:
     let cached = env.agents[state.fighterEnemyAgentId]
     if cached.agentId != agent.agentId and
@@ -59,8 +107,10 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
         int(chebyshevDist(agent.pos, cached.pos)) <= enemyRadius.int:
       return cached
 
-  var bestEnemyDist = int.high
+  # Re-evaluate: find the best target based on scoring
+  var bestScore = float.low
   var bestEnemyId = -1
+
   for idx, other in env.agents:
     if other.agentId == agent.agentId:
       continue
@@ -71,8 +121,10 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
     let dist = int(chebyshevDist(agent.pos, other.pos))
     if dist > enemyRadius.int:
       continue
-    if dist < bestEnemyDist:
-      bestEnemyDist = dist
+
+    let score = scoreEnemy(env, agent, other, teamId)
+    if score > bestScore:
+      bestScore = score
       bestEnemyId = idx
 
   state.fighterEnemyStep = env.currentStep
