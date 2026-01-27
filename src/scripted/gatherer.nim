@@ -106,6 +106,16 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
         altarHearts = altar.hearts
   let altarFound = altarPos.x >= 0
   var task = TaskFood
+
+  # Check economy state for critical resource bottlenecks
+  let bottleneck = getCurrentBottleneck(teamId)
+  if bottleneck == FoodCritical:
+    state.gathererTask = TaskFood
+    return
+  elif bottleneck == WoodCritical:
+    state.gathererTask = TaskWood
+    return
+
   if altarFound and altarHearts < 10:
     task = TaskHearts
   else:
@@ -120,13 +130,28 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
       LateGameWeights
     else:
       MidGameWeights
+
+    # Get flow rates from economy system to adjust priorities
+    let flowRate = getFlowRate(teamId)
+    var flowAdjust: array[4, float] = [0.0, 0.0, 0.0, 0.0]
+    # If a resource is decreasing fast, reduce its weight (prioritize it)
+    if flowRate.foodPerStep < -0.1:
+      flowAdjust[0] = flowRate.foodPerStep * 2.0  # Negative flow reduces effective stockpile
+    if flowRate.woodPerStep < -0.1:
+      flowAdjust[1] = flowRate.woodPerStep * 2.0
+    if flowRate.stonePerStep < -0.1:
+      flowAdjust[2] = flowRate.stonePerStep * 2.0
+    if flowRate.goldPerStep < -0.1:
+      flowAdjust[3] = flowRate.goldPerStep * 2.0
+
     # Apply weights: lower weighted score = higher priority
     # Weight < 1.0 makes resource appear more scarce (prioritized)
+    # Flow adjustment makes declining resources appear more scarce
     var ordered: seq[(GathererTask, float)] = @[
-      (TaskFood, env.stockpileCount(teamId, ResourceFood).float * weights[0]),
-      (TaskWood, env.stockpileCount(teamId, ResourceWood).float * weights[1]),
-      (TaskStone, env.stockpileCount(teamId, ResourceStone).float * weights[2]),
-      (TaskGold, env.stockpileCount(teamId, ResourceGold).float * weights[3])
+      (TaskFood, max(0.0, env.stockpileCount(teamId, ResourceFood).float + flowAdjust[0] * 10.0) * weights[0]),
+      (TaskWood, max(0.0, env.stockpileCount(teamId, ResourceWood).float + flowAdjust[1] * 10.0) * weights[1]),
+      (TaskStone, max(0.0, env.stockpileCount(teamId, ResourceStone).float + flowAdjust[2] * 10.0) * weights[2]),
+      (TaskGold, max(0.0, env.stockpileCount(teamId, ResourceGold).float + flowAdjust[3] * 10.0) * weights[3])
     ]
     if altarFound:
       ordered.insert((TaskHearts, altarHearts.float), 0)
