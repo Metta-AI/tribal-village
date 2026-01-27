@@ -168,9 +168,6 @@ const
 
 const
   TerrainEmpty* = TerrainType.Empty
-  TerrainWater* = TerrainType.Water
-  TerrainBridge* = TerrainType.Bridge
-  TerrainFertile* = TerrainType.Fertile
   TerrainRoad* = TerrainType.Road
   TerrainGrass* = TerrainType.Grass
   TerrainDune* = TerrainType.Dune
