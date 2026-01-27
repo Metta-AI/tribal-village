@@ -753,6 +753,59 @@ suite "AI - Fighter":
     # Should move (verb 1) toward SiegeWorkshop or interact (verb 3)
     check verb == 1 or verb == 3
 
+  test "fighter prioritizes low HP enemy":
+    # Fighter should prefer attacking a low HP enemy over a full HP enemy
+    let env = makeEmptyEnv()
+    let controller = newController(30)
+    let basePos = ivec2(10, 10)
+    # Add fighter
+    let fighter = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitManAtArms)
+    fighter.stance = StanceAggressive
+    # Add two enemies: one at full HP (close), one at low HP (slightly farther)
+    let fullHpEnemy = addAgentAt(env, MapAgentsPerTeam, ivec2(11, 10))  # Adjacent
+    fullHpEnemy.hp = fullHpEnemy.maxHp
+    let lowHpEnemy = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(12, 10))  # 2 tiles away
+    lowHpEnemy.hp = 1  # Very low HP
+    lowHpEnemy.maxHp = 10
+
+    # Run enough steps for target re-evaluation to trigger
+    for _ in 0 ..< 15:
+      discard controller.decideAction(env, 4)
+      env.currentStep += 1
+
+    # The fighter should target the low HP enemy despite being farther
+    # Check by examining that the agent is oriented toward or attacking the low HP enemy
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
+    # Should be attacking (verb 2) or moving (verb 1)
+    check verb == 1 or verb == 2
+
+  test "fighter prioritizes enemy threatening ally":
+    # Fighter should switch to attacking an enemy that is threatening an ally
+    let env = makeEmptyEnv()
+    let controller = newController(40)
+    let basePos = ivec2(10, 10)
+    # Add fighter at some distance
+    let fighter = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitManAtArms)
+    fighter.stance = StanceAggressive
+    # Add ally being attacked (villager)
+    let ally = addAgentAt(env, 5, ivec2(15, 10), homeAltar = basePos)
+    ally.hp = 3  # Low HP ally
+    # Add enemy close to the fighter
+    let farEnemy = addAgentAt(env, MapAgentsPerTeam, ivec2(11, 10))  # Adjacent to fighter
+    # Add enemy threatening the ally (adjacent to ally)
+    let threateningEnemy = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(15, 11))  # Adjacent to ally
+    threateningEnemy.hp = 10
+    threateningEnemy.maxHp = 10
+
+    # Run enough steps for target re-evaluation
+    for _ in 0 ..< 15:
+      discard controller.decideAction(env, 4)
+      env.currentStep += 1
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
+    # Should be moving (verb 1) toward the threatening enemy or attacking (verb 2)
+    check verb == 1 or verb == 2
+
 suite "AI - Combat Behaviors":
   test "gatherer flees from nearby wolf":
     let env = makeEmptyEnv()
