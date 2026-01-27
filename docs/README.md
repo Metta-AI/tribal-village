@@ -8,9 +8,12 @@ This index lists the canonical docs for the Tribal Village repo.
 
 ## Getting Started
 - `docs/quickstart.md`: prerequisites, building, running, testing, and environment variables.
+- `docs/architecture.md`: high-level architectural overview of the codebase.
+- `docs/configuration.md`: configuration reference for runtime, compile-time, and environment options.
 
 ## Core Gameplay and Systems
 - `docs/game_logic.md`: high-level step loop, actions, entities, and episode end rules.
+- `docs/action_space.md`: action space encoding, verbs, and arguments reference.
 - `docs/combat.md`: combat rules, counters, and damage interactions.
 - `docs/combat_visuals.md`: combat tint/visual feedback specifics.
 - `docs/economy_respawn.md`: inventory vs stockpile, markets, hearts, respawns.
@@ -41,10 +44,19 @@ This index lists the canonical docs for the Tribal Village repo.
 ## Analysis and Reviews
 - `docs/ai_behavior_analysis.md`: AI behavior invalid action root causes.
 - `docs/game_mechanics_analysis.md`: game mechanics action failure analysis.
+- `docs/entity_interaction_analysis.md`: entity interaction and targeting analysis.
 - `docs/performance_analysis.md`: performance optimization opportunities.
+- `docs/perf-improvements.md`: performance improvements summary (38% speedup).
+- `docs/performance_scaling_1000_agents.md`: 1000+ agent scaling bottleneck investigation.
 - `docs/code_review_verbosity.md`: code verbosity patterns review.
 - `docs/code_review_indirection.md`: helper function indirection review.
 - `docs/code_review_dead_code.md`: dead code analysis.
+- `docs/codebase_audit.md`: codebase structure and file organization audit.
+- `docs/role_audit_report.md`: deep audit of gatherer, builder, fighter roles.
+- `docs/terrain_biomes_audit.md`: terrain and biomes implementation audit.
+- `docs/aoe2_design_investigation.md`: AoE2 design plan vs implementation review.
+- `docs/building_siege_analysis.md`: building interaction and siege mechanics analysis.
+- `docs/siege_fortifications_investigation_report.md`: siege fortifications plan investigation.
 - `docs/ai_profile_3000_steps.md`: profile results from 3000 step run.
 
 ## Repo and Process
