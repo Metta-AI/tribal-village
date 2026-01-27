@@ -165,7 +165,6 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
     remaining -= absorbed
-    env.updateObservations(AgentInventoryArmorLayer, target.pos, target.inventoryArmor)
 
   if remaining > 0:
     target.hp = max(0, target.hp - remaining)
