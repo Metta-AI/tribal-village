@@ -542,16 +542,18 @@ proc drawObjects*() =
     )
 
   drawThings(Bear):
+    let dirKey = OrientationDirKeys[thing.orientation.int]
     bxy.drawImage(
-      if thing.orientation == Orientation.E: "oriented/bear.r" else: "oriented/bear",
+      "oriented/bear." & dirKey,
       pos.vec2,
       angle = 0,
       scale = SpriteScale
     )
 
   drawThings(Wolf):
+    let dirKey = OrientationDirKeys[thing.orientation.int]
     bxy.drawImage(
-      if thing.orientation == Orientation.E: "oriented/wolf.r" else: "oriented/wolf",
+      "oriented/wolf." & dirKey,
       pos.vec2,
       angle = 0,
       scale = SpriteScale
