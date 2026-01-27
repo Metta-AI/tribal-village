@@ -71,23 +71,24 @@ The following dead code was identified and removed:
 
 ---
 
-### 4. Terrain Type Aliases (terrain.nim, lines 135-143)
+### 4. Terrain Type Aliases (terrain.nim)
 
-| Item | File | Line | Evidence | Confidence | Risks |
-|------|------|------|----------|------------|-------|
-| `TerrainEmpty` | src/terrain.nim | 135 | Alias for TerrainType.Empty, used in tests | Used | N/A |
-| `TerrainWater` | src/terrain.nim | 136 | Alias for TerrainType.Water | Investigate | Low |
-| `TerrainBridge` | src/terrain.nim | 137 | Alias for TerrainType.Bridge | Investigate | Low |
-| `TerrainFertile` | src/terrain.nim | 138 | Alias for TerrainType.Fertile | Investigate | Low |
-| `TerrainRoad` | src/terrain.nim | 139 | Alias for TerrainType.Road | Investigate | Low |
-| `TerrainGrass` | src/terrain.nim | 140 | Alias for TerrainType.Grass | Investigate | Low |
-| `TerrainDune` | src/terrain.nim | 141 | Alias for TerrainType.Dune | Investigate | Low |
-| `TerrainSand` | src/terrain.nim | 142 | Alias for TerrainType.Sand | Investigate | Low |
-| `TerrainSnow` | src/terrain.nim | 143 | Alias for TerrainType.Snow | Investigate | Low |
+**Dead Code Removed (2026-01-27):**
+- `TerrainWater`, `TerrainBridge`, `TerrainFertile` - Removed, never used outside definitions
 
-**Analysis:** These are convenience aliases for enum values. The code mostly uses the qualified names (e.g., `TerrainType.Water` or just `Water`). These may be for external API consumers.
+**Aliases Retained:**
 
-**Risk of Removal:** Low - Compile-time aliases only.
+| Item | File | Evidence | Status |
+|------|------|----------|--------|
+| `TerrainEmpty` | src/terrain.nim | Used in tests/ai_harness.nim, tests/test_utils.nim, spawn.nim | Kept |
+| `TerrainRoad` | src/terrain.nim | Used in ai_defaults.nim (10+), options.nim, fighter.nim, builder.nim | Kept |
+| `TerrainGrass` | src/terrain.nim | Used in spawn.nim (ResourceGround, TreeGround sets) | Kept |
+| `TerrainDune` | src/terrain.nim | Used in spawn.nim, terrain.nim (biome generation) | Kept |
+| `TerrainSand` | src/terrain.nim | Used in spawn.nim, terrain.nim (biome generation) | Kept |
+| `TerrainSnow` | src/terrain.nim | Used in spawn.nim (ResourceGround set) | Kept |
+| `TerrainMud` | src/terrain.nim | Used in spawn.nim (ResourceGround, TreeGround sets) | Kept |
+
+**Analysis:** The remaining aliases are actively used throughout the codebase for terrain sets and AI logic.
 
 ---
 
@@ -153,7 +154,7 @@ None identified with high confidence. The codebase is clean.
 
 1. **Layer Aliases (types.nim:260-279)**: Consider whether all the `AgentInventory*Layer` aliases are needed, or if they're vestigial from an earlier observation system design. Currently they all point to the same base layer.
 
-2. **Terrain Type Aliases (terrain.nim:135-143)**: These appear to be convenience exports. If no external code uses them, they could be removed.
+2. ~~**Terrain Type Aliases (terrain.nim:135-143)**~~ - **RESOLVED (2026-01-27)**: Investigated. Removed `TerrainWater`, `TerrainBridge`, `TerrainFertile` (unused). Kept all others (actively used in spawn.nim, AI logic, tests).
 
 ### Keep As-Is
 
