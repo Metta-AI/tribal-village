@@ -543,7 +543,7 @@ suite "AI - Builder":
     check verb == 8
     check arg == buildIndexFor(WeavingLoom)
 
-  test "builds wall ring before tech buildings":
+  test "builds tech buildings before wall ring in safe mode":
     let env = makeEmptyEnv()
     let controller = newController(14)
     let basePos = ivec2(10, 10)
@@ -554,7 +554,7 @@ suite "AI - Builder":
 
     let (verb, arg) = decodeAction(controller.decideAction(env, 2))
     check verb == 8
-    check arg == BuildIndexWall
+    check arg == buildIndexFor(WeavingLoom)
 
   test "builds clay oven after weaving loom":
     let env = makeEmptyEnv()
