@@ -24,8 +24,106 @@ This is the current include-based chain (flat scope):
   - includes `src/scripted/roles.nim`
   - includes `src/scripted/evolution.nim`
 
-This structure is the “include sprawl” discussed in recent sessions. It works
+This structure is the "include sprawl" discussed in recent sessions. It works
 but makes ownership and symbol boundaries hard to reason about.
+
+## Understanding the include pattern
+
+### Nim's `include` vs `import`
+
+Nim has two mechanisms for code organization:
+
+| Mechanism | Behavior | Use Case |
+|-----------|----------|----------|
+| `import` | Loads a module with its own namespace | Standard modular code, clear dependencies |
+| `include` | Textually inserts file contents at that point | Code splitting within a single compilation unit |
+
+**`include` merges files into one scope.** All symbols from included files become
+part of the including file's namespace, as if you had written one large file.
+
+### Why the AI uses `include`
+
+The scripted AI system uses `include` for historical and practical reasons:
+
+1. **Shared state access**: All behavior procs need access to `Environment`,
+   `Controller`, `AgentState`, and helper functions. With `include`, these
+   are automatically in scope without explicit imports or circular dependency
+   issues.
+
+2. **Compile-time behavior registration**: The `OptionDef` arrays (e.g.,
+   `GathererOptions`, `BuilderOptions`) are static arrays that must be known
+   at compile time. `include` makes it easy to compose these without forward
+   declarations.
+
+3. **Incremental growth**: The system started small and grew by adding files.
+   `include` was the path of least resistance.
+
+### Implications for developers
+
+**What works:**
+- Adding new procs that use existing types and helpers
+- Adding new `OptionDef` entries to role arrays
+- Calling any proc defined anywhere in the include chain
+
+**What to watch for:**
+- **Implicit dependencies**: A file may use symbols defined elsewhere in the
+  chain without any visible import statement. Check the include order if you
+  see "undeclared identifier" errors.
+- **Order matters**: Files are processed top-to-bottom. A proc in `fighter.nim`
+  can call procs from `ai_core.nim` (included earlier), but not vice versa
+  without forward declarations.
+- **No namespace isolation**: Name collisions between files are real. Prefix
+  role-specific helpers (e.g., `gathererFindResource`, `builderSelectSite`).
+
+### The complete include graph
+
+```
+src/agent_control.nim
+├── includes src/scripted/ai_core.nim
+│   ├── imports std/[tables, sets, algorithm]
+│   ├── imports ../entropy, vmath, ../environment, ../common, ../terrain
+│   └── defines: AgentRole, AgentState, Controller, PathfindingCache, helpers
+│
+└── includes src/scripted/ai_defaults.nim
+    ├── defines: tryBuildAction, goToAdjacentAndBuild, decideAction, etc.
+    │
+    ├── includes src/scripted/options.nim
+    │   └── defines: OptionDef, runOptions, MetaBehaviorOptions
+    │
+    ├── includes src/scripted/gatherer.nim
+    │   └── defines: GathererOptions array
+    │
+    ├── includes src/scripted/builder.nim
+    │   └── defines: BuilderOptions array
+    │
+    ├── includes src/scripted/fighter.nim
+    │   └── defines: FighterOptions array
+    │
+    ├── includes src/scripted/roles.nim
+    │   └── defines: RoleDef, RoleCatalog, materializeRoleOptions
+    │
+    └── includes src/scripted/evolution.nim
+        └── defines: generateRandomRole, applyScriptedScoring
+```
+
+### Adding new code
+
+**To add a new behavior:**
+1. Define `canStart*` and `opt*` procs in the appropriate role file
+2. Add an `OptionDef` entry to that role's options array
+3. The `*` export marker is optional (everything is in scope anyway) but helps
+   indicate public API intent
+
+**To add a new role file:**
+1. Create `src/scripted/newrole.nim`
+2. Add `include "newrole"` in `ai_defaults.nim` after dependencies
+3. Define your options array and register it in `seedDefaultBehaviorCatalog`
+
+**Best practice**: Each file should have a header comment like:
+```nim
+# This file is included by src/agent_control.nim
+```
+This helps developers understand the context when viewing the file in isolation.
 
 ## Roles and controller state
 - `AgentRole` (in `src/scripted/ai_core.nim`): `Gatherer`, `Builder`, `Fighter`,
