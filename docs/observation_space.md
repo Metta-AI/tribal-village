@@ -58,8 +58,10 @@ Defined in `src/types.nim`:
 - `ActionTintAttackBonus` = 12 (generic bonus, rarely used)
 - `ActionTintBonusArcher` = 13 (archer counter bonus vs infantry)
 - `ActionTintBonusInfantry` = 14 (infantry counter bonus vs cavalry)
-- `ActionTintBonusCavalry` = 15 (cavalry counter bonus vs archers)
-- `ActionTintBonusSiege` = 16 (siege bonus vs structures)
+- `ActionTintBonusScout` = 15 (scout counter bonus vs archers)
+- `ActionTintBonusKnight` = 16 (knight counter bonus vs archers)
+- `ActionTintBonusBatteringRam` = 17 (battering ram siege bonus vs structures)
+- `ActionTintBonusMangonel` = 18 (mangonel siege bonus vs structures)
 - `ActionTintShield` = 20
 - `ActionTintHealMonk` = 30
 - `ActionTintHealBread` = 31

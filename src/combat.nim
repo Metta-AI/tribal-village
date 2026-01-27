@@ -36,7 +36,7 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
 ]
 
-# Action tint codes for class-specific bonus damage
+# Action tint codes for per-unit bonus damage
 # Maps attacker unit class to the appropriate observation code
 const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   # UnitVillager - no counter bonus
@@ -45,16 +45,16 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintBonusInfantry,
   # UnitArcher - archer counter (beats infantry)
   ActionTintBonusArcher,
-  # UnitScout - cavalry counter (beats archers)
-  ActionTintBonusCavalry,
-  # UnitKnight - cavalry counter (beats archers)
-  ActionTintBonusCavalry,
+  # UnitScout - scout counter (beats archers)
+  ActionTintBonusScout,
+  # UnitKnight - knight counter (beats archers)
+  ActionTintBonusKnight,
   # UnitMonk - no counter bonus
   ActionTintAttackBonus,
-  # UnitBatteringRam - siege bonus (beats structures)
-  ActionTintBonusSiege,
-  # UnitMangonel - siege bonus (beats structures)
-  ActionTintBonusSiege,
+  # UnitBatteringRam - battering ram siege bonus (beats structures)
+  ActionTintBonusBatteringRam,
+  # UnitMangonel - mangonel siege bonus (beats structures)
+  ActionTintBonusMangonel,
   # UnitGoblin - no counter bonus
   ActionTintAttackBonus,
   # UnitBoat - no counter bonus

@@ -143,8 +143,10 @@ const
   ActionTintAttackBonus* = 12'u8
   ActionTintBonusArcher* = 13'u8     # Archer counter bonus (vs infantry)
   ActionTintBonusInfantry* = 14'u8   # Infantry counter bonus (vs cavalry)
-  ActionTintBonusCavalry* = 15'u8    # Cavalry counter bonus (vs archer)
-  ActionTintBonusSiege* = 16'u8      # Siege bonus (vs structures)
+  ActionTintBonusScout* = 15'u8      # Scout counter bonus (vs archers)
+  ActionTintBonusKnight* = 16'u8     # Knight counter bonus (vs archers)
+  ActionTintBonusBatteringRam* = 17'u8  # Battering ram siege bonus (vs structures)
+  ActionTintBonusMangonel* = 18'u8   # Mangonel siege bonus (vs structures)
   ActionTintShield* = 20'u8
   ActionTintHealMonk* = 30'u8
   ActionTintHealBread* = 31'u8

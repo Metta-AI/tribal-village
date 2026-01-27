@@ -33,11 +33,13 @@ When a bonus applies (class counters or siege-vs-structure), the target tile rec
 - `BonusTintCodeByClass` maps attackers to class-specific observation codes
 - Applied via `env.applyActionTint` when bonus damage > 0
 
-This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits **class-specific `TintLayer` codes** for bonus hits:
+This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits **per-unit `TintLayer` codes** for bonus hits:
 - `ActionTintBonusArcher` (13) - archer counter hits on infantry
-- `ActionTintBonusInfantry` (14) - infantry counter hits on cavalry
-- `ActionTintBonusCavalry` (15) - cavalry counter hits on archers
-- `ActionTintBonusSiege` (16) - siege bonus hits on structures
+- `ActionTintBonusInfantry` (14) - man-at-arms counter hits on cavalry
+- `ActionTintBonusScout` (15) - scout counter hits on archers
+- `ActionTintBonusKnight` (16) - knight counter hits on archers
+- `ActionTintBonusBatteringRam` (17) - battering ram siege hits on structures
+- `ActionTintBonusMangonel` (18) - mangonel siege hits on structures
 
 Bonus flashes use **per‑attacker colors** so you can tell which unit type scored the critical hit. Siege units (battering ram, mangonel) have stronger intensity (1.40 vs 1.18-1.20) for more visible feedback against structures.
 
