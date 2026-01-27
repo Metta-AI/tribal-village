@@ -700,13 +700,53 @@ proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thin
   var roleId = state.roleId
   if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
     roleId = roleIdForAgent(controller, agentId)
-  # Dynamic defense priority: Builders use threat-aware option ordering
-  if state.role == Builder and isBuilderUnderThreat(env, agent):
-    return runOptions(controller, env, agent, agentId, state, BuilderOptionsThreat)
-  let options = roleOptionsFor(roleId, controller.rng)
-  if options.len == 0:
-    return 0'u8
-  return runOptions(controller, env, agent, agentId, state, options)
+
+  # Get team strategy for strategy-specific behavior
+  let teamId = getTeamId(agent)
+  let strategy = controller.getTeamStrategy(teamId)
+
+  # Strategy-specific option selection for each role
+  case state.role
+  of Builder:
+    # Dynamic defense priority: Builders use threat-aware option ordering
+    if isBuilderUnderThreat(env, agent):
+      return runOptions(controller, env, agent, agentId, state, BuilderOptionsThreat)
+    # Strategy-specific builder options
+    case strategy
+    of StrategyRush:
+      return runOptions(controller, env, agent, agentId, state, BuilderOptionsRush)
+    of StrategyBoom:
+      return runOptions(controller, env, agent, agentId, state, BuilderOptionsBoom)
+    of StrategyTurtle:
+      return runOptions(controller, env, agent, agentId, state, BuilderOptionsTurtle)
+    of StrategyBalanced:
+      return runOptions(controller, env, agent, agentId, state, BuilderOptions)
+  of Fighter:
+    # Strategy-specific fighter options
+    case strategy
+    of StrategyRush:
+      return runOptions(controller, env, agent, agentId, state, FighterOptionsRush)
+    of StrategyTurtle:
+      return runOptions(controller, env, agent, agentId, state, FighterOptionsTurtle)
+    of StrategyBoom, StrategyBalanced:
+      return runOptions(controller, env, agent, agentId, state, FighterOptions)
+  of Gatherer:
+    # Strategy-specific gatherer options
+    case strategy
+    of StrategyRush:
+      return runOptions(controller, env, agent, agentId, state, GathererOptionsRush)
+    of StrategyBoom:
+      return runOptions(controller, env, agent, agentId, state, GathererOptionsBoom)
+    of StrategyTurtle:
+      return runOptions(controller, env, agent, agentId, state, GathererOptionsTurtle)
+    of StrategyBalanced:
+      return runOptions(controller, env, agent, agentId, state, GathererOptions)
+  of Scripted:
+    # Scripted roles use materialized options from the catalog
+    let options = roleOptionsFor(roleId, controller.rng)
+    if options.len == 0:
+      return 0'u8
+    return runOptions(controller, env, agent, agentId, state, options)
 
 proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
   let agent = env.agents[agentId]

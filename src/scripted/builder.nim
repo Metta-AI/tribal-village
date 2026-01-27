@@ -539,6 +539,27 @@ proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
+# Strategy constants for builder behavior
+const
+  # Rush building kinds - prioritize military production early
+  RushMilitaryBuildingKinds = [Barracks, ArcheryRange, Outpost]
+
+# Rush strategy: Skip wall ring, prioritize barracks/archery first
+proc canStartBuilderRushMilitary(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  anyMissingBuilding(controller, env, teamId, RushMilitaryBuildingKinds)
+
+proc shouldTerminateBuilderRushMilitary(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  not anyMissingBuilding(controller, env, teamId, RushMilitaryBuildingKinds)
+
+proc optBuilderRushMilitary(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  buildFirstMissing(controller, env, agent, agentId, state, teamId, RushMilitaryBuildingKinds)
+
 let BuilderOptions* = [
   OptionDef(
     name: "BuilderFlee",
@@ -630,6 +651,362 @@ let BuilderOptions* = [
     canStart: canStartBuilderWallRing,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderWallRing,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderGatherScarce",
+    canStart: canStartBuilderGatherScarce,
+    shouldTerminate: shouldTerminateBuilderGatherScarce,
+    act: optBuilderGatherScarce,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMarketTrade",
+    canStart: canStartMarketTrade,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optMarketTrade,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderVisitTradingHub",
+    canStart: canStartBuilderVisitTradingHub,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderVisitTradingHub,
+    interruptible: true
+  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
+  OptionDef(
+    name: "BuilderFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Rush strategy options: Military buildings before economy, skip walls
+let BuilderOptionsRush* = [
+  OptionDef(
+    name: "BuilderFlee",
+    canStart: canStartBuilderFlee,
+    shouldTerminate: shouldTerminateBuilderFlee,
+    act: optBuilderFlee,
+    interruptible: false
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "BuilderDropoffCarrying",
+    canStart: canStartBuilderDropoffCarrying,
+    shouldTerminate: shouldTerminateBuilderDropoffCarrying,
+    act: optBuilderDropoffCarrying,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPopCap",
+    canStart: canStartBuilderPopCap,
+    shouldTerminate: shouldTerminateBuilderPopCap,
+    act: optBuilderPopCap,
+    interruptible: true
+  ),
+  # Rush: Military buildings FIRST
+  OptionDef(
+    name: "BuilderRushMilitary",
+    canStart: canStartBuilderRushMilitary,
+    shouldTerminate: shouldTerminateBuilderRushMilitary,
+    act: optBuilderRushMilitary,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderDefenseResponse",
+    canStart: canStartBuilderDefenseResponse,
+    shouldTerminate: shouldTerminateBuilderDefenseResponse,
+    act: optBuilderDefenseResponse,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderSiegeResponse",
+    canStart: canStartBuilderSiegeResponse,
+    shouldTerminate: shouldTerminateBuilderSiegeResponse,
+    act: optBuilderSiegeResponse,
+    interruptible: true
+  ),
+  # Rush: Economy buildings after military
+  OptionDef(
+    name: "BuilderCoreInfrastructure",
+    canStart: canStartBuilderCoreInfrastructure,
+    shouldTerminate: shouldTerminateBuilderCoreInfrastructure,
+    act: optBuilderCoreInfrastructure,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCampThreshold",
+    canStart: canStartBuilderCampThreshold,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCampThreshold,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderTechBuildings",
+    canStart: canStartBuilderTechBuildings,
+    shouldTerminate: shouldTerminateBuilderTechBuildings,
+    act: optBuilderTechBuildings,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderRepair",
+    canStart: canStartBuilderRepair,
+    shouldTerminate: shouldTerminateBuilderRepair,
+    act: optBuilderRepair,
+    interruptible: true
+  ),
+  # Rush: Skip walls and farms (no planting, no walls)
+  OptionDef(
+    name: "BuilderGatherScarce",
+    canStart: canStartBuilderGatherScarce,
+    shouldTerminate: shouldTerminateBuilderGatherScarce,
+    act: optBuilderGatherScarce,
+    interruptible: true
+  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
+  OptionDef(
+    name: "BuilderFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Boom strategy options: Economy first, maximize resource buildings
+let BuilderOptionsBoom* = [
+  OptionDef(
+    name: "BuilderFlee",
+    canStart: canStartBuilderFlee,
+    shouldTerminate: shouldTerminateBuilderFlee,
+    act: optBuilderFlee,
+    interruptible: false
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "BuilderPlantOnFertile",
+    canStart: canStartBuilderPlantOnFertile,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantOnFertile,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderDropoffCarrying",
+    canStart: canStartBuilderDropoffCarrying,
+    shouldTerminate: shouldTerminateBuilderDropoffCarrying,
+    act: optBuilderDropoffCarrying,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPopCap",
+    canStart: canStartBuilderPopCap,
+    shouldTerminate: shouldTerminateBuilderPopCap,
+    act: optBuilderPopCap,
+    interruptible: true
+  ),
+  # Boom: Economy buildings first
+  OptionDef(
+    name: "BuilderCoreInfrastructure",
+    canStart: canStartBuilderCoreInfrastructure,
+    shouldTerminate: shouldTerminateBuilderCoreInfrastructure,
+    act: optBuilderCoreInfrastructure,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMillNearResource",
+    canStart: canStartBuilderMillNearResource,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderMillNearResource,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPlantIfMills",
+    canStart: canStartBuilderPlantIfMills,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantIfMills,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCampThreshold",
+    canStart: canStartBuilderCampThreshold,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCampThreshold,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderRepair",
+    canStart: canStartBuilderRepair,
+    shouldTerminate: shouldTerminateBuilderRepair,
+    act: optBuilderRepair,
+    interruptible: true
+  ),
+  # Boom: Tech and military buildings delayed
+  OptionDef(
+    name: "BuilderTechBuildings",
+    canStart: canStartBuilderTechBuildings,
+    shouldTerminate: shouldTerminateBuilderTechBuildings,
+    act: optBuilderTechBuildings,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderDefenseResponse",
+    canStart: canStartBuilderDefenseResponse,
+    shouldTerminate: shouldTerminateBuilderDefenseResponse,
+    act: optBuilderDefenseResponse,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderSiegeResponse",
+    canStart: canStartBuilderSiegeResponse,
+    shouldTerminate: shouldTerminateBuilderSiegeResponse,
+    act: optBuilderSiegeResponse,
+    interruptible: true
+  ),
+  # Boom: Some walls but not priority
+  OptionDef(
+    name: "BuilderWallRing",
+    canStart: canStartBuilderWallRing,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderWallRing,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderGatherScarce",
+    canStart: canStartBuilderGatherScarce,
+    shouldTerminate: shouldTerminateBuilderGatherScarce,
+    act: optBuilderGatherScarce,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMarketTrade",
+    canStart: canStartMarketTrade,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optMarketTrade,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderVisitTradingHub",
+    canStart: canStartBuilderVisitTradingHub,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderVisitTradingHub,
+    interruptible: true
+  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
+  OptionDef(
+    name: "BuilderFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Turtle strategy options: Walls and defense first, passive
+let BuilderOptionsTurtle* = [
+  OptionDef(
+    name: "BuilderFlee",
+    canStart: canStartBuilderFlee,
+    shouldTerminate: shouldTerminateBuilderFlee,
+    act: optBuilderFlee,
+    interruptible: false
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "BuilderPlantOnFertile",
+    canStart: canStartBuilderPlantOnFertile,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantOnFertile,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderDropoffCarrying",
+    canStart: canStartBuilderDropoffCarrying,
+    shouldTerminate: shouldTerminateBuilderDropoffCarrying,
+    act: optBuilderDropoffCarrying,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPopCap",
+    canStart: canStartBuilderPopCap,
+    shouldTerminate: shouldTerminateBuilderPopCap,
+    act: optBuilderPopCap,
+    interruptible: true
+  ),
+  # Turtle: Walls FIRST
+  OptionDef(
+    name: "BuilderWallRing",
+    canStart: canStartBuilderWallRing,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderWallRing,
+    interruptible: true
+  ),
+  # Turtle: Repair high priority (maintain defenses)
+  OptionDef(
+    name: "BuilderRepair",
+    canStart: canStartBuilderRepair,
+    shouldTerminate: shouldTerminateBuilderRepair,
+    act: optBuilderRepair,
+    interruptible: true
+  ),
+  # Turtle: Defense response high priority
+  OptionDef(
+    name: "BuilderDefenseResponse",
+    canStart: canStartBuilderDefenseResponse,
+    shouldTerminate: shouldTerminateBuilderDefenseResponse,
+    act: optBuilderDefenseResponse,
+    interruptible: true
+  ),
+  # Turtle: Economy after defenses
+  OptionDef(
+    name: "BuilderCoreInfrastructure",
+    canStart: canStartBuilderCoreInfrastructure,
+    shouldTerminate: shouldTerminateBuilderCoreInfrastructure,
+    act: optBuilderCoreInfrastructure,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderMillNearResource",
+    canStart: canStartBuilderMillNearResource,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderMillNearResource,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderPlantIfMills",
+    canStart: canStartBuilderPlantIfMills,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderPlantIfMills,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderCampThreshold",
+    canStart: canStartBuilderCampThreshold,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optBuilderCampThreshold,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderTechBuildings",
+    canStart: canStartBuilderTechBuildings,
+    shouldTerminate: shouldTerminateBuilderTechBuildings,
+    act: optBuilderTechBuildings,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderSiegeResponse",
+    canStart: canStartBuilderSiegeResponse,
+    shouldTerminate: shouldTerminateBuilderSiegeResponse,
+    act: optBuilderSiegeResponse,
     interruptible: true
   ),
   OptionDef(

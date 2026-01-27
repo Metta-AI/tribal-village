@@ -514,6 +514,21 @@ proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Th
   # If can't move, just noop
   return saveStateAndReturn(controller, agentId, state, 0'u8)
 
+# Rush strategy: Skip hearts (delay altar upgrades), focus food/wood for fast military
+proc canStartGathererHeartsRush(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  false  # Rush skips hearts priority
+
+# Rush strategy: Skip planting (delays economy too much)
+proc canStartGathererPlantOnFertileRush(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  false  # Rush skips planting
+
+# Rush strategy: Skip irrigation (delays economy too much)
+proc canStartGathererIrrigateRush(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  false  # Rush skips irrigation
+
 let GathererOptions* = [
   OptionDef(
     name: "GathererFlee",
@@ -577,6 +592,265 @@ let GathererOptions* = [
     canStart: canStartGathererIrrigate,
     shouldTerminate: shouldTerminateGathererIrrigate,
     act: optGathererIrrigate,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererScavenge",
+    canStart: canStartGathererScavenge,
+    shouldTerminate: shouldTerminateGathererScavenge,
+    act: optGathererScavenge,
+    interruptible: true
+  ),
+  StoreValuablesOption,
+  OptionDef(
+    name: "GathererFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Rush strategy options: Skip hearts, skip planting, skip irrigation - focus on fast resources
+let GathererOptionsRush* = [
+  OptionDef(
+    name: "GathererFlee",
+    canStart: canStartGathererFlee,
+    shouldTerminate: shouldTerminateGathererFlee,
+    act: optGathererFlee,
+    interruptible: false
+  ),
+  OptionDef(
+    name: "GathererPredatorFlee",
+    canStart: canStartGathererPredatorFlee,
+    shouldTerminate: shouldTerminateGathererPredatorFlee,
+    act: optGathererPredatorFlee,
+    interruptible: false
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "GathererCarryingStockpile",
+    canStart: canStartGathererCarrying,
+    shouldTerminate: shouldTerminateGathererCarrying,
+    act: optGathererCarrying,
+    interruptible: true
+  ),
+  # Rush: Skip hearts (use canStartGathererHeartsRush which returns false)
+  OptionDef(
+    name: "GathererHearts",
+    canStart: canStartGathererHeartsRush,
+    shouldTerminate: shouldTerminateGathererHearts,
+    act: optGathererHearts,
+    interruptible: true
+  ),
+  # Rush: Food first (for military training)
+  OptionDef(
+    name: "GathererFood",
+    canStart: canStartGathererFood,
+    shouldTerminate: shouldTerminateGathererFood,
+    act: optGathererFood,
+    interruptible: true
+  ),
+  # Rush: Resources second
+  OptionDef(
+    name: "GathererResource",
+    canStart: canStartGathererResource,
+    shouldTerminate: shouldTerminateGathererResource,
+    act: optGathererResource,
+    interruptible: true
+  ),
+  # Rush: Scavenging for quick resources
+  OptionDef(
+    name: "GathererScavenge",
+    canStart: canStartGathererScavenge,
+    shouldTerminate: shouldTerminateGathererScavenge,
+    act: optGathererScavenge,
+    interruptible: true
+  ),
+  # Rush: Skip planting (use canStartGathererPlantOnFertileRush which returns false)
+  OptionDef(
+    name: "GathererPlantOnFertile",
+    canStart: canStartGathererPlantOnFertileRush,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererPlantOnFertile,
+    interruptible: true
+  ),
+  # Rush: Skip irrigation (use canStartGathererIrrigateRush which returns false)
+  OptionDef(
+    name: "GathererIrrigate",
+    canStart: canStartGathererIrrigateRush,
+    shouldTerminate: shouldTerminateGathererIrrigate,
+    act: optGathererIrrigate,
+    interruptible: true
+  ),
+  # Rush: Skip market trade (waste of time)
+  StoreValuablesOption,
+  OptionDef(
+    name: "GathererFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Boom strategy options: Prioritize all economy, planting, irrigation, market trade
+let GathererOptionsBoom* = [
+  OptionDef(
+    name: "GathererFlee",
+    canStart: canStartGathererFlee,
+    shouldTerminate: shouldTerminateGathererFlee,
+    act: optGathererFlee,
+    interruptible: false
+  ),
+  OptionDef(
+    name: "GathererPredatorFlee",
+    canStart: canStartGathererPredatorFlee,
+    shouldTerminate: shouldTerminateGathererPredatorFlee,
+    act: optGathererPredatorFlee,
+    interruptible: false
+  ),
+  EmergencyHealOption,
+  # Boom: Planting high priority (long-term food)
+  OptionDef(
+    name: "GathererPlantOnFertile",
+    canStart: canStartGathererPlantOnFertile,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererPlantOnFertile,
+    interruptible: true
+  ),
+  # Boom: Irrigation high priority
+  OptionDef(
+    name: "GathererIrrigate",
+    canStart: canStartGathererIrrigate,
+    shouldTerminate: shouldTerminateGathererIrrigate,
+    act: optGathererIrrigate,
+    interruptible: true
+  ),
+  # Boom: Market trade for resource conversion
+  OptionDef(
+    name: "GathererMarketTrade",
+    canStart: canStartMarketTrade,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optMarketTrade,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererCarryingStockpile",
+    canStart: canStartGathererCarrying,
+    shouldTerminate: shouldTerminateGathererCarrying,
+    act: optGathererCarrying,
+    interruptible: true
+  ),
+  # Boom: Hearts for altar upgrades
+  OptionDef(
+    name: "GathererHearts",
+    canStart: canStartGathererHearts,
+    shouldTerminate: shouldTerminateGathererHearts,
+    act: optGathererHearts,
+    interruptible: true
+  ),
+  # Boom: All resources balanced
+  OptionDef(
+    name: "GathererResource",
+    canStart: canStartGathererResource,
+    shouldTerminate: shouldTerminateGathererResource,
+    act: optGathererResource,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererFood",
+    canStart: canStartGathererFood,
+    shouldTerminate: shouldTerminateGathererFood,
+    act: optGathererFood,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererScavenge",
+    canStart: canStartGathererScavenge,
+    shouldTerminate: shouldTerminateGathererScavenge,
+    act: optGathererScavenge,
+    interruptible: true
+  ),
+  StoreValuablesOption,
+  OptionDef(
+    name: "GathererFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Turtle strategy options: Stay defensive, prioritize resources that help defense
+let GathererOptionsTurtle* = [
+  OptionDef(
+    name: "GathererFlee",
+    canStart: canStartGathererFlee,
+    shouldTerminate: shouldTerminateGathererFlee,
+    act: optGathererFlee,
+    interruptible: false
+  ),
+  OptionDef(
+    name: "GathererPredatorFlee",
+    canStart: canStartGathererPredatorFlee,
+    shouldTerminate: shouldTerminateGathererPredatorFlee,
+    act: optGathererPredatorFlee,
+    interruptible: false
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "GathererCarryingStockpile",
+    canStart: canStartGathererCarrying,
+    shouldTerminate: shouldTerminateGathererCarrying,
+    act: optGathererCarrying,
+    interruptible: true
+  ),
+  # Turtle: Hearts for altar defense
+  OptionDef(
+    name: "GathererHearts",
+    canStart: canStartGathererHearts,
+    shouldTerminate: shouldTerminateGathererHearts,
+    act: optGathererHearts,
+    interruptible: true
+  ),
+  # Turtle: Planting for sustainable food
+  OptionDef(
+    name: "GathererPlantOnFertile",
+    canStart: canStartGathererPlantOnFertile,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optGathererPlantOnFertile,
+    interruptible: true
+  ),
+  # Turtle: Irrigation for sustainable food
+  OptionDef(
+    name: "GathererIrrigate",
+    canStart: canStartGathererIrrigate,
+    shouldTerminate: shouldTerminateGathererIrrigate,
+    act: optGathererIrrigate,
+    interruptible: true
+  ),
+  # Turtle: Food for sustaining population
+  OptionDef(
+    name: "GathererFood",
+    canStart: canStartGathererFood,
+    shouldTerminate: shouldTerminateGathererFood,
+    act: optGathererFood,
+    interruptible: true
+  ),
+  # Turtle: Resources (wood for walls, stone for towers)
+  OptionDef(
+    name: "GathererResource",
+    canStart: canStartGathererResource,
+    shouldTerminate: shouldTerminateGathererResource,
+    act: optGathererResource,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GathererMarketTrade",
+    canStart: canStartMarketTrade,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(

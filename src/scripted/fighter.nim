@@ -1169,6 +1169,34 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
   # Move toward current waypoint
   controller.moveTo(env, agent, agentId, state, target)
 
+# Strategy-specific retreat thresholds
+const
+  RushRetreatHpMultiplier = 4  # Retreat at 25% HP (more aggressive)
+  TurtleRetreatHpMultiplier = 2  # Retreat at 50% HP (more defensive)
+
+# Rush strategy: Very aggressive, retreat only at 25% HP
+proc canStartFighterRetreatRush(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  agent.hp * RushRetreatHpMultiplier <= agent.maxHp  # 25% HP
+
+proc shouldTerminateFighterRetreatRush(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  agent.hp * RushRetreatHpMultiplier > agent.maxHp
+
+# Turtle strategy: Defensive, retreat at 50% HP
+proc canStartFighterRetreatTurtle(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  agent.hp * TurtleRetreatHpMultiplier <= agent.maxHp  # 50% HP
+
+proc shouldTerminateFighterRetreatTurtle(controller: Controller, env: Environment, agent: Thing,
+                                          agentId: int, state: var AgentState): bool =
+  agent.hp * TurtleRetreatHpMultiplier > agent.maxHp
+
+# Rush strategy: Don't hunt predators (save time for military)
+proc canStartFighterHuntPredatorsRush(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  false  # Rush skips predator hunting
+
 let FighterOptions* = [
   OptionDef(
     name: "BatteringRamAdvance",
@@ -1305,6 +1333,290 @@ let FighterOptions* = [
     canStart: canStartFighterAttackMove,
     shouldTerminate: shouldTerminateFighterAttackMove,
     act: optFighterAttackMove,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optFighterFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Rush strategy: More aggressive, lower retreat threshold, skip non-combat activities
+let FighterOptionsRush* = [
+  OptionDef(
+    name: "BatteringRamAdvance",
+    canStart: canStartBatteringRamAdvance,
+    shouldTerminate: shouldTerminateBatteringRamAdvance,
+    act: optBatteringRamAdvance,
+    interruptible: false
+  ),
+  OptionDef(
+    name: "FighterBreakout",
+    canStart: canStartFighterBreakout,
+    shouldTerminate: shouldTerminateFighterBreakout,
+    act: optFighterBreakout,
+    interruptible: true
+  ),
+  # Rush: Lower retreat threshold (25% HP)
+  OptionDef(
+    name: "FighterRetreat",
+    canStart: canStartFighterRetreatRush,
+    shouldTerminate: shouldTerminateFighterRetreatRush,
+    act: optFighterRetreat,
+    interruptible: true
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "FighterMonk",
+    canStart: canStartFighterMonk,
+    shouldTerminate: shouldTerminateFighterMonk,
+    act: optFighterMonk,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterPatrol",
+    canStart: canStartFighterPatrol,
+    shouldTerminate: shouldTerminateFighterPatrol,
+    act: optFighterPatrol,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterDropoffFood",
+    canStart: canStartFighterDropoffFood,
+    shouldTerminate: shouldTerminateFighterDropoffFood,
+    act: optFighterDropoffFood,
+    interruptible: true
+  ),
+  # Rush: Training is high priority
+  OptionDef(
+    name: "FighterTrain",
+    canStart: canStartFighterTrain,
+    shouldTerminate: shouldTerminateFighterTrain,
+    act: optFighterTrain,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterBecomeSiege",
+    canStart: canStartFighterBecomeSiege,
+    shouldTerminate: shouldTerminateFighterBecomeSiege,
+    act: optFighterBecomeSiege,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterMaintainGear",
+    canStart: canStartFighterMaintainGear,
+    shouldTerminate: shouldTerminateFighterMaintainGear,
+    act: optFighterMaintainGear,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterKite",
+    canStart: canStartFighterKite,
+    shouldTerminate: shouldTerminateFighterKite,
+    act: optFighterKite,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterAntiSiege",
+    canStart: canStartFighterAntiSiege,
+    shouldTerminate: shouldTerminateFighterAntiSiege,
+    act: optFighterAntiSiege,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterEscort",
+    canStart: canStartFighterEscort,
+    shouldTerminate: shouldTerminateFighterEscort,
+    act: optFighterEscort,
+    interruptible: true
+  ),
+  # Rush: Aggressive hunting high priority
+  OptionDef(
+    name: "FighterAggressive",
+    canStart: canStartFighterAggressive,
+    shouldTerminate: shouldTerminateFighterAggressive,
+    act: optFighterAggressive,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterAttackMove",
+    canStart: canStartFighterAttackMove,
+    shouldTerminate: shouldTerminateFighterAttackMove,
+    act: optFighterAttackMove,
+    interruptible: true
+  ),
+  # Rush: Skip predator hunting (use canStartFighterHuntPredatorsRush which returns false)
+  OptionDef(
+    name: "FighterHuntPredators",
+    canStart: canStartFighterHuntPredatorsRush,
+    shouldTerminate: shouldTerminateFighterHuntPredators,
+    act: optFighterHuntPredators,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterClearGoblins",
+    canStart: canStartFighterClearGoblins,
+    shouldTerminate: shouldTerminateFighterClearGoblins,
+    act: optFighterClearGoblins,
+    interruptible: true
+  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
+  # Rush: Skip lanterns (waste of resources)
+  OptionDef(
+    name: "FighterFallbackSearch",
+    canStart: optionsAlwaysCanStart,
+    shouldTerminate: optionsAlwaysTerminate,
+    act: optFighterFallbackSearch,
+    interruptible: true
+  )
+]
+
+# Turtle strategy: Defensive, higher retreat threshold, prioritize defense
+let FighterOptionsTurtle* = [
+  OptionDef(
+    name: "BatteringRamAdvance",
+    canStart: canStartBatteringRamAdvance,
+    shouldTerminate: shouldTerminateBatteringRamAdvance,
+    act: optBatteringRamAdvance,
+    interruptible: false
+  ),
+  OptionDef(
+    name: "FighterBreakout",
+    canStart: canStartFighterBreakout,
+    shouldTerminate: shouldTerminateFighterBreakout,
+    act: optFighterBreakout,
+    interruptible: true
+  ),
+  # Turtle: Higher retreat threshold (50% HP)
+  OptionDef(
+    name: "FighterRetreat",
+    canStart: canStartFighterRetreatTurtle,
+    shouldTerminate: shouldTerminateFighterRetreatTurtle,
+    act: optFighterRetreat,
+    interruptible: true
+  ),
+  EmergencyHealOption,
+  OptionDef(
+    name: "FighterSeekHealer",
+    canStart: canStartFighterSeekHealer,
+    shouldTerminate: shouldTerminateFighterSeekHealer,
+    act: optFighterSeekHealer,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterMonk",
+    canStart: canStartFighterMonk,
+    shouldTerminate: shouldTerminateFighterMonk,
+    act: optFighterMonk,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterPatrol",
+    canStart: canStartFighterPatrol,
+    shouldTerminate: shouldTerminateFighterPatrol,
+    act: optFighterPatrol,
+    interruptible: true
+  ),
+  # Turtle: Defense first
+  OptionDef(
+    name: "FighterDividerDefense",
+    canStart: canStartFighterDividerDefense,
+    shouldTerminate: shouldTerminateFighterDividerDefense,
+    act: optFighterDividerDefense,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterAntiSiege",
+    canStart: canStartFighterAntiSiege,
+    shouldTerminate: shouldTerminateFighterAntiSiege,
+    act: optFighterAntiSiege,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterEscort",
+    canStart: canStartFighterEscort,
+    shouldTerminate: shouldTerminateFighterEscort,
+    act: optFighterEscort,
+    interruptible: true
+  ),
+  # Turtle: Lanterns for vision (important for defense)
+  OptionDef(
+    name: "FighterLanterns",
+    canStart: canStartFighterLanterns,
+    shouldTerminate: shouldTerminateFighterLanterns,
+    act: optFighterLanterns,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterDropoffFood",
+    canStart: canStartFighterDropoffFood,
+    shouldTerminate: shouldTerminateFighterDropoffFood,
+    act: optFighterDropoffFood,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterTrain",
+    canStart: canStartFighterTrain,
+    shouldTerminate: shouldTerminateFighterTrain,
+    act: optFighterTrain,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterMaintainGear",
+    canStart: canStartFighterMaintainGear,
+    shouldTerminate: shouldTerminateFighterMaintainGear,
+    act: optFighterMaintainGear,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterKite",
+    canStart: canStartFighterKite,
+    shouldTerminate: shouldTerminateFighterKite,
+    act: optFighterKite,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterHuntPredators",
+    canStart: canStartFighterHuntPredators,
+    shouldTerminate: shouldTerminateFighterHuntPredators,
+    act: optFighterHuntPredators,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterClearGoblins",
+    canStart: canStartFighterClearGoblins,
+    shouldTerminate: shouldTerminateFighterClearGoblins,
+    act: optFighterClearGoblins,
+    interruptible: true
+  ),
+  SmeltGoldOption,
+  CraftBreadOption,
+  StoreValuablesOption,
+  # Turtle: Aggressive behavior lower priority
+  OptionDef(
+    name: "FighterAggressive",
+    canStart: canStartFighterAggressive,
+    shouldTerminate: shouldTerminateFighterAggressive,
+    act: optFighterAggressive,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterAttackMove",
+    canStart: canStartFighterAttackMove,
+    shouldTerminate: shouldTerminateFighterAttackMove,
+    act: optFighterAttackMove,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterBecomeSiege",
+    canStart: canStartFighterBecomeSiege,
+    shouldTerminate: shouldTerminateFighterBecomeSiege,
+    act: optFighterBecomeSiege,
     interruptible: true
   ),
   OptionDef(

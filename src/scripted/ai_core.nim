@@ -60,6 +60,13 @@ type
     Fighter    # Combat & hunting
     Scripted   # Evolutionary/scripted role
 
+  # Strategy modes for team-wide behavior adaptation
+  StrategyMode* = enum
+    StrategyBalanced  # Default balanced play
+    StrategyRush      # Early military pressure, delay economy
+    StrategyBoom      # Focus economy first, delay military
+    StrategyTurtle    # Defensive focus, early walls/towers
+
   GathererTask = enum
     TaskFood
     TaskWood
@@ -128,12 +135,40 @@ type
     claimedBuildings: array[MapRoomObjectsTeams, set[ThingKind]]  # Buildings claimed by builders this step
     pathCache*: PathfindingCache  # Pre-allocated pathfinding scratch space
     threatMaps*: array[MapRoomObjectsTeams, ThreatMap]  # Shared threat awareness per team
+    teamStrategies*: array[MapRoomObjectsTeams, StrategyMode]  # Team strategy for varied gameplay
 
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
     buildingCountsStep: -1
   )
+  # Initialize strategies randomly for each team
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    let strategyRoll = randIntExclusive(result.rng, 0, 4)
+    result.teamStrategies[teamId] = StrategyMode(strategyRoll)
+
+proc getTeamStrategy*(controller: Controller, teamId: int): StrategyMode =
+  ## Get the current strategy for a team.
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    return controller.teamStrategies[teamId]
+  return StrategyBalanced
+
+proc setTeamStrategy*(controller: Controller, teamId: int, strategy: StrategyMode) =
+  ## Set the strategy for a team (can be used for testing or dynamic adaptation).
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    controller.teamStrategies[teamId] = strategy
+
+proc isRushStrategy*(controller: Controller, teamId: int): bool =
+  ## Check if team is using rush strategy.
+  controller.getTeamStrategy(teamId) == StrategyRush
+
+proc isBoomStrategy*(controller: Controller, teamId: int): bool =
+  ## Check if team is using boom strategy.
+  controller.getTeamStrategy(teamId) == StrategyBoom
+
+proc isTurtleStrategy*(controller: Controller, teamId: int): bool =
+  ## Check if team is using turtle strategy.
+  controller.getTeamStrategy(teamId) == StrategyTurtle
 
 proc getAgentRole*(controller: Controller, agentId: int): AgentRole =
   ## Get the role of an agent (for profiling)
