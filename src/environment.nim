@@ -26,6 +26,9 @@ const
   RampWidthMin* = 1             # Minimum ramp width in tiles
   RampWidthMax* = 3             # Maximum ramp width in tiles
 
+  ## Cliff fall damage - agents take damage when dropping elevation without a ramp
+  CliffFallDamage* = 1          # Damage taken per elevation level dropped without ramp
+
   ## Default combat constants
   DefaultSpearCharges* = 5
   DefaultArmorPoints* = 5
@@ -466,7 +469,8 @@ proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {
 {.pop.}
 
 proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
-  ## Allow flat movement or a 1-elevation step when a ramp connects the tiles.
+  ## Allow flat movement, ramp-assisted elevation changes, or falling down cliffs.
+  ## Going UP requires a ramp/road. Going DOWN is always allowed (but may cause fall damage).
   if not isValidPos(fromPos) or not isValidPos(toPos):
     return false
   let dx = toPos.x - fromPos.x
@@ -480,10 +484,33 @@ proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inli
   if abs(elevFrom - elevTo) != 1:
     return false
 
+  # Dropping down is always allowed (may cause fall damage)
+  if elevFrom > elevTo:
+    return true
+
+  # Going up requires a ramp or road
   let terrainFrom = env.terrain[fromPos.x][fromPos.y]
   let terrainTo = env.terrain[toPos.x][toPos.y]
   terrainFrom == Road or terrainTo == Road or
     isRampTerrain(terrainFrom) or isRampTerrain(terrainTo)
+
+proc willCauseCliffFallDamage*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
+  ## Check if moving from fromPos to toPos would cause cliff fall damage.
+  ## Fall damage occurs when dropping elevation without using a ramp or road.
+  if not isValidPos(fromPos) or not isValidPos(toPos):
+    return false
+  let elevFrom = env.elevation[fromPos.x][fromPos.y]
+  let elevTo = env.elevation[toPos.x][toPos.y]
+  if elevFrom <= elevTo:
+    return false  # Not dropping elevation
+
+  # Check if there's a ramp/road that would prevent fall damage
+  let terrainFrom = env.terrain[fromPos.x][fromPos.y]
+  let terrainTo = env.terrain[toPos.x][toPos.y]
+  let hasRampOrRoad = terrainFrom == Road or terrainTo == Road or
+    isRampTerrain(terrainFrom) or isRampTerrain(terrainTo)
+
+  not hasRampOrRoad  # Fall damage if no ramp/road
 
 proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
   terrain in BuildableTerrain
