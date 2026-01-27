@@ -115,3 +115,116 @@ proc isAgentAttackMoveActive*(agentId: int): bool =
   ## Check if an agent currently has an active attack-move target.
   let target = getAgentAttackMoveTarget(agentId)
   target.x >= 0
+
+# Squad API
+# These functions allow external code to create and manage squads for coordinated multi-unit tactics.
+# Squads enable formation movement, synchronized attacks, and coordinated retreats.
+
+proc createSquadForTeam*(teamId: int, formation: FormationType = FormationWedge): int =
+  ## Create a new squad for a team. Returns squad ID or -1 if max squads reached.
+  let squad = createSquad(teamId, formation)
+  if squad.isNil:
+    return -1
+  squad.id.int
+
+proc addAgentToSquad*(teamId, squadId, agentId: int, env: Environment): bool =
+  ## Add an agent to a squad. Returns true if successful.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return false
+  if agentId < 0 or agentId >= MapAgents:
+    return false
+  let squad = addr teamSquads[teamId].squads[squadId]
+  if not squad.active:
+    return false
+  let agent = env.agents[agentId]
+  addToSquad(squad, agentId, agent.unitClass)
+
+proc removeAgentFromSquad*(teamId, agentId: int) =
+  ## Remove an agent from their current squad.
+  let squad = getSquadForAgent(teamId, agentId)
+  if not squad.isNil:
+    removeFromSquad(squad, agentId)
+
+proc setSquadFormation*(teamId, squadId: int, formation: FormationType) =
+  ## Set the formation type for a squad.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return
+  let squad = addr teamSquads[teamId].squads[squadId]
+  if squad.active:
+    squad.formation = formation
+    updateFormationOffsets(squad)
+
+proc setSquadMoveTarget*(teamId, squadId: int, x, y: int32) =
+  ## Order a squad to move to a target position in formation.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return
+  let squad = addr teamSquads[teamId].squads[squadId]
+  if squad.active:
+    setSquadTarget(squad, ivec2(x, y), SquadMoving)
+
+proc setSquadAttackTarget*(teamId, squadId: int, x, y: int32) =
+  ## Order a squad to attack a target position (synchronized attack).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return
+  let squad = addr teamSquads[teamId].squads[squadId]
+  if squad.active:
+    squadAttackTarget(squad, ivec2(x, y))
+
+proc setSquadRallyPoint*(teamId, squadId: int, x, y: int32) =
+  ## Set the rally point for a squad (used for retreats).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return
+  let squad = addr teamSquads[teamId].squads[squadId]
+  if squad.active:
+    squad.rallyPoint = ivec2(x, y)
+
+proc orderSquadRetreat*(teamId, squadId: int) =
+  ## Order a squad to retreat to their rally point.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return
+  let squad = addr teamSquads[teamId].squads[squadId]
+  if squad.active:
+    squadRetreat(squad)
+
+proc disbandSquadById*(teamId, squadId: int) =
+  ## Disband a squad, freeing all members.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return
+  let squad = addr teamSquads[teamId].squads[squadId]
+  disbandSquad(squad)
+
+proc getSquadMemberCount*(teamId, squadId: int): int =
+  ## Get the number of members in a squad.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if squadId < 0 or squadId >= MaxSquadsPerTeam:
+    return 0
+  let squad = teamSquads[teamId].squads[squadId]
+  if not squad.active:
+    return 0
+  squad.memberCount.int
+
+proc isAgentInSquad*(teamId, agentId: int): bool =
+  ## Check if an agent is in any squad.
+  not getSquadForAgent(teamId, agentId).isNil
+
+proc getAgentSquadId*(teamId, agentId: int): int =
+  ## Get the squad ID for an agent, or -1 if not in a squad.
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil:
+    return -1
+  squad.id.int

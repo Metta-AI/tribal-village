@@ -997,6 +997,12 @@ proc updateController*(controller: Controller, env: Environment) =
   initScriptedState(controller)
   # Clean up expired coordination requests
   clearExpiredRequests(env.currentStep)
+  # Update all active squads
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    for i in 0 ..< teamSquads[teamId].squadCount:
+      let squad = addr teamSquads[teamId].squads[i]
+      if squad.active:
+        updateSquad(squad, env, env.currentStep.int32)
   if scriptedState.lastEpisodeStep >= 0 and env.currentStep < scriptedState.lastEpisodeStep:
     for i in 0 ..< MapAgents:
       controller.agentsInitialized[i] = false
@@ -1004,9 +1010,10 @@ proc updateController*(controller: Controller, env: Environment) =
     resetScriptedAssignments(scriptedState)
     scriptedState.scoredAtStep = false
     scriptedState.lastEpisodeStep = -1
-    # Clear shared threat maps on episode reset
+    # Clear shared threat maps and squads on episode reset
     for teamId in 0 ..< MapRoomObjectsTeams:
       controller.clearThreatMap(teamId)
+      clearTeamSquads(teamId)
   if EvolutionEnabled:
     if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
       applyScriptedScoring(controller, env)

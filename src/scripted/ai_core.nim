@@ -5,6 +5,7 @@ import std/[tables, sets]
 import ../entropy
 import vmath
 import ../environment, ../common, ../terrain
+import squad
 
 const
   MaxPathNodes* = 512     # Slightly more than 250 exploration limit

@@ -1,4 +1,5 @@
 import coordination
+import squad
 
 const
   DividerDoorSpacing = 5
@@ -1124,6 +1125,127 @@ proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
+# Squad Formation behavior: non-leaders follow their formation position
+proc canStartFighterSquadFormation(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return false
+  # Only activate if squad is moving and we're not the leader
+  squad.state == SquadMoving and squad.leaderId != agentId.int32
+
+proc shouldTerminateFighterSquadFormation(controller: Controller, env: Environment, agent: Thing,
+                                          agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return true
+  # Terminate if squad stops moving or we become leader
+  squad.state != SquadMoving or squad.leaderId == agentId.int32
+
+proc optFighterSquadFormation(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let (hasTarget, target, isLeader) = getAgentSquadTarget(teamId, agentId, env)
+  if not hasTarget or isLeader:
+    return 0'u8
+  # Move toward our formation position
+  let dist = int(chebyshevDist(agent.pos, target))
+  if dist <= 1:
+    # Already in position - stay put
+    return 0'u8
+  controller.moveTo(env, agent, agentId, state, target)
+
+# Squad Attack behavior: synchronized attacks when squad is attacking
+proc canStartFighterSquadAttack(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return false
+  squad.state == SquadAttacking
+
+proc shouldTerminateFighterSquadAttack(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return true
+  squad.state != SquadAttacking
+
+proc optFighterSquadAttack(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or squad.targetPos.x < 0:
+    return 0'u8
+  # First check for attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+  # Find nearest enemy near squad target
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+  # Move toward squad attack target
+  controller.moveTo(env, agent, agentId, state, squad.targetPos)
+
+# Squad Retreat behavior: coordinated retreat when squad HP is low
+proc canStartFighterSquadRetreat(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return false
+  squad.state == SquadRetreating
+
+proc shouldTerminateFighterSquadRetreat(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return true
+  squad.state != SquadRetreating
+
+proc optFighterSquadRetreat(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let (hasTarget, target, _) = getAgentSquadTarget(teamId, agentId, env)
+  if not hasTarget:
+    # Fallback to home altar
+    let basePos = agent.getBasePos()
+    return controller.moveTo(env, agent, agentId, state, basePos)
+  controller.moveTo(env, agent, agentId, state, target)
+
+# Squad Regroup behavior: reform after being scattered
+proc canStartFighterSquadRegroup(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return false
+  squad.state == SquadRegrouping
+
+proc shouldTerminateFighterSquadRegroup(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  let squad = getSquadForAgent(teamId, agentId)
+  if squad.isNil or not squad.active:
+    return true
+  squad.state != SquadRegrouping
+
+proc optFighterSquadRegroup(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let (hasTarget, target, _) = getAgentSquadTarget(teamId, agentId, env)
+  if not hasTarget:
+    return 0'u8
+  let dist = int(chebyshevDist(agent.pos, target))
+  if dist <= SquadRegroupRadius:
+    return 0'u8
+  controller.moveTo(env, agent, agentId, state, target)
+
 # Patrol behavior - walk between waypoints and attack enemies encountered
 const PatrolArrivalThreshold = 2  # Distance at which we consider waypoint "reached"
 
@@ -1176,6 +1298,35 @@ let FighterOptions* = [
     shouldTerminate: shouldTerminateBatteringRamAdvance,
     act: optBatteringRamAdvance,
     interruptible: false  # Battering ram AI is not interruptible - it just advances and attacks
+  ),
+  # Squad behaviors - high priority when in a squad
+  OptionDef(
+    name: "FighterSquadRetreat",
+    canStart: canStartFighterSquadRetreat,
+    shouldTerminate: shouldTerminateFighterSquadRetreat,
+    act: optFighterSquadRetreat,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterSquadRegroup",
+    canStart: canStartFighterSquadRegroup,
+    shouldTerminate: shouldTerminateFighterSquadRegroup,
+    act: optFighterSquadRegroup,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterSquadAttack",
+    canStart: canStartFighterSquadAttack,
+    shouldTerminate: shouldTerminateFighterSquadAttack,
+    act: optFighterSquadAttack,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterSquadFormation",
+    canStart: canStartFighterSquadFormation,
+    shouldTerminate: shouldTerminateFighterSquadFormation,
+    act: optFighterSquadFormation,
+    interruptible: true
   ),
   OptionDef(
     name: "FighterBreakout",
