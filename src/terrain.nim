@@ -10,6 +10,7 @@ type
   TerrainType* = enum
     Empty
     Water
+    ShallowWater
     Bridge
     Fertile
     Road
@@ -36,7 +37,8 @@ const
   ## Default terrain has modifier 1.0 (no effect).
   TerrainSpeedModifier*: array[TerrainType, float32] = [
     Empty: 1.0'f32,
-    Water: 1.0'f32,      # Water movement handled separately (boats)
+    Water: 1.0'f32,      # Deep water is impassable (boats only)
+    ShallowWater: 0.5'f32, # 50% slower wading through shallow water
     Bridge: 1.0'f32,
     Fertile: 1.0'f32,
     Road: 1.0'f32,       # Roads already give double-step bonus in step.nim
@@ -734,6 +736,7 @@ proc generateBranchPath(
   result = path
 
 # River generation helper: Place water tiles along a path with given radius.
+# Deep water is placed in the center (impassable), shallow water on edges (passable but slow).
 proc placeWaterPath(
     terrain: var TerrainGrid,
     path: seq[IVec2],
@@ -741,6 +744,9 @@ proc placeWaterPath(
     mapWidth, mapHeight: int,
     inCorner: proc(x, y: int): bool
 ) =
+  # Deep water radius is smaller than full radius to create shallow edges
+  let deepRadius = max(1, radius - 1)
+  let deepRadius2 = deepRadius * deepRadius
   for pos in path:
     for dx in -radius .. radius:
       for dy in -radius .. radius:
@@ -750,7 +756,12 @@ proc placeWaterPath(
           continue
         if inCorner(waterPos.x, waterPos.y):
           continue
-        terrain[waterPos.x][waterPos.y] = Water
+        # Use Euclidean distance to determine depth
+        let dist2 = dx * dx + dy * dy
+        if dist2 <= deepRadius2:
+          terrain[waterPos.x][waterPos.y] = Water  # Deep water (center)
+        else:
+          terrain[waterPos.x][waterPos.y] = ShallowWater  # Shallow water (edges)
 
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
   var riverPath: seq[IVec2] = @[]
