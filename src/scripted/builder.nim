@@ -1,3 +1,5 @@
+import coordination
+
 const
   WallRingBaseRadius = 5       # Starting radius for small villages
   WallRingMaxRadius = 12       # Maximum wall ring radius
@@ -10,6 +12,8 @@ const
     Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
     Outpost, Castle, Market, Monastery
   ]
+  # Coordination-requested building priority
+  DefenseRequestBuildingKinds = [Barracks, Outpost]  # Buildings to prioritize when defense requested
   CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
     (kind: LumberCamp, nearbyKinds: {Tree}, minCount: 6),
     (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
@@ -402,6 +406,74 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
       if didWood: return actWood
   0'u8
 
+# Coordination-responsive behavior: respond to defense requests by building military structures
+proc canStartBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Check if there's a defense request and we can respond by building
+  let teamId = getTeamId(agent)
+  if not builderShouldPrioritizeDefense(teamId):
+    return false
+  # Check if we're missing any defense buildings
+  for kind in DefenseRequestBuildingKinds:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      return true
+  false
+
+proc shouldTerminateBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
+                                           agentId: int, state: var AgentState): bool =
+  ## Terminate when no more defense requests or defense buildings built
+  let teamId = getTeamId(agent)
+  if not builderShouldPrioritizeDefense(teamId):
+    return true
+  # Check if all defense buildings exist
+  for kind in DefenseRequestBuildingKinds:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      return false
+  true
+
+proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): uint8 =
+  ## Build military/defensive structures in response to coordination request
+  let teamId = getTeamId(agent)
+  for kind in DefenseRequestBuildingKinds:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
+      if did:
+        # Mark the defense request as fulfilled once we start building
+        markDefenseRequestFulfilled(teamId)
+        return act
+  0'u8
+
+proc builderShouldBuildSiege(controller: Controller, env: Environment, teamId: int): bool =
+  ## Check if builder should build siege workshop due to request
+  if not hasSiegeBuildRequest(teamId):
+    return false
+  # Only if we don't already have one
+  controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0
+
+# Coordination-responsive behavior: respond to siege build requests
+proc canStartBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Check if there's a siege build request
+  let teamId = getTeamId(agent)
+  builderShouldBuildSiege(controller, env, teamId)
+
+proc shouldTerminateBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  ## Terminate when siege workshop built or no more requests
+  let teamId = getTeamId(agent)
+  not builderShouldBuildSiege(controller, env, teamId)
+
+proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): uint8 =
+  ## Build siege workshop in response to coordination request
+  let teamId = getTeamId(agent)
+  let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, SiegeWorkshop)
+  if did:
+    markSiegeBuildRequestFulfilled(teamId)
+    return act
+  0'u8
+
 proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
@@ -555,6 +627,20 @@ let BuilderOptions* = [
     interruptible: true
   ),
   OptionDef(
+    name: "BuilderDefenseResponse",
+    canStart: canStartBuilderDefenseResponse,
+    shouldTerminate: shouldTerminateBuilderDefenseResponse,
+    act: optBuilderDefenseResponse,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BuilderSiegeResponse",
+    canStart: canStartBuilderSiegeResponse,
+    shouldTerminate: shouldTerminateBuilderSiegeResponse,
+    act: optBuilderSiegeResponse,
+    interruptible: true
+  ),
+  OptionDef(
     name: "BuilderWallRing",
     canStart: canStartBuilderWallRing,
     shouldTerminate: optionsAlwaysTerminate,
@@ -633,6 +719,22 @@ let BuilderOptionsThreat* = [
     canStart: canStartBuilderWallRing,
     shouldTerminate: optionsAlwaysTerminate,
     act: optBuilderWallRing,
+    interruptible: true
+  ),
+  # Threat mode: Respond to defense requests (build barracks/outposts)
+  OptionDef(
+    name: "BuilderDefenseResponse",
+    canStart: canStartBuilderDefenseResponse,
+    shouldTerminate: shouldTerminateBuilderDefenseResponse,
+    act: optBuilderDefenseResponse,
+    interruptible: true
+  ),
+  # Threat mode: Respond to siege requests
+  OptionDef(
+    name: "BuilderSiegeResponse",
+    canStart: canStartBuilderSiegeResponse,
+    shouldTerminate: shouldTerminateBuilderSiegeResponse,
+    act: optBuilderSiegeResponse,
     interruptible: true
   ),
   # Threat mode: Repair second (maintain defensive structures)

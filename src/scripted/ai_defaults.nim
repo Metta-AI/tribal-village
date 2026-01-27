@@ -995,6 +995,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 # Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =
   initScriptedState(controller)
+  # Clean up expired coordination requests
+  clearExpiredRequests(env.currentStep)
   if scriptedState.lastEpisodeStep >= 0 and env.currentStep < scriptedState.lastEpisodeStep:
     for i in 0 ..< MapAgents:
       controller.agentsInitialized[i] = false

@@ -175,7 +175,7 @@ proc signi*(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
-proc chebyshevDist(a, b: IVec2): int32 =
+proc chebyshevDist*(a, b: IVec2): int32 =
   let dx = abs(a.x - b.x)
   let dy = abs(a.y - b.y)
   return (if dx > dy: dx else: dy)
@@ -560,7 +560,7 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
     if dist < result:
       result = dist
 
-proc getBuildingCount(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
+proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
   if controller.buildingCountsStep != env.currentStep:
     controller.buildingCountsStep = env.currentStep
     controller.buildingCounts = default(array[MapRoomObjectsTeams, array[ThingKind, int]])
