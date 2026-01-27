@@ -59,6 +59,7 @@ const CliffDrawOrder = [
 var
   floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
   waterPositions: seq[IVec2] = @[]
+  shallowWaterPositions: seq[IVec2] = @[]
   renderCacheGeneration = -1
 
 template configureHeartFont(ctx: var Context) =
@@ -227,6 +228,7 @@ proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
     floorSpritePositions[kind].setLen(0)
   waterPositions.setLen(0)
+  shallowWaterPositions.setLen(0)
 
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -248,8 +250,11 @@ proc rebuildRenderCaches() =
           FloorBase
       floorSpritePositions[floorKind].add(ivec2(x, y))
 
-      if env.terrain[x][y] == Water:
+      let terrain = env.terrain[x][y]
+      if terrain == Water:
         waterPositions.add(ivec2(x, y))
+      elif terrain == ShallowWater:
+        shallowWaterPositions.add(ivec2(x, y))
   renderCacheGeneration = env.mapGeneration
 
 proc drawFloor*() =
@@ -279,8 +284,8 @@ proc drawTerrain*() =
     for y in 0 ..< MapHeight:
       let pos = ivec2(x, y)
       let terrain = env.terrain[x][y]
-      if terrain == Water:
-        continue
+      if terrain in {Water, ShallowWater}:
+        continue  # Water tiles are drawn in drawObjects()
       let spriteKey = terrainSpriteKey(terrain)
       if spriteKey.len > 0 and spriteKey in bxy:
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
@@ -427,8 +432,13 @@ proc drawObjects*() =
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
   if waterKey.len > 0:
+    # Draw deep water (impassable center of rivers)
     for pos in waterPositions:
       bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
+    # Draw shallow water (passable edges) with lighter tint
+    let shallowTint = color(0.7, 0.9, 1.0, 1.0)  # Light cyan tint for shallow water
+    for pos in shallowWaterPositions:
+      bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
 
   for kind in CliffDrawOrder:
     let spriteKey = thingSpriteKey(kind)
