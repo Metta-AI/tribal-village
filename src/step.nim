@@ -400,12 +400,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # Preferred push positions in move direction
           let ahead1 = pos + delta
           let ahead2 = pos + ivec2(delta.x * 2'i32, delta.y * 2'i32)
+          let blockerOldPos = blocker.pos
           if isValidPos(ahead2) and not isOutOfBounds(ahead2) and
               env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
               not env.isWaterBlockedForAgent(agent, ahead2) and spacingOk(ahead2):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead2
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
+            updateSpatialIndex(env, blocker, blockerOldPos)
             relocated = true
           elif isValidPos(ahead1) and not isOutOfBounds(ahead1) and
               env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
@@ -413,6 +415,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead1
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
+            updateSpatialIndex(env, blocker, blockerOldPos)
             relocated = true
           # Fallback to any adjacent empty tile around the lantern
           if not relocated:
@@ -428,6 +431,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   env.grid[blocker.pos.x][blocker.pos.y] = nil
                   blocker.pos = alt
                   env.grid[blocker.pos.x][blocker.pos.y] = blocker
+                  updateSpatialIndex(env, blocker, blockerOldPos)
                   relocated = true
                   break
               if relocated:
@@ -449,6 +453,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               blocker.pos = agentOld
               env.grid[agentOld.x][agentOld.y] = blocker
               env.grid[blockerOld.x][blockerOld.y] = agent
+              updateSpatialIndex(env, agent, agentOld)
+              updateSpatialIndex(env, blocker, blockerOld)
               agent.orientation = moveOrientation
               env.updateObservations(AgentLayer, agentOld, getTeamId(blocker) + 1)
               env.updateObservations(AgentLayer, blockerOld, getTeamId(agent) + 1)
@@ -484,6 +490,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         agent.pos = finalPos
         agent.orientation = moveOrientation
         env.grid[agent.pos.x][agent.pos.y] = agent
+        updateSpatialIndex(env, agent, originalPos)
 
         let dockHere = env.hasDockAt(agent.pos)
         if agent.unitClass == UnitBoat:
@@ -1218,6 +1225,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         target.pos = agentOld
         env.grid[agentOld.x][agentOld.y] = target
         env.grid[targetOld.x][targetOld.y] = agent
+        updateSpatialIndex(env, agent, agentOld)
+        updateSpatialIndex(env, target, targetOld)
         env.updateObservations(AgentLayer, agentOld, getTeamId(target) + 1)
         env.updateObservations(AgentLayer, targetOld, getTeamId(agent) + 1)
         env.updateObservations(AgentOrientationLayer, agentOld, target.orientation.int)
@@ -1693,9 +1702,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let nextPos = thing.pos + desired
     if isValidPos(nextPos) and not env.hasDoor(nextPos) and
        not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
+      let oldPos = thing.pos
       env.grid[thing.pos.x][thing.pos.y] = nil
       thing.pos = nextPos
       env.grid[nextPos.x][nextPos.y] = thing
+      updateSpatialIndex(env, thing, oldPos)
       if desired.x < 0:
         thing.orientation = Orientation.W
       elif desired.x > 0:
@@ -2063,6 +2074,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let respawnPos = env.findFirstEmptyPositionAround(altarThing.pos, 2)
         if respawnPos.x >= 0:
           # Respawn the agent
+          let oldPos = agent.pos
           agent.pos = respawnPos
           agent.inventory = emptyInventory()
           agent.frozen = 0
@@ -2072,6 +2084,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # Update grid
           env.grid[agent.pos.x][agent.pos.y] = agent
           inc teamPopCounts[teamId]
+          updateSpatialIndex(env, agent, oldPos)
 
           # Update observations
           env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
@@ -2132,6 +2145,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
     env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
     let child = env.agents[childId]
+    let childOldPos = child.pos
     child.pos = spawnPos
     child.inventory = emptyInventory()
     child.frozen = 0
@@ -2139,6 +2153,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     env.terminated[childId] = 0.0
     env.grid[child.pos.x][child.pos.y] = child
     inc teamPopCounts[teamId]
+    updateSpatialIndex(env, child, childOldPos)
     env.updateObservations(AgentLayer, child.pos, getTeamId(child) + 1)
     env.updateObservations(AgentOrientationLayer, child.pos, child.orientation.int)
     for key in ObservedItemKeys:
@@ -2177,9 +2192,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # O(updates * agents). Now we do O(agents * observation_tiles) once at the end.
   env.rebuildObservations()
 
-  # Rebuild spatial index after all position changes are complete
-  # This ensures O(1) nearest-thing queries for the next step's AI decisions
-  env.rebuildSpatialIndex()
+  # Spatial index is now maintained incrementally during position updates,
+  # so no rebuild needed here. This eliminates O(things) work every step.
 
   when defined(stepTiming):
     if timing:
