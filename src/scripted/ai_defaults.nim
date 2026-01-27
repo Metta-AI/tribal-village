@@ -407,8 +407,7 @@ include "options"
 include "gatherer"
 include "builder"
 include "fighter"
-include "roles"
-include "evolution"
+include "ai_roles"
 
 const
   EvolutionEnabled = defined(enableEvolution)

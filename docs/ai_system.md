@@ -125,15 +125,16 @@ are easy to diff and audit.
 5) Keep the behavior **focused** (one goal) so future meta-roles can re-order
    it safely.
 
-## Modularization plan (documented intent)
-If/when we refactor the include chain, a minimal, low-risk modularization is:
-- `ai_types.nim`: shared types (`AgentRole`, `AgentState`, `Controller`).
-- `ai_options.nim`: `OptionDef`, `runOptions`, and helper procs.
-- `ai_roles.nim`: role assembly (gatherer/builder/fighter lists).
-- `ai_controller.nim`: `decideAction`, controller update logic.
+## Module structure (completed modularization)
+The AI system has been modularized into proper modules with explicit imports:
+- `ai_types.nim`: shared types (`AgentRole`, `AgentState`, `Controller`, `PathfindingCache`).
+- `ai_options.nim`: `OptionDef`, `runOptions`, and termination helpers.
+- `ai_roles.nim`: unified role catalog and evolution system (merged from roles.nim + evolution.nim).
 
-Goal: replace `include` with explicit `import` to reduce accidental coupling
-without changing behavior.
+The include chain (`ai_core.nim` → `ai_defaults.nim`) remains for backward compatibility,
+but types and option framework are now proper modules that can be imported directly.
+Role-specific files (gatherer.nim, builder.nim, fighter.nim) still use include for
+their shared scope requirements.
 
 ## Debugging and profiling hooks
 - `scripts/profile_ai.nim`: quick AI profiling entrypoint.
