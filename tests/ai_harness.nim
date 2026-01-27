@@ -1226,7 +1226,7 @@ suite "Shared Threat Map":
 suite "AI - Scout Behavior":
   test "scout mode activates for UnitScout":
     let env = makeEmptyEnv()
-    let controller = newController(42)
+    let controller = newTestController(42)
 
     # Add a villager and train it as a scout
     let agent = addAgentAt(env, 0, ivec2(10, 10))
@@ -1247,7 +1247,7 @@ suite "AI - Scout Behavior":
 
   test "scout flees when enemy nearby":
     let env = makeEmptyEnv()
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
 
     # Create scout at (30, 30)
@@ -1269,7 +1269,7 @@ suite "AI - Scout Behavior":
 
   test "scout reports threats to team":
     let env = makeEmptyEnv()
-    let controller = newController(42)
+    let controller = newTestController(42)
     let teamId = 0
     let currentStep: int32 = env.currentStep.int32
 
