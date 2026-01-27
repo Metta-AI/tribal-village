@@ -730,6 +730,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       of 2, 3: Builder
       else: Fighter
 
+    # Preserve any patrol state that was set before initialization
+    let existingState = controller.agents[agentId]
     var initState = AgentState(
       role: role,
       roleId: -1,
@@ -767,7 +769,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       plannedTarget: ivec2(-1, -1),
       plannedPath: @[],
       plannedPathIndex: 0,
-      pathBlockedTarget: ivec2(-1, -1)
+      pathBlockedTarget: ivec2(-1, -1),
+      # Preserve patrol state
+      patrolPoint1: existingState.patrolPoint1,
+      patrolPoint2: existingState.patrolPoint2,
+      patrolToSecondPoint: existingState.patrolToSecondPoint,
+      patrolActive: existingState.patrolActive
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
@@ -926,6 +933,30 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Patrol behavior - applies to all roles when patrol is active
+  if state.patrolActive and state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0:
+    # Check for nearby enemies and chase them if stance allows
+    if stanceAllowsChase(agent):
+      let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+      if not isNil(enemy):
+        # Move toward enemy to engage
+        return controller.moveTo(env, agent, agentId, state, enemy.pos)
+
+    # Determine current patrol target
+    let target = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
+
+    # Check if we've reached the current waypoint (within threshold of 2 tiles)
+    let distToTarget = int(chebyshevDist(agent.pos, target))
+    if distToTarget <= 2:
+      # Switch direction
+      state.patrolToSecondPoint = not state.patrolToSecondPoint
+      # Get the new target after switching
+      let newTarget = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
+      return controller.moveTo(env, agent, agentId, state, newTarget)
+
+    # Move toward current waypoint
+    return controller.moveTo(env, agent, agentId, state, target)
 
   # Global: prioritize getting hearts to 10 via gold -> magma -> altar (gatherers only).
   if state.role == Gatherer:
