@@ -155,7 +155,8 @@ let TerrainCatalog* = block:
     (Grass, "Grass", "", 'g'),
     (Dune, "Dune", "", 'd'),
     (Sand, "Sand", "", 's'),
-    (Snow, "Snow", "", 'n')
+    (Snow, "Snow", "", 'n'),
+    (Mud, "Mud", "", 'm')
   ]:
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
   reg
