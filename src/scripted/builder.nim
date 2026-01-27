@@ -197,13 +197,13 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
 proc canStartBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
-  needsPopCapHouse(env, teamId)
+  needsPopCapHouse(controller, env, teamId)
 
 proc shouldTerminateBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   # Terminate when pop cap house no longer needed
   let teamId = getTeamId(agent)
-  not needsPopCapHouse(env, teamId)
+  not needsPopCapHouse(controller, env, teamId)
 
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
