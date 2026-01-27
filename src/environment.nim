@@ -38,6 +38,11 @@ const
   DefaultMarketBuyFoodDenominator* = 1
   DefaultMarketCooldown* = 2
 
+  ## Biome gathering bonus constants
+  BiomeGatherBonusChance* = 0.20  # 20% chance for bonus item in matching biomes
+  DesertOasisBonusChance* = 0.10  # 10% chance for bonus in desert near water
+  DesertOasisRadius* = 3  # Tiles from water to get desert bonus
+
 ## Error types and FFI error state management.
 type
   TribalErrorKind* = enum
@@ -80,6 +85,64 @@ proc raiseMapFullError*() {.noreturn.} =
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
+
+proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int): bool =
+  ## Check if there is water terrain within the given radius of a position
+  for dx in -radius .. radius:
+    for dy in -radius .. radius:
+      let x = pos.x + dx
+      let y = pos.y + dy
+      if x >= 0 and x < MapWidth and y >= 0 and y < MapHeight:
+        if env.terrain[x][y] == Water:
+          return true
+  false
+
+proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
+  ## Calculate bonus items from biome-specific gathering bonuses.
+  ## Returns 0 or 1 based on probability roll using deterministic seed.
+  ## Forest: +20% wood, Plains: +20% food, Caves: +20% stone, Snow: +20% gold,
+  ## Desert: +10% all resources near water (oasis effect)
+  if not isValidPos(pos):
+    return 0
+
+  let biome = env.biomes[pos.x][pos.y]
+
+  # Check for biome-specific bonus
+  var bonusChance = 0.0
+  case biome
+  of BiomeForestType:
+    if itemKey == ItemWood:
+      bonusChance = BiomeGatherBonusChance
+  of BiomePlainsType:
+    if itemKey == ItemWheat:
+      bonusChance = BiomeGatherBonusChance
+  of BiomeCavesType:
+    if itemKey == ItemStone:
+      bonusChance = BiomeGatherBonusChance
+  of BiomeSnowType:
+    if itemKey == ItemGold:
+      bonusChance = BiomeGatherBonusChance
+  of BiomeDesertType:
+    # Desert gives bonus to all resources if near water (oasis effect)
+    if itemKey == ItemWood or itemKey == ItemWheat or itemKey == ItemStone or itemKey == ItemGold:
+      if env.hasWaterNearby(pos, DesertOasisRadius):
+        bonusChance = DesertOasisBonusChance
+  else:
+    discard
+
+  if bonusChance <= 0.0:
+    return 0
+
+  # Use deterministic seed based on position and step for reproducible behavior
+  # Cast to int to avoid int32 overflow and ensure positive seed
+  let seed = abs(int(pos.x) * 31337 + int(pos.y) * 7919 + env.currentStep * 13) + 1
+  var r = initRand(seed)
+  # Warm up RNG by discarding first few values to improve distribution
+  discard next(r)
+  discard next(r)
+  if randChance(r, bonusChance):
+    return 1
+  0
 
 proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
   ## Write observation data for a single tile. Called from rebuildObservations
@@ -637,6 +700,10 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if not env.grantItem(agent, ItemWood):
     return false
   agent.reward += env.config.woodReward
+  # Apply biome gathering bonus
+  let bonus = env.getBiomeGatherBonus(tree.pos, ItemWood)
+  if bonus > 0:
+    discard env.grantItem(agent, ItemWood, bonus)
   removeThing(env, tree)
   let stump = Thing(kind: Stump, pos: tree.pos)
   stump.inventory = emptyInventory()

@@ -86,6 +86,113 @@ suite "Mechanics - Resources":
     check agent.inventoryWheat == 0
     check env.terrain[target.x][target.y] == TerrainEmpty
 
+suite "Mechanics - Biome Gathering Bonuses":
+  test "forest biome grants wood bonus":
+    let env = makeEmptyEnv()
+    # Set biome to forest
+    env.biomes[10][9] = BiomeForestType
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
+
+    # Harvest tree in forest biome - may get bonus
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    # Agent should have at least 1 wood (possibly 2 with bonus)
+    check agent.inventoryWood >= 1
+
+  test "plains biome grants wheat bonus":
+    let env = makeEmptyEnv()
+    # Set biome to plains
+    env.biomes[10][9] = BiomePlainsType
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addResource(env, Wheat, ivec2(10, 9), ItemWheat, ResourceNodeInitial)
+
+    # Harvest wheat in plains biome - may get bonus
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    # Agent should have at least 1 wheat (possibly 2 with bonus)
+    check agent.inventoryWheat >= 1
+
+  test "caves biome grants stone bonus":
+    let env = makeEmptyEnv()
+    # Set biome to caves
+    env.biomes[10][9] = BiomeCavesType
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addResource(env, Stone, ivec2(10, 9), ItemStone, 1)
+
+    # Harvest stone in caves biome - may get bonus
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    # Agent should have at least 1 stone (possibly 2 with bonus)
+    check agent.inventoryStone >= 1
+
+  test "snow biome grants gold bonus":
+    let env = makeEmptyEnv()
+    # Set biome to snow
+    env.biomes[10][9] = BiomeSnowType
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addResource(env, Gold, ivec2(10, 9), ItemGold, 1)
+
+    # Harvest gold in snow biome - may get bonus
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    # Agent should have at least 1 gold (possibly 2 with bonus)
+    check getInv(agent, ItemGold) >= 1
+
+  test "desert oasis grants bonus near water":
+    let env = makeEmptyEnv()
+    # Set biome to desert with water nearby
+    env.biomes[10][9] = BiomeDesertType
+    env.terrain[10][11] = Water  # Water within radius 3
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addResource(env, Stone, ivec2(10, 9), ItemStone, 1)
+
+    # Harvest stone in desert near water - may get oasis bonus
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    # Agent should have at least 1 stone (possibly 2 with oasis bonus)
+    check agent.inventoryStone >= 1
+
+  test "no bonus in non-matching biome":
+    let env = makeEmptyEnv()
+    # Set biome to snow but harvest wood (no bonus for wood in snow)
+    env.biomes[10][9] = BiomeSnowType
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
+
+    # Run many harvests to verify no bonus is given for wrong biome/resource combo
+    for _ in 0 ..< 100:
+      env.currentStep += 1
+      let bonus = env.getBiomeGatherBonus(ivec2(10, 9), ItemWood)
+      check bonus == 0  # Snow biome should not give wood bonus
+
+  test "getBiomeGatherBonus returns bonuses over many trials":
+    let env = makeEmptyEnv()
+    # Test each biome/resource combination
+    env.biomes[10][10] = BiomeForestType
+    env.biomes[20][10] = BiomePlainsType
+    env.biomes[30][10] = BiomeCavesType
+    env.biomes[40][10] = BiomeSnowType
+
+    var forestWoodBonus = 0
+    var plainsWheatBonus = 0
+    var cavesStoneBonus = 0
+    var snowGoldBonus = 0
+
+    # Use a larger sample with different steps to ensure variety
+    for step in 0 ..< 1000:
+      env.currentStep = step
+      forestWoodBonus += env.getBiomeGatherBonus(ivec2(10, 10), ItemWood)
+      plainsWheatBonus += env.getBiomeGatherBonus(ivec2(20, 10), ItemWheat)
+      cavesStoneBonus += env.getBiomeGatherBonus(ivec2(30, 10), ItemStone)
+      snowGoldBonus += env.getBiomeGatherBonus(ivec2(40, 10), ItemGold)
+
+    # Verify that some bonuses were granted (at least 1% of trials)
+    # and not too many (less than 50% of trials - well above 20% expected)
+    check forestWoodBonus >= 10
+    check plainsWheatBonus >= 10
+    check cavesStoneBonus >= 10
+    check snowGoldBonus >= 10
+    check forestWoodBonus <= 500
+    check plainsWheatBonus <= 500
+    check cavesStoneBonus <= 500
+    check snowGoldBonus <= 500
+
 suite "Mechanics - Movement":
   test "boat embarks on dock and disembarks on land":
     let env = makeEmptyEnv()

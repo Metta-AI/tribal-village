@@ -871,6 +871,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               removeThing(env, thing)
             else:
               setInv(thing, key, remaining)
+            # Apply biome gathering bonus
+            let bonus = env.getBiomeGatherBonus(thing.pos, key)
+            if bonus > 0:
+              discard env.giveItem(agent, key, bonus)
             used = true
         case thing.kind:
         of Relic:
@@ -902,6 +906,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
           elif env.grantItem(agent, ItemWheat):
             agent.reward += env.config.wheatReward
+            # Apply biome gathering bonus
+            let bonus = env.getBiomeGatherBonus(thing.pos, ItemWheat)
+            if bonus > 0:
+              discard env.grantItem(agent, ItemWheat, bonus)
             removeThing(env, thing)
             let stubble = Thing(kind: Stubble, pos: thing.pos)
             stubble.inventory = emptyInventory()
@@ -917,6 +925,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             (ItemWood, env.config.woodReward)
           if env.grantItem(agent, key):
             agent.reward += reward
+            # Apply biome gathering bonus
+            let bonus = env.getBiomeGatherBonus(thing.pos, key)
+            if bonus > 0:
+              discard env.grantItem(agent, key, bonus)
             let remaining = getInv(thing, key) - 1
             if remaining <= 0:
               removeThing(env, thing)
