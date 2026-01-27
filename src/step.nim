@@ -338,6 +338,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     let verb = actionValue.int div ActionArgumentCount
     let argument = actionValue.int mod ActionArgumentCount
+
+    # Track idle state: agent is idle if taking NOOP (0) or ORIENT (9) action
+    # This enables AoE2-style idle villager detection for RL agents
+    agent.isIdle = verb == 0 or verb == 9
+
     template invalidAndBreak(label: untyped) =
       inc env.stats[id].actionInvalid
       break label

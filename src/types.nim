@@ -263,6 +263,7 @@ type
     TeamLayer                 # Team id + 1, 0 = none/neutral
     AgentOrientationLayer     # Orientation enum + 1, 0 = none
     AgentUnitClassLayer       # Unit class enum + 1, 0 = none
+    AgentIdleLayer            # 1 if agent is idle (NOOP/ORIENT action), 0 otherwise
     TintLayer                 # Action/combat tint codes
     BiomeLayer                # Biome type enum value
     ObscuredLayer             # 1 when target tile is above observer elevation
@@ -393,6 +394,7 @@ type
     attackDamage*: int
     unitClass*: AgentUnitClass
     stance*: AgentStance        # Combat stance mode (Aggressive/Defensive/StandGround/NoAttack)
+    isIdle*: bool               # True if agent took NOOP/ORIENT action last step (AoE2-style idle detection)
     embarkedUnitClass*: AgentUnitClass
     teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning

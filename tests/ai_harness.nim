@@ -881,3 +881,57 @@ suite "AI - Stance Behavior":
     # Convert back to Villager - should get NoAttack stance
     applyUnitClass(agent, UnitVillager)
     check agent.stance == StanceNoAttack
+
+suite "Agent Idle Detection":
+  test "agent marked idle on NOOP action":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Initially not idle
+    check agent.isIdle == false
+
+    # Take NOOP action (verb 0)
+    env.stepAction(0, 0'u8, 0)
+    check agent.isIdle == true
+
+  test "agent marked idle on ORIENT action":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Take ORIENT action (verb 9)
+    env.stepAction(0, 9'u8, 3)  # Orient east
+    check agent.isIdle == true
+
+  test "agent not idle on MOVE action":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Take MOVE action (verb 1) - move east
+    env.stepAction(0, 1'u8, 3)  # E direction
+    check agent.isIdle == false
+
+  test "agent not idle on USE action":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Place tree adjacent to gather from
+    discard addResource(env, Tree, ivec2(10, 9), ItemWood, ResourceNodeInitial)
+
+    # Take USE action (verb 3)
+    env.stepAction(0, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    check agent.isIdle == false
+
+  test "idle state appears in observations":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Take NOOP action to become idle
+    env.stepAction(0, 0'u8, 0)
+    check agent.isIdle == true
+
+    # Rebuild observations
+    env.rebuildObservations()
+
+    # Check the observation at the agent's position (center of 11x11 = 5,5)
+    let centerX = ObservationRadius  # 5
+    let centerY = ObservationRadius  # 5
+    let idleLayerValue = env.observations[0][ord(AgentIdleLayer)][centerX][centerY]
+    check idleLayerValue == 1
