@@ -1180,6 +1180,151 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
   # Move toward current waypoint
   controller.moveTo(env, agent, agentId, state, target)
 
+# Scout behavior - reconnaissance with visibility tracking and enemy detection
+# Scouts explore outward from base, flee when enemies spotted, and report threats
+const
+  ScoutFleeRadius = 10        # Distance at which scouts detect and flee from enemies
+  ScoutFleeRecoverySteps = 30 # Steps after enemy sighting before resuming exploration
+  ScoutExploreGrowth = 3      # How much to expand explore radius each cycle
+
+proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
+  ## Find nearest enemy agent within scout detection radius.
+  let teamId = getTeamId(agent)
+  let fleeRadius = ScoutFleeRadius.int32
+  var bestEnemy: Thing = nil
+  var bestDist = int.high
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > fleeRadius.int:
+      continue
+    if dist < bestDist:
+      bestDist = dist
+      bestEnemy = other
+  bestEnemy
+
+proc canStartScoutFlee(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): bool =
+  ## Scout flee triggers when scout mode is active and enemies are nearby.
+  ## Scouts are squishy reconnaissance units - survival is priority.
+  if agent.unitClass != UnitScout:
+    return false
+  if not state.scoutActive:
+    return false
+  let enemy = scoutFindNearbyEnemy(env, agent)
+  if not isNil(enemy):
+    # Record enemy sighting and report to threat map
+    controller.recordScoutEnemySighting(agentId, env.currentStep.int32)
+    return true
+  # Also flee if recently saw enemy (recovery period)
+  let stepsSinceEnemy = env.currentStep.int32 - state.scoutLastEnemySeenStep
+  stepsSinceEnemy < ScoutFleeRecoverySteps
+
+proc shouldTerminateScoutFlee(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  ## Stop fleeing when no enemies nearby and recovery period passed.
+  let enemy = scoutFindNearbyEnemy(env, agent)
+  if not isNil(enemy):
+    return false  # Still enemies nearby - keep fleeing
+  let stepsSinceEnemy = env.currentStep.int32 - state.scoutLastEnemySeenStep
+  stepsSinceEnemy >= ScoutFleeRecoverySteps
+
+proc optScoutFlee(controller: Controller, env: Environment, agent: Thing,
+                  agentId: int, state: var AgentState): uint8 =
+  ## Flee away from enemies toward base. Scouts prioritize survival over combat.
+  ## Reports enemy positions to the team's shared threat map.
+  let teamId = getTeamId(agent)
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+
+  # Find enemies and report to threat map
+  let enemy = scoutFindNearbyEnemy(env, agent)
+  if not isNil(enemy):
+    # Report threat to team (high priority sighting from scout)
+    controller.reportThreat(teamId, enemy.pos, 2, env.currentStep.int32,
+                            agentId = enemy.agentId.int32, isStructure = false)
+    controller.recordScoutEnemySighting(agentId, env.currentStep.int32)
+
+  # Flee toward safe positions (altar, outpost, town center)
+  var safePos = basePos
+  for kind in [Altar, Outpost, TownCenter]:
+    let safe = env.findNearestFriendlyThingSpiral(state, teamId, kind)
+    if not isNil(safe):
+      safePos = safe.pos
+      break
+
+  controller.moveTo(env, agent, agentId, state, safePos)
+
+proc canStartScoutExplore(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  ## Scout exploration activates when scout mode is active and agent is a scout.
+  agent.unitClass == UnitScout and state.scoutActive
+
+proc shouldTerminateScoutExplore(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate exploration when scout mode is disabled.
+  not state.scoutActive
+
+proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  ## Explore outward from base in an expanding pattern. Prioritizes areas
+  ## without known threats. Reports any enemies seen to the threat map.
+  let teamId = getTeamId(agent)
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+
+  # Update threat map from scout's vision (scouts have enhanced awareness)
+  controller.updateThreatMapFromVision(env, agent, env.currentStep.int32)
+
+  # Initialize explore radius if needed
+  if state.scoutExploreRadius <= 0:
+    state.scoutExploreRadius = ObservationRadius.int32 + 5
+
+  # Find a direction to explore that avoids known threats
+  # Use the spiral search pattern but bias away from threat areas
+  var bestTarget = ivec2(-1, -1)
+  var bestScore = int.low
+
+  # Try multiple candidate positions around the exploration frontier
+  for _ in 0 ..< 12:
+    let candidate = getNextSpiralPoint(state)
+    let distFromBase = int(chebyshevDist(candidate, basePos))
+
+    # Skip if too close to base (already explored) or too far
+    if distFromBase < state.scoutExploreRadius.int - 5:
+      continue
+    if distFromBase > state.scoutExploreRadius.int + 15:
+      continue
+
+    # Check for threats near this position
+    let threatStrength = controller.getTotalThreatStrength(
+      teamId, candidate, 8, env.currentStep.int32)
+
+    # Score: prefer positions at the frontier with fewer threats
+    var score = 100 - abs(distFromBase - state.scoutExploreRadius.int) * 2
+    score -= threatStrength.int * 20  # Heavily penalize threat areas
+
+    if score > bestScore:
+      bestScore = score
+      bestTarget = candidate
+
+  # If no good target found, use the spiral position directly
+  if bestTarget.x < 0:
+    bestTarget = getNextSpiralPoint(state)
+
+  # Gradually expand exploration radius
+  let distFromBase = int(chebyshevDist(agent.pos, basePos))
+  if distFromBase >= state.scoutExploreRadius.int:
+    state.scoutExploreRadius += ScoutExploreGrowth.int32
+
+  # Move toward exploration target
+  controller.moveTo(env, agent, agentId, state, bestTarget)
+
 let FighterOptions* = [
   OptionDef(
     name: "BatteringRamAdvance",
@@ -1201,6 +1346,13 @@ let FighterOptions* = [
     shouldTerminate: shouldTerminateFighterRetreat,
     act: optFighterRetreat,
     interruptible: true
+  ),
+  OptionDef(
+    name: "ScoutFlee",
+    canStart: canStartScoutFlee,
+    shouldTerminate: shouldTerminateScoutFlee,
+    act: optScoutFlee,
+    interruptible: false  # Scout flee is not interruptible - survival is priority
   ),
   EmergencyHealOption,
   OptionDef(
@@ -1317,6 +1469,13 @@ let FighterOptions* = [
     shouldTerminate: shouldTerminateFighterAttackMove,
     act: optFighterAttackMove,
     interruptible: true
+  ),
+  OptionDef(
+    name: "ScoutExplore",
+    canStart: canStartScoutExplore,
+    shouldTerminate: shouldTerminateScoutExplore,
+    act: optScoutExplore,
+    interruptible: true  # Can be interrupted by higher priority behaviors
   ),
   OptionDef(
     name: "FighterFallbackSearch",

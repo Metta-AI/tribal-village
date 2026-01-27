@@ -117,6 +117,10 @@ type
     patrolActive: bool       # Whether patrol mode is enabled
     # Attack-move state: move to destination, attack enemies along the way
     attackMoveTarget: IVec2  # Destination for attack-move (-1,-1 = inactive)
+    # Scout state: exploration and enemy detection
+    scoutExploreRadius: int32    # Current exploration radius from base
+    scoutLastEnemySeenStep: int32  # Step when scout last saw an enemy (for alarm)
+    scoutActive: bool            # Whether scout mode is enabled
 
   # Difficulty levels for AI - affects decision quality and reaction time
   DifficultyLevel* = enum
@@ -1541,3 +1545,35 @@ proc switchPatrolDirection*(controller: Controller, agentId: int) =
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].patrolToSecondPoint =
       not controller.agents[agentId].patrolToSecondPoint
+
+# Scout behavior helpers
+proc setScoutMode*(controller: Controller, agentId: int, active: bool = true) =
+  ## Enable or disable scout mode for an agent. Scouts explore outward from base
+  ## and flee when enemies are spotted, reporting threats to the team.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].scoutActive = active
+    if active:
+      controller.agents[agentId].scoutExploreRadius = ObservationRadius.int32 + 5
+      controller.agents[agentId].scoutLastEnemySeenStep = -100  # Long ago
+
+proc clearScoutMode*(controller: Controller, agentId: int) =
+  ## Disable scout mode for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].scoutActive = false
+
+proc isScoutModeActive*(controller: Controller, agentId: int): bool =
+  ## Check if scout mode is active for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].scoutActive
+  false
+
+proc getScoutExploreRadius*(controller: Controller, agentId: int): int32 =
+  ## Get the current exploration radius for a scouting agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].scoutExploreRadius
+  0
+
+proc recordScoutEnemySighting*(controller: Controller, agentId: int, currentStep: int32) =
+  ## Record that the scout has seen an enemy. Used to trigger flee behavior.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].scoutLastEnemySeenStep = currentStep

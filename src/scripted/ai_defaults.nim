@@ -809,6 +809,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       controller.decayThreats(teamId, currentStep)
     controller.updateThreatMapFromVision(env, agent, currentStep)
 
+  # Auto-enable scout mode for UnitScout units
+  # Scouts are trained at Stables and should automatically enter scouting behavior
+  if agent.unitClass == UnitScout and not state.scoutActive:
+    state.scoutActive = true
+    state.scoutExploreRadius = ObservationRadius.int32 + 5
+    state.scoutLastEnemySeenStep = -100  # Long ago
+
   if agent.unitClass == UnitGoblin:
     var totalRelicsHeld = 0
     for other in env.agents:
