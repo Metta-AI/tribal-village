@@ -297,7 +297,7 @@ let MyRoleOptions* = [
 
 ### Medium Priority
 
-4. **Document the include pattern** - files use `include` rather than `import` creating implicit dependencies
+4. ~~**Document the include pattern**~~ - DONE: See ai_system.md "Understanding the include pattern" section
 
 5. **Standardize building queries** - use `getBuildingCount` consistently
 
