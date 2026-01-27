@@ -344,6 +344,22 @@ suite "Mechanics - Siege":
     check enemyB.hp < hpB
     check enemyC.hp < hpC
 
+  test "mangonel attack reaches full 5-tile range":
+    let env = makeEmptyEnv()
+    let mangonel = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMangonel)
+    # Enemy at range 5 (center line) and side prongs at range 5
+    let enemyCenter = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 5))
+    let enemyLeft = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(9, 5))
+    let enemyRight = addAgentAt(env, MapAgentsPerTeam + 2, ivec2(11, 5))
+    let hpCenter = enemyCenter.hp
+    let hpLeft = enemyLeft.hp
+    let hpRight = enemyRight.hp
+
+    env.stepAction(mangonel.agentId, 2'u8, dirIndex(mangonel.pos, ivec2(10, 9)))
+    check enemyCenter.hp < hpCenter
+    check enemyLeft.hp < hpLeft
+    check enemyRight.hp < hpRight
+
   test "siege prefers attacking blocking wall":
     let env = makeEmptyEnv()
     let ram = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBatteringRam)

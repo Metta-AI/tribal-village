@@ -118,7 +118,7 @@ const
   GoblinMaxHp* = 4
   ArcherBaseRange* = 3
   MangonelBaseRange* = 3
-  MangonelAoELength* = 4
+  MangonelAoELength* = 5
 
   # Gameplay
   MinTintEpsilon* = 5

@@ -648,8 +648,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           break attackAction
 
         if agent.unitClass == UnitMangonel:
-          # "Large spear" attack: forward line 4 tiles with 1-tile side prongs
-          # per siege_fortifications_plan.md section 1.2
+          # "Large spear" attack: forward line 5 tiles with 1-tile side prongs
+          # per siege_fortifications_plan.md section 1.2 and combat.md
           var hit = false
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
