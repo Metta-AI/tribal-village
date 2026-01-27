@@ -791,11 +791,19 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   var state = controller.agents[agentId]
 
-  # Update shared threat map with what this agent can see
-  # Decay old threats periodically (once per step, keyed by team)
+  # Get team info and difficulty settings
   let currentStep = env.currentStep.int32
   let teamId = getTeamId(agent)
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+  let diffConfig = controller.getDifficulty(teamId)
+
+  # Decision delay based on difficulty - simulates "thinking time"
+  # Lower difficulty = more delays, making AI slower to react
+  if controller.shouldApplyDecisionDelay(teamId):
+    return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
+
+  # Update shared threat map with what this agent can see
+  # Only if threat response is enabled for this difficulty level
+  if diffConfig.threatResponseEnabled and teamId >= 0 and teamId < MapRoomObjectsTeams:
     if controller.threatMaps[teamId].lastUpdateStep != currentStep:
       controller.decayThreats(teamId, currentStep)
     controller.updateThreatMapFromVision(env, agent, currentStep)
@@ -1013,4 +1021,6 @@ proc updateController*(controller: Controller, env: Environment) =
       scriptedState.scoredAtStep = true
   if ScriptedTempleAssignEnabled:
     processTempleHybridRequests(controller, env)
+  # Update adaptive difficulty for teams that have it enabled
+  controller.updateAdaptiveDifficulty(env)
   scriptedState.lastEpisodeStep = env.currentStep
