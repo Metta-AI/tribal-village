@@ -474,36 +474,21 @@ proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Th
     return act
   0'u8
 
-proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return false
-  let teamId = getTeamId(agent)
-  let food = env.stockpileCount(teamId, ResourceFood)
+proc minBasicStockpile(env: Environment, teamId: int): int =
+  ## Returns the minimum stockpile count among food, wood, and stone.
+  result = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
   let stone = env.stockpileCount(teamId, ResourceStone)
-  var best = food
-  if wood < best:
-    best = wood
-  if stone < best:
-    best = stone
-  best < 5
+  if wood < result: result = wood
+  if stone < result: result = stone
+
+proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  agent.unitClass == UnitVillager and minBasicStockpile(env, getTeamId(agent)) < 5
 
 proc shouldTerminateBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                                         agentId: int, state: var AgentState): bool =
-  # Terminate when resources are no longer scarce or not a villager
-  if agent.unitClass != UnitVillager:
-    return true
-  let teamId = getTeamId(agent)
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  var best = food
-  if wood < best:
-    best = wood
-  if stone < best:
-    best = stone
-  best >= 5
+  agent.unitClass != UnitVillager or minBasicStockpile(env, getTeamId(agent)) >= 5
 
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
