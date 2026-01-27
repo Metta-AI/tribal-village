@@ -14,8 +14,8 @@ proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
   )
 
 const
-  ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune}
-  TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune}
+  ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune, TerrainMud}
+  TreeGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainDune, TerrainMud}
   TradingHubSize = 15
   TradingHubTint = TileColor(r: 0.58, g: 0.58, b: 0.58, intensity: 1.0)
 

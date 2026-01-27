@@ -17,6 +17,7 @@ type
     Dune
     Sand
     Snow
+    Mud
     RampUpN
     RampUpS
     RampUpW
@@ -43,6 +44,7 @@ const
     Dune: 0.85'f32,      # 15% slower on dunes
     Sand: 0.9'f32,       # 10% slower in sand
     Snow: 0.8'f32,       # 20% slower in snow
+    Mud: 0.7'f32,        # 30% slower in swamp mud
     RampUpN: 1.0'f32,    # Ramps already have special handling
     RampUpS: 1.0'f32,
     RampUpW: 1.0'f32,
@@ -122,7 +124,7 @@ const
   BiomeCavesTerrain* = Dune
   BiomePlainsTerrain* = Grass
   BiomeSnowTerrain* = Snow
-  BiomeSwampTerrain* = Grass
+  BiomeSwampTerrain* = Mud
   BiomeCityBlockTerrain* = Grass
   BiomeCityRoadTerrain* = Road
   UseBiomeZones* = true
@@ -174,9 +176,10 @@ const
   TerrainDune* = TerrainType.Dune
   TerrainSand* = TerrainType.Sand
   TerrainSnow* = TerrainType.Snow
+  TerrainMud* = TerrainType.Mud
   RampTerrain* = {RampUpN, RampUpS, RampUpW, RampUpE,
                    RampDownN, RampDownS, RampDownW, RampDownE}
-  BuildableTerrain* = {Empty, Grass, Sand, Snow, Dune, Road,
+  BuildableTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune, Road,
                         RampUpN, RampUpS, RampUpW, RampUpE,
                         RampDownN, RampDownS, RampDownW, RampDownE}
 
