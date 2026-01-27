@@ -1138,6 +1138,17 @@ proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: T
 # Patrol behavior - walk between waypoints and attack enemies encountered
 const PatrolArrivalThreshold = 2  # Distance at which we consider waypoint "reached"
 
+# Resource denial behavior constants
+const
+  RaidDetectionRadius = 20      # Distance to detect enemy economy
+  RaidHpThreshold = 0.6         # HP ratio required to start raiding (60%)
+  RaidRetreatThreshold = 0.35   # HP ratio to retreat from raid (35%)
+  HarassDetectionRadius = 15    # Distance to detect enemy workers
+  HarassRetreatHpThreshold = 0.5  # HP ratio to retreat when harassing
+  HarassDisengageDistance = 8   # Retreat this far before re-engaging
+  BlockingPositionRadius = 10   # Distance from resources to block
+  KeyTerrainSearchRadius = 25   # Radius to search for key terrain
+
 proc canStartFighterPatrol(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   ## Patrol activates when patrol mode is enabled for this agent
@@ -1179,6 +1190,350 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
 
   # Move toward current waypoint
   controller.moveTo(env, agent, agentId, state, target)
+
+# ============================================================================
+# Resource Denial Behaviors
+# ============================================================================
+
+const
+  EconomyBuildings = {TownCenter, Mill, Granary, LumberCamp, Quarry, MiningCamp}
+  ValuableResources = {Gold, Stone}
+
+proc findNearestEnemyEconomy(env: Environment, agent: Thing): Thing =
+  ## Find the nearest enemy economy building (gatherer dropoff point)
+  let teamId = getTeamId(agent)
+  var bestTarget: Thing = nil
+  var bestDist = int.high
+  for thing in env.things:
+    if thing.isNil or thing.teamId == teamId or thing.teamId < 0:
+      continue
+    if thing.kind notin EconomyBuildings:
+      continue
+    let dist = int(chebyshevDist(agent.pos, thing.pos))
+    if dist > RaidDetectionRadius:
+      continue
+    if dist < bestDist:
+      bestDist = dist
+      bestTarget = thing
+  bestTarget
+
+proc findNearestEnemyGatherer(env: Environment, agent: Thing): Thing =
+  ## Find the nearest enemy villager (gatherer/worker)
+  let teamId = getTeamId(agent)
+  var bestTarget: Thing = nil
+  var bestDist = int.high
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    # Target villagers specifically - they are the economic workers
+    if other.unitClass != UnitVillager:
+      continue
+    let dist = int(chebyshevDist(agent.pos, other.pos))
+    if dist > HarassDetectionRadius:
+      continue
+    if dist < bestDist:
+      bestDist = dist
+      bestTarget = other
+  bestTarget
+
+proc countNearbyEnemyCombat(env: Environment, agent: Thing, radius: int): int =
+  ## Count nearby enemy combat units (to determine when to retreat)
+  let teamId = getTeamId(agent)
+  result = 0
+  for other in env.agents:
+    if other.agentId == agent.agentId:
+      continue
+    if not isAgentAlive(env, other):
+      continue
+    if getTeamId(other) == teamId:
+      continue
+    # Combat units that pose a threat
+    if other.unitClass in {UnitManAtArms, UnitKnight, UnitArcher, UnitScout}:
+      let dist = int(chebyshevDist(agent.pos, other.pos))
+      if dist <= radius:
+        inc result
+
+proc findResourceChoke(env: Environment, agent: Thing): IVec2 =
+  ## Find a position between enemy base and valuable resources to block access.
+  ## Returns position to move to, or (-1,-1) if none found.
+  let teamId = getTeamId(agent)
+
+  # Find enemy altar (base)
+  var enemyBase: IVec2 = ivec2(-1, -1)
+  var minAltarDist = int.high
+  for altar in env.thingsByKind[Altar]:
+    if altar.teamId == teamId or altar.teamId < 0:
+      continue
+    let dist = int(chebyshevDist(agent.pos, altar.pos))
+    if dist < minAltarDist:
+      minAltarDist = dist
+      enemyBase = altar.pos
+
+  if enemyBase.x < 0:
+    return ivec2(-1, -1)
+
+  # Find nearest valuable resource (gold/stone)
+  var nearestResource: IVec2 = ivec2(-1, -1)
+  var minResDist = int.high
+  for kind in ValuableResources:
+    for thing in env.thingsByKind[kind]:
+      let dist = int(chebyshevDist(enemyBase, thing.pos))
+      if dist < minResDist and dist > 5:  # Not too close to enemy base
+        minResDist = dist
+        nearestResource = thing.pos
+
+  if nearestResource.x < 0:
+    return ivec2(-1, -1)
+
+  # Calculate blocking position - midpoint between enemy base and resource
+  let blockPos = ivec2(
+    (enemyBase.x + nearestResource.x) div 2,
+    (enemyBase.y + nearestResource.y) div 2
+  )
+
+  # Clamp to valid map position
+  clampToPlayable(blockPos)
+
+proc findKeyTerrain(env: Environment, agent: Thing): IVec2 =
+  ## Find key terrain to control - choke points or valuable resource areas.
+  ## Uses terrain analysis to find narrow passages.
+  let teamId = getTeamId(agent)
+  let basePos = agent.getBasePos()
+
+  # First priority: control valuable resources near our base
+  var bestPos: IVec2 = ivec2(-1, -1)
+  var bestScore = int.low
+
+  for kind in ValuableResources:
+    for thing in env.thingsByKind[kind]:
+      # Score based on proximity to our base and distance from enemy
+      let distToBase = int(chebyshevDist(basePos, thing.pos))
+      if distToBase > KeyTerrainSearchRadius:
+        continue
+
+      # Check for enemy presence near this resource
+      var enemyNearby = false
+      for other in env.agents:
+        if not isAgentAlive(env, other):
+          continue
+        if getTeamId(other) == teamId:
+          continue
+        if int(chebyshevDist(thing.pos, other.pos)) < 8:
+          enemyNearby = true
+          break
+
+      # Prefer resources with enemy activity (contested areas)
+      var score = 100 - distToBase
+      if enemyNearby:
+        score += 50
+
+      if score > bestScore:
+        bestScore = score
+        bestPos = thing.pos
+
+  bestPos
+
+# Raiding behavior - attack enemy economy
+proc canStartFighterRaid(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): bool =
+  ## Raiders need high HP and stance that allows chasing
+  if not stanceAllowsChase(agent):
+    return false
+  # Only combat units can raid effectively
+  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitScout}:
+    return false
+  # Require high HP to start raiding
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < RaidHpThreshold:
+    return false
+  # Need target to raid
+  not isNil(findNearestEnemyEconomy(env, agent))
+
+proc shouldTerminateFighterRaid(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate raid when HP drops too low or no targets
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < RaidRetreatThreshold:
+    return true
+  isNil(findNearestEnemyEconomy(env, agent))
+
+proc optFighterRaid(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  ## Attack enemy economy buildings and gatherers
+  # First, check for attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Prioritize attacking gatherers over buildings
+  let gatherer = findNearestEnemyGatherer(env, agent)
+  if not isNil(gatherer):
+    return actOrMove(controller, env, agent, agentId, state, gatherer.pos, 2'u8)
+
+  # Fall back to attacking economy buildings
+  let target = findNearestEnemyEconomy(env, agent)
+  if not isNil(target):
+    return actOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
+
+  0'u8
+
+# Harass behavior - light units hit-and-run enemy workers
+proc canStartFighterHarass(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  ## Harassment requires fast units that can escape
+  if not stanceAllowsChase(agent):
+    return false
+  # Only fast/ranged units harass effectively
+  if agent.unitClass notin {UnitScout, UnitArcher}:
+    return false
+  # Need decent HP
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < HarassRetreatHpThreshold:
+    return false
+  # Need target to harass
+  not isNil(findNearestEnemyGatherer(env, agent))
+
+proc shouldTerminateFighterHarass(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  ## Terminate harassment when HP drops or outnumbered
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < HarassRetreatHpThreshold:
+    return true
+  # Disengage if outnumbered
+  let nearbyEnemyCombat = countNearbyEnemyCombat(env, agent, 6)
+  if nearbyEnemyCombat >= 2:
+    return true
+  # No targets left
+  isNil(findNearestEnemyGatherer(env, agent))
+
+proc optFighterHarass(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): uint8 =
+  ## Harass enemy gatherers - attack then retreat before taking damage
+  # Check for immediate attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Check if we need to retreat (enemy combat nearby)
+  let nearbyEnemyCombat = countNearbyEnemyCombat(env, agent, 4)
+  if nearbyEnemyCombat > 0:
+    # Retreat toward our base
+    let basePos = agent.getBasePos()
+    let avoidDir = if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1
+    let dir = getMoveTowards(env, agent, agent.pos, basePos, controller.rng, avoidDir)
+    if dir >= 0:
+      return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dir.uint8))
+
+  # Find and attack gatherers
+  let target = findNearestEnemyGatherer(env, agent)
+  if not isNil(target):
+    return actOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
+
+  0'u8
+
+# Blocking behavior - position to deny enemy resource access
+proc canStartFighterBlock(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  ## Blocking requires stance that allows movement
+  if not stanceAllowsMovementToAttack(agent):
+    return false
+  # Combat units can block
+  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitScout}:
+    return false
+  # Need good HP
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < 0.5:
+    return false
+  # Need position to block
+  let blockPos = findResourceChoke(env, agent)
+  blockPos.x >= 0
+
+proc shouldTerminateFighterBlock(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Terminate blocking when HP drops or no blocking position
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < 0.35:
+    return true
+  let blockPos = findResourceChoke(env, agent)
+  blockPos.x < 0
+
+proc optFighterBlock(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  ## Move to blocking position and engage any enemies that approach
+  # First check for attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Engage nearby enemies
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
+    if enemyDist <= 3:
+      return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+  # Move to blocking position
+  let blockPos = findResourceChoke(env, agent)
+  if blockPos.x >= 0:
+    let dist = int(chebyshevDist(agent.pos, blockPos))
+    if dist > 2:
+      return controller.moveTo(env, agent, agentId, state, blockPos)
+
+  0'u8
+
+# Key terrain control - hold valuable positions
+proc canStartFighterDenyTerrain(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terrain denial requires movement capability
+  if not stanceAllowsMovementToAttack(agent):
+    return false
+  # Combat units can hold terrain
+  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitArcher}:
+    return false
+  # Need decent HP
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < 0.5:
+    return false
+  # Need key terrain to control
+  let keyPos = findKeyTerrain(env, agent)
+  keyPos.x >= 0
+
+proc shouldTerminateFighterDenyTerrain(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  ## Terminate when HP drops or no terrain to control
+  let hpRatio = float(agent.hp) / float(agent.maxHp)
+  if hpRatio < 0.35:
+    return true
+  let keyPos = findKeyTerrain(env, agent)
+  keyPos.x < 0
+
+proc optFighterDenyTerrain(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  ## Control key terrain positions and engage enemies
+  # Attack opportunity first
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Engage nearby enemies
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
+    if enemyDist <= 4:
+      return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+  # Move to key terrain
+  let keyPos = findKeyTerrain(env, agent)
+  if keyPos.x >= 0:
+    let dist = int(chebyshevDist(agent.pos, keyPos))
+    if dist > 2:
+      return controller.moveTo(env, agent, agentId, state, keyPos)
+
+  0'u8
 
 let FighterOptions* = [
   OptionDef(
@@ -1299,6 +1654,35 @@ let FighterOptions* = [
     canStart: canStartFighterClearGoblins,
     shouldTerminate: shouldTerminateFighterClearGoblins,
     act: optFighterClearGoblins,
+    interruptible: true
+  ),
+  # Resource denial behaviors
+  OptionDef(
+    name: "FighterRaid",
+    canStart: canStartFighterRaid,
+    shouldTerminate: shouldTerminateFighterRaid,
+    act: optFighterRaid,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterHarass",
+    canStart: canStartFighterHarass,
+    shouldTerminate: shouldTerminateFighterHarass,
+    act: optFighterHarass,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterBlock",
+    canStart: canStartFighterBlock,
+    shouldTerminate: shouldTerminateFighterBlock,
+    act: optFighterBlock,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterDenyTerrain",
+    canStart: canStartFighterDenyTerrain,
+    shouldTerminate: shouldTerminateFighterDenyTerrain,
+    act: optFighterDenyTerrain,
     interruptible: true
   ),
   SmeltGoldOption,

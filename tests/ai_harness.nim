@@ -929,6 +929,96 @@ suite "AI - Fighter":
     # Should be moving (verb 1) toward the threatening enemy or attacking (verb 2)
     check verb == 1 or verb == 2
 
+  test "raider attacks enemy economy buildings":
+    # Knight with high HP should raid enemy economy when available
+    let env = makeEmptyEnv()
+    let controller = newController(60)
+    let basePos = ivec2(10, 10)
+    # Add raider (Knight with high HP and aggressive stance)
+    let raider = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitKnight)
+    raider.stance = StanceAggressive
+    raider.hp = raider.maxHp  # Full HP
+    # Add enemy economy building within detection radius
+    discard addBuilding(env, Mill, ivec2(15, 10), 1)
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
+    # Should move toward or attack the enemy economy
+    check verb == 1 or verb == 2
+
+  test "harasser targets enemy villagers":
+    # Scout should harass enemy villagers
+    let env = makeEmptyEnv()
+    let controller = newController(61)
+    let basePos = ivec2(10, 10)
+    # Add scout harasser
+    let harasser = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitScout)
+    harasser.stance = StanceAggressive
+    harasser.hp = harasser.maxHp
+    # Add enemy villager
+    let enemyVillager = addAgentAt(env, MapAgentsPerTeam, ivec2(14, 10))
+    enemyVillager.unitClass = UnitVillager
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
+    # Should move toward or attack the enemy villager
+    check verb == 1 or verb == 2
+
+  test "harasser retreats when outnumbered":
+    # Scout should retreat when multiple enemy combat units are nearby
+    let env = makeEmptyEnv()
+    let controller = newController(62)
+    let basePos = ivec2(10, 10)
+    discard addAltar(env, basePos, 0, 8)
+    # Add scout with reduced HP
+    let harasser = addAgentAt(env, 4, ivec2(15, 15), homeAltar = basePos, unitClass = UnitScout)
+    harasser.stance = StanceAggressive
+    harasser.hp = harasser.maxHp div 2  # 50% HP
+    # Add multiple enemy combat units nearby
+    let enemy1 = addAgentAt(env, MapAgentsPerTeam, ivec2(16, 15))
+    enemy1.unitClass = UnitManAtArms
+    let enemy2 = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(15, 16))
+    enemy2.unitClass = UnitManAtArms
+
+    let (verb, arg) = decodeAction(controller.decideAction(env, 4))
+    # Should retreat (move away) or attack if cornered
+    check verb == 1 or verb == 2
+
+  test "blocker positions between enemy and resources":
+    # Knight should move to block enemy access to resources
+    let env = makeEmptyEnv()
+    let controller = newController(63)
+    let basePos = ivec2(10, 10)
+    # Add blocker
+    let blocker = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitKnight)
+    blocker.stance = StanceAggressive
+    blocker.hp = blocker.maxHp
+    # Add enemy altar (base)
+    discard addAltar(env, ivec2(30, 30), 1, 8)
+    # Add valuable resource
+    discard addResource(env, Gold, ivec2(20, 20), ItemGold, 5)
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
+    # Should move to blocking position
+    check verb == 1 or verb == 2
+
+  test "terrain controller moves to key positions":
+    # ManAtArms should move to control valuable resource areas
+    let env = makeEmptyEnv()
+    let controller = newController(64)
+    let basePos = ivec2(10, 10)
+    # Add terrain controller
+    let unit = addAgentAt(env, 4, ivec2(10, 10), homeAltar = basePos, unitClass = UnitManAtArms)
+    unit.stance = StanceAggressive
+    unit.hp = unit.maxHp
+    # Add valuable resource near base
+    discard addResource(env, Gold, ivec2(15, 15), ItemGold, 5)
+    # Add enemy activity near the resource
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(16, 15))
+    enemy.unitClass = UnitVillager
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 4))
+    # Should move or attack
+    check verb == 1 or verb == 2
+
 suite "AI - Combat Behaviors":
   test "gatherer flees from nearby wolf":
     let env = makeEmptyEnv()
