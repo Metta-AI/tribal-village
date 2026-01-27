@@ -92,14 +92,17 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
   if not isNil(backgroundThing):
     agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
 
-  # Agent-specific layers (team, orientation, class)
+  # Agent-specific layers (team, orientation, class, idle)
   var teamValue = 0
   var orientValue = 0
   var classValue = 0
+  var idleValue = 0
   if not isNil(blockingThing) and blockingThing.kind == Agent:
     teamValue = getTeamId(blockingThing) + 1
     orientValue = ord(blockingThing.orientation) + 1
     classValue = ord(blockingThing.unitClass) + 1
+    # Idle detection: 1 if agent took NOOP/ORIENT action, 0 otherwise
+    idleValue = if blockingThing.isIdle: 1 else: 0
   else:
     # Check team ownership for non-agent things
     let teamId =
@@ -121,6 +124,8 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
     agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
   if classValue != 0:
     agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
+  if idleValue != 0:
+    agentObs[][ord(AgentIdleLayer)][obsX][obsY] = idleValue.uint8
 
   let tintCode = env.actionTintCode[worldX][worldY]
   if tintCode != 0:
