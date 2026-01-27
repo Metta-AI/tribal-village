@@ -544,7 +544,7 @@ proc drawObjects*() =
 
   drawThings(Bear):
     bxy.drawImage(
-      if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow",
+      if thing.orientation == Orientation.E: "oriented/bear.r" else: "oriented/bear",
       pos.vec2,
       angle = 0,
       scale = SpriteScale
@@ -552,7 +552,7 @@ proc drawObjects*() =
 
   drawThings(Wolf):
     bxy.drawImage(
-      if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow",
+      if thing.orientation == Orientation.E: "oriented/wolf.r" else: "oriented/wolf",
       pos.vec2,
       angle = 0,
       scale = SpriteScale
