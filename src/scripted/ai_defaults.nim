@@ -305,25 +305,21 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
     controller.claimBuilding(teamId, kind)
   return (didBuild, actBuild)
 
-proc needsPopCapHouse(env: Environment, teamId: int): bool =
+proc needsPopCapHouse(controller: Controller, env: Environment, teamId: int): bool =
+  ## Check if a team needs to build a house for population cap.
+  ## Uses cached getBuildingCount for performance instead of iterating env.things.
   var popCount = 0
   for otherAgent in env.agents:
     if not isAgentAlive(env, otherAgent):
       continue
     if getTeamId(otherAgent) == teamId:
       inc popCount
-  var popCap = 0
-  var hasBase = false
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if isBuildingKind(thing.kind):
-      hasBase = true
-      let cap = buildingPopCap(thing.kind)
-      if cap > 0:
-        popCap += cap
+  # Use cached building counts for pop cap calculation
+  let houseCount = controller.getBuildingCount(env, teamId, House)
+  let townCenterCount = controller.getBuildingCount(env, teamId, TownCenter)
+  let popCap = houseCount * HousePopCap + townCenterCount * TownCenterPopCap
+  let hasBase = houseCount > 0 or townCenterCount > 0 or
+    controller.getBuildingCount(env, teamId, Altar) > 0
   if popCap >= MapAgentsPerTeam:
     return false
   let buffer = HousePopCap
@@ -333,7 +329,7 @@ proc needsPopCapHouse(env: Environment, teamId: int): bool =
 proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thing, agentId: int,
                             state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint8] =
   ## Build a house when the team is at or near population cap.
-  if needsPopCapHouse(env, teamId):
+  if needsPopCapHouse(controller, env, teamId):
     let minX = max(0, basePos.x - 15)
     let maxX = min(MapWidth - 1, basePos.x + 15)
     let minY = max(0, basePos.y - 15)
@@ -967,7 +963,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Global: keep population cap ahead of current population (gatherers only).
   if state.role == Gatherer and agent.unitClass == UnitVillager:
     let teamId = getTeamId(agent)
-    if needsPopCapHouse(env, teamId):
+    if needsPopCapHouse(controller, env, teamId):
       let houseKey = thingItem("House")
       let costs = buildCostsForKey(houseKey)
       var requiredWood = 0
