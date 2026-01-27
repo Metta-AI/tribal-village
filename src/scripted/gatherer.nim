@@ -1,3 +1,5 @@
+import coordination
+
 const GathererFleeRadius = 8  # Smaller than fighter detection - flee early to survive
 
 # Game phase thresholds for resource priority weighting
@@ -49,6 +51,8 @@ proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
   let enemy = gathererFindNearbyEnemy(env, agent)
   if isNil(enemy):
     return 0'u8
+  # Request protection from nearby fighters via coordination system
+  requestProtectionFromFighter(env, agent, enemy.pos)
   # Move toward home altar for safety
   let basePos = agent.getBasePos()
   state.basePosition = basePos

@@ -1,3 +1,5 @@
+import coordination
+
 const
   DividerDoorSpacing = 5
   DividerDoorOffset = 0
@@ -10,6 +12,8 @@ const
   TargetSwapInterval = 10  # Re-evaluate target every N ticks
   LowHpThreshold = 0.33    # Enemies below this HP ratio get priority
   AllyThreatRadius = 2     # Distance at which enemy is considered threatening an ally
+  # Escort behavior constants
+  EscortRadius = 3         # Stay within this distance of the protected unit
 
 proc stanceAllowsChase*(agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -352,6 +356,8 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   state.basePosition = basePos
+  # Request defense from builders via coordination system
+  requestDefenseFromBuilder(env, agent, enemy.pos)
 
   var enemyBase: Thing = nil
   var bestAltarDist = int.high
@@ -974,6 +980,48 @@ proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thi
     return 0'u8
   actOrMove(controller, env, agent, agentId, state, target.pos, 2'u8)
 
+# Escort behavior: respond to protection requests from coordination system
+proc canStartFighterEscort(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  ## Check if there's a nearby protection request to respond to
+  if not stanceAllowsChase(agent):
+    return false
+  # Only combat units can escort
+  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitScout, UnitArcher}:
+    return false
+  let (should, _) = fighterShouldEscort(env, agent)
+  should
+
+proc shouldTerminateFighterEscort(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Terminate when no more protection requests or target reached
+  let (should, _) = fighterShouldEscort(env, agent)
+  not should
+
+proc optFighterEscort(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  ## Move toward the unit requesting protection and engage any enemies along the way
+  let (should, targetPos) = fighterShouldEscort(env, agent)
+  if not should:
+    return 0'u8
+
+  # First check for attack opportunity - engage enemies
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Check for nearby enemies and engage them
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+  # Move toward the protected unit
+  let dist = int(chebyshevDist(agent.pos, targetPos))
+  if dist <= EscortRadius:
+    # Already close enough - stay nearby but allow other behaviors
+    return 0'u8
+  controller.moveTo(env, agent, agentId, state, targetPos)
+
 proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
   ## Aggressive hunting requires chasing - check stance
@@ -1268,6 +1316,13 @@ let FighterOptions* = [
     canStart: canStartFighterAntiSiege,
     shouldTerminate: shouldTerminateFighterAntiSiege,
     act: optFighterAntiSiege,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterEscort",
+    canStart: canStartFighterEscort,
+    shouldTerminate: shouldTerminateFighterEscort,
+    act: optFighterEscort,
     interruptible: true
   ),
   OptionDef(
