@@ -24,19 +24,23 @@ The following dead code was identified and removed:
 2. **Dead Import** (tests/domain_economy_buildings.nim):
    - Removed `import balance` - the module doesn't exist
 
-### Layer Aliases Retained (types.nim, lines 260-268)
+### Dead Code Removed (2026-01-27)
+
+3. **Vestigial AgentInventory*Layer aliases and call sites** (tv-lvcn):
+   - `LegacyObsLayer` alias removed - only served as base for inventory aliases
+   - `AgentInventoryGoldLayer`, `AgentInventoryBarLayer`, `AgentInventoryWheatLayer`,
+     `AgentInventoryWoodLayer`, `AgentInventorySpearLayer`, `AgentInventoryArmorLayer` aliases removed
+   - All call sites using these aliases removed from step.nim and combat.nim
+   - **Rationale**: `updateObservations` is a no-op (observations rebuilt in batch at step end).
+     All these aliases pointed to the same layer (`ThingAgentLayer`), making the calls
+     semantically meaningless. The calls added execution overhead without any effect.
+
+### Layer Aliases Retained (types.nim)
 
 | Item | File | Status | Evidence |
 |------|------|--------|----------|
-| `LegacyObsLayer` | src/types.nim | Kept | Base alias for AgentInventory*Layer constants |
-| `AgentLayer` | src/types.nim | Kept | Used in step.nim (lines 251, 252, 279, 292, 423, 962, 963, 1958, 2023) and combat.nim |
-| `altarHeartsLayer` | src/types.nim | Kept | Used in step.nim (lines 348, 803, 1941, 2014) |
-| `AgentInventoryGoldLayer` | src/types.nim | Kept | Used in step.nim |
-| `AgentInventoryBarLayer` | src/types.nim | Kept | Used in step.nim |
-| `AgentInventoryWheatLayer` | src/types.nim | Kept | Used in step.nim |
-| `AgentInventoryWoodLayer` | src/types.nim | Kept | Used in step.nim |
-| `AgentInventorySpearLayer` | src/types.nim | Kept | Used in step.nim |
-| `AgentInventoryArmorLayer` | src/types.nim | Kept | Used in combat.nim |
+| `AgentLayer` | src/types.nim | Kept | Used in step.nim and combat.nim for agent position updates |
+| `altarHeartsLayer` | src/types.nim | Kept | Used in step.nim for altar heart updates |
 
 ---
 

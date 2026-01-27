@@ -715,7 +715,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           if hit:
             agent.inventorySpear = max(0, agent.inventorySpear - 1)
-            env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
             inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -762,7 +761,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if attackHit:
           if hasSpear:
             agent.inventorySpear = max(0, agent.inventorySpear - 1)
-            env.updateObservations(AgentInventorySpearLayer, agent.pos, agent.inventorySpear)
           inc env.stats[id].actionAttack
         else:
           inc env.stats[id].actionInvalid
@@ -978,8 +976,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if thing.cooldown == 0 and getInv(agent, ItemGold) > 0 and agent.inventoryBar < MapObjectAgentMaxInventory:
             setInv(agent, ItemGold, getInv(agent, ItemGold) - 1)
             agent.inventoryBar = agent.inventoryBar + 1
-            env.updateObservations(AgentInventoryGoldLayer, agent.pos, getInv(agent, ItemGold))
-            env.updateObservations(AgentInventoryBarLayer, agent.pos, agent.inventoryBar)
             thing.cooldown = 0
             if agent.inventoryBar == 1:
               agent.reward += env.config.barReward
@@ -1364,7 +1360,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
             break plantResourceAction
           agent.inventoryWood = max(0, agent.inventoryWood - 1)
-          env.updateObservations(AgentInventoryWoodLayer, agent.pos, agent.inventoryWood)
           let tree = Thing(kind: Tree, pos: targetPos)
           tree.inventory = emptyInventory()
           setInv(tree, ItemWood, ResourceNodeInitial)
@@ -1374,7 +1369,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
             break plantResourceAction
           agent.inventoryWheat = max(0, agent.inventoryWheat - 1)
-          env.updateObservations(AgentInventoryWheatLayer, agent.pos, agent.inventoryWheat)
           let crop = Thing(kind: Wheat, pos: targetPos)
           crop.inventory = emptyInventory()
           setInv(crop, ItemWheat, ResourceNodeInitial)

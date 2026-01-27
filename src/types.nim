@@ -269,17 +269,10 @@ type
     ObscuredLayer             # 1 when target tile is above observer elevation
 
 const
-  ## Legacy layer aliases used by existing update calls. These no longer map to
-  ## distinct observation channels, but keep the incremental update sites intact.
-  LegacyObsLayer* = ThingAgentLayer
+  ## Layer aliases for semantic clarity. These map to Thing layers since
+  ## updateObservations is a no-op (observations rebuilt in batch at step end).
   AgentLayer* = ThingAgentLayer
   altarHeartsLayer* = ThingAltarLayer
-  AgentInventoryGoldLayer* = LegacyObsLayer
-  AgentInventoryBarLayer* = LegacyObsLayer
-  AgentInventoryWheatLayer* = LegacyObsLayer
-  AgentInventoryWoodLayer* = LegacyObsLayer
-  AgentInventorySpearLayer* = LegacyObsLayer
-  AgentInventoryArmorLayer* = LegacyObsLayer
 
 type
   AgentStance* = enum

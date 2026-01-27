@@ -160,12 +160,10 @@ Cross-cutting behaviors available to evolutionary roles:
 3. **Unused Constants** (builder.nim:1-16)
    - `WallRingRadiusSlack`, `DividerDoor*` constants defined but wall ring uses simple radius check
 
-4. **Legacy Observation Layers** (types.nim:257-268) - **USED**
-   - `AgentLayer` alias used in step.nim (lines 251, 252, 279, 292, 423, 962, 963, 1958, 2023) and combat.nim:62
-   - `altarHeartsLayer` alias used in step.nim (lines 348, 803, 1941, 2014)
-   - `AgentInventoryGoldLayer` used in step.nim:745
-   - `AgentInventoryBarLayer` used in step.nim:746
-   - `AgentInventoryArmorLayer` used in combat.nim:146
+4. **Legacy Observation Layers** (types.nim) - **CLEANED (tv-lvcn)**
+   - `AgentLayer` alias retained - used throughout step.nim and combat.nim
+   - `altarHeartsLayer` alias retained - used in step.nim
+   - Vestigial `AgentInventory*Layer` aliases and call sites removed (all mapped to same layer)
 
 ### 3.2 Feature Flag Dependencies
 
