@@ -149,6 +149,7 @@ let TerrainCatalog* = block:
   for (terrain, displayName, spriteKey, ascii) in [
     (Empty, "Empty", "", ' '),
     (Water, "Water", "", '~'),
+    (ShallowWater, "Shallow Water", "", '.'),
     (Bridge, "Bridge", "", '='),
     (Fertile, "Fertile", "", 'f'),
     (Road, "Road", "", 'r'),
