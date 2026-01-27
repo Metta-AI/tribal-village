@@ -92,6 +92,11 @@ type
     plannedPath: seq[IVec2]
     plannedPathIndex: int
     pathBlockedTarget: IVec2
+    # Patrol state
+    patrolPoint1: IVec2      # First patrol waypoint
+    patrolPoint2: IVec2      # Second patrol waypoint
+    patrolToSecondPoint: bool # True = heading to point2, False = heading to point1
+    patrolActive: bool       # Whether patrol mode is enabled
 
   # Simple controller
   Controller* = ref object
@@ -1127,3 +1132,41 @@ proc ensureHuntFood(controller: Controller, env: Environment, agent: Thing, agen
     else:
       controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
+
+# Patrol behavior helpers
+proc setPatrol*(controller: Controller, agentId: int, point1, point2: IVec2) =
+  ## Set patrol waypoints for an agent. Enables patrol mode.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].patrolPoint1 = point1
+    controller.agents[agentId].patrolPoint2 = point2
+    controller.agents[agentId].patrolToSecondPoint = true
+    controller.agents[agentId].patrolActive = true
+
+proc clearPatrol*(controller: Controller, agentId: int) =
+  ## Disable patrol mode for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].patrolActive = false
+    controller.agents[agentId].patrolPoint1 = ivec2(-1, -1)
+    controller.agents[agentId].patrolPoint2 = ivec2(-1, -1)
+
+proc isPatrolActive*(controller: Controller, agentId: int): bool =
+  ## Check if patrol mode is active for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].patrolActive
+  false
+
+proc getPatrolTarget*(controller: Controller, agentId: int): IVec2 =
+  ## Get the current patrol target waypoint.
+  if agentId >= 0 and agentId < MapAgents:
+    let state = controller.agents[agentId]
+    if state.patrolToSecondPoint:
+      return state.patrolPoint2
+    else:
+      return state.patrolPoint1
+  ivec2(-1, -1)
+
+proc switchPatrolDirection*(controller: Controller, agentId: int) =
+  ## Switch patrol direction (toggle between heading to point1 and point2).
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].patrolToSecondPoint =
+      not controller.agents[agentId].patrolToSecondPoint

@@ -978,6 +978,51 @@ proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
 
+# Patrol behavior - walk between waypoints and attack enemies encountered
+const PatrolArrivalThreshold = 2  # Distance at which we consider waypoint "reached"
+
+proc canStartFighterPatrol(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  ## Patrol activates when patrol mode is enabled for this agent
+  state.patrolActive and state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0
+
+proc shouldTerminateFighterPatrol(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Patrol terminates when patrol mode is disabled
+  not state.patrolActive
+
+proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  ## Patrol between two waypoints, attacking any enemies encountered.
+  ## Uses AoE2-style patrol: walk to waypoint, attack nearby enemies, continue patrol.
+
+  # First check for attack opportunity - attack takes priority during patrol
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Check for nearby enemies and chase them if stance allows
+  if stanceAllowsChase(agent):
+    let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+    if not isNil(enemy):
+      # Move toward enemy to engage
+      return controller.moveTo(env, agent, agentId, state, enemy.pos)
+
+  # Determine current patrol target
+  let target = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
+
+  # Check if we've reached the current waypoint
+  let distToTarget = int(chebyshevDist(agent.pos, target))
+  if distToTarget <= PatrolArrivalThreshold:
+    # Switch direction
+    state.patrolToSecondPoint = not state.patrolToSecondPoint
+    # Get the new target after switching
+    let newTarget = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
+    return controller.moveTo(env, agent, agentId, state, newTarget)
+
+  # Move toward current waypoint
+  controller.moveTo(env, agent, agentId, state, target)
+
 let FighterOptions* = [
   OptionDef(
     name: "BatteringRamAdvance",
@@ -1013,6 +1058,13 @@ let FighterOptions* = [
     canStart: canStartFighterMonk,
     shouldTerminate: shouldTerminateFighterMonk,
     act: optFighterMonk,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterPatrol",
+    canStart: canStartFighterPatrol,
+    shouldTerminate: shouldTerminateFighterPatrol,
+    act: optFighterPatrol,
     interruptible: true
   ),
   OptionDef(
