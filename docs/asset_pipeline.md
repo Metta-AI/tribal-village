@@ -81,17 +81,30 @@ Previews render a 3x3 grid with a sprite column to verify orientation and edge a
 - Cliff overlays commonly use **200x200** sprites.
 - Oriented sprites live in `data/oriented/` and follow `{dir}` naming.
 
-## Missing Asset Audit (2026-01-25)
+## Missing Asset Audit (2026-01-27)
 
-The following oriented sprites are missing or incomplete:
+### Oriented Sprites (Incomplete Direction Sets)
 
 | Entity | Status | Bead |
 |--------|--------|------|
-| Bear | Missing all 8 directions | tv-wisp-oip8 |
-| Wolf | Missing all 8 directions | tv-wisp-ihxq |
-| Cow | Has cow.png/cow.r.png only, needs 8 directions | tv-wisp-nt7q |
+| Bear | Has 2 directions (.png/.r.png), needs 8 | tv-wisp-oip8 |
+| Wolf | Has 2 directions (.png/.r.png), needs 8 | tv-wisp-ihxq |
+| Cow | Has 2 directions (.png/.r.png), needs 8 | tv-wisp-nt7q |
 
-All other oriented unit sprites (gatherer, builder, fighter, man_at_arms, archer, scout, knight, monk, battering_ram, mangonel, boat, goblin, tumor) have complete 8-direction sets.
+**Note:** Bear and wolf sprites added in e705cca are REAL distinct sprites (not placeholders
+or recolored cows). They just use 2-direction format instead of full 8-direction set.
+
+All other oriented unit sprites (gatherer, builder, fighter, man_at_arms, archer, scout,
+knight, monk, battering_ram, mangonel, boat, goblin, tumor) have complete 8-direction sets.
+
+### Terrain Sprites
+
+| Terrain | Status | Bead |
+|---------|--------|------|
+| Mud | Missing mud.png | tv-vopua |
+| ShallowWater | Missing registry entry (code fix) | tv-gdlaj |
+
+**Note:** ShallowWater can use tinting of existing water sprite rather than a new asset.
 
 ### Finding Missing Assets
 
