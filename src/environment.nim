@@ -19,6 +19,13 @@ const
   DefaultSpawnerMinDistance* = 20
   DefaultInitialActiveAgents* = 6
 
+  ## Ramp tile placement constants
+  ## Controls how frequently ramps are placed at elevation transitions
+  ## and their visual width for clearer elevation feedback.
+  RampPlacementSpacing* = 4     # Place ramp every Nth cliff edge (lower = more ramps)
+  RampWidthMin* = 1             # Minimum ramp width in tiles
+  RampWidthMax* = 3             # Maximum ramp width in tiles
+
   ## Default combat constants
   DefaultSpearCharges* = 5
   DefaultArmorPoints* = 5
