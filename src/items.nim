@@ -45,8 +45,8 @@ type
 
   ## Optimized inventory: array for ItemKind, Table for rare items
   Inventory* = object
-    items*: array[ItemKind, int]  # O(1) direct indexing for common items
-    extra*: Table[ItemKey, int]   # Hash table for ItemKeyThing/ItemKeyOther
+    items*: array[ItemKind, int16]  # O(1) direct indexing for common items
+    extra*: Table[ItemKey, int16]   # Hash table for ItemKeyThing/ItemKeyOther
 
 const
   SpearCharges* = 5       # Spears forged per craft & max carried
@@ -175,7 +175,7 @@ proc isStockpileResourceKey*(key: ItemKey): bool =
   stockpileResourceForItem(key) != ResourceNone
 
 proc emptyInventory*(): Inventory =
-  Inventory(extra: initTable[ItemKey, int]())
+  Inventory(extra: initTable[ItemKey, int16]())
 
 proc len*(inv: Inventory): int {.inline.} =
   ## Count non-zero items in inventory
@@ -208,13 +208,13 @@ proc `[]=`*(inv: var Inventory, key: ItemKey, value: int) {.inline.} =
   of ItemKeyNone:
     discard
   of ItemKeyItem:
-    inv.items[key.item] = max(0, value)
+    inv.items[key.item] = max(0, value).int16
   of ItemKeyThing, ItemKeyOther:
     if value <= 0:
       if inv.extra.hasKey(key):
         inv.extra.del(key)
     else:
-      inv.extra[key] = value
+      inv.extra[key] = value.int16
 
 proc `[]`*(inv: Inventory, key: ItemKey): int {.inline.} =
   ## Get inventory value by ItemKey
@@ -256,17 +256,17 @@ proc setInv*[T](thing: T, key: ItemKey, value: int) =
   of ItemKeyNone:
     discard
   of ItemKeyItem:
-    thing.inventory.items[key.item] = max(0, value)
+    thing.inventory.items[key.item] = max(0, value).int16
   of ItemKeyThing, ItemKeyOther:
     if value <= 0:
       if thing.inventory.extra.hasKey(key):
         thing.inventory.extra.del(key)
     else:
-      thing.inventory.extra[key] = value
+      thing.inventory.extra[key] = value.int16
 
 proc setInv*[T](thing: T, kind: ItemKind, value: int) =
   ## Type-safe overload using ItemKind enum - O(1) array access
-  thing.inventory.items[kind] = max(0, value)
+  thing.inventory.items[kind] = max(0, value).int16
 
 proc canSpendInventory*[T](agent: T, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
   for cost in costs:
