@@ -92,6 +92,11 @@ proc canStartStoreValuables*(controller: Controller, env: Environment, agent: Th
     return true
   false
 
+proc shouldTerminateStoreValuables*(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when no valuables to store (inverse of canStart condition)
+  not canStartStoreValuables(controller, env, agent, agentId, state)
+
 proc optStoreValuables*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -112,6 +117,11 @@ proc canStartCraftBread*(controller: Controller, env: Environment, agent: Thing,
   agent.inventoryWheat > 0 and agent.inventoryBread < MapObjectAgentMaxInventory and
     controller.getBuildingCount(env, teamId, ClayOven) > 0
 
+proc shouldTerminateCraftBread*(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  ## Terminate when no wheat to craft or bread inventory is full
+  agent.inventoryWheat == 0 or agent.inventoryBread >= MapObjectAgentMaxInventory
+
 proc optCraftBread*(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -124,6 +134,11 @@ proc canStartSmeltGold*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): bool =
   agent.inventoryGold > 0 and agent.inventoryBar < MapObjectAgentMaxInventory and
     env.thingsByKind[Magma].len > 0
+
+proc shouldTerminateSmeltGold*(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  ## Terminate when no gold to smelt or bar inventory is full
+  agent.inventoryGold == 0 or agent.inventoryBar >= MapObjectAgentMaxInventory
 
 proc optSmeltGold*(controller: Controller, env: Environment, agent: Thing,
                    agentId: int, state: var AgentState): uint8 =
@@ -143,7 +158,7 @@ proc optSmeltGold*(controller: Controller, env: Environment, agent: Thing,
 let SmeltGoldOption* = OptionDef(
   name: "SmeltGold",
   canStart: canStartSmeltGold,
-  shouldTerminate: optionsAlwaysTerminate,
+  shouldTerminate: shouldTerminateSmeltGold,
   act: optSmeltGold,
   interruptible: true
 )
@@ -151,7 +166,7 @@ let SmeltGoldOption* = OptionDef(
 let CraftBreadOption* = OptionDef(
   name: "CraftBread",
   canStart: canStartCraftBread,
-  shouldTerminate: optionsAlwaysTerminate,
+  shouldTerminate: shouldTerminateCraftBread,
   act: optCraftBread,
   interruptible: true
 )
@@ -159,7 +174,7 @@ let CraftBreadOption* = OptionDef(
 let StoreValuablesOption* = OptionDef(
   name: "StoreValuables",
   canStart: canStartStoreValuables,
-  shouldTerminate: optionsAlwaysTerminate,
+  shouldTerminate: shouldTerminateStoreValuables,
   act: optStoreValuables,
   interruptible: true
 )
@@ -168,6 +183,11 @@ let StoreValuablesOption* = OptionDef(
 proc canStartEmergencyHeal*(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
   agent.inventoryBread > 0 and agent.hp * 2 < agent.maxHp
+
+proc shouldTerminateEmergencyHeal*(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  ## Terminate when HP recovered above 50% or no bread left
+  agent.inventoryBread == 0 or agent.hp * 2 >= agent.maxHp
 
 proc optEmergencyHeal*(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
@@ -186,7 +206,7 @@ proc optEmergencyHeal*(controller: Controller, env: Environment, agent: Thing,
 let EmergencyHealOption* = OptionDef(
   name: "EmergencyHeal",
   canStart: canStartEmergencyHeal,
-  shouldTerminate: optionsAlwaysTerminate,
+  shouldTerminate: shouldTerminateEmergencyHeal,
   act: optEmergencyHeal,
   interruptible: true
 )
