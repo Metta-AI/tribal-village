@@ -334,7 +334,6 @@ let wallSprites = block:
   sprites
 
 type WallTile = enum
-  WallNone = 0,
   WallE = 1,
   WallS = 2,
   WallW = 4,
