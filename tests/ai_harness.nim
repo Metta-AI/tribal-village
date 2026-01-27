@@ -1222,3 +1222,85 @@ suite "Shared Threat Map":
     # Total strength in range 100 should include all = 10
     let totalAll = controller.getTotalThreatStrength(teamId, ivec2(10, 10), rangeVal = 100, currentStep)
     check totalAll == 10
+
+suite "AI - Scout Behavior":
+  test "scout mode activates for UnitScout":
+    let env = makeEmptyEnv()
+    let controller = newController(42)
+
+    # Add a villager and train it as a scout
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    discard addBuilding(env, Stable, ivec2(10, 9), 0)
+    env.teamStockpiles[0].counts[ResourceFood] = 10
+
+    # Initially not a scout
+    check agent.unitClass == UnitVillager
+    check not controller.isScoutModeActive(agent.agentId)
+
+    # Train as scout
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    check agent.unitClass == UnitScout
+
+    # Run tick to initialize scout mode
+    discard controller.decideAction(env, agent.agentId)
+    check controller.isScoutModeActive(agent.agentId)
+
+  test "scout flees when enemy nearby":
+    let env = makeEmptyEnv()
+    let controller = newController(42)
+    let teamId = 0
+
+    # Create scout at (30, 30)
+    let scout = addAgentAt(env, teamId, ivec2(30, 30))
+    applyUnitClass(scout, UnitScout)
+
+    # Create enemy close to scout
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(33, 30))
+
+    # Enable scout mode
+    controller.setScoutMode(scout.agentId, true)
+
+    # Scout should detect enemy and flee toward base (altar at default position)
+    let action = controller.decideAction(env, scout.agentId)
+
+    # Action should be a move (verb 1)
+    let verb = (action.int div ActionArgumentCount).uint8
+    check verb == 1  # MOVE action
+
+  test "scout reports threats to team":
+    let env = makeEmptyEnv()
+    let controller = newController(42)
+    let teamId = 0
+    let currentStep: int32 = env.currentStep.int32
+
+    # Create scout at (30, 30) with altar at home
+    let scout = addAgentAt(env, teamId, ivec2(30, 30))
+    applyUnitClass(scout, UnitScout)
+    discard addBuilding(env, Altar, ivec2(10, 10), teamId)
+    scout.homeAltar = ivec2(10, 10)
+
+    # Create enemy near scout
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(35, 30))
+
+    # Enable scout mode and run tick
+    controller.setScoutMode(scout.agentId, true)
+    discard controller.decideAction(env, scout.agentId)
+
+    # Scout should have reported the threat
+    check controller.hasKnownThreats(teamId, currentStep)
+
+    # The reported threat should be at the enemy position
+    let (pos, _, found) = controller.getNearestThreat(teamId, scout.pos, currentStep)
+    check found
+    check pos == enemy.pos
+
+  test "scout explore radius expands over time":
+    let controller = newController(42)
+    let agentId = 5
+
+    # Enable scout mode
+    controller.setScoutMode(agentId, true)
+
+    # Initial radius should be set
+    let initialRadius = controller.getScoutExploreRadius(agentId)
+    check initialRadius > 0
