@@ -221,9 +221,9 @@ Quick reference for common actions:
 
 ## Source Code References
 
-- **Action encoding**: `/home/relh/gt/tribal_village/crew/relh/src/common.nim` (lines 117-122)
-- **Action processing**: `/home/relh/gt/tribal_village/crew/relh/src/step.nim` (lines 133-1280)
-- **Verb names**: `/home/relh/gt/tribal_village/crew/relh/src/replay_writer.nim` (lines 8-19)
-- **BuildChoices array**: `/home/relh/gt/tribal_village/crew/relh/src/environment.nim` (lines 706-721)
-- **Building registry**: `/home/relh/gt/tribal_village/crew/relh/src/registry.nim` (lines 33-114)
-- **Invalid action analysis**: `/home/relh/gt/tribal_village/crew/relh/docs/game_mechanics_analysis.md`
+- **Action encoding**: `src/common.nim` (lines 117-122)
+- **Action processing**: `src/step.nim` (lines 510-1806)
+- **Verb names**: `src/replay_writer.nim` (lines 8-19)
+- **BuildChoices array**: `src/environment.nim` (lines 1166-1181)
+- **Building registry**: `src/registry.nim` (lines 34-117)
+- **Invalid action analysis**: `docs/analysis/game_mechanics_analysis.md`
