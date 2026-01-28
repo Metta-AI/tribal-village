@@ -528,6 +528,54 @@ proc checkRegicideVictory(env: Environment): int =
     return survivingTeam
   -1
 
+proc checkKingOfTheHillVictory(env: Environment): int =
+  ## Returns the winning team ID if a team has controlled the hill for long enough, else -1.
+  ## Control means having the most living units within HillControlRadius of a ControlPoint.
+  ## If tied (multiple teams have the same max count), the hill is contested and no one controls.
+  for cp in env.thingsByKind[ControlPoint]:
+    if cp.isNil:
+      continue
+    # Count living agents per team within the control radius
+    var teamUnits: array[MapRoomObjectsTeams, int]
+    for agent in env.agents:
+      if agent.isNil:
+        continue
+      if not isAgentAlive(env, agent):
+        continue
+      let teamId = getTeamId(agent)
+      if teamId < 0 or teamId >= MapRoomObjectsTeams:
+        continue
+      let dx = abs(agent.pos.x - cp.pos.x)
+      let dy = abs(agent.pos.y - cp.pos.y)
+      if max(dx, dy) <= HillControlRadius:
+        inc teamUnits[teamId]
+    # Find the team with the most units (must be unique max and > 0)
+    var bestTeam = -1
+    var bestCount = 0
+    var tied = false
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      if teamUnits[teamId] > bestCount:
+        bestTeam = teamId
+        bestCount = teamUnits[teamId]
+        tied = false
+      elif teamUnits[teamId] == bestCount and bestCount > 0:
+        tied = true
+    if tied or bestTeam < 0:
+      # Contested or empty - reset all timers
+      for teamId in 0 ..< MapRoomObjectsTeams:
+        env.victoryStates[teamId].hillControlStartStep = -1
+    else:
+      # bestTeam controls the hill
+      if env.victoryStates[bestTeam].hillControlStartStep < 0:
+        env.victoryStates[bestTeam].hillControlStartStep = env.currentStep
+      elif env.currentStep - env.victoryStates[bestTeam].hillControlStartStep >= HillVictoryCountdown:
+        return bestTeam
+      # Reset all other teams
+      for teamId in 0 ..< MapRoomObjectsTeams:
+        if teamId != bestTeam:
+          env.victoryStates[teamId].hillControlStartStep = -1
+  -1
+
 proc updateWonderTracking(env: Environment) =
   ## Track when Wonders are first fully constructed (for countdown).
   ## Only starts countdown when wonder reaches full HP (construction complete).
@@ -572,6 +620,13 @@ proc checkVictoryConditions(env: Environment) =
   # Regicide check
   if cond in {VictoryRegicide, VictoryAll}:
     let winner = env.checkRegicideVictory()
+    if winner >= 0:
+      env.victoryWinner = winner
+      return
+
+  # King of the Hill check
+  if cond in {VictoryKingOfTheHill, VictoryAll}:
+    let winner = env.checkKingOfTheHillVictory()
     if winner >= 0:
       env.victoryWinner = winner
       return
@@ -2944,6 +2999,7 @@ proc reset*(env: Environment) =
     env.victoryStates[teamId].wonderBuiltStep = -1
     env.victoryStates[teamId].relicHoldStartStep = -1
     env.victoryStates[teamId].kingAgentId = -1
+    env.victoryStates[teamId].hillControlStartStep = -1
   # Clear fog of war (revealed maps) for all teams
   env.revealedMaps = default(array[MapRoomObjectsTeams, RevealedMap])
   # Clear UI selection to prevent stale references

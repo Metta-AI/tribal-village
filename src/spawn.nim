@@ -1706,6 +1706,29 @@ proc init(env: Environment) =
   # Phase 6: Resource nodes (magma, trees, wheat, ore, plants)
   initResources(env, rng, treeOases)
 
+  # Phase 6b: Control point (King of the Hill)
+  if env.config.victoryCondition in {VictoryKingOfTheHill, VictoryAll}:
+    let centerX = (MapWidth div 2).int32
+    let centerY = (MapHeight div 2).int32
+    var placed = false
+    # Try center first, then spiral outward to find a valid spot
+    for radius in 0 .. 20:
+      if placed:
+        break
+      for dx in -radius .. radius:
+        if placed:
+          break
+        for dy in -radius .. radius:
+          if abs(dx) != radius and abs(dy) != radius:
+            continue  # Only check perimeter of current ring
+          let pos = ivec2(centerX + dx.int32, centerY + dy.int32)
+          if isValidPos(pos) and env.isEmpty(pos):
+            let cp = Thing(kind: ControlPoint, pos: pos, teamId: -1)
+            cp.inventory = emptyInventory()
+            env.add(cp)
+            placed = true
+            break
+
   # Phase 7: Wildlife (cows, bears, wolves)
   initWildlife(env, rng)
 

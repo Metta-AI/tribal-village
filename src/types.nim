@@ -429,6 +429,7 @@ type
     University
     Castle
     Wonder             # AoE2-style Wonder victory building
+    ControlPoint       # King of the Hill control point
     GoblinHive
     GoblinHut
     GoblinTotem
@@ -643,7 +644,8 @@ const
     Lantern,
     Corpse,
     Skeleton,
-    Dock
+    Dock,
+    ControlPoint
   } + CliffKinds
 
 proc getTeamId*(agent: Thing): int =
@@ -675,6 +677,8 @@ const
   RelicVictoryCountdown* = 200     # Game steps all relics must be held to win
   TotalRelicsOnMap* = MapRoomObjectsRelics  # Total relics placed on map
   VictoryReward* = 10.0'f32          # Reward for winning team agents on any victory
+  HillControlRadius* = 5          # Chebyshev radius around control point to count units
+  HillVictoryCountdown* = 300     # Consecutive steps a team must control the hill to win
 
 type
   VictoryCondition* = enum
@@ -683,6 +687,7 @@ type
     VictoryWonder       ## Build Wonder, survive countdown
     VictoryRelic        ## Hold all relics in Monasteries for countdown
     VictoryRegicide     ## Win by killing all enemy kings
+    VictoryKingOfTheHill ## Control the hill for consecutive steps
     VictoryAll          ## Any of the above can trigger victory
 
   VictoryState* = object
@@ -690,6 +695,7 @@ type
     wonderBuiltStep*: int          ## Step when Wonder was built (-1 = no wonder)
     relicHoldStartStep*: int       ## Step when team started holding all relics (-1 = not holding)
     kingAgentId*: int              ## Agent ID of this team's king (-1 = no king)
+    hillControlStartStep*: int     ## Step when team started controlling the hill (-1 = not controlling)
 
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants

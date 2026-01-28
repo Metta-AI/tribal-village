@@ -236,3 +236,100 @@ suite "Victory - Winner termination":
     # Winner should receive VictoryReward
     check agent0.reward > rewardBefore
     check agent0.reward >= rewardBefore + VictoryReward - 1.0  # Allow for survival penalty
+
+suite "Victory - King of the Hill":
+  proc addControlPoint(env: Environment, pos: IVec2): Thing =
+    let cp = Thing(kind: ControlPoint, pos: pos, teamId: -1)
+    cp.inventory = emptyInventory()
+    env.add(cp)
+    cp
+
+  test "hill victory after controlling for countdown duration":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryKingOfTheHill
+    env.config.maxSteps = 5000
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0 = env.addAgentAt(0, ivec2(50, 51))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(100, 100))
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep >= 0
+    check env.victoryWinner == -1
+    let startStep = env.victoryStates[0].hillControlStartStep
+    env.currentStep = startStep + HillVictoryCountdown
+    env.stepNoop()
+    check env.victoryWinner == 0
+    check env.shouldReset == true
+
+  test "hill control resets when contested (tied units)":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryKingOfTheHill
+    env.config.maxSteps = 5000
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0 = env.addAgentAt(0, ivec2(50, 51))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(50, 49))
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep == -1
+    check env.victoryStates[1].hillControlStartStep == -1
+    check env.victoryWinner == -1
+
+  test "hill control resets when other team takes over":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryKingOfTheHill
+    env.config.maxSteps = 5000
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0 = env.addAgentAt(0, ivec2(50, 51))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(100, 100))
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep >= 0
+    env.grid[50][51] = nil
+    env.terminated[0] = 1.0
+    env.grid[100][100] = nil
+    agent1.pos = ivec2(50, 52)
+    env.grid[50][52] = agent1
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep == -1
+    check env.victoryStates[1].hillControlStartStep >= 0
+    check env.victoryWinner == -1
+
+  test "no hill victory when no units near control point":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryKingOfTheHill
+    env.config.maxSteps = 5000
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(100, 100))
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep == -1
+    check env.victoryStates[1].hillControlStartStep == -1
+    check env.victoryWinner == -1
+
+  test "hill victory not checked when VictoryNone":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryNone
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0 = env.addAgentAt(0, ivec2(50, 51))
+    env.stepNoop()
+    check env.victoryWinner == -1
+
+  test "hill control determined by majority (2 vs 1)":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryKingOfTheHill
+    env.config.maxSteps = 5000
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0a = env.addAgentAt(0, ivec2(50, 51))
+    let agent0b = env.addAgentAt(1, ivec2(50, 52))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(50, 49))
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep >= 0
+    check env.victoryStates[1].hillControlStartStep == -1
+    check env.victoryWinner == -1
+
+  test "VictoryAll includes king of the hill check":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryAll
+    env.config.maxSteps = 5000
+    let cp = env.addControlPoint(ivec2(50, 50))
+    let agent0 = env.addAgentAt(0, ivec2(50, 51))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(100, 100))
+    env.stepNoop()
+    check env.victoryStates[0].hillControlStartStep >= 0

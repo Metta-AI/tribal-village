@@ -8,7 +8,7 @@ type
   ## Use NaN for float fields (or <=0 for maxSteps) to keep Nim defaults.
   CEnvironmentConfig* = object
     maxSteps*: int32
-    victoryCondition*: int32  ## Maps to VictoryCondition enum (0=None, 1=Conquest, 2=Wonder, 3=Relic, 4=All)
+    victoryCondition*: int32  ## Maps to VictoryCondition enum (0=None, 1=Conquest, 2=Wonder, 3=Relic, 4=KingOfTheHill, 5=All)
     tumorSpawnRate*: float32
     heartReward*: float32
     oreReward*: float32
