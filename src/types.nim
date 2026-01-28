@@ -642,12 +642,29 @@ const
   ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
   ClippyTintTolerance* = 0.06'f32
 
+  # Victory condition constants
+  RelicVictoryCountdown* = 200     # Game steps all relics must be held to win
+  TotalRelicsOnMap* = MapRoomObjectsRelics  # Total relics placed on map
+
 type
+  VictoryCondition* = enum
+    VictoryNone         ## No victory condition (time limit only)
+    VictoryConquest     ## Win when all enemy units and buildings destroyed
+    VictoryWonder       ## Build Wonder, survive countdown
+    VictoryRelic        ## Hold all relics in Monasteries for countdown
+    VictoryAll          ## Any of the above can trigger victory
+
+  VictoryState* = object
+    ## Per-team victory tracking
+    wonderBuiltStep*: int          ## Step when Wonder was built (-1 = no wonder)
+    relicHoldStartStep*: int       ## Step when team started holding all relics (-1 = not holding)
+
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
   EnvironmentConfig* = object
     # Core game parameters
     maxSteps*: int
+    victoryCondition*: VictoryCondition  ## Which victory conditions are active
 
     # Combat configuration
     tumorSpawnRate*: float
@@ -672,6 +689,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
   EnvironmentConfig(
     # Core game parameters
     maxSteps: 3000,
+    victoryCondition: VictoryNone,
 
     # Combat configuration
     tumorSpawnRate: 0.1,
@@ -817,6 +835,9 @@ type
     agentColors*: seq[Color]           ## Per-agent colors for rendering
     teamColors*: seq[Color]            ## Per-team colors for rendering
     altarColors*: Table[IVec2, Color]  ## Altar position to color mapping
+    # Victory conditions tracking
+    victoryStates*: array[MapRoomObjectsTeams, VictoryState]
+    victoryWinner*: int              ## Team that won (-1 = no winner yet)
 
 # Global environment instance
 var env*: Environment

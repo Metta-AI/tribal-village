@@ -428,6 +428,124 @@ proc applyFertileRadius(env: Environment, center: IVec2, radius: int) =
       env.terrain[pos.x][pos.y] = Fertile
       env.resetTileColor(pos)
       env.updateObservations(ThingAgentLayer, pos, 0)
+
+# ============================================================================
+# Victory Conditions (AoE2-style)
+# ============================================================================
+
+proc teamHasUnitsOrBuildings(env: Environment, teamId: int): bool =
+  ## Check if a team has any living agents or owned buildings.
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    if getTeamId(agent) == teamId and isAgentAlive(env, agent):
+      return true
+  for kind in TeamOwnedKinds:
+    if kind == Agent:
+      continue
+    for thing in env.thingsByKind[kind]:
+      if not thing.isNil and thing.teamId == teamId:
+        return true
+  false
+
+proc checkConquestVictory(env: Environment): int =
+  ## Returns the winning team ID if only one team remains, else -1.
+  var survivingTeam = -1
+  var survivingCount = 0
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if env.teamHasUnitsOrBuildings(teamId):
+      survivingTeam = teamId
+      inc survivingCount
+      if survivingCount > 1:
+        return -1  # Multiple teams alive, no winner
+  if survivingCount == 1:
+    return survivingTeam
+  -1
+
+proc checkWonderVictory(env: Environment): int =
+  ## Returns the winning team ID if a Wonder has survived its countdown, else -1.
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    let builtStep = env.victoryStates[teamId].wonderBuiltStep
+    if builtStep >= 0:
+      # Check if the Wonder still exists
+      var wonderAlive = false
+      for wonder in env.thingsByKind[Wonder]:
+        if not wonder.isNil and wonder.teamId == teamId:
+          wonderAlive = true
+          break
+      if wonderAlive:
+        if env.currentStep - builtStep >= WonderVictoryCountdown:
+          return teamId
+      else:
+        # Wonder was destroyed, reset countdown
+        env.victoryStates[teamId].wonderBuiltStep = -1
+  -1
+
+proc checkRelicVictory(env: Environment): int =
+  ## Returns the winning team ID if one team holds all relics long enough, else -1.
+  ## A relic is "held" when garrisoned in a Monastery.
+  if TotalRelicsOnMap <= 0:
+    return -1
+  # Count garrisoned relics per team
+  var teamRelics: array[MapRoomObjectsTeams, int]
+  for monastery in env.thingsByKind[Monastery]:
+    if monastery.isNil:
+      continue
+    let teamId = monastery.teamId
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      teamRelics[teamId] += monastery.garrisonedRelics
+  # Check if any team holds all relics
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if teamRelics[teamId] >= TotalRelicsOnMap:
+      let holdStart = env.victoryStates[teamId].relicHoldStartStep
+      if holdStart < 0:
+        env.victoryStates[teamId].relicHoldStartStep = env.currentStep
+      elif env.currentStep - holdStart >= RelicVictoryCountdown:
+        return teamId
+    else:
+      # Reset hold timer if not holding all relics
+      env.victoryStates[teamId].relicHoldStartStep = -1
+  -1
+
+proc updateWonderTracking(env: Environment) =
+  ## Track when Wonders are first built (for countdown).
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if env.victoryStates[teamId].wonderBuiltStep >= 0:
+      continue  # Already tracking
+    for wonder in env.thingsByKind[Wonder]:
+      if not wonder.isNil and wonder.teamId == teamId:
+        env.victoryStates[teamId].wonderBuiltStep = env.currentStep
+        break
+
+proc checkVictoryConditions(env: Environment) =
+  ## Check all active victory conditions and set victoryWinner if met.
+  let cond = env.config.victoryCondition
+
+  # Update Wonder tracking regardless of condition
+  if cond in {VictoryWonder, VictoryAll}:
+    env.updateWonderTracking()
+
+  # Conquest check
+  if cond in {VictoryConquest, VictoryAll}:
+    let winner = env.checkConquestVictory()
+    if winner >= 0:
+      env.victoryWinner = winner
+      return
+
+  # Wonder check
+  if cond in {VictoryWonder, VictoryAll}:
+    let winner = env.checkWonderVictory()
+    if winner >= 0:
+      env.victoryWinner = winner
+      return
+
+  # Relic check
+  if cond in {VictoryRelic, VictoryAll}:
+    let winner = env.checkRelicVictory()
+    if winner >= 0:
+      env.victoryWinner = winner
+      return
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -2526,24 +2644,25 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tTintMs = msBetween(tStart, tNow)
       tStart = tNow
 
-  # Check for Wonder victory (AoE2-style)
-  let wonderWinner = env.stepCheckWonderVictory()
-  if wonderWinner >= 0:
-    # Wonder victory! Mark winning team's agents as successful, others as terminated
-    for i in 0..<MapAgents:
-      let teamId = getTeamId(i)
-      if teamId == wonderWinner:
-        # Winning team gets a reward boost
-        if env.terminated[i] == 0.0:
-          env.agents[i].reward += 10.0  # Victory reward
-      else:
-        # Other teams lose
-        if env.terminated[i] == 0.0:
-          env.terminated[i] = 1.0
-    env.shouldReset = true
+  # Check victory conditions
+  if env.config.victoryCondition != VictoryNone and env.victoryWinner < 0:
+    env.checkVictoryConditions()
 
-  # Check if episode should end
-  if env.currentStep >= env.config.maxSteps:
+  # Check if episode should end (victory or time limit)
+  if env.victoryWinner >= 0:
+    if not env.territoryScored:
+      env.territoryScore = env.scoreTerritory()
+      env.territoryScored = true
+    # Terminate losing teams, truncate winning team
+    for i in 0..<MapAgents:
+      if env.terminated[i] == 0.0:
+        let teamId = getTeamId(i)
+        if teamId == env.victoryWinner:
+          env.truncated[i] = 1.0  # Winners: episode ended (truncated, not dead)
+        else:
+          env.terminated[i] = 1.0  # Losers: eliminated
+    env.shouldReset = true
+  elif env.currentStep >= env.config.maxSteps:
     if not env.territoryScored:
       env.territoryScore = env.scoreTerritory()
       env.territoryScored = true
@@ -2742,6 +2861,11 @@ proc reset*(env: Environment) =
   env.altarColors.clear()
   env.territoryScore = default(TerritoryScore)
   env.territoryScored = false
+  # Reset victory conditions
+  env.victoryWinner = -1
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.victoryStates[teamId].wonderBuiltStep = -1
+    env.victoryStates[teamId].relicHoldStartStep = -1
   # Clear fog of war (revealed maps) for all teams
   env.revealedMaps = default(array[MapRoomObjectsTeams, RevealedMap])
   # Clear UI selection to prevent stale references

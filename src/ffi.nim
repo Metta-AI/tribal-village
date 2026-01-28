@@ -8,6 +8,7 @@ type
   ## Use NaN for float fields (or <=0 for maxSteps) to keep Nim defaults.
   CEnvironmentConfig* = object
     maxSteps*: int32
+    victoryCondition*: int32  ## Maps to VictoryCondition enum (0=None, 1=Conquest, 2=Wonder, 3=Relic, 4=All)
     tumorSpawnRate*: float32
     heartReward*: float32
     oreReward*: float32
@@ -77,6 +78,8 @@ proc tribal_village_set_config(
     var config = defaultEnvironmentConfig()
     if incoming.maxSteps > 0:
       config.maxSteps = incoming.maxSteps.int
+    if incoming.victoryCondition >= 0 and incoming.victoryCondition <= ord(VictoryAll):
+      config.victoryCondition = VictoryCondition(incoming.victoryCondition)
 
     template applyFloat(field: untyped, value: float32) =
       if value == value:
