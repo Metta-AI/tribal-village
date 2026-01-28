@@ -165,6 +165,12 @@ const
   UniversityTechGoldCost* = 3   # Gold cost per tech
   UniversityTechWoodCost* = 2   # Wood cost per tech (some techs require wood)
 
+  # Castle unique techs (AoE2-style: 2 per civilization)
+  CastleTechFoodCost* = 4      # Base food cost for Castle Age tech
+  CastleTechGoldCost* = 3      # Base gold cost for Castle Age tech
+  CastleTechImperialFoodCost* = 8  # Base food cost for Imperial Age tech
+  CastleTechImperialGoldCost* = 6  # Base gold cost for Imperial Age tech
+
   # Production queue (AoE2-style)
   ProductionQueueMaxSize* = 10  # Max units in a building's production queue
   ProductionTrainDuration* = 5  # Steps to train one unit from queue
@@ -783,6 +789,32 @@ type
     ## Each tech is either researched (true) or not (false)
     researched*: array[UniversityTechType, bool]
 
+  CastleTechType* = enum
+    ## AoE2-style Castle unique technologies (2 per civilization/team)
+    ## Each team has one Castle Age tech and one Imperial Age tech.
+    ## Index: team * 2 = Castle Age tech, team * 2 + 1 = Imperial Age tech
+    CastleTechYeomen          ## Team 0 Castle: +1 archer range, +2 tower attack
+    CastleTechKataparuto      ## Team 0 Imperial: +3 trebuchet attack
+    CastleTechLogistica        ## Team 1 Castle: +1 infantry attack
+    CastleTechCrenellations    ## Team 1 Imperial: +2 castle attack
+    CastleTechGreekFire        ## Team 2 Castle: +2 tower attack vs siege
+    CastleTechFurorCeltica     ## Team 2 Imperial: +2 siege attack
+    CastleTechAnarchy          ## Team 3 Castle: +1 infantry HP per unit
+    CastleTechPerfusion        ## Team 3 Imperial: military units train faster (not modeled, +2 all attack)
+    CastleTechIronclad         ## Team 4 Castle: +3 siege unit armor (modeled as +3 siege HP)
+    CastleTechCrenellations2   ## Team 4 Imperial: +2 castle attack
+    CastleTechBerserkergang    ## Team 5 Castle: +2 infantry HP
+    CastleTechChieftains       ## Team 5 Imperial: +1 cavalry attack bonus
+    CastleTechZealotry         ## Team 6 Castle: +2 cavalry HP
+    CastleTechMahayana         ## Team 6 Imperial: +1 monk conversion (modeled as +1 monk attack)
+    CastleTechSipahi           ## Team 7 Castle: +2 archer HP
+    CastleTechArtillery        ## Team 7 Imperial: +2 tower and castle attack
+
+  CastleTechs* = object
+    ## Team-level Castle unique tech progress (AoE2-style)
+    ## Each team can research exactly 2 techs (their own civilization's unique techs)
+    researched*: array[CastleTechType, bool]
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -804,6 +836,7 @@ type
     teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
     teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
     teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University techs
+    teamCastleTechs*: array[MapRoomObjectsTeams, CastleTechs]  # AoE2-style Castle unique techs
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

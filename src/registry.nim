@@ -21,6 +21,7 @@ type
     UseTrainAndCraft
     UseCraft
     UseUniversity  # Research University techs
+    UseCastle      # Train unique units + research unique techs
 
   BuildingInfo* = object
     displayName*: string
@@ -279,7 +280,8 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of Granary: UseDropoffAndStorage
   of Barrel: UseStorage
   of University: UseUniversity
-  of Barracks, ArcheryRange, Stable, Monastery, Castle, MangonelWorkshop, TrebuchetWorkshop: UseTrain
+  of Barracks, ArcheryRange, Stable, Monastery, MangonelWorkshop, TrebuchetWorkshop: UseTrain
+  of Castle: UseCastle
   of SiegeWorkshop: UseTrainAndCraft
   else: UseNone
 

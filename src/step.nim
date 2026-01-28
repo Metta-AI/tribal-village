@@ -152,10 +152,25 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   if tower.kind == GuardTower and env.hasUniversityTech(tower.teamId, TechArrowslits):
     damage += 1
 
+  # Castle unique tech bonuses for tower/castle attack
+  # Crenellations (Team 1 Imperial): +2 castle attack
+  if tower.kind == Castle and env.hasCastleTech(tower.teamId, CastleTechCrenellations):
+    damage += 2
+  # Crenellations2 (Team 4 Imperial): +2 castle attack
+  if tower.kind == Castle and env.hasCastleTech(tower.teamId, CastleTechCrenellations2):
+    damage += 2
+  # Artillery (Team 7 Imperial): +2 tower and castle attack
+  if tower.kind in {GuardTower, Castle} and env.hasCastleTech(tower.teamId, CastleTechArtillery):
+    damage += 2
+
   case bestTarget.kind
   of Agent:
     # Heated Shot: +2 damage vs boats
     if bestTarget.unitClass == UnitBoat and env.hasUniversityTech(tower.teamId, TechHeatedShot):
+      damage += 2
+    # Greek Fire (Team 2 Castle): +2 tower attack vs siege
+    if bestTarget.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
+        env.hasCastleTech(tower.teamId, CastleTechGreekFire):
       damage += 2
     discard env.applyAgentDamage(bestTarget, max(1, damage))
   of Tumor, Spawner:
@@ -1558,6 +1573,29 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 # If crafting failed or not possible, try researching
                 if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
                   if env.tryResearchUniversityTech(agent, thing):
+                    used = true
+              of UseCastle:
+                # Castle: research unique techs first, then train unique units
+                # Research takes priority (like AoE2 where research buttons are distinct)
+                if thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                  if env.tryResearchCastleTech(agent, thing):
+                    used = true
+                # If no research available, try training units
+                if not used and buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
+                  let teamId = getTeamId(agent)
+                  if thing.productionQueueHasReady():
+                    let unitClass = thing.consumeReadyQueueEntry()
+                    applyUnitClass(agent, unitClass)
+                    if agent.inventorySpear > 0:
+                      agent.inventorySpear = 0
+                    used = true
+                  elif env.queueTrainUnit(thing, teamId,
+                      buildingTrainUnit(thing.kind, teamId),
+                      buildingTrainCosts(thing.kind)):
+                    used = true
+                # Castle garrison: military units can garrison if no other action
+                if not used and thing.teamId == getTeamId(agent) and agent.unitClass != UnitVillager:
+                  if env.garrisonUnitInBuilding(agent, thing):
                     used = true
               of UseNone:
                 discard
