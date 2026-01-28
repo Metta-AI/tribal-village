@@ -495,12 +495,16 @@ proc drawObjects*() =
         else: "oriented/trebuchet_unpacked"
       of UnitGoblin: "oriented/goblin"
       of UnitBoat: "oriented/boat"
-      of UnitTradeCog: "oriented/boat"  # Trade Cog uses boat sprite until unique sprite is added
-      # Castle unique units (use knight sprite as fallback until unique sprites are added)
-      of UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider,
-         UnitTeutonicKnight, UnitHuskarl, UnitMameluke, UnitJanissary,
-         UnitKing:
-        "oriented/knight"
+      of UnitTradeCog: "oriented/trade_cog"
+      of UnitSamurai: "oriented/samurai"
+      of UnitLongbowman: "oriented/longbowman"
+      of UnitCataphract: "oriented/cataphract"
+      of UnitWoadRaider: "oriented/woad_raider"
+      of UnitTeutonicKnight: "oriented/teutonic_knight"
+      of UnitHuskarl: "oriented/huskarl"
+      of UnitMameluke: "oriented/mameluke"
+      of UnitJanissary: "oriented/janissary"
+      of UnitKing: "oriented/king"
       # Unit upgrade tiers (use same sprites as base units)
       of UnitLongSwordsman, UnitChampion: "oriented/man_at_arms"
       of UnitLightCavalry, UnitHussar: "oriented/scout"
