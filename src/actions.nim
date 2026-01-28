@@ -38,6 +38,9 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitBoat
   UnitAttackTint(tint: TileColor(r: 0.95, g: 0.35, b: 0.75, intensity: 1.12),
     duration: 2'i8, code: ActionTintAttackBoat),
+  # UnitTradeCog (non-combat, uses villager tint as placeholder)
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.35, b: 0.75, intensity: 1.12),
+    duration: 1'i8, code: ActionTintAttackVillager),
   # Castle unique units
   # UnitSamurai - Red/orange fast strike
   UnitAttackTint(tint: TileColor(r: 0.95, g: 0.40, b: 0.25, intensity: 1.15),

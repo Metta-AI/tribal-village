@@ -40,6 +40,7 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Trebuchet",
   "Goblin",
   "Boat",
+  "Trade Cog",
   # Castle unique units
   "Samurai",
   "Longbowman",
@@ -494,6 +495,7 @@ proc drawObjects*() =
         else: "oriented/trebuchet_unpacked"
       of UnitGoblin: "oriented/goblin"
       of UnitBoat: "oriented/boat"
+      of UnitTradeCog: "oriented/boat"  # Trade Cog uses boat sprite until unique sprite is added
       # Castle unique units (use knight sprite as fallback until unique sprites are added)
       of UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider,
          UnitTeutonicKnight, UnitHuskarl, UnitMameluke, UnitJanissary,

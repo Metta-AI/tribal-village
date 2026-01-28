@@ -36,6 +36,8 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.18),
   # UnitBoat
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
+  # UnitTradeCog
+  TileColor(r: 1.00, g: 0.85, b: 0.30, intensity: 1.10),
   # Castle unique units
   # UnitSamurai
   TileColor(r: 0.95, g: 0.40, b: 0.25, intensity: 1.22),
@@ -81,6 +83,8 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   # UnitGoblin - no counter bonus
   ActionTintAttackBonus,
   # UnitBoat - no counter bonus
+  ActionTintAttackBonus,
+  # UnitTradeCog - no counter bonus
   ActionTintAttackBonus,
   # Castle unique units - generic bonus tint
   ActionTintAttackBonus,  # UnitSamurai

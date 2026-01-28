@@ -788,7 +788,7 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
         continue
       if getTeamId(other) == teamId:
         continue
-      if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat}:
+      if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat, UnitTradeCog}:
         continue
       let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
       if dist < bestDist:

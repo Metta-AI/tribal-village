@@ -166,7 +166,7 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   case bestTarget.kind
   of Agent:
     # Heated Shot: +2 damage vs boats
-    if bestTarget.unitClass == UnitBoat and env.hasUniversityTech(tower.teamId, TechHeatedShot):
+    if bestTarget.isWaterUnit and env.hasUniversityTech(tower.teamId, TechHeatedShot):
       damage += 2
     # Greek Fire (Team 2 Castle): +2 tower attack vs siege
     if bestTarget.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
@@ -861,7 +861,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         updateSpatialIndex(env, agent, originalPos)
 
         let dockHere = env.hasDockAt(agent.pos)
-        if agent.unitClass == UnitBoat:
+        if agent.unitClass == UnitTradeCog:
+          # Trade Cogs generate gold when reaching a friendly dock that isn't their home dock
+          if dockHere:
+            let dockThing = env.getBackgroundThing(agent.pos)
+            if not isNil(dockThing) and dockThing.teamId == getTeamId(agent):
+              let homeDock = agent.tradeHomeDock
+              if homeDock != agent.pos and homeDock != ivec2(0, 0):
+                let dist = abs(agent.pos.x - homeDock.x) + abs(agent.pos.y - homeDock.y)
+                let goldAmount = max(1, dist div TradeCogDistanceDivisor * TradeCogGoldPerDistance)
+                env.addToStockpile(getTeamId(agent), ResourceGold, goldAmount)
+                agent.tradeHomeDock = agent.pos  # Flip home dock for return trip
+        elif agent.unitClass == UnitBoat:
           if dockHere or env.terrain[agent.pos.x][agent.pos.y] != Water:
             disembarkAgent(agent)
         elif dockHere:
@@ -871,15 +882,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
 
-        # Accumulate terrain movement debt (boats are unaffected by terrain penalties)
-        if agent.unitClass != UnitBoat:
+        # Accumulate terrain movement debt (water units are unaffected by terrain penalties)
+        if not agent.isWaterUnit:
           let terrainModifier = getTerrainSpeedModifier(env.terrain[agent.pos.x][agent.pos.y])
           if terrainModifier < 1.0'f32:
             agent.movementDebt += (1.0'f32 - terrainModifier)
 
         # Apply cliff fall damage when dropping elevation without a ramp/road
         # Check both steps of movement (original→step1 and step1→finalPos if different)
-        if agent.unitClass != UnitBoat:
+        if not agent.isWaterUnit:
           var fallDamage = 0
           if env.willCauseCliffFallDamage(originalPos, step1):
             fallDamage += CliffFallDamage
@@ -1146,19 +1157,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
           break attackAction
 
-        if agent.unitClass == UnitBoat:
-          var hit = false
-          let left = ivec2(-delta.y, delta.x)
-          let right = ivec2(delta.y, -delta.x)
-          let forward = agent.pos + delta
-          for pos in [forward, forward + left, forward + right]:
-            env.applyUnitAttackTint(agent.unitClass, pos)
-            if tryHitAt(pos):
-              hit = true
-          if hit:
-            inc env.stats[id].actionAttack
-          else:
+        if agent.isWaterUnit:
+          if agent.unitClass == UnitTradeCog:
+            # Trade Cogs cannot attack
             inc env.stats[id].actionInvalid
+          else:
+            var hit = false
+            let left = ivec2(-delta.y, delta.x)
+            let right = ivec2(delta.y, -delta.x)
+            let forward = agent.pos + delta
+            for pos in [forward, forward + left, forward + right]:
+              env.applyUnitAttackTint(agent.unitClass, pos)
+              if tryHitAt(pos):
+                hit = true
+            if hit:
+              inc env.stats[id].actionAttack
+            else:
+              inc env.stats[id].actionInvalid
           break attackAction
 
         var attackHit = false
@@ -1598,6 +1613,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   # Town Center garrison: villagers can garrison if no resources to drop off
                   if not used and thing.kind == TownCenter and agent.unitClass == UnitVillager:
                     if env.garrisonUnitInBuilding(agent, thing):
+                      used = true
+              of UseDropoffAndTrain:
+                if thing.teamId == getTeamId(agent):
+                  if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
+                    used = true
+                  if not used and thing.cooldown == 0 and buildingHasTrain(thing.kind):
+                    let teamId = getTeamId(agent)
+                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
+                        buildingTrainCosts(thing.kind), 0):
+                      # Trade Cog: remember origin dock for gold calculation
+                      if agent.unitClass == UnitTradeCog:
+                        agent.tradeHomeDock = thing.pos
                       used = true
               of UseDropoffAndStorage:
                 if thing.teamId == getTeamId(agent):
