@@ -2653,11 +2653,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if not env.territoryScored:
       env.territoryScore = env.scoreTerritory()
       env.territoryScored = true
-    # Terminate losing teams, truncate winning team
+    # Terminate losing teams, truncate winning team and award victory reward
     for i in 0..<MapAgents:
       if env.terminated[i] == 0.0:
         let teamId = getTeamId(i)
         if teamId == env.victoryWinner:
+          env.agents[i].reward += ConquestVictoryReward
           env.truncated[i] = 1.0  # Winners: episode ended (truncated, not dead)
         else:
           env.terminated[i] = 1.0  # Losers: eliminated

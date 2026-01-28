@@ -123,6 +123,29 @@ suite "Victory - VictoryAll mode":
     env.stepNoop()
     check env.victoryWinner == 0
 
+  test "conquest victory with building-only team (no mobile units)":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryConquest
+    # Team 0 has only buildings, no living agents
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    discard env.addBuilding(TownCenter, ivec2(15, 10), 0)
+    # Team 0's agent slot exists but is terminated (no mobile units)
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    env.terminated[0] = 1.0
+    env.grid[10][10] = nil
+    env.stepNoop()
+    # Team 0 still has buildings, so it survives and wins by default
+    check env.victoryWinner == 0
+    check env.shouldReset == true
+
+  test "no conquest victory when all teams eliminated (draw)":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryConquest
+    # No teams have any units or buildings - simultaneous elimination
+    env.stepNoop()
+    # No surviving team means no winner (draw)
+    check env.victoryWinner == -1
+
 suite "Victory - Winner termination":
   test "winning team agents are truncated not terminated":
     var env = makeEmptyEnv()
@@ -134,3 +157,15 @@ suite "Victory - Winner termination":
     # Winner agent should be truncated (episode ended), not terminated (dead)
     check env.truncated[0] == 1.0
     check env.terminated[0] == 0.0
+
+  test "winning team agents receive conquest victory reward":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryConquest
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    let rewardBefore = agent0.reward
+    env.stepNoop()
+    check env.victoryWinner == 0
+    # Winner should receive ConquestVictoryReward
+    check agent0.reward > rewardBefore
+    check agent0.reward >= rewardBefore + ConquestVictoryReward - 1.0  # Allow for survival penalty
