@@ -39,11 +39,13 @@ var logRenderCount = 0
 include "actions"
 
 const
-  # Tower/Castle attack visuals
+  # Tower/Castle/TownCenter attack visuals
   TowerAttackTint = TileColor(r: 0.95, g: 0.70, b: 0.25, intensity: 1.10)
   CastleAttackTint = TileColor(r: 0.35, g: 0.25, b: 0.85, intensity: 1.15)
+  TownCenterAttackTint = TileColor(r: 0.85, g: 0.50, b: 0.20, intensity: 1.12)
   TowerAttackTintDuration = 2'i8
   CastleAttackTintDuration = 3'i8
+  TownCenterAttackTintDuration = 2'i8
 
   # Aura tints and radii
   TankAuraTint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.05)
@@ -140,6 +142,110 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
       towerRemovals.add(bestTarget)
   else:
     discard
+
+proc stepTryTownCenterAttack(env: Environment, tc: Thing,
+                              towerRemovals: var seq[Thing]) =
+  ## Have a Town Center attack enemies in range. Garrisoned units add extra arrows.
+  ## Each garrisoned unit fires one additional arrow at a unique target.
+  if tc.teamId < 0:
+    return
+
+  # Gather all valid targets in range
+  var targets: seq[Thing] = @[]
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if tc.teamId == getTeamId(agent):
+      continue
+    let dist = max(abs(agent.pos.x - tc.pos.x), abs(agent.pos.y - tc.pos.y))
+    if dist <= TownCenterRange:
+      targets.add(agent)
+  for kind in [Tumor, Spawner]:
+    for thing in env.thingsByKind[kind]:
+      let dist = max(abs(thing.pos.x - tc.pos.x), abs(thing.pos.y - tc.pos.y))
+      if dist <= TownCenterRange:
+        targets.add(thing)
+
+  if targets.len == 0:
+    return
+
+  # Calculate number of arrows: base damage + 1 per garrisoned unit
+  let garrisonCount = tc.garrisonedUnits.len
+  let arrowCount = 1 + garrisonCount * TownCenterGarrisonArrowBonus
+
+  # Fire arrows at targets (round-robin if more arrows than targets)
+  for i in 0 ..< arrowCount:
+    let targetIdx = i mod targets.len
+    let target = targets[targetIdx]
+    env.applyActionTint(target.pos, TownCenterAttackTint, TownCenterAttackTintDuration,
+                        ActionTintAttackTower)
+    case target.kind
+    of Agent:
+      discard env.applyAgentDamage(target, max(1, tc.attackDamage))
+    of Tumor, Spawner:
+      if target notin towerRemovals:
+        towerRemovals.add(target)
+    else:
+      discard
+
+proc garrisonUnitInBuilding*(env: Environment, unit: Thing, building: Thing): bool =
+  ## Garrison a unit inside a building (TownCenter/Castle). Returns true if successful.
+  if building.kind notin {TownCenter, Castle}:
+    return false
+  let capacity = if building.kind == TownCenter: TownCenterGarrisonCapacity
+                 else: TownCenterGarrisonCapacity  # Castle uses same capacity for now
+  if building.garrisonedUnits.len >= capacity:
+    return false
+  if not isAgentAlive(env, unit):
+    return false
+  if getTeamId(unit) != building.teamId:
+    return false
+
+  # Remove unit from the grid
+  env.grid[unit.pos.x][unit.pos.y] = nil
+  env.updateObservations(AgentLayer, unit.pos, 0)
+  env.updateObservations(AgentOrientationLayer, unit.pos, 0)
+
+  # Add to garrison
+  building.garrisonedUnits.add(unit)
+  unit.pos = ivec2(-1, -1)  # Mark as off-grid
+  true
+
+proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
+  ## Ungarrison all units from a building, placing them around it. Returns ungarrisoned units.
+  result = @[]
+  if building.garrisonedUnits.len == 0:
+    return
+
+  # Find empty tiles around the building
+  var emptyTiles: seq[IVec2] = @[]
+  for dy in -2 .. 2:
+    for dx in -2 .. 2:
+      if dx == 0 and dy == 0:
+        continue
+      let pos = building.pos + ivec2(dx.int32, dy.int32)
+      if not isValidPos(pos):
+        continue
+      if not env.isEmpty(pos):
+        continue
+      if env.terrain[pos.x][pos.y] == Water:
+        continue
+      emptyTiles.add(pos)
+
+  var tileIdx = 0
+  for unit in building.garrisonedUnits:
+    if tileIdx >= emptyTiles.len:
+      break  # No more space, remaining units stay garrisoned
+    let pos = emptyTiles[tileIdx]
+    unit.pos = pos
+    env.grid[pos.x][pos.y] = unit
+    env.updateObservations(AgentLayer, pos, getTeamId(unit) + 1)
+    env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)
+    result.add(unit)
+    inc tileIdx
+
+  # Remove ungarrisoned units from the list
+  building.garrisonedUnits = building.garrisonedUnits[result.len .. ^1]
 
 proc stepApplySurvivalPenalty(env: Environment) =
   ## Apply per-step survival penalty to all living agents
@@ -813,6 +919,51 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionUse
           break useAction
 
+        # Town Center ungarrison: argument 9 triggers ungarrison of all units
+        if argument == 9:
+          # Find adjacent TownCenter belonging to agent's team
+          var foundTC: Thing = nil
+          for dy in -1 .. 1:
+            for dx in -1 .. 1:
+              let checkPos = agent.pos + ivec2(dx.int32, dy.int32)
+              if not isValidPos(checkPos):
+                continue
+              let tc = env.getThing(checkPos)
+              if not tc.isNil and tc.kind == TownCenter and tc.teamId == getTeamId(agent):
+                foundTC = tc
+                break
+            if not foundTC.isNil:
+              break
+          if foundTC.isNil:
+            invalidAndBreak(useAction)
+          let ejected = env.ungarrisonAllUnits(foundTC)
+          if ejected.len > 0:
+            inc env.stats[id].actionUse
+          else:
+            invalidAndBreak(useAction)
+          break useAction
+
+        # Town Bell: argument 10 rings the town bell, recalling all villagers
+        if argument == 10:
+          # Find adjacent TownCenter belonging to agent's team
+          var foundTC: Thing = nil
+          for dy in -1 .. 1:
+            for dx in -1 .. 1:
+              let checkPos = agent.pos + ivec2(dx.int32, dy.int32)
+              if not isValidPos(checkPos):
+                continue
+              let tc = env.getThing(checkPos)
+              if not tc.isNil and tc.kind == TownCenter and tc.teamId == getTeamId(agent):
+                foundTC = tc
+                break
+            if not foundTC.isNil:
+              break
+          if foundTC.isNil:
+            invalidAndBreak(useAction)
+          foundTC.townBellActive = true
+          inc env.stats[id].actionUse
+          break useAction
+
         if argument > 7:
           invalidAndBreak(useAction)
         let useOrientation = Orientation(argument)
@@ -1167,6 +1318,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if thing.teamId == getTeamId(agent):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
+                  # Town Center garrison: villagers can garrison if no resources to drop off
+                  if not used and thing.kind == TownCenter and agent.unitClass == UnitVillager:
+                    if env.garrisonUnitInBuilding(agent, thing):
+                      used = true
               of UseDropoffAndStorage:
                 if thing.teamId == getTeamId(agent):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
@@ -1631,6 +1786,21 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.stepTryTowerAttack(thing, CastleRange, towerRemovals)
       if thing.cooldown > 0:
         dec thing.cooldown
+    elif thing.kind == TownCenter:
+      env.stepTryTownCenterAttack(thing, towerRemovals)
+      # Process town bell: recall villagers when active
+      if thing.townBellActive:
+        # Gather villagers of this team and garrison them
+        for agent in env.agents:
+          if not isAgentAlive(env, agent):
+            continue
+          if getTeamId(agent) != thing.teamId:
+            continue
+          if agent.unitClass != UnitVillager:
+            continue
+          # Garrison villager if TC has space
+          discard env.garrisonUnitInBuilding(agent, thing)
+        thing.townBellActive = false  # Bell rings for one step
     elif thing.kind == Temple:
       if thing.cooldown > 0:
         dec thing.cooldown

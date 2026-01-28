@@ -107,6 +107,38 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   if target.kind == Wall:
     if isValidPos(target.pos):
       env.updateObservations(ThingAgentLayer, target.pos, 0)
+  # Eject garrisoned units when building is destroyed
+  if target.kind in {TownCenter, Castle} and target.garrisonedUnits.len > 0:
+    # Find empty tiles around the building to eject units
+    let buildingPos = target.pos
+    var emptyTiles: seq[IVec2] = @[]
+    for dy in -2 .. 2:
+      for dx in -2 .. 2:
+        if dx == 0 and dy == 0:
+          continue
+        let pos = buildingPos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        if not env.isEmpty(pos):
+          continue
+        if env.terrain[pos.x][pos.y] == Water:
+          continue
+        emptyTiles.add(pos)
+    var tileIdx = 0
+    for unit in target.garrisonedUnits:
+      if tileIdx >= emptyTiles.len:
+        # No space - unit dies
+        env.terminated[unit.agentId] = 1.0
+        unit.hp = 0
+        unit.pos = ivec2(-1, -1)
+      else:
+        let pos = emptyTiles[tileIdx]
+        unit.pos = pos
+        env.grid[pos.x][pos.y] = unit
+        env.updateObservations(AgentLayer, pos, getTeamId(unit) + 1)
+        env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)
+        inc tileIdx
+    target.garrisonedUnits.setLen(0)
   removeThing(env, target)
   true
 

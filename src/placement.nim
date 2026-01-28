@@ -66,6 +66,7 @@ proc add*(env: Environment, thing: Thing) =
     case thing.kind
     of GuardTower: thing.attackDamage = GuardTowerAttackDamage
     of Castle: thing.attackDamage = CastleAttackDamage
+    of TownCenter: thing.attackDamage = TownCenterAttackDamage
     else: discard
 
   case thing.kind
