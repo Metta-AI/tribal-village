@@ -340,6 +340,7 @@ type
     AgentUnitClassLayer       # Unit class enum + 1, 0 = none
     AgentIdleLayer            # 1 if agent is idle (NOOP/ORIENT action), 0 otherwise
     TintLayer                 # Action/combat tint codes
+    RallyPointLayer           # 1 if a friendly building has its rally point on this tile
     BiomeLayer                # Biome type enum value
     ObscuredLayer             # 1 when target tile is above observer elevation
 
@@ -521,6 +522,10 @@ type
     # Production queue (AoE2-style):
     productionQueue*: ProductionQueue  # Queue of units being trained at this building
 
+    # Rally point (AoE2-style):
+    rallyPoint*: IVec2  # Building: where trained units auto-move after spawning (-1,-1 = none)
+    rallyTarget*: IVec2  # Agent: assigned rally destination after training (-1,-1 = none)
+
     # Tint tracking:
     lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
 
@@ -554,6 +559,7 @@ type
     actionBuild*: int    # Action 8: BUILD
     actionPlantResource*: int  # Action 7: Plant wheat/tree onto fertile tile
     actionOrient*: int   # Action 9: ORIENT
+    actionSetRallyPoint*: int  # Action 10: SET_RALLY_POINT
 
   TempleInteraction* = object
     agentId*: int

@@ -653,6 +653,18 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
   score
 
 
+proc setRallyPoint*(building: Thing, pos: IVec2) =
+  ## Set a building's rally point. Trained units will auto-move here after spawning.
+  building.rallyPoint = pos
+
+proc clearRallyPoint*(building: Thing) =
+  ## Clear a building's rally point.
+  building.rallyPoint = ivec2(-1, -1)
+
+proc hasRallyPoint*(building: Thing): bool =
+  ## Check if a building has an active rally point.
+  building.rallyPoint.x >= 0 and building.rallyPoint.y >= 0
+
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
   zeroMem(addr env.observations, sizeof(env.observations))
@@ -672,6 +684,30 @@ proc rebuildObservations*(env: Environment) =
         if worldY < 0 or worldY >= MapHeight:
           continue
         writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+
+  # Rally point layer: mark tiles that are rally targets for friendly buildings
+  for thing in env.things:
+    if not isBuildingKind(thing.kind):
+      continue
+    if not thing.hasRallyPoint():
+      continue
+    let rp = thing.rallyPoint
+    if not isValidPos(rp):
+      continue
+    let buildingTeam = thing.teamId
+    # Mark rally point in observations for agents on the same team
+    for agentId in 0 ..< env.agents.len:
+      let agent = env.agents[agentId]
+      if not isAgentAlive(env, agent):
+        continue
+      if getTeamId(agent) != buildingTeam:
+        continue
+      let obsX = rp.x - agent.pos.x + ObservationRadius
+      let obsY = rp.y - agent.pos.y + ObservationRadius
+      if obsX < 0 or obsX >= ObservationWidth or obsY < 0 or obsY >= ObservationHeight:
+        continue
+      var agentObs = addr env.observations[agentId]
+      agentObs[][ord(RallyPointLayer)][obsX][obsY] = 1
 
   env.observationsInitialized = true
 

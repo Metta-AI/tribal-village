@@ -1623,6 +1623,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     applyUnitClass(agent, unitClass)
                     if agent.inventorySpear > 0:
                       agent.inventorySpear = 0
+                    # Assign rally point target if building has one
+                    if thing.hasRallyPoint():
+                      agent.rallyTarget = thing.rallyPoint
                     used = true
                   # Otherwise queue a new training request (pay now, train later)
                   elif env.queueTrainUnit(thing, teamId,
@@ -1640,6 +1643,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                       applyUnitClass(agent, unitClass)
                       if agent.inventorySpear > 0:
                         agent.inventorySpear = 0
+                      # Assign rally point target if building has one
+                      if thing.hasRallyPoint():
+                        agent.rallyTarget = thing.rallyPoint
                       used = true
                     elif env.queueTrainUnit(thing, teamId,
                         buildingTrainUnit(thing.kind, teamId),
@@ -1672,6 +1678,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     applyUnitClass(agent, unitClass)
                     if agent.inventorySpear > 0:
                       agent.inventorySpear = 0
+                    # Assign rally point target if building has one
+                    if thing.hasRallyPoint():
+                      agent.rallyTarget = thing.rallyPoint
                     used = true
                   elif env.queueTrainUnit(thing, teamId,
                       buildingTrainUnit(thing.kind, teamId),
@@ -2055,6 +2064,27 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.orientation = newOrientation
           env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         inc env.stats[id].actionOrient
+    of 10:
+      block setRallyPointAction:
+        ## Set rally point on an adjacent friendly building.
+        ## The argument (0-7) is the direction toward the target building.
+        ## The rally point is set to the agent's current position.
+        if argument < 0 or argument > 7:
+          invalidAndBreak(setRallyPointAction)
+        let dir = Orientation(argument)
+        let delta = orientationToVec(dir)
+        let buildingPos = agent.pos + delta
+        if not isValidPos(buildingPos):
+          invalidAndBreak(setRallyPointAction)
+        var thing = env.getThing(buildingPos)
+        if isNil(thing) or not isBuildingKind(thing.kind):
+          thing = env.getBackgroundThing(buildingPos)
+        if isNil(thing) or not isBuildingKind(thing.kind):
+          invalidAndBreak(setRallyPointAction)
+        if thing.teamId != getTeamId(agent):
+          invalidAndBreak(setRallyPointAction)
+        thing.setRallyPoint(agent.pos)
+        inc env.stats[id].actionSetRallyPoint
     else:
       inc env.stats[id].actionInvalid
 

@@ -115,7 +115,7 @@ const OrientationDeltas*: array[8, IVec2] = [
 ]
 
 const
-  ActionVerbCount* = 10  # Added orient action (verb 9)
+  ActionVerbCount* = 11  # Added set rally point action (verb 10)
   ActionArgumentCount* = 25
 
 proc encodeAction*(verb: uint8, argument: uint8): uint8 =
