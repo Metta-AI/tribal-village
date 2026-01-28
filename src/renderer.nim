@@ -48,7 +48,8 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Teutonic Knight",
   "Huskarl",
   "Mameluke",
-  "Janissary"
+  "Janissary",
+  "King"
 ]
 
 const CliffDrawOrder = [
@@ -806,13 +807,14 @@ proc drawGrid*() =
       )
 
 proc drawSelection*() =
-  if not isNil(selection):
-    bxy.drawImage(
-      "selection",
-      selection.pos.vec2,
-      angle = 0,
-      scale = SpriteScale
-    )
+  for thing in selection:
+    if not isNil(thing) and isValidPos(thing.pos):
+      bxy.drawImage(
+        "selection",
+        thing.pos.vec2,
+        angle = 0,
+        scale = SpriteScale
+      )
 
 proc drawSelectionLabel*(panelRect: IRect) =
   if not isValidPos(selectedPos):
@@ -857,18 +859,22 @@ proc drawSelectionLabel*(panelRect: IRect) =
       if name.len > 0: name else: $t.kind
 
   var label = ""
-  let thing = env.grid[selectedPos.x][selectedPos.y]
-  let background = env.backgroundGrid[selectedPos.x][selectedPos.y]
-  if not isNil(thing):
-    label = displayNameFor(thing)
-    appendResourceCount(label, thing)
-  elif not isNil(background):
-    label = displayNameFor(background)
-    appendResourceCount(label, background)
+  if selection.len > 1:
+    # Multi-selection: show count
+    label = $selection.len & " units selected"
   else:
-    let terrain = env.terrain[selectedPos.x][selectedPos.y]
-    let name = TerrainCatalog[terrain].displayName
-    label = if name.len > 0: name else: $terrain
+    let thing = env.grid[selectedPos.x][selectedPos.y]
+    let background = env.backgroundGrid[selectedPos.x][selectedPos.y]
+    if not isNil(thing):
+      label = displayNameFor(thing)
+      appendResourceCount(label, thing)
+    elif not isNil(background):
+      label = displayNameFor(background)
+      appendResourceCount(label, background)
+    else:
+      let terrain = env.terrain[selectedPos.x][selectedPos.y]
+      let name = TerrainCatalog[terrain].displayName
+      label = if name.len > 0: name else: $terrain
 
   if label.len == 0:
     return

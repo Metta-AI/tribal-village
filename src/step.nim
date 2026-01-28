@@ -3002,6 +3002,8 @@ proc reset*(env: Environment) =
     env.victoryStates[teamId].hillControlStartStep = -1
   # Clear fog of war (revealed maps) for all teams
   env.revealedMaps = default(array[MapRoomObjectsTeams, RevealedMap])
-  # Clear UI selection to prevent stale references
-  selection = nil
+  # Clear UI selection and control groups to prevent stale references
+  selection = @[]
+  for i in 0 ..< ControlGroupCount:
+    controlGroups[i] = @[]
   env.init()  # init() handles terrain, activeTiles, and tile colors

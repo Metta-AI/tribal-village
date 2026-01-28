@@ -908,9 +908,18 @@ type
 # Global environment instance
 var env*: Environment
 
+# Control group constants
+const
+  ControlGroupCount* = 10  # Groups 0-9, bound to keys 0-9
+
 # Selection state (for UI)
-var selection*: Thing = nil
+var selection*: seq[Thing] = @[]
 var selectedPos*: IVec2 = ivec2(-1, -1)
+
+# Control groups (AoE2-style: Ctrl+N assigns, N recalls, double-tap N centers camera)
+var controlGroups*: array[ControlGroupCount, seq[Thing]] = default(array[ControlGroupCount, seq[Thing]])
+var lastGroupKeyTime*: array[ControlGroupCount, float64]  # For double-tap detection
+var lastGroupKeyIndex*: int = -1  # Last group key pressed (for double-tap)
 
 # Helper function for checking if agent is alive
 proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
