@@ -155,6 +155,8 @@ type
     buildingCountsStep*: int
     buildingCounts*: array[MapRoomObjectsTeams, array[ThingKind, int]]
     claimedBuildings*: array[MapRoomObjectsTeams, set[ThingKind]]  # Buildings claimed by builders this step
+    teamPopCountsStep*: int  # Step at which teamPopCounts was last computed
+    teamPopCounts*: array[MapRoomObjectsTeams, int]  # Cached per-team alive agent counts
     pathCache*: PathfindingCache  # Pre-allocated pathfinding scratch space
     threatMaps*: array[MapRoomObjectsTeams, ThreatMap]  # Shared threat awareness per team
     # Difficulty system - per-team configuration
@@ -219,7 +221,8 @@ proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
 proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
-    buildingCountsStep: -1
+    buildingCountsStep: -1,
+    teamPopCountsStep: -1
   )
   # Initialize all teams to Normal difficulty by default
   for teamId in 0 ..< MapRoomObjectsTeams:

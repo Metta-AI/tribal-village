@@ -42,12 +42,21 @@ proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
 proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   ## Check if an enemy is close enough to any ally to be considered a threat.
   ## Returns true if the enemy is within AllyThreatRadius of any friendly unit.
-  for other in env.agents:
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) != teamId:
-      continue
-    if int(chebyshevDist(enemy.pos, other.pos)) <= AllyThreatRadius:
+  ## Optimized: scans grid tiles within AllyThreatRadius instead of all agents.
+  let r = AllyThreatRadius
+  let sx = max(0, enemy.pos.x.int - r)
+  let ex = min(MapWidth - 1, enemy.pos.x.int + r)
+  let sy = max(0, enemy.pos.y.int - r)
+  let ey = min(MapHeight - 1, enemy.pos.y.int + r)
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if getTeamId(other) != teamId:
+        continue
       return true
   false
 
@@ -80,6 +89,8 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
   ## Find the best enemy target using smart target selection with periodic re-evaluation.
   ## Prioritizes: enemies threatening allies > low HP enemies > closest enemies.
   ## On lower difficulties (advancedTargetingEnabled=false), simply picks the closest enemy.
+  ##
+  ## Optimized: scans grid tiles within enemyRadius instead of all agents.
   let enemyRadius = ObservationRadius.int32 * 2
   let teamId = getTeamId(agent)
   let diffConfig = controller.getDifficulty(teamId)
@@ -98,33 +109,41 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
         int(chebyshevDist(agent.pos, cached.pos)) <= enemyRadius.int:
       return cached
 
-  # Re-evaluate: find the best target
+  # Re-evaluate: find the best target by scanning grid in radius
   var bestScore = float.low
   var bestDist = int.high
   var bestEnemyId = -1
 
-  for idx, other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if sameTeam(agent, other):
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > enemyRadius.int:
-      continue
+  let r = enemyRadius.int
+  let sx = max(0, agent.pos.x.int - r)
+  let ex = min(MapWidth - 1, agent.pos.x.int + r)
+  let sy = max(0, agent.pos.y.int - r)
+  let ey = min(MapHeight - 1, agent.pos.y.int + r)
 
-    if useAdvancedTargeting:
-      # Smart targeting: use scoring based on HP, threat level, etc.
-      let score = scoreEnemy(env, agent, other, teamId)
-      if score > bestScore:
-        bestScore = score
-        bestEnemyId = idx
-    else:
-      # Simple targeting: just pick the closest enemy
-      if dist < bestDist:
-        bestDist = dist
-        bestEnemyId = idx
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if sameTeam(agent, other):
+        continue
+      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
+      if dist > r:
+        continue
+
+      if useAdvancedTargeting:
+        let score = scoreEnemy(env, agent, other, teamId)
+        if score > bestScore:
+          bestScore = score
+          bestEnemyId = other.agentId
+      else:
+        if dist < bestDist:
+          bestDist = dist
+          bestEnemyId = other.agentId
 
   state.fighterEnemyStep = env.currentStep
   state.fighterEnemyAgentId = bestEnemyId
@@ -176,19 +195,29 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
   if not isNil(relic):
     return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
+  # Find nearest enemy using grid scan within a reasonable radius
   var bestEnemy: Thing = nil
   var bestDist = int.high
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) == teamId:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist < bestDist:
-      bestDist = dist
-      bestEnemy = other
+  let mr = ObservationRadius.int * 3  # Search moderately far for monks
+  let msx = max(0, agent.pos.x.int - mr)
+  let mex = min(MapWidth - 1, agent.pos.x.int + mr)
+  let msy = max(0, agent.pos.y.int - mr)
+  let mey = min(MapHeight - 1, agent.pos.y.int + mr)
+  for mx in msx .. mex:
+    for my in msy .. mey:
+      let other = env.grid[mx][my]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if getTeamId(other) == teamId:
+        continue
+      let dist = max(abs(mx - agent.pos.x.int), abs(my - agent.pos.y.int))
+      if dist < bestDist:
+        bestDist = dist
+        bestEnemy = other
   if not isNil(bestEnemy):
     return actOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
 
@@ -221,24 +250,32 @@ const
 
 proc findNearestFriendlyMonk(env: Environment, agent: Thing): Thing =
   ## Find the nearest friendly monk to seek healing from.
+  ## Optimized: scans grid within HealerSeekRadius instead of all agents.
   let teamId = getTeamId(agent)
   var bestMonk: Thing = nil
   var bestDist = int.high
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) != teamId:
-      continue
-    if other.unitClass != UnitMonk:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > HealerSeekRadius:
-      continue
-    if dist < bestDist:
-      bestDist = dist
-      bestMonk = other
+  let r = HealerSeekRadius
+  let sx = max(0, agent.pos.x.int - r)
+  let ex = min(MapWidth - 1, agent.pos.x.int + r)
+  let sy = max(0, agent.pos.y.int - r)
+  let ey = min(MapHeight - 1, agent.pos.y.int + r)
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if getTeamId(other) != teamId:
+        continue
+      if other.unitClass != UnitMonk:
+        continue
+      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
+      if dist < bestDist:
+        bestDist = dist
+        bestMonk = other
   bestMonk
 
 proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
@@ -730,24 +767,33 @@ const
 
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
+  ## Optimized: scans grid within KiteTriggerDistance+2 radius first, expanding if needed.
   let teamId = getTeamId(agent)
   var bestEnemy: Thing = nil
   var bestDist = int.high
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) == teamId:
-      continue
-    # Melee units are: Villager, ManAtArms, Scout, Knight, BatteringRam, Goblin
-    # Non-melee: Archer, Mangonel, Monk, Boat
-    if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat}:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist < bestDist:
-      bestDist = dist
-      bestEnemy = other
+  # Kiting only triggers at KiteTriggerDistance, so search a modest radius
+  let r = KiteTriggerDistance + 2
+  let sx = max(0, agent.pos.x.int - r)
+  let ex = min(MapWidth - 1, agent.pos.x.int + r)
+  let sy = max(0, agent.pos.y.int - r)
+  let ey = min(MapHeight - 1, agent.pos.y.int + r)
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if getTeamId(other) == teamId:
+        continue
+      if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat}:
+        continue
+      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
+      if dist < bestDist:
+        bestDist = dist
+        bestEnemy = other
   bestEnemy
 
 proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): bool =
@@ -766,35 +812,43 @@ proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): b
 proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
   ## Find the nearest enemy siege unit (BatteringRam or Mangonel)
   ## If prioritizeThreatening is true, prefer siege units near friendly structures
+  ## Optimized: scans grid within AntiSiegeDetectionRadius instead of all agents.
   let teamId = getTeamId(agent)
   var bestEnemy: Thing = nil
   var bestDist = int.high
   var bestThreatening = false
 
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) == teamId:
-      continue
-    # Only target siege units
-    if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > AntiSiegeDetectionRadius:
-      continue
+  let r = AntiSiegeDetectionRadius
+  let sx = max(0, agent.pos.x.int - r)
+  let ex = min(MapWidth - 1, agent.pos.x.int + r)
+  let sy = max(0, agent.pos.y.int - r)
+  let ey = min(MapHeight - 1, agent.pos.y.int + r)
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if getTeamId(other) == teamId:
+        continue
+      if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
+        continue
+      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
+      if dist > r:
+        continue
 
-    let threatening = prioritizeThreatening and isSiegeThreateningStructure(env, other, teamId)
+      let threatening = prioritizeThreatening and isSiegeThreateningStructure(env, other, teamId)
 
-    # Prefer threatening siege, then closest
-    if threatening and not bestThreatening:
-      bestThreatening = true
-      bestDist = dist
-      bestEnemy = other
-    elif threatening == bestThreatening and dist < bestDist:
-      bestDist = dist
-      bestEnemy = other
+      if threatening and not bestThreatening:
+        bestThreatening = true
+        bestDist = dist
+        bestEnemy = other
+      elif threatening == bestThreatening and dist < bestDist:
+        bestDist = dist
+        bestEnemy = other
   bestEnemy
 
 proc canStartFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
@@ -987,6 +1041,26 @@ proc optFighterEscort(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   controller.moveTo(env, agent, agentId, state, targetPos)
 
+proc hasNearbyAlly(env: Environment, agent: Thing, radius: int): bool =
+  ## Check if there's a friendly unit within radius. Scans grid instead of all agents.
+  let sx = max(0, agent.pos.x.int - radius)
+  let ex = min(MapWidth - 1, agent.pos.x.int + radius)
+  let sy = max(0, agent.pos.y.int - radius)
+  let ey = min(MapHeight - 1, agent.pos.y.int + radius)
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if not sameTeam(agent, other):
+        continue
+      return true
+  false
+
 proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
   ## Aggressive hunting requires chasing - check stance
@@ -994,32 +1068,14 @@ proc canStartFighterAggressive(controller: Controller, env: Environment, agent: 
     return false
   if agent.hp * 2 >= agent.maxHp:
     return true
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if not sameTeam(agent, other):
-      continue
-    if chebyshevDist(agent.pos, other.pos) <= 4'i32:
-      return true
-  false
+  hasNearbyAlly(env, agent, 4)
 
 proc shouldTerminateFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                       agentId: int, state: var AgentState): bool =
   # Terminate when HP drops low and no allies nearby for support
   if agent.hp * 2 >= agent.maxHp:
     return false
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if not sameTeam(agent, other):
-      continue
-    if chebyshevDist(agent.pos, other.pos) <= 4'i32:
-      return false
-  true
+  not hasNearbyAlly(env, agent, 4)
 
 proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
@@ -1192,23 +1248,30 @@ const
 
 proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within scout detection radius.
+  ## Optimized: scans grid within ScoutFleeRadius instead of all agents.
   let teamId = getTeamId(agent)
-  let fleeRadius = ScoutFleeRadius.int32
+  let r = ScoutFleeRadius
   var bestEnemy: Thing = nil
   var bestDist = int.high
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) == teamId:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > fleeRadius.int:
-      continue
-    if dist < bestDist:
-      bestDist = dist
-      bestEnemy = other
+  let sx = max(0, agent.pos.x.int - r)
+  let ex = min(MapWidth - 1, agent.pos.x.int + r)
+  let sy = max(0, agent.pos.y.int - r)
+  let ey = min(MapHeight - 1, agent.pos.y.int + r)
+  for x in sx .. ex:
+    for y in sy .. ey:
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if other.agentId == agent.agentId:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      if getTeamId(other) == teamId:
+        continue
+      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
+      if dist < bestDist:
+        bestDist = dist
+        bestEnemy = other
   bestEnemy
 
 proc canStartScoutFlee(controller: Controller, env: Environment, agent: Thing,
