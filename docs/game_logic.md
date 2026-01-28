@@ -1,6 +1,6 @@
 # Game Logic Overview
 
-Date: 2026-01-19
+Date: 2026-01-28
 Owner: Docs / Systems
 Status: Draft
 
@@ -45,7 +45,7 @@ Order of operations (high level):
   start dormant and can respawn later.
 - Each agent has: position, orientation, HP/max HP, unit class, inventory, and home altar.
 - Unit classes include villager, man-at-arms, archer, scout, knight, monk, battering ram,
-  mangonel, boat, and goblin.
+  mangonel, trebuchet, boat, trade cog, and goblin. Castle unique units are available per civilization.
 
 ## Inventory and Stockpiles
 - Each agent carries a small inventory (see `MapObjectAgentMaxInventory`).
@@ -81,6 +81,23 @@ Verbs:
 - Guard towers and castles auto-attack nearby enemies and tumors.
 - Mills periodically fertilize nearby tiles.
 
+### Production Queues and Training
+- Buildings with training capability maintain a **production queue** (batch training).
+- Each unit type has a per-unit **training time**; a progress bar tracks completion.
+- **Rally points** can be set on production buildings; newly trained units move toward the rally point.
+- Batch training allows queuing multiple units for sequential production.
+
+### Garrisoning
+- Units can **garrison** inside buildings (Town Centers, Castles, etc.).
+- Town Center garrison provides a **defensive bonus** to garrisoned units.
+- Garrisoned units are removed from the map until un-garrisoned.
+
+### Technology and Upgrades
+- **Blacksmith**: Provides named upgrade progression for unit attack/armor stats (AoE2-style Forging → Iron Casting → Blast Furnace, etc.).
+- **University**: Researches building upgrades (Ballistics, Murder Holes, etc.).
+- **Castle unique technologies**: Each civilization has unique techs available at the Castle.
+- **Unit upgrades and promotions**: Units can be upgraded along promotion chains (e.g., Scout → Light Cavalry → Hussar).
+
 ## Population and Respawning
 - Dead agents can respawn near their home altar if the altar has hearts and the team is under
   its population cap.
@@ -92,10 +109,29 @@ Verbs:
 - **Wildlife:** bears and wolves roam and attack; cows wander in herds and can be harvested.
 - **Goblins:** spawn from hives and act as a hostile faction.
 
+## Unit Commands
+- **Attack-move**: Military units can be issued an attack-move command; they move toward a target
+  and engage any enemy encountered along the path.
+- **Patrol**: Military units can patrol between positions, automatically engaging enemies in range.
+- **Unit stances**: Combat behavior modes that control engagement rules (aggressive, defensive, stand ground, etc.).
+- **Control groups**: Units can be assigned to numbered control groups (Ctrl+1-9) for quick selection and hotkey access.
+- **Idle villager detection**: The UI highlights idle villagers with an indicator for quick task assignment.
+
+## Victory Conditions
+Multiple victory modes are supported (configurable per game):
+
+- **Conquest**: Eliminate all enemy units and buildings. Rewards are applied for total elimination.
+- **Wonder**: Build a Wonder structure and defend it for a countdown period. The countdown starts
+  when the Wonder is **completed**, not when placement begins.
+- **Relic**: Collect and hold relics in a Monastery. Destroying a Monastery releases held relics.
+  Relic victory requires controlling a threshold number of relics.
+- **King of the Hill**: Capture and hold a central control point for a set duration.
+- **Regicide**: Each team has a King unit; the game ends when the enemy King is killed.
+
 ## Rewards and Episode End
 - Rewards are configured in `EnvironmentConfig` (`src/types.nim`): ore, bar, heart, tumor kill,
   survival penalty, death penalty, etc.
-- Episode ends at `maxSteps` or if all agents are terminated/truncated.
+- Episode ends at `maxSteps`, victory condition met, or if all agents are terminated/truncated.
 - At episode end, territory scoring and altar rewards are applied.
 
 ## Reference Pointers

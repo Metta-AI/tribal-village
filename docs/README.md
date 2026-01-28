@@ -16,21 +16,21 @@ This index lists the canonical docs for the Tribal Village repo.
 - `observation_space.md`: observation tensor layout and tint codes.
 
 ## Core Gameplay and Systems
-- `game_logic.md`: high-level step loop, actions, entities, and episode end rules.
-- `combat.md`: combat rules, counters, and damage interactions.
+- `game_logic.md`: step loop, actions, entities, victory conditions, production queues, tech trees, unit commands.
+- `combat.md`: combat rules, counters, siege, trebuchets, attack-move, patrol, unit stances, cliff fall damage.
 - `combat_visuals.md`: combat tint/visual feedback specifics.
-- `economy_respawn.md`: inventory vs stockpile, markets, hearts, respawns.
+- `economy_respawn.md`: inventory, stockpiles, markets, AoE2 trade, Trade Cogs, biome bonuses, hearts, respawns.
 - `population_and_housing.md`: pop-cap and housing details.
 - `clippy_tint_freeze.md`: territory tinting, tumors, and frozen tiles.
 
 ## AI
-- `ai_system.md`: AI wiring, roles, OptionDef behavior model, evolution toggle.
+- `ai_system.md`: AI roles, inter-role coordination, shared threat maps, adaptive difficulty, economy management, scout exploration, OptionDef behavior model, evolution toggle.
 - `ai_profiling.md`: profiling entrypoints and evolution compile-time flag.
 
 ## Worldgen and Spawning
 - `world_generation.md`: trading hub, rivers, goblin hives, tuning notes.
 - `spawn_pipeline.md`: spawn order, placement helpers, and connectivity pass.
-- `terrain_biomes.md`: biome masks, elevation, cliffs, ramps, connectivity.
+- `terrain_biomes.md`: biome masks, elevation, cliffs, ramps, mud, water depth, movement speed modifiers, biome resource bonuses, connectivity.
 - `wildlife_predators.md`: wildlife spawn and behavior rules.
 
 ## Tooling and Pipelines

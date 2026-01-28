@@ -1,6 +1,6 @@
 # Economy, Stockpiles, and Respawning
 
-Date: 2026-01-19
+Date: 2026-01-28
 Owner: Docs / Systems
 Status: Draft
 
@@ -45,13 +45,24 @@ Crafting is done via `use` on specific buildings (when off cooldown):
 Buildings can also serve as storage and dropoff points.
 
 ## Market (Trade)
-Markets convert carried stockpile goods into team stockpiles:
+Markets convert carried stockpile goods into team stockpiles using AoE2-style trading mechanics:
 - Gold -> food at `DefaultMarketBuyFoodNumerator/Denominator`.
 - Wood/stone/food -> gold at `DefaultMarketSellNumerator/Denominator`.
 - Water is not traded.
+- Market prices follow supply/demand ratios; repeated trades of the same resource shift exchange rates.
 
 Trading is per-agent inventory; the market adds resources directly to team stockpiles and
 then clears or reduces carried inventory.
+
+## Trade Cogs (Dock-to-Dock Trading)
+- **Trade Cog** units travel between Docks to generate gold.
+- Gold generation is proportional to the distance between the origin and destination Docks.
+- Trade Cogs follow pre-computed water routes and are vulnerable to naval attack.
+
+## Biome Resource Bonuses
+- Different biomes provide **gathering bonuses** for specific resources.
+- For example, forest biomes may yield extra wood, while desert biomes may provide bonus gold.
+- Bonuses are applied as multipliers during resource collection.
 
 ## Altars and Hearts
 Altars are team-owned buildings that store **hearts**:

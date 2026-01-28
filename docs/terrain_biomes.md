@@ -1,6 +1,6 @@
 # Terrain, Biomes, Elevation, and Cliffs
 
-Date: 2026-01-19
+Date: 2026-01-28
 Owner: Design / Systems
 Status: Draft
 
@@ -36,6 +36,9 @@ each biome applies additional rules:
 - Snow / Swamp
   - Uses an inset fill so the biome core is solid and the edge ring is left as
     base biome. This supports clear elevation/cliff boundaries.
+  - Swamp biomes include **Mud** terrain tiles (`mud.png` sprite) that slow
+    movement.
+  - Swamp zones may include **shallow water** ponds (via `applySwampWater`).
 
 Zones do not freely overwrite each other. `canApplyBiome` only allows
 overwriting if the current biome is base, empty, or the same biome. This keeps
@@ -86,6 +89,41 @@ above the agent's elevation via `ObscuredLayer` in `src/ffi.nim`
 - Labels connected components on walkable tiles.
 - Digs minimal paths through walls/terrain if multiple components exist.
 - Uses `env.canTraverseElevation`, so ramps matter for connectivity.
+
+## Terrain Movement Speed Modifiers
+Different terrain types apply **movement speed modifiers**:
+- Roads grant faster movement (2-tile steps for cavalry, 1.5x for infantry).
+- Mud terrain slows movement.
+- Shallow water allows wading at reduced speed; deep water blocks non-boat units.
+
+## Water Depth Visualization
+Water tiles have two visual depth levels:
+- **Deep water**: Standard water tiles, impassable to land units.
+- **Shallow water**: Lighter-colored water tiles near shorelines. Land units
+  can wade through shallow water at reduced speed. Visually distinct from deep
+  water for readability.
+
+## Cliff Fall Damage
+When a unit moves from a higher elevation tile to a lower one without using a
+ramp (road), **cliff fall damage** is applied:
+- Damage is proportional to the elevation difference.
+- Ramps (road tiles at cliff boundaries) allow safe elevation changes.
+- See `docs/combat.md` for details.
+
+## Mud Terrain
+Swamp biomes include **Mud** tiles:
+- Rendered with a dedicated `mud.png` sprite.
+- Movement through mud is slowed.
+- Mud tiles are walkable but not buildable.
+
+## Ramp Sprites
+Elevation transitions now have **visual ramp sprites** for each cardinal
+direction (`RampUp*`, `RampDown*`), providing clearer visual feedback for
+passable cliff edges.
+
+## Biome-Specific Resource Bonuses
+Each biome zone can apply a **resource gathering bonus** to agents collecting
+resources within it (e.g., bonus wood in forests, bonus gold in deserts).
 
 ## Practical notes
 - Zone masks are blob + dither based, so biome edges are intentionally irregular.
