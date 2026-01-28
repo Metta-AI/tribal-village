@@ -87,3 +87,57 @@ suite "Patrol":
     let controller = globalController.aiController
     # Patrol not set, should not be active
     check controller.isPatrolActive(0) == false
+
+suite "Patrol External API":
+  test "setAgentPatrol enables patrol mode":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
+
+    initTestGlobalController(42)
+    setAgentPatrol(0, ivec2(5, 10), ivec2(15, 10))
+
+    check isAgentPatrolActive(0) == true
+
+  test "setAgentPatrolXY enables patrol mode":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
+
+    initTestGlobalController(42)
+    setAgentPatrolXY(0, 5, 10, 15, 10)
+
+    check isAgentPatrolActive(0) == true
+
+  test "clearAgentPatrol disables patrol mode":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
+
+    initTestGlobalController(42)
+    setAgentPatrol(0, ivec2(5, 10), ivec2(15, 10))
+    check isAgentPatrolActive(0) == true
+
+    clearAgentPatrol(0)
+    check isAgentPatrolActive(0) == false
+
+  test "getAgentPatrolTarget returns current waypoint":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
+
+    initTestGlobalController(42)
+    setAgentPatrol(0, ivec2(5, 10), ivec2(15, 10))
+
+    # Should return one of the patrol points (starts heading to point2)
+    let target = getAgentPatrolTarget(0)
+    check target == ivec2(15, 10)
+
+  test "external patrol API drives agent movement":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceDefensive)
+
+    initTestGlobalController(42)
+    setAgentPatrol(0, ivec2(10, 10), ivec2(20, 10))
+
+    # Get action - should move toward waypoint 2 (right)
+    let action = globalController.aiController.decideAction(env, 0)
+    let (verb, arg) = decodeAction(action)
+    check verb == 1  # Move action
+    check arg == 3   # East direction (toward x=20)

@@ -115,3 +115,36 @@ proc isAgentAttackMoveActive*(agentId: int): bool =
   ## Check if an agent currently has an active attack-move target.
   let target = getAgentAttackMoveTarget(agentId)
   target.x >= 0
+
+# Patrol API
+# These functions allow external code to set patrol behavior for agents.
+# Patrol: unit walks back and forth between two waypoints, attacking enemies encountered.
+
+proc setAgentPatrol*(agentId: int, point1, point2: IVec2) =
+  ## Set patrol waypoints for an agent. Enables patrol mode.
+  ## The agent will walk between the two points, attacking any enemies encountered.
+  ## Requires BuiltinAI controller.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.setPatrol(agentId, point1, point2)
+
+proc setAgentPatrolXY*(agentId: int, x1, y1, x2, y2: int32) =
+  ## Set patrol waypoints for an agent using x,y coordinates.
+  setAgentPatrol(agentId, ivec2(x1, y1), ivec2(x2, y2))
+
+proc clearAgentPatrol*(agentId: int) =
+  ## Clear the patrol for an agent, disabling patrol mode.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.clearPatrol(agentId)
+
+proc getAgentPatrolTarget*(agentId: int): IVec2 =
+  ## Get the current patrol target waypoint for an agent.
+  ## Returns (-1, -1) if no patrol is active.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.getPatrolTarget(agentId)
+  ivec2(-1, -1)
+
+proc isAgentPatrolActive*(agentId: int): bool =
+  ## Check if an agent currently has patrol mode active.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.isPatrolActive(agentId)
+  false
