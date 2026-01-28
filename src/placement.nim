@@ -77,6 +77,10 @@ proc add*(env: Environment, thing: Thing) =
   of Gold:
     if getInv(thing, ItemGold) <= 0:
       setInv(thing, ItemGold, MineDepositAmount)
+  of Wonder:
+    # Initialize Wonder victory countdown (AoE2-style)
+    if thing.wonderVictoryCountdown <= 0:
+      thing.wonderVictoryCountdown = WonderVictoryCountdown
   else:
     discard
   env.things.add(thing)

@@ -1612,3 +1612,50 @@ suite "Trebuchet Pack/Unpack":
     env.stepAction(0, 3'u8, 8)
 
     check agent.cooldown == 4  # Should have decremented by 1 from step, not reset
+
+suite "Wonder Victory":
+  test "wonder starts with victory countdown":
+    let env = makeEmptyEnv()
+    let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
+
+    check wonder.hp == WonderMaxHp
+    check wonder.wonderVictoryCountdown == WonderVictoryCountdown
+
+  test "wonder countdown decrements each step":
+    let env = makeEmptyEnv()
+    let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
+    let initialCountdown = wonder.wonderVictoryCountdown
+
+    env.stepNoop()
+
+    check wonder.wonderVictoryCountdown == initialCountdown - 1
+
+  test "wonder victory triggers when countdown reaches zero":
+    let env = makeEmptyEnv()
+    let agent0 = addAgentAt(env, 0, ivec2(10, 10))  # Team 0 agent
+    let agent1 = addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))  # Team 1 agent
+    let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
+
+    # Set countdown to 1 so it triggers on next step
+    wonder.wonderVictoryCountdown = 1
+
+    check env.terminated[0] == 0.0  # Team 0 agent alive
+    check env.terminated[MapAgentsPerTeam] == 0.0  # Team 1 agent alive
+
+    env.stepNoop()
+
+    # Team 1 should be terminated (they lost)
+    check env.terminated[MapAgentsPerTeam] == 1.0
+    # Game should reset
+    check env.shouldReset == true
+
+  test "destroyed wonder does not count down":
+    let env = makeEmptyEnv()
+    let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
+    wonder.hp = 0  # Destroyed
+    let initialCountdown = wonder.wonderVictoryCountdown
+
+    env.stepNoop()
+
+    # Countdown should not have changed since wonder is destroyed
+    check wonder.wonderVictoryCountdown == initialCountdown
