@@ -141,6 +141,13 @@ const
   TrebuchetBaseRange* = 6
   TrebuchetPackDuration* = 15  # Steps to pack/unpack (AoE2-style delay)
 
+  # Monk mechanics (AoE2-style)
+  MonkMaxFaith* = 10           # Maximum faith points for monks
+  MonkConversionFaithCost* = 10  # Faith cost per conversion attempt
+  MonkFaithRechargeRate* = 1   # Faith regenerated per step
+  MonasteryRelicGoldInterval* = 20  # Steps between gold generation from garrisoned relics
+  MonasteryRelicGoldAmount* = 1    # Gold generated per relic per interval
+
   # Gameplay
   MinTintEpsilon* = 5
 
@@ -444,6 +451,8 @@ type
     scatteredSteps*: int       # Remaining steps of scattered state after leader death
     # Trebuchet:
     packed*: bool              # Trebuchet pack state (true=packed/mobile, false=unpacked/stationary)
+    # Monk:
+    faith*: int                # Current faith points for conversion (AoE2-style)
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
@@ -452,6 +461,9 @@ type
     # Lantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
+
+    # Monastery:
+    garrisonedRelics*: int     # Number of relics garrisoned for gold generation
 
     # Tint tracking:
     lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
