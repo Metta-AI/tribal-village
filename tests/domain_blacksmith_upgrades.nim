@@ -13,7 +13,7 @@ suite "Blacksmith Upgrades":
     setStockpile(env, 0, ResourceGold, 10)
 
     # Initial upgrade level should be 0
-    check env.teamBlacksmithUpgrades[0].levels[UpgradeInfantryAttack] == 0
+    check env.teamBlacksmithUpgrades[0].levels[UpgradeMeleeAttack] == 0
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, blacksmith.pos))
 
@@ -60,10 +60,10 @@ suite "Blacksmith Upgrades":
     check env.stockpileCount(0, ResourceFood) == 100
     check env.stockpileCount(0, ResourceGold) == 100
 
-  test "blacksmith attack upgrade increases damage":
+  test "blacksmith melee attack upgrade increases infantry damage":
     let env = makeEmptyEnv()
-    # Set up infantry attack upgrade
-    env.teamBlacksmithUpgrades[0].levels[UpgradeInfantryAttack] = 2
+    # Set up melee attack upgrade to level 2 (Iron Casting: cumulative +2)
+    env.teamBlacksmithUpgrades[0].levels[UpgradeMeleeAttack] = 2
     # Create a man-at-arms (infantry) and apply unit class stats
     let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms)
     applyUnitClass(attacker, UnitManAtArms)
@@ -75,12 +75,30 @@ suite "Blacksmith Upgrades":
     # Attack
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
-    # Base damage is 2, +2 from upgrade = 4 damage
+    # Base damage is 2, +2 from Iron Casting = 4 damage
     check defender.hp == 6
+
+  test "blast furnace gives extra attack bonus at level 3":
+    let env = makeEmptyEnv()
+    # Set up melee attack upgrade to level 3 (Blast Furnace: cumulative +4)
+    env.teamBlacksmithUpgrades[0].levels[UpgradeMeleeAttack] = 3
+    # Create a man-at-arms (infantry)
+    let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms)
+    applyUnitClass(attacker, UnitManAtArms)
+    # Create an enemy target
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+    defender.hp = 20
+    defender.maxHp = 20
+
+    # Attack
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
+
+    # Base damage is 2, +4 from Blast Furnace = 6 damage
+    check defender.hp == 14
 
   test "blacksmith armor upgrade reduces damage":
     let env = makeEmptyEnv()
-    # Set up infantry armor upgrade for the defender's team
+    # Set up infantry armor upgrade for the defender's team (level 2 = Chain Mail: +2 armor)
     env.teamBlacksmithUpgrades[1].levels[UpgradeInfantryArmor] = 2
     # Create attacker on team 0
     let attacker = addAgentAt(env, 0, ivec2(10, 10))
@@ -94,14 +112,32 @@ suite "Blacksmith Upgrades":
     # Attack
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
-    # Base damage is 6, ManAtArms aura halves to (6+1)/2 = 3, -2 armor upgrade = 1 damage
-    # (ManAtArms provides protection aura to themselves and nearby allies)
+    # Base damage is 6, ManAtArms aura halves to (6+1)/2 = 3, -2 Chain Mail armor = 1 damage
     check defender.hp == 9
 
-  test "blacksmith upgrade applies to cavalry":
+  test "plate mail gives extra armor at level 3":
     let env = makeEmptyEnv()
-    # Set up cavalry attack upgrade
-    env.teamBlacksmithUpgrades[0].levels[UpgradeCavalryAttack] = 3
+    # Set up infantry armor to level 3 (Plate Mail: cumulative +4 armor)
+    env.teamBlacksmithUpgrades[1].levels[UpgradeInfantryArmor] = 3
+    # Create attacker on team 0
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    attacker.attackDamage = 8
+    # Create a man-at-arms defender on team 1
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9), unitClass = UnitManAtArms)
+    applyUnitClass(defender, UnitManAtArms)
+    defender.hp = 10
+    defender.maxHp = 10
+
+    # Attack
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
+
+    # Base damage is 8, ManAtArms aura halves to (8+1)/2 = 4, -4 Plate Mail armor = 0 damage
+    check defender.hp == 10
+
+  test "melee attack upgrade applies to cavalry":
+    let env = makeEmptyEnv()
+    # Melee attack (Forging line) applies to both infantry AND cavalry
+    env.teamBlacksmithUpgrades[0].levels[UpgradeMeleeAttack] = 3
     # Create a scout (cavalry) and apply unit class
     let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitScout)
     applyUnitClass(attacker, UnitScout)
@@ -113,12 +149,12 @@ suite "Blacksmith Upgrades":
     # Attack
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
-    # Base damage is 1, +3 from upgrade = 4 damage
-    check defender.hp == 6
+    # Base damage is 1, +4 from Blast Furnace = 5 damage
+    check defender.hp == 5
 
-  test "blacksmith upgrade applies to archers":
+  test "archer attack upgrade applies to archers":
     let env = makeEmptyEnv()
-    # Set up archer attack upgrade
+    # Set up archer attack upgrade (Fletching line)
     env.teamBlacksmithUpgrades[0].levels[UpgradeArcherAttack] = 1
     # Create an archer and apply unit class
     let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitArcher)
@@ -131,8 +167,23 @@ suite "Blacksmith Upgrades":
     # Attack
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
-    # Base damage is 1, +1 from upgrade = 2 damage
+    # Base damage is 1, +1 from Fletching = 2 damage
     check defender.hp == 8
+
+  test "archer attack max level gives +3":
+    let env = makeEmptyEnv()
+    # Bracer (level 3) gives cumulative +3 (not +4 like melee)
+    env.teamBlacksmithUpgrades[0].levels[UpgradeArcherAttack] = 3
+    let attacker = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitArcher)
+    applyUnitClass(attacker, UnitArcher)
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 8))
+    defender.hp = 10
+    defender.maxHp = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
+
+    # Base damage is 1, +3 from Bracer = 4 damage
+    check defender.hp == 6
 
   test "villager does not receive upgrade bonuses":
     let env = makeEmptyEnv()
@@ -173,8 +224,8 @@ suite "Blacksmith Upgrades":
   test "teams have independent upgrades":
     let env = makeEmptyEnv()
     # Set up different upgrade levels for teams
-    env.teamBlacksmithUpgrades[0].levels[UpgradeInfantryAttack] = 1
-    env.teamBlacksmithUpgrades[1].levels[UpgradeInfantryAttack] = 3
+    env.teamBlacksmithUpgrades[0].levels[UpgradeMeleeAttack] = 1  # Forging: +1
+    env.teamBlacksmithUpgrades[1].levels[UpgradeMeleeAttack] = 3  # Blast Furnace: +4
 
     # Create two man-at-arms from different teams attacking each other
     let attacker0 = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms)
@@ -186,10 +237,46 @@ suite "Blacksmith Upgrades":
     attacker1.hp = 20
     attacker1.maxHp = 20
 
-    # Team 0 attacks team 1: base 2 + 1 upgrade = 3, halved by ManAtArms aura = 2 damage
+    # Team 0 attacks team 1: base 2 + 1 (Forging) = 3, halved by ManAtArms aura = 2 damage
     env.stepAction(attacker0.agentId, 2'u8, dirIndex(attacker0.pos, attacker1.pos))
     check attacker1.hp == 18
 
-    # Team 1 attacks team 0: base 2 + 3 upgrade = 5, halved by ManAtArms aura = 3 damage
+    # Team 1 attacks team 0: base 2 + 4 (Blast Furnace) = 6, halved by aura = 3 damage
     env.stepAction(attacker1.agentId, 2'u8, dirIndex(attacker1.pos, attacker0.pos))
     check attacker0.hp == 17
+
+  test "cavalry armor upgrade reduces damage to cavalry":
+    let env = makeEmptyEnv()
+    # Set up cavalry armor (Plate Barding: level 3 = +4 armor)
+    env.teamBlacksmithUpgrades[1].levels[UpgradeCavalryArmor] = 3
+    # Create attacker on team 0
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    attacker.attackDamage = 5
+    # Create a scout (cavalry) defender on team 1
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9), unitClass = UnitScout)
+    applyUnitClass(defender, UnitScout)
+    defender.hp = 10
+    defender.maxHp = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
+
+    # Base damage 5, -4 Plate Barding = 1 damage
+    check defender.hp == 9
+
+  test "archer armor upgrade reduces damage to archers":
+    let env = makeEmptyEnv()
+    # Set up archer armor (Ring Archer: level 3 = +4 armor)
+    env.teamBlacksmithUpgrades[1].levels[UpgradeArcherArmor] = 3
+    # Create attacker on team 0
+    let attacker = addAgentAt(env, 0, ivec2(10, 10))
+    attacker.attackDamage = 5
+    # Create an archer defender on team 1
+    let defender = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9), unitClass = UnitArcher)
+    applyUnitClass(defender, UnitArcher)
+    defender.hp = 10
+    defender.maxHp = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
+
+    # Base damage 5, -4 Ring Archer armor = 1 damage
+    check defender.hp == 9
