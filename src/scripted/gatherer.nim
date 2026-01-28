@@ -17,25 +17,9 @@ const
   TaskSwitchHysteresis = 5.0
 
 proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
-  ## Find nearest enemy agent within flee radius
+  ## Find nearest enemy agent within flee radius using spatial index
   let teamId = getTeamId(agent)
-  let fleeRadius = GathererFleeRadius.int32
-  var bestEnemyDist = int.high
-  var bestEnemy: Thing = nil
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) == teamId:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > fleeRadius.int:
-      continue
-    if dist < bestEnemyDist:
-      bestEnemyDist = dist
-      bestEnemy = other
-  bestEnemy
+  findNearestEnemyAgentSpatial(env, agent.pos, teamId, GathererFleeRadius)
 
 proc canStartGathererFlee(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =

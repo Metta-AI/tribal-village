@@ -377,38 +377,37 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
   # Update fog of war - reveal tiles in vision range
   env.updateRevealedMapFromVision(agent)
 
-  # Scan grid tiles within vision range for enemy agents - O(visionRange^2) instead of O(agents)
+  # Scan for enemy agents within vision range using spatial index
   let vr = visionRange.int
-  let startX = max(0, agent.pos.x.int - vr)
-  let endX = min(MapWidth - 1, agent.pos.x.int + vr)
-  let startY = max(0, agent.pos.y.int - vr)
-  let endY = min(MapHeight - 1, agent.pos.y.int + vr)
-  let ax = agent.pos.x
-  let ay = agent.pos.y
-  for x in startX .. endX:
-    for y in startY .. endY:
-      if max(abs(x - ax.int), abs(y - ay.int)) > vr:
-        continue
-      let other = env.grid[x][y]
-      if other.isNil or other.kind != Agent:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      let otherTeam = getTeamId(other)
-      if otherTeam == teamId or otherTeam < 0:
-        continue  # Skip allies and neutral
-      # Calculate threat strength based on unit class
-      var strength: int32 = 1
-      case other.unitClass
-      of UnitKnight: strength = 3
-      of UnitManAtArms: strength = 2
-      of UnitArcher: strength = 2
-      of UnitMangonel: strength = 4
-      of UnitTrebuchet: strength = 5
-      of UnitMonk: strength = 1
-      else: strength = 1
-      controller.reportThreat(teamId, other.pos, strength, currentStep,
-                              agentId = other.agentId.int32, isStructure = false)
+  block scanEnemies:
+    let (cx, cy) = cellCoords(agent.pos)
+    let clampedMax = min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+    let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+    for ddx in -cellRadius .. cellRadius:
+      for ddy in -cellRadius .. cellRadius:
+        let nx = cx + ddx
+        let ny = cy + ddy
+        if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+          continue
+        for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+          if other.isNil or not isAgentAlive(env, other):
+            continue
+          let otherTeam = getTeamId(other)
+          if otherTeam == teamId or otherTeam < 0:
+            continue
+          let dist = chebyshevDist(agent.pos, other.pos)
+          if dist <= visionRange:
+            var strength: int32 = 1
+            case other.unitClass
+            of UnitKnight: strength = 3
+            of UnitManAtArms: strength = 2
+            of UnitArcher: strength = 2
+            of UnitMangonel: strength = 4
+            of UnitTrebuchet: strength = 5
+            of UnitMonk: strength = 1
+            else: strength = 1
+            controller.reportThreat(teamId, other.pos, strength, currentStep,
+                                    agentId = other.agentId.int32, isStructure = false)
 
   # Scan for enemy structures within vision range using spatial index
   let (cx, cy) = cellCoords(agent.pos)

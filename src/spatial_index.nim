@@ -44,18 +44,20 @@ proc removeFromSpatialIndex*(env: Environment, thing: Thing) =
     return
   let (cx, cy) = cellCoords(thing.pos)
 
-  # Remove from general cell
+  # Remove from general cell (swap-and-pop for O(1) removal)
   let cellThings = addr env.spatialIndex.cells[cx][cy].things
-  for i in countdown(cellThings[].len - 1, 0):
+  for i in 0 ..< cellThings[].len:
     if cellThings[][i] == thing:
-      cellThings[].del(i)
+      cellThings[][i] = cellThings[][^1]
+      cellThings[].setLen(cellThings[].len - 1)
       break
 
-  # Remove from kind-specific cell
+  # Remove from kind-specific cell (swap-and-pop for O(1) removal)
   let kindCellThings = addr env.spatialIndex.kindCells[thing.kind][cx][cy]
-  for i in countdown(kindCellThings[].len - 1, 0):
+  for i in 0 ..< kindCellThings[].len:
     if kindCellThings[][i] == thing:
-      kindCellThings[].del(i)
+      kindCellThings[][i] = kindCellThings[][^1]
+      kindCellThings[].setLen(kindCellThings[].len - 1)
       break
 
 proc updateSpatialIndex*(env: Environment, thing: Thing, oldPos: IVec2) =
@@ -71,18 +73,20 @@ proc updateSpatialIndex*(env: Environment, thing: Thing, oldPos: IVec2) =
   if oldCx == newCx and oldCy == newCy:
     return
 
-  # Remove from old cell
+  # Remove from old cell (swap-and-pop for O(1) removal)
   if isValidPos(oldPos):
     let cellThings = addr env.spatialIndex.cells[oldCx][oldCy].things
-    for i in countdown(cellThings[].len - 1, 0):
+    for i in 0 ..< cellThings[].len:
       if cellThings[][i] == thing:
-        cellThings[].del(i)
+        cellThings[][i] = cellThings[][^1]
+        cellThings[].setLen(cellThings[].len - 1)
         break
 
     let kindCellThings = addr env.spatialIndex.kindCells[thing.kind][oldCx][oldCy]
-    for i in countdown(kindCellThings[].len - 1, 0):
+    for i in 0 ..< kindCellThings[].len:
       if kindCellThings[][i] == thing:
-        kindCellThings[].del(i)
+        kindCellThings[][i] = kindCellThings[][^1]
+        kindCellThings[].setLen(kindCellThings[].len - 1)
         break
 
   # Add to new cell
@@ -143,6 +147,109 @@ proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
         if dist < minDist and dist < maxDist:
           minDist = dist
           result = thing
+
+proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                    maxDist: int): Thing =
+  ## Find nearest enemy agent (alive, different team) using spatial index.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  result = nil
+  var minDist = int.high
+
+  let (cx, cy) = cellCoords(pos)
+  let clampedMaxDist = min(maxDist, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
+
+  for dx in -cellRadius .. cellRadius:
+    for dy in -cellRadius .. cellRadius:
+      let nx = cx + dx
+      let ny = cy + dy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+
+      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if thing.isNil or not isAgentAlive(env, thing):
+          continue
+        if getTeamId(thing) == teamId:
+          continue
+        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
+        if dist <= maxDist and dist < minDist:
+          minDist = dist
+          result = thing
+
+proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                      minRange, maxRange: int): Thing =
+  ## Find nearest enemy agent in [minRange, maxRange] Chebyshev distance.
+  ## Used by towers and buildings with minimum attack ranges.
+  result = nil
+  var bestDist = int.high
+
+  let (cx, cy) = cellCoords(pos)
+  let clampedMaxDist = min(maxRange, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
+
+  for dx in -cellRadius .. cellRadius:
+    for dy in -cellRadius .. cellRadius:
+      let nx = cx + dx
+      let ny = cy + dy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+
+      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if thing.isNil or not isAgentAlive(env, thing):
+          continue
+        if getTeamId(thing) == teamId:
+          continue
+        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
+        if dist >= minRange and dist <= maxRange and dist < bestDist:
+          bestDist = dist
+          result = thing
+
+proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                    maxRange: int, targets: var seq[Thing]) =
+  ## Collect all enemy agents within maxRange Chebyshev distance.
+  ## Used by town centers that need to fire at multiple targets.
+  let (cx, cy) = cellCoords(pos)
+  let clampedMaxDist = min(maxRange, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
+
+  for dx in -cellRadius .. cellRadius:
+    for dy in -cellRadius .. cellRadius:
+      let nx = cx + dx
+      let ny = cy + dy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+
+      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if thing.isNil or not isAgentAlive(env, thing):
+          continue
+        if getTeamId(thing) == teamId:
+          continue
+        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
+        if dist <= maxRange:
+          targets.add(thing)
+
+proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                    maxRange: int, allies: var seq[Thing]) =
+  ## Collect all allied agents within maxRange Chebyshev distance.
+  let (cx, cy) = cellCoords(pos)
+  let clampedMaxDist = min(maxRange, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
+
+  for dx in -cellRadius .. cellRadius:
+    for dy in -cellRadius .. cellRadius:
+      let nx = cx + dx
+      let ny = cy + dy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+
+      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if thing.isNil or not isAgentAlive(env, thing):
+          continue
+        if getTeamId(thing) != teamId:
+          continue
+        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
+        if dist <= maxRange:
+          allies.add(thing)
 
 proc rebuildSpatialIndex*(env: Environment) =
   ## Rebuild the entire spatial index from scratch

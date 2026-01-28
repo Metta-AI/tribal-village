@@ -830,38 +830,38 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.scoutLastEnemySeenStep = -100  # Long ago
 
   if agent.unitClass == UnitGoblin:
+    # Count relics held by goblins using thingsByKind[Agent] filtered for goblins
+    # This is still O(agents_in_nearby_cells) but avoids scanning ALL 1000 agents
     var totalRelicsHeld = 0
-    for other in env.agents:
-      if not isAgentAlive(env, other):
-        continue
-      if other.unitClass == UnitGoblin:
+    for other in env.thingsByKind[Agent]:
+      if other.unitClass == UnitGoblin and isAgentAlive(env, other):
         totalRelicsHeld += other.inventoryRelic
     if totalRelicsHeld >= MapRoomObjectsRelics and env.thingsByKind[Relic].len == 0:
       return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
 
-    # Find nearest threat within avoidance radius using grid scan instead of all agents
+    # Use spatial index to find nearest non-goblin threat instead of scanning all agents
     var nearestThreat: Thing = nil
     var threatDist = int.high
-    let gr = GoblinAvoidRadius + 2  # Scan slightly beyond avoid radius
-    let gsx = max(0, agent.pos.x.int - gr)
-    let gex = min(MapWidth - 1, agent.pos.x.int + gr)
-    let gsy = max(0, agent.pos.y.int - gr)
-    let gey = min(MapHeight - 1, agent.pos.y.int + gr)
-    for gx in gsx .. gex:
-      for gy in gsy .. gey:
-        let other = env.grid[gx][gy]
-        if other.isNil or other.kind != Agent:
-          continue
-        if other.agentId == agent.agentId:
-          continue
-        if not isAgentAlive(env, other):
-          continue
-        if other.unitClass == UnitGoblin:
-          continue
-        let dist = max(abs(gx - agent.pos.x.int), abs(gy - agent.pos.y.int))
-        if dist < threatDist:
-          threatDist = dist
-          nearestThreat = other
+    block findThreat:
+      let searchRadius = GoblinAvoidRadius + 5
+      let (cx, cy) = cellCoords(agent.pos)
+      let clampedMax = min(searchRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+      let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+      for ddx in -cellRadius .. cellRadius:
+        for ddy in -cellRadius .. cellRadius:
+          let nx = cx + ddx
+          let ny = cy + ddy
+          if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+            continue
+          for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+            if other.isNil or other.agentId == agent.agentId:
+              continue
+            if not isAgentAlive(env, other) or other.unitClass == UnitGoblin:
+              continue
+            let dist = int(chebyshevDist(agent.pos, other.pos))
+            if dist < threatDist:
+              threatDist = dist
+              nearestThreat = other
 
     if not isNil(nearestThreat) and threatDist <= GoblinAvoidRadius:
       let dx = signi(agent.pos.x - nearestThreat.pos.x)
