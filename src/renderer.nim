@@ -38,7 +38,16 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Battering Ram",
   "Mangonel",
   "Goblin",
-  "Boat"
+  "Boat",
+  # Castle unique units
+  "Samurai",
+  "Longbowman",
+  "Cataphract",
+  "Woad Raider",
+  "Teutonic Knight",
+  "Huskarl",
+  "Mameluke",
+  "Janissary"
 ]
 
 const CliffDrawOrder = [
@@ -480,6 +489,10 @@ proc drawObjects*() =
       of UnitMangonel: "oriented/mangonel"
       of UnitGoblin: "oriented/goblin"
       of UnitBoat: "oriented/boat"
+      # Castle unique units (use knight sprite as fallback until unique sprites are added)
+      of UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider,
+         UnitTeutonicKnight, UnitHuskarl, UnitMameluke, UnitJanissary:
+        "oriented/knight"
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
     bxy.drawImage(
