@@ -80,6 +80,33 @@ See `docs/observation_space.md` for the full list of tint codes.
 - Bonus damage makes the counter loop deterministic and consistent across combat scales.
 - The overlay provides immediate feedback without adding new UI systems.
 
+## Monk Conversion
+Monks use a faith resource (max 10 points, recharges 1 per step) to convert enemies:
+- ATTACK action by Monk on an enemy agent attempts conversion if faith >= 10.
+- Successful conversion changes the target's team, consuming 10 faith points.
+- Conversion is blocked if the target team is at pop-cap.
+- Monks can also heal friendly units with ATTACK when the target is damaged (no faith cost),
+  applying a green heal tint.
+
+## Trebuchet Pack/Unpack
+Trebuchets toggle between packed (mobile, can't attack) and unpacked (stationary, can attack):
+- USE action argument 8 initiates the transition.
+- `TrebuchetPackDuration` (15 steps) cooldown during transition.
+- Movement and attacks blocked while transitioning.
+- Purple tint displays during the packing animation.
+
+## Stance Modes
+Four combat stances control auto-attack behavior:
+- **Aggressive**: chase enemies, attack anything in sight.
+- **Defensive**: attack in range, return to position.
+- **Stand Ground**: don't move, only attack in range.
+- **No Attack**: never auto-attack (for scouts/trade units).
+
+## Attack-Move and Patrol
+- Attack-move sends units to a target while engaging enemies encountered en route.
+- Patrol cycles units between waypoints, attacking enemies in range.
+- Both accessible via the Python FFI layer (`src/agent_control.nim`).
+
 ## Future Improvements (Optional)
 - ~~Class-specific overlays (different tint per counter type).~~ (Done: tv-ch8)
 - ~~Stronger feedback on siege vs buildings.~~ (Done: tv-ch8, intensity 1.40)

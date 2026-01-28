@@ -17,14 +17,17 @@ This index lists the canonical docs for the Tribal Village repo.
 
 ## Core Gameplay and Systems
 - `game_logic.md`: high-level step loop, actions, entities, and episode end rules.
-- `combat.md`: combat rules, counters, and damage interactions.
+- `combat.md`: combat rules, counters, damage, monk conversion, trebuchet, stances.
 - `combat_visuals.md`: combat tint/visual feedback specifics.
-- `economy_respawn.md`: inventory vs stockpile, markets, hearts, respawns.
+- `economy_respawn.md`: inventory vs stockpile, markets, hearts, trade cogs, respawns.
+- `victory_conditions.md`: conquest, wonder, relic, regicide, king of the hill.
+- `tech_trees.md`: blacksmith, university, castle techs, unit promotion chains.
+- `unit_production.md`: training queues, rally points, garrisoning, control groups, stances.
 - `population_and_housing.md`: pop-cap and housing details.
 - `clippy_tint_freeze.md`: territory tinting, tumors, and frozen tiles.
 
 ## AI
-- `ai_system.md`: AI wiring, roles, OptionDef behavior model, evolution toggle.
+- `ai_system.md`: AI wiring, roles, OptionDef behavior model, coordination, threat maps, adaptive difficulty.
 - `ai_profiling.md`: profiling entrypoints and evolution compile-time flag.
 
 ## Worldgen and Spawning

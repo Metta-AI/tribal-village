@@ -87,6 +87,37 @@ above the agent's elevation via `ObscuredLayer` in `src/ffi.nim`
 - Digs minimal paths through walls/terrain if multiple components exist.
 - Uses `env.canTraverseElevation`, so ramps matter for connectivity.
 
+## Mud Terrain
+Mud is a terrain type for swamp biomes (`TerrainMud` in `src/terrain.nim`):
+- Applies a movement speed penalty via `getTerrainSpeedModifier()`.
+- Movement debt accumulates in `agent.movementDebt`; when debt >= 1.0, the agent
+  skips movement but updates orientation.
+- Water units ignore terrain penalties.
+
+## Water Depth
+Two water types provide depth variation:
+- `Water` (deep) and `ShallowWater` each have distinct rendering and movement costs.
+- Shallow water has a lesser movement penalty than deep water.
+- Visual depth rendering differentiates the two in the renderer.
+
+## Cliff Fall Damage
+Dropping elevation without ramps or roads causes damage:
+- `willCauseCliffFallDamage()` checks elevation difference between tiles.
+- `CliffFallDamage` = 1 HP per elevation level dropped.
+- Both movement steps are checked for multi-tile moves (cavalry).
+- Water units are exempt from fall damage.
+
+## Visual Ramp Sprites
+Ramp tiles render directional sprites for elevation transitions:
+- Ramp sprites registered in `registry.nim` with orientation variants.
+- Draw order managed in `renderer.nim` to layer correctly with cliffs.
+- Ramps are functionally implemented as roads that allow 1-level elevation steps.
+
+## Biome-Specific Resource Bonuses
+Different biomes grant gathering bonuses for specific resources:
+- Configured per biome type in the environment.
+- Agents in matching biomes gather resources faster.
+
 ## Practical notes
 - Zone masks are blob + dither based, so biome edges are intentionally irregular.
 - Snow and swamp zones are contiguous in their cores, but can still inherit

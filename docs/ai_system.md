@@ -233,9 +233,50 @@ If/when we refactor the include chain, a minimal, low-risk modularization is:
 Goal: replace `include` with explicit `import` to reduce accidental coupling
 without changing behavior.
 
+## Inter-role Coordination
+Team-level coordination enables cross-role communication (`src/scripted/coordination.nim`):
+- **Protection requests**: Gatherers call `requestProtectionFromFighter()` when fleeing.
+- **Defense requests**: Fighters call `requestDefenseFromBuilder()` when seeing threats.
+- **Siege requests**: Fighters call `requestSiegeFromBuilder()` near structures.
+- Requests stored per team (max 16), expire after 60 steps.
+- Fighters query `findNearestProtectionRequest()` to escort gatherers.
+- Builders check `hasDefenseRequest()` to prioritize defensive buildings.
+
+## Shared Threat Map
+Global threat map tracks enemy positions across agents (`src/scripted/ai_types.nim`):
+- `ThreatEntry` structs store position, strength, last-seen step, and reporting agent.
+- Max 64 entries per team, entries decay after 50 steps.
+- Fighters and builders query the threat map for tactical decisions.
+
+## Adaptive Difficulty
+AI difficulty adjusts dynamically based on territory control:
+- Teams track `adaptiveTarget` (default 50% territory) and check every 500 steps.
+- If territory exceeds target by 15%, difficulty increases (Easy -> Normal -> Hard -> Brutal).
+- If 15% below target, difficulty decreases.
+- Difficulty changes update AI flags: `advancedTargetingEnabled`, `coordinationEnabled`,
+  `optimalBuildOrderEnabled`.
+- Enabled via `enableAdaptiveDifficulty(teamId, targetTerritory)`.
+
+Key files:
+- `src/scripted/ai_core.nim` (adaptive update logic)
+- `src/scripted/ai_types.nim` (DifficultyConfig fields)
+- `src/scripted/ai_defaults.nim` (update call each tick)
+
+## Recent Behavior Additions
+Notable behaviors added to the scripted AI:
+- **Scout exploration**: line-of-sight tracking and enemy detection.
+- **Patrol**: cycles between waypoints, attacking enemies in range.
+- **Attack-move**: moves to target while engaging enemies en route.
+- **Kiting**: ranged units maintain distance from melee threats.
+- **Flee**: gatherers and builders retreat when enemies are nearby.
+- **Healer-seeking**: fighters move toward monks when injured.
+- **Anti-siege priority**: fighters prioritize attacking siege units.
+- **Structure repair**: builders repair damaged buildings.
+- **Idle villager detection**: tracks agents with NOOP/ORIENT actions.
+
 ## Debugging and profiling hooks
 - `scripts/profile_ai.nim`: quick AI profiling entrypoint.
 - `scripts/run_all_tests.nim`: run the full Nim test sequence.
 
-These are the fastest paths for AI iteration when you don’t need a full
+These are the fastest paths for AI iteration when you don't need a full
 rendered run.

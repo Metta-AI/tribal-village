@@ -1,6 +1,6 @@
 # Tribal Village
 
-Multi-agent RL environment in Nim with a Python wrapper (PufferLib compatible). Teams of agents gather resources, craft items, build structures, and compete while defending against hostile tumors and wildlife.
+Multi-agent RL environment in Nim with a Python wrapper (PufferLib compatible). Teams of agents gather resources, craft items, build structures, train armies, research technologies, and compete across multiple victory conditions while defending against hostile tumors and wildlife.
 
 <img width="2932" height="1578" alt="Tribal Village screenshot" src="https://github.com/user-attachments/assets/b1736191-ff85-48fa-b5cf-f47e441fd118" />
 
@@ -46,6 +46,19 @@ obs, info = env.reset()
 obs, reward, terminated, truncated, info = env.step(actions)
 ```
 
+## Key Features
+
+- **Victory conditions**: Conquest, Wonder, Relic, Regicide, and King of the Hill
+- **Tech trees**: Blacksmith upgrades, University research, Castle unique technologies
+- **Unit production**: Batch training queues, rally points, per-unit training times
+- **Unit upgrades**: Promotion chains (e.g., Man-at-Arms -> Long Swordsman -> Champion)
+- **Garrisoning**: Units garrison in buildings for protection and bonus arrows
+- **Combat**: Class counters, siege, monk conversion, trebuchet pack/unpack, stance modes
+- **Economy**: Resource gathering, markets, trade cogs for dock-to-dock gold routes
+- **AI**: Role-based behaviors, inter-role coordination, shared threat maps, adaptive difficulty
+- **Terrain**: Biomes, elevation, cliffs with fall damage, mud, water depth, visual ramps
+- **Controls**: Control groups, idle villager detection, attack-move, patrol commands
+
 ## Documentation
 
 | Topic | Description |
@@ -54,9 +67,12 @@ obs, reward, terminated, truncated, info = env.step(actions)
 | [Game Logic](docs/game_logic.md) | Step loop, actions, entities, episode rules |
 | [Action Space](docs/action_space.md) | Discrete 250 actions (verb * 25 + direction/argument) |
 | [Observation Space](docs/observation_space.md) | 84 layers, 11x11 grid per agent |
-| [Combat](docs/combat.md) | Combat rules, counters, damage |
+| [Combat](docs/combat.md) | Combat rules, counters, damage, monk conversion |
 | [Economy & Respawn](docs/economy_respawn.md) | Inventory, stockpiles, markets, hearts |
-| [AI System](docs/ai_system.md) | AI wiring, roles, behavior model |
+| [Victory Conditions](docs/victory_conditions.md) | Conquest, Wonder, Relic, Regicide, King of the Hill |
+| [Tech Trees & Upgrades](docs/tech_trees.md) | Blacksmith, University, Castle techs, unit promotions |
+| [Unit Production](docs/unit_production.md) | Training queues, rally points, garrisoning |
+| [AI System](docs/ai_system.md) | AI wiring, roles, behavior model, coordination |
 | [World Generation](docs/world_generation.md) | Trading hub, rivers, biomes, spawning |
 | [CLI & Debugging](docs/cli_and_debugging.md) | CLI usage, debugging flags |
 | [Training & Replays](docs/training_and_replays.md) | Training entrypoints, replay setup |

@@ -96,6 +96,24 @@ The temple then goes on cooldown (25 steps).
 - Respawn heart cost is currently zero by default, so hearts are not consumed unless
   the constant is raised.
 
+## Trade Cogs (Dock-to-Dock Gold)
+Trade Cogs are water-based trade units trained at Docks:
+- On spawn, the Trade Cog stores its origin dock position.
+- When reaching a different friendly dock, gold is generated: `max(1, manhattan_distance / 10)`.
+- Home dock flips to the current dock for the return trip.
+- Trade Cogs cannot attack and never disembark from water.
+
+Constants:
+- `TradeCogGoldPerDistance`: distance divisor for gold calculation.
+- `TradeCogMinGold`: minimum gold per trip (1).
+
+## Relic Gold Generation
+Monks can garrison relics in Monasteries:
+- Each garrisoned relic generates 1 gold per `RelicGoldInterval` (20) steps.
+- If a Monastery is destroyed, garrisoned relics drop to the ground.
+
 ## See Also
 - `docs/population_and_housing.md`
 - `docs/temple_hybridization.md`
+- `docs/unit_production.md`
+- `docs/victory_conditions.md`

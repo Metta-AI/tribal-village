@@ -92,10 +92,38 @@ Verbs:
 - **Wildlife:** bears and wolves roam and attack; cows wander in herds and can be harvested.
 - **Goblins:** spawn from hives and act as a hostile faction.
 
+## Victory Conditions
+Five victory conditions determine episode end (see `docs/victory_conditions.md`):
+- **Conquest**: destroy all enemy agents and buildings.
+- **Wonder**: build a Wonder and survive 600-step countdown.
+- **Relic**: hold all 18 relics in Monasteries for 200 consecutive steps.
+- **Regicide**: each team has a King; team eliminated when King dies.
+- **King of the Hill**: control central point for 300 consecutive steps.
+
+Set via `VictoryCondition` enum; `VictoryAll` enables any condition.
+
+## Unit Production and Garrisoning
+- Buildings maintain production queues (max 10 units) with per-unit training times.
+- Rally points direct newly trained units to a target position.
+- Units can garrison in Town Centers, Castles, Guard Towers, and Houses for
+  protection and bonus arrows.
+- See `docs/unit_production.md` for details.
+
+## Tech Trees
+- Blacksmith upgrades (5 lines x 3 tiers) for attack and armor bonuses.
+- University research (9 techs) for advanced mechanics.
+- Castle unique technologies per civilization.
+- Unit promotion chains (Man-at-Arms, Scout, Archer lines).
+- See `docs/tech_trees.md` for details.
+
+## Control Groups and Idle Detection
+- 10 control groups (Ctrl+N to assign, N to recall).
+- Idle villager tracking via `isIdle` flag when action is NOOP or ORIENT.
+
 ## Rewards and Episode End
 - Rewards are configured in `EnvironmentConfig` (`src/types.nim`): ore, bar, heart, tumor kill,
   survival penalty, death penalty, etc.
-- Episode ends at `maxSteps` or if all agents are terminated/truncated.
+- Episode ends at `maxSteps`, victory condition trigger, or if all agents are terminated/truncated.
 - At episode end, territory scoring and altar rewards are applied.
 
 ## Reference Pointers
