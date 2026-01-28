@@ -501,6 +501,10 @@ proc drawObjects*() =
          UnitTeutonicKnight, UnitHuskarl, UnitMameluke, UnitJanissary,
          UnitKing:
         "oriented/knight"
+      # Unit upgrade tiers (use same sprites as base units)
+      of UnitLongSwordsman, UnitChampion: "oriented/man_at_arms"
+      of UnitLightCavalry, UnitHussar: "oriented/scout"
+      of UnitCrossbowman, UnitArbalester: "oriented/archer"
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
     bxy.drawImage(

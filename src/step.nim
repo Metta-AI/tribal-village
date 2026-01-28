@@ -919,12 +919,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var damageAmount = max(1, agent.attackDamage)
 
         # Ballistics: +1 damage for ranged units (better accuracy = more effective shots)
-        if agent.unitClass in {UnitArcher, UnitLongbowman, UnitJanissary} and
+        if agent.unitClass in {UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester} and
            attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechBallistics):
           damageAmount += 1
 
         var rangedRange = case agent.unitClass
-          of UnitArcher: ArcherBaseRange
+          of UnitArcher, UnitCrossbowman, UnitArbalester: ArcherBaseRange
           of UnitTrebuchet: TrebuchetBaseRange
           else: 0
 
@@ -1654,9 +1654,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     if thing.hasRallyPoint():
                       agent.rallyTarget = thing.rallyPoint
                     used = true
+                  # Try unit upgrade research if no ready queue entry
+                  elif thing.cooldown == 0 and env.tryResearchUnitUpgrade(agent, thing):
+                    used = true
                   # Otherwise queue a new training request (pay now, train later)
+                  # Use effectiveTrainUnit to train the upgraded version
                   elif env.queueTrainUnit(thing, teamId,
-                      buildingTrainUnit(thing.kind, teamId),
+                      env.effectiveTrainUnit(thing.kind, teamId),
                       buildingTrainCosts(thing.kind)):
                     used = true
               of UseTrainAndCraft:
@@ -1675,7 +1679,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                         agent.rallyTarget = thing.rallyPoint
                       used = true
                     elif env.queueTrainUnit(thing, teamId,
-                        buildingTrainUnit(thing.kind, teamId),
+                        env.effectiveTrainUnit(thing.kind, teamId),
                         buildingTrainCosts(thing.kind)):
                       used = true
               of UseCraft:

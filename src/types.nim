@@ -149,6 +149,19 @@ const
   JanissaryAttackDamage* = 3
   KingMaxHp* = 15             # Regicide: high HP leader unit
   KingAttackDamage* = 2       # Regicide: moderate attack
+  # Unit upgrade tier stats (AoE2-style promotion chains)
+  LongSwordsmanMaxHp* = 9
+  LongSwordsmanAttackDamage* = 3
+  ChampionMaxHp* = 11
+  ChampionAttackDamage* = 4
+  LightCavalryMaxHp* = 8
+  LightCavalryAttackDamage* = 2
+  HussarMaxHp* = 10
+  HussarAttackDamage* = 2
+  CrossbowmanMaxHp* = 5
+  CrossbowmanAttackDamage* = 2
+  ArbalesterMaxHp* = 6
+  ArbalesterAttackDamage* = 3
   ArcherBaseRange* = 3
   MangonelBaseRange* = 3
   MangonelAoELength* = 5
@@ -177,6 +190,12 @@ const
   CastleTechGoldCost* = 3      # Base gold cost for Castle Age tech
   CastleTechImperialFoodCost* = 8  # Base food cost for Imperial Age tech
   CastleTechImperialGoldCost* = 6  # Base gold cost for Imperial Age tech
+
+  # Unit upgrades (AoE2-style promotion chains)
+  UnitUpgradeTier2FoodCost* = 3  # Food cost for tier 1→2 upgrades
+  UnitUpgradeTier2GoldCost* = 2  # Gold cost for tier 1→2 upgrades
+  UnitUpgradeTier3FoodCost* = 6  # Food cost for tier 2→3 upgrades
+  UnitUpgradeTier3GoldCost* = 4  # Gold cost for tier 2→3 upgrades
 
   # Production queue (AoE2-style)
   ProductionQueueMaxSize* = 10  # Max units in a building's production queue
@@ -227,6 +246,13 @@ const
   ActionTintAttackMameluke* = 46'u8
   ActionTintAttackJanissary* = 47'u8
   ActionTintAttackKing* = 48'u8
+  # Unit upgrade tier attack tints
+  ActionTintAttackLongSwordsman* = 49'u8
+  ActionTintAttackChampion* = 50'u8
+  ActionTintAttackLightCavalry* = 51'u8
+  ActionTintAttackHussar* = 52'u8
+  ActionTintAttackCrossbowman* = 53'u8
+  ActionTintAttackArbalester* = 54'u8
 
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
@@ -385,6 +411,13 @@ type
     UnitMameluke       # Team 6: Ranged cavalry
     UnitJanissary      # Team 7: Powerful ranged unit
     UnitKing           # Regicide mode: team leader, high HP, limited combat
+    # Unit upgrade tiers (AoE2-style promotion chains)
+    UnitLongSwordsman  # ManAtArms upgrade tier 2
+    UnitChampion       # ManAtArms upgrade tier 3
+    UnitLightCavalry   # Scout upgrade tier 2
+    UnitHussar         # Scout upgrade tier 3
+    UnitCrossbowman    # Archer upgrade tier 2
+    UnitArbalester     # Archer upgrade tier 3
 
   ThingKind* = enum
     Agent
@@ -863,6 +896,20 @@ type
     ## Each team can research exactly 2 techs (their own civilization's unique techs)
     researched*: array[CastleTechType, bool]
 
+  UnitUpgradeType* = enum
+    ## AoE2-style unit promotion chains (researched at military buildings)
+    UpgradeLongSwordsman     ## ManAtArms → LongSwordsman (Barracks)
+    UpgradeChampion          ## LongSwordsman → Champion (Barracks)
+    UpgradeLightCavalry      ## Scout → LightCavalry (Stable)
+    UpgradeHussar            ## LightCavalry → Hussar (Stable)
+    UpgradeCrossbowman       ## Archer → Crossbowman (Archery Range)
+    UpgradeArbalester        ## Crossbowman → Arbalester (Archery Range)
+
+  UnitUpgrades* = object
+    ## Team-level unit upgrade progress (AoE2-style promotion chains)
+    ## Each upgrade is either researched (true) or not (false)
+    researched*: array[UnitUpgradeType, bool]
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -885,6 +932,7 @@ type
     teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
     teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University techs
     teamCastleTechs*: array[MapRoomObjectsTeams, CastleTechs]  # AoE2-style Castle unique techs
+    teamUnitUpgrades*: array[MapRoomObjectsTeams, UnitUpgrades]  # AoE2-style unit promotion chains
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

@@ -485,7 +485,14 @@ const
     HuskarlMaxHp,
     MamelukeMaxHp,
     JanissaryMaxHp,
-    KingMaxHp
+    KingMaxHp,
+    # Unit upgrade tiers
+    LongSwordsmanMaxHp,
+    ChampionMaxHp,
+    LightCavalryMaxHp,
+    HussarMaxHp,
+    CrossbowmanMaxHp,
+    ArbalesterMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
     VillagerAttackDamage,
@@ -509,7 +516,14 @@ const
     HuskarlAttackDamage,
     MamelukeAttackDamage,
     JanissaryAttackDamage,
-    KingAttackDamage
+    KingAttackDamage,
+    # Unit upgrade tiers
+    LongSwordsmanAttackDamage,
+    ChampionAttackDamage,
+    LightCavalryAttackDamage,
+    HussarAttackDamage,
+    CrossbowmanAttackDamage,
+    ArbalesterAttackDamage
   ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
@@ -521,7 +535,8 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
     StanceNoAttack
   of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
-     UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing:
+     UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing,
+     UnitLongSwordsman, UnitChampion, UnitLightCavalry, UnitHussar, UnitCrossbowman, UnitArbalester:
     StanceDefensive
 
 type
@@ -536,11 +551,14 @@ proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
   ## Returns the Blacksmith upgrade category for a unit class.
   ## Used to determine which upgrades apply to a unit.
   case unitClass
-  of UnitManAtArms, UnitSamurai, UnitWoadRaider, UnitTeutonicKnight, UnitHuskarl:
+  of UnitManAtArms, UnitSamurai, UnitWoadRaider, UnitTeutonicKnight, UnitHuskarl,
+     UnitLongSwordsman, UnitChampion:
     CategoryInfantry
-  of UnitScout, UnitKnight, UnitCataphract, UnitMameluke:
+  of UnitScout, UnitKnight, UnitCataphract, UnitMameluke,
+     UnitLightCavalry, UnitHussar:
     CategoryCavalry
-  of UnitArcher, UnitLongbowman, UnitJanissary:
+  of UnitArcher, UnitLongbowman, UnitJanissary,
+     UnitCrossbowman, UnitArbalester:
     CategoryArcher
   of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat, UnitKing, UnitTradeCog:
     CategoryNone
@@ -1130,6 +1148,8 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     # +1 archer range (modeled as +1 archer attack), +2 tower attack
     env.teamModifiers[teamId].unitAttackBonus[UnitArcher] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitLongbowman] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitCrossbowman] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitArbalester] += 1
   of CastleTechKataparuto:
     # +3 trebuchet attack
     env.teamModifiers[teamId].unitAttackBonus[UnitTrebuchet] += 3
@@ -1140,6 +1160,8 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     env.teamModifiers[teamId].unitAttackBonus[UnitWoadRaider] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitTeutonicKnight] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitHuskarl] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitLongSwordsman] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitChampion] += 1
   of CastleTechCrenellations:
     # +2 castle attack (applied via hasCastleTech check in tower attack)
     discard
@@ -1158,12 +1180,20 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     env.teamModifiers[teamId].unitHpBonus[UnitWoadRaider] += 1
     env.teamModifiers[teamId].unitHpBonus[UnitTeutonicKnight] += 1
     env.teamModifiers[teamId].unitHpBonus[UnitHuskarl] += 1
+    env.teamModifiers[teamId].unitHpBonus[UnitLongSwordsman] += 1
+    env.teamModifiers[teamId].unitHpBonus[UnitChampion] += 1
   of CastleTechPerfusion:
     # Military units train faster (modeled as +2 all military attack)
     env.teamModifiers[teamId].unitAttackBonus[UnitManAtArms] += 2
     env.teamModifiers[teamId].unitAttackBonus[UnitArcher] += 2
     env.teamModifiers[teamId].unitAttackBonus[UnitScout] += 2
     env.teamModifiers[teamId].unitAttackBonus[UnitKnight] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitLongSwordsman] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitChampion] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitLightCavalry] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitHussar] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitCrossbowman] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitArbalester] += 2
   of CastleTechIronclad:
     # +3 siege HP
     env.teamModifiers[teamId].unitHpBonus[UnitBatteringRam] += 3
@@ -1179,18 +1209,24 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     env.teamModifiers[teamId].unitHpBonus[UnitWoadRaider] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitTeutonicKnight] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitHuskarl] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitLongSwordsman] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitChampion] += 2
   of CastleTechChieftains:
     # +1 cavalry attack
     env.teamModifiers[teamId].unitAttackBonus[UnitScout] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitKnight] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitCataphract] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitMameluke] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitLightCavalry] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitHussar] += 1
   of CastleTechZealotry:
     # +2 cavalry HP
     env.teamModifiers[teamId].unitHpBonus[UnitScout] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitKnight] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitCataphract] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitMameluke] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitLightCavalry] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitHussar] += 2
   of CastleTechMahayana:
     # +1 monk effectiveness (modeled as +1 monk attack)
     env.teamModifiers[teamId].unitAttackBonus[UnitMonk] += 1
@@ -1199,6 +1235,8 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     env.teamModifiers[teamId].unitHpBonus[UnitArcher] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitLongbowman] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitJanissary] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitCrossbowman] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitArbalester] += 2
   of CastleTechArtillery:
     # +2 tower and castle attack (applied via hasCastleTech check in tower attack)
     discard
@@ -1238,6 +1276,164 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
   env.applyCastleTechBonuses(teamId, techType)
   building.cooldown = 10  # Longer cooldown for unique tech research
   true
+
+# ---- Unit upgrade / promotion chain logic (AoE2-style) ----
+
+proc upgradePrerequisite*(upgrade: UnitUpgradeType): UnitUpgradeType =
+  ## Returns the prerequisite upgrade that must be researched first.
+  ## Tier-2 upgrades have no prerequisite (returns themselves).
+  ## Tier-3 upgrades require the corresponding tier-2.
+  case upgrade
+  of UpgradeLongSwordsman: UpgradeLongSwordsman  # no prereq
+  of UpgradeChampion: UpgradeLongSwordsman
+  of UpgradeLightCavalry: UpgradeLightCavalry    # no prereq
+  of UpgradeHussar: UpgradeLightCavalry
+  of UpgradeCrossbowman: UpgradeCrossbowman      # no prereq
+  of UpgradeArbalester: UpgradeCrossbowman
+
+proc upgradeSourceUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
+  ## Returns the unit class that gets upgraded.
+  case upgrade
+  of UpgradeLongSwordsman: UnitManAtArms
+  of UpgradeChampion: UnitLongSwordsman
+  of UpgradeLightCavalry: UnitScout
+  of UpgradeHussar: UnitLightCavalry
+  of UpgradeCrossbowman: UnitArcher
+  of UpgradeArbalester: UnitCrossbowman
+
+proc upgradeTargetUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
+  ## Returns the unit class that results from the upgrade.
+  case upgrade
+  of UpgradeLongSwordsman: UnitLongSwordsman
+  of UpgradeChampion: UnitChampion
+  of UpgradeLightCavalry: UnitLightCavalry
+  of UpgradeHussar: UnitHussar
+  of UpgradeCrossbowman: UnitCrossbowman
+  of UpgradeArbalester: UnitArbalester
+
+proc upgradeBuilding*(upgrade: UnitUpgradeType): ThingKind =
+  ## Returns the building where this upgrade is researched.
+  case upgrade
+  of UpgradeLongSwordsman, UpgradeChampion: Barracks
+  of UpgradeLightCavalry, UpgradeHussar: Stable
+  of UpgradeCrossbowman, UpgradeArbalester: ArcheryRange
+
+proc upgradeCosts*(upgrade: UnitUpgradeType): seq[tuple[res: StockpileResource, count: int]] =
+  ## Returns the resource costs for an upgrade.
+  case upgrade
+  of UpgradeLongSwordsman, UpgradeLightCavalry, UpgradeCrossbowman:
+    @[(res: ResourceFood, count: UnitUpgradeTier2FoodCost),
+      (res: ResourceGold, count: UnitUpgradeTier2GoldCost)]
+  of UpgradeChampion, UpgradeHussar, UpgradeArbalester:
+    @[(res: ResourceFood, count: UnitUpgradeTier3FoodCost),
+      (res: ResourceGold, count: UnitUpgradeTier3GoldCost)]
+
+proc hasUnitUpgrade*(env: Environment, teamId: int, upgrade: UnitUpgradeType): bool {.inline.} =
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  env.teamUnitUpgrades[teamId].researched[upgrade]
+
+proc getNextUnitUpgrade*(env: Environment, teamId: int, buildingKind: ThingKind): UnitUpgradeType =
+  ## Find the next available upgrade for the given building type.
+  ## Returns the first unresearched upgrade whose prerequisites are met.
+  for upgrade in UnitUpgradeType:
+    if upgradeBuilding(upgrade) != buildingKind:
+      continue
+    if env.teamUnitUpgrades[teamId].researched[upgrade]:
+      continue
+    # Check prerequisite
+    let prereq = upgradePrerequisite(upgrade)
+    if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
+      continue
+    return upgrade
+  # No upgrades available; return first of this building type (caller checks researched)
+  for upgrade in UnitUpgradeType:
+    if upgradeBuilding(upgrade) == buildingKind:
+      return upgrade
+  UpgradeLongSwordsman  # fallback
+
+proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitClass, toClass: AgentUnitClass) =
+  ## Upgrade all living units of fromClass on the given team to toClass.
+  ## Preserves current HP ratio.
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    if env.terminated[agent.agentId] != 0.0:
+      continue
+    if getTeamId(agent) != teamId:
+      continue
+    if agent.unitClass != fromClass:
+      continue
+    let hpRatio = if agent.maxHp > 0: agent.hp.float / agent.maxHp.float else: 1.0
+    let modifiers = env.teamModifiers[teamId]
+    agent.unitClass = toClass
+    if toClass != UnitBoat:
+      agent.embarkedUnitClass = toClass
+    agent.maxHp = UnitMaxHpByClass[toClass] + modifiers.unitHpBonus[toClass]
+    agent.attackDamage = UnitAttackDamageByClass[toClass] + modifiers.unitAttackBonus[toClass]
+    agent.hp = max(1, int(hpRatio * agent.maxHp.float))
+
+proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): bool =
+  ## Attempt to research the next unit upgrade at a military building.
+  ## Only villagers can research. Returns true if research was successful.
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  let upgrade = env.getNextUnitUpgrade(teamId, building.kind)
+
+  # Check if already researched
+  if env.teamUnitUpgrades[teamId].researched[upgrade]:
+    return false
+
+  # Check prerequisite
+  let prereq = upgradePrerequisite(upgrade)
+  if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
+    return false
+
+  # Check and spend resources
+  let costs = upgradeCosts(upgrade)
+  if not env.spendStockpile(teamId, costs):
+    return false
+
+  # Apply the upgrade
+  env.teamUnitUpgrades[teamId].researched[upgrade] = true
+  env.upgradeExistingUnits(teamId, upgradeSourceUnit(upgrade), upgradeTargetUnit(upgrade))
+  building.cooldown = 8
+  true
+
+proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
+  ## Returns the effective unit class trained by a building, considering upgrades.
+  ## For example, if LongSwordsman upgrade is researched, Barracks trains LongSwordsman instead of ManAtArms.
+  let baseUnit = buildingTrainUnit(buildingKind, teamId)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return baseUnit
+  # Check upgrade chain for the base unit
+  case baseUnit
+  of UnitManAtArms:
+    if env.teamUnitUpgrades[teamId].researched[UpgradeChampion]:
+      return UnitChampion
+    if env.teamUnitUpgrades[teamId].researched[UpgradeLongSwordsman]:
+      return UnitLongSwordsman
+    return UnitManAtArms
+  of UnitScout:
+    if env.teamUnitUpgrades[teamId].researched[UpgradeHussar]:
+      return UnitHussar
+    if env.teamUnitUpgrades[teamId].researched[UpgradeLightCavalry]:
+      return UnitLightCavalry
+    return UnitScout
+  of UnitArcher:
+    if env.teamUnitUpgrades[teamId].researched[UpgradeArbalester]:
+      return UnitArbalester
+    if env.teamUnitUpgrades[teamId].researched[UpgradeCrossbowman]:
+      return UnitCrossbowman
+    return UnitArcher
+  else:
+    return baseUnit
 
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:

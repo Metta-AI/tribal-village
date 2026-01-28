@@ -69,6 +69,25 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitKing - Royal gold/purple regicide
   UnitAttackTint(tint: TileColor(r: 0.95, g: 0.80, b: 0.20, intensity: 1.20),
     duration: 3'i8, code: ActionTintAttackKing),
+  # Unit upgrade tiers
+  # UnitLongSwordsman - Orange infantry (like ManAtArms, stronger)
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.55, b: 0.15, intensity: 1.15),
+    duration: 2'i8, code: ActionTintAttackLongSwordsman),
+  # UnitChampion - Orange infantry (strongest)
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.55, b: 0.15, intensity: 1.20),
+    duration: 2'i8, code: ActionTintAttackChampion),
+  # UnitLightCavalry - Green cavalry (like Scout, stronger)
+  UnitAttackTint(tint: TileColor(r: 0.30, g: 0.90, b: 0.30, intensity: 1.15),
+    duration: 1'i8, code: ActionTintAttackLightCavalry),
+  # UnitHussar - Green cavalry (strongest)
+  UnitAttackTint(tint: TileColor(r: 0.30, g: 0.90, b: 0.30, intensity: 1.20),
+    duration: 1'i8, code: ActionTintAttackHussar),
+  # UnitCrossbowman - Yellow archer (like Archer, stronger)
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.85, b: 0.20, intensity: 1.15),
+    duration: 2'i8, code: ActionTintAttackCrossbowman),
+  # UnitArbalester - Yellow archer (strongest)
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.85, b: 0.20, intensity: 1.20),
+    duration: 2'i8, code: ActionTintAttackArbalester),
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =

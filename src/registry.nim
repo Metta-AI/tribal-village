@@ -427,6 +427,13 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
   of UnitJanissary: 50
   of UnitKing: 0  # Kings are not trainable (placed at game start for Regicide)
   of UnitTradeCog: 60  # Trade Cogs trained at Docks
+  # Unit upgrade tiers (use same training time as their base building)
+  of UnitLongSwordsman: 45
+  of UnitChampion: 50
+  of UnitLightCavalry: 35
+  of UnitHussar: 40
+  of UnitCrossbowman: 40
+  of UnitArbalester: 45
 
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex

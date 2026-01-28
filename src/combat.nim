@@ -57,6 +57,19 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.90, g: 0.30, b: 0.35, intensity: 1.22),
   # UnitKing
   TileColor(r: 0.95, g: 0.80, b: 0.20, intensity: 1.25),
+  # Unit upgrade tiers (same tint family as base unit)
+  # UnitLongSwordsman (infantry - orange)
+  TileColor(r: 1.00, g: 0.65, b: 0.20, intensity: 1.25),
+  # UnitChampion (infantry - orange, stronger)
+  TileColor(r: 1.00, g: 0.65, b: 0.20, intensity: 1.30),
+  # UnitLightCavalry (cavalry - green)
+  TileColor(r: 0.30, g: 1.00, b: 0.35, intensity: 1.22),
+  # UnitHussar (cavalry - green, stronger)
+  TileColor(r: 0.30, g: 1.00, b: 0.35, intensity: 1.28),
+  # UnitCrossbowman (archer - yellow)
+  TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.25),
+  # UnitArbalester (archer - yellow, stronger)
+  TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.30),
 ]
 
 # Action tint codes for per-unit bonus damage
@@ -96,6 +109,13 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintAttackBonus,  # UnitMameluke
   ActionTintAttackBonus,  # UnitJanissary
   ActionTintAttackBonus,  # UnitKing
+  # Unit upgrade tiers (same counter as base unit)
+  ActionTintBonusInfantry,  # UnitLongSwordsman
+  ActionTintBonusInfantry,  # UnitChampion
+  ActionTintBonusScout,     # UnitLightCavalry
+  ActionTintBonusScout,     # UnitHussar
+  ActionTintBonusArcher,    # UnitCrossbowman
+  ActionTintBonusArcher,    # UnitArbalester
 ]
 
 const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}

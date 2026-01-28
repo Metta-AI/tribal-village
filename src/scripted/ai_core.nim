@@ -702,7 +702,7 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
     return -1
 
   let maxRange = case agent.unitClass
-    of UnitArcher: ArcherBaseRange
+    of UnitArcher, UnitCrossbowman, UnitArbalester: ArcherBaseRange
     of UnitMangonel: MangonelAoELength
     of UnitTrebuchet:
       if agent.packed: 0 else: TrebuchetBaseRange  # Can't attack when packed
