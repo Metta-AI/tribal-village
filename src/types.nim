@@ -626,6 +626,9 @@ type
 
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
+  # Fog of war: tracks which tiles each team has explored (AoE2-style)
+  RevealedMap* = array[MapWidth, array[MapHeight, bool]]
+
   Environment* = ref object
     currentStep*: int
     mapGeneration*: int  # Bumps each time the map is rebuilt (for render caches)
@@ -639,6 +642,7 @@ type
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsTeams, TeamStockpile]
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
+    revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)

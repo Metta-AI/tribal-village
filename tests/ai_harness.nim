@@ -1305,6 +1305,124 @@ suite "AI - Scout Behavior":
     let initialRadius = controller.getScoutExploreRadius(agentId)
     check initialRadius > 0
 
+suite "Scout Line-of-Sight Exploration":
+  test "scout has extended vision range":
+    # Scouts should use ScoutVisionRange (18) vs normal ThreatVisionRange (12)
+    check ScoutVisionRange > ThreatVisionRange
+    check ScoutVisionRange == 18
+
+  test "scout reveals tiles with extended vision":
+    let env = makeEmptyEnv()
+    let teamId = 0
+
+    # Create scout at center of map
+    let scout = addAgentAt(env, teamId, ivec2(50, 50))
+    applyUnitClass(scout, UnitScout)
+
+    # Initially, tiles should not be revealed
+    check not env.isRevealed(teamId, ivec2(50, 50))
+    check not env.isRevealed(teamId, ivec2(50 + ScoutVisionRange, 50))
+
+    # Update revealed map from scout's vision
+    env.updateRevealedMapFromVision(scout)
+
+    # Scout position and tiles within ScoutVisionRange should now be revealed
+    check env.isRevealed(teamId, ivec2(50, 50))
+    check env.isRevealed(teamId, ivec2(50 + ScoutVisionRange, 50))
+    check env.isRevealed(teamId, ivec2(50 - ScoutVisionRange, 50))
+    check env.isRevealed(teamId, ivec2(50, 50 + ScoutVisionRange))
+    check env.isRevealed(teamId, ivec2(50, 50 - ScoutVisionRange))
+
+    # Tiles beyond scout vision should NOT be revealed
+    check not env.isRevealed(teamId, ivec2(50 + ScoutVisionRange + 1, 50))
+
+  test "villager reveals tiles with normal vision":
+    let env = makeEmptyEnv()
+    let teamId = 0
+
+    # Create villager at center of map
+    let villager = addAgentAt(env, teamId, ivec2(50, 50))
+    check villager.unitClass == UnitVillager
+
+    # Update revealed map from villager's vision
+    env.updateRevealedMapFromVision(villager)
+
+    # Villager should reveal tiles within ThreatVisionRange (12)
+    check env.isRevealed(teamId, ivec2(50, 50))
+    check env.isRevealed(teamId, ivec2(50 + ThreatVisionRange, 50))
+
+    # Tiles at scout range should NOT be revealed by villager
+    check not env.isRevealed(teamId, ivec2(50 + ScoutVisionRange, 50))
+
+  test "revealed map clears on reset":
+    let env = makeEmptyEnv()
+    let teamId = 0
+
+    # Create scout and reveal some tiles
+    let scout = addAgentAt(env, teamId, ivec2(50, 50))
+    applyUnitClass(scout, UnitScout)
+    env.updateRevealedMapFromVision(scout)
+
+    # Verify tiles are revealed
+    check env.isRevealed(teamId, ivec2(50, 50))
+    let countBefore = env.getRevealedTileCount(teamId)
+    check countBefore > 0
+
+    # Reset environment
+    env.reset()
+
+    # Revealed map should be cleared
+    check not env.isRevealed(teamId, ivec2(50, 50))
+    check env.getRevealedTileCount(teamId) == 0
+
+  test "revealed tile count increases with exploration":
+    let env = makeEmptyEnv()
+    let teamId = 0
+
+    # Initial count should be 0
+    check env.getRevealedTileCount(teamId) == 0
+
+    # Create scout and explore
+    let scout = addAgentAt(env, teamId, ivec2(30, 30))
+    applyUnitClass(scout, UnitScout)
+    env.updateRevealedMapFromVision(scout)
+
+    # Should have revealed tiles
+    let count1 = env.getRevealedTileCount(teamId)
+    check count1 > 0
+
+    # Move scout and explore more
+    scout.pos = ivec2(80, 80)
+    env.updateRevealedMapFromVision(scout)
+
+    # Should have revealed more tiles
+    let count2 = env.getRevealedTileCount(teamId)
+    check count2 > count1
+
+  test "teams have independent revealed maps":
+    let env = makeEmptyEnv()
+    let team0 = 0
+    let team1 = 1
+
+    # Create scouts for different teams at different positions
+    # Agent ID determines team: team 0 = IDs 0-124, team 1 = IDs 125-249
+    let scout0 = addAgentAt(env, 0, ivec2(20, 20))  # Team 0
+    applyUnitClass(scout0, UnitScout)
+    let scout1 = addAgentAt(env, MapAgentsPerTeam, ivec2(80, 80))  # Team 1
+    applyUnitClass(scout1, UnitScout)
+
+    # Update both scouts
+    env.updateRevealedMapFromVision(scout0)
+    env.updateRevealedMapFromVision(scout1)
+
+    # Team 0 should see their scout area but not team 1's
+    check env.isRevealed(team0, ivec2(20, 20))
+    check not env.isRevealed(team0, ivec2(80, 80))
+
+    # Team 1 should see their scout area but not team 0's
+    check env.isRevealed(team1, ivec2(80, 80))
+    check not env.isRevealed(team1, ivec2(20, 20))
+
 suite "Cliff Fall Damage":
   test "agent takes damage when falling off cliff without ramp":
     let env = makeEmptyEnv()

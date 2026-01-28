@@ -2401,6 +2401,8 @@ proc reset*(env: Environment) =
   env.altarColors.clear()
   env.territoryScore = default(TerritoryScore)
   env.territoryScored = false
+  # Clear fog of war (revealed maps) for all teams
+  env.revealedMaps = default(array[MapRoomObjectsTeams, RevealedMap])
   # Clear UI selection to prevent stale references
   selection = nil
   env.init()  # init() handles terrain, activeTiles, and tile colors

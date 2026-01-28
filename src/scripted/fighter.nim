@@ -1272,42 +1272,56 @@ proc shouldTerminateScoutExplore(controller: Controller, env: Environment, agent
 
 proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
-  ## Explore outward from base in an expanding pattern. Prioritizes areas
-  ## without known threats. Reports any enemies seen to the threat map.
+  ## Explore outward from base in an expanding pattern. Prioritizes unexplored
+  ## areas (fog of war) and avoids known threats. Reports enemies to threat map.
+  ## Scouts have extended line of sight (ScoutVisionRange) for exploration.
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   state.basePosition = basePos
 
-  # Update threat map from scout's vision (scouts have enhanced awareness)
+  # Update threat map and revealed map from scout's extended vision
   controller.updateThreatMapFromVision(env, agent, env.currentStep.int32)
 
   # Initialize explore radius if needed
   if state.scoutExploreRadius <= 0:
-    state.scoutExploreRadius = ObservationRadius.int32 + 5
+    state.scoutExploreRadius = ScoutVisionRange.int32  # Start with scout's vision range
 
-  # Find a direction to explore that avoids known threats
-  # Use the spiral search pattern but bias away from threat areas
+  # Find a direction to explore that prioritizes unexplored tiles
+  # Use the spiral search pattern but bias toward fog of war areas
   var bestTarget = ivec2(-1, -1)
   var bestScore = int.low
 
   # Try multiple candidate positions around the exploration frontier
-  for _ in 0 ..< 12:
+  for _ in 0 ..< 16:  # Check more candidates for better exploration coverage
     let candidate = getNextSpiralPoint(state)
     let distFromBase = int(chebyshevDist(candidate, basePos))
 
     # Skip if too close to base (already explored) or too far
     if distFromBase < state.scoutExploreRadius.int - 5:
       continue
-    if distFromBase > state.scoutExploreRadius.int + 15:
+    if distFromBase > state.scoutExploreRadius.int + 20:
       continue
 
     # Check for threats near this position
     let threatStrength = controller.getTotalThreatStrength(
       teamId, candidate, 8, env.currentStep.int32)
 
-    # Score: prefer positions at the frontier with fewer threats
+    # Score: prefer unexplored positions at the frontier with fewer threats
     var score = 100 - abs(distFromBase - state.scoutExploreRadius.int) * 2
     score -= threatStrength.int * 20  # Heavily penalize threat areas
+
+    # Bonus for unexplored tiles (fog of war clearing)
+    if not env.isRevealed(teamId, candidate):
+      score += 50  # Strong preference for unexplored areas
+
+    # Also check if there are unexplored tiles nearby
+    var nearbyUnexplored = 0
+    for dx in -3 .. 3:
+      for dy in -3 .. 3:
+        let nearby = ivec2(candidate.x + dx, candidate.y + dy)
+        if isValidPos(nearby) and not env.isRevealed(teamId, nearby):
+          inc nearbyUnexplored
+    score += nearbyUnexplored * 2  # Bonus for areas with more unexplored tiles nearby
 
     if score > bestScore:
       bestScore = score

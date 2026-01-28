@@ -169,6 +169,75 @@ proc chebyshevDist*(a, b: IVec2): int32 =
   return (if dx > dy: dx else: dy)
 
 # ============================================================================
+# Fog of War / Revealed Map Functions (AoE2-style exploration tracking)
+# ============================================================================
+
+proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: int) =
+  ## Mark tiles within radius of center as revealed for the specified team.
+  ## Uses Chebyshev distance (square vision area) matching the game's standard.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  for dx in -radius .. radius:
+    let worldX = center.x + dx
+    if worldX < 0 or worldX >= MapWidth:
+      continue
+    for dy in -radius .. radius:
+      let worldY = center.y + dy
+      if worldY < 0 or worldY >= MapHeight:
+        continue
+      env.revealedMaps[teamId][worldX][worldY] = true
+
+proc isRevealed*(env: Environment, teamId: int, pos: IVec2): bool =
+  ## Check if a tile has been revealed (explored) by the specified team.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if not isValidPos(pos):
+    return false
+  env.revealedMaps[teamId][pos.x][pos.y]
+
+proc clearRevealedMap*(env: Environment, teamId: int) =
+  ## Clear the revealed map for a team (e.g., at episode reset).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      env.revealedMaps[teamId][x][y] = false
+
+proc clearAllRevealedMaps*(env: Environment) =
+  ## Clear revealed maps for all teams.
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.clearRevealedMap(teamId)
+
+proc updateRevealedMapFromVision*(env: Environment, agent: Thing) =
+  ## Update the revealed map based on agent's current vision.
+  ## Scouts have extended vision range for exploration.
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+
+  # Scouts have extended line of sight for exploration
+  let visionRadius = if agent.unitClass == UnitScout:
+    ScoutVisionRange.int
+  else:
+    ThreatVisionRange.int
+
+  env.revealTilesInRange(teamId, agent.pos, visionRadius)
+
+proc getRevealedTileCount*(env: Environment, teamId: int): int =
+  ## Count how many tiles have been revealed by a team (exploration progress).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  result = 0
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.revealedMaps[teamId][x][y]:
+        inc result
+
+# ============================================================================
+# End Fog of War Functions
+# ============================================================================
+
+# ============================================================================
 # Shared Threat Map Functions
 # ============================================================================
 
@@ -289,10 +358,21 @@ proc clearThreatMap*(controller: Controller, teamId: int) =
 proc updateThreatMapFromVision*(controller: Controller, env: Environment,
                                  agent: Thing, currentStep: int32) =
   ## Scan agent's vision range and report any enemies to the team threat map.
+  ## Also updates the team's revealed map (fog of war).
   ## Called each tick for each agent to share threat intelligence.
+  ## Scouts have extended line of sight (AoE2-style).
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
+
+  # Scouts have extended vision range for both threat detection and exploration
+  let visionRange = if agent.unitClass == UnitScout:
+    ScoutVisionRange
+  else:
+    ThreatVisionRange
+
+  # Update fog of war - reveal tiles in vision range
+  env.updateRevealedMapFromVision(agent)
 
   # Scan for enemy agents within vision range
   for other in env.agents:
@@ -302,7 +382,7 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
     if otherTeam == teamId or otherTeam < 0:
       continue  # Skip allies and neutral
     let dist = chebyshevDist(agent.pos, other.pos)
-    if dist <= ThreatVisionRange:
+    if dist <= visionRange:
       # Calculate threat strength based on unit class
       var strength: int32 = 1
       case other.unitClass
@@ -322,7 +402,7 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
     if thing.teamId < 0 or thing.teamId == teamId:
       continue  # Skip neutral and friendly
     let dist = chebyshevDist(agent.pos, thing.pos)
-    if dist <= ThreatVisionRange:
+    if dist <= visionRange:
       # Calculate threat strength based on building type
       var strength: int32 = 1
       case thing.kind

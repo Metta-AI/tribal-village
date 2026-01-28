@@ -15,6 +15,8 @@ const
   MaxThreatEntries* = 64  # Max threats tracked per team
   ThreatDecaySteps* = 50  # Steps before threat decays
   ThreatVisionRange* = 12 # Range to detect threats
+  # Scout-specific vision (AoE2-style extended line of sight)
+  ScoutVisionRange* = 18  # Scout extended vision range (50% larger than normal)
 
 type
   ## Shared threat map entry for team coordination
