@@ -443,6 +443,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   inc env.currentStep
+
+  # AoE2-style market price equilibrium: drift prices toward base rate periodically
+  if env.currentStep mod MarketPriceDecayInterval == 0:
+    env.decayMarketPrices()
+
   # Single RNG for entire step - more efficient than multiple initRand calls
   var stepRng = initRand(env.currentStep)
 
@@ -1297,6 +1302,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
                     used = true
               of UseMarket:
+                # AoE2-style market trading with dynamic prices
                 if thing.cooldown == 0:
                   let teamId = getTeamId(agent)
                   if thing.teamId == teamId:
@@ -1315,18 +1321,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                       if stockpileRes == ResourceWater:
                         continue
                       if stockpileRes == ResourceGold:
-                        let gained = (count * DefaultMarketBuyFoodNumerator) div DefaultMarketBuyFoodDenominator
-                        if gained <= 0:
-                          continue
-                        env.addToStockpile(teamId, ResourceFood, gained)
-                        setInv(agent, key, 0)
-                        env.updateAgentInventoryObs(agent, key)
-                        traded = true
+                        # Buy food with gold (dynamic pricing)
+                        let (_, foodGained) = env.marketBuyFood(agent, count)
+                        if foodGained > 0:
+                          env.updateAgentInventoryObs(agent, key)
+                          traded = true
                       else:
-                        let gained = (count * DefaultMarketSellNumerator) div DefaultMarketSellDenominator
-                        if gained > 0:
-                          env.addToStockpile(teamId, ResourceGold, gained)
-                          setInv(agent, key, count mod DefaultMarketSellDenominator)
+                        # Sell resources for gold (dynamic pricing)
+                        let (amountSold, _) = env.marketSellInventory(agent, key)
+                        if amountSold > 0:
                           env.updateAgentInventoryObs(agent, key)
                           traded = true
                     if traded:

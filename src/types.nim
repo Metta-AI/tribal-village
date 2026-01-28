@@ -691,6 +691,11 @@ type
     unitHpBonus*: array[AgentUnitClass, int]      ## Bonus HP per unit class
     unitAttackBonus*: array[AgentUnitClass, int]  ## Bonus attack per unit class
 
+  MarketPrices* = object
+    ## AoE2-style dynamic market prices per resource (in gold per 100 units)
+    ## Gold is the base currency and not traded
+    prices*: array[StockpileResource, int]  ## Current price for each resource
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -709,6 +714,7 @@ type
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsTeams, TeamStockpile]
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
+    teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

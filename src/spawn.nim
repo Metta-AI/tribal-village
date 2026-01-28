@@ -180,6 +180,9 @@ proc initState(env: Environment) =
   # Reset team stockpiles
   env.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
 
+  # Initialize AoE2-style market prices
+  env.initMarketPrices()
+
   # Initialize active tiles tracking
   env.activeTiles.positions.setLen(0)
   env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
