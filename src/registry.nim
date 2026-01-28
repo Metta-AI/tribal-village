@@ -95,6 +95,8 @@ let BuildingRegistry* = block:
       18, @[(ItemWood, 10)], 14),
     (Castle, "Castle", "castle", 'c', (r: 120'u8, g: 120'u8, b: 120'u8),
       12, @[(ItemStone, 33)], 20),
+    (Wonder, "Wonder", "wonder", 'O', (r: 255'u8, g: 215'u8, b: 0'u8),
+      26, @[(ItemWood, 50), (ItemStone, 50), (ItemGold, 20)], 30),
     (GoblinHive, "Goblin Hive", "goblin_hive", 'H', (r: 120'u8, g: 170'u8, b: 90'u8),
       -1, @[], 0),
     (GoblinHut, "Goblin Hut", "goblin_hut", 'g', (r: 110'u8, g: 150'u8, b: 90'u8),

@@ -353,6 +353,22 @@ proc stepRechargeMonkFaith(env: Environment) =
     if monk.faith < MonkMaxFaith:
       monk.faith = min(MonkMaxFaith, monk.faith + MonkFaithRechargeRate)
 
+proc stepCheckWonderVictory(env: Environment): int =
+  ## Check for Wonder victory condition (AoE2-style).
+  ## Returns the winning team ID, or -1 if no victory yet.
+  ## Decrements countdown for all standing Wonders and triggers victory when one reaches 0.
+  for wonder in env.thingsByKind[Wonder]:
+    if wonder.hp <= 0:
+      continue  # Destroyed Wonders don't count
+    if wonder.teamId < 0 or wonder.teamId >= MapRoomObjectsTeams:
+      continue  # Only team-owned Wonders count
+    # Decrement countdown
+    if wonder.wonderVictoryCountdown > 0:
+      dec wonder.wonderVictoryCountdown
+      if wonder.wonderVictoryCountdown <= 0:
+        return wonder.teamId  # This team wins!
+  return -1  # No victory yet
+
 proc isOutOfBounds(pos: IVec2): bool {.inline.} =
   ## Check if position is outside the playable map area (within border margin)
   pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
@@ -2453,6 +2469,22 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tTintMs = msBetween(tStart, tNow)
       tStart = tNow
+
+  # Check for Wonder victory (AoE2-style)
+  let wonderWinner = env.stepCheckWonderVictory()
+  if wonderWinner >= 0:
+    # Wonder victory! Mark winning team's agents as successful, others as terminated
+    for i in 0..<MapAgents:
+      let teamId = getTeamId(i)
+      if teamId == wonderWinner:
+        # Winning team gets a reward boost
+        if env.terminated[i] == 0.0:
+          env.agents[i].reward += 10.0  # Victory reward
+      else:
+        # Other teams lose
+        if env.terminated[i] == 0.0:
+          env.terminated[i] = 1.0
+    env.shouldReset = true
 
   # Check if episode should end
   if env.currentStep >= env.config.maxSteps:

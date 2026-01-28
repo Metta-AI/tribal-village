@@ -63,6 +63,8 @@ const
   GuardTowerMaxHp* = 14
   TownCenterMaxHp* = 20
   CastleMaxHp* = 30
+  WonderMaxHp* = 50                   # High HP - hard to destroy
+  WonderVictoryCountdown* = 600       # Steps to hold Wonder for victory (AoE2-style ~10 min at 60 FPS = 600 steps at 1 step/sec)
   GuardTowerAttackDamage* = 2
   CastleAttackDamage* = 3
   TownCenterAttackDamage* = 2
@@ -294,6 +296,7 @@ type
     ThingMonasteryLayer
     ThingUniversityLayer
     ThingCastleLayer
+    ThingWonderLayer
     ThingGoblinHiveLayer
     ThingGoblinHutLayer
     ThingGoblinTotemLayer
@@ -403,6 +406,7 @@ type
     Temple
     University
     Castle
+    Wonder             # AoE2-style Wonder victory building
     GoblinHive
     GoblinHut
     GoblinTotem
@@ -477,6 +481,9 @@ type
 
     # Monastery:
     garrisonedRelics*: int     # Number of relics garrisoned for gold generation
+
+    # Wonder:
+    wonderVictoryCountdown*: int   # Steps remaining until Wonder victory (AoE2-style)
 
     # Tint tracking:
     lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
@@ -563,6 +570,7 @@ const
     Monastery,
     University,
     Castle,
+    Wonder,
     Outpost,
     GuardTower,
     ClayOven,
