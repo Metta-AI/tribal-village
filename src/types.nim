@@ -63,6 +63,7 @@ const
   GuardTowerMaxHp* = 14
   TownCenterMaxHp* = 20
   CastleMaxHp* = 30
+  MonasteryMaxHp* = 12
   WonderMaxHp* = 80  # Very high HP, late-game monument
   WonderVictoryCountdown* = 600       # Steps to hold Wonder for victory (AoE2-style ~10 min at 60 FPS = 600 steps at 1 step/sec)
   GuardTowerAttackDamage* = 2

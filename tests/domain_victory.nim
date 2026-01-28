@@ -142,6 +142,44 @@ suite "Victory - Relic":
     check env.victoryStates[0].relicHoldStartStep == -1
     check env.victoryWinner == -1
 
+  test "relic hold resets when monastery destroyed":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryRelic
+    env.config.maxSteps = 5000
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    let monastery = env.addBuilding(Monastery, ivec2(15, 10), 0)
+    monastery.garrisonedRelics = TotalRelicsOnMap
+    env.stepNoop()
+    check env.victoryStates[0].relicHoldStartStep >= 0
+    # Destroy the monastery - relics drop onto map
+    discard env.applyStructureDamage(monastery, monastery.hp + 1)
+    env.stepNoop()
+    # No team holds all relics anymore (they're on the ground)
+    check env.victoryStates[0].relicHoldStartStep == -1
+    check env.victoryWinner == -1
+    # Relics were dropped
+    check env.thingsByKind[Relic].len == TotalRelicsOnMap
+
+  test "relic victory with relics spread across multiple monasteries":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryRelic
+    env.config.maxSteps = 5000
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    # Spread relics across two monasteries
+    let m1 = env.addBuilding(Monastery, ivec2(15, 10), 0)
+    let m2 = env.addBuilding(Monastery, ivec2(20, 10), 0)
+    m1.garrisonedRelics = TotalRelicsOnMap div 2
+    m2.garrisonedRelics = TotalRelicsOnMap - (TotalRelicsOnMap div 2)
+    env.stepNoop()
+    check env.victoryStates[0].relicHoldStartStep >= 0
+    # Advance past countdown
+    let startStep = env.victoryStates[0].relicHoldStartStep
+    env.currentStep = startStep + RelicVictoryCountdown
+    env.stepNoop()
+    check env.victoryWinner == 0
+
 suite "Victory - VictoryAll mode":
   test "VictoryAll triggers on conquest":
     var env = makeEmptyEnv()

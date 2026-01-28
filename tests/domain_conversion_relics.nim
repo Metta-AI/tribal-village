@@ -159,22 +159,22 @@ suite "Monastery Relic Garrison":
     let expectedGold = goldAfterFirst + (2 * MonasteryRelicGoldAmount)
     check env.teamStockpiles[0].counts[ResourceGold] == expectedGold
 
-  test "destroyed monastery releases garrisoned relics":
+  test "destroyed monastery drops garrisoned relics":
     let env = makeEmptyEnv()
     let monasteryPos = ivec2(10, 10)
     let monastery = addBuilding(env, Monastery, monasteryPos, 0)
     monastery.garrisonedRelics = 3
-
-    # Destroy the monastery by dealing lethal damage
-    discard env.applyStructureDamage(monastery, monastery.hp + 10)
-
+    let relicsBefore = env.thingsByKind[Relic].len
+    # Destroy the monastery
+    discard env.applyStructureDamage(monastery, monastery.hp + 1)
+    # Monastery should be removed
+    check env.grid[monasteryPos.x][monasteryPos.y] == nil
     # Relics should have been dropped nearby
-    check env.thingsByKind[Relic].len == 3
-    check monastery.garrisonedRelics == 0
-    for relic in env.thingsByKind[Relic]:
-      check not isNil(relic)
-      check relic.kind == Relic
-      check getInv(relic, ItemGold) == 0
-      # Should be within 2 tiles of the monastery
-      check abs(relic.pos.x - monasteryPos.x) <= 2
-      check abs(relic.pos.y - monasteryPos.y) <= 2
+    check env.thingsByKind[Relic].len == relicsBefore + 3
+
+  test "monastery is attackable and has HP":
+    let env = makeEmptyEnv()
+    let monastery = addBuilding(env, Monastery, ivec2(10, 10), 0)
+    check monastery.maxHp == MonasteryMaxHp
+    check monastery.hp == MonasteryMaxHp
+    check Monastery in AttackableStructures

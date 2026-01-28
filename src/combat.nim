@@ -91,7 +91,7 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintAttackBonus,  # UnitJanissary
 ]
 
-const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter}
+const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}
 
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =
@@ -161,10 +161,10 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
         env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)
         inc tileIdx
     target.garrisonedUnits.setLen(0)
-  # Drop garrisoned relics when Monastery is destroyed
+  # Drop garrisoned relics when a Monastery is destroyed
   if target.kind == Monastery and target.garrisonedRelics > 0:
     let buildingPos = target.pos
-    var candidates: seq[IVec2] = @[]
+    var bgCandidates: seq[IVec2] = @[]
     for dy in -2 .. 2:
       for dx in -2 .. 2:
         if dx == 0 and dy == 0:
@@ -172,16 +172,16 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
         let pos = buildingPos + ivec2(dx.int32, dy.int32)
         if not isValidPos(pos):
           continue
-        if not env.isEmpty(pos):
-          continue
         if env.terrain[pos.x][pos.y] == Water:
           continue
-        candidates.add(pos)
-    let relicsToDrop = min(target.garrisonedRelics, candidates.len)
-    for i in 0 ..< relicsToDrop:
-      let relic = Thing(kind: Relic, pos: candidates[i])
+        if not isNil(env.backgroundGrid[pos.x][pos.y]):
+          continue
+        bgCandidates.add(pos)
+    let relicsToDrop = target.garrisonedRelics
+    let slots = min(relicsToDrop, bgCandidates.len)
+    for i in 0 ..< slots:
+      let relic = Thing(kind: Relic, pos: bgCandidates[i])
       relic.inventory = emptyInventory()
-      setInv(relic, ItemGold, 0)
       env.add(relic)
     target.garrisonedRelics = 0
   removeThing(env, target)
