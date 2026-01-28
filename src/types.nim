@@ -157,6 +157,11 @@ const
   BlacksmithUpgradeFoodCost* = 3  # Food cost per upgrade level
   BlacksmithUpgradeGoldCost* = 2  # Gold cost per upgrade level
 
+  # University technologies (AoE2-style)
+  UniversityTechMaxLevel* = 1     # Most university techs are one-time (0 or 1)
+  UniversityTechFoodCost* = 5     # Base food cost for university techs
+  UniversityTechGoldCost* = 3     # Base gold cost for university techs
+
   # Gameplay
   MinTintEpsilon* = 5
 
@@ -715,6 +720,21 @@ type
     ## Each upgrade can be researched up to 3 times for +1/+2/+3 bonus
     levels*: array[BlacksmithUpgradeType, int]  ## Current level (0-3) for each upgrade
 
+  UniversityTechType* = enum
+    ## AoE2-style University technologies
+    TechBallistics     ## Arrows track moving targets (ranged accuracy bonus)
+    TechChemistry      ## +1 attack for all units
+    TechSiegeEngineers ## +1 attack for siege units, +20% building damage
+    TechMurderHoles    ## No minimum range for castle/tower arrows
+    TechHeatedShot     ## +4 attack vs ships (towers/castles)
+    TechArchitecture   ## +10% building HP
+    TechMasonry        ## +1 building armor, +10% building HP
+
+  UniversityTechs* = object
+    ## Team-level University technology progress (AoE2-style)
+    ## Most techs are one-time (level 0 = not researched, level 1 = researched)
+    levels*: array[UniversityTechType, int]  ## Current level (0 or 1) for each tech
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -735,6 +755,7 @@ type
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
     teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
     teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
+    teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University technologies
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

@@ -209,6 +209,10 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     if attackerTeamId >= 0 and attackerTeamId < MapRoomObjectsTeams:
       let attackBonus = env.getBlacksmithAttackBonus(attackerTeamId, attacker.unitClass)
       remaining += attackBonus
+      # Apply University Chemistry bonus (+1 attack for all units)
+      remaining += env.getChemistryAttackBonus(attackerTeamId)
+      # Apply University Siege Engineers bonus (+1 attack for siege units)
+      remaining += env.getSiegeEngineersAttackBonus(attackerTeamId, attacker.unitClass)
 
   let bonus = if attacker.isNil: 0 else: BonusDamageByClass[attacker.unitClass][target.unitClass]
   if bonus > 0:

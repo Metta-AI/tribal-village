@@ -933,6 +933,79 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   building.cooldown = 5  # Short cooldown after research
   true
 
+proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
+  ## Find the next University tech to research (first unresearched tech).
+  ## Returns the first tech with level 0.
+  result = TechBallistics  # Default
+  for techType in UniversityTechType:
+    let level = env.teamUniversityTechs[teamId].levels[techType]
+    if level < UniversityTechMaxLevel:
+      return techType
+
+proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing): bool =
+  ## Attempt to research the next University technology for the team.
+  ## Costs: Food + Gold (fixed per tech, not scaling).
+  ## Returns true if research was successful.
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  # Find the next tech to research
+  let techType = env.getNextUniversityTech(teamId)
+  let currentLevel = env.teamUniversityTechs[teamId].levels[techType]
+
+  # Check if already researched (max level is 1)
+  if currentLevel >= UniversityTechMaxLevel:
+    return false
+
+  # Calculate cost (fixed cost, not scaling like Blacksmith)
+  let foodCost = UniversityTechFoodCost
+  let goldCost = UniversityTechGoldCost
+
+  # Check and spend resources
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
+  if not env.spendStockpile(teamId, costs):
+    return false
+
+  # Apply the tech
+  env.teamUniversityTechs[teamId].levels[techType] = 1
+  building.cooldown = 7  # Slightly longer cooldown than Blacksmith
+  true
+
+proc hasUniversityTech*(env: Environment, teamId: int, techType: UniversityTechType): bool =
+  ## Check if a team has researched a specific University technology.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  env.teamUniversityTechs[teamId].levels[techType] >= 1
+
+proc getChemistryAttackBonus*(env: Environment, teamId: int): int =
+  ## Returns +1 attack bonus if Chemistry tech is researched.
+  ## Chemistry grants +1 attack to all units.
+  if env.hasUniversityTech(teamId, TechChemistry):
+    return 1
+  return 0
+
+proc getSiegeEngineersAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
+  ## Returns +1 attack bonus for siege units if Siege Engineers is researched.
+  if not env.hasUniversityTech(teamId, TechSiegeEngineers):
+    return 0
+  # Siege units: BatteringRam, Mangonel, Trebuchet
+  case unitClass
+  of UnitBatteringRam, UnitMangonel, UnitTrebuchet:
+    return 1
+  else:
+    return 0
+
+proc getMasonryArmorBonus*(env: Environment, teamId: int): int =
+  ## Returns +1 building armor if Masonry tech is researched.
+  if env.hasUniversityTech(teamId, TechMasonry):
+    return 1
+  return 0
+
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
     if recipe.station != station:

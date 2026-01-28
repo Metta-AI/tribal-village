@@ -1305,6 +1305,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
                   if env.tryResearchBlacksmithUpgrade(agent, thing):
                     used = true
+              of UseUniversity:
+                # Try crafting first (table items)
+                if thing.cooldown == 0:
+                  if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+                # If crafting failed, try researching a University technology
+                if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                  if env.tryResearchUniversityTech(agent, thing):
+                    used = true
               of UseMarket:
                 # AoE2-style market trading with dynamic prices
                 if thing.cooldown == 0:
@@ -1850,8 +1859,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       else:
         if thing.cooldown > 0:
           dec thing.cooldown
-    elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
-                                         UseTrain, UseTrainAndCraft, UseCraft}:
+    elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseUniversity,
+                                         UseMarket, UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
       if thing.cooldown > 0:
         dec thing.cooldown
