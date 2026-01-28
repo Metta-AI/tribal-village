@@ -147,6 +147,22 @@ suite "Training":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     setStockpile(env, 0, ResourceGold, 2)
 
+    # First USE action queues the training (resources spent immediately)
+    # The step also ticks the queue once, so remaining = duration - 1
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, monastery.pos))
+    check agent.unitClass == UnitVillager  # Still villager (queued, not converted yet)
+    check env.stockpileCount(0, ResourceGold) == 0
+    check monastery.productionQueue.entries.len == 1
+    check monastery.productionQueue.entries[0].remainingSteps == ProductionTrainDuration - 1
+
+    # Wait for remaining steps to complete
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
+
+    # Queue entry should now be ready (remainingSteps == 0)
+    check monastery.productionQueue.entries.len == 1
+    check monastery.productionQueue.entries[0].remainingSteps == 0
+
+    # Now USE again to consume the ready entry and convert
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, monastery.pos))
     check agent.unitClass == UnitMonk
-    check env.stockpileCount(0, ResourceGold) == 0

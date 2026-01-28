@@ -164,6 +164,12 @@ const
   UniversityTechGoldCost* = 3   # Gold cost per tech
   UniversityTechWoodCost* = 2   # Wood cost per tech (some techs require wood)
 
+  # Production queue (AoE2-style)
+  ProductionQueueMaxSize* = 10  # Max units in a building's production queue
+  ProductionTrainDuration* = 5  # Steps to train one unit from queue
+  BatchTrainSmall* = 5          # Shift-click: queue 5 units
+  BatchTrainLarge* = 10         # Ctrl-click: queue 10 units (or max affordable)
+
   # Gameplay
   MinTintEpsilon* = 5
 
@@ -437,6 +443,15 @@ const
   ObservationLayers* = ord(ObservationName.high) + 1
 
 type
+  ProductionQueueEntry* = object
+    ## A single entry in a building's production queue (AoE2-style)
+    unitClass*: AgentUnitClass
+    remainingSteps*: int
+
+  ProductionQueue* = object
+    ## Building production queue for training units over time (AoE2-style)
+    entries*: seq[ProductionQueueEntry]
+
   Thing* = ref object
     kind*: ThingKind
     pos*: IVec2
@@ -489,6 +504,9 @@ type
 
     # Wonder:
     wonderVictoryCountdown*: int   # Steps remaining until Wonder victory (AoE2-style)
+
+    # Production queue (AoE2-style):
+    productionQueue*: ProductionQueue  # Queue of units being trained at this building
 
     # Tint tracking:
     lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
