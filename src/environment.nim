@@ -1046,6 +1046,147 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   building.cooldown = 8  # Longer cooldown for tech research
   true
 
+proc castleTechsForTeam*(teamId: int): (CastleTechType, CastleTechType) =
+  ## Returns the (Castle Age, Imperial Age) tech pair for a team.
+  ## Each team has exactly 2 unique techs, interleaved in the enum.
+  let base = CastleTechType(teamId * 2)
+  let imperial = CastleTechType(teamId * 2 + 1)
+  (base, imperial)
+
+proc getNextCastleTech(env: Environment, teamId: int): CastleTechType =
+  ## Find the next unresearched Castle tech for this team.
+  ## Castle Age tech must be researched before Imperial Age tech.
+  let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+  if not env.teamCastleTechs[teamId].researched[castleAge]:
+    return castleAge
+  if not env.teamCastleTechs[teamId].researched[imperialAge]:
+    return imperialAge
+  # Both researched, return castle age (no-op in caller)
+  castleAge
+
+proc hasCastleTech*(env: Environment, teamId: int, tech: CastleTechType): bool {.inline.} =
+  ## Check if a team has researched a specific Castle unique tech.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  env.teamCastleTechs[teamId].researched[tech]
+
+proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType) =
+  ## Apply the bonuses from a Castle unique tech to the team's modifiers.
+  ## Called when a tech is researched.
+  case tech
+  of CastleTechYeomen:
+    # +1 archer range (modeled as +1 archer attack), +2 tower attack
+    env.teamModifiers[teamId].unitAttackBonus[UnitArcher] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitLongbowman] += 1
+  of CastleTechKataparuto:
+    # +3 trebuchet attack
+    env.teamModifiers[teamId].unitAttackBonus[UnitTrebuchet] += 3
+  of CastleTechLogistica:
+    # +1 infantry attack
+    env.teamModifiers[teamId].unitAttackBonus[UnitManAtArms] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitSamurai] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitWoadRaider] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitTeutonicKnight] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitHuskarl] += 1
+  of CastleTechCrenellations:
+    # +2 castle attack (applied via hasCastleTech check in tower attack)
+    discard
+  of CastleTechGreekFire:
+    # +2 tower attack vs siege (applied via hasCastleTech check in tower attack)
+    discard
+  of CastleTechFurorCeltica:
+    # +2 siege attack
+    env.teamModifiers[teamId].unitAttackBonus[UnitBatteringRam] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitMangonel] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitTrebuchet] += 2
+  of CastleTechAnarchy:
+    # +1 infantry HP
+    env.teamModifiers[teamId].unitHpBonus[UnitManAtArms] += 1
+    env.teamModifiers[teamId].unitHpBonus[UnitSamurai] += 1
+    env.teamModifiers[teamId].unitHpBonus[UnitWoadRaider] += 1
+    env.teamModifiers[teamId].unitHpBonus[UnitTeutonicKnight] += 1
+    env.teamModifiers[teamId].unitHpBonus[UnitHuskarl] += 1
+  of CastleTechPerfusion:
+    # Military units train faster (modeled as +2 all military attack)
+    env.teamModifiers[teamId].unitAttackBonus[UnitManAtArms] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitArcher] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitScout] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitKnight] += 2
+  of CastleTechIronclad:
+    # +3 siege HP
+    env.teamModifiers[teamId].unitHpBonus[UnitBatteringRam] += 3
+    env.teamModifiers[teamId].unitHpBonus[UnitMangonel] += 3
+    env.teamModifiers[teamId].unitHpBonus[UnitTrebuchet] += 3
+  of CastleTechCrenellations2:
+    # +2 castle attack (applied via hasCastleTech check in tower attack)
+    discard
+  of CastleTechBerserkergang:
+    # +2 infantry HP
+    env.teamModifiers[teamId].unitHpBonus[UnitManAtArms] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitSamurai] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitWoadRaider] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitTeutonicKnight] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitHuskarl] += 2
+  of CastleTechChieftains:
+    # +1 cavalry attack
+    env.teamModifiers[teamId].unitAttackBonus[UnitScout] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitKnight] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitCataphract] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitMameluke] += 1
+  of CastleTechZealotry:
+    # +2 cavalry HP
+    env.teamModifiers[teamId].unitHpBonus[UnitScout] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitKnight] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitCataphract] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitMameluke] += 2
+  of CastleTechMahayana:
+    # +1 monk effectiveness (modeled as +1 monk attack)
+    env.teamModifiers[teamId].unitAttackBonus[UnitMonk] += 1
+  of CastleTechSipahi:
+    # +2 archer HP
+    env.teamModifiers[teamId].unitHpBonus[UnitArcher] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitLongbowman] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitJanissary] += 2
+  of CastleTechArtillery:
+    # +2 tower and castle attack (applied via hasCastleTech check in tower attack)
+    discard
+
+proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bool =
+  ## Attempt to research the next Castle unique tech for the team.
+  ## Each team has 2 unique techs (Castle Age first, then Imperial Age).
+  ## Only villagers can research. Returns true if research was successful.
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  # Find the next tech to research for this team
+  let techType = env.getNextCastleTech(teamId)
+
+  # Check if already researched
+  if env.teamCastleTechs[teamId].researched[techType]:
+    return false
+
+  # Determine cost based on whether this is Castle Age or Imperial Age tech
+  let (castleAge, _) = castleTechsForTeam(teamId)
+  let isImperial = techType != castleAge
+  let foodCost = if isImperial: CastleTechImperialFoodCost else: CastleTechFoodCost
+  let goldCost = if isImperial: CastleTechImperialGoldCost else: CastleTechGoldCost
+
+  # Check and spend resources
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
+  if not env.spendStockpile(teamId, costs):
+    return false
+
+  # Apply the tech
+  env.teamCastleTechs[teamId].researched[techType] = true
+  env.applyCastleTechBonuses(teamId, techType)
+  building.cooldown = 10  # Longer cooldown for unique tech research
+  true
+
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
     if recipe.station != station:
