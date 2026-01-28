@@ -381,7 +381,7 @@ proc canStartFighterTrain(...): bool =
 
 1. **No communication/coordination system** between agents
 2. **No role switching** based on situation (can't become fighter if threatened)
-3. **No shared threat map** across all agents
+3. ~~**No shared threat map** across all agents~~ ✅ **COMPLETE** - Implemented in `ai_core.nim` with `ThreatMap` type, per-team tracking, and full API (`reportThreat`, `getNearestThreat`, `getThreatsInRange`, `getTotalThreatStrength`, `hasKnownThreats`). All agents update the map via `updateThreatMapFromVision` each tick. Scouts actively use it for tactical decisions.
 4. **No strategic planning** (all tactical/reactive)
 5. **No economy-to-military conversion** during crises
 
