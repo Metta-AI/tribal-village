@@ -347,6 +347,11 @@ proc canStartLanternFrontierPush(controller: Controller, env: Environment, agent
                                  agentId: int, state: var AgentState): bool =
   agent.inventoryLantern > 0
 
+proc shouldTerminateLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  ## Terminate when no lanterns to place
+  agent.inventoryLantern == 0
+
 proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -359,6 +364,11 @@ proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thi
 proc canStartLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
   agent.inventoryLantern > 0
+
+proc shouldTerminateLanternGapFill(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  ## Terminate when no lanterns to place
+  agent.inventoryLantern == 0
 
 proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
@@ -393,6 +403,11 @@ proc canStartLanternRecovery(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): bool =
   agent.inventoryLantern > 0
 
+proc shouldTerminateLanternRecovery(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when no lanterns to place
+  agent.inventoryLantern == 0
+
 proc optLanternRecovery(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -418,6 +433,11 @@ proc canStartLanternLogistics(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   agent.inventoryLantern == 0 and agent.unitClass == UnitVillager
 
+proc shouldTerminateLanternLogistics(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when lantern acquired or no longer a villager
+  agent.inventoryLantern > 0 or agent.unitClass != UnitVillager
+
 proc optLanternLogistics(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -436,6 +456,11 @@ proc canStartAntiTumorPatrol(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): bool =
   env.thingsByKind[Tumor].len > 0
 
+proc shouldTerminateAntiTumorPatrol(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when no tumors remain
+  env.thingsByKind[Tumor].len == 0
+
 proc optAntiTumorPatrol(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let tumor = env.findNearestThingSpiral(state, Tumor)
@@ -446,6 +471,11 @@ proc optAntiTumorPatrol(controller: Controller, env: Environment, agent: Thing,
 proc canStartSpawnerHunter(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   env.thingsByKind[Spawner].len > 0
+
+proc shouldTerminateSpawnerHunter(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Terminate when no spawners remain
+  env.thingsByKind[Spawner].len == 0
 
 proc optSpawnerHunter(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
@@ -463,6 +493,11 @@ proc canStartFrozenEdgeBreaker(controller: Controller, env: Environment, agent: 
       if isTileFrozen(tumor.pos + d, env):
         return true
   false
+
+proc shouldTerminateFrozenEdgeBreaker(controller: Controller, env: Environment, agent: Thing,
+                                      agentId: int, state: var AgentState): bool =
+  ## Terminate when no frozen tumors remain
+  not canStartFrozenEdgeBreaker(controller, env, agent, agentId, state)
 
 proc optFrozenEdgeBreaker(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
@@ -489,6 +524,11 @@ proc canStartGuardTowerBorder(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("GuardTower"))
 
+proc shouldTerminateGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford or no longer a villager
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("GuardTower"))
+
 proc optGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -504,6 +544,11 @@ proc optGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
 proc canStartOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Outpost"))
+
+proc shouldTerminateOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford or no longer a villager
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Outpost"))
 
 proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
@@ -527,6 +572,11 @@ proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: T
   let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
   enemyPos.x >= 0 and dist <= EnemyWallFortifyRadius
 
+proc shouldTerminateEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford, no longer villager, or no nearby enemy
+  not canStartEnemyWallFortify(controller, env, agent, agentId, state)
+
 proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -543,6 +593,11 @@ proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
 proc canStartWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Wall"))
+
+proc shouldTerminateWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford or no longer a villager
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Wall"))
 
 proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -588,6 +643,11 @@ proc canStartDoorChokeFortify(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Door"))
 
+proc shouldTerminateDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford or no longer a villager
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Door"))
+
 proc optDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -624,6 +684,11 @@ proc canStartRoadExpansion(controller: Controller, env: Environment, agent: Thin
                            agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Road"))
 
+proc shouldTerminateRoadExpansion(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford or no longer a villager
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Road"))
+
 proc optRoadExpansion(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
   let basePos = agent.getBasePos()
@@ -639,6 +704,11 @@ proc optRoadExpansion(controller: Controller, env: Environment, agent: Thing,
 proc canStartCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Castle"))
+
+proc shouldTerminateCastleAnchor(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate when can't afford or no longer a villager
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Castle"))
 
 proc optCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -659,6 +729,11 @@ proc canStartSiegeBreacher(controller: Controller, env: Environment, agent: Thin
     not isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent))) and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(SiegeWorkshop))
 
+proc shouldTerminateSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Terminate when conditions no longer met
+  not canStartSiegeBreacher(controller, env, agent, agentId, state)
+
 proc optSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -672,6 +747,11 @@ proc canStartMangonelSuppression(controller: Controller, env: Environment, agent
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), MangonelWorkshop) > 0 and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(MangonelWorkshop))
+
+proc shouldTerminateMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  ## Terminate when conditions no longer met
+  not canStartMangonelSuppression(controller, env, agent, agentId, state)
 
 proc optMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
@@ -693,6 +773,11 @@ proc canStartUnitPromotionFocus(controller: Controller, env: Environment, agent:
       return true
   false
 
+proc shouldTerminateUnitPromotionFocus(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer villager or can't afford training
+  not canStartUnitPromotionFocus(controller, env, agent, agentId, state)
+
 proc optUnitPromotionFocus(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -711,6 +796,11 @@ proc canStartRelicRaider(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
   agent.inventoryRelic == 0 and env.thingsByKind[Relic].len > 0
 
+proc shouldTerminateRelicRaider(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  ## Terminate when carrying relic or no relics remain
+  agent.inventoryRelic > 0 or env.thingsByKind[Relic].len == 0
+
 proc optRelicRaider(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let relic = env.findNearestThingSpiral(state, Relic)
@@ -721,6 +811,11 @@ proc optRelicRaider(controller: Controller, env: Environment, agent: Thing,
 proc canStartRelicCourier(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   agent.inventoryRelic > 0
+
+proc shouldTerminateRelicCourier(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer carrying a relic
+  agent.inventoryRelic == 0
 
 proc optRelicCourier(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -738,6 +833,11 @@ proc canStartPredatorCull(controller: Controller, env: Environment, agent: Thing
                           agentId: int, state: var AgentState): bool =
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestPredator(env, agent.pos))
 
+proc shouldTerminatePredatorCull(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate when HP drops below threshold or no predators nearby
+  agent.hp * 2 < agent.maxHp or isNil(findNearestPredator(env, agent.pos))
+
 proc optPredatorCull(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let target = findNearestPredator(env, agent.pos)
@@ -749,6 +849,11 @@ proc canStartGoblinNestClear(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): bool =
   not isNil(findNearestGoblinStructure(env, agent.pos))
 
+proc shouldTerminateGoblinNestClear(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when no goblin structures remain
+  isNil(findNearestGoblinStructure(env, agent.pos))
+
 proc optGoblinNestClear(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let target = findNearestGoblinStructure(env, agent.pos)
@@ -759,6 +864,11 @@ proc optGoblinNestClear(controller: Controller, env: Environment, agent: Thing,
 proc canStartFertileExpansion(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
   agent.inventoryWheat > 0 or agent.inventoryWood > 0 or agent.inventoryWater > 0
+
+proc shouldTerminateFertileExpansion(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when no seeds or water to use
+  agent.inventoryWheat == 0 and agent.inventoryWood == 0 and agent.inventoryWater == 0
 
 proc optFertileExpansion(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -794,6 +904,11 @@ proc canStartMarketTrade*(controller: Controller, env: Environment, agent: Thing
       break
   hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
 
+proc shouldTerminateMarketTrade*(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate when market trading conditions are no longer met
+  not canStartMarketTrade(controller, env, agent, agentId, state)
+
 proc optMarketTrade*(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   ## Shared market trading action used by Gatherer, Builder, and Scripted roles.
@@ -818,6 +933,13 @@ proc canStartDockControl(controller: Controller, env: Environment, agent: Thing,
   if agent.unitClass == UnitBoat:
     return env.thingsByKind[Fish].len > 0
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Dock"))
+
+proc shouldTerminateDockControl(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  ## Terminate when boat with no fish, or villager can't afford dock
+  if agent.unitClass == UnitBoat:
+    return env.thingsByKind[Fish].len == 0
+  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Dock"))
 
 proc optDockControl(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
@@ -852,6 +974,11 @@ proc canStartTerritorySweeper(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   agent.inventoryLantern > 0 or not isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
 
+proc shouldTerminateTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when no lanterns and no enemy buildings
+  agent.inventoryLantern == 0 and isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+
 proc optTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let enemy = findNearestEnemyBuilding(env, agent.pos, getTeamId(agent))
@@ -869,6 +996,11 @@ proc canStartTempleFusion(controller: Controller, env: Environment, agent: Thing
   agent.unitClass == UnitVillager and env.thingsByKind[Temple].len > 0 and
     randChance(controller.rng, 0.01)
 
+proc shouldTerminateTempleFusion(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer a villager or no temples
+  agent.unitClass != UnitVillager or env.thingsByKind[Temple].len == 0
+
 proc optTempleFusion(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let temple = env.findNearestThingSpiral(state, Temple)
@@ -880,196 +1012,196 @@ let MetaBehaviorOptions* = [
   OptionDef(
     name: "BehaviorLanternFrontierPush",
     canStart: canStartLanternFrontierPush,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateLanternFrontierPush,
     act: optLanternFrontierPush,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorLanternGapFill",
     canStart: canStartLanternGapFill,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateLanternGapFill,
     act: optLanternGapFill,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorLanternRecovery",
     canStart: canStartLanternRecovery,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateLanternRecovery,
     act: optLanternRecovery,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorLanternLogistics",
     canStart: canStartLanternLogistics,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateLanternLogistics,
     act: optLanternLogistics,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorAntiTumorPatrol",
     canStart: canStartAntiTumorPatrol,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateAntiTumorPatrol,
     act: optAntiTumorPatrol,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorSpawnerHunter",
     canStart: canStartSpawnerHunter,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateSpawnerHunter,
     act: optSpawnerHunter,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorFrozenEdgeBreaker",
     canStart: canStartFrozenEdgeBreaker,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFrozenEdgeBreaker,
     act: optFrozenEdgeBreaker,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorGuardTowerBorder",
     canStart: canStartGuardTowerBorder,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGuardTowerBorder,
     act: optGuardTowerBorder,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorOutpostNetwork",
     canStart: canStartOutpostNetwork,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateOutpostNetwork,
     act: optOutpostNetwork,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorEnemyWallFortify",
     canStart: canStartEnemyWallFortify,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateEnemyWallFortify,
     act: optEnemyWallFortify,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorWallChokeFortify",
     canStart: canStartWallChokeFortify,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateWallChokeFortify,
     act: optWallChokeFortify,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorDoorChokeFortify",
     canStart: canStartDoorChokeFortify,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateDoorChokeFortify,
     act: optDoorChokeFortify,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorRoadExpansion",
     canStart: canStartRoadExpansion,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateRoadExpansion,
     act: optRoadExpansion,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorCastleAnchor",
     canStart: canStartCastleAnchor,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateCastleAnchor,
     act: optCastleAnchor,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorSiegeBreacher",
     canStart: canStartSiegeBreacher,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateSiegeBreacher,
     act: optSiegeBreacher,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorMangonelSuppression",
     canStart: canStartMangonelSuppression,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateMangonelSuppression,
     act: optMangonelSuppression,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorUnitPromotionFocus",
     canStart: canStartUnitPromotionFocus,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateUnitPromotionFocus,
     act: optUnitPromotionFocus,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorRelicRaider",
     canStart: canStartRelicRaider,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateRelicRaider,
     act: optRelicRaider,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorRelicCourier",
     canStart: canStartRelicCourier,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateRelicCourier,
     act: optRelicCourier,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorPredatorCull",
     canStart: canStartPredatorCull,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminatePredatorCull,
     act: optPredatorCull,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorGoblinNestClear",
     canStart: canStartGoblinNestClear,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGoblinNestClear,
     act: optGoblinNestClear,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorFertileExpansion",
     canStart: canStartFertileExpansion,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateFertileExpansion,
     act: optFertileExpansion,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorBreadSupply",
     canStart: canStartCraftBread,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateCraftBread,
     act: optCraftBread,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorMarketManipulator",
     canStart: canStartMarketTrade,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateMarketTrade,
     act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorStockpileDistributor",
     canStart: canStartStockpileDistributor,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateStoreValuables,
     act: optStockpileDistributor,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorDockControl",
     canStart: canStartDockControl,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateDockControl,
     act: optDockControl,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorTerritorySweeper",
     canStart: canStartTerritorySweeper,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateTerritorySweeper,
     act: optTerritorySweeper,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorTempleFusion",
     canStart: canStartTempleFusion,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateTempleFusion,
     act: optTempleFusion,
     interruptible: true
   )
