@@ -63,6 +63,9 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitJanissary - Red/white ottoman
   UnitAttackTint(tint: TileColor(r: 0.90, g: 0.30, b: 0.35, intensity: 1.15),
     duration: 2'i8, code: ActionTintAttackJanissary),
+  # UnitKing - Royal gold/purple regicide
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.80, b: 0.20, intensity: 1.20),
+    duration: 3'i8, code: ActionTintAttackKing),
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =
