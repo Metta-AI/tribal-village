@@ -1,64 +1,69 @@
 # Docs Index
 
-Date: 2026-01-19
+Date: 2026-01-28
 Owner: Docs / Systems
 Status: Draft
 
 This index lists the canonical docs for the Tribal Village repo.
 
 ## Getting Started
-- `docs/quickstart.md`: prerequisites, building, running, testing, and environment variables.
-- `docs/architecture.md`: high-level architectural overview of the codebase.
-- `docs/configuration.md`: configuration reference for runtime, compile-time, and environment options.
+- `quickstart.md`: prerequisites, building, running, testing, and environment variables.
+
+## Architecture and Configuration
+- `architecture.md`: high-level codebase architecture and module layout.
+- `configuration.md`: tunable constants and configuration reference.
+- `action_space.md`: action encoding, verbs, and argument layout.
+- `observation_space.md`: observation tensor layout and tint codes.
 
 ## Core Gameplay and Systems
-- `docs/game_logic.md`: high-level step loop, actions, entities, and episode end rules.
-- `docs/action_space.md`: action space encoding, verbs, and arguments reference.
-- `docs/combat.md`: combat rules, counters, and damage interactions.
-- `docs/combat_visuals.md`: combat tint/visual feedback specifics.
-- `docs/economy_respawn.md`: inventory vs stockpile, markets, hearts, respawns.
-- `docs/population_and_housing.md`: pop-cap and housing details.
-- `docs/clippy_tint_freeze.md`: territory tinting, tumors, and frozen tiles.
-- `docs/observation_space.md`: observation tensor layout and tint codes.
+- `game_logic.md`: high-level step loop, actions, entities, and episode end rules.
+- `combat.md`: combat rules, counters, and damage interactions.
+- `combat_visuals.md`: combat tint/visual feedback specifics.
+- `economy_respawn.md`: inventory vs stockpile, markets, hearts, respawns.
+- `population_and_housing.md`: pop-cap and housing details.
+- `clippy_tint_freeze.md`: territory tinting, tumors, and frozen tiles.
 
 ## AI
-- `docs/ai_system.md`: AI wiring, roles, OptionDef behavior model, evolution toggle.
-- `docs/ai_profiling.md`: profiling entrypoints and evolution compile-time flag.
+- `ai_system.md`: AI wiring, roles, OptionDef behavior model, evolution toggle.
+- `ai_profiling.md`: profiling entrypoints and evolution compile-time flag.
 
 ## Worldgen and Spawning
-- `docs/world_generation.md`: trading hub, rivers, goblin hives, tuning notes.
-- `docs/spawn_pipeline.md`: spawn order, placement helpers, and connectivity pass.
-- `docs/terrain_biomes.md`: biome masks, elevation, cliffs, ramps, connectivity.
-- `docs/wildlife_predators.md`: wildlife spawn and behavior rules.
+- `world_generation.md`: trading hub, rivers, goblin hives, tuning notes.
+- `spawn_pipeline.md`: spawn order, placement helpers, and connectivity pass.
+- `terrain_biomes.md`: biome masks, elevation, cliffs, ramps, connectivity.
+- `wildlife_predators.md`: wildlife spawn and behavior rules.
 
 ## Tooling and Pipelines
-- `docs/cli_and_debugging.md`: CLI usage, debugging flags, common failure modes.
-- `docs/training_and_replays.md`: training entrypoints and replay writer setup.
-- `docs/asset_pipeline.md`: asset generation and wiring guidance.
+- `cli_and_debugging.md`: CLI usage, debugging flags, common failure modes.
+- `training_and_replays.md`: training entrypoints and replay writer setup.
+- `asset_pipeline.md`: asset generation and wiring guidance.
 
 ## Design and Planning
-- `docs/aoe2_design_plan.md`: AoE2-inspired design notes and constraints.
-- `docs/siege_fortifications_plan.md`: siege and defenses design plan.
-- `docs/temple_hybridization.md`: temple-based hybrid spawn notes.
+- `aoe2_design_plan.md`: AoE2-inspired design notes and constraints.
+- `siege_fortifications_plan.md`: siege and defenses design plan.
+- `temple_hybridization.md`: temple-based hybrid spawn notes.
 
-## Analysis and Reviews
-- `docs/ai_behavior_analysis.md`: AI behavior invalid action root causes.
-- `docs/game_mechanics_analysis.md`: game mechanics action failure analysis.
-- `docs/entity_interaction_analysis.md`: entity interaction and targeting analysis.
-- `docs/performance_analysis.md`: performance optimization opportunities.
-- `docs/perf-improvements.md`: performance improvements summary (38% speedup).
-- `docs/performance_scaling_1000_agents.md`: 1000+ agent scaling bottleneck investigation.
-- `docs/code_review_verbosity.md`: code verbosity patterns review.
-- `docs/code_review_indirection.md`: helper function indirection review.
-- `docs/code_review_dead_code.md`: dead code analysis.
-- `docs/codebase_audit.md`: codebase structure and file organization audit.
-- `docs/role_audit_report.md`: deep audit of gatherer, builder, fighter roles.
-- `docs/terrain_biomes_audit.md`: terrain and biomes implementation audit.
-- `docs/aoe2_design_investigation.md`: AoE2 design plan vs implementation review.
-- `docs/building_siege_analysis.md`: building interaction and siege mechanics analysis.
-- `docs/siege_fortifications_investigation_report.md`: siege fortifications plan investigation.
-- `docs/ai_profile_3000_steps.md`: profile results from 3000 step run.
+## Analysis and Reviews (`analysis/`)
+All analysis, audit, investigation, and code review files live in `docs/analysis/`:
+- `analysis/ai_behavior_analysis.md`: AI behavior invalid action root causes.
+- `analysis/ai_profile_3000_steps.md`: profile results from 3000 step run.
+- `analysis/aoe2_design_investigation.md`: AoE2 design investigation notes.
+- `analysis/building_siege_analysis.md`: building and siege mechanic analysis.
+- `analysis/codebase_audit.md`: full codebase audit.
+- `analysis/codebase-beads-status.md`: codebase beads status tracking.
+- `analysis/code_review_dead_code.md`: dead code analysis.
+- `analysis/code_review_indirection.md`: helper function indirection review.
+- `analysis/code_review_verbosity.md`: code verbosity patterns review.
+- `analysis/entity_interaction_analysis.md`: entity interaction analysis.
+- `analysis/game_mechanics_analysis.md`: game mechanics action failure analysis.
+- `analysis/perf-improvements.md`: performance improvement notes.
+- `analysis/performance_analysis.md`: performance optimization opportunities.
+- `analysis/performance_scaling_1000_agents.md`: scaling analysis for 1000 agents.
+- `analysis/role_audit_report.md`: AI role audit report.
+- `analysis/siege_fortifications_investigation_report.md`: siege fortifications investigation.
+- `analysis/temple_hybridization_audit.md`: temple hybridization audit.
+- `analysis/terrain_biomes_audit.md`: terrain and biomes audit.
 
 ## Repo and Process
-- `docs/repo_history_cleanup.md`: repository history cleanup notes.
-- `docs/codex_template.md`: candidate Codex command templates.
+- `repo_history_cleanup.md`: repository history cleanup notes.
+- `codex_template.md`: candidate Codex command templates.
