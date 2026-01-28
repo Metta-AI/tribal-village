@@ -157,7 +157,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
     if isValidPos(target.pos):
       env.updateObservations(ThingAgentLayer, target.pos, 0)
   # Eject garrisoned units when building is destroyed
-  if target.kind in {TownCenter, Castle} and target.garrisonedUnits.len > 0:
+  if target.kind in {TownCenter, Castle, GuardTower, House} and target.garrisonedUnits.len > 0:
     # Find empty tiles around the building to eject units
     let buildingPos = target.pos
     var emptyTiles: seq[IVec2] = @[]
