@@ -99,3 +99,4 @@ nim.cfg
 .claude/
 .beads/
 .logs/
+src/ffi
