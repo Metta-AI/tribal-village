@@ -1162,6 +1162,12 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
             teamIdOverride: -1
           ))
 
+          # In Regicide mode, make the first agent the King
+          if j == 0 and env.config.victoryCondition in {VictoryRegicide, VictoryAll}:
+            let king = env.agents[agentId]
+            applyUnitClass(env, king, UnitKing)
+            env.victoryStates[teamId].kingAgentId = agentId
+
           totalAgentsSpawned += 1
           if totalAgentsSpawned >= totalTeamAgentCap:
             break

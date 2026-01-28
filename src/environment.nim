@@ -483,7 +483,8 @@ const
     TeutonicKnightMaxHp,
     HuskarlMaxHp,
     MamelukeMaxHp,
-    JanissaryMaxHp
+    JanissaryMaxHp,
+    KingMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
     VillagerAttackDamage,
@@ -505,7 +506,8 @@ const
     TeutonicKnightAttackDamage,
     HuskarlAttackDamage,
     MamelukeAttackDamage,
-    JanissaryAttackDamage
+    JanissaryAttackDamage,
+    KingAttackDamage
   ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
@@ -517,7 +519,7 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
     StanceNoAttack
   of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
-     UnitHuskarl, UnitMameluke, UnitJanissary:
+     UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing:
     StanceDefensive
 
 type
@@ -538,7 +540,7 @@ proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
     CategoryCavalry
   of UnitArcher, UnitLongbowman, UnitJanissary:
     CategoryArcher
-  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat:
+  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat, UnitKing:
     CategoryNone
 
 proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =

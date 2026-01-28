@@ -495,7 +495,8 @@ proc drawObjects*() =
       of UnitBoat: "oriented/boat"
       # Castle unique units (use knight sprite as fallback until unique sprites are added)
       of UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider,
-         UnitTeutonicKnight, UnitHuskarl, UnitMameluke, UnitJanissary:
+         UnitTeutonicKnight, UnitHuskarl, UnitMameluke, UnitJanissary,
+         UnitKing:
         "oriented/knight"
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey

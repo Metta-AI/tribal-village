@@ -142,6 +142,8 @@ const
   MamelukeAttackDamage* = 2
   JanissaryMaxHp* = 6
   JanissaryAttackDamage* = 3
+  KingMaxHp* = 15             # Regicide: high HP leader unit
+  KingAttackDamage* = 2       # Regicide: moderate attack
   ArcherBaseRange* = 3
   MangonelBaseRange* = 3
   MangonelAoELength* = 5
@@ -219,6 +221,7 @@ const
   ActionTintAttackHuskarl* = 45'u8
   ActionTintAttackMameluke* = 46'u8
   ActionTintAttackJanissary* = 47'u8
+  ActionTintAttackKing* = 48'u8
 
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
@@ -374,6 +377,7 @@ type
     UnitHuskarl        # Team 5: Anti-archer infantry
     UnitMameluke       # Team 6: Ranged cavalry
     UnitJanissary      # Team 7: Powerful ranged unit
+    UnitKing           # Regicide mode: team leader, high HP, limited combat
 
   ThingKind* = enum
     Agent
@@ -678,12 +682,14 @@ type
     VictoryConquest     ## Win when all enemy units and buildings destroyed
     VictoryWonder       ## Build Wonder, survive countdown
     VictoryRelic        ## Hold all relics in Monasteries for countdown
+    VictoryRegicide     ## Win by killing all enemy kings
     VictoryAll          ## Any of the above can trigger victory
 
   VictoryState* = object
     ## Per-team victory tracking
     wonderBuiltStep*: int          ## Step when Wonder was built (-1 = no wonder)
     relicHoldStartStep*: int       ## Step when team started holding all relics (-1 = not holding)
+    kingAgentId*: int              ## Agent ID of this team's king (-1 = no king)
 
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants

@@ -506,6 +506,28 @@ proc checkRelicVictory(env: Environment): int =
       env.victoryStates[teamId].relicHoldStartStep = -1
   -1
 
+proc checkRegicideVictory(env: Environment): int =
+  ## Returns winning team ID if only one team's king survives, else -1.
+  ## Teams without a king assigned are ignored (not playing regicide).
+  var survivingTeam = -1
+  var survivingCount = 0
+  var participatingTeams = 0
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    let kingId = env.victoryStates[teamId].kingAgentId
+    if kingId < 0:
+      continue  # Team has no king, not participating
+    inc participatingTeams
+    if isAgentAlive(env, env.agents[kingId]):
+      survivingTeam = teamId
+      inc survivingCount
+      if survivingCount > 1:
+        return -1  # Multiple kings alive
+  if participatingTeams < 2:
+    return -1  # Need at least 2 teams with kings
+  if survivingCount == 1:
+    return survivingTeam
+  -1
+
 proc updateWonderTracking(env: Environment) =
   ## Track when Wonders are first fully constructed (for countdown).
   ## Only starts countdown when wonder reaches full HP (construction complete).
@@ -543,6 +565,13 @@ proc checkVictoryConditions(env: Environment) =
   # Relic check
   if cond in {VictoryRelic, VictoryAll}:
     let winner = env.checkRelicVictory()
+    if winner >= 0:
+      env.victoryWinner = winner
+      return
+
+  # Regicide check
+  if cond in {VictoryRegicide, VictoryAll}:
+    let winner = env.checkRegicideVictory()
     if winner >= 0:
       env.victoryWinner = winner
       return
@@ -2914,6 +2943,7 @@ proc reset*(env: Environment) =
   for teamId in 0 ..< MapRoomObjectsTeams:
     env.victoryStates[teamId].wonderBuiltStep = -1
     env.victoryStates[teamId].relicHoldStartStep = -1
+    env.victoryStates[teamId].kingAgentId = -1
   # Clear fog of war (revealed maps) for all teams
   env.revealedMaps = default(array[MapRoomObjectsTeams, RevealedMap])
   # Clear UI selection to prevent stale references

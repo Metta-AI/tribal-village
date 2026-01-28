@@ -53,6 +53,8 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.90, g: 0.80, b: 0.50, intensity: 1.20),
   # UnitJanissary
   TileColor(r: 0.90, g: 0.30, b: 0.35, intensity: 1.22),
+  # UnitKing
+  TileColor(r: 0.95, g: 0.80, b: 0.20, intensity: 1.25),
 ]
 
 # Action tint codes for per-unit bonus damage
@@ -89,6 +91,7 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintAttackBonus,  # UnitHuskarl
   ActionTintAttackBonus,  # UnitMameluke
   ActionTintAttackBonus,  # UnitJanissary
+  ActionTintAttackBonus,  # UnitKing
 ]
 
 const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}
