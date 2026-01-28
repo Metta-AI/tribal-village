@@ -761,12 +761,19 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       plannedPath: @[],
       plannedPathIndex: 0,
       pathBlockedTarget: ivec2(-1, -1),
-      # Preserve patrol state
+      # Preserve patrol and attack-move state
       patrolPoint1: existingState.patrolPoint1,
       patrolPoint2: existingState.patrolPoint2,
       patrolToSecondPoint: existingState.patrolToSecondPoint,
       patrolActive: existingState.patrolActive,
-      attackMoveTarget: ivec2(-1, -1)
+      # Preserve attack-move target if explicitly set (not zero-init default)
+      # Zero-init produces (0,0), but we use (-1,-1) as inactive marker
+      attackMoveTarget: if existingState.attackMoveTarget.x > 0 or existingState.attackMoveTarget.y > 0:
+                          existingState.attackMoveTarget
+                        elif existingState.attackMoveTarget.x < 0:
+                          existingState.attackMoveTarget  # Already (-1,-1)
+                        else:
+                          ivec2(-1, -1)  # Zero-init default -> inactive
     )
     for kind in ThingKind:
       initState.cachedThingPos[kind] = ivec2(-1, -1)
@@ -973,6 +980,24 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
     # Move toward current waypoint
     return controller.moveTo(env, agent, agentId, state, target)
+
+  # Attack-move behavior - applies to all roles when attack-move target is set
+  if state.attackMoveTarget.x >= 0:
+    # Check if we've reached the destination (within 1 tile)
+    if chebyshevDist(agent.pos, state.attackMoveTarget) <= 1'i32:
+      # Clear the attack-move target - we've arrived
+      state.attackMoveTarget = ivec2(-1, -1)
+    else:
+      # Check for nearby enemies to engage while moving
+      if stanceAllowsChase(agent):
+        let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+        if not isNil(enemy):
+          let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
+          if enemyDist <= 8:  # Attack-move detection radius
+            # Enemy found - engage!
+            return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+      # No enemy nearby - continue moving toward destination
+      return controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
 
   # Global: prioritize getting hearts to 10 via gold -> magma -> altar (gatherers only).
   if state.role == Gatherer:
