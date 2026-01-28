@@ -1,6 +1,6 @@
 # AI System Overview
 
-Date: 2026-01-19
+Date: 2026-01-28
 Owner: Engineering / AI
 Status: Draft
 
@@ -159,12 +159,46 @@ role option lists.
 - **Gatherer**: selects a task based on stockpiles and altar hearts; gathers
   food/wood/stone/gold, plants on fertile tiles, and builds small camps near
   dense resources. Uses markets and stockpiles to drop off when carrying.
+  Flees when enemies are nearby.
 - **Builder**: focuses on pop-cap houses, core infrastructure and tech
   buildings, mills near fertile clusters, and defensive rings (walls/doors/
-  outposts) around the altar.
+  outposts) around the altar. Flees when enemies are nearby. Uses adaptive
+  wall radius and coordinates with other builders to prevent duplicate
+  construction.
 - **Fighter**: defends against nearby enemies, retreats on low HP, breaks out
   of enclosures, hunts wildlife, and supports monk/relic behaviors when
-  applicable.
+  applicable. Uses attack-move and patrol commands. Seeks healers when
+  injured. Has emergency heal behavior at low HP. Prioritizes anti-siege
+  targets and uses ranged kiting for archers.
+
+## Inter-Role Coordination
+The coordination system (`src/scripted/coordination.nim`) enables cross-role
+awareness:
+- **Gatherer/Fighter/Builder** roles share state about threats and resource needs.
+- Agents can signal threats to teammates, triggering defensive responses across roles.
+- Coordination reduces redundant work (e.g., multiple builders targeting the same site).
+
+## Shared Threat Map
+A team-wide **shared threat map** tracks enemy positions and recent combat events:
+- Updated by all agents who observe enemies.
+- Fighters use it to prioritize patrol routes and interception points.
+- Builders and gatherers use it to avoid dangerous areas.
+
+## Economy Management and Worker Allocation
+The AI includes an **economy management** layer that:
+- Monitors team stockpile levels to determine resource priorities.
+- Adjusts gatherer resource weighting based on current needs.
+- Allocates workers between gathering, building, and military tasks dynamically.
+
+## Adaptive Difficulty
+An **adaptive difficulty system** adjusts AI behavior based on game state:
+- Difficulty levels affect AI reaction time, resource efficiency, and tactical sophistication.
+- The system can ramp difficulty during an episode based on player performance.
+
+## Scout Exploration
+Scout units implement **line-of-sight exploration**:
+- Scouts track which tiles have been revealed and prioritize unexplored areas.
+- Enemy positions discovered by scouts are shared via the threat map.
 
 ## The behavior (OptionDef) system
 `src/scripted/options.nim` defines the minimal behavior contract:

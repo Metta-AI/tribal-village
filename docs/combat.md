@@ -1,6 +1,6 @@
 # Combat System Notes
 
-Date: 2026-01-13
+Date: 2026-01-28
 Owner: Design / Systems
 Status: Draft
 
@@ -71,6 +71,29 @@ See `docs/observation_space.md` for the full list of tint codes.
 - **Battering Ram**: 2-tile line strike (stops on first hit).
 - **Mangonel**: widened area strike (5-wide line over its range).
 - **Boat**: 3-wide forward band (broadside).
+
+## Trebuchet Pack/Unpack
+- **Trebuchets** have two modes: packed (mobile) and unpacked (stationary, can attack).
+- Unpacking and packing takes a short delay before the trebuchet can act.
+- Unpacked trebuchets have long-range siege attacks but cannot move.
+
+## Monk Conversion
+- Monks can **convert** enemy units instead of attacking.
+- Conversion is blocked if the target's team is already at population cap.
+- Converted units switch team ownership and retain their current stats.
+
+## Cliff Fall Damage
+- Units that move off a cliff edge (elevation drop > 1) take **fall damage**.
+- Fall damage is proportional to the elevation difference.
+- Ramps (road tiles at elevation boundaries) allow safe traversal.
+
+## Attack-Move and Patrol
+- **Attack-move**: Units move toward a destination and automatically engage any enemy encountered en route.
+- **Patrol**: Units cycle between patrol waypoints, engaging enemies within their aggro range.
+
+## Unit Stances
+Combat behavior modes that control engagement rules:
+- Stances determine whether units pursue fleeing enemies, hold position, or auto-engage.
 
 ## Cavalry Movement
 - **Scouts** and **Knights** attempt to move 2 tiles per step; if blocked, they stop before the obstacle.

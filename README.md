@@ -1,6 +1,6 @@
 # Tribal Village
 
-Multi-agent RL environment in Nim with a Python wrapper (PufferLib compatible). Teams of agents gather resources, craft items, build structures, and compete while defending against hostile tumors and wildlife.
+Multi-agent RL environment in Nim with a Python wrapper (PufferLib compatible). Teams of agents gather resources, craft items, build structures, train military units, research technologies, and compete across multiple victory conditions — inspired by Age of Empires II.
 
 <img width="2932" height="1578" alt="Tribal Village screenshot" src="https://github.com/user-attachments/assets/b1736191-ff85-48fa-b5cf-f47e441fd118" />
 
@@ -31,7 +31,18 @@ pip install -e .[cogames]
 tribal-village train --steps 1000000 --parallel-envs 8 --num-workers 4
 ```
 
-**Controls:** Arrow keys/WASD (move), U (use/craft), Space (pause/step), scroll (zoom)
+**Controls:** Arrow keys/WASD (move), U (use/craft), Space (pause/step), scroll (zoom), Ctrl+1-9 (control groups)
+
+## Key Features
+
+- **Victory conditions**: Conquest, Wonder, Relic, King of the Hill, Regicide
+- **Tech trees**: Blacksmith upgrades, University research, Castle unique techs per civilization
+- **Production system**: Batch training, production queues, per-unit training times, rally points
+- **Military commands**: Attack-move, patrol, unit stances, control groups
+- **Economy**: AoE2-style market trading, Trade Cog dock-to-dock gold generation, biome resource bonuses
+- **Unit mechanics**: Garrisoning, Trebuchet pack/unpack, Monk conversion, Scout exploration, unit upgrades
+- **AI system**: Role-based agents (Gatherer/Builder/Fighter) with inter-role coordination, shared threat maps, adaptive difficulty
+- **Terrain**: Biome zones, elevation with cliffs/ramps, mud and shallow water, terrain movement speed modifiers
 
 ## Python API
 
@@ -54,10 +65,14 @@ obs, reward, terminated, truncated, info = env.step(actions)
 | [Game Logic](docs/game_logic.md) | Step loop, actions, entities, episode rules |
 | [Action Space](docs/action_space.md) | Discrete 250 actions (verb * 25 + direction/argument) |
 | [Observation Space](docs/observation_space.md) | 84 layers, 11x11 grid per agent |
-| [Combat](docs/combat.md) | Combat rules, counters, damage |
-| [Economy & Respawn](docs/economy_respawn.md) | Inventory, stockpiles, markets, hearts |
-| [AI System](docs/ai_system.md) | AI wiring, roles, behavior model |
+| [Combat](docs/combat.md) | Combat rules, counters, siege, unit commands |
+| [Economy & Respawn](docs/economy_respawn.md) | Inventory, stockpiles, markets, trade, hearts |
+| [AI System](docs/ai_system.md) | AI roles, coordination, threat maps, behaviors |
+| [Terrain & Biomes](docs/terrain_biomes.md) | Biomes, elevation, cliffs, mud, water depth |
 | [World Generation](docs/world_generation.md) | Trading hub, rivers, biomes, spawning |
+| [Configuration](docs/configuration.md) | Runtime params, compile-time constants, env vars |
+| [Architecture](docs/architecture.md) | System components, module layout, build process |
+| [Python API](docs/python_api.md) | Python wrapper, PufferLib integration, examples |
 | [CLI & Debugging](docs/cli_and_debugging.md) | CLI usage, debugging flags |
 | [Training & Replays](docs/training_and_replays.md) | Training entrypoints, replay setup |
 | [Asset Pipeline](docs/asset_pipeline.md) | Asset generation workflow |
