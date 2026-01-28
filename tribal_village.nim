@@ -345,7 +345,7 @@ proc display() =
 
     if window.buttonReleased[MouseLeft]:
       if (logicalMousePos(window) - mouseDownPos).length <= 3.0:
-        selection = nil
+        selection = @[]
         let
           mousePos = bxy.getTransform().inverse * window.mousePos.vec2
           gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
@@ -354,14 +354,76 @@ proc display() =
           selectedPos = gridPos
           let thing = env.grid[gridPos.x][gridPos.y]
           if not isNil(thing):
-            selection = thing
+            if window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]:
+              # Shift-click: toggle unit in selection
+              var found = false
+              for i, s in selection:
+                if s == thing:
+                  selection.delete(i)
+                  found = true
+                  break
+              if not found:
+                selection.add(thing)
+            else:
+              selection = @[thing]
 
-  if selection != nil and selection.kind == Agent:
-    let agent = selection
+  # Control group handling (AoE2-style: Ctrl+N assigns, N recalls, double-tap centers)
+  let ctrlDown = window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl]
+  const numberKeys = [Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9]
+  let groupNow = nowSeconds()
+  const doubleTapThreshold = 0.3  # seconds
+
+  for i in 0 ..< ControlGroupCount:
+    if window.buttonPressed[numberKeys[i]]:
+      if ctrlDown:
+        # Ctrl+N: assign current selection to group N
+        controlGroups[i] = selection
+      else:
+        # N: recall group N
+        # Filter out dead/nil units before recalling
+        var alive: seq[Thing] = @[]
+        for thing in controlGroups[i]:
+          if not isNil(thing) and thing.kind == Agent and
+             env.isAgentAlive(thing):
+            alive.add(thing)
+        controlGroups[i] = alive
+
+        if alive.len > 0:
+          # Double-tap detection: center camera on group
+          if lastGroupKeyIndex == i and (groupNow - lastGroupKeyTime[i]) < doubleTapThreshold:
+            # Double-tap: center camera on group centroid
+            var cx, cy: float32 = 0
+            for thing in alive:
+              cx += thing.pos.x.float32
+              cy += thing.pos.y.float32
+            cx /= alive.len.float32
+            cy /= alive.len.float32
+            let scaleF = window.contentScale.float32
+            let rectW = panelRect.w / scaleF
+            let rectH = panelRect.h / scaleF
+            let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
+            worldMapPanel.pos = vec2(
+              rectW / 2.0'f32 - cx * zoomScale,
+              rectH / 2.0'f32 - cy * zoomScale
+            )
+            worldMapPanel.vel = vec2(0, 0)
+          else:
+            # Single tap: select the group
+            selection = alive
+            if alive.len > 0:
+              selectedPos = alive[0].pos
+
+          lastGroupKeyTime[i] = groupNow
+          lastGroupKeyIndex = i
+
+  if selection.len > 0 and selection[0].kind == Agent:
+    let agent = selection[0]
 
     template overrideAndStep(action: uint8) =
       actionsArray = getActions(env)
-      actionsArray[agent.agentId] = action
+      for sel in selection:
+        if not isNil(sel) and sel.kind == Agent:
+          actionsArray[sel.agentId] = action
       env.step(addr actionsArray)
 
     if window.buttonPressed[KeyW] or window.buttonPressed[KeyUp]:
