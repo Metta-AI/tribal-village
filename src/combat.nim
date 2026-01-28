@@ -161,6 +161,29 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
         env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)
         inc tileIdx
     target.garrisonedUnits.setLen(0)
+  # Drop garrisoned relics when Monastery is destroyed
+  if target.kind == Monastery and target.garrisonedRelics > 0:
+    let buildingPos = target.pos
+    var candidates: seq[IVec2] = @[]
+    for dy in -2 .. 2:
+      for dx in -2 .. 2:
+        if dx == 0 and dy == 0:
+          continue
+        let pos = buildingPos + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        if not env.isEmpty(pos):
+          continue
+        if env.terrain[pos.x][pos.y] == Water:
+          continue
+        candidates.add(pos)
+    let relicsToDrop = min(target.garrisonedRelics, candidates.len)
+    for i in 0 ..< relicsToDrop:
+      let relic = Thing(kind: Relic, pos: candidates[i])
+      relic.inventory = emptyInventory()
+      setInv(relic, ItemGold, 0)
+      env.add(relic)
+    target.garrisonedRelics = 0
   removeThing(env, target)
   true
 
