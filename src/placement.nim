@@ -55,6 +55,7 @@ proc add*(env: Environment, thing: Thing) =
     of GuardTower: GuardTowerMaxHp
     of TownCenter: TownCenterMaxHp
     of Castle: CastleMaxHp
+    of Wonder: WonderMaxHp
     else: 0
   if defaultMaxHp > 0:
     if thing.maxHp <= 0:
