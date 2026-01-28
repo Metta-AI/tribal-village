@@ -30,6 +30,8 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.55, g: 0.40, b: 1.00, intensity: 1.40),
   # UnitMangonel (siege - stronger pink-purple, higher intensity)
   TileColor(r: 0.85, g: 0.40, b: 1.00, intensity: 1.40),
+  # UnitTrebuchet (siege - deep purple, highest intensity)
+  TileColor(r: 0.70, g: 0.25, b: 1.00, intensity: 1.45),
   # UnitGoblin
   TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.18),
   # UnitBoat
@@ -55,6 +57,8 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintBonusBatteringRam,
   # UnitMangonel - mangonel siege bonus (beats structures)
   ActionTintBonusMangonel,
+  # UnitTrebuchet - trebuchet siege bonus (beats structures)
+  ActionTintBonusTrebuchet,
   # UnitGoblin - no counter bonus
   ActionTintAttackBonus,
   # UnitBoat - no counter bonus
@@ -66,7 +70,7 @@ const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCent
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =
   var damage = max(1, amount)
-  if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel}:
+  if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
     let bonus = damage * (SiegeStructureMultiplier - 1)
     if bonus > 0:
       env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])

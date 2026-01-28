@@ -37,6 +37,7 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Monk",
   "Battering Ram",
   "Mangonel",
+  "Trebuchet",
   "Goblin",
   "Boat"
 ]
@@ -478,6 +479,9 @@ proc drawObjects*() =
       of UnitMonk: "oriented/monk"
       of UnitBatteringRam: "oriented/battering_ram"
       of UnitMangonel: "oriented/mangonel"
+      of UnitTrebuchet:
+        if agent.packed: "oriented/trebuchet_packed"
+        else: "oriented/trebuchet_unpacked"
       of UnitGoblin: "oriented/goblin"
       of UnitBoat: "oriented/boat"
     let dirKey = OrientationDirKeys[agent.orientation.int]

@@ -390,6 +390,7 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
       of UnitManAtArms: strength = 2
       of UnitArcher: strength = 2
       of UnitMangonel: strength = 4
+      of UnitTrebuchet: strength = 5
       of UnitMonk: strength = 1
       else: strength = 1
       controller.reportThreat(teamId, other.pos, strength, currentStep,
@@ -678,6 +679,8 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
   let maxRange = case agent.unitClass
     of UnitArcher: ArcherBaseRange
     of UnitMangonel: MangonelAoELength
+    of UnitTrebuchet:
+      if agent.packed: 0 else: TrebuchetBaseRange  # Can't attack when packed
     else:
       if agent.inventorySpear > 0: 2 else: 1
 

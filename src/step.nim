@@ -352,6 +352,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       inc env.stats[id].actionNoop
     of 1:
       block moveAction:
+        # Trebuchets cannot move when unpacked or while packing/unpacking
+        if agent.unitClass == UnitTrebuchet:
+          if not agent.packed or agent.cooldown > 0:
+            invalidAndBreak(moveAction)
+
         # Check terrain movement debt - agents with debt >= 1.0 skip their move
         if agent.movementDebt >= 1.0'f32:
           agent.movementDebt -= 1.0'f32
@@ -526,6 +531,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         ## Attack an entity in the given direction. Spears extend range to 2 tiles.
         if argument > 7:
           invalidAndBreak(attackAction)
+
+        # Trebuchets can only attack when unpacked and not in packing/unpacking transition
+        if agent.unitClass == UnitTrebuchet:
+          if agent.packed or agent.cooldown > 0:
+            invalidAndBreak(attackAction)
+
         let attackOrientation = Orientation(argument)
         agent.orientation = attackOrientation
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
@@ -534,6 +545,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let damageAmount = max(1, agent.attackDamage)
         let rangedRange = case agent.unitClass
           of UnitArcher: ArcherBaseRange
+          of UnitTrebuchet: TrebuchetBaseRange
           else: 0
         let hasSpear = agent.inventorySpear > 0 and rangedRange == 0
         let maxRange = if hasSpear: 2 else: 1
@@ -786,6 +798,21 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     of 3:
       block useAction:
         ## Use terrain or building with a single action in a direction.
+        ## Trebuchets: argument 8 triggers pack/unpack toggle.
+
+        # Trebuchet pack/unpack: special argument 8 triggers state toggle
+        if agent.unitClass == UnitTrebuchet and argument == 8:
+          if agent.cooldown > 0:
+            # Already in pack/unpack transition, can't start another
+            invalidAndBreak(useAction)
+          # Start pack/unpack transition
+          agent.cooldown = TrebuchetPackDuration
+          # Apply visual tint to show packing/unpacking animation
+          let tint = TileColor(r: 0.60, g: 0.40, b: 0.95, intensity: 1.15)
+          env.applyActionTint(agent.pos, tint, TrebuchetPackDuration.int8, ActionTintAttackTrebuchet)
+          inc env.stats[id].actionUse
+          break useAction
+
         if argument > 7:
           invalidAndBreak(useAction)
         let useOrientation = Orientation(argument)
@@ -1674,6 +1701,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif thing.kind == Agent:
       if thing.frozen > 0:
         thing.frozen -= 1
+      # Trebuchet pack/unpack transition: decrement cooldown and toggle state when complete
+      if thing.unitClass == UnitTrebuchet and thing.cooldown > 0:
+        thing.cooldown -= 1
+        if thing.cooldown == 0:
+          thing.packed = not thing.packed
     elif thing.kind == Tumor:
       # Only collect mobile clippies for processing (planted ones are static)
       if not thing.hasClaimedTerritory:

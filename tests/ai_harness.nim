@@ -1524,3 +1524,89 @@ suite "Cliff Fall Damage":
 
     # Agent should not have moved (blocked by elevation)
     check agent.pos == ivec2(10, 10)
+
+suite "Trebuchet Pack/Unpack":
+  test "trebuchet starts packed and can move":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    applyUnitClass(agent, UnitTrebuchet)
+    agent.packed = true  # Start packed
+
+    # Move south (direction 1)
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 11)  # Should move
+
+  test "trebuchet cannot move when unpacked":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    applyUnitClass(agent, UnitTrebuchet)
+    agent.packed = false  # Unpacked
+
+    # Try to move south (direction 1)
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 10)  # Should not move
+
+  test "trebuchet cannot attack when packed":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    applyUnitClass(agent, UnitTrebuchet)
+    agent.packed = true
+
+    # Add enemy target (team 1 = agentId >= MapAgentsPerTeam)
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 5))
+
+    # Try to attack north (direction 0)
+    env.stepAction(0, 2'u8, 0)
+
+    check enemy.hp == enemy.maxHp  # Should not take damage
+
+  test "trebuchet can attack when unpacked":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    applyUnitClass(agent, UnitTrebuchet)
+    agent.packed = false  # Unpacked
+
+    # Add enemy target at range 5 (within TrebuchetBaseRange of 6)
+    # Use agentId >= MapAgentsPerTeam to put on different team
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 5))
+    let initialHp = enemy.hp
+
+    # Attack north (direction 0)
+    env.stepAction(0, 2'u8, 0)
+
+    check enemy.hp < initialHp  # Should take damage
+
+  test "trebuchet pack/unpack transition takes time":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    applyUnitClass(agent, UnitTrebuchet)
+    agent.packed = true
+    agent.cooldown = 0
+
+    # Trigger pack/unpack with USE action argument 8
+    env.stepAction(0, 3'u8, 8)
+
+    # Cooldown is decremented at end of step, so it's TrebuchetPackDuration - 1
+    check agent.cooldown == TrebuchetPackDuration - 1  # Cooldown started and decremented
+    check agent.packed == true  # Not yet toggled (needs cooldown to reach 0)
+
+    # Simulate remaining steps using NOOP actions (cooldown already at PackDuration - 1)
+    for i in 1 ..< TrebuchetPackDuration:
+      env.stepAction(0, 0'u8, 0)  # NOOP action
+
+    check agent.cooldown == 0
+    check agent.packed == false  # Now unpacked
+
+  test "trebuchet cannot start new pack/unpack while in transition":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    applyUnitClass(agent, UnitTrebuchet)
+    agent.packed = true
+    agent.cooldown = 5  # In transition
+
+    # Try to trigger another pack/unpack
+    env.stepAction(0, 3'u8, 8)
+
+    check agent.cooldown == 4  # Should have decremented by 1 from step, not reset

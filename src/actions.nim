@@ -29,6 +29,9 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitMangonel
   UnitAttackTint(tint: TileColor(r: 0.75, g: 0.35, b: 0.95, intensity: 1.18),
     duration: 3'i8, code: ActionTintAttackMangonel),
+  # UnitTrebuchet
+  UnitAttackTint(tint: TileColor(r: 0.65, g: 0.20, b: 0.98, intensity: 1.22),
+    duration: 4'i8, code: ActionTintAttackTrebuchet),
   # UnitGoblin
   UnitAttackTint(tint: TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.12),
     duration: 1'i8, code: ActionTintAttackVillager),

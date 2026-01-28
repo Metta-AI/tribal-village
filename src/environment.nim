@@ -321,6 +321,7 @@ const
     MonkMaxHp,
     BatteringRamMaxHp,
     MangonelMaxHp,
+    TrebuchetMaxHp,
     GoblinMaxHp,
     VillagerMaxHp
   ]
@@ -333,6 +334,7 @@ const
     MonkAttackDamage,
     BatteringRamAttackDamage,
     MangonelAttackDamage,
+    TrebuchetAttackDamage,
     GoblinAttackDamage,
     VillagerAttackDamage
   ]
@@ -344,7 +346,7 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   case unitClass
   of UnitVillager, UnitMonk, UnitBoat:
     StanceNoAttack
-  of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitGoblin:
+  of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin:
     StanceDefensive
 
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =

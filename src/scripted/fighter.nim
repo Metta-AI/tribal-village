@@ -739,7 +739,7 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
       continue
     # Melee units are: Villager, ManAtArms, Scout, Knight, BatteringRam, Goblin
     # Non-melee: Archer, Mangonel, Monk, Boat
-    if other.unitClass in {UnitArcher, UnitMangonel, UnitMonk, UnitBoat}:
+    if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat}:
       continue
     let dist = int(chebyshevDist(agent.pos, other.pos))
     if dist < bestDist:
@@ -776,7 +776,7 @@ proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening
     if getTeamId(other) == teamId:
       continue
     # Only target siege units
-    if other.unitClass notin {UnitBatteringRam, UnitMangonel}:
+    if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
       continue
     let dist = int(chebyshevDist(agent.pos, other.pos))
     if dist > AntiSiegeDetectionRadius:

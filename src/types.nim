@@ -106,6 +106,7 @@ const
   MonkAttackDamage* = 0
   BatteringRamAttackDamage* = 2
   MangonelAttackDamage* = 2
+  TrebuchetAttackDamage* = 3
   GoblinAttackDamage* = 1
   VillagerMaxHp* = AgentMaxHp
   ManAtArmsMaxHp* = 7
@@ -115,10 +116,13 @@ const
   MonkMaxHp* = 4
   BatteringRamMaxHp* = 18
   MangonelMaxHp* = 12
+  TrebuchetMaxHp* = 14
   GoblinMaxHp* = 4
   ArcherBaseRange* = 3
   MangonelBaseRange* = 3
   MangonelAoELength* = 5
+  TrebuchetBaseRange* = 6
+  TrebuchetPackDuration* = 15  # Steps to pack/unpack (AoE2-style delay)
 
   # Gameplay
   MinTintEpsilon* = 5
@@ -137,17 +141,19 @@ const
   ActionTintAttackMonk* = 6'u8
   ActionTintAttackBatteringRam* = 7'u8
   ActionTintAttackMangonel* = 8'u8
-  ActionTintAttackBoat* = 9'u8
-  ActionTintAttackTower* = 10'u8
-  ActionTintAttackCastle* = 11'u8
-  ActionTintAttackBonus* = 12'u8
-  ActionTintBonusArcher* = 13'u8     # Archer counter bonus (vs infantry)
-  ActionTintBonusInfantry* = 14'u8   # Infantry counter bonus (vs cavalry)
-  ActionTintBonusScout* = 15'u8      # Scout counter bonus (vs archers)
-  ActionTintBonusKnight* = 16'u8     # Knight counter bonus (vs archers)
-  ActionTintBonusBatteringRam* = 17'u8  # Battering ram siege bonus (vs structures)
-  ActionTintBonusMangonel* = 18'u8   # Mangonel siege bonus (vs structures)
-  ActionTintShield* = 20'u8
+  ActionTintAttackTrebuchet* = 9'u8
+  ActionTintAttackBoat* = 10'u8
+  ActionTintAttackTower* = 11'u8
+  ActionTintAttackCastle* = 12'u8
+  ActionTintAttackBonus* = 13'u8
+  ActionTintBonusArcher* = 14'u8     # Archer counter bonus (vs infantry)
+  ActionTintBonusInfantry* = 15'u8   # Infantry counter bonus (vs cavalry)
+  ActionTintBonusScout* = 16'u8      # Scout counter bonus (vs archers)
+  ActionTintBonusKnight* = 17'u8     # Knight counter bonus (vs archers)
+  ActionTintBonusBatteringRam* = 18'u8  # Battering ram siege bonus (vs structures)
+  ActionTintBonusMangonel* = 19'u8   # Mangonel siege bonus (vs structures)
+  ActionTintBonusTrebuchet* = 20'u8  # Trebuchet siege bonus (vs structures)
+  ActionTintShield* = 21'u8
   ActionTintHealMonk* = 30'u8
   ActionTintHealBread* = 31'u8
   ActionTintMixed* = 200'u8
@@ -239,6 +245,7 @@ type
     ThingStableLayer
     ThingSiegeWorkshopLayer
     ThingMangonelWorkshopLayer
+    ThingTrebuchetWorkshopLayer
     ThingBlacksmithLayer
     ThingMarketLayer
     ThingDockLayer
@@ -292,6 +299,7 @@ type
     UnitMonk
     UnitBatteringRam
     UnitMangonel
+    UnitTrebuchet
     UnitGoblin
     UnitBoat
 
@@ -336,6 +344,7 @@ type
     Stable
     SiegeWorkshop
     MangonelWorkshop
+    TrebuchetWorkshop
     Blacksmith
     Market
     Dock
@@ -398,6 +407,8 @@ type
     packId*: int               # Wolf pack grouping id
     isPackLeader*: bool        # Whether this wolf is the pack leader
     scatteredSteps*: int       # Remaining steps of scattered state after leader death
+    # Trebuchet:
+    packed*: bool              # Trebuchet pack state (true=packed/mobile, false=unpacked/stationary)
     # Tumor:
     homeSpawner*: IVec2     # Position of tumor's home spawner
     hasClaimedTerritory*: bool  # Whether this tumor has already branched and is now inert
@@ -485,6 +496,7 @@ const
     Stable,
     SiegeWorkshop,
     MangonelWorkshop,
+    TrebuchetWorkshop,
     Blacksmith,
     Market,
     Dock,
