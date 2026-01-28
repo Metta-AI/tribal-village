@@ -1304,3 +1304,105 @@ suite "AI - Scout Behavior":
     # Initial radius should be set
     let initialRadius = controller.getScoutExploreRadius(agentId)
     check initialRadius > 0
+
+suite "Cliff Fall Damage":
+  test "agent takes damage when falling off cliff without ramp":
+    let env = makeEmptyEnv()
+    # Set up elevation: agent at elevation 1, moving to elevation 0
+    env.elevation[10][10] = 1
+    env.elevation[10][11] = 0
+    env.terrain[10][10] = Grass
+    env.terrain[10][11] = Grass
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let initialHp = agent.hp
+
+    # Move south (direction 1) to drop down
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 11)
+    check agent.hp == initialHp - CliffFallDamage
+
+  test "agent does not take damage when using ramp":
+    let env = makeEmptyEnv()
+    # Set up elevation with ramp
+    env.elevation[10][10] = 1
+    env.elevation[10][11] = 0
+    env.terrain[10][10] = RampDownS  # Ramp going south/down
+    env.terrain[10][11] = Grass
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let initialHp = agent.hp
+
+    # Move south (direction 1) to go down ramp
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 11)
+    check agent.hp == initialHp  # No damage with ramp
+
+  test "agent does not take damage when using road":
+    let env = makeEmptyEnv()
+    # Set up elevation with road
+    env.elevation[10][10] = 1
+    env.elevation[10][11] = 0
+    env.terrain[10][10] = Road
+    env.terrain[10][11] = Grass
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let initialHp = agent.hp
+
+    # Move south (direction 1) to go down
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 11)
+    check agent.hp == initialHp  # No damage with road
+
+  test "boat is immune to cliff fall damage":
+    let env = makeEmptyEnv()
+    # Set up elevation
+    env.elevation[10][10] = 1
+    env.elevation[10][11] = 0
+    env.terrain[10][10] = Grass
+    env.terrain[10][11] = Water  # Water for boat
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitBoat)
+    let initialHp = agent.hp
+
+    # Move south (direction 1) to drop down
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 11)
+    check agent.hp == initialHp  # Boats don't take fall damage
+
+  test "agent does not take damage on flat terrain":
+    let env = makeEmptyEnv()
+    # Same elevation
+    env.elevation[10][10] = 0
+    env.elevation[10][11] = 0
+    env.terrain[10][10] = Grass
+    env.terrain[10][11] = Grass
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let initialHp = agent.hp
+
+    # Move south (direction 1)
+    env.stepAction(0, 1'u8, 1)
+
+    check agent.pos == ivec2(10, 11)
+    check agent.hp == initialHp  # No damage on flat terrain
+
+  test "agent cannot climb cliff without ramp":
+    let env = makeEmptyEnv()
+    # Agent at elevation 0, trying to climb to elevation 1
+    env.elevation[10][10] = 0
+    env.elevation[10][9] = 1
+    env.terrain[10][10] = Grass
+    env.terrain[10][9] = Grass  # No ramp
+
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Try to move north (direction 0) to climb up
+    env.stepAction(0, 1'u8, 0)
+
+    # Agent should not have moved (blocked by elevation)
+    check agent.pos == ivec2(10, 10)
