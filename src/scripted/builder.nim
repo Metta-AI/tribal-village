@@ -40,16 +40,10 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   ## Returns true if any enemy agent or building is within BuilderThreatRadius of home altar.
   let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-  # Check for enemy agents
-  for other in env.agents:
-    if not isAgentAlive(env, other):
-      continue
-    let otherTeamId = getTeamId(other)
-    if otherTeamId == teamId or otherTeamId < 0:
-      continue
-    let dist = int(chebyshevDist(basePos, other.pos))
-    if dist <= BuilderThreatRadius:
-      return true
+  # Use spatial index to check for enemy agents nearby
+  let nearestEnemy = findNearestEnemyAgentSpatial(env, basePos, teamId, BuilderThreatRadius)
+  if not nearestEnemy.isNil:
+    return true
   # Check for enemy buildings
   for thing in env.things:
     if thing.isNil or not isBuildingKind(thing.kind):
@@ -62,25 +56,9 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   false
 
 proc builderFindNearbyEnemy(env: Environment, agent: Thing): Thing =
-  ## Find nearest enemy agent within flee radius
+  ## Find nearest enemy agent within flee radius using spatial index
   let teamId = getTeamId(agent)
-  let fleeRadius = BuilderFleeRadius.int32
-  var bestEnemyDist = int.high
-  var bestEnemy: Thing = nil
-  for other in env.agents:
-    if other.agentId == agent.agentId:
-      continue
-    if not isAgentAlive(env, other):
-      continue
-    if getTeamId(other) == teamId:
-      continue
-    let dist = int(chebyshevDist(agent.pos, other.pos))
-    if dist > fleeRadius.int:
-      continue
-    if dist < bestEnemyDist:
-      bestEnemyDist = dist
-      bestEnemy = other
-  bestEnemy
+  findNearestEnemyAgentSpatial(env, agent.pos, teamId, BuilderFleeRadius)
 
 proc canStartBuilderFlee(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =

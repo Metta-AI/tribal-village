@@ -121,17 +121,10 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   let hasMurderHoles = env.hasUniversityTech(tower.teamId, TechMurderHoles)
   let minRange = if hasMurderHoles: 1 else: 2
 
-  var bestTarget: Thing = nil
-  var bestDist = int.high
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if tower.teamId == getTeamId(agent):
-      continue
-    let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
-    if dist >= minRange and dist <= range and dist < bestDist:
-      bestDist = dist
-      bestTarget = agent
+  # Use spatial index for enemy agent lookup instead of scanning all agents
+  var bestTarget = findNearestEnemyInRangeSpatial(env, tower.pos, tower.teamId, minRange, range)
+  var bestDist = if bestTarget.isNil: int.high
+                 else: max(abs(bestTarget.pos.x - tower.pos.x), abs(bestTarget.pos.y - tower.pos.y))
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
       let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
@@ -186,16 +179,9 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   if tc.teamId < 0:
     return
 
-  # Gather all valid targets in range
+  # Gather all valid targets in range using spatial index
   var targets: seq[Thing] = @[]
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if tc.teamId == getTeamId(agent):
-      continue
-    let dist = max(abs(agent.pos.x - tc.pos.x), abs(agent.pos.y - tc.pos.y))
-    if dist <= TownCenterRange:
-      targets.add(agent)
+  collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
       let dist = max(abs(thing.pos.x - tc.pos.x), abs(thing.pos.y - tc.pos.y))
@@ -328,16 +314,11 @@ proc stepApplyMonkAuras(env: Environment) =
     if isThingFrozen(monk, env):
       continue
     let teamId = getTeamId(monk)
+    # Use spatial index to find nearby allies instead of scanning all agents
+    var nearbyAllies: seq[Thing] = @[]
+    collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, nearbyAllies)
     var needsHeal = false
-    for ally in env.agents:
-      if not isAgentAlive(env, ally):
-        continue
-      if getTeamId(ally) != teamId:
-        continue
-      let dx = abs(ally.pos.x - monk.pos.x)
-      let dy = abs(ally.pos.y - monk.pos.y)
-      if max(dx, dy) > MonkAuraRadius:
-        continue
+    for ally in nearbyAllies:
       if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
         needsHeal = true
         break
@@ -358,15 +339,7 @@ proc stepApplyMonkAuras(env: Environment) =
           continue
         env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
 
-    for ally in env.agents:
-      if not isAgentAlive(env, ally):
-        continue
-      if getTeamId(ally) != teamId:
-        continue
-      let dx = abs(ally.pos.x - monk.pos.x)
-      let dy = abs(ally.pos.y - monk.pos.y)
-      if max(dx, dy) > MonkAuraRadius:
-        continue
+    for ally in nearbyAllies:
       if not isThingFrozen(ally, env):
         healFlags[ally.agentId] = true
 
