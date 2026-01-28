@@ -301,7 +301,7 @@ let MyRoleOptions* = [
 
 5. **Standardize building queries** - use `getBuildingCount` consistently
 
-6. **Consider extracting shared behaviors** - SmeltGold, CraftBread, StoreValuables appear in multiple roles
+6. ~~**Consider extracting shared behaviors**~~ - DONE: SmeltGoldOption, CraftBreadOption, StoreValuablesOption defined in options.nim and used by Builder, Fighter, Gatherer roles
 
 ### Low Priority
 
