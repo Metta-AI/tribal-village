@@ -162,10 +162,10 @@ const
   MonasteryRelicGoldInterval* = 20  # Steps between gold generation from garrisoned relics
   MonasteryRelicGoldAmount* = 1    # Gold generated per relic per interval
 
-  # Blacksmith upgrades (AoE2-style)
-  BlacksmithUpgradeMaxLevel* = 3  # Maximum upgrade level (each level = +1 bonus)
-  BlacksmithUpgradeFoodCost* = 3  # Food cost per upgrade level
-  BlacksmithUpgradeGoldCost* = 2  # Gold cost per upgrade level
+  # Blacksmith upgrades (AoE2-style named tech tree)
+  BlacksmithUpgradeMaxLevel* = 3  # Maximum upgrade level (3 tiers per line)
+  BlacksmithUpgradeFoodCost* = 3  # Base food cost per upgrade level
+  BlacksmithUpgradeGoldCost* = 2  # Base gold cost per upgrade level
 
   # University techs (AoE2-style)
   UniversityTechFoodCost* = 5   # Food cost per tech
@@ -786,18 +786,39 @@ type
     prices*: array[StockpileResource, int]  ## Current price for each resource
 
   BlacksmithUpgradeType* = enum
-    ## AoE2-style Blacksmith upgrades for unit stats
-    UpgradeInfantryAttack    ## Forging line: +1 attack per level for infantry
-    UpgradeInfantryArmor     ## Scale/Chain/Plate Mail: +1 armor per level for infantry
-    UpgradeCavalryAttack     ## Forging line: +1 attack per level for cavalry
-    UpgradeCavalryArmor      ## Barding line: +1 armor per level for cavalry
-    UpgradeArcherAttack      ## Fletching line: +1 attack per level for archers
-    UpgradeArcherArmor       ## Padded/Leather/Ring Archer: +1 armor per level for archers
+    ## AoE2-style Blacksmith upgrade lines (5 lines, 3 tiers each)
+    UpgradeMeleeAttack       ## Forging → Iron Casting → Blast Furnace (infantry + cavalry)
+    UpgradeArcherAttack      ## Fletching → Bodkin Arrow → Bracer (archers + towers)
+    UpgradeInfantryArmor     ## Scale Mail → Chain Mail → Plate Mail
+    UpgradeCavalryArmor      ## Scale Barding → Chain Barding → Plate Barding
+    UpgradeArcherArmor       ## Padded Archer → Leather Archer → Ring Archer
 
   BlacksmithUpgrades* = object
-    ## Team-level Blacksmith upgrade progress (AoE2-style)
-    ## Each upgrade can be researched up to 3 times for +1/+2/+3 bonus
-    levels*: array[BlacksmithUpgradeType, int]  ## Current level (0-3) for each upgrade
+    ## Team-level Blacksmith upgrade progress (AoE2-style named tech tree)
+    ## Each line can be researched up to 3 tiers with variable bonuses per tier
+    levels*: array[BlacksmithUpgradeType, int]  ## Current tier (0-3) for each line
+
+const
+  ## Cumulative bonus by upgrade level (index 0 = not researched)
+  ## Melee attack: Forging (+1) → Iron Casting (+1) → Blast Furnace (+2)
+  BlacksmithMeleeAttackBonus*: array[4, int] = [0, 1, 2, 4]
+  ## Archer attack: Fletching (+1) → Bodkin Arrow (+1) → Bracer (+1)
+  BlacksmithArcherAttackBonus*: array[4, int] = [0, 1, 2, 3]
+  ## Infantry armor: Scale Mail (+1) → Chain Mail (+1) → Plate Mail (+2)
+  BlacksmithInfantryArmorBonus*: array[4, int] = [0, 1, 2, 4]
+  ## Cavalry armor: Scale Barding (+1) → Chain Barding (+1) → Plate Barding (+2)
+  BlacksmithCavalryArmorBonus*: array[4, int] = [0, 1, 2, 4]
+  ## Archer armor: Padded Archer (+1) → Leather Archer (+1) → Ring Archer (+2)
+  BlacksmithArcherArmorBonus*: array[4, int] = [0, 1, 2, 4]
+
+  ## Named upgrade tiers for display [level 1, level 2, level 3]
+  BlacksmithMeleeAttackNames*: array[3, string] = ["Forging", "Iron Casting", "Blast Furnace"]
+  BlacksmithArcherAttackNames*: array[3, string] = ["Fletching", "Bodkin Arrow", "Bracer"]
+  BlacksmithInfantryArmorNames*: array[3, string] = ["Scale Mail", "Chain Mail", "Plate Mail"]
+  BlacksmithCavalryArmorNames*: array[3, string] = ["Scale Barding", "Chain Barding", "Plate Barding"]
+  BlacksmithArcherArmorNames*: array[3, string] = ["Padded Archer", "Leather Archer", "Ring Archer"]
+
+type
 
   UniversityTechType* = enum
     ## AoE2-style University technologies

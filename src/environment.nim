@@ -547,29 +547,34 @@ proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
 
 proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
   ## Returns the attack bonus from Blacksmith upgrades for a unit.
-  ## Each upgrade level grants +1 attack damage.
+  ## Melee attack (Forging line) applies to infantry + cavalry.
+  ## Archer attack (Fletching line) applies to archers.
+  ## Bonus varies by tier: level 3 melee gives +2 extra (Blast Furnace).
   let category = getUnitCategory(unitClass)
   case category
-  of CategoryInfantry:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryAttack]
-  of CategoryCavalry:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryAttack]
+  of CategoryInfantry, CategoryCavalry:
+    let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeMeleeAttack]
+    BlacksmithMeleeAttackBonus[level]
   of CategoryArcher:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherAttack]
+    let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherAttack]
+    BlacksmithArcherAttackBonus[level]
   of CategoryNone:
     0
 
 proc getBlacksmithArmorBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
   ## Returns the armor bonus from Blacksmith upgrades for a unit.
-  ## Each upgrade level grants +1 damage reduction.
+  ## Bonus varies by tier: level 3 gives +2 extra (Plate/Ring upgrades).
   let category = getUnitCategory(unitClass)
   case category
   of CategoryInfantry:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor]
+    let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor]
+    BlacksmithInfantryArmorBonus[level]
   of CategoryCavalry:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryArmor]
+    let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryArmor]
+    BlacksmithCavalryArmorBonus[level]
   of CategoryArcher:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherArmor]
+    let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherArmor]
+    BlacksmithArcherArmorBonus[level]
   of CategoryNone:
     0
 
@@ -1001,7 +1006,7 @@ proc getNextBlacksmithUpgrade(env: Environment, teamId: int): BlacksmithUpgradeT
   ## Find the next upgrade to research (lowest level across all types).
   ## Returns the upgrade type with the lowest current level.
   var minLevel = BlacksmithUpgradeMaxLevel + 1
-  result = UpgradeInfantryAttack  # Default
+  result = UpgradeMeleeAttack  # Default
   for upgradeType in BlacksmithUpgradeType:
     let level = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
     if level < minLevel:
