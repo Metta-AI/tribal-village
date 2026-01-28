@@ -382,6 +382,9 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceStone] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitBatteringRam
 
   test "mangonel workshop trains mangonel":
@@ -391,6 +394,9 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceWood] = 10
     env.teamStockpiles[0].counts[ResourceStone] = 10
 
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitMangonel
 
@@ -402,6 +408,9 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceGold] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitArcher
 
   test "stable trains scout":
@@ -410,6 +419,9 @@ suite "Mechanics - Training":
     discard addBuilding(env, Stable, ivec2(10, 9), 0)
     env.teamStockpiles[0].counts[ResourceFood] = 10
 
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitScout
 
@@ -421,6 +433,14 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceFood] = 10
     env.teamStockpiles[0].counts[ResourceGold] = 10
 
+    # Pre-research both castle techs so interaction goes to training
+    let (castleAge, imperialAge) = castleTechsForTeam(0)
+    env.teamCastleTechs[0].researched[castleAge] = true
+    env.teamCastleTechs[0].researched[imperialAge] = true
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     # Team 0 trains Samurai at castles
     check agent.unitClass == UnitSamurai
@@ -1239,7 +1259,10 @@ suite "AI - Scout Behavior":
     check agent.unitClass == UnitVillager
     check not controller.isScoutModeActive(agent.agentId)
 
-    # Train as scout
+    # Train as scout (queue at stable, wait for production, then convert)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
+    for i in 0 ..< ProductionTrainDuration - 1:
+      env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitScout
 
