@@ -361,6 +361,9 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
   ## Also updates the team's revealed map (fog of war).
   ## Called each tick for each agent to share threat intelligence.
   ## Scouts have extended line of sight (AoE2-style).
+  ##
+  ## Optimized: scans grid tiles within vision radius instead of all agents,
+  ## and uses spatial index for building detection.
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
@@ -374,15 +377,26 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
   # Update fog of war - reveal tiles in vision range
   env.updateRevealedMapFromVision(agent)
 
-  # Scan for enemy agents within vision range
-  for other in env.agents:
-    if not isAgentAlive(env, other):
-      continue
-    let otherTeam = getTeamId(other)
-    if otherTeam == teamId or otherTeam < 0:
-      continue  # Skip allies and neutral
-    let dist = chebyshevDist(agent.pos, other.pos)
-    if dist <= visionRange:
+  # Scan grid tiles within vision range for enemy agents - O(visionRange^2) instead of O(agents)
+  let vr = visionRange.int
+  let startX = max(0, agent.pos.x.int - vr)
+  let endX = min(MapWidth - 1, agent.pos.x.int + vr)
+  let startY = max(0, agent.pos.y.int - vr)
+  let endY = min(MapHeight - 1, agent.pos.y.int + vr)
+  let ax = agent.pos.x
+  let ay = agent.pos.y
+  for x in startX .. endX:
+    for y in startY .. endY:
+      if max(abs(x - ax.int), abs(y - ay.int)) > vr:
+        continue
+      let other = env.grid[x][y]
+      if other.isNil or other.kind != Agent:
+        continue
+      if not isAgentAlive(env, other):
+        continue
+      let otherTeam = getTeamId(other)
+      if otherTeam == teamId or otherTeam < 0:
+        continue  # Skip allies and neutral
       # Calculate threat strength based on unit class
       var strength: int32 = 1
       case other.unitClass
@@ -396,23 +410,31 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
       controller.reportThreat(teamId, other.pos, strength, currentStep,
                               agentId = other.agentId.int32, isStructure = false)
 
-  # Scan for enemy structures within vision range
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue  # Skip neutral and friendly
-    let dist = chebyshevDist(agent.pos, thing.pos)
-    if dist <= visionRange:
-      # Calculate threat strength based on building type
-      var strength: int32 = 1
-      case thing.kind
-      of Castle: strength = 5
-      of GuardTower: strength = 3
-      of Barracks, ArcheryRange, Stable: strength = 2
-      else: strength = 1
-      controller.reportThreat(teamId, thing.pos, strength, currentStep,
-                              agentId = -1, isStructure = true)
+  # Scan for enemy structures within vision range using spatial index
+  let (cx, cy) = cellCoords(agent.pos)
+  let cellRadius = (vr + SpatialCellSize - 1) div SpatialCellSize
+  for dx in -cellRadius .. cellRadius:
+    for dy in -cellRadius .. cellRadius:
+      let nx = cx + dx
+      let ny = cy + dy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+      for thing in env.spatialIndex.cells[nx][ny].things:
+        if thing.isNil or not isBuildingKind(thing.kind):
+          continue
+        if thing.teamId < 0 or thing.teamId == teamId:
+          continue  # Skip neutral and friendly
+        let dist = chebyshevDist(agent.pos, thing.pos)
+        if dist <= visionRange:
+          # Calculate threat strength based on building type
+          var strength: int32 = 1
+          case thing.kind
+          of Castle: strength = 5
+          of GuardTower: strength = 3
+          of Barracks, ArcheryRange, Stable: strength = 2
+          else: strength = 1
+          controller.reportThreat(teamId, thing.pos, strength, currentStep,
+                                  agentId = -1, isStructure = true)
 
 # ============================================================================
 # End Shared Threat Map Functions
@@ -670,6 +692,9 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Simplified: pick the closest aligned target within range using a priority order.
   ## Respects agent stance: StanceNoAttack disables auto-attacking.
+  ##
+  ## Optimized: scans 8 attack lines (cardinal+diagonal) out to maxRange
+  ## instead of iterating all env.things. Cost: O(8 * maxRange) = O(48) max.
   if agent.unitClass == UnitMonk:
     return -1
   # NoAttack stance never auto-attacks
@@ -683,6 +708,9 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
       if agent.packed: 0 else: TrebuchetBaseRange  # Can't attack when packed
     else:
       if agent.inventorySpear > 0: 2 else: 1
+
+  if maxRange <= 0:
+    return -1
 
   proc targetPriority(kind: ThingKind): int =
     if agent.unitClass == UnitMangonel:
@@ -701,47 +729,60 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
       else:
         if kind in AttackableStructures: 3 else: 4
 
+  let agentTeamId = getTeamId(agent)
   var bestDir = -1
   var bestDist = int.high
   var bestPriority = int.high
 
-  for thing in env.things:
-    if thing.kind == Agent:
-      if not isAgentAlive(env, thing):
-        continue
-      if sameTeam(agent, thing):
-        continue
-    elif thing.kind in {Tumor, Spawner}:
-      discard
-    elif thing.kind in AttackableStructures:
-      if thing.teamId == getTeamId(agent):
-        continue
-    else:
-      continue
+  # Scan along 8 directions (cardinal + diagonal) up to maxRange
+  for dirIdx in 0 .. 7:
+    let d = Directions8[dirIdx]
+    for step in 1 .. maxRange:
+      let tx = agent.pos.x + d.x * step
+      let ty = agent.pos.y + d.y * step
+      if tx < 0 or tx >= MapWidth or ty < 0 or ty >= MapHeight:
+        break
 
-    if not isValidPos(thing.pos):
-      continue
-    let placed = if thingBlocksMovement(thing.kind):
-      env.grid[thing.pos.x][thing.pos.y]
-    else:
-      env.backgroundGrid[thing.pos.x][thing.pos.y]
-    if placed != thing:
-      continue
+      # Check blocking grid (agents, buildings)
+      let gridThing = env.grid[tx][ty]
+      if not gridThing.isNil:
+        if gridThing.kind == Agent:
+          if isAgentAlive(env, gridThing) and not sameTeam(agent, gridThing):
+            let priority = targetPriority(Agent)
+            if priority < bestPriority or (priority == bestPriority and step < bestDist):
+              bestPriority = priority
+              bestDist = step
+              bestDir = dirIdx
+        elif gridThing.kind in {Tumor, Spawner}:
+          let priority = targetPriority(gridThing.kind)
+          if priority < bestPriority or (priority == bestPriority and step < bestDist):
+            bestPriority = priority
+            bestDist = step
+            bestDir = dirIdx
+        elif gridThing.kind in AttackableStructures:
+          if gridThing.teamId != agentTeamId:
+            let priority = targetPriority(gridThing.kind)
+            if priority < bestPriority or (priority == bestPriority and step < bestDist):
+              bestPriority = priority
+              bestDist = step
+              bestDir = dirIdx
 
-    let dx = thing.pos.x - agent.pos.x
-    let dy = thing.pos.y - agent.pos.y
-    if not (dx == 0 or dy == 0 or abs(dx) == abs(dy)):
-      continue
-    let dist = int(chebyshevDist(agent.pos, thing.pos))
-    if dist > maxRange:
-      continue
-
-    let dir = vecToOrientation(ivec2(signi(dx), signi(dy)))
-    let priority = targetPriority(thing.kind)
-    if priority < bestPriority or (priority == bestPriority and dist < bestDist):
-      bestPriority = priority
-      bestDist = dist
-      bestDir = dir
+      # Check background grid (non-blocking things like Tumor/Spawner)
+      let bgThing = env.backgroundGrid[tx][ty]
+      if not bgThing.isNil and bgThing != gridThing:
+        if bgThing.kind in {Tumor, Spawner}:
+          let priority = targetPriority(bgThing.kind)
+          if priority < bestPriority or (priority == bestPriority and step < bestDist):
+            bestPriority = priority
+            bestDist = step
+            bestDir = dirIdx
+        elif bgThing.kind in AttackableStructures:
+          if bgThing.teamId != agentTeamId:
+            let priority = targetPriority(bgThing.kind)
+            if priority < bestPriority or (priority == bestPriority and step < bestDist):
+              bestPriority = priority
+              bestDist = step
+              bestDir = dirIdx
 
   return bestDir
 

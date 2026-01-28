@@ -301,15 +301,27 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
     controller.claimBuilding(teamId, kind)
   return (didBuild, actBuild)
 
+proc getTeamPopCount(controller: Controller, env: Environment, teamId: int): int =
+  ## Get cached team population count. Recomputed once per step.
+  if controller.teamPopCountsStep != env.currentStep:
+    for t in 0 ..< MapRoomObjectsTeams:
+      controller.teamPopCounts[t] = 0
+    for otherAgent in env.agents:
+      if not isAgentAlive(env, otherAgent):
+        continue
+      let t = getTeamId(otherAgent)
+      if t >= 0 and t < MapRoomObjectsTeams:
+        inc controller.teamPopCounts[t]
+    controller.teamPopCountsStep = env.currentStep
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    controller.teamPopCounts[teamId]
+  else:
+    0
+
 proc needsPopCapHouse(controller: Controller, env: Environment, teamId: int): bool =
   ## Check if a team needs to build a house for population cap.
-  ## Uses cached getBuildingCount for performance instead of iterating env.things.
-  var popCount = 0
-  for otherAgent in env.agents:
-    if not isAgentAlive(env, otherAgent):
-      continue
-    if getTeamId(otherAgent) == teamId:
-      inc popCount
+  ## Uses cached getBuildingCount and cached team pop count for performance.
+  let popCount = controller.getTeamPopCount(env, teamId)
   # Use cached building counts for pop cap calculation
   let houseCount = controller.getBuildingCount(env, teamId, House)
   let townCenterCount = controller.getBuildingCount(env, teamId, TownCenter)
@@ -827,19 +839,29 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if totalRelicsHeld >= MapRoomObjectsRelics and env.thingsByKind[Relic].len == 0:
       return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
 
+    # Find nearest threat within avoidance radius using grid scan instead of all agents
     var nearestThreat: Thing = nil
     var threatDist = int.high
-    for other in env.agents:
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      if other.unitClass == UnitGoblin:
-        continue
-      let dist = int(chebyshevDist(agent.pos, other.pos))
-      if dist < threatDist:
-        threatDist = dist
-        nearestThreat = other
+    let gr = GoblinAvoidRadius + 2  # Scan slightly beyond avoid radius
+    let gsx = max(0, agent.pos.x.int - gr)
+    let gex = min(MapWidth - 1, agent.pos.x.int + gr)
+    let gsy = max(0, agent.pos.y.int - gr)
+    let gey = min(MapHeight - 1, agent.pos.y.int + gr)
+    for gx in gsx .. gex:
+      for gy in gsy .. gey:
+        let other = env.grid[gx][gy]
+        if other.isNil or other.kind != Agent:
+          continue
+        if other.agentId == agent.agentId:
+          continue
+        if not isAgentAlive(env, other):
+          continue
+        if other.unitClass == UnitGoblin:
+          continue
+        let dist = max(abs(gx - agent.pos.x.int), abs(gy - agent.pos.y.int))
+        if dist < threatDist:
+          threatDist = dist
+          nearestThreat = other
 
     if not isNil(nearestThreat) and threatDist <= GoblinAvoidRadius:
       let dx = signi(agent.pos.x - nearestThreat.pos.x)
