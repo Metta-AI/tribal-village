@@ -165,6 +165,11 @@ proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, age
                                    agentId: int, state: var AgentState): bool =
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
 
+proc shouldTerminateBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
+                                          agentId: int, state: var AgentState): bool =
+  ## Terminate when no seeds to plant
+  agent.inventoryWheat == 0 and agent.inventoryWood == 0
+
 proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
@@ -246,6 +251,11 @@ proc canStartBuilderMillNearResource(controller: Controller, env: Environment, a
     return false
   nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos) > 5
 
+proc shouldTerminateBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
+                                            agentId: int, state: var AgentState): bool =
+  ## Terminate when mill built nearby or conditions no longer met
+  not canStartBuilderMillNearResource(controller, env, agent, agentId, state)
+
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -265,6 +275,11 @@ proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent
   let teamId = getTeamId(agent)
   controller.getBuildingCount(env, teamId, Mill) >= 2
 
+proc shouldTerminateBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  ## Terminate when no seeds to plant
+  agent.inventoryWheat <= 0 and agent.inventoryWood <= 0
+
 proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
@@ -282,6 +297,11 @@ proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agen
     if dist > 3:
       return true
   false
+
+proc shouldTerminateBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  ## Terminate when camp built nearby or conditions no longer met
+  not canStartBuilderCampThreshold(controller, env, agent, agentId, state)
 
 proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
@@ -318,6 +338,11 @@ proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Th
   agent.homeAltar.x >= 0 and
     controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
     env.stockpileCount(teamId, ResourceWood) >= 3
+
+proc shouldTerminateBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when wall ring conditions no longer met (no altar, no lumber camp, or insufficient wood)
+  not canStartBuilderWallRing(controller, env, agent, agentId, state)
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
@@ -526,6 +551,14 @@ proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, ag
   let hub = findNearestNeutralHub(env, agent.pos)
   not isNil(hub) and chebyshevDist(agent.pos, hub.pos) > 6'i32
 
+proc shouldTerminateBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
+                                           agentId: int, state: var AgentState): bool =
+  ## Terminate when reached trading hub (within 6 tiles), have inventory, or no hub available
+  if agent.inventory.len != 0:
+    return true
+  let hub = findNearestNeutralHub(env, agent.pos)
+  isNil(hub) or chebyshevDist(agent.pos, hub.pos) <= 6'i32
+
 proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
   let hub = findNearestNeutralHub(env, agent.pos)
@@ -551,7 +584,7 @@ let BuilderOptions* = [
   OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderPlantOnFertile,
     act: optBuilderPlantOnFertile,
     interruptible: true
   ),
@@ -579,21 +612,21 @@ let BuilderOptions* = [
   OptionDef(
     name: "BuilderMillNearResource",
     canStart: canStartBuilderMillNearResource,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderMillNearResource,
     act: optBuilderMillNearResource,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderPlantIfMills",
     canStart: canStartBuilderPlantIfMills,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderPlantIfMills,
     act: optBuilderPlantIfMills,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderCampThreshold",
     canStart: canStartBuilderCampThreshold,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderCampThreshold,
     act: optBuilderCampThreshold,
     interruptible: true
   ),
@@ -628,7 +661,7 @@ let BuilderOptions* = [
   OptionDef(
     name: "BuilderWallRing",
     canStart: canStartBuilderWallRing,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderWallRing,
     act: optBuilderWallRing,
     interruptible: true
   ),
@@ -642,14 +675,14 @@ let BuilderOptions* = [
   OptionDef(
     name: "BuilderMarketTrade",
     canStart: canStartMarketTrade,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateMarketTrade,
     act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderVisitTradingHub",
     canStart: canStartBuilderVisitTradingHub,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderVisitTradingHub,
     act: optBuilderVisitTradingHub,
     interruptible: true
   ),
@@ -680,7 +713,7 @@ let BuilderOptionsThreat* = [
   OptionDef(
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderPlantOnFertile,
     act: optBuilderPlantOnFertile,
     interruptible: true
   ),
@@ -702,7 +735,7 @@ let BuilderOptionsThreat* = [
   OptionDef(
     name: "BuilderWallRing",
     canStart: canStartBuilderWallRing,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderWallRing,
     act: optBuilderWallRing,
     interruptible: true
   ),
@@ -749,21 +782,21 @@ let BuilderOptionsThreat* = [
   OptionDef(
     name: "BuilderMillNearResource",
     canStart: canStartBuilderMillNearResource,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderMillNearResource,
     act: optBuilderMillNearResource,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderPlantIfMills",
     canStart: canStartBuilderPlantIfMills,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderPlantIfMills,
     act: optBuilderPlantIfMills,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderCampThreshold",
     canStart: canStartBuilderCampThreshold,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderCampThreshold,
     act: optBuilderCampThreshold,
     interruptible: true
   ),
@@ -777,14 +810,14 @@ let BuilderOptionsThreat* = [
   OptionDef(
     name: "BuilderMarketTrade",
     canStart: canStartMarketTrade,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateMarketTrade,
     act: optMarketTrade,
     interruptible: true
   ),
   OptionDef(
     name: "BuilderVisitTradingHub",
     canStart: canStartBuilderVisitTradingHub,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateBuilderVisitTradingHub,
     act: optBuilderVisitTradingHub,
     interruptible: true
   ),

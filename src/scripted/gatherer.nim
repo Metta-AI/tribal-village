@@ -197,6 +197,11 @@ proc canStartGathererPlantOnFertile(controller: Controller, env: Environment, ag
                                     agentId: int, state: var AgentState): bool =
   state.gathererTask != TaskHearts and (agent.inventoryWheat > 0 or agent.inventoryWood > 0)
 
+proc shouldTerminateGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
+                                           agentId: int, state: var AgentState): bool =
+  ## Terminate when no seeds to plant or task changed to hearts
+  state.gathererTask == TaskHearts or (agent.inventoryWheat == 0 and agent.inventoryWood == 0)
+
 proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
@@ -558,14 +563,14 @@ let GathererOptions* = [
   OptionDef(
     name: "GathererPlantOnFertile",
     canStart: canStartGathererPlantOnFertile,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateGathererPlantOnFertile,
     act: optGathererPlantOnFertile,
     interruptible: true
   ),
   OptionDef(
     name: "GathererMarketTrade",
     canStart: canStartMarketTrade,
-    shouldTerminate: optionsAlwaysTerminate,
+    shouldTerminate: shouldTerminateMarketTrade,
     act: optMarketTrade,
     interruptible: true
   ),
