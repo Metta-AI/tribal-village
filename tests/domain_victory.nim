@@ -1,0 +1,136 @@
+import std/[unittest]
+import environment
+import agent_control
+import common
+import types
+import items
+import terrain
+import test_utils
+
+suite "Victory - Conquest":
+  test "conquest victory when only one team remains":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryConquest
+    # Team 0 has an agent alive
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    # Team 1 agent is dead (terminated)
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(20, 20))
+    env.terminated[MapAgentsPerTeam] = 1.0
+    env.grid[20][20] = nil
+    # Add an altar for team 0 so it counts as having units/buildings
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    env.stepNoop()
+    # Only team 0 remains; all other teams have no units or buildings
+    check env.victoryWinner == 0
+    check env.shouldReset == true
+
+  test "no conquest victory with multiple teams alive":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryConquest
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(20, 20))
+    env.stepNoop()
+    check env.victoryWinner == -1
+    check env.shouldReset == false
+
+  test "conquest victory not checked when VictoryNone":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryNone
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    # Only one team has agents, but VictoryNone means no check
+    env.stepNoop()
+    check env.victoryWinner == -1
+
+suite "Victory - Wonder":
+  test "wonder victory after countdown expires":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000  # Ensure time limit doesn't interfere
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    # Build a Wonder for team 0
+    let wonder = env.addBuilding(Wonder, ivec2(15, 10), 0)
+    # Step once to register the wonder
+    env.stepNoop()
+    check env.victoryStates[0].wonderBuiltStep >= 0
+    check env.victoryWinner == -1  # Not enough time passed
+    # Advance past countdown
+    let startStep = env.victoryStates[0].wonderBuiltStep
+    env.currentStep = startStep + WonderVictoryCountdown
+    env.stepNoop()
+    check env.victoryWinner == 0
+    check env.shouldReset == true
+
+  test "wonder victory resets when wonder destroyed":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    let wonder = env.addBuilding(Wonder, ivec2(15, 10), 0)
+    env.stepNoop()
+    check env.victoryStates[0].wonderBuiltStep >= 0
+    # Destroy the wonder by removing from grid and kind list
+    env.grid[wonder.pos.x][wonder.pos.y] = nil
+    env.thingsByKind[Wonder].setLen(0)
+    env.stepNoop()
+    check env.victoryStates[0].wonderBuiltStep == -1
+    check env.victoryWinner == -1
+
+suite "Victory - Relic":
+  test "relic victory after holding all relics":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryRelic
+    env.config.maxSteps = 5000
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    # Create a monastery with all relics garrisoned
+    let monastery = env.addBuilding(Monastery, ivec2(15, 10), 0)
+    monastery.garrisonedRelics = TotalRelicsOnMap
+    env.stepNoop()
+    check env.victoryStates[0].relicHoldStartStep >= 0
+    check env.victoryWinner == -1  # Not enough time
+    # Advance past countdown
+    let startStep = env.victoryStates[0].relicHoldStartStep
+    env.currentStep = startStep + RelicVictoryCountdown
+    env.stepNoop()
+    check env.victoryWinner == 0
+    check env.shouldReset == true
+
+  test "relic hold resets when relics lost":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryRelic
+    env.config.maxSteps = 5000
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    let agent1 = env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    let monastery = env.addBuilding(Monastery, ivec2(15, 10), 0)
+    monastery.garrisonedRelics = TotalRelicsOnMap
+    env.stepNoop()
+    check env.victoryStates[0].relicHoldStartStep >= 0
+    # Lose relics
+    monastery.garrisonedRelics = 0
+    env.stepNoop()
+    check env.victoryStates[0].relicHoldStartStep == -1
+    check env.victoryWinner == -1
+
+suite "Victory - VictoryAll mode":
+  test "VictoryAll triggers on conquest":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryAll
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    # No other teams alive
+    env.stepNoop()
+    check env.victoryWinner == 0
+
+suite "Victory - Winner termination":
+  test "winning team agents are truncated not terminated":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryConquest
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    env.stepNoop()
+    check env.victoryWinner == 0
+    # Winner agent should be truncated (episode ended), not terminated (dead)
+    check env.truncated[0] == 1.0
+    check env.terminated[0] == 0.0

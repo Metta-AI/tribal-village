@@ -48,6 +48,10 @@ proc makeEmptyEnv*(): Environment =
       result.tumorStrength[x][y] = 0
   result.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
   result.initMarketPrices()  # Initialize AoE2-style market prices
+  result.victoryWinner = -1
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result.victoryStates[teamId].wonderBuiltStep = -1
+    result.victoryStates[teamId].relicHoldStartStep = -1
   result.actionTintPositions.setLen(0)
   result.activeTiles.positions.setLen(0)
   result.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
