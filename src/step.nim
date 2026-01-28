@@ -182,14 +182,14 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   if garrisonCount > 0:
     let bonusArrows = garrisonCount * GarrisonArrowBonus
     var allTargets: seq[Thing] = @[]
-    for agent in env.agents:
-      if not isAgentAlive(env, agent):
-        continue
-      if tower.teamId == getTeamId(agent):
-        continue
-      let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
-      if dist >= minRange and dist <= range:
-        allTargets.add(agent)
+    collectEnemiesInRangeSpatial(env, tower.pos, tower.teamId, range, allTargets)
+    if minRange > 1:
+      var filtered: seq[Thing] = @[]
+      for t in allTargets:
+        let dist = max(abs(t.pos.x - tower.pos.x), abs(t.pos.y - tower.pos.y))
+        if dist >= minRange:
+          filtered.add(t)
+      allTargets = filtered
     for kind in [Tumor, Spawner]:
       for thing in env.thingsByKind[kind]:
         let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
