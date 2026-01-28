@@ -341,6 +341,18 @@ proc stepApplyMonkAuras(env: Environment) =
     if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
       target.hp = min(target.maxHp, target.hp + 1)
 
+proc stepRechargeMonkFaith(env: Environment) =
+  ## Regenerate faith for monks over time (AoE2-style faith recharge)
+  for monk in env.agents:
+    if not isAgentAlive(env, monk):
+      continue
+    if monk.unitClass != UnitMonk:
+      continue
+    if isThingFrozen(monk, env):
+      continue
+    if monk.faith < MonkMaxFaith:
+      monk.faith = min(MonkMaxFaith, monk.faith + MonkFaithRechargeRate)
+
 proc isOutOfBounds(pos: IVec2): bool {.inline.} =
   ## Check if position is outside the playable map area (within border margin)
   pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
@@ -737,6 +749,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHealMonk)
               inc env.stats[id].actionAttack
             else:
+              # Faith check for conversion (AoE2-style)
+              if agent.faith < MonkConversionFaithCost:
+                inc env.stats[id].actionInvalid
+                break attackAction
               let newTeam = attackerTeam
               if newTeam < 0 or newTeam >= MapRoomObjectsTeams:
                 inc env.stats[id].actionInvalid
@@ -779,6 +795,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
               env.applyUnitAttackTint(agent.unitClass, healPos)
+              # Consume faith on successful conversion
+              agent.faith = agent.faith - MonkConversionFaithCost
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -1332,7 +1350,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
                   used = true
               of UseTrain:
-                if thing.cooldown == 0 and buildingHasTrain(thing.kind):
+                # Special case: Monks can deposit relics in Monastery for gold generation
+                if thing.kind == Monastery and agent.unitClass == UnitMonk and agent.inventoryRelic > 0:
+                  thing.garrisonedRelics = thing.garrisonedRelics + agent.inventoryRelic
+                  agent.inventoryRelic = 0
+                  env.updateAgentInventoryObs(agent, ItemRelic)
+                  used = true
+                elif thing.cooldown == 0 and buildingHasTrain(thing.kind):
                   let teamId = getTeamId(agent)
                   if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
                       buildingTrainCosts(thing.kind), 0):
@@ -1804,6 +1828,21 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif thing.kind == Temple:
       if thing.cooldown > 0:
         dec thing.cooldown
+    elif thing.kind == Monastery:
+      # Monastery generates gold from garrisoned relics
+      if thing.garrisonedRelics > 0:
+        if thing.cooldown > 0:
+          dec thing.cooldown
+        else:
+          # Generate gold for the team
+          let teamId = thing.teamId
+          if teamId >= 0 and teamId < MapRoomObjectsTeams:
+            let goldAmount = thing.garrisonedRelics * MonasteryRelicGoldAmount
+            env.teamStockpiles[teamId].counts[ResourceGold] += goldAmount
+          thing.cooldown = MonasteryRelicGoldInterval
+      else:
+        if thing.cooldown > 0:
+          dec thing.cooldown
     elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
                                          UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
@@ -2234,6 +2273,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Monk aura tints + healing
   env.stepApplyMonkAuras()
+
+  # Recharge monk faith over time
+  env.stepRechargeMonkFaith()
 
   when defined(stepTiming):
     if timing:

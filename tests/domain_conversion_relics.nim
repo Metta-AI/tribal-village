@@ -8,6 +8,48 @@ proc isAdjacent(a, b: IVec2): bool =
   max(abs(a.x - b.x), abs(a.y - b.y)) <= 1
 
 suite "Conversion":
+  test "monk starts with full faith":
+    let env = makeEmptyEnv()
+    let monk = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMonk)
+    check monk.faith == MonkMaxFaith
+
+  test "monk conversion consumes faith":
+    let env = makeEmptyEnv()
+    let altarPos = ivec2(12, 10)
+    discard addAltar(env, altarPos, 0, 10)
+    discard addBuilding(env, House, ivec2(12, 11), 0)
+    let monk = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos, unitClass = UnitMonk)
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+    let initialFaith = monk.faith
+
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, enemy.pos))
+
+    check getTeamId(enemy) == 0
+    # Faith consumed (10) then recharged (1 per step) = 0 + 1 = 1
+    check monk.faith == initialFaith - MonkConversionFaithCost + MonkFaithRechargeRate
+
+  test "monk conversion fails without faith":
+    let env = makeEmptyEnv()
+    let altarPos = ivec2(12, 10)
+    discard addAltar(env, altarPos, 0, 10)
+    discard addBuilding(env, House, ivec2(12, 11), 0)
+    let monk = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altarPos, unitClass = UnitMonk)
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+    monk.faith = 0  # Deplete faith
+
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, enemy.pos))
+
+    check getTeamId(enemy) == 1  # Unchanged - still enemy team
+
+  test "monk faith recharges over time":
+    let env = makeEmptyEnv()
+    let monk = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMonk)
+    monk.faith = 5  # Partially depleted
+
+    env.stepNoop()  # Step to trigger faith recharge
+
+    check monk.faith == min(MonkMaxFaith, 5 + MonkFaithRechargeRate)
+
   test "monk conversion updates team and home altar":
     let env = makeEmptyEnv()
     let altarPos = ivec2(12, 10)
@@ -77,3 +119,42 @@ suite "Relics":
     check isAdjacent(droppedRelic.pos, victimPos)
     check isAdjacent(droppedLantern.pos, victimPos)
     check getInv(droppedRelic, ItemGold) == 0
+
+suite "Monastery Relic Garrison":
+  test "monk deposits relic in monastery":
+    let env = makeEmptyEnv()
+    let monasteryPos = ivec2(10, 9)
+    let monastery = addBuilding(env, Monastery, monasteryPos, 0)
+    let monk = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMonk)
+    monk.inventoryRelic = 1
+
+    env.stepAction(monk.agentId, 3'u8, dirIndex(monk.pos, monasteryPos))
+
+    check monk.inventoryRelic == 0
+    check monastery.garrisonedRelics == 1
+
+  test "monastery generates gold from garrisoned relics":
+    let env = makeEmptyEnv()
+    let monastery = addBuilding(env, Monastery, ivec2(10, 10), 0)
+    monastery.garrisonedRelics = 2
+    monastery.cooldown = 0  # Ready to generate
+    let initialGold = env.teamStockpiles[0].counts[ResourceGold]
+
+    env.stepNoop()
+
+    # After one step, gold generated and cooldown set
+    check monastery.cooldown == MonasteryRelicGoldInterval
+    let goldAfterFirst = initialGold + (2 * MonasteryRelicGoldAmount)
+    check env.teamStockpiles[0].counts[ResourceGold] == goldAfterFirst
+
+    # Run cooldown steps (cooldown goes from 20 -> 0)
+    for _ in 0 ..< MonasteryRelicGoldInterval:
+      env.stepNoop()
+
+    # After cooldown expires (cooldown was 20, did 20 steps, now cooldown=0)
+    # Another step will generate gold again
+    env.stepNoop()
+
+    # Second gold generation should have occurred
+    let expectedGold = goldAfterFirst + (2 * MonasteryRelicGoldAmount)
+    check env.teamStockpiles[0].counts[ResourceGold] == expectedGold

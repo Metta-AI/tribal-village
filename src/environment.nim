@@ -378,6 +378,11 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
   agent.stance = defaultStanceForClass(unitClass)
+  # Initialize monk faith
+  if unitClass == UnitMonk:
+    agent.faith = MonkMaxFaith
+  else:
+    agent.faith = 0
 
 proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) =
   ## Apply unit class stats with team modifier bonuses
@@ -389,6 +394,11 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   agent.maxHp = UnitMaxHpByClass[unitClass] + modifiers.unitHpBonus[unitClass]
   agent.attackDamage = UnitAttackDamageByClass[unitClass] + modifiers.unitAttackBonus[unitClass]
   agent.hp = agent.maxHp
+  # Initialize monk faith
+  if unitClass == UnitMonk:
+    agent.faith = MonkMaxFaith
+  else:
+    agent.faith = 0
 
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass == UnitBoat:
