@@ -20,6 +20,7 @@ type
     UseTrain
     UseTrainAndCraft
     UseCraft
+    UseDropoffAndTrain  # Dock: resource dropoff + unit training
     UseUniversity  # Research University techs
 
   BuildingInfo* = object
@@ -275,7 +276,8 @@ proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
   of WeavingLoom: UseWeavingLoom
   of Blacksmith: UseBlacksmith
   of Market: UseMarket
-  of TownCenter, Mill, LumberCamp, Quarry, MiningCamp, Dock: UseDropoff
+  of TownCenter, Mill, LumberCamp, Quarry, MiningCamp: UseDropoff
+  of Dock: UseDropoffAndTrain
   of Granary: UseDropoffAndStorage
   of Barrel: UseStorage
   of University: UseUniversity
@@ -351,7 +353,7 @@ proc buildingHasCraftStation*(kind: ThingKind): bool =
   buildingCraftStation(kind) != StationNone
 
 proc buildingHasTrain*(kind: ThingKind): bool =
-  kind in {Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle}
+  kind in {Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle, Dock}
 
 # Castle unique units by team (civilization)
 const CastleUniqueUnits*: array[MapRoomObjectsTeams, AgentUnitClass] = [
@@ -381,6 +383,7 @@ proc buildingTrainUnit*(kind: ThingKind, teamId: int = -1): AgentUnitClass =
       CastleUniqueUnits[teamId]
     else:
       UnitKnight  # Fallback for invalid/unknown team
+  of Dock: UnitTradeCog
   else: UnitVillager
 
 proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, count: int]] =
@@ -393,6 +396,7 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   of TrebuchetWorkshop: @[(res: ResourceWood, count: 5), (res: ResourceGold, count: 4)]
   of Monastery: @[(res: ResourceGold, count: 2)]
   of Castle: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)]
+  of Dock: @[(res: ResourceWood, count: 3), (res: ResourceGold, count: 2)]
   else: @[]
 
 proc buildIndexFor*(kind: ThingKind): int =

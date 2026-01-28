@@ -114,6 +114,7 @@ const
   MangonelAttackDamage* = 2
   TrebuchetAttackDamage* = 3
   GoblinAttackDamage* = 1
+  TradeCogAttackDamage* = 0
   VillagerMaxHp* = AgentMaxHp
   ManAtArmsMaxHp* = 7
   ArcherMaxHp* = 4
@@ -124,6 +125,10 @@ const
   MangonelMaxHp* = 12
   TrebuchetMaxHp* = 14
   GoblinMaxHp* = 4
+  TradeCogMaxHp* = 6
+  # Trade Cog mechanics (AoE2-style)
+  TradeCogGoldPerDistance* = 1     # Gold generated per 10 tiles of dock-to-dock distance
+  TradeCogDistanceDivisor* = 10   # Distance divided by this for gold calculation
   # Castle unique unit stats
   SamuraiMaxHp* = 7
   SamuraiAttackDamage* = 3
@@ -352,6 +357,7 @@ type
     UnitTrebuchet
     UnitGoblin
     UnitBoat
+    UnitTradeCog   # Water-based trade unit, generates gold between Docks
     # Castle unique units (one per civilization/team)
     UnitSamurai        # Team 0: Fast infantry, high damage
     UnitLongbowman     # Team 1: Extended range archer
@@ -469,6 +475,8 @@ type
     scatteredSteps*: int       # Remaining steps of scattered state after leader death
     # Trebuchet:
     packed*: bool              # Trebuchet pack state (true=packed/mobile, false=unpacked/stationary)
+    # Trade Cog:
+    tradeHomeDock*: IVec2      # Position of origin dock for trade route gold calculation
     # Monk:
     faith*: int                # Current faith points for conversion (AoE2-style)
     # Tumor:

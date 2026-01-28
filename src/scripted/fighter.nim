@@ -739,7 +739,7 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
       continue
     # Melee units are: Villager, ManAtArms, Scout, Knight, BatteringRam, Goblin
     # Non-melee: Archer, Mangonel, Monk, Boat
-    if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat}:
+    if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat, UnitTradeCog}:
       continue
     let dist = int(chebyshevDist(agent.pos, other.pos))
     if dist < bestDist:

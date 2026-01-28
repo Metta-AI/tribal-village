@@ -475,6 +475,7 @@ const
     TrebuchetMaxHp,
     GoblinMaxHp,
     VillagerMaxHp,
+    TradeCogMaxHp,
     # Castle unique units
     SamuraiMaxHp,
     LongbowmanMaxHp,
@@ -497,6 +498,7 @@ const
     TrebuchetAttackDamage,
     GoblinAttackDamage,
     VillagerAttackDamage,
+    TradeCogAttackDamage,
     # Castle unique units
     SamuraiAttackDamage,
     LongbowmanAttackDamage,
@@ -513,7 +515,7 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   ## Villagers use NoAttack (won't auto-attack).
   ## Military units use Defensive (attack in range, return to position).
   case unitClass
-  of UnitVillager, UnitMonk, UnitBoat:
+  of UnitVillager, UnitMonk, UnitBoat, UnitTradeCog:
     StanceNoAttack
   of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
@@ -538,7 +540,7 @@ proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
     CategoryCavalry
   of UnitArcher, UnitLongbowman, UnitJanissary:
     CategoryArcher
-  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat:
+  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat, UnitTradeCog:
     CategoryNone
 
 proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
@@ -601,12 +603,14 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
     agent.faith = 0
 
 proc embarkAgent*(agent: Thing) =
-  if agent.unitClass == UnitBoat:
+  if agent.unitClass in {UnitBoat, UnitTradeCog}:
     return
   agent.embarkedUnitClass = agent.unitClass
   applyUnitClass(agent, UnitBoat)
 
 proc disembarkAgent*(agent: Thing) =
+  if agent.unitClass == UnitTradeCog:
+    return  # Trade Cogs never disembark
   if agent.unitClass != UnitBoat:
     return
   var target = agent.embarkedUnitClass
@@ -696,8 +700,11 @@ proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
   let background = env.getBackgroundThing(pos)
   not isNil(background) and background.kind == Dock
 
+proc isWaterUnit*(agent: Thing): bool {.inline.} =
+  agent.unitClass in {UnitBoat, UnitTradeCog}
+
 proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
-  env.terrain[pos.x][pos.y] == Water and agent.unitClass != UnitBoat and not env.hasDockAt(pos)
+  env.terrain[pos.x][pos.y] == Water and not agent.isWaterUnit and not env.hasDockAt(pos)
 {.pop.}
 
 proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
