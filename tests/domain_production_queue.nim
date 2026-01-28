@@ -32,7 +32,7 @@ suite "Production Queue - Basic Queuing":
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, barracks.pos))
     let initialRemaining = barracks.productionQueue.entries[0].remainingSteps
-    check initialRemaining == ProductionTrainDuration - 1  # One tick from the step
+    check initialRemaining == unitTrainTime(UnitManAtArms) - 1  # One tick from the step
 
     env.stepNoop()
     check barracks.productionQueue.entries[0].remainingSteps == initialRemaining - 1
@@ -46,7 +46,7 @@ suite "Production Queue - Basic Queuing":
 
     # Queue and wait for completion
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, barracks.pos))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitManAtArms) - 1:
       env.stepNoop()
     check barracks.productionQueue.entries[0].remainingSteps == 0
 
