@@ -19,4 +19,4 @@ suite "Spawn":
     let fish = env.thingsByKind[Fish]
     if fish.len > 0:
       for node in fish:
-        check env.terrain[node.pos.x][node.pos.y] == Water
+        check env.terrain[node.pos.x][node.pos.y] in {Water, ShallowWater}

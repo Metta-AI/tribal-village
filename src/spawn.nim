@@ -81,7 +81,7 @@ proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =
       let checkY = startY + dy
       if checkX < 0 or checkX >= MapWidth or checkY < 0 or checkY >= MapHeight:
         continue
-      if env.terrain[checkX][checkY] == Water:
+      if env.terrain[checkX][checkY] in {Water, ShallowWater}:
         return true
   false
 
@@ -1527,10 +1527,10 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
         let pos = randInteriorPos(rng, 2)
         let x = pos.x.int
         let y = pos.y.int
-        if env.terrain[x][y] != Water:
+        if env.terrain[x][y] notin {Water, ShallowWater}:
           continue
         let size = randIntInclusive(rng, 3, 7)
-        placeResourceCluster(env, x, y, size, 0.85, 0.45, Fish, ItemFish, {Water}, rng)
+        placeResourceCluster(env, x, y, size, 0.85, 0.45, Fish, ItemFish, {Water, ShallowWater}, rng)
         placed = true
         break
       if not placed:

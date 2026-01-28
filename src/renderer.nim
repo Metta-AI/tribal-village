@@ -59,6 +59,7 @@ const CliffDrawOrder = [
 var
   floorSpritePositions: array[FloorSpriteKind, seq[IVec2]]
   waterPositions: seq[IVec2] = @[]
+  shallowWaterPositions: seq[IVec2] = @[]
   renderCacheGeneration = -1
 
 template configureHeartFont(ctx: var Context) =
@@ -227,6 +228,7 @@ proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
     floorSpritePositions[kind].setLen(0)
   waterPositions.setLen(0)
+  shallowWaterPositions.setLen(0)
 
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -250,6 +252,8 @@ proc rebuildRenderCaches() =
 
       if env.terrain[x][y] == Water:
         waterPositions.add(ivec2(x, y))
+      elif env.terrain[x][y] == ShallowWater:
+        shallowWaterPositions.add(ivec2(x, y))
   renderCacheGeneration = env.mapGeneration
 
 proc drawFloor*() =
@@ -424,11 +428,17 @@ proc drawObjects*() =
   let waterKey = terrainSpriteKey(Water)
 
   # Draw water from terrain so agents can occupy those tiles while keeping visuals.
+  # Deep water (center of rivers) renders darker, shallow water (edges) renders lighter.
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
   if waterKey.len > 0:
+    # Draw deep water (impassable) with standard tint
     for pos in waterPositions:
       bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
+    # Draw shallow water (passable but slow) with lighter tint to distinguish
+    let shallowTint = color(0.6, 0.85, 0.95, 1.0)  # Lighter blue-green for wading depth
+    for pos in shallowWaterPositions:
+      bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
 
   for kind in CliffDrawOrder:
     let spriteKey = thingSpriteKey(kind)
