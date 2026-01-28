@@ -26,16 +26,19 @@ Role assignment: Agents are assigned roles based on slot modulo 6:
 
 | # | Behavior | Description |
 |---|----------|-------------|
-| 1 | GathererPlantOnFertile | Plants wheat/trees on fertile land |
-| 2 | GathererMarketTrade | Trades at market (gold->food, resources->gold) |
-| 3 | GathererCarryingStockpile | Returns resources to dropoff buildings |
-| 4 | GathererHearts | Prioritizes altar hearts (gold->magma->bar->altar) |
-| 5 | GathererResource | Gathers gold/wood/stone + builds resource camps |
-| 6 | GathererFood | Gathers food (wheat, cow, hunt) + builds granary/mill |
-| 7 | GathererIrrigate | Waters tiles to create fertile land |
-| 8 | GathererScavenge | Collects from skeletons |
-| 9 | GathererStoreValuables | Stores items in appropriate buildings |
-| 10 | GathererFallbackSearch | Spiral search when nothing else to do |
+| 1 | GathererFlee | Flees toward home altar when enemies nearby |
+| 2 | GathererPredatorFlee | Flees from wolves/bears |
+| 3 | EmergencyHeal | Heals when HP critically low |
+| 4 | GathererPlantOnFertile | Plants wheat/trees on fertile land |
+| 5 | GathererMarketTrade | Trades at market (gold->food, resources->gold) |
+| 6 | GathererCarryingStockpile | Returns resources to dropoff buildings |
+| 7 | GathererHearts | Prioritizes altar hearts (gold->magma->bar->altar) |
+| 8 | GathererResource | Gathers gold/wood/stone + builds resource camps |
+| 9 | GathererFood | Gathers food (wheat, cow, hunt) + builds granary/mill |
+| 10 | GathererIrrigate | Waters tiles to create fertile land |
+| 11 | GathererScavenge | Collects from skeletons |
+| 12 | GathererStoreValuables | Stores items in appropriate buildings |
+| 13 | GathererFallbackSearch | Spiral search when nothing else to do |
 
 ### Resource Finding Mechanism
 
@@ -45,16 +48,18 @@ Role assignment: Agents are assigned roles based on slot modulo 6:
 - Maintains cached positions for resource types
 - Uses `findNearestThingSpiral()` for efficient exploration
 
-**Task Selection (lines 48-65):**
+**Task Selection (lines 87-179):**
 ```
-1. If altar hearts < 10 -> TaskHearts (always first)
-2. Otherwise, compare stockpiles:
-   - TaskFood: ResourceFood count
-   - TaskWood: ResourceWood count
-   - TaskStone: ResourceStone count
-   - TaskGold: ResourceGold count
-   - TaskHearts: altar hearts (inserted at position 0)
-3. Lowest count wins
+1. Check critical bottlenecks (FoodCritical/WoodCritical) → immediate task assignment
+2. If altar hearts < 10 → TaskHearts (priority)
+3. Otherwise, apply phase-based weights:
+   - Early game (< 33%): Food > Wood > Stone > Gold
+   - Mid game (33-66%): Equal weights
+   - Late game (> 66%): Gold > Stone > Wood > Food
+4. Flow rate adjustments for declining resources
+5. Anti-oscillation hysteresis (5.0 threshold) prevents task switching
+6. Weighted score = (stockpile + flow_adjustment) * weight
+7. Lowest weighted score wins
 ```
 
 **Food Sources (`FoodKinds`):** Wheat, Stubble, Fish, Bush, Cow, Corpse
@@ -77,34 +82,36 @@ Role assignment: Agents are assigned roles based on slot modulo 6:
 
 | Gap | Impact | Current Workaround |
 |-----|--------|-------------------|
-| **No flee from danger** | Gatherers die when enemies approach | Global attack check catches some cases |
-| **No cow milking** | Only lethal food extraction | Kill cow -> gather corpse |
-| **No resource type weighting** | Treats all resources equally important | Lowest stockpile wins |
+| ~~**No flee from danger**~~ | ~~Gatherers die when enemies approach~~ | ✅ **COMPLETE** - GathererFlee and GathererPredatorFlee options added |
+| **No cow milking** | Only lethal food extraction | Kill cow -> gather corpse (cow milking implemented: healthy cows are milked, only killed when HP low or food critical) |
+| ~~**No resource type weighting**~~ | ~~Treats all resources equally important~~ | ✅ **COMPLETE** - Phase-based weights in `updateGathererTask` |
 | **No gatherer coordination** | Multiple gatherers may target same resource | None |
-| **No seasonal/time awareness** | Gathers same way at all times | None |
+| **No seasonal/time awareness** | Gathers same way at all times | ✅ **COMPLETE** - Game phase detection (early/mid/late) drives resource priorities |
 | **No threat-adjusted pathing** | Walks through dangerous areas | None |
-| **No stockpile thresholds** | Keeps gathering even with surplus | None |
+| **No stockpile thresholds** | Keeps gathering even with surplus | ✅ **COMPLETE** - Critical bottleneck detection in economy system |
 
 ### Enhancement Recommendations
 
-1. **Danger Awareness Option** (high priority)
-   - Add `canStartGathererFlee` that checks for nearby enemies
-   - Move toward home altar when threat detected
-   - Insert at priority 1 (before planting)
+1. ~~**Danger Awareness Option**~~ ✅ **COMPLETE**
+   - `GathererFlee` checks for nearby enemies within `GathererFleeRadius` (8 tiles)
+   - Requests protection from fighters via coordination system
+   - Moves toward home altar when threat detected
+   - `GathererPredatorFlee` handles wolves/bears separately
 
-2. **Cow Milking Behavior**
-   - New verb for non-lethal cow interaction
-   - Use `3'u8` (interact) instead of `2'u8` (attack) when cow is healthy
-   - Only kill when cow HP is low or food is critical
+2. **Cow Milking Behavior** ✅ **COMPLETE**
+   - Uses `3'u8` (interact) when cow is healthy and food not critical
+   - Uses `2'u8` (attack) when cow HP < 50% or food stockpile critical
+   - See `optGathererFood` cow handling logic
 
-3. **Resource Priority Weighting**
-   - Add multipliers based on game phase
-   - Early game: Food > Wood > Stone > Gold
-   - Late game: Gold > Stone > Wood > Food
+3. ~~**Resource Priority Weighting**~~ ✅ **COMPLETE**
+   - Game phase detection: early (< 33%), mid (33-66%), late (> 66%)
+   - Early game: Food (0.5) > Wood (0.75) > Stone (1.0) > Gold (1.5)
+   - Late game: Gold (0.5) > Stone (0.75) > Wood (1.0) > Food (1.5)
+   - Flow rate adjustments for declining resources
 
-4. **Anti-oscillation for Resource Selection**
-   - Add hysteresis to task switching
-   - Don't switch task unless difference is significant (e.g., 5+ count difference)
+4. ~~**Anti-oscillation for Resource Selection**~~ ✅ **COMPLETE**
+   - `TaskSwitchHysteresis = 5.0` threshold
+   - Only switches task if new best is significantly better than current
 
 ---
 
@@ -389,18 +396,18 @@ proc canStartFighterTrain(...): bool =
 
 ## Priority Enhancement Ranking
 
-| Priority | Enhancement | Affected Role(s) |
-|----------|-------------|------------------|
-| 1 | Danger flee behavior | Gatherer, Builder |
-| 2 | True siege conversion | Fighter |
-| 3 | Structure repair | Builder |
-| 4 | Kiting for ranged | Fighter |
-| 5 | Group combat tactics | Fighter |
-| 6 | Threat-aware building | Builder |
-| 7 | Anti-siege priority | Fighter |
-| 8 | Resource priority weighting | Gatherer |
-| 9 | Builder coordination | Builder |
-| 10 | Cow milking | Gatherer |
+| Priority | Enhancement | Affected Role(s) | Status |
+|----------|-------------|------------------|--------|
+| 1 | ~~Danger flee behavior~~ | Gatherer, Builder | ✅ COMPLETE |
+| 2 | True siege conversion | Fighter | Open |
+| 3 | Structure repair | Builder | Open |
+| 4 | Kiting for ranged | Fighter | Open |
+| 5 | Group combat tactics | Fighter | Open |
+| 6 | Threat-aware building | Builder | Open |
+| 7 | Anti-siege priority | Fighter | Open |
+| 8 | ~~Resource priority weighting~~ | Gatherer | ✅ COMPLETE |
+| 9 | Builder coordination | Builder | Open |
+| 10 | ~~Cow milking~~ | Gatherer | ✅ COMPLETE |
 
 ---
 
