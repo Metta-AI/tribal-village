@@ -95,12 +95,34 @@ const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCent
 
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =
+  ## Apply damage to a structure (Wall, Tower, Castle, etc).
+  ## University techs affect structure combat:
+  ## - Masonry: +1/+1 building armor (reduces damage by 1)
+  ## - Architecture: +1/+1 building armor (stacks with Masonry, reduces by 1 more)
+  ## - Siege Engineers: +20% building damage for siege units
   var damage = max(1, amount)
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
-    let bonus = damage * (SiegeStructureMultiplier - 1)
+    let bonusMultiplier = SiegeStructureMultiplier - 1
+    let bonus = damage * bonusMultiplier
     if bonus > 0:
       env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])
       damage += bonus
+    # Siege Engineers: +20% building damage for siege units (applied to total damage)
+    let attackerTeam = getTeamId(attacker)
+    if attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechSiegeEngineers):
+      damage = int(float32(damage) * 1.2 + 0.5)
+
+  # Apply building armor from Masonry and Architecture (defender's team)
+  if target.teamId >= 0:
+    var armorReduction = 0
+    # Masonry: +1 building armor
+    if env.hasUniversityTech(target.teamId, TechMasonry):
+      armorReduction += 1
+    # Architecture: +1 building armor (stacks with Masonry)
+    if env.hasUniversityTech(target.teamId, TechArchitecture):
+      armorReduction += 1
+    damage = max(1, damage - armorReduction)
+
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
     return false

@@ -158,6 +158,11 @@ const
   BlacksmithUpgradeFoodCost* = 3  # Food cost per upgrade level
   BlacksmithUpgradeGoldCost* = 2  # Gold cost per upgrade level
 
+  # University techs (AoE2-style)
+  UniversityTechFoodCost* = 5   # Food cost per tech
+  UniversityTechGoldCost* = 3   # Gold cost per tech
+  UniversityTechWoodCost* = 2   # Wood cost per tech (some techs require wood)
+
   # Gameplay
   MinTintEpsilon* = 5
 
@@ -719,6 +724,23 @@ type
     ## Each upgrade can be researched up to 3 times for +1/+2/+3 bonus
     levels*: array[BlacksmithUpgradeType, int]  ## Current level (0-3) for each upgrade
 
+  UniversityTechType* = enum
+    ## AoE2-style University technologies
+    TechBallistics       ## Projectiles lead moving targets (ranged accuracy)
+    TechMurderHoles      ## Towers attack adjacent units (no minimum range)
+    TechMasonry          ## +10% building HP, +1/+1 building armor
+    TechArchitecture     ## +10% building HP, +1/+1 building armor (stacks with Masonry)
+    TechTreadmillCrane   ## +20% construction speed
+    TechArrowslits       ## +1 tower attack damage
+    TechHeatedShot       ## +2 attack vs ships (bonus damage)
+    TechSiegeEngineers   ## +1 range, +20% building damage for siege units
+    TechChemistry        ## Enables gunpowder units (future tech)
+
+  UniversityTechs* = object
+    ## Team-level University tech progress (AoE2-style)
+    ## Each tech is either researched (true) or not (false)
+    researched*: array[UniversityTechType, bool]
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -739,6 +761,7 @@ type
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
     teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
     teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
+    teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University techs
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

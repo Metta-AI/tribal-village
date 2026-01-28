@@ -108,9 +108,19 @@ proc stepDecayShields(env: Environment) =
 
 proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
                         towerRemovals: var seq[Thing]) =
-  ## Have a tower attack the nearest valid target in range
+  ## Have a tower attack the nearest valid target in range.
+  ## University techs affect tower behavior:
+  ## - Murder Holes: Allow attacking adjacent units (min range 0 instead of 1)
+  ## - Arrowslits: +1 attack damage for towers
+  ## - Heated Shot: +2 damage vs boats
   if tower.teamId < 0:
     return
+
+  # Murder Holes: allow attacking adjacent units (distance 1)
+  # Without Murder Holes, towers have a "dead zone" at distance 1 (can't attack adjacent)
+  let hasMurderHoles = env.hasUniversityTech(tower.teamId, TechMurderHoles)
+  let minRange = if hasMurderHoles: 1 else: 2
+
   var bestTarget: Thing = nil
   var bestDist = int.high
   for agent in env.agents:
@@ -119,13 +129,13 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
     if tower.teamId == getTeamId(agent):
       continue
     let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
-    if dist <= range and dist < bestDist:
+    if dist >= minRange and dist <= range and dist < bestDist:
       bestDist = dist
       bestTarget = agent
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
       let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
-      if dist <= range and dist < bestDist:
+      if dist >= minRange and dist <= range and dist < bestDist:
         bestDist = dist
         bestTarget = thing
   if isNil(bestTarget):
@@ -134,9 +144,20 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   let tintCode = if tower.kind == Castle: ActionTintAttackCastle else: ActionTintAttackTower
   let tintDuration = if tower.kind == Castle: CastleAttackTintDuration else: TowerAttackTintDuration
   env.applyActionTint(bestTarget.pos, tint, tintDuration, tintCode)
+
+  # Calculate tower damage with University tech bonuses
+  var damage = tower.attackDamage
+
+  # Arrowslits: +1 tower attack damage (only for GuardTower, not Castle)
+  if tower.kind == GuardTower and env.hasUniversityTech(tower.teamId, TechArrowslits):
+    damage += 1
+
   case bestTarget.kind
   of Agent:
-    discard env.applyAgentDamage(bestTarget, max(1, tower.attackDamage))
+    # Heated Shot: +2 damage vs boats
+    if bestTarget.unitClass == UnitBoat and env.hasUniversityTech(tower.teamId, TechHeatedShot):
+      damage += 2
+    discard env.applyAgentDamage(bestTarget, max(1, damage))
   of Tumor, Spawner:
     if bestTarget notin towerRemovals:
       towerRemovals.add(bestTarget)
@@ -665,11 +686,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         let delta = orientationToVec(attackOrientation)
         let attackerTeam = getTeamId(agent)
-        let damageAmount = max(1, agent.attackDamage)
-        let rangedRange = case agent.unitClass
+        var damageAmount = max(1, agent.attackDamage)
+
+        # Ballistics: +1 damage for ranged units (better accuracy = more effective shots)
+        if agent.unitClass in {UnitArcher, UnitLongbowman, UnitJanissary} and
+           attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechBallistics):
+          damageAmount += 1
+
+        var rangedRange = case agent.unitClass
           of UnitArcher: ArcherBaseRange
           of UnitTrebuchet: TrebuchetBaseRange
           else: 0
+
+        # Siege Engineers: +1 range for siege units
+        if agent.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
+           attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechSiegeEngineers):
+          if rangedRange > 0:
+            rangedRange += 1
         let hasSpear = agent.inventorySpear > 0 and rangedRange == 0
         let maxRange = if hasSpear: 2 else: 1
 
@@ -1381,6 +1414,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
                   if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
+              of UseUniversity:
+                # University: craft items first, then research techs (like Blacksmith)
+                if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
+                  if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
+                    used = true
+                # If crafting failed or not possible, try researching
+                if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                  if env.tryResearchUniversityTech(agent, thing):
+                    used = true
               of UseNone:
                 discard
 
@@ -1687,6 +1729,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if capacity > 0:
               placed.barrelCapacity = capacity
           env.add(placed)
+          # Apply Masonry and Architecture HP bonuses for buildings
+          # Each tech grants +10% building HP
+          if isBuilding and placed.maxHp > 0 and placed.teamId >= 0:
+            var hpMultiplier = 1.0'f32
+            if env.hasUniversityTech(placed.teamId, TechMasonry):
+              hpMultiplier += 0.1
+            if env.hasUniversityTech(placed.teamId, TechArchitecture):
+              hpMultiplier += 0.1
+            if hpMultiplier > 1.0:
+              placed.maxHp = int(float32(placed.maxHp) * hpMultiplier + 0.5)
           # Player-built buildings start under construction (hp=1)
           # They need villagers to complete construction
           if isBuilding and placed.maxHp > 0:
@@ -1749,6 +1801,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       inc env.stats[id].actionInvalid
 
   # Apply multi-builder construction speed bonus
+  # Treadmill Crane: +20% construction speed from University tech
   for pos, builderCount in constructionBuilders.pairs:
     let thing = env.getThing(pos)
     if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
@@ -1756,7 +1809,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     # Calculate effective HP gain with diminishing returns
     # ConstructionBonusTable: [1.0, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
     let tableIdx = min(builderCount, ConstructionBonusTable.high)
-    let multiplier = ConstructionBonusTable[tableIdx]
+    var multiplier = ConstructionBonusTable[tableIdx]
+    # Treadmill Crane: +20% construction speed
+    if thing.teamId >= 0 and env.hasUniversityTech(thing.teamId, TechTreadmillCrane):
+      multiplier = multiplier * 1.2'f32
     let hpGain = int(float32(ConstructionHpPerAction) * multiplier + 0.5)
     thing.hp = min(thing.maxHp, thing.hp + hpGain)
 
