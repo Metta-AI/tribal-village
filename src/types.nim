@@ -73,7 +73,10 @@ const
   CastleRange* = 6
   TownCenterRange* = 6
   TownCenterGarrisonCapacity* = 15  # AoE2-style: TC can hold 15 units
-  TownCenterGarrisonArrowBonus* = 1  # Extra arrows per garrisoned unit
+  CastleGarrisonCapacity* = 20      # Castle can hold 20 units
+  GuardTowerGarrisonCapacity* = 5   # Guard Tower can hold 5 units
+  HouseGarrisonCapacity* = 5        # House can hold 5 units (hiding villagers)
+  GarrisonArrowBonus* = 1           # Extra arrows per garrisoned unit (for attacking buildings)
   SiegeStructureMultiplier* = 3
   BuildIndexGuardTower* = 23
   BuildIndexMangonelWorkshop* = 24
@@ -509,7 +512,7 @@ type
     teamId*: int               # Which team this lantern belongs to (for color spreading)
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
 
-    # Garrison (TownCenter, Castle):
+    # Garrison (TownCenter, Castle, GuardTower, House):
     garrisonedUnits*: seq[Thing]  # Units currently garrisoned inside this building
     townBellActive*: bool         # True when town bell is ringing, recalling villagers
 

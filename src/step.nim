@@ -163,21 +163,48 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   if tower.kind in {GuardTower, Castle} and env.hasCastleTech(tower.teamId, CastleTechArtillery):
     damage += 2
 
-  case bestTarget.kind
-  of Agent:
-    # Heated Shot: +2 damage vs boats
-    if bestTarget.unitClass == UnitBoat and env.hasUniversityTech(tower.teamId, TechHeatedShot):
-      damage += 2
-    # Greek Fire (Team 2 Castle): +2 tower attack vs siege
-    if bestTarget.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
-        env.hasCastleTech(tower.teamId, CastleTechGreekFire):
-      damage += 2
-    discard env.applyAgentDamage(bestTarget, max(1, damage))
-  of Tumor, Spawner:
-    if bestTarget notin towerRemovals:
-      towerRemovals.add(bestTarget)
-  else:
-    discard
+  # Apply damage to base target (nearest enemy)
+  template applyTowerHit(target: Thing) =
+    case target.kind
+    of Agent:
+      var targetDamage = damage
+      if target.unitClass == UnitBoat and env.hasUniversityTech(tower.teamId, TechHeatedShot):
+        targetDamage += 2
+      if target.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
+          env.hasCastleTech(tower.teamId, CastleTechGreekFire):
+        targetDamage += 2
+      discard env.applyAgentDamage(target, max(1, targetDamage))
+    of Tumor, Spawner:
+      if target notin towerRemovals:
+        towerRemovals.add(target)
+    else:
+      discard
+
+  applyTowerHit(bestTarget)
+
+  # Garrisoned units add extra arrows to building attacks (round-robin across all targets)
+  let garrisonCount = tower.garrisonedUnits.len
+  if garrisonCount > 0:
+    let bonusArrows = garrisonCount * GarrisonArrowBonus
+    var allTargets: seq[Thing] = @[]
+    for agent in env.agents:
+      if not isAgentAlive(env, agent):
+        continue
+      if tower.teamId == getTeamId(agent):
+        continue
+      let dist = max(abs(agent.pos.x - tower.pos.x), abs(agent.pos.y - tower.pos.y))
+      if dist >= minRange and dist <= range:
+        allTargets.add(agent)
+    for kind in [Tumor, Spawner]:
+      for thing in env.thingsByKind[kind]:
+        let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
+        if dist >= minRange and dist <= range:
+          allTargets.add(thing)
+    if allTargets.len > 0:
+      for i in 0 ..< bonusArrows:
+        let bonusTarget = allTargets[i mod allTargets.len]
+        env.applyActionTint(bonusTarget.pos, tint, tintDuration, tintCode)
+        applyTowerHit(bonusTarget)
 
 proc stepTryTownCenterAttack(env: Environment, tc: Thing,
                               towerRemovals: var seq[Thing]) =
@@ -207,7 +234,7 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
 
   # Calculate number of arrows: base damage + 1 per garrisoned unit
   let garrisonCount = tc.garrisonedUnits.len
-  let arrowCount = 1 + garrisonCount * TownCenterGarrisonArrowBonus
+  let arrowCount = 1 + garrisonCount * GarrisonArrowBonus
 
   # Fire arrows at targets (round-robin if more arrows than targets)
   for i in 0 ..< arrowCount:
@@ -224,12 +251,20 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
     else:
       discard
 
+proc garrisonCapacity*(kind: ThingKind): int =
+  ## Returns the garrison capacity for a building type, or 0 if it cannot garrison.
+  case kind
+  of TownCenter: TownCenterGarrisonCapacity
+  of Castle: CastleGarrisonCapacity
+  of GuardTower: GuardTowerGarrisonCapacity
+  of House: HouseGarrisonCapacity
+  else: 0
+
 proc garrisonUnitInBuilding*(env: Environment, unit: Thing, building: Thing): bool =
-  ## Garrison a unit inside a building (TownCenter/Castle). Returns true if successful.
-  if building.kind notin {TownCenter, Castle}:
+  ## Garrison a unit inside a building. Returns true if successful.
+  let capacity = garrisonCapacity(building.kind)
+  if capacity == 0:
     return false
-  let capacity = if building.kind == TownCenter: TownCenterGarrisonCapacity
-                 else: TownCenterGarrisonCapacity  # Castle uses same capacity for now
   if building.garrisonedUnits.len >= capacity:
     return false
   if not isAgentAlive(env, unit):
@@ -1194,24 +1229,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionUse
           break useAction
 
-        # Town Center ungarrison: argument 9 triggers ungarrison of all units
+        # Ungarrison: argument 9 triggers ungarrison of all units from adjacent garrisonable building
         if argument == 9:
-          # Find adjacent TownCenter belonging to agent's team
-          var foundTC: Thing = nil
+          var foundBuilding: Thing = nil
           for dy in -1 .. 1:
             for dx in -1 .. 1:
               let checkPos = agent.pos + ivec2(dx.int32, dy.int32)
               if not isValidPos(checkPos):
                 continue
-              let tc = env.getThing(checkPos)
-              if not tc.isNil and tc.kind == TownCenter and tc.teamId == getTeamId(agent):
-                foundTC = tc
+              let b = env.getThing(checkPos)
+              if not b.isNil and garrisonCapacity(b.kind) > 0 and b.teamId == getTeamId(agent):
+                foundBuilding = b
                 break
-            if not foundTC.isNil:
+            if not foundBuilding.isNil:
               break
-          if foundTC.isNil:
+          if foundBuilding.isNil:
             invalidAndBreak(useAction)
-          let ejected = env.ungarrisonAllUnits(foundTC)
+          let ejected = env.ungarrisonAllUnits(foundBuilding)
           if ejected.len > 0:
             inc env.stats[id].actionUse
           else:
@@ -1691,7 +1725,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if env.garrisonUnitInBuilding(agent, thing):
                     used = true
               of UseNone:
-                discard
+                # Garrison: any unit can garrison in buildings with garrison capacity
+                if thing.teamId == getTeamId(agent) and garrisonCapacity(thing.kind) > 0:
+                  if env.garrisonUnitInBuilding(agent, thing):
+                    used = true
 
         if not used:
           block pickupAttempt:
