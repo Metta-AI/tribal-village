@@ -1530,19 +1530,35 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   agent.inventoryRelic = 0
                   env.updateAgentInventoryObs(agent, ItemRelic)
                   used = true
-                elif thing.cooldown == 0 and buildingHasTrain(thing.kind):
+                elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
                   let teamId = getTeamId(agent)
-                  if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
-                      buildingTrainCosts(thing.kind), 0):
+                  # If queue has a ready entry, convert villager immediately (pre-paid)
+                  if thing.productionQueueHasReady():
+                    let unitClass = thing.consumeReadyQueueEntry()
+                    applyUnitClass(agent, unitClass)
+                    if agent.inventorySpear > 0:
+                      agent.inventorySpear = 0
+                    used = true
+                  # Otherwise queue a new training request (pay now, train later)
+                  elif env.queueTrainUnit(thing, teamId,
+                      buildingTrainUnit(thing.kind, teamId),
+                      buildingTrainCosts(thing.kind)):
                     used = true
               of UseTrainAndCraft:
                 if thing.cooldown == 0:
                   if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
-                  elif buildingHasTrain(thing.kind):
+                  elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
                     let teamId = getTeamId(agent)
-                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
-                        buildingTrainCosts(thing.kind), 0):
+                    if thing.productionQueueHasReady():
+                      let unitClass = thing.consumeReadyQueueEntry()
+                      applyUnitClass(agent, unitClass)
+                      if agent.inventorySpear > 0:
+                        agent.inventorySpear = 0
+                      used = true
+                    elif env.queueTrainUnit(thing, teamId,
+                        buildingTrainUnit(thing.kind, teamId),
+                        buildingTrainCosts(thing.kind)):
                       used = true
               of UseCraft:
                 if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
@@ -2007,6 +2023,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.stepTryTowerAttack(thing, CastleRange, towerRemovals)
       if thing.cooldown > 0:
         dec thing.cooldown
+      # Tick production queue (AoE2-style batch training)
+      thing.processProductionQueue()
     elif thing.kind == TownCenter:
       env.stepTryTownCenterAttack(thing, towerRemovals)
       # Process town bell: recall villagers when active
@@ -2040,11 +2058,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       else:
         if thing.cooldown > 0:
           dec thing.cooldown
+      # Tick production queue (AoE2-style batch training)
+      thing.processProductionQueue()
     elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
                                          UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown
       if thing.cooldown > 0:
         dec thing.cooldown
+      # Tick production queue countdown (AoE2-style batch training)
+      if buildingHasTrain(thing.kind):
+        thing.processProductionQueue()
     elif thing.kind == Spawner:
       if thing.cooldown > 0:
         thing.cooldown -= 1

@@ -887,6 +887,69 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   building.cooldown = cooldown
   true
 
+proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
+                     unitClass: AgentUnitClass,
+                     costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+  ## Queue a unit for training at a building (AoE2-style production queue).
+  ## Resources are spent when queued. When a villager later interacts with the
+  ## building and there's a ready entry, the villager is instantly converted
+  ## without additional cost.
+  if building.productionQueue.entries.len >= ProductionQueueMaxSize:
+    return false
+  if building.teamId != teamId:
+    return false
+  if not env.spendStockpile(teamId, costs):
+    return false
+  building.productionQueue.entries.add(ProductionQueueEntry(
+    unitClass: unitClass,
+    remainingSteps: ProductionTrainDuration
+  ))
+  true
+
+proc cancelLastQueued*(env: Environment, building: Thing): bool =
+  ## Cancel the last unit in the production queue, refunding resources.
+  if building.productionQueue.entries.len == 0:
+    return false
+  building.productionQueue.entries.setLen(building.productionQueue.entries.len - 1)
+  let teamId = building.teamId
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let costs = buildingTrainCosts(building.kind)
+    for cost in costs:
+      env.teamStockpiles[teamId].counts[cost.res] += cost.count
+  true
+
+proc tryBatchQueueTrain*(env: Environment, building: Thing, teamId: int,
+                         count: int): int =
+  ## Queue multiple units for training (batch/shift-click).
+  ## Returns the number of units actually queued.
+  if not buildingHasTrain(building.kind):
+    return 0
+  let unitClass = buildingTrainUnit(building.kind, teamId)
+  let costs = buildingTrainCosts(building.kind)
+  var queued = 0
+  for i in 0 ..< count:
+    if not env.queueTrainUnit(building, teamId, unitClass, costs):
+      break
+    inc queued
+  queued
+
+proc productionQueueHasReady*(building: Thing): bool =
+  ## Check if the building has a queue entry ready for conversion.
+  building.productionQueue.entries.len > 0 and
+    building.productionQueue.entries[0].remainingSteps <= 0
+
+proc consumeReadyQueueEntry*(building: Thing): AgentUnitClass =
+  ## Consume the front ready entry from the queue. Returns the unit class.
+  ## Caller must verify productionQueueHasReady first.
+  result = building.productionQueue.entries[0].unitClass
+  building.productionQueue.entries.delete(0)
+
+proc processProductionQueue*(building: Thing) =
+  ## Tick one step of a building's production queue countdown.
+  if building.productionQueue.entries.len > 0 and
+     building.productionQueue.entries[0].remainingSteps > 0:
+    building.productionQueue.entries[0].remainingSteps -= 1
+
 proc getNextBlacksmithUpgrade(env: Environment, teamId: int): BlacksmithUpgradeType =
   ## Find the next upgrade to research (lowest level across all types).
   ## Returns the upgrade type with the lowest current level.

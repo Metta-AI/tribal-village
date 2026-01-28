@@ -731,8 +731,11 @@ proc optUnitPromotionFocus(controller: Controller, env: Environment, agent: Thin
     if not env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
       continue
     let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
-    if isNil(building) or building.cooldown != 0:
+    if isNil(building):
       continue
+    # Batch-queue additional units if resources allow
+    if building.productionQueue.entries.len < ProductionQueueMaxSize:
+      discard env.tryBatchQueueTrain(building, teamId, BatchTrainSmall)
     return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
   0'u8
 
