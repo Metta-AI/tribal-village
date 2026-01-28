@@ -202,6 +202,14 @@ proc killAgent(env: Environment, victim: Thing) =
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
   var remaining = max(1, amount)
+
+  # Apply Blacksmith attack upgrade bonus from attacker
+  if not attacker.isNil:
+    let attackerTeamId = getTeamId(attacker)
+    if attackerTeamId >= 0 and attackerTeamId < MapRoomObjectsTeams:
+      let attackBonus = env.getBlacksmithAttackBonus(attackerTeamId, attacker.unitClass)
+      remaining += attackBonus
+
   let bonus = if attacker.isNil: 0 else: BonusDamageByClass[attacker.unitClass][target.unitClass]
   if bonus > 0:
     env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])
@@ -223,6 +231,12 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
       if max(dx, dy) <= radius:
         remaining = max(1, (remaining + 1) div 2)
         break
+
+  # Apply Blacksmith armor upgrade bonus for defender
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let armorBonus = env.getBlacksmithArmorBonus(teamId, target.unitClass)
+    remaining = max(0, remaining - armorBonus)
+
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)

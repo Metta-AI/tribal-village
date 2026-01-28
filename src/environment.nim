@@ -520,6 +520,55 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
      UnitHuskarl, UnitMameluke, UnitJanissary:
     StanceDefensive
 
+type
+  UnitCategory* = enum
+    ## Categories for Blacksmith upgrade application
+    CategoryNone      ## Units that don't receive upgrades (villagers, siege, monks)
+    CategoryInfantry  ## Man-at-arms, Samurai, Woad Raider, Teutonic Knight, Huskarl
+    CategoryCavalry   ## Scout, Knight, Cataphract, Mameluke
+    CategoryArcher    ## Archer, Longbowman, Janissary
+
+proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
+  ## Returns the Blacksmith upgrade category for a unit class.
+  ## Used to determine which upgrades apply to a unit.
+  case unitClass
+  of UnitManAtArms, UnitSamurai, UnitWoadRaider, UnitTeutonicKnight, UnitHuskarl:
+    CategoryInfantry
+  of UnitScout, UnitKnight, UnitCataphract, UnitMameluke:
+    CategoryCavalry
+  of UnitArcher, UnitLongbowman, UnitJanissary:
+    CategoryArcher
+  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat:
+    CategoryNone
+
+proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
+  ## Returns the attack bonus from Blacksmith upgrades for a unit.
+  ## Each upgrade level grants +1 attack damage.
+  let category = getUnitCategory(unitClass)
+  case category
+  of CategoryInfantry:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryAttack]
+  of CategoryCavalry:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryAttack]
+  of CategoryArcher:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherAttack]
+  of CategoryNone:
+    0
+
+proc getBlacksmithArmorBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
+  ## Returns the armor bonus from Blacksmith upgrades for a unit.
+  ## Each upgrade level grants +1 damage reduction.
+  let category = getUnitCategory(unitClass)
+  case category
+  of CategoryInfantry:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor]
+  of CategoryCavalry:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryArmor]
+  of CategoryArcher:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherArmor]
+  of CategoryNone:
+    0
+
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   ## Apply unit class stats without team modifiers (backwards compatibility)
   agent.unitClass = unitClass
@@ -836,6 +885,52 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
   if agent.inventorySpear > 0:
     agent.inventorySpear = 0
   building.cooldown = cooldown
+  true
+
+proc getNextBlacksmithUpgrade(env: Environment, teamId: int): BlacksmithUpgradeType =
+  ## Find the next upgrade to research (lowest level across all types).
+  ## Returns the upgrade type with the lowest current level.
+  var minLevel = BlacksmithUpgradeMaxLevel + 1
+  result = UpgradeInfantryAttack  # Default
+  for upgradeType in BlacksmithUpgradeType:
+    let level = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+    if level < minLevel:
+      minLevel = level
+      result = upgradeType
+
+proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thing): bool =
+  ## Attempt to research the next Blacksmith upgrade for the team.
+  ## Costs: Food + Gold, increasing by level.
+  ## Returns true if research was successful.
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  # Find the next upgrade to research
+  let upgradeType = env.getNextBlacksmithUpgrade(teamId)
+  let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+
+  # Check if already at max level
+  if currentLevel >= BlacksmithUpgradeMaxLevel:
+    return false
+
+  # Calculate cost based on current level (level 0->1: base cost, 1->2: 2x, 2->3: 3x)
+  let costMultiplier = currentLevel + 1
+  let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
+  let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
+
+  # Check and spend resources
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
+  if not env.spendStockpile(teamId, costs):
+    return false
+
+  # Apply the upgrade
+  env.teamBlacksmithUpgrades[teamId].levels[upgradeType] = currentLevel + 1
+  building.cooldown = 5  # Short cooldown after research
   true
 
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =

@@ -152,6 +152,11 @@ const
   MonasteryRelicGoldInterval* = 20  # Steps between gold generation from garrisoned relics
   MonasteryRelicGoldAmount* = 1    # Gold generated per relic per interval
 
+  # Blacksmith upgrades (AoE2-style)
+  BlacksmithUpgradeMaxLevel* = 3  # Maximum upgrade level (each level = +1 bonus)
+  BlacksmithUpgradeFoodCost* = 3  # Food cost per upgrade level
+  BlacksmithUpgradeGoldCost* = 2  # Gold cost per upgrade level
+
   # Gameplay
   MinTintEpsilon* = 5
 
@@ -696,6 +701,20 @@ type
     ## Gold is the base currency and not traded
     prices*: array[StockpileResource, int]  ## Current price for each resource
 
+  BlacksmithUpgradeType* = enum
+    ## AoE2-style Blacksmith upgrades for unit stats
+    UpgradeInfantryAttack    ## Forging line: +1 attack per level for infantry
+    UpgradeInfantryArmor     ## Scale/Chain/Plate Mail: +1 armor per level for infantry
+    UpgradeCavalryAttack     ## Forging line: +1 attack per level for cavalry
+    UpgradeCavalryArmor      ## Barding line: +1 armor per level for cavalry
+    UpgradeArcherAttack      ## Fletching line: +1 attack per level for archers
+    UpgradeArcherArmor       ## Padded/Leather/Ring Archer: +1 armor per level for archers
+
+  BlacksmithUpgrades* = object
+    ## Team-level Blacksmith upgrade progress (AoE2-style)
+    ## Each upgrade can be researched up to 3 times for +1/+2/+3 bonus
+    levels*: array[BlacksmithUpgradeType, int]  ## Current level (0-3) for each upgrade
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -715,6 +734,7 @@ type
     teamStockpiles*: array[MapRoomObjectsTeams, TeamStockpile]
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
     teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
+    teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

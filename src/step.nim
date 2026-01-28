@@ -1301,6 +1301,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if not used and thing.teamId == getTeamId(agent):
                   if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
                     used = true
+                # If crafting and storage failed, try researching a Blacksmith upgrade
+                if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                  if env.tryResearchBlacksmithUpgrade(agent, thing):
+                    used = true
               of UseMarket:
                 # AoE2-style market trading with dynamic prices
                 if thing.cooldown == 0:
