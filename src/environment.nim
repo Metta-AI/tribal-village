@@ -902,9 +902,11 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
     return false
   if not env.spendStockpile(teamId, costs):
     return false
+  let trainTime = unitTrainTime(unitClass)
   building.productionQueue.entries.add(ProductionQueueEntry(
     unitClass: unitClass,
-    remainingSteps: ProductionTrainDuration
+    totalSteps: trainTime,
+    remainingSteps: trainTime
   ))
   true
 

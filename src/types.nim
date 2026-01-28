@@ -458,6 +458,7 @@ type
   ProductionQueueEntry* = object
     ## A single entry in a building's production queue (AoE2-style)
     unitClass*: AgentUnitClass
+    totalSteps*: int        ## Original training duration for progress calculation
     remainingSteps*: int
 
   ProductionQueue* = object

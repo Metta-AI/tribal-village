@@ -627,6 +627,19 @@ proc drawObjects*() =
           else:
             color(1, 1, 1, 1)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+        # Production queue progress bar (AoE2-style)
+        if thing.productionQueue.entries.len > 0:
+          let entry = thing.productionQueue.entries[0]
+          if entry.totalSteps > 0 and entry.remainingSteps > 0:
+            let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
+            let segments = 5
+            let filled = int(ceil(ratio * segments.float32))
+            let segStep = 0.16
+            let totalWidth = segStep * (segments.float32 - 1)
+            let baseOffset = vec2(-totalWidth / 2, 0.55)
+            for i in 0 ..< segments:
+              let tintColor = if i < filled: color(0.2, 0.5, 1.0, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
+              bxy.drawImage("floor", pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tintColor)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let teamId = thing.teamId

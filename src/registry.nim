@@ -397,6 +397,32 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   of Castle: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)]
   else: @[]
 
+proc unitTrainTime*(unitClass: AgentUnitClass): int =
+  ## Training duration in game steps for each unit type (AoE2-style).
+  ## More powerful units take longer to train.
+  case unitClass
+  of UnitVillager: 50
+  of UnitManAtArms: 40
+  of UnitArcher: 35
+  of UnitScout: 30
+  of UnitKnight: 60
+  of UnitMonk: 50
+  of UnitBatteringRam: 80
+  of UnitMangonel: 80
+  of UnitTrebuchet: 80
+  of UnitGoblin: 30
+  of UnitBoat: 60
+  # Castle unique units
+  of UnitSamurai: 50
+  of UnitLongbowman: 45
+  of UnitCataphract: 60
+  of UnitWoadRaider: 40
+  of UnitTeutonicKnight: 55
+  of UnitHuskarl: 45
+  of UnitMameluke: 55
+  of UnitJanissary: 50
+  of UnitKing: 0  # Kings are not trainable (placed at game start for Regicide)
+
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 

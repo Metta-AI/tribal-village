@@ -153,10 +153,10 @@ suite "Training":
     check agent.unitClass == UnitVillager  # Still villager (queued, not converted yet)
     check env.stockpileCount(0, ResourceGold) == 0
     check monastery.productionQueue.entries.len == 1
-    check monastery.productionQueue.entries[0].remainingSteps == ProductionTrainDuration - 1
+    check monastery.productionQueue.entries[0].remainingSteps == unitTrainTime(UnitMonk) - 1
 
     # Wait for remaining steps to complete
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitMonk) - 1:
       env.stepNoop()
 
     # Queue entry should now be ready (remainingSteps == 0)
