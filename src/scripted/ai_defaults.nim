@@ -1025,7 +1025,8 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         if didHouse: return houseAct
 
   # Role-based decision making (unified priority lists)
-  return decideRoleFromCatalog(controller, env, agent, agentId, state)
+  let action = decideRoleFromCatalog(controller, env, agent, agentId, state)
+  return saveStateAndReturn(controller, agentId, state, action)
 
 # Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =
