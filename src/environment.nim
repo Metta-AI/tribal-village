@@ -933,6 +933,56 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   building.cooldown = 5  # Short cooldown after research
   true
 
+proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
+  ## Find the next unresearched University tech.
+  ## Returns techs in order: Ballistics first (most impactful for ranged combat).
+  for techType in UniversityTechType:
+    if not env.teamUniversityTechs[teamId].researched[techType]:
+      return techType
+  # All researched, return first (no-op in caller)
+  TechBallistics
+
+proc hasUniversityTech*(env: Environment, teamId: int, tech: UniversityTechType): bool {.inline.} =
+  ## Check if a team has researched a specific University tech.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  env.teamUniversityTechs[teamId].researched[tech]
+
+proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing): bool =
+  ## Attempt to research the next University tech for the team.
+  ## Costs: Food + Gold + Wood (varies by tech).
+  ## Returns true if research was successful.
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  # Find the next tech to research
+  let techType = env.getNextUniversityTech(teamId)
+
+  # Check if already researched
+  if env.teamUniversityTechs[teamId].researched[techType]:
+    return false
+
+  # Calculate cost - costs increase for later techs
+  let techIndex = ord(techType) + 1
+  let foodCost = UniversityTechFoodCost * techIndex
+  let goldCost = UniversityTechGoldCost * techIndex
+  let woodCost = UniversityTechWoodCost * techIndex
+
+  # Check and spend resources
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost), (ResourceWood, woodCost)]
+  if not env.spendStockpile(teamId, costs):
+    return false
+
+  # Apply the tech
+  env.teamUniversityTechs[teamId].researched[techType] = true
+  building.cooldown = 8  # Longer cooldown for tech research
+  true
+
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
     if recipe.station != station:
