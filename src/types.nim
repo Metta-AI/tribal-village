@@ -63,6 +63,7 @@ const
   GuardTowerMaxHp* = 14
   TownCenterMaxHp* = 20
   CastleMaxHp* = 30
+  WonderMaxHp* = 80  # Very high HP, late-game monument
   GuardTowerAttackDamage* = 2
   CastleAttackDamage* = 3
   TownCenterAttackDamage* = 2
@@ -294,6 +295,7 @@ type
     ThingMonasteryLayer
     ThingUniversityLayer
     ThingCastleLayer
+    ThingWonderLayer
     ThingGoblinHiveLayer
     ThingGoblinHutLayer
     ThingGoblinTotemLayer
@@ -403,6 +405,7 @@ type
     Temple
     University
     Castle
+    Wonder
     GoblinHive
     GoblinHut
     GoblinTotem
@@ -563,6 +566,7 @@ const
     Monastery,
     University,
     Castle,
+    Wonder,
     Outpost,
     GuardTower,
     ClayOven,
