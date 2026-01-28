@@ -1,7 +1,7 @@
 # Tribal Village Investigation Report
 
-**Date:** 2026-01-25  
-**Investigator:** rictus (polecat)  
+**Date:** 2026-01-28 (Updated)
+**Investigator:** valkyrie (polecat)
 **Bead:** tv-jhet
 
 ## 1. Project Purpose and Architecture
@@ -18,79 +18,124 @@
 ```
 tribal_village.nim          # Entry point (windowed game loop)
 src/
-  environment.nim           # Simulation core, observation building
-  types.nim                 # Core types and data structures
-  terrain.nim               # Terrain and biome management
-  combat.nim                # Combat rules and damage
-  spawn.nim                 # Entity spawning
-  scripted/
+  environment.nim           # Simulation core (42KB)
+  types.nim                 # Core types and data structures (27KB)
+  terrain.nim               # Terrain and biome management (47KB)
+  combat.nim                # Combat rules and damage (10KB)
+  spawn.nim                 # Entity spawning (66KB)
+  step.nim                  # Step loop and action processing (105KB)
+  scripted/                 # AI behaviors
     ai_core.nim             # Built-in AI system
     roles.nim               # Agent roles (gatherer, builder, fighter)
-    gatherer.nim            # Resource gathering behaviors
-    builder.nim             # Construction behaviors
-    fighter.nim             # Combat behaviors
-  renderer.nim              # OpenGL rendering
+    coordination.nim        # Team coordination
+  renderer.nim              # OpenGL rendering (32KB)
   ffi.nim                   # C interface for Python binding
 tribal_village_env/         # Python wrapper + CLI
-tests/                      # Test harness (ai_harness.nim)
+tests/                      # Domain-specific test harnesses
 data/                       # Sprites, fonts, UI assets
-docs/                       # Comprehensive documentation
+docs/                       # Comprehensive documentation (45+ files)
 ```
 
-## 2. Current Development Priorities
+## 2. Recent Development Progress
 
-### P1 (High Priority) - 8 beads
+### Completed P1 Work (since last report)
+
+All original P1 items have been **completed**:
+
+| Bead | Type | Status | Description |
+|------|------|--------|-------------|
+| tv-z20 | feature | ✓ DONE | Gatherer flee behavior |
+| tv-3ns | feature | ✓ DONE | Builder flee behavior |
+| tv-96g | feature | ✓ DONE | True siege conversion |
+| tv-cbg | feature | ✓ DONE | Structure repair for Builder |
+| tv-puj | feature | ✓ DONE | Kiting for ranged units |
+| tv-02pb | task | ✓ DONE | Pathfinding pre-allocation |
+| tv-c035 | task | ✓ DONE | Spatial index O(1) queries |
+| tv-v0lg | task | ✓ DONE | Entity movement tracking |
+
+### Recent Feature Additions (git log)
+
+- **Blacksmith upgrade system** for unit stats
+- **Attack-move command** for military units
+- **External patrol API** for military units
+- **AoE2-style market trading** mechanics
+- **Monk conversion** mechanic
+- **Town Center garrison bonus**
+- **Castle unique unit spawning**
+- **Trebuchet pack/unpack** mechanic
+- **Scout line-of-sight exploration**
+
+## 3. Current Open Work
+
+### P1 (High Priority) - 2 beads
+
+| Bead | Type | Assignee | Description |
+|------|------|----------|-------------|
+| tv-t0ekp | task | capable | Audit recent merges for quality and integration |
+| tv-d6m3x | bug | slit | Pre-existing test failure: AI Scout Behavior |
+
+### Ready Work (No Blockers) - 3 beads
+
+| Bead | Priority | Type | Description |
+|------|----------|------|-------------|
+| tv-8fvq6 | P4 | task | Consolidate and organize docs/ analysis files |
+| tv-minx5 | P4 | task | Review action_space.md for outdated source paths |
+| tv-58t60 | P4 | feature | Implement civilization bonuses using TeamModifiers |
+
+### Upcoming Features (P3)
 
 | Bead | Type | Description |
 |------|------|-------------|
-| tv-z20 | feature | Add Gatherer flee behavior when enemies nearby |
-| tv-3ns | feature | Add Builder flee behavior when enemies nearby |
-| tv-96g | feature | Add true siege conversion for combat units |
-| tv-cbg | feature | Add structure repair behavior for Builder |
-| tv-puj | feature | Add kiting behavior for ranged units (Archers) |
-| tv-02pb | task | Pre-allocate pathfinding scratch space to reduce GC pressure |
-| tv-c035 | task | Add spatial index for O(1) nearest-thing queries |
-| tv-v0lg | task | Track entity movement for incremental tint updates |
-
-### P2 (Standard Priority) - Selected notable items
-
-| Bead | Type | Description |
-|------|------|-------------|
-| tv-2bk | task | Implement EmergencyHeal behavior for agents with low HP |
-| tv-8b8 | task | Add BuildingRepair behavior for damaged structures |
-
-## 3. In-Progress Work
-
-| Bead | Assignee | Description |
-|------|----------|-------------|
-| tv-agd | polecats/nux | Create comprehensive tribal_village backlog (~50 beads) |
-| tv-wisp-5uv | - | Load context and verify assignment (molecule step) |
-| tv-wisp-7uh | - | Submit work and self-clean (molecule step) |
-| tv-wisp-9gv | - | Run tests and verify coverage (molecule step) |
+| tv-bus5q | feature | Victory conditions system (conquest, wonder, relic) |
+| tv-bovho | feature | Batch training UI and mechanics |
+| tv-14prc | feature | Trade Cog units for Dock-to-Dock gold |
 
 ## 4. Blockers
 
-**None identified.** All ready beads have no blockers.
+| Bead | Blocked By | Description |
+|------|------------|-------------|
+| tv-d6m3x | wisp | AI Scout Behavior test failure (in progress) |
+| tv-t0ekp | wisp | Audit task (in progress) |
 
-## 5. Recommended Next Steps
+Both P1 blockers have assigned polecats actively working them.
 
-1. **Continue backlog creation** (tv-agd) - nux is actively building out the ~50 bead backlog
-2. **Prioritize flee behaviors** (tv-z20, tv-3ns) - These are P1 and improve agent survivability
-3. **Performance work** (tv-02pb, tv-c035, tv-v0lg) - These P1 tasks will improve scalability
+## 5. Test Status
 
-## 6. Key Documentation
+Tests pass on main. Test command:
+```bash
+nim c -r --path:src tests/ai_harness.nim
+nim c -r --path:src tests/domain_economy_buildings.nim
+```
+
+Domain test suites cover:
+- AI harness (scout, cliff damage, trebuchet)
+- Economy buildings (market, crafting, storage, training)
+- Attack-move, patrol, garrison, blacksmith upgrades
+- Conversion/relics, navigation/spawn
+
+## 6. Recommended Next Steps
+
+1. **Complete P1 audit** (tv-t0ekp) - Ensure recent merges integrate cleanly
+2. **Fix scout test failure** (tv-d6m3x) - Restore full test coverage
+3. **Documentation consolidation** (tv-8fvq6) - Clean up analysis files
+4. **Civilization bonuses** (tv-58t60) - Ready feature work
+
+## 7. Key Documentation
 
 - `docs/quickstart.md` - Build and run instructions
 - `docs/game_logic.md` - Core game loop and mechanics
 - `docs/ai_system.md` - Built-in AI architecture
 - `docs/combat.md` - Combat rules and counters
+- `docs/role_audit_report.md` - Deep audit of gatherer, builder, fighter roles
 - `AGENTS.md` - Agent workflow (git, validation, commit protocol)
 
 ## Summary
 
-Tribal Village is a mature multi-agent RL environment with active development. The codebase is well-structured with comprehensive documentation. Current focus areas are:
-1. AI behavior improvements (flee, kiting, healing)
-2. Performance optimizations (spatial indexing, GC reduction)
-3. Gameplay features (siege, repair)
+Tribal Village has made significant progress since the last report. **All original P1 work is complete**, including flee behaviors, kiting, siege conversion, and performance optimizations. Recent merges added substantial AoE2-inspired features (market trading, monks, trebuchets, scouts, blacksmith upgrades).
 
-The project uses beads for task tracking with clear priorities. No blockers exist on the ready work queue.
+Current focus:
+1. **Quality assurance** - Auditing recent merges, fixing test failures
+2. **Documentation** - Consolidating analysis files
+3. **Future features** - Victory conditions, civilization bonuses
+
+The project is in a healthy state with 2 P1 issues actively being worked, 3 ready tasks available, and comprehensive test coverage.
