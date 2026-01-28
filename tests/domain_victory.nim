@@ -77,6 +77,35 @@ suite "Victory - Wonder":
     check env.victoryStates[0].wonderBuiltStep == -1
     check env.victoryWinner == -1
 
+  test "wonder under construction does not start countdown":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    # Place a wonder that is still under construction (hp=1, maxHp=80)
+    let wonder = env.addBuilding(Wonder, ivec2(15, 10), 0)
+    wonder.hp = 1  # Under construction
+    env.stepNoop()
+    # Countdown should NOT start for an incomplete wonder
+    check env.victoryStates[0].wonderBuiltStep == -1
+    check env.victoryWinner == -1
+
+  test "wonder countdown starts only when fully built":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    let wonder = env.addBuilding(Wonder, ivec2(15, 10), 0)
+    wonder.hp = 1  # Under construction
+    env.stepNoop()
+    check env.victoryStates[0].wonderBuiltStep == -1  # Not tracked yet
+    # Complete construction
+    wonder.hp = wonder.maxHp
+    env.stepNoop()
+    check env.victoryStates[0].wonderBuiltStep >= 0  # Now tracked
+
 suite "Victory - Relic":
   test "relic victory after holding all relics":
     var env = makeEmptyEnv()
@@ -166,6 +195,6 @@ suite "Victory - Winner termination":
     let rewardBefore = agent0.reward
     env.stepNoop()
     check env.victoryWinner == 0
-    # Winner should receive ConquestVictoryReward
+    # Winner should receive VictoryReward
     check agent0.reward > rewardBefore
-    check agent0.reward >= rewardBefore + ConquestVictoryReward - 1.0  # Allow for survival penalty
+    check agent0.reward >= rewardBefore + VictoryReward - 1.0  # Allow for survival penalty

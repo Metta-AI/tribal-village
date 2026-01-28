@@ -663,7 +663,7 @@ const
   # Victory condition constants
   RelicVictoryCountdown* = 200     # Game steps all relics must be held to win
   TotalRelicsOnMap* = MapRoomObjectsRelics  # Total relics placed on map
-  ConquestVictoryReward* = 10.0'f32  # Reward for winning team agents on conquest victory
+  VictoryReward* = 10.0'f32          # Reward for winning team agents on any victory
 
 type
   VictoryCondition* = enum

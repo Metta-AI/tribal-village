@@ -374,22 +374,6 @@ proc stepRechargeMonkFaith(env: Environment) =
     if monk.faith < MonkMaxFaith:
       monk.faith = min(MonkMaxFaith, monk.faith + MonkFaithRechargeRate)
 
-proc stepCheckWonderVictory(env: Environment): int =
-  ## Check for Wonder victory condition (AoE2-style).
-  ## Returns the winning team ID, or -1 if no victory yet.
-  ## Decrements countdown for all standing Wonders and triggers victory when one reaches 0.
-  for wonder in env.thingsByKind[Wonder]:
-    if wonder.hp <= 0:
-      continue  # Destroyed Wonders don't count
-    if wonder.teamId < 0 or wonder.teamId >= MapRoomObjectsTeams:
-      continue  # Only team-owned Wonders count
-    # Decrement countdown
-    if wonder.wonderVictoryCountdown > 0:
-      dec wonder.wonderVictoryCountdown
-      if wonder.wonderVictoryCountdown <= 0:
-        return wonder.teamId  # This team wins!
-  return -1  # No victory yet
-
 proc isOutOfBounds(pos: IVec2): bool {.inline.} =
   ## Check if position is outside the playable map area (within border margin)
   pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
@@ -508,12 +492,14 @@ proc checkRelicVictory(env: Environment): int =
   -1
 
 proc updateWonderTracking(env: Environment) =
-  ## Track when Wonders are first built (for countdown).
+  ## Track when Wonders are first fully constructed (for countdown).
+  ## Only starts countdown when wonder reaches full HP (construction complete).
   for teamId in 0 ..< MapRoomObjectsTeams:
     if env.victoryStates[teamId].wonderBuiltStep >= 0:
       continue  # Already tracking
     for wonder in env.thingsByKind[Wonder]:
-      if not wonder.isNil and wonder.teamId == teamId:
+      if not wonder.isNil and wonder.teamId == teamId and
+          wonder.maxHp > 0 and wonder.hp >= wonder.maxHp:
         env.victoryStates[teamId].wonderBuiltStep = env.currentStep
         break
 
@@ -2681,7 +2667,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if env.terminated[i] == 0.0:
         let teamId = getTeamId(i)
         if teamId == env.victoryWinner:
-          env.agents[i].reward += ConquestVictoryReward
+          env.agents[i].reward += VictoryReward
           env.truncated[i] = 1.0  # Winners: episode ended (truncated, not dead)
         else:
           env.terminated[i] = 1.0  # Losers: eliminated
