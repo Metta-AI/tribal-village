@@ -350,7 +350,21 @@ proc buildingHasCraftStation*(kind: ThingKind): bool =
 proc buildingHasTrain*(kind: ThingKind): bool =
   kind in {Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle}
 
-proc buildingTrainUnit*(kind: ThingKind): AgentUnitClass =
+# Castle unique units by team (civilization)
+const CastleUniqueUnits*: array[MapRoomObjectsTeams, AgentUnitClass] = [
+  UnitSamurai,        # Team 0
+  UnitLongbowman,     # Team 1
+  UnitCataphract,     # Team 2
+  UnitWoadRaider,     # Team 3
+  UnitTeutonicKnight, # Team 4
+  UnitHuskarl,        # Team 5
+  UnitMameluke,       # Team 6
+  UnitJanissary       # Team 7
+]
+
+proc buildingTrainUnit*(kind: ThingKind, teamId: int = -1): AgentUnitClass =
+  ## Returns the unit class trained by a building.
+  ## For castles, each team has a unique unit (AoE2-style).
   case kind
   of Barracks: UnitManAtArms
   of ArcheryRange: UnitArcher
@@ -359,7 +373,11 @@ proc buildingTrainUnit*(kind: ThingKind): AgentUnitClass =
   of MangonelWorkshop: UnitMangonel
   of TrebuchetWorkshop: UnitTrebuchet
   of Monastery: UnitMonk
-  of Castle: UnitKnight
+  of Castle:
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      CastleUniqueUnits[teamId]
+    else:
+      UnitKnight  # Fallback for invalid/unknown team
   else: UnitVillager
 
 proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, count: int]] =

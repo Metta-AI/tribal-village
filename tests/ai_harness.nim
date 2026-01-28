@@ -413,7 +413,8 @@ suite "Mechanics - Training":
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitScout
 
-  test "castle trains knight":
+  test "castle trains unique unit":
+    # Castles train civilization-specific unique units (AoE2-style)
     let env = makeEmptyEnv()
     let agent = addAgentAt(env, 0, ivec2(10, 10))
     discard addBuilding(env, Castle, ivec2(10, 9), 0)
@@ -421,7 +422,8 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceGold] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    check agent.unitClass == UnitKnight
+    # Team 0 trains Samurai at castles
+    check agent.unitClass == UnitSamurai
 
 suite "Mechanics - Siege":
   test "siege damage multiplier applies vs walls":

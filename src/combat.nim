@@ -36,6 +36,23 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.18),
   # UnitBoat
   TileColor(r: 1.00, g: 0.40, b: 0.80, intensity: 1.18),
+  # Castle unique units
+  # UnitSamurai
+  TileColor(r: 0.95, g: 0.40, b: 0.25, intensity: 1.22),
+  # UnitLongbowman
+  TileColor(r: 0.70, g: 0.90, b: 0.25, intensity: 1.20),
+  # UnitCataphract
+  TileColor(r: 0.85, g: 0.70, b: 0.30, intensity: 1.22),
+  # UnitWoadRaider
+  TileColor(r: 0.30, g: 0.60, b: 0.85, intensity: 1.20),
+  # UnitTeutonicKnight
+  TileColor(r: 0.60, g: 0.65, b: 0.70, intensity: 1.25),
+  # UnitHuskarl
+  TileColor(r: 0.55, g: 0.40, b: 0.80, intensity: 1.20),
+  # UnitMameluke
+  TileColor(r: 0.90, g: 0.80, b: 0.50, intensity: 1.20),
+  # UnitJanissary
+  TileColor(r: 0.90, g: 0.30, b: 0.35, intensity: 1.22),
 ]
 
 # Action tint codes for per-unit bonus damage
@@ -63,6 +80,15 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintAttackBonus,
   # UnitBoat - no counter bonus
   ActionTintAttackBonus,
+  # Castle unique units - generic bonus tint
+  ActionTintAttackBonus,  # UnitSamurai
+  ActionTintAttackBonus,  # UnitLongbowman
+  ActionTintAttackBonus,  # UnitCataphract
+  ActionTintAttackBonus,  # UnitWoadRaider
+  ActionTintAttackBonus,  # UnitTeutonicKnight
+  ActionTintAttackBonus,  # UnitHuskarl
+  ActionTintAttackBonus,  # UnitMameluke
+  ActionTintAttackBonus,  # UnitJanissary
 ]
 
 const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter}

@@ -323,7 +323,16 @@ const
     MangonelMaxHp,
     TrebuchetMaxHp,
     GoblinMaxHp,
-    VillagerMaxHp
+    VillagerMaxHp,
+    # Castle unique units
+    SamuraiMaxHp,
+    LongbowmanMaxHp,
+    CataphractMaxHp,
+    WoadRaiderMaxHp,
+    TeutonicKnightMaxHp,
+    HuskarlMaxHp,
+    MamelukeMaxHp,
+    JanissaryMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
     VillagerAttackDamage,
@@ -336,7 +345,16 @@ const
     MangonelAttackDamage,
     TrebuchetAttackDamage,
     GoblinAttackDamage,
-    VillagerAttackDamage
+    VillagerAttackDamage,
+    # Castle unique units
+    SamuraiAttackDamage,
+    LongbowmanAttackDamage,
+    CataphractAttackDamage,
+    WoadRaiderAttackDamage,
+    TeutonicKnightAttackDamage,
+    HuskarlAttackDamage,
+    MamelukeAttackDamage,
+    JanissaryAttackDamage
   ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
@@ -346,7 +364,9 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   case unitClass
   of UnitVillager, UnitMonk, UnitBoat:
     StanceNoAttack
-  of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin:
+  of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
+     UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
+     UnitHuskarl, UnitMameluke, UnitJanissary:
     StanceDefensive
 
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =

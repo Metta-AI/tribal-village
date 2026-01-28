@@ -118,6 +118,23 @@ const
   MangonelMaxHp* = 12
   TrebuchetMaxHp* = 14
   GoblinMaxHp* = 4
+  # Castle unique unit stats
+  SamuraiMaxHp* = 7
+  SamuraiAttackDamage* = 3
+  LongbowmanMaxHp* = 5
+  LongbowmanAttackDamage* = 2
+  CataphractMaxHp* = 10
+  CataphractAttackDamage* = 2
+  WoadRaiderMaxHp* = 6
+  WoadRaiderAttackDamage* = 2
+  TeutonicKnightMaxHp* = 12
+  TeutonicKnightAttackDamage* = 3
+  HuskarlMaxHp* = 8
+  HuskarlAttackDamage* = 2
+  MamelukeMaxHp* = 7
+  MamelukeAttackDamage* = 2
+  JanissaryMaxHp* = 6
+  JanissaryAttackDamage* = 3
   ArcherBaseRange* = 3
   MangonelBaseRange* = 3
   MangonelAoELength* = 5
@@ -157,6 +174,15 @@ const
   ActionTintHealMonk* = 30'u8
   ActionTintHealBread* = 31'u8
   ActionTintMixed* = 200'u8
+  # Castle unique unit attack tints
+  ActionTintAttackSamurai* = 40'u8
+  ActionTintAttackLongbowman* = 41'u8
+  ActionTintAttackCataphract* = 42'u8
+  ActionTintAttackWoadRaider* = 43'u8
+  ActionTintAttackTeutonicKnight* = 44'u8
+  ActionTintAttackHuskarl* = 45'u8
+  ActionTintAttackMameluke* = 46'u8
+  ActionTintAttackJanissary* = 47'u8
 
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
@@ -302,6 +328,15 @@ type
     UnitTrebuchet
     UnitGoblin
     UnitBoat
+    # Castle unique units (one per civilization/team)
+    UnitSamurai        # Team 0: Fast infantry, high damage
+    UnitLongbowman     # Team 1: Extended range archer
+    UnitCataphract     # Team 2: Heavy cavalry
+    UnitWoadRaider     # Team 3: Fast infantry
+    UnitTeutonicKnight # Team 4: Slow but very tough
+    UnitHuskarl        # Team 5: Anti-archer infantry
+    UnitMameluke       # Team 6: Ranged cavalry
+    UnitJanissary      # Team 7: Powerful ranged unit
 
   ThingKind* = enum
     Agent

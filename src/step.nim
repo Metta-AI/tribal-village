@@ -1178,7 +1178,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   used = true
               of UseTrain:
                 if thing.cooldown == 0 and buildingHasTrain(thing.kind):
-                  if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+                  let teamId = getTeamId(agent)
+                  if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
                       buildingTrainCosts(thing.kind), 0):
                     used = true
               of UseTrainAndCraft:
@@ -1186,7 +1187,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
                   elif buildingHasTrain(thing.kind):
-                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind),
+                    let teamId = getTeamId(agent)
+                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
                         buildingTrainCosts(thing.kind), 0):
                       used = true
               of UseCraft:
