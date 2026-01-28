@@ -981,6 +981,14 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     # Move toward current waypoint
     return controller.moveTo(env, agent, agentId, state, target)
 
+  # Rally point behavior - newly trained units move toward their rally destination
+  if agent.rallyTarget.x >= 0:
+    if chebyshevDist(agent.pos, agent.rallyTarget) <= 1'i32:
+      # Arrived at rally point - clear it
+      agent.rallyTarget = ivec2(-1, -1)
+    else:
+      return controller.moveTo(env, agent, agentId, state, agent.rallyTarget)
+
   # Attack-move behavior - applies to all roles when attack-move target is set
   if state.attackMoveTarget.x >= 0:
     # Check if we've reached the destination (within 1 tile)

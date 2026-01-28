@@ -71,6 +71,10 @@ proc add*(env: Environment, thing: Thing) =
     of TownCenter: thing.attackDamage = TownCenterAttackDamage
     else: discard
 
+  # Initialize rally point to "none" for buildings
+  if isBuildingKind(thing.kind):
+    thing.rallyPoint = ivec2(-1, -1)
+
   case thing.kind
   of Stone:
     if getInv(thing, ItemStone) <= 0:
@@ -85,6 +89,7 @@ proc add*(env: Environment, thing: Thing) =
   env.thingsByKind[thing.kind].add(thing)
   thing.kindListIndex = env.thingsByKind[thing.kind].len - 1
   if thing.kind == Agent:
+    thing.rallyTarget = ivec2(-1, -1)
     if thing.teamIdOverride == 0:
       thing.teamIdOverride = -1
     if thing.embarkedUnitClass == UnitVillager and thing.unitClass != UnitVillager:

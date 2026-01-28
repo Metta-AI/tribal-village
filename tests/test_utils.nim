@@ -80,7 +80,8 @@ proc addAgentAt*(env: Environment, agentId: int, pos: IVec2,
       unitClass: (if isTarget: unitClass else: UnitVillager),
       stance: (if isTarget: stance else: StanceNoAttack),
       homeAltar: (if isTarget: homeAltar else: ivec2(-1, -1)),
-      faith: (if isTarget and unitClass == UnitMonk: MonkMaxFaith else: 0)
+      faith: (if isTarget and unitClass == UnitMonk: MonkMaxFaith else: 0),
+      rallyTarget: ivec2(-1, -1)
     )
     env.add(agent)
     env.terminated[nextId] = (if isTarget: 0.0 else: 1.0)
@@ -90,6 +91,7 @@ proc addAgentAt*(env: Environment, agentId: int, pos: IVec2,
 proc addBuilding*(env: Environment, kind: ThingKind, pos: IVec2, teamId: int): Thing =
   let thing = Thing(kind: kind, pos: pos, teamId: teamId)
   thing.inventory = emptyInventory()
+  thing.rallyPoint = ivec2(-1, -1)  # No rally point by default
   let capacity = buildingBarrelCapacity(kind)
   if capacity > 0:
     thing.barrelCapacity = capacity
@@ -136,7 +138,8 @@ proc stepNoop*(env: Environment) =
       attackDamage: 1,
       unitClass: UnitVillager,
       stance: StanceNoAttack,
-      homeAltar: ivec2(-1, -1)
+      homeAltar: ivec2(-1, -1),
+      rallyTarget: ivec2(-1, -1)
     )
     env.add(agent)
     env.terminated[nextId] = 1.0
@@ -159,7 +162,8 @@ proc stepAction*(env: Environment, agentId: int, verb: uint8, argument: int) =
       attackDamage: 1,
       unitClass: UnitVillager,
       stance: StanceNoAttack,
-      homeAltar: ivec2(-1, -1)
+      homeAltar: ivec2(-1, -1),
+      rallyTarget: ivec2(-1, -1)
     )
     env.add(agent)
     env.terminated[nextId] = 1.0

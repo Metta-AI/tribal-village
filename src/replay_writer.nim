@@ -15,7 +15,8 @@ const
     "plant_lantern",
     "plant_resource",
     "build",
-    "orient"
+    "orient",
+    "set_rally_point"
   ]
 
 type
