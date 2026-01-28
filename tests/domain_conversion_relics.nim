@@ -158,3 +158,23 @@ suite "Monastery Relic Garrison":
     # Second gold generation should have occurred
     let expectedGold = goldAfterFirst + (2 * MonasteryRelicGoldAmount)
     check env.teamStockpiles[0].counts[ResourceGold] == expectedGold
+
+  test "destroyed monastery releases garrisoned relics":
+    let env = makeEmptyEnv()
+    let monasteryPos = ivec2(10, 10)
+    let monastery = addBuilding(env, Monastery, monasteryPos, 0)
+    monastery.garrisonedRelics = 3
+
+    # Destroy the monastery by dealing lethal damage
+    discard env.applyStructureDamage(monastery, monastery.hp + 10)
+
+    # Relics should have been dropped nearby
+    check env.thingsByKind[Relic].len == 3
+    check monastery.garrisonedRelics == 0
+    for relic in env.thingsByKind[Relic]:
+      check not isNil(relic)
+      check relic.kind == Relic
+      check getInv(relic, ItemGold) == 0
+      # Should be within 2 tiles of the monastery
+      check abs(relic.pos.x - monasteryPos.x) <= 2
+      check abs(relic.pos.y - monasteryPos.y) <= 2
