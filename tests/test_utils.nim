@@ -47,6 +47,7 @@ proc makeEmptyEnv*(): Environment =
       result.tumorTintMods[x][y] = TintModification(r: 0, g: 0, b: 0)
       result.tumorStrength[x][y] = 0
   result.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
+  result.initMarketPrices()  # Initialize AoE2-style market prices
   result.actionTintPositions.setLen(0)
   result.activeTiles.positions.setLen(0)
   result.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])

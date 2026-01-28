@@ -34,12 +34,21 @@ const
   DefaultArmorPoints* = 5
   DefaultBreadHealAmount* = 999
 
-  ## Default market tuning
+  ## Default market tuning (AoE2-style dynamic pricing)
+  ## Prices are in gold per 100 units of resource (scaled for integer math)
+  MarketBasePrice* = 100        # Base price: 100 gold per 100 resources
+  MarketMinPrice* = 20          # Minimum price floor
+  MarketMaxPrice* = 300         # Maximum price ceiling
+  MarketBuyPriceIncrease* = 3   # Price increase per buy transaction
+  MarketSellPriceDecrease* = 3  # Price decrease per sell transaction
+  MarketPriceDecayRate* = 1     # Price drift toward base per decay tick
+  MarketPriceDecayInterval* = 50 # Steps between price decay ticks
+  DefaultMarketCooldown* = 2
+  # Legacy constants (kept for compatibility)
   DefaultMarketSellNumerator* = 1
   DefaultMarketSellDenominator* = 2
   DefaultMarketBuyFoodNumerator* = 1
   DefaultMarketBuyFoodDenominator* = 1
-  DefaultMarketCooldown* = 2
 
   ## Biome gathering bonus constants
   BiomeGatherBonusChance* = 0.20  # 20% chance for bonus item in matching biomes
@@ -280,6 +289,148 @@ proc spendStockpile*(env: Environment, teamId: int,
     let res = stockpileResourceForItem(cost.key)
     env.teamStockpiles[teamId].counts[res] -= cost.count
   true
+
+# ============================================================================
+# AoE2-style Market Trading with Dynamic Prices
+# ============================================================================
+
+proc initMarketPrices*(env: Environment) =
+  ## Initialize market prices to base rates for all teams
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    for res in StockpileResource:
+      if res != ResourceNone and res != ResourceGold:
+        env.teamMarketPrices[teamId].prices[res] = MarketBasePrice
+
+proc getMarketPrice*(env: Environment, teamId: int, res: StockpileResource): int {.inline.} =
+  ## Get current market price for a resource (gold cost per 100 units)
+  if res == ResourceGold or res == ResourceNone:
+    return 0
+  env.teamMarketPrices[teamId].prices[res]
+
+proc setMarketPrice*(env: Environment, teamId: int, res: StockpileResource, price: int) =
+  ## Set market price with clamping to min/max bounds
+  if res == ResourceGold or res == ResourceNone:
+    return
+  env.teamMarketPrices[teamId].prices[res] = clamp(price, MarketMinPrice, MarketMaxPrice)
+
+proc marketBuyResource*(env: Environment, teamId: int, res: StockpileResource,
+                        amount: int): tuple[goldCost: int, resourceGained: int] =
+  ## Buy resources from market using gold from stockpile.
+  ## Returns (gold spent, resources gained). Price increases after buying.
+  ## Uses scaled integer math: price is gold per 100 units.
+  if res == ResourceGold or res == ResourceNone or amount <= 0:
+    return (0, 0)
+
+  let currentPrice = env.getMarketPrice(teamId, res)
+  # Cost = (amount * price) / 100, rounding up
+  let goldCost = (amount * currentPrice + 99) div 100
+
+  # Check if team has enough gold
+  if env.teamStockpiles[teamId].counts[ResourceGold] < goldCost:
+    return (0, 0)
+
+  # Execute transaction
+  env.teamStockpiles[teamId].counts[ResourceGold] -= goldCost
+  env.teamStockpiles[teamId].counts[res] += amount
+
+  # Increase price (supply decreased, demand increased)
+  env.setMarketPrice(teamId, res, currentPrice + MarketBuyPriceIncrease)
+
+  result = (goldCost, amount)
+
+proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
+                         amount: int): tuple[resourceSold: int, goldGained: int] =
+  ## Sell resources to market for gold.
+  ## Returns (resources sold, gold gained). Price decreases after selling.
+  ## Uses scaled integer math: price is gold per 100 units.
+  if res == ResourceGold or res == ResourceNone or amount <= 0:
+    return (0, 0)
+
+  let currentPrice = env.getMarketPrice(teamId, res)
+  # Gain = (amount * price) / 100, rounding down
+  let goldGained = (amount * currentPrice) div 100
+
+  # Check if team has enough resources to sell
+  if env.teamStockpiles[teamId].counts[res] < amount:
+    return (0, 0)
+
+  # Execute transaction
+  env.teamStockpiles[teamId].counts[res] -= amount
+  env.teamStockpiles[teamId].counts[ResourceGold] += goldGained
+
+  # Decrease price (supply increased)
+  env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
+
+  result = (amount, goldGained)
+
+proc marketSellInventory*(env: Environment, agent: Thing, itemKey: ItemKey):
+                          tuple[amountSold: int, goldGained: int] =
+  ## Sell all of an item from agent's inventory to their team's market.
+  ## Returns (amount sold, gold gained).
+  let teamId = getTeamId(agent)
+  let res = stockpileResourceForItem(itemKey)
+  if res == ResourceGold or res == ResourceNone or res == ResourceWater:
+    return (0, 0)
+
+  let amount = getInv(agent, itemKey)
+  if amount <= 0:
+    return (0, 0)
+
+  let currentPrice = env.getMarketPrice(teamId, res)
+  # Gain = (amount * price) / 100, rounding down
+  let goldGained = (amount * currentPrice) div 100
+
+  if goldGained > 0:
+    # Clear inventory and add gold to stockpile
+    setInv(agent, itemKey, 0)
+    env.addToStockpile(teamId, ResourceGold, goldGained)
+    # Decrease price (supply increased)
+    env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
+    return (amount, goldGained)
+
+  result = (0, 0)
+
+proc marketBuyFood*(env: Environment, agent: Thing, goldAmount: int):
+                    tuple[goldSpent: int, foodGained: int] =
+  ## Buy food with gold from agent's inventory.
+  ## Returns (gold spent, food gained to stockpile).
+  let teamId = getTeamId(agent)
+  if goldAmount <= 0:
+    return (0, 0)
+
+  let invGold = getInv(agent, ItemGold)
+  if invGold < goldAmount:
+    return (0, 0)
+
+  let currentPrice = env.getMarketPrice(teamId, ResourceFood)
+  # Food gained = (gold * 100) / price
+  let foodGained = (goldAmount * 100) div currentPrice
+
+  if foodGained > 0:
+    setInv(agent, ItemGold, invGold - goldAmount)
+    env.addToStockpile(teamId, ResourceFood, foodGained)
+    # Increase price (demand increased)
+    env.setMarketPrice(teamId, ResourceFood, currentPrice + MarketBuyPriceIncrease)
+    return (goldAmount, foodGained)
+
+  result = (0, 0)
+
+proc decayMarketPrices*(env: Environment) =
+  ## Slowly drift market prices back toward base rate.
+  ## Should be called periodically (every MarketPriceDecayInterval steps).
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    for res in StockpileResource:
+      if res == ResourceGold or res == ResourceNone:
+        continue
+      let currentPrice = env.teamMarketPrices[teamId].prices[res]
+      if currentPrice > MarketBasePrice:
+        env.teamMarketPrices[teamId].prices[res] = max(MarketBasePrice,
+          currentPrice - MarketPriceDecayRate)
+      elif currentPrice < MarketBasePrice:
+        env.teamMarketPrices[teamId].prices[res] = min(MarketBasePrice,
+          currentPrice + MarketPriceDecayRate)
+
+# ============================================================================
 
 proc spendInventory*(env: Environment, agent: Thing,
                      costs: openArray[tuple[key: ItemKey, count: int]]): bool =
