@@ -517,30 +517,96 @@ proc updateWonderTracking(env: Environment) =
         env.victoryStates[teamId].wonderBuiltStep = env.currentStep
         break
 
+proc computeTeamScores(env: Environment): array[MapRoomObjectsTeams, TeamScore] =
+  ## Compute composite scores for each team (used for time-limit tiebreaker).
+  # Military: count living units + owned buildings
+  for agent in env.agents:
+    if agent.isNil:
+      continue
+    let teamId = getTeamId(agent)
+    if teamId >= 0 and teamId < MapRoomObjectsTeams and isAgentAlive(env, agent):
+      inc result[teamId].military
+  for kind in TeamOwnedKinds:
+    if kind == Agent:
+      continue
+    for thing in env.thingsByKind[kind]:
+      if not thing.isNil and thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+        inc result[thing.teamId].military
+
+  # Economic: sum all stockpile resources
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    for res in StockpileResource:
+      if res != ResourceNone:
+        result[teamId].economic += env.teamStockpiles[teamId].counts[res]
+
+  # Technology: blacksmith upgrade levels + university techs researched
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    for upgrade in BlacksmithUpgradeType:
+      result[teamId].technology += env.teamBlacksmithUpgrades[teamId].levels[upgrade]
+    for tech in UniversityTechType:
+      if env.teamUniversityTechs[teamId].researched[tech]:
+        inc result[teamId].technology
+
+  # Territory: use tint-based territory scoring
+  let terrScore = env.scoreTerritory()
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result[teamId].territory = terrScore.teamTiles[teamId]
+
+  # Compute totals
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result[teamId].total = result[teamId].military +
+                           result[teamId].economic +
+                           result[teamId].technology +
+                           result[teamId].territory
+
+proc scoreTiebreakWinner(env: Environment): int =
+  ## Returns the team with the highest composite score, or -1 if no teams exist.
+  let scores = env.computeTeamScores()
+  var bestTeam = -1
+  var bestScore = -1
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if scores[teamId].total > bestScore:
+      bestScore = scores[teamId].total
+      bestTeam = teamId
+  bestTeam
+
+proc isConquestEnabled(env: Environment): bool {.inline.} =
+  env.config.victoryCondition == VictoryConquest or
+  env.config.victoryCondition == VictoryAll or
+  (env.config.victoryCondition == VictoryStandard and env.config.enableConquest)
+
+proc isWonderEnabled(env: Environment): bool {.inline.} =
+  env.config.victoryCondition == VictoryWonder or
+  env.config.victoryCondition == VictoryAll or
+  (env.config.victoryCondition == VictoryStandard and env.config.enableWonder)
+
+proc isRelicEnabled(env: Environment): bool {.inline.} =
+  env.config.victoryCondition == VictoryRelic or
+  env.config.victoryCondition == VictoryAll or
+  (env.config.victoryCondition == VictoryStandard and env.config.enableRelic)
+
 proc checkVictoryConditions(env: Environment) =
   ## Check all active victory conditions and set victoryWinner if met.
-  let cond = env.config.victoryCondition
-
-  # Update Wonder tracking regardless of condition
-  if cond in {VictoryWonder, VictoryAll}:
+  # Update Wonder tracking if wonder victory is enabled
+  if env.isWonderEnabled():
     env.updateWonderTracking()
 
   # Conquest check
-  if cond in {VictoryConquest, VictoryAll}:
+  if env.isConquestEnabled():
     let winner = env.checkConquestVictory()
     if winner >= 0:
       env.victoryWinner = winner
       return
 
   # Wonder check
-  if cond in {VictoryWonder, VictoryAll}:
+  if env.isWonderEnabled():
     let winner = env.checkWonderVictory()
     if winner >= 0:
       env.victoryWinner = winner
       return
 
   # Relic check
-  if cond in {VictoryRelic, VictoryAll}:
+  if env.isRelicEnabled():
     let winner = env.checkRelicVictory()
     if winner >= 0:
       env.victoryWinner = winner
@@ -2666,11 +2732,28 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if not env.territoryScored:
       env.territoryScore = env.scoreTerritory()
       env.territoryScored = true
-    # Team altar rewards already applied in main loop above
-    # Mark all living agents as truncated (episode ended due to time limit)
-    for i in 0..<MapAgents:
-      if env.terminated[i] == 0.0:
-        env.truncated[i] = 1.0
+    # Standard Victory: score-based winner when time expires
+    if env.config.victoryCondition == VictoryStandard:
+      let winner = env.scoreTiebreakWinner()
+      if winner >= 0:
+        env.victoryWinner = winner
+        for i in 0..<MapAgents:
+          if env.terminated[i] == 0.0:
+            let teamId = getTeamId(i)
+            if teamId == winner:
+              env.truncated[i] = 1.0
+            else:
+              env.terminated[i] = 1.0
+      else:
+        # No teams at all - truncate everyone
+        for i in 0..<MapAgents:
+          if env.terminated[i] == 0.0:
+            env.truncated[i] = 1.0
+    else:
+      # Non-standard modes: mark all living agents as truncated (episode ended due to time limit)
+      for i in 0..<MapAgents:
+        if env.terminated[i] == 0.0:
+          env.truncated[i] = 1.0
     env.shouldReset = true
 
   when defined(stepTiming):

@@ -653,11 +653,20 @@ type
     VictoryWonder       ## Build Wonder, survive countdown
     VictoryRelic        ## Hold all relics in Monasteries for countdown
     VictoryAll          ## Any of the above can trigger victory
+    VictoryStandard     ## Configurable: per-condition toggles + score-based time limit
 
   VictoryState* = object
     ## Per-team victory tracking
     wonderBuiltStep*: int          ## Step when Wonder was built (-1 = no wonder)
     relicHoldStartStep*: int       ## Step when team started holding all relics (-1 = not holding)
+
+  TeamScore* = object
+    ## Composite score for time-limit tiebreaker in Standard Victory mode
+    military*: int       ## Living units + owned buildings
+    economic*: int       ## Total stockpile resources
+    technology*: int     ## Blacksmith levels + university techs researched
+    territory*: int      ## Tint-owned tiles
+    total*: int          ## Sum of all components
 
   # Configuration structure for environment - ONLY runtime parameters
   # Structural constants (map size, agent count, observation dimensions) remain compile-time constants
@@ -665,6 +674,11 @@ type
     # Core game parameters
     maxSteps*: int
     victoryCondition*: VictoryCondition  ## Which victory conditions are active
+
+    # Standard Victory Mode per-condition toggles (only used when victoryCondition == VictoryStandard)
+    enableConquest*: bool  ## Enable conquest sub-condition
+    enableWonder*: bool    ## Enable wonder sub-condition
+    enableRelic*: bool     ## Enable relic sub-condition
 
     # Combat configuration
     tumorSpawnRate*: float
@@ -690,6 +704,11 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
     # Core game parameters
     maxSteps: 3000,
     victoryCondition: VictoryNone,
+
+    # Standard Victory Mode defaults (all sub-conditions enabled)
+    enableConquest: true,
+    enableWonder: true,
+    enableRelic: true,
 
     # Combat configuration
     tumorSpawnRate: 0.1,

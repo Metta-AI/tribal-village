@@ -123,6 +123,78 @@ suite "Victory - VictoryAll mode":
     env.stepNoop()
     check env.victoryWinner == 0
 
+suite "Victory - Standard mode":
+  test "standard mode triggers conquest when enabled":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryStandard
+    env.config.enableConquest = true
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    env.stepNoop()
+    check env.victoryWinner == 0
+
+  test "standard mode ignores conquest when disabled":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryStandard
+    env.config.enableConquest = false
+    env.config.enableWonder = false
+    env.config.enableRelic = false
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    env.stepNoop()
+    # No victory conditions enabled, so no winner
+    check env.victoryWinner == -1
+
+  test "standard mode triggers wonder when enabled":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryStandard
+    env.config.enableConquest = false
+    env.config.enableWonder = true
+    env.config.enableRelic = false
+    env.config.maxSteps = 5000
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    discard env.addBuilding(Wonder, ivec2(15, 10), 0)
+    env.stepNoop()
+    check env.victoryStates[0].wonderBuiltStep >= 0
+    let startStep = env.victoryStates[0].wonderBuiltStep
+    env.currentStep = startStep + WonderVictoryCountdown
+    env.stepNoop()
+    check env.victoryWinner == 0
+
+  test "standard mode score-based winner on time limit":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryStandard
+    env.config.enableConquest = false
+    env.config.enableWonder = false
+    env.config.enableRelic = false
+    env.config.maxSteps = 10
+    # Team 0 has more resources (higher economic score)
+    discard env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAgentAt(MapAgentsPerTeam, ivec2(50, 50))
+    env.teamStockpiles[0].counts[ResourceGold] = 100
+    env.teamStockpiles[1].counts[ResourceGold] = 10
+    # Advance to time limit
+    env.currentStep = 9
+    env.stepNoop()
+    check env.victoryWinner == 0
+    check env.shouldReset == true
+    # Winner truncated, loser terminated
+    check env.truncated[0] == 1.0
+    check env.terminated[0] == 0.0
+    check env.terminated[MapAgentsPerTeam] == 1.0
+
+  test "standard mode all conditions enabled acts like VictoryAll":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryStandard
+    env.config.enableConquest = true
+    env.config.enableWonder = true
+    env.config.enableRelic = true
+    let agent0 = env.addAgentAt(0, ivec2(10, 10))
+    discard env.addAltar(ivec2(12, 10), 0, 5)
+    env.stepNoop()
+    check env.victoryWinner == 0
+
 suite "Victory - Winner termination":
   test "winning team agents are truncated not terminated":
     var env = makeEmptyEnv()

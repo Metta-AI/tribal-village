@@ -8,7 +8,10 @@ type
   ## Use NaN for float fields (or <=0 for maxSteps) to keep Nim defaults.
   CEnvironmentConfig* = object
     maxSteps*: int32
-    victoryCondition*: int32  ## Maps to VictoryCondition enum (0=None, 1=Conquest, 2=Wonder, 3=Relic, 4=All)
+    victoryCondition*: int32  ## Maps to VictoryCondition enum (0=None, 1=Conquest, 2=Wonder, 3=Relic, 4=All, 5=Standard)
+    enableConquest*: int32    ## Standard mode: enable conquest sub-condition (1=yes, 0=no, -1=default)
+    enableWonder*: int32      ## Standard mode: enable wonder sub-condition (1=yes, 0=no, -1=default)
+    enableRelic*: int32       ## Standard mode: enable relic sub-condition (1=yes, 0=no, -1=default)
     tumorSpawnRate*: float32
     heartReward*: float32
     oreReward*: float32
@@ -78,8 +81,14 @@ proc tribal_village_set_config(
     var config = defaultEnvironmentConfig()
     if incoming.maxSteps > 0:
       config.maxSteps = incoming.maxSteps.int
-    if incoming.victoryCondition >= 0 and incoming.victoryCondition <= ord(VictoryAll):
+    if incoming.victoryCondition >= 0 and incoming.victoryCondition <= ord(VictoryStandard):
       config.victoryCondition = VictoryCondition(incoming.victoryCondition)
+    if incoming.enableConquest >= 0:
+      config.enableConquest = incoming.enableConquest != 0
+    if incoming.enableWonder >= 0:
+      config.enableWonder = incoming.enableWonder != 0
+    if incoming.enableRelic >= 0:
+      config.enableRelic = incoming.enableRelic != 0
 
     template applyFloat(field: untyped, value: float32) =
       if value == value:
