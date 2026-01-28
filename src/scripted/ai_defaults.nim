@@ -416,15 +416,18 @@ include "builder"
 include "fighter"
 include "roles"
 include "evolution"
+include "../replay_analyzer"
 
 const
   EvolutionEnabled = defined(enableEvolution)
+  ReplayAnalysisEnabled = defined(enableReplayAnalysis)
   ScriptedRoleHistoryPath = "data/role_history.json"
   ScriptedScoreStep = 5000
   ScriptedGeneratedRoleCount = 16
   ScriptedRoleExplorationChance = 0.08
   ScriptedRoleMutationChance = 0.25
   ScriptedTempleAssignEnabled = true
+  ScriptedReplayDir = "data/replays"
 
 type
   ScriptedRoleState = object
@@ -601,6 +604,14 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
         if behaviorId >= 0 and behaviorId < scriptedState.catalog.behaviors.len:
           recordBehaviorScore(scriptedState.catalog.behaviors[behaviorId], sampleTeamScore, weight = weight)
           inc scriptedState.catalog.behaviors[behaviorId].uses
+  # Apply replay analysis feedback if enabled
+  when ReplayAnalysisEnabled:
+    let replayDir = getEnv("TV_REPLAY_DIR", ScriptedReplayDir)
+    if replayDir.len > 0:
+      let analyses = analyzeReplayBatch(replayDir)
+      if analyses.len > 0:
+        applyBatchFeedback(scriptedState.catalog, analyses)
+
   scriptedState.catalog.saveRoleHistory(ScriptedRoleHistoryPath)
 
 proc roleIdForAgent(controller: Controller, agentId: int): int =
