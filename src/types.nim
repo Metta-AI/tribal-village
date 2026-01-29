@@ -560,9 +560,6 @@ type
     # Monastery:
     garrisonedRelics*: int     # Number of relics garrisoned for gold generation
 
-    # Wonder:
-    wonderVictoryCountdown*: int   # Steps remaining until Wonder victory (AoE2-style)
-
     # Production queue (AoE2-style):
     productionQueue*: ProductionQueue  # Queue of units being trained at this building
 
