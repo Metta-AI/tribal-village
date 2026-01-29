@@ -29,18 +29,23 @@ suite "Coordination - Request Management":
     discard addRequest(0, RequestProtection, 1, ivec2(10, 10), ivec2(15, 15), 100)
     check teamCoordination[0].requestCount == 1
 
-    # Try to add duplicate (same requester, same kind, within 10 steps)
+    # Try to add duplicate (same requester, same kind, within DuplicateWindowSteps)
     let result = addRequest(0, RequestProtection, 1, ivec2(11, 11), ivec2(16, 16), 105)
     check result == false
     check teamCoordination[0].requestCount == 1  # Still only 1
 
-  test "addRequest allows duplicate after 10 steps":
+    # Still duplicate at step 129 (within 30 steps)
+    let result2 = addRequest(0, RequestProtection, 1, ivec2(11, 11), ivec2(16, 16), 129)
+    check result2 == false
+    check teamCoordination[0].requestCount == 1
+
+  test "addRequest allows duplicate after DuplicateWindowSteps":
     for i in 0 ..< MapRoomObjectsTeams:
       teamCoordination[i] = CoordinationState()
 
     discard addRequest(0, RequestProtection, 1, ivec2(10, 10), ivec2(15, 15), 100)
-    # Add request after 10+ steps
-    let result = addRequest(0, RequestProtection, 1, ivec2(11, 11), ivec2(16, 16), 115)
+    # Add request after 30+ steps
+    let result = addRequest(0, RequestProtection, 1, ivec2(11, 11), ivec2(16, 16), 130)
     check result == true
     check teamCoordination[0].requestCount == 2
 
@@ -259,3 +264,55 @@ suite "Coordination - Role Integration":
 
     let (should, _) = fighterShouldEscort(env, fighter)
     check should == false
+
+suite "Coordination - Priority System":
+  test "addRequest accepts priority parameter":
+    for i in 0 ..< MapRoomObjectsTeams:
+      teamCoordination[i] = CoordinationState()
+
+    discard addRequest(0, RequestProtection, 1, ivec2(10, 10), ivec2(15, 15), 100, PriorityHigh)
+    check teamCoordination[0].requestCount == 1
+    check teamCoordination[0].requests[0].priority == PriorityHigh
+
+  test "addRequest defaults to PriorityNormal":
+    for i in 0 ..< MapRoomObjectsTeams:
+      teamCoordination[i] = CoordinationState()
+
+    discard addRequest(0, RequestProtection, 1, ivec2(10, 10), ivec2(15, 15), 100)
+    check teamCoordination[0].requests[0].priority == PriorityNormal
+
+  test "findNearestProtectionRequest prefers higher priority":
+    for i in 0 ..< MapRoomObjectsTeams:
+      teamCoordination[i] = CoordinationState()
+
+    # Closer request with low priority
+    discard addRequest(0, RequestProtection, 1, ivec2(11, 10), ivec2(15, 15), 100, PriorityLow)
+    # Farther request with high priority
+    discard addRequest(0, RequestProtection, 2, ivec2(14, 10), ivec2(20, 20), 100, PriorityHigh)
+
+    let req = findNearestProtectionRequest(0, ivec2(10, 10))
+    check req != nil
+    check req.requesterId == 2  # Higher priority wins over closer distance
+
+  test "findNearestProtectionRequest uses distance as tiebreaker":
+    for i in 0 ..< MapRoomObjectsTeams:
+      teamCoordination[i] = CoordinationState()
+
+    # Two requests at same priority, different distances
+    discard addRequest(0, RequestProtection, 1, ivec2(14, 10), ivec2(15, 15), 100, PriorityHigh)
+    discard addRequest(0, RequestProtection, 2, ivec2(11, 10), ivec2(20, 20), 100, PriorityHigh)
+
+    let req = findNearestProtectionRequest(0, ivec2(10, 10))
+    check req != nil
+    check req.requesterId == 2  # Closer one wins at same priority
+
+  test "markDefenseRequestFulfilled prefers highest priority":
+    for i in 0 ..< MapRoomObjectsTeams:
+      teamCoordination[i] = CoordinationState()
+
+    discard addRequest(0, RequestDefense, 1, ivec2(10, 10), ivec2(15, 15), 100, PriorityLow)
+    discard addRequest(0, RequestDefense, 2, ivec2(20, 20), ivec2(25, 25), 110, PriorityHigh)
+
+    markDefenseRequestFulfilled(0)
+    check teamCoordination[0].requests[0].fulfilled == false  # Low priority not fulfilled
+    check teamCoordination[0].requests[1].fulfilled == true   # High priority fulfilled first
