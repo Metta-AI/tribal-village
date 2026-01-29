@@ -198,3 +198,108 @@ proc builderShouldPrioritizeDefense*(teamId: int): bool =
   hasDefenseRequest(teamId)
 
 # Note: builderShouldBuildSiege is implemented in builder.nim with access to Controller
+
+# ============================================================================
+# Resource Reservation System
+# ============================================================================
+# Prevents multiple agents from targeting the same resource node simultaneously.
+# Agents 'reserve' a position before moving to gather; other agents skip reserved
+# targets. Reservations expire after N steps or when the reserving agent dies.
+
+const
+  MaxResourceReservations* = 64  # Max concurrent reservations per team
+  ReservationExpirationSteps* = 30  # Reservations expire after N steps
+
+type
+  ResourceReservation* = object
+    pos*: IVec2           # Reserved resource position
+    agentId*: int32       # Agent that holds the reservation
+    createdStep*: int32   # Step when reservation was created
+
+  ReservationState* = object
+    reservations*: array[MaxResourceReservations, ResourceReservation]
+    count*: int
+
+# Team-indexed reservation state (global storage)
+var teamReservations*: array[MapRoomObjectsTeams, ReservationState]
+
+proc clearExpiredReservations*(env: Environment) =
+  ## Remove reservations that have expired or whose agent is dead.
+  let currentStep = env.currentStep
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    var writeIdx = 0
+    for readIdx in 0 ..< teamReservations[teamId].count:
+      let res = teamReservations[teamId].reservations[readIdx]
+      let expired = (currentStep - res.createdStep) >= ReservationExpirationSteps
+      let agentDead = res.agentId >= 0 and res.agentId < env.agents.len and
+                      not isAgentAlive(env, env.agents[res.agentId])
+      if not expired and not agentDead:
+        if writeIdx != readIdx:
+          teamReservations[teamId].reservations[writeIdx] = res
+        inc writeIdx
+    teamReservations[teamId].count = writeIdx
+
+proc isResourceReserved*(teamId: int, pos: IVec2, excludeAgentId: int = -1): bool =
+  ## Check if a resource position is reserved by another agent on this team.
+  ## excludeAgentId allows the reserving agent to see its own reservation as unreserved.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  for i in 0 ..< teamReservations[teamId].count:
+    let res = teamReservations[teamId].reservations[i]
+    if res.pos == pos and res.agentId != excludeAgentId.int32:
+      return true
+  false
+
+proc reserveResource*(teamId: int, agentId: int, pos: IVec2, step: int): bool =
+  ## Reserve a resource position for an agent. Returns true if reserved successfully.
+  ## If the agent already has a reservation, it is replaced (one reservation per agent).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  # Check if another agent already reserved this position
+  for i in 0 ..< teamReservations[teamId].count:
+    let res = teamReservations[teamId].reservations[i]
+    if res.pos == pos and res.agentId != agentId.int32:
+      return false  # Already reserved by someone else
+  # Remove any existing reservation by this agent (one per agent)
+  var writeIdx = 0
+  for readIdx in 0 ..< teamReservations[teamId].count:
+    if teamReservations[teamId].reservations[readIdx].agentId != agentId.int32:
+      if writeIdx != readIdx:
+        teamReservations[teamId].reservations[writeIdx] =
+          teamReservations[teamId].reservations[readIdx]
+      inc writeIdx
+    # If same agent re-reserving same pos, also skip (will re-add below)
+  teamReservations[teamId].count = writeIdx
+  # Add new reservation
+  if teamReservations[teamId].count >= MaxResourceReservations:
+    return false  # No space
+  let idx = teamReservations[teamId].count
+  teamReservations[teamId].reservations[idx] = ResourceReservation(
+    pos: pos,
+    agentId: agentId.int32,
+    createdStep: step.int32
+  )
+  inc teamReservations[teamId].count
+  true
+
+proc releaseReservation*(teamId: int, agentId: int) =
+  ## Release any reservation held by this agent.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  var writeIdx = 0
+  for readIdx in 0 ..< teamReservations[teamId].count:
+    if teamReservations[teamId].reservations[readIdx].agentId != agentId.int32:
+      if writeIdx != readIdx:
+        teamReservations[teamId].reservations[writeIdx] =
+          teamReservations[teamId].reservations[readIdx]
+      inc writeIdx
+  teamReservations[teamId].count = writeIdx
+
+proc getReservationPos*(teamId: int, agentId: int): IVec2 =
+  ## Get the reserved position for an agent, or (-1,-1) if none.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return ivec2(-1, -1)
+  for i in 0 ..< teamReservations[teamId].count:
+    if teamReservations[teamId].reservations[i].agentId == agentId.int32:
+      return teamReservations[teamId].reservations[i].pos
+  ivec2(-1, -1)

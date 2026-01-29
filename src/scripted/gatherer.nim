@@ -386,6 +386,8 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   if state.closestFoodPos.x >= 0:
     if state.closestFoodPos == state.pathBlockedTarget:
       state.closestFoodPos = ivec2(-1, -1)
+    elif isResourceReserved(teamId, state.closestFoodPos, agent.agentId):
+      state.closestFoodPos = ivec2(-1, -1)
     else:
       let knownThing = env.getThing(state.closestFoodPos)
       if isNil(knownThing) or knownThing.kind notin FoodKinds or isThingFrozen(knownThing, env):
@@ -398,6 +400,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
           if cowHealthy and not foodCritical: 3'u8 else: 2'u8
         else:
           3'u8
+        discard reserveResource(teamId, agent.agentId, knownThing.pos, env.currentStep)
         return actOrMove(controller, env, agent, agentId, state, knownThing.pos, verb)
 
   for kind in [Wheat, Stubble]:
@@ -407,7 +410,11 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
     if wheat.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
+    # Skip if reserved by another agent
+    if isResourceReserved(teamId, wheat.pos, agent.agentId):
+      continue
     updateClosestSeen(state, state.basePosition, wheat.pos, state.closestFoodPos)
+    discard reserveResource(teamId, agent.agentId, wheat.pos, env.currentStep)
     return actOrMove(controller, env, agent, agentId, state, wheat.pos, 3'u8)
 
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)

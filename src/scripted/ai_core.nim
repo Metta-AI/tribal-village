@@ -6,6 +6,7 @@ import ../entropy
 import vmath
 import ../environment, ../common, ../terrain
 import ai_types
+import coordination
 
 # Re-export types from ai_types for backwards compatibility with include chain
 export ai_types
@@ -1267,6 +1268,13 @@ proc tryMoveToKnownResource*(controller: Controller, env: Environment, agent: Th
      not hasHarvestableResource(thing):
     pos = ivec2(-1, -1)
     return (false, 0'u8)
+  # Skip if reserved by another agent on our team
+  let teamId = getTeamId(agent)
+  if isResourceReserved(teamId, pos, agentId):
+    pos = ivec2(-1, -1)
+    return (false, 0'u8)
+  # Reserve this resource for ourselves
+  discard reserveResource(teamId, agentId, pos, env.currentStep)
   return (true, if isAdjacent(agent.pos, pos):
     actAt(controller, env, agent, agentId, state, pos, verb)
   else:
@@ -1364,6 +1372,7 @@ proc ensureWood*(controller: Controller, env: Environment, agent: Thing, agentId
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestWoodPos, {Stump, Tree}, 3'u8)
   if didKnown: return (didKnown, actKnown)
+  let teamId = getTeamId(agent)
   for kind in [Stump, Tree]:
     let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
@@ -1371,7 +1380,11 @@ proc ensureWood*(controller: Controller, env: Environment, agent: Thing, agentId
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
+    # Skip if reserved by another agent
+    if isResourceReserved(teamId, target.pos, agentId):
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
+    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
     return (true, if isAdjacent(agent.pos, target.pos):
       controller.useAt(env, agent, agentId, state, target.pos)
     else:
@@ -1383,6 +1396,7 @@ proc ensureStone*(controller: Controller, env: Environment, agent: Thing, agentI
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestStonePos, {Stone, Stalagmite}, 3'u8)
   if didKnown: return (didKnown, actKnown)
+  let teamId = getTeamId(agent)
   for kind in [Stone, Stalagmite]:
     let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
@@ -1390,7 +1404,11 @@ proc ensureStone*(controller: Controller, env: Environment, agent: Thing, agentI
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
+    # Skip if reserved by another agent
+    if isResourceReserved(teamId, target.pos, agentId):
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
+    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
     return (true, if isAdjacent(agent.pos, target.pos):
       controller.useAt(env, agent, agentId, state, target.pos)
     else:
@@ -1402,12 +1420,17 @@ proc ensureGold*(controller: Controller, env: Environment, agent: Thing, agentId
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestGoldPos, {Gold}, 3'u8)
   if didKnown: return (didKnown, actKnown)
+  let teamId = getTeamId(agent)
   let target = env.findNearestThingSpiral(state, Gold)
   if not isNil(target):
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[Gold] = ivec2(-1, -1)
       return (true, controller.moveNextSearch(env, agent, agentId, state))
+    # Skip if reserved by another agent
+    if isResourceReserved(teamId, target.pos, agentId):
+      return (true, controller.moveNextSearch(env, agent, agentId, state))
     updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
+    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
     return (true, if isAdjacent(agent.pos, target.pos):
       controller.useAt(env, agent, agentId, state, target.pos)
     else:
@@ -1442,6 +1465,7 @@ proc ensureWater*(controller: Controller, env: Environment, agent: Thing, agentI
 
 proc ensureWheat*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
+  let teamId = getTeamId(agent)
   for kind in [Wheat, Stubble]:
     let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
@@ -1449,6 +1473,10 @@ proc ensureWheat*(controller: Controller, env: Environment, agent: Thing, agentI
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
+    # Skip if reserved by another agent
+    if isResourceReserved(teamId, target.pos, agentId):
+      continue
+    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
     return (true, if isAdjacent(agent.pos, target.pos):
       controller.useAt(env, agent, agentId, state, target.pos)
     else:
@@ -1465,7 +1493,11 @@ proc ensureHuntFood*(controller: Controller, env: Environment, agent: Thing, age
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
+    # Skip if reserved by another agent
+    if isResourceReserved(teamId, target.pos, agentId):
+      continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
+    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
     # For cows: milk (interact) if healthy and food not critical, kill (attack) otherwise
     let verb = if kind == Cow:
       let foodCritical = env.stockpileCount(teamId, ResourceFood) < 3
