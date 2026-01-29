@@ -13,6 +13,7 @@ import ../common, ../environment
 const
   MaxCoordinationRequests* = 16  # Max pending requests per team
   RequestExpirationSteps* = 60  # Requests expire after N steps
+  DuplicateWindowSteps* = 30    # Duplicate detection window (steps)
   ProtectionResponseRadius* = 15  # Fighters respond to protection requests within this radius
   DefenseRequestRadius* = 20  # Distance from threat that triggers defense request
 
@@ -22,6 +23,11 @@ type
     RequestDefense      # Fighter requests Builder to build defensive structures
     RequestSiegeBuild   # Fighter requests Builder to build siege workshop
 
+  CoordinationPriority* = enum
+    PriorityLow = 0
+    PriorityNormal = 1
+    PriorityHigh = 2        # Urgent requests (e.g. active combat)
+
   CoordinationRequest* = object
     kind*: CoordinationRequestKind
     teamId*: int
@@ -30,6 +36,7 @@ type
     threatPos*: IVec2       # Position of the threat (for defense/protection)
     createdStep*: int       # Step when created
     fulfilled*: bool        # Whether request has been handled
+    priority*: CoordinationPriority  # Request priority for fulfillment ordering
 
   CoordinationState* = object
     requests*: array[MaxCoordinationRequests, CoordinationRequest]
@@ -50,7 +57,8 @@ proc clearExpiredRequests*(step: int) =
     teamCoordination[teamId].requestCount = writeIdx
 
 proc addRequest*(teamId: int, kind: CoordinationRequestKind,
-                 requesterId: int, requesterPos, threatPos: IVec2, step: int): bool =
+                 requesterId: int, requesterPos, threatPos: IVec2, step: int,
+                 priority: CoordinationPriority = PriorityNormal): bool =
   ## Add a coordination request. Returns true if added successfully.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
@@ -58,7 +66,7 @@ proc addRequest*(teamId: int, kind: CoordinationRequestKind,
   for i in 0 ..< teamCoordination[teamId].requestCount:
     let req = teamCoordination[teamId].requests[i]
     if req.requesterId == requesterId and req.kind == kind and
-       (step - req.createdStep) < 10:  # Within 10 steps = duplicate
+       (step - req.createdStep) < DuplicateWindowSteps:
       return false
   if teamCoordination[teamId].requestCount >= MaxCoordinationRequests:
     # Remove oldest request to make room
@@ -73,16 +81,18 @@ proc addRequest*(teamId: int, kind: CoordinationRequestKind,
     requesterPos: requesterPos,
     threatPos: threatPos,
     createdStep: step,
-    fulfilled: false
+    fulfilled: false,
+    priority: priority
   )
   inc teamCoordination[teamId].requestCount
   true
 
 proc findNearestProtectionRequest*(teamId: int, agentPos: IVec2): ptr CoordinationRequest =
-  ## Find the nearest unfulfilled protection request within response radius
+  ## Find the highest-priority, nearest unfulfilled protection request within response radius
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return nil
   var bestDist = int.high
+  var bestPriority = PriorityLow
   var bestReq: ptr CoordinationRequest = nil
   for i in 0 ..< teamCoordination[teamId].requestCount:
     let req = addr teamCoordination[teamId].requests[i]
@@ -91,9 +101,12 @@ proc findNearestProtectionRequest*(teamId: int, agentPos: IVec2): ptr Coordinati
     let dx = abs(agentPos.x - req.requesterPos.x)
     let dy = abs(agentPos.y - req.requesterPos.y)
     let dist = int(if dx > dy: dx else: dy)  # chebyshevDist inline
-    if dist <= ProtectionResponseRadius and dist < bestDist:
-      bestDist = dist
-      bestReq = req
+    if dist <= ProtectionResponseRadius:
+      if req.priority > bestPriority or
+         (req.priority == bestPriority and dist < bestDist):
+        bestDist = dist
+        bestPriority = req.priority
+        bestReq = req
   bestReq
 
 proc hasDefenseRequest*(teamId: int): bool =
@@ -117,24 +130,34 @@ proc hasSiegeBuildRequest*(teamId: int): bool =
   false
 
 proc markDefenseRequestFulfilled*(teamId: int) =
-  ## Mark the oldest defense request as fulfilled
+  ## Mark the highest-priority unfulfilled defense request as fulfilled
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
+  var bestIdx = -1
+  var bestPriority = PriorityLow
   for i in 0 ..< teamCoordination[teamId].requestCount:
     if teamCoordination[teamId].requests[i].kind == RequestDefense and
        not teamCoordination[teamId].requests[i].fulfilled:
-      teamCoordination[teamId].requests[i].fulfilled = true
-      return
+      if bestIdx < 0 or teamCoordination[teamId].requests[i].priority > bestPriority:
+        bestIdx = i
+        bestPriority = teamCoordination[teamId].requests[i].priority
+  if bestIdx >= 0:
+    teamCoordination[teamId].requests[bestIdx].fulfilled = true
 
 proc markSiegeBuildRequestFulfilled*(teamId: int) =
-  ## Mark the oldest siege build request as fulfilled
+  ## Mark the highest-priority unfulfilled siege build request as fulfilled
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
+  var bestIdx = -1
+  var bestPriority = PriorityLow
   for i in 0 ..< teamCoordination[teamId].requestCount:
     if teamCoordination[teamId].requests[i].kind == RequestSiegeBuild and
        not teamCoordination[teamId].requests[i].fulfilled:
-      teamCoordination[teamId].requests[i].fulfilled = true
-      return
+      if bestIdx < 0 or teamCoordination[teamId].requests[i].priority > bestPriority:
+        bestIdx = i
+        bestPriority = teamCoordination[teamId].requests[i].priority
+  if bestIdx >= 0:
+    teamCoordination[teamId].requests[bestIdx].fulfilled = true
 
 # --- Coordination request creators (called from role behaviors) ---
 
