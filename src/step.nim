@@ -2241,6 +2241,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           dec thing.cooldown
       # Tick production queue (AoE2-style batch training)
       thing.processProductionQueue()
+    elif thing.kind == Wonder:
+      if thing.hp > 0 and thing.wonderVictoryCountdown > 0:
+        dec thing.wonderVictoryCountdown
+        if thing.wonderVictoryCountdown <= 0:
+          env.victoryWinner = thing.teamId
     elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
                                          UseTrain, UseTrainAndCraft, UseCraft}:
       # All production buildings have simple cooldown

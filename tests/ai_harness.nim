@@ -382,7 +382,7 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceStone] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitBatteringRam) - 1:
       env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitBatteringRam
@@ -395,7 +395,7 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceStone] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitMangonel) - 1:
       env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitMangonel
@@ -408,7 +408,7 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceGold] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitArcher) - 1:
       env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitArcher
@@ -420,7 +420,7 @@ suite "Mechanics - Training":
     env.teamStockpiles[0].counts[ResourceFood] = 10
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitScout) - 1:
       env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitScout
@@ -439,7 +439,7 @@ suite "Mechanics - Training":
     env.teamCastleTechs[0].researched[imperialAge] = true
 
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitSamurai) - 1:
       env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     # Team 0 trains Samurai at castles
@@ -1261,7 +1261,7 @@ suite "AI - Scout Behavior":
 
     # Train as scout (queue at stable, wait for production, then convert)
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitScout) - 1:
       env.stepNoop()
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, ivec2(10, 9)))
     check agent.unitClass == UnitScout
