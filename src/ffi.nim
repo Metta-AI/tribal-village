@@ -298,3 +298,181 @@ proc tribal_village_get_error_message*(buffer: ptr char, bufferSize: int32): int
 proc tribal_village_clear_error*() {.exportc, dynlib.} =
   ## Clear the error state
   clearFFIError()
+
+# ============== Agent Control FFI Functions ==============
+
+# --- Attack-Move ---
+
+proc tribal_village_set_attack_move*(agentId: int32, x: int32, y: int32) {.exportc, dynlib.} =
+  ## Set an attack-move target for an agent.
+  setAgentAttackMoveTargetXY(agentId, x, y)
+
+proc tribal_village_clear_attack_move*(agentId: int32) {.exportc, dynlib.} =
+  ## Clear the attack-move target for an agent.
+  clearAgentAttackMoveTarget(agentId)
+
+proc tribal_village_get_attack_move_x*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the x coordinate of an agent's attack-move target. -1 if inactive.
+  getAgentAttackMoveTarget(agentId).x
+
+proc tribal_village_get_attack_move_y*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the y coordinate of an agent's attack-move target. -1 if inactive.
+  getAgentAttackMoveTarget(agentId).y
+
+proc tribal_village_is_attack_move_active*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Check if an agent has an active attack-move target. Returns 1 if active, 0 otherwise.
+  if isAgentAttackMoveActive(agentId): 1 else: 0
+
+# --- Patrol ---
+
+proc tribal_village_set_patrol*(agentId: int32, x1: int32, y1: int32, x2: int32, y2: int32) {.exportc, dynlib.} =
+  ## Set patrol waypoints for an agent.
+  setAgentPatrolXY(agentId, x1, y1, x2, y2)
+
+proc tribal_village_clear_patrol*(agentId: int32) {.exportc, dynlib.} =
+  ## Clear patrol mode for an agent.
+  clearAgentPatrol(agentId)
+
+proc tribal_village_get_patrol_target_x*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the x coordinate of an agent's current patrol target. -1 if inactive.
+  getAgentPatrolTarget(agentId).x
+
+proc tribal_village_get_patrol_target_y*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the y coordinate of an agent's current patrol target. -1 if inactive.
+  getAgentPatrolTarget(agentId).y
+
+proc tribal_village_is_patrol_active*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Check if an agent has patrol mode active. Returns 1 if active, 0 otherwise.
+  if isAgentPatrolActive(agentId): 1 else: 0
+
+# --- Stance ---
+
+proc tribal_village_set_stance*(env: pointer, agentId: int32, stance: int32) {.exportc, dynlib.} =
+  ## Set the combat stance for an agent.
+  ## stance: 0=Aggressive, 1=Defensive, 2=StandGround, 3=NoAttack
+  if stance >= 0 and stance <= ord(AgentStance.high):
+    setAgentStance(globalEnv, agentId, AgentStance(stance))
+
+proc tribal_village_get_stance*(env: pointer, agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the combat stance for an agent.
+  ## Returns: 0=Aggressive, 1=Defensive, 2=StandGround, 3=NoAttack
+  ord(getAgentStance(globalEnv, agentId)).int32
+
+# --- Garrison ---
+
+proc tribal_village_garrison*(env: pointer, agentId: int32, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Garrison an agent into a building. Returns 1 on success, 0 on failure.
+  if garrisonAgentInBuilding(globalEnv, agentId, buildingX, buildingY): 1 else: 0
+
+proc tribal_village_ungarrison*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Ungarrison all units from a building. Returns the number of units ungarrisoned.
+  ungarrisonAllFromBuilding(globalEnv, buildingX, buildingY)
+
+proc tribal_village_garrison_count*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Get the number of units garrisoned in a building.
+  getGarrisonCount(globalEnv, buildingX, buildingY)
+
+# --- Production Queue ---
+
+proc tribal_village_queue_train*(env: pointer, buildingX: int32, buildingY: int32, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Queue a unit for training at a building. Returns 1 on success, 0 on failure.
+  if queueUnitTraining(globalEnv, buildingX, buildingY, teamId): 1 else: 0
+
+proc tribal_village_cancel_train*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Cancel the last queued unit at a building. Returns 1 on success, 0 on failure.
+  if cancelLastQueuedUnit(globalEnv, buildingX, buildingY): 1 else: 0
+
+proc tribal_village_queue_size*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Get the number of units in the production queue at a building.
+  getProductionQueueSize(globalEnv, buildingX, buildingY)
+
+proc tribal_village_queue_progress*(env: pointer, buildingX: int32, buildingY: int32, index: int32): int32 {.exportc, dynlib.} =
+  ## Get remaining steps for a production queue entry. Returns -1 if invalid.
+  getProductionQueueEntryProgress(globalEnv, buildingX, buildingY, index)
+
+# --- Research ---
+
+proc tribal_village_research_blacksmith*(env: pointer, agentId: int32, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Research the next blacksmith upgrade. Returns 1 on success, 0 on failure.
+  if researchBlacksmithUpgrade(globalEnv, agentId, buildingX, buildingY): 1 else: 0
+
+proc tribal_village_research_university*(env: pointer, agentId: int32, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Research the next university tech. Returns 1 on success, 0 on failure.
+  if researchUniversityTech(globalEnv, agentId, buildingX, buildingY): 1 else: 0
+
+proc tribal_village_research_castle*(env: pointer, agentId: int32, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Research the next castle unique tech. Returns 1 on success, 0 on failure.
+  if researchCastleTech(globalEnv, agentId, buildingX, buildingY): 1 else: 0
+
+proc tribal_village_research_unit_upgrade*(env: pointer, agentId: int32, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Research the next unit upgrade. Returns 1 on success, 0 on failure.
+  if researchUnitUpgrade(globalEnv, agentId, buildingX, buildingY): 1 else: 0
+
+proc tribal_village_has_blacksmith_upgrade*(env: pointer, teamId: int32, upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Get the current level of a blacksmith upgrade for a team.
+  ## upgradeType: 0=MeleeAttack, 1=ArcherAttack, 2=InfantryArmor, 3=CavalryArmor, 4=ArcherArmor
+  hasBlacksmithUpgrade(globalEnv, teamId, upgradeType)
+
+proc tribal_village_has_university_tech*(env: pointer, teamId: int32, techType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a university tech has been researched. Returns 1 if researched, 0 otherwise.
+  if hasUniversityTechResearched(globalEnv, teamId, techType): 1 else: 0
+
+proc tribal_village_has_castle_tech*(env: pointer, teamId: int32, techType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a castle tech has been researched. Returns 1 if researched, 0 otherwise.
+  if hasCastleTechResearched(globalEnv, teamId, techType): 1 else: 0
+
+proc tribal_village_has_unit_upgrade*(env: pointer, teamId: int32, upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a unit upgrade has been researched. Returns 1 if researched, 0 otherwise.
+  if hasUnitUpgradeResearched(globalEnv, teamId, upgradeType): 1 else: 0
+
+# --- Scout Mode ---
+
+proc tribal_village_set_scout_mode*(agentId: int32, active: int32) {.exportc, dynlib.} =
+  ## Enable or disable scout mode for an agent. active: 1=enable, 0=disable.
+  setAgentScoutMode(agentId, active != 0)
+
+proc tribal_village_is_scout_mode_active*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Check if scout mode is active for an agent. Returns 1 if active, 0 otherwise.
+  if isAgentScoutModeActive(agentId): 1 else: 0
+
+proc tribal_village_get_scout_explore_radius*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the current scout exploration radius for an agent.
+  getAgentScoutExploreRadius(agentId)
+
+# --- Rally Point ---
+
+proc tribal_village_set_rally_point*(env: pointer, buildingX: int32, buildingY: int32, rallyX: int32, rallyY: int32) {.exportc, dynlib.} =
+  ## Set a rally point for a building.
+  setBuildingRallyPoint(globalEnv, buildingX, buildingY, rallyX, rallyY)
+
+proc tribal_village_clear_rally_point*(env: pointer, buildingX: int32, buildingY: int32) {.exportc, dynlib.} =
+  ## Clear the rally point for a building.
+  clearBuildingRallyPoint(globalEnv, buildingX, buildingY)
+
+proc tribal_village_get_rally_point_x*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Get the x coordinate of a building's rally point. -1 if not set.
+  getBuildingRallyPoint(globalEnv, buildingX, buildingY).x
+
+proc tribal_village_get_rally_point_y*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Get the y coordinate of a building's rally point. -1 if not set.
+  getBuildingRallyPoint(globalEnv, buildingX, buildingY).y
+
+# --- Stop Command ---
+
+proc tribal_village_stop*(agentId: int32) {.exportc, dynlib.} =
+  ## Stop an agent, clearing all active orders (attack-move, patrol, scout).
+  stopAgent(agentId)
+
+# --- Formation ---
+
+proc tribal_village_set_formation*(agentId: int32, formationType: int32) {.exportc, dynlib.} =
+  ## Set formation type for an agent. Currently a no-op (formation system not implemented).
+  setAgentFormation(agentId, formationType)
+
+proc tribal_village_get_formation*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get formation type for an agent. Returns 0 (none). Formation system not implemented.
+  getAgentFormation(agentId)
+
+proc tribal_village_clear_formation*(agentId: int32) {.exportc, dynlib.} =
+  ## Clear formation for an agent. Currently a no-op (formation system not implemented).
+  clearAgentFormation(agentId)
