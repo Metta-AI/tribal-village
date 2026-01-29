@@ -263,6 +263,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             ("tribal_village_has_university_tech", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_has_castle_tech", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_has_unit_upgrade", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            # Threat map queries
+            ("tribal_village_has_known_threats", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_get_nearest_threat", [ctypes.c_void_p, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
+            ("tribal_village_get_threats_in_range", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_get_threat_at", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
         ]
 
         for name, argtypes, restype, optional in func_specs:
@@ -351,6 +356,60 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if fn is None:
             return False
         return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+
+    # --- Threat map queries ---
+
+    def has_known_threats(self, team_id: int) -> bool:
+        """Check if a team has any known (non-stale) threats.
+
+        Returns True if there are active threats, False otherwise.
+        """
+        fn = getattr(self.lib, "tribal_village_has_known_threats", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+
+    def get_nearest_threat(self, agent_id: int) -> Tuple[int, int, int]:
+        """Get the nearest threat to an agent's current position.
+
+        Returns (x, y, strength) of the nearest threat, or (-1, -1, 0) if none.
+        """
+        fn = getattr(self.lib, "tribal_village_get_nearest_threat", None)
+        if fn is None:
+            return (-1, -1, 0)
+        out_x = ctypes.c_int32()
+        out_y = ctypes.c_int32()
+        out_strength = ctypes.c_int32()
+        found = fn(
+            self.env_ptr,
+            ctypes.c_int32(agent_id),
+            ctypes.byref(out_x),
+            ctypes.byref(out_y),
+            ctypes.byref(out_strength),
+        )
+        if found:
+            return (out_x.value, out_y.value, out_strength.value)
+        return (-1, -1, 0)
+
+    def get_threats_in_range(self, agent_id: int, radius: int) -> int:
+        """Get the number of threats within radius of an agent's position.
+
+        Returns the count of non-stale threats in range.
+        """
+        fn = getattr(self.lib, "tribal_village_get_threats_in_range", None)
+        if fn is None:
+            return 0
+        return fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(radius))
+
+    def get_threat_at(self, team_id: int, x: int, y: int) -> int:
+        """Get the threat strength at a specific map position for a team.
+
+        Returns the strength value, or 0 if no threat at that position.
+        """
+        fn = getattr(self.lib, "tribal_village_get_threat_at", None)
+        if fn is None:
+            return 0
+        return fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y))
 
     def _nim_float(self, key: str) -> float:
         value = self.config.get(key)
