@@ -476,3 +476,80 @@ proc tribal_village_get_formation*(agentId: int32): int32 {.exportc, dynlib.} =
 proc tribal_village_clear_formation*(agentId: int32) {.exportc, dynlib.} =
   ## Clear formation for an agent. Currently a no-op (formation system not implemented).
   clearAgentFormation(agentId)
+
+# --- Market Trading ---
+
+proc tribal_village_init_market_prices*(env: pointer) {.exportc, dynlib.} =
+  ## Initialize market prices to base rates for all teams.
+  initMarketPrices(globalEnv)
+
+proc tribal_village_get_market_price*(env: pointer, teamId: int32, resource: int32): int32 {.exportc, dynlib.} =
+  ## Get current market price for a resource (gold cost per 100 units).
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone, 4=Water, 5=None
+  if resource < 0 or resource > ord(StockpileResource.high):
+    return 0
+  getMarketPrice(globalEnv, teamId, StockpileResource(resource)).int32
+
+proc tribal_village_set_market_price*(env: pointer, teamId: int32, resource: int32, price: int32) {.exportc, dynlib.} =
+  ## Set market price for a resource (clamped to min/max bounds).
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone, 4=Water, 5=None
+  if resource < 0 or resource > ord(StockpileResource.high):
+    return
+  setMarketPrice(globalEnv, teamId, StockpileResource(resource), price)
+
+proc tribal_village_market_buy*(env: pointer, teamId: int32, resource: int32, amount: int32, outGoldCost: ptr int32, outResourceGained: ptr int32): int32 {.exportc, dynlib.} =
+  ## Buy resources from market using gold from stockpile.
+  ## Returns 1 on success, 0 on failure. Writes gold cost and resource gained to output pointers.
+  if resource < 0 or resource > ord(StockpileResource.high):
+    return 0
+  let result = marketBuyResource(globalEnv, teamId, StockpileResource(resource), amount)
+  if not outGoldCost.isNil:
+    outGoldCost[] = result.goldCost.int32
+  if not outResourceGained.isNil:
+    outResourceGained[] = result.resourceGained.int32
+  if result.resourceGained > 0: 1 else: 0
+
+proc tribal_village_market_sell*(env: pointer, teamId: int32, resource: int32, amount: int32, outResourceSold: ptr int32, outGoldGained: ptr int32): int32 {.exportc, dynlib.} =
+  ## Sell resources to market for gold.
+  ## Returns 1 on success, 0 on failure. Writes resource sold and gold gained to output pointers.
+  if resource < 0 or resource > ord(StockpileResource.high):
+    return 0
+  let result = marketSellResource(globalEnv, teamId, StockpileResource(resource), amount)
+  if not outResourceSold.isNil:
+    outResourceSold[] = result.resourceSold.int32
+  if not outGoldGained.isNil:
+    outGoldGained[] = result.goldGained.int32
+  if result.goldGained > 0: 1 else: 0
+
+proc tribal_village_market_sell_inventory*(env: pointer, agentId: int32, itemKind: int32, outAmountSold: ptr int32, outGoldGained: ptr int32): int32 {.exportc, dynlib.} =
+  ## Sell all of an item from agent's inventory to their team's market.
+  ## itemKind maps to ItemKind enum ordinal. Returns 1 on success, 0 on failure.
+  if agentId < 0 or agentId >= MapAgents:
+    return 0
+  if itemKind < 0 or itemKind > ord(ItemKind.high):
+    return 0
+  let agent = globalEnv.agents[agentId]
+  let itemKey = ItemKey(kind: ItemKeyItem, item: ItemKind(itemKind))
+  let result = marketSellInventory(globalEnv, agent, itemKey)
+  if not outAmountSold.isNil:
+    outAmountSold[] = result.amountSold.int32
+  if not outGoldGained.isNil:
+    outGoldGained[] = result.goldGained.int32
+  if result.goldGained > 0: 1 else: 0
+
+proc tribal_village_market_buy_food*(env: pointer, agentId: int32, goldAmount: int32, outGoldSpent: ptr int32, outFoodGained: ptr int32): int32 {.exportc, dynlib.} =
+  ## Buy food with gold from agent's inventory.
+  ## Returns 1 on success, 0 on failure. Writes gold spent and food gained to output pointers.
+  if agentId < 0 or agentId >= MapAgents:
+    return 0
+  let agent = globalEnv.agents[agentId]
+  let result = marketBuyFood(globalEnv, agent, goldAmount)
+  if not outGoldSpent.isNil:
+    outGoldSpent[] = result.goldSpent.int32
+  if not outFoodGained.isNil:
+    outFoodGained[] = result.foodGained.int32
+  if result.foodGained > 0: 1 else: 0
+
+proc tribal_village_decay_market_prices*(env: pointer) {.exportc, dynlib.} =
+  ## Slowly drift market prices back toward base rate.
+  decayMarketPrices(globalEnv)
