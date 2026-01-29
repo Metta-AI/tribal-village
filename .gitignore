@@ -100,3 +100,6 @@ nim.cfg
 .logs/
 src/ffi
 scripts/run_all_tests
+
+# Gas Town (added by gt)
+.beads/
