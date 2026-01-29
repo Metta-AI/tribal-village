@@ -68,6 +68,38 @@ proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IV
 
 const FoodKinds = {Wheat, Stubble, Fish, Bush, Cow, Corpse}
 
+proc gathererStockpileTotal(agent: Thing): int =
+  for key, count in agent.inventory.pairs:
+    if count > 0 and isStockpileResourceKey(key):
+      result += count
+
+proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
+  let (startX, endX, startY, endY) = radiusBounds(pos, radius)
+  let cx = pos.x.int
+  let cy = pos.y.int
+  for x in startX .. endX:
+    for y in startY .. endY:
+      if max(abs(x - cx), abs(y - cy)) > radius:
+        continue
+      let occ = env.grid[x][y]
+      if not isNil(occ) and occ.kind in FoodKinds:
+        return true
+      let background = env.backgroundGrid[x][y]
+      if not isNil(background) and background.kind in FoodKinds:
+        return true
+  false
+
+proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState,
+                           magmaGlobal: Thing): (bool, uint8) =
+  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+    env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+  if didKnown: return (true, actKnown)
+  if not isNil(magmaGlobal):
+    updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
+    return (true, actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8))
+  (false, 0'u8)
+
 proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
   let teamId = getTeamId(agent)
@@ -116,17 +148,12 @@ proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
       MidGameWeights
 
     # Get flow rates from economy system to adjust priorities
-    let flowRate = getFlowRate(teamId)
-    var flowAdjust: array[4, float] = [0.0, 0.0, 0.0, 0.0]
     # If a resource is decreasing fast, reduce its weight (prioritize it)
-    if flowRate.foodPerStep < -0.1:
-      flowAdjust[0] = flowRate.foodPerStep * 2.0  # Negative flow reduces effective stockpile
-    if flowRate.woodPerStep < -0.1:
-      flowAdjust[1] = flowRate.woodPerStep * 2.0
-    if flowRate.stonePerStep < -0.1:
-      flowAdjust[2] = flowRate.stonePerStep * 2.0
-    if flowRate.goldPerStep < -0.1:
-      flowAdjust[3] = flowRate.goldPerStep * 2.0
+    let flowRate = getFlowRate(teamId)
+    proc flowAdj(rate: float): float =
+      if rate < -0.1: rate * 2.0 else: 0.0
+    let flowAdjust = [flowAdj(flowRate.foodPerStep), flowAdj(flowRate.woodPerStep),
+                      flowAdj(flowRate.stonePerStep), flowAdj(flowRate.goldPerStep)]
 
     # Apply weights: lower weighted score = higher priority
     # Weight < 1.0 makes resource appear more scarce (prioritized)
@@ -171,11 +198,8 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
     return 0'u8
   let (didBuild, buildAct) = controller.tryBuildCampThreshold(
     env, agent, agentId, state, teamId, kind,
-    nearbyCount, minCount,
-    nearbyKinds
-  )
-  if didBuild: return buildAct
-  0'u8
+    nearbyCount, minCount, nearbyKinds)
+  if didBuild: buildAct else: 0'u8
 
 proc canStartGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
@@ -194,18 +218,11 @@ proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: 
 
 proc canStartGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      return true
-  false
+  gathererStockpileTotal(agent) > 0
 
 proc shouldTerminateGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
-  # Terminate when no longer carrying resources
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      return false
-  true
+  gathererStockpileTotal(agent) == 0
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -217,12 +234,8 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
     magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
 
   if agent.inventoryGold > 0 and heartsPriority:
-    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
-    if didKnown: return actKnown
-    if not isNil(magmaGlobal):
-      updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
-      return actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8)
+    let (didDeliver, deliverAct) = tryDeliverGoldToMagma(controller, env, agent, agentId, state, magmaGlobal)
+    if didDeliver: return deliverAct
 
   let (didDrop, dropAct) = controller.dropoffCarrying(
     env, agent, agentId, state,
@@ -259,12 +272,8 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
     if altarPos.x >= 0:
       return actOrMove(controller, env, agent, agentId, state, altarPos, 3'u8)
   if agent.inventoryGold > 0:
-    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
-    if didKnown: return actKnown
-    if not isNil(magmaGlobal):
-      updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
-      return actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8)
+    let (didDeliver, deliverAct) = tryDeliverGoldToMagma(controller, env, agent, agentId, state, magmaGlobal)
+    if didDeliver: return deliverAct
     return controller.moveNextSearch(env, agent, agentId, state)
   if state.closestMagmaPos.x < 0 and isNil(magmaGlobal):
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -355,29 +364,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
   if didPlant: return actPlant
 
-  block waterFertile:
-    block:
-      let radius = 4
-      let (startX, endX, startY, endY) = radiusBounds(agent.pos, radius)
-      let cx = agent.pos.x.int
-      let cy = agent.pos.y.int
-      var hasNearbyFood = false
-      for x in startX .. endX:
-        for y in startY .. endY:
-          if max(abs(x - cx), abs(y - cy)) > radius:
-            continue
-          let occ = env.grid[x][y]
-          if not isNil(occ) and occ.kind in FoodKinds:
-            hasNearbyFood = true
-            break
-          let background = env.backgroundGrid[x][y]
-          if not isNil(background) and background.kind in FoodKinds:
-            hasNearbyFood = true
-            break
-        if hasNearbyFood:
-          break
-      if hasNearbyFood:
-        break waterFertile
+  if not hasNearbyFood(env, agent.pos, 4):
     let fertileRadius = 6
     let fertileCount = countNearbyTerrain(env, basePos, fertileRadius, {Fertile})
     var hasMill = false
@@ -446,20 +433,11 @@ proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartGathererScavenge(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  var total = 0
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      total += count
-  max(0, ResourceCarryCapacity - total) > 0 and env.thingsByKind[Skeleton].len > 0
+  gathererStockpileTotal(agent) < ResourceCarryCapacity and env.thingsByKind[Skeleton].len > 0
 
 proc shouldTerminateGathererScavenge(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
-  # Terminate when inventory is full or no more skeletons
-  var total = 0
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isStockpileResourceKey(key):
-      total += count
-  max(0, ResourceCarryCapacity - total) <= 0 or env.thingsByKind[Skeleton].len == 0
+  gathererStockpileTotal(agent) >= ResourceCarryCapacity or env.thingsByKind[Skeleton].len == 0
 
 proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
