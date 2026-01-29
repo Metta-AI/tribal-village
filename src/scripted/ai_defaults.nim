@@ -4,6 +4,21 @@ proc canBuildOnTerrain(terrain: TerrainType): bool {.inline.} =
   ## Check if terrain allows building (not road or ramp)
   terrain != TerrainRoad and not isRampTerrain(terrain)
 
+proc clearBuildState(state: var AgentState) {.inline.} =
+  state.buildIndex = -1
+  state.buildTarget = ivec2(-1, -1)
+  state.buildStand = ivec2(-1, -1)
+  state.buildLockSteps = 0
+
+proc clearCachedPositions(state: var AgentState) {.inline.} =
+  for kind in ThingKind:
+    state.cachedThingPos[kind] = ivec2(-1, -1)
+  state.closestFoodPos = ivec2(-1, -1)
+  state.closestWoodPos = ivec2(-1, -1)
+  state.closestStonePos = ivec2(-1, -1)
+  state.closestGoldPos = ivec2(-1, -1)
+  state.closestMagmaPos = ivec2(-1, -1)
+
 proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8] =
   if index < 0 or index >= BuildChoices.len:
@@ -46,10 +61,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
   if buildIndex < 0 or buildIndex >= BuildChoices.len:
     return (false, 0'u8)
   if state.buildLockSteps > 0 and state.buildIndex != buildIndex:
-    state.buildIndex = -1
-    state.buildTarget = ivec2(-1, -1)
-    state.buildStand = ivec2(-1, -1)
-    state.buildLockSteps = 0
+    clearBuildState(state)
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0:
     if env.canPlace(state.buildTarget) and
@@ -57,9 +69,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
       target = state.buildTarget
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
-      state.buildIndex = -1
-      state.buildTarget = ivec2(-1, -1)
-      state.buildStand = ivec2(-1, -1)
+      clearBuildState(state)
   let teamId = getTeamId(agent)
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(agent, key):
@@ -71,10 +81,7 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
   if chebyshevDist(agent.pos, target) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did:
-      state.buildIndex = -1
-      state.buildTarget = ivec2(-1, -1)
-      state.buildStand = ivec2(-1, -1)
-      state.buildLockSteps = 0
+      clearBuildState(state)
       return (true, act)
   state.buildTarget = target
   state.buildStand = ivec2(-1, -1)
@@ -91,10 +98,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   if buildIndex < 0 or buildIndex >= BuildChoices.len:
     return (false, 0'u8)
   if state.buildLockSteps > 0 and state.buildIndex != buildIndex:
-    state.buildIndex = -1
-    state.buildTarget = ivec2(-1, -1)
-    state.buildStand = ivec2(-1, -1)
-    state.buildLockSteps = 0
+    clearBuildState(state)
   var stand = standPos
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0 and
@@ -110,9 +114,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
       stand = state.buildStand
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
-      state.buildIndex = -1
-      state.buildTarget = ivec2(-1, -1)
-      state.buildStand = ivec2(-1, -1)
+      clearBuildState(state)
   let teamId = getTeamId(agent)
   let key = BuildChoices[buildIndex]
   if not env.canAffordBuild(agent, key):
@@ -129,10 +131,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   if agent.pos == stand:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
     if did:
-      state.buildIndex = -1
-      state.buildTarget = ivec2(-1, -1)
-      state.buildStand = ivec2(-1, -1)
-      state.buildLockSteps = 0
+      clearBuildState(state)
       return (true, act)
   state.buildTarget = target
   state.buildStand = stand
@@ -296,10 +295,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
     controller.claimBuilding(teamId, kind)
     return goToStandAndBuild(controller, env, agent, agentId, state,
       standPos, buildPos, idx)
-  let (didBuild, actBuild) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
-  if didBuild:
-    controller.claimBuilding(teamId, kind)
-  return (didBuild, actBuild)
+  (false, 0'u8)
 
 proc getTeamPopCount(controller: Controller, env: Environment, teamId: int): int =
   ## Get cached team population count. Recomputed once per step.
@@ -570,7 +566,6 @@ proc roleOptionsFor(roleId: int, rng: var Rand): seq[OptionDef] =
 proc roleIdForAgent(controller: Controller, agentId: int): int
 
 proc applyScriptedScoring(controller: Controller, env: Environment) =
-  discard controller
   let score = env.scoreTerritory()
   let total = max(1, score.scoredTiles)
   var teamScores: array[MapRoomObjectsTeams, float32]
@@ -750,56 +745,34 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       role: role,
       roleId: -1,
       activeOptionId: -1,
-      activeOptionTicks: 0,
-      gathererTask: TaskFood,
       fighterEnemyAgentId: -1,
       fighterEnemyStep: -1,
-      spiralStepsInArc: 0,
-      spiralArcsCompleted: 0,
       spiralClockwise: (agentId mod 2) == 0,
       basePosition: agent.pos,
       lastSearchPosition: agent.pos,
       lastPosition: agent.pos,
-      recentPosIndex: 0,
-      recentPosCount: 0,
-      escapeMode: false,
-      escapeStepsRemaining: 0,
       escapeDirection: ivec2(0, -1),
-      lastActionVerb: 0,
-      lastActionArg: 0,
       blockedMoveDir: -1,
-      blockedMoveSteps: 0,
       cachedWaterPos: ivec2(-1, -1),
-      closestFoodPos: ivec2(-1, -1),
-      closestWoodPos: ivec2(-1, -1),
-      closestStonePos: ivec2(-1, -1),
-      closestGoldPos: ivec2(-1, -1),
-      closestWaterPos: ivec2(-1, -1),
-      closestMagmaPos: ivec2(-1, -1),
       buildTarget: ivec2(-1, -1),
       buildStand: ivec2(-1, -1),
       buildIndex: -1,
-      buildLockSteps: 0,
       plannedTarget: ivec2(-1, -1),
-      plannedPath: @[],
-      plannedPathIndex: 0,
       pathBlockedTarget: ivec2(-1, -1),
       # Preserve patrol and attack-move state
       patrolPoint1: existingState.patrolPoint1,
       patrolPoint2: existingState.patrolPoint2,
       patrolToSecondPoint: existingState.patrolToSecondPoint,
       patrolActive: existingState.patrolActive,
-      # Preserve attack-move target if explicitly set (not zero-init default)
-      # Zero-init produces (0,0), but we use (-1,-1) as inactive marker
+      # Preserve attack-move target (-1,-1 = inactive)
       attackMoveTarget: if existingState.attackMoveTarget.x > 0 or existingState.attackMoveTarget.y > 0:
                           existingState.attackMoveTarget
                         elif existingState.attackMoveTarget.x < 0:
-                          existingState.attackMoveTarget  # Already (-1,-1)
+                          existingState.attackMoveTarget
                         else:
-                          ivec2(-1, -1)  # Zero-init default -> inactive
+                          ivec2(-1, -1)
     )
-    for kind in ThingKind:
-      initState.cachedThingPos[kind] = ivec2(-1, -1)
+    clearCachedPositions(initState)
     if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
       let pending = scriptedState.pendingHybridRoles[agentId]
       scriptedState.pendingHybridRoles[agentId] = -1
@@ -933,13 +906,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       state.plannedPath.setLen(0)
       state.plannedPathIndex = 0
       state.pathBlockedTarget = ivec2(-1, -1)
-      for kind in ThingKind:
-        state.cachedThingPos[kind] = ivec2(-1, -1)
-      state.closestFoodPos = ivec2(-1, -1)
-      state.closestWoodPos = ivec2(-1, -1)
-      state.closestStonePos = ivec2(-1, -1)
-      state.closestGoldPos = ivec2(-1, -1)
-      state.closestMagmaPos = ivec2(-1, -1)
+      clearCachedPositions(state)
       state.escapeMode = true
       state.escapeStepsRemaining = 10
       state.recentPosCount = 0
@@ -982,9 +949,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.basePosition = agent.homeAltar
   else:
     state.basePosition = agent.pos
-
-  # Emergency self-heal is now handled by EmergencyHealOption in the options framework
-  # (see options.nim:EmergencyHealOption - enabled for all roles via their option arrays)
 
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
