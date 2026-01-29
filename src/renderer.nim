@@ -74,11 +74,6 @@ var
   shallowWaterPositions: seq[IVec2] = @[]
   renderCacheGeneration = -1
 
-template configureHeartFont(ctx: var Context) =
-  ctx.font = HeartCountFontPath
-  ctx.fontSize = HeartCountFontSize
-  ctx.textBaseline = TopBaseline
-
 const
   InfoLabelFontPath = HeartCountFontPath
   InfoLabelFontSize: float32 = 54
@@ -91,15 +86,36 @@ const
   FooterLabelPadding = 4.0'f32
   FooterHudPadding = 12.0'f32
 
-template configureInfoLabelFont(ctx: var Context) =
-  ctx.font = InfoLabelFontPath
-  ctx.fontSize = InfoLabelFontSize
+proc renderTextLabel(text: string, fontPath: string, fontSize: float32,
+                     padding: float32, bgAlpha: float32): (Image, IVec2) =
+  var measureCtx = newContext(1, 1)
+  measureCtx.font = fontPath
+  measureCtx.fontSize = fontSize
+  measureCtx.textBaseline = TopBaseline
+  let metrics = measureCtx.measureText(text)
+  let w = max(1, (metrics.width + padding * 2).int)
+  let h = max(1, (measureCtx.fontSize + padding * 2).int)
+  var ctx = newContext(w, h)
+  ctx.font = fontPath
+  ctx.fontSize = fontSize
   ctx.textBaseline = TopBaseline
+  if bgAlpha > 0:
+    ctx.fillStyle.color = color(0, 0, 0, bgAlpha)
+    ctx.fillRect(0, 0, w.float32, h.float32)
+  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillText(text, vec2(padding, padding))
+  result = (ctx.image, ivec2(w, h))
 
-template configureFooterFont(ctx: var Context) =
-  ctx.font = FooterFontPath
-  ctx.fontSize = FooterFontSize
-  ctx.textBaseline = TopBaseline
+proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
+                     filledColor, emptyColor: Color, segments = 5) =
+  let filled = int(ceil(ratio * segments.float32))
+  let segStep = 0.16'f32
+  let totalW = segStep * (segments.float32 - 1)
+  let origin = basePos + vec2(-totalW / 2 + offset.x, offset.y)
+  for i in 0 ..< segments:
+    let tint = if i < filled: filledColor else: emptyColor
+    bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
+                  angle = 0, scale = 1/500, tint = tint)
 
 type FooterButtonKind* = enum
   FooterPlayPause
@@ -133,18 +149,11 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       labelKey = footerLabelImages[label]
       labelSize = footerLabelSizes[label]
     else:
-      var measureCtx = newContext(1, 1)
-      configureFooterFont(measureCtx)
-      let metrics = measureCtx.measureText(label)
-      let labelWidth = max(1, (metrics.width + FooterLabelPadding * 2).int)
-      let labelHeight = max(1, (measureCtx.fontSize + FooterLabelPadding * 2).int)
-      var ctx = newContext(labelWidth, labelHeight)
-      configureFooterFont(ctx)
-      ctx.fillStyle.color = color(1, 1, 1, 1)
-      ctx.fillText(label, vec2(FooterLabelPadding, FooterLabelPadding))
+      let (image, size) = renderTextLabel(label, FooterFontPath, FooterFontSize,
+                                          FooterLabelPadding, 0.0)
       labelKey = "footer_label/" & label.replace(" ", "_").replace("/", "_")
-      bxy.addImage(labelKey, ctx.image)
-      labelSize = ivec2(labelWidth, labelHeight)
+      bxy.addImage(labelKey, image)
+      labelSize = size
       footerLabelImages[label] = labelKey
       footerLabelSizes[label] = labelSize
     labelKeys[i] = labelKey
@@ -278,9 +287,7 @@ proc drawFloor*() =
       of FloorDungeon: "dungeon"
       of FloorBase: "floor"
     for pos in floorSpritePositions[floorKind]:
-      let x = pos.x
-      let y = pos.y
-      let blendedColor = combinedTileTint(env, x, y)
+      let blendedColor = combinedTileTint(env, pos.x, pos.y)
 
       bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = SpriteScale,
         tint = color(
@@ -303,35 +310,13 @@ proc drawTerrain*() =
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
-  if count <= 0:
-    return ""
-
-  if count in heartCountImages:
-    return heartCountImages[count]
-
-  let text = "x " & $count
-
-  # First pass to measure how large the label needs to be.
-  var measureCtx = newContext(1, 1)
-  configureHeartFont(measureCtx)
-  let metrics = measureCtx.measureText(text)
-
-  let padding = HeartCountPadding
-  let labelWidth = max(1, metrics.width.int + padding * 2)
-  let labelHeight = max(1, measureCtx.fontSize.int + padding * 2)
-
-  # Render the text into a fresh image.
-  var ctx = newContext(labelWidth, labelHeight)
-  configureHeartFont(ctx)
-  ctx.fillStyle.color = color(0, 0, 0, 0.7)
-  ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(padding.float32, padding.float32))
-
+  if count <= 0: return ""
+  if count in heartCountImages: return heartCountImages[count]
+  let (image, _) = renderTextLabel("x " & $count, HeartCountFontPath,
+                                   HeartCountFontSize, HeartCountPadding.float32, 0.7)
   let key = "heart_count/" & $count
-  bxy.addImage(key, ctx.image)
+  bxy.addImage(key, image)
   heartCountImages[count] = key
-
   result = key
 
 let wallSprites = block:
@@ -459,10 +444,9 @@ proc drawObjects*() =
         bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
 
   template drawThings(thingKind: ThingKind, body: untyped) =
-    for thing in env.thingsByKind[thingKind]:
-      let t = thing
-      let thing {.inject.} = t
-      let pos {.inject.} = thing.pos
+    for it in env.thingsByKind[thingKind]:
+      let thing {.inject.} = it
+      let pos {.inject.} = it.pos
       body
 
   for kind in [Tree, Wheat, Stubble]:
@@ -644,14 +628,8 @@ proc drawObjects*() =
           let entry = thing.productionQueue.entries[0]
           if entry.totalSteps > 0 and entry.remainingSteps > 0:
             let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
-            let segments = 5
-            let filled = int(ceil(ratio * segments.float32))
-            let segStep = 0.16
-            let totalWidth = segStep * (segments.float32 - 1)
-            let baseOffset = vec2(-totalWidth / 2, 0.55)
-            for i in 0 ..< segments:
-              let tintColor = if i < filled: color(0.2, 0.5, 1.0, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
-              bxy.drawImage("floor", pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tintColor)
+            drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
+                           color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let teamId = thing.teamId
@@ -689,28 +667,13 @@ proc drawObjects*() =
                 tint = color(1, 1, 1, 1))
             let popText = "x " & $popCount & "/" & $popCap
             let popLabel = block:
-              if popText.len == 0:
-                ""
-              elif popText in overlayLabelImages:
-                overlayLabelImages[popText]
+              if popText.len == 0: ""
+              elif popText in overlayLabelImages: overlayLabelImages[popText]
               else:
-                var measureCtx = newContext(1, 1)
-                configureHeartFont(measureCtx)
-                let metrics = measureCtx.measureText(popText)
-
-                let padding = HeartCountPadding
-                let labelWidth = max(1, metrics.width.int + padding * 2)
-                let labelHeight = max(1, measureCtx.fontSize.int + padding * 2)
-
-                var ctx = newContext(labelWidth, labelHeight)
-                configureHeartFont(ctx)
-                ctx.fillStyle.color = color(0, 0, 0, 0.7)
-                ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-                ctx.fillStyle.color = color(1, 1, 1, 1)
-                ctx.fillText(popText, vec2(padding.float32, padding.float32))
-
+                let (image, _) = renderTextLabel(popText, HeartCountFontPath,
+                                                 HeartCountFontSize, HeartCountPadding.float32, 0.7)
                 let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
-                bxy.addImage(key, ctx.image)
+                bxy.addImage(key, image)
                 overlayLabelImages[popText] = key
                 key
             if popLabel.len > 0 and popLabel in bxy:
@@ -770,15 +733,9 @@ proc drawAgentDecorations*() =
 
     # Health bar (5 segments)
     if agent.maxHp > 0:
-      let segments = 5
       let ratio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
-      let filled = int(ceil(ratio * segments.float32))
-      let segStep = 0.16
-      let totalWidth = segStep * (segments.float32 - 1)
-      let baseOffset = vec2(-totalWidth / 2, -0.55)
-      for i in 0 ..< segments:
-        let tint = if i < filled: color(0.1, 0.8, 0.1, 1.0) else: color(0.3, 0.3, 0.3, 0.7)
-        bxy.drawImage("floor", agent.pos.vec2 + vec2(baseOffset.x + segStep * i.float32, baseOffset.y), angle = 0, scale = 1/500, tint = tint)
+      drawSegmentBar(agent.pos.vec2, vec2(0, -0.55), ratio,
+                     color(0.1, 0.8, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
 
     # Inventory overlays placed radially, ordered by item name.
     type OverlayItem = object
@@ -901,24 +858,13 @@ proc drawSelectionLabel*(panelRect: IRect) =
     key = infoLabelImages[label]
     labelSize = infoLabelSizes.getOrDefault(label, ivec2(0, 0))
   else:
-    var measureCtx = newContext(1, 1)
-    configureInfoLabelFont(measureCtx)
-    let metrics = measureCtx.measureText(label)
-    let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
-    let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
-
-    var ctx = newContext(labelWidth, labelHeight)
-    configureInfoLabelFont(ctx)
-    ctx.fillStyle.color = color(0, 0, 0, 0.6)
-    ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-    ctx.fillStyle.color = color(1, 1, 1, 1)
-    ctx.fillText(label, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
-
+    let (image, size) = renderTextLabel(label, InfoLabelFontPath,
+                                        InfoLabelFontSize, InfoLabelPadding.float32, 0.6)
     key = "selection_label/" & label.replace(" ", "_").replace("/", "_")
-    bxy.addImage(key, ctx.image)
+    bxy.addImage(key, image)
     infoLabelImages[label] = key
-    infoLabelSizes[label] = ivec2(labelWidth, labelHeight)
-    labelSize = ivec2(labelWidth, labelHeight)
+    infoLabelSizes[label] = size
+    labelSize = size
   if key.len == 0:
     return
   if labelSize.x <= 0 or labelSize.y <= 0:
@@ -938,23 +884,11 @@ proc drawStepLabel*(panelRect: IRect) =
     key = stepLabelKey
   else:
     stepLabelLastValue = env.currentStep
-    let text = "Step " & $env.currentStep
-    var measureCtx = newContext(1, 1)
-    configureInfoLabelFont(measureCtx)
-    let metrics = measureCtx.measureText(text)
-    let labelWidth = max(1, metrics.width.int + InfoLabelPadding * 2)
-    let labelHeight = max(1, measureCtx.fontSize.int + InfoLabelPadding * 2)
-    stepLabelSize = ivec2(labelWidth, labelHeight)
-
-    var ctx = newContext(labelWidth, labelHeight)
-    configureInfoLabelFont(ctx)
-    ctx.fillStyle.color = color(0, 0, 0, 0.6)
-    ctx.fillRect(0, 0, labelWidth.float32, labelHeight.float32)
-    ctx.fillStyle.color = color(1, 1, 1, 1)
-    ctx.fillText(text, vec2(InfoLabelPadding.float32, InfoLabelPadding.float32))
-
+    let (image, size) = renderTextLabel("Step " & $env.currentStep, InfoLabelFontPath,
+                                        InfoLabelFontSize, InfoLabelPadding.float32, 0.6)
+    stepLabelSize = size
     stepLabelKey = "hud_step"
-    bxy.addImage(stepLabelKey, ctx.image)
+    bxy.addImage(stepLabelKey, image)
     key = stepLabelKey
   if key.len == 0:
     return
