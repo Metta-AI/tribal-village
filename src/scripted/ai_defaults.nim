@@ -1036,8 +1036,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 # Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =
   initScriptedState(controller)
-  # Clean up expired coordination requests
+  # Clean up expired coordination requests and resource reservations
   clearExpiredRequests(env.currentStep)
+  clearExpiredReservations(env)
   # Update economy tracking for all teams
   for teamId in 0 ..< MapRoomObjectsTeams:
     updateEconomy(controller, env, teamId)
@@ -1053,6 +1054,9 @@ proc updateController*(controller: Controller, env: Environment) =
       controller.clearThreatMap(teamId)
     # Reset economy state on episode reset
     resetEconomy()
+    # Clear resource reservations on episode reset
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      teamReservations[teamId] = ReservationState()
   if EvolutionEnabled:
     if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
       applyScriptedScoring(controller, env)
