@@ -241,8 +241,6 @@ let ItemCatalog* = block:
 proc terrainSpriteKey*(terrain: TerrainType): string =
   if terrain == Empty or isRampTerrain(terrain):
     return ""
-  if terrain in RampTerrain:
-    return ""
   let key = TerrainCatalog[terrain].spriteKey
   if key.len == 0: toSnakeCase($terrain) else: key
 
@@ -439,15 +437,6 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
 
-proc applyBuildCostMultiplier*(costs: seq[tuple[res: StockpileResource, count: int]],
-                                multiplier: float32): seq[tuple[res: StockpileResource, count: int]] =
-  ## Apply a build cost multiplier to a sequence of costs
-  let effectiveMultiplier = if multiplier == 0.0'f32: 1.0'f32 else: multiplier  # Default to 1.0 if uninitialized
-  result = @[]
-  for cost in costs:
-    let adjustedCount = max(1, int(float32(cost.count) * effectiveMultiplier))
-    result.add((res: cost.res, count: adjustedCount))
-
 proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
   for kind in ThingKind:
     if not isBuildingKind(kind):
@@ -455,12 +444,11 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
     if not buildingBuildable(kind):
       continue
     let info = BuildingRegistry[kind]
-    let costs = info.buildCost
     addRecipe(
       recipes,
       toSnakeCase($kind),
       StationTable,
-      costs,
+      info.buildCost,
       @[(thingItem($kind), 1)],
       info.buildCooldown
     )
