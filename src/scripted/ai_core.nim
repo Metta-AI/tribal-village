@@ -129,6 +129,16 @@ proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
     # If team is doing much worse than target (>20% below), decrease difficulty
     const Threshold = 0.15
 
+    template applyDifficultyLevel(newLevel: DifficultyLevel) =
+      ## Reset difficulty config while preserving adaptive settings.
+      if newLevel != currentLevel:
+        let savedAdaptive = controller.difficulty[teamId].adaptive
+        let savedTarget = controller.difficulty[teamId].adaptiveTarget
+        controller.difficulty[teamId] = defaultDifficultyConfig(newLevel)
+        controller.difficulty[teamId].adaptive = savedAdaptive
+        controller.difficulty[teamId].adaptiveTarget = savedTarget
+        controller.difficulty[teamId].lastAdaptiveCheck = currentStep
+
     if territoryRatio > target + Threshold:
       # Team is doing too well - increase difficulty
       let newLevel = case currentLevel
@@ -136,13 +146,7 @@ proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
         of DiffNormal: DiffHard
         of DiffHard: DiffBrutal
         of DiffBrutal: DiffBrutal
-      if newLevel != currentLevel:
-        let adaptive = controller.difficulty[teamId].adaptive
-        let adaptiveTarget = controller.difficulty[teamId].adaptiveTarget
-        controller.difficulty[teamId] = defaultDifficultyConfig(newLevel)
-        controller.difficulty[teamId].adaptive = adaptive
-        controller.difficulty[teamId].adaptiveTarget = adaptiveTarget
-        controller.difficulty[teamId].lastAdaptiveCheck = currentStep
+      applyDifficultyLevel(newLevel)
 
     elif territoryRatio < target - Threshold:
       # Team is struggling - decrease difficulty
@@ -151,13 +155,7 @@ proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
         of DiffNormal: DiffEasy
         of DiffHard: DiffNormal
         of DiffBrutal: DiffHard
-      if newLevel != currentLevel:
-        let adaptive = controller.difficulty[teamId].adaptive
-        let adaptiveTarget = controller.difficulty[teamId].adaptiveTarget
-        controller.difficulty[teamId] = defaultDifficultyConfig(newLevel)
-        controller.difficulty[teamId].adaptive = adaptive
-        controller.difficulty[teamId].adaptiveTarget = adaptiveTarget
-        controller.difficulty[teamId].lastAdaptiveCheck = currentStep
+      applyDifficultyLevel(newLevel)
 
 proc getAgentRole*(controller: Controller, agentId: int): AgentRole =
   ## Get the role of an agent (for profiling)
@@ -957,8 +955,16 @@ proc getMoveTowards*(env: Environment, agent: Thing, fromPos, toPos: IVec2,
   return -1
 
 proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
-  ## A* path from start to target (or passable neighbor), returns path including start.
-  ## Uses pre-allocated cache to avoid per-call allocations.
+  ## A* pathfinding from fromPos toward targetPos, returning the path as a
+  ## sequence of positions (including start). If targetPos itself is impassable,
+  ## the algorithm targets passable neighbors instead.
+  ##
+  ## Implementation notes:
+  ## - Uses a generation counter to invalidate stale cache entries in O(1)
+  ##   instead of clearing the full map-sized arrays each call.
+  ## - Open set is a flat array with linear scan (adequate for the 250-node
+  ##   exploration cap; a binary heap would not improve wall-clock time here).
+  ## - Exploration is capped at 250 nodes to bound worst-case cost per tick.
 
   # Increment generation for this call - makes all previous data stale
   inc controller.pathCache.generation
@@ -1110,7 +1116,7 @@ proc tryPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
   ## If carrying wood/wheat and a fertile tile is nearby, plant; otherwise move toward it.
   if agent.inventoryWheat > 0 or agent.inventoryWood > 0:
     var fertilePos = ivec2(-1, -1)
-    var minDist = 999999
+    var minDist = int.high
     let startX = max(0, agent.pos.x - 8)
     let endX = min(MapWidth - 1, agent.pos.x + 8)
     let startY = max(0, agent.pos.y - 8)
@@ -1163,46 +1169,57 @@ proc actAt*(controller: Controller, env: Environment, agent: Thing, agentId: int
     encodeAction(verb,
       (if argument < 0: neighborDirIndex(agent.pos, targetPos) else: argument).uint8))
 
+proc isOscillating*(state: AgentState): bool =
+  ## Detect stuck/oscillating movement by checking if the last 6 positions
+  ## contain at most 2 unique locations (bouncing between the same tiles).
+  if state.recentPosCount < 6:
+    return false
+  var uniqueCount = 0
+  var unique: array[4, IVec2]
+  let historyLen = state.recentPositions.len
+  for i in 0 ..< 6:
+    let idx = (state.recentPosIndex - 1 - i + historyLen * historyLen) mod historyLen
+    let p = state.recentPositions[idx]
+    var seen = false
+    for j in 0 ..< uniqueCount:
+      if unique[j] == p:
+        seen = true
+        break
+    if not seen:
+      if uniqueCount < unique.len:
+        unique[uniqueCount] = p
+        inc uniqueCount
+      if uniqueCount > 2:
+        return false
+  uniqueCount <= 2
+
 proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =
+  ## Move agent toward targetPos using A* for long distances and greedy movement
+  ## for short distances. Detects oscillation and falls back to spiral search
+  ## when paths are blocked.
   if state.pathBlockedTarget == targetPos:
     return controller.moveNextSearch(env, agent, agentId, state)
-  var stuck = false
-  # Reduced stuck detection window from 6 to 4 steps for faster recovery
-  if state.recentPosCount >= 4:
-    var uniqueCount = 0
-    var unique: array[4, IVec2]
-    let historyLen = state.recentPositions.len
-    for i in 0 ..< 4:
-      let idx = (state.recentPosIndex - 1 - i + historyLen * historyLen) mod historyLen
-      let p = state.recentPositions[idx]
-      var seen = false
-      for j in 0 ..< uniqueCount:
-        if unique[j] == p:
-          seen = true
-          break
-      if not seen:
-        if uniqueCount < unique.len:
-          unique[uniqueCount] = p
-          inc uniqueCount
-        if uniqueCount > 2:
-          break
-    stuck = uniqueCount <= 2
+  let stuck = isOscillating(state)
   if stuck:
     state.pathBlockedTarget = ivec2(-1, -1)
     state.plannedPath.setLen(0)
 
-  if max(abs(targetPos.x - agent.pos.x), abs(targetPos.y - agent.pos.y)) >= 6'i32 or stuck:
+  template replanPath() =
+    state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
+    state.plannedTarget = targetPos
+    state.plannedPathIndex = 0
+
+  let usesAstar = chebyshevDist(agent.pos, targetPos) >= 6 or stuck
+  if usesAstar:
     if state.pathBlockedTarget != targetPos or stuck:
-      if state.plannedTarget != targetPos or state.plannedPath.len == 0 or stuck:
-        state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
-        state.plannedTarget = targetPos
-        state.plannedPathIndex = 0
-      elif state.plannedPathIndex < state.plannedPath.len and
-           state.plannedPath[state.plannedPathIndex] != agent.pos:
-        state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
-        state.plannedTarget = targetPos
-        state.plannedPathIndex = 0
+      let needsReplan = state.plannedTarget != targetPos or
+                        state.plannedPath.len == 0 or stuck
+      let driftedOffPath = not needsReplan and
+                           state.plannedPathIndex < state.plannedPath.len and
+                           state.plannedPath[state.plannedPathIndex] != agent.pos
+      if needsReplan or driftedOffPath:
+        replanPath()
       if state.plannedPath.len >= 2 and state.plannedPathIndex < state.plannedPath.len - 1:
         let nextPos = state.plannedPath[state.plannedPathIndex + 1]
         if canEnterForMove(env, agent, agent.pos, nextPos):
@@ -1255,6 +1272,14 @@ proc useAt*(controller: Controller, env: Environment, agent: Thing, agentId: int
            state: var AgentState, targetPos: IVec2): uint8 =
   actAt(controller, env, agent, agentId, state, targetPos, 3'u8)
 
+proc useOrMoveTo*(controller: Controller, env: Environment, agent: Thing,
+                  agentId: int, state: var AgentState, targetPos: IVec2): uint8 =
+  ## If adjacent to target, interact (use); otherwise move toward it.
+  if isAdjacent(agent.pos, targetPos):
+    controller.actAt(env, agent, agentId, state, targetPos, 3'u8)
+  else:
+    controller.moveTo(env, agent, agentId, state, targetPos)
+
 proc tryMoveToKnownResource*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                             state: var AgentState, pos: var IVec2,
                             allowed: set[ThingKind], verb: uint8): tuple[did: bool, action: uint8] =
@@ -1284,10 +1309,7 @@ proc moveToNearestSmith*(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
   let smith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
   if not isNil(smith):
-    return (true, if isAdjacent(agent.pos, smith.pos):
-      controller.useAt(env, agent, agentId, state, smith.pos)
-    else:
-      controller.moveTo(env, agent, agentId, state, smith.pos))
+    return (true, controller.useOrMoveTo(env, agent, agentId, state, smith.pos))
   (false, 0'u8)
 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
@@ -1345,12 +1367,8 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
     if hasFood:
       let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
       if not isNil(dropoff):
-        return (true, if isAdjacent(agent.pos, dropoff.pos):
-          controller.useAt(env, agent, agentId, state, dropoff.pos)
-        else:
-          controller.moveTo(env, agent, agentId, state, dropoff.pos))
+        return (true, controller.useOrMoveTo(env, agent, agentId, state, dropoff.pos))
 
-  # Wood dropoff
   for entry in [
     (res: ResourceWood, amount: agent.inventoryWood, allowed: allowWood),
     (res: ResourceGold, amount: agent.inventoryGold, allowed: allowGold),
@@ -1360,12 +1378,37 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
       continue
     let dropoff = findDropoffBuilding(env, state, teamId, entry.res, controller.rng)
     if not isNil(dropoff):
-      return (true, if isAdjacent(agent.pos, dropoff.pos):
-        controller.useAt(env, agent, agentId, state, dropoff.pos)
-      else:
-        controller.moveTo(env, agent, agentId, state, dropoff.pos))
+      return (true, controller.useOrMoveTo(env, agent, agentId, state, dropoff.pos))
 
   (false, 0'u8)
+
+template ensureResourceImpl(closestPos: var IVec2, allowedKinds: set[ThingKind],
+                            kinds: openArray[ThingKind]): tuple[did: bool, action: uint8] =
+  ## Shared logic for resource-gathering: check cached position, spiral-search
+  ## for the nearest resource of the given kinds, then use or move to it.
+  block:
+    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+      env, agent, agentId, state, closestPos, allowedKinds, 3'u8)
+    if didKnown:
+      (didKnown, actKnown)
+    else:
+      var found = false
+      var foundResult: tuple[did: bool, action: uint8]
+      for kind in kinds:
+        let target = env.findNearestThingSpiral(state, kind)
+        if isNil(target):
+          continue
+        if target.pos == state.pathBlockedTarget:
+          state.cachedThingPos[kind] = ivec2(-1, -1)
+          continue
+        updateClosestSeen(state, state.basePosition, target.pos, closestPos)
+        found = true
+        foundResult = (true, controller.useOrMoveTo(env, agent, agentId, state, target.pos))
+        break
+      if found:
+        foundResult
+      else:
+        (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWood*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
@@ -1446,10 +1489,7 @@ proc ensureWater*(controller: Controller, env: Environment, agent: Thing, agentI
          isTileFrozen(state.closestWaterPos, env):
       state.closestWaterPos = ivec2(-1, -1)
   if state.closestWaterPos.x >= 0:
-    return (true, if isAdjacent(agent.pos, state.closestWaterPos):
-      controller.useAt(env, agent, agentId, state, state.closestWaterPos)
-    else:
-      controller.moveTo(env, agent, agentId, state, state.closestWaterPos))
+    return (true, controller.useOrMoveTo(env, agent, agentId, state, state.closestWaterPos))
 
   let target = findNearestWaterSpiral(env, state)
   if target.x >= 0:
@@ -1457,10 +1497,7 @@ proc ensureWater*(controller: Controller, env: Environment, agent: Thing, agentI
       state.cachedWaterPos = ivec2(-1, -1)
       return (true, controller.moveNextSearch(env, agent, agentId, state))
     updateClosestSeen(state, state.basePosition, target, state.closestWaterPos)
-    return (true, if isAdjacent(agent.pos, target):
-      controller.useAt(env, agent, agentId, state, target)
-    else:
-      controller.moveTo(env, agent, agentId, state, target))
+    return (true, controller.useOrMoveTo(env, agent, agentId, state, target))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWheat*(controller: Controller, env: Environment, agent: Thing, agentId: int,
