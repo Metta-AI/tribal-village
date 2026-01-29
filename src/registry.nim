@@ -198,6 +198,7 @@ let ThingCatalog* = block:
     (Stubble, "Stubble", "stubble", 'u'),
     (Lantern, "Lantern", "lantern", 'l'),
     (Temple, "Temple", "temple", 'T'),
+    (ControlPoint, "Control Point", "control_point", 'P'),
     (CliffEdgeN, "Cliff Edge North", "cliff_edge_ew_s", '^'),
     (CliffEdgeE, "Cliff Edge East", "cliff_edge_ns_w", '^'),
     (CliffEdgeS, "Cliff Edge South", "cliff_edge_ew", '^'),
