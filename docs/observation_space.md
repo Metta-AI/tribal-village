@@ -17,8 +17,9 @@ The observation tensor is grouped into three conceptual blocks:
 
 ### 1) Terrain layers (one-hot)
 Examples: `TerrainEmptyLayer`, `TerrainWaterLayer`, `TerrainBridgeLayer`,
-`TerrainFertileLayer`, `TerrainRoadLayer`, plus the ramp directions
-(`TerrainRampUp*` / `TerrainRampDown*`).
+`TerrainFertileLayer`, `TerrainRoadLayer`, `TerrainGrassLayer`,
+`TerrainDuneLayer`, `TerrainSandLayer`, `TerrainSnowLayer`, plus the ramp
+directions (`TerrainRampUp*` / `TerrainRampDown*`).
 
 These are written as one-hot per tile via `updateObservations()` and
 `rebuildObservations()` in `src/environment.nim`.
@@ -35,7 +36,7 @@ See the full list in `ObservationName` (e.g. `ThingAgentLayer`, `ThingWallLayer`
 - `TeamLayer`: **team id + 1**, 0 means neutral/none.
 - `AgentOrientationLayer`: **orientation + 1** for agents; 0 otherwise.
 - `AgentUnitClassLayer`: **unit class + 1** for agents; 0 otherwise.
-- `AgentIdleLayer`: 1 if agent took NOOP/ORIENT action, 0 otherwise.
+- `AgentIdleLayer`: 1 if the agent is idle (NOOP/ORIENT action), 0 otherwise.
 - `TintLayer`: action/combat tint codes (see below).
 - `RallyPointLayer`: 1 if a friendly building has its rally point on this tile.
 - `BiomeLayer`: biome type enum value.
