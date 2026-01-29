@@ -7,7 +7,7 @@ Status: Draft
 ## Shape and layout
 - **Spatial size:** `ObservationWidth` x `ObservationHeight` = **11 x 11**.
 - **Radius:** `ObservationRadius` = 5 (centered on the agent).
-- **Layers:** `ObservationLayers` = `ord(ObservationName.high) + 1` = **84**.
+- **Layers:** `ObservationLayers` = `ord(ObservationName.high) + 1` = **91**.
 - **Type:** `uint8` values per layer cell.
 
 The canonical enum lives in `src/types.nim` under `ObservationName`.
@@ -35,11 +35,31 @@ See the full list in `ObservationName` (e.g. `ThingAgentLayer`, `ThingWallLayer`
 - `TeamLayer`: **team id + 1**, 0 means neutral/none.
 - `AgentOrientationLayer`: **orientation + 1** for agents; 0 otherwise.
 - `AgentUnitClassLayer`: **unit class + 1** for agents; 0 otherwise.
+- `AgentIdleLayer`: 1 if agent took NOOP/ORIENT action, 0 otherwise.
 - `TintLayer`: action/combat tint codes (see below).
+- `RallyPointLayer`: 1 if a friendly building has its rally point on this tile.
+- `BiomeLayer`: biome type enum value.
 - `ObscuredLayer`: 1 if the target tile is above the observer elevation.
 
 `ObscuredLayer` is applied in the FFI path (`src/ffi.nim`); when a tile is
 obscured the other layers for that tile are zeroed.
+
+### 4) Game state layers
+These layers expose building and unit state that was previously invisible to RL agents:
+
+- `GarrisonCountLayer`: garrison fill ratio `(count * 255) div capacity`. Only
+  non-zero for garrisonable buildings (TownCenter, Castle, GuardTower, House).
+- `RelicCountLayer`: number of relics garrisoned in a Monastery (direct count).
+- `ProductionQueueLenLayer`: number of units in a building's production queue
+  (direct count, max 10).
+- `BuildingHpLayer`: building HP ratio `(hp * 255) div maxHp`. Non-zero for any
+  building with `maxHp > 0`.
+- `MonkFaithLayer`: monk faith ratio `(faith * 255) div MonkMaxFaith`. Non-zero
+  only for Monk agents with faith > 0.
+- `TrebuchetPackedLayer`: 1 if trebuchet is packed (mobile), 0 if unpacked
+  (stationary). Only non-zero for Trebuchet agents.
+- `UnitStanceLayer`: `AgentStance` enum + 1 (1=Aggressive, 2=Defensive,
+  3=StandGround, 4=NoAttack). 0 = not an agent.
 
 ## Action tint codes (TintLayer)
 Defined in `src/types.nim`:
@@ -70,14 +90,13 @@ Defined in `src/types.nim`:
 These codes are written into the tint layer per world tile as events occur.
 
 ## Update mechanics
-- `updateObservations()` performs incremental updates for a single world tile.
-- `rebuildObservations()` reconstructs full observation buffers from scratch.
+- `updateObservations()` is a no-op; observations are rebuilt in batch at the
+  end of each `step()` call for efficiency.
+- `rebuildObservations()` reconstructs full observation buffers from scratch
+  (O(agents * tiles) instead of O(updates * agents)).
 - The FFI entrypoints copy the buffer directly and apply the obscured mask.
 
 Notes:
-- The `layer` parameter on `updateObservations()` is legacy; the function
-  rebuilds all layers for the tile by reading `env.terrain`, `env.grid`, and
-  `env.backgroundGrid`.
 - Inventory counts are not encoded in the spatial layers. Inventory update
   hooks exist but are currently no-ops, so inventories must be tracked outside
   the observation tensor.
