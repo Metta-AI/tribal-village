@@ -376,6 +376,13 @@ type
     TintLayer                 # Action/combat tint codes
     RallyPointLayer           # 1 if a friendly building has its rally point on this tile
     BiomeLayer                # Biome type enum value
+    GarrisonCountLayer        # Garrison fill ratio: (count * 255) div capacity, 0 = empty/not garrisonable
+    RelicCountLayer           # Monastery relic count (direct value, 0-255)
+    ProductionQueueLenLayer   # Number of units in production queue (direct value, 0-255)
+    BuildingHpLayer           # Building HP ratio: (hp * 255) div maxHp, 0 = none
+    MonkFaithLayer            # Monk faith ratio: (faith * 255) div MonkMaxFaith
+    TrebuchetPackedLayer      # 1 if trebuchet is packed (mobile), 0 if unpacked (stationary)
+    UnitStanceLayer           # AgentStance enum + 1 (0 = none/not an agent)
     ObscuredLayer             # 1 when target tile is above observer elevation
 
 const

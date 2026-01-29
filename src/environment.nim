@@ -185,6 +185,19 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
     classValue = ord(blockingThing.unitClass) + 1
     # Idle detection: 1 if agent took NOOP/ORIENT action, 0 otherwise
     idleValue = if blockingThing.isIdle: 1 else: 0
+
+    # Unit stance (enum + 1, 0 = none)
+    agentObs[][ord(UnitStanceLayer)][obsX][obsY] = (ord(blockingThing.stance) + 1).uint8
+
+    # Monk faith
+    if blockingThing.unitClass == UnitMonk and blockingThing.faith > 0:
+      agentObs[][ord(MonkFaithLayer)][obsX][obsY] =
+        ((blockingThing.faith * 255) div MonkMaxFaith).uint8
+
+    # Trebuchet packed state
+    if blockingThing.unitClass == UnitTrebuchet:
+      agentObs[][ord(TrebuchetPackedLayer)][obsX][obsY] =
+        (if blockingThing.packed: 1 else: 0).uint8
   else:
     # Check team ownership for non-agent things
     let teamId =
@@ -198,6 +211,34 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
         -1
     if teamId >= 0:
       teamValue = teamId + 1
+
+  # Building-specific observation layers
+  if not isNil(blockingThing) and blockingThing.kind != Agent:
+    # Building HP (normalized to 0-255)
+    if blockingThing.maxHp > 0:
+      agentObs[][ord(BuildingHpLayer)][obsX][obsY] =
+        ((blockingThing.hp * 255) div blockingThing.maxHp).uint8
+
+    # Garrison count (normalized to 0-255 by capacity)
+    let capacity = case blockingThing.kind
+      of TownCenter: TownCenterGarrisonCapacity
+      of Castle: CastleGarrisonCapacity
+      of GuardTower: GuardTowerGarrisonCapacity
+      of House: HouseGarrisonCapacity
+      else: 0
+    if capacity > 0 and blockingThing.garrisonedUnits.len > 0:
+      agentObs[][ord(GarrisonCountLayer)][obsX][obsY] =
+        ((blockingThing.garrisonedUnits.len * 255) div capacity).uint8
+
+    # Monastery relic count
+    if blockingThing.kind == Monastery and blockingThing.garrisonedRelics > 0:
+      agentObs[][ord(RelicCountLayer)][obsX][obsY] =
+        min(blockingThing.garrisonedRelics, 255).uint8
+
+    # Production queue length
+    if blockingThing.productionQueue.entries.len > 0:
+      agentObs[][ord(ProductionQueueLenLayer)][obsX][obsY] =
+        min(blockingThing.productionQueue.entries.len, 255).uint8
 
   # Only write non-zero values (memory already zeroed)
   if teamValue != 0:
