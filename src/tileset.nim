@@ -1,7 +1,6 @@
 import std/[os, strutils, tables]
 import pixie
 import pixie/fileformats/png
-import ./items
 
 const
   DfViewRoot = "data/df_view"
@@ -11,8 +10,6 @@ const
   TilesPerRow = 16
   TargetSize = 256
   MapDir = "data"
-  InventoryDir = "data"
-  ForceDfTokens = ["DOOR"]
 
 type
   OverrideEntry = object
@@ -106,43 +103,6 @@ proc generateDfViewAssets*() =
     createDir(parentDir(outPath))
     writeFile(outPath, encodePng(scaled))
     inc created
-
-  for def in DfTokenCatalog:
-    let token = def.token
-    let outPath = if def.placement == DfBuilding:
-      MapDir / (token.toLowerAscii & ".png")
-    else:
-      InventoryDir / (token.toLowerAscii & ".png")
-    if fileExists(outPath) and token notin ForceDfTokens:
-      continue
-
-    var lookupToken = token
-    if lookupToken notin overrides:
-      lookupToken = case token
-        of "BOULDER": "ROCK"
-        of "PLANT_GROWTH": "PLANT"
-        of "VERMIN": "CORPSE"
-        of "PET": "CAGE"
-        of "DRINK": "GOBLET"
-        of "POWDER_MISC": "FOOD"
-        of "LIQUID_MISC": "FLASK"
-        of "SHEET": "BOOK"
-        of "BRANCH": "WOOD"
-        else: ""
-
-    if lookupToken.len == 0 or lookupToken notin overrides:
-      if token notin missing:
-        missing.add(token)
-      continue
-
-    let overrideEntry = overrides[lookupToken]
-    let sheetPath = tilesets.getOrDefault(overrideEntry.tilesetIdx, "")
-    if sheetPath.len == 0 or not fileExists(sheetPath):
-      if token notin missing:
-        missing.add(token)
-      continue
-
-    writeScaledTile(outPath, overrideEntry.tilesetIdx, overrideEntry.tileIndex, sheetPath)
 
   # Replace the road sprite with a constructed floor tile when available.
   let overrideEntry = overrides.getOrDefault("ConstructedFloor", OverrideEntry(tilesetIdx: -1, tileIndex: -1))

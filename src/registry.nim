@@ -449,6 +449,5 @@ proc appendBuildingRecipes*(recipes: var seq[CraftRecipe]) =
       toSnakeCase($kind),
       StationTable,
       info.buildCost,
-      @[(thingItem($kind), 1)],
-      info.buildCooldown
+      @[(thingItem($kind), 1)]
     )
