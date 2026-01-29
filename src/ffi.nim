@@ -610,3 +610,82 @@ proc tribal_village_issue_command_to_selection*(env: pointer, commandType: int32
   ## Issue a command to all selected units.
   ## commandType: 0=attack-move, 1=patrol, 2=stop
   issueCommandToSelection(globalEnv, commandType, targetX, targetY)
+
+# ============== Threat Map Query FFI Functions ==============
+
+proc tribal_village_has_known_threats*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Check if a team has any known (non-stale) threats.
+  ## Returns 1 if threats exist, 0 otherwise.
+  try:
+    if isNil(globalController) or isNil(globalController.aiController):
+      return 0
+    let currentStep = globalEnv.currentStep.int32
+    if hasKnownThreats(globalController.aiController, teamId.int, currentStep): 1 else: 0
+  except CatchableError:
+    return 0
+
+proc tribal_village_get_nearest_threat*(env: pointer, agentId: int32,
+    outX: ptr int32, outY: ptr int32, outStrength: ptr int32): int32 {.exportc, dynlib.} =
+  ## Get the nearest threat to an agent's current position.
+  ## Writes threat x, y, strength to output pointers.
+  ## Returns 1 if a threat was found, 0 otherwise.
+  try:
+    if isNil(globalController) or isNil(globalController.aiController):
+      return 0
+    if agentId < 0 or agentId >= MapAgents:
+      return 0
+    let agent = globalEnv.agents[agentId]
+    if not isAgentAlive(globalEnv, agent):
+      return 0
+    let teamId = agent.getTeamId()
+    let currentStep = globalEnv.currentStep.int32
+    let (pos, dist, found) = getNearestThreat(globalController.aiController, teamId, agent.pos, currentStep)
+    if not found:
+      return 0
+    if not outX.isNil:
+      outX[] = pos.x
+    if not outY.isNil:
+      outY[] = pos.y
+    if not outStrength.isNil:
+      # Look up the actual strength from the threat map entry
+      let threats = getThreatsInRange(globalController.aiController, teamId, pos, 0, currentStep)
+      outStrength[] = if threats.len > 0: threats[0].strength else: 0
+    return 1
+  except CatchableError:
+    return 0
+
+proc tribal_village_get_threats_in_range*(env: pointer, agentId: int32, radius: int32): int32 {.exportc, dynlib.} =
+  ## Get the number of threats within radius of an agent's position.
+  ## Returns the count of non-stale threats in range.
+  try:
+    if isNil(globalController) or isNil(globalController.aiController):
+      return 0
+    if agentId < 0 or agentId >= MapAgents:
+      return 0
+    let agent = globalEnv.agents[agentId]
+    if not isAgentAlive(globalEnv, agent):
+      return 0
+    let teamId = agent.getTeamId()
+    let currentStep = globalEnv.currentStep.int32
+    let threats = getThreatsInRange(globalController.aiController, teamId, agent.pos, radius, currentStep)
+    return threats.len.int32
+  except CatchableError:
+    return 0
+
+proc tribal_village_get_threat_at*(env: pointer, teamId: int32, x: int32, y: int32): int32 {.exportc, dynlib.} =
+  ## Get the threat strength at a specific map position for a team.
+  ## Returns the strength value, or 0 if no threat at that position.
+  try:
+    if isNil(globalController) or isNil(globalController.aiController):
+      return 0
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return 0
+    let currentStep = globalEnv.currentStep.int32
+    let pos = ivec2(x, y)
+    let threats = getThreatsInRange(globalController.aiController, teamId.int, pos, 0, currentStep)
+    for entry in threats:
+      if entry.pos == pos:
+        return entry.strength
+    return 0
+  except CatchableError:
+    return 0
