@@ -76,6 +76,8 @@ proc add*(env: Environment, thing: Thing) =
     thing.rallyPoint = ivec2(-1, -1)
 
   case thing.kind
+  of Wonder:
+    thing.wonderVictoryCountdown = WonderVictoryCountdown
   of Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, MineDepositAmount)
