@@ -11,6 +11,41 @@ import ai_types
 export ai_types
 
 const
+  CacheMaxAge* = 20  # Invalidate cached positions after this many steps
+
+proc hasHarvestableResource*(thing: Thing): bool =
+  ## Check if a resource thing still has harvestable inventory.
+  ## Returns false if the thing has been depleted (0 inventory remaining).
+  if thing.isNil:
+    return false
+  case thing.kind
+  of Stump, Stubble:
+    let key = if thing.kind == Stubble: ItemWheat else: ItemWood
+    return getInv(thing, key) > 0
+  of Stone, Stalagmite:
+    return getInv(thing, ItemStone) > 0
+  of Gold:
+    return getInv(thing, ItemGold) > 0
+  of Bush, Cactus:
+    return getInv(thing, ItemPlant) > 0
+  of Fish:
+    return getInv(thing, ItemFish) > 0
+  of Wheat:
+    return getInv(thing, ItemWheat) > 0
+  of Corpse:
+    for key, count in thing.inventory.pairs:
+      if count > 0:
+        return true
+    return false
+  of Tree:
+    # Trees use harvestTree which has its own checks; consider alive trees harvestable
+    return true
+  of Cow:
+    return true  # Cows are always interactable (milk or kill)
+  else:
+    return true  # Non-resource things (buildings etc.) are always valid
+
+const
   Directions8* = [
     ivec2(0, -1),  # 0: North
     ivec2(0, 1),   # 1: South
@@ -521,9 +556,13 @@ proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: Thin
   ## Find nearest thing using spiral search pattern - more systematic than random search
   let cachedPos = state.cachedThingPos[kind]
   if cachedPos.x >= 0:
-    if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
+    # Invalidate cache if too old (step-based staleness)
+    let cacheAge = env.currentStep - state.cachedThingStep[kind]
+    if cacheAge < CacheMaxAge and
+       abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       let cachedThing = env.getThing(cachedPos)
-      if not isNil(cachedThing) and cachedThing.kind == kind:
+      if not isNil(cachedThing) and cachedThing.kind == kind and
+         hasHarvestableResource(cachedThing):
         return cachedThing
     state.cachedThingPos[kind] = ivec2(-1, -1)
 
@@ -531,12 +570,14 @@ proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: Thin
   result = findNearestThing(env, state.lastSearchPosition, kind)
   if not isNil(result):
     state.cachedThingPos[kind] = result.pos
+    state.cachedThingStep[kind] = env.currentStep
     return result
 
   # Also check around agent's current position before advancing spiral
   result = findNearestThing(env, state.basePosition, kind)
   if not isNil(result):
     state.cachedThingPos[kind] = result.pos
+    state.cachedThingStep[kind] = env.currentStep
     return result
 
   # If not found, advance spiral search (multiple steps) to cover ground faster
@@ -548,12 +589,15 @@ proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: Thin
   result = findNearestThing(env, nextSearchPos, kind)
   if not isNil(result):
     state.cachedThingPos[kind] = result.pos
+    state.cachedThingStep[kind] = env.currentStep
   return result
 
 proc findNearestWaterSpiral*(env: Environment, state: var AgentState): IVec2 =
   let cachedPos = state.cachedWaterPos
   if cachedPos.x >= 0:
-    if abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
+    let cacheAge = env.currentStep - state.cachedWaterStep
+    if cacheAge < CacheMaxAge and
+       abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       if env.terrain[cachedPos.x][cachedPos.y] == Water and not isTileFrozen(cachedPos, env):
         return cachedPos
     state.cachedWaterPos = ivec2(-1, -1)
@@ -561,11 +605,13 @@ proc findNearestWaterSpiral*(env: Environment, state: var AgentState): IVec2 =
   result = findNearestWater(env, state.lastSearchPosition)
   if result.x >= 0:
     state.cachedWaterPos = result
+    state.cachedWaterStep = env.currentStep
     return result
 
   result = findNearestWater(env, state.basePosition)
   if result.x >= 0:
     state.cachedWaterPos = result
+    state.cachedWaterStep = env.currentStep
     return result
 
   var nextSearchPos = state.lastSearchPosition
@@ -574,6 +620,7 @@ proc findNearestWaterSpiral*(env: Environment, state: var AgentState): IVec2 =
   result = findNearestWater(env, nextSearchPos)
   if result.x >= 0:
     state.cachedWaterPos = result
+    state.cachedWaterStep = env.currentStep
   return result
 
 proc findNearestFriendlyThingSpiral*(env: Environment, state: var AgentState, teamId: int,
@@ -1202,7 +1249,8 @@ proc tryMoveToKnownResource*(controller: Controller, env: Environment, agent: Th
     pos = ivec2(-1, -1)
     return (false, 0'u8)
   let thing = env.getThing(pos)
-  if isNil(thing) or thing.kind notin allowed or isThingFrozen(thing, env):
+  if isNil(thing) or thing.kind notin allowed or isThingFrozen(thing, env) or
+     not hasHarvestableResource(thing):
     pos = ivec2(-1, -1)
     return (false, 0'u8)
   return (true, if isAdjacent(agent.pos, pos):

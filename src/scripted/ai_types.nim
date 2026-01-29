@@ -98,7 +98,9 @@ type
     blockedMoveDir*: int
     blockedMoveSteps*: int
     cachedThingPos*: array[ThingKind, IVec2]
+    cachedThingStep*: array[ThingKind, int]  # Step when cache was set (staleness detection)
     cachedWaterPos*: IVec2
+    cachedWaterStep*: int  # Step when water cache was set
     closestFoodPos*: IVec2
     closestWoodPos*: IVec2
     closestStonePos*: IVec2
