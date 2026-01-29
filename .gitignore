@@ -101,5 +101,22 @@ nim.cfg
 src/ffi
 scripts/run_all_tests
 
+# Nimby-installed dependency packages (local to worktree)
+bitty/
+boxy/
+bumpy/
+chroma/
+crunchy/
+flatty/
+nimsimd/
+opengl/
+pixie/
+shady/
+urlly/
+vmath/
+windy/
+ws/
+zippy/
+
 # Gas Town (added by gt)
 .beads/
