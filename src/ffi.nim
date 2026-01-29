@@ -439,6 +439,21 @@ proc tribal_village_get_scout_explore_radius*(agentId: int32): int32 {.exportc, 
   ## Get the current scout exploration radius for an agent.
   getAgentScoutExploreRadius(agentId)
 
+# --- Fog of War ---
+
+proc tribal_village_is_tile_revealed*(env: pointer, teamId: int32, x: int32, y: int32): int32 {.exportc, dynlib.} =
+  ## Check if a tile has been revealed by the specified team.
+  ## Returns 1 if revealed, 0 otherwise.
+  if isRevealed(globalEnv, teamId, ivec2(x, y)): 1 else: 0
+
+proc tribal_village_get_revealed_tile_count*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Count how many tiles have been revealed by a team (exploration progress).
+  getRevealedTileCount(globalEnv, teamId).int32
+
+proc tribal_village_clear_revealed_map*(env: pointer, teamId: int32) {.exportc, dynlib.} =
+  ## Clear the revealed map for a team.
+  clearRevealedMap(globalEnv, teamId)
+
 # --- Rally Point ---
 
 proc tribal_village_set_rally_point*(env: pointer, buildingX: int32, buildingY: int32, rallyX: int32, rallyY: int32) {.exportc, dynlib.} =

@@ -258,6 +258,10 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             ("tribal_village_research_university", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_research_castle", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_research_unit_upgrade", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            # Fog of war queries
+            ("tribal_village_is_tile_revealed", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_get_revealed_tile_count", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_clear_revealed_map", [ctypes.c_void_p, ctypes.c_int32], None, True),
             # Tech tree state queries
             ("tribal_village_has_blacksmith_upgrade", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_has_university_tech", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
@@ -280,6 +284,29 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 func.argtypes = argtypes
             if restype is not None:
                 func.restype = restype
+
+    # --- Fog of war queries ---
+
+    def is_tile_revealed(self, team_id: int, x: int, y: int) -> bool:
+        """Check if a tile has been revealed by the specified team."""
+        fn = getattr(self.lib, "tribal_village_is_tile_revealed", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y)))
+
+    def get_revealed_tile_count(self, team_id: int) -> int:
+        """Count how many tiles have been revealed by a team (exploration progress)."""
+        fn = getattr(self.lib, "tribal_village_get_revealed_tile_count", None)
+        if fn is None:
+            return 0
+        return fn(self.env_ptr, ctypes.c_int32(team_id))
+
+    def clear_revealed_map(self, team_id: int) -> None:
+        """Clear the revealed map for a team."""
+        fn = getattr(self.lib, "tribal_village_clear_revealed_map", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id))
 
     # --- Tech tree state queries ---
 
