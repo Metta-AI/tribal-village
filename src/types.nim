@@ -574,6 +574,9 @@ type
     rallyPoint*: IVec2  # Building: where trained units auto-move after spawning (-1,-1 = none)
     rallyTarget*: IVec2  # Agent: assigned rally destination after training (-1,-1 = none)
 
+    # Wonder victory:
+    wonderVictoryCountdown*: int  # Steps remaining to hold Wonder for victory
+
     # Tint tracking:
     lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
 

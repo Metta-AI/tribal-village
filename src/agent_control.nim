@@ -440,3 +440,102 @@ proc getAgentFormation*(agentId: int): int32 =
 proc clearAgentFormation*(agentId: int) =
   ## Clear formation for an agent. Currently a no-op (formation system not implemented).
   discard
+
+# Selection API
+# Programmatic interface for the selection system (bridges GUI selection and control APIs).
+
+proc selectUnits*(env: Environment, agentIds: seq[int]) =
+  ## Replace current selection with the specified agents.
+  selection = @[]
+  for agentId in agentIds:
+    if agentId >= 0 and agentId < env.agents.len:
+      let agent = env.agents[agentId]
+      if isAgentAlive(env, agent):
+        selection.add(agent)
+
+proc addToSelection*(env: Environment, agentId: int) =
+  ## Add a single agent to the current selection (if alive and not already selected).
+  if agentId >= 0 and agentId < env.agents.len:
+    let agent = env.agents[agentId]
+    if isAgentAlive(env, agent):
+      for s in selection:
+        if s.agentId == agentId:
+          return
+      selection.add(agent)
+
+proc removeFromSelection*(agentId: int) =
+  ## Remove a single agent from the current selection.
+  for i in countdown(selection.len - 1, 0):
+    if selection[i].agentId == agentId:
+      selection.delete(i)
+      return
+
+proc clearSelection*() =
+  ## Clear the current selection.
+  selection = @[]
+
+proc getSelectionCount*(): int =
+  ## Get the number of currently selected units.
+  selection.len
+
+proc getSelectedAgentId*(index: int): int =
+  ## Get the agent ID of a selected unit by index. Returns -1 if invalid index.
+  if index >= 0 and index < selection.len:
+    selection[index].agentId
+  else:
+    -1
+
+proc createControlGroup*(env: Environment, groupIndex: int, agentIds: seq[int]) =
+  ## Assign agents to a control group (0-9).
+  if groupIndex < 0 or groupIndex >= ControlGroupCount:
+    return
+  controlGroups[groupIndex] = @[]
+  for agentId in agentIds:
+    if agentId >= 0 and agentId < env.agents.len:
+      let agent = env.agents[agentId]
+      if isAgentAlive(env, agent):
+        controlGroups[groupIndex].add(agent)
+
+proc recallControlGroup*(env: Environment, groupIndex: int) =
+  ## Recall a control group into the current selection.
+  if groupIndex < 0 or groupIndex >= ControlGroupCount:
+    return
+  # Filter out dead units
+  var alive: seq[Thing] = @[]
+  for thing in controlGroups[groupIndex]:
+    if isAgentAlive(env, thing):
+      alive.add(thing)
+  controlGroups[groupIndex] = alive
+  selection = alive
+
+proc getControlGroupCount*(groupIndex: int): int =
+  ## Get the number of units in a control group. Returns 0 if invalid index.
+  if groupIndex >= 0 and groupIndex < ControlGroupCount:
+    controlGroups[groupIndex].len
+  else:
+    0
+
+proc getControlGroupAgentId*(groupIndex: int, index: int): int =
+  ## Get the agent ID at a position in a control group. Returns -1 if invalid.
+  if groupIndex >= 0 and groupIndex < ControlGroupCount and
+     index >= 0 and index < controlGroups[groupIndex].len:
+    controlGroups[groupIndex][index].agentId
+  else:
+    -1
+
+proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, targetY: int32) =
+  ## Issue a command to all selected units.
+  ## commandType: 0=attack-move, 1=patrol (from current pos to target), 2=stop
+  let target = ivec2(targetX, targetY)
+  for thing in selection:
+    if isAgentAlive(env, thing):
+      let agentId = thing.agentId
+      case commandType
+      of 0: # Attack-move
+        setAgentAttackMoveTarget(agentId, target)
+      of 1: # Patrol from current position to target
+        setAgentPatrol(agentId, thing.pos, target)
+      of 2: # Stop
+        stopAgent(agentId)
+      else:
+        discard
