@@ -6,7 +6,7 @@
 
 This document provides a comprehensive analysis of the Tribal Village AI behavior system, focusing on P1 (Priority 1) gaps, performance profiling, and the control API surface. Key findings:
 
-1. **Performance**: 3.0 steps/second with 1006 agents (309μs per agent AI time)
+1. **Performance**: Debug: 3.0 steps/s, **Release: 9.3 steps/s** with 1006 agents (100μs per agent AI time in release)
 2. **Control API**: Most critical APIs **already exposed** via FFI (stance, garrison, production queue, research)
 3. **Invalid Actions**: 12-14% rate caused by stale caching and multi-agent race conditions
 4. **Test Coverage**: Comprehensive with 70+ passing tests across all subsystems
@@ -61,6 +61,66 @@ Per-agent AI: 309.18μs
 | 1001-1100  | 388.34ms | 26.99ms | 415.33ms | 2.4 |
 
 **Observation**: Performance degrades over time, likely due to increased game complexity (more buildings, threats, cache misses).
+
+### Release Build Results
+
+**Date:** 2026-01-29
+**Compiler:** Nim 2.2.6, release build (`-d:release`, opt: speed)
+
+```
+Steps profiled: 1000 (after 100 warmup)
+Total wall time: 107.56s
+
+Per-step timing:
+  AI (getActions):  avg=100.925ms (93.8%)
+  Sim (env.step):   avg=6.636ms   (6.2%)
+
+Throughput: 9.3 steps/second
+Per-agent AI: 100.32μs
+```
+
+#### Release Build Performance by Phase
+
+| Step Range | AI Time | Sim Time | Total | Steps/sec |
+|------------|---------|----------|-------|-----------|
+| 101-200    | 26.02ms | 3.42ms | 29.44ms | 34.0 |
+| 201-300    | 73.71ms | 4.46ms | 78.16ms | 12.8 |
+| 301-400    | 108.16ms | 5.74ms | 113.90ms | 8.8 |
+| 401-500    | 119.58ms | 5.87ms | 125.44ms | 8.0 |
+| 501-600    | 109.01ms | 6.69ms | 115.70ms | 8.6 |
+| 601-700    | 129.47ms | 7.59ms | 137.06ms | 7.3 |
+| 701-800    | 106.59ms | 7.40ms | 113.99ms | 8.8 |
+| 801-900    | 114.99ms | 8.03ms | 123.01ms | 8.1 |
+| 901-1000   | 113.61ms | 8.28ms | 121.89ms | 8.2 |
+| 1001-1100  | 108.12ms | 8.89ms | 117.00ms | 8.5 |
+
+#### Debug vs Release Comparison
+
+| Metric | Debug | Release | Speedup |
+|--------|-------|---------|---------|
+| Steps/second | 3.0 | 9.3 | **3.1×** |
+| AI avg time | 311.04ms | 100.93ms | **3.1×** |
+| Sim avg time | 21.82ms | 6.64ms | **3.3×** |
+| Per-agent AI | 309.18μs | 100.32μs | **3.1×** |
+| Wall time (1000 steps) | 332.87s | 107.56s | **3.1×** |
+| AI % of total | 93.4% | 93.8% | (same) |
+
+**Key Observations:**
+- Release build achieves a **3.1× speedup** over debug build
+- Below the expected 3-5× range upper bound but within range
+- AI still dominates at 93.8% of total time (unchanged from debug)
+- Performance degradation pattern persists: 34.0 steps/s early → 8.2 steps/s late game
+- Early-game performance (34 steps/s) is excellent; late-game bottleneck is the main concern
+- The 9.3 steps/s average is just below the 10+ steps/s target
+
+#### Release Build Game State
+```
+Baseline houses: t0=4 t1=4 t2=4 t3=5 t4=5 t5=4 t6=4 t7=5
+Max houses:      t0=33 t1=4 t2=4 t3=5 t4=5 t5=4 t6=4 t7=5
+Max hearts:      t0=10 t1=5 t2=5 t3=5 t4=5 t5=5 t6=5 t7=5
+```
+
+Same pattern as debug build: Team 0 dominates with 33 houses while others remain at baseline.
 
 ### Hotpath Analysis
 
@@ -521,9 +581,8 @@ tribal_village_follow_agent(agentId, targetAgentId)
    - Low-hanging fruit, high value for external agents
    - Enables better decision-making from Python
 
-3. **Profile Release Build**: Current profiling used debug build
-   - `-d:release` flag should improve performance 3-5×
-   - Measure release build performance for accurate baseline
+3. ~~**Profile Release Build**~~: ✅ **DONE** - Release build achieves 9.3 steps/s (3.1× speedup)
+   - Just below 10 steps/s target; remaining O(n) hotpath optimization should close the gap
 
 ### Next Phase (Next Week)
 
@@ -544,10 +603,10 @@ tribal_village_follow_agent(agentId, targetAgentId)
    - `optFighterLanterns`
    - **Expected gain**: 15-25% AI time reduction
 
-7. **Release Build Performance Testing**
-   - Current: 3.0 steps/sec debug build
-   - Target: 10-15 steps/sec release build
-   - **Expected gain**: 3-5× throughput
+7. ~~**Release Build Performance Testing**~~: ✅ **DONE**
+   - Debug: 3.0 steps/sec → Release: 9.3 steps/sec (3.1× speedup)
+   - Baseline established for measuring future improvements
+   - Remaining O(n) hotpath optimization (item 6) should push past 10 steps/sec target
 
 ---
 
