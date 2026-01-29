@@ -77,7 +77,7 @@ proc add*(env: Environment, thing: Thing) =
 
   case thing.kind
   of Wonder:
-    thing.wonderVictoryCountdown = WonderVictoryCountdown
+    discard
   of Stone:
     if getInv(thing, ItemStone) <= 0:
       setInv(thing, ItemStone, MineDepositAmount)
