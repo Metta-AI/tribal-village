@@ -244,6 +244,15 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 ctypes.c_int32,
                 True,
             ),
+            # Market trading
+            ("tribal_village_init_market_prices", [ctypes.c_void_p], None, True),
+            ("tribal_village_get_market_price", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_set_market_price", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], None, True),
+            ("tribal_village_market_buy", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
+            ("tribal_village_market_sell", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
+            ("tribal_village_market_sell_inventory", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
+            ("tribal_village_market_buy_food", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
+            ("tribal_village_decay_market_prices", [ctypes.c_void_p], None, True),
         ]
 
         for name, argtypes, restype, optional in func_specs:
