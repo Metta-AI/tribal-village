@@ -415,13 +415,74 @@ proc getBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32): IVec
     return thing.rallyPoint
   ivec2(-1, -1)
 
+# Hold Position API
+# These functions allow external code to set hold-position behavior for agents.
+# Hold Position: agent stays at a location, attacks enemies in range but won't chase.
+
+proc setAgentHoldPosition*(agentId: int, pos: IVec2) =
+  ## Set hold position for an agent. The agent stays at the given position,
+  ## attacks enemies in range, but won't chase.
+  ## Requires BuiltinAI controller.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.setHoldPosition(agentId, pos)
+
+proc setAgentHoldPositionXY*(agentId: int, x, y: int32) =
+  ## Set hold position using x,y coordinates.
+  setAgentHoldPosition(agentId, ivec2(x, y))
+
+proc clearAgentHoldPosition*(agentId: int) =
+  ## Clear hold position for an agent.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.clearHoldPosition(agentId)
+
+proc getAgentHoldPosition*(agentId: int): IVec2 =
+  ## Get the hold position target. Returns (-1, -1) if not active.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.getHoldPosition(agentId)
+  ivec2(-1, -1)
+
+proc isAgentHoldPositionActive*(agentId: int): bool =
+  ## Check if hold position is active for an agent.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.isHoldPositionActive(agentId)
+  false
+
+# Follow API
+# These functions allow external code to set follow behavior for agents.
+# Follow: agent follows a target agent, maintaining proximity.
+
+proc setAgentFollowTarget*(agentId: int, targetAgentId: int) =
+  ## Set an agent to follow another agent.
+  ## Requires BuiltinAI controller.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.setFollowTarget(agentId, targetAgentId)
+
+proc clearAgentFollowTarget*(agentId: int) =
+  ## Clear follow target for an agent.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.clearFollowTarget(agentId)
+
+proc getAgentFollowTargetId*(agentId: int): int =
+  ## Get the follow target agent ID. Returns -1 if not active.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.getFollowTargetId(agentId)
+  -1
+
+proc isAgentFollowActive*(agentId: int): bool =
+  ## Check if follow mode is active for an agent.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.isFollowActive(agentId)
+  false
+
 # Stop Command API
 # Clears all movement orders for an agent.
 
 proc stopAgent*(agentId: int) =
-  ## Stop an agent by clearing all active orders (attack-move, patrol, scout).
+  ## Stop an agent by clearing all active orders (attack-move, patrol, scout, hold, follow).
   clearAgentAttackMoveTarget(agentId)
   clearAgentPatrol(agentId)
+  clearAgentHoldPosition(agentId)
+  clearAgentFollowTarget(agentId)
   if not isNil(globalController) and globalController.controllerType == BuiltinAI:
     globalController.aiController.clearScoutMode(agentId)
 
@@ -539,7 +600,8 @@ proc getControlGroupAgentId*(groupIndex: int, index: int): int =
 
 proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, targetY: int32) =
   ## Issue a command to all selected units.
-  ## commandType: 0=attack-move, 1=patrol (from current pos to target), 2=stop
+  ## commandType: 0=attack-move, 1=patrol (from current pos to target), 2=stop,
+  ##              3=hold position (at current pos), 4=follow (targetX=targetAgentId)
   let target = ivec2(targetX, targetY)
   for thing in selection:
     if isAgentAlive(env, thing):
@@ -551,5 +613,9 @@ proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, tar
         setAgentPatrol(agentId, thing.pos, target)
       of 2: # Stop
         stopAgent(agentId)
+      of 3: # Hold position at current location
+        setAgentHoldPosition(agentId, thing.pos)
+      of 4: # Follow (targetX = target agent ID)
+        setAgentFollowTarget(agentId, targetX.int)
       else:
         discard

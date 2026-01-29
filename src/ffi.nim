@@ -475,8 +475,49 @@ proc tribal_village_get_rally_point_y*(env: pointer, buildingX: int32, buildingY
 # --- Stop Command ---
 
 proc tribal_village_stop*(agentId: int32) {.exportc, dynlib.} =
-  ## Stop an agent, clearing all active orders (attack-move, patrol, scout).
+  ## Stop an agent, clearing all active orders (attack-move, patrol, scout, hold, follow).
   stopAgent(agentId)
+
+# --- Hold Position ---
+
+proc tribal_village_hold_position*(agentId: int32, x: int32, y: int32) {.exportc, dynlib.} =
+  ## Set hold position for an agent at the given coordinates.
+  ## The agent stays at the position, attacks enemies in range, but won't chase.
+  setAgentHoldPositionXY(agentId, x, y)
+
+proc tribal_village_clear_hold_position*(agentId: int32) {.exportc, dynlib.} =
+  ## Clear hold position for an agent.
+  clearAgentHoldPosition(agentId)
+
+proc tribal_village_get_hold_position_x*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get x coordinate of hold position. -1 if not active.
+  getAgentHoldPosition(agentId).x
+
+proc tribal_village_get_hold_position_y*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get y coordinate of hold position. -1 if not active.
+  getAgentHoldPosition(agentId).y
+
+proc tribal_village_is_hold_position_active*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Check if hold position is active. Returns 1 if active, 0 if not.
+  if isAgentHoldPositionActive(agentId): 1 else: 0
+
+# --- Follow ---
+
+proc tribal_village_follow_agent*(agentId: int32, targetAgentId: int32) {.exportc, dynlib.} =
+  ## Set an agent to follow another agent.
+  setAgentFollowTarget(agentId, targetAgentId)
+
+proc tribal_village_clear_follow*(agentId: int32) {.exportc, dynlib.} =
+  ## Clear follow target for an agent.
+  clearAgentFollowTarget(agentId)
+
+proc tribal_village_get_follow_target*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the follow target agent ID. -1 if not active.
+  getAgentFollowTargetId(agentId).int32
+
+proc tribal_village_is_follow_active*(agentId: int32): int32 {.exportc, dynlib.} =
+  ## Check if follow mode is active. Returns 1 if active, 0 if not.
+  if isAgentFollowActive(agentId): 1 else: 0
 
 # --- Formation (per control group) ---
 

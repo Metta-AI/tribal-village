@@ -126,6 +126,12 @@ type
     scoutExploreRadius*: int32    # Current exploration radius from base
     scoutLastEnemySeenStep*: int32  # Step when scout last saw an enemy (for alarm)
     scoutActive*: bool            # Whether scout mode is enabled
+    # Hold position state: stay at location, attack but don't chase
+    holdPositionActive*: bool         # Whether hold position is enabled
+    holdPositionTarget*: IVec2        # Position to hold (-1,-1 = inactive)
+    # Follow state: follow another agent maintaining proximity
+    followTargetAgentId*: int         # Target agent to follow (-1 = inactive)
+    followActive*: bool               # Whether follow mode is enabled
 
   # Difficulty levels for AI - affects decision quality and reaction time
   DifficultyLevel* = enum

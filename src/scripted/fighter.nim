@@ -1452,6 +1452,91 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
   # Move toward exploration target
   controller.moveTo(env, agent, agentId, state, bestTarget)
 
+# Hold Position: Stay at current location, attack enemies in range but don't chase
+const HoldPositionReturnRadius = 3  # Max distance to drift from hold position before returning
+
+proc canStartFighterHoldPosition(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Hold position activates when explicitly enabled via API.
+  state.holdPositionActive and state.holdPositionTarget.x >= 0
+
+proc shouldTerminateFighterHoldPosition(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  ## Hold position terminates when disabled.
+  not state.holdPositionActive
+
+proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  ## Hold position: stay at the designated location, attack enemies in range,
+  ## but do not chase. If drifted too far (e.g. from knockback), walk back.
+  if not state.holdPositionActive or state.holdPositionTarget.x < 0:
+    return 0'u8
+
+  # Check for attack opportunity (melee or ranged in place)
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # If too far from hold position, move back
+  let dist = int(chebyshevDist(agent.pos, state.holdPositionTarget))
+  if dist > HoldPositionReturnRadius:
+    return controller.moveTo(env, agent, agentId, state, state.holdPositionTarget)
+
+  # Stay put
+  0'u8
+
+# Follow: Follow another agent, maintaining proximity
+const FollowProximityRadius = 3  # Stay within this distance of the target
+
+proc canStartFighterFollow(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  ## Follow activates when follow mode is enabled and target is valid and alive.
+  if not state.followActive or state.followTargetAgentId < 0:
+    return false
+  if state.followTargetAgentId >= env.agents.len:
+    return false
+  let target = env.agents[state.followTargetAgentId]
+  isAgentAlive(env, target)
+
+proc shouldTerminateFighterFollow(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Follow terminates when disabled or target dies.
+  if not state.followActive or state.followTargetAgentId < 0:
+    return true
+  if state.followTargetAgentId >= env.agents.len:
+    return true
+  let target = env.agents[state.followTargetAgentId]
+  not isAgentAlive(env, target)
+
+proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  ## Follow: stay close to the target agent, attack enemies along the way.
+  ## If target dies, follow is automatically terminated.
+  if not state.followActive or state.followTargetAgentId < 0:
+    return 0'u8
+  if state.followTargetAgentId >= env.agents.len:
+    state.followActive = false
+    return 0'u8
+  let target = env.agents[state.followTargetAgentId]
+  if not isAgentAlive(env, target):
+    state.followActive = false
+    state.followTargetAgentId = -1
+    return 0'u8
+
+  # Check for attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Check distance to target
+  let dist = int(chebyshevDist(agent.pos, target.pos))
+  if dist > FollowProximityRadius:
+    # Too far - move toward target
+    return controller.moveTo(env, agent, agentId, state, target.pos)
+
+  # Within range - stay put
+  0'u8
+
 let FighterOptions* = [
   OptionDef(
     name: "BatteringRamAdvance",
@@ -1501,6 +1586,20 @@ let FighterOptions* = [
     canStart: canStartFighterPatrol,
     shouldTerminate: shouldTerminateFighterPatrol,
     act: optFighterPatrol,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterHoldPosition",
+    canStart: canStartFighterHoldPosition,
+    shouldTerminate: shouldTerminateFighterHoldPosition,
+    act: optFighterHoldPosition,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterFollow",
+    canStart: canStartFighterFollow,
+    shouldTerminate: shouldTerminateFighterFollow,
+    act: optFighterFollow,
     interruptible: true
   ),
   OptionDef(

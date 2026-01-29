@@ -1621,3 +1621,55 @@ proc recordScoutEnemySighting*(controller: Controller, agentId: int, currentStep
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].scoutLastEnemySeenStep = currentStep
 
+# Hold position behavior helpers
+proc setHoldPosition*(controller: Controller, agentId: int, pos: IVec2) =
+  ## Set hold position for an agent. The agent will stay at the given position
+  ## and attack enemies in range but won't chase.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].holdPositionTarget = pos
+    controller.agents[agentId].holdPositionActive = true
+
+proc clearHoldPosition*(controller: Controller, agentId: int) =
+  ## Disable hold position for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].holdPositionActive = false
+    controller.agents[agentId].holdPositionTarget = ivec2(-1, -1)
+
+proc isHoldPositionActive*(controller: Controller, agentId: int): bool =
+  ## Check if hold position is active for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].holdPositionActive
+  false
+
+proc getHoldPosition*(controller: Controller, agentId: int): IVec2 =
+  ## Get the hold position target for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].holdPositionTarget
+  ivec2(-1, -1)
+
+# Follow behavior helpers
+proc setFollowTarget*(controller: Controller, agentId: int, targetAgentId: int) =
+  ## Set an agent to follow another agent.
+  if agentId >= 0 and agentId < MapAgents and
+     targetAgentId >= 0 and targetAgentId < MapAgents:
+    controller.agents[agentId].followTargetAgentId = targetAgentId
+    controller.agents[agentId].followActive = true
+
+proc clearFollowTarget*(controller: Controller, agentId: int) =
+  ## Disable follow mode for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].followActive = false
+    controller.agents[agentId].followTargetAgentId = -1
+
+proc isFollowActive*(controller: Controller, agentId: int): bool =
+  ## Check if follow mode is active for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].followActive
+  false
+
+proc getFollowTargetId*(controller: Controller, agentId: int): int =
+  ## Get the follow target agent ID for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].followTargetAgentId
+  -1
+
