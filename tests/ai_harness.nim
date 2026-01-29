@@ -1637,48 +1637,73 @@ suite "Trebuchet Pack/Unpack":
     check agent.cooldown == 4  # Should have decremented by 1 from step, not reset
 
 suite "Wonder Victory":
-  test "wonder starts with victory countdown":
-    let env = makeEmptyEnv()
+  test "wonder starts with victory tracking after step":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard addAgentAt(env, 0, ivec2(10, 10))
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))
     let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
 
     check wonder.hp == WonderMaxHp
-    check wonder.wonderVictoryCountdown == WonderVictoryCountdown
-
-  test "wonder countdown decrements each step":
-    let env = makeEmptyEnv()
-    let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
-    let initialCountdown = wonder.wonderVictoryCountdown
+    check env.victoryStates[0].wonderBuiltStep == -1  # Not tracked yet
 
     env.stepNoop()
 
-    check wonder.wonderVictoryCountdown == initialCountdown - 1
+    check env.victoryStates[0].wonderBuiltStep >= 0  # Now tracked
+
+  test "wonder victory does not trigger before countdown expires":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard addAgentAt(env, 0, ivec2(10, 10))
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))
+    discard addBuilding(env, Wonder, ivec2(50, 50), 0)
+
+    env.stepNoop()
+
+    let builtStep = env.victoryStates[0].wonderBuiltStep
+    check builtStep >= 0
+    check env.victoryWinner == -1  # Not enough time passed
 
   test "wonder victory triggers when countdown reaches zero":
-    let env = makeEmptyEnv()
-    let agent0 = addAgentAt(env, 0, ivec2(10, 10))  # Team 0 agent
-    let agent1 = addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))  # Team 1 agent
-    let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
-
-    # Set countdown to 1 so it triggers on next step
-    wonder.wonderVictoryCountdown = 1
-
-    check env.terminated[0] == 0.0  # Team 0 agent alive
-    check env.terminated[MapAgentsPerTeam] == 0.0  # Team 1 agent alive
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard addAgentAt(env, 0, ivec2(10, 10))
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))
+    discard addBuilding(env, Wonder, ivec2(50, 50), 0)
 
     env.stepNoop()
 
-    # Team 1 should be terminated (they lost)
-    check env.terminated[MapAgentsPerTeam] == 1.0
-    # Game should reset
+    let builtStep = env.victoryStates[0].wonderBuiltStep
+    check builtStep >= 0
+
+    # Advance past the countdown
+    env.currentStep = builtStep + WonderVictoryCountdown
+
+    env.stepNoop()
+
+    check env.victoryWinner == 0
     check env.shouldReset == true
 
-  test "destroyed wonder does not count down":
-    let env = makeEmptyEnv()
+  test "destroyed wonder resets tracking":
+    var env = makeEmptyEnv()
+    env.config.victoryCondition = VictoryWonder
+    env.config.maxSteps = 5000
+    discard addAgentAt(env, 0, ivec2(10, 10))
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))
     let wonder = addBuilding(env, Wonder, ivec2(50, 50), 0)
-    wonder.hp = 0  # Destroyed
-    let initialCountdown = wonder.wonderVictoryCountdown
 
     env.stepNoop()
 
-    # Countdown should not have changed since wonder is destroyed
-    check wonder.wonderVictoryCountdown == initialCountdown
+    check env.victoryStates[0].wonderBuiltStep >= 0
+
+    # Destroy the wonder
+    env.grid[wonder.pos.x][wonder.pos.y] = nil
+    env.thingsByKind[Wonder].setLen(0)
+
+    env.stepNoop()
+
+    check env.victoryStates[0].wonderBuiltStep == -1
+    check env.victoryWinner == -1
