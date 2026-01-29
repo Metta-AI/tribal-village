@@ -454,8 +454,9 @@ proc drawObjects*() =
 
   for kind in CliffDrawOrder:
     let spriteKey = thingSpriteKey(kind)
-    for cliff in env.thingsByKind[kind]:
-      bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
+    if spriteKey.len > 0 and spriteKey in bxy:
+      for cliff in env.thingsByKind[kind]:
+        bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
 
   template drawThings(thingKind: ThingKind, body: untyped) =
     for thing in env.thingsByKind[thingKind]:
@@ -466,11 +467,12 @@ proc drawObjects*() =
 
   for kind in [Tree, Wheat, Stubble]:
     let spriteKey = thingSpriteKey(kind)
-    for thing in env.thingsByKind[kind]:
-      let pos = thing.pos
-      bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
-      if isTileFrozen(pos, env):
-        bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+    if spriteKey.len > 0 and spriteKey in bxy:
+      for thing in env.thingsByKind[kind]:
+        let pos = thing.pos
+        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
+        if isTileFrozen(pos, env):
+          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Agent):
     let agent = thing
@@ -511,13 +513,17 @@ proc drawObjects*() =
       of UnitCrossbowman, UnitArbalester: "oriented/archer"
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
-    bxy.drawImage(
-      agentImage,
-      pos.vec2,
-      angle = 0,
-      scale = SpriteScale,
-      tint = env.agentColors[agent.agentId]
-    )
+    let agentSpriteKey = if agentImage in bxy: agentImage
+                         elif baseKey & ".s" in bxy: baseKey & ".s"
+                         else: ""
+    if agentSpriteKey.len > 0:
+      bxy.drawImage(
+        agentSpriteKey,
+        pos.vec2,
+        angle = 0,
+        scale = SpriteScale,
+        tint = env.agentColors[agent.agentId]
+      )
 
   drawThings(Altar):
     let altarTint = block:
@@ -570,45 +576,38 @@ proc drawObjects*() =
     else:
       "oriented/tumor."
     let baseImage = spritePrefix & spriteDir
-    bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = SpriteScale)
+    if baseImage in bxy:
+      bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Cow):
-    bxy.drawImage(
-      if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow",
-      pos.vec2,
-      angle = 0,
-      scale = SpriteScale
-    )
+    let cowKey = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
+    if cowKey in bxy:
+      bxy.drawImage(cowKey, pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Bear):
     let dirKey = OrientationDirKeys[thing.orientation.int]
-    bxy.drawImage(
-      "oriented/bear." & dirKey,
-      pos.vec2,
-      angle = 0,
-      scale = SpriteScale
-    )
+    let bearKey = "oriented/bear." & dirKey
+    if bearKey in bxy:
+      bxy.drawImage(bearKey, pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Wolf):
     let dirKey = OrientationDirKeys[thing.orientation.int]
-    bxy.drawImage(
-      "oriented/wolf." & dirKey,
-      pos.vec2,
-      angle = 0,
-      scale = SpriteScale
-    )
+    let wolfKey = "oriented/wolf." & dirKey
+    if wolfKey in bxy:
+      bxy.drawImage(wolfKey, pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Lantern):
     let lanternKey = "lantern"
-    let tint = if thing.lanternHealthy:
-      let teamId = thing.teamId
-      if teamId >= 0 and teamId < env.teamColors.len:
-        env.teamColors[teamId]
+    if lanternKey in bxy:
+      let tint = if thing.lanternHealthy:
+        let teamId = thing.teamId
+        if teamId >= 0 and teamId < env.teamColors.len:
+          env.teamColors[teamId]
+        else:
+          color(0.6, 0.6, 0.6, 1.0)
       else:
-        color(0.6, 0.6, 0.6, 1.0)
-    else:
-      color(0.5, 0.5, 0.5, 1.0)
-    bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+        color(0.5, 0.5, 0.5, 1.0)
+      bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
 
   for kind in ThingKind:
     if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
@@ -616,6 +615,8 @@ proc drawObjects*() =
       continue
     if isBuildingKind(kind):
       let spriteKey = buildingSpriteKey(kind)
+      if spriteKey.len == 0 or spriteKey notin bxy:
+        continue
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
@@ -668,11 +669,13 @@ proc drawObjects*() =
           let labelScale = 1/200
           let iconPos = pos.vec2 + vec2(-0.18, -0.62)
           let alpha = if count > 0: 1.0 else: 0.35
-          bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
+          if icon.len > 0 and icon in bxy:
+            bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
           if count > 0:
             let labelKey = ensureHeartCountLabel(count)
-            let labelPos = iconPos + vec2(0.14, -0.08)
-            bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+            if labelKey.len > 0 and labelKey in bxy:
+              let labelPos = iconPos + vec2(0.14, -0.08)
+              bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
         if thing.kind == TownCenter:
           let teamId = thing.teamId
           if teamId >= 0 and teamId < MapRoomObjectsTeams:
@@ -681,8 +684,9 @@ proc drawObjects*() =
             let iconScale = 1/320
             let labelScale = 1/200
             let iconPos = pos.vec2 + vec2(-0.18, -0.62)
-            bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0, scale = iconScale,
-              tint = color(1, 1, 1, 1))
+            if "oriented/gatherer.s" in bxy:
+              bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0, scale = iconScale,
+                tint = color(1, 1, 1, 1))
             let popText = "x " & $popCount & "/" & $popCap
             let popLabel = block:
               if popText.len == 0:
@@ -709,10 +713,13 @@ proc drawObjects*() =
                 bxy.addImage(key, ctx.image)
                 overlayLabelImages[popText] = key
                 key
-            let popLabelPos = iconPos + vec2(0.14, -0.08)
-            bxy.drawImage(popLabel, popLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+            if popLabel.len > 0 and popLabel in bxy:
+              let popLabelPos = iconPos + vec2(0.14, -0.08)
+              bxy.drawImage(popLabel, popLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
     else:
       let spriteKey = thingSpriteKey(kind)
+      if spriteKey.len == 0 or spriteKey notin bxy:
+        continue
       for thing in env.thingsByKind[kind]:
         if not isValidPos(thing.pos):
           continue
