@@ -1167,11 +1167,12 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
   if state.pathBlockedTarget == targetPos:
     return controller.moveNextSearch(env, agent, agentId, state)
   var stuck = false
-  if state.recentPosCount >= 6:
+  # Reduced stuck detection window from 6 to 4 steps for faster recovery
+  if state.recentPosCount >= 4:
     var uniqueCount = 0
     var unique: array[4, IVec2]
     let historyLen = state.recentPositions.len
-    for i in 0 ..< 6:
+    for i in 0 ..< 4:
       let idx = (state.recentPosIndex - 1 - i + historyLen * historyLen) mod historyLen
       let p = state.recentPositions[idx]
       var seen = false
@@ -1215,6 +1216,19 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
           state.plannedPathIndex += 1
           return saveStateAndReturn(controller, agentId, state,
             encodeAction(1'u8, dirIdx.uint8))
+        # Next step blocked - recompute path instead of giving up on target
+        state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
+        state.plannedTarget = targetPos
+        state.plannedPathIndex = 0
+        # If recomputed path is valid, follow it immediately
+        if state.plannedPath.len >= 2:
+          let recomputedNext = state.plannedPath[1]
+          if canEnterForMove(env, agent, agent.pos, recomputedNext):
+            let dirIdx = neighborDirIndex(agent.pos, recomputedNext)
+            state.plannedPathIndex = 1
+            return saveStateAndReturn(controller, agentId, state,
+              encodeAction(1'u8, dirIdx.uint8))
+        # Recompute also failed - mark target as blocked
         state.plannedPath.setLen(0)
         state.pathBlockedTarget = targetPos
         return controller.moveNextSearch(env, agent, agentId, state)
