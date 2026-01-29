@@ -97,7 +97,6 @@ nim.cfg
 # Gas Town (added by gt)
 .runtime/
 .claude/
-.beads/
 .logs/
 src/ffi
 scripts/run_all_tests
