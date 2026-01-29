@@ -239,33 +239,15 @@ proc del*(inv: var Inventory, key: ItemKey) {.inline.} =
 
 {.push inline.}
 proc getInv*[T](thing: T, key: ItemKey): int =
-  case key.kind
-  of ItemKeyNone:
-    0
-  of ItemKeyItem:
-    thing.inventory.items[key.item]
-  of ItemKeyThing, ItemKeyOther:
-    thing.inventory.extra.getOrDefault(key, 0)
+  thing.inventory[key]
 
 proc getInv*[T](thing: T, kind: ItemKind): int =
-  ## Type-safe overload using ItemKind enum - O(1) array access
   thing.inventory.items[kind]
 
 proc setInv*[T](thing: T, key: ItemKey, value: int) =
-  case key.kind
-  of ItemKeyNone:
-    discard
-  of ItemKeyItem:
-    thing.inventory.items[key.item] = max(0, value).int16
-  of ItemKeyThing, ItemKeyOther:
-    if value <= 0:
-      if thing.inventory.extra.hasKey(key):
-        thing.inventory.extra.del(key)
-    else:
-      thing.inventory.extra[key] = value.int16
+  thing.inventory[key] = value
 
 proc setInv*[T](thing: T, kind: ItemKind, value: int) =
-  ## Type-safe overload using ItemKind enum - O(1) array access
   thing.inventory.items[kind] = max(0, value).int16
 
 proc canSpendInventory*[T](agent: T, costs: openArray[tuple[key: ItemKey, count: int]]): bool =
@@ -301,17 +283,6 @@ defineInventoryAccessors(inventoryRelic, ItemRelic)
 defineInventoryAccessors(hearts, ItemHearts)
 
 type
-  DfTokenPlacement* = enum
-    DfItem
-    DfBuilding
-
-  DfTokenDef* = object
-    token*: string
-    id*: string
-    displayName*: string
-    placement*: DfTokenPlacement
-    notes*: string
-
   ItemAmount* = tuple[key: ItemKey, count: int]
 
   CraftStation* = enum
@@ -327,17 +298,10 @@ type
     station*: CraftStation
     inputs*: seq[ItemAmount]
     outputs*: seq[ItemAmount]
-    cooldown*: int
-
-const
-  ## DF tileset overrides are currently disabled; keep the catalog empty so
-  ## asset generation becomes a no-op without extra build flags.
-  DfTokenCatalog*: seq[DfTokenDef] = @[]
 
 proc addRecipe*(recipes: var seq[CraftRecipe], id: string, station: CraftStation,
-                inputs, outputs: seq[ItemAmount], cooldown: int = 0) =
-  discard cooldown
-  recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs, cooldown: 0))
+                inputs, outputs: seq[ItemAmount]) =
+  recipes.add(CraftRecipe(id: id, station: station, inputs: inputs, outputs: outputs))
 
 proc thingItem*(name: string): ItemKey =
   ItemKey(kind: ItemKeyThing, name: name)
@@ -350,29 +314,28 @@ proc initCraftRecipesBase*(): seq[CraftRecipe] =
 
   # Table/workbench: wood and stone crafts.
   # Siege workshop crafts for walls/roads (1/20 AoE2 scale).
-  addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Wall"), 1)], 6)
-  addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)], 4)
-  addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[(otherItem("bucket"), 1)], 6)
-  addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[(otherItem("box"), 1)], 6)
-  addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[(otherItem("bin"), 1)], 8)
-  addRecipe(recipes, "cabinet", StationTable, @[(ItemWood, 2)], @[(otherItem("cabinet"), 1)], 8)
-  addRecipe(recipes, "cage", StationTable, @[(ItemWood, 2)], @[(otherItem("cage"), 1)], 8)
-  addRecipe(recipes, "animaltrap", StationTable, @[(ItemWood, 1)], @[(otherItem("animaltrap"), 1)], 6)
-  addRecipe(recipes, "armorstand_wood", StationTable, @[(ItemWood, 2)], @[(otherItem("armorstand"), 1)], 8)
-  addRecipe(recipes, "weaponrack_wood", StationTable, @[(ItemWood, 2)], @[(otherItem("weaponrack"), 1)], 8)
+  addRecipe(recipes, "wall", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Wall"), 1)])
+  addRecipe(recipes, "road", StationSiegeWorkshop, @[(ItemWood, 1)], @[(thingItem("Road"), 1)])
+  addRecipe(recipes, "bucket", StationTable, @[(ItemWood, 1)], @[(otherItem("bucket"), 1)])
+  addRecipe(recipes, "box", StationTable, @[(ItemWood, 1)], @[(otherItem("box"), 1)])
+  addRecipe(recipes, "bin", StationTable, @[(ItemWood, 2)], @[(otherItem("bin"), 1)])
+  addRecipe(recipes, "cabinet", StationTable, @[(ItemWood, 2)], @[(otherItem("cabinet"), 1)])
+  addRecipe(recipes, "cage", StationTable, @[(ItemWood, 2)], @[(otherItem("cage"), 1)])
+  addRecipe(recipes, "animaltrap", StationTable, @[(ItemWood, 1)], @[(otherItem("animaltrap"), 1)])
+  addRecipe(recipes, "armorstand_wood", StationTable, @[(ItemWood, 2)], @[(otherItem("armorstand"), 1)])
+  addRecipe(recipes, "weaponrack_wood", StationTable, @[(ItemWood, 2)], @[(otherItem("weaponrack"), 1)])
   # Blacksmith: metalworking and mechanisms.
-  addRecipe(recipes, "spear", StationBlacksmith, @[(ItemWood, 1)], @[(ItemSpear, SpearCharges)], 6)
-  addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, ArmorPoints)], 10)
-  addRecipe(recipes, "spear_metal", StationBlacksmith, @[(ItemBar, 1)], @[(ItemSpear, SpearCharges)], 8)
-  addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("shield"), 1)], 8)
-  addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[(otherItem("anvil"), 1)], 10)
-  addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("goblet"), 1)], 6)
-  addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("crown"), 1)], 8)
-  addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("armorstand"), 1)], 8)
-  addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("weaponrack"), 1)], 8)
-
+  addRecipe(recipes, "spear", StationBlacksmith, @[(ItemWood, 1)], @[(ItemSpear, SpearCharges)])
+  addRecipe(recipes, "armor_metal", StationBlacksmith, @[(ItemBar, 2)], @[(ItemArmor, ArmorPoints)])
+  addRecipe(recipes, "spear_metal", StationBlacksmith, @[(ItemBar, 1)], @[(ItemSpear, SpearCharges)])
+  addRecipe(recipes, "shield_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("shield"), 1)])
+  addRecipe(recipes, "anvil", StationBlacksmith, @[(ItemBar, 2)], @[(otherItem("anvil"), 1)])
+  addRecipe(recipes, "goblet", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("goblet"), 1)])
+  addRecipe(recipes, "crown", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("crown"), 1)])
+  addRecipe(recipes, "armorstand_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("armorstand"), 1)])
+  addRecipe(recipes, "weaponrack_metal", StationBlacksmith, @[(ItemBar, 1)], @[(otherItem("weaponrack"), 1)])
   # Oven: food.
-  addRecipe(recipes, "bread", StationOven, @[(ItemWheat, 1)], @[(ItemBread, 1)], 6)
+  addRecipe(recipes, "bread", StationOven, @[(ItemWheat, 1)], @[(ItemBread, 1)])
 
   recipes
 
