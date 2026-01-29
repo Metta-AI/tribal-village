@@ -253,6 +253,16 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             ("tribal_village_market_sell_inventory", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
             ("tribal_village_market_buy_food", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
             ("tribal_village_decay_market_prices", [ctypes.c_void_p], None, True),
+            # Tech tree research actions
+            ("tribal_village_research_blacksmith", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_research_university", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_research_castle", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_research_unit_upgrade", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            # Tech tree state queries
+            ("tribal_village_has_blacksmith_upgrade", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_has_university_tech", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_has_castle_tech", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_has_unit_upgrade", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
         ]
 
         for name, argtypes, restype, optional in func_specs:
@@ -265,6 +275,82 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 func.argtypes = argtypes
             if restype is not None:
                 func.restype = restype
+
+    # --- Tech tree state queries ---
+
+    def has_blacksmith_upgrade(self, team_id: int, upgrade_type: int) -> int:
+        """Get current level (0-3) of a blacksmith upgrade for a team.
+
+        upgrade_type: 0=MeleeAttack, 1=ArcherAttack, 2=InfantryArmor,
+                      3=CavalryArmor, 4=ArcherArmor
+        """
+        fn = getattr(self.lib, "tribal_village_has_blacksmith_upgrade", None)
+        if fn is None:
+            return 0
+        return fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(upgrade_type))
+
+    def has_university_tech(self, team_id: int, tech_type: int) -> bool:
+        """Check if a university tech has been researched.
+
+        tech_type: 0=Ballistics, 1=MurderHoles, 2=Masonry, 3=Architecture,
+                   4=TreadmillCrane, 5=Arrowslits, 6=HeatedShot,
+                   7=SiegeEngineers, 8=Chemistry
+        """
+        fn = getattr(self.lib, "tribal_village_has_university_tech", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(tech_type)))
+
+    def has_castle_tech(self, team_id: int, tech_type: int) -> bool:
+        """Check if a castle unique tech has been researched.
+
+        tech_type: 0-15, mapped as team*2=CastleAge, team*2+1=ImperialAge.
+        """
+        fn = getattr(self.lib, "tribal_village_has_castle_tech", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(tech_type)))
+
+    def has_unit_upgrade(self, team_id: int, upgrade_type: int) -> bool:
+        """Check if a unit upgrade has been researched.
+
+        upgrade_type: 0=LongSwordsman, 1=Champion, 2=LightCavalry,
+                      3=Hussar, 4=Crossbowman, 5=Arbalester
+        """
+        fn = getattr(self.lib, "tribal_village_has_unit_upgrade", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(upgrade_type)))
+
+    # --- Tech tree research actions ---
+
+    def research_blacksmith(self, agent_id: int, building_x: int, building_y: int) -> bool:
+        """Research the next blacksmith upgrade. Returns True on success."""
+        fn = getattr(self.lib, "tribal_village_research_blacksmith", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+
+    def research_university(self, agent_id: int, building_x: int, building_y: int) -> bool:
+        """Research the next university tech. Returns True on success."""
+        fn = getattr(self.lib, "tribal_village_research_university", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+
+    def research_castle(self, agent_id: int, building_x: int, building_y: int) -> bool:
+        """Research the next castle unique tech. Returns True on success."""
+        fn = getattr(self.lib, "tribal_village_research_castle", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+
+    def research_unit_upgrade(self, agent_id: int, building_x: int, building_y: int) -> bool:
+        """Research the next unit upgrade at a military building. Returns True on success."""
+        fn = getattr(self.lib, "tribal_village_research_unit_upgrade", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
 
     def _nim_float(self, key: str) -> float:
         value = self.config.get(key)
