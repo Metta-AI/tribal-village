@@ -22,18 +22,13 @@ proc ditherEdges*(mask: var MaskGrid, mapWidth, mapHeight: int, prob: float, dep
     var boundary: MaskGrid
     for x in depth ..< mapWidth - depth:
       for y in depth ..< mapHeight - depth:
-        var isBoundary = false
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            if dx == 0 and dy == 0:
-              continue
-            if mask[x + dx][y + dy] != mask[x][y]:
-              isBoundary = true
-              break
-          if isBoundary:
-            break
-        if isBoundary:
-          boundary[x][y] = true
+        block checkBoundary:
+          for dx in -1 .. 1:
+            for dy in -1 .. 1:
+              if dx == 0 and dy == 0: continue
+              if mask[x + dx][y + dy] != mask[x][y]:
+                boundary[x][y] = true
+                break checkBoundary
 
     for x in depth ..< mapWidth - depth:
       for y in depth ..< mapHeight - depth:
@@ -207,6 +202,16 @@ proc buildDungeonMazeMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
       if randFloat(r) <= cfg.wallKeepProb:
         mask[gx][gy] = true
 
+template stampWidth(mask: var MaskGrid, fx, fy, armWidth,
+                    zoneX, zoneY, zoneW, zoneH, mapWidth, mapHeight: int) =
+  for ox in -armWidth .. armWidth:
+    for oy in -armWidth .. armWidth:
+      let gx = fx + ox
+      let gy = fy + oy
+      if gx >= zoneX and gx < zoneX + zoneW and gy >= zoneY and gy < zoneY + zoneH and
+         gx >= 0 and gx < mapWidth and gy >= 0 and gy < mapHeight:
+        mask[gx][gy] = true
+
 proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
                              zoneX, zoneY, zoneW, zoneH: int,
                              r: var Rand, cfg: DungeonRadialConfig) =
@@ -228,14 +233,7 @@ proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
     for step in 0 .. radius:
       let fx = cx + int(round(dx * float(step)))
       let fy = cy + int(round(dy * float(step)))
-      for ox in -armWidth .. armWidth:
-        for oy in -armWidth .. armWidth:
-          let gx = fx + ox
-          let gy = fy + oy
-          if gx < zoneX or gx >= zoneX + zoneW or gy < zoneY or gy >= zoneY + zoneH:
-            continue
-          if gx >= 0 and gx < mapWidth and gy >= 0 and gy < mapHeight:
-            mask[gx][gy] = true
+      stampWidth(mask, fx, fy, armWidth, zoneX, zoneY, zoneW, zoneH, mapWidth, mapHeight)
 
   if cfg.ring:
     let ringRadius = max(2, radius div 2)
@@ -244,14 +242,7 @@ proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
       let angle = 2.0 * PI * float(i) / float(steps)
       let fx = cx + int(round(cos(angle) * float(ringRadius)))
       let fy = cy + int(round(sin(angle) * float(ringRadius)))
-      for ox in -armWidth .. armWidth:
-        for oy in -armWidth .. armWidth:
-          let gx = fx + ox
-          let gy = fy + oy
-          if gx < zoneX or gx >= zoneX + zoneW or gy < zoneY or gy >= zoneY + zoneH:
-            continue
-          if gx >= 0 and gx < mapWidth and gy >= 0 and gy < mapHeight:
-            mask[gx][gy] = true
+      stampWidth(mask, fx, fy, armWidth, zoneX, zoneY, zoneW, zoneH, mapWidth, mapHeight)
 
   # Soften edges with a tiny bit of noise.
   for x in zoneX ..< zoneX + zoneW:
@@ -276,9 +267,8 @@ proc buildDungeonRadialMask*(mask: var MaskGrid, mapWidth, mapHeight: int,
     for off in -armWidth .. armWidth:
       let gx = x + (if dir.dy == 0: 0 else: off)
       let gy = y + (if dir.dx == 0: 0 else: off)
-      if gx < zoneX or gx >= zoneX + zoneW or gy < zoneY or gy >= zoneY + zoneH:
-        continue
-      if gx >= 0 and gx < mapWidth and gy >= 0 and gy < mapHeight:
+      if gx >= max(0, zoneX) and gx < min(mapWidth, zoneX + zoneW) and
+         gy >= max(0, zoneY) and gy < min(mapHeight, zoneY + zoneH):
         mask[gx][gy] = true
 
 proc buildBiomePlainsMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
@@ -303,6 +293,33 @@ type
     ditherProb*: float = 0.15
     ditherDepth*: int = 5
 
+template cellularStep(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                      countEdge: bool, rule: untyped) =
+  ## One step of cellular automata on mask. Injects `neighbors` (int) and
+  ## `alive` (bool) for use in the rule expression. When `countEdge` is true,
+  ## out-of-bounds cells count as neighbors.
+  var nextMask: MaskGrid
+  for x in mapBorder ..< mapWidth - mapBorder:
+    for y in mapBorder ..< mapHeight - mapBorder:
+      var neighbors {.inject.} = 0
+      for dx in -1 .. 1:
+        for dy in -1 .. 1:
+          if dx == 0 and dy == 0: continue
+          let nx = x + dx
+          let ny = y + dy
+          when countEdge:
+            if nx < mapBorder or nx >= mapWidth - mapBorder or
+               ny < mapBorder or ny >= mapHeight - mapBorder:
+              inc neighbors
+            elif mask[nx][ny]:
+              inc neighbors
+          else:
+            if nx >= 0 and nx < mapWidth and ny >= 0 and ny < mapHeight and mask[nx][ny]:
+              inc neighbors
+      var alive {.inject.} = mask[x][y]
+      nextMask[x][y] = rule
+  mask = nextMask
+
 proc buildBiomeForestMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
                            r: var Rand, cfg: BiomeForestConfig) =
   mask.clearMask(mapWidth, mapHeight)
@@ -313,21 +330,8 @@ proc buildBiomeForestMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: i
         mask[x][y] = true
 
   for _ in 0 ..< max(0, cfg.clumpiness):
-    var nextMask: MaskGrid
-    for x in mapBorder ..< mapWidth - mapBorder:
-      for y in mapBorder ..< mapHeight - mapBorder:
-        var neighbors = 0
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            if dx == 0 and dy == 0:
-              continue
-            let nx = x + dx
-            let ny = y + dy
-            if nx >= 0 and nx < mapWidth and ny >= 0 and ny < mapHeight:
-              if mask[nx][ny]:
-                inc neighbors
-        nextMask[x][y] = (neighbors >= cfg.neighborThreshold and randFloat(r) < cfg.growthProb) or mask[x][y]
-    mask = nextMask
+    cellularStep(mask, mapWidth, mapHeight, mapBorder, false):
+      (neighbors >= cfg.neighborThreshold and randFloat(r) < cfg.growthProb) or alive
 
   ditherIf(mask, mapWidth, mapHeight, cfg.ditherEdges, cfg.ditherProb, cfg.ditherDepth, r)
 
@@ -379,24 +383,8 @@ proc buildBiomeCavesMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: in
       mask[x][y] = randFloat(r) < cfg.fillProb
 
   for _ in 0 ..< max(0, cfg.steps):
-    var nextMask: MaskGrid
-    for x in mapBorder ..< mapWidth - mapBorder:
-      for y in mapBorder ..< mapHeight - mapBorder:
-        var neighbors = 0
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            if dx == 0 and dy == 0:
-              continue
-            let nx = x + dx
-            let ny = y + dy
-            if nx < mapBorder or nx >= mapWidth - mapBorder or
-               ny < mapBorder or ny >= mapHeight - mapBorder:
-              inc neighbors
-            elif mask[nx][ny]:
-              inc neighbors
-        nextMask[x][y] = (neighbors > cfg.birthLimit) or
-          (neighbors >= cfg.deathLimit and mask[x][y])
-    mask = nextMask
+    cellularStep(mask, mapWidth, mapHeight, mapBorder, true):
+      (neighbors > cfg.birthLimit) or (neighbors >= cfg.deathLimit and alive)
 
   ditherIf(mask, mapWidth, mapHeight, cfg.ditherEdges, cfg.ditherProb, cfg.ditherDepth, r)
 
@@ -483,11 +471,10 @@ proc buildBiomeSnowMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int
   let minRadius = max(1, cfg.clusterMinRadius)
   let maxRadius = max(minRadius, cfg.clusterMaxRadius)
   let jitter = max(0, cfg.jitter)
-  let fillBase = cfg.clusterFill
 
   forClusterCenters(mapWidth, mapHeight, mapBorder, period, jitter, cfg.clusterProb, r):
       let radius = randIntInclusive(r, minRadius, maxRadius)
-      let fill = fillBase * (0.7 + 0.3 * randFloat(r))
+      let fill = cfg.clusterFill * (0.7 + 0.3 * randFloat(r))
       for dx in -radius .. radius:
         for dy in -radius .. radius:
           let x = cx + dx
