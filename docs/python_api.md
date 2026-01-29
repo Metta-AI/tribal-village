@@ -215,7 +215,7 @@ env.single_observation_space.dtype  # np.uint8
 ### Layer Groups
 
 **Terrain layers (one-hot):** Encode terrain type at each tile position.
-- Empty, Water, Bridge, Fertile, Road
+- Empty, Water, Bridge, Fertile, Road, Grass, Dune, Sand, Snow
 - Ramp directions (up/down for each cardinal direction)
 
 **Thing layers (one-hot):** Encode entity presence at each tile.
@@ -226,7 +226,10 @@ env.single_observation_space.dtype  # np.uint8
 - `TeamLayer`: Team ID + 1 (0 = neutral/none)
 - `AgentOrientationLayer`: Agent orientation + 1 (0 = no agent)
 - `AgentUnitClassLayer`: Unit class + 1 (0 = no agent)
+- `AgentIdleLayer`: 1 if agent is idle (NOOP/ORIENT action), 0 otherwise
 - `TintLayer`: Action/combat tint codes
+- `RallyPointLayer`: 1 if a friendly building has its rally point on this tile
+- `BiomeLayer`: Biome type enum value
 - `ObscuredLayer`: 1 if tile is above observer elevation (hidden)
 
 See `docs/observation_space.md` for complete layer documentation.
