@@ -579,6 +579,9 @@ type
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
+    # Wonder:
+    wonderVictoryCountdown*: int  # Steps remaining until Wonder victory (AoE2-style countdown)
+
 const
   # Spatial index constants
   SpatialCellSize* = 16  # Tiles per spatial cell
