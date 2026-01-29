@@ -553,3 +553,60 @@ proc tribal_village_market_buy_food*(env: pointer, agentId: int32, goldAmount: i
 proc tribal_village_decay_market_prices*(env: pointer) {.exportc, dynlib.} =
   ## Slowly drift market prices back toward base rate.
   decayMarketPrices(globalEnv)
+
+# --- Selection API ---
+
+proc tribal_village_select_units*(env: pointer, agentIds: ptr int32, count: int32) {.exportc, dynlib.} =
+  ## Replace current selection with the specified agent IDs.
+  var ids: seq[int] = @[]
+  for i in 0 ..< count:
+    ids.add(int(cast[ptr UncheckedArray[int32]](agentIds)[i]))
+  selectUnits(globalEnv, ids)
+
+proc tribal_village_add_to_selection*(env: pointer, agentId: int32) {.exportc, dynlib.} =
+  ## Add a single agent to the current selection.
+  addToSelection(globalEnv, int(agentId))
+
+proc tribal_village_remove_from_selection*(agentId: int32) {.exportc, dynlib.} =
+  ## Remove a single agent from the current selection.
+  removeFromSelection(int(agentId))
+
+proc tribal_village_clear_selection*() {.exportc, dynlib.} =
+  ## Clear the current selection.
+  clearSelection()
+
+proc tribal_village_get_selection_count*(): int32 {.exportc, dynlib.} =
+  ## Get the number of currently selected units.
+  int32(getSelectionCount())
+
+proc tribal_village_get_selected_agent_id*(index: int32): int32 {.exportc, dynlib.} =
+  ## Get the agent ID of a selected unit by index. Returns -1 if invalid.
+  int32(getSelectedAgentId(int(index)))
+
+# --- Control Group API ---
+
+proc tribal_village_create_control_group*(env: pointer, groupIndex: int32, agentIds: ptr int32, count: int32) {.exportc, dynlib.} =
+  ## Assign agents to a control group (0-9).
+  var ids: seq[int] = @[]
+  for i in 0 ..< count:
+    ids.add(int(cast[ptr UncheckedArray[int32]](agentIds)[i]))
+  createControlGroup(globalEnv, int(groupIndex), ids)
+
+proc tribal_village_recall_control_group*(env: pointer, groupIndex: int32) {.exportc, dynlib.} =
+  ## Recall a control group into the current selection.
+  recallControlGroup(globalEnv, int(groupIndex))
+
+proc tribal_village_get_control_group_count*(groupIndex: int32): int32 {.exportc, dynlib.} =
+  ## Get the number of units in a control group.
+  int32(getControlGroupCount(int(groupIndex)))
+
+proc tribal_village_get_control_group_agent_id*(groupIndex: int32, index: int32): int32 {.exportc, dynlib.} =
+  ## Get the agent ID at a position in a control group. Returns -1 if invalid.
+  int32(getControlGroupAgentId(int(groupIndex), int(index)))
+
+# --- Command to Selection ---
+
+proc tribal_village_issue_command_to_selection*(env: pointer, commandType: int32, targetX: int32, targetY: int32) {.exportc, dynlib.} =
+  ## Issue a command to all selected units.
+  ## commandType: 0=attack-move, 1=patrol, 2=stop
+  issueCommandToSelection(globalEnv, commandType, targetX, targetY)
