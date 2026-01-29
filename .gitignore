@@ -100,3 +100,4 @@ nim.cfg
 .beads/
 .logs/
 src/ffi
+scripts/run_all_tests
