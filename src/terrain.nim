@@ -61,10 +61,6 @@ proc getTerrainSpeedModifier*(terrain: TerrainType): float32 {.inline.} =
   ## Get the movement speed modifier for a terrain type.
   TerrainSpeedModifier[terrain]
 
-proc hasTerrainPenalty*(terrain: TerrainType): bool {.inline.} =
-  ## Check if terrain has a movement penalty (modifier < 1.0).
-  TerrainSpeedModifier[terrain] < 1.0'f32
-
 type
   Structure* = object
     width*, height*: int
@@ -80,17 +76,9 @@ const
   StructureBlacksmithChar* = 'F'
   StructureClayOvenChar* = 'C'
   StructureWeavingLoomChar* = 'W'
-  StructureTownCenterChar* = 'N'
-  StructureBarracksChar* = 'R'
-  StructureArcheryRangeChar* = 'G'
-  StructureStableChar* = 'P'
-  StructureSiegeWorkshopChar* = 'I'
-  StructureMarketChar* = 'M'
-  StructureDockChar* = 'K'
-  StructureUniversityChar* = 'U'
 
 type
-  BiomeKind* = enum
+  BiomeKind = enum
     BiomeBase
     BiomeForest
     BiomeDesert
@@ -219,16 +207,13 @@ proc splitCliffRing(mask: MaskGrid, mapWidth, mapHeight: int,
     for y in 0 ..< mapHeight:
       if not mask[x][y]:
         continue
-      let northOpen = y == 0 or not mask[x][y - 1]
-      let eastOpen = x == mapWidth - 1 or not mask[x + 1][y]
-      let southOpen = y == mapHeight - 1 or not mask[x][y + 1]
-      let westOpen = x == 0 or not mask[x - 1][y]
-      if northOpen or eastOpen or southOpen or westOpen:
+      if (y == 0 or not mask[x][y - 1]) or (x == mapWidth - 1 or not mask[x + 1][y]) or
+         (y == mapHeight - 1 or not mask[x][y + 1]) or (x == 0 or not mask[x - 1][y]):
         ringMask[x][y] = true
       else:
         innerMask[x][y] = true
 
-proc baseBiomeType*(): BiomeType =
+proc baseBiomeType(): BiomeType =
   case BaseBiome:
   of BiomeBase: BiomeBaseType
   of BiomeForest: BiomeForestType
@@ -240,13 +225,11 @@ proc baseBiomeType*(): BiomeType =
   of BiomeSwamp: BiomeSwampType
 
 proc zoneBounds(zone: ZoneRect, mapWidth, mapHeight, mapBorder: int): tuple[x0, y0, x1, y1: int] =
-  let x0 = max(mapBorder, zone.x)
-  let y0 = max(mapBorder, zone.y)
-  let x1 = min(mapWidth - mapBorder, zone.x + zone.w)
-  let y1 = min(mapHeight - mapBorder, zone.y + zone.h)
-  (x0: x0, y0: y0, x1: x1, y1: y1)
+  (x0: max(mapBorder, zone.x), y0: max(mapBorder, zone.y),
+   x1: min(mapWidth - mapBorder, zone.x + zone.w),
+   y1: min(mapHeight - mapBorder, zone.y + zone.h))
 
-proc maskEdgeDistance*(mask: MaskGrid, mapWidth, mapHeight: int, x, y, maxDepth: int): int =
+proc maskEdgeDistance(mask: MaskGrid, mapWidth, mapHeight: int, x, y, maxDepth: int): int =
   if not mask[x][y]:
     return 0
   for depth in 0 .. maxDepth:
@@ -309,22 +292,6 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
         terrain[x][y] = terrainType
         biomes[x][y] = biomeType
 
-proc applyBiomeZoneFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
-                        zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
-                        terrainType: TerrainType, biomeType: BiomeType,
-                        baseBiomeType: BiomeType) =
-  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
-  if x1 <= x0 or y1 <= y0:
-    return
-  for x in x0 ..< x1:
-    for y in y0 ..< y1:
-      if not zoneMask[x][y]:
-        continue
-      if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
-        continue
-      terrain[x][y] = terrainType
-      biomes[x][y] = biomeType
-
 proc applyBiomeZoneInsetFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
                              zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
                              biomeTerrain: TerrainType,
@@ -333,13 +300,12 @@ proc applyBiomeZoneInsetFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
   var innerMask: MaskGrid
   splitCliffRing(zoneMask, mapWidth, mapHeight, ringMask, innerMask)
   var hasInner = false
-  for x in 0 ..< mapWidth:
-    for y in 0 ..< mapHeight:
-      if innerMask[x][y]:
-        hasInner = true
-        break
-    if hasInner:
-      break
+  block findInner:
+    for x in 0 ..< mapWidth:
+      for y in 0 ..< mapHeight:
+        if innerMask[x][y]:
+          hasInner = true
+          break findInner
   if not hasInner:
     let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
     if x1 > x0 and y1 > y0:
@@ -348,16 +314,23 @@ proc applyBiomeZoneInsetFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
       if zoneMask[cx][cy]:
         innerMask[cx][cy] = true
       else:
-        for x in x0 ..< x1:
-          for y in y0 ..< y1:
-            if zoneMask[x][y]:
-              innerMask[x][y] = true
-              hasInner = true
-              break
-          if hasInner:
-            break
-  applyBiomeZoneFill(terrain, biomes, innerMask, zone, mapWidth, mapHeight, mapBorder,
-    biomeTerrain, biomeType, baseBiomeType)
+        block findFallback:
+          for x in x0 ..< x1:
+            for y in y0 ..< y1:
+              if zoneMask[x][y]:
+                innerMask[x][y] = true
+                break findFallback
+  # Inline fill: apply biome terrain to inner mask cells.
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
+  if x1 > x0 and y1 > y0:
+    for x in x0 ..< x1:
+      for y in y0 ..< y1:
+        if not innerMask[x][y]:
+          continue
+        if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
+          continue
+        terrain[x][y] = biomeTerrain
+        biomes[x][y] = biomeType
 
 type
   MaskBuilder[T] = proc(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
@@ -656,8 +629,6 @@ proc generateBranchPath(
     inCorner: proc(x, y: int): bool,
     r: var Rand
 ): seq[IVec2] =
-  let left = mapBorder
-  let right = mapWidth - mapBorder
   var path: seq[IVec2] = @[]
   var secondaryPos = forkPos
   var lastValid = forkPos
@@ -691,8 +662,8 @@ proc generateBranchPath(
 
   # Extend branch horizontally to safe x-position
   var tip = (if hasValid: lastValid else: forkPos)
-  let safeMinX = left + reserve
-  let safeMaxX = right - reserve - 1
+  let safeMinX = mapBorder + reserve
+  let safeMaxX = mapWidth - mapBorder - reserve - 1
   var edgeX = tip.x.int
   if safeMinX <= safeMaxX:
     if edgeX < safeMinX:
@@ -776,7 +747,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   let top = mapBorder
   let bottom = mapHeight - mapBorder
 
-  # Corner check closure for helper functions
   let inCorner = proc(x, y: int): bool =
     ((x >= left and x < left + reserve) and (y >= top and y < top + reserve)) or
     ((x >= right - reserve and x < right) and (y >= top and y < top + reserve)) or
@@ -1016,12 +986,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     var candidateIdx = stride
     while remaining > 0 and candidateIdx < group.cands.len:
       let center = group.cands[candidateIdx]
-      var alreadyPlaced = false
-      for p in placed:
-        if p == center:
-          alreadyPlaced = true
-          break
-      if not alreadyPlaced:
+      if center notin placed:
         placed.add(center)
       if group.useBranch:
         placeBridgeBranch(terrain, center)
@@ -1035,7 +1000,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
   template carveRoadPath(startPos, goalPos: IVec2, side: int) =
     var current = startPos
-    var prevDir = ivec2(0, 0)
     var segmentDir = ivec2(0, 0)
     var segmentStepsLeft = 0
     var diagToggle = false
@@ -1085,7 +1049,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
          not inCorner(nextPos.x, nextPos.y) and terrain[nextPos.x][nextPos.y] != Water and
          not (side < 0 and nextPos.y >= riverMid) and
          not (side > 0 and nextPos.y <= riverMid):
-        prevDir = stepDir
         current = nextPos
         dec segmentStepsLeft
         moved = true
@@ -1123,7 +1086,6 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
         if best.len == 0:
           break
         let fallback = best[randIntExclusive(r, 0, best.len)]
-        prevDir = fallback - current
         current = fallback
         moved = true
 
