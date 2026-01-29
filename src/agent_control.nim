@@ -148,3 +148,295 @@ proc isAgentPatrolActive*(agentId: int): bool =
   if not isNil(globalController) and globalController.controllerType == BuiltinAI:
     return globalController.aiController.isPatrolActive(agentId)
   false
+
+# Stance API
+# These functions allow external code to set combat stance for agents.
+
+proc setAgentStance*(env: Environment, agentId: int, stance: AgentStance) =
+  ## Set the combat stance for an agent.
+  if agentId >= 0 and agentId < env.agents.len:
+    let agent = env.agents[agentId]
+    if isAgentAlive(env, agent):
+      agent.stance = stance
+
+proc getAgentStance*(env: Environment, agentId: int): AgentStance =
+  ## Get the current combat stance for an agent.
+  if agentId >= 0 and agentId < env.agents.len:
+    let agent = env.agents[agentId]
+    if isAgentAlive(env, agent):
+      return agent.stance
+  StanceDefensive
+
+# Garrison API
+# These functions allow external code to garrison/ungarrison units.
+
+proc garrisonAgentInBuilding*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
+  ## Garrison an agent into the building at the given position.
+  ## Returns true if successful.
+  if agentId < 0 or agentId >= env.agents.len:
+    return false
+  let agent = env.agents[agentId]
+  if not isAgentAlive(env, agent):
+    return false
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  garrisonUnitInBuilding(env, agent, thing)
+
+proc ungarrisonAllFromBuilding*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Ungarrison all units from the building at the given position.
+  ## Returns the number of units ungarrisoned.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return 0
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return 0
+  let units = ungarrisonAllUnits(env, thing)
+  units.len.int32
+
+proc getGarrisonCount*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Get the number of units garrisoned in the building at the given position.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return 0
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return 0
+  thing.garrisonedUnits.len.int32
+
+# Production Queue API
+# These functions allow external code to queue/cancel unit training at buildings.
+
+proc queueUnitTraining*(env: Environment, buildingX, buildingY: int32, teamId: int32): bool =
+  ## Queue a unit for training at the building at the given position.
+  ## The unit type and cost are determined by the building type.
+  ## Returns true if successfully queued.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  if not buildingHasTrain(thing.kind):
+    return false
+  let unitClass = buildingTrainUnit(thing.kind, teamId)
+  let costs = buildingTrainCosts(thing.kind)
+  queueTrainUnit(env, thing, teamId, unitClass, costs)
+
+proc cancelLastQueuedUnit*(env: Environment, buildingX, buildingY: int32): bool =
+  ## Cancel the last unit in the production queue at the given building.
+  ## Returns true if a unit was cancelled.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  cancelLastQueued(env, thing)
+
+proc getProductionQueueSize*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Get the number of units in the production queue at the given building.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return 0
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return 0
+  thing.productionQueue.entries.len.int32
+
+proc getProductionQueueEntryProgress*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
+  ## Get the remaining steps for a production queue entry.
+  ## Returns -1 if invalid.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return -1
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return -1
+  if index < 0 or index >= thing.productionQueue.entries.len.int32:
+    return -1
+  thing.productionQueue.entries[index].remainingSteps.int32
+
+# Research API
+# These functions allow external code to research technologies at buildings.
+
+proc researchBlacksmithUpgrade*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
+  ## Research the next blacksmith upgrade at the given building.
+  ## The agent must be a villager at the building.
+  if agentId < 0 or agentId >= env.agents.len:
+    return false
+  let agent = env.agents[agentId]
+  if not isAgentAlive(env, agent):
+    return false
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or thing.kind != Blacksmith:
+    return false
+  tryResearchBlacksmithUpgrade(env, agent, thing)
+
+proc researchUniversityTech*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
+  ## Research the next university technology at the given building.
+  if agentId < 0 or agentId >= env.agents.len:
+    return false
+  let agent = env.agents[agentId]
+  if not isAgentAlive(env, agent):
+    return false
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or thing.kind != University:
+    return false
+  tryResearchUniversityTech(env, agent, thing)
+
+proc researchCastleTech*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
+  ## Research the next castle unique technology at the given building.
+  if agentId < 0 or agentId >= env.agents.len:
+    return false
+  let agent = env.agents[agentId]
+  if not isAgentAlive(env, agent):
+    return false
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or thing.kind != Castle:
+    return false
+  tryResearchCastleTech(env, agent, thing)
+
+proc researchUnitUpgrade*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
+  ## Research the next unit upgrade at the given building.
+  if agentId < 0 or agentId >= env.agents.len:
+    return false
+  let agent = env.agents[agentId]
+  if not isAgentAlive(env, agent):
+    return false
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing):
+    return false
+  tryResearchUnitUpgrade(env, agent, thing)
+
+proc hasBlacksmithUpgrade*(env: Environment, teamId: int, upgradeType: int32): int32 =
+  ## Get the current level of a blacksmith upgrade for a team.
+  ## upgradeType: 0=MeleeAttack, 1=ArcherAttack, 2=InfantryArmor, 3=CavalryArmor, 4=ArcherArmor
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if upgradeType < 0 or upgradeType > ord(BlacksmithUpgradeType.high).int32:
+    return 0
+  env.teamBlacksmithUpgrades[teamId].levels[BlacksmithUpgradeType(upgradeType)].int32
+
+proc hasUniversityTechResearched*(env: Environment, teamId: int, techType: int32): bool =
+  ## Check if a university tech has been researched for a team.
+  ## techType: 0=Ballistics, 1=MurderHoles, 2=Masonry, etc.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if techType < 0 or techType > ord(UniversityTechType.high).int32:
+    return false
+  hasUniversityTech(env, teamId, UniversityTechType(techType))
+
+proc hasCastleTechResearched*(env: Environment, teamId: int, techType: int32): bool =
+  ## Check if a castle tech has been researched for a team.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if techType < 0 or techType > ord(CastleTechType.high).int32:
+    return false
+  hasCastleTech(env, teamId, CastleTechType(techType))
+
+proc hasUnitUpgradeResearched*(env: Environment, teamId: int, upgradeType: int32): bool =
+  ## Check if a unit upgrade has been researched for a team.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return false
+  hasUnitUpgrade(env, teamId, UnitUpgradeType(upgradeType))
+
+# Scout Mode API
+# These functions allow external code to enable/disable scout mode for agents.
+
+proc setAgentScoutMode*(agentId: int, active: bool) =
+  ## Enable or disable scout mode for an agent.
+  ## Requires BuiltinAI controller.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.setScoutMode(agentId, active)
+
+proc isAgentScoutModeActive*(agentId: int): bool =
+  ## Check if an agent has scout mode active.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.isScoutModeActive(agentId)
+  false
+
+proc getAgentScoutExploreRadius*(agentId: int): int32 =
+  ## Get the current scout exploration radius for an agent.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    return globalController.aiController.getScoutExploreRadius(agentId)
+  0
+
+# Rally Point API
+# These functions allow external code to set rally points on buildings.
+
+proc setBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32, rallyX, rallyY: int32) =
+  ## Set the rally point for a building.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return
+  setRallyPoint(thing, ivec2(rallyX, rallyY))
+
+proc clearBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32) =
+  ## Clear the rally point for a building.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return
+  clearRallyPoint(thing)
+
+proc getBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32): IVec2 =
+  ## Get the rally point for a building. Returns (-1, -1) if no rally point is set.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return ivec2(-1, -1)
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return ivec2(-1, -1)
+  if hasRallyPoint(thing):
+    return thing.rallyPoint
+  ivec2(-1, -1)
+
+# Stop Command API
+# Clears all movement orders for an agent.
+
+proc stopAgent*(agentId: int) =
+  ## Stop an agent by clearing all active orders (attack-move, patrol, scout).
+  clearAgentAttackMoveTarget(agentId)
+  clearAgentPatrol(agentId)
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    globalController.aiController.clearScoutMode(agentId)
+
+# Formation API
+# Note: Formation system is not yet implemented in the engine.
+# These are placeholder APIs that will be functional when formations are added.
+
+proc setAgentFormation*(agentId: int, formationType: int32) =
+  ## Set formation type for an agent. Currently a no-op (formation system not implemented).
+  discard
+
+proc getAgentFormation*(agentId: int): int32 =
+  ## Get formation type for an agent. Returns 0 (none). Formation system not implemented.
+  0
+
+proc clearAgentFormation*(agentId: int) =
+  ## Clear formation for an agent. Currently a no-op (formation system not implemented).
+  discard
