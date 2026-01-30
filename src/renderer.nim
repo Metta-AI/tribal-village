@@ -1,5 +1,5 @@
 import
-  boxy, vmath, windy, tables,
+  boxy, pixie, vmath, windy, tables,
   std/[algorithm, math, os, strutils],
   common, environment
 
@@ -50,7 +50,14 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "Huskarl",
   "Mameluke",
   "Janissary",
-  "King"
+  "King",
+  # Unit upgrade tiers
+  "Long Swordsman",
+  "Champion",
+  "Light Cavalry",
+  "Hussar",
+  "Crossbowman",
+  "Arbalester"
 ]
 
 const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
@@ -802,3 +809,237 @@ proc drawStepLabel*(panelRect: IRect) =
   let labelW = stepLabelSize.x.float32 * scale
   drawFooterHudLabel(panelRect, key, stepLabelSize,
                      panelRect.w.float32 - labelW - FooterHudPadding + 25.0)
+
+# ─── Minimap ─────────────────────────────────────────────────────────────────
+
+const
+  MinimapSize = 200       # pixels (square)
+  MinimapPadding = 8.0'f32
+  MinimapUpdateInterval = 10  # rebuild unit layer every N frames
+  MinimapBorderWidth = 2.0'f32
+
+var
+  minimapTerrainImage: Image     # cached base terrain (invalidated on mapGeneration change)
+  minimapTerrainGeneration = -1
+  minimapCompositeImage: Image   # terrain + units + fog composite
+  minimapLastUnitFrame = -1
+  minimapImageKey = "minimap_composite"
+
+proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
+  ## Map a terrain+biome to a minimap pixel color.
+  case terrain
+  of Water:
+    rgbx(30, 60, 130, 255)        # dark blue
+  of ShallowWater:
+    rgbx(80, 140, 200, 255)       # lighter blue
+  of Bridge:
+    rgbx(140, 110, 80, 255)       # brown
+  of Road:
+    rgbx(160, 150, 130, 255)      # tan
+  of Snow:
+    rgbx(230, 235, 245, 255)      # near-white
+  of Dune, Sand:
+    rgbx(210, 190, 110, 255)      # sandy yellow
+  of Mud:
+    rgbx(100, 85, 60, 255)        # muddy brown
+  else:
+    # Use biome tint for base terrain (Empty, Grass, Fertile, ramps, etc.)
+    let tc = case biome
+      of BiomeForestType: BiomeColorForest
+      of BiomeDesertType: BiomeColorDesert
+      of BiomeCavesType: BiomeColorCaves
+      of BiomeCityType: BiomeColorCity
+      of BiomePlainsType: BiomeColorPlains
+      of BiomeSwampType: BiomeColorSwamp
+      of BiomeDungeonType: BiomeColorDungeon
+      of BiomeSnowType: BiomeColorSnow
+      else: BaseTileColorDefault
+    let i = min(tc.intensity, 1.3'f32)
+    rgbx(
+      uint8(clamp(tc.r * i * 255, 0, 255)),
+      uint8(clamp(tc.g * i * 255, 0, 255)),
+      uint8(clamp(tc.b * i * 255, 0, 255)),
+      255
+    )
+
+proc rebuildMinimapTerrain() =
+  ## Rebuild the cached terrain layer. Called when mapGeneration changes.
+  if minimapTerrainImage.isNil or
+     minimapTerrainImage.width != MinimapSize or
+     minimapTerrainImage.height != MinimapSize:
+    minimapTerrainImage = newImage(MinimapSize, MinimapSize)
+
+  # Scale factors: map coords -> minimap pixel
+  let scaleX = MinimapSize.float32 / MapWidth.float32
+  let scaleY = MinimapSize.float32 / MapHeight.float32
+
+  for py in 0 ..< MinimapSize:
+    for px in 0 ..< MinimapSize:
+      let mx = clamp(int(px.float32 / scaleX), 0, MapWidth - 1)
+      let my = clamp(int(py.float32 / scaleY), 0, MapHeight - 1)
+      let terrain = env.terrain[mx][my]
+      let biome = env.biomes[mx][my]
+      # Check for trees at this tile
+      let bg = env.backgroundGrid[mx][my]
+      let c = if not bg.isNil and bg.kind == Tree:
+        rgbx(40, 100, 40, 255)    # dark green for trees
+      else:
+        toMinimapColor(terrain, biome)
+      minimapTerrainImage.unsafe[px, py] = c
+
+  minimapTerrainGeneration = env.mapGeneration
+
+proc colorToRgbx(c: Color): ColorRGBX =
+  rgbx(
+    uint8(clamp(c.r * 255, 0, 255)),
+    uint8(clamp(c.g * 255, 0, 255)),
+    uint8(clamp(c.b * 255, 0, 255)),
+    255
+  )
+
+proc rebuildMinimapComposite(fogTeamId: int) =
+  ## Composite terrain + units + buildings + fog into final minimap image.
+  if minimapTerrainGeneration != env.mapGeneration:
+    rebuildMinimapTerrain()
+
+  if minimapCompositeImage.isNil or
+     minimapCompositeImage.width != MinimapSize or
+     minimapCompositeImage.height != MinimapSize:
+    minimapCompositeImage = newImage(MinimapSize, MinimapSize)
+
+  # Start from cached terrain
+  copyMem(addr minimapCompositeImage.data[0],
+          addr minimapTerrainImage.data[0],
+          MinimapSize * MinimapSize * 4)
+
+  let scaleX = MinimapSize.float32 / MapWidth.float32
+  let scaleY = MinimapSize.float32 / MapHeight.float32
+
+  # Draw buildings (team-colored, 2x2 pixel blocks)
+  for kind in ThingKind:
+    if not isBuildingKind(kind):
+      continue
+    for thing in env.thingsByKind[kind]:
+      if not isValidPos(thing.pos):
+        continue
+      let teamId = thing.teamId
+      let tc = if teamId >= 0 and teamId < env.teamColors.len:
+        env.teamColors[teamId]
+      else:
+        color(0.6, 0.6, 0.6, 1.0)
+      let bright = colorToRgbx(color(
+        min(tc.r * 1.2 + 0.1, 1.0),
+        min(tc.g * 1.2 + 0.1, 1.0),
+        min(tc.b * 1.2 + 0.1, 1.0),
+        1.0
+      ))
+      let px = int(thing.pos.x.float32 * scaleX)
+      let py = int(thing.pos.y.float32 * scaleY)
+      for dy in 0 .. 1:
+        for dx in 0 .. 1:
+          let fx = clamp(px + dx, 0, MinimapSize - 1)
+          let fy = clamp(py + dy, 0, MinimapSize - 1)
+          minimapCompositeImage.unsafe[fx, fy] = bright
+
+  # Draw units (team-colored dots)
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    let teamId = getTeamId(agent)
+    let tc = if teamId >= 0 and teamId < env.teamColors.len:
+      env.teamColors[teamId]
+    else:
+      color(0.5, 0.5, 0.5, 1.0)
+    let dot = colorToRgbx(tc)
+    let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSize - 1)
+    let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSize - 1)
+    minimapCompositeImage.unsafe[px, py] = dot
+
+  # Apply fog of war
+  if fogTeamId >= 0 and fogTeamId < MapRoomObjectsTeams:
+    for py in 0 ..< MinimapSize:
+      for px in 0 ..< MinimapSize:
+        let mx = clamp(int(px.float32 / scaleX), 0, MapWidth - 1)
+        let my = clamp(int(py.float32 / scaleY), 0, MapHeight - 1)
+        if not env.revealedMaps[fogTeamId][mx][my]:
+          # Darken unexplored tiles
+          let c = minimapCompositeImage.unsafe[px, py]
+          minimapCompositeImage.unsafe[px, py] = rgbx(
+            uint8(c.r.int shr 2),
+            uint8(c.g.int shr 2),
+            uint8(c.b.int shr 2),
+            c.a
+          )
+
+  minimapLastUnitFrame = frame
+  # Upload to boxy
+  bxy.addImage(minimapImageKey, minimapCompositeImage)
+
+proc drawMinimap*(panelRect: IRect, panel: Panel) =
+  ## Draw the minimap overlay in the bottom-left corner of the panel.
+  let fogTeamId = if settings.showFogOfWar: 0 else: -1
+
+  # Rebuild composite every N frames or on terrain change
+  if minimapTerrainGeneration != env.mapGeneration or
+     minimapLastUnitFrame < 0 or
+     (frame - minimapLastUnitFrame) >= MinimapUpdateInterval:
+    rebuildMinimapComposite(fogTeamId)
+
+  # Position: bottom-left, above footer
+  let mmX = panelRect.x.float32 + MinimapPadding
+  let mmY = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32 - MinimapSize.float32 - MinimapPadding
+
+  # Draw background border
+  bxy.drawRect(
+    rect = Rect(
+      x: mmX - MinimapBorderWidth,
+      y: mmY - MinimapBorderWidth,
+      w: MinimapSize.float32 + MinimapBorderWidth * 2,
+      h: MinimapSize.float32 + MinimapBorderWidth * 2
+    ),
+    color = color(0.08, 0.10, 0.14, 0.95)
+  )
+
+  # Draw the minimap texture
+  if minimapImageKey in bxy:
+    bxy.drawImage(minimapImageKey, vec2(mmX, mmY), angle = 0, scale = 1.0)
+
+  # Draw viewport rectangle
+  let scaleVal = window.contentScale
+  let rectW = panelRect.w.float32 / scaleVal
+  let rectH = panelRect.h.float32 / scaleVal
+  let zoomScale = panel.zoom * panel.zoom
+
+  if zoomScale > 0 and rectW > 0 and rectH > 0:
+    # Camera center in world coordinates
+    let cx = (rectW / 2.0'f32 - panel.pos.x) / zoomScale
+    let cy = (rectH / 2.0'f32 - panel.pos.y) / zoomScale
+    let halfW = rectW / (2.0'f32 * zoomScale)
+    let halfH = rectH / (2.0'f32 * zoomScale)
+
+    # Map world coords to minimap pixels
+    let mmScaleX = MinimapSize.float32 / MapWidth.float32
+    let mmScaleY = MinimapSize.float32 / MapHeight.float32
+
+    let vpX = mmX + (cx - halfW) * mmScaleX
+    let vpY = mmY + (cy - halfH) * mmScaleY
+    let vpW = halfW * 2.0 * mmScaleX
+    let vpH = halfH * 2.0 * mmScaleY
+
+    # Clamp to minimap bounds
+    let x0 = max(vpX, mmX)
+    let y0 = max(vpY, mmY)
+    let x1 = min(vpX + vpW, mmX + MinimapSize.float32)
+    let y1 = min(vpY + vpH, mmY + MinimapSize.float32)
+
+    if x1 > x0 and y1 > y0:
+      let lineW = 1.5'f32
+      let vpColor = color(1.0, 1.0, 1.0, 0.85)
+      # Top edge
+      bxy.drawRect(Rect(x: x0, y: y0, w: x1 - x0, h: lineW), vpColor)
+      # Bottom edge
+      bxy.drawRect(Rect(x: x0, y: y1 - lineW, w: x1 - x0, h: lineW), vpColor)
+      # Left edge
+      bxy.drawRect(Rect(x: x0, y: y0, w: lineW, h: y1 - y0), vpColor)
+      # Right edge
+      bxy.drawRect(Rect(x: x1 - lineW, y: y0, w: lineW, h: y1 - y0), vpColor)

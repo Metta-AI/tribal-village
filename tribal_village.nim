@@ -540,6 +540,7 @@ proc display() =
 
   bxy.restoreTransform()
   let footerButtons = buildFooterButtons(panelRectInt)
+  drawMinimap(panelRectInt, worldMapPanel)
   drawFooter(panelRectInt, footerButtons)
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
