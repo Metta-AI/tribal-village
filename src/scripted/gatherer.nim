@@ -2,6 +2,14 @@ import coordination
 
 const GathererFleeRadius = 8  # Smaller than fighter detection - flee early to survive
 
+template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
+  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
+  ## shouldTerminate is the logical negation of canStart.
+  proc canName(controller: Controller, env: Environment, agent: Thing,
+               agentId: int, state: var AgentState): bool = body
+  proc termName(controller: Controller, env: Environment, agent: Thing,
+                agentId: int, state: var AgentState): bool = not (body)
+
 # Game phase thresholds for resource priority weighting
 # Early game: prioritize Food > Wood > Stone > Gold
 # Late game: prioritize Gold > Stone > Wood > Food
@@ -21,13 +29,8 @@ proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   let teamId = getTeamId(agent)
   findNearestEnemyAgentSpatial(env, agent.pos, teamId, GathererFleeRadius)
 
-proc canStartGathererFlee(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
   not isNil(gathererFindNearbyEnemy(env, agent))
-
-proc shouldTerminateGathererFlee(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  isNil(gathererFindNearbyEnemy(env, agent))
 
 proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -100,26 +103,26 @@ proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thin
     return (true, actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8))
   (false, 0'u8)
 
-proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
-                        state: var AgentState) =
-  let teamId = getTeamId(agent)
-  var altarPos = ivec2(-1, -1)
-  var altarHearts = 0
+proc findTeamAltar(env: Environment, agent: Thing, teamId: int): (IVec2, int) =
+  ## Find the nearest team altar, preferring the agent's home altar.
+  ## Returns (position, hearts) or (ivec2(-1,-1), 0) if none found.
   if agent.homeAltar.x >= 0:
     let homeAltar = env.getThing(agent.homeAltar)
     if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
-      altarPos = homeAltar.pos
-      altarHearts = homeAltar.hearts
-  if altarPos.x < 0:
-    var bestDist = int.high
-    for altar in env.thingsByKind[Altar]:
-      if altar.teamId != teamId:
-        continue
-      let dist = abs(altar.pos.x - agent.pos.x) + abs(altar.pos.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        altarPos = altar.pos
-        altarHearts = altar.hearts
+      return (homeAltar.pos, homeAltar.hearts)
+  var bestDist = int.high
+  result = (ivec2(-1, -1), 0)
+  for altar in env.thingsByKind[Altar]:
+    if altar.teamId != teamId: continue
+    let dist = abs(altar.pos.x - agent.pos.x) + abs(altar.pos.y - agent.pos.y)
+    if dist < bestDist:
+      bestDist = dist
+      result = (altar.pos, altar.hearts)
+
+proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
+                        state: var AgentState) =
+  let teamId = getTeamId(agent)
+  let (altarPos, altarHearts) = findTeamAltar(env, agent, teamId)
   let altarFound = altarPos.x >= 0
   var task = TaskFood
 
@@ -201,14 +204,8 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
     nearbyCount, minCount, nearbyKinds)
   if didBuild: buildAct else: 0'u8
 
-proc canStartGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererPlantOnFertile, shouldTerminateGathererPlantOnFertile):
   state.gathererTask != TaskHearts and (agent.inventoryWheat > 0 or agent.inventoryWood > 0)
-
-proc shouldTerminateGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                                           agentId: int, state: var AgentState): bool =
-  ## Terminate when no seeds to plant or task changed to hearts
-  state.gathererTask == TaskHearts or (agent.inventoryWheat == 0 and agent.inventoryWood == 0)
 
 proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
@@ -216,13 +213,8 @@ proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: 
   if didPlant: return actPlant
   0'u8
 
-proc canStartGathererCarrying(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererCarrying, shouldTerminateGathererCarrying):
   gathererStockpileTotal(agent) > 0
-
-proc shouldTerminateGathererCarrying(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  gathererStockpileTotal(agent) == 0
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -248,14 +240,8 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
     return saveStateAndReturn(controller, agentId, state, 0'u8)  # Noop when blocked
   return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dir.uint8))
 
-proc canStartGathererHearts(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererHearts, shouldTerminateGathererHearts):
   state.gathererTask == TaskHearts
-
-proc shouldTerminateGathererHearts(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  # Terminate when task changes away from hearts
-  state.gathererTask != TaskHearts
 
 proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
@@ -281,21 +267,14 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
   if didGold: return actGold
   return controller.moveNextSearch(env, agent, agentId, state)
 
-proc canStartGathererResource(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererResource, shouldTerminateGathererResource):
   state.gathererTask in {TaskGold, TaskWood, TaskStone}
-
-proc shouldTerminateGathererResource(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  # Terminate when task changes to a different resource type (food or hearts)
-  state.gathererTask notin {TaskGold, TaskWood, TaskStone}
 
 proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   var campKind: ThingKind
-  var nearbyCount = 0
-  var minCount = 0
+  var nearbyCount, minCount: int
   case state.gathererTask
   of TaskGold:
     campKind = MiningCamp
@@ -316,28 +295,16 @@ proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
     campKind, nearbyCount, minCount, [campKind]
   )
   if buildAct != 0'u8: return buildAct
-  case state.gathererTask
-  of TaskGold:
-    let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
-    if didGold: return actGold
-  of TaskWood:
-    let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-    if didWood: return actWood
-  of TaskStone:
-    let (didStone, actStone) = controller.ensureStone(env, agent, agentId, state)
-    if didStone: return actStone
-  else:
-    discard
+  let (didGather, actGather) = case state.gathererTask
+    of TaskGold: controller.ensureGold(env, agent, agentId, state)
+    of TaskWood: controller.ensureWood(env, agent, agentId, state)
+    of TaskStone: controller.ensureStone(env, agent, agentId, state)
+    else: (false, 0'u8)
+  if didGather: return actGather
   return controller.moveNextSearch(env, agent, agentId, state)
 
-proc canStartGathererFood(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererFood, shouldTerminateGathererFood):
   state.gathererTask == TaskFood
-
-proc shouldTerminateGathererFood(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  # Terminate when task changes away from food
-  state.gathererTask != TaskFood
 
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
@@ -384,9 +351,8 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
         if didWater: return actWater
 
   if state.closestFoodPos.x >= 0:
-    if state.closestFoodPos == state.pathBlockedTarget:
-      state.closestFoodPos = ivec2(-1, -1)
-    elif isResourceReserved(teamId, state.closestFoodPos, agent.agentId):
+    if state.closestFoodPos == state.pathBlockedTarget or
+       isResourceReserved(teamId, state.closestFoodPos, agent.agentId):
       state.closestFoodPos = ivec2(-1, -1)
     else:
       let knownThing = env.getThing(state.closestFoodPos)
@@ -421,14 +387,8 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
 
-proc canStartGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererIrrigate, shouldTerminateGathererIrrigate):
   agent.inventoryWater > 0
-
-proc shouldTerminateGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  # Terminate when no longer carrying water
-  agent.inventoryWater <= 0
 
 proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -438,13 +398,8 @@ proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   return actOrMove(controller, env, agent, agentId, state, target, 3'u8)
 
-proc canStartGathererScavenge(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): bool =
+gathererGuard(canStartGathererScavenge, shouldTerminateGathererScavenge):
   gathererStockpileTotal(agent) < ResourceCarryCapacity and env.thingsByKind[Skeleton].len > 0
-
-proc shouldTerminateGathererScavenge(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  gathererStockpileTotal(agent) >= ResourceCarryCapacity or env.thingsByKind[Skeleton].len == 0
 
 proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint8 =
@@ -469,17 +424,8 @@ proc findNearestPredatorInRadius(env: Environment, pos: IVec2, radius: int): Thi
         best = thing
   best
 
-proc canStartGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
-  ## Gatherers flee when a predator is within the flee radius
-  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
-  not isNil(predator)
-
-proc shouldTerminateGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  ## Stop fleeing when no predators are within the flee radius
-  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
-  isNil(predator)
+gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
+  not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius))
 
 proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
