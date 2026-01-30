@@ -726,6 +726,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Skip inactive agents
   if not isAgentAlive(env, agent):
+    setAuditBranch(BranchInactive)
     return encodeAction(0'u8, 0'u8)
 
   initScriptedState(controller)
@@ -797,6 +798,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Decision delay based on difficulty - simulates "thinking time"
   # Lower difficulty = more delays, making AI slower to react
   if controller.shouldApplyDecisionDelay(teamId):
+    setAuditBranch(BranchDecisionDelay)
     return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
 
   # Update shared threat map with what this agent can see
@@ -821,6 +823,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       if other.unitClass == UnitGoblin and isAgentAlive(env, other):
         totalRelicsHeld += other.inventoryRelic
     if totalRelicsHeld >= MapRoomObjectsRelics and env.thingsByKind[Relic].len == 0:
+      setAuditBranch(BranchGoblinRelic)
       return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
 
     # Use spatial index to find nearest non-goblin threat instead of scanning all agents
@@ -851,12 +854,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let dx = signi(agent.pos.x - nearestThreat.pos.x)
       let dy = signi(agent.pos.y - nearestThreat.pos.y)
       let awayTarget = clampToPlayable(agent.pos + ivec2(dx * 6, dy * 6))
+      setAuditBranch(BranchGoblinAvoid)
       return controller.moveTo(env, agent, agentId, state, awayTarget)
 
     let relic = env.findNearestThingSpiral(state, Relic)
     if not isNil(relic):
+      setAuditBranch(BranchGoblinSearch)
       return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
+    setAuditBranch(BranchGoblinSearch)
     return controller.moveNextSearch(env, agent, agentId, state)
 
   # --- Simple bail-out to avoid getting stuck/oscillation ---
@@ -938,6 +944,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         if state.escapeStepsRemaining <= 0:
           state.escapeMode = false
         state.lastPosition = agent.pos
+        setAuditBranch(BranchEscape)
         return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, vecToOrientation(d).uint8))
     # If all blocked, drop out of escape for this tick
     state.escapeMode = false
@@ -952,6 +959,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
+    setAuditBranch(BranchAttackOpportunity)
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
 
   # Patrol behavior - applies to all roles when patrol is active
@@ -961,6 +969,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
       if not isNil(enemy):
         # Move toward enemy to engage
+        setAuditBranch(BranchPatrolChase)
         return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
     # Determine current patrol target
@@ -973,9 +982,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       state.patrolToSecondPoint = not state.patrolToSecondPoint
       # Get the new target after switching
       let newTarget = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
+      setAuditBranch(BranchPatrolMove)
       return controller.moveTo(env, agent, agentId, state, newTarget)
 
     # Move toward current waypoint
+    setAuditBranch(BranchPatrolMove)
     return controller.moveTo(env, agent, agentId, state, target)
 
   # Rally point behavior - newly trained units move toward their rally destination
@@ -984,6 +995,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       # Arrived at rally point - clear it
       agent.rallyTarget = ivec2(-1, -1)
     else:
+      setAuditBranch(BranchRallyPoint)
       return controller.moveTo(env, agent, agentId, state, agent.rallyTarget)
 
   # Attack-move behavior - applies to all roles when attack-move target is set
@@ -1000,14 +1012,18 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
           if enemyDist <= 8:  # Attack-move detection radius
             # Enemy found - engage!
+            setAuditBranch(BranchAttackMoveEngage)
             return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
       # No enemy nearby - continue moving toward destination
+      setAuditBranch(BranchAttackMoveAdvance)
       return controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
 
   # Global: prioritize getting hearts to 10 via gold -> magma -> altar (gatherers only).
   if state.role == Gatherer:
     let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)
-    if didHearts: return heartsAct
+    if didHearts:
+      setAuditBranch(BranchHearts)
+      return heartsAct
 
   # Global: keep population cap ahead of current population (gatherers only).
   if state.role == Gatherer and agent.unitClass == UnitVillager:
@@ -1023,13 +1039,18 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       if requiredWood > 0 and
           env.stockpileCount(teamId, ResourceWood) + agent.inventoryWood < requiredWood:
         let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
+        if didWood:
+          setAuditBranch(BranchPopCapWood)
+          return actWood
       if env.canAffordBuild(agent, houseKey):
         let (didHouse, houseAct) =
           tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, state.basePosition)
-        if didHouse: return houseAct
+        if didHouse:
+          setAuditBranch(BranchPopCapBuild)
+          return houseAct
 
   # Role-based decision making (unified priority lists)
+  setAuditBranch(BranchRoleCatalog)
   let action = decideRoleFromCatalog(controller, env, agent, agentId, state)
   return saveStateAndReturn(controller, agentId, state, action)
 
