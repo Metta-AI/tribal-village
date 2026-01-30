@@ -1681,9 +1681,10 @@ proc initFinalize(env: Environment) =
   # Build initial spatial index for efficient nearest-thing queries
   rebuildSpatialIndex(env)
 
-proc init(env: Environment) =
+proc init(env: Environment, seed: int = 0) =
   ## Initialize the environment by orchestrating all initialization phases.
-  let seed = int(nowSeconds() * 1000)
+  ## When seed is 0 (default), uses current time for non-deterministic init.
+  let seed = if seed == 0: int(nowSeconds() * 1000) else: seed
   var rng = initRand(seed)
 
   # Phase 1: Reset all state
@@ -1743,5 +1744,10 @@ proc newEnvironment*(config: EnvironmentConfig): Environment =
   ## Create a new environment with custom configuration
   result = Environment(config: config)
   result.init()
+
+proc newEnvironment*(config: EnvironmentConfig, seed: int): Environment =
+  ## Create a new environment with custom configuration and explicit seed
+  result = Environment(config: config)
+  result.init(seed)
 
 # Global environment is initialized by entry points (e.g., tribal_village.nim).
