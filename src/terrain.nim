@@ -292,6 +292,27 @@ proc applyTerrainBlendToZone(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
         terrain[x][y] = terrainType
         biomes[x][y] = biomeType
 
+proc ensureInnerCells(innerMask: var MaskGrid, zoneMask: MaskGrid,
+                      zone: ZoneRect, mapWidth, mapHeight, mapBorder: int) =
+  ## If innerMask has no set cells, seed it with the zone center or first available cell.
+  for x in 0 ..< mapWidth:
+    for y in 0 ..< mapHeight:
+      if innerMask[x][y]:
+        return
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
+  if x1 <= x0 or y1 <= y0:
+    return
+  let cx = (x0 + x1 - 1) div 2
+  let cy = (y0 + y1 - 1) div 2
+  if zoneMask[cx][cy]:
+    innerMask[cx][cy] = true
+    return
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      if zoneMask[x][y]:
+        innerMask[x][y] = true
+        return
+
 proc applyBiomeZoneInsetFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zoneMask: MaskGrid,
                              zone: ZoneRect, mapWidth, mapHeight, mapBorder: int,
                              biomeTerrain: TerrainType,
@@ -299,38 +320,18 @@ proc applyBiomeZoneInsetFill(terrain: var TerrainGrid, biomes: var BiomeGrid, zo
   var ringMask: MaskGrid
   var innerMask: MaskGrid
   splitCliffRing(zoneMask, mapWidth, mapHeight, ringMask, innerMask)
-  var hasInner = false
-  block findInner:
-    for x in 0 ..< mapWidth:
-      for y in 0 ..< mapHeight:
-        if innerMask[x][y]:
-          hasInner = true
-          break findInner
-  if not hasInner:
-    let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
-    if x1 > x0 and y1 > y0:
-      let cx = (x0 + x1 - 1) div 2
-      let cy = (y0 + y1 - 1) div 2
-      if zoneMask[cx][cy]:
-        innerMask[cx][cy] = true
-      else:
-        block findFallback:
-          for x in x0 ..< x1:
-            for y in y0 ..< y1:
-              if zoneMask[x][y]:
-                innerMask[x][y] = true
-                break findFallback
-  # Inline fill: apply biome terrain to inner mask cells.
+  ensureInnerCells(innerMask, zoneMask, zone, mapWidth, mapHeight, mapBorder)
   let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
-  if x1 > x0 and y1 > y0:
-    for x in x0 ..< x1:
-      for y in y0 ..< y1:
-        if not innerMask[x][y]:
-          continue
-        if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
-          continue
-        terrain[x][y] = biomeTerrain
-        biomes[x][y] = biomeType
+  if x1 <= x0 or y1 <= y0:
+    return
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      if not innerMask[x][y]:
+        continue
+      if not canApplyBiome(biomes[x][y], biomeType, baseBiomeType):
+        continue
+      terrain[x][y] = biomeTerrain
+      biomes[x][y] = biomeType
 
 type
   MaskBuilder[T] = proc(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
@@ -619,8 +620,10 @@ proc applyBaseBiome(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     applyBaseBiomeMask(terrain, mapWidth, mapHeight, mapBorder, r,
       buildBiomeSwampMask, BiomeSwampConfig(), BiomeSwampTerrain)
 
-# River generation helper: Generate a tributary branch path in a given direction.
-# dirY should be -1 for upward branch, 1 for downward branch.
+# ---------------------------------------------------------------------------
+# River generation: tributary branch paths
+# ---------------------------------------------------------------------------
+
 proc generateBranchPath(
     forkPos: IVec2,
     dirY: int,
@@ -706,8 +709,10 @@ proc generateBranchPath(
 
   result = path
 
-# River generation helper: Place water tiles along a path with given radius.
-# Deep water is placed in the center (impassable), shallow water on edges (passable but slow).
+# ---------------------------------------------------------------------------
+# River generation: water tile placement
+# ---------------------------------------------------------------------------
+
 proc placeWaterPath(
     terrain: var TerrainGrid,
     path: seq[IVec2],
@@ -715,7 +720,6 @@ proc placeWaterPath(
     mapWidth, mapHeight: int,
     inCorner: proc(x, y: int): bool
 ) =
-  # Deep water radius is smaller than full radius to create shallow edges
   let deepRadius = max(1, radius - 1)
   let deepRadius2 = deepRadius * deepRadius
   for pos in path:
@@ -727,14 +731,401 @@ proc placeWaterPath(
           continue
         if inCorner(waterPos.x, waterPos.y):
           continue
-        # Use Euclidean distance to determine depth
         let dist2 = dx * dx + dy * dy
         if dist2 <= deepRadius2:
-          terrain[waterPos.x][waterPos.y] = Water  # Deep water (center)
+          terrain[waterPos.x][waterPos.y] = Water
         else:
-          terrain[waterPos.x][waterPos.y] = ShallowWater  # Shallow water (edges)
+          terrain[waterPos.x][waterPos.y] = ShallowWater
+
+# ---------------------------------------------------------------------------
+# Bridge helpers (extracted from generateRiver)
+# ---------------------------------------------------------------------------
+
+proc slopeSignForRiverAt(riverYByX: seq[int], center: IVec2): int =
+  ## Determine the river's slope direction at a given x-position.
+  let x = center.x.int
+  let y = center.y.int
+  if x + 1 < riverYByX.len and riverYByX[x + 1] >= 0:
+    let dy = riverYByX[x + 1] - y
+    if dy != 0:
+      return (if dy > 0: 1 else: -1)
+  if x - 1 >= 0 and riverYByX[x - 1] >= 0:
+    let dy = y - riverYByX[x - 1]
+    if dy != 0:
+      return (if dy > 0: 1 else: -1)
+  0
+
+proc slopeSignForPath(path: seq[IVec2], center: IVec2): int =
+  ## Determine the slope direction along a path at a given position.
+  let idx = path.find(center)
+  if idx < 0:
+    return 0
+  if idx + 1 < path.len:
+    let dy = (path[idx + 1].y - center.y).int
+    if dy != 0:
+      return (if dy > 0: 1 else: -1)
+  if idx > 0:
+    let dy = (center.y - path[idx - 1].y).int
+    if dy != 0:
+      return (if dy > 0: 1 else: -1)
+  0
+
+proc placeBridgeSpan(terrain: var TerrainGrid, center, dir, width: IVec2,
+                     mapWidth, mapHeight, mapBorder: int,
+                     inCorner: proc(x, y: int): bool) =
+  ## Place a three-tile-wide bridge span across water in the given direction.
+  let bridgeOverhang = 1
+  let scanLimit = RiverWidth * 2 + 6
+  let cx = center.x.int
+  let cy = center.y.int
+  let dx = dir.x.int
+  let dy = dir.y.int
+  let wx = width.x.int
+  let wy = width.y.int
+
+  template setBridgeTile(x, y: int) =
+    if x >= mapBorder and x < mapWidth - mapBorder and
+       y >= mapBorder and y < mapHeight - mapBorder and
+       not inCorner(x, y):
+      terrain[x][y] = Bridge
+
+  proc hasWaterAt(grid: var TerrainGrid, step: int): bool =
+    for w in -1 .. 1:
+      let x = cx + dx * step + wx * w
+      let y = cy + dy * step + wy * w
+      if x < mapBorder or x >= mapWidth - mapBorder or
+         y < mapBorder or y >= mapHeight - mapBorder:
+        continue
+      if inCorner(x, y):
+        continue
+      if grid[x][y] in {Water, Bridge}:
+        return true
+    false
+
+  if not hasWaterAt(terrain, 0):
+    return
+  var startStep = 0
+  var endStep = 0
+  while startStep > -scanLimit and hasWaterAt(terrain, startStep - 1):
+    dec startStep
+  while endStep < scanLimit and hasWaterAt(terrain, endStep + 1):
+    inc endStep
+  startStep -= bridgeOverhang
+  endStep += bridgeOverhang
+
+  if abs(dx) + abs(dy) == 2:
+    let spanSteps = endStep - startStep
+    for w in -1 .. 1:
+      var x = cx + dx * startStep + wx * w
+      var y = cy + dy * startStep + wy * w
+      setBridgeTile(x, y)
+      for _ in 0 ..< spanSteps:
+        x += dx
+        setBridgeTile(x, y)
+        y += dy
+        setBridgeTile(x, y)
+  else:
+    for step in startStep .. endStep:
+      for w in -1 .. 1:
+        let x = cx + dx * step + wx * w
+        let y = cy + dy * step + wy * w
+        setBridgeTile(x, y)
+
+proc placeBridgeOnRiver(terrain: var TerrainGrid, center: IVec2,
+                        riverYByX: seq[int],
+                        mapWidth, mapHeight, mapBorder: int,
+                        inCorner: proc(x, y: int): bool) =
+  ## Place a bridge across the main river at the given center point.
+  let slope = slopeSignForRiverAt(riverYByX, center)
+  if slope != 0:
+    placeBridgeSpan(terrain, center, ivec2(1'i32, (-slope).int32),
+                    ivec2(1'i32, slope.int32), mapWidth, mapHeight, mapBorder, inCorner)
+  else:
+    placeBridgeSpan(terrain, center, ivec2(0, 1), ivec2(1, 0),
+                    mapWidth, mapHeight, mapBorder, inCorner)
+
+proc placeBridgeOnBranch(terrain: var TerrainGrid, center: IVec2,
+                         branchUpPath, branchDownPath: seq[IVec2],
+                         mapWidth, mapHeight, mapBorder: int,
+                         inCorner: proc(x, y: int): bool) =
+  ## Place a bridge across a tributary branch at the given center point.
+  var slope = slopeSignForPath(branchUpPath, center)
+  if slope == 0:
+    slope = slopeSignForPath(branchDownPath, center)
+  if slope != 0:
+    placeBridgeSpan(terrain, center, ivec2(1'i32, (-slope).int32),
+                    ivec2(1'i32, slope.int32), mapWidth, mapHeight, mapBorder, inCorner)
+  else:
+    placeBridgeSpan(terrain, center, ivec2(1, 0), ivec2(0, 1),
+                    mapWidth, mapHeight, mapBorder, inCorner)
+
+proc buildBridgeCandidates(path: seq[IVec2],
+                           mapWidth, mapHeight, mapBorder: int,
+                           inCorner: proc(x, y: int): bool): seq[IVec2] =
+  result = @[]
+  for pos in path:
+    if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
+       pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
+       not inCorner(pos.x, pos.y):
+      result.add(pos)
+
+proc placeBridges(terrain: var TerrainGrid,
+                  riverPath, branchUpPath, branchDownPath: seq[IVec2],
+                  riverYByX: seq[int],
+                  forkUpIdx, forkDownIdx: int,
+                  mapWidth, mapHeight, mapBorder: int,
+                  inCorner: proc(x, y: int): bool,
+                  r: var Rand) =
+  ## Place bridges across the river and tributary branches.
+  let mainCandidates = buildBridgeCandidates(riverPath, mapWidth, mapHeight, mapBorder, inCorner)
+  let branchUpCandidates = buildBridgeCandidates(branchUpPath, mapWidth, mapHeight, mapBorder, inCorner)
+  let branchDownCandidates = buildBridgeCandidates(branchDownPath, mapWidth, mapHeight, mapBorder, inCorner)
+
+  let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
+  let desiredBridges = max(randIntInclusive(r, 3, 4), (if hasBranch: 3 else: 0)) * 2
+
+  var placed: seq[IVec2] = @[]
+
+  template placeFromMain(cands: seq[IVec2]) =
+    if cands.len > 0:
+      let center = cands[cands.len div 2]
+      placeBridgeOnRiver(terrain, center, riverYByX, mapWidth, mapHeight, mapBorder, inCorner)
+      placed.add(center)
+
+  # Place strategic bridges near fork points
+  if hasBranch:
+    if forkUpIdx >= 0:
+      let upstream = if forkUpIdx > 0: mainCandidates[0 ..< min(forkUpIdx, mainCandidates.len)] else: @[]
+      placeFromMain(upstream)
+    for candidates in [branchUpCandidates, branchDownCandidates]:
+      if candidates.len > 0:
+        let firstIdx = candidates.len div 3
+        let secondIdx = max(firstIdx + 1, (candidates.len * 2) div 3)
+        placeBridgeOnBranch(terrain, candidates[firstIdx], branchUpPath, branchDownPath,
+                            mapWidth, mapHeight, mapBorder, inCorner)
+        placed.add(candidates[firstIdx])
+        if secondIdx < candidates.len:
+          placeBridgeOnBranch(terrain, candidates[secondIdx], branchUpPath, branchDownPath,
+                              mapWidth, mapHeight, mapBorder, inCorner)
+          placed.add(candidates[secondIdx])
+    if forkDownIdx >= 0 and forkDownIdx < mainCandidates.len:
+      let downstream = mainCandidates[min(forkDownIdx, mainCandidates.len - 1) ..< mainCandidates.len]
+      placeFromMain(downstream)
+
+  # Fill remaining bridges by spreading along main river first, then branches
+  var remaining = desiredBridges - placed.len
+  let remainingGroups: array[3, tuple[cands: seq[IVec2], isBranch: bool]] = [
+    (cands: mainCandidates, isBranch: false),
+    (cands: branchUpCandidates, isBranch: true),
+    (cands: branchDownCandidates, isBranch: true)
+  ]
+  for group in remainingGroups:
+    if remaining <= 0:
+      break
+    if group.cands.len == 0:
+      continue
+    let stride = max(1, group.cands.len div (remaining + 1))
+    var candidateIdx = stride
+    while remaining > 0 and candidateIdx < group.cands.len:
+      let center = group.cands[candidateIdx]
+      if center notin placed:
+        placed.add(center)
+      if group.isBranch:
+        placeBridgeOnBranch(terrain, center, branchUpPath, branchDownPath,
+                            mapWidth, mapHeight, mapBorder, inCorner)
+      else:
+        placeBridgeOnRiver(terrain, center, riverYByX, mapWidth, mapHeight, mapBorder, inCorner)
+      dec remaining
+      candidateIdx += stride
+
+# ---------------------------------------------------------------------------
+# Road generation (extracted from generateRiver)
+# ---------------------------------------------------------------------------
+
+proc carveRoadPath(terrain: var TerrainGrid, startPos, goalPos: IVec2,
+                   side, riverMid: int,
+                   mapWidth, mapHeight, mapBorder: int,
+                   inCorner: proc(x, y: int): bool,
+                   r: var Rand) =
+  ## Carve a meandering road path between two points.
+  ## `side` constrains which side of the river to stay on: -1 = north, 1 = south, 0 = either.
+  let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
+  var current = startPos
+  var segmentDir = ivec2(0, 0)
+  var segmentStepsLeft = 0
+  var diagToggle = false
+  let maxSteps = mapWidth * mapHeight
+  var steps = 0
+  var stagnation = 0
+  var lastDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
+  if terrain[current.x][current.y] notin {Water, Bridge}:
+    terrain[current.x][current.y] = Road
+  while current != goalPos and steps < maxSteps:
+    if segmentStepsLeft <= 0 or stagnation > 10 or steps > (maxSteps div 2):
+      let dxGoal = goalPos.x - current.x
+      let dyGoal = goalPos.y - current.y
+      let baseDir = block:
+        let sx = (if dxGoal < 0: -1'i32 elif dxGoal > 0: 1'i32 else: 0'i32)
+        let sy = (if dyGoal < 0: -1'i32 elif dyGoal > 0: 1'i32 else: 0'i32)
+        if abs(dxGoal) >= abs(dyGoal):
+          ivec2(sx, 0)
+        else:
+          ivec2(0, sy)
+      if baseDir.x == 0 and baseDir.y == 0:
+        break
+      let orthoA = ivec2(baseDir.y, baseDir.x)
+      let orthoB = ivec2(-baseDir.y, -baseDir.x)
+      let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
+      let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
+      let roll = randFloat(r)
+      if roll < 0.35:
+        segmentDir = if randChance(r, 0.5): diagA else: diagB
+      elif roll < 0.92:
+        segmentDir = baseDir
+      else:
+        segmentDir = if randChance(r, 0.5): orthoA else: orthoB
+      segmentStepsLeft = randIntInclusive(r, 7, 12)
+      diagToggle = randChance(r, 0.5)
+
+    let stepDir = if segmentDir.x != 0 and segmentDir.y != 0:
+      let dir = if diagToggle: ivec2(segmentDir.x, 0) else: ivec2(0, segmentDir.y)
+      diagToggle = not diagToggle
+      dir
+    else:
+      segmentDir
+    let nextPos = current + stepDir
+    var moved = false
+    if nextPos.x >= mapBorder and nextPos.x < mapWidth - mapBorder and
+       nextPos.y >= mapBorder and nextPos.y < mapHeight - mapBorder and
+       not inCorner(nextPos.x, nextPos.y) and terrain[nextPos.x][nextPos.y] != Water and
+       not (side < 0 and nextPos.y >= riverMid) and
+       not (side > 0 and nextPos.y <= riverMid):
+      current = nextPos
+      dec segmentStepsLeft
+      moved = true
+    else:
+      segmentStepsLeft = 0
+      var bestScore = int.high
+      var best: seq[IVec2] = @[]
+      for d in dirs:
+        let nx = current.x + d.x
+        let ny = current.y + d.y
+        if nx < mapBorder or nx >= mapWidth - mapBorder or
+           ny < mapBorder or ny >= mapHeight - mapBorder:
+          continue
+        if inCorner(nx, ny):
+          continue
+        let terrainHere = terrain[nx][ny]
+        if terrainHere == Water:
+          continue
+        if side < 0 and ny >= riverMid:
+          continue
+        if side > 0 and ny <= riverMid:
+          continue
+        var score = abs(goalPos.x - nx).int + abs(goalPos.y - ny).int
+        if terrainHere == Bridge:
+          score -= 2
+        elif terrainHere == Road:
+          score -= 1
+        score += randIntInclusive(r, 0, 2)
+        if score < bestScore:
+          bestScore = score
+          best.setLen(0)
+          best.add(ivec2(nx, ny))
+        elif score == bestScore:
+          best.add(ivec2(nx, ny))
+      if best.len == 0:
+        break
+      let fallback = best[randIntExclusive(r, 0, best.len)]
+      current = fallback
+      moved = true
+
+    if moved:
+      if terrain[current.x][current.y] notin {Water, Bridge}:
+        terrain[current.x][current.y] = Road
+      let newDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
+      if newDist >= lastDist:
+        inc stagnation
+      else:
+        stagnation = 0
+      lastDist = newDist
+      inc steps
+
+proc generateRoadGrid(terrain: var TerrainGrid,
+                      riverPath: seq[IVec2], riverYByX: seq[int],
+                      mapWidth, mapHeight, mapBorder: int,
+                      inCorner: proc(x, y: int): bool,
+                      r: var Rand) =
+  ## Generate a meandering road grid that criss-crosses the map.
+  var riverMid = mapHeight div 2
+  if riverPath.len > 0:
+    var sumY = 0
+    for pos in riverPath:
+      sumY += pos.y.int
+    riverMid = sumY div riverPath.len
+
+  # Vertical roads
+  let verticalCount = randIntInclusive(r, 4, 5)
+  let playWidth = mapWidth - 2 * mapBorder
+  let vStride = max(1, playWidth div (verticalCount + 1))
+  var vIdx = vStride
+  var roadXs: seq[int] = @[]
+  while roadXs.len < verticalCount and vIdx < mapWidth - mapBorder:
+    let jitter = max(1, vStride div 4)
+    var x = vIdx + randIntInclusive(r, -jitter, jitter)
+    x = max(mapBorder + 2, min(mapWidth - mapBorder - 3, x))
+    if x notin roadXs:
+      roadXs.add(x)
+    vIdx += vStride
+
+  for x in roadXs:
+    let start = ivec2(x.int32, (mapBorder + 1).int32)
+    let goal = ivec2(x.int32, (mapHeight - mapBorder - 2).int32)
+    if x >= 0 and x < riverYByX.len and riverYByX[x] >= 0:
+      let bridgeCenter = ivec2(x.int32, riverYByX[x].int32)
+      placeBridgeOnRiver(terrain, bridgeCenter, riverYByX, mapWidth, mapHeight, mapBorder, inCorner)
+      carveRoadPath(terrain, start, bridgeCenter, 0, riverMid,
+                    mapWidth, mapHeight, mapBorder, inCorner, r)
+      carveRoadPath(terrain, bridgeCenter, goal, 0, riverMid,
+                    mapWidth, mapHeight, mapBorder, inCorner, r)
+    else:
+      carveRoadPath(terrain, start, goal, 0, riverMid,
+                    mapWidth, mapHeight, mapBorder, inCorner, r)
+
+  # Horizontal roads (north of river)
+  let northCount = randIntInclusive(r, 1, 2)
+  let northMin = mapBorder + 2
+  let northMax = min(mapHeight - mapBorder - 3, riverMid - (RiverWidth div 2) - 3)
+  if northMax >= northMin:
+    let nStride = max(1, (northMax - northMin) div (northCount + 1))
+    var y = northMin + nStride
+    for _ in 0 ..< northCount:
+      let start = ivec2((mapBorder + 1).int32, y.int32)
+      let goal = ivec2((mapWidth - mapBorder - 2).int32, y.int32)
+      carveRoadPath(terrain, start, goal, -1, riverMid,
+                    mapWidth, mapHeight, mapBorder, inCorner, r)
+      y += nStride
+
+  # Horizontal roads (south of river)
+  let southCount = randIntInclusive(r, 1, 2)
+  let southMin = max(mapBorder + 2, riverMid + (RiverWidth div 2) + 3)
+  let southMax = mapHeight - mapBorder - 3
+  if southMax >= southMin:
+    let sStride = max(1, (southMax - southMin) div (southCount + 1))
+    var y = southMin + sStride
+    for _ in 0 ..< southCount:
+      let start = ivec2((mapBorder + 1).int32, y.int32)
+      let goal = ivec2((mapWidth - mapBorder - 2).int32, y.int32)
+      carveRoadPath(terrain, start, goal, 1, riverMid,
+                    mapWidth, mapHeight, mapBorder, inCorner, r)
+      y += sStride
+
+# ---------------------------------------------------------------------------
+# Main river generation orchestrator
+# ---------------------------------------------------------------------------
 
 proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: int, r: var Rand) =
+  ## Generate the river system: main river, tributaries, bridges, and road grid.
   var riverPath: seq[IVec2] = @[]
   var riverYByX: seq[int] = newSeq[int](mapWidth)
   for x in 0 ..< mapWidth:
@@ -809,7 +1200,7 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
     branchUpPath = generateBranchPath(forkUp, -1, mapWidth, mapHeight, mapBorder, reserve, inCorner, r)
     branchDownPath = generateBranchPath(forkDown, 1, mapWidth, mapHeight, mapBorder, reserve, inCorner, r)
 
-  # Place water tiles for main river (also track Y position for bridges)
+  # Place water tiles for main river
   for pos in riverPath:
     if pos.x >= 0 and pos.x < mapWidth:
       riverYByX[pos.x] = pos.y.int
@@ -820,340 +1211,10 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
   placeWaterPath(terrain, branchUpPath, branchRadius, mapWidth, mapHeight, inCorner)
   placeWaterPath(terrain, branchDownPath, branchRadius, mapWidth, mapHeight, inCorner)
 
-  # Place bridges across the river and any tributary branch.
-  # Bridges are three tiles wide and span across the river, with a slight overhang
-  # and a diagonal stair-step option for prettier diagonal crossings.
-  proc slopeSignForMain(center: IVec2): int =
-    let x = center.x.int
-    let y = center.y.int
-    if x + 1 < riverYByX.len and riverYByX[x + 1] >= 0:
-      let dy = riverYByX[x + 1] - y
-      if dy != 0:
-        return (if dy > 0: 1 else: -1)
-    if x - 1 >= 0 and riverYByX[x - 1] >= 0:
-      let dy = y - riverYByX[x - 1]
-      if dy != 0:
-        return (if dy > 0: 1 else: -1)
-    0
-
-  proc slopeSignForPath(path: seq[IVec2], center: IVec2): int =
-    let idx = path.find(center)
-    if idx < 0:
-      return 0
-    if idx + 1 < path.len:
-      let dy = (path[idx + 1].y - center.y).int
-      if dy != 0:
-        return (if dy > 0: 1 else: -1)
-    if idx > 0:
-      let dy = (center.y - path[idx - 1].y).int
-      if dy != 0:
-        return (if dy > 0: 1 else: -1)
-    0
-
-  proc placeBridgeSpan(t: var TerrainGrid, center, dir, width: IVec2) =
-    let bridgeOverhang = 1
-    let scanLimit = RiverWidth * 2 + 6
-    let cx = center.x.int
-    let cy = center.y.int
-    let dx = dir.x.int
-    let dy = dir.y.int
-    let wx = width.x.int
-    let wy = width.y.int
-
-    template setBridgeTile(x, y: int) =
-      if x >= mapBorder and x < mapWidth - mapBorder and
-         y >= mapBorder and y < mapHeight - mapBorder and
-         not inCorner(x, y):
-        t[x][y] = Bridge
-
-    proc hasWaterAt(grid: var TerrainGrid, step: int): bool =
-      for w in -1 .. 1:
-        let x = cx + dx * step + wx * w
-        let y = cy + dy * step + wy * w
-        if x < mapBorder or x >= mapWidth - mapBorder or
-           y < mapBorder or y >= mapHeight - mapBorder:
-          continue
-        if inCorner(x, y):
-          continue
-        if grid[x][y] in {Water, Bridge}:
-          return true
-      false
-
-    if not hasWaterAt(t, 0):
-      return
-    var startStep = 0
-    var endStep = 0
-    while startStep > -scanLimit and hasWaterAt(t, startStep - 1):
-      dec startStep
-    while endStep < scanLimit and hasWaterAt(t, endStep + 1):
-      inc endStep
-    startStep -= bridgeOverhang
-    endStep += bridgeOverhang
-
-    if abs(dx) + abs(dy) == 2:
-      let spanSteps = endStep - startStep
-      for w in -1 .. 1:
-        var x = cx + dx * startStep + wx * w
-        var y = cy + dy * startStep + wy * w
-        setBridgeTile(x, y)
-        for _ in 0 ..< spanSteps:
-          x += dx
-          setBridgeTile(x, y)
-          y += dy
-          setBridgeTile(x, y)
-    else:
-      for step in startStep .. endStep:
-        for w in -1 .. 1:
-          let x = cx + dx * step + wx * w
-          let y = cy + dy * step + wy * w
-          setBridgeTile(x, y)
-
-  proc placeBridgeMain(t: var TerrainGrid, center: IVec2) =
-    let slopeSign = slopeSignForMain(center)
-    if slopeSign != 0:
-      placeBridgeSpan(t, center, ivec2(1'i32, (-slopeSign).int32), ivec2(1'i32, slopeSign.int32))
-    else:
-      placeBridgeSpan(t, center, ivec2(0, 1), ivec2(1, 0))
-
-  # Branch bridges run horizontally (east-west span) across the tributary.
-  proc placeBridgeBranch(t: var TerrainGrid, center: IVec2) =
-    var slopeSign = slopeSignForPath(branchUpPath, center)
-    if slopeSign == 0:
-      slopeSign = slopeSignForPath(branchDownPath, center)
-    if slopeSign != 0:
-      placeBridgeSpan(t, center, ivec2(1'i32, (-slopeSign).int32), ivec2(1'i32, slopeSign.int32))
-    else:
-      placeBridgeSpan(t, center, ivec2(1, 0), ivec2(0, 1))
-
-  var mainCandidates: seq[IVec2] = @[]
-  var branchUpCandidates: seq[IVec2] = @[]
-  var branchDownCandidates: seq[IVec2] = @[]
-  let candidateGroups: array[3, tuple[path: seq[IVec2], target: ptr seq[IVec2]]] = [
-    (path: riverPath, target: addr mainCandidates),
-    (path: branchUpPath, target: addr branchUpCandidates),
-    (path: branchDownPath, target: addr branchDownCandidates)
-  ]
-  for group in candidateGroups:
-    for pos in group.path:
-      if pos.x > mapBorder + RiverWidth and pos.x < mapWidth - mapBorder - RiverWidth and
-         pos.y > mapBorder + RiverWidth and pos.y < mapHeight - mapBorder - RiverWidth and
-         not inCorner(pos.x, pos.y):
-        group.target[].add(pos)
-
-  let hasBranch = branchUpPath.len > 0 or branchDownPath.len > 0
-  let desiredBridges = max(randIntInclusive(r, 3, 4), (if hasBranch: 3 else: 0)) * 2
-
-  var placed: seq[IVec2] = @[]
-  template placeFrom(cands: seq[IVec2], useBranch: bool) =
-    if cands.len > 0:
-      let center = cands[cands.len div 2]
-      if useBranch:
-        placeBridgeBranch(terrain, center)
-      else:
-        placeBridgeMain(terrain, center)
-      placed.add(center)
-
-  if hasBranch:
-    if forkUpIdx >= 0:
-      let upstream = if forkUpIdx > 0: mainCandidates[0 ..< min(forkUpIdx, mainCandidates.len)] else: @[]
-      placeFrom(upstream, false)
-    for candidates in [branchUpCandidates, branchDownCandidates]:
-      if candidates.len > 0:
-        let firstIdx = candidates.len div 3
-        let secondIdx = max(firstIdx + 1, (candidates.len * 2) div 3)
-        placeBridgeBranch(terrain, candidates[firstIdx])
-        placed.add(candidates[firstIdx])
-        if secondIdx < candidates.len:
-          placeBridgeBranch(terrain, candidates[secondIdx])
-          placed.add(candidates[secondIdx])
-    if forkDownIdx >= 0 and forkDownIdx < mainCandidates.len:
-      let downstream = mainCandidates[min(forkDownIdx, mainCandidates.len - 1) ..< mainCandidates.len]
-      placeFrom(downstream, false)
-
-  # Fill remaining bridges by spreading along main river first, then branch.
-  var remaining = desiredBridges - placed.len
-  let remainingGroups: array[3, tuple[cands: seq[IVec2], useBranch: bool]] = [
-    (cands: mainCandidates, useBranch: false),
-    (cands: branchUpCandidates, useBranch: true),
-    (cands: branchDownCandidates, useBranch: true)
-  ]
-  for group in remainingGroups:
-    if remaining <= 0:
-      break
-    if group.cands.len == 0:
-      continue
-    let stride = max(1, group.cands.len div (remaining + 1))
-    var candidateIdx = stride
-    while remaining > 0 and candidateIdx < group.cands.len:
-      let center = group.cands[candidateIdx]
-      if center notin placed:
-        placed.add(center)
-      if group.useBranch:
-        placeBridgeBranch(terrain, center)
-      else:
-        placeBridgeMain(terrain, center)
-      dec remaining
-      candidateIdx += stride
-
-  # Add a meandering road grid that criss-crosses the map.
-  let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
-
-  template carveRoadPath(startPos, goalPos: IVec2, side: int) =
-    var current = startPos
-    var segmentDir = ivec2(0, 0)
-    var segmentStepsLeft = 0
-    var diagToggle = false
-    let maxSteps = mapWidth * mapHeight
-    var steps = 0
-    var stagnation = 0
-    var lastDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
-    if terrain[current.x][current.y] notin {Water, Bridge}:
-      terrain[current.x][current.y] = Road
-    while current != goalPos and steps < maxSteps:
-      if segmentStepsLeft <= 0 or stagnation > 10 or steps > (maxSteps div 2):
-        let dxGoal = goalPos.x - current.x
-        let dyGoal = goalPos.y - current.y
-        let baseDir = block:
-          let sx = (if dxGoal < 0: -1'i32 elif dxGoal > 0: 1'i32 else: 0'i32)
-          let sy = (if dyGoal < 0: -1'i32 elif dyGoal > 0: 1'i32 else: 0'i32)
-          if abs(dxGoal) >= abs(dyGoal):
-            ivec2(sx, 0)
-          else:
-            ivec2(0, sy)
-        if baseDir.x == 0 and baseDir.y == 0:
-          break
-        let orthoA = ivec2(baseDir.y, baseDir.x)
-        let orthoB = ivec2(-baseDir.y, -baseDir.x)
-        let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
-        let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
-        let roll = randFloat(r)
-        if roll < 0.35:
-          segmentDir = if randChance(r, 0.5): diagA else: diagB
-        elif roll < 0.92:
-          segmentDir = baseDir
-        else:
-          segmentDir = if randChance(r, 0.5): orthoA else: orthoB
-        segmentStepsLeft = randIntInclusive(r, 7, 12)
-        diagToggle = randChance(r, 0.5)
-
-      let stepDir = if segmentDir.x != 0 and segmentDir.y != 0:
-        let dir = if diagToggle: ivec2(segmentDir.x, 0) else: ivec2(0, segmentDir.y)
-        diagToggle = not diagToggle
-        dir
-      else:
-        segmentDir
-      let nextPos = current + stepDir
-      var moved = false
-      if nextPos.x >= mapBorder and nextPos.x < mapWidth - mapBorder and
-         nextPos.y >= mapBorder and nextPos.y < mapHeight - mapBorder and
-         not inCorner(nextPos.x, nextPos.y) and terrain[nextPos.x][nextPos.y] != Water and
-         not (side < 0 and nextPos.y >= riverMid) and
-         not (side > 0 and nextPos.y <= riverMid):
-        current = nextPos
-        dec segmentStepsLeft
-        moved = true
-      else:
-        segmentStepsLeft = 0
-        var bestScore = int.high
-        var best: seq[IVec2] = @[]
-        for d in dirs:
-          let nx = current.x + d.x
-          let ny = current.y + d.y
-          if nx < mapBorder or nx >= mapWidth - mapBorder or
-             ny < mapBorder or ny >= mapHeight - mapBorder:
-            continue
-          if inCorner(nx, ny):
-            continue
-          let terrainHere = terrain[nx][ny]
-          if terrainHere == Water:
-            continue
-          if side < 0 and ny >= riverMid:
-            continue
-          if side > 0 and ny <= riverMid:
-            continue
-          var score = abs(goalPos.x - nx).int + abs(goalPos.y - ny).int
-          if terrainHere == Bridge:
-            score -= 2
-          elif terrainHere == Road:
-            score -= 1
-          score += randIntInclusive(r, 0, 2)
-          if score < bestScore:
-            bestScore = score
-            best.setLen(0)
-            best.add(ivec2(nx, ny))
-          elif score == bestScore:
-            best.add(ivec2(nx, ny))
-        if best.len == 0:
-          break
-        let fallback = best[randIntExclusive(r, 0, best.len)]
-        current = fallback
-        moved = true
-
-      if moved:
-        if terrain[current.x][current.y] notin {Water, Bridge}:
-          terrain[current.x][current.y] = Road
-        let newDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
-        if newDist >= lastDist:
-          inc stagnation
-        else:
-          stagnation = 0
-        lastDist = newDist
-        inc steps
-
-  let verticalCount = randIntInclusive(r, 4, 5)
-  let playWidth = mapWidth - 2 * mapBorder
-  let vStride = max(1, playWidth div (verticalCount + 1))
-  var vIdx = vStride
-  var roadXs: seq[int] = @[]
-  while roadXs.len < verticalCount and vIdx < mapWidth - mapBorder:
-    let jitter = max(1, vStride div 4)
-    var x = vIdx + randIntInclusive(r, -jitter, jitter)
-    x = max(mapBorder + 2, min(mapWidth - mapBorder - 3, x))
-    if x notin roadXs:
-      roadXs.add(x)
-    vIdx += vStride
-
-  var riverMid = mapHeight div 2
-  if riverPath.len > 0:
-    var sumY = 0
-    for pos in riverPath:
-      sumY += pos.y.int
-    riverMid = sumY div riverPath.len
-
-  for x in roadXs:
-    let start = ivec2(x.int32, (mapBorder + 1).int32)
-    let goal = ivec2(x.int32, (mapHeight - mapBorder - 2).int32)
-    if x >= 0 and x < riverYByX.len and riverYByX[x] >= 0:
-      let bridgeCenter = ivec2(x.int32, riverYByX[x].int32)
-      placeBridgeMain(terrain, bridgeCenter)
-      carveRoadPath(start, bridgeCenter, 0)
-      carveRoadPath(bridgeCenter, goal, 0)
-    else:
-      carveRoadPath(start, goal, 0)
-
-  let northCount = randIntInclusive(r, 1, 2)
-  let southCount = randIntInclusive(r, 1, 2)
-  let northMin = mapBorder + 2
-  let northMax = min(mapHeight - mapBorder - 3, riverMid - (RiverWidth div 2) - 3)
-  if northMax >= northMin:
-    let nStride = max(1, (northMax - northMin) div (northCount + 1))
-    var y = northMin + nStride
-    for _ in 0 ..< northCount:
-      let start = ivec2((mapBorder + 1).int32, y.int32)
-      let goal = ivec2((mapWidth - mapBorder - 2).int32, y.int32)
-      carveRoadPath(start, goal, -1)
-      y += nStride
-
-  let southMin = max(mapBorder + 2, riverMid + (RiverWidth div 2) + 3)
-  let southMax = mapHeight - mapBorder - 3
-  if southMax >= southMin:
-    let sStride = max(1, (southMax - southMin) div (southCount + 1))
-    var y = southMin + sStride
-    for _ in 0 ..< southCount:
-      let start = ivec2((mapBorder + 1).int32, y.int32)
-      let goal = ivec2((mapWidth - mapBorder - 2).int32, y.int32)
-      carveRoadPath(start, goal, 1)
-      y += sStride
+  # Place bridges and generate road grid
+  placeBridges(terrain, riverPath, branchUpPath, branchDownPath, riverYByX,
+               forkUpIdx, forkDownIdx, mapWidth, mapHeight, mapBorder, inCorner, r)
+  generateRoadGrid(terrain, riverPath, riverYByX, mapWidth, mapHeight, mapBorder, inCorner, r)
 
 proc initTerrain*(terrain: var TerrainGrid, biomes: var BiomeGrid,
                   mapWidth, mapHeight, mapBorder: int, seed: int = 2024) =
