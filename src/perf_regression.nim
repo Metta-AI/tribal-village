@@ -17,6 +17,15 @@
 when defined(perfRegression):
   import std/[monotimes, strutils, json, os, algorithm, math]
 
+  when not declared(parseEnvInt):
+    proc parseEnvInt(raw: string, fallback: int): int =
+      if raw.len == 0:
+        return fallback
+      try:
+        parseInt(raw)
+      except ValueError:
+        fallback
+
   const
     PerfSubsystemCount* = 11
     PerfSubsystemNames*: array[PerfSubsystemCount, string] = [
