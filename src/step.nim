@@ -3019,6 +3019,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if timingStepCount >= stepTimingInterval:
           printTimingReport(env.currentStep)
 
+  when defined(spatialStats):
+    printSpatialReport()
+
   # Check if all agents are terminated/truncated
   var allDone = true
   for i in 0..<MapAgents:
