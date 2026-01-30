@@ -125,8 +125,7 @@ proc countWorkersAndEnemies*(controller: Controller, env: Environment, teamId: i
     if not isAgentAlive(env, agent):
       continue
     if getTeamId(agent) != teamId:
-      if not result.hasEnemy:
-        result.hasEnemy = true
+      result.hasEnemy = true
       continue
     inc result.counts.total
     let agentId = agent.agentId
