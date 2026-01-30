@@ -5,6 +5,7 @@
 import std/os, std/strutils
 
 include "scripted/ai_core"
+include "scripted/ai_audit"
 include "scripted/ai_defaults"
 
 const
@@ -27,6 +28,7 @@ var globalController*: AgentController
 
 proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSeconds() * 1000)) =
   ## Initialize the global controller with specified type
+  initAuditLog()
   case controllerType:
   of BuiltinAI:
     globalController = AgentController(
@@ -54,9 +56,17 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
   case globalController.controllerType
   of BuiltinAI:
     var actions: array[MapAgents, uint8]
+    let controller = globalController.aiController
     for i in 0 ..< env.agents.len:
-      actions[i] = globalController.aiController.decideAction(env, i)
-    globalController.aiController.updateController(env)
+      setAuditBranch(BranchInactive)
+      actions[i] = controller.decideAction(env, i)
+      when defined(aiAudit):
+        let agent = env.agents[i]
+        let teamId = if not agent.isNil: getTeamId(agent) else: -1
+        let role = if controller.agentsInitialized[i]: controller.agents[i].role else: Gatherer
+        recordAuditDecision(i, teamId, role, actions[i])
+    controller.updateController(env)
+    printAuditSummary(env.currentStep.int)
     return actions
   of ExternalNN:
     if not isNil(globalController.externalActionCallback):
