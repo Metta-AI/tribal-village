@@ -2922,6 +2922,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         " cows=", countCow,
         " stumps=", countStump
 
+  when defined(spatialStats):
+    printSpatialReport()
+
   # Check if all agents are terminated/truncated
   var allDone = true
   for i in 0..<MapAgents:
