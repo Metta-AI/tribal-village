@@ -36,6 +36,9 @@ var logRenderBuffer: seq[string] = @[]
 var logRenderHead = 0
 var logRenderCount = 0
 
+when defined(popAudit):
+  include "pop_audit"
+
 include "actions"
 
 const
@@ -2934,6 +2937,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.territoryScore = env.scoreTerritory()
       env.territoryScored = true
     env.shouldReset = true
+
+  when defined(popAudit):
+    env.popAuditStep()
 
   maybeLogReplayStep(env, actions)
   if env.shouldReset:
