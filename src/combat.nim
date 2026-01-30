@@ -144,6 +144,12 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
       damage = max(1, damage - armorReduction)
 
   target.hp = max(0, target.hp - damage)
+  when defined(combatAudit):
+    if not attacker.isNil:
+      let aTeam = getTeamId(attacker)
+      recordSiegeDamage(env.currentStep, aTeam, $target.kind,
+                        target.teamId, damage, $attacker.unitClass,
+                        target.hp <= 0)
   if target.hp > 0:
     return false
   if target.kind == Wall:
@@ -272,16 +278,39 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   if remaining > 0:
     target.hp = max(0, target.hp - remaining)
 
+  when defined(combatAudit):
+    if remaining > 0 and not attacker.isNil:
+      let aTeam = getTeamId(attacker)
+      let tTeam = getTeamId(target)
+      let dmgType = if attacker.unitClass in {UnitArcher, UnitLongbowman, UnitJanissary,
+          UnitCrossbowman, UnitArbalester}: "ranged"
+        elif attacker.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet}: "siege"
+        else: "melee"
+      recordDamage(env.currentStep, aTeam, tTeam, attacker.agentId, target.agentId,
+                   remaining, $attacker.unitClass, $target.unitClass, dmgType)
+
   if target.hp <= 0:
+    when defined(combatAudit):
+      if not attacker.isNil:
+        recordKill(env.currentStep, getTeamId(attacker), getTeamId(target),
+                   attacker.agentId, target.agentId,
+                   $attacker.unitClass, $target.unitClass)
     env.killAgent(target)
     return true
   false
 
 # Heal an agent up to its max HP. Returns the amount actually healed.
-proc applyAgentHeal(env: Environment, target: Thing, amount: int): int =
+# Optional healer param for audit tracking.
+proc applyAgentHeal(env: Environment, target: Thing, amount: int,
+                    healer: Thing = nil): int =
   let before = target.hp
   target.hp = min(target.maxHp, target.hp + amount)
   result = target.hp - before
+  when defined(combatAudit):
+    if result > 0 and not healer.isNil:
+      recordHeal(env.currentStep, getTeamId(healer), getTeamId(target),
+                 healer.agentId, target.agentId, result,
+                 $healer.unitClass, $target.unitClass)
 
 # Centralized zero-HP handling so agents instantly freeze/die when drained
 proc enforceZeroHpDeaths(env: Environment) =

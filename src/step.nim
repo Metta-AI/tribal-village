@@ -168,7 +168,16 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
       if target.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
           env.hasCastleTech(tower.teamId, CastleTechGreekFire):
         targetDamage += 2
-      discard env.applyAgentDamage(target, max(1, targetDamage))
+      when defined(combatAudit):
+        let towerDmg = max(1, targetDamage)
+        let tgtTeam = getTeamId(target)
+        recordDamage(env.currentStep, tower.teamId, tgtTeam, -1, target.agentId,
+                     towerDmg, $tower.kind, $target.unitClass, "tower")
+      let died = env.applyAgentDamage(target, max(1, targetDamage))
+      when defined(combatAudit):
+        if died:
+          recordKill(env.currentStep, tower.teamId, getTeamId(target.agentId),
+                     -1, target.agentId, $tower.kind, $target.unitClass)
     of Tumor, Spawner:
       if target notin towerRemovals:
         towerRemovals.add(target)
@@ -232,7 +241,16 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
                         ActionTintAttackTower)
     case target.kind
     of Agent:
-      discard env.applyAgentDamage(target, max(1, tc.attackDamage))
+      when defined(combatAudit):
+        let tcDmg = max(1, tc.attackDamage)
+        let tcTgtTeam = getTeamId(target)
+        recordDamage(env.currentStep, tc.teamId, tcTgtTeam, -1, target.agentId,
+                     tcDmg, "TownCenter", $target.unitClass, "tower")
+      let tcDied = env.applyAgentDamage(target, max(1, tc.attackDamage))
+      when defined(combatAudit):
+        if tcDied:
+          recordKill(env.currentStep, tc.teamId, getTeamId(target.agentId),
+                     -1, target.agentId, "TownCenter", $target.unitClass)
     of Tumor, Spawner:
       if target notin towerRemovals:
         towerRemovals.add(target)
@@ -773,6 +791,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = getMonoTime()
       tTotalStart = tStart
 
+  when defined(combatAudit):
+    ensureCombatAuditInit()
+
   # Decay short-lived action tints
   env.stepDecayActionTints()
 
@@ -1131,7 +1152,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let target = env.getThing(healPos)
           if not isNil(target) and target.kind == Agent:
             if getTeamId(target) == attackerTeam:
-              discard env.applyAgentHeal(target, 1)
+              discard env.applyAgentHeal(target, 1, agent)
               env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHealMonk)
               inc env.stats[id].actionAttack
             else:
@@ -1184,6 +1205,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.applyUnitAttackTint(agent.unitClass, healPos)
               # Consume faith on successful conversion
               agent.faith = agent.faith - MonkConversionFaithCost
+              when defined(combatAudit):
+                let oldTargetTeam = getTeamId(target.agentId)  # original team before override
+                recordConversion(env.currentStep, attackerTeam, oldTargetTeam,
+                                 agent.agentId, target.agentId, $target.unitClass)
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -2934,6 +2959,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.territoryScore = env.scoreTerritory()
       env.territoryScored = true
     env.shouldReset = true
+
+  when defined(combatAudit):
+    printCombatReport(env.currentStep)
 
   maybeLogReplayStep(env, actions)
   if env.shouldReset:
