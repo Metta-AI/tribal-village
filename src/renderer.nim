@@ -564,7 +564,7 @@ proc drawObjects*() =
           continue
         let pos = thing.pos
         let tint =
-          if thing.kind == Door:
+          if thing.kind in {Door, TownCenter, Barracks, ArcheryRange, Stable, SiegeWorkshop, Castle}:
             let teamId = thing.teamId
             let base = if teamId >= 0 and teamId < env.teamColors.len:
               env.teamColors[teamId]
