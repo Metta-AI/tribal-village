@@ -129,26 +129,19 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   ## - Siege Engineers: +20% building damage for siege units
   var damage = max(1, amount)
   if not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
-    let bonusMultiplier = SiegeStructureMultiplier - 1
-    let bonus = damage * bonusMultiplier
-    if bonus > 0:
-      env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])
-      damage += bonus
-    # Siege Engineers: +20% building damage for siege units (applied to total damage)
+    env.applyActionTint(target.pos, BonusDamageTintByClass[attacker.unitClass], 2, BonusTintCodeByClass[attacker.unitClass])
+    damage *= SiegeStructureMultiplier
+    # Siege Engineers: +20% building damage for siege units
     let attackerTeam = getTeamId(attacker)
     if attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechSiegeEngineers):
       damage = int(float32(damage) * 1.2 + 0.5)
 
   # Apply building armor from Masonry and Architecture (defender's team)
   if target.teamId >= 0:
-    var armorReduction = 0
-    # Masonry: +1 building armor
-    if env.hasUniversityTech(target.teamId, TechMasonry):
-      armorReduction += 1
-    # Architecture: +1 building armor (stacks with Masonry)
-    if env.hasUniversityTech(target.teamId, TechArchitecture):
-      armorReduction += 1
-    damage = max(1, damage - armorReduction)
+    let armorReduction = ord(env.hasUniversityTech(target.teamId, TechMasonry)) +
+                         ord(env.hasUniversityTech(target.teamId, TechArchitecture))
+    if armorReduction > 0:
+      damage = max(1, damage - armorReduction)
 
   target.hp = max(0, target.hp - damage)
   if target.hp > 0:
@@ -158,55 +151,37 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
       env.updateObservations(ThingAgentLayer, target.pos, 0)
   # Eject garrisoned units when building is destroyed
   if target.kind in {TownCenter, Castle, GuardTower, House} and target.garrisonedUnits.len > 0:
-    # Find empty tiles around the building to eject units
-    let buildingPos = target.pos
     var emptyTiles: seq[IVec2] = @[]
     for dy in -2 .. 2:
       for dx in -2 .. 2:
-        if dx == 0 and dy == 0:
-          continue
-        let pos = buildingPos + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if not env.isEmpty(pos):
-          continue
-        if env.terrain[pos.x][pos.y] == Water:
-          continue
-        emptyTiles.add(pos)
+        if dx == 0 and dy == 0: continue
+        let pos = target.pos + ivec2(dx.int32, dy.int32)
+        if isValidPos(pos) and env.isEmpty(pos) and env.terrain[pos.x][pos.y] != Water:
+          emptyTiles.add(pos)
     var tileIdx = 0
     for unit in target.garrisonedUnits:
       if tileIdx >= emptyTiles.len:
-        # No space - unit dies
         env.terminated[unit.agentId] = 1.0
         unit.hp = 0
         unit.pos = ivec2(-1, -1)
       else:
-        let pos = emptyTiles[tileIdx]
-        unit.pos = pos
-        env.grid[pos.x][pos.y] = unit
-        env.updateObservations(AgentLayer, pos, getTeamId(unit) + 1)
-        env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)
+        unit.pos = emptyTiles[tileIdx]
+        env.grid[unit.pos.x][unit.pos.y] = unit
+        env.updateObservations(AgentLayer, unit.pos, getTeamId(unit) + 1)
+        env.updateObservations(AgentOrientationLayer, unit.pos, unit.orientation.int)
         inc tileIdx
     target.garrisonedUnits.setLen(0)
   # Drop garrisoned relics when a Monastery is destroyed
   if target.kind == Monastery and target.garrisonedRelics > 0:
-    let buildingPos = target.pos
     var bgCandidates: seq[IVec2] = @[]
     for dy in -2 .. 2:
       for dx in -2 .. 2:
-        if dx == 0 and dy == 0:
-          continue
-        let pos = buildingPos + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        if env.terrain[pos.x][pos.y] == Water:
-          continue
-        if not isNil(env.backgroundGrid[pos.x][pos.y]):
-          continue
-        bgCandidates.add(pos)
-    let relicsToDrop = target.garrisonedRelics
-    let slots = min(relicsToDrop, bgCandidates.len)
-    for i in 0 ..< slots:
+        if dx == 0 and dy == 0: continue
+        let pos = target.pos + ivec2(dx.int32, dy.int32)
+        if isValidPos(pos) and env.terrain[pos.x][pos.y] != Water and
+            isNil(env.backgroundGrid[pos.x][pos.y]):
+          bgCandidates.add(pos)
+    for i in 0 ..< min(target.garrisonedRelics, bgCandidates.len):
       let relic = Thing(kind: Relic, pos: bgCandidates[i])
       relic.inventory = emptyInventory()
       env.add(relic)
@@ -226,13 +201,9 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.reward += env.config.deathPenalty
   let lanternCount = getInv(victim, ItemLantern)
   let relicCount = getInv(victim, ItemRelic)
-  if lanternCount > 0:
-    setInv(victim, ItemLantern, 0)
-  if relicCount > 0:
-    setInv(victim, ItemRelic, 0)
-  var dropInv = emptyInventory()
-  for key, count in victim.inventory.pairs:
-    dropInv[key] = count
+  if lanternCount > 0: setInv(victim, ItemLantern, 0)
+  if relicCount > 0: setInv(victim, ItemRelic, 0)
+  let dropInv = victim.inventory
   let corpse = Thing(kind: (if dropInv.len > 0: Corpse else: Skeleton), pos: deathPos)
   corpse.inventory = dropInv
   env.add(corpse)
@@ -241,28 +212,19 @@ proc killAgent(env: Environment, victim: Thing) =
     var candidates: seq[IVec2] = @[]
     for dy in -1 .. 1:
       for dx in -1 .. 1:
-        if dx == 0 and dy == 0:
-          continue
+        if dx == 0 and dy == 0: continue
         let cand = deathPos + ivec2(dx.int32, dy.int32)
-        if not isValidPos(cand):
-          continue
-        if env.isEmpty(cand) and not env.hasDoor(cand) and
+        if isValidPos(cand) and env.isEmpty(cand) and not env.hasDoor(cand) and
             not isBlockedTerrain(env.terrain[cand.x][cand.y]) and not isTileFrozen(cand, env):
           candidates.add(cand)
     let lanternSlots = min(lanternCount, candidates.len)
     for i in 0 ..< lanternSlots:
-      let lantern = Thing(
-        kind: Lantern,
-        pos: candidates[i],
-        teamId: getTeamId(victim),
-        lanternHealthy: true
-      )
-      env.add(lantern)
+      env.add(Thing(kind: Lantern, pos: candidates[i],
+                    teamId: getTeamId(victim), lanternHealthy: true))
     let relicSlots = min(relicCount, candidates.len - lanternSlots)
     for i in 0 ..< relicSlots:
       let relic = Thing(kind: Relic, pos: candidates[lanternSlots + i])
       relic.inventory = emptyInventory()
-      setInv(relic, ItemGold, 0)
       env.add(relic)
 
   victim.inventory = emptyInventory()
@@ -289,18 +251,11 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   let teamId = getTeamId(target)
   if teamId >= 0:
     for agent in env.agents:
-      if not isAgentAlive(env, agent):
-        continue
-      if getTeamId(agent) != teamId:
-        continue
-      if agent.unitClass notin {UnitManAtArms, UnitKnight}:
-        continue
-      if isThingFrozen(agent, env):
-        continue
+      if not isAgentAlive(env, agent) or getTeamId(agent) != teamId: continue
+      if agent.unitClass notin {UnitManAtArms, UnitKnight}: continue
+      if isThingFrozen(agent, env): continue
       let radius = if agent.unitClass == UnitKnight: 2 else: 1
-      let dx = abs(agent.pos.x - target.pos.x)
-      let dy = abs(agent.pos.y - target.pos.y)
-      if max(dx, dy) <= radius:
+      if max(abs(agent.pos.x - target.pos.x), abs(agent.pos.y - target.pos.y)) <= radius:
         remaining = max(1, (remaining + 1) div 2)
         break
 
@@ -320,8 +275,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   if target.hp <= 0:
     env.killAgent(target)
     return true
-
-  return false
+  false
 
 # Heal an agent up to its max HP. Returns the amount actually healed.
 proc applyAgentHeal(env: Environment, target: Thing, amount: int): int =
