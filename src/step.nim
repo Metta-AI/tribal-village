@@ -2154,9 +2154,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Combined single-pass object updates and tumor collection
-  var newTumorsToSpawn: seq[Thing] = @[]
-  var tumorsToProcess: seq[Thing] = @[]
-  var towerRemovals: seq[Thing] = @[]
+  env.tempTumorsToSpawn.setLen(0)
+  env.tempTumorsToProcess.setLen(0)
+  env.tempTowerRemovals.setLen(0)
 
   for i in 0 ..< env.cowHerdCounts.len:
     env.cowHerdCounts[i] = 0
@@ -2173,7 +2173,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   let thingsCount = env.things.len
   for i in 0 ..< thingsCount:
     let thing = env.things[i]
-    if towerRemovals.len > 0 and thing in towerRemovals:
+    if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
       continue
     if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams and isBuildingKind(thing.kind):
       let add = buildingPopCap(thing.kind)
@@ -2199,15 +2199,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
         thing.cooldown = MillFertileCooldown
     elif thing.kind == GuardTower:
-      env.stepTryTowerAttack(thing, GuardTowerRange, towerRemovals)
+      env.stepTryTowerAttack(thing, GuardTowerRange, env.tempTowerRemovals)
     elif thing.kind == Castle:
-      env.stepTryTowerAttack(thing, CastleRange, towerRemovals)
+      env.stepTryTowerAttack(thing, CastleRange, env.tempTowerRemovals)
       if thing.cooldown > 0:
         dec thing.cooldown
       # Tick production queue (AoE2-style batch training)
       thing.processProductionQueue()
     elif thing.kind == TownCenter:
-      env.stepTryTownCenterAttack(thing, towerRemovals)
+      env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
       # Process town bell: recall villagers when active
       if thing.townBellActive:
         # Gather villagers of this team and garrison them
@@ -2276,7 +2276,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
             let newTumor = createTumor(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
-            newTumorsToSpawn.add(newTumor)
+            env.tempTumorsToSpawn.add(newTumor)
 
             # Reset spawner cooldown based on spawn rate
             # Convert spawn rate (0.0-1.0) to cooldown steps (higher rate = lower cooldown)
@@ -2326,14 +2326,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif thing.kind == Tumor:
       # Only collect mobile clippies for processing (planted ones are static)
       if not thing.hasClaimedTerritory:
-        tumorsToProcess.add(thing)
+        env.tempTumorsToProcess.add(thing)
 
   for teamId in 0 ..< teamPopCaps.len:
     if teamPopCaps[teamId] > MapAgentsPerTeam:
       teamPopCaps[teamId] = MapAgentsPerTeam
 
-  if towerRemovals.len > 0:
-    for target in towerRemovals:
+  if env.tempTowerRemovals.len > 0:
+    for target in env.tempTowerRemovals:
       removeThing(env, target)
 
   proc stepToward(fromPos, toPos: IVec2): IVec2 =
@@ -2564,7 +2564,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # ============== TUMOR PROCESSING ==============
   var newTumorBranches: seq[Thing] = @[]
 
-  for tumor in tumorsToProcess:
+  for tumor in env.tempTumorsToProcess:
     if env.getThing(tumor.pos) != tumor:
       continue
     tumor.turnsAlive += 1
@@ -2623,7 +2623,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = tNow
 
   # Add newly spawned tumors from spawners and branching this step
-  for newTumor in newTumorsToSpawn:
+  for newTumor in env.tempTumorsToSpawn:
     env.add(newTumor)
   for newTumor in newTumorBranches:
     env.add(newTumor)

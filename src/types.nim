@@ -997,6 +997,10 @@ type
     # Victory conditions tracking
     victoryStates*: array[MapRoomObjectsTeams, VictoryState]
     victoryWinner*: int              ## Team that won (-1 = no winner yet)
+    # Reusable scratch seqs for step() to avoid per-frame heap allocations
+    tempTumorsToSpawn*: seq[Thing]
+    tempTumorsToProcess*: seq[Thing]
+    tempTowerRemovals*: seq[Thing]
 
 # Global environment instance
 var env*: Environment
