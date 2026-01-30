@@ -94,59 +94,61 @@ proc updateSpatialIndex*(env: Environment, thing: Thing, oldPos: IVec2) =
     env.spatialIndex.cells[newCx][newCy].things.add(thing)
     env.spatialIndex.kindCells[thing.kind][newCx][newCy].add(thing)
 
+template forEachInRadius(envExpr: Environment, posExpr: IVec2,
+                          kindExpr: ThingKind, maxDistExpr: int,
+                          thingVar: untyped, body: untyped) =
+  ## Iterate over non-nil things of `kindExpr` within `maxDistExpr` of `posExpr`.
+  ## The body receives each thing as `thingVar`. A mutable `searchRadius` (in
+  ## cells) is injected; the body may shrink it for early-exit optimisation in
+  ## findNearest* queries.
+  let qPos  {.inject.} = posExpr
+  let (qCx, qCy) = cellCoords(qPos)
+  let clampedMax = min(maxDistExpr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  var searchRadius {.inject.} = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+  let maxRadius = searchRadius
+  let queryKind = kindExpr
+  let queryEnv  = envExpr
+
+  for dx in -maxRadius .. maxRadius:
+    if abs(dx) > searchRadius: continue
+    for dy in -maxRadius .. maxRadius:
+      if abs(dy) > searchRadius: continue
+      let nx = qCx + dx
+      let ny = qCy + dy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+      for thingVar in queryEnv.spatialIndex.kindCells[queryKind][nx][ny]:
+        if not thingVar.isNil:
+          body
+
 proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
                                maxDist: int): Thing =
-  ## Find nearest thing of a given kind using spatial index
-  ## Returns nil if no thing found within maxDist
+  ## Find nearest thing of a given kind using spatial index.
+  ## Returns nil if no thing found within maxDist.
   result = nil
   var minDist = int.high
 
-  let (cx, cy) = cellCoords(pos)
-  # Clamp maxDist to avoid overflow when computing cellRadius
-  # Max meaningful search is the map diagonal, but we cap to grid size for safety
-  let clampedMaxDist = min(maxDist, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
-
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-
-      for thing in env.spatialIndex.kindCells[kind][nx][ny]:
-        if thing.isNil:
-          continue
-        let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-        if dist < minDist and dist < maxDist:
-          minDist = dist
-          result = thing
+  forEachInRadius(env, pos, kind, maxDist, thing):
+    let dist = abs(thing.pos.x - qPos.x) + abs(thing.pos.y - qPos.y)
+    if dist < minDist and dist < maxDist:
+      minDist = dist
+      result = thing
+      searchRadius = (dist + SpatialCellSize - 1) div SpatialCellSize
 
 proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
                                        kind: ThingKind, maxDist: int): Thing =
-  ## Find nearest team-owned thing of a given kind using spatial index
+  ## Find nearest team-owned thing of a given kind using spatial index.
   result = nil
   var minDist = int.high
 
-  let (cx, cy) = cellCoords(pos)
-  # Clamp maxDist to avoid overflow when computing cellRadius
-  let clampedMaxDist = min(maxDist, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
-
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-
-      for thing in env.spatialIndex.kindCells[kind][nx][ny]:
-        if thing.isNil or thing.teamId != teamId:
-          continue
-        let dist = abs(thing.pos.x - pos.x) + abs(thing.pos.y - pos.y)
-        if dist < minDist and dist < maxDist:
-          minDist = dist
-          result = thing
+  forEachInRadius(env, pos, kind, maxDist, thing):
+    if thing.teamId != teamId:
+      continue
+    let dist = abs(thing.pos.x - qPos.x) + abs(thing.pos.y - qPos.y)
+    if dist < minDist and dist < maxDist:
+      minDist = dist
+      result = thing
+      searchRadius = (dist + SpatialCellSize - 1) div SpatialCellSize
 
 proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxDist: int): Thing =
@@ -155,26 +157,16 @@ proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
   result = nil
   var minDist = int.high
 
-  let (cx, cy) = cellCoords(pos)
-  let clampedMaxDist = min(maxDist, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
-
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-
-      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if thing.isNil or not isAgentAlive(env, thing):
-          continue
-        if getTeamId(thing) == teamId:
-          continue
-        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
-        if dist <= maxDist and dist < minDist:
-          minDist = dist
-          result = thing
+  forEachInRadius(env, pos, Agent, maxDist, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if getTeamId(thing) == teamId:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxDist and dist < minDist:
+      minDist = dist
+      result = thing
+      searchRadius = (dist + SpatialCellSize - 1) div SpatialCellSize
 
 proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                       minRange, maxRange: int): Thing =
@@ -183,73 +175,41 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
   result = nil
   var bestDist = int.high
 
-  let (cx, cy) = cellCoords(pos)
-  let clampedMaxDist = min(maxRange, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
-
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-
-      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if thing.isNil or not isAgentAlive(env, thing):
-          continue
-        if getTeamId(thing) == teamId:
-          continue
-        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
-        if dist >= minRange and dist <= maxRange and dist < bestDist:
-          bestDist = dist
-          result = thing
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if getTeamId(thing) == teamId:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist >= minRange and dist <= maxRange and dist < bestDist:
+      bestDist = dist
+      result = thing
+      searchRadius = (dist + SpatialCellSize - 1) div SpatialCellSize
 
 proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxRange: int, targets: var seq[Thing]) =
   ## Collect all enemy agents within maxRange Chebyshev distance.
   ## Used by town centers that need to fire at multiple targets.
-  let (cx, cy) = cellCoords(pos)
-  let clampedMaxDist = min(maxRange, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
-
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-
-      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if thing.isNil or not isAgentAlive(env, thing):
-          continue
-        if getTeamId(thing) == teamId:
-          continue
-        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
-        if dist <= maxRange:
-          targets.add(thing)
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if getTeamId(thing) == teamId:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      targets.add(thing)
 
 proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxRange: int, allies: var seq[Thing]) =
   ## Collect all allied agents within maxRange Chebyshev distance.
-  let (cx, cy) = cellCoords(pos)
-  let clampedMaxDist = min(maxRange, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMaxDist + SpatialCellSize - 1) div SpatialCellSize
-
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-
-      for thing in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if thing.isNil or not isAgentAlive(env, thing):
-          continue
-        if getTeamId(thing) != teamId:
-          continue
-        let dist = max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y))
-        if dist <= maxRange:
-          allies.add(thing)
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if getTeamId(thing) != teamId:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      allies.add(thing)
 
 proc rebuildSpatialIndex*(env: Environment) =
   ## Rebuild the entire spatial index from scratch
