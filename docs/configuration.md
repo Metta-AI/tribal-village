@@ -287,6 +287,28 @@ These variables control runtime behavior and are read at process startup.
 | `TRIBAL_VILLAGE_NIMBY_VERSION` | 0.1.11 | Nimby version for Python build. |
 | `TRIBAL_VECTOR_BACKEND` | "serial" | Vector backend for training (serial/ray). |
 
+### Performance Regression Detection (requires `-d:perfRegression`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TV_PERF_BASELINE` | "" | Path to baseline JSON file to compare against. |
+| `TV_PERF_THRESHOLD` | 10 | Regression threshold percentage. |
+| `TV_PERF_WINDOW` | 100 | Sliding window size in steps. |
+| `TV_PERF_INTERVAL` | 100 | Report/check interval in steps. |
+| `TV_PERF_SAVE_BASELINE` | "" | Path to save captured baseline (capture mode). |
+| `TV_PERF_FAIL_ON_REGRESSION` | "0" | If "1", exit with non-zero code on regression (CI mode). |
+
+**CI usage:**
+```bash
+# Capture baseline:
+TV_PERF_SAVE_BASELINE=baselines/baseline.json \
+  nim c -r -d:perfRegression -d:release --path:src scripts/perf_baseline.nim
+
+# Check for regressions:
+TV_PERF_BASELINE=baselines/baseline.json TV_PERF_FAIL_ON_REGRESSION=1 \
+  nim c -r -d:perfRegression -d:release --path:src scripts/perf_baseline.nim
+```
+
 ## Compile-Time Flags
 
 These flags are passed to the Nim compiler to enable optional features.
@@ -297,6 +319,7 @@ These flags are passed to the Nim compiler to enable optional features.
 | `-d:danger` | Maximum speed (no bounds checks). |
 | `-d:stepTiming` | Enable step timing instrumentation. |
 | `-d:renderTiming` | Enable render timing instrumentation. |
+| `-d:perfRegression` | Enable performance regression detection. |
 | `-d:enableEvolution` | Enable AI evolution layer. |
 
 ## Reference Files

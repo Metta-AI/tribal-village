@@ -65,6 +65,12 @@ when defined(stepTiming):
     echo ""
     resetTimingCounters()
 
+when defined(perfRegression):
+  include "perf_regression"
+
+  proc msBetweenPerfTiming(a, b: MonoTime): float64 =
+    (b.ticks - a.ticks).float64 / 1_000_000.0
+
 let spawnerScanOffsets = block:
   var offsets: seq[IVec2] = @[]
   for dx in -5 .. 5:
@@ -850,6 +856,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tStart = getMonoTime()
       tTotalStart = tStart
 
+  when defined(perfRegression):
+    ensurePerfInit()
+    var prfStart = getMonoTime()
+    var prfNow: MonoTime
+    var prfTotalStart = prfStart
+    var prfSubsystems: array[PerfSubsystemCount, float64]
+
   when defined(combatAudit):
     ensureCombatAuditInit()
 
@@ -866,6 +879,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tActionTintMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[0] = msBetweenPerfTiming(prfStart, prfNow)  # actionTint
+    prfStart = prfNow
+
   # Decay shields
   env.stepDecayShields()
 
@@ -875,6 +893,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tShieldsMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[1] = msBetweenPerfTiming(prfStart, prfNow)  # shields
+    prfStart = prfNow
+
   # Remove any agents that already hit zero HP so they can't act this step
   env.enforceZeroHpDeaths()
 
@@ -883,6 +906,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tPreDeathsMs = msBetween(tStart, tNow)
       tStart = tNow
+
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[2] = msBetweenPerfTiming(prfStart, prfNow)  # preDeaths
+    prfStart = prfNow
 
   inc env.currentStep
 
@@ -2360,6 +2388,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tActionsMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[3] = msBetweenPerfTiming(prfStart, prfNow)  # actions
+    prfStart = prfNow
+
   # Combined single-pass object updates and tumor collection
   env.tempTumorsToSpawn.setLen(0)
   env.tempTumorsToProcess.setLen(0)
@@ -2770,6 +2803,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tThingsMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[4] = msBetweenPerfTiming(prfStart, prfNow)  # things
+    prfStart = prfNow
+
   env.stepProcessTumors(env.tempTumorsToProcess, env.tempTumorsToSpawn, stepRng)
 
   when defined(stepTiming):
@@ -2778,6 +2816,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tTumorsMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[5] = msBetweenPerfTiming(prfStart, prfNow)  # tumors
+    prfStart = prfNow
+
   env.stepApplyTumorDamage(stepRng)
 
   when defined(stepTiming):
@@ -2785,6 +2828,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tTumorDamageMs = msBetween(tStart, tNow)
       tStart = tNow
+
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[6] = msBetweenPerfTiming(prfStart, prfNow)  # tumorDamage
+    prfStart = prfNow
 
   # Tank aura tints
   env.stepApplyTankAuras()
@@ -2800,6 +2848,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tAurasMs = msBetween(tStart, tNow)
       tStart = tNow
+
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[7] = msBetweenPerfTiming(prfStart, prfNow)  # auras
+    prfStart = prfNow
 
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
@@ -2937,6 +2990,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tPopRespawnMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[8] = msBetweenPerfTiming(prfStart, prfNow)  # popRespawn
+    prfStart = prfNow
+
   # Apply per-step survival penalty to all living agents
   env.stepApplySurvivalPenalty()
 
@@ -2945,6 +3003,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tSurvivalMs = msBetween(tStart, tNow)
       tStart = tNow
+
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[9] = msBetweenPerfTiming(prfStart, prfNow)  # survival
+    prfStart = prfNow
 
   # Update heatmap using batch tint modification system
   # This is much more efficient than updating during each entity move
@@ -2964,6 +3027,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tTintMs = msBetween(tStart, tNow)
       tStart = tNow
+
+  when defined(perfRegression):
+    prfNow = getMonoTime()
+    prfSubsystems[10] = msBetweenPerfTiming(prfStart, prfNow)  # tintObs
+    prfStart = prfNow
 
   # Check victory conditions
   if env.config.victoryCondition != VictoryNone and env.victoryWinner < 0:
@@ -3047,6 +3115,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(spatialStats):
     printSpatialReport()
+
+  when defined(perfRegression):
+    let prfTotal = msBetweenPerfTiming(prfTotalStart, getMonoTime())
+    recordPerfStep(prfSubsystems, prfTotal)
+    checkPerfRegression(env.currentStep)
 
   # Check if all agents are terminated/truncated
   var allDone = true
