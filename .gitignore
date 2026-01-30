@@ -104,6 +104,7 @@ nim.cfg
 .logs/
 src/ffi
 scripts/run_all_tests
+scripts/perf_baseline
 
 # Nimby-installed dependency packages (local to worktree)
 bitty/
