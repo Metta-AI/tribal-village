@@ -239,8 +239,10 @@ let ItemCatalog* = block:
   reg
 
 proc terrainSpriteKey*(terrain: TerrainType): string =
-  if terrain == Empty or isRampTerrain(terrain):
+  if terrain == Empty:
     return ""
+  if isRampTerrain(terrain):
+    return "oriented/" & toSnakeCase($terrain)
   let key = TerrainCatalog[terrain].spriteKey
   if key.len == 0: toSnakeCase($terrain) else: key
 
