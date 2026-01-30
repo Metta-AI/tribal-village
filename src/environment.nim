@@ -4,10 +4,12 @@ import terrain, items, common, biome
 import types, registry
 import spatial_index
 import formations
+import state_dumper
 export terrain, items, common
 export types, registry
 export spatial_index
 export formations
+export state_dumper
 
 const
   ## Default tumor behavior constants
