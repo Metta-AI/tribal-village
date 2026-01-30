@@ -2,16 +2,15 @@
 import std/math
 import replay_writer
 
-proc createTumor(pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
-  ## Create a new Tumor seed that can branch once before turning inert
-  Thing(
-    kind: Tumor,
-    pos: pos,
-    orientation: Orientation(randIntInclusive(r, 0, 3)),
-    homeSpawner: homeSpawner,
-    hasClaimedTerritory: false,  # Start mobile, will plant when far enough from others
-    turnsAlive: 0                # New tumor hasn't lived any turns yet
-  )
+proc createTumor(env: Environment, pos: IVec2, homeSpawner: IVec2, r: var Rand): Thing =
+  ## Create a new Tumor seed that can branch once before turning inert.
+  ## Uses object pool when available.
+  result = acquireThing(env, Tumor)
+  result.pos = pos
+  result.orientation = Orientation(randIntInclusive(r, 0, 3))
+  result.homeSpawner = homeSpawner
+  result.hasClaimedTerritory = false
+  result.turnsAlive = 0
 
 const
   ResourceGround = {TerrainEmpty, TerrainGrass, TerrainSand, TerrainSnow, TerrainDune, TerrainMud}
@@ -1398,7 +1397,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
       if nearbyPositions.len > 0:
         let spawnCount = min(3, nearbyPositions.len)
         for i in 0 ..< spawnCount:
-          env.add(createTumor(nearbyPositions[i], targetPos, rng))
+          env.add(createTumor(env, nearbyPositions[i], targetPos, rng))
 
     # If we fail to satisfy distance after attempts, place anywhere random
     if not placed:
@@ -1413,7 +1412,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
       if nearbyPositions.len > 0:
         let spawnCount = min(3, nearbyPositions.len)
         for i in 0 ..< spawnCount:
-          env.add(createTumor(nearbyPositions[i], targetPos, rng))
+          env.add(createTumor(env, nearbyPositions[i], targetPos, rng))
 
 proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
   ## Spawn resource nodes (magma, trees, wheat, ore, plants) as Things.

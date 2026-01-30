@@ -1556,8 +1556,10 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   let bonus = env.getBiomeGatherBonus(tree.pos, ItemWood)
   if bonus > 0:
     discard env.grantItem(agent, ItemWood, bonus)
+  let stumpPos = tree.pos  # Capture before pool release
   removeThing(env, tree)
-  let stump = Thing(kind: Stump, pos: tree.pos)
+  let stump = acquireThing(env, Stump)
+  stump.pos = stumpPos
   stump.inventory = emptyInventory()
   let remaining = ResourceNodeInitial - 1
   if remaining > 0:

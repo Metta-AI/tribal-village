@@ -746,7 +746,7 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
     if branchPos.x < 0:
       continue
 
-    let newTumor = createTumor(branchPos, tumor.homeSpawner, stepRng)
+    let newTumor = createTumor(env, branchPos, tumor.homeSpawner, stepRng)
 
     # Face both clippies toward the new branch direction for clarity
     let dx = branchPos.x - tumor.pos.x
@@ -1187,7 +1187,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   wolf.scatteredSteps = ScatteredDuration
             removeThing(env, target)
             if ResourceNodeInitial > 1:
-              let corpse = Thing(kind: Corpse, pos: pos)
+              let corpse = acquireThing(env, Corpse)
+              corpse.pos = pos
               corpse.inventory = emptyInventory()
               setInv(corpse, ItemMeat, ResourceNodeInitial - 1)
               env.add(corpse)
@@ -1588,8 +1589,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let bonus = env.getBiomeGatherBonus(thing.pos, ItemWheat)
             if bonus > 0:
               discard env.grantItem(agent, ItemWheat, bonus)
+            let stubblePos = thing.pos  # Capture before pool release
             removeThing(env, thing)
-            let stubble = Thing(kind: Stubble, pos: thing.pos)
+            let stubble = acquireThing(env, Stubble)
+            stubble.pos = stubblePos
             stubble.inventory = emptyInventory()
             let remaining = stored - 1
             if remaining > 0:
@@ -1648,7 +1651,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if not hasItems:
                 removeThing(env, thing)
                 if lootKey != ItemMeat:
-                  let skeleton = Thing(kind: Skeleton, pos: thing.pos)
+                  let skeletonPos = thing.pos  # Capture before potential pool reuse
+                  let skeleton = acquireThing(env, Skeleton)
+                  skeleton.pos = skeletonPos
                   skeleton.inventory = emptyInventory()
                   env.add(skeleton)
               used = true
@@ -2083,12 +2088,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let teamId = getTeamId(agent)
 
           # Plant the lantern
-          let lantern = Thing(
-            kind: Lantern,
-            pos: targetPos,
-            teamId: teamId,
-            lanternHealthy: true
-          )
+          let lantern = acquireThing(env, Lantern)
+          lantern.pos = targetPos
+          lantern.teamId = teamId
+          lantern.lanternHealthy = true
 
           env.add(lantern)
 
@@ -2462,7 +2465,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
           if spawnPos.x >= 0:
 
-            let newTumor = createTumor(spawnPos, thing.pos, stepRng)
+            let newTumor = createTumor(env, spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
             env.tempTumorsToSpawn.add(newTumor)
 

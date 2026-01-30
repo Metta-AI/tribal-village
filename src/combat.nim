@@ -225,8 +225,11 @@ proc killAgent(env: Environment, victim: Thing) =
           candidates.add(cand)
     let lanternSlots = min(lanternCount, candidates.len)
     for i in 0 ..< lanternSlots:
-      env.add(Thing(kind: Lantern, pos: candidates[i],
-                    teamId: getTeamId(victim), lanternHealthy: true))
+      let lantern = acquireThing(env, Lantern)
+      lantern.pos = candidates[i]
+      lantern.teamId = getTeamId(victim)
+      lantern.lanternHealthy = true
+      env.add(lantern)
     let relicSlots = min(relicCount, candidates.len - lanternSlots)
     for i in 0 ..< relicSlots:
       let relic = Thing(kind: Relic, pos: candidates[lanternSlots + i])
