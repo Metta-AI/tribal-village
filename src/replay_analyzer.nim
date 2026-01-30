@@ -5,16 +5,14 @@
 ## extracts per-team strategy summaries, and feeds results back
 ## into the evolutionary role/behavior fitness system.
 
-import std/[json, os, algorithm, math, times]
+import std/[json, os, algorithm, times]
 import zippy
+import replay_common
 
 const
   ReplayAnalysisVersion* = 1
-  ## Maximum number of replay files to analyze per feedback pass.
   MaxReplaysPerPass* = 8
-  ## Minimum total reward difference to consider a team "winning".
   WinRewardThreshold* = 0.5
-  ## Alpha for blending replay-derived scores into existing fitness.
   ReplayFeedbackAlpha* = 0.1
 
 type
@@ -68,24 +66,6 @@ proc loadReplayJson*(path: string): JsonNode =
   let decompressed = zippy.uncompress(compressed, dataFormat = dfZlib)
   parseJson(decompressed)
 
-proc extractChanges(series: JsonNode): seq[tuple[step: int, value: JsonNode]] =
-  ## Parse a change-list [[step, value], ...] from replay JSON.
-  if series.isNil or series.kind != JArray:
-    return @[]
-  for entry in series.items:
-    if entry.kind == JArray and entry.len >= 2:
-      let step = entry[0].getInt()
-      result.add((step: step, value: entry[1]))
-
-proc lastValue(series: JsonNode): JsonNode =
-  ## Return the last recorded value from a change series.
-  if series.isNil or series.kind != JArray or series.len == 0:
-    return newJNull()
-  let last = series[series.len - 1]
-  if last.kind == JArray and last.len >= 2:
-    return last[1]
-  newJNull()
-
 # ---------------------------------------------------------------------------
 # Strategy extraction
 # ---------------------------------------------------------------------------
@@ -120,53 +100,47 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
 
     inc teamStrategies[teamId].agentCount
 
-    # Action distribution
+    # Parse action and success changes once, accumulate all stats in a single pass
     let actionIdSeries = obj{"action_id"}
-    if not actionIdSeries.isNil:
-      let changes = extractChanges(actionIdSeries)
-      for change in changes:
-        let verb = change.value.getInt()
-        if verb >= 0 and verb < ActionVerbCount:
-          inc teamStrategies[teamId].actionDist.counts[verb]
-          inc teamStrategies[teamId].actionDist.total
-
-    # Combat stats from attack actions + success
     let actionSuccessSeries = obj{"action_success"}
-    if not actionIdSeries.isNil and not actionSuccessSeries.isNil:
-      let actionChanges = extractChanges(actionIdSeries)
-      let successChanges = extractChanges(actionSuccessSeries)
-      # Build step->success map for quick lookup
-      var successAtStep: seq[tuple[step: int, success: bool]]
-      for sc in successChanges:
-        successAtStep.add((step: sc.step, success: sc.value.getBool()))
+
+    if not actionIdSeries.isNil:
+      let actionChanges = parseChanges(actionIdSeries)
+      let successChanges = if not actionSuccessSeries.isNil:
+                             parseChanges(actionSuccessSeries)
+                           else: @[]
       var successIdx = 0
+
       for ac in actionChanges:
         let verb = ac.value.getInt()
-        if verb == 2: # attack
+        if verb < 0 or verb >= ActionVerbCount:
+          continue
+
+        # Action distribution
+        inc teamStrategies[teamId].actionDist.counts[verb]
+        inc teamStrategies[teamId].actionDist.total
+
+        # Combat stats
+        if verb == ActionAttack:
           inc teamStrategies[teamId].combat.attacks
-          # Find matching success entry
-          while successIdx < successAtStep.len and
-                successAtStep[successIdx].step < ac.step:
+          while successIdx < successChanges.len and
+                successChanges[successIdx].step < ac.step:
             inc successIdx
-          if successIdx < successAtStep.len and
-             successAtStep[successIdx].step == ac.step and
-             successAtStep[successIdx].success:
+          if successIdx < successChanges.len and
+             successChanges[successIdx].step == ac.step and
+             successChanges[successIdx].value.getBool():
             inc teamStrategies[teamId].combat.hits
 
-    # Resource stats from use/build actions
-    if not actionIdSeries.isNil:
-      let changes = extractChanges(actionIdSeries)
-      for change in changes:
-        let verb = change.value.getInt()
-        if verb == 3: # use
+        # Resource stats
+        elif verb == ActionUse:
           inc teamStrategies[teamId].resources.gatherActions
-        elif verb == 8: # build
+        elif verb == ActionBuild:
           inc teamStrategies[teamId].resources.buildActions
 
     # Final reward
     let totalRewardSeries = obj{"total_reward"}
     if not totalRewardSeries.isNil:
-      let lastReward = lastValue(totalRewardSeries)
+      let lastReward = lastChangeValue(totalRewardSeries)
       if lastReward.kind == JFloat or lastReward.kind == JInt:
         teamStrategies[teamId].finalReward += lastReward.getFloat().float32
 
@@ -251,7 +225,6 @@ proc applyReplayFeedback*(catalog: var RoleCatalog, analysis: ReplayAnalysis) =
   for role in catalog.roles.mitems:
     if role.games <= 0:
       continue
-    # Scale existing fitness toward the average replay outcome
     let blended = role.fitness * (1.0 - ReplayFeedbackAlpha) +
                   avgScore * ReplayFeedbackAlpha
     role.fitness = clamp(blended, 0.0, 1.0)
@@ -267,7 +240,6 @@ proc applyReplayFeedback*(catalog: var RoleCatalog, analysis: ReplayAnalysis) =
 proc applyWinnerBoost*(catalog: var RoleCatalog, analysis: ReplayAnalysis,
                        boostAlpha: float32 = 0.15) =
   ## Give an extra fitness boost to roles matching winning team patterns.
-  ## This is called separately so it can be disabled independently.
   if analysis.winningTeamId < 0:
     return
   var winnerScore: float32 = 0.0
@@ -277,7 +249,6 @@ proc applyWinnerBoost*(catalog: var RoleCatalog, analysis: ReplayAnalysis,
       break
   if winnerScore <= 0.0:
     return
-  # Boost roles with high fitness (likely contributed to winning)
   for role in catalog.roles.mitems:
     if role.fitness >= 0.5 and role.games > 0:
       let boost = role.fitness * (1.0 - boostAlpha) +
@@ -314,14 +285,14 @@ proc extractTopActionSequences*(replayJson: JsonNode,
     var reward: float32 = 0.0
     let totalRewardSeries = obj{"total_reward"}
     if not totalRewardSeries.isNil:
-      let lv = lastValue(totalRewardSeries)
+      let lv = lastChangeValue(totalRewardSeries)
       if lv.kind == JFloat or lv.kind == JInt:
         reward = lv.getFloat().float32
 
     var actions: seq[int] = @[]
     let actionIdSeries = obj{"action_id"}
     if not actionIdSeries.isNil:
-      let changes = extractChanges(actionIdSeries)
+      let changes = parseChanges(actionIdSeries)
       for c in changes:
         actions.add c.value.getInt()
 
@@ -339,7 +310,6 @@ proc extractTopActionSequences*(replayJson: JsonNode,
   let topCount = min(agents.len, maxSequences)
   for i in 0 ..< topCount:
     let a = agents[i]
-    # Take the last windowSize actions as a representative pattern
     let startIdx = max(0, a.actions.len - windowSize)
     var verbs: seq[int] = @[]
     for j in startIdx ..< a.actions.len:
@@ -371,11 +341,10 @@ proc findReplayFiles*(dir: string): seq[string] =
   for entry in walkDir(dir):
     if entry.kind == pcFile and entry.path.endsWith(".json.z"):
       result.add entry.path
-  # Sort by modification time (newest first) for recency bias
   result.sort(proc(a, b: string): int =
     let ta = getLastModificationTime(a)
     let tb = getLastModificationTime(b)
-    cmp(tb, ta)  # Descending: newest first
+    cmp(tb, ta)
   )
 
 proc analyzeReplayBatch*(dir: string, maxFiles: int = MaxReplaysPerPass): seq[ReplayAnalysis] =
@@ -386,7 +355,7 @@ proc analyzeReplayBatch*(dir: string, maxFiles: int = MaxReplaysPerPass): seq[Re
     try:
       result.add analyzeReplayFile(files[i])
     except CatchableError:
-      discard # Skip corrupt or unreadable files
+      discard
 
 proc applyBatchFeedback*(catalog: var RoleCatalog, analyses: seq[ReplayAnalysis]) =
   ## Apply fitness feedback from multiple replay analyses.
