@@ -257,6 +257,7 @@ const
   TownCenterAttackTintDuration* = 2'i8
   TankAuraTintDuration* = 1'i8
   MonkAuraTintDuration* = 1'i8
+  DeathTintDuration* = 3'i8           # Death animation tint duration (steps)
 
   # ============================================================================
   # Aura Radii

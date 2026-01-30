@@ -118,6 +118,9 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintBonusArcher,    # UnitArbalester
 ]
 
+# Death animation tint: dark red flash at kill location
+const DeathTint = TileColor(r: 0.80, g: 0.15, b: 0.15, intensity: 1.20)
+
 const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}
 
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
@@ -213,6 +216,9 @@ proc killAgent(env: Environment, victim: Thing) =
   let corpse = Thing(kind: (if dropInv.len > 0: Corpse else: Skeleton), pos: deathPos)
   corpse.inventory = dropInv
   env.add(corpse)
+
+  # Apply death animation tint at kill location
+  env.applyActionTint(deathPos, DeathTint, DeathTintDuration, ActionTintDeath)
 
   if lanternCount > 0 or relicCount > 0:
     var candidates: seq[IVec2] = @[]
