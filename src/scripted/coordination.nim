@@ -45,36 +45,70 @@ type
 # Team-indexed coordination state (global storage)
 var teamCoordination*: array[MapRoomObjectsTeams, CoordinationState]
 
+template validTeamId(teamId: int): bool =
+  teamId >= 0 and teamId < MapRoomObjectsTeams
+
+template coordState(teamId: int): var CoordinationState =
+  teamCoordination[teamId]
+
+proc hasUnfulfilledRequest(teamId: int, kind: CoordinationRequestKind): bool =
+  ## Check if there's an unfulfilled request of the given kind
+  if not validTeamId(teamId):
+    return false
+  let state = addr coordState(teamId)
+  for i in 0 ..< state.requestCount:
+    if state.requests[i].kind == kind and not state.requests[i].fulfilled:
+      return true
+  false
+
+proc markRequestFulfilled(teamId: int, kind: CoordinationRequestKind) =
+  ## Mark the highest-priority unfulfilled request of the given kind as fulfilled
+  if not validTeamId(teamId):
+    return
+  let state = addr coordState(teamId)
+  var bestIdx = -1
+  var bestPriority = PriorityLow
+  for i in 0 ..< state.requestCount:
+    let req = addr state.requests[i]
+    if req.kind == kind and not req.fulfilled:
+      if bestIdx < 0 or req.priority > bestPriority:
+        bestIdx = i
+        bestPriority = req.priority
+  if bestIdx >= 0:
+    state.requests[bestIdx].fulfilled = true
+
 proc clearExpiredRequests*(step: int) =
   ## Remove expired and fulfilled requests
   for teamId in 0 ..< MapRoomObjectsTeams:
+    let state = addr coordState(teamId)
     var writeIdx = 0
-    for readIdx in 0 ..< teamCoordination[teamId].requestCount:
-      let req = teamCoordination[teamId].requests[readIdx]
+    for readIdx in 0 ..< state.requestCount:
+      let req = state.requests[readIdx]
       if not req.fulfilled and (step - req.createdStep) < RequestExpirationSteps:
-        teamCoordination[teamId].requests[writeIdx] = req
+        state.requests[writeIdx] = req
         inc writeIdx
-    teamCoordination[teamId].requestCount = writeIdx
+    state.requestCount = writeIdx
 
 proc addRequest*(teamId: int, kind: CoordinationRequestKind,
                  requesterId: int, requesterPos, threatPos: IVec2, step: int,
                  priority: CoordinationPriority = PriorityNormal): bool =
   ## Add a coordination request. Returns true if added successfully.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not validTeamId(teamId):
     return false
+  let state = addr coordState(teamId)
   # Check for duplicate (same requester, same kind, recent)
-  for i in 0 ..< teamCoordination[teamId].requestCount:
-    let req = teamCoordination[teamId].requests[i]
+  for i in 0 ..< state.requestCount:
+    let req = state.requests[i]
     if req.requesterId == requesterId and req.kind == kind and
        (step - req.createdStep) < DuplicateWindowSteps:
       return false
-  if teamCoordination[teamId].requestCount >= MaxCoordinationRequests:
+  if state.requestCount >= MaxCoordinationRequests:
     # Remove oldest request to make room
     for i in 1 ..< MaxCoordinationRequests:
-      teamCoordination[teamId].requests[i-1] = teamCoordination[teamId].requests[i]
-    dec teamCoordination[teamId].requestCount
-  let idx = teamCoordination[teamId].requestCount
-  teamCoordination[teamId].requests[idx] = CoordinationRequest(
+      state.requests[i-1] = state.requests[i]
+    dec state.requestCount
+  let idx = state.requestCount
+  state.requests[idx] = CoordinationRequest(
     kind: kind,
     teamId: teamId,
     requesterId: requesterId,
@@ -84,18 +118,19 @@ proc addRequest*(teamId: int, kind: CoordinationRequestKind,
     fulfilled: false,
     priority: priority
   )
-  inc teamCoordination[teamId].requestCount
+  inc state.requestCount
   true
 
 proc findNearestProtectionRequest*(teamId: int, agentPos: IVec2): ptr CoordinationRequest =
   ## Find the highest-priority, nearest unfulfilled protection request within response radius
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not validTeamId(teamId):
     return nil
+  let state = addr coordState(teamId)
   var bestDist = int.high
   var bestPriority = PriorityLow
   var bestReq: ptr CoordinationRequest = nil
-  for i in 0 ..< teamCoordination[teamId].requestCount:
-    let req = addr teamCoordination[teamId].requests[i]
+  for i in 0 ..< state.requestCount:
+    let req = addr state.requests[i]
     if req.kind != RequestProtection or req.fulfilled:
       continue
     let dx = abs(agentPos.x - req.requesterPos.x)
@@ -111,53 +146,19 @@ proc findNearestProtectionRequest*(teamId: int, agentPos: IVec2): ptr Coordinati
 
 proc hasDefenseRequest*(teamId: int): bool =
   ## Check if there's an unfulfilled defense request
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return false
-  for i in 0 ..< teamCoordination[teamId].requestCount:
-    let req = teamCoordination[teamId].requests[i]
-    if req.kind == RequestDefense and not req.fulfilled:
-      return true
-  false
+  hasUnfulfilledRequest(teamId, RequestDefense)
 
 proc hasSiegeBuildRequest*(teamId: int): bool =
   ## Check if there's an unfulfilled siege build request
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return false
-  for i in 0 ..< teamCoordination[teamId].requestCount:
-    let req = teamCoordination[teamId].requests[i]
-    if req.kind == RequestSiegeBuild and not req.fulfilled:
-      return true
-  false
+  hasUnfulfilledRequest(teamId, RequestSiegeBuild)
 
 proc markDefenseRequestFulfilled*(teamId: int) =
   ## Mark the highest-priority unfulfilled defense request as fulfilled
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return
-  var bestIdx = -1
-  var bestPriority = PriorityLow
-  for i in 0 ..< teamCoordination[teamId].requestCount:
-    if teamCoordination[teamId].requests[i].kind == RequestDefense and
-       not teamCoordination[teamId].requests[i].fulfilled:
-      if bestIdx < 0 or teamCoordination[teamId].requests[i].priority > bestPriority:
-        bestIdx = i
-        bestPriority = teamCoordination[teamId].requests[i].priority
-  if bestIdx >= 0:
-    teamCoordination[teamId].requests[bestIdx].fulfilled = true
+  markRequestFulfilled(teamId, RequestDefense)
 
 proc markSiegeBuildRequestFulfilled*(teamId: int) =
   ## Mark the highest-priority unfulfilled siege build request as fulfilled
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return
-  var bestIdx = -1
-  var bestPriority = PriorityLow
-  for i in 0 ..< teamCoordination[teamId].requestCount:
-    if teamCoordination[teamId].requests[i].kind == RequestSiegeBuild and
-       not teamCoordination[teamId].requests[i].fulfilled:
-      if bestIdx < 0 or teamCoordination[teamId].requests[i].priority > bestPriority:
-        bestIdx = i
-        bestPriority = teamCoordination[teamId].requests[i].priority
-  if bestIdx >= 0:
-    teamCoordination[teamId].requests[bestIdx].fulfilled = true
+  markRequestFulfilled(teamId, RequestSiegeBuild)
 
 # --- Coordination request creators (called from role behaviors) ---
 
@@ -223,29 +224,34 @@ type
 # Team-indexed reservation state (global storage)
 var teamReservations*: array[MapRoomObjectsTeams, ReservationState]
 
+template resState(teamId: int): var ReservationState =
+  teamReservations[teamId]
+
 proc clearExpiredReservations*(env: Environment) =
   ## Remove reservations that have expired or whose agent is dead.
   let currentStep = env.currentStep
   for teamId in 0 ..< MapRoomObjectsTeams:
+    let state = addr resState(teamId)
     var writeIdx = 0
-    for readIdx in 0 ..< teamReservations[teamId].count:
-      let res = teamReservations[teamId].reservations[readIdx]
+    for readIdx in 0 ..< state.count:
+      let res = state.reservations[readIdx]
       let expired = (currentStep - res.createdStep) >= ReservationExpirationSteps
       let agentDead = res.agentId >= 0 and res.agentId < env.agents.len and
                       not isAgentAlive(env, env.agents[res.agentId])
       if not expired and not agentDead:
         if writeIdx != readIdx:
-          teamReservations[teamId].reservations[writeIdx] = res
+          state.reservations[writeIdx] = res
         inc writeIdx
-    teamReservations[teamId].count = writeIdx
+    state.count = writeIdx
 
 proc isResourceReserved*(teamId: int, pos: IVec2, excludeAgentId: int = -1): bool =
   ## Check if a resource position is reserved by another agent on this team.
   ## excludeAgentId allows the reserving agent to see its own reservation as unreserved.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not validTeamId(teamId):
     return false
-  for i in 0 ..< teamReservations[teamId].count:
-    let res = teamReservations[teamId].reservations[i]
+  let state = addr resState(teamId)
+  for i in 0 ..< state.count:
+    let res = state.reservations[i]
     if res.pos == pos and res.agentId != excludeAgentId.int32:
       return true
   false
@@ -253,53 +259,54 @@ proc isResourceReserved*(teamId: int, pos: IVec2, excludeAgentId: int = -1): boo
 proc reserveResource*(teamId: int, agentId: int, pos: IVec2, step: int): bool =
   ## Reserve a resource position for an agent. Returns true if reserved successfully.
   ## If the agent already has a reservation, it is replaced (one reservation per agent).
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not validTeamId(teamId):
     return false
+  let state = addr resState(teamId)
   # Check if another agent already reserved this position
-  for i in 0 ..< teamReservations[teamId].count:
-    let res = teamReservations[teamId].reservations[i]
+  for i in 0 ..< state.count:
+    let res = state.reservations[i]
     if res.pos == pos and res.agentId != agentId.int32:
       return false  # Already reserved by someone else
   # Remove any existing reservation by this agent (one per agent)
   var writeIdx = 0
-  for readIdx in 0 ..< teamReservations[teamId].count:
-    if teamReservations[teamId].reservations[readIdx].agentId != agentId.int32:
+  for readIdx in 0 ..< state.count:
+    if state.reservations[readIdx].agentId != agentId.int32:
       if writeIdx != readIdx:
-        teamReservations[teamId].reservations[writeIdx] =
-          teamReservations[teamId].reservations[readIdx]
+        state.reservations[writeIdx] = state.reservations[readIdx]
       inc writeIdx
     # If same agent re-reserving same pos, also skip (will re-add below)
-  teamReservations[teamId].count = writeIdx
+  state.count = writeIdx
   # Add new reservation
-  if teamReservations[teamId].count >= MaxResourceReservations:
+  if state.count >= MaxResourceReservations:
     return false  # No space
-  let idx = teamReservations[teamId].count
-  teamReservations[teamId].reservations[idx] = ResourceReservation(
+  let idx = state.count
+  state.reservations[idx] = ResourceReservation(
     pos: pos,
     agentId: agentId.int32,
     createdStep: step.int32
   )
-  inc teamReservations[teamId].count
+  inc state.count
   true
 
 proc releaseReservation*(teamId: int, agentId: int) =
   ## Release any reservation held by this agent.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not validTeamId(teamId):
     return
+  let state = addr resState(teamId)
   var writeIdx = 0
-  for readIdx in 0 ..< teamReservations[teamId].count:
-    if teamReservations[teamId].reservations[readIdx].agentId != agentId.int32:
+  for readIdx in 0 ..< state.count:
+    if state.reservations[readIdx].agentId != agentId.int32:
       if writeIdx != readIdx:
-        teamReservations[teamId].reservations[writeIdx] =
-          teamReservations[teamId].reservations[readIdx]
+        state.reservations[writeIdx] = state.reservations[readIdx]
       inc writeIdx
-  teamReservations[teamId].count = writeIdx
+  state.count = writeIdx
 
 proc getReservationPos*(teamId: int, agentId: int): IVec2 =
   ## Get the reserved position for an agent, or (-1,-1) if none.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not validTeamId(teamId):
     return ivec2(-1, -1)
-  for i in 0 ..< teamReservations[teamId].count:
-    if teamReservations[teamId].reservations[i].agentId == agentId.int32:
-      return teamReservations[teamId].reservations[i].pos
+  let state = addr resState(teamId)
+  for i in 0 ..< state.count:
+    if state.reservations[i].agentId == agentId.int32:
+      return state.reservations[i].pos
   ivec2(-1, -1)
