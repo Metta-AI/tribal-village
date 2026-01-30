@@ -762,6 +762,8 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
 
     # Queue the new tumor for insertion and mark parent as inert
     newTumorBranches.add(newTumor)
+    when defined(tumorAudit):
+      recordTumorBranched()
     tumor.hasClaimedTerritory = true
     tumor.turnsAlive = 0
 
@@ -791,6 +793,8 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
           continue
         if randFloat(stepRng) < TumorAdjacencyDeathChance:
           let killed = env.applyAgentDamage(occupant, 1)
+          when defined(tumorAudit):
+            recordTumorDamage(killed)
           if killed and tumor notin tumorsToRemove:
             tumorsToRemove.add(tumor)
             env.grid[tumor.pos.x][tumor.pos.y] = nil
@@ -798,6 +802,8 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
             break
       else:
         if randFloat(stepRng) < TumorAdjacencyDeathChance:
+          when defined(tumorAudit):
+            recordTumorPredatorKill()
           if occupant notin predatorsToRemove:
             predatorsToRemove.add(occupant)
             env.grid[occupant.pos.x][occupant.pos.y] = nil
@@ -807,6 +813,9 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
 
   # Remove tumors cleared by lethal contact this step
   if tumorsToRemove.len > 0:
+    when defined(tumorAudit):
+      for _ in tumorsToRemove:
+        recordTumorDestroyed()
     for tumor in tumorsToRemove:
       removeThing(env, tumor)
 
@@ -844,8 +853,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(combatAudit):
     ensureCombatAuditInit()
 
-  when defined(actionAudit):
-    ensureActionAuditInit()
 
   # Decay short-lived action tints
   env.stepDecayActionTints()
@@ -897,9 +904,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     # Track idle state: agent is idle if taking NOOP (0) or ORIENT (9) action
     # This enables AoE2-style idle villager detection for RL agents
     agent.isIdle = verb == 0 or verb == 9
-
-    when defined(actionAudit):
-      recordAction(id, verb)
 
     template invalidAndBreak(label: untyped) =
       inc env.stats[id].actionInvalid
@@ -2471,6 +2475,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let newTumor = createTumor(spawnPos, thing.pos, stepRng)
             # Don't add immediately - collect for later
             env.tempTumorsToSpawn.add(newTumor)
+            when defined(tumorAudit):
+              recordTumorSpawned()
 
             # Reset spawner cooldown based on spawn rate
             # Convert spawn rate (0.0-1.0) to cooldown steps (higher rate = lower cooldown)
@@ -3049,8 +3055,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(combatAudit):
     printCombatReport(env.currentStep)
 
-  when defined(actionAudit):
-    printActionAuditReport(env.currentStep)
+  when defined(tumorAudit):
+    env.printTumorReport()
 
   maybeLogReplayStep(env, actions)
   maybeDumpState(env)
