@@ -346,3 +346,323 @@ suite "Behavior: Multi-team Interactions":
     env.stepAction(agent.agentId, 2'u8, dirIndex(agent.pos, altar.pos))
     check altar.hearts < heartsBefore
     echo fmt"  Enemy altar hearts: {heartsBefore} -> {altar.hearts}"
+
+suite "Behavior: Multi-team Diplomacy State Transitions (3+ teams)":
+  test "four teams have distinct team IDs":
+    let env = makeEmptyEnv()
+    let t0 = addAgentAt(env, 0, ivec2(10, 10))
+    let t1 = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 11))
+    let t2 = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 12))
+    let t3 = addAgentAt(env, MapAgentsPerTeam * 3, ivec2(10, 13))
+    check getTeamId(t0) == 0
+    check getTeamId(t1) == 1
+    check getTeamId(t2) == 2
+    check getTeamId(t3) == 3
+    echo fmt"  Teams: {getTeamId(t0)}, {getTeamId(t1)}, {getTeamId(t2)}, {getTeamId(t3)}"
+
+  test "each team can attack every other team":
+    ## In a 3-team scenario, all cross-team pairs are enemies
+    ## Test each pair separately to avoid adjacency issues after stepping
+    let env1 = makeEmptyEnv()
+    let a0 = addAgentAt(env1, 0, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(a0, UnitManAtArms)
+    let a1 = addAgentAt(env1, MapAgentsPerTeam, ivec2(10, 9), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(a1, UnitManAtArms)
+    let hp1Before = a1.hp
+    env1.stepAction(a0.agentId, 2'u8, dirIndex(a0.pos, a1.pos))
+    check a1.hp < hp1Before
+    echo fmt"  T0->T1: HP {hp1Before} -> {a1.hp}"
+
+    let env2 = makeEmptyEnv()
+    let b0 = addAgentAt(env2, 0, ivec2(10, 9), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(b0, UnitManAtArms)
+    let b2 = addAgentAt(env2, MapAgentsPerTeam * 2, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(b2, UnitManAtArms)
+    let hp0Before = b0.hp
+    env2.stepAction(b2.agentId, 2'u8, dirIndex(b2.pos, b0.pos))
+    check b0.hp < hp0Before
+    echo fmt"  T2->T0: HP {hp0Before} -> {b0.hp}"
+
+    let env3 = makeEmptyEnv()
+    let c1 = addAgentAt(env3, MapAgentsPerTeam, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(c1, UnitManAtArms)
+    let c2 = addAgentAt(env3, MapAgentsPerTeam * 2, ivec2(10, 9), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(c2, UnitManAtArms)
+    let hp2Before = c2.hp
+    env3.stepAction(c1.agentId, 2'u8, dirIndex(c1.pos, c2.pos))
+    check c2.hp < hp2Before
+    echo fmt"  T1->T2: HP {hp2Before} -> {c2.hp}"
+
+  test "altar conquest transfers ownership to attacking team":
+    ## When team 0 conquers team 1's altar, it becomes team 0's
+    let env = makeEmptyEnv()
+    let altar = addAltar(env, ivec2(10, 9), 1, 1)  # 1 heart - easily conquered
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    agent.attackDamage = 5
+    check altar.teamId == 1
+
+    env.stepAction(agent.agentId, 2'u8, dirIndex(agent.pos, altar.pos))
+    check altar.hearts == 0
+    check altar.teamId == 0
+    echo fmt"  Altar conquered: team 1 -> team {altar.teamId}"
+
+  test "altar conquest transfers doors to conquering team":
+    ## When an altar is conquered, doors belonging to the old team switch to the attacker
+    let env = makeEmptyEnv()
+    let altar = addAltar(env, ivec2(10, 9), 1, 1)
+    let door = Thing(kind: Door, pos: ivec2(15, 15), teamId: 1)
+    door.inventory = emptyInventory()
+    env.add(door)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    agent.attackDamage = 5
+
+    check door.teamId == 1
+    env.stepAction(agent.agentId, 2'u8, dirIndex(agent.pos, altar.pos))
+    check altar.teamId == 0
+    check door.teamId == 0
+    echo fmt"  Door team transferred: 1 -> {door.teamId}"
+
+  test "door access changes after altar conquest for three teams":
+    ## Team 2 cannot pass team 1's door. Team 0 conquers team 1's altar.
+    ## Now door belongs to team 0. Team 2 still cannot pass.
+    let env = makeEmptyEnv()
+    let altar = addAltar(env, ivec2(10, 9), 1, 1)
+    let door = Thing(kind: Door, pos: ivec2(15, 15), teamId: 1)
+    door.inventory = emptyInventory()
+    env.add(door)
+    let t0agent = addAgentAt(env, 0, ivec2(10, 10))
+    t0agent.attackDamage = 5
+    let t1agent = addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))
+    let t2agent = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(25, 25))
+
+    # Before conquest: team 1 can pass, team 0 and 2 cannot
+    check env.canAgentPassDoor(t1agent, door.pos) == true
+    check env.canAgentPassDoor(t0agent, door.pos) == false
+    check env.canAgentPassDoor(t2agent, door.pos) == false
+
+    # Team 0 conquers team 1's altar
+    env.stepAction(t0agent.agentId, 2'u8, dirIndex(t0agent.pos, altar.pos))
+    check door.teamId == 0
+
+    # After conquest: team 0 can pass, team 1 and 2 cannot
+    check env.canAgentPassDoor(t0agent, door.pos) == true
+    check env.canAgentPassDoor(t1agent, door.pos) == false
+    check env.canAgentPassDoor(t2agent, door.pos) == false
+    echo fmt"  Door access updated after conquest: T0=pass, T1=blocked, T2=blocked"
+
+  test "monk conversion in three-team scenario changes team correctly":
+    ## Team 0 monk converts team 2 unit; team 1 is unaffected
+    let env = makeEmptyEnv()
+    let altar0 = ivec2(12, 10)
+    discard addAltar(env, altar0, 0, 10)
+    discard addBuilding(env, House, ivec2(12, 11), 0)
+    let monk = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altar0, unitClass = UnitMonk)
+    let t1unit = addAgentAt(env, MapAgentsPerTeam, ivec2(20, 20))
+    let t2unit = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 9))
+
+    check getTeamId(t1unit) == 1
+    check getTeamId(t2unit) == 2
+
+    # Convert team 2 unit to team 0
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, t2unit.pos))
+    check getTeamId(t2unit) == 0  # Now on team 0
+    check getTeamId(t1unit) == 1  # Unaffected
+    echo fmt"  T2 unit -> team {getTeamId(t2unit)}, T1 unit still team {getTeamId(t1unit)}"
+
+  test "converted unit from team 2 can be attacked by team 1":
+    ## After conversion to team 0 via override, team 1 can attack the unit
+    let env = makeEmptyEnv()
+    # Create agents in ascending agentId order to avoid padding issues
+    let t1attacker = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(t1attacker, UnitManAtArms)
+    let t2unit = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 10), unitClass = UnitManAtArms, stance = StanceAggressive)
+    applyUnitClass(t2unit, UnitManAtArms)
+    # Simulate conversion to team 0
+    t2unit.teamIdOverride = 0
+    check getTeamId(t2unit) == 0
+
+    let hpBefore = t2unit.hp
+    env.stepAction(t1attacker.agentId, 2'u8, dirIndex(t1attacker.pos, t2unit.pos))
+    check t2unit.hp < hpBefore
+    echo fmt"  T1 attacks converted unit: HP {hpBefore} -> {t2unit.hp}"
+
+  test "converted unit cannot attack new teammates":
+    ## After conversion to team 0, the unit cannot damage team 0 members
+    let env = makeEmptyEnv()
+    let altar0 = ivec2(12, 10)
+    discard addAltar(env, altar0, 0, 10)
+    discard addBuilding(env, House, ivec2(12, 11), 0)
+    let monk = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altar0, unitClass = UnitMonk)
+    let t0ally = addAgentAt(env, 1, ivec2(10, 8))
+    let t2unit = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 9))
+    t2unit.attackDamage = 5
+
+    # Convert team 2 unit to team 0
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, t2unit.pos))
+    check getTeamId(t2unit) == 0
+
+    # Converted unit tries to attack team 0 ally - should be blocked
+    let allyHpBefore = t0ally.hp
+    env.stepAction(t2unit.agentId, 2'u8, dirIndex(t2unit.pos, t0ally.pos))
+    check t0ally.hp == allyHpBefore
+    echo fmt"  Converted unit blocked from attacking new teammate: HP unchanged at {t0ally.hp}"
+
+  test "triple conversion across three teams":
+    ## Unit starts on team 2, converted to team 0, then to team 1
+    let env = makeEmptyEnv()
+    let altar0 = ivec2(12, 10)
+    let altar1 = ivec2(20, 10)
+    discard addAltar(env, altar0, 0, 10)
+    discard addAltar(env, altar1, 1, 10)
+    discard addBuilding(env, House, ivec2(12, 11), 0)
+    discard addBuilding(env, House, ivec2(20, 11), 1)
+    let monk0 = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altar0, unitClass = UnitMonk)
+    let monk1 = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 8), homeAltar = altar1, unitClass = UnitMonk)
+    let target = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 9))
+
+    check getTeamId(target) == 2
+
+    # Team 0 monk converts target from team 2 to team 0
+    env.stepAction(monk0.agentId, 2'u8, dirIndex(monk0.pos, target.pos))
+    check getTeamId(target) == 0
+    echo fmt"  Step 1: team 2 -> {getTeamId(target)}"
+
+    # Team 1 monk converts target from team 0 to team 1
+    env.stepAction(monk1.agentId, 2'u8, dirIndex(monk1.pos, target.pos))
+    check getTeamId(target) == 1
+    echo fmt"  Step 2: team 0 -> {getTeamId(target)}"
+
+  test "monk cannot convert same-team unit":
+    ## Monk attack on same-team unit should heal, not convert
+    let env = makeEmptyEnv()
+    let monk = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitMonk)
+    let ally = addAgentAt(env, 1, ivec2(10, 9))
+    ally.hp = 1
+    ally.maxHp = 10
+    let hpBefore = ally.hp
+
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, ally.pos))
+    check getTeamId(ally) == 0  # Still on team 0
+    check ally.hp > hpBefore    # Was healed instead
+    echo fmt"  Same-team monk heals: HP {hpBefore} -> {ally.hp}, team still {getTeamId(ally)}"
+
+  test "conversion blocked when population cap is full":
+    ## Monk conversion should fail if the team has no pop capacity
+    let env = makeEmptyEnv()
+    let altar0 = ivec2(12, 10)
+    discard addAltar(env, altar0, 0, 10)
+    # No houses means limited pop cap; fill it up
+    let monk = addAgentAt(env, 0, ivec2(10, 10), homeAltar = altar0, unitClass = UnitMonk)
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+
+    # No TownCenter or House for team 0 means popCap = 0, but monk already counts
+    # Without housing, conversion should be blocked
+    env.stepAction(monk.agentId, 2'u8, dirIndex(monk.pos, enemy.pos))
+    check getTeamId(enemy) == 1  # Stays on team 1
+    echo fmt"  Conversion blocked (no pop cap): enemy still team {getTeamId(enemy)}"
+
+  test "guard tower targets nearest enemy across three teams":
+    ## Tower on team 0 should fire at enemies from any other team
+    let env = makeEmptyEnv()
+    discard addBuilding(env, GuardTower, ivec2(10, 10), 0)
+    let t0ally = addAgentAt(env, 0, ivec2(10, 13))
+    let t1enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 12))
+    let t2enemy = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 14))
+    let allyHpBefore = t0ally.hp
+    let t1HpBefore = t1enemy.hp
+    let t2HpBefore = t2enemy.hp
+
+    env.stepNoop()
+    check t0ally.hp == allyHpBefore  # Ally untouched
+    # At least one enemy should take damage (tower picks closest)
+    let anyEnemyDamaged = (t1enemy.hp < t1HpBefore) or (t2enemy.hp < t2HpBefore)
+    check anyEnemyDamaged
+    echo fmt"  Tower: Ally HP={t0ally.hp}, T1 HP={t1enemy.hp}, T2 HP={t2enemy.hp}"
+
+  test "rally points only visible to same-team agents":
+    ## Rally points set on a building should only appear in same-team observations
+    let env = makeEmptyEnv()
+    let building = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    building.rallyPoint = ivec2(10, 12)
+    let t0agent = addAgentAt(env, 0, ivec2(10, 11))
+    let t1agent = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 13))
+    let t2agent = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 14))
+
+    env.stepNoop()
+
+    # Check rally point layer in observations
+    let rpLayer = ord(RallyPointLayer)
+    # Rally at (10,12) relative to t0agent at (10,11): obsX = 10-10+radius, obsY = 12-11+radius
+    let obsRadius = ObservationRadius
+    let t0obsX = 10 - t0agent.pos.x + obsRadius
+    let t0obsY = 12 - t0agent.pos.y + obsRadius
+    if t0obsX >= 0 and t0obsX < ObservationWidth and t0obsY >= 0 and t0obsY < ObservationHeight:
+      check env.observations[t0agent.agentId][rpLayer][t0obsX][t0obsY] == 1
+      echo fmt"  T0 sees rally point: {env.observations[t0agent.agentId][rpLayer][t0obsX][t0obsY]}"
+
+    # Team 1 agent should NOT see team 0's rally point
+    let t1obsX = 10 - t1agent.pos.x + obsRadius
+    let t1obsY = 12 - t1agent.pos.y + obsRadius
+    if t1obsX >= 0 and t1obsX < ObservationWidth and t1obsY >= 0 and t1obsY < ObservationHeight:
+      check env.observations[t1agent.agentId][rpLayer][t1obsX][t1obsY] == 0
+      echo fmt"  T1 does not see rally point: {env.observations[t1agent.agentId][rpLayer][t1obsX][t1obsY]}"
+
+  test "team layer observation shows correct team IDs for three teams":
+    ## The TeamLayer observation should encode team+1 for agents from different teams
+    let env = makeEmptyEnv()
+    let t0 = addAgentAt(env, 0, ivec2(10, 10))
+    let t1 = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 11))
+    let t2 = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 12))
+
+    env.stepNoop()
+
+    let teamLayer = ord(TeamLayer)
+    let obsRadius = ObservationRadius
+    # From t0's perspective, check team layer at t1's position (10,11)
+    let t1obsX = 10 - t0.pos.x + obsRadius
+    let t1obsY = 11 - t0.pos.y + obsRadius
+    if t1obsX >= 0 and t1obsX < ObservationWidth and t1obsY >= 0 and t1obsY < ObservationHeight:
+      check env.observations[t0.agentId][teamLayer][t1obsX][t1obsY] == 2  # team 1 + 1
+      echo fmt"  T0 sees T1 as team: {env.observations[t0.agentId][teamLayer][t1obsX][t1obsY]}"
+
+    # From t0's perspective, check team layer at t2's position (10,12)
+    let t2obsX = 10 - t0.pos.x + obsRadius
+    let t2obsY = 12 - t0.pos.y + obsRadius
+    if t2obsX >= 0 and t2obsX < ObservationWidth and t2obsY >= 0 and t2obsY < ObservationHeight:
+      check env.observations[t0.agentId][teamLayer][t2obsX][t2obsY] == 3  # team 2 + 1
+      echo fmt"  T0 sees T2 as team: {env.observations[t0.agentId][teamLayer][t2obsX][t2obsY]}"
+
+  test "altar conquest by team 2 against team 1 with team 0 uninvolved":
+    ## Verifies that team 2 can conquer team 1's altar while team 0 is uninvolved
+    let env = makeEmptyEnv()
+    let altar1 = addAltar(env, ivec2(10, 9), 1, 1)
+    let t0agent = addAgentAt(env, 0, ivec2(20, 20))
+    let t2agent = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 10))
+    t2agent.attackDamage = 5
+
+    check altar1.teamId == 1
+    env.stepAction(t2agent.agentId, 2'u8, dirIndex(t2agent.pos, altar1.pos))
+    check altar1.teamId == 2  # Conquered by team 2
+    echo fmt"  Team 2 conquered team 1 altar: now team {altar1.teamId}"
+
+  test "multiple doors transfer on altar conquest":
+    ## All doors belonging to the old team transfer when their altar is conquered
+    let env = makeEmptyEnv()
+    let altar = addAltar(env, ivec2(10, 9), 1, 1)
+    let door1 = Thing(kind: Door, pos: ivec2(15, 15), teamId: 1)
+    door1.inventory = emptyInventory()
+    env.add(door1)
+    let door2 = Thing(kind: Door, pos: ivec2(16, 16), teamId: 1)
+    door2.inventory = emptyInventory()
+    env.add(door2)
+    let door0 = Thing(kind: Door, pos: ivec2(17, 17), teamId: 0)
+    door0.inventory = emptyInventory()
+    env.add(door0)
+    let agent = addAgentAt(env, MapAgentsPerTeam * 2, ivec2(10, 10))
+    agent.attackDamage = 5
+
+    env.stepAction(agent.agentId, 2'u8, dirIndex(agent.pos, altar.pos))
+    check door1.teamId == 2  # Transferred to team 2
+    check door2.teamId == 2  # Transferred to team 2
+    check door0.teamId == 0  # Unaffected (belongs to team 0, not team 1)
+    echo fmt"  Doors: d1={door1.teamId}, d2={door2.teamId}, d0={door0.teamId}"
