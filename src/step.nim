@@ -2936,6 +2936,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     env.shouldReset = true
 
   maybeLogReplayStep(env, actions)
+  maybeDumpState(env)
   if env.shouldReset:
     maybeFinalizeReplay(env)
 
