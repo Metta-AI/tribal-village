@@ -1566,7 +1566,7 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   true
 
 include "combat_audit"
-include "action_audit"
+include "tumor_audit"
 include "combat"
 
 # ============== CLIPPY AI ==============
