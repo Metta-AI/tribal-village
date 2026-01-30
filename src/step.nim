@@ -711,11 +711,7 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
   var tumorsToRemove: seq[Thing] = @[]
   var predatorsToRemove: seq[Thing] = @[]
 
-  let thingCount = env.things.len
-  for i in 0 ..< thingCount:
-    let tumor = env.things[i]
-    if tumor.kind != Tumor:
-      continue
+  for tumor in env.thingsByKind[Tumor]:
     for offset in CardinalOffsets:
       let adjPos = tumor.pos + offset
       if not isValidPos(adjPos):
@@ -1148,11 +1144,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 inc env.stats[id].actionInvalid
                 break attackAction
               var popCap = 0
-              for thing in env.things:
-                if thing.teamId == newTeam and isBuildingKind(thing.kind):
-                  let add = buildingPopCap(thing.kind)
-                  if add > 0:
-                    popCap += add
+              for tc in env.thingsByKind[TownCenter]:
+                if tc.teamId == newTeam:
+                  popCap += TownCenterPopCap
+              for house in env.thingsByKind[House]:
+                if house.teamId == newTeam:
+                  popCap += HousePopCap
               var popCount = 0
               for other in env.agents:
                 if isAgentAlive(env, other) and getTeamId(other) == newTeam:
@@ -2182,15 +2179,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if placedKindValid and placedKind in {Mill, LumberCamp, MiningCamp}:
             var anchor = ivec2(-1, -1)
             var bestDist = int.high
-            for thing in env.things:
-              if thing.teamId != teamId:
-                continue
-              if thing.kind notin {TownCenter, Altar}:
-                continue
-              let dist = abs(thing.pos.x - targetPos.x) + abs(thing.pos.y - targetPos.y)
-              if dist < bestDist:
-                bestDist = dist
-                anchor = thing.pos
+            for kind in [TownCenter, Altar]:
+              for thing in env.thingsByKind[kind]:
+                if thing.teamId != teamId:
+                  continue
+                let dist = abs(thing.pos.x - targetPos.x) + abs(thing.pos.y - targetPos.y)
+                if dist < bestDist:
+                  bestDist = dist
+                  anchor = thing.pos
             if anchor.x < 0:
               anchor = targetPos
             var pos = targetPos
@@ -2897,19 +2893,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tEndMs = msBetween(tStart, tNow)
 
-      var countTumor = 0
-      var countCorpse = 0
-      var countSkeleton = 0
-      var countCow = 0
-      var countStump = 0
-      for thing in env.things:
-        case thing.kind:
-        of Tumor: inc countTumor
-        of Corpse: inc countCorpse
-        of Skeleton: inc countSkeleton
-        of Cow: inc countCow
-        of Stump: inc countStump
-        else: discard
+      let countTumor = env.thingsByKind[Tumor].len
+      let countCorpse = env.thingsByKind[Corpse].len
+      let countSkeleton = env.thingsByKind[Skeleton].len
+      let countCow = env.thingsByKind[Cow].len
+      let countStump = env.thingsByKind[Stump].len
 
       let totalMs = msBetween(tTotalStart, tNow)
       echo "step=", env.currentStep,
