@@ -118,6 +118,24 @@ const
   ActionVerbCount* = 11  # Added set rally point action (verb 10)
   ActionArgumentCount* = 25
 
+  # Action verb indices (used by replay_writer, replay_analyzer, ai_audit)
+  ActionNoop* = 0
+  ActionMove* = 1
+  ActionAttack* = 2
+  ActionUse* = 3
+  ActionSwap* = 4
+  ActionPut* = 5
+  ActionPlantLantern* = 6
+  ActionPlantResource* = 7
+  ActionBuild* = 8
+  ActionOrient* = 9
+  ActionSetRallyPoint* = 10
+
+  ActionNames*: array[ActionVerbCount, string] = [
+    "noop", "move", "attack", "use", "swap", "put",
+    "plant_lantern", "plant_resource", "build", "orient", "set_rally_point"
+  ]
+
 proc encodeAction*(verb: uint8, argument: uint8): uint8 =
   uint8(verb.int * ActionArgumentCount + argument.int)
 
