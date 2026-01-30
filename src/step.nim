@@ -153,6 +153,31 @@ const
     UnitScout, UnitBatteringRam
   }
 
+proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
+  ## Spawn a visual-only projectile from source to target.
+  ## Lifetime scales with distance for natural flight speed.
+  let dist = max(abs(target.x - source.x), abs(target.y - source.y))
+  if dist <= 0:
+    return
+  # Siege projectiles travel slower (more frames), arrows faster
+  let lifetime = case kind
+    of ProjMangonel: min(dist + 2, 6).int8
+    of ProjTrebuchet: min(dist + 3, 8).int8
+    else: min(dist + 1, 4).int8
+  env.projectiles.add(Projectile(
+    source: source, target: target, kind: kind,
+    countdown: lifetime, lifetime: lifetime))
+
+proc stepDecayProjectiles(env: Environment) =
+  ## Decay and remove expired projectiles
+  if env.projectiles.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.projectiles.len:
+      env.projectiles[readIdx].countdown -= 1
+      if env.projectiles[readIdx].countdown > 0:
+        env.projectiles[writeIdx] = env.projectiles[readIdx]
+        inc writeIdx
+    env.projectiles.setLen(writeIdx)
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -216,6 +241,8 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   let tintCode = if tower.kind == Castle: ActionTintAttackCastle else: ActionTintAttackTower
   let tintDuration = if tower.kind == Castle: CastleAttackTintDuration else: TowerAttackTintDuration
   env.applyActionTint(bestTarget.pos, tint, tintDuration, tintCode)
+  let projKind = if tower.kind == Castle: ProjCastleArrow else: ProjTowerArrow
+  env.spawnProjectile(tower.pos, bestTarget.pos, projKind)
 
   # Calculate tower damage with University tech bonuses
   var damage = tower.attackDamage
@@ -287,6 +314,7 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
       for i in 0 ..< bonusArrows:
         let bonusTarget = allTargets[i mod allTargets.len]
         env.applyActionTint(bonusTarget.pos, tint, tintDuration, tintCode)
+        env.spawnProjectile(tower.pos, bonusTarget.pos, projKind)
         applyTowerHit(bonusTarget)
 
 proc stepTryTownCenterAttack(env: Environment, tc: Thing,
@@ -318,6 +346,7 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
     let target = targets[targetIdx]
     env.applyActionTint(target.pos, TownCenterAttackTint, TownCenterAttackTintDuration,
                         ActionTintAttackTower)
+    env.spawnProjectile(tc.pos, target.pos, ProjTowerArrow)
     case target.kind
     of Agent:
       when defined(combatAudit):
@@ -893,8 +922,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(actionAudit):
     ensureActionAuditInit()
 
-  # Decay short-lived action tints
+  # Decay short-lived action tints and projectile visuals
   env.stepDecayActionTints()
+  env.stepDecayProjectiles()
 
   when defined(stepTiming):
     if timing:
@@ -1336,6 +1366,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
           let offsets = [ivec2(0, 0), left, right]  # 1-tile side prongs
+          # Visual projectile to midpoint of AoE area
+          let midStep = (MangonelAoELength + 1) div 2
+          let mangonelTarget = agent.pos + ivec2(delta.x * midStep.int32, delta.y * midStep.int32)
+          env.spawnProjectile(agent.pos, mangonelTarget, ProjMangonel)
           for step in 1 .. MangonelAoELength:
             let forward = agent.pos + ivec2(delta.x * step.int32, delta.y * step.int32)
             for offset in offsets:
@@ -1351,12 +1385,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         if rangedRange > 0:
           var attackHit = false
+          # Spawn visual projectile to max range (or first hit)
+          let rangedProjKind = case agent.unitClass
+            of UnitTrebuchet: ProjTrebuchet
+            of UnitLongbowman: ProjLongbow
+            of UnitJanissary: ProjJanissary
+            else: ProjArrow
           for distance in 1 .. rangedRange:
             let attackPos = agent.pos + ivec2(delta.x * distance.int32, delta.y * distance.int32)
             env.applyUnitAttackTint(agent.unitClass, attackPos)
             if tryHitAt(attackPos):
+              env.spawnProjectile(agent.pos, attackPos, rangedProjKind)
               attackHit = true
               break
+          if not attackHit:
+            # Missed: show arrow flying to max range
+            let maxPos = agent.pos + ivec2(delta.x * rangedRange.int32, delta.y * rangedRange.int32)
+            env.spawnProjectile(agent.pos, maxPos, rangedProjKind)
           if attackHit:
             inc env.stats[id].actionAttack
           else:
@@ -3309,6 +3354,7 @@ proc reset*(env: Environment) =
   env.tumorStrength.clear()
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags.clear()
+  env.projectiles.setLen(0)
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)

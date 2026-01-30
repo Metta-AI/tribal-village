@@ -521,6 +521,25 @@ type
   ActionTintFlags* = array[MapWidth, array[MapHeight, bool]]
   ActionTintCode* = array[MapWidth, array[MapHeight, uint8]]
 
+  ProjectileKind* = enum
+    ProjArrow        ## Archer/crossbow/arbalester arrows
+    ProjLongbow      ## Longbowman arrows (slightly different color)
+    ProjJanissary    ## Janissary bullets
+    ProjTowerArrow   ## Guard tower / town center arrows
+    ProjCastleArrow  ## Castle arrows
+    ProjMangonel     ## Mangonel projectile (stone)
+    ProjTrebuchet    ## Trebuchet projectile (boulder)
+
+  Projectile* = object
+    ## A visual-only projectile traveling from source to target.
+    ## Does not affect gameplay - damage is applied instantly (hitscan).
+    ## Exists purely for rendering combat readability.
+    source*: IVec2       ## Where the projectile was fired from
+    target*: IVec2       ## Where it lands (damage already applied)
+    kind*: ProjectileKind
+    countdown*: int8     ## Frames remaining before removal (starts at lifetime)
+    lifetime*: int8      ## Total frames this projectile lives (for interpolation)
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -813,6 +832,7 @@ type
     actionTintFlags*: ActionTintFlags
     actionTintCode*: ActionTintCode
     actionTintPositions*: seq[IVec2]
+    projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     cowHerdCounts*: seq[int]

@@ -691,6 +691,41 @@ proc drawAgentDecorations*() =
         bxy.drawImage(ov.icon, posVec + dir * (0.58 + 0.10 * j.float32),
                       angle = 0, scale = 1/320)
 
+const ProjectileColors: array[ProjectileKind, Color] = [
+  color(0.95, 0.85, 0.20, 1.0),  # ProjArrow - yellow
+  color(0.70, 0.90, 0.25, 1.0),  # ProjLongbow - green-yellow
+  color(0.90, 0.30, 0.35, 1.0),  # ProjJanissary - red
+  color(0.95, 0.70, 0.25, 1.0),  # ProjTowerArrow - orange-yellow
+  color(0.35, 0.25, 0.85, 1.0),  # ProjCastleArrow - blue-purple
+  color(0.75, 0.35, 0.95, 1.0),  # ProjMangonel - pink-purple
+  color(0.65, 0.20, 0.98, 1.0),  # ProjTrebuchet - deep purple
+]
+
+const ProjectileScales: array[ProjectileKind, float32] = [
+  1.0 / 400.0,  # ProjArrow - small
+  1.0 / 400.0,  # ProjLongbow - small
+  1.0 / 400.0,  # ProjJanissary - small
+  1.0 / 400.0,  # ProjTowerArrow - small
+  1.0 / 400.0,  # ProjCastleArrow - small
+  1.0 / 280.0,  # ProjMangonel - medium
+  1.0 / 240.0,  # ProjTrebuchet - large
+]
+
+proc drawProjectiles*() =
+  ## Draw visual-only projectiles traveling from source to target.
+  ## Uses the "floor" sprite as a small colored dot at the interpolated position.
+  for proj in env.projectiles:
+    if proj.lifetime <= 0:
+      continue
+    # Interpolate position: t=1 at source, t=0 at target
+    let t = proj.countdown.float32 / proj.lifetime.float32
+    let pos = vec2(
+      proj.source.x.float32 * t + proj.target.x.float32 * (1.0 - t),
+      proj.source.y.float32 * t + proj.target.y.float32 * (1.0 - t))
+    let c = ProjectileColors[proj.kind]
+    let sc = ProjectileScales[proj.kind]
+    bxy.drawImage("floor", pos, angle = 0, scale = sc, tint = c)
+
 proc drawGrid*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
