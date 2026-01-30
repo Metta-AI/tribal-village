@@ -7,6 +7,68 @@ proc parseThingKey(key: ItemKey, kind: var ThingKind): bool =
       return true
   false
 
+proc resetThing(thing: Thing, kind: ThingKind) =
+  ## Reset a pooled Thing to default state for reuse.
+  thing.kind = kind
+  thing.pos = ivec2(0, 0)
+  thing.id = 0
+  thing.layer = 0
+  thing.cooldown = 0
+  thing.frozen = 0
+  thing.thingsIndex = 0
+  thing.kindListIndex = 0
+  thing.agentId = 0
+  thing.orientation = Orientation(0)
+  thing.inventory = emptyInventory()
+  thing.barrelCapacity = 0
+  thing.reward = 0.0'f32
+  thing.hp = 0
+  thing.maxHp = 0
+  thing.attackDamage = 0
+  thing.unitClass = UnitVillager
+  thing.stance = StanceNoAttack
+  thing.isIdle = false
+  thing.embarkedUnitClass = UnitVillager
+  thing.teamIdOverride = 0
+  thing.homeAltar = ivec2(0, 0)
+  thing.movementDebt = 0.0'f32
+  thing.herdId = 0
+  thing.packId = 0
+  thing.isPackLeader = false
+  thing.scatteredSteps = 0
+  thing.packed = false
+  thing.tradeHomeDock = ivec2(0, 0)
+  thing.faith = 0
+  thing.homeSpawner = ivec2(0, 0)
+  thing.hasClaimedTerritory = false
+  thing.turnsAlive = 0
+  thing.teamId = 0
+  thing.lanternHealthy = false
+  thing.garrisonedUnits = @[]
+  thing.townBellActive = false
+  thing.garrisonedRelics = 0
+  thing.productionQueue = ProductionQueue()
+  thing.rallyPoint = ivec2(0, 0)
+  thing.rallyTarget = ivec2(0, 0)
+  thing.wonderVictoryCountdown = 0
+  thing.lastTintPos = ivec2(0, 0)
+
+proc acquireThing*(env: Environment, kind: ThingKind): Thing =
+  ## Get a Thing from the pool or allocate a new one.
+  if kind in PoolableKinds and env.thingPool.free[kind].len > 0:
+    result = env.thingPool.free[kind].pop()
+    env.thingPool.stats.poolSize -= 1
+    resetThing(result, kind)
+  else:
+    result = Thing(kind: kind)
+  env.thingPool.stats.acquired += 1
+
+proc releaseThing(env: Environment, thing: Thing) =
+  ## Return a Thing to the pool for reuse.
+  env.thingPool.free[thing.kind].add(thing)
+  env.thingPool.stats.released += 1
+  env.thingPool.stats.poolSize += 1
+
 proc removeThing(env: Environment, thing: Thing) =
   # Remove from spatial index before clearing position
   removeFromSpatialIndex(env, thing)
@@ -35,6 +97,9 @@ proc removeThing(env: Environment, thing: Thing) =
     env.thingsByKind[thing.kind].setLen(lastKindIdx)
   if thing.kind == Altar and env.altarColors.hasKey(thing.pos):
     env.altarColors.del(thing.pos)
+  # Return poolable things to pool for reuse
+  if thing.kind in PoolableKinds:
+    releaseThing(env, thing)
 
 proc add*(env: Environment, thing: Thing) =
   let isBlocking = thingBlocksMovement(thing.kind)

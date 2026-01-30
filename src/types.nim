@@ -582,6 +582,19 @@ type
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
+  PoolStats* = object
+    acquired*: int
+    released*: int
+    poolSize*: int
+
+  ThingPool* = object
+    free*: array[ThingKind, seq[Thing]]
+    stats*: PoolStats
+
+const
+  ## Thing kinds eligible for object pooling (frequently created/destroyed)
+  PoolableKinds* = {Tumor, Corpse, Skeleton, Stubble, Lantern, Stump}
+
 const
   # Spatial index constants
   SpatialCellSize* = 16  # Tiles per spatial cell
@@ -1001,6 +1014,8 @@ type
     tempTumorsToSpawn*: seq[Thing]
     tempTumorsToProcess*: seq[Thing]
     tempTowerRemovals*: seq[Thing]
+    # Object pool for frequently created/destroyed things
+    thingPool*: ThingPool
 
 # Global environment instance
 var env*: Environment
