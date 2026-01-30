@@ -601,6 +601,12 @@ const
   SpatialCellsX* = (MapWidth + SpatialCellSize - 1) div SpatialCellSize
   SpatialCellsY* = (MapHeight + SpatialCellSize - 1) div SpatialCellSize
 
+when defined(spatialAutoTune):
+  const
+    SpatialAutoTuneThreshold* = 32  ## Max entities per cell before rebalance
+    SpatialMinCellSize* = 4         ## Minimum cell size in tiles
+    SpatialMaxCellSize* = 64        ## Maximum cell size in tiles
+
 type
   SpatialCell* = object
     things*: seq[Thing]
@@ -609,6 +615,12 @@ type
     cells*: array[SpatialCellsX, array[SpatialCellsY, SpatialCell]]
     # Per-kind indices for faster filtered queries
     kindCells*: array[ThingKind, array[SpatialCellsX, array[SpatialCellsY, seq[Thing]]]]
+    when defined(spatialAutoTune):
+      activeCellSize*: int        ## Current runtime cell size (tiles)
+      activeCellsX*: int          ## Current grid width in cells
+      activeCellsY*: int          ## Current grid height in cells
+      dynCells*: seq[seq[SpatialCell]]
+      dynKindCells*: array[ThingKind, seq[seq[seq[Thing]]]]
 
   Stats* = ref object
     # Agent Stats - simplified actions:
