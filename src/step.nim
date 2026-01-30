@@ -641,6 +641,118 @@ proc checkVictoryConditions(env: Environment) =
       env.victoryWinner = winner
       return
 
+proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
+                       newTumorsToSpawn: seq[Thing],
+                       stepRng: var Rand) =
+  ## Process tumor branching and add all newly spawned tumors to the environment.
+  ## Handles both spawner-created tumors (newTumorsToSpawn) and branch tumors.
+  var newTumorBranches: seq[Thing] = @[]
+
+  for tumor in tumorsToProcess:
+    if env.getThing(tumor.pos) != tumor:
+      continue
+    tumor.turnsAlive += 1
+    if tumor.turnsAlive < TumorBranchMinAge:
+      continue
+
+    if randFloat(stepRng) >= TumorBranchChance:
+      continue
+
+    var branchPos = ivec2(-1, -1)
+    var branchCount = 0
+    for offset in TumorBranchOffsets:
+      let candidate = tumor.pos + offset
+      if not env.isValidEmptyPosition(candidate):
+        continue
+
+      var adjacentTumor = false
+      for adj in CardinalOffsets:
+        let checkPos = candidate + adj
+        if not isValidPos(checkPos):
+          continue
+        let occupant = env.getThing(checkPos)
+        if not isNil(occupant) and occupant.kind == Tumor:
+          adjacentTumor = true
+          break
+      if not adjacentTumor:
+        inc branchCount
+        if randIntExclusive(stepRng, 0, branchCount) == 0:
+          branchPos = candidate
+    if branchPos.x < 0:
+      continue
+
+    let newTumor = createTumor(branchPos, tumor.homeSpawner, stepRng)
+
+    # Face both clippies toward the new branch direction for clarity
+    let dx = branchPos.x - tumor.pos.x
+    let dy = branchPos.y - tumor.pos.y
+    var branchOrientation: Orientation
+    if abs(dx) >= abs(dy):
+      branchOrientation = (if dx >= 0: Orientation.E else: Orientation.W)
+    else:
+      branchOrientation = (if dy >= 0: Orientation.S else: Orientation.N)
+
+    newTumor.orientation = branchOrientation
+    tumor.orientation = branchOrientation
+
+    # Queue the new tumor for insertion and mark parent as inert
+    newTumorBranches.add(newTumor)
+    tumor.hasClaimedTerritory = true
+    tumor.turnsAlive = 0
+
+  # Add newly spawned tumors from spawners and branching this step
+  for newTumor in newTumorsToSpawn:
+    env.add(newTumor)
+  for newTumor in newTumorBranches:
+    env.add(newTumor)
+
+proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
+  ## Resolve contact: agents and predators adjacent to tumors risk lethal creep.
+  var tumorsToRemove: seq[Thing] = @[]
+  var predatorsToRemove: seq[Thing] = @[]
+
+  let thingCount = env.things.len
+  for i in 0 ..< thingCount:
+    let tumor = env.things[i]
+    if tumor.kind != Tumor:
+      continue
+    for offset in CardinalOffsets:
+      let adjPos = tumor.pos + offset
+      if not isValidPos(adjPos):
+        continue
+
+      let occupant = env.getThing(adjPos)
+      if isNil(occupant) or occupant.kind notin {Agent, Bear, Wolf}:
+        continue
+
+      if occupant.kind == Agent:
+        if env.isBlockedByShield(occupant, tumor.pos):
+          continue
+        if randFloat(stepRng) < TumorAdjacencyDeathChance:
+          let killed = env.applyAgentDamage(occupant, 1)
+          if killed and tumor notin tumorsToRemove:
+            tumorsToRemove.add(tumor)
+            env.grid[tumor.pos.x][tumor.pos.y] = nil
+          if killed:
+            break
+      else:
+        if randFloat(stepRng) < TumorAdjacencyDeathChance:
+          if occupant notin predatorsToRemove:
+            predatorsToRemove.add(occupant)
+            env.grid[occupant.pos.x][occupant.pos.y] = nil
+          if tumor notin tumorsToRemove:
+            tumorsToRemove.add(tumor)
+            env.grid[tumor.pos.x][tumor.pos.y] = nil
+
+  # Remove tumors cleared by lethal contact this step
+  if tumorsToRemove.len > 0:
+    for tumor in tumorsToRemove:
+      removeThing(env, tumor)
+
+  if predatorsToRemove.len > 0:
+    for predator in predatorsToRemove:
+      removeThing(env, predator)
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
@@ -2561,60 +2673,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tThingsMs = msBetween(tStart, tNow)
       tStart = tNow
 
-  # ============== TUMOR PROCESSING ==============
-  var newTumorBranches: seq[Thing] = @[]
-
-  for tumor in env.tempTumorsToProcess:
-    if env.getThing(tumor.pos) != tumor:
-      continue
-    tumor.turnsAlive += 1
-    if tumor.turnsAlive < TumorBranchMinAge:
-      continue
-
-    if randFloat(stepRng) >= TumorBranchChance:
-      continue
-
-    var branchPos = ivec2(-1, -1)
-    var branchCount = 0
-    for offset in TumorBranchOffsets:
-      let candidate = tumor.pos + offset
-      if not env.isValidEmptyPosition(candidate):
-        continue
-
-      var adjacentTumor = false
-      for adj in CardinalOffsets:
-        let checkPos = candidate + adj
-        if not isValidPos(checkPos):
-          continue
-        let occupant = env.getThing(checkPos)
-        if not isNil(occupant) and occupant.kind == Tumor:
-          adjacentTumor = true
-          break
-      if not adjacentTumor:
-        inc branchCount
-        if randIntExclusive(stepRng, 0, branchCount) == 0:
-          branchPos = candidate
-    if branchPos.x < 0:
-      continue
-
-    let newTumor = createTumor(branchPos, tumor.homeSpawner, stepRng)
-
-    # Face both clippies toward the new branch direction for clarity
-    let dx = branchPos.x - tumor.pos.x
-    let dy = branchPos.y - tumor.pos.y
-    var branchOrientation: Orientation
-    if abs(dx) >= abs(dy):
-      branchOrientation = (if dx >= 0: Orientation.E else: Orientation.W)
-    else:
-      branchOrientation = (if dy >= 0: Orientation.S else: Orientation.N)
-
-    newTumor.orientation = branchOrientation
-    tumor.orientation = branchOrientation
-
-    # Queue the new tumor for insertion and mark parent as inert
-    newTumorBranches.add(newTumor)
-    tumor.hasClaimedTerritory = true
-    tumor.turnsAlive = 0
+  env.stepProcessTumors(env.tempTumorsToProcess, env.tempTumorsToSpawn, stepRng)
 
   when defined(stepTiming):
     if timing:
@@ -2622,57 +2681,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tTumorsMs = msBetween(tStart, tNow)
       tStart = tNow
 
-  # Add newly spawned tumors from spawners and branching this step
-  for newTumor in env.tempTumorsToSpawn:
-    env.add(newTumor)
-  for newTumor in newTumorBranches:
-    env.add(newTumor)
-
-  # Resolve contact: agents and predators adjacent to tumors risk lethal creep
-  var tumorsToRemove: seq[Thing] = @[]
-  var predatorsToRemove: seq[Thing] = @[]
-
-  let thingCount = env.things.len
-  for i in 0 ..< thingCount:
-    let tumor = env.things[i]
-    if tumor.kind != Tumor:
-      continue
-    for offset in CardinalOffsets:
-      let adjPos = tumor.pos + offset
-      if not isValidPos(adjPos):
-        continue
-
-      let occupant = env.getThing(adjPos)
-      if isNil(occupant) or occupant.kind notin {Agent, Bear, Wolf}:
-        continue
-
-      if occupant.kind == Agent:
-        if env.isBlockedByShield(occupant, tumor.pos):
-          continue
-        if randFloat(stepRng) < TumorAdjacencyDeathChance:
-          let killed = env.applyAgentDamage(occupant, 1)
-          if killed and tumor notin tumorsToRemove:
-            tumorsToRemove.add(tumor)
-            env.grid[tumor.pos.x][tumor.pos.y] = nil
-          if killed:
-            break
-      else:
-        if randFloat(stepRng) < TumorAdjacencyDeathChance:
-          if occupant notin predatorsToRemove:
-            predatorsToRemove.add(occupant)
-            env.grid[occupant.pos.x][occupant.pos.y] = nil
-          if tumor notin tumorsToRemove:
-            tumorsToRemove.add(tumor)
-            env.grid[tumor.pos.x][tumor.pos.y] = nil
-
-  # Remove tumors cleared by lethal contact this step
-  if tumorsToRemove.len > 0:
-    for tumor in tumorsToRemove:
-      removeThing(env, tumor)
-
-  if predatorsToRemove.len > 0:
-    for predator in predatorsToRemove:
-      removeThing(env, predator)
+  env.stepApplyTumorDamage(stepRng)
 
   # Tank aura tints
   env.stepApplyTankAuras()
