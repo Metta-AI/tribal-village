@@ -1955,6 +1955,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         if used:
           inc env.stats[id].actionUse
+          when defined(gatherHeatmap):
+            if not thing.isNil:
+              let gk = thingToGatherKind(thing.kind)
+              if gk != grNone:
+                recordGatherEvent(targetPos, gk)
         else:
           inc env.stats[id].actionInvalid
     of 4:
@@ -3133,6 +3138,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       writeFile(logRenderPath, output)
 
   env.maybeRenderConsole()
+  when defined(gatherHeatmap):
+    env.maybeRenderGatherHeatmap()
 
 proc reset*(env: Environment) =
   maybeFinalizeReplay(env)
