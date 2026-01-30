@@ -3039,6 +3039,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     printCombatReport(env.currentStep)
 
   maybeLogReplayStep(env, actions)
+  maybeDumpState(env)
   if env.shouldReset:
     maybeFinalizeReplay(env)
 
