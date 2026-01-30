@@ -3084,4 +3084,6 @@ proc reset*(env: Environment) =
   selection = @[]
   for i in 0 ..< ControlGroupCount:
     controlGroups[i] = @[]
+  # Reset formation state for all control groups
+  resetAllFormations()
   env.init()  # init() handles terrain, activeTiles, and tile colors

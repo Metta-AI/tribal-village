@@ -1,4 +1,5 @@
 import coordination
+import ../formations
 
 const
   DividerDoorSpacing = 5
@@ -1180,6 +1181,85 @@ proc optBatteringRamAdvance(controller: Controller, env: Environment, agent: Thi
   let dirIdx = agent.orientation.int
   return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dirIdx.uint8))
 
+# Formation movement: maintain position within control group formation
+const
+  FormationArrivalThreshold = 1  # Distance at which formation slot is considered reached
+
+proc canStartFighterFormation(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  ## Formation movement activates when the agent is in a control group with an active formation
+  ## and is not at its assigned slot position.
+  let groupIdx = findAgentControlGroup(agentId)
+  if groupIdx < 0:
+    return false
+  if not isFormationActive(groupIdx):
+    return false
+  let groupSize = aliveGroupSize(groupIdx, env)
+  if groupSize < 2:
+    return false
+  let myIndex = agentIndexInGroup(groupIdx, agentId, env)
+  if myIndex < 0:
+    return false
+  let center = calcGroupCenter(groupIdx, env)
+  if center.x < 0:
+    return false
+  let targetPos = getFormationTargetForAgent(groupIdx, myIndex, center, groupSize)
+  if targetPos.x < 0:
+    return false
+  int(chebyshevDist(agent.pos, targetPos)) > FormationArrivalThreshold
+
+proc shouldTerminateFighterFormation(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Terminate when agent reaches its formation slot or formation is deactivated.
+  let groupIdx = findAgentControlGroup(agentId)
+  if groupIdx < 0 or not isFormationActive(groupIdx):
+    return true
+  let groupSize = aliveGroupSize(groupIdx, env)
+  if groupSize < 2:
+    return true
+  let myIndex = agentIndexInGroup(groupIdx, agentId, env)
+  if myIndex < 0:
+    return true
+  let center = calcGroupCenter(groupIdx, env)
+  if center.x < 0:
+    return true
+  let targetPos = getFormationTargetForAgent(groupIdx, myIndex, center, groupSize)
+  if targetPos.x < 0:
+    return true
+  int(chebyshevDist(agent.pos, targetPos)) <= FormationArrivalThreshold
+
+proc optFighterFormation(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  ## Move toward formation slot position. Attacks enemies encountered along the way.
+  let groupIdx = findAgentControlGroup(agentId)
+  if groupIdx < 0 or not isFormationActive(groupIdx):
+    return 0'u8
+
+  let groupSize = aliveGroupSize(groupIdx, env)
+  let myIndex = agentIndexInGroup(groupIdx, agentId, env)
+  if myIndex < 0:
+    return 0'u8
+
+  let center = calcGroupCenter(groupIdx, env)
+  if center.x < 0:
+    return 0'u8
+
+  let targetPos = getFormationTargetForAgent(groupIdx, myIndex, center, groupSize)
+  if targetPos.x < 0:
+    return 0'u8
+
+  # Already at slot
+  if int(chebyshevDist(agent.pos, targetPos)) <= FormationArrivalThreshold:
+    return 0'u8
+
+  # Check for attack opportunity while moving to slot
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Move toward formation slot
+  controller.moveTo(env, agent, agentId, state, targetPos)
+
 proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint8 =
   controller.moveNextSearch(env, agent, agentId, state)
@@ -1515,6 +1595,13 @@ let FighterOptions* = [
     canStart: canStartFighterAttackMove,
     shouldTerminate: shouldTerminateFighterAttackMove,
     act: optFighterAttackMove,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterFormation",
+    canStart: canStartFighterFormation,
+    shouldTerminate: shouldTerminateFighterFormation,
+    act: optFighterFormation,
     interruptible: true
   ),
   OptionDef(

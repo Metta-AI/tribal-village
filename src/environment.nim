@@ -3,9 +3,11 @@ import entropy
 import terrain, items, common, biome
 import types, registry
 import spatial_index
+import formations
 export terrain, items, common
 export types, registry
 export spatial_index
+export formations
 
 const
   ## Default tumor behavior constants

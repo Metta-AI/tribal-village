@@ -426,20 +426,34 @@ proc stopAgent*(agentId: int) =
     globalController.aiController.clearScoutMode(agentId)
 
 # Formation API
-# Note: Formation system is not yet implemented in the engine.
-# These are placeholder APIs that will be functional when formations are added.
+# Formation system for coordinated group movement (Line, Box formations).
+# Formations are per-control-group, not per-agent.
 
-proc setAgentFormation*(agentId: int, formationType: int32) =
-  ## Set formation type for an agent. Currently a no-op (formation system not implemented).
-  discard
+import formations
+export formations
 
-proc getAgentFormation*(agentId: int): int32 =
-  ## Get formation type for an agent. Returns 0 (none). Formation system not implemented.
-  0
+proc setControlGroupFormation*(groupIndex: int, formationType: int32) =
+  ## Set formation type for a control group.
+  ## formationType: 0=None, 1=Line, 2=Box, 3=Wedge, 4=Scatter
+  if formationType >= 0 and formationType <= ord(FormationType.high):
+    setFormation(groupIndex, FormationType(formationType))
 
-proc clearAgentFormation*(agentId: int) =
-  ## Clear formation for an agent. Currently a no-op (formation system not implemented).
-  discard
+proc getControlGroupFormation*(groupIndex: int): int32 =
+  ## Get formation type for a control group.
+  ## Returns: 0=None, 1=Line, 2=Box, 3=Wedge, 4=Scatter
+  ord(getFormation(groupIndex)).int32
+
+proc clearControlGroupFormation*(groupIndex: int) =
+  ## Clear formation for a control group, returning units to free movement.
+  clearFormation(groupIndex)
+
+proc setControlGroupFormationRotation*(groupIndex: int, rotation: int32) =
+  ## Set formation rotation (0-7 for 8 compass directions).
+  setFormationRotation(groupIndex, rotation.int)
+
+proc getControlGroupFormationRotation*(groupIndex: int): int32 =
+  ## Get formation rotation for a control group.
+  getFormationRotation(groupIndex).int32
 
 # Selection API
 # Programmatic interface for the selection system (bridges GUI selection and control APIs).
