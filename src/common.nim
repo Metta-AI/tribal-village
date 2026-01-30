@@ -76,11 +76,16 @@ const
   SuperPlaySpeed* = 0.001
   FooterHeight* = 64
 
+const
+  MinimapSize* = 200  ## Minimap width/height in pixels
+  MinimapMargin* = 8  ## Margin from edges in pixels
+
 var
   mouseCaptured*: bool = false
   mouseCapturedPanel*: Panel = nil
   mouseDownPos*: Vec2 = vec2(0, 0)
   uiMouseCaptured*: bool = false
+  minimapCaptured*: bool = false  ## Mouse is currently dragging on minimap
 
 proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).

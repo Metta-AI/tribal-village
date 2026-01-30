@@ -1,6 +1,7 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
-  src/environment, src/common, src/renderer, src/agent_control, src/tileset
+  src/environment, src/common, src/renderer, src/agent_control, src/tileset,
+  src/minimap
 
 when compileOption("profiler"):
   import std/nimprof
@@ -215,7 +216,9 @@ proc display() =
     not (mousePos.x >= footerRectLogical.x and mousePos.x <= footerRectLogical.x + footerRectLogical.w and
       mousePos.y >= footerRectLogical.y and mousePos.y <= footerRectLogical.y + footerRectLogical.h)
 
-  worldMapPanel.hasMouse = worldMapPanel.visible and ((not mouseCaptured and insideRect) or
+  let onMinimap = isInMinimap(panelRectInt, window.mousePos.vec2)
+  worldMapPanel.hasMouse = worldMapPanel.visible and not onMinimap and not minimapCaptured and
+    ((not mouseCaptured and insideRect) or
     (mouseCaptured and mouseCapturedPanel == worldMapPanel))
 
   if worldMapPanel.hasMouse and window.buttonPressed[MouseLeft]:
@@ -297,9 +300,42 @@ proc display() =
     h: FooterHeight.float32
   )
   let mousePosPx = window.mousePos.vec2
-  var blockSelection = uiMouseCaptured
+  var blockSelection = uiMouseCaptured or minimapCaptured
   var clearUiCapture = false
-  if window.buttonPressed[MouseLeft] and
+
+  # Minimap click-to-pan: check if mouse pressed on minimap
+  if window.buttonPressed[MouseLeft] and isInMinimap(panelRectInt, mousePosPx):
+    minimapCaptured = true
+    blockSelection = true
+    # Pan camera to clicked world position
+    let worldPos = minimapToWorld(panelRectInt, mousePosPx)
+    let scaleF = window.contentScale.float32
+    let rectW = panelRect.w / scaleF
+    let rectH = panelRect.h / scaleF
+    worldMapPanel.pos = vec2(
+      rectW / 2.0'f32 - worldPos.x * zoomScale,
+      rectH / 2.0'f32 - worldPos.y * zoomScale
+    )
+    worldMapPanel.vel = vec2(0, 0)
+
+  # Minimap drag-to-pan: continue panning while dragging on minimap
+  if minimapCaptured and window.buttonDown[MouseLeft]:
+    blockSelection = true
+    if isInMinimap(panelRectInt, mousePosPx):
+      let worldPos = minimapToWorld(panelRectInt, mousePosPx)
+      let scaleF = window.contentScale.float32
+      let rectW = panelRect.w / scaleF
+      let rectH = panelRect.h / scaleF
+      worldMapPanel.pos = vec2(
+        rectW / 2.0'f32 - worldPos.x * zoomScale,
+        rectH / 2.0'f32 - worldPos.y * zoomScale
+      )
+      worldMapPanel.vel = vec2(0, 0)
+
+  if minimapCaptured and window.buttonReleased[MouseLeft]:
+    minimapCaptured = false
+
+  if window.buttonPressed[MouseLeft] and not minimapCaptured and
       mousePosPx.x >= footerRect.x and mousePosPx.x <= footerRect.x + footerRect.w and
       mousePosPx.y >= footerRect.y and mousePosPx.y <= footerRect.y + footerRect.h:
     uiMouseCaptured = true
@@ -593,6 +629,7 @@ proc display() =
   let footerButtons = buildFooterButtons(panelRectInt)
   drawMinimap(panelRectInt, worldMapPanel)
   drawFooter(panelRectInt, footerButtons)
+  drawMinimap(panelRectInt, worldMapPanel.pos, worldMapPanel.zoom)
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
   if clearUiCapture:
