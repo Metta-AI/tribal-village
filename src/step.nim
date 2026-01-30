@@ -217,10 +217,10 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   let garrisonCount = tower.garrisonedUnits.len
   if garrisonCount > 0:
     let bonusArrows = garrisonCount * GarrisonArrowBonus
-    var allTargets: seq[Thing] = @[]
+    var allTargets = newSeqOfCap[Thing](32)
     collectEnemiesInRangeSpatial(env, tower.pos, tower.teamId, range, allTargets)
     if minRange > 1:
-      var filtered: seq[Thing] = @[]
+      var filtered = newSeqOfCap[Thing](allTargets.len)
       for t in allTargets:
         let dist = max(abs(t.pos.x - tower.pos.x), abs(t.pos.y - tower.pos.y))
         if dist >= minRange:
@@ -245,7 +245,7 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
     return
 
   # Gather all valid targets in range using spatial index
-  var targets: seq[Thing] = @[]
+  var targets = newSeqOfCap[Thing](32)
   collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
@@ -317,12 +317,12 @@ proc garrisonUnitInBuilding*(env: Environment, unit: Thing, building: Thing): bo
 
 proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
   ## Ungarrison all units from a building, placing them around it. Returns ungarrisoned units.
-  result = @[]
+  result = newSeqOfCap[Thing](building.garrisonedUnits.len)
   if building.garrisonedUnits.len == 0:
     return
 
-  # Find empty tiles around the building
-  var emptyTiles: seq[IVec2] = @[]
+  # Find empty tiles around the building (5x5 grid minus center = 24 max)
+  var emptyTiles = newSeqOfCap[IVec2](24)
   for dy in -2 .. 2:
     for dx in -2 .. 2:
       if dx == 0 and dy == 0:
@@ -397,7 +397,7 @@ proc stepApplyMonkAuras(env: Environment) =
       continue
     let teamId = getTeamId(monk)
     # Use spatial index to find nearby allies instead of scanning all agents
-    var nearbyAllies: seq[Thing] = @[]
+    var nearbyAllies = newSeqOfCap[Thing](12)
     collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, nearbyAllies)
     var needsHeal = false
     for ally in nearbyAllies:
@@ -691,7 +691,7 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
                        stepRng: var Rand) =
   ## Process tumor branching and add all newly spawned tumors to the environment.
   ## Handles both spawner-created tumors (newTumorsToSpawn) and branch tumors.
-  var newTumorBranches: seq[Thing] = @[]
+  var newTumorBranches = newSeqOfCap[Thing](tumorsToProcess.len)
 
   for tumor in tumorsToProcess:
     if env.getThing(tumor.pos) != tumor:
@@ -755,8 +755,8 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
 
 proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
   ## Resolve contact: agents and predators adjacent to tumors risk lethal creep.
-  var tumorsToRemove: seq[Thing] = @[]
-  var predatorsToRemove: seq[Thing] = @[]
+  var tumorsToRemove = newSeqOfCap[Thing](16)
+  var predatorsToRemove = newSeqOfCap[Thing](8)
 
   for tumor in env.thingsByKind[Tumor]:
     for offset in CardinalOffsets:
@@ -1794,7 +1794,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   let teamId = getTeamId(agent)
                   if thing.teamId == teamId:
                     var traded = false
-                    var carried: seq[tuple[key: ItemKey, count: int]] = @[]
+                    var carried = newSeqOfCap[tuple[key: ItemKey, count: int]](MapObjectAgentMaxInventory)
                     for key, count in agent.inventory.pairs:
                       if count <= 0:
                         continue
@@ -2184,18 +2184,28 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var buildKind: ThingKind
         let isDock = parseThingKey(key, buildKind) and buildKind == Dock
 
-        var offsets: seq[IVec2] = @[]
+        var offsets: array[9, IVec2]
+        var offsetCount = 0
         for offset in [
           orientationToVec(agent.orientation),
           ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
           ivec2(-1, -1), ivec2(1, -1), ivec2(-1, 1), ivec2(1, 1)
         ]:
-          if (offset.x == 0'i32 and offset.y == 0'i32) or offset in offsets:
+          if offset.x == 0'i32 and offset.y == 0'i32:
             continue
-          offsets.add(offset)
+          var duplicate = false
+          for i in 0 ..< offsetCount:
+            if offsets[i] == offset:
+              duplicate = true
+              break
+          if duplicate:
+            continue
+          offsets[offsetCount] = offset
+          inc offsetCount
 
         var targetPos = ivec2(-1, -1)
-        for offset in offsets:
+        for i in 0 ..< offsetCount:
+          let offset = offsets[i]
           let pos = agent.pos + offset
           if (if isDock: env.canPlaceDock(pos) else: env.canPlace(pos)):
             targetPos = pos
@@ -2628,21 +2638,24 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   proc selectNewCornerTarget(center, currentTarget: IVec2): IVec2 =
     ## Select a new corner target, preferring the farthest corner from center
     var bestDist = -1
-    var candidates: seq[IVec2] = @[]
+    var candidates: array[4, IVec2]
+    var candidateCount = 0
     for corner in cornerTargets:
       if corner == currentTarget:
         continue
       let dist = max(abs(center.x - corner.x), abs(center.y - corner.y))
       if dist > bestDist:
-        candidates.setLen(0)
-        candidates.add(corner)
+        candidateCount = 0
+        candidates[candidateCount] = corner
+        inc candidateCount
         bestDist = dist
       elif dist == bestDist:
-        candidates.add(corner)
-    if candidates.len == 0:
+        candidates[candidateCount] = corner
+        inc candidateCount
+    if candidateCount == 0:
       cornerTargets[randIntInclusive(stepRng, 0, 3)]
     else:
-      candidates[randIntInclusive(stepRng, 0, candidates.len - 1)]
+      candidates[randIntInclusive(stepRng, 0, candidateCount - 1)]
 
   proc needsNewCornerTarget(center, target: IVec2): bool =
     ## Check if herd/pack needs a new corner target
