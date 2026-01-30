@@ -11,12 +11,59 @@ proc parseEnvInt(raw: string, fallback: int): int =
 
 when defined(stepTiming):
   import std/monotimes
+  import std/strutils
 
   let stepTimingTarget = parseEnvInt(getEnv("TV_STEP_TIMING", ""), -1)
   let stepTimingWindow = parseEnvInt(getEnv("TV_STEP_TIMING_WINDOW", "0"), 0)
+  let stepTimingInterval = parseEnvInt(getEnv("TV_TIMING_INTERVAL", "100"), 100)
 
   proc msBetween(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
+
+  const TimingSystemCount = 11
+  const TimingSystemNames: array[TimingSystemCount, string] = [
+    "actionTint", "shields", "preDeaths", "actions", "things",
+    "tumors", "tumorDamage", "auras", "popRespawn", "survival", "tintObs"
+  ]
+
+  var timingCumSum: array[TimingSystemCount, float64]
+  var timingCumMax: array[TimingSystemCount, float64]
+  var timingCumTotal: float64 = 0.0
+  var timingStepCount: int = 0
+
+  proc resetTimingCounters() =
+    for i in 0 ..< TimingSystemCount:
+      timingCumSum[i] = 0.0
+      timingCumMax[i] = 0.0
+    timingCumTotal = 0.0
+    timingStepCount = 0
+
+  proc recordTimingSample(idx: int, ms: float64) =
+    timingCumSum[idx] += ms
+    if ms > timingCumMax[idx]:
+      timingCumMax[idx] = ms
+
+  proc printTimingReport(currentStep: int) =
+    if timingStepCount == 0:
+      return
+    let n = timingStepCount.float64
+    echo ""
+    echo "=== Step Timing Report (steps ", currentStep - timingStepCount + 1, "-", currentStep, ", n=", timingStepCount, ") ==="
+    echo align("System", 14), " | ", align("Avg ms", 10), " | ", align("Max ms", 10), " | ", align("% Total", 8)
+    echo repeat("-", 14), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 8)
+    for i in 0 ..< TimingSystemCount:
+      let avg = timingCumSum[i] / n
+      let maxMs = timingCumMax[i]
+      let pct = if timingCumTotal > 0.0: timingCumSum[i] / timingCumTotal * 100.0 else: 0.0
+      echo align(TimingSystemNames[i], 14), " | ",
+           align(formatFloat(avg, ffDecimal, 4), 10), " | ",
+           align(formatFloat(maxMs, ffDecimal, 4), 10), " | ",
+           align(formatFloat(pct, ffDecimal, 1), 8)
+    let totalAvg = timingCumTotal / n
+    echo repeat("-", 14), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 8)
+    echo align("TOTAL", 14), " | ", align(formatFloat(totalAvg, ffDecimal, 4), 10), " | ", align("", 10), " | ", align("100.0", 8)
+    echo ""
+    resetTimingCounters()
 
 let spawnerScanOffsets = block:
   var offsets: seq[IVec2] = @[]
@@ -752,8 +799,10 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   ## Step the environment
   when defined(stepTiming):
-    let timing = stepTimingTarget >= 0 and env.currentStep >= stepTimingTarget and
+    let perStepTiming = stepTimingTarget >= 0 and env.currentStep >= stepTimingTarget and
       env.currentStep <= stepTimingTarget + stepTimingWindow
+    let aggregateTiming = stepTimingInterval > 0
+    let timing = perStepTiming or aggregateTiming
     var tStart: MonoTime
     var tNow: MonoTime
     var tTotalStart: MonoTime
@@ -763,7 +812,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     var tActionsMs: float64
     var tThingsMs: float64
     var tTumorsMs: float64
-    var tAdjacencyMs: float64
+    var tTumorDamageMs: float64
+    var tAurasMs: float64
     var tPopRespawnMs: float64
     var tSurvivalMs: float64
     var tTintMs: float64
@@ -2679,6 +2729,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   env.stepApplyTumorDamage(stepRng)
 
+  when defined(stepTiming):
+    if timing:
+      tNow = getMonoTime()
+      tTumorDamageMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # Tank aura tints
   env.stepApplyTankAuras()
 
@@ -2691,7 +2747,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(stepTiming):
     if timing:
       tNow = getMonoTime()
-      tAdjacencyMs = msBetween(tStart, tNow)
+      tAurasMs = msBetween(tStart, tNow)
       tStart = tNow
 
   # Catch any agents that were reduced to zero HP during the step
@@ -2893,34 +2949,50 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       tNow = getMonoTime()
       tEndMs = msBetween(tStart, tNow)
 
-      let countTumor = env.thingsByKind[Tumor].len
-      let countCorpse = env.thingsByKind[Corpse].len
-      let countSkeleton = env.thingsByKind[Skeleton].len
-      let countCow = env.thingsByKind[Cow].len
-      let countStump = env.thingsByKind[Stump].len
-
       let totalMs = msBetween(tTotalStart, tNow)
-      echo "step=", env.currentStep,
-        " total_ms=", totalMs,
-        " actionTint_ms=", tActionTintMs,
-        " shields_ms=", tShieldsMs,
-        " preDeaths_ms=", tPreDeathsMs,
-        " actions_ms=", tActionsMs,
-        " things_ms=", tThingsMs,
-        " tumor_ms=", tTumorsMs,
-        " adjacency_ms=", tAdjacencyMs,
-        " pop_respawn_ms=", tPopRespawnMs,
-        " survival_ms=", tSurvivalMs,
-        " tint_ms=", tTintMs,
-        " end_ms=", tEndMs,
-        " things=", env.things.len,
-        " agents=", env.agents.len,
-        " tints=", env.actionTintPositions.len,
-        " tumors=", countTumor,
-        " corpses=", countCorpse,
-        " skeletons=", countSkeleton,
-        " cows=", countCow,
-        " stumps=", countStump
+
+      # Per-step echo (original behavior, only when step target is set)
+      if perStepTiming:
+        let countTumor = env.thingsByKind[Tumor].len
+        let countCorpse = env.thingsByKind[Corpse].len
+        let countSkeleton = env.thingsByKind[Skeleton].len
+        let countCow = env.thingsByKind[Cow].len
+        let countStump = env.thingsByKind[Stump].len
+
+        echo "step=", env.currentStep,
+          " total_ms=", totalMs,
+          " actionTint_ms=", tActionTintMs,
+          " shields_ms=", tShieldsMs,
+          " preDeaths_ms=", tPreDeathsMs,
+          " actions_ms=", tActionsMs,
+          " things_ms=", tThingsMs,
+          " tumor_ms=", tTumorsMs,
+          " tumorDamage_ms=", tTumorDamageMs,
+          " auras_ms=", tAurasMs,
+          " pop_respawn_ms=", tPopRespawnMs,
+          " survival_ms=", tSurvivalMs,
+          " tint_ms=", tTintMs,
+          " end_ms=", tEndMs,
+          " things=", env.things.len,
+          " agents=", env.agents.len,
+          " tints=", env.actionTintPositions.len,
+          " tumors=", countTumor,
+          " corpses=", countCorpse,
+          " skeletons=", countSkeleton,
+          " cows=", countCow,
+          " stumps=", countStump
+
+      # Aggregate timing report
+      if aggregateTiming:
+        let systemMs = [tActionTintMs, tShieldsMs, tPreDeathsMs, tActionsMs,
+                        tThingsMs, tTumorsMs, tTumorDamageMs, tAurasMs,
+                        tPopRespawnMs, tSurvivalMs, tTintMs + tEndMs]
+        for i in 0 ..< TimingSystemCount:
+          recordTimingSample(i, systemMs[i])
+        timingCumTotal += totalMs
+        inc timingStepCount
+        if timingStepCount >= stepTimingInterval:
+          printTimingReport(env.currentStep)
 
   # Check if all agents are terminated/truncated
   var allDone = true
