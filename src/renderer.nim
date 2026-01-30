@@ -637,7 +637,19 @@ proc drawObjects*() =
       for thing in env.thingsByKind[kind]:
         if not isPlacedAt(thing):
           continue
-        bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+        # Death animation: tint corpse/skeleton during death transition
+        if thing.kind in {Corpse, Skeleton}:
+          let px = thing.pos.x
+          let py = thing.pos.y
+          let countdown = env.actionTintCountdown[px][py]
+          if countdown > 0 and env.actionTintCode[px][py] == ActionTintDeath:
+            let fade = countdown.float32 / DeathTintDuration.float32
+            let tint = color(1.0, 0.3 + 0.7 * (1.0 - fade), 0.3 + 0.7 * (1.0 - fade), fade * 0.6 + 0.4)
+            bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+          else:
+            bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+        else:
+          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
         if thing.kind in {Magma, Stump} and isTileFrozen(thing.pos, env):
           bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = SpriteScale)
 

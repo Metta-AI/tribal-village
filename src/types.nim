@@ -109,6 +109,7 @@ const
   ActionTintAttackHussar* = 52'u8
   ActionTintAttackCrossbowman* = 53'u8
   ActionTintAttackArbalester* = 54'u8
+  ActionTintDeath* = 60'u8            # Death animation tint at kill location
 
   # Computed Values
   MapAgents* = MapRoomObjectsAgents * MapLayoutRoomsX * MapLayoutRoomsY
