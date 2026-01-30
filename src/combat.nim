@@ -134,7 +134,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
     # Siege Engineers: +20% building damage for siege units
     let attackerTeam = getTeamId(attacker)
     if attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechSiegeEngineers):
-      damage = int(float32(damage) * 1.2 + 0.5)
+      damage = (damage * 6 + 2) div 5  # +20% with rounding, no float
 
   # Apply building armor from Masonry and Architecture (defender's team)
   if target.teamId >= 0:
