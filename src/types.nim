@@ -8,8 +8,8 @@
 ##   2. Other modules that use these types
 
 import std/[tables, sets], vmath, chroma
-import terrain, items, common
-export terrain, items, common
+import terrain, items, common, constants
+export terrain, items, common, constants
 
 # Re-export key types from dependencies
 export tables, vmath, chroma
@@ -22,8 +22,6 @@ const
   MapRoomWidth* = 305  # ~6% larger than 288
   MapRoomHeight* = 191  # ~6% larger than 180
   MapRoomBorder* = 0
-
-  AgentMaxHp* = 5
 
   # World Objects
   # Eight teams with 125 agents each -> 1000 agents total.
@@ -55,156 +53,11 @@ const
   MapObjectAltarCooldown* = 0
   MapObjectAltarRespawnCost* = 0
   MapObjectAltarAutoSpawnThreshold* = 5
-  BarrelCapacity* = 50
-  ResourceNodeInitial* = 25
-  DoorMaxHearts* = 5
-  WallMaxHp* = 10
-  OutpostMaxHp* = 8
-  GuardTowerMaxHp* = 14
-  TownCenterMaxHp* = 20
-  CastleMaxHp* = 30
-  MonasteryMaxHp* = 12
-  WonderMaxHp* = 80  # Very high HP, late-game monument
-  WonderVictoryCountdown* = 600       # Steps to hold Wonder for victory (AoE2-style ~10 min at 60 FPS = 600 steps at 1 step/sec)
-  GuardTowerAttackDamage* = 2
-  CastleAttackDamage* = 3
-  TownCenterAttackDamage* = 2
-  GuardTowerRange* = 4
-  CastleRange* = 6
-  TownCenterRange* = 6
-  TownCenterGarrisonCapacity* = 15  # AoE2-style: TC can hold 15 units
-  CastleGarrisonCapacity* = 20      # Castle can hold 20 units
-  GuardTowerGarrisonCapacity* = 5   # Guard Tower can hold 5 units
-  HouseGarrisonCapacity* = 5        # House can hold 5 units (hiding villagers)
-  GarrisonArrowBonus* = 1           # Extra arrows per garrisoned unit (for attacking buildings)
-  SiegeStructureMultiplier* = 3
   BuildIndexGuardTower* = 23
   BuildIndexMangonelWorkshop* = 24
   BuildIndexWall* = 14
   BuildIndexRoad* = 15
   BuildIndexDoor* = 19
-  RoadWoodCost* = 1
-  OutpostWoodCost* = 1
-
-  # Construction speed bonus for multiple builders (AoE2-style)
-  # Formula: effectiveBuilders = 1 + sum(1/i for i in 2..n) where n is builder count
-  # Approx: 1 builder = 1.0x, 2 builders = 1.5x, 3 builders = 1.83x, 4 builders = 2.08x
-  ConstructionBonusTable* = [1.0'f32, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
-  ConstructionHpPerAction* = 1  # Base HP restored per construction action
-
-  CowMilkCooldown* = 25
-  BearMaxHp* = 6
-  BearAttackDamage* = 2
-  BearAggroRadius* = 6
-  WolfMaxHp* = 3
-  WolfAttackDamage* = 1
-  WolfPackMinSize* = 3
-  WolfPackMaxSize* = 5
-  WolfPackAggroRadius* = 7
-  WolfPackCohesionRadius* = 3
-  GathererFleeRadius* = 5        # Radius at which gatherers flee from predators
-  ScatteredDuration* = 10        # Number of steps wolves stay scattered after leader death
-  ResourceCarryCapacity* = 5
-  MineDepositAmount* = 100
-  TownCenterPopCap* = 0
-  HousePopCap* = 4
-  VillagerAttackDamage* = 1
-  ManAtArmsAttackDamage* = 2
-  ArcherAttackDamage* = 1
-  ScoutAttackDamage* = 1
-  KnightAttackDamage* = 2
-  MonkAttackDamage* = 0
-  BatteringRamAttackDamage* = 2
-  MangonelAttackDamage* = 2
-  TrebuchetAttackDamage* = 3
-  GoblinAttackDamage* = 1
-  TradeCogAttackDamage* = 0
-  VillagerMaxHp* = AgentMaxHp
-  ManAtArmsMaxHp* = 7
-  ArcherMaxHp* = 4
-  ScoutMaxHp* = 6
-  KnightMaxHp* = 8
-  MonkMaxHp* = 4
-  BatteringRamMaxHp* = 18
-  MangonelMaxHp* = 12
-  TrebuchetMaxHp* = 14
-  GoblinMaxHp* = 4
-  TradeCogMaxHp* = 6
-  # Trade Cog mechanics (AoE2-style)
-  TradeCogGoldPerDistance* = 1     # Gold generated per 10 tiles of dock-to-dock distance
-  TradeCogDistanceDivisor* = 10   # Distance divided by this for gold calculation
-  # Castle unique unit stats
-  SamuraiMaxHp* = 7
-  SamuraiAttackDamage* = 3
-  LongbowmanMaxHp* = 5
-  LongbowmanAttackDamage* = 2
-  CataphractMaxHp* = 10
-  CataphractAttackDamage* = 2
-  WoadRaiderMaxHp* = 6
-  WoadRaiderAttackDamage* = 2
-  TeutonicKnightMaxHp* = 12
-  TeutonicKnightAttackDamage* = 3
-  HuskarlMaxHp* = 8
-  HuskarlAttackDamage* = 2
-  MamelukeMaxHp* = 7
-  MamelukeAttackDamage* = 2
-  JanissaryMaxHp* = 6
-  JanissaryAttackDamage* = 3
-  KingMaxHp* = 15             # Regicide: high HP leader unit
-  KingAttackDamage* = 2       # Regicide: moderate attack
-  # Unit upgrade tier stats (AoE2-style promotion chains)
-  LongSwordsmanMaxHp* = 9
-  LongSwordsmanAttackDamage* = 3
-  ChampionMaxHp* = 11
-  ChampionAttackDamage* = 4
-  LightCavalryMaxHp* = 8
-  LightCavalryAttackDamage* = 2
-  HussarMaxHp* = 10
-  HussarAttackDamage* = 2
-  CrossbowmanMaxHp* = 5
-  CrossbowmanAttackDamage* = 2
-  ArbalesterMaxHp* = 6
-  ArbalesterAttackDamage* = 3
-  ArcherBaseRange* = 3
-  MangonelBaseRange* = 3
-  MangonelAoELength* = 5
-  TrebuchetBaseRange* = 6
-  TrebuchetPackDuration* = 15  # Steps to pack/unpack (AoE2-style delay)
-
-  # Monk mechanics (AoE2-style)
-  MonkMaxFaith* = 10           # Maximum faith points for monks
-  MonkConversionFaithCost* = 10  # Faith cost per conversion attempt
-  MonkFaithRechargeRate* = 1   # Faith regenerated per step
-  MonasteryRelicGoldInterval* = 20  # Steps between gold generation from garrisoned relics
-  MonasteryRelicGoldAmount* = 1    # Gold generated per relic per interval
-
-  # Blacksmith upgrades (AoE2-style named tech tree)
-  BlacksmithUpgradeMaxLevel* = 3  # Maximum upgrade level (3 tiers per line)
-  BlacksmithUpgradeFoodCost* = 3  # Base food cost per upgrade level
-  BlacksmithUpgradeGoldCost* = 2  # Base gold cost per upgrade level
-
-  # University techs (AoE2-style)
-  UniversityTechFoodCost* = 5   # Food cost per tech
-  UniversityTechGoldCost* = 3   # Gold cost per tech
-  UniversityTechWoodCost* = 2   # Wood cost per tech (some techs require wood)
-
-  # Castle unique techs (AoE2-style: 2 per civilization)
-  CastleTechFoodCost* = 4      # Base food cost for Castle Age tech
-  CastleTechGoldCost* = 3      # Base gold cost for Castle Age tech
-  CastleTechImperialFoodCost* = 8  # Base food cost for Imperial Age tech
-  CastleTechImperialGoldCost* = 6  # Base gold cost for Imperial Age tech
-
-  # Unit upgrades (AoE2-style promotion chains)
-  UnitUpgradeTier2FoodCost* = 3  # Food cost for tier 1→2 upgrades
-  UnitUpgradeTier2GoldCost* = 2  # Gold cost for tier 1→2 upgrades
-  UnitUpgradeTier3FoodCost* = 6  # Food cost for tier 2→3 upgrades
-  UnitUpgradeTier3GoldCost* = 4  # Gold cost for tier 2→3 upgrades
-
-  # Production queue (AoE2-style)
-  ProductionQueueMaxSize* = 10  # Max units in a building's production queue
-  ProductionTrainDuration* = 5  # Steps to train one unit from queue
-  BatchTrainSmall* = 5          # Shift-click: queue 5 units
-  BatchTrainLarge* = 10         # Ctrl-click: queue 10 units (or max affordable)
 
   # Gameplay
   MinTintEpsilon* = 5
@@ -756,12 +609,7 @@ const
   ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
   ClippyTintTolerance* = 0.06'f32
 
-  # Victory condition constants
-  RelicVictoryCountdown* = 200     # Game steps all relics must be held to win
   TotalRelicsOnMap* = MapRoomObjectsRelics  # Total relics placed on map
-  VictoryReward* = 10.0'f32          # Reward for winning team agents on any victory
-  HillControlRadius* = 5          # Chebyshev radius around control point to count units
-  HillVictoryCountdown* = 300     # Consecutive steps a team must control the hill to win
 
 type
   VictoryCondition* = enum
@@ -865,26 +713,6 @@ type
     ## Team-level Blacksmith upgrade progress (AoE2-style named tech tree)
     ## Each line can be researched up to 3 tiers with variable bonuses per tier
     levels*: array[BlacksmithUpgradeType, int]  ## Current tier (0-3) for each line
-
-const
-  ## Cumulative bonus by upgrade level (index 0 = not researched)
-  ## Melee attack: Forging (+1) → Iron Casting (+1) → Blast Furnace (+2)
-  BlacksmithMeleeAttackBonus*: array[4, int] = [0, 1, 2, 4]
-  ## Archer attack: Fletching (+1) → Bodkin Arrow (+1) → Bracer (+1)
-  BlacksmithArcherAttackBonus*: array[4, int] = [0, 1, 2, 3]
-  ## Infantry armor: Scale Mail (+1) → Chain Mail (+1) → Plate Mail (+2)
-  BlacksmithInfantryArmorBonus*: array[4, int] = [0, 1, 2, 4]
-  ## Cavalry armor: Scale Barding (+1) → Chain Barding (+1) → Plate Barding (+2)
-  BlacksmithCavalryArmorBonus*: array[4, int] = [0, 1, 2, 4]
-  ## Archer armor: Padded Archer (+1) → Leather Archer (+1) → Ring Archer (+2)
-  BlacksmithArcherArmorBonus*: array[4, int] = [0, 1, 2, 4]
-
-  ## Named upgrade tiers for display [level 1, level 2, level 3]
-  BlacksmithMeleeAttackNames*: array[3, string] = ["Forging", "Iron Casting", "Blast Furnace"]
-  BlacksmithArcherAttackNames*: array[3, string] = ["Fletching", "Bodkin Arrow", "Bracer"]
-  BlacksmithInfantryArmorNames*: array[3, string] = ["Scale Mail", "Chain Mail", "Plate Mail"]
-  BlacksmithCavalryArmorNames*: array[3, string] = ["Scale Barding", "Chain Barding", "Plate Barding"]
-  BlacksmithArcherArmorNames*: array[3, string] = ["Padded Archer", "Leather Archer", "Ring Archer"]
 
 type
 

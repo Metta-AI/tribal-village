@@ -92,40 +92,14 @@ var logRenderCount = 0
 include "actions"
 
 const
-  # Tower/Castle/TownCenter attack visuals
+  # Tower/Castle/TownCenter attack visuals (colors are display-only, not in constants.nim)
   TowerAttackTint = TileColor(r: 0.95, g: 0.70, b: 0.25, intensity: 1.10)
   CastleAttackTint = TileColor(r: 0.35, g: 0.25, b: 0.85, intensity: 1.15)
   TownCenterAttackTint = TileColor(r: 0.85, g: 0.50, b: 0.20, intensity: 1.12)
-  TowerAttackTintDuration = 2'i8
-  CastleAttackTintDuration = 3'i8
-  TownCenterAttackTintDuration = 2'i8
 
-  # Aura tints and radii
+  # Aura tints (colors are display-only, not in constants.nim)
   TankAuraTint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.05)
   MonkAuraTint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.05)
-  TankAuraTintDuration = 1'i8
-  MonkAuraTintDuration = 1'i8
-  ManAtArmsAuraRadius = 1
-  KnightAuraRadius = 2
-  MonkAuraRadius = 2
-
-  # Mill and spawner behavior
-  MillFertileCooldown = 10
-  MaxTumorsPerSpawner = 3
-  TumorSpawnCooldownBase = 20.0
-  TumorSpawnDisabledCooldown = 1000
-
-  # Wildlife movement probabilities
-  CowHerdFollowChance = 0.6
-  CowRandomMoveChance = 0.08
-  WolfPackFollowChance = 0.55
-  WolfRandomMoveChance = 0.1
-  WolfScatteredMoveChance = 0.4
-  BearRandomMoveChance = 0.12
-
-  # Temple cooldowns
-  TempleInteractionCooldown = 12
-  TempleHybridCooldown = 25
 
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones

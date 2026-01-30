@@ -2,19 +2,9 @@ import coordination
 import ../formations
 
 const
-  DividerDoorSpacing = 5
-  DividerDoorOffset = 0
-  DividerHalfLengthMin = 6
-  DividerHalfLengthMax = 18
   DividerInvSqrt2 = 0.70710677'f32
   FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
   FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
-  # Target swapping constants
-  TargetSwapInterval = 10  # Re-evaluate target every N ticks
-  LowHpThreshold = 0.33    # Enemies below this HP ratio get priority
-  AllyThreatRadius = 2     # Distance at which enemy is considered threatening an ally
-  # Escort behavior constants
-  EscortRadius = 3         # Stay within this distance of the protected unit
 
 proc stanceAllowsChase*(agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -246,9 +236,6 @@ proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
       return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, dirIdx.uint8))
   0'u8
 
-const
-  HealerSeekRadius = 30  # Max distance to search for friendly monks
-  MonkHealRadius = 2     # Distance to stay near monk for healing (matches MonkAuraRadius)
 
 proc findNearestFriendlyMonk(env: Environment, agent: Thing): Thing =
   ## Find the nearest friendly monk to seek healing from using spatial index.
@@ -759,11 +746,6 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
   0'u8
 
-const
-  KiteTriggerDistance = 3  # Distance at which kiting triggers (within archer range)
-  AntiSiegeDetectionRadius = 12  # Distance to detect enemy siege units
-  SiegeNearStructureRadius = 5  # Siege units this close to friendly structures get priority
-
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
   ## Optimized: scans grid within KiteTriggerDistance+2 radius first, expanding if needed.
@@ -1081,9 +1063,6 @@ proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing
 # Attack-Move: Move to destination, attacking any enemies encountered along the way
 # Like AoE2's attack-move: path to destination, engage enemies in range, resume after combat
 
-const
-  AttackMoveDetectionRadius = 8  # Distance to detect enemies while attack-moving
-
 proc canStartFighterAttackMove*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
   ## Attack-move is active when the agent has a valid attack-move destination set.
@@ -1182,8 +1161,6 @@ proc optBatteringRamAdvance(controller: Controller, env: Environment, agent: Thi
   return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dirIdx.uint8))
 
 # Formation movement: maintain position within control group formation
-const
-  FormationArrivalThreshold = 1  # Distance at which formation slot is considered reached
 
 proc canStartFighterFormation(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
@@ -1311,10 +1288,6 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
 
 # Scout behavior - reconnaissance with visibility tracking and enemy detection
 # Scouts explore outward from base, flee when enemies spotted, and report threats
-const
-  ScoutFleeRadius = 10        # Distance at which scouts detect and flee from enemies
-  ScoutFleeRecoverySteps = 30 # Steps after enemy sighting before resuming exploration
-  ScoutExploreGrowth = 3      # How much to expand explore radius each cycle
 
 proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within scout detection radius using spatial index.
@@ -1453,8 +1426,6 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
   controller.moveTo(env, agent, agentId, state, bestTarget)
 
 # Hold Position: Stay at current location, attack enemies in range but don't chase
-const HoldPositionReturnRadius = 3  # Max distance to drift from hold position before returning
-
 proc canStartFighterHoldPosition(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Hold position activates when explicitly enabled via API.
@@ -1486,7 +1457,6 @@ proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thi
   0'u8
 
 # Follow: Follow another agent, maintaining proximity
-const FollowProximityRadius = 3  # Stay within this distance of the target
 
 proc canStartFighterFollow(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =

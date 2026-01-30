@@ -4,9 +4,6 @@
 import ai_options
 export ai_options
 
-const
-  EnemyWallFortifyRadius = 12
-
 proc actOrMove(controller: Controller, env: Environment, agent: Thing,
                agentId: int, state: var AgentState,
                targetPos: IVec2, verb: uint8): uint8 =

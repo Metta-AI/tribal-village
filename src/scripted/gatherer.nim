@@ -1,7 +1,5 @@
 import coordination
 
-const GathererFleeRadius = 8  # Smaller than fighter detection - flee early to survive
-
 template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
   ## Generate a canStart/shouldTerminate pair from a single boolean expression.
   ## shouldTerminate is the logical negation of canStart.
@@ -10,19 +8,13 @@ template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
   proc termName(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = not (body)
 
-# Game phase thresholds for resource priority weighting
-# Early game: prioritize Food > Wood > Stone > Gold
-# Late game: prioritize Gold > Stone > Wood > Food
+# Game phase resource weights (not balance-tunable, just weighting tables)
 const
-  EarlyGameThreshold = 0.33  # First third of game
-  LateGameThreshold = 0.66   # Last third of game
   # Weights: lower value = higher priority (divides the stockpile count)
   # Order: [Food, Wood, Stone, Gold]
   EarlyGameWeights = [0.5, 0.75, 1.0, 1.5]   # Food prioritized
   LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
   MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
-  # Anti-oscillation hysteresis: only switch task if difference exceeds threshold
-  TaskSwitchHysteresis = 5.0
 
 proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within flee radius using spatial index

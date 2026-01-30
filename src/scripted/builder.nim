@@ -1,11 +1,6 @@
 import coordination
 
 const
-  WallRingBaseRadius = 5       # Starting radius for small villages
-  WallRingMaxRadius = 12       # Maximum wall ring radius
-  WallRingBuildingsPerRadius = 4  # Buildings needed to increase radius by 1
-  WallRingRadiusSlack = 1
-  WallRingMaxDoors = 2
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
     WeavingLoom, ClayOven, Blacksmith,
