@@ -204,7 +204,7 @@ proc killAgent(env: Environment, victim: Thing) =
 
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0
-  victim.reward += env.config.deathPenalty
+  env.rewards[victim.agentId] += env.config.deathPenalty
   let lanternCount = getInv(victim, ItemLantern)
   let relicCount = getInv(victim, ItemRelic)
   if lanternCount > 0: setInv(victim, ItemLantern, 0)

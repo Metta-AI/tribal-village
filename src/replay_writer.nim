@@ -171,8 +171,8 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
       replayObj.addSeries("action_id", stepIndex, newJInt(verb))
       replayObj.addSeries("action_param", stepIndex, newJInt(arg))
       replayObj.addSeries("action_success", stepIndex, newJBool(actionSuccess))
-      replayObj.addSeries("current_reward", stepIndex, newJFloat(thing.reward.float))
-      writer.totalRewards[agentId] += thing.reward
+      replayObj.addSeries("current_reward", stepIndex, newJFloat(env.rewards[agentId].float))
+      writer.totalRewards[agentId] += env.rewards[agentId]
       replayObj.addSeries("total_reward", stepIndex, newJFloat(writer.totalRewards[agentId].float))
       replayObj.addSeries("is_frozen", stepIndex, newJBool(thing.frozen > 0))
 

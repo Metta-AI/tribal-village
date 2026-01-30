@@ -1,6 +1,27 @@
 # This file is included by src/environment.nim
 import std/os
 
+when defined(rewardBatch):
+  import std/monotimes
+  var rewardBatchOps: int = 0
+  var rewardBatchCumMs: float64 = 0.0
+  var rewardBatchSteps: int = 0
+  const RewardBatchReportInterval = 500
+
+  proc rewardBatchMsBetween(a, b: MonoTime): float64 =
+    (b.ticks - a.ticks).float64 / 1_000_000.0
+
+  proc reportRewardBatch() =
+    if rewardBatchSteps > 0:
+      let avgOps = rewardBatchOps.float64 / rewardBatchSteps.float64
+      let avgMs = rewardBatchCumMs / rewardBatchSteps.float64
+      echo "[rewardBatch] steps=", rewardBatchSteps,
+        " avgOps/step=", avgOps,
+        " avgMs/step=", avgMs
+      rewardBatchOps = 0
+      rewardBatchCumMs = 0.0
+      rewardBatchSteps = 0
+
 proc parseEnvInt(raw: string, fallback: int): int =
   if raw.len == 0:
     return fallback
@@ -354,9 +375,16 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
 proc stepApplySurvivalPenalty(env: Environment) =
   ## Apply per-step survival penalty to all living agents
   if env.config.survivalPenalty != 0.0:
-    for agent in env.agents:
-      if isAgentAlive(env, agent):
-        agent.reward += env.config.survivalPenalty
+    let penalty = env.config.survivalPenalty
+    when defined(rewardBatch):
+      # Batch: apply penalty to contiguous rewards array for SIMD-friendly access
+      for i in 0 ..< MapAgents:
+        if env.terminated[i] == 0.0 and env.truncated[i] == 0.0:
+          env.rewards[i] += penalty
+    else:
+      for agent in env.agents:
+        if isAgentAlive(env, agent):
+          env.rewards[agent.agentId] += penalty
 
 proc stepApplyTankAuras(env: Environment) =
   ## Apply tank (ManAtArms/Knight) aura tints to nearby tiles
@@ -1163,7 +1191,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           case target.kind
           of Tumor:
             removeThing(env, target)
-            agent.reward += env.config.tumorKillReward
+            env.rewards[id] += env.config.tumorKillReward
             return true
           of Spawner:
             removeThing(env, target)
@@ -1502,7 +1530,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           case env.terrain[targetPos.x][targetPos.y]:
           of Water:
             if env.giveItem(agent, ItemWater):
-              agent.reward += env.config.waterReward
+              env.rewards[id] += env.config.waterReward
               used = true
           of Empty, Grass, Dune, Sand, Snow, Road,
              RampUpN, RampUpS, RampUpW, RampUpE,
@@ -1563,7 +1591,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           elif env.giveItem(agent, key):
             let remaining = stored - 1
             if rewardAmount != 0:
-              agent.reward += rewardAmount
+              env.rewards[id] += rewardAmount
             if remaining <= 0:
               removeThing(env, thing)
             else:
@@ -1602,7 +1630,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             removeThing(env, thing)
             used = true
           elif env.grantItem(agent, ItemWheat):
-            agent.reward += env.config.wheatReward
+            env.rewards[id] += env.config.wheatReward
             # Apply biome gathering bonus
             let bonus = env.getBiomeGatherBonus(thing.pos, ItemWheat)
             if bonus > 0:
@@ -1623,7 +1651,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           else:
             (ItemWood, env.config.woodReward)
           if env.grantItem(agent, key):
-            agent.reward += reward
+            env.rewards[id] += reward
             # Apply biome gathering bonus
             let bonus = env.getBiomeGatherBonus(thing.pos, key)
             if bonus > 0:
@@ -1681,7 +1709,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             agent.inventoryBar = agent.inventoryBar + 1
             thing.cooldown = 0
             if agent.inventoryBar == 1:
-              agent.reward += env.config.barReward
+              env.rewards[id] += env.config.barReward
             used = true
         of WeavingLoom:
           if thing.cooldown == 0 and agent.inventoryLantern == 0 and
@@ -1692,7 +1720,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               decInv(ItemWheat)
             setInvAndObs(ItemLantern, 1)
             thing.cooldown = 0
-            agent.reward += env.config.clothReward
+            env.rewards[id] += env.config.clothReward
             used = true
           elif thing.cooldown == 0:
             if env.tryCraftAtStation(agent, StationLoom, thing):
@@ -1706,7 +1734,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               incInv(ItemBread)
               thing.cooldown = 0
               # No observation layer for bread; optional for UI later
-              agent.reward += env.config.foodReward
+              env.rewards[id] += env.config.foodReward
               used = true
         of Skeleton:
           let stored = getInv(thing, ItemFish)
@@ -1751,7 +1779,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   thing.hearts = thing.hearts + 1
                   thing.cooldown = MapObjectAltarCooldown
                   env.updateObservations(altarHeartsLayer, thing.pos, thing.hearts)
-                  agent.reward += env.config.heartReward
+                  env.rewards[id] += env.config.heartReward
                   used = true
               of UseClayOven:
                 if thing.cooldown == 0:
@@ -1761,7 +1789,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     decInv(ItemWheat)
                     incInv(ItemBread)
                     thing.cooldown = 0
-                    agent.reward += env.config.foodReward
+                    env.rewards[id] += env.config.foodReward
                     used = true
               of UseWeavingLoom:
                 if thing.cooldown == 0 and agent.inventoryLantern == 0 and
@@ -1772,7 +1800,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     decInv(ItemWheat)
                   setInvAndObs(ItemLantern, 1)
                   thing.cooldown = 0
-                  agent.reward += env.config.clothReward
+                  env.rewards[id] += env.config.clothReward
                   used = true
                 elif thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
                   if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
@@ -2117,7 +2145,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.inventoryLantern = 0
 
           # Give reward for planting
-          agent.reward += env.config.clothReward * 0.5  # Half reward for planting
+          env.rewards[id] += env.config.clothReward * 0.5  # Half reward for planting
 
           inc env.stats[id].actionPlant
         else:
@@ -2410,9 +2438,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Combine altar heart reward calculation here
       if env.currentStep >= env.config.maxSteps:  # Only at episode end
         let altarHearts = thing.hearts.float32
+        let perAgentReward = altarHearts / MapAgentsPerTeam.float32
         for agent in env.agents:
           if agent.homeAltar == thing.pos:
-            agent.reward += altarHearts / MapAgentsPerTeam.float32
+            env.rewards[agent.agentId] += perAgentReward
     elif thing.kind == Magma:
       if thing.cooldown > 0:
         dec thing.cooldown
@@ -3034,7 +3063,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if env.terminated[i] == 0.0:
         let teamId = getTeamId(i)
         if teamId == env.victoryWinner:
-          env.agents[i].reward += VictoryReward
+          env.rewards[i] += VictoryReward
           env.truncated[i] = 1.0  # Winners: episode ended (truncated, not dead)
         else:
           env.terminated[i] = 1.0  # Losers: eliminated
@@ -3120,6 +3149,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       env.territoryScore = env.scoreTerritory()
       env.territoryScored = true
     env.shouldReset = true
+
+  # Sync contiguous rewards array back to agent objects for backward compatibility
+  when defined(rewardBatch):
+    let rbStart = getMonoTime()
+  for i in 0 ..< MapAgents:
+    env.agents[i].reward = env.rewards[i]
+  when defined(rewardBatch):
+    let rbEnd = getMonoTime()
+    rewardBatchCumMs += rewardBatchMsBetween(rbStart, rbEnd)
+    inc rewardBatchSteps
+    if rewardBatchSteps >= RewardBatchReportInterval:
+      reportRewardBatch()
 
   when defined(combatAudit):
     printCombatReport(env.currentStep)
@@ -3232,6 +3273,7 @@ proc reset*(env: Environment) =
   maybeFinalizeReplay(env)
   env.currentStep = 0
   env.shouldReset = false
+  env.rewards.clear()
   env.terminated.clear()
   env.truncated.clear()
   env.things.setLen(0)
