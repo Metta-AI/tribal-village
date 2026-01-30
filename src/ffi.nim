@@ -755,3 +755,97 @@ proc tribal_village_get_threat_at*(env: pointer, teamId: int32, x: int32, y: int
     return 0
   except CatchableError:
     return 0
+
+# ============== Team Modifiers FFI Functions ==============
+
+proc tribal_village_get_gather_rate_multiplier*(env: pointer, teamId: int32): float32 {.exportc, dynlib.} =
+  ## Get the gather rate multiplier for a team. 1.0 = normal.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1.0'f32
+  globalEnv.teamModifiers[teamId].gatherRateMultiplier
+
+proc tribal_village_set_gather_rate_multiplier*(env: pointer, teamId: int32, value: float32) {.exportc, dynlib.} =
+  ## Set the gather rate multiplier for a team. 1.0 = normal.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  globalEnv.teamModifiers[teamId].gatherRateMultiplier = value
+
+proc tribal_village_get_build_cost_multiplier*(env: pointer, teamId: int32): float32 {.exportc, dynlib.} =
+  ## Get the build cost multiplier for a team. 1.0 = normal.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1.0'f32
+  globalEnv.teamModifiers[teamId].buildCostMultiplier
+
+proc tribal_village_set_build_cost_multiplier*(env: pointer, teamId: int32, value: float32) {.exportc, dynlib.} =
+  ## Set the build cost multiplier for a team. 1.0 = normal.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  globalEnv.teamModifiers[teamId].buildCostMultiplier = value
+
+proc tribal_village_get_unit_hp_bonus*(env: pointer, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
+  ## Get the bonus HP for a unit class on a team.
+  ## unitClass: ordinal of AgentUnitClass enum.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return 0
+  globalEnv.teamModifiers[teamId].unitHpBonus[AgentUnitClass(unitClass)].int32
+
+proc tribal_village_set_unit_hp_bonus*(env: pointer, teamId: int32, unitClass: int32, bonus: int32) {.exportc, dynlib.} =
+  ## Set the bonus HP for a unit class on a team.
+  ## unitClass: ordinal of AgentUnitClass enum.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return
+  globalEnv.teamModifiers[teamId].unitHpBonus[AgentUnitClass(unitClass)] = bonus.int
+
+proc tribal_village_get_unit_attack_bonus*(env: pointer, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
+  ## Get the bonus attack for a unit class on a team.
+  ## unitClass: ordinal of AgentUnitClass enum.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return 0
+  globalEnv.teamModifiers[teamId].unitAttackBonus[AgentUnitClass(unitClass)].int32
+
+proc tribal_village_set_unit_attack_bonus*(env: pointer, teamId: int32, unitClass: int32, bonus: int32) {.exportc, dynlib.} =
+  ## Set the bonus attack for a unit class on a team.
+  ## unitClass: ordinal of AgentUnitClass enum.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return
+  globalEnv.teamModifiers[teamId].unitAttackBonus[AgentUnitClass(unitClass)] = bonus.int
+
+proc tribal_village_get_num_unit_classes*(): int32 {.exportc, dynlib.} =
+  ## Get the number of AgentUnitClass values (for iterating over bonus arrays).
+  int32(ord(AgentUnitClass.high) + 1)
+
+# ============== Territory Scoring FFI Functions ==============
+
+proc tribal_village_score_territory*(env: pointer) {.exportc, dynlib.} =
+  ## Recompute territory scores. Results stored in env.territoryScore.
+  globalEnv.territoryScore = globalEnv.scoreTerritory()
+
+proc tribal_village_get_territory_team_tiles*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Get the number of tiles owned by a team.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  globalEnv.territoryScore.teamTiles[teamId].int32
+
+proc tribal_village_get_territory_clippy_tiles*(env: pointer): int32 {.exportc, dynlib.} =
+  ## Get the number of tiles owned by clippy (NPC).
+  globalEnv.territoryScore.clippyTiles.int32
+
+proc tribal_village_get_territory_neutral_tiles*(env: pointer): int32 {.exportc, dynlib.} =
+  ## Get the number of neutral (unclaimed) tiles.
+  globalEnv.territoryScore.neutralTiles.int32
+
+proc tribal_village_get_territory_scored_tiles*(env: pointer): int32 {.exportc, dynlib.} =
+  ## Get the total number of scored tiles.
+  globalEnv.territoryScore.scoredTiles.int32
+
+proc tribal_village_get_num_teams*(): int32 {.exportc, dynlib.} =
+  ## Get the number of teams (MapRoomObjectsTeams).
+  MapRoomObjectsTeams.int32
