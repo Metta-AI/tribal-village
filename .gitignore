@@ -28,6 +28,7 @@ tests/debug_*
 tests/quick_*
 tests/fixed_*
 tests/domain_*
+tests/behavior_*
 !tests/test_*.nim
 !tests/test_*.py
 !tests/test_*.sh
@@ -35,6 +36,7 @@ tests/domain_*
 !tests/quick_*.nim
 !tests/fixed_*.nim
 !tests/domain_*.nim
+!tests/behavior_*.nim
 
 # Nim cache (when configured to emit locally)
 nimcache/
