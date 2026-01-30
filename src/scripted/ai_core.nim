@@ -105,32 +105,23 @@ const
 proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
   ## Update difficulty levels for teams with adaptive mode enabled.
   ## Adjusts difficulty up if team is doing too well, down if struggling.
-  ## Called periodically from updateController.
   let currentStep = env.currentStep.int32
   let score = env.scoreTerritory()
   let totalTiles = max(1, score.scoredTiles)
+  const Threshold = 0.15
 
   for teamId in 0 ..< MapRoomObjectsTeams:
     if not controller.difficulty[teamId].adaptive:
       continue
-    # Only check periodically
-    let lastCheck = controller.difficulty[teamId].lastAdaptiveCheck
-    if currentStep - lastCheck < AdaptiveCheckInterval:
+    if currentStep - controller.difficulty[teamId].lastAdaptiveCheck < AdaptiveCheckInterval:
       continue
 
     controller.difficulty[teamId].lastAdaptiveCheck = currentStep
-    let teamTiles = score.teamTiles[teamId]
-    let territoryRatio = float32(teamTiles) / float32(totalTiles)
+    let territoryRatio = float32(score.teamTiles[teamId]) / float32(totalTiles)
     let target = controller.difficulty[teamId].adaptiveTarget
     let currentLevel = controller.difficulty[teamId].level
 
-    # Adjust difficulty based on performance vs target
-    # If team is doing much better than target (>20% above), increase difficulty
-    # If team is doing much worse than target (>20% below), decrease difficulty
-    const Threshold = 0.15
-
     template applyDifficultyLevel(newLevel: DifficultyLevel) =
-      ## Reset difficulty config while preserving adaptive settings.
       if newLevel != currentLevel:
         let savedAdaptive = controller.difficulty[teamId].adaptive
         let savedTarget = controller.difficulty[teamId].adaptiveTarget
@@ -140,22 +131,15 @@ proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
         controller.difficulty[teamId].lastAdaptiveCheck = currentStep
 
     if territoryRatio > target + Threshold:
-      # Team is doing too well - increase difficulty
-      let newLevel = case currentLevel
+      applyDifficultyLevel(case currentLevel
         of DiffEasy: DiffNormal
         of DiffNormal: DiffHard
-        of DiffHard: DiffBrutal
-        of DiffBrutal: DiffBrutal
-      applyDifficultyLevel(newLevel)
-
+        of DiffHard, DiffBrutal: DiffBrutal)
     elif territoryRatio < target - Threshold:
-      # Team is struggling - decrease difficulty
-      let newLevel = case currentLevel
-        of DiffEasy: DiffEasy
-        of DiffNormal: DiffEasy
+      applyDifficultyLevel(case currentLevel
+        of DiffEasy, DiffNormal: DiffEasy
         of DiffHard: DiffNormal
-        of DiffBrutal: DiffHard
-      applyDifficultyLevel(newLevel)
+        of DiffBrutal: DiffHard)
 
 proc getAgentRole*(controller: Controller, agentId: int): AgentRole =
   ## Get the role of an agent (for profiling)
@@ -180,17 +164,18 @@ proc saveStateAndReturn*(controller: Controller, agentId: int, state: AgentState
 
 proc vecToOrientation*(vec: IVec2): int =
   ## Map a step vector to orientation index (0..7)
-  let x = vec.x
-  let y = vec.y
-  if x == 0'i32 and y == -1'i32: return 0  # N
-  elif x == 0'i32 and y == 1'i32: return 1  # S
-  elif x == -1'i32 and y == 0'i32: return 2 # W
-  elif x == 1'i32 and y == 0'i32: return 3  # E
-  elif x == -1'i32 and y == -1'i32: return 4 # NW
-  elif x == 1'i32 and y == -1'i32: return 5  # NE
-  elif x == -1'i32 and y == 1'i32: return 6  # SW
-  elif x == 1'i32 and y == 1'i32: return 7   # SE
-  else: return 0
+  # Lookup: index = (signi(x)+1)*3 + (signi(y)+1), mapped to direction
+  const orientationTable = [
+    # (x=-1,y=-1)=NW, (x=-1,y=0)=W, (x=-1,y=1)=SW
+    # (x=0,y=-1)=N,   (x=0,y=0)=0,  (x=0,y=1)=S
+    # (x=1,y=-1)=NE,  (x=1,y=0)=E,  (x=1,y=1)=SE
+    4, 2, 6,  # x=-1: NW, W, SW
+    0, 0, 1,  # x=0:  N, (origin), S
+    5, 3, 7   # x=1:  NE, E, SE
+  ]
+  let ix = (if vec.x < 0: 0 elif vec.x > 0: 2 else: 1)
+  let iy = (if vec.y < 0: 0 elif vec.y > 0: 2 else: 1)
+  orientationTable[ix * 3 + iy]
 
 proc signi*(x: int32): int32 =
   if x < 0: -1
@@ -198,13 +183,9 @@ proc signi*(x: int32): int32 =
   else: 0
 
 proc chebyshevDist*(a, b: IVec2): int32 =
-  let dx = abs(a.x - b.x)
-  let dy = abs(a.y - b.y)
-  return (if dx > dy: dx else: dy)
+  max(abs(a.x - b.x), abs(a.y - b.y))
 
-# ============================================================================
-# Fog of War / Revealed Map Functions (AoE2-style exploration tracking)
-# ============================================================================
+# Fog of War / Revealed Map Functions
 
 proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: int) =
   ## Mark tiles within radius of center as revealed for the specified team.
@@ -267,13 +248,7 @@ proc getRevealedTileCount*(env: Environment, teamId: int): int =
       if env.revealedMaps[teamId][x][y]:
         inc result
 
-# ============================================================================
-# End Fog of War Functions
-# ============================================================================
-
-# ============================================================================
 # Shared Threat Map Functions
-# ============================================================================
 
 proc decayThreats*(controller: Controller, teamId: int, currentStep: int32) =
   ## Remove threats that haven't been seen recently
@@ -412,66 +387,47 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
   env.updateRevealedMapFromVision(agent)
 
   # Scan for enemy agents within vision range using spatial index
-  let vr = visionRange.int
-  block scanEnemies:
-    let (cx, cy) = cellCoords(agent.pos)
-    let clampedMax = min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-    let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
-    for ddx in -cellRadius .. cellRadius:
-      for ddy in -cellRadius .. cellRadius:
-        let nx = cx + ddx
-        let ny = cy + ddy
-        if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-          continue
-        for other in env.spatialIndex.kindCells[Agent][nx][ny]:
-          if other.isNil or not isAgentAlive(env, other):
-            continue
-          let otherTeam = getTeamId(other)
-          if otherTeam == teamId or otherTeam < 0:
-            continue
-          let dist = chebyshevDist(agent.pos, other.pos)
-          if dist <= visionRange:
-            var strength: int32 = 1
-            case other.unitClass
-            of UnitKnight: strength = 3
-            of UnitManAtArms: strength = 2
-            of UnitArcher: strength = 2
-            of UnitMangonel: strength = 4
-            of UnitTrebuchet: strength = 5
-            of UnitMonk: strength = 1
-            else: strength = 1
-            controller.reportThreat(teamId, other.pos, strength, currentStep,
-                                    agentId = other.agentId.int32, isStructure = false)
-
-  # Scan for enemy structures within vision range using spatial index
+  # Scan spatial cells for enemy agents and structures
   let (cx, cy) = cellCoords(agent.pos)
-  let cellRadius = (vr + SpatialCellSize - 1) div SpatialCellSize
-  for dx in -cellRadius .. cellRadius:
-    for dy in -cellRadius .. cellRadius:
-      let nx = cx + dx
-      let ny = cy + dy
+  let vr = visionRange.int
+  let cellRadius = (min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize) +
+                    SpatialCellSize - 1) div SpatialCellSize
+  for ddx in -cellRadius .. cellRadius:
+    for ddy in -cellRadius .. cellRadius:
+      let nx = cx + ddx
+      let ny = cy + ddy
       if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
         continue
+      # Enemy agents
+      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if other.isNil or not isAgentAlive(env, other):
+          continue
+        let otherTeam = getTeamId(other)
+        if otherTeam == teamId or otherTeam < 0:
+          continue
+        if chebyshevDist(agent.pos, other.pos) <= visionRange:
+          let strength: int32 = case other.unitClass
+            of UnitKnight: 3
+            of UnitManAtArms, UnitArcher: 2
+            of UnitMangonel: 4
+            of UnitTrebuchet: 5
+            else: 1
+          controller.reportThreat(teamId, other.pos, strength, currentStep,
+                                  agentId = other.agentId.int32, isStructure = false)
+      # Enemy structures
       for thing in env.spatialIndex.cells[nx][ny].things:
         if thing.isNil or not isBuildingKind(thing.kind):
           continue
         if thing.teamId < 0 or thing.teamId == teamId:
-          continue  # Skip neutral and friendly
-        let dist = chebyshevDist(agent.pos, thing.pos)
-        if dist <= visionRange:
-          # Calculate threat strength based on building type
-          var strength: int32 = 1
-          case thing.kind
-          of Castle: strength = 5
-          of GuardTower: strength = 3
-          of Barracks, ArcheryRange, Stable: strength = 2
-          else: strength = 1
+          continue
+        if chebyshevDist(agent.pos, thing.pos) <= visionRange:
+          let strength: int32 = case thing.kind
+            of Castle: 5
+            of GuardTower: 3
+            of Barracks, ArcheryRange, Stable: 2
+            else: 1
           controller.reportThreat(teamId, thing.pos, strength, currentStep,
                                   agentId = -1, isStructure = true)
-
-# ============================================================================
-# End Shared Threat Map Functions
-# ============================================================================
 
 proc updateClosestSeen*(state: var AgentState, basePos: IVec2, candidate: IVec2, current: var IVec2) =
   if candidate.x < 0:
@@ -489,32 +445,28 @@ proc clampToPlayable*(pos: IVec2): IVec2 {.inline.} =
 
 proc getNextSpiralPoint*(state: var AgentState): IVec2 =
   ## Advance the spiral one step using incremental state.
-  let clockwise = state.spiralClockwise
-  let arcLen = (state.spiralArcsCompleted div 2) + 1
   var direction = state.spiralArcsCompleted mod 4
-  if not clockwise:
+  if not state.spiralClockwise:
     case direction
     of 1: direction = 3
     of 3: direction = 1
     else: discard
   let delta = case direction
-    of 0: ivec2(0, -1)  # North
-    of 1: ivec2(1, 0)   # East
-    of 2: ivec2(0, 1)   # South
-    else: ivec2(-1, 0)  # West
+    of 0: ivec2(0, -1)   # North
+    of 1: ivec2(1, 0)    # East
+    of 2: ivec2(0, 1)    # South
+    else: ivec2(-1, 0)   # West
 
-  let nextPos = clampToPlayable(state.lastSearchPosition + delta)
-  state.lastSearchPosition = nextPos
+  state.lastSearchPosition = clampToPlayable(state.lastSearchPosition + delta)
   state.spiralStepsInArc += 1
-  if state.spiralStepsInArc > arcLen:
+  if state.spiralStepsInArc > (state.spiralArcsCompleted div 2) + 1:
     state.spiralArcsCompleted += 1
     state.spiralStepsInArc = 1
     if state.spiralArcsCompleted > 100:
       state.spiralArcsCompleted = 0
       state.spiralStepsInArc = 1
-      # Continue from the current area.
       state.basePosition = state.lastSearchPosition
-  result = state.lastSearchPosition
+  state.lastSearchPosition
 
 proc findNearestThing*(env: Environment, pos: IVec2, kind: ThingKind,
                       maxDist: int = SearchRadius): Thing =
@@ -522,30 +474,25 @@ proc findNearestThing*(env: Environment, pos: IVec2, kind: ThingKind,
   findNearestThingSpatial(env, pos, kind, maxDist)
 
 proc radiusBounds*(center: IVec2, radius: int): tuple[startX, endX, startY, endY: int] {.inline.} =
-  let cx = center.x.int
-  let cy = center.y.int
-  (max(0, cx - radius), min(MapWidth - 1, cx + radius),
-   max(0, cy - radius), min(MapHeight - 1, cy + radius))
+  (max(0, center.x.int - radius), min(MapWidth - 1, center.x.int + radius),
+   max(0, center.y.int - radius), min(MapHeight - 1, center.y.int + radius))
 
 proc findNearestWater*(env: Environment, pos: IVec2): IVec2 =
   result = ivec2(-1, -1)
   let (startX, endX, startY, endY) = radiusBounds(pos, SearchRadius)
-  let cx = pos.x.int
-  let cy = pos.y.int
   var minDist = int.high
   for x in startX .. endX:
     for y in startY .. endY:
-      if abs(x - cx) + abs(y - cy) >= SearchRadius:
+      let dist = abs(x - pos.x.int) + abs(y - pos.y.int)
+      if dist >= SearchRadius or dist >= minDist:
         continue
       if env.terrain[x][y] != Water:
         continue
-      let pos = ivec2(x.int32, y.int32)
-      if isTileFrozen(pos, env):
+      let candidate = ivec2(x.int32, y.int32)
+      if isTileFrozen(candidate, env):
         continue
-      let dist = abs(x - cx) + abs(y - cy)
-      if dist < minDist:
-        minDist = dist
-        result = pos
+      minDist = dist
+      result = candidate
 
 proc findNearestFriendlyThing*(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
   ## Find nearest team-owned thing using spatial index for O(1) cell lookup
@@ -553,11 +500,14 @@ proc findNearestFriendlyThing*(env: Environment, pos: IVec2, teamId: int, kind: 
 
 proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: ThingKind): Thing =
   ## Find nearest thing using spiral search pattern - more systematic than random search
+  template cacheAndReturn(thing: Thing) =
+    state.cachedThingPos[kind] = thing.pos
+    state.cachedThingStep[kind] = env.currentStep
+    return thing
+
   let cachedPos = state.cachedThingPos[kind]
   if cachedPos.x >= 0:
-    # Invalidate cache if too old (step-based staleness)
-    let cacheAge = env.currentStep - state.cachedThingStep[kind]
-    if cacheAge < CacheMaxAge and
+    if env.currentStep - state.cachedThingStep[kind] < CacheMaxAge and
        abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       let cachedThing = env.getThing(cachedPos)
       if not isNil(cachedThing) and cachedThing.kind == kind and
@@ -565,62 +515,39 @@ proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: Thin
         return cachedThing
     state.cachedThingPos[kind] = ivec2(-1, -1)
 
-  # First check immediate area around current position
   result = findNearestThing(env, state.lastSearchPosition, kind)
-  if not isNil(result):
-    state.cachedThingPos[kind] = result.pos
-    state.cachedThingStep[kind] = env.currentStep
-    return result
-
-  # Also check around agent's current position before advancing spiral
+  if not isNil(result): cacheAndReturn(result)
   result = findNearestThing(env, state.basePosition, kind)
-  if not isNil(result):
-    state.cachedThingPos[kind] = result.pos
-    state.cachedThingStep[kind] = env.currentStep
-    return result
+  if not isNil(result): cacheAndReturn(result)
 
-  # If not found, advance spiral search (multiple steps) to cover ground faster
-  var nextSearchPos = state.lastSearchPosition
   for _ in 0 ..< SpiralAdvanceSteps:
-    nextSearchPos = getNextSpiralPoint(state)
-
-  # Search from new spiral position
-  result = findNearestThing(env, nextSearchPos, kind)
-  if not isNil(result):
-    state.cachedThingPos[kind] = result.pos
-    state.cachedThingStep[kind] = env.currentStep
-  return result
+    discard getNextSpiralPoint(state)
+  result = findNearestThing(env, state.lastSearchPosition, kind)
+  if not isNil(result): cacheAndReturn(result)
 
 proc findNearestWaterSpiral*(env: Environment, state: var AgentState): IVec2 =
+  template cacheAndReturn(pos: IVec2) =
+    state.cachedWaterPos = pos
+    state.cachedWaterStep = env.currentStep
+    return pos
+
   let cachedPos = state.cachedWaterPos
   if cachedPos.x >= 0:
-    let cacheAge = env.currentStep - state.cachedWaterStep
-    if cacheAge < CacheMaxAge and
+    if env.currentStep - state.cachedWaterStep < CacheMaxAge and
        abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       if env.terrain[cachedPos.x][cachedPos.y] == Water and not isTileFrozen(cachedPos, env):
         return cachedPos
     state.cachedWaterPos = ivec2(-1, -1)
 
   result = findNearestWater(env, state.lastSearchPosition)
-  if result.x >= 0:
-    state.cachedWaterPos = result
-    state.cachedWaterStep = env.currentStep
-    return result
-
+  if result.x >= 0: cacheAndReturn(result)
   result = findNearestWater(env, state.basePosition)
-  if result.x >= 0:
-    state.cachedWaterPos = result
-    state.cachedWaterStep = env.currentStep
-    return result
+  if result.x >= 0: cacheAndReturn(result)
 
-  var nextSearchPos = state.lastSearchPosition
   for _ in 0 ..< SpiralAdvanceSteps:
-    nextSearchPos = getNextSpiralPoint(state)
-  result = findNearestWater(env, nextSearchPos)
-  if result.x >= 0:
-    state.cachedWaterPos = result
-    state.cachedWaterStep = env.currentStep
-  return result
+    discard getNextSpiralPoint(state)
+  result = findNearestWater(env, state.lastSearchPosition)
+  if result.x >= 0: cacheAndReturn(result)
 
 proc findNearestFriendlyThingSpiral*(env: Environment, state: var AgentState, teamId: int,
                                     kind: ThingKind): Thing =
@@ -671,16 +598,12 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
   for thing in env.things:
     if thing.teamId != teamId:
       continue
-    var matches = false
-    for kind in kinds:
-      if thing.kind == kind:
-        matches = true
-        break
-    if not matches:
+    block kindCheck:
+      for kind in kinds:
+        if thing.kind == kind:
+          break kindCheck
       continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < result:
-      result = dist
+    result = min(result, int(chebyshevDist(thing.pos, pos)))
 
 proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
   if controller.buildingCountsStep != env.currentStep:
@@ -718,12 +641,7 @@ proc canAffordBuild*(env: Environment, agent: Thing, key: ItemKey): bool =
 
 proc neighborDirIndex*(fromPos, toPos: IVec2): int =
   ## Orientation index (0..7) toward adjacent target (includes diagonals)
-  let dx = toPos.x - fromPos.x
-  let dy = toPos.y - fromPos.y
-  return vecToOrientation(ivec2(
-    (if dx > 0: 1'i32 elif dx < 0: -1'i32 else: 0'i32).int,
-    (if dy > 0: 1'i32 elif dy < 0: -1'i32 else: 0'i32).int
-  ))
+  vecToOrientation(ivec2(signi(toPos.x - fromPos.x), signi(toPos.y - fromPos.y)))
 
 
 proc sameTeam*(agentA, agentB: Thing): bool =
@@ -779,6 +697,19 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
   var bestDist = int.high
   var bestPriority = int.high
 
+  template tryTarget(thing: Thing, dirI: int, stepDist: int) =
+    ## Check if thing is a valid attack target and update best if higher priority.
+    let isEnemy = case thing.kind
+      of Agent: isAgentAlive(env, thing) and not sameTeam(agent, thing)
+      of Tumor, Spawner: true
+      else: thing.kind in AttackableStructures and thing.teamId != agentTeamId
+    if isEnemy:
+      let priority = targetPriority(thing.kind)
+      if priority < bestPriority or (priority == bestPriority and stepDist < bestDist):
+        bestPriority = priority
+        bestDist = stepDist
+        bestDir = dirI
+
   # Scan along 8 directions (cardinal + diagonal) up to maxRange
   for dirIdx in 0 .. 7:
     let d = Directions8[dirIdx]
@@ -787,47 +718,12 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
       let ty = agent.pos.y + d.y * step
       if tx < 0 or tx >= MapWidth or ty < 0 or ty >= MapHeight:
         break
-
-      # Check blocking grid (agents, buildings)
       let gridThing = env.grid[tx][ty]
       if not gridThing.isNil:
-        if gridThing.kind == Agent:
-          if isAgentAlive(env, gridThing) and not sameTeam(agent, gridThing):
-            let priority = targetPriority(Agent)
-            if priority < bestPriority or (priority == bestPriority and step < bestDist):
-              bestPriority = priority
-              bestDist = step
-              bestDir = dirIdx
-        elif gridThing.kind in {Tumor, Spawner}:
-          let priority = targetPriority(gridThing.kind)
-          if priority < bestPriority or (priority == bestPriority and step < bestDist):
-            bestPriority = priority
-            bestDist = step
-            bestDir = dirIdx
-        elif gridThing.kind in AttackableStructures:
-          if gridThing.teamId != agentTeamId:
-            let priority = targetPriority(gridThing.kind)
-            if priority < bestPriority or (priority == bestPriority and step < bestDist):
-              bestPriority = priority
-              bestDist = step
-              bestDir = dirIdx
-
-      # Check background grid (non-blocking things like Tumor/Spawner)
+        tryTarget(gridThing, dirIdx, step)
       let bgThing = env.backgroundGrid[tx][ty]
       if not bgThing.isNil and bgThing != gridThing:
-        if bgThing.kind in {Tumor, Spawner}:
-          let priority = targetPriority(bgThing.kind)
-          if priority < bestPriority or (priority == bestPriority and step < bestDist):
-            bestPriority = priority
-            bestDist = step
-            bestDir = dirIdx
-        elif bgThing.kind in AttackableStructures:
-          if bgThing.teamId != agentTeamId:
-            let priority = targetPriority(bgThing.kind)
-            if priority < bestPriority or (priority == bestPriority and step < bestDist):
-              bestPriority = priority
-              bestDist = step
-              bestDir = dirIdx
+        tryTarget(bgThing, dirIdx, step)
 
   return bestDir
 
@@ -1314,38 +1210,28 @@ proc moveToNearestSmith*(controller: Controller, env: Environment, agent: Thing,
 
 proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
                           res: StockpileResource, rng: var Rand): Thing =
-  template tryKind(kind: ThingKind): Thing =
-    env.findNearestFriendlyThingSpiral(state, teamId, kind)
+  template tryKind(kind: ThingKind) =
+    if isNil(result):
+      result = env.findNearestFriendlyThingSpiral(state, teamId, kind)
   case res
   of ResourceFood:
-    result = tryKind(Granary)
-    if isNil(result):
-      result = tryKind(Mill)
-    if isNil(result):
-      result = tryKind(TownCenter)
+    tryKind(Granary); tryKind(Mill); tryKind(TownCenter)
   of ResourceWood:
-    result = tryKind(LumberCamp)
-    if isNil(result):
-      result = tryKind(TownCenter)
+    tryKind(LumberCamp); tryKind(TownCenter)
   of ResourceStone:
-    result = tryKind(Quarry)
-    if isNil(result):
-      result = tryKind(TownCenter)
+    tryKind(Quarry); tryKind(TownCenter)
   of ResourceGold:
-    result = tryKind(MiningCamp)
-    if isNil(result):
-      result = tryKind(TownCenter)
+    tryKind(MiningCamp); tryKind(TownCenter)
   of ResourceWater, ResourceNone:
-    result = nil
+    discard
   if isNil(result):
     var bestDist = int.high
     for thing in env.thingsByKind[TownCenter]:
-      if thing.teamId != teamId:
-        continue
-      let dist = int(chebyshevDist(thing.pos, state.basePosition))
-      if dist < bestDist:
-        bestDist = dist
-        result = thing
+      if thing.teamId == teamId:
+        let dist = int(chebyshevDist(thing.pos, state.basePosition))
+        if dist < bestDist:
+          bestDist = dist
+          result = thing
 
 proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState,
@@ -1354,150 +1240,83 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       allowStone: bool = false,
                       allowGold: bool = false): tuple[did: bool, action: uint8] =
   ## Unified dropoff function - attempts to drop off resources in priority order
-  ## Priority: food -> wood -> gold -> stone
   let teamId = getTeamId(agent)
 
-  # Food dropoff - requires checking inventory for any food items
-  if allowFood:
-    var hasFood = false
-    for key, count in agent.inventory.pairs:
-      if count > 0 and isFoodItem(key):
-        hasFood = true
-        break
-    if hasFood:
-      let dropoff = findDropoffBuilding(env, state, teamId, ResourceFood, controller.rng)
-      if not isNil(dropoff):
-        return (true, controller.useOrMoveTo(env, agent, agentId, state, dropoff.pos))
-
-  for entry in [
-    (res: ResourceWood, amount: agent.inventoryWood, allowed: allowWood),
-    (res: ResourceGold, amount: agent.inventoryGold, allowed: allowGold),
-    (res: ResourceStone, amount: agent.inventoryStone, allowed: allowStone)
-  ]:
-    if not entry.allowed or entry.amount <= 0:
-      continue
-    let dropoff = findDropoffBuilding(env, state, teamId, entry.res, controller.rng)
+  template tryDropoff(res: StockpileResource) =
+    let dropoff = findDropoffBuilding(env, state, teamId, res, controller.rng)
     if not isNil(dropoff):
       return (true, controller.useOrMoveTo(env, agent, agentId, state, dropoff.pos))
 
+  if allowFood:
+    for key, count in agent.inventory.pairs:
+      if count > 0 and isFoodItem(key):
+        tryDropoff(ResourceFood)
+        break
+
+  if allowWood and agent.inventoryWood > 0: tryDropoff(ResourceWood)
+  if allowGold and agent.inventoryGold > 0: tryDropoff(ResourceGold)
+  if allowStone and agent.inventoryStone > 0: tryDropoff(ResourceStone)
+
   (false, 0'u8)
 
-template ensureResourceImpl(closestPos: var IVec2, allowedKinds: set[ThingKind],
+proc ensureResourceReserved(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, closestPos: var IVec2,
+                            allowedKinds: set[ThingKind],
                             kinds: openArray[ThingKind]): tuple[did: bool, action: uint8] =
-  ## Shared logic for resource-gathering: check cached position, spiral-search
-  ## for the nearest resource of the given kinds, then use or move to it.
-  block:
-    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-      env, agent, agentId, state, closestPos, allowedKinds, 3'u8)
-    if didKnown:
-      (didKnown, actKnown)
+  ## Shared resource-gathering with reservation: check cached position, spiral-search
+  ## for the nearest resource of the given kinds, reserve it, then use or move to it.
+  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
+    env, agent, agentId, state, closestPos, allowedKinds, 3'u8)
+  if didKnown: return (didKnown, actKnown)
+  let teamId = getTeamId(agent)
+  for kind in kinds:
+    let target = env.findNearestThingSpiral(state, kind)
+    if isNil(target):
+      continue
+    if target.pos == state.pathBlockedTarget:
+      state.cachedThingPos[kind] = ivec2(-1, -1)
+      continue
+    if isResourceReserved(teamId, target.pos, agentId):
+      continue
+    updateClosestSeen(state, state.basePosition, target.pos, closestPos)
+    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
+    return (true, if isAdjacent(agent.pos, target.pos):
+      controller.useAt(env, agent, agentId, state, target.pos)
     else:
-      var found = false
-      var foundResult: tuple[did: bool, action: uint8]
-      for kind in kinds:
-        let target = env.findNearestThingSpiral(state, kind)
-        if isNil(target):
-          continue
-        if target.pos == state.pathBlockedTarget:
-          state.cachedThingPos[kind] = ivec2(-1, -1)
-          continue
-        updateClosestSeen(state, state.basePosition, target.pos, closestPos)
-        found = true
-        foundResult = (true, controller.useOrMoveTo(env, agent, agentId, state, target.pos))
-        break
-      if found:
-        foundResult
-      else:
-        (true, controller.moveNextSearch(env, agent, agentId, state))
+      controller.moveTo(env, agent, agentId, state, target.pos))
+  (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWood*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-    env, agent, agentId, state, state.closestWoodPos, {Stump, Tree}, 3'u8)
-  if didKnown: return (didKnown, actKnown)
-  let teamId = getTeamId(agent)
-  for kind in [Stump, Tree]:
-    let target = env.findNearestThingSpiral(state, kind)
-    if isNil(target):
-      continue
-    if target.pos == state.pathBlockedTarget:
-      state.cachedThingPos[kind] = ivec2(-1, -1)
-      continue
-    # Skip if reserved by another agent
-    if isResourceReserved(teamId, target.pos, agentId):
-      continue
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestWoodPos)
-    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
-    return (true, if isAdjacent(agent.pos, target.pos):
-      controller.useAt(env, agent, agentId, state, target.pos)
-    else:
-      controller.moveTo(env, agent, agentId, state, target.pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
+  ensureResourceReserved(controller, env, agent, agentId, state,
+    state.closestWoodPos, {Stump, Tree}, [Stump, Tree])
 
 proc ensureStone*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-    env, agent, agentId, state, state.closestStonePos, {Stone, Stalagmite}, 3'u8)
-  if didKnown: return (didKnown, actKnown)
-  let teamId = getTeamId(agent)
-  for kind in [Stone, Stalagmite]:
-    let target = env.findNearestThingSpiral(state, kind)
-    if isNil(target):
-      continue
-    if target.pos == state.pathBlockedTarget:
-      state.cachedThingPos[kind] = ivec2(-1, -1)
-      continue
-    # Skip if reserved by another agent
-    if isResourceReserved(teamId, target.pos, agentId):
-      continue
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestStonePos)
-    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
-    return (true, if isAdjacent(agent.pos, target.pos):
-      controller.useAt(env, agent, agentId, state, target.pos)
-    else:
-      controller.moveTo(env, agent, agentId, state, target.pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
+  ensureResourceReserved(controller, env, agent, agentId, state,
+    state.closestStonePos, {Stone, Stalagmite}, [Stone, Stalagmite])
 
 proc ensureGold*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint8] =
-  let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-    env, agent, agentId, state, state.closestGoldPos, {Gold}, 3'u8)
-  if didKnown: return (didKnown, actKnown)
-  let teamId = getTeamId(agent)
-  let target = env.findNearestThingSpiral(state, Gold)
-  if not isNil(target):
-    if target.pos == state.pathBlockedTarget:
-      state.cachedThingPos[Gold] = ivec2(-1, -1)
-      return (true, controller.moveNextSearch(env, agent, agentId, state))
-    # Skip if reserved by another agent
-    if isResourceReserved(teamId, target.pos, agentId):
-      return (true, controller.moveNextSearch(env, agent, agentId, state))
-    updateClosestSeen(state, state.basePosition, target.pos, state.closestGoldPos)
-    discard reserveResource(teamId, agentId, target.pos, env.currentStep)
-    return (true, if isAdjacent(agent.pos, target.pos):
-      controller.useAt(env, agent, agentId, state, target.pos)
-    else:
-      controller.moveTo(env, agent, agentId, state, target.pos))
-  (true, controller.moveNextSearch(env, agent, agentId, state))
+  ensureResourceReserved(controller, env, agent, agentId, state,
+    state.closestGoldPos, {Gold}, [Gold])
 
 proc ensureWater*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint8] =
-  if state.closestWaterPos.x >= 0:
-    if state.closestWaterPos == state.pathBlockedTarget:
-      state.closestWaterPos = ivec2(-1, -1)
-    elif env.terrain[state.closestWaterPos.x][state.closestWaterPos.y] != Water or
-         isTileFrozen(state.closestWaterPos, env):
-      state.closestWaterPos = ivec2(-1, -1)
+  # Invalidate cached water if blocked, depleted, or frozen
+  if state.closestWaterPos.x >= 0 and
+     (state.closestWaterPos == state.pathBlockedTarget or
+      env.terrain[state.closestWaterPos.x][state.closestWaterPos.y] != Water or
+      isTileFrozen(state.closestWaterPos, env)):
+    state.closestWaterPos = ivec2(-1, -1)
   if state.closestWaterPos.x >= 0:
     return (true, controller.useOrMoveTo(env, agent, agentId, state, state.closestWaterPos))
-
   let target = findNearestWaterSpiral(env, state)
-  if target.x >= 0:
-    if target == state.pathBlockedTarget:
-      state.cachedWaterPos = ivec2(-1, -1)
-      return (true, controller.moveNextSearch(env, agent, agentId, state))
+  if target.x >= 0 and target != state.pathBlockedTarget:
     updateClosestSeen(state, state.basePosition, target, state.closestWaterPos)
     return (true, controller.useOrMoveTo(env, agent, agentId, state, target))
+  if target.x >= 0:
+    state.cachedWaterPos = ivec2(-1, -1)
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
 proc ensureWheat*(controller: Controller, env: Environment, agent: Thing, agentId: int,
