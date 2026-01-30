@@ -3031,6 +3031,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         output.add("\n")
       writeFile(logRenderPath, output)
 
+  env.maybeRenderConsole()
+
 proc reset*(env: Environment) =
   maybeFinalizeReplay(env)
   env.currentStep = 0

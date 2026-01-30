@@ -1692,4 +1692,5 @@ proc render*(env: Environment): string =
 
 include "connectivity"
 include "spawn"
+include "console_viz"
 include "step"
