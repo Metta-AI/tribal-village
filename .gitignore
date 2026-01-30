@@ -105,6 +105,7 @@ nim.cfg
 src/ffi
 scripts/run_all_tests
 scripts/perf_baseline
+scripts/coverage_report
 
 # Nimby-installed dependency packages (local to worktree)
 bitty/
