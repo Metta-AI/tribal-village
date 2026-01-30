@@ -844,6 +844,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(combatAudit):
     ensureCombatAuditInit()
 
+  when defined(actionAudit):
+    ensureActionAuditInit()
+
   # Decay short-lived action tints
   env.stepDecayActionTints()
 
@@ -894,6 +897,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     # Track idle state: agent is idle if taking NOOP (0) or ORIENT (9) action
     # This enables AoE2-style idle villager detection for RL agents
     agent.isIdle = verb == 0 or verb == 9
+
+    when defined(actionAudit):
+      recordAction(id, verb)
 
     template invalidAndBreak(label: untyped) =
       inc env.stats[id].actionInvalid
@@ -3042,6 +3048,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(combatAudit):
     printCombatReport(env.currentStep)
+
+  when defined(actionAudit):
+    printActionAuditReport(env.currentStep)
 
   maybeLogReplayStep(env, actions)
   maybeDumpState(env)
