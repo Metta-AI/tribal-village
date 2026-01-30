@@ -53,6 +53,36 @@ const UnitClassLabels: array[AgentUnitClass, string] = [
   "King"
 ]
 
+const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
+  "",                              # UnitVillager (uses role-based key)
+  "oriented/man_at_arms",          # UnitManAtArms
+  "oriented/archer",               # UnitArcher
+  "oriented/scout",                # UnitScout
+  "oriented/knight",               # UnitKnight
+  "oriented/monk",                 # UnitMonk
+  "oriented/battering_ram",        # UnitBatteringRam
+  "oriented/mangonel",             # UnitMangonel
+  "",                              # UnitTrebuchet (packed/unpacked)
+  "oriented/goblin",               # UnitGoblin
+  "oriented/boat",                 # UnitBoat
+  "oriented/trade_cog",            # UnitTradeCog
+  "oriented/samurai",              # UnitSamurai
+  "oriented/longbowman",           # UnitLongbowman
+  "oriented/cataphract",           # UnitCataphract
+  "oriented/woad_raider",          # UnitWoadRaider
+  "oriented/teutonic_knight",      # UnitTeutonicKnight
+  "oriented/huskarl",              # UnitHuskarl
+  "oriented/mameluke",             # UnitMameluke
+  "oriented/janissary",            # UnitJanissary
+  "oriented/king",                 # UnitKing
+  "oriented/man_at_arms",          # UnitLongSwordsman
+  "oriented/man_at_arms",          # UnitChampion
+  "oriented/scout",                # UnitLightCavalry
+  "oriented/scout",                # UnitHussar
+  "oriented/archer",               # UnitCrossbowman
+  "oriented/archer",               # UnitArbalester
+]
+
 const CliffDrawOrder = [
   CliffEdgeN,
   CliffEdgeE,
@@ -86,19 +116,19 @@ const
   FooterLabelPadding = 4.0'f32
   FooterHudPadding = 12.0'f32
 
-proc renderTextLabel(text: string, fontPath: string, fontSize: float32,
-                     padding: float32, bgAlpha: float32): (Image, IVec2) =
-  var measureCtx = newContext(1, 1)
-  measureCtx.font = fontPath
-  measureCtx.fontSize = fontSize
-  measureCtx.textBaseline = TopBaseline
-  let metrics = measureCtx.measureText(text)
-  let w = max(1, (metrics.width + padding * 2).int)
-  let h = max(1, (measureCtx.fontSize + padding * 2).int)
-  var ctx = newContext(w, h)
+template setupCtxFont(ctx: untyped, fontPath: string, fontSize: float32) =
   ctx.font = fontPath
   ctx.fontSize = fontSize
   ctx.textBaseline = TopBaseline
+
+proc renderTextLabel(text: string, fontPath: string, fontSize: float32,
+                     padding: float32, bgAlpha: float32): (Image, IVec2) =
+  var measureCtx = newContext(1, 1)
+  setupCtxFont(measureCtx, fontPath, fontSize)
+  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
+  let h = max(1, (fontSize + padding * 2).int)
+  var ctx = newContext(w, h)
+  setupCtxFont(ctx, fontPath, fontSize)
   if bgAlpha > 0:
     ctx.fillStyle.color = color(0, 0, 0, bgAlpha)
     ctx.fillRect(0, 0, w.float32, h.float32)
@@ -109,13 +139,12 @@ proc renderTextLabel(text: string, fontPath: string, fontSize: float32,
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
                      filledColor, emptyColor: Color, segments = 5) =
   let filled = int(ceil(ratio * segments.float32))
-  let segStep = 0.16'f32
-  let totalW = segStep * (segments.float32 - 1)
-  let origin = basePos + vec2(-totalW / 2 + offset.x, offset.y)
+  const segStep = 0.16'f32
+  let origin = basePos + vec2(-segStep * (segments.float32 - 1) / 2 + offset.x, offset.y)
   for i in 0 ..< segments:
-    let tint = if i < filled: filledColor else: emptyColor
     bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
-                  angle = 0, scale = 1/500, tint = tint)
+                  angle = 0, scale = 1/500,
+                  tint = if i < filled: filledColor else: emptyColor)
 
 type FooterButtonKind* = enum
   FooterPlayPause
@@ -191,17 +220,13 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       w: buttonWidths[i],
       h: FooterHeight.float32 - FooterPadding * 2.0
     )
-    let active = case kind
-      of FooterSlow:
-        abs(playSpeed - SlowPlaySpeed) < 0.0001
-      of FooterFast:
-        abs(playSpeed - FastPlaySpeed) < 0.0001
-      of FooterFaster:
-        abs(playSpeed - FasterPlaySpeed) < 0.0001
-      of FooterSuper:
-        abs(playSpeed - SuperPlaySpeed) < 0.0001
-      else:
-        false
+    let speedForKind = case kind
+      of FooterSlow: SlowPlaySpeed
+      of FooterFast: FastPlaySpeed
+      of FooterFaster: FasterPlaySpeed
+      of FooterSuper: SuperPlaySpeed
+      else: -1.0'f32
+    let active = speedForKind > 0 and abs(playSpeed - speedForKind) < 0.0001
     result.add(FooterButton(
       kind: kind,
       rect: rect,
@@ -214,13 +239,10 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
     x += buttonWidths[i] + FooterButtonGap
 
 proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
-  let footerRect = Rect(
-    x: panelRect.x.float32,
-    y: panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32,
-    w: panelRect.w.float32,
-    h: FooterHeight.float32
-  )
-  bxy.drawRect(rect = footerRect, color = color(0.12, 0.16, 0.2, 0.9))
+  let fy = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
+  bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: fy,
+               w: panelRect.w.float32, h: FooterHeight.float32),
+               color = color(0.12, 0.16, 0.2, 0.9))
   let mousePos = window.mousePos.vec2
   for button in buttons:
     let hovered = mousePos.x >= button.rect.x and mousePos.x <= button.rect.x + button.rect.w and
@@ -228,22 +250,19 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
     let baseColor = if button.active: color(0.2, 0.5, 0.7, 0.95) else: color(0.2, 0.24, 0.28, 0.9)
     let drawColor = if hovered: color(baseColor.r + 0.08, baseColor.g + 0.08, baseColor.b + 0.08, baseColor.a) else: baseColor
     bxy.drawRect(rect = button.rect, color = drawColor)
+    template centerIn(r: Rect, sz: Vec2): Vec2 =
+      vec2(r.x + (r.w - sz.x) * 0.5, r.y + (r.h - sz.y) * 0.5)
     if button.iconKey.len > 0 and button.iconSize.x > 0 and button.iconSize.y > 0:
-      let maxIconSize = min(button.rect.w, button.rect.h) * 0.6
-      let iconScale = min(1.0'f32, maxIconSize / max(button.iconSize.x.float32, button.iconSize.y.float32))
-      let iconShift = vec2(8.0, 9.0) * iconScale
-      let iconPos = vec2(
-        button.rect.x + (button.rect.w - button.iconSize.x.float32 * iconScale) * 0.5,
-        button.rect.y + (button.rect.h - button.iconSize.y.float32 * iconScale) * 0.5
-      ) + iconShift
-      bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = iconScale)
+      let sc = min(1.0'f32, min(button.rect.w, button.rect.h) * 0.6 /
+               max(button.iconSize.x.float32, button.iconSize.y.float32))
+      let iconPos = centerIn(button.rect, vec2(button.iconSize.x.float32 * sc,
+                    button.iconSize.y.float32 * sc)) + vec2(8.0, 9.0) * sc
+      bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = sc)
     else:
-      let labelShift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
-      let labelPos = vec2(
-        button.rect.x + (button.rect.w - button.labelSize.x.float32) * 0.5,
-        button.rect.y + (button.rect.h - button.labelSize.y.float32) * 0.5
-      ) + labelShift
-      bxy.drawImage(button.labelKey, labelPos, angle = 0, scale = 1)
+      let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
+      bxy.drawImage(button.labelKey,
+        centerIn(button.rect, vec2(button.labelSize.x.float32, button.labelSize.y.float32)) + shift,
+        angle = 0, scale = 1)
 
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
@@ -254,21 +273,13 @@ proc rebuildRenderCaches() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let biome = env.biomes[x][y]
-      let floorKind =
-        case biome
-        of BiomeCavesType:
-          FloorCave
+      let floorKind = case biome
+        of BiomeCavesType: FloorCave
         of BiomeDungeonType:
-          let noise = block:
-            var v = uint32(x) * 374761393'u32 + uint32(y) * 668265263'u32
-            v = (v xor (v shr 13)) * 1274126177'u32
-            v xor (v shr 16)
-          if (noise mod 100) < 35:
-            FloorDungeon
-          else:
-            FloorBase
-        else:
-          FloorBase
+          var v = uint32(x) * 374761393'u32 + uint32(y) * 668265263'u32
+          v = (v xor (v shr 13)) * 1274126177'u32
+          if ((v xor (v shr 16)) mod 100) < 35: FloorDungeon else: FloorBase
+        else: FloorBase
       floorSpritePositions[floorKind].add(ivec2(x, y))
 
       if env.terrain[x][y] == Water:
@@ -287,26 +298,19 @@ proc drawFloor*() =
       of FloorDungeon: "dungeon"
       of FloorBase: "floor"
     for pos in floorSpritePositions[floorKind]:
-      let blendedColor = combinedTileTint(env, pos.x, pos.y)
-
+      let bc = combinedTileTint(env, pos.x, pos.y)
       bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = SpriteScale,
-        tint = color(
-          min(blendedColor.r * blendedColor.intensity, 1.5),
-          min(blendedColor.g * blendedColor.intensity, 1.5),
-          min(blendedColor.b * blendedColor.intensity, 1.5),
-          1.0
-        ))
+        tint = color(min(bc.r * bc.intensity, 1.5), min(bc.g * bc.intensity, 1.5),
+                     min(bc.b * bc.intensity, 1.5), 1.0))
 
 proc drawTerrain*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      let pos = ivec2(x, y)
       let terrain = env.terrain[x][y]
-      if terrain == Water:
-        continue
+      if terrain == Water: continue
       let spriteKey = terrainSpriteKey(terrain)
       if spriteKey.len > 0 and spriteKey in bxy:
-        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
+        bxy.drawImage(spriteKey, ivec2(x, y).vec2, angle = 0, scale = SpriteScale)
 
 proc ensureHeartCountLabel(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
@@ -460,138 +464,92 @@ proc drawObjects*() =
 
   drawThings(Agent):
     let agent = thing
-    let roleKey =
-      case agent.agentId mod MapAgentsPerTeam
-      of 0, 1: "oriented/gatherer"
-      of 2, 3: "oriented/builder"
-      of 4, 5: "oriented/fighter"
-      else: "oriented/gatherer"
-    let baseKey =
-      case agent.unitClass
-      of UnitVillager: roleKey
-      of UnitManAtArms: "oriented/man_at_arms"
-      of UnitArcher: "oriented/archer"
-      of UnitScout: "oriented/scout"
-      of UnitKnight: "oriented/knight"
-      of UnitMonk: "oriented/monk"
-      of UnitBatteringRam: "oriented/battering_ram"
-      of UnitMangonel: "oriented/mangonel"
-      of UnitTrebuchet:
+    let baseKey = block:
+      let tbl = UnitClassSpriteKeys[agent.unitClass]
+      if tbl.len > 0: tbl
+      elif agent.unitClass == UnitTrebuchet:
         if agent.packed: "oriented/trebuchet_packed"
         else: "oriented/trebuchet_unpacked"
-      of UnitGoblin: "oriented/goblin"
-      of UnitBoat: "oriented/boat"
-      of UnitTradeCog: "oriented/trade_cog"
-      of UnitSamurai: "oriented/samurai"
-      of UnitLongbowman: "oriented/longbowman"
-      of UnitCataphract: "oriented/cataphract"
-      of UnitWoadRaider: "oriented/woad_raider"
-      of UnitTeutonicKnight: "oriented/teutonic_knight"
-      of UnitHuskarl: "oriented/huskarl"
-      of UnitMameluke: "oriented/mameluke"
-      of UnitJanissary: "oriented/janissary"
-      of UnitKing: "oriented/king"
-      # Unit upgrade tiers (use same sprites as base units)
-      of UnitLongSwordsman, UnitChampion: "oriented/man_at_arms"
-      of UnitLightCavalry, UnitHussar: "oriented/scout"
-      of UnitCrossbowman, UnitArbalester: "oriented/archer"
+      else: # UnitVillager: role-based
+        case agent.agentId mod MapAgentsPerTeam
+        of 0, 1: "oriented/gatherer"
+        of 2, 3: "oriented/builder"
+        of 4, 5: "oriented/fighter"
+        else: "oriented/gatherer"
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
     let agentSpriteKey = if agentImage in bxy: agentImage
                          elif baseKey & ".s" in bxy: baseKey & ".s"
                          else: ""
     if agentSpriteKey.len > 0:
-      bxy.drawImage(
-        agentSpriteKey,
-        pos.vec2,
-        angle = 0,
-        scale = SpriteScale,
-        tint = env.agentColors[agent.agentId]
-      )
+      bxy.drawImage(agentSpriteKey, pos.vec2, angle = 0,
+                    scale = SpriteScale, tint = env.agentColors[agent.agentId])
 
   drawThings(Altar):
-    let altarTint = block:
-      if env.altarColors.hasKey(pos):
-        env.altarColors[pos]
+    let altarTint = if env.altarColors.hasKey(pos): env.altarColors[pos]
       elif pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
         let base = env.baseTintColors[pos.x][pos.y]
         color(base.r, base.g, base.b, 1.0)
-      else:
-        color(1.0, 1.0, 1.0, 1.0)
-    bxy.drawImage(
-      "floor",
-      pos.vec2,
-      angle = 0,
-      scale = SpriteScale,
-      tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
-    )
-    bxy.drawImage(
-      "altar",
-      pos.vec2,
-      angle = 0,
-      scale = SpriteScale,
-      tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0)
-    )
-    let heartAnchor = vec2(-0.48, -0.64)
-    let heartStep = 0.12
-    let heartScale: float32 = 1/420
-    let labelScale: float32 = 1/200
+      else: color(1.0, 1.0, 1.0, 1.0)
+    let posVec = pos.vec2
+    bxy.drawImage("floor", posVec, angle = 0, scale = SpriteScale,
+                  tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
+    bxy.drawImage("altar", posVec, angle = 0, scale = SpriteScale,
+                  tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0))
+    const heartAnchor = vec2(-0.48, -0.64)
     let amt = max(0, thing.hearts)
+    let heartPos = posVec + heartAnchor
     if amt == 0:
-      let fadedTint = color(altarTint.r, altarTint.g, altarTint.b, 0.35)
-      bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = fadedTint)
+      bxy.drawImage("heart", heartPos, angle = 0, scale = 1/420,
+                    tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
+    elif amt <= HeartPlusThreshold:
+      for i in 0 ..< amt:
+        bxy.drawImage("heart", heartPos + vec2(0.12 * i.float32, 0.0),
+                      angle = 0, scale = 1/420, tint = altarTint)
     else:
-      if amt <= HeartPlusThreshold:
-        for i in 0 ..< amt:
-          let posHeart = thing.pos.vec2 + heartAnchor + vec2(heartStep * i.float32, 0.0)
-          bxy.drawImage("heart", posHeart, angle = 0, scale = heartScale, tint = altarTint)
-      else:
-        bxy.drawImage("heart", thing.pos.vec2 + heartAnchor, angle = 0, scale = heartScale, tint = altarTint)
-        let labelKey = ensureHeartCountLabel(amt)
-        let labelPos = thing.pos.vec2 + heartAnchor + vec2(0.14, -0.08)
-        bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+      bxy.drawImage("heart", heartPos, angle = 0, scale = 1/420, tint = altarTint)
+      let labelKey = ensureHeartCountLabel(amt)
+      bxy.drawImage(labelKey, heartPos + vec2(0.14, -0.08), angle = 0,
+                    scale = 1/200, tint = color(1, 1, 1, 1))
     if isTileFrozen(pos, env):
-      bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+      bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
 
   drawThings(Tumor):
-    let spriteDir = TumorDirKeys[thing.orientation.int]
-    let spritePrefix = if thing.hasClaimedTerritory:
-      "oriented/tumor.expired."
-    else:
-      "oriented/tumor."
-    let baseImage = spritePrefix & spriteDir
-    if baseImage in bxy:
-      bxy.drawImage(baseImage, pos.vec2, angle = 0, scale = SpriteScale)
+    let prefix = if thing.hasClaimedTerritory: "oriented/tumor.expired." else: "oriented/tumor."
+    let key = prefix & TumorDirKeys[thing.orientation.int]
+    if key in bxy:
+      bxy.drawImage(key, pos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Cow):
     let cowKey = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
     if cowKey in bxy:
       bxy.drawImage(cowKey, pos.vec2, angle = 0, scale = SpriteScale)
 
-  drawThings(Bear):
-    let dirKey = OrientationDirKeys[thing.orientation.int]
-    let bearKey = "oriented/bear." & dirKey
-    if bearKey in bxy:
-      bxy.drawImage(bearKey, pos.vec2, angle = 0, scale = SpriteScale)
+  template drawOrientedThings(thingKind: ThingKind, prefix: string) =
+    drawThings(thingKind):
+      let key = prefix & OrientationDirKeys[thing.orientation.int]
+      if key in bxy:
+        bxy.drawImage(key, pos.vec2, angle = 0, scale = SpriteScale)
 
-  drawThings(Wolf):
-    let dirKey = OrientationDirKeys[thing.orientation.int]
-    let wolfKey = "oriented/wolf." & dirKey
-    if wolfKey in bxy:
-      bxy.drawImage(wolfKey, pos.vec2, angle = 0, scale = SpriteScale)
+  drawOrientedThings(Bear, "oriented/bear.")
+  drawOrientedThings(Wolf, "oriented/wolf.")
 
   drawThings(Lantern):
-    let lanternKey = "lantern"
-    if lanternKey in bxy:
+    if "lantern" in bxy:
       let tint = if thing.lanternHealthy:
         let teamId = thing.teamId
-        if teamId >= 0 and teamId < env.teamColors.len:
-          env.teamColors[teamId]
-        else:
-          color(0.6, 0.6, 0.6, 1.0)
-      else:
-        color(0.5, 0.5, 0.5, 1.0)
-      bxy.drawImage(lanternKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+        if teamId >= 0 and teamId < env.teamColors.len: env.teamColors[teamId]
+        else: color(0.6, 0.6, 0.6, 1.0)
+      else: color(0.5, 0.5, 0.5, 1.0)
+      bxy.drawImage("lantern", pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+
+  template isPlacedAt(thing: Thing): bool =
+    isValidPos(thing.pos) and (
+      if thingBlocksMovement(thing.kind): env.grid[thing.pos.x][thing.pos.y] == thing
+      else: env.backgroundGrid[thing.pos.x][thing.pos.y] == thing)
+
+  const OverlayIconScale = 1/320
+  const OverlayLabelScale = 1/200
 
   for kind in ThingKind:
     if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
@@ -602,23 +560,16 @@ proc drawObjects*() =
       if spriteKey.len == 0 or spriteKey notin bxy:
         continue
       for thing in env.thingsByKind[kind]:
-        if not isValidPos(thing.pos):
-          continue
-        let placed = if thingBlocksMovement(thing.kind):
-          env.grid[thing.pos.x][thing.pos.y]
-        else:
-          env.backgroundGrid[thing.pos.x][thing.pos.y]
-        if placed != thing:
+        if not isPlacedAt(thing):
           continue
         let pos = thing.pos
         let tint =
           if thing.kind == Door:
             let teamId = thing.teamId
-            let base =
-              if teamId >= 0 and teamId < env.teamColors.len:
-                env.teamColors[teamId]
-              else:
-                color(0.6, 0.6, 0.6, 0.9)
+            let base = if teamId >= 0 and teamId < env.teamColors.len:
+              env.teamColors[teamId]
+            else:
+              color(0.6, 0.6, 0.6, 0.9)
             color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
           else:
             color(1, 1, 1, 1)
@@ -643,32 +594,25 @@ proc drawObjects*() =
             of ResourceWater: itemSpriteKey(ItemWater)
             of ResourceNone: ""
           let count = env.teamStockpiles[teamId].counts[res]
-          let iconScale = 1/320
-          let labelScale = 1/200
           let iconPos = pos.vec2 + vec2(-0.18, -0.62)
-          let alpha = if count > 0: 1.0 else: 0.35
           if icon.len > 0 and icon in bxy:
-            bxy.drawImage(icon, iconPos, angle = 0, scale = iconScale, tint = color(1, 1, 1, alpha))
+            bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale,
+                          tint = color(1, 1, 1, if count > 0: 1.0 else: 0.35))
           if count > 0:
             let labelKey = ensureHeartCountLabel(count)
             if labelKey.len > 0 and labelKey in bxy:
-              let labelPos = iconPos + vec2(0.14, -0.08)
-              bxy.drawImage(labelKey, labelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+              bxy.drawImage(labelKey, iconPos + vec2(0.14, -0.08), angle = 0,
+                            scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
         if thing.kind == TownCenter:
           let teamId = thing.teamId
           if teamId >= 0 and teamId < MapRoomObjectsTeams:
-            let popCount = teamPopCounts[teamId]
-            let popCap = min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
-            let iconScale = 1/320
-            let labelScale = 1/200
             let iconPos = pos.vec2 + vec2(-0.18, -0.62)
             if "oriented/gatherer.s" in bxy:
-              bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0, scale = iconScale,
-                tint = color(1, 1, 1, 1))
-            let popText = "x " & $popCount & "/" & $popCap
-            let popLabel = block:
-              if popText.len == 0: ""
-              elif popText in overlayLabelImages: overlayLabelImages[popText]
+              bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0,
+                            scale = OverlayIconScale, tint = color(1, 1, 1, 1))
+            let popText = "x " & $teamPopCounts[teamId] & "/" &
+                          $min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
+            let popLabel = if popText in overlayLabelImages: overlayLabelImages[popText]
               else:
                 let (image, _) = renderTextLabel(popText, HeartCountFontPath,
                                                  HeartCountFontSize, HeartCountPadding.float32, 0.7)
@@ -677,26 +621,18 @@ proc drawObjects*() =
                 overlayLabelImages[popText] = key
                 key
             if popLabel.len > 0 and popLabel in bxy:
-              let popLabelPos = iconPos + vec2(0.14, -0.08)
-              bxy.drawImage(popLabel, popLabelPos, angle = 0, scale = labelScale, tint = color(1, 1, 1, 1))
+              bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
+                            scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
     else:
       let spriteKey = thingSpriteKey(kind)
       if spriteKey.len == 0 or spriteKey notin bxy:
         continue
       for thing in env.thingsByKind[kind]:
-        if not isValidPos(thing.pos):
+        if not isPlacedAt(thing):
           continue
-        let placed = if thingBlocksMovement(thing.kind):
-          env.grid[thing.pos.x][thing.pos.y]
-        else:
-          env.backgroundGrid[thing.pos.x][thing.pos.y]
-        if placed != thing:
-          continue
-        let pos = thing.pos
-        let infected = isTileFrozen(pos, env)
-        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
-        if infected and thing.kind in {Magma, Stump}:
-          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+        bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+        if thing.kind in {Magma, Stump} and isTileFrozen(thing.pos, env):
+          bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = SpriteScale)
 
 proc drawVisualRanges*(alpha = 0.2) =
   var visibility: array[MapWidth, array[MapHeight, bool]]
@@ -705,90 +641,68 @@ proc drawVisualRanges*(alpha = 0.2) =
       continue
     for i in 0 ..< ObservationWidth:
       for j in 0 ..< ObservationHeight:
-        let
-          gridPos = (agent.pos + ivec2(i - ObservationWidth div 2, j -
-              ObservationHeight div 2))
-
-        if gridPos.x >= 0 and gridPos.x < MapWidth and
-           gridPos.y >= 0 and gridPos.y < MapHeight:
-          visibility[gridPos.x][gridPos.y] = true
-
+        let gp = agent.pos + ivec2(i - ObservationWidth div 2, j - ObservationHeight div 2)
+        if gp.x >= 0 and gp.x < MapWidth and gp.y >= 0 and gp.y < MapHeight:
+          visibility[gp.x][gp.y] = true
+  let fogColor = color(0, 0, 0, alpha)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       if not visibility[x][y]:
-        bxy.drawRect(
-          rect(x.float32 - 0.5, y.float32 - 0.5, 1, 1),
-          color(0, 0, 0, alpha)
-        )
+        bxy.drawRect(rect(x.float32 - 0.5, y.float32 - 0.5, 1, 1), fogColor)
 
 proc drawAgentDecorations*() =
+  type OverlayItem = object
+    name: string
+    icon: string
+    count: int
+
   for agent in env.agents:
-    if not isValidPos(agent.pos):
+    let pos = agent.pos
+    if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent:
       continue
-    if env.grid[agent.pos.x][agent.pos.y] != agent:
-      continue
-    # Frozen overlay
+    let posVec = pos.vec2
     if agent.frozen > 0:
-      bxy.drawImage("frozen", agent.pos.vec2, angle = 0, scale = SpriteScale)
-
-    # Health bar (5 segments)
+      bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
     if agent.maxHp > 0:
-      let ratio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
-      drawSegmentBar(agent.pos.vec2, vec2(0, -0.55), ratio,
+      drawSegmentBar(posVec, vec2(0, -0.55),
+                     clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0),
                      color(0.1, 0.8, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
-
-    # Inventory overlays placed radially, ordered by item name.
-    type OverlayItem = object
-      name: string
-      icon: string
-      count: int
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
-      if count <= 0:
-        continue
-      overlays.add(OverlayItem(name: $key, icon: itemSpriteKey(key), count: count))
-
+      if count > 0:
+        overlays.add(OverlayItem(name: $key, icon: itemSpriteKey(key), count: count))
     if overlays.len == 0:
       continue
-
     overlays.sort(proc(a, b: OverlayItem): int = cmp(a.name, b.name))
 
-    let basePos = agent.pos.vec2
-    let iconScale = 1/320
-    let maxStack = 4
-    let stackStep = 0.10
-    let baseRadius = 0.58
-    let startAngle = 135.0  # degrees, top-left from positive X axis
     let step = 360.0 / overlays.len.float32
-
     for i, ov in overlays:
-      let angle = degToRad(startAngle - step * i.float32)
+      let angle = degToRad(135.0 - step * i.float32)
       let dir = vec2(cos(angle).float32, -sin(angle).float32)
-      let n = min(ov.count, maxStack)
-      for j in 0 ..< n:
-        let pos = basePos + dir * (baseRadius + stackStep * j.float32)
-        bxy.drawImage(ov.icon, pos, angle = 0, scale = iconScale)
+      for j in 0 ..< min(ov.count, 4):
+        bxy.drawImage(ov.icon, posVec + dir * (0.58 + 0.10 * j.float32),
+                      angle = 0, scale = 1/320)
 
 proc drawGrid*() =
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      bxy.drawImage(
-        "grid",
-        ivec2(x, y).vec2,
-        angle = 0,
-        scale = SpriteScale
-      )
+      bxy.drawImage("grid", ivec2(x, y).vec2, angle = 0, scale = SpriteScale)
 
 proc drawSelection*() =
   for thing in selection:
     if not isNil(thing) and isValidPos(thing.pos):
-      bxy.drawImage(
-        "selection",
-        thing.pos.vec2,
-        angle = 0,
-        scale = SpriteScale
-      )
+      bxy.drawImage("selection", thing.pos.vec2, angle = 0, scale = SpriteScale)
+
+proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset: float32) =
+  let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
+  let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
+  let scale = min(1.0'f32, innerHeight / labelSize.y.float32)
+  let pos = vec2(
+    panelRect.x.float32 + xOffset,
+    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + 20.0
+  )
+  bxy.drawImage(key, pos, angle = 0, scale = scale)
 
 proc drawSelectionLabel*(panelRect: IRect) =
   if not isValidPos(selectedPos):
@@ -865,18 +779,9 @@ proc drawSelectionLabel*(panelRect: IRect) =
     infoLabelImages[label] = key
     infoLabelSizes[label] = size
     labelSize = size
-  if key.len == 0:
+  if key.len == 0 or labelSize.x <= 0 or labelSize.y <= 0:
     return
-  if labelSize.x <= 0 or labelSize.y <= 0:
-    return
-  let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
-  let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
-  let scale = min(1.0'f32, innerHeight / labelSize.y.float32)
-  let pos = vec2(
-    panelRect.x.float32 + FooterHudPadding + 75.0,
-    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + 20.0
-  )
-  bxy.drawImage(key, pos, angle = 0, scale = scale)
+  drawFooterHudLabel(panelRect, key, labelSize, FooterHudPadding + 75.0)
 
 proc drawStepLabel*(panelRect: IRect) =
   var key = ""
@@ -892,12 +797,8 @@ proc drawStepLabel*(panelRect: IRect) =
     key = stepLabelKey
   if key.len == 0:
     return
-  let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
   let scale = min(1.0'f32, innerHeight / stepLabelSize.y.float32)
   let labelW = stepLabelSize.x.float32 * scale
-  let pos = vec2(
-    panelRect.x.float32 + panelRect.w.float32 - labelW - FooterHudPadding + 25.0,
-    footerTop + FooterPadding + (innerHeight - stepLabelSize.y.float32 * scale) * 0.5 + 20.0
-  )
-  bxy.drawImage(key, pos, angle = 0, scale = scale)
+  drawFooterHudLabel(panelRect, key, stepLabelSize,
+                     panelRect.w.float32 - labelW - FooterHudPadding + 25.0)
