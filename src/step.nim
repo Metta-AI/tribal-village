@@ -3037,7 +3037,6 @@ proc reset*(env: Environment) =
   env.terminated.clear()
   env.truncated.clear()
   env.things.setLen(0)
-  env.thingsByKind = default(array[ThingKind, seq[Thing]])
   env.agents.setLen(0)
   env.stats.setLen(0)
   env.templeInteractions.setLen(0)
@@ -3045,15 +3044,16 @@ proc reset*(env: Environment) =
   env.grid.clear()
   env.observations.clear()
   env.observationsInitialized = false
-  # Clear the massive tintMods array to prevent accumulation
+  # Clear tint arrays in-place via zeroMem (avoids stack-allocated default() copies)
   env.tintMods.clear()
-  env.tintStrength = default(array[MapWidth, array[MapHeight, int32]])
+  env.tintStrength.clear()
   env.activeTiles.positions.setLen(0)
-  env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
-  env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
-  env.tumorStrength = default(array[MapWidth, array[MapHeight, int32]])
+  env.activeTiles.flags.clear()
+  env.tumorTintMods.clear()
+  env.tumorStrength.clear()
   env.tumorActiveTiles.positions.setLen(0)
-  env.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  env.tumorActiveTiles.flags.clear()
+  # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)
   env.cowHerdSumY.setLen(0)
@@ -3064,7 +3064,14 @@ proc reset*(env: Environment) =
   env.wolfPackSumY.setLen(0)
   env.wolfPackDrift.setLen(0)
   env.wolfPackTargets.setLen(0)
-  # Clear colors (now stored in Environment)
+  env.wolfPackLeaders.setLen(0)
+  # Reset team state (upgrades, techs, modifiers persist across resets without this)
+  env.teamModifiers.clear()
+  env.teamBlacksmithUpgrades.clear()
+  env.teamUniversityTechs.clear()
+  env.teamCastleTechs.clear()
+  env.teamUnitUpgrades.clear()
+  # Clear colors
   env.agentColors.setLen(0)
   env.teamColors.setLen(0)
   env.altarColors.clear()
@@ -3077,8 +3084,8 @@ proc reset*(env: Environment) =
     env.victoryStates[teamId].relicHoldStartStep = -1
     env.victoryStates[teamId].kingAgentId = -1
     env.victoryStates[teamId].hillControlStartStep = -1
-  # Clear fog of war (revealed maps) for all teams
-  env.revealedMaps = default(array[MapRoomObjectsTeams, RevealedMap])
+  # Clear fog of war (revealed maps) via zeroMem
+  env.revealedMaps.clear()
   # Clear UI selection and control groups to prevent stale references
   selection = @[]
   for i in 0 ..< ControlGroupCount:

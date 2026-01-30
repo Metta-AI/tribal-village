@@ -165,41 +165,39 @@ proc initState(env: Environment) =
   inc env.mapGeneration
   env.thingsByKind = default(array[ThingKind, seq[Thing]])
 
-  # Initialize tile colors to base terrain colors (neutral gray-brown)
+  # Initialize tile colors: base to neutral brown, computed to zero
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       env.baseTintColors[x][y] = BaseTileColorDefault
-      env.computedTintColors[x][y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+  env.computedTintColors.clear()
 
-  # Clear background grid (non-blocking things like doors and cliffs)
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
-      env.backgroundGrid[x][y] = nil
-      env.elevation[x][y] = 0
+  # Clear background grid and elevation via zeroMem (nil refs = zero bytes)
+  env.backgroundGrid.clear()
+  env.elevation.clear()
 
   # Reset team stockpiles
-  env.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
+  env.teamStockpiles.clear()
 
   # Initialize AoE2-style market prices
   env.initMarketPrices()
 
-  # Initialize active tiles tracking
+  # Initialize active tiles tracking via zeroMem
   env.activeTiles.positions.setLen(0)
-  env.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
+  env.activeTiles.flags.clear()
   env.tumorActiveTiles.positions.setLen(0)
-  env.tumorActiveTiles.flags = default(array[MapWidth, array[MapHeight, bool]])
-  env.tumorTintMods = default(array[MapWidth, array[MapHeight, TintModification]])
-  env.tintStrength = default(array[MapWidth, array[MapHeight, int32]])
-  env.tumorStrength = default(array[MapWidth, array[MapHeight, int32]])
-  env.tintLocked = default(array[MapWidth, array[MapHeight, bool]])
+  env.tumorActiveTiles.flags.clear()
+  env.tumorTintMods.clear()
+  env.tintStrength.clear()
+  env.tumorStrength.clear()
+  env.tintLocked.clear()
 
-  # Clear action tints
-  env.actionTintCountdown = default(ActionTintCountdown)
-  env.actionTintColor = default(ActionTintColor)
-  env.actionTintFlags = default(ActionTintFlags)
-  env.actionTintCode = default(ActionTintCode)
+  # Clear action tints via zeroMem
+  env.actionTintCountdown.clear()
+  env.actionTintColor.clear()
+  env.actionTintFlags.clear()
+  env.actionTintCode.clear()
   env.actionTintPositions.setLen(0)
-  env.shieldCountdown = default(array[MapAgents, int8])
+  env.shieldCountdown.clear()
 
   # Initialize tint tracking to invalid positions (ensures tint added on first step)
   for i in 0 ..< MapAgents:
