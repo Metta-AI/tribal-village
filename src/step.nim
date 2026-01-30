@@ -101,6 +101,58 @@ const
   TankAuraTint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.05)
   MonkAuraTint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.05)
 
+  # Compile-time dispatch tables: replace runtime case/branching with array lookups
+  # indexed by AgentUnitClass enum ordinal. This eliminates branch mispredictions in
+  # hot paths by converting conditional logic to direct memory loads.
+
+  ## Aura radius per unit class (-1 = no aura)
+  UnitAuraRadius: array[AgentUnitClass, int] = [
+    UnitVillager: -1, UnitManAtArms: ManAtArmsAuraRadius, UnitArcher: -1,
+    UnitScout: -1, UnitKnight: KnightAuraRadius, UnitMonk: -1,
+    UnitBatteringRam: -1, UnitMangonel: -1, UnitTrebuchet: -1,
+    UnitGoblin: -1, UnitBoat: -1, UnitTradeCog: -1,
+    UnitSamurai: -1, UnitLongbowman: -1, UnitCataphract: -1,
+    UnitWoadRaider: -1, UnitTeutonicKnight: -1, UnitHuskarl: -1,
+    UnitMameluke: -1, UnitJanissary: -1, UnitKing: -1,
+    UnitLongSwordsman: -1, UnitChampion: -1,
+    UnitLightCavalry: -1, UnitHussar: -1,
+    UnitCrossbowman: -1, UnitArbalester: -1,
+  ]
+
+  ## Base ranged attack range per unit class (0 = melee)
+  UnitRangedRange: array[AgentUnitClass, int] = [
+    UnitVillager: 0, UnitManAtArms: 0, UnitArcher: ArcherBaseRange,
+    UnitScout: 0, UnitKnight: 0, UnitMonk: 0,
+    UnitBatteringRam: 0, UnitMangonel: 0, UnitTrebuchet: TrebuchetBaseRange,
+    UnitGoblin: 0, UnitBoat: 0, UnitTradeCog: 0,
+    UnitSamurai: 0, UnitLongbowman: 0, UnitCataphract: 0,
+    UnitWoadRaider: 0, UnitTeutonicKnight: 0, UnitHuskarl: 0,
+    UnitMameluke: 0, UnitJanissary: 0, UnitKing: 0,
+    UnitLongSwordsman: 0, UnitChampion: 0,
+    UnitLightCavalry: 0, UnitHussar: 0,
+    UnitCrossbowman: ArcherBaseRange, UnitArbalester: ArcherBaseRange,
+  ]
+
+  ## Units eligible for Ballistics tech damage bonus
+  BallisticsUnits: set[AgentUnitClass] = {
+    UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester
+  }
+
+  ## Units eligible for Siege Engineers tech range bonus
+  SiegeUnits: set[AgentUnitClass] = {
+    UnitBatteringRam, UnitMangonel, UnitTrebuchet
+  }
+
+  ## Cavalry units that get double-move in step
+  CavalryMoveUnits: set[AgentUnitClass] = {
+    UnitScout, UnitKnight
+  }
+
+  ## Units with charge attack (2-tile forward attack)
+  ChargeAttackUnits: set[AgentUnitClass] = {
+    UnitScout, UnitBatteringRam
+  }
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -365,10 +417,7 @@ proc stepApplyTankAuras(env: Environment) =
       continue
     if isThingFrozen(agent, env):
       continue
-    let radius = case agent.unitClass
-      of UnitManAtArms: ManAtArmsAuraRadius
-      of UnitKnight: KnightAuraRadius
-      else: -1
+    let radius = UnitAuraRadius[agent.unitClass]
     if radius < 0:
       continue
     for dx in -radius .. radius:
@@ -1013,7 +1062,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 break
           return relocated
 
-        let isCavalry = agent.unitClass in {UnitScout, UnitKnight}
+        let isCavalry = agent.unitClass in CavalryMoveUnits
         let step2 = agent.pos + ivec2(delta.x * 2'i32, delta.y * 2'i32)
 
         var finalPos = step1
@@ -1126,17 +1175,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         var damageAmount = max(1, agent.attackDamage)
 
         # Ballistics: +1 damage for ranged units (better accuracy = more effective shots)
-        if agent.unitClass in {UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester} and
+        if agent.unitClass in BallisticsUnits and
            attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechBallistics):
           damageAmount += 1
 
-        var rangedRange = case agent.unitClass
-          of UnitArcher, UnitCrossbowman, UnitArbalester: ArcherBaseRange
-          of UnitTrebuchet: TrebuchetBaseRange
-          else: 0
+        var rangedRange = UnitRangedRange[agent.unitClass]
 
         # Siege Engineers: +1 range for siege units
-        if agent.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet} and
+        if agent.unitClass in SiegeUnits and
            attackerTeam >= 0 and env.hasUniversityTech(attackerTeam, TechSiegeEngineers):
           if rangedRange > 0:
             rangedRange += 1
@@ -1356,7 +1402,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             inc env.stats[id].actionInvalid
           break attackAction
 
-        if agent.unitClass in {UnitScout, UnitBatteringRam}:
+        if agent.unitClass in ChargeAttackUnits:
           var hit = false
           for distance in 1 .. 2:
             let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
