@@ -478,19 +478,29 @@ proc tribal_village_stop*(agentId: int32) {.exportc, dynlib.} =
   ## Stop an agent, clearing all active orders (attack-move, patrol, scout).
   stopAgent(agentId)
 
-# --- Formation ---
+# --- Formation (per control group) ---
 
-proc tribal_village_set_formation*(agentId: int32, formationType: int32) {.exportc, dynlib.} =
-  ## Set formation type for an agent. Currently a no-op (formation system not implemented).
-  setAgentFormation(agentId, formationType)
+proc tribal_village_set_formation*(env: pointer, controlGroupId: int32, formationType: int32) {.exportc, dynlib.} =
+  ## Set formation type for a control group.
+  ## formationType: 0=None, 1=Line, 2=Box, 3=Wedge(reserved), 4=Scatter
+  setControlGroupFormation(controlGroupId, formationType)
 
-proc tribal_village_get_formation*(agentId: int32): int32 {.exportc, dynlib.} =
-  ## Get formation type for an agent. Returns 0 (none). Formation system not implemented.
-  getAgentFormation(agentId)
+proc tribal_village_get_formation*(env: pointer, controlGroupId: int32): int32 {.exportc, dynlib.} =
+  ## Get formation type for a control group.
+  ## Returns: 0=None, 1=Line, 2=Box, 3=Wedge, 4=Scatter
+  getControlGroupFormation(controlGroupId)
 
-proc tribal_village_clear_formation*(agentId: int32) {.exportc, dynlib.} =
-  ## Clear formation for an agent. Currently a no-op (formation system not implemented).
-  clearAgentFormation(agentId)
+proc tribal_village_clear_formation*(env: pointer, controlGroupId: int32) {.exportc, dynlib.} =
+  ## Clear formation for a control group.
+  clearControlGroupFormation(controlGroupId)
+
+proc tribal_village_set_formation_rotation*(env: pointer, controlGroupId: int32, rotation: int32) {.exportc, dynlib.} =
+  ## Set formation rotation for a control group (0-7 for 8 compass directions).
+  setControlGroupFormationRotation(controlGroupId, rotation)
+
+proc tribal_village_get_formation_rotation*(env: pointer, controlGroupId: int32): int32 {.exportc, dynlib.} =
+  ## Get formation rotation for a control group.
+  getControlGroupFormationRotation(controlGroupId)
 
 # --- Market Trading ---
 
