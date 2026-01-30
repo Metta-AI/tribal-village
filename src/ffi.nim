@@ -153,12 +153,10 @@ proc tribal_village_step_with_pointers(
       MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
     applyObscuredMask(globalEnv, obs_buffer)
 
-    # Direct buffer writes (no dict conversion)
+    # Direct buffer writes from contiguous rewards array (SIMD-friendly)
+    copyMem(rewards_buffer, globalEnv.rewards.addr, MapAgents * sizeof(float32))
+    zeroMem(globalEnv.rewards.addr, MapAgents * sizeof(float32))
     for i in 0..<MapAgents:
-      let agent = globalEnv.agents[i]
-      let reward = agent.reward
-      rewards_buffer[i] = reward
-      agent.reward = 0.0'f32
       terminals_buffer[i] = if globalEnv.terminated[i] > 0.0: 1 else: 0
       truncations_buffer[i] = if globalEnv.truncated[i] > 0.0: 1 else: 0
 

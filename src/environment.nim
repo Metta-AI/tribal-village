@@ -1551,7 +1551,7 @@ proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): b
 proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if not env.grantItem(agent, ItemWood):
     return false
-  agent.reward += env.config.woodReward
+  env.rewards[agent.agentId] += env.config.woodReward
   # Apply biome gathering bonus
   let bonus = env.getBiomeGatherBonus(tree.pos, ItemWood)
   if bonus > 0:

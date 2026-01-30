@@ -856,6 +856,7 @@ type
         array[ObservationWidth, array[ObservationHeight, uint8]]
       ]
     ]
+    rewards*: array[MapAgents, float32]
     terminated*: array[MapAgents, float32]
     truncated*: array[MapAgents, float32]
     stats*: seq[Stats]
