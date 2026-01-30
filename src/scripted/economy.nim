@@ -65,17 +65,18 @@ proc recordSnapshot*(teamId: int, env: Environment) =
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
 
-  let idx = teamEconomy[teamId].snapshotIndex
-  teamEconomy[teamId].snapshots[idx] = ResourceSnapshot(
+  template st: untyped = teamEconomy[teamId]
+  let idx = st.snapshotIndex
+  st.snapshots[idx] = ResourceSnapshot(
     food: env.stockpileCount(teamId, ResourceFood),
     wood: env.stockpileCount(teamId, ResourceWood),
     stone: env.stockpileCount(teamId, ResourceStone),
     gold: env.stockpileCount(teamId, ResourceGold),
     step: env.currentStep
   )
-  teamEconomy[teamId].snapshotIndex = (idx + 1) mod EconomyTrackingWindow
-  if teamEconomy[teamId].snapshotCount < EconomyTrackingWindow:
-    inc teamEconomy[teamId].snapshotCount
+  st.snapshotIndex = (idx + 1) mod EconomyTrackingWindow
+  if st.snapshotCount < EconomyTrackingWindow:
+    inc st.snapshotCount
 
 proc calculateFlowRate*(teamId: int): ResourceFlowRate =
   ## Calculate resource flow rates from recent snapshots
@@ -118,73 +119,65 @@ proc getFlowRate*(teamId: int): ResourceFlowRate =
     return ResourceFlowRate()
   teamEconomy[teamId].flowRate
 
-proc countWorkers*(controller: Controller, env: Environment, teamId: int): WorkerCounts =
-  ## Count agents by role for a team using controller's agent state
+proc countWorkersAndEnemies*(controller: Controller, env: Environment, teamId: int): tuple[counts: WorkerCounts, hasEnemy: bool] =
+  ## Count agents by role for a team and detect enemy presence in a single pass
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
     if getTeamId(agent) != teamId:
+      if not result.hasEnemy:
+        result.hasEnemy = true
       continue
-    inc result.total
+    inc result.counts.total
     let agentId = agent.agentId
     if agentId < 0 or agentId >= MapAgents or not controller.agentsInitialized[agentId]:
       # Default to gatherer if not initialized
-      inc result.gatherers
+      inc result.counts.gatherers
       continue
     case controller.agents[agentId].role
     of Gatherer:
-      inc result.gatherers
+      inc result.counts.gatherers
     of Builder:
-      inc result.builders
+      inc result.counts.builders
     of Fighter:
-      inc result.fighters
+      inc result.counts.fighters
     of Scripted:
       # Count scripted as gatherers for ratio purposes
-      inc result.gatherers
+      inc result.counts.gatherers
+
+proc countWorkers*(controller: Controller, env: Environment, teamId: int): WorkerCounts =
+  ## Count agents by role for a team using controller's agent state
+  countWorkersAndEnemies(controller, env, teamId).counts
 
 proc detectBottleneck*(controller: Controller, env: Environment, teamId: int): BottleneckKind =
   ## Detect economic bottlenecks for a team
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return NoBottleneck
 
-  # Check critical resource levels first
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-
-  if food < CriticalFoodLevel:
+  # Check critical resource levels first (cheap lookups before expensive iteration)
+  if env.stockpileCount(teamId, ResourceFood) < CriticalFoodLevel:
     return FoodCritical
-  if wood < CriticalWoodLevel:
+  if env.stockpileCount(teamId, ResourceWood) < CriticalWoodLevel:
     return WoodCritical
 
-  # Check worker ratios
-  let counts = countWorkers(controller, env, teamId)
+  # Single pass: count workers and detect enemies simultaneously
+  let (counts, hasEnemy) = countWorkersAndEnemies(controller, env, teamId)
   if counts.total == 0:
     return NoBottleneck
 
-  let gathererRatio = float(counts.gatherers) / float(counts.total)
-  let builderRatio = float(counts.builders) / float(counts.total)
-  let fighterRatio = float(counts.fighters) / float(counts.total)
+  let total = float(counts.total)
+  let fighterRatio = float(counts.fighters) / total
 
-  # Check for enemy presence to determine fighter needs
-  var hasNearbyEnemy = false
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if getTeamId(agent) == teamId:
-      continue
-    # Enemy agent exists
-    hasNearbyEnemy = true
-    break
-
-  if hasNearbyEnemy and fighterRatio < MinFightersRatio:
+  if hasEnemy and fighterRatio < MinFightersRatio:
     return TooFewFighters
 
+  let gathererRatio = float(counts.gatherers) / total
   if gathererRatio > MaxGatherersRatio:
     return TooManyGatherers
   if gathererRatio < MinGatherersRatio:
     return TooFewGatherers
 
+  let builderRatio = float(counts.builders) / total
   if builderRatio > MaxBuildersRatio:
     return TooManyBuilders
   if builderRatio < MinBuildersRatio:
@@ -209,18 +202,20 @@ proc updateEconomy*(controller: Controller, env: Environment, teamId: int) =
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
 
+  let step = env.currentStep
+
   # Record snapshot every few steps to avoid excessive memory
-  if env.currentStep mod 5 == 0:
+  if step mod 5 == 0:
     recordSnapshot(teamId, env)
 
   # Update flow rate periodically
-  if env.currentStep mod 10 == 0:
+  if step mod 10 == 0:
     updateFlowRate(teamId)
 
-  # Update bottleneck detection
-  updateBottleneck(controller, env, teamId)
+  # Update bottleneck detection periodically (iterates all agents)
+  if step mod 3 == 0:
+    updateBottleneck(controller, env, teamId)
 
 proc resetEconomy*() =
   ## Reset all economy state (call on environment reset)
-  for i in 0 ..< MapRoomObjectsTeams:
-    teamEconomy[i] = EconomyState()
+  zeroMem(addr teamEconomy, sizeof(teamEconomy))
