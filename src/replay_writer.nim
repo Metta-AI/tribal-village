@@ -1,23 +1,9 @@
 import std/[json, os, tables]
 import zippy
-import types, items, registry
+import types, items, registry, replay_common
 
 const
-  ReplayVersion = 3
   DefaultReplayBaseName = "tribal_village"
-  ReplayActionNames: array[ActionVerbCount, string] = [
-    "noop",
-    "move",
-    "attack",
-    "use",
-    "swap",
-    "put",
-    "plant_lantern",
-    "plant_resource",
-    "build",
-    "orient",
-    "set_rally_point"
-  ]
 
 type
   ReplaySeries = object
@@ -51,7 +37,6 @@ type
 var replayWriter*: ReplayWriter = nil
 
 proc maybeStartReplayEpisode*(env: Environment) =
-  discard env
   var writer = replayWriter
   if writer.isNil:
     let basePath = getEnv("TV_REPLAY_PATH", "")
@@ -200,18 +185,13 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
         obj.addSeries("location", stepIndex, locationNode(ivec2(-1, -1)))
 
 proc seriesToJson(series: ReplaySeries): JsonNode =
-  result = newJArray()
-  for change in series.changes:
-    var pair = newJArray()
-    pair.add(newJInt(change.step))
-    pair.add(change.value)
-    result.add(pair)
+  serializeChanges(series.changes)
 
-proc buildReplayJson(writer: ReplayWriter, env: Environment): JsonNode =
+proc buildReplayJson(writer: ReplayWriter): JsonNode =
   result = newJObject()
   result["version"] = newJInt(ReplayVersion)
   var actionNames = newJArray()
-  for name in ReplayActionNames:
+  for name in ActionNames:
     actionNames.add(newJString(name))
   result["action_names"] = actionNames
   var itemNames = newJArray()
@@ -247,11 +227,10 @@ proc buildReplayJson(writer: ReplayWriter, env: Environment): JsonNode =
   result["objects"] = objectsArr
 
 proc maybeFinalizeReplay*(env: Environment) =
-  discard env
   let writer = replayWriter
   if writer.isNil or not writer.active:
     return
-  let replayJson = buildReplayJson(writer, env)
+  let replayJson = buildReplayJson(writer)
   let jsonData = $replayJson
   let compressed = zippy.compress(jsonData, dataFormat = dfZlib)
   if writer.outputPath.len > 0:
