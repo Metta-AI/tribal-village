@@ -1774,31 +1774,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if agent.inventoryBar == 1:
               agent.reward += env.config.barReward
             used = true
-        of WeavingLoom:
-          if thing.cooldown == 0 and agent.inventoryLantern == 0 and
-              (agent.inventoryWheat > 0 or agent.inventoryWood > 0):
-            if agent.inventoryWood > 0:
-              decInv(ItemWood)
-            else:
-              decInv(ItemWheat)
-            setInvAndObs(ItemLantern, 1)
-            thing.cooldown = 0
-            agent.reward += env.config.clothReward
-            used = true
-          elif thing.cooldown == 0:
-            if env.tryCraftAtStation(agent, StationLoom, thing):
-              used = true
-        of ClayOven:
-          if thing.cooldown == 0:
-            if env.tryCraftAtStation(agent, StationOven, thing):
-              used = true
-            elif agent.inventoryWheat > 0:
-              decInv(ItemWheat)
-              incInv(ItemBread)
-              thing.cooldown = 0
-              # No observation layer for bread; optional for UI later
-              agent.reward += env.config.foodReward
-              used = true
+        # WeavingLoom and ClayOven handled via buildingUseKind switch (UseWeavingLoom, UseClayOven)
         of Skeleton:
           let stored = getInv(thing, ItemFish)
           if stored > 0 and env.giveItem(agent, ItemFish):
@@ -1917,8 +1893,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if thing.teamId == getTeamId(agent):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
-                  # Town Center garrison: villagers can garrison if no resources to drop off
-                  if not used and thing.kind == TownCenter and agent.unitClass == UnitVillager:
+                  # Dropoff buildings with garrison: villagers can garrison if no resources to drop off
+                  if not used and garrisonCapacity(thing.kind) > 0 and agent.unitClass == UnitVillager:
                     if env.garrisonUnitInBuilding(agent, thing):
                       used = true
               of UseDropoffAndTrain:
