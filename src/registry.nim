@@ -32,9 +32,20 @@ type
     buildIndex*: int
     buildCost*: seq[ItemAmount]
     buildCooldown*: int
+    # Consolidated building properties (formerly in separate case statements)
+    useKind*: BuildingUseKind
+    stockpileRes*: StockpileResource
+    popCap*: int
+    barrelCapacity*: int
+    fertileRadius*: int
+    dropoffResources*: set[StockpileResource]
+    storageItems*: seq[ItemKey]
+    craftStation*: CraftStation
+    trainCosts*: seq[tuple[res: StockpileResource, count: int]]
 
 let BuildingRegistry* = block:
   var reg: array[ThingKind, BuildingInfo]
+  # Initialize all with defaults
   for kind in ThingKind:
     reg[kind] = BuildingInfo(
       displayName: "",
@@ -43,80 +54,238 @@ let BuildingRegistry* = block:
       renderColor: (r: 180'u8, g: 180'u8, b: 180'u8),
       buildIndex: -1,
       buildCost: @[],
-      buildCooldown: 0
+      buildCooldown: 0,
+      useKind: UseNone,
+      stockpileRes: ResourceNone,
+      popCap: 0,
+      barrelCapacity: 0,
+      fertileRadius: 0,
+      dropoffResources: {},
+      storageItems: @[],
+      craftStation: StationNone,
+      trainCosts: @[]
     )
 
-  for entry in [
-    (Altar, "Altar", "altar", 'a', (r: 220'u8, g: 0'u8, b: 220'u8), -1, @[], 0),
-    (TownCenter, "Town Center", "town_center", 'N', (r: 190'u8, g: 180'u8, b: 140'u8),
-      1, @[(ItemWood, 14)], 16),
-    (House, "House", "house", 'h', (r: 170'u8, g: 140'u8, b: 110'u8),
-      0, @[(ItemWood, 1)], 10),
-    (Door, "Door", "door", 'D', (r: 120'u8, g: 100'u8, b: 80'u8),
-      BuildIndexDoor, @[(ItemWood, 1)], 6),
-    (ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
-      20, @[(ItemWood, 4)], 12),
-    (WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),
-      21, @[(ItemWood, 3)], 12),
-    (Outpost, "Outpost", "outpost", '^', (r: 120'u8, g: 120'u8, b: 140'u8),
-      13, @[(ItemWood, 1)], 8),
-    (GuardTower, "Guard Tower", "guard_tower", 'T', (r: 110'u8, g: 110'u8, b: 130'u8),
-      BuildIndexGuardTower, @[(ItemWood, 5)], 12),
-    (Barrel, "Barrel", "barrel", 'b', (r: 150'u8, g: 110'u8, b: 60'u8),
-      22, @[(ItemWood, 2)], 10),
-    (Mill, "Mill", "mill", 'm', (r: 210'u8, g: 200'u8, b: 170'u8),
-      2, @[(ItemWood, 5)], 12),
-    (Granary, "Granary", "granary", 'n', (r: 220'u8, g: 200'u8, b: 150'u8),
-      5, @[(ItemWood, 5)], 12),
-    (LumberCamp, "Lumber Camp", "lumber_camp", 'L', (r: 140'u8, g: 100'u8, b: 60'u8),
-      3, @[(ItemWood, 5)], 10),
-    (Quarry, "Quarry", "quarry", 'Q', (r: 120'u8, g: 120'u8, b: 120'u8),
-      4, @[(ItemWood, 5)], 12),
-    (MiningCamp, "Mining Camp", "mining_camp", 'M', (r: 200'u8, g: 190'u8, b: 120'u8),
-      15, @[(ItemWood, 5)], 12),
-    (Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
-      8, @[(ItemWood, 9)], 12),
-    (ArcheryRange, "Archery Range", "archery_range", 'g', (r: 140'u8, g: 120'u8, b: 180'u8),
-      9, @[(ItemWood, 9)], 12),
-    (Stable, "Stable", "stable", 's', (r: 120'u8, g: 90'u8, b: 60'u8),
-      10, @[(ItemWood, 9)], 12),
-    (SiegeWorkshop, "Siege Workshop", "siege_workshop", 'i', (r: 120'u8, g: 120'u8, b: 160'u8),
-      11, @[(ItemWood, 10)], 14),
-    (MangonelWorkshop, "Mangonel Workshop", "mangonel_workshop", 'j', (r: 120'u8, g: 130'u8, b: 160'u8),
-      BuildIndexMangonelWorkshop, @[(ItemWood, 10), (ItemStone, 4)], 14),
-    (TrebuchetWorkshop, "Trebuchet Workshop", "trebuchet_workshop", 'T', (r: 100'u8, g: 110'u8, b: 150'u8),
-      25, @[(ItemWood, 12), (ItemStone, 6)], 16),
-    (Blacksmith, "Blacksmith", "blacksmith", 'k', (r: 90'u8, g: 90'u8, b: 90'u8),
-      16, @[(ItemWood, 8)], 12),
-    (Market, "Market", "market", 'e', (r: 200'u8, g: 170'u8, b: 120'u8),
-      7, @[(ItemWood, 9)], 12),
-    (Dock, "Dock", "dock", 'd', (r: 80'u8, g: 140'u8, b: 200'u8),
-      6, @[(ItemWood, 8)], 12),
-    (Monastery, "Monastery", "monastery", 'y', (r: 220'u8, g: 200'u8, b: 120'u8),
-      17, @[(ItemWood, 9)], 12),
-    (University, "University", "university", 'u', (r: 140'u8, g: 160'u8, b: 200'u8),
-      18, @[(ItemWood, 10)], 14),
-    (Castle, "Castle", "castle", 'c', (r: 120'u8, g: 120'u8, b: 120'u8),
-      12, @[(ItemStone, 33)], 20),
-    (Wonder, "Wonder", "wonder", 'W', (r: 255'u8, g: 215'u8, b: 0'u8),
-      26, @[(ItemWood, 50), (ItemStone, 50), (ItemGold, 50)], 50),
-    (GoblinHive, "Goblin Hive", "goblin_hive", 'H', (r: 120'u8, g: 170'u8, b: 90'u8),
-      -1, @[], 0),
-    (GoblinHut, "Goblin Hut", "goblin_hut", 'g', (r: 110'u8, g: 150'u8, b: 90'u8),
-      -1, @[], 0),
-    (GoblinTotem, "Goblin Totem", "goblin_totem", 'T', (r: 90'u8, g: 140'u8, b: 100'u8),
-      -1, @[], 0)
-  ]:
-    let (kind, displayName, spriteKey, ascii, renderColor, buildIndex, buildCost, buildCooldown) = entry
-    reg[kind] = BuildingInfo(
-      displayName: displayName,
-      spriteKey: spriteKey,
-      ascii: ascii,
-      renderColor: renderColor,
-      buildIndex: buildIndex,
-      buildCost: buildCost,
-      buildCooldown: buildCooldown
-    )
+  # Altar
+  reg[Altar] = BuildingInfo(
+    displayName: "Altar", spriteKey: "altar", ascii: 'a',
+    renderColor: (r: 220'u8, g: 0'u8, b: 220'u8), buildIndex: -1, buildCost: @[], buildCooldown: 0,
+    useKind: UseAltar, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # TownCenter
+  reg[TownCenter] = BuildingInfo(
+    displayName: "Town Center", spriteKey: "town_center", ascii: 'N',
+    renderColor: (r: 190'u8, g: 180'u8, b: 140'u8), buildIndex: 1, buildCost: @[(ItemWood, 14)], buildCooldown: 16,
+    useKind: UseDropoff, stockpileRes: ResourceNone, popCap: TownCenterPopCap, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {ResourceFood, ResourceWood, ResourceGold, ResourceStone}, storageItems: @[],
+    craftStation: StationNone, trainCosts: @[])
+
+  # House
+  reg[House] = BuildingInfo(
+    displayName: "House", spriteKey: "house", ascii: 'h',
+    renderColor: (r: 170'u8, g: 140'u8, b: 110'u8), buildIndex: 0, buildCost: @[(ItemWood, 1)], buildCooldown: 10,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: HousePopCap, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # Door
+  reg[Door] = BuildingInfo(
+    displayName: "Door", spriteKey: "door", ascii: 'D',
+    renderColor: (r: 120'u8, g: 100'u8, b: 80'u8), buildIndex: BuildIndexDoor, buildCost: @[(ItemWood, 1)], buildCooldown: 6,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # ClayOven
+  reg[ClayOven] = BuildingInfo(
+    displayName: "Clay Oven", spriteKey: "clay_oven", ascii: 'C',
+    renderColor: (r: 255'u8, g: 180'u8, b: 120'u8), buildIndex: 20, buildCost: @[(ItemWood, 4)], buildCooldown: 12,
+    useKind: UseClayOven, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationOven, trainCosts: @[])
+
+  # WeavingLoom
+  reg[WeavingLoom] = BuildingInfo(
+    displayName: "Weaving Loom", spriteKey: "weaving_loom", ascii: 'W',
+    renderColor: (r: 0'u8, g: 180'u8, b: 255'u8), buildIndex: 21, buildCost: @[(ItemWood, 3)], buildCooldown: 12,
+    useKind: UseWeavingLoom, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationLoom, trainCosts: @[])
+
+  # Outpost
+  reg[Outpost] = BuildingInfo(
+    displayName: "Outpost", spriteKey: "outpost", ascii: '^',
+    renderColor: (r: 120'u8, g: 120'u8, b: 140'u8), buildIndex: 13, buildCost: @[(ItemWood, 1)], buildCooldown: 8,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # GuardTower
+  reg[GuardTower] = BuildingInfo(
+    displayName: "Guard Tower", spriteKey: "guard_tower", ascii: 'T',
+    renderColor: (r: 110'u8, g: 110'u8, b: 130'u8), buildIndex: BuildIndexGuardTower, buildCost: @[(ItemWood, 5)], buildCooldown: 12,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # Barrel
+  reg[Barrel] = BuildingInfo(
+    displayName: "Barrel", spriteKey: "barrel", ascii: 'b',
+    renderColor: (r: 150'u8, g: 110'u8, b: 60'u8), buildIndex: 22, buildCost: @[(ItemWood, 2)], buildCooldown: 10,
+    useKind: UseStorage, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: BarrelCapacity, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[ItemBread, ItemMeat, ItemFish, ItemPlant, ItemLantern, ItemSpear, ItemArmor, ItemBar, ItemRelic],
+    craftStation: StationNone, trainCosts: @[])
+
+  # Mill
+  reg[Mill] = BuildingInfo(
+    displayName: "Mill", spriteKey: "mill", ascii: 'm',
+    renderColor: (r: 210'u8, g: 200'u8, b: 170'u8), buildIndex: 2, buildCost: @[(ItemWood, 5)], buildCooldown: 12,
+    useKind: UseDropoff, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 2,
+    dropoffResources: {ResourceFood}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # Granary
+  reg[Granary] = BuildingInfo(
+    displayName: "Granary", spriteKey: "granary", ascii: 'n',
+    renderColor: (r: 220'u8, g: 200'u8, b: 150'u8), buildIndex: 5, buildCost: @[(ItemWood, 5)], buildCooldown: 12,
+    useKind: UseDropoffAndStorage, stockpileRes: ResourceFood, popCap: 0, barrelCapacity: BarrelCapacity, fertileRadius: 0,
+    dropoffResources: {ResourceFood}, storageItems: @[ItemWheat], craftStation: StationNone, trainCosts: @[])
+
+  # LumberCamp
+  reg[LumberCamp] = BuildingInfo(
+    displayName: "Lumber Camp", spriteKey: "lumber_camp", ascii: 'L',
+    renderColor: (r: 140'u8, g: 100'u8, b: 60'u8), buildIndex: 3, buildCost: @[(ItemWood, 5)], buildCooldown: 10,
+    useKind: UseDropoff, stockpileRes: ResourceWood, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {ResourceWood}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # Quarry
+  reg[Quarry] = BuildingInfo(
+    displayName: "Quarry", spriteKey: "quarry", ascii: 'Q',
+    renderColor: (r: 120'u8, g: 120'u8, b: 120'u8), buildIndex: 4, buildCost: @[(ItemWood, 5)], buildCooldown: 12,
+    useKind: UseDropoff, stockpileRes: ResourceStone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {ResourceStone}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # MiningCamp
+  reg[MiningCamp] = BuildingInfo(
+    displayName: "Mining Camp", spriteKey: "mining_camp", ascii: 'M',
+    renderColor: (r: 200'u8, g: 190'u8, b: 120'u8), buildIndex: 15, buildCost: @[(ItemWood, 5)], buildCooldown: 12,
+    useKind: UseDropoff, stockpileRes: ResourceGold, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {ResourceGold}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # Barracks
+  reg[Barracks] = BuildingInfo(
+    displayName: "Barracks", spriteKey: "barracks", ascii: 'r',
+    renderColor: (r: 160'u8, g: 90'u8, b: 60'u8), buildIndex: 8, buildCost: @[(ItemWood, 9)], buildCooldown: 12,
+    useKind: UseTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)])
+
+  # ArcheryRange
+  reg[ArcheryRange] = BuildingInfo(
+    displayName: "Archery Range", spriteKey: "archery_range", ascii: 'g',
+    renderColor: (r: 140'u8, g: 120'u8, b: 180'u8), buildIndex: 9, buildCost: @[(ItemWood, 9)], buildCooldown: 12,
+    useKind: UseTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)])
+
+  # Stable
+  reg[Stable] = BuildingInfo(
+    displayName: "Stable", spriteKey: "stable", ascii: 's',
+    renderColor: (r: 120'u8, g: 90'u8, b: 60'u8), buildIndex: 10, buildCost: @[(ItemWood, 9)], buildCooldown: 12,
+    useKind: UseTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceFood, count: 3)])
+
+  # SiegeWorkshop
+  reg[SiegeWorkshop] = BuildingInfo(
+    displayName: "Siege Workshop", spriteKey: "siege_workshop", ascii: 'i',
+    renderColor: (r: 120'u8, g: 120'u8, b: 160'u8), buildIndex: 11, buildCost: @[(ItemWood, 10)], buildCooldown: 14,
+    useKind: UseTrainAndCraft, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationSiegeWorkshop,
+    trainCosts: @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)])
+
+  # MangonelWorkshop
+  reg[MangonelWorkshop] = BuildingInfo(
+    displayName: "Mangonel Workshop", spriteKey: "mangonel_workshop", ascii: 'j',
+    renderColor: (r: 120'u8, g: 130'u8, b: 160'u8), buildIndex: BuildIndexMangonelWorkshop, buildCost: @[(ItemWood, 10), (ItemStone, 4)], buildCooldown: 14,
+    useKind: UseTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceWood, count: 4), (res: ResourceStone, count: 3)])
+
+  # TrebuchetWorkshop
+  reg[TrebuchetWorkshop] = BuildingInfo(
+    displayName: "Trebuchet Workshop", spriteKey: "trebuchet_workshop", ascii: 'T',
+    renderColor: (r: 100'u8, g: 110'u8, b: 150'u8), buildIndex: 25, buildCost: @[(ItemWood, 12), (ItemStone, 6)], buildCooldown: 16,
+    useKind: UseTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceWood, count: 5), (res: ResourceGold, count: 4)])
+
+  # Blacksmith
+  reg[Blacksmith] = BuildingInfo(
+    displayName: "Blacksmith", spriteKey: "blacksmith", ascii: 'k',
+    renderColor: (r: 90'u8, g: 90'u8, b: 90'u8), buildIndex: 16, buildCost: @[(ItemWood, 8)], buildCooldown: 12,
+    useKind: UseBlacksmith, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: BarrelCapacity, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[ItemArmor, ItemSpear], craftStation: StationBlacksmith, trainCosts: @[])
+
+  # Market
+  reg[Market] = BuildingInfo(
+    displayName: "Market", spriteKey: "market", ascii: 'e',
+    renderColor: (r: 200'u8, g: 170'u8, b: 120'u8), buildIndex: 7, buildCost: @[(ItemWood, 9)], buildCooldown: 12,
+    useKind: UseMarket, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # Dock
+  reg[Dock] = BuildingInfo(
+    displayName: "Dock", spriteKey: "dock", ascii: 'd',
+    renderColor: (r: 80'u8, g: 140'u8, b: 200'u8), buildIndex: 6, buildCost: @[(ItemWood, 8)], buildCooldown: 12,
+    useKind: UseDropoffAndTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {ResourceFood}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceWood, count: 3), (res: ResourceGold, count: 2)])
+
+  # Monastery
+  reg[Monastery] = BuildingInfo(
+    displayName: "Monastery", spriteKey: "monastery", ascii: 'y',
+    renderColor: (r: 220'u8, g: 200'u8, b: 120'u8), buildIndex: 17, buildCost: @[(ItemWood, 9)], buildCooldown: 12,
+    useKind: UseTrain, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceGold, count: 2)])
+
+  # University
+  reg[University] = BuildingInfo(
+    displayName: "University", spriteKey: "university", ascii: 'u',
+    renderColor: (r: 140'u8, g: 160'u8, b: 200'u8), buildIndex: 18, buildCost: @[(ItemWood, 10)], buildCooldown: 14,
+    useKind: UseUniversity, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationTable, trainCosts: @[])
+
+  # Castle
+  reg[Castle] = BuildingInfo(
+    displayName: "Castle", spriteKey: "castle", ascii: 'c',
+    renderColor: (r: 120'u8, g: 120'u8, b: 120'u8), buildIndex: 12, buildCost: @[(ItemStone, 33)], buildCooldown: 20,
+    useKind: UseCastle, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone,
+    trainCosts: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)])
+
+  # Wonder
+  reg[Wonder] = BuildingInfo(
+    displayName: "Wonder", spriteKey: "wonder", ascii: 'W',
+    renderColor: (r: 255'u8, g: 215'u8, b: 0'u8), buildIndex: 26, buildCost: @[(ItemWood, 50), (ItemStone, 50), (ItemGold, 50)], buildCooldown: 50,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # GoblinHive
+  reg[GoblinHive] = BuildingInfo(
+    displayName: "Goblin Hive", spriteKey: "goblin_hive", ascii: 'H',
+    renderColor: (r: 120'u8, g: 170'u8, b: 90'u8), buildIndex: -1, buildCost: @[], buildCooldown: 0,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # GoblinHut
+  reg[GoblinHut] = BuildingInfo(
+    displayName: "Goblin Hut", spriteKey: "goblin_hut", ascii: 'g',
+    renderColor: (r: 110'u8, g: 150'u8, b: 90'u8), buildIndex: -1, buildCost: @[], buildCooldown: 0,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
+
+  # GoblinTotem
+  reg[GoblinTotem] = BuildingInfo(
+    displayName: "Goblin Totem", spriteKey: "goblin_totem", ascii: 'T',
+    renderColor: (r: 90'u8, g: 140'u8, b: 100'u8), buildIndex: -1, buildCost: @[], buildCooldown: 0,
+    useKind: UseNone, stockpileRes: ResourceNone, popCap: 0, barrelCapacity: 0, fertileRadius: 0,
+    dropoffResources: {}, storageItems: @[], craftStation: StationNone, trainCosts: @[])
 
   reg
 
@@ -269,92 +438,40 @@ proc itemSpriteKey*(key: ItemKey): string =
   else:
     ""
 
-proc buildingUseKind*(kind: ThingKind): BuildingUseKind =
-  case kind
-  of Altar: UseAltar
-  of ClayOven: UseClayOven
-  of WeavingLoom: UseWeavingLoom
-  of Blacksmith: UseBlacksmith
-  of Market: UseMarket
-  of TownCenter, Mill, LumberCamp, Quarry, MiningCamp: UseDropoff
-  of Dock: UseDropoffAndTrain
-  of Granary: UseDropoffAndStorage
-  of Barrel: UseStorage
-  of University: UseUniversity
-  of Barracks, ArcheryRange, Stable, Monastery, MangonelWorkshop, TrebuchetWorkshop: UseTrain
-  of Castle: UseCastle
-  of SiegeWorkshop: UseTrainAndCraft
-  else: UseNone
+# Lookup procs - now simple registry lookups instead of case statements
+proc buildingUseKind*(kind: ThingKind): BuildingUseKind {.inline.} =
+  BuildingRegistry[kind].useKind
 
-proc buildingStockpileRes*(kind: ThingKind): StockpileResource =
-  case kind
-  of Granary: ResourceFood
-  of LumberCamp: ResourceWood
-  of Quarry: ResourceStone
-  of MiningCamp: ResourceGold
-  else: ResourceNone
+proc buildingStockpileRes*(kind: ThingKind): StockpileResource {.inline.} =
+  BuildingRegistry[kind].stockpileRes
 
-proc buildingBuildable*(kind: ThingKind): bool =
+proc buildingBuildable*(kind: ThingKind): bool {.inline.} =
   let info = BuildingRegistry[kind]
   info.buildIndex >= 0 and info.buildCost.len > 0
 
-proc buildingPopCap*(kind: ThingKind): int =
-  case kind
-  of TownCenter: TownCenterPopCap
-  of House: HousePopCap
-  else: 0
+proc buildingPopCap*(kind: ThingKind): int {.inline.} =
+  BuildingRegistry[kind].popCap
 
-proc buildingBarrelCapacity*(kind: ThingKind): int =
-  case kind
-  of Barrel, Granary, Blacksmith: BarrelCapacity
-  else: 0
+proc buildingBarrelCapacity*(kind: ThingKind): int {.inline.} =
+  BuildingRegistry[kind].barrelCapacity
 
-proc buildingFertileRadius*(kind: ThingKind): int =
-  case kind
-  of Mill: 2
-  else: 0
+proc buildingFertileRadius*(kind: ThingKind): int {.inline.} =
+  BuildingRegistry[kind].fertileRadius
 
-proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] =
-  case kind
-  of TownCenter: {ResourceFood, ResourceWood, ResourceGold, ResourceStone}
-  of Granary, Mill: {ResourceFood}
-  of LumberCamp: {ResourceWood}
-  of Quarry: {ResourceStone}
-  of MiningCamp: {ResourceGold}
-  of Dock: {ResourceFood}
-  else: {}
+proc buildingDropoffResources*(kind: ThingKind): set[StockpileResource] {.inline.} =
+  BuildingRegistry[kind].dropoffResources
 
-proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] =
-  case kind
-  of Granary: @[ItemWheat]
-  of Blacksmith: @[ItemArmor, ItemSpear]
-  of Barrel: @[
-    ItemBread,
-    ItemMeat,
-    ItemFish,
-    ItemPlant,
-    ItemLantern,
-    ItemSpear,
-    ItemArmor,
-    ItemBar,
-    ItemRelic
-  ]
-  else: @[]
+proc buildingStorageItems*(kind: ThingKind): seq[ItemKey] {.inline.} =
+  BuildingRegistry[kind].storageItems
 
-proc buildingCraftStation*(kind: ThingKind): CraftStation =
-  case kind
-  of ClayOven: StationOven
-  of WeavingLoom: StationLoom
-  of Blacksmith: StationBlacksmith
-  of University: StationTable
-  of SiegeWorkshop: StationSiegeWorkshop
-  else: StationNone
+proc buildingCraftStation*(kind: ThingKind): CraftStation {.inline.} =
+  BuildingRegistry[kind].craftStation
 
-proc buildingHasCraftStation*(kind: ThingKind): bool =
-  buildingCraftStation(kind) != StationNone
+proc buildingHasCraftStation*(kind: ThingKind): bool {.inline.} =
+  BuildingRegistry[kind].craftStation != StationNone
 
-proc buildingHasTrain*(kind: ThingKind): bool =
-  kind in {Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle, Dock}
+proc buildingHasTrain*(kind: ThingKind): bool {.inline.} =
+  BuildingRegistry[kind].trainCosts.len > 0
 
 # Castle unique units by team (civilization)
 const CastleUniqueUnits*: array[MapRoomObjectsTeams, AgentUnitClass] = [
@@ -387,18 +504,8 @@ proc buildingTrainUnit*(kind: ThingKind, teamId: int = -1): AgentUnitClass =
   of Dock: UnitTradeCog
   else: UnitVillager
 
-proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, count: int]] =
-  case kind
-  of Barracks: @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)]
-  of ArcheryRange: @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)]
-  of Stable: @[(res: ResourceFood, count: 3)]
-  of SiegeWorkshop: @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)]
-  of MangonelWorkshop: @[(res: ResourceWood, count: 4), (res: ResourceStone, count: 3)]
-  of TrebuchetWorkshop: @[(res: ResourceWood, count: 5), (res: ResourceGold, count: 4)]
-  of Monastery: @[(res: ResourceGold, count: 2)]
-  of Castle: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)]
-  of Dock: @[(res: ResourceWood, count: 3), (res: ResourceGold, count: 2)]
-  else: @[]
+proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, count: int]] {.inline.} =
+  BuildingRegistry[kind].trainCosts
 
 proc unitTrainTime*(unitClass: AgentUnitClass): int =
   ## Training duration in game steps for each unit type (AoE2-style).
