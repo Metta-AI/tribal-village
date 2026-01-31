@@ -336,5 +336,61 @@ const
   ScoutVisionRange* = 18      # Scout extended vision range (50% larger than normal)
   ThreatDecaySteps* = 50      # Steps before threat decays
 
+  # ============================================================================
+  # Spawn & Map Generation
+  # ============================================================================
+  # Tree oasis placement (cluster counts and radii in terrain.nim)
+  TreeOasisPlacementAttempts* = 16
+  TreeOasisWaterProximity* = 5
+  TreeOasisFallbackAttempts* = 10
+
+  # River generation
+  RiverBranchCountMin* = 1
+  RiverBranchCountMax* = 2
+  RiverBranchLengthMin* = 4
+  RiverBranchLengthMax* = 10
+  RiverWaterEdgeRandomness* = 0.35
+
+  # Dungeon generation (UseDungeonZones, DungeonZoneMaxFraction in terrain.nim)
+  DungeonEdgeDitherChance* = 0.08
+  DungeonEdgeDitherPasses* = 3
+
+  # Trading hub parameters
+  TradingHubWallChance* = 0.6
+  TradingHubDriftChance* = 0.45
+  TradingHubSpurCountMin* = 8
+  TradingHubSpurCountMax* = 14
+  TradingHubSpurLengthMin* = 2
+  TradingHubSpurLengthMax* = 4
+  TradingHubScatterRadius* = 18
+
+  # Village placement
+  VillagePlacementAttempts* = 200
+  StartingHouseCountMin* = 4
+  StartingHouseCountMax* = 5
+  StartingHousePlacementAttempts* = 120
+  StartingHouseRangeMin* = -5
+  StartingHouseRangeMax* = 5
+  StartingHouseDistMin* = 3
+  StartingHouseDistMax* = 5
+  # Note: DefaultMinVillageSpacing defined in environment.nim
+
+  # Temple placement
+  TemplePlacementAttempts* = 200
+  TemplePlacementRadius* = 14
+  TempleMinVillageDistance* = 10
+
+  # Goblin hive placement
+  GoblinHivePlacementAttempts* = 200
+
+  # Spawner placement
+  # Note: DefaultSpawnerMinDistance defined in environment.nim
+
+  # Resource spot finding
+  ResourceSpotAttempts* = 40
+  ResourceSpotExtendedRadius* = 4
+
+  # Ramp generation (RampWidthMin, RampWidthMax, RampPlacementSpacing in environment.nim)
+
   # Derived constants
   VillagerMaxHp* = AgentMaxHp

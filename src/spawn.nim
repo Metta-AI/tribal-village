@@ -142,12 +142,12 @@ proc carveTreeOasisWater(env: Environment, center: IVec2, rx, ry: int, rng: var 
       let dx = ox.float / rx.float
       let dy = oy.float / ry.float
       let dist = dx * dx + dy * dy
-      if dist <= 1.0 + (randFloat(rng) - 0.5) * 0.35:
+      if dist <= 1.0 + (randFloat(rng) - 0.5) * RiverWaterEdgeRandomness:
         setTerrain(env, waterPos, Water)
 
-  for _ in 0 ..< randIntInclusive(rng, 1, 2):
+  for _ in 0 ..< randIntInclusive(rng, RiverBranchCountMin, RiverBranchCountMax):
     var pos = center
-    for _ in 0 ..< randIntInclusive(rng, 4, 10):
+    for _ in 0 ..< randIntInclusive(rng, RiverBranchLengthMin, RiverBranchLengthMax):
       let dir = sample(rng, [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1),
                            ivec2(1, 1), ivec2(-1, 1), ivec2(1, -1), ivec2(-1, -1)])
       pos += dir
@@ -216,8 +216,8 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
   if UseTreeOases:
     let numGroves = randIntInclusive(rng, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
     for _ in 0 ..< numGroves:
-      let pos = pickInteriorPos(rng, 3, 16, proc(pos: IVec2, attempt: int): bool =
-        isNearWater(env, pos, 5) or attempt > 10
+      let pos = pickInteriorPos(rng, 3, TreeOasisPlacementAttempts, proc(pos: IVec2, attempt: int): bool =
+        isNearWater(env, pos, TreeOasisWaterProximity) or attempt > TreeOasisFallbackAttempts
       )
       let rx = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       let ry = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
@@ -463,7 +463,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
             dungeonWalls[x][y] = true
 
     # Soften dungeon edges so they blend into surrounding biomes.
-    ditherEdges(dungeonWalls, MapWidth, MapHeight, 0.08, 3, rng)
+    ditherEdges(dungeonWalls, MapWidth, MapHeight, DungeonEdgeDitherChance, DungeonEdgeDitherPasses, rng)
 
     for x in MapBorder ..< MapWidth - MapBorder:
       for y in MapBorder ..< MapHeight - MapBorder:
@@ -573,8 +573,8 @@ proc initTradingHub(env: Environment, rng: var Rand) =
     let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
     let wallMinY = max(MapBorder + 1, y0 - 2)
     let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
-    let wallChance = 0.6
-    let driftChance = 0.45
+    let wallChance = TradingHubWallChance
+    let driftChance = TradingHubDriftChance
     let topMin = wallMinY
     let topMax = min(wallMaxY, y0 + 2)
     let bottomMin = max(wallMinY, y1 - 2)
@@ -608,7 +608,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       if randChance(rng, driftChance):
         rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(rng, -1, 1)))
 
-    let spurCount = randIntInclusive(rng, 8, 14)
+    let spurCount = randIntInclusive(rng, TradingHubSpurCountMin, TradingHubSpurCountMax)
     let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
     for _ in 0 ..< spurCount:
       let startX = randIntInclusive(rng, x0 + 1, x1 - 1)
@@ -616,7 +616,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       if startX == roadX or startY == centerY:
         continue
       let dir = spurDirs[randIntInclusive(rng, 0, spurDirs.len - 1)]
-      let length = randIntInclusive(rng, 2, 4)
+      let length = randIntInclusive(rng, TradingHubSpurLengthMin, TradingHubSpurLengthMax)
       var pos = ivec2(startX.int32, startY.int32)
       for _ in 0 ..< length:
         tryAddWall(pos.x.int, pos.y.int)
@@ -702,7 +702,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
     ]
     let scatterTarget = randIntInclusive(rng, 24, 36) * hubScatterMultiplier
-    let scatterRadius = half + 18
+    let scatterRadius = half + TradingHubScatterRadius
     let scatterInner = half + 4
     var scatterPlaced = 0
     var scatterAttempts = 0
@@ -852,7 +852,7 @@ proc findResourceSpot(env: Environment, center: IVec2, rng: var Rand,
                       minRadius, maxRadius: int,
                       allowedTerrain: set[TerrainType]): IVec2 =
   ## Find a valid spot for resource placement within radius of center.
-  for attempt in 0 ..< 40:
+  for attempt in 0 ..< ResourceSpotAttempts:
     let dx = randIntInclusive(rng, -maxRadius, maxRadius)
     let dy = randIntInclusive(rng, -maxRadius, maxRadius)
     let dist = max(abs(dx), abs(dy))
@@ -864,8 +864,8 @@ proc findResourceSpot(env: Environment, center: IVec2, rng: var Rand,
       continue
     return pos
   # Extended search with larger radius
-  for attempt in 0 ..< 40:
-    let radius = maxRadius + 4
+  for attempt in 0 ..< ResourceSpotAttempts:
+    let radius = maxRadius + ResourceSpotExtendedRadius
     let dx = randIntInclusive(rng, -radius, radius)
     let dy = randIntInclusive(rng, -radius, radius)
     let dist = max(abs(dx), abs(dy))
@@ -938,15 +938,15 @@ proc placeStartingResourceNodes(env: Environment, center: IVec2, rng: var Rand) 
 proc placeStartingHouses(env: Environment, center: IVec2, teamId: int,
                           rng: var Rand) =
   ## Place starting houses around the village center.
-  let count = randIntInclusive(rng, 4, 5)
+  let count = randIntInclusive(rng, StartingHouseCountMin, StartingHouseCountMax)
   var placed = 0
   var attempts = 0
-  while placed < count and attempts < 120:
+  while placed < count and attempts < StartingHousePlacementAttempts:
     inc attempts
-    let dx = randIntInclusive(rng, -5, 5)
-    let dy = randIntInclusive(rng, -5, 5)
+    let dx = randIntInclusive(rng, StartingHouseRangeMin, StartingHouseRangeMax)
+    let dy = randIntInclusive(rng, StartingHouseRangeMin, StartingHouseRangeMax)
     let dist = max(abs(dx), abs(dy))
-    if dist < 3 or dist > 5:
+    if dist < StartingHouseDistMin or dist > StartingHouseDistMax:
       continue
     let pos = center + ivec2(dx.int32, dy.int32)
     if not isValidPos(pos) or env.hasDoor(pos) or not env.isEmpty(pos) or
@@ -956,12 +956,11 @@ proc placeStartingHouses(env: Environment, center: IVec2, teamId: int,
     inc placed
 
 proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
-  const TempleMinDistance = 10
   let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
   var placed = false
-  for _ in 0 ..< 200:
-    let dx = randIntInclusive(rng, -14, 14)
-    let dy = randIntInclusive(rng, -14, 14)
+  for _ in 0 ..< TemplePlacementAttempts:
+    let dx = randIntInclusive(rng, -TemplePlacementRadius, TemplePlacementRadius)
+    let dy = randIntInclusive(rng, -TemplePlacementRadius, TemplePlacementRadius)
     let pos = center + ivec2(dx.int32, dy.int32)
     if not isValidPos(pos):
       continue
@@ -972,7 +971,7 @@ proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
     var tooClose = false
     for v in villageCenters:
       let dist = max(abs(v.x - pos.x), abs(v.y - pos.y))
-      if dist < TempleMinDistance:
+      if dist < TempleMinVillageDistance:
         tooClose = true
         break
     if tooClose:
@@ -1023,7 +1022,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
         layout: layout
       )
     var placementPosition: IVec2
-    let placed = tryPickEmptyPos(rng, env, 200, proc(candidatePos: IVec2, attempt: int): bool =
+    let placed = tryPickEmptyPos(rng, env, VillagePlacementAttempts, proc(candidatePos: IVec2, attempt: int): bool =
       # Check if position has enough space for the village footprint.
       for dy in 0 ..< villageStruct.height:
         for dx in 0 ..< villageStruct.width:
@@ -1225,7 +1224,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
     let minHiveDist = max(4, DefaultSpawnerMinDistance div 2)
     let minHiveDist2 = minHiveDist * minHiveDist
     var center: IVec2
-    if tryPickEmptyPos(rng, env, 200, proc(candidate: IVec2, attempt: int): bool =
+    if tryPickEmptyPos(rng, env, VillagePlacementAttempts, proc(candidate: IVec2, attempt: int): bool =
       if env.terrain[candidate.x][candidate.y] == Water:
         return false
       for altar in env.thingsByKind[Altar]:
@@ -1343,7 +1342,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
   for i in 0 ..< numTeams:
     let spawnerStruct = Structure(width: 3, height: 3, centerPos: ivec2(1, 1))
     var targetPos: IVec2
-    let placed = tryPickEmptyPos(rng, env, 200, proc(candidate: IVec2, attempt: int): bool =
+    let placed = tryPickEmptyPos(rng, env, VillagePlacementAttempts, proc(candidate: IVec2, attempt: int): bool =
       # Keep within borders allowing spawner bounds.
       if candidate.x < MapBorder + spawnerStruct.width div 2 or
          candidate.x >= MapWidth - MapBorder - spawnerStruct.width div 2 or
