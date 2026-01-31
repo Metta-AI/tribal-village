@@ -105,6 +105,8 @@ let mapCenter = vec2(
 
 var lastPanelSize = ivec2(0, 0)
 var lastContentScale: float32 = 0.0
+var dragStartWorld: Vec2 = vec2(0, 0)
+var isDragging: bool = false
 
 var actionsArray: array[MapAgents, uint8]
 
@@ -222,7 +224,7 @@ proc display() =
     mouseDownPos = logicalMousePos(window)
 
   if worldMapPanel.hasMouse:
-    if window.buttonDown[MouseLeft] or window.buttonDown[MouseMiddle]:
+    if (window.buttonDown[MouseLeft] and not isDragging) or window.buttonDown[MouseMiddle]:
       worldMapPanel.vel = window.mouseDelta.vec2 / window.contentScale
     else:
       worldMapPanel.vel *= 0.9
@@ -342,9 +344,38 @@ proc display() =
   if not blockSelection:
     if window.buttonPressed[MouseLeft]:
       mouseDownPos = logicalMousePos(window)
+      dragStartWorld = bxy.getTransform().inverse * window.mousePos.vec2
+      isDragging = false
+
+    if window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
+      let dragDist = (logicalMousePos(window) - mouseDownPos).length
+      if dragDist > 5.0:
+        isDragging = true
 
     if window.buttonReleased[MouseLeft]:
-      if (logicalMousePos(window) - mouseDownPos).length <= 3.0:
+      if isDragging:
+        # Drag-box multi-select: find all agents within the rectangle
+        let dragEndWorld = bxy.getTransform().inverse * window.mousePos.vec2
+        let minX = min(dragStartWorld.x, dragEndWorld.x)
+        let maxX = max(dragStartWorld.x, dragEndWorld.x)
+        let minY = min(dragStartWorld.y, dragEndWorld.y)
+        let maxY = max(dragStartWorld.y, dragEndWorld.y)
+        var boxSelection: seq[Thing] = @[]
+        for agent in env.thingsByKind[Agent]:
+          if not isNil(agent) and isValidPos(agent.pos) and
+             env.isAgentAlive(agent):
+            let ax = agent.pos.x.float32
+            let ay = agent.pos.y.float32
+            if ax >= minX and ax <= maxX and ay >= minY and ay <= maxY:
+              boxSelection.add(agent)
+        if boxSelection.len > 0:
+          selection = boxSelection
+          selectedPos = boxSelection[0].pos
+        else:
+          selection = @[]
+        isDragging = false
+      else:
+        # Click select (existing behavior)
         selection = @[]
         let
           mousePos = bxy.getTransform().inverse * window.mousePos.vec2
@@ -530,6 +561,25 @@ proc display() =
       tStart = tNow
 
   drawSelection()
+
+  # Draw drag-box selection rectangle
+  if isDragging and window.buttonDown[MouseLeft]:
+    let dragEndWorld = bxy.getTransform().inverse * window.mousePos.vec2
+    let minX = min(dragStartWorld.x, dragEndWorld.x)
+    let maxX = max(dragStartWorld.x, dragEndWorld.x)
+    let minY = min(dragStartWorld.y, dragEndWorld.y)
+    let maxY = max(dragStartWorld.y, dragEndWorld.y)
+    let lineWidth = 0.05'f32  # Thin line in world units
+    let dragColor = color(0.2, 0.9, 0.2, 0.8)
+    # Top edge
+    bxy.drawRect(Rect(x: minX, y: minY, w: maxX - minX, h: lineWidth), dragColor)
+    # Bottom edge
+    bxy.drawRect(Rect(x: minX, y: maxY - lineWidth, w: maxX - minX, h: lineWidth), dragColor)
+    # Left edge
+    bxy.drawRect(Rect(x: minX, y: minY, w: lineWidth, h: maxY - minY), dragColor)
+    # Right edge
+    bxy.drawRect(Rect(x: maxX - lineWidth, y: minY, w: lineWidth, h: maxY - minY), dragColor)
+
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()
