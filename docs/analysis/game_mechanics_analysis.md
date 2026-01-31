@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-Analysis of `/home/relh/gt/tribal_village/crew/relh/src/step.nim` reveals **32 distinct locations** where `actionInvalid` is incremented. The majority of failures fall into three categories:
+Analysis of `/home/relh/Code/tribal-village/src/step.nim` reveals **32 distinct locations** where `actionInvalid` is incremented. The majority of failures fall into three categories:
 
 1. **Attack failures** (11 locations) - attacks that hit nothing
 2. **Movement failures** (6 locations) - blocked movement
@@ -17,7 +17,7 @@ Analysis of `/home/relh/gt/tribal_village/crew/relh/src/step.nim` reveals **32 d
 
 ## Action Encoding
 
-From `/home/relh/gt/tribal_village/crew/relh/src/common.nim`:
+From `/home/relh/Code/tribal-village/src/common.nim`:
 - **ActionVerbCount** = 10
 - **ActionArgumentCount** = 25
 - Action value = `verb * 25 + argument`
@@ -230,8 +230,8 @@ Based on code structure and game mechanics:
 
 ## File References
 
-- Action processing: `/home/relh/gt/tribal_village/crew/relh/src/step.nim` (lines 133-1280)
-- Action encoding: `/home/relh/gt/tribal_village/crew/relh/src/common.nim` (lines 117-122)
-- Stats type: `/home/relh/gt/tribal_village/crew/relh/src/types.nim` (lines 403-415)
-- Movement helpers: `/home/relh/gt/tribal_village/crew/relh/src/environment.nim` (lines 350-400)
-- Frozen checks: `/home/relh/gt/tribal_village/crew/relh/src/colors.nim` (lines 42-52)
+- Action processing: `/home/relh/Code/tribal-village/src/step.nim` (lines 133-1280)
+- Action encoding: `/home/relh/Code/tribal-village/src/common.nim` (lines 117-122)
+- Stats type: `/home/relh/Code/tribal-village/src/types.nim` (lines 403-415)
+- Movement helpers: `/home/relh/Code/tribal-village/src/environment.nim` (lines 350-400)
+- Frozen checks: `/home/relh/Code/tribal-village/src/colors.nim` (lines 42-52)
