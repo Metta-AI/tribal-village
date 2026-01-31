@@ -73,8 +73,8 @@ when defined(perfRegression):
 
 let spawnerScanOffsets = block:
   var offsets: seq[IVec2] = @[]
-  for dx in -5 .. 5:
-    for dy in -5 .. 5:
+  for dx in -SpawnerScanRadius .. SpawnerScanRadius:
+    for dy in -SpawnerScanRadius .. SpawnerScanRadius:
       offsets.add(ivec2(dx, dy))
   offsets
 
@@ -404,8 +404,8 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
 
   # Find empty tiles around the building (5x5 grid minus center = 24 max)
   var emptyTiles = newSeqOfCap[IVec2](24)
-  for dy in -2 .. 2:
-    for dx in -2 .. 2:
+  for dy in -GarrisonEjectRadius .. GarrisonEjectRadius:
+    for dx in -GarrisonEjectRadius .. GarrisonEjectRadius:
       if dx == 0 and dy == 0:
         continue
       let pos = building.pos + ivec2(dx.int32, dy.int32)
@@ -1041,13 +1041,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             return false
 
           var relocated = false
-          # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
+          # Helper to ensure lantern spacing (Chebyshev >= LanternMinSpacing from other lanterns)
           template spacingOk(nextPos: IVec2): bool =
             var isSpaced = true
             for t in env.thingsByKind[Lantern]:
               if t != blocker:
                 let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
-                if dist < 3'i32:
+                if dist < LanternMinSpacing:
                   isSpaced = false
                   break
             isSpaced
@@ -1432,7 +1432,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let left = ivec2(-delta.y, delta.x)
           let right = ivec2(delta.y, -delta.x)
           let offsets = [ivec2(0, 0), left, right]
-          for step in 1 .. 3:
+          for step in 1 .. SpearAttackRange:
             let forward = agent.pos + ivec2(delta.x * step, delta.y * step)
             for offset in offsets:
               let attackPos = forward + offset
@@ -1449,7 +1449,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         if agent.unitClass in ChargeAttackUnits:
           var hit = false
-          for distance in 1 .. 2:
+          for distance in 1 .. ChargeAttackDistance:
             let attackPos = agent.pos + ivec2(delta.x * distance, delta.y * distance)
             env.applyUnitAttackTint(agent.unitClass, attackPos)
             if tryHitAt(attackPos):

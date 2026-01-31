@@ -267,6 +267,16 @@ const
   MonkAuraRadius* = 2
 
   # ============================================================================
+  # Combat & Movement Radii
+  # ============================================================================
+  GarrisonEjectRadius* = 2       # Radius for ejecting units from destroyed buildings
+  ItemDropRadius* = 1            # Radius for dropping items on agent death
+  SpawnerScanRadius* = 5         # Radius for spawner tumor scanning
+  LanternMinSpacing* = 3         # Minimum Chebyshev distance between lanterns
+  SpearAttackRange* = 3          # Range of spear line attack
+  ChargeAttackDistance* = 2      # Distance for cavalry charge attacks
+
+  # ============================================================================
   # Mill & Spawner
   # ============================================================================
   MillFertileCooldown* = 10

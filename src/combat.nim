@@ -161,8 +161,8 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   # Eject garrisoned units when building is destroyed
   if target.kind in {TownCenter, Castle, GuardTower, House} and target.garrisonedUnits.len > 0:
     var emptyTiles: seq[IVec2] = @[]
-    for dy in -2 .. 2:
-      for dx in -2 .. 2:
+    for dy in -GarrisonEjectRadius .. GarrisonEjectRadius:
+      for dx in -GarrisonEjectRadius .. GarrisonEjectRadius:
         if dx == 0 and dy == 0: continue
         let pos = target.pos + ivec2(dx.int32, dy.int32)
         if isValidPos(pos) and env.isEmpty(pos) and env.terrain[pos.x][pos.y] != Water:
@@ -183,8 +183,8 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   # Drop garrisoned relics when a Monastery is destroyed
   if target.kind == Monastery and target.garrisonedRelics > 0:
     var bgCandidates: seq[IVec2] = @[]
-    for dy in -2 .. 2:
-      for dx in -2 .. 2:
+    for dy in -GarrisonEjectRadius .. GarrisonEjectRadius:
+      for dx in -GarrisonEjectRadius .. GarrisonEjectRadius:
         if dx == 0 and dy == 0: continue
         let pos = target.pos + ivec2(dx.int32, dy.int32)
         if isValidPos(pos) and env.terrain[pos.x][pos.y] != Water and
@@ -222,8 +222,8 @@ proc killAgent(env: Environment, victim: Thing) =
 
   if lanternCount > 0 or relicCount > 0:
     var candidates: seq[IVec2] = @[]
-    for dy in -1 .. 1:
-      for dx in -1 .. 1:
+    for dy in -ItemDropRadius .. ItemDropRadius:
+      for dx in -ItemDropRadius .. ItemDropRadius:
         if dx == 0 and dy == 0: continue
         let cand = deathPos + ivec2(dx.int32, dy.int32)
         if isValidPos(cand) and env.isEmpty(cand) and not env.hasDoor(cand) and
