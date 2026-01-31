@@ -536,7 +536,7 @@ proc drawObjects*() =
     drawThings(thingKind):
       let key = prefix & OrientationDirKeys[thing.orientation.int]
       if key in bxy:
-        bxy.drawImage(key, pos.vec2, angle = 0, scale = SpriteScale)
+        bxy.drawImage(key, thing.pos.vec2, angle = 0, scale = SpriteScale)
 
   drawOrientedThings(Bear, "oriented/bear.")
   drawOrientedThings(Wolf, "oriented/wolf.")
@@ -571,7 +571,7 @@ proc drawObjects*() =
           continue
         let pos = thing.pos
         let tint =
-          if thing.kind in {Door, TownCenter, Barracks, ArcheryRange, Stable, SiegeWorkshop, Castle}:
+          if thing.kind in {Door, TownCenter, Barracks, ArcheryRange, Stable, SiegeWorkshop, Castle, Wonder}:
             let teamId = thing.teamId
             let base = if teamId >= 0 and teamId < env.teamColors.len:
               env.teamColors[teamId]
@@ -588,6 +588,18 @@ proc drawObjects*() =
             let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
             drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
                            color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
+        # Wonder victory countdown progress bar
+        if thing.kind == Wonder:
+          let teamId = thing.teamId
+          if teamId >= 0 and teamId < MapRoomObjectsTeams:
+            let builtStep = env.victoryStates[teamId].wonderBuiltStep
+            if builtStep >= 0:
+              # Countdown is active - show progress toward victory
+              let elapsed = env.currentStep - builtStep
+              let ratio = clamp(elapsed.float32 / WonderVictoryCountdown.float32, 0.0, 1.0)
+              # Golden progress bar above the Wonder (victory indicator)
+              drawSegmentBar(pos.vec2, vec2(0, -0.65), ratio,
+                             color(1.0, 0.85, 0.2, 1.0), color(0.4, 0.35, 0.15, 0.7), 10)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let teamId = thing.teamId
@@ -702,13 +714,13 @@ const ProjectileColors: array[ProjectileKind, Color] = [
 ]
 
 const ProjectileScales: array[ProjectileKind, float32] = [
-  1.0 / 400.0,  # ProjArrow - small
-  1.0 / 400.0,  # ProjLongbow - small
-  1.0 / 400.0,  # ProjJanissary - small
-  1.0 / 400.0,  # ProjTowerArrow - small
-  1.0 / 400.0,  # ProjCastleArrow - small
-  1.0 / 280.0,  # ProjMangonel - medium
-  1.0 / 240.0,  # ProjTrebuchet - large
+  1.0'f32 / 400.0'f32,  # ProjArrow - small
+  1.0'f32 / 400.0'f32,  # ProjLongbow - small
+  1.0'f32 / 400.0'f32,  # ProjJanissary - small
+  1.0'f32 / 400.0'f32,  # ProjTowerArrow - small
+  1.0'f32 / 400.0'f32,  # ProjCastleArrow - small
+  1.0'f32 / 280.0'f32,  # ProjMangonel - medium
+  1.0'f32 / 240.0'f32,  # ProjTrebuchet - large
 ]
 
 proc drawProjectiles*() =
