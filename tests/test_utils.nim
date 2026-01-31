@@ -179,3 +179,10 @@ proc newTestController*(seed: int): Controller =
   result = newController(seed)
   for teamId in 0 ..< MapRoomObjectsTeams:
     result.setDifficulty(teamId, DiffBrutal)
+
+proc initTestGlobalController*(seed: int) =
+  ## Initialize global controller for testing with Brutal difficulty (no decision delays).
+  initGlobalController(BuiltinAI, seed)
+  # Set Brutal difficulty for all teams to ensure deterministic test behavior
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    globalController.aiController.setDifficulty(teamId, DiffBrutal)

@@ -4,13 +4,6 @@ import agent_control
 import types
 import test_utils
 
-proc initTestGlobalController*(seed: int) =
-  ## Initialize global controller for testing with Brutal difficulty (no decision delays).
-  initGlobalController(BuiltinAI, seed)
-  # Set Brutal difficulty for all teams to ensure deterministic test behavior
-  for teamId in 0 ..< MapRoomObjectsTeams:
-    globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
 suite "AttackMove":
   test "attack-move moves toward destination":
     let env = makeEmptyEnv()
