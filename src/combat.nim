@@ -155,9 +155,8 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                         target.hp <= 0)
   if target.hp > 0:
     return false
-  if target.kind == Wall:
-    if isValidPos(target.pos):
-      env.updateObservations(ThingAgentLayer, target.pos, 0)
+  if target.kind == Wall and isValidPos(target.pos):
+    env.updateObservations(ThingAgentLayer, target.pos, 0)
   # Eject garrisoned units when building is destroyed
   if target.kind in {TownCenter, Castle, GuardTower, House} and target.garrisonedUnits.len > 0:
     var emptyTiles: seq[IVec2] = @[]
@@ -210,8 +209,8 @@ proc killAgent(env: Environment, victim: Thing) =
   victim.reward += env.config.deathPenalty
   let lanternCount = getInv(victim, ItemLantern)
   let relicCount = getInv(victim, ItemRelic)
-  if lanternCount > 0: setInv(victim, ItemLantern, 0)
-  if relicCount > 0: setInv(victim, ItemRelic, 0)
+  setInv(victim, ItemLantern, 0)
+  setInv(victim, ItemRelic, 0)
   let dropInv = victim.inventory
   let corpse = Thing(kind: (if dropInv.len > 0: Corpse else: Skeleton), pos: deathPos)
   corpse.inventory = dropInv
@@ -266,9 +265,9 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   let teamId = getTeamId(target)
   if teamId >= 0:
     for agent in env.agents:
-      if not isAgentAlive(env, agent) or getTeamId(agent) != teamId: continue
-      if agent.unitClass notin {UnitManAtArms, UnitKnight}: continue
-      if isThingFrozen(agent, env): continue
+      if not isAgentAlive(env, agent) or getTeamId(agent) != teamId or
+          agent.unitClass notin {UnitManAtArms, UnitKnight} or isThingFrozen(agent, env):
+        continue
       let radius = if agent.unitClass == UnitKnight: 2 else: 1
       if max(abs(agent.pos.x - target.pos.x), abs(agent.pos.y - target.pos.y)) <= radius:
         remaining = max(1, (remaining + 1) div 2)
@@ -281,7 +280,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
 
   if target.inventoryArmor > 0:
     let absorbed = min(remaining, target.inventoryArmor)
-    target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
+    target.inventoryArmor = target.inventoryArmor - absorbed
     remaining -= absorbed
 
   if remaining > 0:
