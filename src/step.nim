@@ -2377,7 +2377,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[3] = msBetweenPerfTiming(prfStart, prfNow)  # actions
     prfStart = prfNow
 
-  # Combined single-pass object updates and tumor collection
+  # Per-kind object updates: iterate each type separately for cache locality.
+  # Same-type objects share field access patterns, so grouping them avoids
+  # polymorphic dispatch overhead and reduces cache line waste from loading
+  # irrelevant fields of mixed-type objects.
   env.tempTumorsToSpawn.setLen(0)
   env.tempTumorsToProcess.setLen(0)
   env.tempTowerRemovals.setLen(0)
@@ -2392,167 +2395,176 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     env.wolfPackSumX[i] = 0
     env.wolfPackSumY[i] = 0
 
-  # Precompute team pop caps while scanning things
+  # Pop cap: only TownCenter and House contribute (buildingPopCap returns 0 for all others)
   var teamPopCaps: array[MapRoomObjectsTeams, int]
-  let thingsCount = env.things.len
-  for i in 0 ..< thingsCount:
-    let thing = env.things[i]
+  for thing in env.thingsByKind[TownCenter]:
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+      teamPopCaps[thing.teamId] += TownCenterPopCap
+  for thing in env.thingsByKind[House]:
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+      teamPopCaps[thing.teamId] += HousePopCap
+
+  # Defensive buildings: process tower attacks first to populate tempTowerRemovals
+  for thing in env.thingsByKind[GuardTower]:
+    env.stepTryTowerAttack(thing, GuardTowerRange, env.tempTowerRemovals)
+
+  for thing in env.thingsByKind[Castle]:
+    env.stepTryTowerAttack(thing, CastleRange, env.tempTowerRemovals)
+    if thing.cooldown > 0:
+      dec thing.cooldown
+    thing.processProductionQueue()
+
+  for thing in env.thingsByKind[TownCenter]:
+    env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
+    if thing.townBellActive:
+      for agent in env.agents:
+        if not isAgentAlive(env, agent):
+          continue
+        if getTeamId(agent) != thing.teamId:
+          continue
+        if agent.unitClass != UnitVillager:
+          continue
+        discard env.garrisonUnitInBuilding(agent, thing)
+      thing.townBellActive = false
+
+  # Resource and economy buildings
+  for thing in env.thingsByKind[Altar]:
+    if thing.cooldown > 0:
+      thing.cooldown -= 1
+    if env.currentStep >= env.config.maxSteps:
+      let altarHearts = thing.hearts.float32
+      for agent in env.agents:
+        if agent.homeAltar == thing.pos:
+          agent.reward += altarHearts / MapAgentsPerTeam.float32
+
+  for thing in env.thingsByKind[Magma]:
+    if thing.cooldown > 0:
+      dec thing.cooldown
+
+  for thing in env.thingsByKind[Mill]:
+    if thing.cooldown > 0:
+      thing.cooldown -= 1
+    else:
+      env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
+      thing.cooldown = MillFertileCooldown
+
+  for thing in env.thingsByKind[Temple]:
+    if thing.cooldown > 0:
+      dec thing.cooldown
+
+  for thing in env.thingsByKind[Monastery]:
+    if thing.garrisonedRelics > 0:
+      if thing.cooldown > 0:
+        dec thing.cooldown
+      else:
+        let teamId = thing.teamId
+        if teamId >= 0 and teamId < MapRoomObjectsTeams:
+          let goldAmount = thing.garrisonedRelics * MonasteryRelicGoldAmount
+          env.teamStockpiles[teamId].counts[ResourceGold] += goldAmount
+        thing.cooldown = MonasteryRelicGoldInterval
+    else:
+      if thing.cooldown > 0:
+        dec thing.cooldown
+    thing.processProductionQueue()
+
+  for thing in env.thingsByKind[Wonder]:
+    if thing.hp > 0 and thing.wonderVictoryCountdown > 0:
+      dec thing.wonderVictoryCountdown
+      if thing.wonderVictoryCountdown <= 0:
+        env.victoryWinner = thing.teamId
+
+  # Production/craft buildings: cooldown-only buildings
+  for kind in [ClayOven, WeavingLoom, Blacksmith, Market]:
+    for thing in env.thingsByKind[kind]:
+      if thing.cooldown > 0:
+        dec thing.cooldown
+
+  # Production buildings with training queues
+  for kind in [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Dock]:
+    for thing in env.thingsByKind[kind]:
+      if thing.cooldown > 0:
+        dec thing.cooldown
+      thing.processProductionQueue()
+
+  # Spawners: check tempTowerRemovals since towers can target spawners
+  for thing in env.thingsByKind[Spawner]:
     if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
       continue
-    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams and isBuildingKind(thing.kind):
-      let add = buildingPopCap(thing.kind)
-      if add > 0:
-        teamPopCaps[thing.teamId] += add
+    if thing.cooldown > 0:
+      thing.cooldown -= 1
+    else:
+      var nearbyTumorCount = 0
+      for offset in spawnerScanOffsets:
+        let checkPos = thing.pos + offset
+        if isValidPos(checkPos):
+          let other = env.getThing(checkPos)
+          if not isNil(other) and other.kind == Tumor and not other.hasClaimedTerritory:
+            inc nearbyTumorCount
 
-    if thing.kind == Altar:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-      # Combine altar heart reward calculation here
-      if env.currentStep >= env.config.maxSteps:  # Only at episode end
-        let altarHearts = thing.hearts.float32
-        for agent in env.agents:
-          if agent.homeAltar == thing.pos:
-            agent.reward += altarHearts / MapAgentsPerTeam.float32
-    elif thing.kind == Magma:
-      if thing.cooldown > 0:
-        dec thing.cooldown
-    elif thing.kind == Mill:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-      else:
-        env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
-        thing.cooldown = MillFertileCooldown
-    elif thing.kind == GuardTower:
-      env.stepTryTowerAttack(thing, GuardTowerRange, env.tempTowerRemovals)
-    elif thing.kind == Castle:
-      env.stepTryTowerAttack(thing, CastleRange, env.tempTowerRemovals)
-      if thing.cooldown > 0:
-        dec thing.cooldown
-      # Tick production queue (AoE2-style batch training)
-      thing.processProductionQueue()
-    elif thing.kind == TownCenter:
-      env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
-      # Process town bell: recall villagers when active
-      if thing.townBellActive:
-        # Gather villagers of this team and garrison them
-        for agent in env.agents:
-          if not isAgentAlive(env, agent):
-            continue
-          if getTeamId(agent) != thing.teamId:
-            continue
-          if agent.unitClass != UnitVillager:
-            continue
-          # Garrison villager if TC has space
-          discard env.garrisonUnitInBuilding(agent, thing)
-        thing.townBellActive = false  # Bell rings for one step
-    elif thing.kind == Temple:
-      if thing.cooldown > 0:
-        dec thing.cooldown
-    elif thing.kind == Monastery:
-      # Monastery generates gold from garrisoned relics
-      if thing.garrisonedRelics > 0:
-        if thing.cooldown > 0:
-          dec thing.cooldown
-        else:
-          # Generate gold for the team
-          let teamId = thing.teamId
-          if teamId >= 0 and teamId < MapRoomObjectsTeams:
-            let goldAmount = thing.garrisonedRelics * MonasteryRelicGoldAmount
-            env.teamStockpiles[teamId].counts[ResourceGold] += goldAmount
-          thing.cooldown = MonasteryRelicGoldInterval
-      else:
-        if thing.cooldown > 0:
-          dec thing.cooldown
-      # Tick production queue (AoE2-style batch training)
-      thing.processProductionQueue()
-    elif thing.kind == Wonder:
-      if thing.hp > 0 and thing.wonderVictoryCountdown > 0:
-        dec thing.wonderVictoryCountdown
-        if thing.wonderVictoryCountdown <= 0:
-          env.victoryWinner = thing.teamId
-    elif buildingUseKind(thing.kind) in {UseClayOven, UseWeavingLoom, UseBlacksmith, UseMarket,
-                                         UseTrain, UseTrainAndCraft, UseCraft}:
-      # All production buildings have simple cooldown
-      if thing.cooldown > 0:
-        dec thing.cooldown
-      # Tick production queue countdown (AoE2-style batch training)
-      if buildingHasTrain(thing.kind):
-        thing.processProductionQueue()
-    elif thing.kind == Spawner:
-      if thing.cooldown > 0:
-        thing.cooldown -= 1
-      else:
-        # Spawner is ready to spawn a Tumor
-        # Fast grid-based nearby Tumor count (5-tile radius)
-        var nearbyTumorCount = 0
-        for offset in spawnerScanOffsets:
-          let checkPos = thing.pos + offset
-          if isValidPos(checkPos):
-            let other = env.getThing(checkPos)
-            if not isNil(other) and other.kind == Tumor and not other.hasClaimedTerritory:
-              inc nearbyTumorCount
+      if nearbyTumorCount < MaxTumorsPerSpawner:
+        let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
+        if spawnPos.x >= 0:
 
-        # Spawn a new Tumor with reasonable limits to prevent unbounded growth
-        if nearbyTumorCount < MaxTumorsPerSpawner:
-          # Find first empty position (no allocation)
-          let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
-          if spawnPos.x >= 0:
+          let newTumor = createTumor(env, spawnPos, thing.pos, stepRng)
+          env.tempTumorsToSpawn.add(newTumor)
+          when defined(tumorAudit):
+            recordTumorSpawned()
 
-            let newTumor = createTumor(env, spawnPos, thing.pos, stepRng)
-            # Don't add immediately - collect for later
-            env.tempTumorsToSpawn.add(newTumor)
-            when defined(tumorAudit):
-              recordTumorSpawned()
+          let cooldown = if env.config.tumorSpawnRate > 0.0:
+            max(1, int(TumorSpawnCooldownBase / env.config.tumorSpawnRate))
+          else:
+            TumorSpawnDisabledCooldown
+          thing.cooldown = cooldown
 
-            # Reset spawner cooldown based on spawn rate
-            # Convert spawn rate (0.0-1.0) to cooldown steps (higher rate = lower cooldown)
-            let cooldown = if env.config.tumorSpawnRate > 0.0:
-              max(1, int(TumorSpawnCooldownBase / env.config.tumorSpawnRate))
-            else:
-              TumorSpawnDisabledCooldown
-            thing.cooldown = cooldown
-    elif thing.kind == Cow:
-      let herd = thing.herdId
-      if herd >= env.cowHerdCounts.len:
-        let oldLen = env.cowHerdCounts.len
-        let newLen = herd + 1
-        env.cowHerdCounts.setLen(newLen)
-        env.cowHerdSumX.setLen(newLen)
-        env.cowHerdSumY.setLen(newLen)
-        env.cowHerdDrift.setLen(newLen)
-        env.cowHerdTargets.setLen(newLen)
-        for i in oldLen ..< newLen:
-          env.cowHerdTargets[i] = ivec2(-1, -1)
-      env.cowHerdCounts[herd] += 1
-      env.cowHerdSumX[herd] += thing.pos.x.int
-      env.cowHerdSumY[herd] += thing.pos.y.int
-    elif thing.kind == Wolf:
-      let pack = thing.packId
-      if pack >= env.wolfPackCounts.len:
-        let oldLen = env.wolfPackCounts.len
-        let newLen = pack + 1
-        env.wolfPackCounts.setLen(newLen)
-        env.wolfPackSumX.setLen(newLen)
-        env.wolfPackSumY.setLen(newLen)
-        env.wolfPackDrift.setLen(newLen)
-        env.wolfPackTargets.setLen(newLen)
-        for i in oldLen ..< newLen:
-          env.wolfPackTargets[i] = ivec2(-1, -1)
-      env.wolfPackCounts[pack] += 1
-      env.wolfPackSumX[pack] += thing.pos.x.int
-      env.wolfPackSumY[pack] += thing.pos.y.int
-    elif thing.kind == Agent:
-      if thing.frozen > 0:
-        thing.frozen -= 1
-      # Trebuchet pack/unpack transition: decrement cooldown and toggle state when complete
-      if thing.unitClass == UnitTrebuchet and thing.cooldown > 0:
-        thing.cooldown -= 1
-        if thing.cooldown == 0:
-          thing.packed = not thing.packed
-    elif thing.kind == Tumor:
-      # Only collect mobile clippies for processing (planted ones are static)
-      if not thing.hasClaimedTerritory:
-        env.tempTumorsToProcess.add(thing)
+  # Cow herd aggregation
+  for thing in env.thingsByKind[Cow]:
+    let herd = thing.herdId
+    if herd >= env.cowHerdCounts.len:
+      let oldLen = env.cowHerdCounts.len
+      let newLen = herd + 1
+      env.cowHerdCounts.setLen(newLen)
+      env.cowHerdSumX.setLen(newLen)
+      env.cowHerdSumY.setLen(newLen)
+      env.cowHerdDrift.setLen(newLen)
+      env.cowHerdTargets.setLen(newLen)
+      for i in oldLen ..< newLen:
+        env.cowHerdTargets[i] = ivec2(-1, -1)
+    env.cowHerdCounts[herd] += 1
+    env.cowHerdSumX[herd] += thing.pos.x.int
+    env.cowHerdSumY[herd] += thing.pos.y.int
+
+  # Wolf pack aggregation
+  for thing in env.thingsByKind[Wolf]:
+    let pack = thing.packId
+    if pack >= env.wolfPackCounts.len:
+      let oldLen = env.wolfPackCounts.len
+      let newLen = pack + 1
+      env.wolfPackCounts.setLen(newLen)
+      env.wolfPackSumX.setLen(newLen)
+      env.wolfPackSumY.setLen(newLen)
+      env.wolfPackDrift.setLen(newLen)
+      env.wolfPackTargets.setLen(newLen)
+      for i in oldLen ..< newLen:
+        env.wolfPackTargets[i] = ivec2(-1, -1)
+    env.wolfPackCounts[pack] += 1
+    env.wolfPackSumX[pack] += thing.pos.x.int
+    env.wolfPackSumY[pack] += thing.pos.y.int
+
+  # Agent state ticks (frozen, trebuchet cooldown)
+  for thing in env.thingsByKind[Agent]:
+    if thing.frozen > 0:
+      thing.frozen -= 1
+    if thing.unitClass == UnitTrebuchet and thing.cooldown > 0:
+      thing.cooldown -= 1
+      if thing.cooldown == 0:
+        thing.packed = not thing.packed
+
+  # Tumor collection: check tempTowerRemovals since towers can target tumors
+  for thing in env.thingsByKind[Tumor]:
+    if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
+      continue
+    if not thing.hasClaimedTerritory:
+      env.tempTumorsToProcess.add(thing)
 
   for teamId in 0 ..< teamPopCaps.len:
     if teamPopCaps[teamId] > MapAgentsPerTeam:
