@@ -849,3 +849,310 @@ proc tribal_village_get_territory_scored_tiles*(env: pointer): int32 {.exportc, 
 proc tribal_village_get_num_teams*(): int32 {.exportc, dynlib.} =
   ## Get the number of teams (MapRoomObjectsTeams).
   MapRoomObjectsTeams.int32
+
+# ============== Tech Tree State Query FFI Functions ==============
+# These functions allow Python to query all tech tree state:
+# - Blacksmith upgrades (15 upgrades: 5 lines x 3 tiers)
+# - University techs (9 technologies)
+# - Castle unique techs (16 techs: 2 per team x 8 teams)
+# - Unit promotion chains (6 upgrades: 3 lines x 2 tiers)
+
+# --- Tech Tree Type Counts ---
+
+proc tribal_village_get_num_blacksmith_upgrade_types*(): int32 {.exportc, dynlib.} =
+  ## Get the number of Blacksmith upgrade types (5 lines).
+  int32(ord(BlacksmithUpgradeType.high) + 1)
+
+proc tribal_village_get_num_university_tech_types*(): int32 {.exportc, dynlib.} =
+  ## Get the number of University tech types (9 techs).
+  int32(ord(UniversityTechType.high) + 1)
+
+proc tribal_village_get_num_castle_tech_types*(): int32 {.exportc, dynlib.} =
+  ## Get the number of Castle unique tech types (16 techs, 2 per team).
+  int32(ord(CastleTechType.high) + 1)
+
+proc tribal_village_get_num_unit_upgrade_types*(): int32 {.exportc, dynlib.} =
+  ## Get the number of unit upgrade types (6 upgrades).
+  int32(ord(UnitUpgradeType.high) + 1)
+
+# --- Blacksmith Constants ---
+
+proc tribal_village_get_blacksmith_max_level*(): int32 {.exportc, dynlib.} =
+  ## Get the maximum Blacksmith upgrade level (3 = fully upgraded).
+  BlacksmithUpgradeMaxLevel.int32
+
+# --- Unit Upgrade Queries ---
+
+proc tribal_village_get_unit_upgrade_prerequisite*(upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Get the prerequisite upgrade for a unit upgrade.
+  ## Returns the upgradeType ordinal that must be researched first.
+  ## If the upgrade has no prerequisite, returns itself.
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return -1
+  let upgrade = UnitUpgradeType(upgradeType)
+  ord(upgradePrerequisite(upgrade)).int32
+
+proc tribal_village_get_unit_upgrade_source_unit*(upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Get the unit class that gets upgraded (the source unit).
+  ## Returns AgentUnitClass ordinal.
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return -1
+  let upgrade = UnitUpgradeType(upgradeType)
+  ord(upgradeSourceUnit(upgrade)).int32
+
+proc tribal_village_get_unit_upgrade_target_unit*(upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Get the unit class that results from the upgrade (the target unit).
+  ## Returns AgentUnitClass ordinal.
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return -1
+  let upgrade = UnitUpgradeType(upgradeType)
+  ord(upgradeTargetUnit(upgrade)).int32
+
+proc tribal_village_get_unit_upgrade_building*(upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Get the building where this upgrade is researched.
+  ## Returns ThingKind ordinal.
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return -1
+  let upgrade = UnitUpgradeType(upgradeType)
+  ord(upgradeBuilding(upgrade)).int32
+
+# --- Castle Tech Team Mapping ---
+
+proc tribal_village_get_castle_tech_for_team*(teamId: int32, isImperial: int32): int32 {.exportc, dynlib.} =
+  ## Get the Castle unique tech for a team.
+  ## isImperial: 0 = Castle Age tech, 1 = Imperial Age tech.
+  ## Returns the CastleTechType ordinal.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return -1
+  let (castleTech, imperialTech) = castleTechsForTeam(teamId)
+  if isImperial != 0:
+    ord(imperialTech).int32
+  else:
+    ord(castleTech).int32
+
+# --- Cost Queries ---
+
+proc tribal_village_get_blacksmith_upgrade_cost*(env: pointer, teamId: int32, upgradeType: int32,
+    outFood: ptr int32, outGold: ptr int32): int32 {.exportc, dynlib.} =
+  ## Get the cost to research the next level of a Blacksmith upgrade.
+  ## Cost scales with current level: (level + 1) * base cost.
+  ## Returns 1 if valid, 0 if invalid or already maxed.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if upgradeType < 0 or upgradeType > ord(BlacksmithUpgradeType.high).int32:
+    return 0
+  let currentLevel = globalEnv.teamBlacksmithUpgrades[teamId].levels[BlacksmithUpgradeType(upgradeType)]
+  if currentLevel >= BlacksmithUpgradeMaxLevel:
+    return 0  # Already maxed
+  let costMultiplier = currentLevel + 1
+  if not outFood.isNil:
+    outFood[] = int32(BlacksmithUpgradeFoodCost * costMultiplier)
+  if not outGold.isNil:
+    outGold[] = int32(BlacksmithUpgradeGoldCost * costMultiplier)
+  1
+
+proc tribal_village_get_university_tech_cost*(techType: int32,
+    outFood: ptr int32, outGold: ptr int32, outWood: ptr int32): int32 {.exportc, dynlib.} =
+  ## Get the cost to research a University tech.
+  ## Cost scales with tech index: (techIndex + 1) * base cost.
+  ## Returns 1 if valid, 0 if invalid.
+  if techType < 0 or techType > ord(UniversityTechType.high).int32:
+    return 0
+  let techIndex = techType + 1  # 1-based for cost calculation
+  if not outFood.isNil:
+    outFood[] = int32(UniversityTechFoodCost * techIndex)
+  if not outGold.isNil:
+    outGold[] = int32(UniversityTechGoldCost * techIndex)
+  if not outWood.isNil:
+    outWood[] = int32(UniversityTechWoodCost * techIndex)
+  1
+
+proc tribal_village_get_castle_tech_cost*(teamId: int32, techType: int32,
+    outFood: ptr int32, outGold: ptr int32): int32 {.exportc, dynlib.} =
+  ## Get the cost to research a Castle unique tech.
+  ## Imperial Age techs cost more than Castle Age techs.
+  ## Returns 1 if valid, 0 if invalid.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if techType < 0 or techType > ord(CastleTechType.high).int32:
+    return 0
+  let (castleTech, _) = castleTechsForTeam(teamId)
+  let isImperial = CastleTechType(techType) != castleTech
+  if not outFood.isNil:
+    outFood[] = if isImperial: CastleTechImperialFoodCost.int32 else: CastleTechFoodCost.int32
+  if not outGold.isNil:
+    outGold[] = if isImperial: CastleTechImperialGoldCost.int32 else: CastleTechGoldCost.int32
+  1
+
+proc tribal_village_get_unit_upgrade_cost*(upgradeType: int32,
+    outFood: ptr int32, outGold: ptr int32): int32 {.exportc, dynlib.} =
+  ## Get the cost to research a unit upgrade.
+  ## Tier-2 upgrades (LongSwordsman, LightCavalry, Crossbowman) cost less than
+  ## Tier-3 upgrades (Champion, Hussar, Arbalester).
+  ## Returns 1 if valid, 0 if invalid.
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return 0
+  let upgrade = UnitUpgradeType(upgradeType)
+  let costs = upgradeCosts(upgrade)
+  if not outFood.isNil:
+    outFood[] = 0
+    for (res, count) in costs:
+      if res == ResourceFood:
+        outFood[] = count.int32
+  if not outGold.isNil:
+    outGold[] = 0
+    for (res, count) in costs:
+      if res == ResourceGold:
+        outGold[] = count.int32
+  1
+
+# --- Next Upgrade/Tech Queries ---
+
+proc tribal_village_get_next_blacksmith_upgrade*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Get the next Blacksmith upgrade to research (lowest level across all types).
+  ## Returns the BlacksmithUpgradeType ordinal.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return -1
+  var minLevel = BlacksmithUpgradeMaxLevel + 1
+  var result = UpgradeMeleeAttack
+  for upgradeType in BlacksmithUpgradeType:
+    let level = globalEnv.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+    if level < minLevel:
+      minLevel = level
+      result = upgradeType
+  ord(result).int32
+
+proc tribal_village_get_next_university_tech*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Get the next unresearched University tech (in order).
+  ## Returns the UniversityTechType ordinal, or -1 if all researched.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return -1
+  for techType in UniversityTechType:
+    if not globalEnv.teamUniversityTechs[teamId].researched[techType]:
+      return ord(techType).int32
+  -1  # All researched
+
+proc tribal_village_get_next_castle_tech*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Get the next unresearched Castle tech for the team.
+  ## Returns the CastleTechType ordinal, or -1 if all researched.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return -1
+  let (castleTech, imperialTech) = castleTechsForTeam(teamId)
+  if not globalEnv.teamCastleTechs[teamId].researched[castleTech]:
+    return ord(castleTech).int32
+  if not globalEnv.teamCastleTechs[teamId].researched[imperialTech]:
+    return ord(imperialTech).int32
+  -1  # All researched
+
+proc tribal_village_get_next_unit_upgrade*(env: pointer, teamId: int32, buildingKind: int32): int32 {.exportc, dynlib.} =
+  ## Get the next available unit upgrade for a building type.
+  ## Returns the UnitUpgradeType ordinal, or -1 if none available.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return -1
+  if buildingKind < 0 or buildingKind > ord(ThingKind.high):
+    return -1
+  let kind = ThingKind(buildingKind)
+  for upgrade in UnitUpgradeType:
+    if upgradeBuilding(upgrade) != kind:
+      continue
+    if globalEnv.teamUnitUpgrades[teamId].researched[upgrade]:
+      continue
+    # Check prerequisite
+    let prereq = upgradePrerequisite(upgrade)
+    if prereq != upgrade and not globalEnv.teamUnitUpgrades[teamId].researched[prereq]:
+      continue
+    return ord(upgrade).int32
+  -1  # No upgrades available
+
+# --- Can Research Queries (checks both resources and prerequisites) ---
+
+proc tribal_village_can_research_blacksmith_upgrade*(env: pointer, teamId: int32, upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a team can research a specific Blacksmith upgrade.
+  ## Checks: not maxed, has resources.
+  ## Returns 1 if can research, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if upgradeType < 0 or upgradeType > ord(BlacksmithUpgradeType.high).int32:
+    return 0
+  let currentLevel = globalEnv.teamBlacksmithUpgrades[teamId].levels[BlacksmithUpgradeType(upgradeType)]
+  if currentLevel >= BlacksmithUpgradeMaxLevel:
+    return 0
+  let costMultiplier = currentLevel + 1
+  let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
+  let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
+  if globalEnv.teamStockpiles[teamId].counts[ResourceFood] >= foodCost and
+     globalEnv.teamStockpiles[teamId].counts[ResourceGold] >= goldCost:
+    1
+  else:
+    0
+
+proc tribal_village_can_research_university_tech*(env: pointer, teamId: int32, techType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a team can research a specific University tech.
+  ## Checks: not already researched, has resources.
+  ## Returns 1 if can research, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if techType < 0 or techType > ord(UniversityTechType.high).int32:
+    return 0
+  if globalEnv.teamUniversityTechs[teamId].researched[UniversityTechType(techType)]:
+    return 0
+  let techIndex = techType + 1
+  let foodCost = UniversityTechFoodCost * techIndex
+  let goldCost = UniversityTechGoldCost * techIndex
+  let woodCost = UniversityTechWoodCost * techIndex
+  if globalEnv.teamStockpiles[teamId].counts[ResourceFood] >= foodCost and
+     globalEnv.teamStockpiles[teamId].counts[ResourceGold] >= goldCost and
+     globalEnv.teamStockpiles[teamId].counts[ResourceWood] >= woodCost:
+    1
+  else:
+    0
+
+proc tribal_village_can_research_castle_tech*(env: pointer, teamId: int32, techType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a team can research a specific Castle tech.
+  ## Checks: not already researched, correct team, has resources, prerequisite met.
+  ## Returns 1 if can research, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if techType < 0 or techType > ord(CastleTechType.high).int32:
+    return 0
+  let tech = CastleTechType(techType)
+  if globalEnv.teamCastleTechs[teamId].researched[tech]:
+    return 0
+  # Check if this tech belongs to the team
+  let (castleTech, imperialTech) = castleTechsForTeam(teamId)
+  if tech != castleTech and tech != imperialTech:
+    return 0  # Not this team's tech
+  # Imperial tech requires Castle tech first
+  if tech == imperialTech and not globalEnv.teamCastleTechs[teamId].researched[castleTech]:
+    return 0
+  let isImperial = tech == imperialTech
+  let foodCost = if isImperial: CastleTechImperialFoodCost else: CastleTechFoodCost
+  let goldCost = if isImperial: CastleTechImperialGoldCost else: CastleTechGoldCost
+  if globalEnv.teamStockpiles[teamId].counts[ResourceFood] >= foodCost and
+     globalEnv.teamStockpiles[teamId].counts[ResourceGold] >= goldCost:
+    1
+  else:
+    0
+
+proc tribal_village_can_research_unit_upgrade*(env: pointer, teamId: int32, upgradeType: int32): int32 {.exportc, dynlib.} =
+  ## Check if a team can research a specific unit upgrade.
+  ## Checks: not already researched, prerequisite met, has resources.
+  ## Returns 1 if can research, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if upgradeType < 0 or upgradeType > ord(UnitUpgradeType.high).int32:
+    return 0
+  let upgrade = UnitUpgradeType(upgradeType)
+  if globalEnv.teamUnitUpgrades[teamId].researched[upgrade]:
+    return 0
+  # Check prerequisite
+  let prereq = upgradePrerequisite(upgrade)
+  if prereq != upgrade and not globalEnv.teamUnitUpgrades[teamId].researched[prereq]:
+    return 0
+  let costs = upgradeCosts(upgrade)
+  var canAfford = true
+  for (res, count) in costs:
+    if globalEnv.teamStockpiles[teamId].counts[res] < count:
+      canAfford = false
+      break
+  if canAfford: 1 else: 0
