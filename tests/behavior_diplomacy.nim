@@ -4,6 +4,63 @@ import types
 import items
 import test_utils
 
+suite "Behavior: Team Bitmask Operations":
+  test "team masks are correct for all teams":
+    check TeamMasks[0] == 0b00000001'u8
+    check TeamMasks[1] == 0b00000010'u8
+    check TeamMasks[2] == 0b00000100'u8
+    check TeamMasks[3] == 0b00001000'u8
+    check TeamMasks[4] == 0b00010000'u8
+    check TeamMasks[5] == 0b00100000'u8
+    check TeamMasks[6] == 0b01000000'u8
+    check TeamMasks[7] == 0b10000000'u8
+    check TeamMasks[8] == 0b00000000'u8  # Goblins/invalid
+
+  test "getTeamMask returns correct mask for valid teams":
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      let mask = getTeamMask(teamId)
+      check mask == (1'u8 shl teamId)
+      echo fmt"  Team {teamId}: mask = 0b{mask:08b}"
+
+  test "getTeamMask returns NoTeamMask for invalid teams":
+    check getTeamMask(-1) == NoTeamMask
+    check getTeamMask(MapRoomObjectsTeams) == NoTeamMask
+    check getTeamMask(100) == NoTeamMask
+
+  test "sameTeamMask works correctly for agents":
+    let env = makeEmptyEnv()
+    let a0 = addAgentAt(env, 0, ivec2(10, 10))
+    let a1 = addAgentAt(env, 1, ivec2(10, 11))
+    let a2 = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 12))
+    # Same team
+    check sameTeamMask(a0, a1) == true
+    check getTeamMask(a0) == getTeamMask(a1)
+    # Different teams
+    check sameTeamMask(a0, a2) == false
+    check (getTeamMask(a0) and getTeamMask(a2)) == 0'u8
+    echo fmt"  a0 mask={getTeamMask(a0):08b}, a1 mask={getTeamMask(a1):08b}, a2 mask={getTeamMask(a2):08b}"
+
+  test "isEnemyMask works correctly for agents":
+    let env = makeEmptyEnv()
+    let a0 = addAgentAt(env, 0, ivec2(10, 10))
+    let a1 = addAgentAt(env, 1, ivec2(10, 11))
+    let a2 = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 12))
+    # Same team - not enemies
+    check isEnemyMask(a0, a1) == false
+    # Different teams - are enemies
+    check isEnemyMask(a0, a2) == true
+    check isEnemyMask(a1, a2) == true
+
+  test "teamsShareMask with alliance masks":
+    # Simulate alliance between teams 0, 1, 2
+    let allianceMask: TeamMask = TeamMasks[0] or TeamMasks[1] or TeamMasks[2]
+    check isTeamInMask(0, allianceMask) == true
+    check isTeamInMask(1, allianceMask) == true
+    check isTeamInMask(2, allianceMask) == true
+    check isTeamInMask(3, allianceMask) == false
+    check isTeamInMask(7, allianceMask) == false
+    echo fmt"  Alliance mask 0|1|2: 0b{allianceMask:08b}"
+
 suite "Behavior: Team Identity and Membership":
   test "agents on same team share team ID":
     let env = makeEmptyEnv()

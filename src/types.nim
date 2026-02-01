@@ -119,10 +119,61 @@ const
   # Compile-time optimization constants
   ObservationRadius* = ObservationWidth div 2  # 5 - computed once
 
+type
+  ## Team bitmask for O(1) team membership checks
+  ## Each team (0-7) is represented by a single bit: Team N = 1 << N
+  ## This enables bitwise operations for alliance/visibility checks
+  TeamMask* = uint8
+
+const
+  ## Pre-computed team masks for teams 0-7
+  ## TeamMasks[N] = 1 << N, with special case for invalid teams
+  TeamMasks*: array[MapRoomObjectsTeams + 1, TeamMask] = [
+    0b00000001'u8,  # Team 0
+    0b00000010'u8,  # Team 1
+    0b00000100'u8,  # Team 2
+    0b00001000'u8,  # Team 3
+    0b00010000'u8,  # Team 4
+    0b00100000'u8,  # Team 5
+    0b01000000'u8,  # Team 6
+    0b10000000'u8,  # Team 7
+    0b00000000'u8   # Goblins/invalid (no team affiliation)
+  ]
+
+  ## Mask with all valid teams set (for alliance systems)
+  AllTeamsMask*: TeamMask = 0b11111111'u8
+
+  ## Empty mask (no team affiliation)
+  NoTeamMask*: TeamMask = 0b00000000'u8
+
 {.push inline.}
 proc getTeamId*(agentId: int): int =
   ## Inline team ID calculation - frequently used
   agentId div MapAgentsPerTeam
+
+proc getTeamMask*(teamId: int): TeamMask =
+  ## Convert team ID to bitmask for O(1) bitwise team checks.
+  ## Returns NoTeamMask for invalid team IDs (< 0 or >= MapRoomObjectsTeams).
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    TeamMasks[teamId]
+  else:
+    NoTeamMask
+
+proc getTeamMaskFromAgentId*(agentId: int): TeamMask =
+  ## Get team mask directly from agent ID (combines getTeamId + getTeamMask).
+  let teamId = agentId div MapAgentsPerTeam
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    TeamMasks[teamId]
+  else:
+    NoTeamMask
+
+proc isTeamInMask*(teamId: int, mask: TeamMask): bool =
+  ## Check if a team is included in a bitmask. O(1) operation.
+  (getTeamMask(teamId) and mask) != 0
+
+proc teamsShareMask*(maskA, maskB: TeamMask): bool =
+  ## Check if two masks have any overlapping teams (for alliance checks).
+  (maskA and maskB) != 0
 
 
 template isValidPos*(pos: IVec2): bool =
@@ -621,6 +672,30 @@ proc getTeamId*(agent: Thing): int =
     agent.teamIdOverride
   else:
     getTeamId(agent.agentId)
+
+proc getTeamMask*(agent: Thing): TeamMask =
+  ## Get team bitmask for a Thing. Respects conversions.
+  ## Returns NoTeamMask for nil agents or invalid teams.
+  if agent.isNil:
+    return NoTeamMask
+  getTeamMask(getTeamId(agent))
+
+proc sameTeamMask*(a, b: Thing): bool =
+  ## Check if two Things are on the same team using bitwise AND.
+  ## More efficient than getTeamId comparison when masks are cached.
+  if a.isNil or b.isNil:
+    return false
+  (getTeamMask(a) and getTeamMask(b)) != 0
+
+proc isEnemyMask*(a, b: Thing): bool =
+  ## Check if two Things are enemies (different valid teams) using bitwise ops.
+  ## Returns false if either is nil or has invalid team.
+  if a.isNil or b.isNil:
+    return false
+  let maskA = getTeamMask(a)
+  let maskB = getTeamMask(b)
+  # Both must have valid teams, and they must be different
+  maskA != NoTeamMask and maskB != NoTeamMask and (maskA and maskB) == 0
 
 const
   BaseTileColorDefault* = TileColor(r: 0.7, g: 0.65, b: 0.6, intensity: 1.0)

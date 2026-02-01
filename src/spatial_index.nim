@@ -426,12 +426,16 @@ proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
 proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
                                        kind: ThingKind, maxDist: int): Thing =
   ## Find nearest team-owned thing of a given kind using spatial index.
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   result = nil
   var minDist = int.high
   let cellSz = effectiveCellSize()
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
 
   forEachInRadius(env, pos, kind, maxDist, thing):
-    if thing.teamId != teamId:
+    # Bitwise team check: compare thing's team mask with expected mask
+    # For buildings, use thing.teamId directly (not all buildings are agents)
+    if (getTeamMask(thing.teamId) and teamMask) == 0:
       continue
     # Skip things with invalid positions to prevent overflow in distance calculation
     if not isValidPos(thing.pos):
@@ -453,14 +457,17 @@ proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxDist: int): Thing =
   ## Find nearest enemy agent (alive, different team) using spatial index.
   ## Uses Chebyshev distance for consistency with game mechanics.
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   result = nil
   var minDist = int.high
   let cellSz = effectiveCellSize()
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
 
   forEachInRadius(env, pos, Agent, maxDist, thing):
     if not isAgentAlive(env, thing):
       continue
-    if getTeamId(thing) == teamId:
+    # Bitwise team check: (thingMask and teamMask) == 0 means different team
+    if (getTeamMask(thing) and teamMask) != 0:
       continue
     # Skip things with invalid positions to prevent overflow in distance calculation
     if not isValidPos(thing.pos):
@@ -482,14 +489,17 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                       minRange, maxRange: int): Thing =
   ## Find nearest enemy agent in [minRange, maxRange] Chebyshev distance.
   ## Used by towers and buildings with minimum attack ranges.
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   result = nil
   var bestDist = int.high
   let cellSz = effectiveCellSize()
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
 
   forEachInRadius(env, pos, Agent, maxRange, thing):
     if not isAgentAlive(env, thing):
       continue
-    if getTeamId(thing) == teamId:
+    # Bitwise team check: (thingMask and teamMask) == 0 means different team
+    if (getTeamMask(thing) and teamMask) != 0:
       continue
     # Skip things with invalid positions to prevent overflow in distance calculation
     if not isValidPos(thing.pos):
@@ -511,12 +521,15 @@ proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxRange: int, targets: var seq[Thing]) =
   ## Collect all enemy agents within maxRange Chebyshev distance.
   ## Used by town centers that need to fire at multiple targets.
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   when defined(spatialStats):
     let prevLen = targets.len
   forEachInRadius(env, pos, Agent, maxRange, thing):
     if not isAgentAlive(env, thing):
       continue
-    if getTeamId(thing) == teamId:
+    # Bitwise team check: (thingMask and teamMask) == 0 means different team
+    if (getTeamMask(thing) and teamMask) != 0:
       continue
     # Skip things with invalid positions to prevent overflow in distance calculation
     if not isValidPos(thing.pos):
@@ -536,12 +549,15 @@ proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
 proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxRange: int, allies: var seq[Thing]) =
   ## Collect all allied agents within maxRange Chebyshev distance.
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   when defined(spatialStats):
     let prevLen = allies.len
   forEachInRadius(env, pos, Agent, maxRange, thing):
     if not isAgentAlive(env, thing):
       continue
-    if getTeamId(thing) != teamId:
+    # Bitwise team check: (thingMask and teamMask) != 0 means same team
+    if (getTeamMask(thing) and teamMask) == 0:
       continue
     # Skip things with invalid positions to prevent overflow in distance calculation
     if not isValidPos(thing.pos):

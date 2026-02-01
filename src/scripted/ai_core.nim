@@ -645,7 +645,9 @@ proc neighborDirIndex*(fromPos, toPos: IVec2): int =
 
 
 proc sameTeam*(agentA, agentB: Thing): bool =
-  getTeamId(agentA) == getTeamId(agentB)
+  ## Check if two Things are on the same team using bitwise mask comparison.
+  ## Uses O(1) bitwise AND operation for efficiency in hot paths.
+  sameTeamMask(agentA, agentB)
 
 proc getBasePos*(agent: Thing): IVec2 =
   ## Return the agent's home altar position if valid, otherwise the agent's current position.

@@ -33,9 +33,11 @@ proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
 proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   ## Check if an enemy is close enough to any ally to be considered a threat.
   ## Uses spatial index instead of scanning all agents.
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   let (cx, cy) = cellCoords(enemy.pos)
   let clampedMax = min(AllyThreatRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
   let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
       let nx = cx + ddx
@@ -45,7 +47,8 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
       for other in env.spatialIndex.kindCells[Agent][nx][ny]:
         if other.isNil or not isAgentAlive(env, other):
           continue
-        if getTeamId(other) != teamId:
+        # Bitwise team check: (otherMask and teamMask) != 0 means same team
+        if (getTeamMask(other) and teamMask) == 0:
           continue
         if int(chebyshevDist(enemy.pos, other.pos)) <= AllyThreatRadius:
           return true
@@ -764,7 +767,8 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
   ## Optimized: scans grid within KiteTriggerDistance+2 radius first, expanding if needed.
-  let teamId = getTeamId(agent)
+  ## Uses bitwise team mask comparison for O(1) team checks.
+  let teamMask = getTeamMask(agent)  # Pre-compute for bitwise checks
   var bestEnemy: Thing = nil
   var bestDist = int.high
   # Kiting only triggers at KiteTriggerDistance, so search a modest radius
@@ -782,7 +786,8 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
         continue
       if not isAgentAlive(env, other):
         continue
-      if getTeamId(other) == teamId:
+      # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
+      if (getTeamMask(other) and teamMask) != 0:
         continue
       if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat, UnitTradeCog}:
         continue
@@ -809,7 +814,9 @@ proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening
   ## Find the nearest enemy siege unit (BatteringRam or Mangonel)
   ## If prioritizeThreatening is true, prefer siege units near friendly structures
   ## Optimized: scans grid within AntiSiegeDetectionRadius instead of all agents.
+  ## Uses bitwise team mask comparison for O(1) team checks.
   let teamId = getTeamId(agent)
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   var bestEnemy: Thing = nil
   var bestDist = int.high
   var bestThreatening = false
@@ -828,7 +835,8 @@ proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening
         continue
       if not isAgentAlive(env, other):
         continue
-      if getTeamId(other) == teamId:
+      # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
+      if (getTeamMask(other) and teamMask) != 0:
         continue
       if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
         continue
