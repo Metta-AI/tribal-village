@@ -1,5 +1,6 @@
 # This file is included by src/environment.nim
 # std/os is already imported by console_viz.nim (included before this file)
+import std/strutils
 
 when defined(rewardBatch):
   import std/monotimes
@@ -32,7 +33,6 @@ proc parseEnvInt(raw: string, fallback: int): int =
 
 when defined(stepTiming):
   import std/monotimes
-  import std/strutils
 
   let stepTimingTarget = parseEnvInt(getEnv("TV_STEP_TIMING", ""), -1)
   let stepTimingWindow = parseEnvInt(getEnv("TV_STEP_TIMING_WINDOW", "0"), 0)
