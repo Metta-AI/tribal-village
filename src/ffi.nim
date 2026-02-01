@@ -870,6 +870,37 @@ proc tribal_village_set_difficulty_level*(env: pointer, teamId: int32, level: in
     return
   globalController.aiController.setDifficulty(teamId.int, DifficultyLevel(level))
 
+proc tribal_village_get_difficulty*(env: pointer, teamId: int32): float32 {.exportc, dynlib.} =
+  ## Get the difficulty for a team as a float.
+  ## Returns: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1.0'f32  # Default to Normal
+  if isNil(globalController) or isNil(globalController.aiController):
+    return 1.0'f32
+  float32(ord(globalController.aiController.getDifficulty(teamId.int).level))
+
+proc tribal_village_set_difficulty*(env: pointer, teamId: int32, difficulty: float32) {.exportc, dynlib.} =
+  ## Set the difficulty for a team using a float value.
+  ## difficulty: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal (rounded to nearest)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if isNil(globalController) or isNil(globalController.aiController):
+    return
+  let levelInt = clamp(int(difficulty + 0.5), 0, ord(DifficultyLevel.high))
+  globalController.aiController.setDifficulty(teamId.int, DifficultyLevel(levelInt))
+
+proc tribal_village_set_adaptive_difficulty*(env: pointer, teamId: int32, enabled: int32) {.exportc, dynlib.} =
+  ## Enable or disable adaptive difficulty for a team.
+  ## enabled: 1=enable (with default 0.5 territory target), 0=disable
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if isNil(globalController) or isNil(globalController.aiController):
+    return
+  if enabled != 0:
+    globalController.aiController.enableAdaptiveDifficulty(teamId.int, 0.5'f32)
+  else:
+    globalController.aiController.disableAdaptiveDifficulty(teamId.int)
+
 proc tribal_village_get_decision_delay_chance*(env: pointer, teamId: int32): float32 {.exportc, dynlib.} =
   ## Get the decision delay chance for a team (0.0-1.0).
   if teamId < 0 or teamId >= MapRoomObjectsTeams:

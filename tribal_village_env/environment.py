@@ -275,6 +275,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             # AI difficulty control
             ("tribal_village_get_difficulty_level", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_set_difficulty_level", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
+            ("tribal_village_get_difficulty", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_float, True),
+            ("tribal_village_set_difficulty", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_float], None, True),
+            ("tribal_village_set_adaptive_difficulty", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
             ("tribal_village_get_decision_delay_chance", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_float, True),
             ("tribal_village_set_decision_delay_chance", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_float], None, True),
             ("tribal_village_enable_adaptive_difficulty", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_float], None, True),
@@ -484,6 +487,43 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             return
         level_idx = self.DIFFICULTY_LEVELS.index(level) if level in self.DIFFICULTY_LEVELS else 1
         fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(level_idx))
+
+    def get_difficulty(self, team_id: int) -> float:
+        """Get the difficulty for a team as a float.
+
+        Returns: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal
+        """
+        fn = getattr(self.lib, "tribal_village_get_difficulty", None)
+        if fn is None:
+            return 1.0
+        return fn(self.env_ptr, ctypes.c_int32(team_id))
+
+    def set_difficulty(self, team_id: int, difficulty: float) -> None:
+        """Set the difficulty for a team using a float value.
+
+        Args:
+            team_id: The team ID
+            difficulty: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal (rounded to nearest)
+        """
+        fn = getattr(self.lib, "tribal_village_set_difficulty", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(difficulty))
+
+    def set_adaptive_difficulty(self, team_id: int, enabled: bool) -> None:
+        """Enable or disable adaptive difficulty for a team.
+
+        When enabled, uses a default target territory of 0.5 (balanced).
+        Use enable_adaptive_difficulty() if you need a custom target.
+
+        Args:
+            team_id: The team ID
+            enabled: True to enable, False to disable
+        """
+        fn = getattr(self.lib, "tribal_village_set_adaptive_difficulty", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
 
     def get_decision_delay_chance(self, team_id: int) -> float:
         """Get the decision delay chance for a team (0.0-1.0).
