@@ -52,3 +52,8 @@ cache-keys = [
   { file = "tribal_village_env/**/*.py" },
   { file = "tribal_village_env/libtribal_village.*" },
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
