@@ -19,6 +19,9 @@ var
   stepLabelKey = ""
   stepLabelLastValue = -1
   stepLabelSize = ivec2(0, 0)
+  controlModeLabelKey = ""
+  controlModeLabelLastValue = -2  # Start different from any valid value
+  controlModeLabelSize = ivec2(0, 0)
   footerLabelImages: Table[string, string] = initTable[string, string]()
   footerLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
   footerIconSizes: Table[string, IVec2] = initTable[string, IVec2]()
@@ -856,6 +859,33 @@ proc drawStepLabel*(panelRect: IRect) =
   let labelW = stepLabelSize.x.float32 * scale
   drawFooterHudLabel(panelRect, key, stepLabelSize,
                      panelRect.w.float32 - labelW - FooterHudPadding + 25.0)
+
+proc drawControlModeLabel*(panelRect: IRect) =
+  ## Draws "[OBSERVING]" or "[CONTROLLING Team N]" in the footer HUD.
+  var key = ""
+  if controlModeLabelLastValue == playerTeam and controlModeLabelKey.len > 0:
+    key = controlModeLabelKey
+  else:
+    controlModeLabelLastValue = playerTeam
+    let label = if playerTeam < 0:
+      "[OBSERVING]"
+    else:
+      "[CONTROLLING Team " & $playerTeam & "]"
+    let (image, size) = renderTextLabel(label, InfoLabelFontPath,
+                                        InfoLabelFontSize, InfoLabelPadding.float32, 0.6)
+    controlModeLabelSize = size
+    controlModeLabelKey = "hud_control_mode"
+    bxy.addImage(controlModeLabelKey, image)
+    key = controlModeLabelKey
+  if key.len == 0:
+    return
+  let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
+  let scale = min(1.0'f32, innerHeight / controlModeLabelSize.y.float32)
+  # Position to the left of the step label (center area of footer)
+  let labelW = controlModeLabelSize.x.float32 * scale
+  let stepLabelW = stepLabelSize.x.float32 * scale
+  let xOffset = panelRect.w.float32 - labelW - stepLabelW - FooterHudPadding * 2.0 - 10.0
+  drawFooterHudLabel(panelRect, key, controlModeLabelSize, xOffset)
 
 # ─── Minimap ─────────────────────────────────────────────────────────────────
 

@@ -146,6 +146,11 @@ proc display() =
     inc settings.showObservations
   settings.showObservations = clamp(settings.showObservations, -1, 23)
 
+  # AI takeover toggle: Tab cycles Observer -> Team 0-7 -> Observer
+  if window.buttonPressed[KeyTab]:
+    playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
+    # Cycles: -1 -> 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> -1
+
   let now = nowSeconds()
   while play and (lastSimTime + playSpeed < now):
     lastSimTime += playSpeed
@@ -738,6 +743,7 @@ proc display() =
   drawCommandPanel(panelRectInt, mousePosPx)
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
+  drawControlModeLabel(panelRectInt)
   if clearUiCapture:
     uiMouseCaptured = false
   when defined(renderTiming):
