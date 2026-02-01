@@ -407,6 +407,9 @@ proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
   let cellSz = effectiveCellSize()
 
   forEachInRadius(env, pos, kind, maxDist, thing):
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
+      continue
     let dist = abs(thing.pos.x - qPos.x) + abs(thing.pos.y - qPos.y)
     if dist < minDist and dist < maxDist:
       minDist = dist
@@ -429,6 +432,9 @@ proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
 
   forEachInRadius(env, pos, kind, maxDist, thing):
     if thing.teamId != teamId:
+      continue
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
       continue
     let dist = abs(thing.pos.x - qPos.x) + abs(thing.pos.y - qPos.y)
     if dist < minDist and dist < maxDist:
@@ -456,6 +462,9 @@ proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
       continue
     if getTeamId(thing) == teamId:
       continue
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
+      continue
     let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
     if dist <= maxDist and dist < minDist:
       minDist = dist
@@ -482,6 +491,9 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
       continue
     if getTeamId(thing) == teamId:
       continue
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
+      continue
     let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
     if dist >= minRange and dist <= maxRange and dist < bestDist:
       bestDist = dist
@@ -506,6 +518,9 @@ proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
       continue
     if getTeamId(thing) == teamId:
       continue
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
+      continue
     let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
     if dist <= maxRange:
       targets.add(thing)
@@ -527,6 +542,9 @@ proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
     if not isAgentAlive(env, thing):
       continue
     if getTeamId(thing) != teamId:
+      continue
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
       continue
     let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
     if dist <= maxRange:
