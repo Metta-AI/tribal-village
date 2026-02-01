@@ -92,6 +92,8 @@ when defined(perfRegression):
   proc msBetweenPerfTiming(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
+import state_diff
+
 let spawnerScanOffsets = block:
   var offsets: seq[IVec2] = @[]
   for dx in -5 .. 5:
@@ -949,6 +951,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(actionAudit):
     ensureActionAuditInit()
+
+  when defined(stateDiff):
+    capturePreStep(env)
 
   # Decay short-lived action tints and projectile visuals
   env.stepDecayActionTints()
@@ -3273,6 +3278,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(actionAudit):
     printActionAuditReport(env.currentStep)
+
+  when defined(stateDiff):
+    comparePostStep(env)
 
   maybeLogReplayStep(env, actions)
   maybeDumpState(env)
