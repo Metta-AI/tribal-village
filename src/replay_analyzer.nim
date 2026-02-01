@@ -5,7 +5,8 @@
 ## extracts per-team strategy summaries, and feeds results back
 ## into the evolutionary role/behavior fitness system.
 
-import std/[json, os, algorithm, times]
+# json is already imported by roles.nim, os by agent_control.nim (in include chain)
+import std/[algorithm, times]
 import zippy
 import replay_common
 

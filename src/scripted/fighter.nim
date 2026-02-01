@@ -1,4 +1,4 @@
-import coordination
+# coordination is already imported by ai_core.nim (included before this file)
 import ../formations
 
 const

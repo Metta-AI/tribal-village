@@ -424,7 +424,9 @@ const
   ScriptedRoleExplorationChance = 0.08
   ScriptedRoleMutationChance = 0.25
   ScriptedTempleAssignEnabled = true
-  ScriptedReplayDir = "data/replays"
+
+when ReplayAnalysisEnabled:
+  const ScriptedReplayDir = "data/replays"
 
 type
   ScriptedRoleState = object

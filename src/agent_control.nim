@@ -499,8 +499,7 @@ proc stopAgent*(agentId: int) =
 # Formation API
 # Formation system for coordinated group movement (Line, Box formations).
 # Formations are per-control-group, not per-agent.
-
-import formations
+# formations is already imported by fighter.nim (in ai_defaults include chain)
 export formations
 
 proc setControlGroupFormation*(groupIndex: int, formationType: int32) =

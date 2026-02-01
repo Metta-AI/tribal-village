@@ -65,8 +65,6 @@ const
   CommandButtonBgColor = color(0.20, 0.24, 0.28, 0.90)
   CommandButtonHoverColor = color(0.28, 0.32, 0.38, 0.95)
   CommandButtonDisabledColor = color(0.15, 0.18, 0.22, 0.70)
-  CommandButtonTextColor = color(1.0, 1.0, 1.0, 1.0)
-  CommandButtonHotkeyColor = color(0.8, 0.8, 0.5, 1.0)
 
   CommandLabelFontPath = "data/Inter-Regular.ttf"
   CommandLabelFontSize: float32 = 14

@@ -1,4 +1,4 @@
-import coordination
+# coordination is already imported by ai_core.nim (included before this file)
 
 template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
   ## Generate a canStart/shouldTerminate pair from a single boolean expression.

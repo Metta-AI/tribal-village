@@ -1213,7 +1213,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
       y += teamSize.y.float32 + 8.0
 
       # HP Bar
-      let (hpLabelKey, hpLabelSize) = getUnitInfoLabel("HP:")
+      let (hpLabelKey, _) = getUnitInfoLabel("HP:")
       bxy.drawImage(hpLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
       let barX = textX + 40.0
       let barY = y + 4.0
@@ -1228,7 +1228,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
       bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth * hpRatio, h: UnitInfoBarHeight), hpColor)
       # HP text
       let hpText = $agent.hp & "/" & $agent.maxHp
-      let (hpTextKey, hpTextSize) = getUnitInfoLabel(hpText)
+      let (hpTextKey, _) = getUnitInfoLabel(hpText)
       bxy.drawImage(hpTextKey, vec2(barX + UnitInfoBarWidth + 8.0, y), angle = 0, scale = 1.0)
       y += UnitInfoLineHeight
 

@@ -1,5 +1,5 @@
 # This file is included by src/environment.nim
-import std/os
+# std/os is already imported by console_viz.nim (included before this file)
 
 when defined(rewardBatch):
   import std/monotimes
@@ -91,8 +91,6 @@ when defined(perfRegression):
 
   proc msBetweenPerfTiming(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
-
-import state_diff
 
 let spawnerScanOffsets = block:
   var offsets: seq[IVec2] = @[]
@@ -302,11 +300,12 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
         let tgtTeam = getTeamId(target)
         recordDamage(env.currentStep, tower.teamId, tgtTeam, -1, target.agentId,
                      towerDmg, $tower.kind, $target.unitClass, "tower")
-      let died = env.applyAgentDamage(target, max(1, targetDamage))
-      when defined(combatAudit):
+        let died = env.applyAgentDamage(target, max(1, targetDamage))
         if died:
           recordKill(env.currentStep, tower.teamId, getTeamId(target.agentId),
                      -1, target.agentId, $tower.kind, $target.unitClass)
+      else:
+        discard env.applyAgentDamage(target, max(1, targetDamage))
     of Tumor, Spawner:
       if target notin towerRemovals:
         towerRemovals.add(target)
@@ -377,11 +376,12 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
         let tcTgtTeam = getTeamId(target)
         recordDamage(env.currentStep, tc.teamId, tcTgtTeam, -1, target.agentId,
                      tcDmg, "TownCenter", $target.unitClass, "tower")
-      let tcDied = env.applyAgentDamage(target, max(1, tc.attackDamage))
-      when defined(combatAudit):
+        let tcDied = env.applyAgentDamage(target, max(1, tc.attackDamage))
         if tcDied:
           recordKill(env.currentStep, tc.teamId, getTeamId(target.agentId),
                      -1, target.agentId, "TownCenter", $target.unitClass)
+      else:
+        discard env.applyAgentDamage(target, max(1, tc.attackDamage))
     of Tumor, Spawner:
       if target notin towerRemovals:
         towerRemovals.add(target)

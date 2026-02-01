@@ -905,7 +905,6 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
   # Initialize gScore and fScore for start
   controller.pathCache.gScoreGen[fromPos.x][fromPos.y] = gen
   controller.pathCache.gScoreVal[fromPos.x][fromPos.y] = 0
-  let startH = heuristic(controller.pathCache, fromPos)
 
   var explored = 0
   while true:

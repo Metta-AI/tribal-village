@@ -1,4 +1,4 @@
-import coordination
+# coordination is already imported by ai_core.nim (included before this file)
 
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
