@@ -112,6 +112,11 @@ var logRenderCount = 0
 
 include "actions"
 
+# Common distance calculation used throughout step logic
+template chebyshevDist*(a, b: IVec2): int32 =
+  ## Chebyshev distance (max of abs differences) - used for tower/building ranges
+  max(abs(a.x - b.x), abs(a.y - b.y))
+
 const
   # Tower/Castle/TownCenter attack visuals (colors are display-only, not in constants.nim)
   TowerAttackTint = TileColor(r: 0.95, g: 0.70, b: 0.25, intensity: 1.10)
@@ -249,10 +254,10 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   # Use spatial index for enemy agent lookup instead of scanning all agents
   var bestTarget = findNearestEnemyInRangeSpatial(env, tower.pos, tower.teamId, minRange, range)
   var bestDist = if bestTarget.isNil: int.high
-                 else: max(abs(bestTarget.pos.x - tower.pos.x), abs(bestTarget.pos.y - tower.pos.y))
+                 else: chebyshevDist(bestTarget.pos, tower.pos).int
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
-      let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
+      let dist = chebyshevDist(thing.pos, tower.pos).int
       if dist >= minRange and dist <= range and dist < bestDist:
         bestDist = dist
         bestTarget = thing
@@ -323,13 +328,12 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
     if minRange > 1:
       var filtered = newSeqOfCap[Thing](allTargets.len)
       for t in allTargets:
-        let dist = max(abs(t.pos.x - tower.pos.x), abs(t.pos.y - tower.pos.y))
-        if dist >= minRange:
+        if chebyshevDist(t.pos, tower.pos) >= minRange:
           filtered.add(t)
       allTargets = filtered
     for kind in [Tumor, Spawner]:
       for thing in env.thingsByKind[kind]:
-        let dist = max(abs(thing.pos.x - tower.pos.x), abs(thing.pos.y - tower.pos.y))
+        let dist = chebyshevDist(thing.pos, tower.pos)
         if dist >= minRange and dist <= range:
           allTargets.add(thing)
     if allTargets.len > 0:
@@ -351,8 +355,7 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
-      let dist = max(abs(thing.pos.x - tc.pos.x), abs(thing.pos.y - tc.pos.y))
-      if dist <= TownCenterRange:
+      if chebyshevDist(thing.pos, tc.pos) <= TownCenterRange:
         targets.add(thing)
 
   if targets.len == 0:

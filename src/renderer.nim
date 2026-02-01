@@ -146,6 +146,14 @@ proc renderTextLabel(text: string, fontPath: string, fontSize: float32,
   ctx.fillText(text, vec2(padding, padding))
   result = (ctx.image, ivec2(w, h))
 
+proc getTeamColor*(env: Environment, teamId: int,
+                   fallback: Color = color(0.6, 0.6, 0.6, 1.0)): Color =
+  ## Get team color from environment, with fallback for invalid team IDs.
+  if teamId >= 0 and teamId < env.teamColors.len:
+    env.teamColors[teamId]
+  else:
+    fallback
+
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
                      filledColor, emptyColor: Color, segments = 5) =
   let filled = int(ceil(ratio * segments.float32))
@@ -1000,10 +1008,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
       if not isValidPos(thing.pos):
         continue
       let teamId = thing.teamId
-      let tc = if teamId >= 0 and teamId < env.teamColors.len:
-        env.teamColors[teamId]
-      else:
-        color(0.6, 0.6, 0.6, 1.0)
+      let tc = getTeamColor(env, teamId)
       let bright = colorToRgbx(color(
         min(tc.r * 1.2 + 0.1, 1.0),
         min(tc.g * 1.2 + 0.1, 1.0),
@@ -1023,10 +1028,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     if not isAgentAlive(env, agent):
       continue
     let teamId = getTeamId(agent)
-    let tc = if teamId >= 0 and teamId < env.teamColors.len:
-      env.teamColors[teamId]
-    else:
-      color(0.5, 0.5, 0.5, 1.0)
+    let tc = getTeamColor(env, teamId, color(0.5, 0.5, 0.5, 1.0))
     let dot = colorToRgbx(tc)
     let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSize - 1)
     let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSize - 1)
@@ -1204,10 +1206,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
 
       # Team
       let teamLabel = "Team " & $teamId
-      let teamColor = if teamId >= 0 and teamId < env.teamColors.len:
-        env.teamColors[teamId]
-      else:
-        color(0.6, 0.6, 0.6, 1.0)
+      let teamColor = getTeamColor(env, teamId)
       let (teamKey, teamSize) = getUnitInfoLabel(teamLabel)
       bxy.drawImage(teamKey, vec2(textX, y), angle = 0, scale = 1.0, tint = teamColor)
       y += teamSize.y.float32 + 8.0
@@ -1292,10 +1291,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
       # Team
       if teamId >= 0:
         let teamLabel = "Team " & $teamId
-        let teamColor = if teamId < env.teamColors.len:
-          env.teamColors[teamId]
-        else:
-          color(0.6, 0.6, 0.6, 1.0)
+        let teamColor = getTeamColor(env, teamId)
         let (teamKey, teamSize) = getUnitInfoLabel(teamLabel)
         bxy.drawImage(teamKey, vec2(textX, y), angle = 0, scale = 1.0, tint = teamColor)
         y += teamSize.y.float32 + 8.0
@@ -1431,10 +1427,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
   # Team color swatch (16x16)
   let swatchSize = 16.0'f32
-  let teamColor = if validTeamId < env.teamColors.len:
-    env.teamColors[validTeamId]
-  else:
-    color(0.5, 0.5, 0.5, 1.0)
+  let teamColor = getTeamColor(env, validTeamId, color(0.5, 0.5, 0.5, 1.0))
   bxy.drawRect(rect = Rect(x: x, y: centerY - swatchSize * 0.5, w: swatchSize, h: swatchSize),
                color = teamColor)
   x += swatchSize + ResourceBarItemGap
