@@ -33,6 +33,9 @@ Repository = "https://github.com/Metta-AI/tribal-village.git"
 cogames = [
   "cogames @ git+https://github.com/Metta-AI/metta.git#subdirectory=packages/cogames",
 ]
+test = [
+  "pytest>=7.0.0",
+]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["tribal_village_env*"]
