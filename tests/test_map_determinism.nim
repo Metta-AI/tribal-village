@@ -1,4 +1,4 @@
-import std/[unittest, strformat, tables, sets]
+import std/[unittest, strformat, sets]
 import environment
 import types
 import terrain
