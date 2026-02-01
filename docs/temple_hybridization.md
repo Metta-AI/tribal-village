@@ -1,5 +1,9 @@
 # Temple Hybridization
 
+Date: 2026-01-28
+Owner: Design / Gameplay
+Status: Draft
+
 ## What the Temple Does
 The Temple allows two adjacent villagers to "recombine" into a new villager,
 creating a hybrid role from the parents' behavior priorities. The new role is

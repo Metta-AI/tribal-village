@@ -1,5 +1,9 @@
 # Building Interaction & Siege Mechanics Analysis
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 ## Executive Summary
 
 The siege transformation mechanic **IS implemented** but has significant conditions. Villagers will train at siege workshops to become battering rams or mangonels, but only when they see enemy structures, the workshop exists, and resources are available.

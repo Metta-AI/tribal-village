@@ -1,5 +1,9 @@
 # AI Behavior Analysis: Invalid Action Root Causes
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 ## Summary
 
 This analysis investigates the high invalid action rates observed in profiling:

@@ -1,8 +1,10 @@
 # Test Suite Audit Report
 
-**Issue:** tv-o4qfd
-**Date:** 2026-01-31
-**Auditor:** polecat/nux
+Date: 2026-01-31
+Owner: Engineering / QA
+Status: Active
+Issue: tv-o4qfd
+Auditor: polecat/nux
 
 ## Executive Summary
 

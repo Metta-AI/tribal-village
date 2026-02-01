@@ -1,5 +1,9 @@
 # Action Space Reference
 
+Date: 2026-01-28
+Owner: Engineering / Systems
+Status: Active
+
 ## Overview
 
 The Tribal Village action space uses a discrete encoding scheme where each action is represented as a single integer from 0 to 249.
@@ -221,9 +225,9 @@ Quick reference for common actions:
 
 ## Source Code References
 
-- **Action encoding**: `/home/relh/Code/tribal-village/src/common.nim` (lines 117-122)
-- **Action processing**: `/home/relh/Code/tribal-village/src/step.nim` (lines 133-1280)
-- **Verb names**: `/home/relh/Code/tribal-village/src/replay_writer.nim` (lines 8-19)
-- **BuildChoices array**: `/home/relh/Code/tribal-village/src/environment.nim` (lines 706-721)
-- **Building registry**: `/home/relh/Code/tribal-village/src/registry.nim` (lines 33-114)
-- **Invalid action analysis**: `/home/relh/Code/tribal-village/docs/game_mechanics_analysis.md`
+- **Action encoding**: `src/common.nim` (lines 117-122)
+- **Action processing**: `src/step.nim` (lines 133-1280)
+- **Verb names**: `src/replay_writer.nim` (lines 8-19)
+- **BuildChoices array**: `src/environment.nim` (lines 706-721)
+- **Building registry**: `src/registry.nim` (lines 33-114)
+- **Invalid action analysis**: `docs/analysis/game_mechanics_analysis.md`

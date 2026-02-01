@@ -1,5 +1,9 @@
 # Repo History Cleanup
 
+Date: 2026-01-28
+Owner: Engineering / DevOps
+Status: Active
+
 ## Why This Exists
 Large historical assets can make fresh clones very heavy even if the files
 have been deleted on main. When the pack size creeps up, we should identify

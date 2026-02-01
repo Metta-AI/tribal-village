@@ -1,8 +1,10 @@
 # Tribal Village Investigation Report
 
-**Date:** 2026-01-28 (Updated)
-**Investigator:** valkyrie (polecat)
-**Bead:** tv-jhet
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+Investigator: valkyrie (polecat)
+Bead: tv-jhet
 
 ## 1. Project Purpose and Architecture
 

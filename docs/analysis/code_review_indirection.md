@@ -1,5 +1,9 @@
 # Code Review: Unnecessary Indirection Analysis
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 This document analyzes helper functions and procs in the tribal-village codebase that may be candidates for inlining due to low usage or being simple wrappers.
 
 ## Summary

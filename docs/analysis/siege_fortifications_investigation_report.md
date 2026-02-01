@@ -1,8 +1,10 @@
 # Siege Fortifications Plan Investigation Report
 
-**Issue:** tv-snmi
-**Date:** 2026-01-24
-**Investigator:** polecat/ace
+Date: 2026-01-24
+Owner: Engineering / Analysis
+Status: Active
+Issue: tv-snmi
+Investigator: polecat/ace
 
 ## Executive Summary
 

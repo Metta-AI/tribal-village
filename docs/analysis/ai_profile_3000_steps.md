@@ -1,6 +1,8 @@
 # AI Profiling: 3000-Step Headless Episode
 
-Run date: 2026-02-16
+Date: 2026-02-16
+Owner: Engineering / Analysis
+Status: Active
 
 ## Run config
 - Command: `TV_PROFILE_STEPS=3000 nim r -d:release --path:src /tmp/tv_behavior_profile.nim`

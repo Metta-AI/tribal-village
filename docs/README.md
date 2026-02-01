@@ -47,6 +47,7 @@ This index lists the canonical docs for the Tribal Village repo.
 All analysis, audit, investigation, and code review files live in `docs/analysis/`:
 - `analysis/ai_behavior_analysis.md`: AI behavior invalid action root causes.
 - `analysis/ai_profile_3000_steps.md`: profile results from 3000 step run.
+- `analysis/ai_profiling_p1_gaps.md`: P1 profiling gaps analysis and recommendations.
 - `analysis/aoe2_design_investigation.md`: AoE2 design investigation notes.
 - `analysis/building_siege_analysis.md`: building and siege mechanic analysis.
 - `analysis/codebase_audit.md`: full codebase audit.

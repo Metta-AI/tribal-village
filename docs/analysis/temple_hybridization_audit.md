@@ -1,8 +1,10 @@
 # Temple Hybridization Audit Report
 
-**Issue:** tv-ej6n
-**Date:** 2026-01-24
-**Investigator:** cheedo
+Date: 2026-01-24
+Owner: Engineering / Analysis
+Status: Active
+Issue: tv-ej6n
+Investigator: cheedo
 
 ## Executive Summary
 

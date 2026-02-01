@@ -1,5 +1,9 @@
 # Combat Visuals and Auras (Design Notes)
 
+Date: 2026-01-28
+Owner: Design / UI
+Status: Draft
+
 This is a design reference for combat readability and VFX cues. It is not
 guaranteed to be fully implemented yet.
 

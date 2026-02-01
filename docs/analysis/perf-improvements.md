@@ -1,5 +1,9 @@
 # Tribal Village Performance Improvements
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 ## Summary
 
 A 38% performance improvement was achieved by optimizing how agent observations are updated during each simulation step. The change moved from incremental per-tile updates to a batch rebuild strategy.

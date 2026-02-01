@@ -1,6 +1,9 @@
 # AI Profiling & P1 Gaps Analysis
-**Date:** 2026-01-29
-**Session:** mayor cold-start profiling exploration
+
+Date: 2026-01-29
+Owner: Engineering / Analysis
+Status: Active
+Session: mayor cold-start profiling exploration
 
 ## Executive Summary
 

@@ -1,5 +1,9 @@
 # Code Review: Verbosity Patterns in tribal-village
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 This document identifies verbose code patterns in the codebase and suggests simplifications.
 
 ## Summary

@@ -1,8 +1,9 @@
 # Dead Code Review - tribal-village
 
-**Generated:** 2026-01-24
-**Updated:** 2026-01-24
-**Scope:** src/*.nim, src/scripted/*.nim, tests/*.nim
+Date: 2026-01-24
+Owner: Engineering / Analysis
+Status: Active
+Scope: src/*.nim, src/scripted/*.nim, tests/*.nim
 
 This document catalogs potentially dead code, unused exports, and vestigial functionality.
 

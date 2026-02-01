@@ -1,5 +1,9 @@
 # Deep Role Audit: Gatherer, Builder, Fighter
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 ## Executive Summary
 
 This audit analyzes the three main AI roles in tribal_village to identify behavioral gaps and enhancement opportunities. The codebase implements an RL-style options-based AI system where each role has a prioritized list of behaviors that are evaluated each tick.

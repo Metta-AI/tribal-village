@@ -1,5 +1,9 @@
 # Performance Analysis: tribal-village
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 This document identifies performance optimization opportunities in the tribal-village codebase based on analysis of hot path code in `src/step.nim`, `src/environment.nim`, and `src/scripted/ai_core.nim`.
 
 ## Executive Summary

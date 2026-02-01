@@ -1,8 +1,10 @@
 # AoE2 Design Plan Investigation Report
 
-**Task:** tv-vvcz
-**Date:** 2026-01-24
-**Investigator:** Polecat dag
+Date: 2026-01-24
+Owner: Engineering / Analysis
+Status: Active
+Task: tv-vvcz
+Investigator: Polecat dag
 
 ---
 

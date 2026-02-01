@@ -2,7 +2,8 @@
 
 Date: 2026-01-13
 Owner: Design / Systems
-Status: In Progress (Civ asymmetry remaining)
+Status: Active
+Notes: Civ asymmetry remaining
 
 ## 0) Scope & Non-Goals
 

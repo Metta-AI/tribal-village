@@ -1,5 +1,9 @@
 # Entity Interaction Analysis
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 ## Overview
 
 This document analyzes how agents interact with map entities (animals, enemies) in the tribal_village environment. Agents can interact with entities through the ATTACK action (verb 2) or through proximity-based interactions.

@@ -1,5 +1,9 @@
 # Tribal Village Codebase Structure Audit
 
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+
 ## 1. Codebase Overview
 
 The tribal village codebase is a game simulation environment (~17,000 lines of Nim code) with Python bindings for RL training.

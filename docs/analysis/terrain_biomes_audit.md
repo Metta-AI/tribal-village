@@ -1,8 +1,10 @@
 # Terrain and Biomes Audit Report
 
 Date: 2026-01-24
-Investigator: polecat/immortan
+Owner: Engineering / Analysis
+Status: Active
 Issue: tv-6nhb
+Investigator: polecat/immortan
 
 ## Executive Summary
 

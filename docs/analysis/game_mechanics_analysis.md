@@ -1,7 +1,10 @@
 # Game Mechanics Analysis: Invalid Action Sources
 
-**Task:** tv-w0r.3
-**Context:** Profiling showed 340,934 total invalid actions in 3,000 steps (~114 per step)
+Date: 2026-01-28
+Owner: Engineering / Analysis
+Status: Active
+Task: tv-w0r.3
+Context: Profiling showed 340,934 total invalid actions in 3,000 steps (~114 per step)
 
 ---
 
