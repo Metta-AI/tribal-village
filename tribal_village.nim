@@ -316,6 +316,9 @@ proc display() =
   let zoomScaled = worldMapPanel.zoom * worldMapPanel.zoom * scaleF
   bxy.scale(vec2(zoomScaled, zoomScaled))
 
+  # Update viewport bounds for culling (before any rendering)
+  updateViewport(worldMapPanel, panelRectInt, MapWidth, MapHeight, scaleF)
+
   let footerRect = Rect(
     x: panelRect.x,
     y: panelRect.y + panelRect.h - FooterHeight.float32,

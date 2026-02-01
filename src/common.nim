@@ -176,3 +176,54 @@ const
     ivec2(-1, 1),
     ivec2(-1, -1)
   ]
+
+# Viewport culling types and functions
+type
+  ViewportBounds* = object
+    ## Visible tile bounds for viewport culling.
+    ## All bounds are inclusive and clamped to map dimensions.
+    minX*, maxX*: int
+    minY*, maxY*: int
+    valid*: bool  ## False if viewport calculation failed
+
+var
+  currentViewport*: ViewportBounds  ## Updated each frame by updateViewport
+
+proc updateViewport*(panel: Panel, panelRect: IRect, mapWidth, mapHeight: int, contentScale: float32) =
+  ## Calculate visible tile bounds for viewport culling.
+  ## Call this once per frame before rendering.
+  let scaleVal = contentScale
+  let rectW = panelRect.w.float32 / scaleVal
+  let rectH = panelRect.h.float32 / scaleVal
+  let zoomScale = panel.zoom * panel.zoom
+
+  if zoomScale <= 0 or rectW <= 0 or rectH <= 0:
+    currentViewport = ViewportBounds(valid: false)
+    return
+
+  # Camera center in world coordinates
+  let cx = (rectW / 2.0'f32 - panel.pos.x) / zoomScale
+  let cy = (rectH / 2.0'f32 - panel.pos.y) / zoomScale
+  let halfW = rectW / (2.0'f32 * zoomScale)
+  let halfH = rectH / (2.0'f32 * zoomScale)
+
+  # Tile bounds with margin for sprite overhang
+  const margin = 2
+  currentViewport = ViewportBounds(
+    minX: max(0, int(cx - halfW) - margin),
+    maxX: min(mapWidth - 1, int(cx + halfW) + margin),
+    minY: max(0, int(cy - halfH) - margin),
+    maxY: min(mapHeight - 1, int(cy + halfH) + margin),
+    valid: true
+  )
+
+{.push inline.}
+proc isInViewport*(x, y: int): bool =
+  ## Check if a tile position is within the current viewport.
+  currentViewport.valid and
+    x >= currentViewport.minX and x <= currentViewport.maxX and
+    y >= currentViewport.minY and y <= currentViewport.maxY
+
+proc isInViewport*(pos: IVec2): bool =
+  isInViewport(pos.x, pos.y)
+{.pop.}

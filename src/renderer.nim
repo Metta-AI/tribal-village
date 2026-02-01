@@ -310,20 +310,26 @@ proc drawFloor*() =
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
   # Draw the floor tiles everywhere first as the base layer
+  # Use viewport culling to skip off-screen tiles
   for floorKind in FloorSpriteKind:
     let floorSprite = case floorKind
       of FloorCave: "cave"
       of FloorDungeon: "dungeon"
       of FloorBase: "floor"
     for pos in floorSpritePositions[floorKind]:
+      if not isInViewport(pos):
+        continue
       let bc = combinedTileTint(env, pos.x, pos.y)
       bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = SpriteScale,
         tint = color(min(bc.r * bc.intensity, 1.5), min(bc.g * bc.intensity, 1.5),
                      min(bc.b * bc.intensity, 1.5), 1.0))
 
 proc drawTerrain*() =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
+  # Only iterate over visible tiles for viewport culling
+  if not currentViewport.valid:
+    return
+  for x in currentViewport.minX .. currentViewport.maxX:
+    for y in currentViewport.minY .. currentViewport.maxY:
       let terrain = env.terrain[x][y]
       if terrain == Water: continue
       let spriteKey = terrainSpriteKey(terrain)
@@ -371,10 +377,13 @@ proc drawWalls*() =
     not isNil(env.grid[x][y]) and
     env.grid[x][y].kind == Wall
 
+  if not currentViewport.valid:
+    return
   var wallFills: seq[IVec2]
   let wallTint = color(0.3, 0.3, 0.3, 1.0)
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
+  # Only iterate over visible tiles for viewport culling
+  for x in currentViewport.minX .. currentViewport.maxX:
+    for y in currentViewport.minY .. currentViewport.maxY:
       let thing = env.grid[x][y]
       if not isNil(thing) and thing.kind == Wall:
         var tile = 0'u16
@@ -436,7 +445,7 @@ proc drawObjects*() =
       inc teamHouseCounts[teamId]
 
   for pos in env.actionTintPositions:
-    if not isValidPos(pos):
+    if not isValidPos(pos) or not isInViewport(pos):
       continue
     if env.actionTintCountdown[pos.x][pos.y] > 0:
       let c = env.actionTintColor[pos.x][pos.y]
@@ -453,20 +462,25 @@ proc drawObjects*() =
   if waterKey.len > 0:
     # Draw deep water (impassable) with standard tint
     for pos in waterPositions:
-      bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
+      if isInViewport(pos):
+        bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
     # Draw shallow water (passable but slow) with lighter tint to distinguish
     let shallowTint = color(0.6, 0.85, 0.95, 1.0)  # Lighter blue-green for wading depth
     for pos in shallowWaterPositions:
-      bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
+      if isInViewport(pos):
+        bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
 
   for kind in CliffDrawOrder:
     let spriteKey = thingSpriteKey(kind)
     if spriteKey.len > 0 and spriteKey in bxy:
       for cliff in env.thingsByKind[kind]:
-        bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
+        if isInViewport(cliff.pos):
+          bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
 
   template drawThings(thingKind: ThingKind, body: untyped) =
     for it in env.thingsByKind[thingKind]:
+      if not isInViewport(it.pos):
+        continue
       let thing {.inject.} = it
       let thingPos {.inject.} = it.pos
       body
@@ -476,6 +490,8 @@ proc drawObjects*() =
     if spriteKey.len > 0 and spriteKey in bxy:
       for thing in env.thingsByKind[kind]:
         let pos = thing.pos
+        if not isInViewport(pos):
+          continue
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
         if isTileFrozen(pos, env):
           bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
@@ -578,7 +594,7 @@ proc drawObjects*() =
       if spriteKey.len == 0 or spriteKey notin bxy:
         continue
       for thing in env.thingsByKind[kind]:
-        if not isPlacedAt(thing):
+        if not isPlacedAt(thing) or not isInViewport(thing.pos):
           continue
         let pos = thing.pos
         let tint =
@@ -646,7 +662,7 @@ proc drawObjects*() =
       if spriteKey.len == 0 or spriteKey notin bxy:
         continue
       for thing in env.thingsByKind[kind]:
-        if not isPlacedAt(thing):
+        if not isPlacedAt(thing) or not isInViewport(thing.pos):
           continue
         # Death animation: tint corpse/skeleton during death transition
         if thing.kind in {Corpse, Skeleton}:
@@ -665,6 +681,8 @@ proc drawObjects*() =
           bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = SpriteScale)
 
 proc drawVisualRanges*(alpha = 0.2) =
+  if not currentViewport.valid:
+    return
   var visibility: array[MapWidth, array[MapHeight, bool]]
   for agent in env.agents:
     if not isAgentAlive(env, agent):
@@ -675,8 +693,9 @@ proc drawVisualRanges*(alpha = 0.2) =
         if gp.x >= 0 and gp.x < MapWidth and gp.y >= 0 and gp.y < MapHeight:
           visibility[gp.x][gp.y] = true
   let fogColor = color(0, 0, 0, alpha)
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
+  # Only draw fog for visible tiles
+  for x in currentViewport.minX .. currentViewport.maxX:
+    for y in currentViewport.minY .. currentViewport.maxY:
       if not visibility[x][y]:
         bxy.drawRect(rect(x.float32 - 0.5, y.float32 - 0.5, 1, 1), fogColor)
 
@@ -688,7 +707,7 @@ proc drawAgentDecorations*() =
 
   for agent in env.agents:
     let pos = agent.pos
-    if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent:
+    if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent or not isInViewport(pos):
       continue
     let posVec = pos.vec2
     if agent.frozen > 0:
@@ -750,13 +769,15 @@ proc drawProjectiles*() =
     bxy.drawImage("floor", pos, angle = 0, scale = sc, tint = c)
 
 proc drawGrid*() =
-  for x in 0 ..< MapWidth:
-    for y in 0 ..< MapHeight:
+  if not currentViewport.valid:
+    return
+  for x in currentViewport.minX .. currentViewport.maxX:
+    for y in currentViewport.minY .. currentViewport.maxY:
       bxy.drawImage("grid", ivec2(x, y).vec2, angle = 0, scale = SpriteScale)
 
 proc drawSelection*() =
   for thing in selection:
-    if not isNil(thing) and isValidPos(thing.pos):
+    if not isNil(thing) and isValidPos(thing.pos) and isInViewport(thing.pos):
       bxy.drawImage("selection", thing.pos.vec2, angle = 0, scale = SpriteScale)
 
 proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset: float32) =
@@ -909,6 +930,15 @@ var
   minimapCompositeImage: Image   # terrain + units + fog composite
   minimapLastUnitFrame = -1
   minimapImageKey = "minimap_composite"
+  # Pre-computed minimap scale factors
+  minimapScaleX: float32 = MinimapSize.float32 / MapWidth.float32
+  minimapScaleY: float32 = MinimapSize.float32 / MapHeight.float32
+  minimapInvScaleX: float32 = MapWidth.float32 / MinimapSize.float32
+  minimapInvScaleY: float32 = MapHeight.float32 / MinimapSize.float32
+  # Cached team colors for minimap (avoid Color -> ColorRGBX conversion each frame)
+  minimapTeamColors: array[MapRoomObjectsTeams, ColorRGBX]
+  minimapTeamBrightColors: array[MapRoomObjectsTeams, ColorRGBX]  # For buildings
+  minimapTeamColorsInitialized = false
 
 proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
   ## Map a terrain+biome to a minimap pixel color.
@@ -982,10 +1012,34 @@ proc colorToRgbx(c: Color): ColorRGBX =
     255
   )
 
+proc initMinimapTeamColors() =
+  ## Pre-compute team colors for minimap to avoid per-frame conversions.
+  for i in 0 ..< MapRoomObjectsTeams:
+    let tc = if i < env.teamColors.len: env.teamColors[i] else: color(0.5, 0.5, 0.5, 1.0)
+    minimapTeamColors[i] = colorToRgbx(tc)
+    minimapTeamBrightColors[i] = colorToRgbx(color(
+      min(tc.r * 1.2 + 0.1, 1.0),
+      min(tc.g * 1.2 + 0.1, 1.0),
+      min(tc.b * 1.2 + 0.1, 1.0),
+      1.0
+    ))
+  minimapTeamColorsInitialized = true
+
+# Building kinds that commonly have instances (skip iteration for unlikely kinds)
+const MinimapBuildingKinds = [
+  TownCenter, House, Mill, LumberCamp, MiningCamp, Market, Blacksmith,
+  Barracks, ArcheryRange, Stable, SiegeWorkshop, Castle, Monastery,
+  GuardTower, Gate, Door
+]
+
 proc rebuildMinimapComposite(fogTeamId: int) =
   ## Composite terrain + units + buildings + fog into final minimap image.
   if minimapTerrainGeneration != env.mapGeneration:
     rebuildMinimapTerrain()
+
+  # Ensure team colors are initialized
+  if not minimapTeamColorsInitialized:
+    initMinimapTeamColors()
 
   if minimapCompositeImage.isNil or
      minimapCompositeImage.width != MinimapSize or
@@ -997,49 +1051,55 @@ proc rebuildMinimapComposite(fogTeamId: int) =
           addr minimapTerrainImage.data[0],
           MinimapSize * MinimapSize * 4)
 
-  let scaleX = MinimapSize.float32 / MapWidth.float32
-  let scaleY = MinimapSize.float32 / MapHeight.float32
+  # Use pre-computed scale factors
+  let scaleX = minimapScaleX
+  let scaleY = minimapScaleY
 
   # Draw buildings (team-colored, 2x2 pixel blocks)
-  for kind in ThingKind:
-    if not isBuildingKind(kind):
-      continue
+  # Only iterate over building kinds that are likely to have instances
+  for kind in MinimapBuildingKinds:
     for thing in env.thingsByKind[kind]:
       if not isValidPos(thing.pos):
         continue
       let teamId = thing.teamId
-      let tc = getTeamColor(env, teamId)
-      let bright = colorToRgbx(color(
-        min(tc.r * 1.2 + 0.1, 1.0),
-        min(tc.g * 1.2 + 0.1, 1.0),
-        min(tc.b * 1.2 + 0.1, 1.0),
-        1.0
-      ))
+      # Use pre-computed team colors
+      let bright = if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        minimapTeamBrightColors[teamId]
+      else:
+        rgbx(179, 179, 179, 255)  # 0.7 * 255 for neutral
       let px = int(thing.pos.x.float32 * scaleX)
       let py = int(thing.pos.y.float32 * scaleY)
-      for dy in 0 .. 1:
-        for dx in 0 .. 1:
-          let fx = clamp(px + dx, 0, MinimapSize - 1)
-          let fy = clamp(py + dy, 0, MinimapSize - 1)
-          minimapCompositeImage.unsafe[fx, fy] = bright
+      # Unrolled 2x2 block drawing
+      let fx0 = clamp(px, 0, MinimapSize - 1)
+      let fx1 = clamp(px + 1, 0, MinimapSize - 1)
+      let fy0 = clamp(py, 0, MinimapSize - 1)
+      let fy1 = clamp(py + 1, 0, MinimapSize - 1)
+      minimapCompositeImage.unsafe[fx0, fy0] = bright
+      minimapCompositeImage.unsafe[fx1, fy0] = bright
+      minimapCompositeImage.unsafe[fx0, fy1] = bright
+      minimapCompositeImage.unsafe[fx1, fy1] = bright
 
-  # Draw units (team-colored dots)
+  # Draw units (team-colored dots) - use pre-computed colors
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
     let teamId = getTeamId(agent)
-    let tc = getTeamColor(env, teamId, color(0.5, 0.5, 0.5, 1.0))
-    let dot = colorToRgbx(tc)
+    let dot = if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      minimapTeamColors[teamId]
+    else:
+      rgbx(128, 128, 128, 255)  # Gray for unknown
     let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSize - 1)
     let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSize - 1)
     minimapCompositeImage.unsafe[px, py] = dot
 
   # Apply fog of war
   if fogTeamId >= 0 and fogTeamId < MapRoomObjectsTeams:
+    let invScaleX = minimapInvScaleX
+    let invScaleY = minimapInvScaleY
     for py in 0 ..< MinimapSize:
+      let my = clamp(int(py.float32 * invScaleY), 0, MapHeight - 1)
       for px in 0 ..< MinimapSize:
-        let mx = clamp(int(px.float32 / scaleX), 0, MapWidth - 1)
-        let my = clamp(int(py.float32 / scaleY), 0, MapHeight - 1)
+        let mx = clamp(int(px.float32 * invScaleX), 0, MapWidth - 1)
         if not env.revealedMaps[fogTeamId][mx][my]:
           # Darken unexplored tiles
           let c = minimapCompositeImage.unsafe[px, py]

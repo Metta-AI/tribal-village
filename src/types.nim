@@ -876,6 +876,11 @@ type
     tempTumorsToSpawn*: seq[Thing]
     tempTumorsToProcess*: seq[Thing]
     tempTowerRemovals*: seq[Thing]
+    # Additional scratch buffers for hot-path allocations
+    tempTowerTargets*: seq[Thing]      ## Tower attack target candidates
+    tempTCTargets*: seq[Thing]         ## Town center attack targets
+    tempMonkAuraAllies*: seq[Thing]    ## Nearby allies for monk auras
+    tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
     # Object pool for frequently created/destroyed things
     thingPool*: ThingPool
 
