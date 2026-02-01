@@ -457,7 +457,7 @@ proc drawObjects*() =
   template drawThings(thingKind: ThingKind, body: untyped) =
     for it in env.thingsByKind[thingKind]:
       let thing {.inject.} = it
-      let pos {.inject.} = it.pos
+      let thingPos {.inject.} = it.pos
       body
 
   for kind in [Tree, Wheat, Stubble]:
@@ -489,16 +489,16 @@ proc drawObjects*() =
                          elif baseKey & ".s" in bxy: baseKey & ".s"
                          else: ""
     if agentSpriteKey.len > 0:
-      bxy.drawImage(agentSpriteKey, pos.vec2, angle = 0,
+      bxy.drawImage(agentSpriteKey, thingPos.vec2, angle = 0,
                     scale = SpriteScale, tint = env.agentColors[agent.agentId])
 
   drawThings(Altar):
-    let altarTint = if env.altarColors.hasKey(pos): env.altarColors[pos]
-      elif pos.x >= 0 and pos.x < MapWidth and pos.y >= 0 and pos.y < MapHeight:
-        let base = env.baseTintColors[pos.x][pos.y]
+    let altarTint = if env.altarColors.hasKey(thingPos): env.altarColors[thingPos]
+      elif thingPos.x >= 0 and thingPos.x < MapWidth and thingPos.y >= 0 and thingPos.y < MapHeight:
+        let base = env.baseTintColors[thingPos.x][thingPos.y]
         color(base.r, base.g, base.b, 1.0)
       else: color(1.0, 1.0, 1.0, 1.0)
-    let posVec = pos.vec2
+    let posVec = thingPos.vec2
     bxy.drawImage("floor", posVec, angle = 0, scale = SpriteScale,
                   tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
     bxy.drawImage("altar", posVec, angle = 0, scale = SpriteScale,
@@ -518,25 +518,25 @@ proc drawObjects*() =
       let labelKey = ensureHeartCountLabel(amt)
       bxy.drawImage(labelKey, heartPos + vec2(0.14, -0.08), angle = 0,
                     scale = 1/200, tint = color(1, 1, 1, 1))
-    if isTileFrozen(pos, env):
+    if isTileFrozen(thingPos, env):
       bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
 
   drawThings(Tumor):
     let prefix = if thing.hasClaimedTerritory: "oriented/tumor.expired." else: "oriented/tumor."
     let key = prefix & TumorDirKeys[thing.orientation.int]
     if key in bxy:
-      bxy.drawImage(key, pos.vec2, angle = 0, scale = SpriteScale)
+      bxy.drawImage(key, thingPos.vec2, angle = 0, scale = SpriteScale)
 
   drawThings(Cow):
     let cowKey = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
     if cowKey in bxy:
-      bxy.drawImage(cowKey, pos.vec2, angle = 0, scale = SpriteScale)
+      bxy.drawImage(cowKey, thingPos.vec2, angle = 0, scale = SpriteScale)
 
   template drawOrientedThings(thingKind: ThingKind, prefix: string) =
     drawThings(thingKind):
       let key = prefix & OrientationDirKeys[thing.orientation.int]
       if key in bxy:
-        bxy.drawImage(key, thing.pos.vec2, angle = 0, scale = SpriteScale)
+        bxy.drawImage(key, thingPos.vec2, angle = 0, scale = SpriteScale)
 
   drawOrientedThings(Bear, "oriented/bear.")
   drawOrientedThings(Wolf, "oriented/wolf.")
@@ -548,7 +548,7 @@ proc drawObjects*() =
         if teamId >= 0 and teamId < env.teamColors.len: env.teamColors[teamId]
         else: color(0.6, 0.6, 0.6, 1.0)
       else: color(0.5, 0.5, 0.5, 1.0)
-      bxy.drawImage("lantern", pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+      bxy.drawImage("lantern", thingPos.vec2, angle = 0, scale = SpriteScale, tint = tint)
 
   template isPlacedAt(thing: Thing): bool =
     isValidPos(thing.pos) and (

@@ -109,6 +109,13 @@ var lastContentScale: float32 = 0.0
 var dragStartWorld: Vec2 = vec2(0, 0)
 var isDragging: bool = false
 
+# Player control state for right-click commands
+# playerTeam: -1 = observer mode (no commands), 0-7 = controlling that team
+var playerTeam*: int = 0
+
+# Gatherable resource kinds for right-click gather command
+const GatherableResourceKinds* = {Tree, Wheat, Fish, Stone, Gold, Bush, Cactus}
+
 var actionsArray: array[MapAgents, uint8]
 
 proc display() =
@@ -433,6 +440,92 @@ proc display() =
                 selection.add(thing)
             else:
               selection = @[thing]
+
+    # Right-click command handling (AoE2-style)
+    if window.buttonPressed[MouseRight] and selection.len > 0 and playerTeam >= 0:
+      let
+        mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+        gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
+      if gridPos.x >= 0 and gridPos.x < MapWidth and
+         gridPos.y >= 0 and gridPos.y < MapHeight:
+        let shiftDown = window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
+        let targetThing = env.grid[gridPos.x][gridPos.y]
+        let bgThing = env.backgroundGrid[gridPos.x][gridPos.y]
+
+        # Determine command type based on target
+        # Check if there's something at the target position
+        if not isNil(targetThing):
+          if targetThing.kind == Agent:
+            # Right-click on agent
+            let targetTeam = getTeamId(targetThing)
+            if targetTeam != playerTeam:
+              # Enemy agent: attack-move to target
+              for sel in selection:
+                if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+                  if shiftDown:
+                    # Shift+right-click: queue patrol waypoint
+                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                  else:
+                    setAgentAttackMoveTarget(sel.agentId, gridPos)
+            else:
+              # Friendly agent: follow (using attack-move for now, could be follow command)
+              for sel in selection:
+                if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+                  if shiftDown:
+                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                  else:
+                    setAgentFollowTarget(sel.agentId, targetThing.agentId)
+          elif targetThing.kind in GatherableResourceKinds:
+            # Resource: gather command (attack-move for villagers)
+            for sel in selection:
+              if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+                if shiftDown:
+                  setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                else:
+                  setAgentAttackMoveTarget(sel.agentId, gridPos)
+          elif isBuildingKind(targetThing.kind):
+            # Building: check if friendly or enemy
+            if targetThing.teamId == playerTeam:
+              # Friendly building: garrison/dropoff (attack-move to building)
+              for sel in selection:
+                if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+                  if shiftDown:
+                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                  else:
+                    setAgentAttackMoveTarget(sel.agentId, gridPos)
+            else:
+              # Enemy building: attack-move
+              for sel in selection:
+                if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+                  if shiftDown:
+                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                  else:
+                    setAgentAttackMoveTarget(sel.agentId, gridPos)
+          else:
+            # Other things (Tumor, Spawner, etc.): attack-move
+            for sel in selection:
+              if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+                if shiftDown:
+                  setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                else:
+                  setAgentAttackMoveTarget(sel.agentId, gridPos)
+        elif not isNil(bgThing) and bgThing.kind in GatherableResourceKinds:
+          # Background thing is a gatherable resource (like Fish)
+          for sel in selection:
+            if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+              if shiftDown:
+                setAgentPatrol(sel.agentId, sel.pos, gridPos)
+              else:
+                setAgentAttackMoveTarget(sel.agentId, gridPos)
+        else:
+          # Empty tile: move command
+          for sel in selection:
+            if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
+              if shiftDown:
+                # Shift+right-click: queue patrol waypoint
+                setAgentPatrol(sel.agentId, sel.pos, gridPos)
+              else:
+                setAgentAttackMoveTarget(sel.agentId, gridPos)
 
   # Control group handling (AoE2-style: Ctrl+N assigns, N recalls, double-tap centers)
   let ctrlDown = window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl]
