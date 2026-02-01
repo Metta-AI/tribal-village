@@ -536,7 +536,7 @@ proc drawObjects*() =
     drawThings(thingKind):
       let key = prefix & OrientationDirKeys[thing.orientation.int]
       if key in bxy:
-        bxy.drawImage(key, pos.vec2, angle = 0, scale = SpriteScale)
+        bxy.drawImage(key, thing.pos.vec2, angle = 0, scale = SpriteScale)
 
   drawOrientedThings(Bear, "oriented/bear.")
   drawOrientedThings(Wolf, "oriented/wolf.")
@@ -714,13 +714,13 @@ const ProjectileColors: array[ProjectileKind, Color] = [
 ]
 
 const ProjectileScales: array[ProjectileKind, float32] = [
-  1.0 / 400.0,  # ProjArrow - small
-  1.0 / 400.0,  # ProjLongbow - small
-  1.0 / 400.0,  # ProjJanissary - small
-  1.0 / 400.0,  # ProjTowerArrow - small
-  1.0 / 400.0,  # ProjCastleArrow - small
-  1.0 / 280.0,  # ProjMangonel - medium
-  1.0 / 240.0,  # ProjTrebuchet - large
+  (1.0 / 400.0).float32,  # ProjArrow - small
+  (1.0 / 400.0).float32,  # ProjLongbow - small
+  (1.0 / 400.0).float32,  # ProjJanissary - small
+  (1.0 / 400.0).float32,  # ProjTowerArrow - small
+  (1.0 / 400.0).float32,  # ProjCastleArrow - small
+  (1.0 / 280.0).float32,  # ProjMangonel - medium
+  (1.0 / 240.0).float32,  # ProjTrebuchet - large
 ]
 
 proc drawProjectiles*() =
@@ -1090,3 +1090,272 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
       bxy.drawRect(Rect(x: x0, y: y0, w: lineW, h: y1 - y0), vpColor)
       # Right edge
       bxy.drawRect(Rect(x: x1 - lineW, y: y0, w: lineW, h: y1 - y0), vpColor)
+
+# ─── Unit Info Panel ────────────────────────────────────────────────────────
+
+const
+  UnitInfoPanelWidth* = 240.0'f32
+  UnitInfoPanelPadding = 12.0'f32
+  UnitInfoFontSize: float32 = 22
+  UnitInfoLargeFontSize: float32 = 28
+  UnitInfoLineHeight = 28.0'f32
+  UnitInfoBarHeight = 12.0'f32
+  UnitInfoBarWidth = 180.0'f32
+
+var
+  unitInfoLabelImages: Table[string, string] = initTable[string, string]()
+  unitInfoLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
+
+proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize): (string, IVec2) =
+  let cacheKey = text & "_" & $fontSize.int
+  if cacheKey in unitInfoLabelImages:
+    result = (unitInfoLabelImages[cacheKey], unitInfoLabelSizes[cacheKey])
+  else:
+    let (image, size) = renderTextLabel(text, FooterFontPath, fontSize, 2.0, 0.0)
+    let key = "unit_info/" & cacheKey.replace(" ", "_").replace("/", "_").replace(":", "_")
+    bxy.addImage(key, image)
+    unitInfoLabelImages[cacheKey] = key
+    unitInfoLabelSizes[cacheKey] = size
+    result = (key, size)
+
+const StanceLabels: array[AgentStance, string] = [
+  "Aggressive",
+  "Defensive",
+  "Stand Ground",
+  "No Attack"
+]
+
+proc getUnitAttackRange(agent: Thing): int =
+  case agent.unitClass
+  of UnitArcher, UnitCrossbowman, UnitArbalester:
+    ArcherBaseRange
+  of UnitLongbowman:
+    ArcherBaseRange + 2  # Extended range
+  of UnitMangonel:
+    MangonelBaseRange
+  of UnitTrebuchet:
+    TrebuchetBaseRange
+  of UnitMameluke, UnitJanissary:
+    2  # Short ranged
+  else:
+    1  # Melee
+
+proc drawUnitInfoPanel*(panelRect: IRect) =
+  if selection.len == 0:
+    return
+
+  # Panel position: right side, from top (below resource bar area) to above command panel area
+  let panelX = panelRect.x.float32 + panelRect.w.float32 - UnitInfoPanelWidth - UnitInfoPanelPadding
+  let panelY = panelRect.y.float32 + 40.0'f32  # Below potential resource bar
+  let panelH = panelRect.h.float32 * 0.45'f32  # Upper ~45% of right side
+
+  # Background
+  bxy.drawRect(
+    rect = Rect(x: panelX, y: panelY, w: UnitInfoPanelWidth, h: panelH),
+    color = color(0.08, 0.10, 0.14, 0.92)
+  )
+
+  var y = panelY + UnitInfoPanelPadding
+  let textX = panelX + UnitInfoPanelPadding
+
+  if selection.len == 1:
+    let thing = selection[0]
+
+    # --- Single Unit/Building Selected ---
+    if thing.kind == Agent:
+      let agent = thing
+      let teamId = getTeamId(agent)
+
+      # Unit name (large)
+      let unitName = UnitClassLabels[agent.unitClass]
+      let (nameKey, nameSize) = getUnitInfoLabel(unitName, UnitInfoLargeFontSize)
+      bxy.drawImage(nameKey, vec2(textX, y), angle = 0, scale = 1.0)
+      y += nameSize.y.float32 + 4.0
+
+      # Team
+      let teamLabel = "Team " & $teamId
+      let teamColor = if teamId >= 0 and teamId < env.teamColors.len:
+        env.teamColors[teamId]
+      else:
+        color(0.6, 0.6, 0.6, 1.0)
+      let (teamKey, teamSize) = getUnitInfoLabel(teamLabel)
+      bxy.drawImage(teamKey, vec2(textX, y), angle = 0, scale = 1.0, tint = teamColor)
+      y += teamSize.y.float32 + 8.0
+
+      # HP Bar
+      let (hpLabelKey, hpLabelSize) = getUnitInfoLabel("HP:")
+      bxy.drawImage(hpLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+      let barX = textX + 40.0
+      let barY = y + 4.0
+      let hpRatio = if agent.maxHp > 0: clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0) else: 0.0
+      # Background bar
+      bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth, h: UnitInfoBarHeight),
+                   color(0.2, 0.2, 0.2, 0.9))
+      # Filled bar
+      let hpColor = if hpRatio > 0.5: color(0.1, 0.8, 0.1, 1.0)
+                    elif hpRatio > 0.25: color(0.9, 0.7, 0.1, 1.0)
+                    else: color(0.9, 0.2, 0.1, 1.0)
+      bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth * hpRatio, h: UnitInfoBarHeight), hpColor)
+      # HP text
+      let hpText = $agent.hp & "/" & $agent.maxHp
+      let (hpTextKey, hpTextSize) = getUnitInfoLabel(hpText)
+      bxy.drawImage(hpTextKey, vec2(barX + UnitInfoBarWidth + 8.0, y), angle = 0, scale = 1.0)
+      y += UnitInfoLineHeight
+
+      # Attack
+      let (atkLabelKey, _) = getUnitInfoLabel("Attack: " & $agent.attackDamage)
+      bxy.drawImage(atkLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+      y += UnitInfoLineHeight
+
+      # Range
+      let range = getUnitAttackRange(agent)
+      let (rangeLabelKey, _) = getUnitInfoLabel("Range: " & $range)
+      bxy.drawImage(rangeLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+      y += UnitInfoLineHeight
+
+      # Stance
+      let stanceText = "Stance: " & StanceLabels[agent.stance]
+      let (stanceLabelKey, _) = getUnitInfoLabel(stanceText)
+      bxy.drawImage(stanceLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+      y += UnitInfoLineHeight
+
+      # Status (idle or not)
+      let statusText = if agent.isIdle: "Status: Idle" else: "Status: Active"
+      let (statusLabelKey, _) = getUnitInfoLabel(statusText)
+      let statusTint = if agent.isIdle: color(0.7, 0.7, 0.3, 1.0) else: color(0.5, 0.9, 0.5, 1.0)
+      bxy.drawImage(statusLabelKey, vec2(textX, y), angle = 0, scale = 1.0, tint = statusTint)
+      y += UnitInfoLineHeight + 8.0
+
+      # Inventory
+      var hasInventory = false
+      for key, count in agent.inventory.pairs:
+        if count > 0:
+          hasInventory = true
+          break
+      if hasInventory:
+        let (invLabelKey, _) = getUnitInfoLabel("Inventory:")
+        bxy.drawImage(invLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+        y += UnitInfoLineHeight - 4.0
+        var invX = textX
+        for key, count in agent.inventory.pairs:
+          if count > 0:
+            let itemText = $key & " x" & $count
+            let (itemKey, itemSize) = getUnitInfoLabel(itemText)
+            if invX + itemSize.x.float32 > panelX + UnitInfoPanelWidth - UnitInfoPanelPadding:
+              invX = textX
+              y += UnitInfoLineHeight - 6.0
+            bxy.drawImage(itemKey, vec2(invX, y), angle = 0, scale = 1.0,
+                          tint = color(0.8, 0.85, 0.9, 1.0))
+            invX += itemSize.x.float32 + 12.0
+
+    elif isBuildingKind(thing.kind):
+      # --- Building Selected ---
+      let building = thing
+      let teamId = building.teamId
+
+      # Building name (large)
+      let buildingName = BuildingRegistry[building.kind].displayName
+      let (nameKey, nameSize) = getUnitInfoLabel(buildingName, UnitInfoLargeFontSize)
+      bxy.drawImage(nameKey, vec2(textX, y), angle = 0, scale = 1.0)
+      y += nameSize.y.float32 + 4.0
+
+      # Team
+      if teamId >= 0:
+        let teamLabel = "Team " & $teamId
+        let teamColor = if teamId < env.teamColors.len:
+          env.teamColors[teamId]
+        else:
+          color(0.6, 0.6, 0.6, 1.0)
+        let (teamKey, teamSize) = getUnitInfoLabel(teamLabel)
+        bxy.drawImage(teamKey, vec2(textX, y), angle = 0, scale = 1.0, tint = teamColor)
+        y += teamSize.y.float32 + 8.0
+
+      # HP Bar (for buildings with HP)
+      if building.maxHp > 0:
+        let (hpLabelKey, _) = getUnitInfoLabel("HP:")
+        bxy.drawImage(hpLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+        let barX = textX + 40.0
+        let barY = y + 4.0
+        let hpRatio = clamp(building.hp.float32 / building.maxHp.float32, 0.0, 1.0)
+        bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth, h: UnitInfoBarHeight),
+                     color(0.2, 0.2, 0.2, 0.9))
+        bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth * hpRatio, h: UnitInfoBarHeight),
+                     color(0.1, 0.8, 0.1, 1.0))
+        let hpText = $building.hp & "/" & $building.maxHp
+        let (hpTextKey, _) = getUnitInfoLabel(hpText)
+        bxy.drawImage(hpTextKey, vec2(barX + UnitInfoBarWidth + 8.0, y), angle = 0, scale = 1.0)
+        y += UnitInfoLineHeight
+
+      # Garrison count (for garrisonable buildings)
+      if building.kind in {TownCenter, Castle, GuardTower, House}:
+        let garrisonCap = case building.kind
+          of TownCenter: TownCenterGarrisonCapacity
+          of Castle: CastleGarrisonCapacity
+          of GuardTower: GuardTowerGarrisonCapacity
+          of House: HouseGarrisonCapacity
+          else: 0
+        let garrisonCount = building.garrisonedUnits.len
+        let garrisonText = "Garrison: " & $garrisonCount & "/" & $garrisonCap
+        let (garrisonKey, _) = getUnitInfoLabel(garrisonText)
+        bxy.drawImage(garrisonKey, vec2(textX, y), angle = 0, scale = 1.0)
+        y += UnitInfoLineHeight
+
+      # Production Queue
+      if building.productionQueue.entries.len > 0:
+        let (queueLabelKey, _) = getUnitInfoLabel("Production Queue:")
+        bxy.drawImage(queueLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
+        y += UnitInfoLineHeight - 4.0
+
+        for i, entry in building.productionQueue.entries:
+          if i >= 3: break  # Show max 3 entries
+          let unitName = UnitClassLabels[entry.unitClass]
+          if i == 0 and entry.totalSteps > 0:
+            # First entry with progress bar
+            let (entryKey, _) = getUnitInfoLabel(unitName)
+            bxy.drawImage(entryKey, vec2(textX, y), angle = 0, scale = 1.0)
+            let progRatio = clamp(1.0 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
+            let progBarX = textX + 100.0
+            let progBarW = 100.0'f32
+            bxy.drawRect(Rect(x: progBarX, y: y + 4.0, w: progBarW, h: UnitInfoBarHeight),
+                         color(0.2, 0.2, 0.2, 0.9))
+            bxy.drawRect(Rect(x: progBarX, y: y + 4.0, w: progBarW * progRatio, h: UnitInfoBarHeight),
+                         color(0.2, 0.5, 1.0, 1.0))
+          else:
+            let queuedText = unitName & " (queued)"
+            let (queuedKey, _) = getUnitInfoLabel(queuedText)
+            bxy.drawImage(queuedKey, vec2(textX, y), angle = 0, scale = 1.0,
+                          tint = color(0.6, 0.6, 0.6, 1.0))
+          y += UnitInfoLineHeight - 4.0
+
+    else:
+      # --- Other thing selected (resource, terrain object) ---
+      let displayName = if ThingCatalog[thing.kind].displayName.len > 0:
+        ThingCatalog[thing.kind].displayName
+      else:
+        $thing.kind
+      let (nameKey, _) = getUnitInfoLabel(displayName, UnitInfoLargeFontSize)
+      bxy.drawImage(nameKey, vec2(textX, y), angle = 0, scale = 1.0)
+
+  else:
+    # --- Multiple Units Selected ---
+    let countText = $selection.len & " units selected"
+    let (countKey, countSize) = getUnitInfoLabel(countText, UnitInfoLargeFontSize)
+    bxy.drawImage(countKey, vec2(textX, y), angle = 0, scale = 1.0)
+    y += countSize.y.float32 + 8.0
+
+    # Count by unit class
+    var classCounts: array[AgentUnitClass, int]
+    for thing in selection:
+      if thing.kind == Agent:
+        inc classCounts[thing.unitClass]
+
+    # Display composition
+    for unitClass in AgentUnitClass:
+      let count = classCounts[unitClass]
+      if count > 0:
+        let compText = $count & "x " & UnitClassLabels[unitClass]
+        let (compKey, _) = getUnitInfoLabel(compText)
+        bxy.drawImage(compKey, vec2(textX, y), angle = 0, scale = 1.0)
+        y += UnitInfoLineHeight - 4.0
+        if y > panelY + panelH - UnitInfoPanelPadding:
+          break

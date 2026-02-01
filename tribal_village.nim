@@ -629,7 +629,7 @@ proc display() =
   let footerButtons = buildFooterButtons(panelRectInt)
   drawMinimap(panelRectInt, worldMapPanel)
   drawFooter(panelRectInt, footerButtons)
-  drawMinimap(panelRectInt, worldMapPanel.pos, worldMapPanel.zoom)
+  drawUnitInfoPanel(panelRectInt)
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
   if clearUiCapture:
