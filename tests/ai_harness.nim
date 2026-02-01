@@ -1707,3 +1707,89 @@ suite "Wonder Victory":
 
     check env.victoryStates[0].wonderBuiltStep == -1
     check env.victoryWinner == -1
+
+suite "AI Difficulty Control":
+  setup:
+    initGlobalController(BuiltinAI, 12345)
+    discard makeEmptyEnv()
+
+  test "get and set difficulty level":
+    let controller = globalController.aiController
+
+    # Default is Normal
+    check controller.getDifficulty(0).level == DiffNormal
+
+    # Set to Easy
+    controller.setDifficulty(0, DiffEasy)
+    check controller.getDifficulty(0).level == DiffEasy
+    check controller.getDifficulty(0).decisionDelayChance == 0.30'f32
+
+    # Set to Hard
+    controller.setDifficulty(0, DiffHard)
+    check controller.getDifficulty(0).level == DiffHard
+    check controller.getDifficulty(0).decisionDelayChance == 0.02'f32
+
+    # Set to Brutal
+    controller.setDifficulty(0, DiffBrutal)
+    check controller.getDifficulty(0).level == DiffBrutal
+    check controller.getDifficulty(0).decisionDelayChance == 0.0'f32
+
+  test "decision delay chance affects action skipping":
+    let controller = globalController.aiController
+
+    # With 100% delay, should always skip
+    controller.difficulty[0].decisionDelayChance = 1.0'f32
+    var skipped = 0
+    for _ in 0 ..< 100:
+      if controller.shouldApplyDecisionDelay(0):
+        inc skipped
+    check skipped == 100
+
+    # With 0% delay, should never skip
+    controller.difficulty[0].decisionDelayChance = 0.0'f32
+    skipped = 0
+    for _ in 0 ..< 100:
+      if controller.shouldApplyDecisionDelay(0):
+        inc skipped
+    check skipped == 0
+
+  test "adaptive difficulty can be enabled and disabled":
+    let controller = globalController.aiController
+
+    # Initially disabled
+    check not controller.getDifficulty(0).adaptive
+
+    # Enable with custom target
+    controller.enableAdaptiveDifficulty(0, 0.3)
+    check controller.getDifficulty(0).adaptive
+    check controller.getDifficulty(0).adaptiveTarget == 0.3'f32
+
+    # Disable
+    controller.disableAdaptiveDifficulty(0)
+    check not controller.getDifficulty(0).adaptive
+
+  test "difficulty features can be toggled individually":
+    let controller = globalController.aiController
+
+    # Set to Easy (most features disabled)
+    controller.setDifficulty(0, DiffEasy)
+    check not controller.getDifficulty(0).threatResponseEnabled
+    check not controller.getDifficulty(0).advancedTargetingEnabled
+    check not controller.getDifficulty(0).coordinationEnabled
+
+    # Set to Hard (all features enabled)
+    controller.setDifficulty(0, DiffHard)
+    check controller.getDifficulty(0).threatResponseEnabled
+    check controller.getDifficulty(0).advancedTargetingEnabled
+    check controller.getDifficulty(0).coordinationEnabled
+
+  test "difficulty is per-team":
+    let controller = globalController.aiController
+
+    controller.setDifficulty(0, DiffEasy)
+    controller.setDifficulty(1, DiffBrutal)
+
+    check controller.getDifficulty(0).level == DiffEasy
+    check controller.getDifficulty(1).level == DiffBrutal
+    check controller.getDifficulty(0).decisionDelayChance == 0.30'f32
+    check controller.getDifficulty(1).decisionDelayChance == 0.0'f32

@@ -272,6 +272,23 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             ("tribal_village_get_nearest_threat", [ctypes.c_void_p, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)], ctypes.c_int32, True),
             ("tribal_village_get_threats_in_range", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
             ("tribal_village_get_threat_at", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, ctypes.c_int32], ctypes.c_int32, True),
+            # AI difficulty control
+            ("tribal_village_get_difficulty_level", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_set_difficulty_level", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
+            ("tribal_village_get_decision_delay_chance", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_float, True),
+            ("tribal_village_set_decision_delay_chance", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_float], None, True),
+            ("tribal_village_enable_adaptive_difficulty", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_float], None, True),
+            ("tribal_village_disable_adaptive_difficulty", [ctypes.c_void_p, ctypes.c_int32], None, True),
+            ("tribal_village_is_adaptive_difficulty_enabled", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_get_adaptive_difficulty_target", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_float, True),
+            ("tribal_village_get_threat_response_enabled", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_set_threat_response_enabled", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
+            ("tribal_village_get_advanced_targeting_enabled", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_set_advanced_targeting_enabled", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
+            ("tribal_village_get_coordination_enabled", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_set_coordination_enabled", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
+            ("tribal_village_get_optimal_build_order_enabled", [ctypes.c_void_p, ctypes.c_int32], ctypes.c_int32, True),
+            ("tribal_village_set_optimal_build_order_enabled", [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32], None, True),
         ]
 
         for name, argtypes, restype, optional in func_specs:
@@ -437,6 +454,150 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if fn is None:
             return 0
         return fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y))
+
+    # --- AI Difficulty Control ---
+
+    DIFFICULTY_LEVELS = ["Easy", "Normal", "Hard", "Brutal"]
+
+    def get_difficulty_level(self, team_id: int) -> str:
+        """Get the difficulty level for a team.
+
+        Returns one of: "Easy", "Normal", "Hard", "Brutal"
+        """
+        fn = getattr(self.lib, "tribal_village_get_difficulty_level", None)
+        if fn is None:
+            return "Normal"
+        level = fn(self.env_ptr, ctypes.c_int32(team_id))
+        if 0 <= level < len(self.DIFFICULTY_LEVELS):
+            return self.DIFFICULTY_LEVELS[level]
+        return "Normal"
+
+    def set_difficulty_level(self, team_id: int, level: str) -> None:
+        """Set the difficulty level for a team.
+
+        Args:
+            team_id: The team ID
+            level: One of "Easy", "Normal", "Hard", "Brutal"
+        """
+        fn = getattr(self.lib, "tribal_village_set_difficulty_level", None)
+        if fn is None:
+            return
+        level_idx = self.DIFFICULTY_LEVELS.index(level) if level in self.DIFFICULTY_LEVELS else 1
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(level_idx))
+
+    def get_decision_delay_chance(self, team_id: int) -> float:
+        """Get the decision delay chance for a team (0.0-1.0).
+
+        Higher values mean the AI is more likely to skip turns (easier AI).
+        """
+        fn = getattr(self.lib, "tribal_village_get_decision_delay_chance", None)
+        if fn is None:
+            return 0.1
+        return fn(self.env_ptr, ctypes.c_int32(team_id))
+
+    def set_decision_delay_chance(self, team_id: int, chance: float) -> None:
+        """Set a custom decision delay chance for a team (0.0-1.0).
+
+        Args:
+            team_id: The team ID
+            chance: Probability of skipping a turn (0.0 = never, 1.0 = always)
+        """
+        fn = getattr(self.lib, "tribal_village_set_decision_delay_chance", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(chance))
+
+    def enable_adaptive_difficulty(self, team_id: int, target_territory: float = 0.5) -> None:
+        """Enable adaptive difficulty for a team.
+
+        The AI will automatically adjust its difficulty level based on
+        territory control compared to the target percentage.
+
+        Args:
+            team_id: The team ID
+            target_territory: Target territory percentage (0.0-1.0, default 0.5 for balanced)
+        """
+        fn = getattr(self.lib, "tribal_village_enable_adaptive_difficulty", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(target_territory))
+
+    def disable_adaptive_difficulty(self, team_id: int) -> None:
+        """Disable adaptive difficulty for a team."""
+        fn = getattr(self.lib, "tribal_village_disable_adaptive_difficulty", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id))
+
+    def is_adaptive_difficulty_enabled(self, team_id: int) -> bool:
+        """Check if adaptive difficulty is enabled for a team."""
+        fn = getattr(self.lib, "tribal_village_is_adaptive_difficulty_enabled", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+
+    def get_adaptive_difficulty_target(self, team_id: int) -> float:
+        """Get the target territory percentage for adaptive difficulty."""
+        fn = getattr(self.lib, "tribal_village_get_adaptive_difficulty_target", None)
+        if fn is None:
+            return 0.5
+        return fn(self.env_ptr, ctypes.c_int32(team_id))
+
+    def get_threat_response_enabled(self, team_id: int) -> bool:
+        """Check if threat response intelligence is enabled for a team."""
+        fn = getattr(self.lib, "tribal_village_get_threat_response_enabled", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+
+    def set_threat_response_enabled(self, team_id: int, enabled: bool) -> None:
+        """Enable or disable threat response intelligence for a team."""
+        fn = getattr(self.lib, "tribal_village_set_threat_response_enabled", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+
+    def get_advanced_targeting_enabled(self, team_id: int) -> bool:
+        """Check if advanced targeting is enabled for a team."""
+        fn = getattr(self.lib, "tribal_village_get_advanced_targeting_enabled", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+
+    def set_advanced_targeting_enabled(self, team_id: int, enabled: bool) -> None:
+        """Enable or disable advanced targeting for a team."""
+        fn = getattr(self.lib, "tribal_village_set_advanced_targeting_enabled", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+
+    def get_coordination_enabled(self, team_id: int) -> bool:
+        """Check if inter-role coordination is enabled for a team."""
+        fn = getattr(self.lib, "tribal_village_get_coordination_enabled", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+
+    def set_coordination_enabled(self, team_id: int, enabled: bool) -> None:
+        """Enable or disable inter-role coordination for a team."""
+        fn = getattr(self.lib, "tribal_village_set_coordination_enabled", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+
+    def get_optimal_build_order_enabled(self, team_id: int) -> bool:
+        """Check if optimal build order is enabled for a team."""
+        fn = getattr(self.lib, "tribal_village_get_optimal_build_order_enabled", None)
+        if fn is None:
+            return False
+        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+
+    def set_optimal_build_order_enabled(self, team_id: int, enabled: bool) -> None:
+        """Enable or disable optimal build order for a team."""
+        fn = getattr(self.lib, "tribal_village_set_optimal_build_order_enabled", None)
+        if fn is None:
+            return
+        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
 
     def _nim_float(self, key: str) -> float:
         value = self.config.get(key)
