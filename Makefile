@@ -1,4 +1,4 @@
-.PHONY: check build lib clean test test-nim test-python test-integration
+.PHONY: check build lib clean test test-nim test-python test-integration install-hooks
 
 # CI gate for nim check - syncs deps first
 check:
@@ -30,3 +30,7 @@ test-python: lib
 test-integration: lib
 	nim r --path:src tests/integration_behaviors.nim
 	pytest tests/test_python_integration.py -v -k "EndToEnd"
+
+# Install git hooks for development
+install-hooks:
+	./scripts/install_hooks.sh
