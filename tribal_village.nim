@@ -820,27 +820,26 @@ generateDfViewAssets()
 # Build the atlas with progress feedback and error handling.
 echo "🎨 Loading tribal assets..."
 var loadedCount = 0
-var totalFiles = 0
-
-# Count total PNG files first
-for path in walkDirRec("data/"):
-  if path.startsWith("data/df_view/"):
-    continue
-  if path.endsWith(".png"):
-    inc totalFiles
-
+var skippedCount = 0
+var totalBytes = 0
 
 for path in walkDirRec("data/"):
   if path.startsWith("data/df_view/"):
     continue
   if path.endsWith(".png"):
-    inc loadedCount
-
     try:
       let key = path.replace("data/", "").replace(".png", "")
-      bxy.addImage(key, readImage(path))
+      let image = readImage(path)
+      bxy.addImage(key, image)
+      inc loadedCount
+      totalBytes += getFileSize(path).int
     except Exception as e:
       echo "⚠️  Skipping ", path, ": ", e.msg
+      inc skippedCount
+
+echo "✅ Loaded ", loadedCount, " assets (", totalBytes div 1024 div 1024, " MB)"
+if skippedCount > 0:
+  echo "⚠️  Skipped ", skippedCount, " files due to errors"
 
 # Check for command line arguments to determine controller type
 var useExternalController = false
