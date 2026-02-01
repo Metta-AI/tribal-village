@@ -75,6 +75,7 @@ const
   FasterPlaySpeed* = 0.005
   SuperPlaySpeed* = 0.001
   FooterHeight* = 64
+  ResourceBarHeight* = 32  ## Resource bar HUD at top of viewport
 
 const
   MinimapSize* = 200  ## Minimap width/height in pixels

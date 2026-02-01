@@ -151,6 +151,16 @@ proc display() =
     playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
     # Cycles: -1 -> 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> -1
 
+  # F1-F8 to switch team shown in resource bar
+  if window.buttonPressed[KeyF1]: playerTeam = 0
+  if window.buttonPressed[KeyF2]: playerTeam = 1
+  if window.buttonPressed[KeyF3]: playerTeam = 2
+  if window.buttonPressed[KeyF4]: playerTeam = 3
+  if window.buttonPressed[KeyF5]: playerTeam = 4
+  if window.buttonPressed[KeyF6]: playerTeam = 5
+  if window.buttonPressed[KeyF7]: playerTeam = 6
+  if window.buttonPressed[KeyF8]: playerTeam = 7
+
   let now = nowSeconds()
   while play and (lastSimTime + playSpeed < now):
     lastSimTime += playSpeed
@@ -736,6 +746,8 @@ proc display() =
   bxy.restoreTransform()
 
   bxy.restoreTransform()
+  # Draw UI elements
+  drawResourceBar(panelRectInt, playerTeam)
   let footerButtons = buildFooterButtons(panelRectInt)
   drawMinimap(panelRectInt, worldMapPanel)
   drawFooter(panelRectInt, footerButtons)

@@ -1389,3 +1389,126 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
         y += UnitInfoLineHeight - 4.0
         if y > panelY + panelH - UnitInfoPanelPadding:
           break
+
+# ─── Resource Bar HUD ─────────────────────────────────────────────────────────
+
+const
+  ResourceBarPadding = 8.0'f32
+  ResourceBarIconScale = 1.0'f32 / 350.0'f32
+  ResourceBarFontSize: float32 = 20
+  ResourceBarLabelPadding = 4.0'f32
+  ResourceBarItemGap = 24.0'f32
+  ResourceBarSeparatorWidth = 2.0'f32
+
+var
+  resourceBarLabelImages: Table[string, string] = initTable[string, string]()
+  resourceBarLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
+
+proc ensureResourceBarLabel(text: string): (string, IVec2) =
+  if text in resourceBarLabelImages:
+    return (resourceBarLabelImages[text], resourceBarLabelSizes[text])
+  let (image, size) = renderTextLabel(text, FooterFontPath, ResourceBarFontSize,
+                                      ResourceBarLabelPadding, 0.0)
+  let key = "resource_bar/" & text.replace(" ", "_").replace("/", "_")
+  bxy.addImage(key, image)
+  resourceBarLabelImages[text] = key
+  resourceBarLabelSizes[text] = size
+  result = (key, size)
+
+proc drawResourceBar*(panelRect: IRect, teamId: int) =
+  ## Draw the resource bar HUD at the top of the viewport.
+  let barY = panelRect.y.float32
+  let barW = panelRect.w.float32
+  let barH = ResourceBarHeight.float32
+
+  bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: barY, w: barW, h: barH),
+               color = color(0.12, 0.16, 0.2, 0.9))
+
+  let validTeamId = if teamId >= 0 and teamId < MapRoomObjectsTeams: teamId else: 0
+
+  var x = panelRect.x.float32 + ResourceBarPadding
+  let centerY = barY + barH * 0.5
+
+  # Team color swatch (16x16)
+  let swatchSize = 16.0'f32
+  let teamColor = if validTeamId < env.teamColors.len:
+    env.teamColors[validTeamId]
+  else:
+    color(0.5, 0.5, 0.5, 1.0)
+  bxy.drawRect(rect = Rect(x: x, y: centerY - swatchSize * 0.5, w: swatchSize, h: swatchSize),
+               color = teamColor)
+  x += swatchSize + ResourceBarItemGap
+
+  # Resource counts
+  template drawResource(res: StockpileResource, iconKey: string) =
+    let count = env.teamStockpiles[validTeamId].counts[res]
+    let countText = $count
+    let (labelKey, labelSize) = ensureResourceBarLabel(countText)
+    if iconKey in bxy:
+      let iconSize = 24.0'f32
+      bxy.drawImage(iconKey, vec2(x, centerY - iconSize * 0.5 * 350 * ResourceBarIconScale),
+                    angle = 0, scale = ResourceBarIconScale)
+      x += iconSize * ResourceBarIconScale * 350 + 4.0
+    if labelKey in bxy:
+      bxy.drawImage(labelKey, vec2(x, centerY - labelSize.y.float32 * 0.5),
+                    angle = 0, scale = 1.0)
+      x += labelSize.x.float32 + ResourceBarItemGap
+
+  drawResource(ResourceFood, itemSpriteKey(ItemWheat))
+  drawResource(ResourceWood, itemSpriteKey(ItemWood))
+  drawResource(ResourceStone, itemSpriteKey(ItemStone))
+  drawResource(ResourceGold, itemSpriteKey(ItemGold))
+
+  # Separator
+  bxy.drawRect(rect = Rect(x: x, y: centerY - barH * 0.3, w: ResourceBarSeparatorWidth, h: barH * 0.6),
+               color = color(0.4, 0.4, 0.4, 0.8))
+  x += ResourceBarSeparatorWidth + ResourceBarItemGap
+
+  # Population
+  var popCount = 0
+  var popCap = 0
+  for agent in env.agents:
+    if isAgentAlive(env, agent):
+      let agentTeam = getTeamId(agent)
+      if agentTeam == validTeamId:
+        inc popCount
+  for house in env.thingsByKind[House]:
+    if house.teamId == validTeamId:
+      popCap += HousePopCap
+  for tc in env.thingsByKind[TownCenter]:
+    if tc.teamId == validTeamId:
+      popCap += TownCenterPopCap
+  popCap = min(popCap, MapAgentsPerTeam)
+
+  if "oriented/gatherer.s" in bxy:
+    bxy.drawImage("oriented/gatherer.s", vec2(x, centerY - 12.0),
+                  angle = 0, scale = ResourceBarIconScale)
+    x += 24.0 * ResourceBarIconScale * 350 + 4.0
+
+  let popText = $popCount & "/" & $popCap
+  let (popLabelKey, popLabelSize) = ensureResourceBarLabel(popText)
+  if popLabelKey in bxy:
+    bxy.drawImage(popLabelKey, vec2(x, centerY - popLabelSize.y.float32 * 0.5),
+                  angle = 0, scale = 1.0)
+    x += popLabelSize.x.float32 + ResourceBarItemGap
+
+  # Separator
+  bxy.drawRect(rect = Rect(x: x, y: centerY - barH * 0.3, w: ResourceBarSeparatorWidth, h: barH * 0.6),
+               color = color(0.4, 0.4, 0.4, 0.8))
+  x += ResourceBarSeparatorWidth + ResourceBarItemGap
+
+  # Step counter
+  let stepText = "Step " & $env.currentStep
+  let (stepLabelKey, stepLabelSize) = ensureResourceBarLabel(stepText)
+  if stepLabelKey in bxy:
+    bxy.drawImage(stepLabelKey, vec2(x, centerY - stepLabelSize.y.float32 * 0.5),
+                  angle = 0, scale = 1.0)
+    x += stepLabelSize.x.float32 + ResourceBarItemGap
+
+  # Mode indicator (right-aligned)
+  let modeText = "[AI]"
+  let (modeLabelKey, modeLabelSize) = ensureResourceBarLabel(modeText)
+  if modeLabelKey in bxy:
+    let modeX = panelRect.x.float32 + barW - modeLabelSize.x.float32 - ResourceBarPadding
+    bxy.drawImage(modeLabelKey, vec2(modeX, centerY - modeLabelSize.y.float32 * 0.5),
+                  angle = 0, scale = 1.0)
