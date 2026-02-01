@@ -80,6 +80,14 @@ const
   MinimapSize* = 200  ## Minimap width/height in pixels
   MinimapMargin* = 8  ## Margin from edges in pixels
 
+  # Command Panel constants (Phase 3: context-sensitive action buttons)
+  CommandPanelWidth* = 240     ## Width in pixels
+  CommandPanelMargin* = 8      ## Margin from edges
+  CommandButtonSize* = 48      ## Button size in pixels (square)
+  CommandButtonGap* = 6        ## Gap between buttons
+  CommandButtonCols* = 4       ## Buttons per row
+  CommandPanelPadding* = 10    ## Internal padding
+
 var
   mouseCaptured*: bool = false
   mouseCapturedPanel*: Panel = nil

@@ -1,7 +1,7 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
   src/environment, src/common, src/renderer, src/agent_control, src/tileset,
-  src/minimap
+  src/minimap, src/command_panel
 
 when compileOption("profiler"):
   import std/nimprof
@@ -224,7 +224,8 @@ proc display() =
       mousePos.y >= footerRectLogical.y and mousePos.y <= footerRectLogical.y + footerRectLogical.h)
 
   let onMinimap = isInMinimap(panelRectInt, window.mousePos.vec2)
-  worldMapPanel.hasMouse = worldMapPanel.visible and not onMinimap and not minimapCaptured and
+  let onCommandPanel = isInCommandPanel(panelRectInt, window.mousePos.vec2)
+  worldMapPanel.hasMouse = worldMapPanel.visible and not onMinimap and not onCommandPanel and not minimapCaptured and
     ((not mouseCaptured and insideRect) or
     (mouseCaptured and mouseCapturedPanel == worldMapPanel))
 
@@ -341,6 +342,14 @@ proc display() =
 
   if minimapCaptured and window.buttonReleased[MouseLeft]:
     minimapCaptured = false
+
+  # Command panel click handling
+  if window.buttonPressed[MouseLeft] and isInCommandPanel(panelRectInt, mousePosPx):
+    blockSelection = true
+    let clickedCmd = handleCommandPanelClick(panelRectInt, mousePosPx)
+    # Command panel clicks are handled here - future: implement command mode
+    # For now, just block selection when clicking on the panel
+    discard clickedCmd
 
   if window.buttonPressed[MouseLeft] and not minimapCaptured and
       mousePosPx.x >= footerRect.x and mousePosPx.x <= footerRect.x + footerRect.w and
@@ -723,6 +732,7 @@ proc display() =
   drawMinimap(panelRectInt, worldMapPanel)
   drawFooter(panelRectInt, footerButtons)
   drawUnitInfoPanel(panelRectInt)
+  drawCommandPanel(panelRectInt, mousePosPx)
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
   if clearUiCapture:
