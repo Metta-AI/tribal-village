@@ -8,10 +8,12 @@ import agent_control
 import types
 
 const
-  NumSeeds = 10
+  NumSeeds = 16
   StepsPerGame = 500
-  MaxWinRate = 0.80  # Fail if one team wins >80% of games
-  Seeds = [42, 137, 256, 500, 777, 1024, 1337, 2048, 3141, 4096]
+  MaxWinRate = 0.50  # Fail if one team wins >50% of games (8/16)
+  # Use more seeds for better statistical coverage
+  Seeds = [42, 137, 256, 500, 777, 1024, 1337, 2048,
+           3141, 4096, 5555, 6789, 7777, 8192, 9001, 9999]
 
 type
   TeamMetrics = object
@@ -69,8 +71,8 @@ proc collectMetrics(env: Environment): array[MapRoomObjectsTeams, TeamMetrics] =
     result[teamId].territoryTiles = territory.teamTiles[teamId]
 
 proc computeScore(m: TeamMetrics): int =
-  ## Composite score: resources + territory + population
-  m.totalResources + m.territoryTiles + m.aliveUnits * 10
+  ## Composite score: resources + population (territory excluded for position-independence)
+  m.totalResources + m.aliveUnits * 10
 
 proc runGame(seed: int): GameResult =
   var config = defaultEnvironmentConfig()
@@ -78,7 +80,8 @@ proc runGame(seed: int): GameResult =
   config.victoryCondition = VictoryNone  # Let all games run to completion
   let env = newEnvironment(config, seed)
 
-  initGlobalController(BuiltinAI, seed = seed)
+  # Use different seed for AI to break correlation between map layout and AI decisions
+  initGlobalController(BuiltinAI, seed = seed xor 0x12345678)
   for teamId in 0 ..< MapRoomObjectsTeams:
     globalController.aiController.setDifficulty(teamId, DiffBrutal)
 
