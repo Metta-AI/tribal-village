@@ -53,7 +53,7 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
 
 proc scoreEnemy(env: Environment, agent: Thing, enemy: Thing, teamId: int): float =
   ## Score an enemy for target selection. Higher score = better target.
-  ## Considers: distance, HP ratio, and threat to allies.
+  ## Considers: distance, HP ratio, threat to allies, class counters, and unit value.
   var score = 0.0
   let dist = int(chebyshevDist(agent.pos, enemy.pos))
 
@@ -72,6 +72,21 @@ proc scoreEnemy(env: Environment, agent: Thing, enemy: Thing, teamId: int): floa
   # Bonus for enemies threatening allies - up to 20 points
   if isThreateningAlly(env, enemy, teamId):
     score += 20.0
+
+  # Class counter bonus - prioritize targets we deal bonus damage to (up to 12 points)
+  # This encourages smart unit matchups (infantry hunting cavalry, etc.)
+  let counterBonus = BonusDamageByClass[agent.unitClass][enemy.unitClass]
+  if counterBonus > 0:
+    score += float(counterBonus) * 6.0  # +6 per point of counter damage
+
+  # Siege unit priority - high-value targets that threaten structures (up to 15 points)
+  if enemy.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
+    score += 15.0  # Prioritize siege units as they're dangerous
+
+  # Unit value consideration - prioritize killing expensive/powerful units (up to 10 points)
+  # Based on max HP as a rough proxy for unit importance
+  let valueScore = float(min(enemy.maxHp, 15)) * 0.67
+  score += valueScore
 
   score
 

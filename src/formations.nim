@@ -80,6 +80,7 @@ proc isFormationActive*(groupIndex: int): bool =
 proc calcLinePositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2] =
   ## Calculate positions for line formation around a center point.
   ## rotation: 0=horizontal (E-W), 2=vertical (N-S), 1/3=diagonal
+  ## Uses proper centering so formations are symmetric around the center.
   result = newSeq[IVec2](unitCount)
   if unitCount == 0:
     return
@@ -96,13 +97,15 @@ proc calcLinePositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2
     of 7: ivec2(1, 1)       # Same as 3 (reversed)
     else: ivec2(1, 0)
 
-  # Place units centered on the center point
-  let halfCount = unitCount div 2
+  # Place units centered on the center point using proper symmetric centering
+  # For n units, total span is (n-1)*spacing, so half-span is (n-1)*spacing/2
+  # Each unit i gets offset: (i - (n-1)/2) * spacing
+  # Using integer math: offset = (2*i - (n-1)) * spacing / 2
   for i in 0 ..< unitCount:
-    let offset = (i - halfCount) * FormationSpacing
+    let offsetX2 = (2 * i - (unitCount - 1)) * FormationSpacing  # 2x the offset
     result[i] = ivec2(
-      center.x + dir.x * offset.int32,
-      center.y + dir.y * offset.int32
+      center.x + dir.x * (offsetX2 div 2).int32,
+      center.y + dir.y * (offsetX2 div 2).int32
     )
 
 proc calcBoxPositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2] =
@@ -145,26 +148,39 @@ proc calcBoxPositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2]
     perimeterPositions.add(ivec2(center.x - halfW.int32, center.y + y.int32))
 
   # Apply rotation to all positions around center
+  # For tile-based grids, we use discrete rotations that map to valid positions.
+  # Cardinal rotations (0, 2, 4, 6) = 0, 90, 180, 270 degrees - exact
+  # Diagonal rotations (1, 3, 5, 7) use approximate 45-degree steps that
+  # preserve the general shape while snapping to the integer grid.
   if rotation != 0:
     for i in 0 ..< perimeterPositions.len:
       let dx = perimeterPositions[i].x - center.x
       let dy = perimeterPositions[i].y - center.y
-      # Simple 90-degree rotations for cardinal, approximate for diagonals
       case rotation
-      of 2: # 90 degrees
+      of 2: # 90 degrees CCW
         perimeterPositions[i] = ivec2(center.x + dy, center.y - dx)
       of 4: # 180 degrees
         perimeterPositions[i] = ivec2(center.x - dx, center.y - dy)
-      of 6: # 270 degrees
+      of 6: # 270 degrees CCW (90 CW)
         perimeterPositions[i] = ivec2(center.x - dy, center.y + dx)
-      of 1: # 45 degrees approx
-        perimeterPositions[i] = ivec2(center.x + dx - dy, center.y + dx + dy)
-      of 3: # 135 degrees approx
-        perimeterPositions[i] = ivec2(center.x + dy - dx, center.y - dx - dy)
-      of 5: # 225 degrees approx
-        perimeterPositions[i] = ivec2(center.x - dx + dy, center.y - dx - dy)
-      of 7: # 315 degrees approx
-        perimeterPositions[i] = ivec2(center.x - dy + dx, center.y + dx + dy)
+      of 1: # 45 degrees - rotate by averaging cardinal neighbors
+        # For diagonal rotation, we use: new_x = (dx - dy) * 0.707, new_y = (dx + dy) * 0.707
+        # Approximating with integer math: multiply then divide to preserve scale
+        let newDx = (dx - dy + 1) div 2 + (dx - dy) div 2  # Better rounding
+        let newDy = (dx + dy + 1) div 2 + (dx + dy) div 2
+        perimeterPositions[i] = ivec2(center.x + (newDx div 2).int32, center.y + (newDy div 2).int32)
+      of 3: # 135 degrees
+        let newDx = (-dx - dy + 1) div 2 + (-dx - dy) div 2
+        let newDy = (dx - dy + 1) div 2 + (dx - dy) div 2
+        perimeterPositions[i] = ivec2(center.x + (newDx div 2).int32, center.y + (newDy div 2).int32)
+      of 5: # 225 degrees
+        let newDx = (-dx + dy + 1) div 2 + (-dx + dy) div 2
+        let newDy = (-dx - dy + 1) div 2 + (-dx - dy) div 2
+        perimeterPositions[i] = ivec2(center.x + (newDx div 2).int32, center.y + (newDy div 2).int32)
+      of 7: # 315 degrees
+        let newDx = (dx + dy + 1) div 2 + (dx + dy) div 2
+        let newDy = (-dx + dy + 1) div 2 + (-dx + dy) div 2
+        perimeterPositions[i] = ivec2(center.x + (newDx div 2).int32, center.y + (newDy div 2).int32)
       else: discard
 
   # Assign units to perimeter positions (wrapping if more positions than units)

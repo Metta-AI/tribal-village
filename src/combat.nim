@@ -1,14 +1,62 @@
-const BonusDamageByClass: array[AgentUnitClass, array[AgentUnitClass, int]] = block:
+const BonusDamageByClass*: array[AgentUnitClass, array[AgentUnitClass, int]] = block:
   var table: array[AgentUnitClass, array[AgentUnitClass, int]]
   for (attacker, target, value) in [
-    # Infantry > cavalry
+    # Infantry > cavalry (rock-paper-scissors core)
     (UnitManAtArms, UnitScout, 1),
     (UnitManAtArms, UnitKnight, 1),
+    (UnitManAtArms, UnitLightCavalry, 1),
+    (UnitManAtArms, UnitHussar, 1),
     # Archer > infantry
     (UnitArcher, UnitManAtArms, 1),
+    (UnitArcher, UnitLongSwordsman, 1),
+    (UnitArcher, UnitChampion, 1),
     # Cavalry > archer
     (UnitScout, UnitArcher, 1),
-    (UnitKnight, UnitArcher, 1)
+    (UnitScout, UnitCrossbowman, 1),
+    (UnitScout, UnitArbalester, 1),
+    (UnitKnight, UnitArcher, 1),
+    (UnitKnight, UnitCrossbowman, 1),
+    (UnitKnight, UnitArbalester, 1),
+
+    # Upgrade tiers inherit counter relationships from base units
+    # Long Swordsman/Champion (infantry upgrades) > cavalry
+    (UnitLongSwordsman, UnitScout, 1),
+    (UnitLongSwordsman, UnitKnight, 1),
+    (UnitLongSwordsman, UnitLightCavalry, 1),
+    (UnitLongSwordsman, UnitHussar, 1),
+    (UnitChampion, UnitScout, 2),  # Champion gets stronger counter bonus
+    (UnitChampion, UnitKnight, 2),
+    (UnitChampion, UnitLightCavalry, 2),
+    (UnitChampion, UnitHussar, 2),
+
+    # Crossbowman/Arbalester (archer upgrades) > infantry
+    (UnitCrossbowman, UnitManAtArms, 1),
+    (UnitCrossbowman, UnitLongSwordsman, 1),
+    (UnitCrossbowman, UnitChampion, 1),
+    (UnitArbalester, UnitManAtArms, 2),  # Arbalester gets stronger counter bonus
+    (UnitArbalester, UnitLongSwordsman, 2),
+    (UnitArbalester, UnitChampion, 2),
+
+    # Light Cavalry/Hussar (cavalry upgrades) > archer
+    (UnitLightCavalry, UnitArcher, 1),
+    (UnitLightCavalry, UnitCrossbowman, 1),
+    (UnitLightCavalry, UnitArbalester, 1),
+    (UnitHussar, UnitArcher, 2),  # Hussar gets stronger counter bonus
+    (UnitHussar, UnitCrossbowman, 2),
+    (UnitHussar, UnitArbalester, 2),
+
+    # Castle unique units - specialized counters
+    # Samurai (fast infantry) > other infantry
+    (UnitSamurai, UnitManAtArms, 1),
+    (UnitSamurai, UnitLongSwordsman, 1),
+    # Cataphract (heavy cavalry) > infantry
+    (UnitCataphract, UnitManAtArms, 1),
+    (UnitCataphract, UnitLongSwordsman, 1),
+    # Huskarl (anti-archer) > archers
+    (UnitHuskarl, UnitArcher, 2),
+    (UnitHuskarl, UnitCrossbowman, 2),
+    (UnitHuskarl, UnitArbalester, 2),
+    (UnitHuskarl, UnitLongbowman, 2)
   ]:
     table[attacker][target] = value
   table
