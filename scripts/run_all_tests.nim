@@ -8,7 +8,7 @@ include "../tests/domain_coordination.nim"
 include "../tests/domain_economy.nim"
 include "../tests/domain_university_techs.nim"
 include "../tests/domain_formations.nim"
-include "../tests/behavior_balance.nim"
+include "../tests/balance_quick.nim"  # Use quick version for CI (8s vs 1hr)
 include "../tests/behavior_fog_of_war.nim"
 include "../tests/behavior_item_inventory.nim"
 include "../tests/behavior_death_cleanup.nim"
