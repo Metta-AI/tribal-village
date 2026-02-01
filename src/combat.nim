@@ -203,6 +203,11 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                         target.hp <= 0)
   if target.hp > 0:
     return false
+
+  when defined(eventLog):
+    logBuildingDestroyed(target.teamId, $target.kind,
+                         "(" & $target.pos.x & "," & $target.pos.y & ")", env.currentStep)
+
   if target.kind == Wall:
     if isValidPos(target.pos):
       env.updateObservations(ThingAgentLayer, target.pos, 0)
@@ -252,6 +257,10 @@ proc killAgent(env: Environment, victim: Thing) =
   env.grid[deathPos.x][deathPos.y] = nil
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
+
+  when defined(eventLog):
+    logDeath(getTeamId(victim), $victim.unitClass,
+             "(" & $deathPos.x & "," & $deathPos.y & ")", env.currentStep)
 
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0
@@ -345,6 +354,11 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
         else: "melee"
       recordDamage(env.currentStep, aTeam, tTeam, attacker.agentId, target.agentId,
                    remaining, $attacker.unitClass, $target.unitClass, dmgType)
+
+  when defined(eventLog):
+    if remaining > 0 and not attacker.isNil:
+      logCombatHit(getTeamId(attacker), getTeamId(target),
+                   $attacker.unitClass, $target.unitClass, remaining, env.currentStep)
 
   if target.hp <= 0:
     when defined(combatAudit):

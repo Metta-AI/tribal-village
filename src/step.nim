@@ -1398,6 +1398,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 let oldTargetTeam = getTeamId(target.agentId)  # original team before override
                 recordConversion(env.currentStep, attackerTeam, oldTargetTeam,
                                  agent.agentId, target.agentId, $target.unitClass)
+              when defined(eventLog):
+                let oldTargetTeamForLog = getTeamId(target.agentId)
+                logConversion(attackerTeam, oldTargetTeamForLog, $target.unitClass, env.currentStep)
               inc env.stats[id].actionAttack
           else:
             inc env.stats[id].actionInvalid
@@ -1944,16 +1947,30 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                         continue
                       if stockpileRes == ResourceGold:
                         # Buy food with gold (dynamic pricing)
-                        let (_, foodGained) = env.marketBuyFood(agent, count)
-                        if foodGained > 0:
-                          env.updateAgentInventoryObs(agent, key)
-                          traded = true
+                        when defined(eventLog):
+                          let (goldSpent, foodGained) = env.marketBuyFood(agent, count)
+                          if foodGained > 0:
+                            env.updateAgentInventoryObs(agent, key)
+                            logMarketTrade(teamId, "Bought", "Food", foodGained, goldSpent, env.currentStep)
+                            traded = true
+                        else:
+                          let (_, foodGained) = env.marketBuyFood(agent, count)
+                          if foodGained > 0:
+                            env.updateAgentInventoryObs(agent, key)
+                            traded = true
                       else:
                         # Sell resources for gold (dynamic pricing)
-                        let (amountSold, _) = env.marketSellInventory(agent, key)
-                        if amountSold > 0:
-                          env.updateAgentInventoryObs(agent, key)
-                          traded = true
+                        when defined(eventLog):
+                          let (amountSold, goldGained) = env.marketSellInventory(agent, key)
+                          if amountSold > 0:
+                            env.updateAgentInventoryObs(agent, key)
+                            logMarketTrade(teamId, "Sold", $stockpileRes, amountSold, goldGained, env.currentStep)
+                            traded = true
+                        else:
+                          let (amountSold, _) = env.marketSellInventory(agent, key)
+                          if amountSold > 0:
+                            env.updateAgentInventoryObs(agent, key)
+                            traded = true
                     if traded:
                       thing.cooldown = DefaultMarketCooldown
                       used = true
@@ -2418,6 +2435,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let teamId = placed.teamId
             if teamId >= 0 and teamId < env.teamColors.len:
               env.altarColors[targetPos] = env.teamColors[teamId]
+          when defined(eventLog):
+            if isBuilding:
+              logBuildingStarted(placed.teamId, $placedKind,
+                                 "(" & $placed.pos.x & "," & $placed.pos.y & ")", env.currentStep)
           placedOk = true
 
         if placedOk:
@@ -2499,7 +2520,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if thing.teamId >= 0 and env.hasUniversityTech(thing.teamId, TechTreadmillCrane):
       multiplier = multiplier * 1.2'f32
     let hpGain = int(float32(ConstructionHpPerAction) * multiplier + 0.5)
+    when defined(eventLog):
+      let wasBelowMax = thing.hp < thing.maxHp
     thing.hp = min(thing.maxHp, thing.hp + hpGain)
+    when defined(eventLog):
+      if wasBelowMax and thing.hp >= thing.maxHp:
+        logBuildingCompleted(thing.teamId, $thing.kind,
+                             "(" & $thing.pos.x & "," & $thing.pos.y & ")", env.currentStep)
 
   when defined(stepTiming):
     if timing:
@@ -3032,6 +3059,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.frozen = 0
           applyUnitClass(agent, UnitVillager)
           env.terminated[agentId] = 0.0
+          when defined(eventLog):
+            logSpawn(teamId, $agent.unitClass,
+                     "(" & $respawnPos.x & "," & $respawnPos.y & ")", env.currentStep)
 
           # Update grid
           env.grid[agent.pos.x][agent.pos.y] = agent
@@ -3103,6 +3133,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     child.frozen = 0
     applyUnitClass(child, UnitVillager)
     env.terminated[childId] = 0.0
+    when defined(eventLog):
+      logSpawn(teamId, $child.unitClass,
+               "(" & $spawnPos.x & "," & $spawnPos.y & ")", env.currentStep)
     env.grid[child.pos.x][child.pos.y] = child
     inc teamPopCounts[teamId]
     updateSpatialIndex(env, child, childOldPos)
@@ -3289,6 +3322,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(actionAudit):
     printActionAuditReport(env.currentStep)
+
+  when defined(eventLog):
+    flushEventSummary(env.currentStep)
 
   when defined(stateDiff):
     comparePostStep(env)

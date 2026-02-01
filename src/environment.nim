@@ -279,6 +279,7 @@ proc updateObservations(
   discard value
 
 include "colors"
+include "event_log"
 
 const
   DefaultScoreNeutralThreshold = 0.05'f32
@@ -983,6 +984,8 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
       continue
     let stockpileRes = stockpileResourceForItem(key)
     env.addToStockpile(teamId, stockpileRes, count)
+    when defined(eventLog):
+      logResourceDeposited(teamId, $stockpileRes, count, env.currentStep)
     setInv(agent, key, 0)
     env.updateAgentInventoryObs(agent, key)
   true
@@ -1111,6 +1114,8 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   # Apply the upgrade
   env.teamBlacksmithUpgrades[teamId].levels[upgradeType] = currentLevel + 1
   building.cooldown = 5  # Short cooldown after research
+  when defined(eventLog):
+    logTechResearched(teamId, "Blacksmith " & $upgradeType & " Level " & $(currentLevel + 1), env.currentStep)
   true
 
 proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
@@ -1161,6 +1166,8 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   # Apply the tech
   env.teamUniversityTechs[teamId].researched[techType] = true
   building.cooldown = 8  # Longer cooldown for tech research
+  when defined(eventLog):
+    logTechResearched(teamId, "University " & $techType, env.currentStep)
   true
 
 proc castleTechsForTeam*(teamId: int): (CastleTechType, CastleTechType) =
@@ -1322,6 +1329,8 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
   env.teamCastleTechs[teamId].researched[techType] = true
   env.applyCastleTechBonuses(teamId, techType)
   building.cooldown = 10  # Longer cooldown for unique tech research
+  when defined(eventLog):
+    logTechResearched(teamId, "Castle " & $techType, env.currentStep)
   true
 
 # ---- Unit upgrade / promotion chain logic (AoE2-style) ----
@@ -1451,6 +1460,8 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
   env.teamUnitUpgrades[teamId].researched[upgrade] = true
   env.upgradeExistingUnits(teamId, upgradeSourceUnit(upgrade), upgradeTargetUnit(upgrade))
   building.cooldown = 8
+  when defined(eventLog):
+    logTechResearched(teamId, "Unit Upgrade " & $upgrade, env.currentStep)
   true
 
 proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
@@ -1558,6 +1569,8 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   let bonus = env.getBiomeGatherBonus(tree.pos, ItemWood)
   if bonus > 0:
     discard env.grantItem(agent, ItemWood, bonus)
+  when defined(eventLog):
+    logResourceGathered(getTeamId(agent), "Wood", 1 + bonus, env.currentStep)
   let stumpPos = tree.pos  # Capture before pool release
   removeThing(env, tree)
   let stump = acquireThing(env, Stump)
