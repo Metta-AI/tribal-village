@@ -71,18 +71,10 @@ proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
       if pos notin result:
         result.add(pos)
 
-proc isNearWater(env: Environment, pos: IVec2, radius: int): bool {.inline.} =
-  let startX = pos.x.int
-  let startY = pos.y.int
-  for dx in -radius .. radius:
-    for dy in -radius .. radius:
-      let checkX = startX + dx
-      let checkY = startY + dy
-      if checkX < 0 or checkX >= MapWidth or checkY < 0 or checkY >= MapHeight:
-        continue
-      if env.terrain[checkX][checkY] in {Water, ShallowWater}:
-        return true
-  false
+template isNearWater(env: Environment, pos: IVec2, radius: int): bool =
+  ## Deprecated: use hasWaterNearby(env, pos, radius, includeShallow=true) instead.
+  ## Kept as template for backward compatibility in this file.
+  hasWaterNearby(env, pos, radius, includeShallow = true)
 
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =

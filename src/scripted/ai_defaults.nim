@@ -1,8 +1,9 @@
 # This file is included by src/agent_control.nim
 
-proc canBuildOnTerrain(terrain: TerrainType): bool {.inline.} =
-  ## Check if terrain allows building (not road or ramp)
-  terrain != TerrainRoad and not isRampTerrain(terrain)
+template canBuildOnTerrain(terrain: TerrainType): bool =
+  ## Deprecated: use isBuildableExcludingRoads from terrain.nim instead.
+  ## Kept as template for backward compatibility in this file.
+  isBuildableExcludingRoads(terrain)
 
 proc clearBuildState(state: var AgentState) {.inline.} =
   state.buildIndex = -1

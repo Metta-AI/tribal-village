@@ -166,15 +166,26 @@ const
   TerrainMud* = TerrainType.Mud
   RampTerrain* = {RampUpN, RampUpS, RampUpW, RampUpE,
                    RampDownN, RampDownS, RampDownW, RampDownE}
+  WaterTerrain* = {Water, ShallowWater}
   BuildableTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune, Road,
                         RampUpN, RampUpS, RampUpW, RampUpE,
                         RampDownN, RampDownS, RampDownW, RampDownE}
+  # BuildableTerrain excluding roads and ramps - for AI build location selection
+  PlaceableBuildTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune}
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain == Water
 
+template isWaterTerrain*(terrain: TerrainType): bool =
+  ## Check if terrain is water (deep or shallow)
+  terrain in WaterTerrain
+
 template isRampTerrain*(terrain: TerrainType): bool =
   terrain in RampTerrain
+
+template isBuildableExcludingRoads*(terrain: TerrainType): bool =
+  ## Check if terrain allows building placement (excludes roads and ramps)
+  terrain in PlaceableBuildTerrain
 
 const
   RiverWidth* = 6

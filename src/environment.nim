@@ -102,14 +102,16 @@ proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
-proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int): bool =
-  ## Check if there is water terrain within the given radius of a position
+proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int, includeShallow: bool = false): bool =
+  ## Check if there is water terrain within the given radius of a position.
+  ## If includeShallow is true, also matches ShallowWater.
   for dx in -radius .. radius:
     for dy in -radius .. radius:
       let x = pos.x + dx
       let y = pos.y + dy
       if x >= 0 and x < MapWidth and y >= 0 and y < MapHeight:
-        if env.terrain[x][y] == Water:
+        let t = env.terrain[x][y]
+        if t == Water or (includeShallow and t == ShallowWater):
           return true
   false
 
