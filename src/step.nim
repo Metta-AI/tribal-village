@@ -1010,7 +1010,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Track builders per construction site for multi-builder speed bonus
   var constructionBuilders: Table[IVec2, int]
 
-  for id, actionValue in actions[]:
+  # Shuffle agent processing order to prevent Team 0 from always acting first.
+  # This ensures fair resource access and combat timing across all teams.
+  var agentOrder: array[MapAgents, int]
+  for i in 0 ..< MapAgents:
+    agentOrder[i] = i
+  stepRng.shuffle(agentOrder)
+
+  for id in agentOrder:
+    let actionValue = actions[id]
     let agent = env.agents[id]
     if not isAgentAlive(env, agent):
       continue

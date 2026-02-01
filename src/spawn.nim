@@ -156,6 +156,14 @@ proc initState(env: Environment) =
   inc env.mapGeneration
   env.thingsByKind = default(array[ThingKind, seq[Thing]])
 
+  # Reset victory conditions (must be -1, not default 0, or Team 0 wins immediately)
+  env.victoryWinner = -1
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.victoryStates[teamId].wonderBuiltStep = -1
+    env.victoryStates[teamId].relicHoldStartStep = -1
+    env.victoryStates[teamId].kingAgentId = -1
+    env.victoryStates[teamId].hillControlStartStep = -1
+
   # Initialize tile colors: base to neutral brown, computed to zero
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -410,7 +418,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
       if not clearTreeElseSkip(env, pos):
         continue
       setTerrain(env, pos, Empty)
-      env.add(Thing(kind: Wall, pos: pos))
+      env.add(Thing(kind: Wall, pos: pos, teamId: -1))
 
   # Add sparse dungeon walls using procedural dungeon masks.
   if UseDungeonZones:
@@ -470,7 +478,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
           continue
         if not clearTreeElseSkip(env, pos):
           continue
-        env.add(Thing(kind: Wall, pos: pos))
+        env.add(Thing(kind: Wall, pos: pos, teamId: -1))
 
   # Apply biome colors after dungeon biomes are finalized.
   env.applyBiomeBaseColors()
@@ -479,7 +487,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
     proc addBorderWall(pos: IVec2) =
       if not isNil(env.getBackgroundThing(pos)):
         return
-      env.add(Thing(kind: Wall, pos: pos))
+      env.add(Thing(kind: Wall, pos: pos, teamId: -1))
     for x in 0 ..< MapWidth:
       for j in 0 ..< MapBorder:
         addBorderWall(ivec2(x, j))
@@ -988,9 +996,59 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
   let totalTeamAgentCap = MapRoomObjectsTeams * MapAgentsPerTeam
   var villageCenters: seq[IVec2] = @[]
 
+  # First phase: Find all village positions without assigning teams yet.
+  # This prevents earlier teams from having positional advantages.
+  var foundPositions: seq[IVec2] = @[]
+  var tempVillageCenters: seq[IVec2] = @[]  # Used for spacing constraint
+  for _ in 0 ..< numTeams:
+    let villageStruct = block:
+      const size = 7
+      const radius = 3
+      let center = ivec2(radius, radius)
+      var layout: seq[seq[char]] = newSeq[seq[char]](size)
+      for y in 0 ..< size:
+        layout[y] = newSeq[char](size)
+        for x in 0 ..< size:
+          layout[y][x] = ' '
+      for y in 0 ..< size:
+        for x in 0 ..< size:
+          if abs(x - center.x) + abs(y - center.y) <= 2:
+            layout[y][x] = StructureFloorChar
+      Structure(width: size, height: size, centerPos: center, layout: layout)
+    var placementPosition: IVec2
+    let placed = tryPickEmptyPos(rng, env, 200, proc(candidatePos: IVec2, attempt: int): bool =
+      for dy in 0 ..< villageStruct.height:
+        for dx in 0 ..< villageStruct.width:
+          let checkX = candidatePos.x + dx
+          let checkY = candidatePos.y + dy
+          if checkX >= MapWidth or checkY >= MapHeight or
+             not env.isEmpty(ivec2(checkX, checkY)) or
+             isBlockedTerrain(env.terrain[checkX][checkY]):
+            return false
+      const MinVillageSpacing = DefaultMinVillageSpacing
+      let candidateCenter = candidatePos + villageStruct.centerPos
+      for c in tempVillageCenters:
+        let dx = abs(c.x - candidateCenter.x)
+        let dy = abs(c.y - candidateCenter.y)
+        if max(dx, dy) < MinVillageSpacing:
+          return false
+      true
+    , placementPosition)
+    if placed:
+      let candidateCenter = placementPosition + villageStruct.centerPos
+      foundPositions.add(placementPosition)
+      tempVillageCenters.add(candidateCenter)
+
+  # Shuffle positions so teams are randomly assigned to map locations.
+  # This prevents systematic positional advantages for any team number.
+  rng.shuffle(foundPositions)
+
   doAssert WarmTeamPalette.len >= numTeams,
     "WarmTeamPalette must cover all base colors without reuse."
-  for i in 0 ..< numTeams:
+
+  # Second phase: Assign teams to shuffled positions.
+  for i in 0 ..< min(numTeams, foundPositions.len):
+    let placementPosition = foundPositions[i]
     let villageStruct = block:
       ## Small town starter: altar + town center, no walls.
       const size = 7
@@ -1014,29 +1072,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
         centerPos: center,
         layout: layout
       )
-    var placementPosition: IVec2
-    let placed = tryPickEmptyPos(rng, env, 200, proc(candidatePos: IVec2, attempt: int): bool =
-      # Check if position has enough space for the village footprint.
-      for dy in 0 ..< villageStruct.height:
-        for dx in 0 ..< villageStruct.width:
-          let checkX = candidatePos.x + dx
-          let checkY = candidatePos.y + dy
-          if checkX >= MapWidth or checkY >= MapHeight or
-             not env.isEmpty(ivec2(checkX, checkY)) or
-             isBlockedTerrain(env.terrain[checkX][checkY]):
-            return false
-      # Keep villages spaced apart (Chebyshev) to avoid crowding.
-      const MinVillageSpacing = DefaultMinVillageSpacing
-      let candidateCenter = candidatePos + villageStruct.centerPos
-      for c in villageCenters:
-        let dx = abs(c.x - candidateCenter.x)
-        let dy = abs(c.y - candidateCenter.y)
-        if max(dx, dy) < MinVillageSpacing:
-          return false
-      true
-    , placementPosition)
-
-    if placed:
+    block placed:
       let elements = getStructureElements(villageStruct, placementPosition)
 
       # Clear terrain within the village area to create a clearing
@@ -1103,6 +1139,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
         env.add(Thing(
           kind: Wall,
           pos: wallPos,
+          teamId: teamId,
         ))
 
       # Add the doors (team-colored, passable only to that team)
@@ -1170,7 +1207,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
     let pos = rng.randomEmptyPos(env)
     if not isNil(env.getBackgroundThing(pos)):
       continue
-    env.add(Thing(kind: Wall, pos: pos))
+    env.add(Thing(kind: Wall, pos: pos, teamId: -1))
 
   # If there are still agents to spawn (e.g., if not enough teams), spawn them randomly
   # They will get a neutral color

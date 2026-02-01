@@ -44,3 +44,13 @@ proc sample*[T](r: var Rand, items: openArray[T]): T =
   if items.len == 0:
     raise newException(ValueError, "Cannot sample from empty sequence")
   items[randIntExclusive(r, 0, items.len)]
+
+proc shuffle*[T](r: var Rand, items: var openArray[T]) =
+  ## Fisher-Yates shuffle: randomizes array order in-place.
+  if items.len < 2:
+    return
+  var i = items.high
+  while i > 0:
+    let j = randIntInclusive(r, 0, i)
+    swap(items[i], items[j])
+    dec i
