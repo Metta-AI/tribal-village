@@ -27,6 +27,18 @@ type
     # Villager-specific
     CmdBuild
     CmdGather
+    CmdBuildBack  # Return from build submenu
+    # Building placement commands (build submenu)
+    CmdBuildHouse
+    CmdBuildMill
+    CmdBuildLumberCamp
+    CmdBuildMiningCamp
+    CmdBuildBarracks
+    CmdBuildArcheryRange
+    CmdBuildStable
+    CmdBuildWall
+    CmdBuildBlacksmith
+    CmdBuildMarket
     # Building commands
     CmdSetRally
     CmdUngarrison
@@ -78,6 +90,7 @@ var
   commandPanelState*: CommandPanelState
   commandLabelImages: Table[string, string] = initTable[string, string]()
   commandLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
+  buildMenuOpen*: bool = false  # Whether the build submenu is showing
 
 # ---------------------------------------------------------------------------
 # Label rendering
@@ -124,6 +137,17 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdStance: "Stance"
   of CmdBuild: "Build"
   of CmdGather: "Gather"
+  of CmdBuildBack: "Back"
+  of CmdBuildHouse: "House"
+  of CmdBuildMill: "Mill"
+  of CmdBuildLumberCamp: "Lumber"
+  of CmdBuildMiningCamp: "Mining"
+  of CmdBuildBarracks: "Barracks"
+  of CmdBuildArcheryRange: "Archery"
+  of CmdBuildStable: "Stable"
+  of CmdBuildWall: "Wall"
+  of CmdBuildBlacksmith: "Smith"
+  of CmdBuildMarket: "Market"
   of CmdSetRally: "Rally"
   of CmdUngarrison: "Ungarr"
   of CmdTrainVillager: "Villgr"
@@ -138,7 +162,7 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdTrainBoat: "Boat"
   of CmdTrainTradeCog: "T.Cog"
 
-proc getButtonHotkey(kind: CommandButtonKind): string =
+proc getButtonHotkey*(kind: CommandButtonKind): string =
   case kind
   of CmdNone: ""
   of CmdMove: "M"
@@ -148,6 +172,17 @@ proc getButtonHotkey(kind: CommandButtonKind): string =
   of CmdStance: "D"
   of CmdBuild: "B"
   of CmdGather: "G"
+  of CmdBuildBack: "Esc"
+  of CmdBuildHouse: "Q"
+  of CmdBuildMill: "W"
+  of CmdBuildLumberCamp: "E"
+  of CmdBuildMiningCamp: "R"
+  of CmdBuildBarracks: "A"
+  of CmdBuildArcheryRange: "S"
+  of CmdBuildStable: "D"
+  of CmdBuildWall: "F"
+  of CmdBuildBlacksmith: "Z"
+  of CmdBuildMarket: "X"
   of CmdSetRally: "R"
   of CmdUngarrison: "V"
   of CmdTrainVillager: "Q"
@@ -162,13 +197,33 @@ proc getButtonHotkey(kind: CommandButtonKind): string =
   of CmdTrainBoat: "Q"
   of CmdTrainTradeCog: "W"
 
+proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
+  ## Convert a build command to the corresponding ThingKind.
+  case cmd
+  of CmdBuildHouse: House
+  of CmdBuildMill: Mill
+  of CmdBuildLumberCamp: LumberCamp
+  of CmdBuildMiningCamp: MiningCamp
+  of CmdBuildBarracks: Barracks
+  of CmdBuildArcheryRange: ArcheryRange
+  of CmdBuildStable: Stable
+  of CmdBuildWall: Wall
+  of CmdBuildBlacksmith: Blacksmith
+  of CmdBuildMarket: Market
+  else: Wall  # Default fallback
+
 proc buildUnitCommands(): seq[CommandButtonKind] =
   ## Commands available for military units.
   @[CmdMove, CmdAttack, CmdStop, CmdPatrol, CmdStance]
 
 proc buildVillagerCommands(): seq[CommandButtonKind] =
   ## Commands available for villagers.
-  @[CmdMove, CmdAttack, CmdStop, CmdBuild, CmdGather]
+  if buildMenuOpen:
+    @[CmdBuildBack, CmdBuildHouse, CmdBuildMill, CmdBuildLumberCamp,
+      CmdBuildMiningCamp, CmdBuildBarracks, CmdBuildArcheryRange,
+      CmdBuildStable, CmdBuildWall, CmdBuildBlacksmith, CmdBuildMarket]
+  else:
+    @[CmdMove, CmdAttack, CmdStop, CmdBuild, CmdGather]
 
 proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
   ## Commands available for selected building.

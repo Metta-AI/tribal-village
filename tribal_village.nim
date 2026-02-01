@@ -365,9 +365,24 @@ proc display() =
   if window.buttonPressed[MouseLeft] and isInCommandPanel(panelRectInt, mousePosPx):
     blockSelection = true
     let clickedCmd = handleCommandPanelClick(panelRectInt, mousePosPx)
-    # Command panel clicks are handled here - future: implement command mode
-    # For now, just block selection when clicking on the panel
-    discard clickedCmd
+    # Process the clicked command
+    case clickedCmd
+    of CmdBuild:
+      buildMenuOpen = true
+    of CmdBuildBack:
+      buildMenuOpen = false
+      buildingPlacementMode = false
+    of CmdBuildHouse, CmdBuildMill, CmdBuildLumberCamp, CmdBuildMiningCamp,
+       CmdBuildBarracks, CmdBuildArcheryRange, CmdBuildStable, CmdBuildWall,
+       CmdBuildBlacksmith, CmdBuildMarket:
+      buildingPlacementMode = true
+      buildingPlacementKind = commandKindToBuildingKind(clickedCmd)
+    of CmdStop:
+      for sel in selection:
+        if not isNil(sel) and sel.kind == Agent:
+          stopAgent(sel.agentId)
+    else:
+      discard
 
   if window.buttonPressed[MouseLeft] and not minimapCaptured and
       mousePosPx.x >= footerRect.x and mousePosPx.x <= footerRect.x + footerRect.w and
@@ -606,6 +621,82 @@ proc display() =
           lastGroupKeyTime[i] = groupNow
           lastGroupKeyIndex = i
 
+  # Escape key: cancel building placement mode or close build menu
+  if window.buttonPressed[KeyEscape]:
+    if buildingPlacementMode:
+      buildingPlacementMode = false
+    elif buildMenuOpen:
+      buildMenuOpen = false
+
+  # Command panel hotkeys (when not in building placement mode)
+  if not buildingPlacementMode and selection.len > 0 and playerTeam >= 0:
+    let isVillagerSelected = selection.len == 1 and selection[0].kind == Agent and
+                             selection[0].unitClass == UnitVillager
+    if isVillagerSelected:
+      if buildMenuOpen:
+        # Build submenu hotkeys
+        if window.buttonPressed[KeyQ]:
+          buildingPlacementMode = true
+          buildingPlacementKind = House
+        elif window.buttonPressed[KeyW]:
+          buildingPlacementMode = true
+          buildingPlacementKind = Mill
+        elif window.buttonPressed[KeyE]:
+          buildingPlacementMode = true
+          buildingPlacementKind = LumberCamp
+        elif window.buttonPressed[KeyR]:
+          buildingPlacementMode = true
+          buildingPlacementKind = MiningCamp
+        elif window.buttonPressed[KeyA]:
+          buildingPlacementMode = true
+          buildingPlacementKind = Barracks
+        elif window.buttonPressed[KeyS]:
+          buildingPlacementMode = true
+          buildingPlacementKind = ArcheryRange
+        elif window.buttonPressed[KeyD]:
+          buildingPlacementMode = true
+          buildingPlacementKind = Stable
+        elif window.buttonPressed[KeyF]:
+          buildingPlacementMode = true
+          buildingPlacementKind = Wall
+        elif window.buttonPressed[KeyZ]:
+          buildingPlacementMode = true
+          buildingPlacementKind = Blacksmith
+        elif window.buttonPressed[KeyX]:
+          buildingPlacementMode = true
+          buildingPlacementKind = Market
+      else:
+        # Main command hotkeys for villager
+        if window.buttonPressed[KeyB]:
+          buildMenuOpen = true
+        elif window.buttonPressed[KeyS]:
+          for sel in selection:
+            if not isNil(sel) and sel.kind == Agent:
+              stopAgent(sel.agentId)
+    else:
+      # Non-villager unit hotkeys
+      if window.buttonPressed[KeyS]:
+        for sel in selection:
+          if not isNil(sel) and sel.kind == Agent:
+            stopAgent(sel.agentId)
+
+  # Building placement click handling
+  if buildingPlacementMode and window.buttonPressed[MouseLeft] and not blockSelection:
+    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
+    if canPlaceBuildingAt(gridPos, buildingPlacementKind) and playerTeam >= 0:
+      # Place the building (using a villager if available)
+      for sel in selection:
+        if not isNil(sel) and sel.kind == Agent and sel.unitClass == UnitVillager:
+          # Set the villager to build at this location
+          setAgentAttackMoveTarget(sel.agentId, gridPos)
+          break
+      # Exit placement mode (unless shift is held for multiple placements)
+      if not (window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]):
+        buildingPlacementMode = false
+        buildMenuOpen = false
+    blockSelection = true
+
   if selection.len > 0 and selection[0].kind == Agent:
     let agent = selection[0]
 
@@ -721,6 +812,11 @@ proc display() =
       tStart = tNow
 
   drawSelection()
+
+  # Draw building ghost preview if in placement mode
+  if buildingPlacementMode:
+    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    drawBuildingGhost(mousePos)
 
   # Draw drag-box selection rectangle
   if isDragging and window.buttonDown[MouseLeft]:

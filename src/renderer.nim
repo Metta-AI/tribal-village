@@ -1029,7 +1029,7 @@ proc initMinimapTeamColors() =
 const MinimapBuildingKinds = [
   TownCenter, House, Mill, LumberCamp, MiningCamp, Market, Blacksmith,
   Barracks, ArcheryRange, Stable, SiegeWorkshop, Castle, Monastery,
-  GuardTower, Gate, Door
+  GuardTower, Door
 ]
 
 proc rebuildMinimapComposite(fogTeamId: int) =
@@ -1565,3 +1565,44 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
     let modeX = panelRect.x.float32 + barW - modeLabelSize.x.float32 - ResourceBarPadding
     bxy.drawImage(modeLabelKey, vec2(modeX, centerY - modeLabelSize.y.float32 * 0.5),
                   angle = 0, scale = 1.0)
+
+# ─── Building Ghost Preview ─────────────────────────────────────────────────────
+
+proc canPlaceBuildingAt*(pos: IVec2, kind: ThingKind): bool =
+  ## Check if a building can be placed at the given position.
+  if not isValidPos(pos):
+    return false
+  # Check terrain
+  let terrain = env.terrain[pos.x][pos.y]
+  if terrain == Water or terrain == ShallowWater:
+    return false
+  # Check for existing objects
+  let blocking = env.grid[pos.x][pos.y]
+  if not isNil(blocking):
+    return false
+  let background = env.backgroundGrid[pos.x][pos.y]
+  if not isNil(background) and background.kind in CliffKinds:
+    return false
+  true
+
+proc drawBuildingGhost*(worldPos: Vec2) =
+  ## Draw a transparent building preview at the given world position.
+  ## Shows green if placement is valid, red if invalid.
+  if not buildingPlacementMode:
+    return
+
+  let gridPos = (worldPos + vec2(0.5, 0.5)).ivec2
+  let spriteKey = buildingSpriteKey(buildingPlacementKind)
+  if spriteKey.len == 0 or spriteKey notin bxy:
+    return
+
+  let valid = canPlaceBuildingAt(gridPos, buildingPlacementKind)
+  buildingPlacementValid = valid
+
+  # Ghost tint: green for valid, red for invalid
+  let tint = if valid:
+    color(0.3, 1.0, 0.3, 0.6)  # Semi-transparent green
+  else:
+    color(1.0, 0.3, 0.3, 0.6)  # Semi-transparent red
+
+  bxy.drawImage(spriteKey, gridPos.vec2, angle = 0, scale = SpriteScale, tint = tint)

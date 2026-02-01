@@ -900,6 +900,11 @@ var controlGroups*: array[ControlGroupCount, seq[Thing]] = default(array[Control
 var lastGroupKeyTime*: array[ControlGroupCount, float64]  # For double-tap detection
 var lastGroupKeyIndex*: int = -1  # Last group key pressed (for double-tap)
 
+# Building placement mode (for ghost preview)
+var buildingPlacementMode*: bool = false
+var buildingPlacementKind*: ThingKind = Wall  # Default to wall
+var buildingPlacementValid*: bool = false     # Whether current position is valid
+
 # Helper function for checking if agent is alive
 proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
   not agent.isNil and
