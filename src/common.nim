@@ -94,6 +94,7 @@ var
   mouseDownPos*: Vec2 = vec2(0, 0)
   uiMouseCaptured*: bool = false
   minimapCaptured*: bool = false  ## Mouse is currently dragging on minimap
+  playerTeam*: int = -1  ## Player-controlled team (-1 = observer mode, selects all teams)
 
 proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).

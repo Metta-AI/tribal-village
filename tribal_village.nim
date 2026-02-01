@@ -416,6 +416,9 @@ proc display() =
         for agent in env.thingsByKind[Agent]:
           if not isNil(agent) and isValidPos(agent.pos) and
              env.isAgentAlive(agent):
+            # Filter by player team when in player control mode
+            if playerTeam >= 0 and agent.getTeamId() != playerTeam:
+              continue
             let ax = agent.pos.x.float32
             let ay = agent.pos.y.float32
             if ax >= minX and ax <= maxX and ay >= minY and ay <= maxY:
