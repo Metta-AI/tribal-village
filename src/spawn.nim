@@ -198,6 +198,18 @@ proc initState(env: Environment) =
   env.actionTintPositions.setLen(0)
   env.shieldCountdown.clear()
 
+  # Pre-allocate projectile pool capacity to avoid growth allocations during combat
+  if env.projectiles.len == 0:
+    env.projectiles = newSeqOfCap[Projectile](ProjectilePoolCapacity)
+  else:
+    env.projectiles.setLen(0)  # Clear but keep existing capacity
+  env.projectilePool.stats = PoolStats()  # Reset stats
+
+  # Pre-allocate action tint positions capacity
+  if env.actionTintPositions.len == 0:
+    env.actionTintPositions = newSeqOfCap[IVec2](ActionTintPoolCapacity)
+  # (already cleared above)
+
   # Initialize tint tracking to invalid positions (ensures tint added on first step)
   for i in 0 ..< MapAgents:
     env.lastAgentPos[i] = ivec2(-1, -1)

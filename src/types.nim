@@ -445,9 +445,20 @@ type
     free*: array[ThingKind, seq[Thing]]
     stats*: PoolStats
 
+  ProjectilePool* = object
+    ## Pool statistics for projectile allocation tracking.
+    ## Projectiles use seq with pre-allocated capacity to avoid growth allocations.
+    stats*: PoolStats
+
 const
   ## Thing kinds eligible for object pooling (frequently created/destroyed)
   PoolableKinds* = {Tumor, Corpse, Skeleton, Stubble, Lantern, Stump}
+
+  ## Initial capacity for projectile pool (avoids growth allocations during combat)
+  ProjectilePoolCapacity* = 128
+
+  ## Initial capacity for action tint positions (avoids growth during combat)
+  ActionTintPoolCapacity* = 256
 
 const
   # Spatial index constants
@@ -883,6 +894,8 @@ type
     tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
     # Object pool for frequently created/destroyed things
     thingPool*: ThingPool
+    # Object pool for projectiles (pre-allocated capacity, stats tracking)
+    projectilePool*: ProjectilePool
 
 # Global environment instance
 var env*: Environment

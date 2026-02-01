@@ -182,6 +182,7 @@ const
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.
   ## Lifetime scales with distance for natural flight speed.
+  ## Uses pre-allocated pool to minimize heap allocations.
   let dist = max(abs(target.x - source.x), abs(target.y - source.y))
   if dist <= 0:
     return
@@ -193,17 +194,25 @@ proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKi
   env.projectiles.add(Projectile(
     source: source, target: target, kind: kind,
     countdown: lifetime, lifetime: lifetime))
+  env.projectilePool.stats.acquired += 1
+  env.projectilePool.stats.poolSize = env.projectiles.len
 
 proc stepDecayProjectiles(env: Environment) =
-  ## Decay and remove expired projectiles
+  ## Decay and remove expired projectiles.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
   if env.projectiles.len > 0:
     var writeIdx = 0
+    let startLen = env.projectiles.len
     for readIdx in 0 ..< env.projectiles.len:
       env.projectiles[readIdx].countdown -= 1
       if env.projectiles[readIdx].countdown > 0:
         env.projectiles[writeIdx] = env.projectiles[readIdx]
         inc writeIdx
     env.projectiles.setLen(writeIdx)
+    # Track released projectiles for pool stats
+    let released = startLen - writeIdx
+    env.projectilePool.stats.released += released
+    env.projectilePool.stats.poolSize = writeIdx
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -3451,7 +3460,8 @@ proc reset*(env: Environment) =
   env.tumorStrength.clear()
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags.clear()
-  env.projectiles.setLen(0)
+  env.projectiles.setLen(0)  # Keeps pre-allocated capacity
+  env.projectilePool.stats = PoolStats()  # Reset pool stats
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)
