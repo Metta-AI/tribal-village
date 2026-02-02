@@ -33,6 +33,12 @@ proc makeEmptyEnv*(): Environment =
   result.agents.setLen(0)
   result.stats.setLen(0)
   result.thingsByKind = default(array[ThingKind, seq[Thing]])
+  # Initialize aura tracking collections
+  result.tankUnits.setLen(0)
+  result.monkUnits.setLen(0)
+  # Initialize agent order array for step shuffle
+  for i in 0 ..< MapAgents:
+    result.agentOrder[i] = i
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       result.grid[x][y] = nil
