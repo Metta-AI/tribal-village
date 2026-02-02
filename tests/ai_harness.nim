@@ -1125,8 +1125,8 @@ suite "Agent Idle Detection":
     env.stepAction(0, 0'u8, 0)
     check agent.isIdle == true
 
-    # Rebuild observations
-    env.rebuildObservations()
+    # Rebuild observations (use ensureObservations for lazy init)
+    env.ensureObservations()
 
     # Check the observation at the agent's position (center of 11x11 = 5,5)
     let centerX = ObservationRadius  # 5
