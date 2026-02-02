@@ -166,6 +166,7 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
 proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
   ## Write observation data for a single tile. Called from rebuildObservations
   ## which already zeroed all observation memory, so we only set non-zero values.
+  ## Note: Biome layer is written separately using batch copyMem for efficiency.
   var agentObs = addr env.observations[agentId]
 
   # Terrain layer (one-hot encoded)
@@ -261,9 +262,23 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
   if tintCode != 0:
     agentObs[][ord(TintLayer)][obsX][obsY] = tintCode
 
-  # Biome layer (enum value)
-  let biome = env.biomes[worldX][worldY]
-  agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(biome).uint8
+# Compile-time size check for BiomeType - enables safe memcpy optimization
+static:
+  doAssert sizeof(BiomeType) == 1, "BiomeType must be 1 byte for memcpy optimization"
+
+proc writeBiomeColumn(env: Environment, agentId, obsX, worldX, minObsY, maxObsY, startWorldY: int) {.inline.} =
+  ## Batch write biome data for an entire observation column using copyMem.
+  ## BiomeType is verified at compile-time to be 1 byte, same as uint8.
+  let count = maxObsY - minObsY + 1
+  if count <= 0:
+    return
+  # Source: contiguous biome data for column worldX, rows [startWorldY, startWorldY+count)
+  # Dest: contiguous observation data for layer BiomeLayer, column obsX, rows [minObsY, maxObsY]
+  copyMem(
+    addr env.observations[agentId][ord(BiomeLayer)][obsX][minObsY],
+    addr env.biomes[worldX][startWorldY],
+    count
+  )
 
 proc updateObservations(
   env: Environment,
@@ -743,6 +758,8 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
+  ## Optimized version: pre-compute bounds to eliminate per-tile checks,
+  ## batch writes where possible with memcpy/memset.
   zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
 
@@ -751,14 +768,31 @@ proc rebuildObservations*(env: Environment) =
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
-    for obsX in 0 ..< ObservationWidth:
+
+    # Pre-compute valid observation bounds once per agent (eliminates 4 comparisons per tile)
+    # obsX range: [0, ObservationWidth) where worldX = agentPos.x + obsX - ObservationRadius is in [0, MapWidth)
+    # worldX >= 0:       obsX >= ObservationRadius - agentPos.x
+    # worldX < MapWidth: obsX < MapWidth - agentPos.x + ObservationRadius
+    let minObsX = max(0, ObservationRadius - agentPos.x)
+    let maxObsX = min(ObservationWidth - 1, MapWidth - 1 - agentPos.x + ObservationRadius)
+    let minObsY = max(0, ObservationRadius - agentPos.y)
+    let maxObsY = min(ObservationHeight - 1, MapHeight - 1 - agentPos.y + ObservationRadius)
+
+    # Skip agents with no valid observation tiles (fully out of bounds)
+    if minObsX > maxObsX or minObsY > maxObsY:
+      continue
+
+    # Pre-compute worldY start for batch biome writes
+    let startWorldY = agentPos.y + (minObsY - ObservationRadius)
+
+    # Process only valid tiles without per-tile bounds checks
+    for obsX in minObsX .. maxObsX:
       let worldX = agentPos.x + (obsX - ObservationRadius)
-      if worldX < 0 or worldX >= MapWidth:
-        continue
-      for obsY in 0 ..< ObservationHeight:
+      # Batch write biome layer for entire column (memcpy optimization)
+      writeBiomeColumn(env, agentId, obsX, worldX, minObsY, maxObsY, startWorldY)
+      # Write other layers tile-by-tile
+      for obsY in minObsY .. maxObsY:
         let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
-          continue
         writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
