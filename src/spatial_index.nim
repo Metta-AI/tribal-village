@@ -776,3 +776,55 @@ proc rebuildSpatialIndex*(env: Environment) =
           let (dx, dy) = env.spatialIndex.dynCellCoords(thing.pos)
           env.spatialIndex.dynCells[dx][dy].things.add(thing)
           env.spatialIndex.dynKindCells[thing.kind][dx][dy].add(thing)
+
+# Military unit classes that draw predator aggro (fighters)
+const PredatorFighterClasses = {UnitManAtArms, UnitArcher, UnitScout, UnitKnight}
+
+proc findNearestPredatorTargetSpatial*(env: Environment, center: IVec2,
+                                        maxDist: int): IVec2 =
+  ## Find nearest predator target using spatial index.
+  ## Priority: tumor (unclaimed) > fighter agent > villager agent.
+  ## Returns ivec2(-1, -1) if no target found.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  var bestTumorDist = int.high
+  var bestTumor = ivec2(-1, -1)
+  var bestFighterDist = int.high
+  var bestFighter = ivec2(-1, -1)
+  var bestVillagerDist = int.high
+  var bestVillager = ivec2(-1, -1)
+
+  # Search for tumors (unclaimed only)
+  block tumorSearch:
+    forEachInRadius(env, center, Tumor, maxDist, thing):
+      if not isValidPos(thing.pos):
+        continue
+      if thing.hasClaimedTerritory:
+        continue
+      let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+      if dist <= maxDist and dist < bestTumorDist:
+        bestTumorDist = dist
+        bestTumor = thing.pos
+
+  # Search for agents (alive, categorized by fighter vs villager)
+  block agentSearch:
+    forEachInRadius(env, center, Agent, maxDist, thing):
+      if not isAgentAlive(env, thing):
+        continue
+      if not isValidPos(thing.pos):
+        continue
+      let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+      if dist > maxDist:
+        continue
+      if thing.unitClass in PredatorFighterClasses:
+        if dist < bestFighterDist:
+          bestFighterDist = dist
+          bestFighter = thing.pos
+      else:
+        if dist < bestVillagerDist:
+          bestVillagerDist = dist
+          bestVillager = thing.pos
+
+  # Priority: tumor > fighter > villager
+  if bestTumor.x >= 0: bestTumor
+  elif bestFighter.x >= 0: bestFighter
+  else: bestVillager

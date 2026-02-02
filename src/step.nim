@@ -2780,44 +2780,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       elif desired.x > 0:
         thing.orientation = Orientation.E
 
-  # Military unit classes that draw predator aggro (fighters)
-  const FighterUnitClasses = {UnitManAtArms, UnitArcher, UnitScout, UnitKnight}
-
-  proc findNearestPredatorTarget(center: IVec2, radius: int): IVec2 =
-    var bestTumorDist = int.high
-    var bestTumor = ivec2(-1, -1)
-    var bestFighterDist = int.high
-    var bestFighter = ivec2(-1, -1)
-    var bestVillagerDist = int.high
-    var bestVillager = ivec2(-1, -1)
-    for dx in -radius .. radius:
-      for dy in -radius .. radius:
-        let pos = center + ivec2(dx.int32, dy.int32)
-        if not isValidPos(pos):
-          continue
-        let dist = max(abs(dx), abs(dy))
-        let thing = env.getThing(pos)
-        if isNil(thing):
-          continue
-        if thing.kind == Tumor and not thing.hasClaimedTerritory:
-          if dist < bestTumorDist:
-            bestTumorDist = dist
-            bestTumor = pos
-        elif thing.kind == Agent and isAgentAlive(env, thing):
-          # Fighters draw aggro over villagers
-          if thing.unitClass in FighterUnitClasses:
-            if dist < bestFighterDist:
-              bestFighterDist = dist
-              bestFighter = pos
-          else:
-            if dist < bestVillagerDist:
-              bestVillagerDist = dist
-              bestVillager = pos
-    # Priority: tumor > fighter > villager
-    if bestTumor.x >= 0: bestTumor
-    elif bestFighter.x >= 0: bestFighter
-    else: bestVillager
-
   let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
   let cornerMaxY = (MapHeight - MapBorder - 3).int32
@@ -2879,7 +2841,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let packAccCount = max(1, env.wolfPackCounts[packId])
     let center = ivec2((env.wolfPackSumX[packId] div packAccCount).int32,
                        (env.wolfPackSumY[packId] div packAccCount).int32)
-    let huntTarget = findNearestPredatorTarget(center, WolfPackAggroRadius)
+    let huntTarget = findNearestPredatorTargetSpatial(env, center, WolfPackAggroRadius)
     if huntTarget.x >= 0:
       env.wolfPackTargets[packId] = huntTarget
     elif needsNewCornerTarget(center, env.wolfPackTargets[packId]):
@@ -2947,7 +2909,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for thing in env.thingsByKind[Bear]:
     if thing.cooldown > 0:
       thing.cooldown -= 1
-    let target = findNearestPredatorTarget(thing.pos, BearAggroRadius)
+    let target = findNearestPredatorTargetSpatial(env, thing.pos, BearAggroRadius)
     var desired = ivec2(0, 0)
     if target.x >= 0:
       let dist = max(abs(target.x - thing.pos.x), abs(target.y - thing.pos.y))
