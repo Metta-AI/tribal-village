@@ -770,15 +770,22 @@ proc hasRallyPoint*(building: Thing): bool =
   ## Check if a building has an active rally point.
   building.rallyPoint.x >= 0 and building.rallyPoint.y >= 0
 
+const
+  ## Size of a single agent's observation data in bytes
+  AgentObservationSize = ObservationLayers * ObservationWidth * ObservationHeight
+
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
-  zeroMem(addr env.observations, sizeof(env.observations))
+  ## Optimization: Only zero observations for living agents instead of all agents.
+  ## This reduces memory bandwidth from O(all_agents) to O(living_agents).
   env.observationsInitialized = false
 
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
       continue
+    # Zero only this agent's observations (not the entire array)
+    zeroMem(addr env.observations[agentId], AgentObservationSize)
     let agentPos = agent.pos
     for obsX in 0 ..< ObservationWidth:
       let worldX = agentPos.x + (obsX - ObservationRadius)

@@ -1728,8 +1728,9 @@ proc initFinalize(env: Environment) =
   # Individual action updates will populate observations as needed
   maybeStartReplayEpisode(env)
 
-  # Build initial spatial index for efficient nearest-thing queries
-  rebuildSpatialIndex(env)
+  # Mark spatial index for lazy rebuild on first query
+  # This defers O(things) work until actually needed
+  markSpatialIndexDirty(env)
 
 proc init(env: Environment, seed: int = 0) =
   ## Initialize the environment by orchestrating all initialization phases.
