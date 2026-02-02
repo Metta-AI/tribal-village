@@ -772,22 +772,32 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
-  zeroMem(addr env.observations, sizeof(env.observations))
+  ## Optimization: Only zero observations for agents that exist (env.agents.len),
+  ## not all MapAgents. This reduces memory bandwidth significantly when
+  ## env.agents.len << MapAgents. Observations for non-existent agents (id >= agents.len)
+  ## remain zeroed from reset() and are never written to during the episode.
   env.observationsInitialized = false
 
   for agentId in 0 ..< env.agents.len:
+    # Zero this agent's observations before writing (replaces global zeroMem)
+    zeroMem(addr env.observations[agentId], sizeof(env.observations[agentId]))
+
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
-    for obsX in 0 ..< ObservationWidth:
+
+    # Pre-compute valid observation window bounds to eliminate per-tile bounds checks.
+    # This removes branch mispredictions from the inner loops.
+    let minObsX = max(0, ObservationRadius - agentPos.x)
+    let maxObsX = min(ObservationWidth, MapWidth + ObservationRadius - agentPos.x)
+    let minObsY = max(0, ObservationRadius - agentPos.y)
+    let maxObsY = min(ObservationHeight, MapHeight + ObservationRadius - agentPos.y)
+
+    for obsX in minObsX ..< maxObsX:
       let worldX = agentPos.x + (obsX - ObservationRadius)
-      if worldX < 0 or worldX >= MapWidth:
-        continue
-      for obsY in 0 ..< ObservationHeight:
+      for obsY in minObsY ..< maxObsY:
         let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
-          continue
         writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
