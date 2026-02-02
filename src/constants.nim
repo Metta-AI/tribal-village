@@ -335,6 +335,7 @@ const
   ThreatVisionRange* = 12     # Range to detect threats
   ScoutVisionRange* = 18      # Scout extended vision range (50% larger than normal)
   ThreatDecaySteps* = 50      # Steps before threat decays
+  ThreatUpdateStagger* = 4    # Only update threat map every N steps per agent
 
   # Derived constants
   VillagerMaxHp* = AgentMaxHp
