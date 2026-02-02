@@ -172,10 +172,7 @@ const
     UnitScout, UnitBatteringRam
   }
 
-  ## Tank units with shield auras (ManAtArms and Knight)
-  TankAuraUnits*: set[AgentUnitClass] = {
-    UnitManAtArms, UnitKnight
-  }
+  # TankAuraUnits is now defined in types.nim for broader availability
 
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.
@@ -1047,6 +1044,27 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     agentOrder[i] = i
   stepRng.shuffle(agentOrder)
 
+  # Pre-compute team population caps and counts for O(1) lookups during monk conversion
+  # This avoids O(n) scans through TownCenters, Houses, and agents per conversion attempt
+  var actionPopCaps: array[MapRoomObjectsTeams, int]
+  for tc in env.thingsByKind[TownCenter]:
+    if tc.teamId >= 0 and tc.teamId < MapRoomObjectsTeams:
+      actionPopCaps[tc.teamId] += TownCenterPopCap
+  for house in env.thingsByKind[House]:
+    if house.teamId >= 0 and house.teamId < MapRoomObjectsTeams:
+      actionPopCaps[house.teamId] += HousePopCap
+  # Clamp to MapAgentsPerTeam like the original code does after actions
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if actionPopCaps[teamId] > MapAgentsPerTeam:
+      actionPopCaps[teamId] = MapAgentsPerTeam
+
+  var actionPopCounts: array[MapRoomObjectsTeams, int]
+  for other in env.agents:
+    if isAgentAlive(env, other):
+      let teamId = getTeamId(other)
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        inc actionPopCounts[teamId]
+
   for id in agentOrder:
     let actionValue = actions[id]
     let agent = env.agents[id]
@@ -1113,10 +1131,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           var relocated = false
           # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
+          # Uses spatial query instead of O(n) scan through all lanterns
+          var nearbyLanterns: seq[Thing]
           template spacingOk(nextPos: IVec2): bool =
             var isSpaced = true
-            for t in env.thingsByKind[Lantern]:
+            nearbyLanterns.setLen(0)
+            collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
+            for t in nearbyLanterns:
               if t != blocker:
+                # Chebyshev distance check (should always be <= 2 from spatial query)
                 let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
                 if dist < 3'i32:
                   isSpaced = false
@@ -1380,17 +1403,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < 0 or newTeam >= MapRoomObjectsTeams:
                 inc env.stats[id].actionInvalid
                 break attackAction
-              var popCap = 0
-              for tc in env.thingsByKind[TownCenter]:
-                if tc.teamId == newTeam:
-                  popCap += TownCenterPopCap
-              for house in env.thingsByKind[House]:
-                if house.teamId == newTeam:
-                  popCap += HousePopCap
-              var popCount = 0
-              for other in env.agents:
-                if isAgentAlive(env, other) and getTeamId(other) == newTeam:
-                  inc popCount
+              # Use pre-computed population caps and counts (O(1) instead of O(n))
+              let popCap = actionPopCaps[newTeam]
+              let popCount = actionPopCounts[newTeam]
               if popCap <= 0 or popCount >= popCap:
                 inc env.stats[id].actionInvalid
                 break attackAction
@@ -1410,11 +1425,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     bestDist = dist
                     newHome = altar.pos
               target.homeAltar = newHome
+              # Capture old team before changing override
+              let oldTeam = getTeamId(target)
               let defaultTeam = getTeamId(target.agentId)
               if newTeam == defaultTeam:
                 target.teamIdOverride = -1
               else:
                 target.teamIdOverride = newTeam
+              # Update pre-computed population counts for subsequent conversions
+              if oldTeam >= 0 and oldTeam < MapRoomObjectsTeams:
+                dec actionPopCounts[oldTeam]
+              inc actionPopCounts[newTeam]
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
