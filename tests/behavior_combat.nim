@@ -375,3 +375,66 @@ suite "Behavior: Tower and TC Garrison Fire":
     check enemy.hp <= 0
     check env.terminated[enemyId] == 1.0
     echo &"  Combat summary: Tower killed enemy in {steps} steps"
+
+suite "Behavior: Tank Aura Damage Reduction":
+  test "ManAtArms aura halves damage to nearby ally":
+    let env = makeEmptyEnv()
+    # Team 0: tank (ManAtArms) and a target villager
+    let tank = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms)
+    applyUnitClass(tank, UnitManAtArms)
+    let target = addAgentAt(env, 1, ivec2(10, 11))  # Adjacent to tank (radius 1)
+    target.hp = 100
+    target.maxHp = 100
+    # Team 1: attacker
+    let attacker = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 12))
+    attacker.attackDamage = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, target.pos))
+
+    # Damage should be halved: (10 + 1) div 2 = 5
+    check target.hp == 95
+
+  test "ManAtArms aura does not affect ally outside radius":
+    let env = makeEmptyEnv()
+    let tank = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitManAtArms)
+    applyUnitClass(tank, UnitManAtArms)
+    let target = addAgentAt(env, 1, ivec2(10, 12))  # 2 tiles away (outside ManAtArms radius 1)
+    target.hp = 100
+    target.maxHp = 100
+    let attacker = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 13))
+    attacker.attackDamage = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, target.pos))
+
+    # Full damage (10) should be dealt
+    check target.hp == 90
+
+  test "Knight aura has larger radius (2 tiles)":
+    let env = makeEmptyEnv()
+    let tank = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitKnight)
+    applyUnitClass(tank, UnitKnight)
+    let target = addAgentAt(env, 1, ivec2(10, 12))  # 2 tiles away (within Knight radius 2)
+    target.hp = 100
+    target.maxHp = 100
+    let attacker = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 13))
+    attacker.attackDamage = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, target.pos))
+
+    # Damage should be halved: (10 + 1) div 2 = 5
+    check target.hp == 95
+
+  test "Knight aura does not affect ally outside radius 2":
+    let env = makeEmptyEnv()
+    let tank = addAgentAt(env, 0, ivec2(10, 10), unitClass = UnitKnight)
+    applyUnitClass(tank, UnitKnight)
+    let target = addAgentAt(env, 1, ivec2(10, 13))  # 3 tiles away (outside Knight radius 2)
+    target.hp = 100
+    target.maxHp = 100
+    let attacker = addAgentAt(env, MapAgentsPerTeam, ivec2(10, 14))
+    attacker.attackDamage = 10
+
+    env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, target.pos))
+
+    # Full damage should be dealt
+    check target.hp == 90
