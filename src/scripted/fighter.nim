@@ -36,7 +36,7 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   let (cx, cy) = cellCoords(enemy.pos)
   let clampedMax = min(AllyThreatRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+  let cellRadius = distToCellRadius16(clampedMax)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
@@ -126,7 +126,7 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
   # Use spatial index to only check agents in nearby cells
   let (cx, cy) = cellCoords(agent.pos)
   let clampedMax = min(enemyRadius.int, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+  let cellRadius = distToCellRadius16(clampedMax)
 
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
@@ -262,7 +262,7 @@ proc findNearestFriendlyMonk(env: Environment, agent: Thing): Thing =
   var bestDist = int.high
   let (cx, cy) = cellCoords(agent.pos)
   let clampedMax = min(HealerSeekRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+  let cellRadius = distToCellRadius16(clampedMax)
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
       let nx = cx + ddx

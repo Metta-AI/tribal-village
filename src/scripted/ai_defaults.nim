@@ -836,7 +836,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let searchRadius = GoblinAvoidRadius + 5
       let (cx, cy) = cellCoords(agent.pos)
       let clampedMax = min(searchRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-      let cellRadius = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+      let cellRadius = distToCellRadius16(clampedMax)
       for ddx in -cellRadius .. cellRadius:
         for ddy in -cellRadius .. cellRadius:
           let nx = cx + ddx

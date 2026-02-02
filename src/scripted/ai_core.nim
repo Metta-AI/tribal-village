@@ -390,8 +390,7 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
   # Scan spatial cells for enemy agents and structures
   let (cx, cy) = cellCoords(agent.pos)
   let vr = visionRange.int
-  let cellRadius = (min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize) +
-                    SpatialCellSize - 1) div SpatialCellSize
+  let cellRadius = distToCellRadius16(min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize))
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
       let nx = cx + ddx

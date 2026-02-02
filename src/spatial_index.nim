@@ -18,6 +18,66 @@
 import vmath
 import types
 
+# ---------------------------------------------------------------------------
+# Pre-computed lookup tables for O(1) distance-to-cell-radius conversion
+# Replaces runtime division: (dist + cellSz - 1) div cellSz
+# ---------------------------------------------------------------------------
+
+const
+  ## Maximum distance for lookup tables (covers max map diagonal ~500)
+  MaxLookupDist* = 512
+
+  ## Pre-computed distance-to-cell-radius for SpatialCellSize=16
+  ## DistToCellRadius16[d] = (d + 15) div 16 = ceil(d / 16)
+  DistToCellRadius16*: array[MaxLookupDist, int16] = block:
+    var result: array[MaxLookupDist, int16]
+    for dist in 0 ..< MaxLookupDist:
+      result[dist] = int16((dist + 16 - 1) div 16)
+    result
+
+when defined(spatialAutoTune):
+  const
+    ## Lookup tables for each supported cell size in auto-tune mode
+    DistToCellRadius4*: array[MaxLookupDist, int16] = block:
+      var result: array[MaxLookupDist, int16]
+      for dist in 0 ..< MaxLookupDist:
+        result[dist] = int16((dist + 4 - 1) div 4)
+      result
+
+    DistToCellRadius8*: array[MaxLookupDist, int16] = block:
+      var result: array[MaxLookupDist, int16]
+      for dist in 0 ..< MaxLookupDist:
+        result[dist] = int16((dist + 8 - 1) div 8)
+      result
+
+    DistToCellRadius32*: array[MaxLookupDist, int16] = block:
+      var result: array[MaxLookupDist, int16]
+      for dist in 0 ..< MaxLookupDist:
+        result[dist] = int16((dist + 32 - 1) div 32)
+      result
+
+    DistToCellRadius64*: array[MaxLookupDist, int16] = block:
+      var result: array[MaxLookupDist, int16]
+      for dist in 0 ..< MaxLookupDist:
+        result[dist] = int16((dist + 64 - 1) div 64)
+      result
+
+  proc distToCellRadiusLookup*(dist: int, cellSize: int): int {.inline.} =
+    ## O(1) distance-to-cell-radius using pre-computed lookup tables
+    ## Falls back to runtime division for unsupported cell sizes
+    let clampedDist = min(dist, MaxLookupDist - 1)
+    case cellSize
+    of 4: DistToCellRadius4[clampedDist].int
+    of 8: DistToCellRadius8[clampedDist].int
+    of 16: DistToCellRadius16[clampedDist].int
+    of 32: DistToCellRadius32[clampedDist].int
+    of 64: DistToCellRadius64[clampedDist].int
+    else: (dist + cellSize - 1) div cellSize  # Fallback for unexpected sizes
+
+proc distToCellRadius16*(dist: int): int {.inline.} =
+  ## O(1) distance-to-cell-radius for static cell size (16)
+  DistToCellRadius16[min(dist, MaxLookupDist - 1)].int
+
 when defined(spatialStats):
   import std/[strutils, os]
 
@@ -333,7 +393,7 @@ when defined(spatialAutoTune):
     let qCx = clamp(qPos.x.int div cellSz, 0, cellsX - 1)
     let qCy = clamp(qPos.y.int div cellSz, 0, cellsY - 1)
     let clampedMax = min(maxDistExpr, max(cellsX, cellsY) * cellSz)
-    var searchRadius {.inject.} = (clampedMax + cellSz - 1) div cellSz
+    var searchRadius {.inject.} = distToCellRadiusLookup(clampedMax, cellSz)
     let maxRadius = searchRadius
     let queryKind = kindExpr
     let queryEnv  = envExpr
@@ -367,7 +427,7 @@ else:
     let qPos  {.inject.} = posExpr
     let (qCx, qCy) = cellCoords(qPos)
     let clampedMax = min(maxDistExpr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-    var searchRadius {.inject.} = (clampedMax + SpatialCellSize - 1) div SpatialCellSize
+    var searchRadius {.inject.} = distToCellRadius16(clampedMax)
     let maxRadius = searchRadius
     let queryKind = kindExpr
     let queryEnv  = envExpr
@@ -398,6 +458,13 @@ template effectiveCellSize(): int =
   else:
     SpatialCellSize
 
+# Helper: O(1) distance-to-cell-radius using lookup tables
+template distToCellRadiusEffective(dist: int, cellSz: int): int =
+  when defined(spatialAutoTune):
+    distToCellRadiusLookup(dist, cellSz)
+  else:
+    distToCellRadius16(dist)
+
 proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
                                maxDist: int): Thing =
   ## Find nearest thing of a given kind using spatial index.
@@ -414,7 +481,7 @@ proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
     if dist < minDist and dist < maxDist:
       minDist = dist
       result = thing
-      searchRadius = (dist + cellSz - 1) div cellSz
+      searchRadius = distToCellRadiusEffective(dist, cellSz)
 
   when defined(spatialStats):
     inc spatialTotalQueries[sqkFindNearest]
@@ -444,7 +511,7 @@ proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
     if dist < minDist and dist < maxDist:
       minDist = dist
       result = thing
-      searchRadius = (dist + cellSz - 1) div cellSz
+      searchRadius = distToCellRadiusEffective(dist, cellSz)
 
   when defined(spatialStats):
     inc spatialTotalQueries[sqkFindNearestFriendly]
@@ -476,7 +543,7 @@ proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
     if dist <= maxDist and dist < minDist:
       minDist = dist
       result = thing
-      searchRadius = (dist + cellSz - 1) div cellSz
+      searchRadius = distToCellRadiusEffective(dist, cellSz)
 
   when defined(spatialStats):
     inc spatialTotalQueries[sqkFindNearestEnemy]
@@ -508,7 +575,7 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
     if dist >= minRange and dist <= maxRange and dist < bestDist:
       bestDist = dist
       result = thing
-      searchRadius = (dist + cellSz - 1) div cellSz
+      searchRadius = distToCellRadiusEffective(dist, cellSz)
 
   when defined(spatialStats):
     inc spatialTotalQueries[sqkFindNearestEnemyInRange]
