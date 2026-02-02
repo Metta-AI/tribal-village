@@ -796,14 +796,14 @@ proc placeStartingRoads(env: Environment, center: IVec2, teamId: int,
       setTerrain(env, pos, Road)
 
   var anchors: seq[IVec2] = @[center]
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    if thing.kind notin {TownCenter, House, Granary, LumberCamp, Quarry, MiningCamp, Mill}:
-      continue
-    let dist = max(abs(thing.pos.x - center.x), abs(thing.pos.y - center.y))
-    if dist <= 7:
-      anchors.add(thing.pos)
+  # Use spatial index to find team buildings within range 7
+  const RoadAnchorKinds = {TownCenter, House, Granary, LumberCamp, Quarry, MiningCamp, Mill}
+  for kind in RoadAnchorKinds:
+    var nearbyBuildings: seq[Thing] = @[]
+    collectThingsInRangeSpatial(env, center, kind, 7, nearbyBuildings)
+    for thing in nearbyBuildings:
+      if thing.teamId == teamId:
+        anchors.add(thing.pos)
 
   # Connect anchors to center with L-shaped roads
   for anchor in anchors:

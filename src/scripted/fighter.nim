@@ -205,16 +205,15 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
     return env.agents[bestEnemyId]
 
 proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
+  ## Check if fighter sees an enemy structure within observation radius.
+  ## Optimized: uses spatial index to check only structures in range.
   let teamId = getTeamId(agent)
-  for thing in env.things:
-    if thing.isNil or thing.teamId == teamId:
-      continue
-    if not isBuildingKind(thing.kind):
-      continue
-    if thing.kind notin AttackableStructures:
-      continue
-    if chebyshevDist(agent.pos, thing.pos) <= ObservationRadius.int32:
-      return true
+  for kind in AttackableStructures:
+    var nearbyStructures: seq[Thing] = @[]
+    collectThingsInRangeSpatial(env, agent.pos, kind, ObservationRadius, nearbyStructures)
+    for structure in nearbyStructures:
+      if structure.teamId != teamId:
+        return true
   false
 
 proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
@@ -842,16 +841,14 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   bestEnemy
 
 proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): bool =
-  ## Check if enemy siege unit is close to any friendly structures
-  for thing in env.things:
-    if thing.isNil or thing.teamId != teamId:
-      continue
-    if not isBuildingKind(thing.kind):
-      continue
-    if thing.kind notin AttackableStructures:
-      continue
-    if int(chebyshevDist(siege.pos, thing.pos)) <= SiegeNearStructureRadius:
-      return true
+  ## Check if enemy siege unit is close to any friendly structures.
+  ## Optimized: uses spatial index to check only structures in range.
+  for kind in AttackableStructures:
+    var nearbyStructures: seq[Thing] = @[]
+    collectThingsInRangeSpatial(env, siege.pos, kind, SiegeNearStructureRadius, nearbyStructures)
+    for structure in nearbyStructures:
+      if structure.teamId == teamId:
+        return true
   false
 
 proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =

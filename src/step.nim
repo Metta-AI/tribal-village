@@ -716,23 +716,21 @@ proc checkKingOfTheHillVictory(env: Environment): int =
   ## Returns the winning team ID if a team has controlled the hill for long enough, else -1.
   ## Control means having the most living units within HillControlRadius of a ControlPoint.
   ## If tied (multiple teams have the same max count), the hill is contested and no one controls.
+  ## Optimized: uses spatial index instead of O(n) agent scan.
   for cp in env.thingsByKind[ControlPoint]:
     if cp.isNil:
       continue
-    # Count living agents per team within the control radius
+    # Count living agents per team within the control radius using spatial index
     var teamUnits: array[MapRoomObjectsTeams, int]
-    for agent in env.agents:
-      if agent.isNil:
-        continue
+    var nearbyAgents: seq[Thing] = @[]
+    collectThingsInRangeSpatial(env, cp.pos, Agent, HillControlRadius, nearbyAgents)
+    for agent in nearbyAgents:
       if not isAgentAlive(env, agent):
         continue
       let teamId = getTeamId(agent)
       if teamId < 0 or teamId >= MapRoomObjectsTeams:
         continue
-      let dx = abs(agent.pos.x - cp.pos.x)
-      let dy = abs(agent.pos.y - cp.pos.y)
-      if max(dx, dy) <= HillControlRadius:
-        inc teamUnits[teamId]
+      inc teamUnits[teamId]
     # Find the team with the most units (must be unique max and > 0)
     var bestTeam = -1
     var bestCount = 0

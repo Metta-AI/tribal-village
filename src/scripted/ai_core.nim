@@ -993,12 +993,11 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
   @[]
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:
+  # Use spatial index to check for team lanterns within range 2 (chebyshev dist < 3)
+  var nearbyLanterns: seq[Thing] = @[]
+  collectThingsInRangeSpatial(env, pos, Lantern, 2, nearbyLanterns)
+  for lantern in nearbyLanterns:
+    if lantern.lanternHealthy and lantern.teamId == teamId:
       return true
   false
 
