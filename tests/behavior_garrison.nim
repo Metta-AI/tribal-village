@@ -272,3 +272,127 @@ suite "Behavior: Garrison Healing":
     check unit.pos == ivec2(-1, -1)
     check tc.garrisonedUnits.len == 1
     echo &"  Damaged unit survived 10 steps in garrison, HP={unit.hp}"
+
+suite "Behavior: Garrison Attack":
+  test "garrisoned units in tower attack enemies in range":
+    # Setup: tower with garrisoned units, enemy in range
+    let env = makeEmptyEnv()
+    let tower = addBuilding(env, GuardTower, ivec2(10, 10), 0)
+    for i in 0 ..< 3:
+      let villager = addAgentAt(env, i, ivec2(10 + i.int32, 11))
+      discard env.garrisonUnitInBuilding(villager, tower)
+    check tower.garrisonedUnits.len == 3
+
+    # Place enemy in tower range
+    let enemyId = MapAgentsPerTeam + 3
+    let enemy = addAgentAt(env, enemyId, ivec2(10, 13), unitClass = UnitBatteringRam)
+    applyUnitClass(enemy, UnitBatteringRam)
+    let startHp = enemy.hp
+
+    # Step - tower should attack with garrisoned units
+    env.stepAction(enemyId, 0'u8, 0)
+
+    check enemy.hp < startHp
+    echo &"  Garrisoned tower attacked enemy, HP: {startHp} -> {enemy.hp}"
+
+  test "garrison attack damage includes building bonus arrows":
+    # Compare damage with and without garrison
+    # Empty tower: 1 arrow * 2 damage = 2 damage per step
+    # Tower with 3 units: 4 arrows * 2 damage = 8 damage per step
+    let envEmpty = makeEmptyEnv()
+    let towerEmpty = addBuilding(envEmpty, GuardTower, ivec2(10, 10), 0)
+    let enemyEmpty = addAgentAt(envEmpty, MapAgentsPerTeam, ivec2(10, 13), unitClass = UnitBatteringRam)
+    applyUnitClass(enemyEmpty, UnitBatteringRam)
+    let startHpEmpty = enemyEmpty.hp
+    envEmpty.stepAction(enemyEmpty.agentId, 0'u8, 0)
+    let baseDamage = startHpEmpty - enemyEmpty.hp
+
+    let envGarr = makeEmptyEnv()
+    let towerGarr = addBuilding(envGarr, GuardTower, ivec2(10, 10), 0)
+    for i in 0 ..< 3:
+      let villager = addAgentAt(envGarr, i, ivec2(10 + i.int32, 11))
+      discard envGarr.garrisonUnitInBuilding(villager, towerGarr)
+    let enemyGarr = addAgentAt(envGarr, MapAgentsPerTeam + 3, ivec2(10, 13), unitClass = UnitBatteringRam)
+    applyUnitClass(enemyGarr, UnitBatteringRam)
+    let startHpGarr = enemyGarr.hp
+    envGarr.stepAction(enemyGarr.agentId, 0'u8, 0)
+    let garrisonDamage = startHpGarr - enemyGarr.hp
+
+    # With 3 garrisoned units: 4x damage (base + 3 bonus arrows)
+    check garrisonDamage > baseDamage
+    check garrisonDamage == baseDamage * 4  # 1 base + 3 bonus = 4x
+    echo &"  Base damage: {baseDamage}, Garrison damage: {garrisonDamage} (4x with 3 units)"
+
+  test "units stop contributing to attack when ungarrisoned":
+    # Compare damage before and after ungarrisoning using two separate environments
+    # to avoid position conflicts when units are ejected
+
+    # Environment 1: Tower with garrison
+    let envGarr = makeEmptyEnv()
+    let towerGarr = addBuilding(envGarr, GuardTower, ivec2(10, 10), 0)
+    for i in 0 ..< 3:
+      let villager = addAgentAt(envGarr, i, ivec2(10 + i.int32, 11))
+      discard envGarr.garrisonUnitInBuilding(villager, towerGarr)
+    let enemyGarr = addAgentAt(envGarr, MapAgentsPerTeam + 3, ivec2(10, 13), unitClass = UnitBatteringRam)
+    applyUnitClass(enemyGarr, UnitBatteringRam)
+    let startHpGarr = enemyGarr.hp
+    envGarr.stepAction(enemyGarr.agentId, 0'u8, 0)
+    let damageWithGarrison = startHpGarr - enemyGarr.hp
+
+    # Environment 2: Tower with garrison, then ungarrison
+    let envUngarr = makeEmptyEnv()
+    let towerUngarr = addBuilding(envUngarr, GuardTower, ivec2(10, 10), 0)
+    for i in 0 ..< 3:
+      let villager = addAgentAt(envUngarr, i, ivec2(10 + i.int32, 11))
+      discard envUngarr.garrisonUnitInBuilding(villager, towerUngarr)
+    # Ungarrison before adding enemy
+    discard envUngarr.ungarrisonAllUnits(towerUngarr)
+    check towerUngarr.garrisonedUnits.len == 0
+    # Place enemy at a position guaranteed not to conflict with ejected units
+    let enemyUngarr = addAgentAt(envUngarr, MapAgentsPerTeam + 3, ivec2(10, 14), unitClass = UnitBatteringRam)
+    applyUnitClass(enemyUngarr, UnitBatteringRam)
+    let startHpUngarr = enemyUngarr.hp
+    envUngarr.stepAction(enemyUngarr.agentId, 0'u8, 0)
+    let damageAfterUngarrison = startHpUngarr - enemyUngarr.hp
+
+    # After ungarrisoning, damage should return to base (no bonus arrows)
+    check damageAfterUngarrison < damageWithGarrison
+    check damageAfterUngarrison == damageWithGarrison div 4  # Back to 1x
+    echo &"  With garrison: {damageWithGarrison}, After ungarrison: {damageAfterUngarrison}"
+
+  test "castle garrison attack fires at enemies in range":
+    let env = makeEmptyEnv()
+    let castle = addBuilding(env, Castle, ivec2(10, 10), 0)
+    for i in 0 ..< 5:
+      let knight = addAgentAt(env, i, ivec2(5 + i.int32, 5), unitClass = UnitManAtArms)
+      discard env.garrisonUnitInBuilding(knight, castle)
+    check castle.garrisonedUnits.len == 5
+
+    # Castle range is 6, so place enemy within range (distance 6 from castle center)
+    let enemyId = MapAgentsPerTeam + 5
+    let enemy = addAgentAt(env, enemyId, ivec2(10, 16), unitClass = UnitBatteringRam)
+    applyUnitClass(enemy, UnitBatteringRam)
+    let startHp = enemy.hp
+
+    env.stepAction(enemyId, 0'u8, 0)
+
+    check enemy.hp < startHp
+    echo &"  Castle with 5 garrisoned attacked enemy, HP: {startHp} -> {enemy.hp}"
+
+  test "town center garrison attack fires at enemies in range":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    for i in 0 ..< 5:
+      let villager = addAgentAt(env, i, ivec2(10 + i.int32, 11))
+      discard env.garrisonUnitInBuilding(villager, tc)
+    check tc.garrisonedUnits.len == 5
+
+    let enemyId = MapAgentsPerTeam + 5
+    let enemy = addAgentAt(env, enemyId, ivec2(10, 14), unitClass = UnitBatteringRam)
+    applyUnitClass(enemy, UnitBatteringRam)
+    let startHp = enemy.hp
+
+    env.stepAction(enemyId, 0'u8, 0)
+
+    check enemy.hp < startHp
+    echo &"  TC with 5 garrisoned attacked enemy, HP: {startHp} -> {enemy.hp}"
