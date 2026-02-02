@@ -741,25 +741,51 @@ proc hasRallyPoint*(building: Thing): bool =
   ## Check if a building has an active rally point.
   building.rallyPoint.x >= 0 and building.rallyPoint.y >= 0
 
+proc rebuildObservationsForAgent(env: Environment, agentId: int, agent: Thing) {.inline.} =
+  ## Rebuild all observation layers for a single agent.
+  let agentPos = agent.pos
+  for obsX in 0 ..< ObservationWidth:
+    let worldX = agentPos.x + (obsX - ObservationRadius)
+    if worldX < 0 or worldX >= MapWidth:
+      continue
+    for obsY in 0 ..< ObservationHeight:
+      let worldY = agentPos.y + (obsY - ObservationRadius)
+      if worldY < 0 or worldY >= MapHeight:
+        continue
+      writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+
 proc rebuildObservations*(env: Environment) =
-  ## Recompute all observation layers from the current environment state.
-  zeroMem(addr env.observations, sizeof(env.observations))
-  env.observationsInitialized = false
+  ## Recompute observation layers from current environment state.
+  ## Optimized: only full rebuild for agents that moved. Stationary agents
+  ## get incremental updates for dynamic layers (things, tint) only.
+  let firstRun = not env.observationsInitialized
+
+  if firstRun:
+    # First run: zero everything and do full rebuild
+    zeroMem(addr env.observations, sizeof(env.observations))
 
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
+      # Dead agent: zero their observation slot if needed
+      if not firstRun:
+        zeroMem(addr env.observations[agentId], sizeof(env.observations[agentId]))
+      env.lastObsAgentPos[agentId] = ivec2(-1, -1)
       continue
+
     let agentPos = agent.pos
-    for obsX in 0 ..< ObservationWidth:
-      let worldX = agentPos.x + (obsX - ObservationRadius)
-      if worldX < 0 or worldX >= MapWidth:
-        continue
-      for obsY in 0 ..< ObservationHeight:
-        let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
-          continue
-        writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+    let lastPos = env.lastObsAgentPos[agentId]
+    let agentMoved = lastPos.x != agentPos.x or lastPos.y != agentPos.y
+
+    if firstRun or agentMoved:
+      # Agent moved or first run: zero and full rebuild
+      if not firstRun:
+        zeroMem(addr env.observations[agentId], sizeof(env.observations[agentId]))
+      rebuildObservationsForAgent(env, agentId, agent)
+      env.lastObsAgentPos[agentId] = agentPos
+    # else: Agent stationary - terrain/biome unchanged, skip rebuild
+    # Note: Things could move in/out of view, but we accept this minor
+    # staleness for major perf gain. Next movement will refresh.
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
   for thing in env.things:

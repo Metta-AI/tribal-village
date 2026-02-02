@@ -219,6 +219,7 @@ proc initState(env: Environment) =
   # Initialize tint tracking to invalid positions (ensures tint added on first step)
   for i in 0 ..< MapAgents:
     env.lastAgentPos[i] = ivec2(-1, -1)
+    env.lastObsAgentPos[i] = ivec2(-1, -1)
   env.lastLanternPos.setLen(0)
 
 proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeOasis] =
