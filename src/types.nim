@@ -334,6 +334,11 @@ type
     UnitCrossbowman    # Archer upgrade tier 2
     UnitArbalester     # Archer upgrade tier 3
 
+const
+  ## Tank unit classes: units with shield auras (ManAtArms, Knight)
+  TankUnitClasses* = {UnitManAtArms, UnitKnight}
+
+type
   ThingKind* = enum
     Agent
     Wall
