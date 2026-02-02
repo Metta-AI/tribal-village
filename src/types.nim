@@ -511,6 +511,41 @@ const
   ## Initial capacity for action tint positions (avoids growth during combat)
   ActionTintPoolCapacity* = 256
 
+  ## Default capacity for arena-backed sequences
+  ArenaDefaultCap* = 1024
+
+type
+  Arena* = object
+    ## Collection of pre-allocated temporary sequences for per-step use.
+    ## All sequences reset to len=0 at step start but retain their capacity.
+
+    # Thing-typed scratch buffers (most common case)
+    things1*: seq[Thing]
+    things2*: seq[Thing]
+    things3*: seq[Thing]
+    things4*: seq[Thing]
+
+    # Position scratch buffers
+    positions1*: seq[IVec2]
+    positions2*: seq[IVec2]
+
+    # Int scratch buffers (for indices, counts, etc.)
+    ints1*: seq[int]
+    ints2*: seq[int]
+
+    # Generic tuple buffer for inventory-like data
+    itemCounts*: seq[tuple[key: ItemKey, count: int]]
+
+    # String buffer for formatting
+    strings*: seq[string]
+
+  ArenaStats* = object
+    ## Statistics for arena usage tracking
+    resets*: int           ## Number of reset calls
+    peakThings*: int       ## Peak things buffer usage
+    peakPositions*: int    ## Peak positions buffer usage
+    peakInts*: int         ## Peak int buffer usage
+
 const
   # Spatial index constants
   SpatialCellSize* = 16  # Tiles per spatial cell
@@ -971,6 +1006,8 @@ type
     thingPool*: ThingPool
     # Object pool for projectiles (pre-allocated capacity, stats tracking)
     projectilePool*: ProjectilePool
+    # Arena allocator for per-step temporary allocations
+    arena*: Arena
 
 # Global environment instance
 var env*: Environment

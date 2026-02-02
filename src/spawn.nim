@@ -210,6 +210,12 @@ proc initState(env: Environment) =
     env.actionTintPositions = newSeqOfCap[IVec2](ActionTintPoolCapacity)
   # (already cleared above)
 
+  # Initialize arena allocator for per-step temporary allocations
+  if env.arena.things1.len == 0:
+    env.arena = initArena()
+  else:
+    env.arena.reset()
+
   # Initialize tint tracking to invalid positions (ensures tint added on first step)
   for i in 0 ..< MapAgents:
     env.lastAgentPos[i] = ivec2(-1, -1)

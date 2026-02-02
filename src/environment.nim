@@ -5,6 +5,7 @@ import types, registry
 import spatial_index
 import formations
 import state_dumper
+import arena_alloc
 export terrain, items, common
 export types, registry
 export spatial_index

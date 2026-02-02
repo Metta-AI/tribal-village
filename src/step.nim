@@ -811,7 +811,9 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
                        stepRng: var Rand) =
   ## Process tumor branching and add all newly spawned tumors to the environment.
   ## Handles both spawner-created tumors (newTumorsToSpawn) and branch tumors.
-  var newTumorBranches = newSeqOfCap[Thing](tumorsToProcess.len)
+  # Use arena buffer for temporary collection (reuses pre-allocated capacity)
+  var newTumorBranches = addr env.arena.things3
+  newTumorBranches[].setLen(0)
 
   for tumor in tumorsToProcess:
     if env.getThing(tumor.pos) != tumor:
@@ -861,7 +863,7 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
     tumor.orientation = branchOrientation
 
     # Queue the new tumor for insertion and mark parent as inert
-    newTumorBranches.add(newTumor)
+    newTumorBranches[].add(newTumor)
     when defined(tumorAudit):
       recordTumorBranched()
     tumor.hasClaimedTerritory = true
@@ -870,13 +872,16 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
   # Add newly spawned tumors from spawners and branching this step
   for newTumor in newTumorsToSpawn:
     env.add(newTumor)
-  for newTumor in newTumorBranches:
+  for newTumor in newTumorBranches[]:
     env.add(newTumor)
 
 proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
   ## Resolve contact: agents and predators adjacent to tumors risk lethal creep.
-  var tumorsToRemove = newSeqOfCap[Thing](16)
-  var predatorsToRemove = newSeqOfCap[Thing](8)
+  # Use arena buffers for temporary collections (reuses pre-allocated capacity)
+  var tumorsToRemove = addr env.arena.things1
+  var predatorsToRemove = addr env.arena.things2
+  tumorsToRemove[].setLen(0)
+  predatorsToRemove[].setLen(0)
 
   for tumor in env.thingsByKind[Tumor]:
     for offset in CardinalOffsets:
@@ -895,8 +900,8 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
           let killed = env.applyAgentDamage(occupant, 1)
           when defined(tumorAudit):
             recordTumorDamage(killed)
-          if killed and tumor notin tumorsToRemove:
-            tumorsToRemove.add(tumor)
+          if killed and tumor notin tumorsToRemove[]:
+            tumorsToRemove[].add(tumor)
             env.grid[tumor.pos.x][tumor.pos.y] = nil
           if killed:
             break
@@ -904,23 +909,23 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
         if randFloat(stepRng) < TumorAdjacencyDeathChance:
           when defined(tumorAudit):
             recordTumorPredatorKill()
-          if occupant notin predatorsToRemove:
-            predatorsToRemove.add(occupant)
+          if occupant notin predatorsToRemove[]:
+            predatorsToRemove[].add(occupant)
             env.grid[occupant.pos.x][occupant.pos.y] = nil
-          if tumor notin tumorsToRemove:
-            tumorsToRemove.add(tumor)
+          if tumor notin tumorsToRemove[]:
+            tumorsToRemove[].add(tumor)
             env.grid[tumor.pos.x][tumor.pos.y] = nil
 
   # Remove tumors cleared by lethal contact this step
-  if tumorsToRemove.len > 0:
+  if tumorsToRemove[].len > 0:
     when defined(tumorAudit):
-      for _ in tumorsToRemove:
+      for _ in tumorsToRemove[]:
         recordTumorDestroyed()
-    for tumor in tumorsToRemove:
+    for tumor in tumorsToRemove[]:
       removeThing(env, tumor)
 
-  if predatorsToRemove.len > 0:
-    for predator in predatorsToRemove:
+  if predatorsToRemove[].len > 0:
+    for predator in predatorsToRemove[]:
       removeThing(env, predator)
 
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
@@ -966,6 +971,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(stateDiff):
     capturePreStep(env)
+
+  # Reset arena allocator for this step's temporary allocations
+  env.arena.reset()
 
   # Decay short-lived action tints and projectile visuals
   env.stepDecayActionTints()
