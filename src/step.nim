@@ -172,11 +172,6 @@ const
     UnitScout, UnitBatteringRam
   }
 
-  ## Tank units with shield auras (ManAtArms and Knight)
-  TankAuraUnits*: set[AgentUnitClass] = {
-    UnitManAtArms, UnitKnight
-  }
-
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.
   ## Lifetime scales with distance for natural flight speed.
@@ -1038,16 +1033,33 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var stepRng = initRand(env.currentStep)
 
   # Track builders per construction site for multi-builder speed bonus
-  var constructionBuilders: Table[IVec2, int]
+  # Reuse environment's table to avoid per-step heap allocation
+  env.constructionBuilders.clear()
+
+  # Pre-compute team pop caps before action processing (for monk conversion)
+  # This avoids O(buildings) iteration inside the action loop
+  for i in 0 ..< MapRoomObjectsTeams:
+    env.stepTeamPopCaps[i] = 0
+    env.stepTeamPopCounts[i] = 0
+  for thing in env.thingsByKind[TownCenter]:
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+      env.stepTeamPopCaps[thing.teamId] += TownCenterPopCap
+  for thing in env.thingsByKind[House]:
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+      env.stepTeamPopCaps[thing.teamId] += HousePopCap
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    let teamId = getTeamId(agent)
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      inc env.stepTeamPopCounts[teamId]
 
   # Shuffle agent processing order to prevent Team 0 from always acting first.
   # This ensures fair resource access and combat timing across all teams.
-  var agentOrder: array[MapAgents, int]
-  for i in 0 ..< MapAgents:
-    agentOrder[i] = i
-  stepRng.shuffle(agentOrder)
+  # Array is initialized once at env creation; we just shuffle in place each step.
+  stepRng.shuffle(env.agentOrder)
 
-  for id in agentOrder:
+  for id in env.agentOrder:
     let actionValue = actions[id]
     let agent = env.agents[id]
     if not isAgentAlive(env, agent):
@@ -1380,17 +1392,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < 0 or newTeam >= MapRoomObjectsTeams:
                 inc env.stats[id].actionInvalid
                 break attackAction
-              var popCap = 0
-              for tc in env.thingsByKind[TownCenter]:
-                if tc.teamId == newTeam:
-                  popCap += TownCenterPopCap
-              for house in env.thingsByKind[House]:
-                if house.teamId == newTeam:
-                  popCap += HousePopCap
-              var popCount = 0
-              for other in env.agents:
-                if isAgentAlive(env, other) and getTeamId(other) == newTeam:
-                  inc popCount
+              # Use pre-computed pop caps/counts (avoids O(buildings+agents) per conversion)
+              let popCap = env.stepTeamPopCaps[newTeam]
+              let popCount = env.stepTeamPopCounts[newTeam]
               if popCap <= 0 or popCount >= popCap:
                 inc env.stats[id].actionInvalid
                 break attackAction
@@ -1896,7 +1900,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp and
              agent.unitClass == UnitVillager:
             # Register this builder for the multi-builder bonus
-            constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+            env.constructionBuilders.mgetOrPut(thing.pos, 0) += 1
             used = true
         else:
           if isBuildingKind(thing.kind):
@@ -1904,7 +1908,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if thing.maxHp > 0 and thing.hp < thing.maxHp and
                thing.teamId == getTeamId(agent) and agent.unitClass == UnitVillager:
               # Register this builder for the multi-builder bonus
-              constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+              env.constructionBuilders.mgetOrPut(thing.pos, 0) += 1
               used = true
             # Normal building use (skip if construction happened)
             if not used:
@@ -2535,7 +2539,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Apply multi-builder construction speed bonus
   # Treadmill Crane: +20% construction speed from University tech
-  for pos, builderCount in constructionBuilders.pairs:
+  for pos, builderCount in env.constructionBuilders.pairs:
     let thing = env.getThing(pos)
     if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue

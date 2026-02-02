@@ -413,6 +413,10 @@ const
   ThingLayerStart* = ord(ThingAgentLayer)
   ThingLayerCount* = ord(ThingKind.high) + 1
   ObservationLayers* = ord(ObservationName.high) + 1
+  ## Tank units with shield auras (ManAtArms and Knight)
+  TankAuraUnits*: set[AgentUnitClass] = {
+    UnitManAtArms, UnitKnight
+  }
 
 type
   ProductionQueueEntry* = object
@@ -1030,6 +1034,11 @@ type
     tempTCTargets*: seq[Thing]         ## Town center attack targets
     tempMonkAuraAllies*: seq[Thing]    ## Nearby allies for monk auras
     tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
+    # Reusable per-step state to avoid heap allocations
+    constructionBuilders*: Table[IVec2, int]  ## Builder count per construction site
+    agentOrder*: array[MapAgents, int]        ## Shuffle buffer for action processing
+    stepTeamPopCaps*: array[MapRoomObjectsTeams, int]   ## Pre-computed pop caps
+    stepTeamPopCounts*: array[MapRoomObjectsTeams, int] ## Pre-computed pop counts
     # Object pool for frequently created/destroyed things
     thingPool*: ThingPool
     # Object pool for projectiles (pre-allocated capacity, stats tracking)
