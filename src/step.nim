@@ -172,11 +172,6 @@ const
     UnitScout, UnitBatteringRam
   }
 
-  ## Tank units with shield auras (ManAtArms and Knight)
-  TankAuraUnits*: set[AgentUnitClass] = {
-    UnitManAtArms, UnitKnight
-  }
-
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.
   ## Lifetime scales with distance for natural flight speed.
@@ -1047,6 +1042,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     agentOrder[i] = i
   stepRng.shuffle(agentOrder)
 
+  # Pre-compute team population caps and counts for O(1) lookup during actions.
+  # This avoids O(buildings + agents) iteration for each monk conversion check.
+  var stepTeamPopCaps: array[MapRoomObjectsTeams, int]
+  var stepTeamPopCounts: array[MapRoomObjectsTeams, int]
+  for tc in env.thingsByKind[TownCenter]:
+    if tc.teamId >= 0 and tc.teamId < MapRoomObjectsTeams:
+      stepTeamPopCaps[tc.teamId] += TownCenterPopCap
+  for house in env.thingsByKind[House]:
+    if house.teamId >= 0 and house.teamId < MapRoomObjectsTeams:
+      stepTeamPopCaps[house.teamId] += HousePopCap
+  for i in 0 ..< MapAgents:
+    let a = env.agents[i]
+    if isAgentAlive(env, a):
+      let t = getTeamId(a)
+      if t >= 0 and t < MapRoomObjectsTeams:
+        inc stepTeamPopCounts[t]
+
   for id in agentOrder:
     let actionValue = actions[id]
     let agent = env.agents[id]
@@ -1380,20 +1392,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < 0 or newTeam >= MapRoomObjectsTeams:
                 inc env.stats[id].actionInvalid
                 break attackAction
-              var popCap = 0
-              for tc in env.thingsByKind[TownCenter]:
-                if tc.teamId == newTeam:
-                  popCap += TownCenterPopCap
-              for house in env.thingsByKind[House]:
-                if house.teamId == newTeam:
-                  popCap += HousePopCap
-              var popCount = 0
-              for other in env.agents:
-                if isAgentAlive(env, other) and getTeamId(other) == newTeam:
-                  inc popCount
+              # Use pre-computed population caps/counts for O(1) lookup
+              let popCap = stepTeamPopCaps[newTeam]
+              let popCount = stepTeamPopCounts[newTeam]
               if popCap <= 0 or popCount >= popCap:
                 inc env.stats[id].actionInvalid
                 break attackAction
+              # Capture old team before conversion for population tracking
+              let oldTeam = getTeamId(target)
               var newHome = ivec2(-1, -1)
               if agent.homeAltar.x >= 0:
                 let altarThing = env.getThing(agent.homeAltar)
@@ -1419,6 +1425,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
               env.applyUnitAttackTint(agent.unitClass, healPos)
+              # Update step population counts for subsequent conversions this step
+              if oldTeam >= 0 and oldTeam < MapRoomObjectsTeams:
+                dec stepTeamPopCounts[oldTeam]
+              inc stepTeamPopCounts[newTeam]
               # Consume faith on successful conversion
               agent.faith = agent.faith - MonkConversionFaithCost
               when defined(combatAudit):
