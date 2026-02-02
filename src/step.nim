@@ -270,12 +270,14 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   var bestTarget = findNearestEnemyInRangeSpatial(env, tower.pos, tower.teamId, minRange, range)
   var bestDist = if bestTarget.isNil: int.high
                  else: chebyshevDist(bestTarget.pos, tower.pos).int
+  # Also check tumors/spawners using spatial query
   for kind in [Tumor, Spawner]:
-    for thing in env.thingsByKind[kind]:
-      let dist = chebyshevDist(thing.pos, tower.pos).int
-      if dist >= minRange and dist <= range and dist < bestDist:
+    let nearest = findNearestThingSpatial(env, tower.pos, kind, range)
+    if not nearest.isNil:
+      let dist = chebyshevDist(nearest.pos, tower.pos).int
+      if dist >= minRange and dist < bestDist:
         bestDist = dist
-        bestTarget = thing
+        bestTarget = nearest
   if isNil(bestTarget):
     return
   let tint = if tower.kind == Castle: CastleAttackTint else: TowerAttackTint
@@ -368,10 +370,9 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   # Gather all valid targets in range using spatial index
   var targets = newSeqOfCap[Thing](32)
   collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
+  # Also collect tumors/spawners using spatial query
   for kind in [Tumor, Spawner]:
-    for thing in env.thingsByKind[kind]:
-      if chebyshevDist(thing.pos, tc.pos) <= TownCenterRange:
-        targets.add(thing)
+    collectThingsInRangeSpatial(env, tc.pos, kind, TownCenterRange, targets)
 
   if targets.len == 0:
     return
@@ -713,22 +714,19 @@ proc checkKingOfTheHillVictory(env: Environment): int =
   ## Returns the winning team ID if a team has controlled the hill for long enough, else -1.
   ## Control means having the most living units within HillControlRadius of a ControlPoint.
   ## If tied (multiple teams have the same max count), the hill is contested and no one controls.
+  var cpAgentsNearby: seq[Thing]
   for cp in env.thingsByKind[ControlPoint]:
     if cp.isNil:
       continue
-    # Count living agents per team within the control radius
+    # Count living agents per team within the control radius using spatial query
     var teamUnits: array[MapRoomObjectsTeams, int]
-    for agent in env.agents:
-      if agent.isNil:
-        continue
+    cpAgentsNearby.setLen(0)
+    collectThingsInRangeSpatial(env, cp.pos, Agent, HillControlRadius, cpAgentsNearby)
+    for agent in cpAgentsNearby:
       if not isAgentAlive(env, agent):
         continue
       let teamId = getTeamId(agent)
-      if teamId < 0 or teamId >= MapRoomObjectsTeams:
-        continue
-      let dx = abs(agent.pos.x - cp.pos.x)
-      let dy = abs(agent.pos.y - cp.pos.y)
-      if max(dx, dy) <= HillControlRadius:
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
         inc teamUnits[teamId]
     # Find the team with the most units (must be unique max and > 0)
     var bestTeam = -1
@@ -1035,7 +1033,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var stepRng = initRand(env.currentStep)
 
   # Track builders per construction site for multi-builder speed bonus
-  var constructionBuilders: Table[IVec2, int]
+  # Using seq instead of Table for O(1) amortized insert on small collections
+  var constructionBuilders: seq[tuple[pos: IVec2, count: int]]
 
   # Shuffle agent processing order to prevent Team 0 from always acting first.
   # This ensures fair resource access and combat timing across all teams.
@@ -1110,14 +1109,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           var relocated = false
           # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
+          # Uses spatial query for O(1) instead of O(n) full scan
+          var nearbyLanterns: seq[Thing]
           template spacingOk(nextPos: IVec2): bool =
+            nearbyLanterns.setLen(0)
+            collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
             var isSpaced = true
-            for t in env.thingsByKind[Lantern]:
+            for t in nearbyLanterns:
               if t != blocker:
-                let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
-                if dist < 3'i32:
-                  isSpaced = false
-                  break
+                isSpaced = false
+                break
             isSpaced
           # Preferred push positions in move direction
           let ahead1 = pos + delta
@@ -1893,7 +1894,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp and
              agent.unitClass == UnitVillager:
             # Register this builder for the multi-builder bonus
-            constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+            block findOrAdd:
+              for i in 0 ..< constructionBuilders.len:
+                if constructionBuilders[i].pos == thing.pos:
+                  inc constructionBuilders[i].count
+                  break findOrAdd
+              constructionBuilders.add((pos: thing.pos, count: 1))
             used = true
         else:
           if isBuildingKind(thing.kind):
@@ -1901,7 +1907,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if thing.maxHp > 0 and thing.hp < thing.maxHp and
                thing.teamId == getTeamId(agent) and agent.unitClass == UnitVillager:
               # Register this builder for the multi-builder bonus
-              constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+              block findOrAdd:
+                for i in 0 ..< constructionBuilders.len:
+                  if constructionBuilders[i].pos == thing.pos:
+                    inc constructionBuilders[i].count
+                    break findOrAdd
+                constructionBuilders.add((pos: thing.pos, count: 1))
               used = true
             # Normal building use (skip if construction happened)
             if not used:
@@ -2532,7 +2543,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Apply multi-builder construction speed bonus
   # Treadmill Crane: +20% construction speed from University tech
-  for pos, builderCount in constructionBuilders.pairs:
+  for entry in constructionBuilders:
+    let pos = entry.pos
+    let builderCount = entry.count
     let thing = env.getThing(pos)
     if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue
