@@ -214,11 +214,9 @@ proc initState(env: Environment) =
     env.actionTintPositions = newSeqOfCap[IVec2](ActionTintPoolCapacity)
   # (already cleared above)
 
-  # Initialize arena allocator for per-step temporary allocations
-  if env.arena.things1.len == 0:
-    env.arena = initArena()
-  else:
-    env.arena.reset()
+  # Arena allocator is initialized lazily on first step() call
+  # This defers the allocation cost until actually needed
+  env.arena.initialized = false
 
   # Initialize tint tracking to invalid positions (ensures tint added on first step)
   for i in 0 ..< MapAgents:
@@ -1728,32 +1726,55 @@ proc initFinalize(env: Environment) =
   # Individual action updates will populate observations as needed
   maybeStartReplayEpisode(env)
 
-  # Build initial spatial index for efficient nearest-thing queries
-  rebuildSpatialIndex(env)
+  # Spatial index is built lazily on first query (see spatial_index.nim)
+  # This defers the rebuild cost until actually needed
+  env.spatialIndexBuilt = false
+
+when defined(initTiming):
+  import std/monotimes
+
+  proc msBetweenInit(a, b: MonoTime): float64 =
+    (b.ticks - a.ticks).float64 / 1_000_000.0
 
 proc init(env: Environment, seed: int = 0) =
   ## Initialize the environment by orchestrating all initialization phases.
   ## When seed is 0 (default), uses current time for non-deterministic init.
+  when defined(initTiming):
+    let tInitStart = getMonoTime()
+    var tPhaseStart = tInitStart
+
   let seed = if seed == 0: int(nowSeconds() * 1000) else: seed
   var rng = initRand(seed)
 
   # Phase 1: Reset all state
   initState(env)
+  when defined(initTiming):
+    let tAfterState = getMonoTime()
 
   # Phase 2: Terrain, biomes, water features, elevation, cliffs
   let treeOases = initTerrainAndBiomes(env, rng, seed)
+  when defined(initTiming):
+    let tAfterTerrain = getMonoTime()
 
   # Phase 3: Central trading hub
   initTradingHub(env, rng)
+  when defined(initTiming):
+    let tAfterHub = getMonoTime()
 
   # Phase 4: Teams, villages, altars, agents
   discard initTeams(env, rng)
+  when defined(initTiming):
+    let tAfterTeams = getMonoTime()
 
   # Phase 5: Goblin hives, spawners, neutral structures
   initNeutralStructures(env, rng)
+  when defined(initTiming):
+    let tAfterNeutral = getMonoTime()
 
   # Phase 6: Resource nodes (magma, trees, wheat, ore, plants)
   initResources(env, rng, treeOases)
+  when defined(initTiming):
+    let tAfterResources = getMonoTime()
 
   # Phase 6b: Control point (King of the Hill)
   if env.config.victoryCondition in {VictoryKingOfTheHill, VictoryAll}:
@@ -1780,9 +1801,28 @@ proc init(env: Environment, seed: int = 0) =
 
   # Phase 7: Wildlife (cows, bears, wolves)
   initWildlife(env, rng)
+  when defined(initTiming):
+    let tAfterWildlife = getMonoTime()
 
   # Phase 8: Connectivity, replay, spatial index
   initFinalize(env)
+  when defined(initTiming):
+    let tAfterFinalize = getMonoTime()
+
+    # Print init timing report
+    echo ""
+    echo "=== Init Timing Report ==="
+    echo "Phase 1 (initState):      ", msBetweenInit(tInitStart, tAfterState).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 2 (terrain/biomes): ", msBetweenInit(tAfterState, tAfterTerrain).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 3 (trading hub):    ", msBetweenInit(tAfterTerrain, tAfterHub).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 4 (teams):          ", msBetweenInit(tAfterHub, tAfterTeams).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 5 (neutral):        ", msBetweenInit(tAfterTeams, tAfterNeutral).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 6 (resources):      ", msBetweenInit(tAfterNeutral, tAfterResources).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 7 (wildlife):       ", msBetweenInit(tAfterResources, tAfterWildlife).formatFloat(ffDecimal, 2), " ms"
+    echo "Phase 8 (finalize):       ", msBetweenInit(tAfterWildlife, tAfterFinalize).formatFloat(ffDecimal, 2), " ms"
+    echo "--------------------------"
+    echo "TOTAL:                    ", msBetweenInit(tInitStart, tAfterFinalize).formatFloat(ffDecimal, 2), " ms"
+    echo ""
 
 
 proc newEnvironment*(): Environment =

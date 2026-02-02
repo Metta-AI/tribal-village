@@ -33,6 +33,10 @@
 import vmath
 import types
 
+# Forward declarations for lazy initialization (used by query functions before definition)
+proc rebuildSpatialIndex*(env: Environment)
+proc ensureSpatialIndex*(env: Environment) {.inline.}
+
 # ---------------------------------------------------------------------------
 # Pre-computed lookup tables for O(1) distance-to-cell-radius conversion
 # Replaces runtime division: (dist + cellSz - 1) div cellSz
@@ -486,6 +490,7 @@ proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
                                maxDist: int): Thing =
   ## Find nearest thing of a given kind using spatial index.
   ## Returns nil if no thing found within maxDist.
+  ensureSpatialIndex(env)
   result = nil
   var minDist = int.high
   let cellSz = effectiveCellSize()
@@ -511,6 +516,7 @@ proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
                                        kind: ThingKind, maxDist: int): Thing =
   ## Find nearest team-owned thing of a given kind using spatial index.
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  ensureSpatialIndex(env)
   result = nil
   var minDist = int.high
   let cellSz = effectiveCellSize()
@@ -542,6 +548,7 @@ proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
   ## Find nearest enemy agent (alive, different team) using spatial index.
   ## Uses Chebyshev distance for consistency with game mechanics.
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  ensureSpatialIndex(env)
   result = nil
   var minDist = int.high
   let cellSz = effectiveCellSize()
@@ -574,6 +581,7 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
   ## Find nearest enemy agent in [minRange, maxRange] Chebyshev distance.
   ## Used by towers and buildings with minimum attack ranges.
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  ensureSpatialIndex(env)
   result = nil
   var bestDist = int.high
   let cellSz = effectiveCellSize()
@@ -606,6 +614,7 @@ proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
   ## Collect all enemy agents within maxRange Chebyshev distance.
   ## Used by town centers that need to fire at multiple targets.
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  ensureSpatialIndex(env)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   when defined(spatialStats):
     let prevLen = targets.len
@@ -634,6 +643,7 @@ proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxRange: int, allies: var seq[Thing]) =
   ## Collect all allied agents within maxRange Chebyshev distance.
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  ensureSpatialIndex(env)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   when defined(spatialStats):
     let prevLen = allies.len
@@ -664,6 +674,7 @@ proc findNearestThingOfKindsSpatial*(env: Environment, pos: IVec2,
   ## Searches all specified kinds and returns the closest match.
   ## Returns nil if no matching thing found within maxDist.
   ## Uses Chebyshev distance for consistency with game mechanics.
+  ensureSpatialIndex(env)
   result = nil
   var minDist = int.high
   when defined(spatialStats):
@@ -694,6 +705,7 @@ proc collectThingsInRangeSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
                                    maxRange: int, targets: var seq[Thing]) =
   ## Collect all things of the given kind within maxRange Chebyshev distance.
   ## Generic collection utility for any ThingKind.
+  ensureSpatialIndex(env)
   when defined(spatialStats):
     let prevLen = targets.len
   forEachInRadius(env, pos, kind, maxRange, thing):
@@ -718,6 +730,7 @@ proc collectAgentsByClassInRange*(env: Environment, pos: IVec2, teamId: int,
   ## Collect all agents of specified unit classes within maxRange.
   ## teamId: -1 for any team, 0+ for specific team filtering.
   ## Uses Chebyshev distance for consistency with game mechanics.
+  ensureSpatialIndex(env)
   let teamMask = if teamId >= 0: getTeamMask(teamId) else: 0
   when defined(spatialStats):
     let prevLen = targets.len
@@ -749,6 +762,7 @@ proc countUnclaimedTumorsInRangeSpatial*(env: Environment, pos: IVec2,
                                           maxRange: int): int =
   ## Count unclaimed tumors within maxRange Chebyshev distance.
   ## Used by spawners to limit tumor density around them.
+  ensureSpatialIndex(env)
   result = 0
   forEachInRadius(env, pos, Tumor, maxRange, thing):
     if not isValidPos(thing.pos):
@@ -765,6 +779,7 @@ proc rebuildSpatialIndex*(env: Environment) =
   clearSpatialIndex(env)
   for thing in env.things:
     addToSpatialIndex(env, thing)
+  env.spatialIndexBuilt = true
   when defined(spatialAutoTune):
     # Analyze density and rebalance if needed
     let optimalSize = env.spatialIndex.computeOptimalCellSize()
@@ -777,6 +792,12 @@ proc rebuildSpatialIndex*(env: Environment) =
           env.spatialIndex.dynCells[dx][dy].things.add(thing)
           env.spatialIndex.dynKindCells[thing.kind][dx][dy].add(thing)
 
+proc ensureSpatialIndex*(env: Environment) {.inline.} =
+  ## Lazily build spatial index on first query.
+  ## This defers initialization cost until actually needed.
+  if not env.spatialIndexBuilt:
+    rebuildSpatialIndex(env)
+
 # Military unit classes that draw predator aggro (fighters)
 const PredatorFighterClasses = {UnitManAtArms, UnitArcher, UnitScout, UnitKnight}
 
@@ -786,6 +807,7 @@ proc findNearestPredatorTargetSpatial*(env: Environment, center: IVec2,
   ## Priority: tumor (unclaimed) > fighter agent > villager agent.
   ## Returns ivec2(-1, -1) if no target found.
   ## Uses Chebyshev distance for consistency with game mechanics.
+  ensureSpatialIndex(env)
   var bestTumorDist = int.high
   var bestTumor = ivec2(-1, -1)
   var bestFighterDist = int.high

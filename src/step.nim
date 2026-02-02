@@ -172,10 +172,7 @@ const
     UnitScout, UnitBatteringRam
   }
 
-  ## Tank units with shield auras (ManAtArms and Knight)
-  TankAuraUnits*: set[AgentUnitClass] = {
-    UnitManAtArms, UnitKnight
-  }
+  # TankAuraUnits is now defined in types.nim for use by placement.nim
 
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.
@@ -981,7 +978,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(stateDiff):
     capturePreStep(env)
 
-  # Reset arena allocator for this step's temporary allocations
+  # Lazily initialize and reset arena allocator for this step's temporary allocations
+  ensureArena(env.arena)
   env.arena.reset()
 
   # Decay short-lived action tints and projectile visuals

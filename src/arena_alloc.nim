@@ -11,6 +11,7 @@ var arenaStats*: ArenaStats
 proc initArena*(): Arena =
   ## Initialize arena with pre-allocated capacity
   result = Arena(
+    initialized: true,
     things1: newSeqOfCap[Thing](ArenaDefaultCap),
     things2: newSeqOfCap[Thing](ArenaDefaultCap div 2),
     things3: newSeqOfCap[Thing](ArenaDefaultCap div 4),
@@ -37,6 +38,12 @@ proc reset*(arena: var Arena) {.inline.} =
   arena.itemCounts.setLen(0)
   arena.strings.setLen(0)
   inc arenaStats.resets
+
+proc ensureArena*(arena: var Arena) {.inline.} =
+  ## Lazily initialize arena on first use.
+  ## Subsequent calls are cheap (just checks flag).
+  if not arena.initialized:
+    arena = initArena()
 
 proc updateStats*(arena: Arena) {.inline.} =
   ## Update peak usage statistics

@@ -334,6 +334,13 @@ type
     UnitCrossbowman    # Archer upgrade tier 2
     UnitArbalester     # Archer upgrade tier 3
 
+const
+  ## Tank units with shield auras (ManAtArms and Knight)
+  TankAuraUnits*: set[AgentUnitClass] = {
+    UnitManAtArms, UnitKnight
+  }
+
+type
   ThingKind* = enum
     Agent
     Wall
@@ -518,6 +525,7 @@ type
   Arena* = object
     ## Collection of pre-allocated temporary sequences for per-step use.
     ## All sequences reset to len=0 at step start but retain their capacity.
+    initialized*: bool  # Lazy init flag: true after first allocation
 
     # Thing-typed scratch buffers (most common case)
     things1*: seq[Thing]
@@ -977,6 +985,7 @@ type
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
+    spatialIndexBuilt*: bool     # Lazy init flag: true after first rebuild
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
     tankUnits*: seq[Thing]  # ManAtArms and Knight units with auras
     monkUnits*: seq[Thing]  # Monk units with auras
