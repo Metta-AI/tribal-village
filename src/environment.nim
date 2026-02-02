@@ -1583,6 +1583,16 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   env.add(stump)
   true
 
+proc spawnDamageNumber*(env: Environment, pos: IVec2, amount: int,
+                        kind: DamageNumberKind = DmgNumDamage) =
+  ## Spawn a floating damage number at the given position.
+  ## Numbers float upward and fade out over DamageNumberLifetime frames.
+  if amount <= 0 or not isValidPos(pos):
+    return
+  env.damageNumbers.add(DamageNumber(
+    pos: pos, amount: amount, kind: kind,
+    countdown: DamageNumberLifetime, lifetime: DamageNumberLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"

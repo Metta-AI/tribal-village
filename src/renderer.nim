@@ -25,6 +25,15 @@ var
   footerLabelImages: Table[string, string] = initTable[string, string]()
   footerLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
   footerIconSizes: Table[string, IVec2] = initTable[string, IVec2]()
+  # Damage number label cache
+  damageNumberImages: Table[string, string] = initTable[string, string]()
+  damageNumberSizes: Table[string, IVec2] = initTable[string, IVec2]()
+
+const
+  # Damage number rendering constants
+  DamageNumberFontPath = "data/Inter-Regular.ttf"
+  DamageNumberFontSize: float32 = 28
+  DamageNumberFloatHeight: float32 = 0.8  # World units to float upward
 
 type FloorSpriteKind = enum
   FloorBase
@@ -767,6 +776,69 @@ proc drawProjectiles*() =
     let c = ProjectileColors[proj.kind]
     let sc = ProjectileScales[proj.kind]
     bxy.drawImage("floor", pos, angle = 0, scale = sc, tint = c)
+
+proc renderDamageNumberLabel(text: string, textColor: Color): (Image, IVec2) =
+  ## Render a damage number label with outline for visibility.
+  let fontSize = DamageNumberFontSize
+  let padding = 2.0'f32
+  var measureCtx = newContext(1, 1)
+  setupCtxFont(measureCtx, DamageNumberFontPath, fontSize)
+  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
+  let h = max(1, (fontSize + padding * 2).int)
+  var ctx = newContext(w, h)
+  setupCtxFont(ctx, DamageNumberFontPath, fontSize)
+  # Draw outline for visibility
+  ctx.fillStyle.color = color(0, 0, 0, 0.6)
+  for dx in -1 .. 1:
+    for dy in -1 .. 1:
+      if dx != 0 or dy != 0:
+        ctx.fillText(text, vec2(padding + dx.float32, padding + dy.float32))
+  ctx.fillStyle.color = textColor
+  ctx.fillText(text, vec2(padding, padding))
+  result = (ctx.image, ivec2(w, h))
+
+proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) =
+  ## Get or create a cached damage number label image.
+  let prefix = case kind
+    of DmgNumDamage: "d"
+    of DmgNumHeal: "h"
+    of DmgNumCritical: "c"
+  let cacheKey = prefix & $amount
+  if cacheKey in damageNumberImages:
+    return (damageNumberImages[cacheKey], damageNumberSizes[cacheKey])
+  # Create new label with appropriate color
+  let textColor = case kind
+    of DmgNumDamage: color(1.0, 0.3, 0.3, 1.0)    # Red
+    of DmgNumHeal: color(0.3, 1.0, 0.3, 1.0)      # Green
+    of DmgNumCritical: color(1.0, 0.8, 0.2, 1.0)  # Yellow/gold
+  let text = $amount
+  let (image, size) = renderDamageNumberLabel(text, textColor)
+  let imageKey = "dmgnum_" & cacheKey
+  bxy.addImage(imageKey, image)
+  damageNumberImages[cacheKey] = imageKey
+  damageNumberSizes[cacheKey] = size
+  return (imageKey, size)
+
+proc drawDamageNumbers*() =
+  ## Draw floating damage numbers for combat feedback.
+  ## Numbers float upward and fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for dmg in env.damageNumbers:
+    if dmg.lifetime <= 0 or not isInViewport(dmg.pos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = dmg.countdown.float32 / dmg.lifetime.float32
+    # Float upward as time progresses
+    let floatOffset = (1.0 - t) * DamageNumberFloatHeight
+    let worldPos = vec2(dmg.pos.x.float32, dmg.pos.y.float32 - floatOffset)
+    # Fade out
+    let alpha = t * t  # Quadratic ease for smoother fade
+    let (imageKey, size) = getDamageNumberLabel(dmg.amount, dmg.kind)
+    # Scale for world-space rendering (similar to HP bars)
+    let scale = 1.0 / 200.0
+    bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
+                  tint = color(1.0, 1.0, 1.0, alpha))
 
 proc drawGrid*() =
   if not currentViewport.valid:

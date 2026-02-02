@@ -781,6 +781,7 @@ proc display() =
 
   drawAgentDecorations()
   drawProjectiles()
+  drawDamageNumbers()
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()

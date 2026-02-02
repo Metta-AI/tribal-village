@@ -195,6 +195,9 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
       damage = max(1, damage - armorReduction)
 
   target.hp = max(0, target.hp - damage)
+  # Spawn floating damage number for structure damage feedback
+  let isSiege = not attacker.isNil and attacker.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet}
+  env.spawnDamageNumber(target.pos, damage, if isSiege: DmgNumCritical else: DmgNumDamage)
   when defined(combatAudit):
     if not attacker.isNil:
       let aTeam = getTeamId(attacker)
@@ -343,6 +346,9 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
 
   if remaining > 0:
     target.hp = max(0, target.hp - remaining)
+    # Spawn floating damage number for combat feedback
+    let dmgKind = if bonus > 0: DmgNumCritical else: DmgNumDamage
+    env.spawnDamageNumber(target.pos, remaining, dmgKind)
 
   when defined(combatAudit):
     if remaining > 0 and not attacker.isNil:
@@ -377,6 +383,9 @@ proc applyAgentHeal(env: Environment, target: Thing, amount: int,
   let before = target.hp
   target.hp = min(target.maxHp, target.hp + amount)
   result = target.hp - before
+  # Spawn floating heal number for feedback
+  if result > 0:
+    env.spawnDamageNumber(target.pos, result, DmgNumHeal)
   when defined(combatAudit):
     if result > 0 and not healer.isNil:
       recordHeal(env.currentStep, getTeamId(healer), getTeamId(target),

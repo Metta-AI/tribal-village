@@ -638,6 +638,25 @@ type
     countdown*: int8     ## Frames remaining before removal (starts at lifetime)
     lifetime*: int8      ## Total frames this projectile lives (for interpolation)
 
+  DamageNumberKind* = enum
+    DmgNumDamage       ## Red damage number
+    DmgNumHeal         ## Green heal number
+    DmgNumCritical     ## Yellow/orange critical/bonus damage
+
+  DamageNumber* = object
+    ## A floating damage number for combat feedback.
+    ## Floats upward and fades out over its lifetime.
+    pos*: IVec2          ## World position where damage occurred
+    amount*: int         ## Damage/heal amount to display
+    kind*: DamageNumberKind
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Damage number visual constants
+  DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
+  DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -955,6 +974,7 @@ type
     actionTintCode*: ActionTintCode
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
+    damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     cowHerdCounts*: seq[int]

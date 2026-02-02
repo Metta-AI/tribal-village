@@ -213,6 +213,19 @@ proc stepDecayProjectiles(env: Environment) =
     let released = startLen - writeIdx
     env.projectilePool.stats.released += released
     env.projectilePool.stats.poolSize = writeIdx
+
+proc stepDecayDamageNumbers(env: Environment) =
+  ## Decay and remove expired damage numbers.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.damageNumbers.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.damageNumbers.len:
+      env.damageNumbers[readIdx].countdown -= 1
+      if env.damageNumbers[readIdx].countdown > 0:
+        env.damageNumbers[writeIdx] = env.damageNumbers[readIdx]
+        inc writeIdx
+    env.damageNumbers.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -978,6 +991,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Decay short-lived action tints and projectile visuals
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
+  env.stepDecayDamageNumbers()
 
   when defined(stepTiming):
     if timing:
@@ -3470,6 +3484,7 @@ proc reset*(env: Environment) =
   env.tumorActiveTiles.flags.clear()
   env.projectiles.setLen(0)  # Keeps pre-allocated capacity
   env.projectilePool.stats = PoolStats()  # Reset pool stats
+  env.damageNumbers.setLen(0)  # Keeps pre-allocated capacity
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)
