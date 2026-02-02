@@ -166,104 +166,92 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
 proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
   ## Write observation data for a single tile. Called from rebuildObservations
   ## which already zeroed all observation memory, so we only set non-zero values.
+  ## Optimized: single nil check per grid, no intermediate variables, direct writes.
   var agentObs = addr env.observations[agentId]
 
-  # Terrain layer (one-hot encoded)
+  # Always-written layers (terrain one-hot, biome value)
   let terrain = env.terrain[worldX][worldY]
   agentObs[][TerrainLayerStart + ord(terrain)][obsX][obsY] = 1
 
-  # Thing layers
-  let blockingThing = env.grid[worldX][worldY]
-  if not isNil(blockingThing):
-    agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
+  let biome = env.biomes[worldX][worldY]
+  agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(biome).uint8
 
-  let backgroundThing = env.backgroundGrid[worldX][worldY]
-  if not isNil(backgroundThing):
-    agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
-
-  # Agent-specific layers (team, orientation, class, idle)
-  var teamValue = 0
-  var orientValue = 0
-  var classValue = 0
-  var idleValue = 0
-  if not isNil(blockingThing) and blockingThing.kind == Agent:
-    teamValue = getTeamId(blockingThing) + 1
-    orientValue = ord(blockingThing.orientation) + 1
-    classValue = ord(blockingThing.unitClass) + 1
-    # Idle detection: 1 if agent took NOOP/ORIENT action, 0 otherwise
-    idleValue = if blockingThing.isIdle: 1 else: 0
-
-    # Unit stance (enum + 1, 0 = none)
-    agentObs[][ord(UnitStanceLayer)][obsX][obsY] = (ord(blockingThing.stance) + 1).uint8
-
-    # Monk faith
-    if blockingThing.unitClass == UnitMonk and blockingThing.faith > 0:
-      agentObs[][ord(MonkFaithLayer)][obsX][obsY] =
-        ((blockingThing.faith * 255) div MonkMaxFaith).uint8
-
-    # Trebuchet packed state
-    if blockingThing.unitClass == UnitTrebuchet:
-      agentObs[][ord(TrebuchetPackedLayer)][obsX][obsY] =
-        (if blockingThing.packed: 1 else: 0).uint8
-  else:
-    # Check team ownership for non-agent things
-    let teamId =
-      if not blockingThing.isNil and blockingThing.kind in TeamOwnedKinds and
-         blockingThing.teamId >= 0 and blockingThing.teamId < MapRoomObjectsTeams:
-        blockingThing.teamId
-      elif not backgroundThing.isNil and backgroundThing.kind in TeamOwnedKinds and
-           backgroundThing.teamId >= 0 and backgroundThing.teamId < MapRoomObjectsTeams:
-        backgroundThing.teamId
-      else:
-        -1
-    if teamId >= 0:
-      teamValue = teamId + 1
-
-  # Building-specific observation layers
-  if not isNil(blockingThing) and blockingThing.kind != Agent:
-    # Building HP (normalized to 0-255)
-    if blockingThing.maxHp > 0:
-      agentObs[][ord(BuildingHpLayer)][obsX][obsY] =
-        ((blockingThing.hp * 255) div blockingThing.maxHp).uint8
-
-    # Garrison count (normalized to 0-255 by capacity)
-    let capacity = case blockingThing.kind
-      of TownCenter: TownCenterGarrisonCapacity
-      of Castle: CastleGarrisonCapacity
-      of GuardTower: GuardTowerGarrisonCapacity
-      of House: HouseGarrisonCapacity
-      else: 0
-    if capacity > 0 and blockingThing.garrisonedUnits.len > 0:
-      agentObs[][ord(GarrisonCountLayer)][obsX][obsY] =
-        ((blockingThing.garrisonedUnits.len * 255) div capacity).uint8
-
-    # Monastery relic count
-    if blockingThing.kind == Monastery and blockingThing.garrisonedRelics > 0:
-      agentObs[][ord(RelicCountLayer)][obsX][obsY] =
-        min(blockingThing.garrisonedRelics, 255).uint8
-
-    # Production queue length
-    if blockingThing.productionQueue.entries.len > 0:
-      agentObs[][ord(ProductionQueueLenLayer)][obsX][obsY] =
-        min(blockingThing.productionQueue.entries.len, 255).uint8
-
-  # Only write non-zero values (memory already zeroed)
-  if teamValue != 0:
-    agentObs[][ord(TeamLayer)][obsX][obsY] = teamValue.uint8
-  if orientValue != 0:
-    agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = orientValue.uint8
-  if classValue != 0:
-    agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = classValue.uint8
-  if idleValue != 0:
-    agentObs[][ord(AgentIdleLayer)][obsX][obsY] = idleValue.uint8
-
+  # Tint layer (sparse)
   let tintCode = env.actionTintCode[worldX][worldY]
   if tintCode != 0:
     agentObs[][ord(TintLayer)][obsX][obsY] = tintCode
 
-  # Biome layer (enum value)
-  let biome = env.biomes[worldX][worldY]
-  agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(biome).uint8
+  # Load grids once
+  let blockingThing = env.grid[worldX][worldY]
+  let backgroundThing = env.backgroundGrid[worldX][worldY]
+
+  # Background thing layer
+  if not isNil(backgroundThing):
+    agentObs[][ThingLayerStart + ord(backgroundThing.kind)][obsX][obsY] = 1
+
+  # Single branching structure for blocking thing (avoids repeated nil checks)
+  if isNil(blockingThing):
+    # No blocking thing - check team from background only
+    if not isNil(backgroundThing) and backgroundThing.kind in TeamOwnedKinds and
+       backgroundThing.teamId >= 0 and backgroundThing.teamId < MapRoomObjectsTeams:
+      agentObs[][ord(TeamLayer)][obsX][obsY] = (backgroundThing.teamId + 1).uint8
+  else:
+    # Have blocking thing - write its layer
+    agentObs[][ThingLayerStart + ord(blockingThing.kind)][obsX][obsY] = 1
+
+    if blockingThing.kind == Agent:
+      # Agent-specific layers - write directly (no intermediate vars)
+      agentObs[][ord(TeamLayer)][obsX][obsY] = (getTeamId(blockingThing) + 1).uint8
+      agentObs[][ord(AgentOrientationLayer)][obsX][obsY] = (ord(blockingThing.orientation) + 1).uint8
+      agentObs[][ord(AgentUnitClassLayer)][obsX][obsY] = (ord(blockingThing.unitClass) + 1).uint8
+      agentObs[][ord(UnitStanceLayer)][obsX][obsY] = (ord(blockingThing.stance) + 1).uint8
+
+      if blockingThing.isIdle:
+        agentObs[][ord(AgentIdleLayer)][obsX][obsY] = 1
+
+      # Monk faith (only if positive)
+      if blockingThing.unitClass == UnitMonk and blockingThing.faith > 0:
+        agentObs[][ord(MonkFaithLayer)][obsX][obsY] =
+          ((blockingThing.faith * 255) div MonkMaxFaith).uint8
+
+      # Trebuchet packed state
+      if blockingThing.unitClass == UnitTrebuchet and blockingThing.packed:
+        agentObs[][ord(TrebuchetPackedLayer)][obsX][obsY] = 1
+    else:
+      # Non-agent blocking thing (building/resource)
+      # Team ownership: check blocking first, then background
+      if blockingThing.kind in TeamOwnedKinds and
+         blockingThing.teamId >= 0 and blockingThing.teamId < MapRoomObjectsTeams:
+        agentObs[][ord(TeamLayer)][obsX][obsY] = (blockingThing.teamId + 1).uint8
+      elif not isNil(backgroundThing) and backgroundThing.kind in TeamOwnedKinds and
+           backgroundThing.teamId >= 0 and backgroundThing.teamId < MapRoomObjectsTeams:
+        agentObs[][ord(TeamLayer)][obsX][obsY] = (backgroundThing.teamId + 1).uint8
+
+      # Building-specific layers
+      if blockingThing.maxHp > 0:
+        agentObs[][ord(BuildingHpLayer)][obsX][obsY] =
+          ((blockingThing.hp * 255) div blockingThing.maxHp).uint8
+
+      # Garrison count
+      let capacity = case blockingThing.kind
+        of TownCenter: TownCenterGarrisonCapacity
+        of Castle: CastleGarrisonCapacity
+        of GuardTower: GuardTowerGarrisonCapacity
+        of House: HouseGarrisonCapacity
+        else: 0
+      if capacity > 0 and blockingThing.garrisonedUnits.len > 0:
+        agentObs[][ord(GarrisonCountLayer)][obsX][obsY] =
+          ((blockingThing.garrisonedUnits.len * 255) div capacity).uint8
+
+      # Monastery relic count
+      if blockingThing.kind == Monastery and blockingThing.garrisonedRelics > 0:
+        agentObs[][ord(RelicCountLayer)][obsX][obsY] =
+          min(blockingThing.garrisonedRelics, 255).uint8
+
+      # Production queue length
+      if blockingThing.productionQueue.entries.len > 0:
+        agentObs[][ord(ProductionQueueLenLayer)][obsX][obsY] =
+          min(blockingThing.productionQueue.entries.len, 255).uint8
 
 proc updateObservations(
   env: Environment,
@@ -743,6 +731,7 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
+  ## Optimized: pre-compute valid observation bounds to avoid per-tile bounds checks.
   zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
 
@@ -751,14 +740,29 @@ proc rebuildObservations*(env: Environment) =
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
-    for obsX in 0 ..< ObservationWidth:
-      let worldX = agentPos.x + (obsX - ObservationRadius)
-      if worldX < 0 or worldX >= MapWidth:
-        continue
-      for obsY in 0 ..< ObservationHeight:
-        let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
-          continue
+
+    # Pre-compute valid observation bounds (avoid per-tile bounds checks)
+    # obsX maps to worldX = agentPos.x + (obsX - ObservationRadius)
+    # Valid when 0 <= worldX < MapWidth
+    # => 0 <= agentPos.x + obsX - ObservationRadius < MapWidth
+    # => ObservationRadius - agentPos.x <= obsX < MapWidth - agentPos.x + ObservationRadius
+    let obsXStart = max(0, ObservationRadius - agentPos.x)
+    let obsXEnd = min(ObservationWidth, MapWidth - agentPos.x + ObservationRadius)
+    let obsYStart = max(0, ObservationRadius - agentPos.y)
+    let obsYEnd = min(ObservationHeight, MapHeight - agentPos.y + ObservationRadius)
+
+    # Skip agents with no valid observation area (shouldn't happen normally)
+    if obsXStart >= obsXEnd or obsYStart >= obsYEnd:
+      continue
+
+    # Pre-compute world coordinate base offset
+    let worldXBase = agentPos.x - ObservationRadius
+    let worldYBase = agentPos.y - ObservationRadius
+
+    for obsX in obsXStart ..< obsXEnd:
+      let worldX = worldXBase + obsX
+      for obsY in obsYStart ..< obsYEnd:
+        let worldY = worldYBase + obsY
         writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
