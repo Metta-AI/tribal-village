@@ -1,10 +1,5 @@
 # This file is included by src/agent_control.nim
 
-template canBuildOnTerrain(terrain: TerrainType): bool =
-  ## Deprecated: use isBuildableExcludingRoads from terrain.nim instead.
-  ## Kept as template for backward compatibility in this file.
-  isBuildableExcludingRoads(terrain)
-
 proc clearBuildState(state: var AgentState) {.inline.} =
   state.buildIndex = -1
   state.buildTarget = ivec2(-1, -1)
@@ -21,37 +16,32 @@ proc clearCachedPositions(state: var AgentState) {.inline.} =
   state.closestMagmaPos = ivec2(-1, -1)
 
 proc tryBuildAction(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                    state: var AgentState, teamId: int, index: int): tuple[did: bool, action: uint8] =
+                    state: var AgentState, index: int): tuple[did: bool, action: uint8] =
   if index < 0 or index >= BuildChoices.len:
     return (false, 0'u8)
   let key = BuildChoices[index]
   if not env.canAffordBuild(agent, key):
     return (false, 0'u8)
-  block findBuildPos:
-    ## Find an empty adjacent tile for building, preferring the provided direction.
-    let preferDir = orientationToVec(agent.orientation)
-    let dirs = @[
-      preferDir,
-      ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0),
-      ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)
-    ]
-    var buildPos = ivec2(-1, -1)
-    for d in dirs:
-      if d.x == 0 and d.y == 0:
-        continue
+  let preferDir = orientationToVec(agent.orientation)
+  const cardinalDirs = [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]
+  const diagonalDirs = [ivec2(1, -1), ivec2(1, 1), ivec2(-1, 1), ivec2(-1, -1)]
+  template checkDir(d: IVec2): bool =
+    if d.x != 0 or d.y != 0:
       let candidate = agent.pos + d
-      if not isValidPos(candidate):
-        continue
-      if not env.canPlace(candidate):
-        continue
-      if not canBuildOnTerrain(env.terrain[candidate.x][candidate.y]):
-        continue
-      buildPos = candidate
-      break
-    if buildPos.x < 0:
-      return (false, 0'u8)
-  return (true, saveStateAndReturn(controller, agentId, state,
-    encodeAction(8'u8, index.uint8)))
+      if isValidPos(candidate) and env.canPlace(candidate) and
+          isBuildableExcludingRoads(env.terrain[candidate.x][candidate.y]):
+        true
+      else: false
+    else: false
+  if checkDir(preferDir):
+    return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, index.uint8)))
+  for d in cardinalDirs:
+    if checkDir(d):
+      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, index.uint8)))
+  for d in diagonalDirs:
+    if checkDir(d):
+      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, index.uint8)))
+  (false, 0'u8)
 
 
 proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -66,21 +56,17 @@ proc goToAdjacentAndBuild(controller: Controller, env: Environment, agent: Thing
   var target = targetPos
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0:
     if env.canPlace(state.buildTarget) and
-        canBuildOnTerrain(env.terrain[state.buildTarget.x][state.buildTarget.y]):
+        isBuildableExcludingRoads(env.terrain[state.buildTarget.x][state.buildTarget.y]):
       target = state.buildTarget
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
       clearBuildState(state)
-  let teamId = getTeamId(agent)
-  let key = BuildChoices[buildIndex]
-  if not env.canAffordBuild(agent, key):
+  if not env.canAffordBuild(agent, BuildChoices[buildIndex]):
     return (false, 0'u8)
-  if not env.canPlace(target):
-    return (false, 0'u8)
-  if not canBuildOnTerrain(env.terrain[target.x][target.y]):
+  if not env.canPlace(target) or not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
     return (false, 0'u8)
   if chebyshevDist(agent.pos, target) == 1'i32:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, buildIndex)
     if did:
       clearBuildState(state)
       return (true, act)
@@ -105,7 +91,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
   if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0 and
       state.buildStand.x >= 0:
     if env.canPlace(state.buildTarget) and
-        canBuildOnTerrain(env.terrain[state.buildTarget.x][state.buildTarget.y]) and
+        isBuildableExcludingRoads(env.terrain[state.buildTarget.x][state.buildTarget.y]) and
         isValidPos(state.buildStand) and not env.hasDoor(state.buildStand) and
         not isBlockedTerrain(env.terrain[state.buildStand.x][state.buildStand.y]) and
         not isTileFrozen(state.buildStand, env) and
@@ -116,13 +102,9 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
       clearBuildState(state)
-  let teamId = getTeamId(agent)
-  let key = BuildChoices[buildIndex]
-  if not env.canAffordBuild(agent, key):
+  if not env.canAffordBuild(agent, BuildChoices[buildIndex]):
     return (false, 0'u8)
-  if not env.canPlace(target):
-    return (false, 0'u8)
-  if not canBuildOnTerrain(env.terrain[target.x][target.y]):
+  if not env.canPlace(target) or not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
     return (false, 0'u8)
   if not isValidPos(stand) or env.hasDoor(stand) or
       isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env) or
@@ -130,7 +112,7 @@ proc goToStandAndBuild(controller: Controller, env: Environment, agent: Thing, a
       not env.canAgentPassDoor(agent, stand):
     return (false, 0'u8)
   if agent.pos == stand:
-    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, teamId, buildIndex)
+    let (did, act) = tryBuildAction(controller, env, agent, agentId, state, buildIndex)
     if did:
       clearBuildState(state)
       return (true, act)
@@ -152,7 +134,7 @@ proc tryBuildNearResource(controller: Controller, env: Environment, agent: Thing
     return (false, 0'u8)
   let idx = buildIndexFor(kind)
   if idx >= 0:
-    return tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+    return tryBuildAction(controller, env, agent, agentId, state, idx)
   (false, 0'u8)
 
 proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -170,41 +152,30 @@ proc tryBuildCampThreshold(controller: Controller, env: Environment, agent: Thin
   let idx = buildIndexFor(kind)
   if idx < 0 or idx >= BuildChoices.len:
     return (false, 0'u8)
-  let key = BuildChoices[idx]
-  if not env.canAffordBuild(agent, key):
+  if not env.canAffordBuild(agent, BuildChoices[idx]):
     return (false, 0'u8)
   block findBuildSpotNear:
-    ## Find a buildable tile near center plus an adjacent stand tile.
     var buildPos = ivec2(-1, -1)
     var standPos = ivec2(-1, -1)
-    let center = agent.pos
-    let minX = max(0, center.x - searchRadius)
-    let maxX = min(MapWidth - 1, center.x + searchRadius)
-    let minY = max(0, center.y - searchRadius)
-    let maxY = min(MapHeight - 1, center.y + searchRadius)
-
+    let minX = max(0, agent.pos.x - searchRadius)
+    let maxX = min(MapWidth - 1, agent.pos.x + searchRadius)
+    let minY = max(0, agent.pos.y - searchRadius)
+    let maxY = min(MapHeight - 1, agent.pos.y + searchRadius)
     for x in minX .. maxX:
       for y in minY .. maxY:
         let pos = ivec2(x.int32, y.int32)
-        if not env.canPlace(pos):
-          continue
-        if not canBuildOnTerrain(env.terrain[pos.x][pos.y]):
+        if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
           continue
         for d in CardinalOffsets:
           let stand = pos + d
-          if not isValidPos(stand):
-            continue
-          if env.hasDoor(stand):
-            continue
-          if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
-            continue
-          if not env.isEmpty(stand) and stand != agent.pos:
-            continue
-          if not env.canAgentPassDoor(agent, stand):
-            continue
-          buildPos = pos
-          standPos = stand
-          break
+          if isValidPos(stand) and not env.hasDoor(stand) and
+              not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
+              not isTileFrozen(stand, env) and
+              (env.isEmpty(stand) or stand == agent.pos) and
+              env.canAgentPassDoor(agent, stand):
+            buildPos = pos
+            standPos = stand
+            break
         if buildPos.x >= 0:
           break
       if buildPos.x >= 0:
@@ -245,7 +216,7 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
         discard
     return (false, 0'u8)
 
-  let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, teamId, idx)
+  let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, idx)
   if didAdjacent:
     # Claim the building so other builders don't try to build the same thing
     controller.claimBuilding(teamId, kind)
@@ -269,28 +240,21 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
   for x in minX .. maxX:
     for y in minY .. maxY:
       let pos = ivec2(x.int32, y.int32)
-      if not env.canPlace(pos):
-        continue
-      if not canBuildOnTerrain(env.terrain[pos.x][pos.y]):
+      if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
         continue
       for d in CardinalOffsets:
         let stand = pos + d
-        if not isValidPos(stand):
-          continue
-        if env.hasDoor(stand):
-          continue
-        if isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env):
-          continue
-        if not env.isEmpty(stand) and stand != agent.pos:
-          continue
-        if not env.canAgentPassDoor(agent, stand):
-          continue
-        let dist = abs(x - ax) + abs(y - ay)
-        if dist < bestDist:
-          bestDist = dist
-          buildPos = pos
-          standPos = stand
-        break
+        if isValidPos(stand) and not env.hasDoor(stand) and
+            not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
+            not isTileFrozen(stand, env) and
+            (env.isEmpty(stand) or stand == agent.pos) and
+            env.canAgentPassDoor(agent, stand):
+          let dist = abs(x - ax) + abs(y - ay)
+          if dist < bestDist:
+            bestDist = dist
+            buildPos = pos
+            standPos = stand
+          break
   if buildPos.x >= 0:
     # Claim the building so other builders don't try to build the same thing
     controller.claimBuilding(teamId, kind)
@@ -347,7 +311,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
         let dist = chebyshevDist(basePos, pos).int
         if dist < 5 or dist > 15:
           continue
-        if not env.canPlace(pos) or not canBuildOnTerrain(env.terrain[pos.x][pos.y]):
+        if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
           continue
         var standPos = ivec2(-1, -1)
         for d in CardinalOffsets:
@@ -768,13 +732,11 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       patrolPoint2: existingState.patrolPoint2,
       patrolToSecondPoint: existingState.patrolToSecondPoint,
       patrolActive: existingState.patrolActive,
-      # Preserve attack-move target (-1,-1 = inactive)
-      attackMoveTarget: if existingState.attackMoveTarget.x > 0 or existingState.attackMoveTarget.y > 0:
-                          existingState.attackMoveTarget
-                        elif existingState.attackMoveTarget.x < 0:
-                          existingState.attackMoveTarget
-                        else:
+      # Preserve attack-move target (-1,-1 = inactive); normalize (0,<=0) to (-1,-1)
+      attackMoveTarget: if existingState.attackMoveTarget.x == 0 and existingState.attackMoveTarget.y <= 0:
                           ivec2(-1, -1)
+                        else:
+                          existingState.attackMoveTarget
     )
     clearCachedPositions(initState)
     if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
