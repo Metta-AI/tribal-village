@@ -334,6 +334,11 @@ type
     UnitCrossbowman    # Archer upgrade tier 2
     UnitArbalester     # Archer upgrade tier 3
 
+const
+  ## Units that have tank auras (ManAtArms and Knight with shield auras)
+  TankUnitClasses* = {UnitManAtArms, UnitKnight}
+
+type
   ThingKind* = enum
     Agent
     Wall
@@ -1025,6 +1030,7 @@ type
     tempTCTargets*: seq[Thing]         ## Town center attack targets
     tempMonkAuraAllies*: seq[Thing]    ## Nearby allies for monk auras
     tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
+    tempConstructionBuilders*: Table[IVec2, int]  ## Builder counts per construction site
     # Object pool for frequently created/destroyed things
     thingPool*: ThingPool
     # Object pool for projectiles (pre-allocated capacity, stats tracking)

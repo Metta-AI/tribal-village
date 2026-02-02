@@ -220,6 +220,25 @@ proc initState(env: Environment) =
   else:
     env.arena.reset()
 
+  # Pre-allocate scratch buffers for step() to avoid per-step allocations
+  if env.tempTowerTargets.len == 0:
+    env.tempTowerTargets = newSeqOfCap[Thing](32)
+  else:
+    env.tempTowerTargets.setLen(0)
+  if env.tempTCTargets.len == 0:
+    env.tempTCTargets = newSeqOfCap[Thing](32)
+  else:
+    env.tempTCTargets.setLen(0)
+  if env.tempMonkAuraAllies.len == 0:
+    env.tempMonkAuraAllies = newSeqOfCap[Thing](16)
+  else:
+    env.tempMonkAuraAllies.setLen(0)
+  if env.tempEmptyTiles.len == 0:
+    env.tempEmptyTiles = newSeqOfCap[IVec2](24)
+  else:
+    env.tempEmptyTiles.setLen(0)
+  env.tempConstructionBuilders.clear()
+
   # Initialize tint tracking to invalid positions (ensures tint added on first step)
   for i in 0 ..< MapAgents:
     env.lastAgentPos[i] = ivec2(-1, -1)
