@@ -20,6 +20,7 @@ test: test-nim test-python
 test-nim:
 	nim r --path:src tests/test_balance_scorecard.nim
 	nim r --path:src tests/test_map_determinism.nim
+	nim r --path:src tests/test_score_tracking.nim
 	nim r --path:src tests/integration_behaviors.nim
 
 # Run Python integration tests (requires lib to be built first)
