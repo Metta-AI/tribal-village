@@ -284,7 +284,7 @@ const
   # Combat AI Constants
   # ============================================================================
   # Target evaluation
-  TargetSwapInterval* = 10     # Re-evaluate target every N ticks
+  TargetSwapInterval* = 25     # Re-evaluate target every N ticks (perf: reduced from 10)
   LowHpThreshold* = 0.33      # Enemies below this HP ratio get priority
   AllyThreatRadius* = 2       # Distance at which enemy is considered threatening an ally
   EscortRadius* = 3           # Stay within this distance of the protected unit

@@ -6,6 +6,11 @@ const
   FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
   FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
 
+# Per-step cache for isThreateningAlly results to avoid redundant spatial scans
+# Key: (enemyAgentId * MapRoomObjectsTeams + teamId), Value: isThreatening
+var threateningCacheStep: int = -1
+var threateningCache: Table[int, bool]
+
 proc stanceAllowsChase*(agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
   ## Aggressive: chase freely
@@ -33,7 +38,20 @@ proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
 proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   ## Check if an enemy is close enough to any ally to be considered a threat.
   ## Uses spatial index instead of scanning all agents.
-  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  ## Optimized: per-step cache to avoid redundant scans when multiple fighters
+  ## evaluate the same enemy. Also uses bitwise team mask comparison for O(1) team checks.
+
+  # Invalidate cache if step changed
+  if threateningCacheStep != env.currentStep:
+    threateningCacheStep = env.currentStep
+    threateningCache.clear()
+
+  # Check cache first
+  let cacheKey = enemy.agentId * MapRoomObjectsTeams + teamId
+  if cacheKey in threateningCache:
+    return threateningCache[cacheKey]
+
+  # Compute and cache result
   let (cx, cy) = cellCoords(enemy.pos)
   let clampedMax = min(AllyThreatRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
   let cellRadius = distToCellRadius16(clampedMax)
@@ -51,7 +69,9 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
         if (getTeamMask(other) and teamMask) == 0:
           continue
         if int(chebyshevDist(enemy.pos, other.pos)) <= AllyThreatRadius:
+          threateningCache[cacheKey] = true
           return true
+  threateningCache[cacheKey] = false
   false
 
 proc scoreEnemy(env: Environment, agent: Thing, enemy: Thing, teamId: int): float =
