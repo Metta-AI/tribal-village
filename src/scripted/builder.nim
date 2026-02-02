@@ -33,21 +33,23 @@ proc calculateWallRingRadius(controller: Controller, env: Environment, teamId: i
 proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   ## Check if the builder's home area is under threat from enemies.
   ## Returns true if any enemy agent or building is within BuilderThreatRadius of home altar.
+  ## Optimized: uses spatial index for agents and thingsByKind for buildings.
   let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   # Use spatial index to check for enemy agents nearby
   let nearestEnemy = findNearestEnemyAgentSpatial(env, basePos, teamId, BuilderThreatRadius)
   if not nearestEnemy.isNil:
     return true
-  # Check for enemy buildings
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue
-    let dist = int(chebyshevDist(basePos, thing.pos))
-    if dist <= BuilderThreatRadius:
-      return true
+  # Check for enemy buildings using thingsByKind for each building type
+  const ThreatBuildingKinds = [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
+    Outpost, GuardTower, Castle, TownCenter]
+  for kind in ThreatBuildingKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId < 0 or thing.teamId == teamId:
+        continue
+      let dist = int(chebyshevDist(basePos, thing.pos))
+      if dist <= BuilderThreatRadius:
+        return true
   false
 
 proc builderFindNearbyEnemy(env: Environment, agent: Thing): Thing =
@@ -79,24 +81,26 @@ proc findDamagedBuilding*(env: Environment, agent: Thing): Thing =
   ## Find nearest damaged friendly building that needs repair.
   ## Returns nil if no damaged building found.
   ## Includes walls and doors which have hp but aren't in BuildingRegistry.
+  ## Optimized: iterates thingsByKind for each repairable type instead of all things.
   let teamId = getTeamId(agent)
   var best: Thing = nil
   var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    # Check if it's a repairable structure (building, wall, or door)
-    let isRepairable = isBuildingKind(thing.kind) or thing.kind in {Wall, Door}
-    if not isRepairable:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
-      continue  # Not damaged or doesn't have hp
-    let dist = int(chebyshevDist(thing.pos, agent.pos))
-    if dist < bestDist:
-      bestDist = dist
-      best = thing
+  # Iterate only repairable kinds: walls, doors, and buildings
+  const RepairableKinds = [Wall, Door,
+    Altar, TownCenter, House, Granary, Mill, LumberCamp, MiningCamp, Quarry,
+    Blacksmith, ClayOven, WeavingLoom, Market, Monastery,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
+    Outpost, GuardTower, Castle]
+  for kind in RepairableKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId != teamId:
+        continue
+      if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
+        continue  # Not damaged or doesn't have hp
+      let dist = int(chebyshevDist(thing.pos, agent.pos))
+      if dist < bestDist:
+        bestDist = dist
+        best = thing
   best
 
 proc canStartBuilderRepair(controller: Controller, env: Environment, agent: Thing,

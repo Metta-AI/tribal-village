@@ -13,6 +13,14 @@ export ai_types
 
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
+  # All building kinds for efficient iteration (avoids O(n) scan of all things)
+  AllBuildingKinds* = [
+    Altar, TownCenter, House, Door, ClayOven, WeavingLoom, Outpost, GuardTower, Barrel,
+    Mill, Granary, LumberCamp, Quarry, MiningCamp,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
+    Blacksmith, Market, Dock, Monastery, University, Castle, Wonder,
+    GoblinHive, GoblinHut, GoblinTotem
+  ]
 
 proc hasHarvestableResource*(thing: Thing): bool =
   ## Check if a resource thing still has harvestable inventory.
@@ -593,32 +601,29 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
 
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =
+  ## Find distance to nearest friendly building of specified kinds.
+  ## Optimized: iterates only buildings of the specified kinds using thingsByKind.
   result = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    block kindCheck:
-      for kind in kinds:
-        if thing.kind == kind:
-          break kindCheck
-      continue
-    result = min(result, int(chebyshevDist(thing.pos, pos)))
+  for kind in kinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId != teamId:
+        continue
+      result = min(result, int(chebyshevDist(thing.pos, pos)))
 
 proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
+  ## Count buildings per team. Cached per step for efficiency.
+  ## Optimized: iterates only building kinds using thingsByKind instead of all things.
   if controller.buildingCountsStep != env.currentStep:
     controller.buildingCountsStep = env.currentStep
     controller.buildingCounts = default(array[MapRoomObjectsTeams, array[ThingKind, int]])
     # Clear claimed buildings at start of new step - claims are per-step to prevent
     # multiple builders from trying to build the same building type in the same step
     controller.claimedBuildings = default(array[MapRoomObjectsTeams, set[ThingKind]])
-    for thing in env.things:
-      if thing.isNil:
-        continue
-      if not isBuildingKind(thing.kind):
-        continue
-      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
-        continue
-      controller.buildingCounts[thing.teamId][thing.kind] += 1
+    for bkind in AllBuildingKinds:
+      for thing in env.thingsByKind[bkind]:
+        if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
+          continue
+        controller.buildingCounts[thing.teamId][thing.kind] += 1
   controller.buildingCounts[teamId][kind]
 
 proc isBuildingClaimed*(controller: Controller, teamId: int, kind: ThingKind): bool =
@@ -992,9 +997,9 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
   @[]
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
+  ## Check if there's a healthy team lantern within 3 tiles.
+  ## Optimized: uses thingsByKind[Lantern] instead of all things.
+  for thing in env.thingsByKind[Lantern]:
     if not thing.lanternHealthy or thing.teamId != teamId:
       continue
     if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:

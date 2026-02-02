@@ -161,16 +161,17 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
     return env.agents[bestEnemyId]
 
 proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
+  ## Check if fighter can see any enemy attackable structure within observation radius.
+  ## Optimized: iterates only AttackableStructures kinds using thingsByKind.
   let teamId = getTeamId(agent)
-  for thing in env.things:
-    if thing.isNil or thing.teamId == teamId:
-      continue
-    if not isBuildingKind(thing.kind):
-      continue
-    if thing.kind notin AttackableStructures:
-      continue
-    if chebyshevDist(agent.pos, thing.pos) <= ObservationRadius.int32:
-      return true
+  # AttackableStructures = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}
+  const AttackableKinds = [Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery]
+  for kind in AttackableKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId == teamId or thing.teamId < 0:
+        continue
+      if chebyshevDist(agent.pos, thing.pos) <= ObservationRadius.int32:
+        return true
   false
 
 proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
@@ -205,29 +206,9 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
   if not isNil(relic):
     return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
-  # Find nearest enemy using grid scan within a reasonable radius
-  var bestEnemy: Thing = nil
-  var bestDist = int.high
+  # Find nearest enemy using spatial index (optimized from O(n²) grid scan)
   let mr = ObservationRadius.int * 3  # Search moderately far for monks
-  let msx = max(0, agent.pos.x.int - mr)
-  let mex = min(MapWidth - 1, agent.pos.x.int + mr)
-  let msy = max(0, agent.pos.y.int - mr)
-  let mey = min(MapHeight - 1, agent.pos.y.int + mr)
-  for mx in msx .. mex:
-    for my in msy .. mey:
-      let other = env.grid[mx][my]
-      if other.isNil or other.kind != Agent:
-        continue
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      if getTeamId(other) == teamId:
-        continue
-      let dist = max(abs(mx - agent.pos.x.int), abs(my - agent.pos.y.int))
-      if dist < bestDist:
-        bestDist = dist
-        bestEnemy = other
+  let bestEnemy = findNearestEnemyAgentSpatial(env, agent.pos, teamId, mr)
   if not isNil(bestEnemy):
     return actOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
 
@@ -529,17 +510,21 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
   var target = ivec2(-1, -1)
   var unlit: Thing = nil
   var bestUnlitDist = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    if not isBuildingKind(thing.kind) or thing.kind in {ThingKind.Barrel, Door}:
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
-    if dist < bestUnlitDist:
-      bestUnlitDist = dist
-      unlit = thing
+  # Optimized: iterate only relevant building kinds using thingsByKind
+  const LanternTargetBuildings = [Altar, TownCenter, House, Granary, Mill, LumberCamp, MiningCamp, Quarry,
+    Blacksmith, ClayOven, WeavingLoom, Market, Monastery,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
+    Outpost, GuardTower, Castle, Wall]
+  for kind in LanternTargetBuildings:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId != teamId:
+        continue
+      if hasTeamLanternNear(env, teamId, thing.pos):
+        continue
+      let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
+      if dist < bestUnlitDist:
+        bestUnlitDist = dist
+        unlit = thing
 
   if not isNil(unlit):
     var bestPos = ivec2(-1, -1)
@@ -798,16 +783,16 @@ proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   bestEnemy
 
 proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): bool =
-  ## Check if enemy siege unit is close to any friendly structures
-  for thing in env.things:
-    if thing.isNil or thing.teamId != teamId:
-      continue
-    if not isBuildingKind(thing.kind):
-      continue
-    if thing.kind notin AttackableStructures:
-      continue
-    if int(chebyshevDist(siege.pos, thing.pos)) <= SiegeNearStructureRadius:
-      return true
+  ## Check if enemy siege unit is close to any friendly structures.
+  ## Optimized: iterates only AttackableStructures kinds using thingsByKind.
+  # AttackableStructures = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}
+  const AttackableKinds = [Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery]
+  for kind in AttackableKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId != teamId:
+        continue
+      if int(chebyshevDist(siege.pos, thing.pos)) <= SiegeNearStructureRadius:
+        return true
   false
 
 proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =

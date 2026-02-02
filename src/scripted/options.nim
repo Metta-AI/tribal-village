@@ -153,21 +153,36 @@ let EmergencyHealOption* = OptionDef(
 )
 
 proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing =
+  ## Find the nearest enemy building.
+  ## Optimized: iterates only building kinds using thingsByKind instead of all things.
+  const EnemyBuildingKinds = [
+    TownCenter, House, Door, ClayOven, WeavingLoom, Outpost, GuardTower, Barrel,
+    Mill, Granary, LumberCamp, Quarry, MiningCamp,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
+    Blacksmith, Market, Dock, Monastery, University, Castle, Wonder
+  ]
   var best: Thing = nil
   var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      best = thing
+  for kind in EnemyBuildingKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId < 0 or thing.teamId == teamId:
+        continue
+      let dist = int(chebyshevDist(thing.pos, pos))
+      if dist < bestDist:
+        bestDist = dist
+        best = thing
   best
 
 proc findNearestEnemyPresence(env: Environment, pos: IVec2,
                               teamId: int): tuple[target: IVec2, dist: int] =
+  ## Find nearest enemy presence (agent or building).
+  ## Optimized: iterates only building kinds using thingsByKind instead of all things.
+  const EnemyBuildingKinds = [
+    TownCenter, House, Door, ClayOven, WeavingLoom, Outpost, GuardTower, Barrel,
+    Mill, Granary, LumberCamp, Quarry, MiningCamp,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
+    Blacksmith, Market, Dock, Monastery, University, Castle, Wonder
+  ]
   var bestPos = ivec2(-1, -1)
   var bestDist = int.high
   for agent in env.agents:
@@ -179,31 +194,34 @@ proc findNearestEnemyPresence(env: Environment, pos: IVec2,
     if dist < bestDist:
       bestDist = dist
       bestPos = agent.pos
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      bestPos = thing.pos
+  for kind in EnemyBuildingKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId < 0 or thing.teamId == teamId:
+        continue
+      let dist = int(chebyshevDist(thing.pos, pos))
+      if dist < bestDist:
+        bestDist = dist
+        bestPos = thing.pos
   (target: bestPos, dist: bestDist)
 
 proc findNearestNeutralHub(env: Environment, pos: IVec2): Thing =
+  ## Find nearest neutral hub building.
+  ## Optimized: iterates only hub kinds using thingsByKind instead of all things.
+  const NeutralHubKinds = [
+    Castle, Market, Outpost, University, Blacksmith, Barracks,
+    ArcheryRange, Stable, SiegeWorkshop, Monastery, TownCenter,
+    Mill, Granary, LumberCamp, Quarry, MiningCamp, Dock
+  ]
   var best: Thing = nil
   var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil or thing.teamId >= 0 or not isBuildingKind(thing.kind):
-      continue
-    if thing.kind notin {Castle, Market, Outpost, University, Blacksmith, Barracks,
-                         ArcheryRange, Stable, SiegeWorkshop, Monastery, TownCenter,
-                         Mill, Granary, LumberCamp, Quarry, MiningCamp, Dock}:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      best = thing
+  for kind in NeutralHubKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId >= 0:
+        continue
+      let dist = int(chebyshevDist(thing.pos, pos))
+      if dist < bestDist:
+        bestDist = dist
+        best = thing
   best
 
 proc findLanternFrontierCandidate(env: Environment, state: var AgentState,
@@ -313,29 +331,38 @@ proc shouldTerminateLanternGapFill(controller: Controller, env: Environment, age
 
 proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
+  ## Find buildings without lantern coverage and place a lantern nearby.
+  ## Optimized: iterates only building kinds using thingsByKind instead of all things.
+  const TeamBuildingKinds = [
+    TownCenter, House, Door, ClayOven, WeavingLoom, Outpost, GuardTower, Barrel,
+    Mill, Granary, LumberCamp, Quarry, MiningCamp,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
+    Blacksmith, Market, Dock, Monastery, University, Castle, Wonder
+  ]
   let teamId = getTeamId(agent)
   let agentPos = agent.pos
-  # Find lantern gap candidate (inlined)
+  # Find lantern gap candidate
   var target = ivec2(-1, -1)
   var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil or thing.teamId != teamId or not isBuildingKind(thing.kind):
-      continue
-    if hasTeamLanternNear(env, teamId, thing.pos):
-      continue
-    for dx in -2 .. 2:
-      for dy in -2 .. 2:
-        if abs(dx) + abs(dy) > 2:
-          continue
-        let cand = thing.pos + ivec2(dx.int32, dy.int32)
-        if not isLanternPlacementValid(env, cand):
-          continue
-        if hasTeamLanternNear(env, teamId, cand):
-          continue
-        let dist = abs(cand.x - agentPos.x).int + abs(cand.y - agentPos.y).int
-        if dist < bestDist:
-          bestDist = dist
-          target = cand
+  for kind in TeamBuildingKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.teamId != teamId:
+        continue
+      if hasTeamLanternNear(env, teamId, thing.pos):
+        continue
+      for dx in -2 .. 2:
+        for dy in -2 .. 2:
+          if abs(dx) + abs(dy) > 2:
+            continue
+          let cand = thing.pos + ivec2(dx.int32, dy.int32)
+          if not isLanternPlacementValid(env, cand):
+            continue
+          if hasTeamLanternNear(env, teamId, cand):
+            continue
+          let dist = abs(cand.x - agentPos.x).int + abs(cand.y - agentPos.y).int
+          if dist < bestDist:
+            bestDist = dist
+            target = cand
   if target.x < 0:
     return 0'u8
   return actOrMove(controller, env, agent, agentId, state, target, 6'u8)
