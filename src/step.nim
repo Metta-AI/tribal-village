@@ -172,10 +172,8 @@ const
     UnitScout, UnitBatteringRam
   }
 
-  ## Tank units with shield auras (ManAtArms and Knight)
-  TankAuraUnits*: set[AgentUnitClass] = {
-    UnitManAtArms, UnitKnight
-  }
+  ## Tank units with shield auras (alias for TankUnitClasses from types)
+  TankAuraUnits*: set[AgentUnitClass] = TankUnitClasses
 
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.

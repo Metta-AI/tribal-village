@@ -408,6 +408,8 @@ const
   ThingLayerStart* = ord(ThingAgentLayer)
   ThingLayerCount* = ord(ThingKind.high) + 1
   ObservationLayers* = ord(ObservationName.high) + 1
+  ## Tank units with shield auras (ManAtArms and Knight)
+  TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight}
 
 type
   ProductionQueueEntry* = object

@@ -1,7 +1,8 @@
 ## Ultra-Fast Direct Buffer Interface
 ## Zero-copy numpy buffer communication - no conversions
+## Uses SIMD-optimized memory operations for observation buffers
 
-import ./environment, agent_control
+import ./environment, agent_control, simd_obs
 
 type
   ## C-compatible environment config passed from Python.
@@ -116,9 +117,9 @@ proc tribal_village_reset_and_get_obs(
     globalEnv.reset()
     globalEnv.rebuildObservations()
 
-    # Direct memory copy of observations (zero conversion)
-    copyMem(obs_buffer, globalEnv.observations.addr,
-      MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
+    # Direct memory copy of observations using SIMD streaming stores
+    simdCopyObservations(obs_buffer,
+      cast[ptr UncheckedArray[uint8]](globalEnv.observations.addr))
     applyObscuredMask(globalEnv, obs_buffer)
 
     # Clear rewards/terminals/truncations
@@ -148,9 +149,9 @@ proc tribal_village_step_with_pointers(
     # Step environment
     globalEnv.step(unsafeAddr actions)
 
-    # Direct memory copy of observations (zero conversion overhead)
-    copyMem(obs_buffer, globalEnv.observations.addr,
-      MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
+    # Direct memory copy of observations using SIMD streaming stores
+    simdCopyObservations(obs_buffer,
+      cast[ptr UncheckedArray[uint8]](globalEnv.observations.addr))
     applyObscuredMask(globalEnv, obs_buffer)
 
     # Direct buffer writes from contiguous rewards array (SIMD-friendly)
