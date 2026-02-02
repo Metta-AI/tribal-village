@@ -163,10 +163,11 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
     return 1
   0
 
-proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
-  ## Write observation data for a single tile. Called from rebuildObservations
-  ## which already zeroed all observation memory, so we only set non-zero values.
-  var agentObs = addr env.observations[agentId]
+proc writeTileObsCore(env: Environment, agentObs: ptr array[ObservationLayers,
+    array[ObservationWidth, array[ObservationHeight, uint8]]],
+    obsX, obsY, worldX, worldY: int) {.inline.} =
+  ## Core observation writer - no bounds checking, called from fast/slow paths.
+  ## Writes everything except biome (handled separately for batching).
 
   # Terrain layer (one-hot encoded)
   let terrain = env.terrain[worldX][worldY]
@@ -260,10 +261,6 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
   let tintCode = env.actionTintCode[worldX][worldY]
   if tintCode != 0:
     agentObs[][ord(TintLayer)][obsX][obsY] = tintCode
-
-  # Biome layer (enum value)
-  let biome = env.biomes[worldX][worldY]
-  agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(biome).uint8
 
 proc updateObservations(
   env: Environment,
@@ -772,23 +769,61 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
+  ## Optimized with interior agent fast path and batch biome writes.
   zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
+
+  # Precompute interior bounds - agents within these bounds have full observation window
+  const interiorMinX = ObservationRadius
+  const interiorMaxX = MapWidth - ObservationRadius - 1
+  const interiorMinY = ObservationRadius
+  const interiorMaxY = MapHeight - ObservationRadius - 1
 
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
-    for obsX in 0 ..< ObservationWidth:
-      let worldX = agentPos.x + (obsX - ObservationRadius)
-      if worldX < 0 or worldX >= MapWidth:
-        continue
-      for obsY in 0 ..< ObservationHeight:
-        let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
+    var agentObs = addr env.observations[agentId]
+
+    # Check if agent is in interior (observation window fully within map)
+    let isInterior = agentPos.x >= interiorMinX and agentPos.x <= interiorMaxX and
+                     agentPos.y >= interiorMinY and agentPos.y <= interiorMaxY
+
+    if isInterior:
+      # Fast path: no bounds checking needed, batch biome writes
+      let baseWorldX = agentPos.x - ObservationRadius
+      let baseWorldY = agentPos.y - ObservationRadius
+
+      # Batch write biome layer - precompute row and use memcpy
+      for obsX in 0 ..< ObservationWidth:
+        let worldX = baseWorldX + obsX
+        # Build biome row for this column
+        var biomeRow {.noinit.}: array[ObservationHeight, uint8]
+        for obsY in 0 ..< ObservationHeight:
+          biomeRow[obsY] = ord(env.biomes[worldX][baseWorldY + obsY]).uint8
+        # Copy entire row at once
+        copyMem(addr agentObs[][ord(BiomeLayer)][obsX][0], addr biomeRow[0], ObservationHeight)
+
+      # Write other observation layers (terrain, things, agents, etc.)
+      for obsX in 0 ..< ObservationWidth:
+        let worldX = baseWorldX + obsX
+        for obsY in 0 ..< ObservationHeight:
+          let worldY = baseWorldY + obsY
+          writeTileObsCore(env, agentObs, obsX, obsY, worldX, worldY)
+    else:
+      # Edge agent slow path: need bounds checking
+      for obsX in 0 ..< ObservationWidth:
+        let worldX = agentPos.x + (obsX - ObservationRadius)
+        if worldX < 0 or worldX >= MapWidth:
           continue
-        writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+        for obsY in 0 ..< ObservationHeight:
+          let worldY = agentPos.y + (obsY - ObservationRadius)
+          if worldY < 0 or worldY >= MapHeight:
+            continue
+          writeTileObsCore(env, agentObs, obsX, obsY, worldX, worldY)
+          # Write biome for edge agents tile-by-tile
+          agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(env.biomes[worldX][worldY]).uint8
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
   for thing in env.things:
