@@ -883,44 +883,59 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
 
 proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
   ## Resolve contact: agents and predators adjacent to tumors risk lethal creep.
+  ## Optimized: iterates agents/predators O(a+p) instead of tumors O(t) since
+  ## tumor count grows unboundedly while agent/predator count is bounded.
   # Use arena buffers for temporary collections (reuses pre-allocated capacity)
   var tumorsToRemove = addr env.arena.things1
   var predatorsToRemove = addr env.arena.things2
   tumorsToRemove[].setLen(0)
   predatorsToRemove[].setLen(0)
 
-  for tumor in env.thingsByKind[Tumor]:
+  # Process agents - check if any adjacent tumor deals damage
+  for agent in env.thingsByKind[Agent]:
+    if not isAgentAlive(env, agent):
+      continue
     for offset in CardinalOffsets:
-      let adjPos = tumor.pos + offset
+      let adjPos = agent.pos + offset
       if not isValidPos(adjPos):
         continue
-
-      let occupant = env.getThing(adjPos)
-      if isNil(occupant) or occupant.kind notin {Agent, Bear, Wolf}:
+      let tumor = env.getThing(adjPos)
+      if isNil(tumor) or tumor.kind != Tumor:
         continue
+      if tumor in tumorsToRemove[]:
+        continue  # Tumor already marked for removal
+      if env.isBlockedByShield(agent, tumor.pos):
+        continue
+      if randFloat(stepRng) < TumorAdjacencyDeathChance:
+        let killed = env.applyAgentDamage(agent, 1)
+        when defined(tumorAudit):
+          recordTumorDamage(killed)
+        if killed:
+          tumorsToRemove[].add(tumor)
+          env.grid[tumor.pos.x][tumor.pos.y] = nil
+          break  # Agent dead, stop checking other tumors
 
-      if occupant.kind == Agent:
-        if env.isBlockedByShield(occupant, tumor.pos):
+  # Process predators (Bear, Wolf) - check if any adjacent tumor deals damage
+  for kind in [Bear, Wolf]:
+    for predator in env.thingsByKind[kind]:
+      for offset in CardinalOffsets:
+        let adjPos = predator.pos + offset
+        if not isValidPos(adjPos):
           continue
-        if randFloat(stepRng) < TumorAdjacencyDeathChance:
-          let killed = env.applyAgentDamage(occupant, 1)
-          when defined(tumorAudit):
-            recordTumorDamage(killed)
-          if killed and tumor notin tumorsToRemove[]:
-            tumorsToRemove[].add(tumor)
-            env.grid[tumor.pos.x][tumor.pos.y] = nil
-          if killed:
-            break
-      else:
+        let tumor = env.getThing(adjPos)
+        if isNil(tumor) or tumor.kind != Tumor:
+          continue
+        if tumor in tumorsToRemove[]:
+          continue  # Tumor already marked for removal
         if randFloat(stepRng) < TumorAdjacencyDeathChance:
           when defined(tumorAudit):
             recordTumorPredatorKill()
-          if occupant notin predatorsToRemove[]:
-            predatorsToRemove[].add(occupant)
-            env.grid[occupant.pos.x][occupant.pos.y] = nil
-          if tumor notin tumorsToRemove[]:
-            tumorsToRemove[].add(tumor)
-            env.grid[tumor.pos.x][tumor.pos.y] = nil
+          if predator notin predatorsToRemove[]:
+            predatorsToRemove[].add(predator)
+            env.grid[predator.pos.x][predator.pos.y] = nil
+          tumorsToRemove[].add(tumor)
+          env.grid[tumor.pos.x][tumor.pos.y] = nil
+          break  # Predator dead, stop checking other tumors
 
   # Remove tumors cleared by lethal contact this step
   if tumorsToRemove[].len > 0:
