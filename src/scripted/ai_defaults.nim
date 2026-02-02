@@ -638,15 +638,11 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
       altarPos = homeAltar.pos
       altarHearts = homeAltar.hearts
   if altarPos.x < 0:
-    var bestDist = int.high
-    for altar in env.thingsByKind[Altar]:
-      if altar.teamId != teamId:
-        continue
-      let dist = abs(altar.pos.x - agent.pos.x) + abs(altar.pos.y - agent.pos.y)
-      if dist < bestDist:
-        bestDist = dist
-        altarPos = altar.pos
-        altarHearts = altar.hearts
+    # Use spatial query instead of O(n) altar scan
+    let nearestAltar = findNearestFriendlyThingSpatial(env, agent.pos, teamId, Altar, 1000)
+    if not nearestAltar.isNil:
+      altarPos = nearestAltar.pos
+      altarHearts = nearestAltar.hearts
   if altarPos.x < 0 or altarHearts >= 10:
     return (false, 0'u8)
 

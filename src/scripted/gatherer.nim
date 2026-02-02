@@ -102,14 +102,11 @@ proc findTeamAltar(env: Environment, agent: Thing, teamId: int): (IVec2, int) =
     let homeAltar = env.getThing(agent.homeAltar)
     if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
       return (homeAltar.pos, homeAltar.hearts)
-  var bestDist = int.high
-  result = (ivec2(-1, -1), 0)
-  for altar in env.thingsByKind[Altar]:
-    if altar.teamId != teamId: continue
-    let dist = abs(altar.pos.x - agent.pos.x) + abs(altar.pos.y - agent.pos.y)
-    if dist < bestDist:
-      bestDist = dist
-      result = (altar.pos, altar.hearts)
+  # Use spatial query instead of O(n) altar scan
+  let nearestAltar = findNearestFriendlyThingSpatial(env, agent.pos, teamId, Altar, 1000)
+  if not nearestAltar.isNil:
+    return (nearestAltar.pos, nearestAltar.hearts)
+  (ivec2(-1, -1), 0)
 
 proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
@@ -326,11 +323,9 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   if not hasNearbyFood(env, agent.pos, 4):
     let fertileRadius = 6
     let fertileCount = countNearbyTerrain(env, basePos, fertileRadius, {Fertile})
-    var hasMill = false
-    for mill in env.thingsByKind[Mill]:
-      if mill.teamId == teamId and chebyshevDist(mill.pos, basePos) <= fertileRadius:
-        hasMill = true
-        break
+    # Use spatial query instead of O(n) mill scan
+    let nearbyMill = findNearestFriendlyThingSpatial(env, basePos, teamId, Mill, fertileRadius)
+    let hasMill = not nearbyMill.isNil
     if fertileCount < 6 and not hasMill:
       if agent.inventoryWater > 0:
         var target = findFertileTarget(env, basePos, fertileRadius, state.pathBlockedTarget)
@@ -406,15 +401,8 @@ proc optGathererFallbackSearch(controller: Controller, env: Environment, agent: 
 
 proc findNearestPredatorInRadius(env: Environment, pos: IVec2, radius: int): Thing =
   ## Find the nearest wolf or bear within the given radius
-  var best: Thing = nil
-  var bestDist = int.high
-  for kind in [Wolf, Bear]:
-    for thing in env.thingsByKind[kind]:
-      let dist = int(max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)))
-      if dist <= radius and dist < bestDist:
-        bestDist = dist
-        best = thing
-  best
+  ## Uses spatial query instead of O(n) scan
+  findNearestThingOfKindsSpatial(env, pos, {Wolf, Bear}, radius)
 
 gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
   not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius))
