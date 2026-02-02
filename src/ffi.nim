@@ -1,7 +1,8 @@
 ## Ultra-Fast Direct Buffer Interface
 ## Zero-copy numpy buffer communication - no conversions
+## Uses SIMD optimization for observation buffer operations
 
-import ./environment, agent_control
+import ./environment, agent_control, simd_helpers
 
 type
   ## C-compatible environment config passed from Python.
@@ -33,6 +34,7 @@ const
 
 proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) =
   ## Mask tiles above the observer elevation and mark the ObscuredLayer.
+  ## Uses SIMD-optimized layer zeroing for obscured tiles.
   let radius = ObservationRadius
   for agentId in 0 ..< MapAgents:
     let agent = env.agents[agentId]
@@ -51,11 +53,16 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
         let obscuredIndex = agentBase + ObscuredLayerIndex * ObsTileStride + xOffset + y
         obs_buffer[obscuredIndex] = (if obscured: 1'u8 else: 0'u8)
         if obscured:
-          for layer in 0 ..< ObservationLayers:
-            if layer == ObscuredLayerIndex:
-              continue
-            let bufferIdx = agentBase + layer * ObsTileStride + xOffset + y
-            obs_buffer[bufferIdx] = 0
+          # Use SIMD-optimized layer zeroing with unrolling
+          zeroObscuredTileLayers(
+            obs_buffer,
+            agentBase,
+            xOffset,
+            y,
+            ObsTileStride,
+            ObservationLayers,
+            ObscuredLayerIndex
+          )
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
@@ -121,11 +128,10 @@ proc tribal_village_reset_and_get_obs(
       MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
     applyObscuredMask(globalEnv, obs_buffer)
 
-    # Clear rewards/terminals/truncations
-    for i in 0..<MapAgents:
-      rewards_buffer[i] = 0.0
-      terminals_buffer[i] = 0
-      truncations_buffer[i] = 0
+    # Clear rewards/terminals/truncations with SIMD-friendly zero
+    zeroMem(rewards_buffer, MapAgents * sizeof(float32))
+    zeroMem(terminals_buffer, MapAgents)
+    zeroMem(truncations_buffer, MapAgents)
 
     return 1
   except CatchableError:
@@ -153,12 +159,21 @@ proc tribal_village_step_with_pointers(
       MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
     applyObscuredMask(globalEnv, obs_buffer)
 
-    # Direct buffer writes from contiguous rewards array (SIMD-friendly)
+    # Direct buffer writes from contiguous rewards array
     copyMem(rewards_buffer, globalEnv.rewards.addr, MapAgents * sizeof(float32))
     zeroMem(globalEnv.rewards.addr, MapAgents * sizeof(float32))
-    for i in 0..<MapAgents:
-      terminals_buffer[i] = if globalEnv.terminated[i] > 0.0: 1 else: 0
-      truncations_buffer[i] = if globalEnv.truncated[i] > 0.0: 1 else: 0
+
+    # SIMD-optimized float32 to uint8 conversion for terminated/truncated arrays
+    simdFloatToUint8GreaterThanZero(
+      cast[ptr UncheckedArray[float32]](globalEnv.terminated.addr),
+      terminals_buffer,
+      MapAgents
+    )
+    simdFloatToUint8GreaterThanZero(
+      cast[ptr UncheckedArray[float32]](globalEnv.truncated.addr),
+      truncations_buffer,
+      MapAgents
+    )
 
     return 1
   except CatchableError:
