@@ -3,17 +3,32 @@
 ## This module provides procedures for maintaining and querying a cell-based
 ## spatial index for efficient nearest-neighbor queries.
 ##
+## IMPORTANT: Always use these spatial queries instead of manual grid scans!
+## Manual iteration over grid cells is O(n²) and causes performance issues.
+## These spatial queries are O(1) amortized through cell-based partitioning.
+##
 ## Architecture:
 ##   - World is partitioned into SpatialCellSize×SpatialCellSize cells
 ##   - Each cell maintains a seq of Things in that cell
 ##   - Queries examine cells within search radius
 ##   - When compiled with -d:spatialAutoTune, cell size adapts to entity density
 ##
-## Usage:
-##   - Call addToSpatialIndex(env, thing) when a thing is added
-##   - Call removeFromSpatialIndex(env, thing) when a thing is removed
-##   - Call updateSpatialIndex(env, thing, oldPos) when a thing moves
-##   - Use findNearestThingSpatial() instead of linear scans
+## Maintenance:
+##   - addToSpatialIndex(env, thing) - when a thing is added
+##   - removeFromSpatialIndex(env, thing) - when a thing is removed
+##   - updateSpatialIndex(env, thing, oldPos) - when a thing moves
+##   - rebuildSpatialIndex(env) - rebuild from scratch after major changes
+##
+## Query Utilities (use these!):
+##   - findNearestThingSpatial(env, pos, kind, maxDist) - nearest of one kind
+##   - findNearestThingOfKindsSpatial(env, pos, kinds, maxDist) - nearest of multiple kinds
+##   - findNearestFriendlyThingSpatial(env, pos, teamId, kind, maxDist) - nearest friendly
+##   - findNearestEnemyAgentSpatial(env, pos, teamId, maxDist) - nearest enemy agent
+##   - findNearestEnemyInRangeSpatial(env, pos, teamId, minRange, maxRange) - enemy in range band
+##   - collectEnemiesInRangeSpatial(env, pos, teamId, maxRange, targets) - all enemies in range
+##   - collectAlliesInRangeSpatial(env, pos, teamId, maxRange, allies) - all allies in range
+##   - collectThingsInRangeSpatial(env, pos, kind, maxRange, targets) - all of kind in range
+##   - collectAgentsByClassInRange(env, pos, teamId, classes, maxRange, targets) - agents by unit class
 
 import vmath
 import types
@@ -84,7 +99,8 @@ when defined(spatialStats):
   type
     SpatialQueryKind* = enum
       sqkFindNearest, sqkFindNearestFriendly, sqkFindNearestEnemy,
-      sqkFindNearestEnemyInRange, sqkCollectEnemies, sqkCollectAllies
+      sqkFindNearestEnemyInRange, sqkCollectEnemies, sqkCollectAllies,
+      sqkFindNearestOfKinds, sqkCollectThings, sqkCollectAgentsByClass
 
   var
     spatialTotalQueries*: array[SpatialQueryKind, int]
@@ -126,7 +142,8 @@ when defined(spatialStats):
 
     const names: array[SpatialQueryKind, string] = [
       "findNearest", "findNearestFriendly", "findNearestEnemy",
-      "findNearestEnemyInRange", "collectEnemies", "collectAllies"
+      "findNearestEnemyInRange", "collectEnemies", "collectAllies",
+      "findNearestOfKinds", "collectThings", "collectAgentsByClass"
     ]
 
     proc padLeft(s: string, width: int): string =
@@ -640,6 +657,93 @@ proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
     let found = allies.len - prevLen
     if found > 0: inc spatialTotalHits[sqkCollectAllies]
     else: inc spatialTotalMisses[sqkCollectAllies]
+
+proc findNearestThingOfKindsSpatial*(env: Environment, pos: IVec2,
+                                      kinds: set[ThingKind], maxDist: int): Thing =
+  ## Find nearest thing matching any of the given kinds using spatial index.
+  ## Searches all specified kinds and returns the closest match.
+  ## Returns nil if no matching thing found within maxDist.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  result = nil
+  var minDist = int.high
+  when defined(spatialStats):
+    var totalCellsScanned = 0
+    var totalThingsExamined = 0
+
+  for kind in kinds:
+    forEachInRadius(env, pos, kind, maxDist, thing):
+      # Skip things with invalid positions to prevent overflow in distance calculation
+      if not isValidPos(thing.pos):
+        continue
+      let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+      if dist <= maxDist and dist < minDist:
+        minDist = dist
+        result = thing
+    when defined(spatialStats):
+      totalCellsScanned += cellsScanned
+      totalThingsExamined += thingsExamined
+
+  when defined(spatialStats):
+    inc spatialTotalQueries[sqkFindNearestOfKinds]
+    spatialTotalCellsScanned[sqkFindNearestOfKinds] += totalCellsScanned
+    spatialTotalThingsExamined[sqkFindNearestOfKinds] += totalThingsExamined
+    if result.isNil: inc spatialTotalMisses[sqkFindNearestOfKinds]
+    else: inc spatialTotalHits[sqkFindNearestOfKinds]
+
+proc collectThingsInRangeSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
+                                   maxRange: int, targets: var seq[Thing]) =
+  ## Collect all things of the given kind within maxRange Chebyshev distance.
+  ## Generic collection utility for any ThingKind.
+  when defined(spatialStats):
+    let prevLen = targets.len
+  forEachInRadius(env, pos, kind, maxRange, thing):
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      targets.add(thing)
+
+  when defined(spatialStats):
+    inc spatialTotalQueries[sqkCollectThings]
+    spatialTotalCellsScanned[sqkCollectThings] += cellsScanned
+    spatialTotalThingsExamined[sqkCollectThings] += thingsExamined
+    let found = targets.len - prevLen
+    if found > 0: inc spatialTotalHits[sqkCollectThings]
+    else: inc spatialTotalMisses[sqkCollectThings]
+
+proc collectAgentsByClassInRange*(env: Environment, pos: IVec2, teamId: int,
+                                   classes: set[AgentUnitClass], maxRange: int,
+                                   targets: var seq[Thing]) =
+  ## Collect all agents of specified unit classes within maxRange.
+  ## teamId: -1 for any team, 0+ for specific team filtering.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  let teamMask = if teamId >= 0: getTeamMask(teamId) else: 0
+  when defined(spatialStats):
+    let prevLen = targets.len
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    # Team filtering: if teamId >= 0, require same team
+    if teamId >= 0 and (getTeamMask(thing) and teamMask) == 0:
+      continue
+    # Unit class filtering
+    if thing.unitClass notin classes:
+      continue
+    # Skip things with invalid positions to prevent overflow in distance calculation
+    if not isValidPos(thing.pos):
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      targets.add(thing)
+
+  when defined(spatialStats):
+    inc spatialTotalQueries[sqkCollectAgentsByClass]
+    spatialTotalCellsScanned[sqkCollectAgentsByClass] += cellsScanned
+    spatialTotalThingsExamined[sqkCollectAgentsByClass] += thingsExamined
+    let found = targets.len - prevLen
+    if found > 0: inc spatialTotalHits[sqkCollectAgentsByClass]
+    else: inc spatialTotalMisses[sqkCollectAgentsByClass]
 
 proc rebuildSpatialIndex*(env: Environment) =
   ## Rebuild the entire spatial index from scratch
