@@ -1031,6 +1031,13 @@ type
     projectilePool*: ProjectilePool
     # Arena allocator for per-step temporary allocations
     arena*: Arena
+    # Reusable per-step data structures (avoid allocation in hot loop)
+    agentOrder*: array[MapAgents, int]        ## Shuffled agent processing order
+    agentOrderInitialized*: bool              ## Whether agentOrder has been initialized
+    constructionBuilders*: Table[IVec2, int]  ## Builders per construction site
+    # Pre-computed population data for O(1) lookups during action loop
+    stepTeamPopCaps*: array[MapRoomObjectsTeams, int]    ## Team pop caps for current step
+    stepTeamPopCounts*: array[MapRoomObjectsTeams, int]  ## Team pop counts for current step
 
 # Global environment instance
 var env*: Environment

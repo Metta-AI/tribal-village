@@ -563,10 +563,9 @@ proc stepApplyMonkAuras(env: Environment) =
 
 proc stepRechargeMonkFaith(env: Environment) =
   ## Regenerate faith for monks over time (AoE2-style faith recharge)
-  for monk in env.agents:
+  ## Optimized: iterates only monkUnits collection instead of all agents
+  for monk in env.monkUnits:
     if not isAgentAlive(env, monk):
-      continue
-    if monk.unitClass != UnitMonk:
       continue
     if isThingFrozen(monk, env):
       continue
@@ -1038,16 +1037,35 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   var stepRng = initRand(env.currentStep)
 
   # Track builders per construction site for multi-builder speed bonus
-  var constructionBuilders: Table[IVec2, int]
+  # Reuse table from Environment, clear instead of reallocating
+  env.constructionBuilders.clear()
 
-  # Shuffle agent processing order to prevent Team 0 from always acting first.
-  # This ensures fair resource access and combat timing across all teams.
-  var agentOrder: array[MapAgents, int]
-  for i in 0 ..< MapAgents:
-    agentOrder[i] = i
-  stepRng.shuffle(agentOrder)
+  # Initialize agent order array once, then shuffle in-place each step
+  # This avoids re-initializing the entire array every step
+  if not env.agentOrderInitialized:
+    for i in 0 ..< MapAgents:
+      env.agentOrder[i] = i
+    env.agentOrderInitialized = true
+  stepRng.shuffle(env.agentOrder)
 
-  for id in agentOrder:
+  # Pre-compute team population caps and counts for O(1) lookups during action loop
+  # This eliminates O(buildings + agents) iteration for each monk conversion
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.stepTeamPopCaps[teamId] = 0
+    env.stepTeamPopCounts[teamId] = 0
+  for tc in env.thingsByKind[TownCenter]:
+    if tc.teamId >= 0 and tc.teamId < MapRoomObjectsTeams:
+      env.stepTeamPopCaps[tc.teamId] += TownCenterPopCap
+  for house in env.thingsByKind[House]:
+    if house.teamId >= 0 and house.teamId < MapRoomObjectsTeams:
+      env.stepTeamPopCaps[house.teamId] += HousePopCap
+  for agent in env.agents:
+    if isAgentAlive(env, agent):
+      let teamId = getTeamId(agent)
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        inc env.stepTeamPopCounts[teamId]
+
+  for id in env.agentOrder:
     let actionValue = actions[id]
     let agent = env.agents[id]
     if not isAgentAlive(env, agent):
@@ -1380,20 +1398,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < 0 or newTeam >= MapRoomObjectsTeams:
                 inc env.stats[id].actionInvalid
                 break attackAction
-              var popCap = 0
-              for tc in env.thingsByKind[TownCenter]:
-                if tc.teamId == newTeam:
-                  popCap += TownCenterPopCap
-              for house in env.thingsByKind[House]:
-                if house.teamId == newTeam:
-                  popCap += HousePopCap
-              var popCount = 0
-              for other in env.agents:
-                if isAgentAlive(env, other) and getTeamId(other) == newTeam:
-                  inc popCount
+              # Use pre-computed population data for O(1) lookup instead of O(buildings + agents)
+              let popCap = env.stepTeamPopCaps[newTeam]
+              let popCount = env.stepTeamPopCounts[newTeam]
               if popCap <= 0 or popCount >= popCap:
                 inc env.stats[id].actionInvalid
                 break attackAction
+              # Capture old team before conversion for population tracking
+              let oldTeam = getTeamId(target)
               var newHome = ivec2(-1, -1)
               if agent.homeAltar.x >= 0:
                 let altarThing = env.getThing(agent.homeAltar)
@@ -1415,6 +1427,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 target.teamIdOverride = -1
               else:
                 target.teamIdOverride = newTeam
+              # Update step population counts to track conversion
+              if oldTeam >= 0 and oldTeam < MapRoomObjectsTeams:
+                dec env.stepTeamPopCounts[oldTeam]
+              inc env.stepTeamPopCounts[newTeam]
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
@@ -1896,7 +1912,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp and
              agent.unitClass == UnitVillager:
             # Register this builder for the multi-builder bonus
-            constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+            env.constructionBuilders.mgetOrPut(thing.pos, 0) += 1
             used = true
         else:
           if isBuildingKind(thing.kind):
@@ -1904,7 +1920,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if thing.maxHp > 0 and thing.hp < thing.maxHp and
                thing.teamId == getTeamId(agent) and agent.unitClass == UnitVillager:
               # Register this builder for the multi-builder bonus
-              constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+              env.constructionBuilders.mgetOrPut(thing.pos, 0) += 1
               used = true
             # Normal building use (skip if construction happened)
             if not used:
@@ -2535,7 +2551,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Apply multi-builder construction speed bonus
   # Treadmill Crane: +20% construction speed from University tech
-  for pos, builderCount in constructionBuilders.pairs:
+  for pos, builderCount in env.constructionBuilders.pairs:
     let thing = env.getThing(pos)
     if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue
