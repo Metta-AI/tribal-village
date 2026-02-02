@@ -163,6 +163,11 @@ proc add*(env: Environment, thing: Thing) =
       thing.embarkedUnitClass = thing.unitClass
     env.agents.add(thing)
     env.stats.add(Stats())
+    # Add to tank/monk lists for optimized aura processing
+    if thing.unitClass in TankUnitClasses:
+      env.tankUnits.add(thing)
+    elif thing.unitClass == UnitMonk:
+      env.monkUnits.add(thing)
   if isValidPos(thing.pos):
     if isBlocking:
       env.grid[thing.pos.x][thing.pos.y] = thing
