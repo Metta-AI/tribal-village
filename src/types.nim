@@ -409,6 +409,9 @@ const
   ThingLayerCount* = ord(ThingKind.high) + 1
   ObservationLayers* = ord(ObservationName.high) + 1
 
+  ## Tank units with shield auras (ManAtArms and Knight)
+  TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight}
+
 type
   ProductionQueueEntry* = object
     ## A single entry in a building's production queue (AoE2-style)

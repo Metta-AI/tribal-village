@@ -31,8 +31,9 @@ const
   ObsTileStride = ObservationWidth * ObservationHeight
   ObsAgentStride = ObservationLayers * ObsTileStride
 
-proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) =
+proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) {.inline.} =
   ## Mask tiles above the observer elevation and mark the ObscuredLayer.
+  ## Optimized: pre-computes obscured positions and zeros layers without branching.
   let radius = ObservationRadius
   for agentId in 0 ..< MapAgents:
     let agent = env.agents[agentId]
@@ -48,14 +49,16 @@ proc applyObscuredMask(env: Environment, obs_buffer: ptr UncheckedArray[uint8]) 
         let worldY = agentPos.y + (y - radius)
         let inBounds = worldX >= 0 and worldX < MapWidth and worldY >= 0 and worldY < MapHeight
         let obscured = inBounds and env.elevation[worldX][worldY] > baseElevation
-        let obscuredIndex = agentBase + ObscuredLayerIndex * ObsTileStride + xOffset + y
+        let tileOffset = xOffset + y
+        let obscuredIndex = agentBase + ObscuredLayerIndex * ObsTileStride + tileOffset
         obs_buffer[obscuredIndex] = (if obscured: 1'u8 else: 0'u8)
         if obscured:
-          for layer in 0 ..< ObservationLayers:
-            if layer == ObscuredLayerIndex:
-              continue
-            let bufferIdx = agentBase + layer * ObsTileStride + xOffset + y
-            obs_buffer[bufferIdx] = 0
+          # Zero all layers except ObscuredLayer for this tile position
+          # Split into two loops to avoid branch in inner loop
+          for layer in 0 ..< ObscuredLayerIndex:
+            obs_buffer[agentBase + layer * ObsTileStride + tileOffset] = 0
+          for layer in (ObscuredLayerIndex + 1) ..< ObservationLayers:
+            obs_buffer[agentBase + layer * ObsTileStride + tileOffset] = 0
 
 proc tribal_village_create(): pointer {.exportc, dynlib.} =
   ## Create environment for direct buffer interface
@@ -116,9 +119,8 @@ proc tribal_village_reset_and_get_obs(
     globalEnv.reset()
     globalEnv.rebuildObservations()
 
-    # Direct memory copy of observations (zero conversion)
-    copyMem(obs_buffer, globalEnv.observations.addr,
-      MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
+    # Direct memory copy of observations using SIMD (zero conversion)
+    simdCopyObservations(obs_buffer, addr globalEnv.observations)
     applyObscuredMask(globalEnv, obs_buffer)
 
     # Clear rewards/terminals/truncations
@@ -148,9 +150,8 @@ proc tribal_village_step_with_pointers(
     # Step environment
     globalEnv.step(unsafeAddr actions)
 
-    # Direct memory copy of observations (zero conversion overhead)
-    copyMem(obs_buffer, globalEnv.observations.addr,
-      MapAgents * ObservationLayers * ObservationWidth * ObservationHeight)
+    # Direct memory copy of observations using SIMD (zero conversion overhead)
+    simdCopyObservations(obs_buffer, addr globalEnv.observations)
     applyObscuredMask(globalEnv, obs_buffer)
 
     # Direct buffer writes from contiguous rewards array (SIMD-friendly)

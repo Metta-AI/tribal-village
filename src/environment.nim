@@ -6,11 +6,13 @@ import spatial_index
 import formations
 import state_dumper
 import arena_alloc
+import obs_simd
 export terrain, items, common
 export types, registry
 export spatial_index
 export formations
 export state_dumper
+export obs_simd
 
 const
   ## Default tumor behavior constants
@@ -772,7 +774,8 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
-  zeroMem(addr env.observations, sizeof(env.observations))
+  ## Uses SIMD-optimized zeroing for the ~11MB observation array.
+  simdZeroObservations(env.observations)
   env.observationsInitialized = false
 
   for agentId in 0 ..< env.agents.len:
