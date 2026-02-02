@@ -769,6 +769,13 @@ proc rebuildObservations*(env: Environment) =
   ## This reduces memory operations from O(MapAgents) to O(aliveAgents).
   env.observationsInitialized = false
 
+proc ensureObservations*(env: Environment) {.inline.} =
+  ## Ensure observations are up-to-date (lazy rebuild if dirty).
+  ## Call this before accessing env.observations directly.
+  if env.observationsDirty:
+    env.rebuildObservations()
+    env.observationsDirty = false
+
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):

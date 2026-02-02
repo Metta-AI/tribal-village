@@ -336,6 +336,7 @@ type
 
 const
   ## Tank units with shield auras (ManAtArms and Knight)
+  ## Used for optimized aura processing collections
   TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight}
 
 type
@@ -953,6 +954,7 @@ type
     config*: EnvironmentConfig  # Configuration for this environment
     shouldReset*: bool  # Track if environment needs reset
     observationsInitialized*: bool  # Track whether observation tensors are populated
+    observationsDirty*: bool  # Track if observations need rebuilding (lazy rebuild)
     things*: seq[Thing]
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking units
