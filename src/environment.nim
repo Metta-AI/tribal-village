@@ -772,10 +772,16 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
-  zeroMem(addr env.observations, sizeof(env.observations))
+  ## Optimized: zeros only per-agent buffers (not entire array),
+  ## uses spatial index for rally point queries.
   env.observationsInitialized = false
 
+  # Phase 1: Zero and build observations for each agent
+  # Only iterates env.agents.len (~200-500) vs MapAgents (1006),
+  # and zeros per-agent buffers (~13KB each) vs entire array (~11MB)
   for agentId in 0 ..< env.agents.len:
+    # Zero this agent's observation buffer (dead agents get zeroed too for correctness)
+    zeroMem(addr env.observations[agentId], sizeof(env.observations[agentId]))
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
       continue
@@ -790,7 +796,8 @@ proc rebuildObservations*(env: Environment) =
           continue
         writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
-  # Rally point layer: mark tiles that are rally targets for friendly buildings
+  # Phase 2: Rally point layer using spatial index
+  # For each rally point, query only nearby agents instead of all agents
   for thing in env.things:
     if not isBuildingKind(thing.kind):
       continue
@@ -800,19 +807,29 @@ proc rebuildObservations*(env: Environment) =
     if not isValidPos(rp):
       continue
     let buildingTeam = thing.teamId
-    # Mark rally point in observations for agents on the same team
-    for agentId in 0 ..< env.agents.len:
-      let agent = env.agents[agentId]
-      if not isAgentAlive(env, agent):
+    # Use spatial index to find agents near the rally point
+    let (rpCx, rpCy) = cellCoords(rp)
+    # ObservationRadius=5, SpatialCellSize=16, so search 1 cell radius
+    const cellRadius = (ObservationRadius + SpatialCellSize - 1) div SpatialCellSize
+    for dx in -cellRadius .. cellRadius:
+      let nx = rpCx + dx
+      if nx < 0 or nx >= SpatialCellsX:
         continue
-      if getTeamId(agent) != buildingTeam:
-        continue
-      let obsX = rp.x - agent.pos.x + ObservationRadius
-      let obsY = rp.y - agent.pos.y + ObservationRadius
-      if obsX < 0 or obsX >= ObservationWidth or obsY < 0 or obsY >= ObservationHeight:
-        continue
-      var agentObs = addr env.observations[agentId]
-      agentObs[][ord(RallyPointLayer)][obsX][obsY] = 1
+      for dy in -cellRadius .. cellRadius:
+        let ny = rpCy + dy
+        if ny < 0 or ny >= SpatialCellsY:
+          continue
+        for agent in env.spatialIndex.kindCells[Agent][nx][ny]:
+          if agent.isNil or not isAgentAlive(env, agent):
+            continue
+          if getTeamId(agent) != buildingTeam:
+            continue
+          let obsX = rp.x - agent.pos.x + ObservationRadius
+          let obsY = rp.y - agent.pos.y + ObservationRadius
+          if obsX < 0 or obsX >= ObservationWidth or obsY < 0 or obsY >= ObservationHeight:
+            continue
+          var agentObs = addr env.observations[agent.agentId]
+          agentObs[][ord(RallyPointLayer)][obsX][obsY] = 1
 
   env.observationsInitialized = true
 
