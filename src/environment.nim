@@ -743,13 +743,16 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
-  zeroMem(addr env.observations, sizeof(env.observations))
+  ## Only zeros observations for alive agents (lazy init) instead of all MapAgents.
+  ## This reduces memory zeroing from ~11 MB to ~2-4 MB depending on alive agent count.
   env.observationsInitialized = false
 
   for agentId in 0 ..< env.agents.len:
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
       continue
+    # Zero only this agent's observations (lazy init per-agent)
+    zeroMem(addr env.observations[agentId], sizeof(env.observations[0]))
     let agentPos = agent.pos
     for obsX in 0 ..< ObservationWidth:
       let worldX = agentPos.x + (obsX - ObservationRadius)
