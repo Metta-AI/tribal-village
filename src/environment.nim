@@ -163,10 +163,18 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
     return 1
   0
 
-proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
+proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int,
+                  baseElevation: int8) {.inline.} =
   ## Write observation data for a single tile. Called from rebuildObservations
   ## which already zeroed all observation memory, so we only set non-zero values.
+  ## If tile is obscured by elevation, only write ObscuredLayer and skip others.
   var agentObs = addr env.observations[agentId]
+
+  # Check if tile is obscured by elevation (higher than agent's position)
+  let tileElevation = env.elevation[worldX][worldY]
+  if tileElevation > baseElevation:
+    agentObs[][ord(ObscuredLayer)][obsX][obsY] = 1
+    return  # Skip all other layers for obscured tiles
 
   # Terrain layer (one-hot encoded)
   let terrain = env.terrain[worldX][worldY]
@@ -772,6 +780,7 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
+  ## Optimized with pre-computed bounds and integrated elevation checking.
   zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
 
@@ -780,15 +789,19 @@ proc rebuildObservations*(env: Environment) =
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
-    for obsX in 0 ..< ObservationWidth:
+    let baseElevation = env.elevation[agentPos.x][agentPos.y]
+
+    # Pre-compute valid observation tile ranges (avoid per-tile bounds checks)
+    let minObsX = max(0, ObservationRadius - agentPos.x)
+    let maxObsX = min(ObservationWidth, MapWidth - agentPos.x + ObservationRadius)
+    let minObsY = max(0, ObservationRadius - agentPos.y)
+    let maxObsY = min(ObservationHeight, MapHeight - agentPos.y + ObservationRadius)
+
+    for obsX in minObsX ..< maxObsX:
       let worldX = agentPos.x + (obsX - ObservationRadius)
-      if worldX < 0 or worldX >= MapWidth:
-        continue
-      for obsY in 0 ..< ObservationHeight:
+      for obsY in minObsY ..< maxObsY:
         let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
-          continue
-        writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+        writeTileObs(env, agentId, obsX, obsY, worldX, worldY, baseElevation)
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
   for thing in env.things:
