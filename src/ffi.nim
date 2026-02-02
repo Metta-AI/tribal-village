@@ -114,7 +114,8 @@ proc tribal_village_reset_and_get_obs(
   ## Reset and write directly to buffers - no conversions
   try:
     globalEnv.reset()
-    globalEnv.rebuildObservations()
+    # Observations are lazily built - rebuild now since we're returning them
+    globalEnv.ensureObservations()
 
     # Direct memory copy of observations (zero conversion)
     copyMem(obs_buffer, globalEnv.observations.addr,
@@ -147,6 +148,9 @@ proc tribal_village_step_with_pointers(
 
     # Step environment
     globalEnv.step(unsafeAddr actions)
+
+    # Lazy rebuild: only rebuild observations if dirty and being accessed
+    globalEnv.ensureObservations()
 
     # Direct memory copy of observations (zero conversion overhead)
     copyMem(obs_buffer, globalEnv.observations.addr,

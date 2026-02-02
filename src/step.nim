@@ -3165,10 +3165,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.updateTintModifications()  # Collect all entity contributions
   env.applyTintModifications()   # Apply them to the main color array in one pass
 
-  # Rebuild all observations in one pass (much faster than incremental updates)
-  # This replaces all the updateObservations calls throughout the step which were
-  # O(updates * agents). Now we do O(agents * observation_tiles) once at the end.
-  env.rebuildObservations()
+  # Mark observations as dirty for lazy rebuilding
+  # This replaces the previous approach of rebuilding every step. Now we only
+  # rebuild when observations are actually accessed (via FFI or getObservations).
+  # This saves O(agents * observation_tiles) work when observations aren't needed.
+  env.observationsDirty = true
 
   # Spatial index is now maintained incrementally during position updates,
   # so no rebuild needed here. This eliminates O(things) work every step.
@@ -3423,8 +3424,10 @@ proc reset*(env: Environment) =
   env.templeInteractions.setLen(0)
   env.templeHybridRequests.setLen(0)
   env.grid.clear()
-  env.observations.clear()
+  # Skip env.observations.clear() - rebuildObservations will zero when accessed
+  # This is a lazy init optimization to reduce startup overhead
   env.observationsInitialized = false
+  env.observationsDirty = true
   # Clear tint arrays in-place via zeroMem (avoids stack-allocated default() copies)
   env.tintMods.clear()
   env.tintStrength.clear()

@@ -334,6 +334,12 @@ type
     UnitCrossbowman    # Archer upgrade tier 2
     UnitArbalester     # Archer upgrade tier 3
 
+const
+  ## Tank units with shield auras (ManAtArms and Knight)
+  ## Used for optimized aura processing collections
+  TankUnitClasses* = {UnitManAtArms, UnitKnight}
+
+type
   ThingKind* = enum
     Agent
     Wall
@@ -944,6 +950,7 @@ type
     config*: EnvironmentConfig  # Configuration for this environment
     shouldReset*: bool  # Track if environment needs reset
     observationsInitialized*: bool  # Track whether observation tensors are populated
+    observationsDirty*: bool  # Track if observations need rebuilding (lazy rebuild)
     things*: seq[Thing]
     agents*: seq[Thing]
     grid*: array[MapWidth, array[MapHeight, Thing]]          # Blocking units
