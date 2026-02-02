@@ -172,6 +172,11 @@ const
     UnitScout, UnitBatteringRam
   }
 
+  ## Tank units with shield auras (ManAtArms and Knight)
+  TankAuraUnits*: set[AgentUnitClass] = {
+    UnitManAtArms, UnitKnight
+  }
+
 proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKind) {.inline.} =
   ## Spawn a visual-only projectile from source to target.
   ## Lifetime scales with distance for natural flight speed.
@@ -489,17 +494,16 @@ proc stepApplySurvivalPenalty(env: Environment) =
 
 proc stepApplyTankAuras(env: Environment) =
   ## Apply tank (ManAtArms/Knight) aura tints to nearby tiles
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
+  ## Optimized: iterates only tankUnits collection instead of all agents
+  for tank in env.tankUnits:
+    if not isAgentAlive(env, tank):
       continue
-    if isThingFrozen(agent, env):
+    if isThingFrozen(tank, env):
       continue
-    let radius = UnitAuraRadius[agent.unitClass]
-    if radius < 0:
-      continue
+    let radius = UnitAuraRadius[tank.unitClass]
     for dx in -radius .. radius:
       for dy in -radius .. radius:
-        let pos = agent.pos + ivec2(dx.int32, dy.int32)
+        let pos = tank.pos + ivec2(dx.int32, dy.int32)
         if not isValidPos(pos):
           continue
         let existingCountdown = env.actionTintCountdown[pos.x][pos.y]
@@ -513,11 +517,10 @@ proc stepApplyTankAuras(env: Environment) =
 
 proc stepApplyMonkAuras(env: Environment) =
   ## Apply monk aura tints and heal nearby allies
+  ## Optimized: iterates only monkUnits collection instead of all agents
   var healFlags: array[MapAgents, bool]
-  for monk in env.agents:
+  for monk in env.monkUnits:
     if not isAgentAlive(env, monk):
-      continue
-    if monk.unitClass != UnitMonk:
       continue
     if isThingFrozen(monk, env):
       continue

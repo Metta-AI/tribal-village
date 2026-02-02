@@ -662,6 +662,8 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
 
 proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) =
   ## Apply unit class stats with team modifier bonuses
+  ## Also maintains tankUnits/monkUnits collections for efficient aura iteration
+  let oldClass = agent.unitClass
   agent.unitClass = unitClass
   if unitClass != UnitBoat:
     agent.embarkedUnitClass = unitClass
@@ -675,6 +677,33 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
     agent.faith = MonkMaxFaith
   else:
     agent.faith = 0
+
+  # Update aura unit collections for optimized aura processing
+  # Tank units: ManAtArms and Knight have shield auras
+  let wasTank = oldClass in {UnitManAtArms, UnitKnight}
+  let isTank = unitClass in {UnitManAtArms, UnitKnight}
+  if wasTank and not isTank:
+    # Remove from tankUnits (swap-and-pop for O(1))
+    for i in 0 ..< env.tankUnits.len:
+      if env.tankUnits[i] == agent:
+        env.tankUnits[i] = env.tankUnits[^1]
+        env.tankUnits.setLen(env.tankUnits.len - 1)
+        break
+  elif isTank and not wasTank:
+    env.tankUnits.add(agent)
+
+  # Monk units: have heal auras
+  let wasMonk = oldClass == UnitMonk
+  let isMonk = unitClass == UnitMonk
+  if wasMonk and not isMonk:
+    # Remove from monkUnits (swap-and-pop for O(1))
+    for i in 0 ..< env.monkUnits.len:
+      if env.monkUnits[i] == agent:
+        env.monkUnits[i] = env.monkUnits[^1]
+        env.monkUnits.setLen(env.monkUnits.len - 1)
+        break
+  elif isMonk and not wasMonk:
+    env.monkUnits.add(agent)
 
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass in {UnitBoat, UnitTradeCog}:

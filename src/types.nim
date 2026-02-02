@@ -977,6 +977,9 @@ type
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
+    # Aura unit tracking for O(1) iteration (avoids scanning all agents)
+    tankUnits*: seq[Thing]  # ManAtArms and Knight units with auras
+    monkUnits*: seq[Thing]  # Monk units with auras
     cowHerdCounts*: seq[int]
     cowHerdSumX*: seq[int]
     cowHerdSumY*: seq[int]

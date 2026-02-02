@@ -261,6 +261,20 @@ proc killAgent(env: Environment, victim: Thing) =
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
 
+  # Remove from aura unit collections (swap-and-pop for O(1))
+  if victim.unitClass in {UnitManAtArms, UnitKnight}:
+    for i in 0 ..< env.tankUnits.len:
+      if env.tankUnits[i] == victim:
+        env.tankUnits[i] = env.tankUnits[^1]
+        env.tankUnits.setLen(env.tankUnits.len - 1)
+        break
+  elif victim.unitClass == UnitMonk:
+    for i in 0 ..< env.monkUnits.len:
+      if env.monkUnits[i] == victim:
+        env.monkUnits[i] = env.monkUnits[^1]
+        env.monkUnits.setLen(env.monkUnits.len - 1)
+        break
+
   when defined(eventLog):
     logDeath(getTeamId(victim), $victim.unitClass,
              "(" & $deathPos.x & "," & $deathPos.y & ")", env.currentStep)
