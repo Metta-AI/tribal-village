@@ -163,10 +163,9 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
     return 1
   0
 
-proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.inline.} =
-  ## Write observation data for a single tile. Called from rebuildObservations
-  ## which already zeroed all observation memory, so we only set non-zero values.
-  var agentObs = addr env.observations[agentId]
+proc writeTileObsCore(env: Environment, agentObs: ptr array[ObservationLayers, array[ObservationWidth, array[ObservationHeight, uint8]]], obsX, obsY, worldX, worldY: int) {.inline.} =
+  ## Write non-biome observation data for a single tile. Biome layer is batched separately.
+  ## Called from rebuildObservations which already zeroed all observation memory.
 
   # Terrain layer (one-hot encoded)
   let terrain = env.terrain[worldX][worldY]
@@ -261,9 +260,26 @@ proc writeTileObs(env: Environment, agentId, obsX, obsY, worldX, worldY: int) {.
   if tintCode != 0:
     agentObs[][ord(TintLayer)][obsX][obsY] = tintCode
 
-  # Biome layer (enum value)
-  let biome = env.biomes[worldX][worldY]
-  agentObs[][ord(BiomeLayer)][obsX][obsY] = ord(biome).uint8
+proc writeRowObsBatched(env: Environment, agentObs: ptr array[ObservationLayers, array[ObservationWidth, array[ObservationHeight, uint8]]], obsX, worldX, baseWorldY, startObsY, endObsY: int) {.inline.} =
+  ## Write observation data for a contiguous row using batch operations where possible.
+  ## Processes tiles from startObsY to endObsY (inclusive) for a fixed obsX.
+  var biomeRow: array[ObservationHeight, uint8]
+
+  # Batch-prepare biome values for the row
+  for obsY in startObsY .. endObsY:
+    let worldY = baseWorldY + obsY
+    biomeRow[obsY] = ord(env.biomes[worldX][worldY]).uint8
+
+  # Batch-write biome row using memcpy (contiguous in memory)
+  let rowLen = endObsY - startObsY + 1
+  if rowLen > 0:
+    copyMem(addr agentObs[][ord(BiomeLayer)][obsX][startObsY], addr biomeRow[startObsY], rowLen)
+
+  # Write remaining per-tile observations
+  for obsY in startObsY .. endObsY:
+    let worldY = baseWorldY + obsY
+    writeTileObsCore(env, agentObs, obsX, obsY, worldX, worldY)
+
 
 proc updateObservations(
   env: Environment,
@@ -772,6 +788,7 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
+  ## Uses batch row writes with memcpy for improved memory throughput.
   zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
 
@@ -780,15 +797,22 @@ proc rebuildObservations*(env: Environment) =
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
+    var agentObs = addr env.observations[agentId]
+
+    # Pre-compute valid obsY range once (same for all obsX)
+    let baseWorldY = agentPos.y - ObservationRadius
+    let startObsY = max(0, -baseWorldY)  # First valid obsY
+    let endObsY = min(ObservationHeight - 1, MapHeight - 1 - baseWorldY)  # Last valid obsY
+
+    if startObsY > endObsY:
+      continue  # No valid Y range for this agent
+
     for obsX in 0 ..< ObservationWidth:
       let worldX = agentPos.x + (obsX - ObservationRadius)
       if worldX < 0 or worldX >= MapWidth:
         continue
-      for obsY in 0 ..< ObservationHeight:
-        let worldY = agentPos.y + (obsY - ObservationRadius)
-        if worldY < 0 or worldY >= MapHeight:
-          continue
-        writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+      # Use batched row write for this column
+      writeRowObsBatched(env, agentObs, obsX, worldX, baseWorldY, startObsY, endObsY)
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
   for thing in env.things:

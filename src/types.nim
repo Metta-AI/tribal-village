@@ -720,6 +720,10 @@ const
     ControlPoint
   } + CliffKinds
 
+const
+  ## Unit classes that have tank auras (for optimized aura processing)
+  TankUnitClasses* = {UnitManAtArms, UnitKnight}
+
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.
   if agent.teamIdOverride >= 0:
