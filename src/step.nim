@@ -338,22 +338,24 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   let garrisonCount = tower.garrisonedUnits.len
   if garrisonCount > 0:
     let bonusArrows = garrisonCount * GarrisonArrowBonus
-    var allTargets = newSeqOfCap[Thing](32)
-    collectEnemiesInRangeSpatial(env, tower.pos, tower.teamId, range, allTargets)
+    env.tempTowerTargets.setLen(0)
+    collectEnemiesInRangeSpatial(env, tower.pos, tower.teamId, range, env.tempTowerTargets)
     if minRange > 1:
-      var filtered = newSeqOfCap[Thing](allTargets.len)
-      for t in allTargets:
-        if chebyshevDist(t.pos, tower.pos) >= minRange:
-          filtered.add(t)
-      allTargets = filtered
+      # Filter in-place to avoid allocation
+      var writeIdx = 0
+      for readIdx in 0 ..< env.tempTowerTargets.len:
+        if chebyshevDist(env.tempTowerTargets[readIdx].pos, tower.pos) >= minRange:
+          env.tempTowerTargets[writeIdx] = env.tempTowerTargets[readIdx]
+          inc writeIdx
+      env.tempTowerTargets.setLen(writeIdx)
     for kind in [Tumor, Spawner]:
       for thing in env.thingsByKind[kind]:
         let dist = chebyshevDist(thing.pos, tower.pos)
         if dist >= minRange and dist <= range:
-          allTargets.add(thing)
-    if allTargets.len > 0:
+          env.tempTowerTargets.add(thing)
+    if env.tempTowerTargets.len > 0:
       for i in 0 ..< bonusArrows:
-        let bonusTarget = allTargets[i mod allTargets.len]
+        let bonusTarget = env.tempTowerTargets[i mod env.tempTowerTargets.len]
         env.applyActionTint(bonusTarget.pos, tint, tintDuration, tintCode)
         env.spawnProjectile(tower.pos, bonusTarget.pos, projKind)
         applyTowerHit(bonusTarget)
@@ -365,15 +367,15 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   if tc.teamId < 0:
     return
 
-  # Gather all valid targets in range using spatial index
-  var targets = newSeqOfCap[Thing](32)
-  collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
+  # Gather all valid targets in range using spatial index (uses pre-allocated buffer)
+  env.tempTCTargets.setLen(0)
+  collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, env.tempTCTargets)
   for kind in [Tumor, Spawner]:
     for thing in env.thingsByKind[kind]:
       if chebyshevDist(thing.pos, tc.pos) <= TownCenterRange:
-        targets.add(thing)
+        env.tempTCTargets.add(thing)
 
-  if targets.len == 0:
+  if env.tempTCTargets.len == 0:
     return
 
   # Calculate number of arrows: base damage + 1 per garrisoned unit
@@ -382,8 +384,8 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
 
   # Fire arrows at targets (round-robin if more arrows than targets)
   for i in 0 ..< arrowCount:
-    let targetIdx = i mod targets.len
-    let target = targets[targetIdx]
+    let targetIdx = i mod env.tempTCTargets.len
+    let target = env.tempTCTargets[targetIdx]
     env.applyActionTint(target.pos, TownCenterAttackTint, TownCenterAttackTintDuration,
                         ActionTintAttackTower)
     env.spawnProjectile(tc.pos, target.pos, ProjTowerArrow)
@@ -443,8 +445,8 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
   if building.garrisonedUnits.len == 0:
     return
 
-  # Find empty tiles around the building (5x5 grid minus center = 24 max)
-  var emptyTiles = newSeqOfCap[IVec2](24)
+  # Find empty tiles around the building (5x5 grid minus center = 24 max, uses pre-allocated buffer)
+  env.tempEmptyTiles.setLen(0)
   for dy in -2 .. 2:
     for dx in -2 .. 2:
       if dx == 0 and dy == 0:
@@ -456,13 +458,13 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
         continue
       if env.terrain[pos.x][pos.y] == Water:
         continue
-      emptyTiles.add(pos)
+      env.tempEmptyTiles.add(pos)
 
   var tileIdx = 0
   for unit in building.garrisonedUnits:
-    if tileIdx >= emptyTiles.len:
+    if tileIdx >= env.tempEmptyTiles.len:
       break  # No more space, remaining units stay garrisoned
-    let pos = emptyTiles[tileIdx]
+    let pos = env.tempEmptyTiles[tileIdx]
     unit.pos = pos
     env.grid[pos.x][pos.y] = unit
     env.updateObservations(AgentLayer, pos, getTeamId(unit) + 1)
@@ -522,11 +524,11 @@ proc stepApplyMonkAuras(env: Environment) =
     if isThingFrozen(monk, env):
       continue
     let teamId = getTeamId(monk)
-    # Use spatial index to find nearby allies instead of scanning all agents
-    var nearbyAllies = newSeqOfCap[Thing](12)
-    collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, nearbyAllies)
+    # Use spatial index to find nearby allies (uses pre-allocated buffer)
+    env.tempMonkAuraAllies.setLen(0)
+    collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, env.tempMonkAuraAllies)
     var needsHeal = false
-    for ally in nearbyAllies:
+    for ally in env.tempMonkAuraAllies:
       if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
         needsHeal = true
         break
@@ -547,7 +549,7 @@ proc stepApplyMonkAuras(env: Environment) =
           continue
         env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
 
-    for ally in nearbyAllies:
+    for ally in env.tempMonkAuraAllies:
       if not isThingFrozen(ally, env):
         healFlags[ally.agentId] = true
 
@@ -1034,8 +1036,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Single RNG for entire step - more efficient than multiple initRand calls
   var stepRng = initRand(env.currentStep)
 
-  # Track builders per construction site for multi-builder speed bonus
-  var constructionBuilders: Table[IVec2, int]
+  # Track builders per construction site for multi-builder speed bonus (uses pre-allocated buffer)
+  env.tempConstructionSites.setLen(0)
 
   # Shuffle agent processing order to prevent Team 0 from always acting first.
   # This ensures fair resource access and combat timing across all teams.
@@ -1063,6 +1065,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     template invalidAndBreak(label: untyped) =
       inc env.stats[id].actionInvalid
       break label
+
+    template registerBuilder(builderPos: IVec2) =
+      ## Add builder to construction site or increment existing count
+      block registerBuilderBlock:
+        let targetPos = builderPos  # Capture to avoid name collision with tuple field
+        for idx in 0 ..< env.tempConstructionSites.len:
+          if env.tempConstructionSites[idx].pos == targetPos:
+            env.tempConstructionSites[idx].count += 1
+            break registerBuilderBlock
+        env.tempConstructionSites.add((targetPos, 1))
 
     case verb:
     of 0:
@@ -1893,7 +1905,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp and
              agent.unitClass == UnitVillager:
             # Register this builder for the multi-builder bonus
-            constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+            registerBuilder(thing.pos)
             used = true
         else:
           if isBuildingKind(thing.kind):
@@ -1901,7 +1913,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if thing.maxHp > 0 and thing.hp < thing.maxHp and
                thing.teamId == getTeamId(agent) and agent.unitClass == UnitVillager:
               # Register this builder for the multi-builder bonus
-              constructionBuilders.mgetOrPut(thing.pos, 0) += 1
+              registerBuilder(thing.pos)
               used = true
             # Normal building use (skip if construction happened)
             if not used:
@@ -1956,14 +1968,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   let teamId = getTeamId(agent)
                   if thing.teamId == teamId:
                     var traded = false
-                    var carried = newSeqOfCap[tuple[key: ItemKey, count: int]](MapObjectAgentMaxInventory)
+                    # Use arena-allocated buffer to avoid per-agent allocation
+                    env.arena.itemCounts.setLen(0)
                     for key, count in agent.inventory.pairs:
                       if count <= 0:
                         continue
                       if not isStockpileResourceKey(key):
                         continue
-                      carried.add((key: key, count: count))
-                    for entry in carried:
+                      env.arena.itemCounts.add((key: key, count: count))
+                    for entry in env.arena.itemCounts:
                       let key = entry.key
                       let count = entry.count
                       let stockpileRes = stockpileResourceForItem(key)
@@ -2532,13 +2545,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Apply multi-builder construction speed bonus
   # Treadmill Crane: +20% construction speed from University tech
-  for pos, builderCount in constructionBuilders.pairs:
-    let thing = env.getThing(pos)
+  for site in env.tempConstructionSites:
+    let thing = env.getThing(site.pos)
     if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue
     # Calculate effective HP gain with diminishing returns
     # ConstructionBonusTable: [1.0, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
-    let tableIdx = min(builderCount, ConstructionBonusTable.high)
+    let tableIdx = min(site.count, ConstructionBonusTable.high)
     var multiplier = ConstructionBonusTable[tableIdx]
     # Treadmill Crane: +20% construction speed
     if thing.teamId >= 0 and env.hasUniversityTech(thing.teamId, TechTreadmillCrane):

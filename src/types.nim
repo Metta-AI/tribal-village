@@ -1022,6 +1022,7 @@ type
     tempTCTargets*: seq[Thing]         ## Town center attack targets
     tempMonkAuraAllies*: seq[Thing]    ## Nearby allies for monk auras
     tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
+    tempConstructionSites*: seq[tuple[pos: IVec2, count: int]]  ## Builder counts per site
     # Object pool for frequently created/destroyed things
     thingPool*: ThingPool
     # Object pool for projectiles (pre-allocated capacity, stats tracking)
