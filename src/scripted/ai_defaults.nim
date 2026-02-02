@@ -765,10 +765,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Update shared threat map with what this agent can see
   # Only if threat response is enabled for this difficulty level
   # Staggered: only update 1/5 of agents per step to reduce overhead (5x speedup)
+  # Decay also staggered to every ThreatMapStaggerInterval steps for additional speedup
   if diffConfig.threatResponseEnabled and teamId >= 0 and teamId < MapRoomObjectsTeams:
-    if controller.threatMaps[teamId].lastUpdateStep != currentStep:
+    if currentStep mod ThreatMapStaggerInterval == 0 and
+        controller.threatMaps[teamId].lastUpdateStep != currentStep:
       controller.decayThreats(teamId, currentStep)
-    if agent.agentId mod 5 == currentStep mod 5:
+    if agent.agentId mod ThreatMapStaggerInterval == currentStep mod ThreatMapStaggerInterval:
       controller.updateThreatMapFromVision(env, agent, currentStep)
 
   # Auto-enable scout mode for UnitScout units
