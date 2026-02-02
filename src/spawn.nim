@@ -181,8 +181,11 @@ proc initState(env: Environment) =
   # Reset team stockpiles
   env.teamStockpiles.clear()
 
-  # Initialize AoE2-style market prices
-  env.initMarketPrices()
+  # Market prices are lazily initialized on first access (see ensureMarketPricesInitialized)
+  env.marketPricesInitialized = false
+
+  # Fog of war is lazily cleared only when used (see revealTilesInRange)
+  env.revealedMapsInitialized = false
 
   # Initialize active tiles tracking via zeroMem
   env.activeTiles.positions.setLen(0)

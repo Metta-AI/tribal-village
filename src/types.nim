@@ -952,11 +952,13 @@ type
     teamStockpiles*: array[MapRoomObjectsTeams, TeamStockpile]
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
     teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
+    marketPricesInitialized*: bool  # Lazy init flag for market prices
     teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
     teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University techs
     teamCastleTechs*: array[MapRoomObjectsTeams, CastleTechs]  # AoE2-style Castle unique techs
     teamUnitUpgrades*: array[MapRoomObjectsTeams, UnitUpgrades]  # AoE2-style unit promotion chains
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
+    revealedMapsInitialized*: bool  # Lazy init flag for fog of war
     terrain*: TerrainGrid
     biomes*: BiomeGrid
     baseTintColors*: array[MapWidth, array[MapHeight, TileColor]]  # Basemost biome tint layer (static)

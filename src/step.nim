@@ -3468,8 +3468,11 @@ proc reset*(env: Environment) =
     env.victoryStates[teamId].relicHoldStartStep = -1
     env.victoryStates[teamId].kingAgentId = -1
     env.victoryStates[teamId].hillControlStartStep = -1
-  # Clear fog of war (revealed maps) via zeroMem
-  env.revealedMaps.clear()
+  # Clear fog of war (revealed maps) only if it was used (lazy optimization)
+  # This avoids zeroing ~3.8MB when fog of war feature isn't active
+  if env.revealedMapsInitialized:
+    env.revealedMaps.clear()
+    env.revealedMapsInitialized = false
   # Clear UI selection and control groups to prevent stale references
   selection = @[]
   for i in 0 ..< ControlGroupCount:

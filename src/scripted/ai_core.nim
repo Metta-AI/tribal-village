@@ -193,6 +193,8 @@ proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: i
   ## Uses Chebyshev distance (square vision area) matching the game's standard.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
+  # Track that fog of war is being used (for lazy clear optimization)
+  env.revealedMapsInitialized = true
   for dx in -radius .. radius:
     let worldX = center.x + dx
     if worldX < 0 or worldX >= MapWidth:

@@ -344,16 +344,26 @@ proc spendStockpile*(env: Environment, teamId: int,
 # ============================================================================
 
 proc initMarketPrices*(env: Environment) =
-  ## Initialize market prices to base rates for all teams
+  ## Initialize market prices to base rates for all teams.
+  ## Called lazily on first market access to reduce startup overhead.
+  if env.marketPricesInitialized:
+    return
   for teamId in 0 ..< MapRoomObjectsTeams:
     for res in StockpileResource:
       if res != ResourceNone and res != ResourceGold:
         env.teamMarketPrices[teamId].prices[res] = MarketBasePrice
+  env.marketPricesInitialized = true
+
+proc ensureMarketPricesInitialized*(env: Environment) {.inline.} =
+  ## Lazily initialize market prices on first access.
+  if not env.marketPricesInitialized:
+    env.initMarketPrices()
 
 proc getMarketPrice*(env: Environment, teamId: int, res: StockpileResource): int {.inline.} =
   ## Get current market price for a resource (gold cost per 100 units)
   if res == ResourceGold or res == ResourceNone:
     return 0
+  env.ensureMarketPricesInitialized()
   env.teamMarketPrices[teamId].prices[res]
 
 proc setMarketPrice*(env: Environment, teamId: int, res: StockpileResource, price: int) =
