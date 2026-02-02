@@ -74,7 +74,31 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   threateningCache[cacheKey] = false
   false
 
-proc scoreEnemy(env: Environment, agent: Thing, enemy: Thing, teamId: int): float =
+proc cachedIsThreateningAlly(controller: Controller, env: Environment, enemy: Thing, teamId: int): bool =
+  ## Check if an enemy is threatening an ally, with per-step caching.
+  ## Cache avoids redundant spatial scans when multiple fighters evaluate the same enemy.
+  let agentId = enemy.agentId
+  if agentId < 0 or agentId >= MapAgents:
+    return isThreateningAlly(env, enemy, teamId)
+
+  # Invalidate cache if step changed
+  if controller.allyThreatCacheStep[teamId] != env.currentStep:
+    controller.allyThreatCacheStep[teamId] = env.currentStep
+    # Reset cache entries for this team (mark all as uncached)
+    for i in 0 ..< MapAgents:
+      controller.allyThreatCache[teamId][i] = -1'i8
+
+  # Check cache
+  let cached = controller.allyThreatCache[teamId][agentId]
+  if cached >= 0:
+    return cached == 1
+
+  # Compute and cache
+  let isThreat = isThreateningAlly(env, enemy, teamId)
+  controller.allyThreatCache[teamId][agentId] = if isThreat: 1'i8 else: 0'i8
+  isThreat
+
+proc scoreEnemy(controller: Controller, env: Environment, agent: Thing, enemy: Thing, teamId: int): float =
   ## Score an enemy for target selection. Higher score = better target.
   ## Considers: distance, HP ratio, threat to allies, class counters, and unit value.
   var score = 0.0
@@ -92,8 +116,8 @@ proc scoreEnemy(env: Environment, agent: Thing, enemy: Thing, teamId: int): floa
   elif hpRatio <= 0.75:
     score += 5.0   # Small bonus for wounded targets
 
-  # Bonus for enemies threatening allies - up to 20 points
-  if isThreateningAlly(env, enemy, teamId):
+  # Bonus for enemies threatening allies - up to 20 points (uses per-step cache)
+  if cachedIsThreateningAlly(controller, env, enemy, teamId):
     score += 20.0
 
   # Class counter bonus - prioritize targets we deal bonus damage to (up to 12 points)
@@ -166,7 +190,7 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
           continue
 
         if useAdvancedTargeting:
-          let score = scoreEnemy(env, agent, other, teamId)
+          let score = scoreEnemy(controller, env, agent, other, teamId)
           if score > bestScore:
             bestScore = score
             bestEnemyId = other.agentId

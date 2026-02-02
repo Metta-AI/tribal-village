@@ -165,6 +165,10 @@ type
     threatMaps*: array[MapRoomObjectsTeams, ThreatMap]  # Shared threat awareness per team
     # Difficulty system - per-team configuration
     difficulty*: array[MapRoomObjectsTeams, DifficultyConfig]
+    # Per-step cache for isThreateningAlly results to avoid redundant spatial scans
+    # Cache is invalidated when step changes; stores -1=uncached, 0=false, 1=true
+    allyThreatCacheStep*: array[MapRoomObjectsTeams, int]
+    allyThreatCache*: array[MapRoomObjectsTeams, array[MapAgents, int8]]
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.
