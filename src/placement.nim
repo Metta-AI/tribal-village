@@ -164,7 +164,7 @@ proc add*(env: Environment, thing: Thing) =
     env.agents.add(thing)
     env.stats.add(Stats())
     # Add to tank/monk lists for optimized aura processing
-    if thing.unitClass in TankAuraUnits:
+if thing.unitClass in TankAuraUnits:
       env.tankUnits.add(thing)
     elif thing.unitClass == UnitMonk:
       env.monkUnits.add(thing)
