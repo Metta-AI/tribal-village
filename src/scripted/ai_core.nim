@@ -13,6 +13,7 @@ export ai_types
 
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
+  ThreatMapStaggerInterval* = 5  # Only 1/5 of agents update threat map per step
 
 proc hasHarvestableResource*(thing: Thing): bool =
   ## Check if a resource thing still has harvestable inventory.
