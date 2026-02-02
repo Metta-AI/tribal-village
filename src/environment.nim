@@ -772,6 +772,7 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservations*(env: Environment) =
   ## Recompute all observation layers from the current environment state.
+  ## Integrates elevation-based obscuring check to avoid separate masking pass.
   zeroMem(addr env.observations, sizeof(env.observations))
   env.observationsInitialized = false
 
@@ -780,6 +781,7 @@ proc rebuildObservations*(env: Environment) =
     if not isAgentAlive(env, agent):
       continue
     let agentPos = agent.pos
+    let baseElevation = env.elevation[agentPos.x][agentPos.y]
     for obsX in 0 ..< ObservationWidth:
       let worldX = agentPos.x + (obsX - ObservationRadius)
       if worldX < 0 or worldX >= MapWidth:
@@ -788,7 +790,12 @@ proc rebuildObservations*(env: Environment) =
         let worldY = agentPos.y + (obsY - ObservationRadius)
         if worldY < 0 or worldY >= MapHeight:
           continue
-        writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
+        # Check elevation-based obscuring before writing tile data
+        if env.elevation[worldX][worldY] > baseElevation:
+          # Tile is obscured - only mark the ObscuredLayer, skip all other writes
+          env.observations[agentId][ord(ObscuredLayer)][obsX][obsY] = 1
+        else:
+          writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
   for thing in env.things:

@@ -505,6 +505,9 @@ const
   ## Thing kinds eligible for object pooling (frequently created/destroyed)
   PoolableKinds* = {Tumor, Corpse, Skeleton, Stubble, Lantern, Stump}
 
+  ## Unit classes that receive tank auras (ManAtArms line + Knight)
+  TankUnitClasses* = {UnitManAtArms, UnitLongSwordsman, UnitChampion, UnitKnight}
+
   ## Initial capacity for projectile pool (avoids growth allocations during combat)
   ProjectilePoolCapacity* = 128
 
