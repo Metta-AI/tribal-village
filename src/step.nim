@@ -92,13 +92,6 @@ when defined(perfRegression):
   proc msBetweenPerfTiming(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
-let spawnerScanOffsets = block:
-  var offsets: seq[IVec2] = @[]
-  for dx in -5 .. 5:
-    for dy in -5 .. 5:
-      offsets.add(ivec2(dx, dy))
-  offsets
-
 let logRenderEnabled = getEnv("TV_LOG_RENDER", "") notin ["", "0", "false"]
 let logRenderWindow = max(100, parseEnvInt(getEnv("TV_LOG_RENDER_WINDOW", "100"), 100))
 let logRenderEvery = max(1, parseEnvInt(getEnv("TV_LOG_RENDER_EVERY", "1"), 1))
@@ -2687,13 +2680,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if thing.cooldown > 0:
       thing.cooldown -= 1
     else:
-      var nearbyTumorCount = 0
-      for offset in spawnerScanOffsets:
-        let checkPos = thing.pos + offset
-        if isValidPos(checkPos):
-          let other = env.getThing(checkPos)
-          if not isNil(other) and other.kind == Tumor and not other.hasClaimedTerritory:
-            inc nearbyTumorCount
+      let nearbyTumorCount = countUnclaimedTumorsInRangeSpatial(env, thing.pos, 5)
 
       if nearbyTumorCount < MaxTumorsPerSpawner:
         let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)

@@ -745,6 +745,20 @@ proc collectAgentsByClassInRange*(env: Environment, pos: IVec2, teamId: int,
     if found > 0: inc spatialTotalHits[sqkCollectAgentsByClass]
     else: inc spatialTotalMisses[sqkCollectAgentsByClass]
 
+proc countUnclaimedTumorsInRangeSpatial*(env: Environment, pos: IVec2,
+                                          maxRange: int): int =
+  ## Count unclaimed tumors within maxRange Chebyshev distance.
+  ## Used by spawners to limit tumor density around them.
+  result = 0
+  forEachInRadius(env, pos, Tumor, maxRange, thing):
+    if not isValidPos(thing.pos):
+      continue
+    if thing.hasClaimedTerritory:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      inc result
+
 proc rebuildSpatialIndex*(env: Environment) =
   ## Rebuild the entire spatial index from scratch
   ## Useful for initialization or after major map changes
