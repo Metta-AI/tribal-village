@@ -761,14 +761,15 @@ proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bo
   if isNil(blocker) or blocker.kind != Lantern:
     return false
 
+  # Uses spatial query instead of O(n) lantern scan
   template spacingOk(nextPos: IVec2): bool =
     var ok = true
-    for t in env.thingsByKind[Lantern]:
+    var nearbyLanterns: seq[Thing] = @[]
+    collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
+    for t in nearbyLanterns:
       if t != blocker:
-        let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
-        if dist < 3'i32:
-          ok = false
-          break
+        ok = false
+        break
     ok
 
   let delta = toPos - fromPos
@@ -1226,13 +1227,8 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
   of ResourceWater, ResourceNone:
     discard
   if isNil(result):
-    var bestDist = int.high
-    for thing in env.thingsByKind[TownCenter]:
-      if thing.teamId == teamId:
-        let dist = int(chebyshevDist(thing.pos, state.basePosition))
-        if dist < bestDist:
-          bestDist = dist
-          result = thing
+    # Use spatial query instead of O(n) TownCenter scan
+    result = findNearestFriendlyThingSpatial(env, state.basePosition, teamId, TownCenter, 1000)
 
 proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState,

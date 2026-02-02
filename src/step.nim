@@ -270,12 +270,14 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   var bestTarget = findNearestEnemyInRangeSpatial(env, tower.pos, tower.teamId, minRange, range)
   var bestDist = if bestTarget.isNil: int.high
                  else: chebyshevDist(bestTarget.pos, tower.pos).int
+  # Use spatial query for Tumor/Spawner targets instead of O(n) scan
   for kind in [Tumor, Spawner]:
-    for thing in env.thingsByKind[kind]:
-      let dist = chebyshevDist(thing.pos, tower.pos).int
-      if dist >= minRange and dist <= range and dist < bestDist:
+    let nearest = findNearestThingSpatial(env, tower.pos, kind, range)
+    if not nearest.isNil:
+      let dist = chebyshevDist(nearest.pos, tower.pos).int
+      if dist >= minRange and dist < bestDist:
         bestDist = dist
-        bestTarget = thing
+        bestTarget = nearest
   if isNil(bestTarget):
     return
   let tint = if tower.kind == Castle: CastleAttackTint else: TowerAttackTint
@@ -346,11 +348,19 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
         if chebyshevDist(t.pos, tower.pos) >= minRange:
           filtered.add(t)
       allTargets = filtered
+    # Use spatial query for Tumor/Spawner targets instead of O(n) scan
     for kind in [Tumor, Spawner]:
-      for thing in env.thingsByKind[kind]:
-        let dist = chebyshevDist(thing.pos, tower.pos)
-        if dist >= minRange and dist <= range:
-          allTargets.add(thing)
+      collectThingsInRangeSpatial(env, tower.pos, kind, range, allTargets)
+    # Filter by minRange after collection (spatial query doesn't support minRange)
+    if minRange > 1 and allTargets.len > 0:
+      var i = 0
+      while i < allTargets.len:
+        if allTargets[i].kind in {Tumor, Spawner} and
+           chebyshevDist(allTargets[i].pos, tower.pos) < minRange:
+          allTargets[i] = allTargets[^1]
+          allTargets.setLen(allTargets.len - 1)
+        else:
+          inc i
     if allTargets.len > 0:
       for i in 0 ..< bonusArrows:
         let bonusTarget = allTargets[i mod allTargets.len]
@@ -368,10 +378,9 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   # Gather all valid targets in range using spatial index
   var targets = newSeqOfCap[Thing](32)
   collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
+  # Use spatial query for Tumor/Spawner targets instead of O(n) scan
   for kind in [Tumor, Spawner]:
-    for thing in env.thingsByKind[kind]:
-      if chebyshevDist(thing.pos, tc.pos) <= TownCenterRange:
-        targets.add(thing)
+    collectThingsInRangeSpatial(env, tc.pos, kind, TownCenterRange, targets)
 
   if targets.len == 0:
     return
@@ -714,19 +723,15 @@ proc checkKingOfTheHillVictory(env: Environment): int =
   for cp in env.thingsByKind[ControlPoint]:
     if cp.isNil:
       continue
-    # Count living agents per team within the control radius
+    # Count living agents per team within the control radius using spatial query
     var teamUnits: array[MapRoomObjectsTeams, int]
-    for agent in env.agents:
-      if agent.isNil:
-        continue
+    var nearbyAgents: seq[Thing] = @[]
+    collectThingsInRangeSpatial(env, cp.pos, Agent, HillControlRadius, nearbyAgents)
+    for agent in nearbyAgents:
       if not isAgentAlive(env, agent):
         continue
       let teamId = getTeamId(agent)
-      if teamId < 0 or teamId >= MapRoomObjectsTeams:
-        continue
-      let dx = abs(agent.pos.x - cp.pos.x)
-      let dy = abs(agent.pos.y - cp.pos.y)
-      if max(dx, dy) <= HillControlRadius:
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
         inc teamUnits[teamId]
     # Find the team with the most units (must be unique max and > 0)
     var bestTeam = -1
@@ -1140,14 +1145,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           var relocated = false
           # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
+          # Uses spatial query instead of O(n) scan
           template spacingOk(nextPos: IVec2): bool =
             var isSpaced = true
-            for t in env.thingsByKind[Lantern]:
+            var nearbyLanterns: seq[Thing] = @[]
+            collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
+            for t in nearbyLanterns:
               if t != blocker:
-                let dist = max(abs(t.pos.x - nextPos.x), abs(t.pos.y - nextPos.y))
-                if dist < 3'i32:
-                  isSpaced = false
-                  break
+                isSpaced = false
+                break
             isSpaced
           # Preferred push positions in move direction
           let ahead1 = pos + delta
@@ -1420,14 +1426,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     altarThing.teamId == newTeam:
                   newHome = agent.homeAltar
               if newHome.x < 0:
-                var bestDist = int.high
-                for altar in env.thingsByKind[Altar]:
-                  if altar.teamId != newTeam:
-                    continue
-                  let dist = abs(altar.pos.x - target.pos.x) + abs(altar.pos.y - target.pos.y)
-                  if dist < bestDist:
-                    bestDist = dist
-                    newHome = altar.pos
+                # Use spatial query instead of O(n) scan for nearest team altar
+                let nearestAltar = findNearestFriendlyThingSpatial(env, target.pos, newTeam, Altar, 1000)
+                if not nearestAltar.isNil:
+                  newHome = nearestAltar.pos
               target.homeAltar = newHome
               let defaultTeam = getTeamId(target.agentId)
               if newTeam == defaultTeam:
@@ -2490,16 +2492,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if placedOk:
           discard spendCosts(env, agent, payment, costs)
           if placedKindValid and placedKind in {Mill, LumberCamp, MiningCamp}:
+            # Use spatial query instead of O(n) scan for nearest team anchor
             var anchor = ivec2(-1, -1)
             var bestDist = int.high
             for kind in [TownCenter, Altar]:
-              for thing in env.thingsByKind[kind]:
-                if thing.teamId != teamId:
-                  continue
-                let dist = abs(thing.pos.x - targetPos.x) + abs(thing.pos.y - targetPos.y)
+              let nearest = findNearestFriendlyThingSpatial(env, targetPos, teamId, kind, 1000)
+              if not nearest.isNil:
+                let dist = abs(nearest.pos.x - targetPos.x) + abs(nearest.pos.y - targetPos.y)
                 if dist < bestDist:
                   bestDist = dist
-                  anchor = thing.pos
+                  anchor = nearest.pos
             if anchor.x < 0:
               anchor = targetPos
             var pos = targetPos
