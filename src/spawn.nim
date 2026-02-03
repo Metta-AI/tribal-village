@@ -1069,6 +1069,14 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
   doAssert WarmTeamPalette.len >= numTeams,
     "WarmTeamPalette must cover all base colors without reuse."
 
+  # Shuffle color indices so team-color pairings are randomized per game.
+  # This prevents systematic color-based scoring advantages (e.g., olive-lime
+  # being closest to the average mixed tint in contested territory).
+  var colorIndices: seq[int] = @[]
+  for idx in 0 ..< numTeams:
+    colorIndices.add(idx)
+  rng.shuffle(colorIndices)
+
   # Second phase: Assign teams to shuffled positions.
   for i in 0 ..< min(numTeams, foundPositions.len):
     let placementPosition = foundPositions[i]
@@ -1112,7 +1120,8 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
               setTerrain(env, ivec2(clearX.int32, clearY.int32), Empty)
 
       # Generate a distinct warm color for this team (avoid cool/blue hues)
-      let teamColor = WarmTeamPalette[i]
+      # Use shuffled color index to prevent systematic color-based advantages
+      let teamColor = WarmTeamPalette[colorIndices[i]]
       env.teamColors.add(teamColor)
       let teamId = env.teamColors.len - 1
 
@@ -1736,6 +1745,7 @@ proc init(env: Environment, seed: int = 0) =
   ## Initialize the environment by orchestrating all initialization phases.
   ## When seed is 0 (default), uses current time for non-deterministic init.
   let seed = if seed == 0: int(nowSeconds() * 1000) else: seed
+  env.gameSeed = seed  # Store for step RNG variation
   var rng = initRand(seed)
 
   # Phase 1: Reset all state

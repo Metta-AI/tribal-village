@@ -950,6 +950,7 @@ type
 
   Environment* = ref object
     currentStep*: int
+    gameSeed*: int       # Seed for this game instance (used for step RNG variation)
     mapGeneration*: int  # Bumps each time the map is rebuilt (for render caches)
     config*: EnvironmentConfig  # Configuration for this environment
     shouldReset*: bool  # Track if environment needs reset

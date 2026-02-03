@@ -1049,8 +1049,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   if env.currentStep mod MarketPriceDecayInterval == 0:
     env.decayMarketPrices()
 
-  # Single RNG for entire step - more efficient than multiple initRand calls
-  var stepRng = initRand(env.currentStep)
+  # Single RNG for entire step - XOR gameSeed for variation across different games.
+  # Without gameSeed, all games at the same step have identical agent ordering.
+  var stepRng = initRand(env.gameSeed xor env.currentStep)
 
   # Track builders per construction site for multi-builder speed bonus
   # Reuse environment's table to avoid per-step heap allocation
