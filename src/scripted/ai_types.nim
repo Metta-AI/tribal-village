@@ -13,6 +13,8 @@ const
   MaxPathGoals* = 10      # Max goal positions (8 neighbors + direct)
   # Shared threat map configuration
   MaxThreatEntries* = 64  # Max threats tracked per team
+  # Damaged building cache
+  MaxDamagedBuildingsPerTeam* = 32  # Max damaged buildings tracked per team
 
 type
   ## Shared threat map entry for team coordination
@@ -169,6 +171,10 @@ type
     # Cache is invalidated when step changes; stores -1=uncached, 0=false, 1=true
     allyThreatCacheStep*: array[MapRoomObjectsTeams, int]
     allyThreatCache*: array[MapRoomObjectsTeams, array[MapAgents, int8]]
+    # Per-step cache for damaged buildings - avoids redundant O(n) scans
+    damagedBuildingCacheStep*: int
+    damagedBuildingPositions*: array[MapRoomObjectsTeams, array[MaxDamagedBuildingsPerTeam, IVec2]]
+    damagedBuildingCounts*: array[MapRoomObjectsTeams, int]
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.
@@ -230,7 +236,8 @@ proc newController*(seed: int): Controller =
   result = Controller(
     rng: initRand(seed),
     buildingCountsStep: -1,
-    teamPopCountsStep: -1
+    teamPopCountsStep: -1,
+    damagedBuildingCacheStep: -1
   )
   # Initialize all teams to Normal difficulty by default
   for teamId in 0 ..< MapRoomObjectsTeams:
