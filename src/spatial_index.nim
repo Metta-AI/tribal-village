@@ -24,6 +24,7 @@
 ##   - findNearestThingOfKindsSpatial(env, pos, kinds, maxDist) - nearest of multiple kinds
 ##   - findNearestFriendlyThingSpatial(env, pos, teamId, kind, maxDist) - nearest friendly
 ##   - findNearestEnemyAgentSpatial(env, pos, teamId, maxDist) - nearest enemy agent
+##   - findNearestEnemyBuildingSpatial(env, pos, teamId, maxDist) - nearest enemy building
 ##   - findNearestEnemyInRangeSpatial(env, pos, teamId, minRange, maxRange) - enemy in range band
 ##   - collectEnemiesInRangeSpatial(env, pos, teamId, maxRange, targets) - all enemies in range
 ##   - collectAlliesInRangeSpatial(env, pos, teamId, maxRange, allies) - all allies in range
@@ -31,7 +32,7 @@
 ##   - collectAgentsByClassInRange(env, pos, teamId, classes, maxRange, targets) - agents by unit class
 
 import vmath
-import types
+import types, registry
 
 # ---------------------------------------------------------------------------
 # Pre-computed lookup tables for O(1) distance-to-cell-radius conversion
