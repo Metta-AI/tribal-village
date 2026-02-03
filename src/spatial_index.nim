@@ -247,15 +247,51 @@ when defined(spatialAutoTune):
   proc computeOptimalCellSize*(si: SpatialIndex): int =
     ## Determine if the cell size should change based on current density.
     ## Returns the recommended cell size.
-    let (maxCount, _, _) = si.analyzeCellDensity()
-    if maxCount > SpatialAutoTuneThreshold and si.activeCellSize > SpatialMinCellSize:
+    ## Uses both max count and average to make smarter tuning decisions.
+    let (maxCount, totalCount, nonEmpty) = si.analyzeCellDensity()
+
+    # Calculate average occupancy for non-empty cells
+    let avgCount = if nonEmpty > 0: totalCount div nonEmpty else: 0
+
+    # Shrink cells if max density is high AND significantly above average
+    # This prevents unnecessary shrinking when one outlier cell is dense
+    let hotspotThreshold = avgCount * 3  # Cell is a hotspot if 3x average
+    let isHotspot = maxCount > hotspotThreshold and maxCount > SpatialAutoTuneThreshold
+
+    if isHotspot and si.activeCellSize > SpatialMinCellSize:
       # Cells too dense: halve the cell size for finer partitioning
       result = max(si.activeCellSize div 2, SpatialMinCellSize)
-    elif maxCount < SpatialAutoTuneThreshold div 4 and si.activeCellSize < SpatialMaxCellSize:
-      # Cells very sparse: double the cell size to reduce overhead
+    elif maxCount < SpatialAutoTuneThreshold div 4 and avgCount < SpatialAutoTuneThreshold div 8 and si.activeCellSize < SpatialMaxCellSize:
+      # Cells very sparse (both max and average): double the cell size to reduce overhead
       result = min(si.activeCellSize * 2, SpatialMaxCellSize)
     else:
       result = si.activeCellSize
+
+  proc resizeDynGrid(env: Environment, newCellSize: int) =
+    ## Resize the dynamic grid to a new cell size and repopulate from things list.
+    ## This is an incremental operation that doesn't touch the static grid.
+    env.spatialIndex.initDynGrid(newCellSize)
+    for thing in env.things:
+      if not thing.isNil and isValidPos(thing.pos):
+        let (dx, dy) = env.spatialIndex.dynCellCoords(thing.pos)
+        env.spatialIndex.dynCells[dx][dy].things.add(thing)
+        env.spatialIndex.dynKindCells[thing.kind][dx][dy].add(thing)
+
+  proc maybeTuneSpatialIndex*(env: Environment, currentStep: int) =
+    ## Periodically check density and rebalance the dynamic grid if needed.
+    ## Called from step() every SpatialAutoTuneInterval steps.
+    ## This is a lightweight check that only triggers resize when beneficial.
+    env.spatialIndex.ensureDynGrid()
+
+    # Check if enough time has passed since last tune
+    if currentStep - env.spatialIndex.lastTuneStep < SpatialAutoTuneInterval:
+      return
+
+    env.spatialIndex.lastTuneStep = currentStep
+
+    let optimalSize = env.spatialIndex.computeOptimalCellSize()
+    if optimalSize != env.spatialIndex.activeCellSize:
+      env.resizeDynGrid(optimalSize)
 
 proc clearSpatialIndex*(env: Environment) =
   ## Clear all cells in the spatial index
@@ -276,6 +312,7 @@ proc addToSpatialIndex*(env: Environment, thing: Thing) =
   env.spatialIndex.cells[cx][cy].things.add(thing)
   env.spatialIndex.kindCells[thing.kind][cx][cy].add(thing)
   when defined(spatialAutoTune):
+    env.spatialIndex.ensureDynGrid()
     let (dx, dy) = env.spatialIndex.dynCellCoords(thing.pos)
     env.spatialIndex.dynCells[dx][dy].things.add(thing)
     env.spatialIndex.dynKindCells[thing.kind][dx][dy].add(thing)
@@ -303,6 +340,7 @@ proc removeFromSpatialIndex*(env: Environment, thing: Thing) =
       break
 
   when defined(spatialAutoTune):
+    env.spatialIndex.ensureDynGrid()
     let (dx, dy) = env.spatialIndex.dynCellCoords(thing.pos)
     # Remove from dynamic general cell
     let dynCellThings = addr env.spatialIndex.dynCells[dx][dy].things
@@ -331,6 +369,7 @@ proc updateSpatialIndex*(env: Environment, thing: Thing, oldPos: IVec2) =
   # If cell hasn't changed, no update needed
   if oldCx == newCx and oldCy == newCy:
     when defined(spatialAutoTune):
+      env.spatialIndex.ensureDynGrid()
       # Dynamic grid may have different cell size; check it too
       let (oldDx, oldDy) = env.spatialIndex.dynCellCoords(oldPos)
       let (newDx, newDy) = env.spatialIndex.dynCellCoords(thing.pos)
@@ -377,6 +416,7 @@ proc updateSpatialIndex*(env: Environment, thing: Thing, oldPos: IVec2) =
     env.spatialIndex.kindCells[thing.kind][newCx][newCy].add(thing)
 
   when defined(spatialAutoTune):
+    env.spatialIndex.ensureDynGrid()
     let (oldDx, oldDy) = env.spatialIndex.dynCellCoords(oldPos)
     let (newDx, newDy) = env.spatialIndex.dynCellCoords(thing.pos)
     if oldDx != newDx or oldDy != newDy:
@@ -402,6 +442,7 @@ when defined(spatialAutoTune):
                             kindExpr: ThingKind, maxDistExpr: int,
                             thingVar: untyped, body: untyped) =
     ## Auto-tuned variant: uses dynamic grid with adaptive cell size.
+    envExpr.spatialIndex.ensureDynGrid()
     let qPos  {.inject.} = posExpr
     let si = envExpr.spatialIndex
     let cellSz = si.activeCellSize
@@ -469,9 +510,10 @@ else:
             body
 
 # Helper: get effective cell size for searchRadius computation in query procs
-template effectiveCellSize(): int =
+template effectiveCellSize(envParam: Environment): int =
   when defined(spatialAutoTune):
-    env.spatialIndex.activeCellSize
+    envParam.spatialIndex.ensureDynGrid()
+    envParam.spatialIndex.activeCellSize
   else:
     SpatialCellSize
 
@@ -488,7 +530,7 @@ proc findNearestThingSpatial*(env: Environment, pos: IVec2, kind: ThingKind,
   ## Returns nil if no thing found within maxDist.
   result = nil
   var minDist = int.high
-  let cellSz = effectiveCellSize()
+  let cellSz = effectiveCellSize(env)
 
   forEachInRadius(env, pos, kind, maxDist, thing):
     # Skip things with invalid positions to prevent overflow in distance calculation
@@ -513,7 +555,7 @@ proc findNearestFriendlyThingSpatial*(env: Environment, pos: IVec2, teamId: int,
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   result = nil
   var minDist = int.high
-  let cellSz = effectiveCellSize()
+  let cellSz = effectiveCellSize(env)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
 
   forEachInRadius(env, pos, kind, maxDist, thing):
@@ -544,7 +586,7 @@ proc findNearestEnemyAgentSpatial*(env: Environment, pos: IVec2, teamId: int,
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   result = nil
   var minDist = int.high
-  let cellSz = effectiveCellSize()
+  let cellSz = effectiveCellSize(env)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
 
   forEachInRadius(env, pos, Agent, maxDist, thing):
@@ -576,7 +618,7 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
   ## Optimized: uses bitwise team mask comparison for O(1) team checks.
   result = nil
   var bestDist = int.high
-  let cellSz = effectiveCellSize()
+  let cellSz = effectiveCellSize(env)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
 
   forEachInRadius(env, pos, Agent, maxRange, thing):
