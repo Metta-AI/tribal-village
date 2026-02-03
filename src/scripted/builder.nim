@@ -75,13 +75,16 @@ proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
   state.basePosition = basePos
   controller.moveTo(env, agent, agentId, state, basePos)
 
-proc findDamagedBuilding*(env: Environment, agent: Thing): Thing =
-  ## Find nearest damaged friendly building that needs repair.
-  ## Returns nil if no damaged building found.
-  ## Includes walls and doors which have hp but aren't in BuildingRegistry.
-  let teamId = getTeamId(agent)
-  var best: Thing = nil
-  var bestDist = int.high
+proc refreshDamagedBuildingCache*(controller: Controller, env: Environment) =
+  ## Refresh the per-team damaged building cache if stale.
+  ## Called once per step, caches all damaged building positions by team.
+  if controller.damagedBuildingCacheStep == env.currentStep:
+    return  # Cache is fresh
+  controller.damagedBuildingCacheStep = env.currentStep
+  # Clear counts
+  for t in 0 ..< MapRoomObjectsTeams:
+    controller.damagedBuildingCounts[t] = 0
+  # Scan all things once and cache damaged building positions per team
   for thing in env.things:
     if thing.isNil:
       continue
@@ -89,28 +92,63 @@ proc findDamagedBuilding*(env: Environment, agent: Thing): Thing =
     let isRepairable = isBuildingKind(thing.kind) or thing.kind in {Wall, Door}
     if not isRepairable:
       continue
-    if thing.teamId != teamId:
+    if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
       continue
     if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue  # Not damaged or doesn't have hp
-    let dist = int(chebyshevDist(thing.pos, agent.pos))
-    if dist < bestDist:
-      bestDist = dist
-      best = thing
+    let t = thing.teamId
+    if controller.damagedBuildingCounts[t] < MaxDamagedBuildingsPerTeam:
+      controller.damagedBuildingPositions[t][controller.damagedBuildingCounts[t]] = thing.pos
+      controller.damagedBuildingCounts[t] += 1
+
+proc findDamagedBuilding*(controller: Controller, env: Environment, agent: Thing): Thing =
+  ## Find nearest damaged friendly building that needs repair.
+  ## Returns nil if no damaged building found.
+  ## Uses per-step cache to avoid redundant O(n) scans of env.things.
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return nil
+  # Ensure cache is fresh
+  refreshDamagedBuildingCache(controller, env)
+  # Find nearest from cached positions
+  var best: Thing = nil
+  var bestDist = int.high
+  for i in 0 ..< controller.damagedBuildingCounts[teamId]:
+    let pos = controller.damagedBuildingPositions[teamId][i]
+    let thing = env.getThing(pos)
+    if thing.isNil:
+      # Also check background grid for doors
+      let bgThing = env.getBackgroundThing(pos)
+      if bgThing.isNil:
+        continue
+      if bgThing.maxHp <= 0 or bgThing.hp >= bgThing.maxHp:
+        continue  # No longer damaged
+      let dist = int(chebyshevDist(pos, agent.pos))
+      if dist < bestDist:
+        bestDist = dist
+        best = bgThing
+    else:
+      # Verify still damaged (may have been repaired since cache was built)
+      if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
+        continue
+      let dist = int(chebyshevDist(pos, agent.pos))
+      if dist < bestDist:
+        bestDist = dist
+        best = thing
   best
 
 proc canStartBuilderRepair(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
-  not isNil(findDamagedBuilding(env, agent))
+  not isNil(findDamagedBuilding(controller, env, agent))
 
 proc shouldTerminateBuilderRepair(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
-  isNil(findDamagedBuilding(env, agent))
+  isNil(findDamagedBuilding(controller, env, agent))
 
 proc optBuilderRepair(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
   ## Move to and repair a damaged friendly building.
-  let building = findDamagedBuilding(env, agent)
+  let building = findDamagedBuilding(controller, env, agent)
   if isNil(building):
     return 0'u8
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
