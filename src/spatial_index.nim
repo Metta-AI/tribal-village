@@ -828,3 +828,78 @@ proc findNearestPredatorTargetSpatial*(env: Environment, center: IVec2,
   if bestTumor.x >= 0: bestTumor
   elif bestFighter.x >= 0: bestFighter
   else: bestVillager
+
+# Building kinds that can be enemy-owned (have teamId >= 0 in gameplay)
+# This includes all player-buildable and team-assigned buildings
+const TeamBuildingKinds* = {
+  Altar, TownCenter, House, Door, ClayOven, WeavingLoom, Outpost, GuardTower,
+  Barrel, Mill, Granary, LumberCamp, Quarry, MiningCamp, Barracks, ArcheryRange,
+  Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Blacksmith, Market,
+  Dock, Monastery, University, Castle, Wonder, Wall, Lantern
+}
+
+proc findNearestEnemyBuildingSpatial*(env: Environment, pos: IVec2,
+                                       teamId: int, maxDist: int = int.high): Thing =
+  ## Find nearest enemy building using spatial index.
+  ## Searches buildings owned by a different team (teamId >= 0, teamId != query team).
+  ## Returns nil if no enemy building found within maxDist.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  result = nil
+  var minDist = int.high
+  let cellSz = effectiveCellSize()
+  let teamMask = getTeamMask(teamId)
+
+  for kind in TeamBuildingKinds:
+    forEachInRadius(env, pos, kind, maxDist, thing):
+      # Must have a team and be enemy (not same team)
+      if thing.teamId < 0:
+        continue
+      if (getTeamMask(thing.teamId) and teamMask) != 0:
+        continue
+      if not isValidPos(thing.pos):
+        continue
+      let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+      if dist <= maxDist and dist < minDist:
+        minDist = dist
+        result = thing
+        searchRadius = distToCellRadiusEffective(dist, cellSz)
+
+proc findNearestEnemyPresenceSpatial*(env: Environment, pos: IVec2,
+                                       teamId: int, maxDist: int = int.high): tuple[target: IVec2, dist: int] =
+  ## Find nearest enemy presence (agent or building) using spatial index.
+  ## Returns position and distance of nearest enemy, or ivec2(-1,-1) if none found.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  var bestPos = ivec2(-1, -1)
+  var bestDist = int.high
+  let teamMask = getTeamMask(teamId)
+
+  # Search for enemy agents
+  block agentSearch:
+    forEachInRadius(env, pos, Agent, maxDist, thing):
+      if not isAgentAlive(env, thing):
+        continue
+      # Enemy: different team
+      if (getTeamMask(thing) and teamMask) != 0:
+        continue
+      if not isValidPos(thing.pos):
+        continue
+      let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+      if dist <= maxDist and dist < bestDist:
+        bestDist = dist
+        bestPos = thing.pos
+
+  # Search for enemy buildings (use bestDist as maxDist for early exit)
+  for kind in TeamBuildingKinds:
+    forEachInRadius(env, pos, kind, bestDist, thing):
+      if thing.teamId < 0:
+        continue
+      if (getTeamMask(thing.teamId) and teamMask) != 0:
+        continue
+      if not isValidPos(thing.pos):
+        continue
+      let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+      if dist < bestDist:
+        bestDist = dist
+        bestPos = thing.pos
+
+  (target: bestPos, dist: bestDist)
