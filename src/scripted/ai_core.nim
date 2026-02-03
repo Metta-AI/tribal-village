@@ -861,8 +861,7 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
   ## Implementation notes:
   ## - Uses a generation counter to invalidate stale cache entries in O(1)
   ##   instead of clearing the full map-sized arrays each call.
-  ## - Open set is a flat array with linear scan (adequate for the 250-node
-  ##   exploration cap; a binary heap would not improve wall-clock time here).
+  ## - Open set uses a binary heap (min-heap by f-score) for O(log n) extraction.
   ## - Exploration is capped at 250 nodes to bound worst-case cost per tick.
 
   # Increment generation for this call - makes all previous data stale
@@ -899,40 +898,31 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
         best = d
     best
 
-  # Initialize open set with starting position
-  controller.pathCache.openSetLen = 1
-  controller.pathCache.openSet[0] = fromPos
-  controller.pathCache.openSetActive[0] = true
-  controller.pathCache.inOpenSetGen[fromPos.x][fromPos.y] = gen
+  # Initialize open heap with starting position
+  controller.pathCache.openHeap.clear()
+  let startH = heuristic(controller.pathCache, fromPos)
+  controller.pathCache.openHeap.push(PathHeapNode(fScore: startH, pos: fromPos))
 
-  # Initialize gScore and fScore for start
+  # Initialize gScore for start
   controller.pathCache.gScoreGen[fromPos.x][fromPos.y] = gen
   controller.pathCache.gScoreVal[fromPos.x][fromPos.y] = 0
 
   var explored = 0
-  while true:
+  while controller.pathCache.openHeap.len > 0:
     if explored > 250:
       return @[]
 
-    # Find node in open set with lowest fScore
-    var currentIdx = -1
-    var current: IVec2
-    var bestF = int32.high
-    for i in 0 ..< controller.pathCache.openSetLen:
-      if not controller.pathCache.openSetActive[i]:
-        continue
-      let n = controller.pathCache.openSet[i]
-      # Calculate fScore: gScore + heuristic
-      let g = controller.pathCache.gScoreVal[n.x][n.y]
-      let h = heuristic(controller.pathCache, n)
-      let f = g + h
-      if f < bestF:
-        bestF = f
-        current = n
-        currentIdx = i
+    # Pop node with lowest f-score from heap
+    let node = controller.pathCache.openHeap.pop()
+    let current = node.pos
 
-    if currentIdx < 0:
-      return @[]  # Open set is empty
+    # Skip if already processed (closed) - handles duplicate heap entries
+    if controller.pathCache.closedGen[current.x][current.y] == gen:
+      continue
+
+    # Mark as closed
+    controller.pathCache.closedGen[current.x][current.y] = gen
+    inc explored
 
     # Check if current is a goal
     for i in 0 ..< controller.pathCache.goalsLen:
@@ -956,16 +946,16 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
           result[j] = controller.pathCache.path[controller.pathCache.pathLen - 1 - j]
         return result
 
-    # Remove current from open set
-    controller.pathCache.openSetActive[currentIdx] = false
-    inc explored
-
     # Explore neighbors
     for dirIdx in 0 .. 7:
       let nextPos = current + Directions8[dirIdx]
       if not isValidPos(nextPos):
         continue
       if not canEnterForMove(env, agent, current, nextPos):
+        continue
+
+      # Skip if already closed
+      if controller.pathCache.closedGen[nextPos.x][nextPos.y] == gen:
         continue
 
       # Get current gScore (or int32.high if not visited)
@@ -983,13 +973,9 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
         # Update gScore
         controller.pathCache.gScoreGen[nextPos.x][nextPos.y] = gen
         controller.pathCache.gScoreVal[nextPos.x][nextPos.y] = tentativeG
-        # Add to open set if not already there
-        if controller.pathCache.inOpenSetGen[nextPos.x][nextPos.y] != gen:
-          if controller.pathCache.openSetLen < MaxPathNodes:
-            controller.pathCache.openSet[controller.pathCache.openSetLen] = nextPos
-            controller.pathCache.openSetActive[controller.pathCache.openSetLen] = true
-            inc controller.pathCache.openSetLen
-            controller.pathCache.inOpenSetGen[nextPos.x][nextPos.y] = gen
+        # Push to heap (duplicates OK - stale entries skipped via closed check)
+        let h = heuristic(controller.pathCache, nextPos)
+        controller.pathCache.openHeap.push(PathHeapNode(fScore: tentativeG + h, pos: nextPos))
 
   @[]
 

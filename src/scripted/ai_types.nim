@@ -1,11 +1,12 @@
 ## Shared type definitions for the AI system.
 ## This module is imported by all other AI modules to avoid circular dependencies.
 
+import std/heapqueue
 import vmath
 import ../entropy
 import ../types
 
-export IVec2, Rand, types
+export IVec2, Rand, types, heapqueue
 
 const
   MaxPathNodes* = 512     # Slightly more than 250 exploration limit
@@ -29,22 +30,25 @@ type
     count*: int32
     lastUpdateStep*: int32
 
+  ## Heap node for A* priority queue (ordered by f-score, lower = higher priority)
+  PathHeapNode* = object
+    fScore*: int32
+    pos*: IVec2
+
   ## Pre-allocated pathfinding scratch space to avoid per-call allocations.
   ## Uses generation counters for O(1) validity checks without clearing arrays.
   PathfindingCache* = object
     generation*: int32
-    # Generation-stamped membership for O(1) open set lookup
-    inOpenSetGen*: array[MapWidth, array[MapHeight, int32]]
+    # Generation-stamped closed set for skipping already-processed nodes
+    closedGen*: array[MapWidth, array[MapHeight, int32]]
     # Generation-stamped gScore values
     gScoreGen*: array[MapWidth, array[MapHeight, int32]]
     gScoreVal*: array[MapWidth, array[MapHeight, int32]]
     # Generation-stamped cameFrom for path reconstruction
     cameFromGen*: array[MapWidth, array[MapHeight, int32]]
     cameFromVal*: array[MapWidth, array[MapHeight, IVec2]]
-    # Open set array for iteration (with active flags for removal)
-    openSet*: array[MaxPathNodes, IVec2]
-    openSetLen*: int
-    openSetActive*: array[MaxPathNodes, bool]
+    # Binary heap priority queue for open set (O(log n) push/pop)
+    openHeap*: HeapQueue[PathHeapNode]
     # Goals array
     goals*: array[MaxPathGoals, IVec2]
     goalsLen*: int
@@ -52,6 +56,11 @@ type
     path*: array[MaxPathLength, IVec2]
     pathLen*: int
 
+proc `<`*(a, b: PathHeapNode): bool =
+  ## Comparison for min-heap ordering (lower f-score = higher priority)
+  a.fScore < b.fScore
+
+type
   # Meta roles with focused responsibilities (AoE-style)
   AgentRole* = enum
     Gatherer   # Dynamic resource gatherer (food/wood/stone/gold + hearts)
