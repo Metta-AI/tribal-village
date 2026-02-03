@@ -153,42 +153,15 @@ let EmergencyHealOption* = OptionDef(
 )
 
 proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing =
-  var best: Thing = nil
-  var bestDist = int.high
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      best = thing
-  best
+  ## Find nearest enemy building using spatial index.
+  ## O(cells) instead of O(n) where n = total things.
+  findNearestEnemyBuildingSpatial(env, pos, teamId)
 
 proc findNearestEnemyPresence(env: Environment, pos: IVec2,
                               teamId: int): tuple[target: IVec2, dist: int] =
-  var bestPos = ivec2(-1, -1)
-  var bestDist = int.high
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if getTeamId(agent) == teamId:
-      continue
-    let dist = int(chebyshevDist(agent.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      bestPos = agent.pos
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue
-    let dist = int(chebyshevDist(thing.pos, pos))
-    if dist < bestDist:
-      bestDist = dist
-      bestPos = thing.pos
-  (target: bestPos, dist: bestDist)
+  ## Find nearest enemy presence (agent or building) using spatial index.
+  ## O(cells) instead of O(n) where n = total agents + things.
+  findNearestEnemyPresenceSpatial(env, pos, teamId)
 
 proc findNearestNeutralHub(env: Environment, pos: IVec2): Thing =
   var best: Thing = nil
