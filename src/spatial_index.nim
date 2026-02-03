@@ -24,6 +24,7 @@
 ##   - findNearestThingOfKindsSpatial(env, pos, kinds, maxDist) - nearest of multiple kinds
 ##   - findNearestFriendlyThingSpatial(env, pos, teamId, kind, maxDist) - nearest friendly
 ##   - findNearestEnemyAgentSpatial(env, pos, teamId, maxDist) - nearest enemy agent
+##   - findNearestEnemyBuildingSpatial(env, pos, teamId, maxDist) - nearest enemy building
 ##   - findNearestEnemyInRangeSpatial(env, pos, teamId, minRange, maxRange) - enemy in range band
 ##   - collectEnemiesInRangeSpatial(env, pos, teamId, maxRange, targets) - all enemies in range
 ##   - collectAlliesInRangeSpatial(env, pos, teamId, maxRange, allies) - all allies in range
@@ -31,7 +32,7 @@
 ##   - collectAgentsByClassInRange(env, pos, teamId, classes, maxRange, targets) - agents by unit class
 
 import vmath
-import types
+import types, registry
 
 # ---------------------------------------------------------------------------
 # Pre-computed lookup tables for O(1) distance-to-cell-radius conversion
@@ -468,6 +469,59 @@ else:
               inc thingsExamined
             body
 
+when defined(spatialAutoTune):
+  template forEachInRadiusAllThings(envExpr: Environment, posExpr: IVec2,
+                                     maxDistExpr: int, thingVar: untyped,
+                                     body: untyped) =
+    ## Auto-tuned variant: iterates over ALL things (not kind-filtered) in cells.
+    let qPos  {.inject.} = posExpr
+    let si = envExpr.spatialIndex
+    let cellSz = si.activeCellSize
+    let cellsX = si.activeCellsX
+    let cellsY = si.activeCellsY
+    let qCx = clamp(qPos.x.int div cellSz, 0, cellsX - 1)
+    let qCy = clamp(qPos.y.int div cellSz, 0, cellsY - 1)
+    let clampedMax = min(maxDistExpr, max(cellsX, cellsY) * cellSz)
+    var searchRadius {.inject.} = distToCellRadiusLookup(clampedMax, cellSz)
+    let maxRadius = searchRadius
+    let queryEnv  = envExpr
+
+    for dx in -maxRadius .. maxRadius:
+      if abs(dx) > searchRadius: continue
+      for dy in -maxRadius .. maxRadius:
+        if abs(dy) > searchRadius: continue
+        let nx = qCx + dx
+        let ny = qCy + dy
+        if nx < 0 or nx >= cellsX or ny < 0 or ny >= cellsY:
+          continue
+        for thingVar in queryEnv.spatialIndex.dynCells[nx][ny].things:
+          if not thingVar.isNil:
+            body
+else:
+  template forEachInRadiusAllThings(envExpr: Environment, posExpr: IVec2,
+                                     maxDistExpr: int, thingVar: untyped,
+                                     body: untyped) =
+    ## Iterate over ALL non-nil things within `maxDistExpr` of `posExpr`.
+    ## Unlike forEachInRadius, this scans all things in cells, not kind-filtered.
+    let qPos  {.inject.} = posExpr
+    let (qCx, qCy) = cellCoords(qPos)
+    let clampedMax = min(maxDistExpr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+    var searchRadius {.inject.} = distToCellRadius16(clampedMax)
+    let maxRadius = searchRadius
+    let queryEnv  = envExpr
+
+    for dx in -maxRadius .. maxRadius:
+      if abs(dx) > searchRadius: continue
+      for dy in -maxRadius .. maxRadius:
+        if abs(dy) > searchRadius: continue
+        let nx = qCx + dx
+        let ny = qCy + dy
+        if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+          continue
+        for thingVar in queryEnv.spatialIndex.cells[nx][ny].things:
+          if not thingVar.isNil:
+            body
+
 # Helper: get effective cell size for searchRadius computation in query procs
 template effectiveCellSize(): int =
   when defined(spatialAutoTune):
@@ -600,6 +654,31 @@ proc findNearestEnemyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
     spatialTotalThingsExamined[sqkFindNearestEnemyInRange] += thingsExamined
     if result.isNil: inc spatialTotalMisses[sqkFindNearestEnemyInRange]
     else: inc spatialTotalHits[sqkFindNearestEnemyInRange]
+
+proc findNearestEnemyBuildingSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                       maxDist: int): Thing =
+  ## Find nearest enemy building using spatial index.
+  ## Returns nil if no enemy building found within maxDist.
+  ## Uses Chebyshev distance for consistency with game mechanics.
+  result = nil
+  var minDist = int.high
+  let cellSz = effectiveCellSize()
+
+  forEachInRadiusAllThings(env, pos, maxDist, thing):
+    # Skip non-buildings
+    if not isBuildingKind(thing.kind):
+      continue
+    # Skip neutral or friendly buildings
+    if thing.teamId < 0 or thing.teamId == teamId:
+      continue
+    # Skip things with invalid positions
+    if not isValidPos(thing.pos):
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxDist and dist < minDist:
+      minDist = dist
+      result = thing
+      searchRadius = distToCellRadiusEffective(dist, cellSz)
 
 proc collectEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
                                     maxRange: int, targets: var seq[Thing]) =

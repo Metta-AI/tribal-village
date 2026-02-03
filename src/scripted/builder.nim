@@ -39,16 +39,9 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   let nearestEnemy = findNearestEnemyAgentSpatial(env, basePos, teamId, BuilderThreatRadius)
   if not nearestEnemy.isNil:
     return true
-  # Check for enemy buildings
-  for thing in env.things:
-    if thing.isNil or not isBuildingKind(thing.kind):
-      continue
-    if thing.teamId < 0 or thing.teamId == teamId:
-      continue
-    let dist = int(chebyshevDist(basePos, thing.pos))
-    if dist <= BuilderThreatRadius:
-      return true
-  false
+  # Use spatial index to check for enemy buildings
+  let nearestEnemyBuilding = findNearestEnemyBuildingSpatial(env, basePos, teamId, BuilderThreatRadius)
+  not nearestEnemyBuilding.isNil
 
 proc builderFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within flee radius using spatial index
