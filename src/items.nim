@@ -211,8 +211,7 @@ proc `[]=`*(inv: var Inventory, key: ItemKey, value: int) {.inline.} =
     inv.items[key.item] = max(0, value).int16
   of ItemKeyThing, ItemKeyOther:
     if value <= 0:
-      if inv.extra.hasKey(key):
-        inv.extra.del(key)
+      inv.extra.del(key)
     else:
       inv.extra[key] = value.int16
 
@@ -234,8 +233,7 @@ proc del*(inv: var Inventory, key: ItemKey) {.inline.} =
   of ItemKeyItem:
     inv.items[key.item] = 0
   of ItemKeyThing, ItemKeyOther:
-    if inv.extra.hasKey(key):
-      inv.extra.del(key)
+    inv.extra.del(key)
 
 {.push inline.}
 proc getInv*[T](thing: T, key: ItemKey): int =
