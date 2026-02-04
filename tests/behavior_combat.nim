@@ -1,8 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import types
-import items
-import test_utils
+import test_common
 
 suite "Behavior: Multi-step Combat":
   test "opposing teams deal damage over 200 steps":

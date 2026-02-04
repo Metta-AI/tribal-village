@@ -1,10 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import terrain
-import test_utils
+import test_common
 
 ## Behavioral tests for trade cart (Trade Cog) pathfinding and gold delivery.
 ## Trade Cogs shuttle between friendly Docks on water, generating gold

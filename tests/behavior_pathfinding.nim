@@ -1,9 +1,5 @@
 import std/[unittest, strformat, math]
-import environment
-import types
-import items
-import terrain
-import test_utils
+import test_common
 import common
 
 ## Behavioral tests for unit pathfinding: navigation around obstacles,

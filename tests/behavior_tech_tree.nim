@@ -4,10 +4,7 @@
 ## four research subsystems: Blacksmith, University, Castle, and Unit Upgrades.
 
 import std/[unittest]
-import environment
-import items
-import types
-import test_utils
+import test_common
 
 suite "Tech Tree - Research Cooldowns":
   ## Cooldowns are enforced at the step level (step.nim checks thing.cooldown == 0

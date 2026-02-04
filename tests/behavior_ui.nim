@@ -10,12 +10,8 @@
 
 import std/unittest
 import vmath, boxy
-import environment
-import agent_control
+import test_common
 import common
-import types
-import items
-import test_utils
 import ui_harness
 import command_panel
 import tooltips

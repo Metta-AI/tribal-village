@@ -1,8 +1,5 @@
 import std/[unittest]
-import environment
-import types
-import items
-import test_utils
+import test_common
 
 suite "Behavior: Agent Death Cleanup":
   test "killed agent position set to invalid":

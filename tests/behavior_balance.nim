@@ -3,13 +3,11 @@
 ## and verifies no team has a systematic advantage.
 
 import std/[unittest, math, strformat, strutils, sequtils]
-import environment
-import agent_control
-import types
+import test_common
 
 const
   NumSeeds = 16
-  StepsPerGame = 500
+  StepsPerGame = VeryLongSimSteps
   MaxWinRate = 0.80  # Fail if one team wins >80% of games (13/16)
   # Use more seeds for better statistical coverage
   Seeds = [42, 137, 256, 500, 777, 1024, 1337, 2048,
@@ -28,40 +26,9 @@ type
     winnerTeam: int  # team with highest score, or -1
     metrics: array[MapRoomObjectsTeams, TeamMetrics]
 
-proc countAliveUnits(env: Environment, teamId: int): int =
-  for agent in env.agents:
-    if getTeamId(agent) == teamId and isAgentAlive(env, agent):
-      inc result
-
-proc countDeadUnits(env: Environment, teamId: int): int =
-  ## Count agents that were once alive but are now dead (killed)
-  let startIdx = teamId * MapAgentsPerTeam
-  let endIdx = min(startIdx + MapAgentsPerTeam, env.agents.len)
-  for i in startIdx ..< endIdx:
-    let agent = env.agents[i]
-    if not agent.isNil and env.terminated[i] != 0.0 and agent.hp <= 0:
-      inc result
-
-proc countBuildings(env: Environment, teamId: int): int =
-  ## Count standing buildings owned by a team
-  for kind in ThingKind:
-    if kind in {Altar, TownCenter, House, Barracks, ArcheryRange, Stable,
-                Blacksmith, Market, Monastery, University, Castle, Wonder,
-                SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
-                Dock, Outpost, GuardTower, Wall, Door, Mill, Granary,
-                LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven,
-                Lantern, Temple}:
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.teamId == teamId and thing.hp > 0:
-          inc result
-
 proc collectMetrics(env: Environment): array[MapRoomObjectsTeams, TeamMetrics] =
   for teamId in 0 ..< MapRoomObjectsTeams:
-    result[teamId].totalResources =
-      env.teamStockpiles[teamId].counts[ResourceFood] +
-      env.teamStockpiles[teamId].counts[ResourceWood] +
-      env.teamStockpiles[teamId].counts[ResourceStone] +
-      env.teamStockpiles[teamId].counts[ResourceGold]
+    result[teamId].totalResources = getTotalStockpile(env, teamId)
     result[teamId].aliveUnits = countAliveUnits(env, teamId)
     result[teamId].unitsKilled = countDeadUnits(env, teamId)
     result[teamId].buildingsBuilt = countBuildings(env, teamId)

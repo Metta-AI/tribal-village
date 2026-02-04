@@ -1,8 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral tests for item pickup, drop (dropoff), and inventory slot management.
 

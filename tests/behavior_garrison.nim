@@ -1,8 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import types
-import items
-import test_utils
+import test_common
 
 suite "Behavior: Garrison Entry":
   test "villager garrisons in TownCenter via USE action":

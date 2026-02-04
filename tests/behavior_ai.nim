@@ -2,47 +2,12 @@
 ## Tests run multi-step games with fixed seeds and verify AI behavior patterns.
 
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 const
-  TestSeed = 42
-  LongRunSteps = 300
-  ShortRunSteps = 100
-
-proc runGameSteps(env: Environment, steps: int) =
-  ## Run the game for N steps using the global AI controller.
-  for i in 0 ..< steps:
-    let actions = getActions(env)
-    env.step(addr actions)
-
-proc countRolesByTeam(teamId: int): tuple[gatherers, builders, fighters: int] =
-  ## Count agents by role for a given team.
-  let controller = globalController.aiController
-  let startIdx = teamId * MapAgentsPerTeam
-  let endIdx = min(startIdx + MapAgentsPerTeam, MapAgents)
-  for agentId in startIdx ..< endIdx:
-    if controller.isAgentInitialized(agentId):
-      let role = controller.getAgentRole(agentId)
-      case role
-      of Gatherer: inc result.gatherers
-      of Builder: inc result.builders
-      of Fighter: inc result.fighters
-      of Scripted: discard  # Count as specialized
-
-proc printRoleSummary(teamId: int, label: string) =
-  let roles = countRolesByTeam(teamId)
-  echo fmt"  [{label}] Team {teamId}: gatherers={roles.gatherers} builders={roles.builders} fighters={roles.fighters}"
-
-proc printStockpileSummary(env: Environment, teamId: int, label: string) =
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let gold = env.stockpileCount(teamId, ResourceGold)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  echo fmt"  [{label}] Team {teamId}: food={food} wood={wood} gold={gold} stone={stone}"
+  TestSeed = DefaultTestSeed
+  LongRunSteps = LongSimSteps
+  ShortRunSteps = ShortSimSteps
 
 suite "Behavioral AI - Gatherer Role":
   test "gatherer AI actually gathers resources over 300 steps":

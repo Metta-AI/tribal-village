@@ -1,8 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import test_utils
+import test_common
 
 suite "Behavior: Fog of War Visibility on Unit Movement":
   test "unit reveals tiles at new position after moving":

@@ -1,9 +1,6 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
+import test_common
 import formations
-import test_utils
 
 suite "Behavior: Formation Position Assignment":
   test "units in line formation get distinct relative positions":
