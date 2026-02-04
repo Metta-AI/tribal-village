@@ -1,6 +1,6 @@
 # This file is included by src/environment.nim
 # std/os is already imported by console_viz.nim (included before this file)
-import std/strutils
+# std/strutils is already imported by environment.nim
 
 when defined(rewardBatch):
   import std/monotimes

@@ -267,11 +267,6 @@ proc clearRevealedMap*(env: Environment, teamId: int) =
     for y in 0 ..< MapHeight:
       env.revealedMaps[teamId][x][y] = false
 
-proc clearAllRevealedMaps*(env: Environment) =
-  ## Clear revealed maps for all teams.
-  for teamId in 0 ..< MapRoomObjectsTeams:
-    env.clearRevealedMap(teamId)
-
 proc updateRevealedMapFromVision*(env: Environment, agent: Thing) =
   ## Update the revealed map based on agent's current vision.
   ## Scouts have extended vision range for exploration.
@@ -1441,12 +1436,6 @@ proc getPatrolTarget*(controller: Controller, agentId: int): IVec2 =
     else:
       return state.patrolPoint1
   ivec2(-1, -1)
-
-proc switchPatrolDirection*(controller: Controller, agentId: int) =
-  ## Switch patrol direction (toggle between heading to point1 and point2).
-  if agentId >= 0 and agentId < MapAgents:
-    controller.agents[agentId].patrolToSecondPoint =
-      not controller.agents[agentId].patrolToSecondPoint
 
 # Scout behavior helpers
 proc setScoutMode*(controller: Controller, agentId: int, active: bool = true) =
