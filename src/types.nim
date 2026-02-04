@@ -536,6 +536,9 @@ type
     # Tint tracking:
     lastTintPos*: IVec2        # Last position where tint was applied (for delta optimization)
 
+    # Mill farm queue (AoE2-style auto-reseed):
+    farmQueue*: seq[IVec2]     # Queue of farm positions to auto-reseed when stubble appears
+
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 
   PoolStats* = object
@@ -986,6 +989,30 @@ type
     ## Each upgrade is either researched (true) or not (false)
     researched*: array[UnitUpgradeType, bool]
 
+  EconomyTechType* = enum
+    ## AoE2-style economy technologies (researched at various buildings)
+    ## Town Center techs (villager improvements)
+    TechWheelbarrow       ## +10% villager speed, +3 carry capacity
+    TechHandCart          ## +10% villager speed, +7 carry capacity (stacks)
+    ## Lumber Camp techs (wood gathering improvements)
+    TechDoubleBitAxe      ## +20% wood gathering rate
+    TechBowSaw            ## +20% wood gathering rate (stacks)
+    TechTwoManSaw         ## +10% wood gathering rate (stacks)
+    ## Mining Camp techs (gold/stone gathering improvements)
+    TechGoldMining        ## +15% gold gathering rate
+    TechGoldShaftMining   ## +15% gold gathering rate (stacks)
+    TechStoneMining       ## +15% stone gathering rate
+    TechStoneShaftMining  ## +15% stone gathering rate (stacks)
+    ## Mill techs (farm improvements)
+    TechHorseCollar       ## +75 farm food, enables auto-reseed
+    TechHeavyPlow         ## +125 farm food (stacks)
+    TechCropRotation      ## +175 farm food (stacks)
+
+  EconomyTechs* = object
+    ## Team-level economy tech progress (AoE2-style)
+    ## Each tech is either researched (true) or not (false)
+    researched*: array[EconomyTechType, bool]
+
   ElevationGrid* = array[MapWidth, array[MapHeight, int8]]
 
   # Fog of war: tracks which tiles each team has explored (AoE2-style)
@@ -1011,6 +1038,7 @@ type
     teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University techs
     teamCastleTechs*: array[MapRoomObjectsTeams, CastleTechs]  # AoE2-style Castle unique techs
     teamUnitUpgrades*: array[MapRoomObjectsTeams, UnitUpgrades]  # AoE2-style unit promotion chains
+    teamEconomyTechs*: array[MapRoomObjectsTeams, EconomyTechs]  # AoE2-style economy techs
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

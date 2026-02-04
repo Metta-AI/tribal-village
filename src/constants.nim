@@ -217,6 +217,57 @@ const
   UnitUpgradeTier3FoodCost* = 6
   UnitUpgradeTier3GoldCost* = 4
 
+  # Economy techs (AoE2-style)
+  # Town Center techs
+  WheelbarrowFoodCost* = 4
+  WheelbarrowWoodCost* = 2
+  WheelbarrowCarryBonus* = 3
+  WheelbarrowSpeedBonus* = 10  # +10% speed
+  HandCartFoodCost* = 6
+  HandCartWoodCost* = 3
+  HandCartCarryBonus* = 7
+  HandCartSpeedBonus* = 10  # +10% speed (stacks)
+
+  # Lumber Camp techs
+  DoubleBitAxeFoodCost* = 2
+  DoubleBitAxeWoodCost* = 1
+  DoubleBitAxeGatherBonus* = 20  # +20%
+  BowSawFoodCost* = 3
+  BowSawWoodCost* = 2
+  BowSawGatherBonus* = 20  # +20% (stacks)
+  TwoManSawFoodCost* = 4
+  TwoManSawWoodCost* = 2
+  TwoManSawGatherBonus* = 10  # +10% (stacks)
+
+  # Mining Camp techs
+  GoldMiningFoodCost* = 2
+  GoldMiningWoodCost* = 1
+  GoldMiningGatherBonus* = 15  # +15%
+  GoldShaftMiningFoodCost* = 3
+  GoldShaftMiningWoodCost* = 2
+  GoldShaftMiningGatherBonus* = 15  # +15% (stacks)
+  StoneMiningFoodCost* = 2
+  StoneMiningWoodCost* = 1
+  StoneMiningGatherBonus* = 15  # +15%
+  StoneShaftMiningFoodCost* = 3
+  StoneShaftMiningWoodCost* = 2
+  StoneShaftMiningGatherBonus* = 15  # +15% (stacks)
+
+  # Mill techs
+  HorseCollarFoodCost* = 3
+  HorseCollarWoodCost* = 2
+  HorseCollarFarmBonus* = 75  # +75 farm food
+  HeavyPlowFoodCost* = 4
+  HeavyPlowWoodCost* = 2
+  HeavyPlowFarmBonus* = 125  # +125 farm food (stacks)
+  CropRotationFoodCost* = 5
+  CropRotationWoodCost* = 3
+  CropRotationFarmBonus* = 175  # +175 farm food (stacks)
+
+  # Farm auto-reseed cost
+  FarmReseedWoodCost* = 1
+  FarmReseedFoodCost* = 0
+
   # ============================================================================
   # Blacksmith Upgrade Bonuses
   # ============================================================================
