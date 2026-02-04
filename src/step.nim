@@ -535,11 +535,11 @@ proc stepApplyMonkAuras(env: Environment) =
     if isThingFrozen(monk, env):
       continue
     let teamId = getTeamId(monk)
-    # Use spatial index to find nearby allies instead of scanning all agents
-    var nearbyAllies = newSeqOfCap[Thing](12)
-    collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, nearbyAllies)
+    # Use spatial index to find nearby allies - reuse pre-allocated buffer
+    env.tempMonkAuraAllies.setLen(0)
+    collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, env.tempMonkAuraAllies)
     var needsHeal = false
-    for ally in nearbyAllies:
+    for ally in env.tempMonkAuraAllies:
       if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
         needsHeal = true
         break
@@ -560,7 +560,7 @@ proc stepApplyMonkAuras(env: Environment) =
           continue
         env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
 
-    for ally in nearbyAllies:
+    for ally in env.tempMonkAuraAllies:
       if not isThingFrozen(ally, env):
         healFlags[ally.agentId] = true
 
@@ -730,9 +730,10 @@ proc checkKingOfTheHillVictory(env: Environment): int =
       continue
     # Count living agents per team within the control radius using spatial query
     var teamUnits: array[MapRoomObjectsTeams, int]
-    var nearbyAgents: seq[Thing] = @[]
-    collectThingsInRangeSpatial(env, cp.pos, Agent, HillControlRadius, nearbyAgents)
-    for agent in nearbyAgents:
+    # Reuse tower targets buffer for control point agents (not used simultaneously)
+    env.tempTowerTargets.setLen(0)
+    collectThingsInRangeSpatial(env, cp.pos, Agent, HillControlRadius, env.tempTowerTargets)
+    for agent in env.tempTowerTargets:
       if not isAgentAlive(env, agent):
         continue
       let teamId = getTeamId(agent)
@@ -1182,12 +1183,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
           var relocated = false
           # Helper to ensure lantern spacing (Chebyshev >= 3 from other lanterns)
-          # Uses spatial query instead of O(n) scan
+          # Uses spatial query with pre-allocated buffer to avoid heap allocations
           template spacingOk(nextPos: IVec2): bool =
             var isSpaced = true
-            var nearbyLanterns: seq[Thing] = @[]
-            collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
-            for t in nearbyLanterns:
+            env.tempLanternSpacing.setLen(0)
+            collectThingsInRangeSpatial(env, nextPos, Lantern, 2, env.tempLanternSpacing)
+            for t in env.tempLanternSpacing:
               if t != blocker:
                 isSpaced = false
                 break
@@ -2036,14 +2037,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   let teamId = getTeamId(agent)
                   if thing.teamId == teamId:
                     var traded = false
-                    var carried = newSeqOfCap[tuple[key: ItemKey, count: int]](MapObjectAgentMaxInventory)
+                    # Reuse arena buffer for inventory snapshot
+                    env.arena.itemCounts.setLen(0)
                     for key, count in agent.inventory.pairs:
                       if count <= 0:
                         continue
                       if not isStockpileResourceKey(key):
                         continue
-                      carried.add((key: key, count: count))
-                    for entry in carried:
+                      env.arena.itemCounts.add((key: key, count: count))
+                    for entry in env.arena.itemCounts:
                       let key = entry.key
                       let count = entry.count
                       let stockpileRes = stockpileResourceForItem(key)
