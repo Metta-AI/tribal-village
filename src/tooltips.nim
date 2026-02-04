@@ -170,6 +170,9 @@ proc getCommandDescription*(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: "Long-range siege unit. Must unpack to fire."
   of CmdTrainBoat: "Naval unit for water control."
   of CmdTrainTradeCog: "Trade ship that generates gold on trade routes."
+  of CmdFormationLine: "Arrange selected units in a horizontal line formation."
+  of CmdFormationBox: "Arrange selected units in a defensive box formation."
+  of CmdFormationStaggered: "Arrange selected units in a staggered formation for ranged combat."
 
 proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
   ## Get resource costs for a command (building or training).
@@ -311,6 +314,9 @@ proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipConte
     of CmdTrainTrebuchet: "Train Trebuchet"
     of CmdTrainBoat: "Train Boat"
     of CmdTrainTradeCog: "Train Trade Cog"
+    of CmdFormationLine: "Line Formation"
+    of CmdFormationBox: "Box Formation"
+    of CmdFormationStaggered: "Staggered Formation"
 
   result.description = getCommandDescription(kind)
   result.costLines = getCommandCosts(kind)
