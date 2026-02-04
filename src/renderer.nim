@@ -664,10 +664,7 @@ proc drawObjects*() =
 proc drawVisualRanges*(alpha = 0.2) =
   if not currentViewport.valid:
     return
-  # Optimized: Only track visibility for viewport tiles instead of entire map
-  # This reduces memory from 305x191 = 58K to viewport size (typically <100x100)
-  let vpWidth = currentViewport.maxX - currentViewport.minX + 1
-  let vpHeight = currentViewport.maxY - currentViewport.minY + 1
+  # Optimized: Only process agents whose vision could overlap the viewport
   # Use a smaller visibility buffer for just the viewport area
   var visibility: array[MapWidth, array[MapHeight, bool]]
   # Extended viewport bounds for agents whose vision overlaps viewport
@@ -824,7 +821,7 @@ proc drawDamageNumbers*() =
     let worldPos = vec2(dmg.pos.x.float32, dmg.pos.y.float32 - floatOffset)
     # Fade out
     let alpha = t * t  # Quadratic ease for smoother fade
-    let (imageKey, size) = getDamageNumberLabel(dmg.amount, dmg.kind)
+    let (imageKey, _) = getDamageNumberLabel(dmg.amount, dmg.kind)
     # Scale for world-space rendering (similar to HP bars)
     let scale = 1.0 / 200.0
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,

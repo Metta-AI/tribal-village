@@ -122,6 +122,9 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: "Trebuc"
   of CmdTrainBoat: "Boat"
   of CmdTrainTradeCog: "T.Cog"
+  of CmdFormationLine: "Line"
+  of CmdFormationBox: "Box"
+  of CmdFormationStaggered: "Stagger"
 
 proc getButtonHotkey*(kind: CommandButtonKind): string =
   case kind
@@ -157,6 +160,9 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: "E"
   of CmdTrainBoat: "Q"
   of CmdTrainTradeCog: "W"
+  of CmdFormationLine: "1"
+  of CmdFormationBox: "2"
+  of CmdFormationStaggered: "3"
 
 proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
   ## Convert a build command to the corresponding ThingKind.
