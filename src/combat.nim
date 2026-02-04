@@ -339,14 +339,13 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     remaining = max(1, remaining + bonus)
   let teamId = getTeamId(target)
   if teamId >= 0:
-    # Use spatial query instead of scanning all agents (100-1000x faster in dense combat)
-    var nearbyAllies: seq[Thing] = @[]
-    collectAlliesInRangeSpatial(env, target.pos, teamId, 2, nearbyAllies)
-    for agent in nearbyAllies:
-      if agent.unitClass notin {UnitManAtArms, UnitKnight}: continue
-      if isThingFrozen(agent, env): continue
-      let radius = if agent.unitClass == UnitKnight: 2 else: 1
-      if max(abs(agent.pos.x - target.pos.x), abs(agent.pos.y - target.pos.y)) <= radius:
+    # Iterate tankUnits directly (no allocation, avoids collecting all allies then filtering)
+    for tank in env.tankUnits:
+      if getTeamId(tank) != teamId: continue
+      if not isAgentAlive(env, tank): continue
+      if isThingFrozen(tank, env): continue
+      let radius = if tank.unitClass == UnitKnight: 2 else: 1
+      if max(abs(tank.pos.x - target.pos.x), abs(tank.pos.y - target.pos.y)) <= radius:
         remaining = max(1, (remaining + 1) div 2)
         break
 
