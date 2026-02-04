@@ -229,19 +229,14 @@ proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thi
 
 proc fighterSeesEnemyStructureUncached(env: Environment, agent: Thing): bool =
   ## Internal: actual search logic for enemy structures in vision.
-  ## Optimized: uses thingsByKind to only check attackable structure types
-  ## instead of iterating all env.things (O(k) where k = attackable structures, not O(n)).
+  ## Optimized: uses spatial index for O(cells) instead of O(all buildings) iteration.
   let teamId = getTeamId(agent)
-  let radius = ObservationRadius.int32
-  # Only check building kinds that are in AttackableStructures: Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery
-  # Note: Door is on backgroundGrid and not in thingsByKind, but current impl also didn't find doors
-  for kind in [Wall, Outpost, GuardTower, Castle, TownCenter, Monastery]:
-    for thing in env.thingsByKind[kind]:
-      if thing.isNil or thing.teamId == teamId or thing.teamId < 0:
-        continue
-      if chebyshevDist(agent.pos, thing.pos) <= radius:
-        return true
-  false
+  let radius = ObservationRadius.int
+  # Use spatial query to find nearest enemy building within observation radius
+  # Note: findNearestEnemyBuildingSpatial checks all TeamBuildingKinds which includes
+  # the relevant attackable structures (Wall, Outpost, GuardTower, Castle, TownCenter, Monastery)
+  let enemy = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, radius)
+  not enemy.isNil
 
 proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
   ## Check if agent can see an enemy structure within observation radius.

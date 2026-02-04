@@ -64,14 +64,9 @@ proc gathererStockpileTotal(agent: Thing): int =
       result += count
 
 proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
-  ## Optimized: uses thingsByKind iteration instead of grid scan
-  for kind in FoodKinds:
-    for thing in env.thingsByKind[kind]:
-      if thing.isNil:
-        continue
-      if chebyshevDist(pos, thing.pos) <= radius.int32:
-        return true
-  false
+  ## Optimized: uses spatial index for O(cells) instead of O(all food) iteration
+  let nearest = findNearestThingOfKindsSpatial(env, pos, FoodKinds, radius)
+  not nearest.isNil
 
 proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState,

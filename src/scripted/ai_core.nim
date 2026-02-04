@@ -595,13 +595,13 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =
   ## Find distance to nearest friendly building of specified kinds.
-  ## Optimized: uses thingsByKind instead of iterating all env.things.
+  ## Optimized: uses spatial index for O(cells) instead of O(n) thingsByKind iteration.
   result = int.high
   for kind in kinds:
-    for thing in env.thingsByKind[kind]:
-      if thing.isNil or thing.teamId != teamId:
-        continue
-      result = min(result, int(chebyshevDist(thing.pos, pos)))
+    # Use current best distance as maxDist to enable early-exit optimization
+    let nearest = findNearestFriendlyThingSpatial(env, pos, teamId, kind, result)
+    if not nearest.isNil:
+      result = min(result, int(chebyshevDist(nearest.pos, pos)))
 
 proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
   if controller.buildingCountsStep != env.currentStep:
@@ -990,11 +990,11 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
   ## Check if there's a healthy team lantern within 3 tiles of position.
-  ## Optimized: uses thingsByKind[Lantern] instead of iterating all env.things.
-  for thing in env.thingsByKind[Lantern]:
-    if thing.isNil or not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:
+  ## Optimized: uses spatial index for O(1 cell) instead of O(all lanterns) iteration.
+  var nearby: seq[Thing] = @[]
+  collectThingsInRangeSpatial(env, pos, Lantern, 3, nearby)
+  for thing in nearby:
+    if thing.lanternHealthy and thing.teamId == teamId:
       return true
   false
 
