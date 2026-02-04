@@ -8,8 +8,7 @@ suite "Behavioral Economy - Resource Gathering":
   test "gatherers accumulate food/wood/gold/stone over 200 steps":
     ## Run 200 steps with a fully initialized environment and verify
     ## each team accumulates at least some of each resource type.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 42)
+    let env = setupGameWithAI(DefaultTestSeed)
 
     printStockpileSummary(env, 0, "Start")
     printStockpileSummary(env, 1, "Start")
@@ -23,41 +22,23 @@ suite "Behavioral Economy - Resource Gathering":
     # (both teams have gatherers by default)
     var anyTeamGathered = false
     for teamId in 0 ..< MapRoomObjectsTeams:
-      let food = env.stockpileCount(teamId, ResourceFood)
-      let wood = env.stockpileCount(teamId, ResourceWood)
-      let totalResources = food + wood +
-                           env.stockpileCount(teamId, ResourceGold) +
-                           env.stockpileCount(teamId, ResourceStone)
-      if totalResources > 0:
+      if getTotalStockpile(env, teamId) > 0:
         anyTeamGathered = true
     check anyTeamGathered
 
   test "resources increase over time with fixed seed":
     ## Verify that resource accumulation grows over time - resources at step 200
     ## should be >= resources at step 100.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 123)
+    let env = setupGameWithAI(123)
 
     runGameSteps(env, 100)
 
-    var totalAt100 = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      totalAt100 += env.stockpileCount(teamId, ResourceFood)
-      totalAt100 += env.stockpileCount(teamId, ResourceWood)
-      totalAt100 += env.stockpileCount(teamId, ResourceGold)
-      totalAt100 += env.stockpileCount(teamId, ResourceStone)
-
+    let totalAt100 = getTotalStockpileAllTeams(env)
     echo fmt"  Total resources at step 100: {totalAt100}"
 
     runGameSteps(env, 100)
 
-    var totalAt200 = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      totalAt200 += env.stockpileCount(teamId, ResourceFood)
-      totalAt200 += env.stockpileCount(teamId, ResourceWood)
-      totalAt200 += env.stockpileCount(teamId, ResourceGold)
-      totalAt200 += env.stockpileCount(teamId, ResourceStone)
-
+    let totalAt200 = getTotalStockpileAllTeams(env)
     echo fmt"  Total resources at step 200: {totalAt200}"
 
     # Total resources across all teams should grow (or at least not decrease

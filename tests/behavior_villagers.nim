@@ -14,10 +14,7 @@ suite "Behavior: Villager Task Switching":
   test "gatherers switch tasks based on resource needs":
     ## Verify gatherers adapt their gathering based on stockpile state.
     ## When one resource is depleted, gatherers should gather that resource.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     # Record initial stockpiles
     printStockpileSummary(env, 0, "Start")
@@ -28,9 +25,7 @@ suite "Behavior: Villager Task Switching":
     printStockpileSummary(env, 0, "After 50 steps")
 
     # Deplete wood stockpile to create demand
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceWood, 0)
-      setStockpile(env, teamId, ResourceFood, 500)
+    setAllTeamsResources(env, food = 500, wood = 0)
 
     let woodBefore = env.stockpileCount(0, ResourceWood)
 
@@ -47,10 +42,7 @@ suite "Behavior: Villager Task Switching":
 
   test "gatherers can switch between food and wood tasks":
     ## Run a 300-step simulation and verify resource gathering occurs.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 123)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(123)
 
     # Track resource changes over time
     var resourceSnapshots: seq[tuple[step: int, food, wood: int]]
@@ -78,40 +70,14 @@ suite "Behavior: Villager Task Switching":
 suite "Behavior: Auto-Repair Damaged Buildings":
   test "builders find and repair damaged buildings":
     ## Create a damaged building and verify builders repair it or it gets improved.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Give teams resources to avoid other priorities
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 500)
-      setStockpile(env, teamId, ResourceWood, 500)
-      setStockpile(env, teamId, ResourceStone, 500)
-      setStockpile(env, teamId, ResourceGold, 500)
+    let env = setupGameWithAI(TestSeed)
+    giveAllTeamsPlentyOfResources(env)
 
     # Run initial steps to stabilize
     runGameSteps(env, 30)
 
     # Find a building to damage (prefer actual buildings over walls)
-    var damagedBuilding: Thing = nil
-    for thing in env.things:
-      if thing.isNil:
-        continue
-      if thing.teamId == 0 and thing.maxHp > 0 and thing.hp == thing.maxHp:
-        if isBuildingKind(thing.kind) and thing.kind != Wall and thing.kind != Door:
-          damagedBuilding = thing
-          break
-
-    # Fallback to wall if no other building found
-    if damagedBuilding.isNil:
-      for thing in env.things:
-        if thing.isNil:
-          continue
-        if thing.teamId == 0 and thing.maxHp > 0 and thing.hp == thing.maxHp:
-          if thing.kind == Wall:
-            damagedBuilding = thing
-            break
+    let damagedBuilding = findBuildingToTest(env, 0)
 
     if damagedBuilding.isNil:
       echo "  No building found to damage, skipping repair test"
@@ -143,15 +109,8 @@ suite "Behavior: Auto-Repair Damaged Buildings":
 
   test "builders prioritize repair over new construction when buildings damaged":
     ## Verify builders handle repair when multiple buildings are damaged.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 256)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Give resources
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 300)
-      setStockpile(env, teamId, ResourceWood, 300)
+    let env = setupGameWithAI(256)
+    setAllTeamsResources(env, food = 300, wood = 300)
 
     # Stabilize
     runGameSteps(env, 50)
@@ -183,31 +142,18 @@ suite "Behavior: Auto-Repair Damaged Buildings":
 suite "Behavior: Return to Task After Interrupt":
   test "gatherers return to gathering after fleeing from enemy":
     ## Place an enemy near gatherers, verify they flee, then return to task.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     # Run to stabilize and record initial resource gathering rate
     runGameSteps(env, ShortSteps)
 
-    var resourcesAt100 = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      resourcesAt100 +=
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood)
-
+    let resourcesAt100 = getTotalStockpileAllTeams(env)
     echo fmt"  Resources at step {ShortSteps}: {resourcesAt100}"
 
     # Continue running - gatherers should continue working
     runGameSteps(env, ShortSteps)
 
-    var resourcesAt200 = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      resourcesAt200 +=
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood)
-
+    let resourcesAt200 = getTotalStockpileAllTeams(env)
     echo fmt"  Resources at step {ShortSteps * 2}: {resourcesAt200}"
 
     # Resources should generally increase or stay stable
@@ -216,41 +162,16 @@ suite "Behavior: Return to Task After Interrupt":
 
   test "builders return to building after fleeing":
     ## Verify builders resume construction after threat passes.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 500)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(500)
+    giveAllTeamsPlentyOfResources(env)
 
-    # Give resources for building
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 500)
-      setStockpile(env, teamId, ResourceWood, 500)
-      setStockpile(env, teamId, ResourceStone, 500)
-      setStockpile(env, teamId, ResourceGold, 500)
-
-    # Count initial buildings
-    var initialBuildings = 0
-    for kind in ThingKind:
-      if kind == Agent:
-        continue
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.hp > 0 and thing.teamId >= 0:
-          inc initialBuildings
-
+    let initialBuildings = countAllBuildings(env)
     echo fmt"  Initial buildings: {initialBuildings}"
 
     # Run full simulation
     runGameSteps(env, SimSteps)
 
-    # Count final buildings
-    var finalBuildings = 0
-    for kind in ThingKind:
-      if kind == Agent:
-        continue
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.hp > 0 and thing.teamId >= 0:
-          inc finalBuildings
-
+    let finalBuildings = countAllBuildings(env)
     echo fmt"  Final buildings after {SimSteps} steps: {finalBuildings}"
 
     # Builders should have built something
@@ -259,10 +180,7 @@ suite "Behavior: Return to Task After Interrupt":
 suite "Behavior: Idle Villagers Seek Work":
   test "idle villagers find productive work":
     ## Verify villagers without immediate tasks will start working.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     # Track non-NOOP actions over time
     var actionCount = 0
@@ -288,17 +206,8 @@ suite "Behavior: Idle Villagers Seek Work":
 
   test "villagers distribute across available tasks":
     ## Verify role/task distribution across a team.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 789)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Give plenty of resources so no single task is overwhelming
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 200)
-      setStockpile(env, teamId, ResourceWood, 200)
-      setStockpile(env, teamId, ResourceStone, 200)
-      setStockpile(env, teamId, ResourceGold, 200)
+    let env = setupGameWithAI(789)
+    setAllTeamsResources(env, 200, 200, 200, 200)
 
     runGameSteps(env, ShortSteps)
 
@@ -314,10 +223,7 @@ suite "Behavior: Idle Villagers Seek Work":
 
   test "villagers remain active over 300 steps":
     ## Verify no villagers become permanently idle.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     # Track action counts per agent
     var agentActionCounts: array[MapAgents, int]
@@ -348,26 +254,14 @@ suite "Behavior: Idle Villagers Seek Work":
 suite "Behavior: 300-Step Simulation Summary":
   test "full 300-step villager multitasking simulation":
     ## Run a complete 300-step sim and verify overall villager productivity.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 999)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(999)
 
     # Record initial state
     var initialResources: array[MapRoomObjectsTeams, int]
     for teamId in 0 ..< MapRoomObjectsTeams:
-      initialResources[teamId] =
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceGold) +
-        env.stockpileCount(teamId, ResourceStone)
+      initialResources[teamId] = getTotalStockpile(env, teamId)
 
-    var initialBuildings = 0
-    for thing in env.things:
-      if not thing.isNil and thing.hp > 0:
-        if isBuildingKind(thing.kind):
-          inc initialBuildings
-
+    let initialBuildings = countAllBuildings(env)
     echo fmt"  Initial buildings: {initialBuildings}"
     echo fmt"  Initial resources team 0: {initialResources[0]}"
 
@@ -377,18 +271,9 @@ suite "Behavior: 300-Step Simulation Summary":
     # Record final state
     var finalResources: array[MapRoomObjectsTeams, int]
     for teamId in 0 ..< MapRoomObjectsTeams:
-      finalResources[teamId] =
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceGold) +
-        env.stockpileCount(teamId, ResourceStone)
+      finalResources[teamId] = getTotalStockpile(env, teamId)
 
-    var finalBuildings = 0
-    for thing in env.things:
-      if not thing.isNil and thing.hp > 0:
-        if isBuildingKind(thing.kind):
-          inc finalBuildings
-
+    let finalBuildings = countAllBuildings(env)
     echo fmt"  Final buildings: {finalBuildings}"
     echo fmt"  Final resources team 0: {finalResources[0]}"
 
@@ -406,15 +291,8 @@ suite "Behavior: 300-Step Simulation Summary":
 
   test "villagers handle mixed gather-build-repair over 300 steps":
     ## Test combined villager behaviors in a single long simulation.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 1234)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Give initial resources
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 300)
-      setStockpile(env, teamId, ResourceWood, 300)
+    let env = setupGameWithAI(1234)
+    setAllTeamsResources(env, food = 300, wood = 300)
 
     # Run first phase - gathering and building
     runGameSteps(env, ShortSteps)

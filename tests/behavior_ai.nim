@@ -12,19 +12,12 @@ const
 suite "Behavioral AI - Gatherer Role":
   test "gatherer AI actually gathers resources over 300 steps":
     ## Run 300 steps and verify gatherer AI increases resource count.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     # Record initial stockpiles
     var initialTotal: array[MapRoomObjectsTeams, int]
     for teamId in 0 ..< MapRoomObjectsTeams:
-      initialTotal[teamId] =
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceGold) +
-        env.stockpileCount(teamId, ResourceStone)
+      initialTotal[teamId] = getTotalStockpile(env, teamId)
       printStockpileSummary(env, teamId, "Start")
 
     runGameSteps(env, LongRunSteps)
@@ -33,11 +26,7 @@ suite "Behavioral AI - Gatherer Role":
     var anyTeamGathered = false
     for teamId in 0 ..< MapRoomObjectsTeams:
       printStockpileSummary(env, teamId, fmt"After {LongRunSteps} steps")
-      let finalTotal =
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceGold) +
-        env.stockpileCount(teamId, ResourceStone)
+      let finalTotal = getTotalStockpile(env, teamId)
       # Note: resources might be spent on buildings, so we check if either
       # stockpile increased OR buildings were constructed
       if finalTotal > initialTotal[teamId] or finalTotal > 0:
@@ -48,33 +37,16 @@ suite "Behavioral AI - Gatherer Role":
 
   test "gatherers continue gathering over extended periods":
     ## Verify resource gathering is sustained, not just initial burst.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 123)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(123)
 
     runGameSteps(env, ShortRunSteps)
 
-    var totalAt100 = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      totalAt100 +=
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceGold) +
-        env.stockpileCount(teamId, ResourceStone)
-
+    let totalAt100 = getTotalStockpileAllTeams(env)
     echo fmt"  Total resources at step {ShortRunSteps}: {totalAt100}"
 
     runGameSteps(env, ShortRunSteps)
 
-    var totalAt200 = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      totalAt200 +=
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceGold) +
-        env.stockpileCount(teamId, ResourceStone)
-
+    let totalAt200 = getTotalStockpileAllTeams(env)
     echo fmt"  Total resources at step {ShortRunSteps * 2}: {totalAt200}"
 
     # Resources should be non-zero at some point
@@ -83,31 +55,19 @@ suite "Behavioral AI - Gatherer Role":
 suite "Behavioral AI - Fighter Role":
   test "fighter AI engages enemies when in range":
     ## Run a full game and verify fighters deal damage to enemy teams.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Count initial HP across all agents
-    var initialTotalHp = 0
-    for agent in env.agents:
-      if not agent.isNil and agent.hp > 0:
-        initialTotalHp += agent.hp
-
+    let env = setupGameWithAI(TestSeed)
+    let initialTotalHp = getTotalHp(env)
     echo fmt"  Initial total HP across all agents: {initialTotalHp}"
 
     # Run game - fighters should engage and deal damage
     runGameSteps(env, 200)
 
-    # Count final HP
-    var finalTotalHp = 0
+    # Count final HP and dead agents
+    let finalTotalHp = getTotalHp(env)
     var deadAgents = 0
     for i, agent in env.agents:
-      if not agent.isNil:
-        if agent.hp > 0:
-          finalTotalHp += agent.hp
-        elif env.terminated[i] == 1.0:
-          inc deadAgents
+      if not agent.isNil and agent.hp <= 0 and env.terminated[i] == 1.0:
+        inc deadAgents
 
     echo fmt"  Final total HP: {finalTotalHp}, Dead agents: {deadAgents}"
 
@@ -116,32 +76,14 @@ suite "Behavioral AI - Fighter Role":
 
   test "fighter AI pursues enemies in multi-team game":
     ## Verify fighters reduce enemy counts over time.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 256)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Count initial alive agents per team
-    var initialCounts: array[MapRoomObjectsTeams, int]
-    for agent in env.agents:
-      if not agent.isNil and agent.hp > 0:
-        let teamId = getTeamId(agent)
-        if teamId >= 0 and teamId < MapRoomObjectsTeams:
-          inc initialCounts[teamId]
-
+    let env = setupGameWithAI(256)
+    let initialCounts = countAgentsPerTeam(env)
     echo fmt"  Initial agent counts: {initialCounts}"
 
     # Run game
     runGameSteps(env, 300)
 
-    # Count final alive agents per team
-    var finalCounts: array[MapRoomObjectsTeams, int]
-    for agent in env.agents:
-      if not agent.isNil and agent.hp > 0:
-        let teamId = getTeamId(agent)
-        if teamId >= 0 and teamId < MapRoomObjectsTeams:
-          inc finalCounts[teamId]
-
+    let finalCounts = countAgentsPerTeam(env)
     echo fmt"  Final agent counts: {finalCounts}"
 
     # At least some combat should have occurred
@@ -157,51 +99,19 @@ suite "Behavioral AI - Fighter Role":
 suite "Behavioral AI - Builder Role":
   test "builder AI constructs buildings when resources available":
     ## Run a full game and verify buildings are constructed.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
+    giveAllTeamsPlentyOfResources(env)
 
-    # Give teams plenty of resources
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 500)
-      setStockpile(env, teamId, ResourceWood, 500)
-      setStockpile(env, teamId, ResourceStone, 500)
-      setStockpile(env, teamId, ResourceGold, 500)
-
-    # Count initial buildings
-    var initialBuildings = 0
-    for kind in ThingKind:
-      if kind == Agent:
-        continue
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.hp > 0:
-          inc initialBuildings
-
+    let initialBuildings = countAllBuildings(env)
     echo fmt"  Initial buildings: {initialBuildings}"
 
     runGameSteps(env, 150)
 
-    # Count final buildings
-    var finalBuildings = 0
-    for kind in ThingKind:
-      if kind == Agent:
-        continue
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.hp > 0:
-          inc finalBuildings
-
+    let finalBuildings = countAllBuildings(env)
     echo fmt"  Final buildings: {finalBuildings}"
 
     # Check if resources were spent (indicating building attempts)
-    var totalResourcesRemaining = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      totalResourcesRemaining +=
-        env.stockpileCount(teamId, ResourceFood) +
-        env.stockpileCount(teamId, ResourceWood) +
-        env.stockpileCount(teamId, ResourceStone) +
-        env.stockpileCount(teamId, ResourceGold)
-
+    let totalResourcesRemaining = getTotalStockpileAllTeams(env)
     let initialTotalResources = MapRoomObjectsTeams * 2000  # 500 * 4 resources * teams
     let resourcesSpent = initialTotalResources - totalResourcesRemaining
 
@@ -212,31 +122,12 @@ suite "Behavioral AI - Builder Role":
 
   test "builder AI expands base over time":
     ## Verify buildings increase over extended play.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 500)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
-    # Give teams resources
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      setStockpile(env, teamId, ResourceFood, 300)
-      setStockpile(env, teamId, ResourceWood, 300)
-      setStockpile(env, teamId, ResourceStone, 300)
-      setStockpile(env, teamId, ResourceGold, 300)
+    let env = setupGameWithAI(500)
+    setAllTeamsResources(env, 300, 300, 300, 300)
 
     runGameSteps(env, 200)
 
-    # Count buildings per team
-    var buildingsPerTeam: array[MapRoomObjectsTeams, int]
-    for kind in ThingKind:
-      if kind == Agent:
-        continue
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.hp > 0:
-          let teamId = thing.teamId
-          if teamId >= 0 and teamId < MapRoomObjectsTeams:
-            inc buildingsPerTeam[teamId]
-
+    let buildingsPerTeam = countBuildingsPerTeam(env)
     echo fmt"  Buildings per team: {buildingsPerTeam}"
 
     # At least one team should have built something
@@ -251,10 +142,7 @@ suite "Behavioral AI - Builder Role":
 suite "Behavioral AI - Role Assignment":
   test "AI assigns roles appropriately - not all fighters or all gatherers":
     ## Verify the AI creates a balanced mix of roles.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     # Run enough steps to initialize all agents
     runGameSteps(env, 50)
@@ -274,10 +162,7 @@ suite "Behavioral AI - Role Assignment":
 
   test "role distribution follows expected 2-2-2 pattern per team":
     ## Verify the default slot-based role assignment.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = 777)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(777)
 
     # Initialize agents
     runGameSteps(env, 20)
@@ -301,40 +186,20 @@ suite "Behavioral AI - Adaptive Behavior":
   test "AI decision making uses fixed seeds consistently":
     ## Verify AI uses seeds - different seeds should produce different results.
     ## Note: Perfect determinism depends on global state reset which may vary.
-    var resourcesSeed1 = 0
-    var resourcesSeed2 = 0
 
     # Run with seed 888
+    var resourcesSeed1: int
     block:
-      let env = newEnvironment()
-      initGlobalController(BuiltinAI, seed = 888)
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
+      let env = setupGameWithAI(888)
       runGameSteps(env, 100)
-
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        resourcesSeed1 +=
-          env.stockpileCount(teamId, ResourceFood) +
-          env.stockpileCount(teamId, ResourceWood) +
-          env.stockpileCount(teamId, ResourceGold) +
-          env.stockpileCount(teamId, ResourceStone)
+      resourcesSeed1 = getTotalStockpileAllTeams(env)
 
     # Run with different seed 999
+    var resourcesSeed2: int
     block:
-      let env = newEnvironment()
-      initGlobalController(BuiltinAI, seed = 999)
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
+      let env = setupGameWithAI(999)
       runGameSteps(env, 100)
-
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        resourcesSeed2 +=
-          env.stockpileCount(teamId, ResourceFood) +
-          env.stockpileCount(teamId, ResourceWood) +
-          env.stockpileCount(teamId, ResourceGold) +
-          env.stockpileCount(teamId, ResourceStone)
+      resourcesSeed2 = getTotalStockpileAllTeams(env)
 
     echo fmt"  Seed 888 total resources: {resourcesSeed1}"
     echo fmt"  Seed 999 total resources: {resourcesSeed2}"
@@ -344,40 +209,20 @@ suite "Behavioral AI - Adaptive Behavior":
 
   test "different seeds produce different outcomes":
     ## Different seeds should produce different results.
-    var resourcesSeed1 = 0
-    var resourcesSeed2 = 0
 
     # Run with seed 111
+    var resourcesSeed1: int
     block:
-      let env = newEnvironment()
-      initGlobalController(BuiltinAI, seed = 111)
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
+      let env = setupGameWithAI(111)
       runGameSteps(env, 200)
-
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        resourcesSeed1 +=
-          env.stockpileCount(teamId, ResourceFood) +
-          env.stockpileCount(teamId, ResourceWood) +
-          env.stockpileCount(teamId, ResourceGold) +
-          env.stockpileCount(teamId, ResourceStone)
+      resourcesSeed1 = getTotalStockpileAllTeams(env)
 
     # Run with seed 222
+    var resourcesSeed2: int
     block:
-      let env = newEnvironment()
-      initGlobalController(BuiltinAI, seed = 222)
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        globalController.aiController.setDifficulty(teamId, DiffBrutal)
-
+      let env = setupGameWithAI(222)
       runGameSteps(env, 200)
-
-      for teamId in 0 ..< MapRoomObjectsTeams:
-        resourcesSeed2 +=
-          env.stockpileCount(teamId, ResourceFood) +
-          env.stockpileCount(teamId, ResourceWood) +
-          env.stockpileCount(teamId, ResourceGold) +
-          env.stockpileCount(teamId, ResourceStone)
+      resourcesSeed2 = getTotalStockpileAllTeams(env)
 
     echo fmt"  Seed 111 resources: {resourcesSeed1}"
     echo fmt"  Seed 222 resources: {resourcesSeed2}"
@@ -391,10 +236,7 @@ suite "Behavioral AI - Adaptive Behavior":
 suite "Behavioral AI - Long Game Stability":
   test "AI remains active and functional over 300 steps":
     ## Verify AI doesn't crash or become idle over extended play.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     var actionCounts: array[MapAgents, int]
 
@@ -419,10 +261,7 @@ suite "Behavioral AI - Long Game Stability":
 
   test "game state remains valid after 300 steps":
     ## Verify no crashes, no NaN values, valid entity states.
-    let env = newEnvironment()
-    initGlobalController(BuiltinAI, seed = TestSeed)
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      globalController.aiController.setDifficulty(teamId, DiffBrutal)
+    let env = setupGameWithAI(TestSeed)
 
     runGameSteps(env, LongRunSteps)
 
