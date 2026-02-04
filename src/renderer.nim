@@ -1646,7 +1646,7 @@ proc canPlaceBuildingAt*(pos: IVec2, kind: ThingKind): bool =
     return false
   # Check terrain
   let terrain = env.terrain[pos.x][pos.y]
-  if terrain == Water or terrain == ShallowWater:
+  if isWaterTerrain(terrain):
     return false
   # Check for existing objects
   let blocking = env.grid[pos.x][pos.y]
