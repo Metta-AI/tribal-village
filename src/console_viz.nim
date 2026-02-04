@@ -131,6 +131,9 @@ proc unitClassChar(uc: AgentUnitClass): char =
   of UnitMameluke:      'M'
   of UnitJanissary:     'J'
   of UnitKing:          'K'
+  of UnitGalley:        'y'  # Galley warship
+  of UnitFireShip:      'f'  # Fire Ship
+  of UnitScorpion:      'x'  # Scorpion ballista
 
 proc printGameMap*(env: Environment) =
   ## Render the map as ANSI colored text. One char per tile.

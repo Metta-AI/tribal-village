@@ -56,7 +56,22 @@ const BonusDamageByClass*: array[AgentUnitClass, array[AgentUnitClass, int]] = b
     (UnitHuskarl, UnitArcher, 2),
     (UnitHuskarl, UnitCrossbowman, 2),
     (UnitHuskarl, UnitArbalester, 2),
-    (UnitHuskarl, UnitLongbowman, 2)
+    (UnitHuskarl, UnitLongbowman, 2),
+
+    # Fire Ship (anti-ship) > water units
+    (UnitFireShip, UnitBoat, 2),
+    (UnitFireShip, UnitTradeCog, 2),
+    (UnitFireShip, UnitGalley, 2),
+    (UnitFireShip, UnitFireShip, 1),  # Less effective vs other fire ships
+
+    # Scorpion (anti-infantry) > infantry
+    (UnitScorpion, UnitManAtArms, 2),
+    (UnitScorpion, UnitLongSwordsman, 2),
+    (UnitScorpion, UnitChampion, 2),
+    (UnitScorpion, UnitSamurai, 2),
+    (UnitScorpion, UnitWoadRaider, 2),
+    (UnitScorpion, UnitTeutonicKnight, 2),
+    (UnitScorpion, UnitHuskarl, 2)
   ]:
     table[attacker][target] = value
   table
@@ -118,6 +133,13 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.25),
   # UnitArbalester (archer - yellow, stronger)
   TileColor(r: 1.00, g: 0.90, b: 0.25, intensity: 1.30),
+  # Naval combat units
+  # UnitGalley (naval - blue)
+  TileColor(r: 0.30, g: 0.50, b: 0.95, intensity: 1.25),
+  # UnitFireShip (naval fire - orange-red)
+  TileColor(r: 1.00, g: 0.50, b: 0.20, intensity: 1.35),
+  # UnitScorpion (siege - cyan-purple)
+  TileColor(r: 0.60, g: 0.50, b: 0.90, intensity: 1.35),
 ]
 
 # Action tint codes for per-unit bonus damage
@@ -164,6 +186,11 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintBonusScout,     # UnitHussar
   ActionTintBonusArcher,    # UnitCrossbowman
   ActionTintBonusArcher,    # UnitArbalester
+  # Naval combat units
+  ActionTintAttackBonus,    # UnitGalley - ranged naval
+  ActionTintAttackBonus,    # UnitFireShip - anti-ship
+  # Additional siege unit
+  ActionTintAttackBonus,    # UnitScorpion - anti-infantry siege
 ]
 
 # Death animation tint: dark red flash at kill location
