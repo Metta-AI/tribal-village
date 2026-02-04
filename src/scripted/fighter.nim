@@ -555,7 +555,8 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
 
 proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
-  true
+  ## Only start lantern work if agent has lanterns or is a villager (can craft them)
+  agent.inventoryLantern > 0 or agent.unitClass == UnitVillager
 
 proc shouldTerminateFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
