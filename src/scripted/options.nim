@@ -267,6 +267,44 @@ proc findNearbyEnemyForFlee*(env: Environment, agent: Thing, radius: int): Thing
   let teamId = getTeamId(agent)
   findNearestEnemyAgentSpatial(env, agent.pos, teamId, radius)
 
+proc fleeToBase*(controller: Controller, env: Environment, agent: Thing,
+                 agentId: int, state: var AgentState): uint8 =
+  ## Shared flee behavior - move toward home altar for safety.
+  ## Used by gatherer and builder flee behaviors.
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+  controller.moveTo(env, agent, agentId, state, basePos)
+
+proc fleeAwayFrom*(controller: Controller, env: Environment, agent: Thing,
+                   agentId: int, state: var AgentState, threatPos: IVec2): uint8 =
+  ## Flee away from a threat position, trying to maximize distance while
+  ## moving toward the agent's base for safety.
+  ## Returns the best movement action or NOOP if blocked.
+  let basePos = agent.getBasePos()
+  state.basePosition = basePos
+
+  # Try all directions and pick the one that maximizes distance from threat
+  var bestDir = -1
+  var bestScore = int.low
+  for dirIdx in 0 .. 7:
+    let delta = Directions8[dirIdx]
+    let newPos = agent.pos + delta
+    if not canEnterForMove(env, agent, agent.pos, newPos):
+      continue
+    # Score: distance from threat + proximity to base
+    let distFromThreat = max(abs(newPos.x - threatPos.x), abs(newPos.y - threatPos.y))
+    let distToBase = max(abs(newPos.x - basePos.x), abs(newPos.y - basePos.y))
+    let score = distFromThreat * 2 - distToBase  # Prioritize getting away from threat
+    if score > bestScore:
+      bestScore = score
+      bestDir = dirIdx
+
+  if bestDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, bestDir.uint8))
+
+  # If can't move, just noop
+  saveStateAndReturn(controller, agentId, state, 0'u8)
+
 proc optFallbackSearch*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   ## Shared fallback search behavior - explore when nothing else to do.

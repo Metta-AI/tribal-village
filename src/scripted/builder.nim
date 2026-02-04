@@ -43,29 +43,25 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   let nearestEnemyBuilding = findNearestEnemyBuildingSpatial(env, basePos, teamId, BuilderThreatRadius)
   not nearestEnemyBuilding.isNil
 
-proc builderFindNearbyEnemy(env: Environment, agent: Thing): Thing =
-  ## Find nearest enemy agent within flee radius using spatial index
-  findNearbyEnemyForFlee(env, agent, BuilderFleeRadius)
+const BuilderFleeRadiusConst = BuilderFleeRadius  # Local alias for consistency
 
 proc canStartBuilderFlee(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
-  not isNil(builderFindNearbyEnemy(env, agent))
+  not isNil(findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst))
 
 proc shouldTerminateBuilderFlee(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
-  isNil(builderFindNearbyEnemy(env, agent))
+  isNil(findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst))
 
 proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   ## Flee toward home altar when enemies are nearby.
   ## This causes builders to abandon construction when threatened.
-  let enemy = builderFindNearbyEnemy(env, agent)
+  let enemy = findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst)
   if isNil(enemy):
     return 0'u8
   # Move toward home altar for safety
-  let basePos = agent.getBasePos()
-  state.basePosition = basePos
-  controller.moveTo(env, agent, agentId, state, basePos)
+  fleeToBase(controller, env, agent, agentId, state)
 
 proc refreshDamagedBuildingCache*(controller: Controller, env: Environment) =
   ## Refresh the per-team damaged building cache if stale.

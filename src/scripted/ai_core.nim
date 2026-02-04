@@ -649,6 +649,19 @@ proc getBasePos*(agent: Thing): IVec2 =
   ## Return the agent's home altar position if valid, otherwise the agent's current position.
   if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
 
+proc findTeamAltar*(env: Environment, agent: Thing, teamId: int): tuple[pos: IVec2, hearts: int] =
+  ## Find the nearest team altar, preferring the agent's home altar.
+  ## Returns (position, hearts) or (ivec2(-1,-1), 0) if none found.
+  if agent.homeAltar.x >= 0:
+    let homeAltar = env.getThing(agent.homeAltar)
+    if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
+      return (homeAltar.pos, homeAltar.hearts)
+  # Use spatial query instead of O(n) altar scan
+  let nearestAltar = findNearestFriendlyThingSpatial(env, agent.pos, teamId, Altar, 1000)
+  if not nearestAltar.isNil:
+    return (nearestAltar.pos, nearestAltar.hearts)
+  (ivec2(-1, -1), 0)
+
 proc findAttackOpportunity*(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Simplified: pick the closest aligned target within range using a priority order.
