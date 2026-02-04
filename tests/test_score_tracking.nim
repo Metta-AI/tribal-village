@@ -5,9 +5,7 @@
 ## and that score resets on game reset.
 
 import std/[unittest, os, json]
-import environment
-import agent_control
-import types
+import test_common
 import balance_scorecard
 
 const
@@ -20,34 +18,6 @@ proc countTeamResources(env: Environment, teamId: int): int =
     env.teamStockpiles[teamId].counts[ResourceWood] +
     env.teamStockpiles[teamId].counts[ResourceStone] +
     env.teamStockpiles[teamId].counts[ResourceGold]
-
-proc countAliveUnits(env: Environment, teamId: int): int =
-  ## Count living units for a team
-  for agent in env.agents:
-    if getTeamId(agent) == teamId and isAgentAlive(env, agent):
-      inc result
-
-proc countDeadUnits(env: Environment, teamId: int): int =
-  ## Count agents that were alive but are now dead (killed)
-  let startIdx = teamId * MapAgentsPerTeam
-  let endIdx = min(startIdx + MapAgentsPerTeam, env.agents.len)
-  for i in startIdx ..< endIdx:
-    let agent = env.agents[i]
-    if not agent.isNil and env.terminated[i] != 0.0 and agent.hp <= 0:
-      inc result
-
-proc countBuildings(env: Environment, teamId: int): int =
-  ## Count standing buildings for a team
-  for kind in ThingKind:
-    if kind in {Altar, TownCenter, House, Barracks, ArcheryRange, Stable,
-                Blacksmith, Market, Monastery, University, Castle, Wonder,
-                SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
-                Dock, Outpost, GuardTower, Wall, Door, Mill, Granary,
-                LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven,
-                Lantern, Temple}:
-      for thing in env.thingsByKind[kind]:
-        if not thing.isNil and thing.teamId == teamId and thing.hp > 0:
-          inc result
 
 proc computeScore(env: Environment, teamId: int): int =
   ## Composite score: resources + population bonus

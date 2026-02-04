@@ -3,9 +3,7 @@
 ## Run with: nim r --path:src tests/integration_behaviors.nim
 
 import std/[strformat, math]
-import environment
-import agent_control
-import types
+import test_common
 import items
 
 const Steps = 500
@@ -32,13 +30,6 @@ proc countAliveAgents(env: Environment): int =
   for i in 0 ..< env.agents.len:
     if env.terminated[i] == 0.0 and not env.agents[i].isNil and env.agents[i].hp > 0:
       inc result
-
-proc totalTeamResources(env: Environment): int =
-  for teamId in 0 ..< MapRoomObjectsTeams:
-    result += env.teamStockpiles[teamId].counts[ResourceFood]
-    result += env.teamStockpiles[teamId].counts[ResourceWood]
-    result += env.teamStockpiles[teamId].counts[ResourceGold]
-    result += env.teamStockpiles[teamId].counts[ResourceStone]
 
 proc countBuildings(env: Environment): int =
   ## Count player-placed buildings (not resources/terrain/agents)
@@ -70,20 +61,20 @@ proc runGame(seed: int): GameSummary =
 
   result.seed = seed
   result.startAlive = countAliveAgents(env)
-  result.totalStartResources = totalTeamResources(env)
+  result.totalStartResources = getTotalStockpileAllTeams(env)
   result.peakResources = result.totalStartResources
   result.startBuildingCount = countBuildings(env)
 
   for step in 0 ..< Steps:
     var actions = getActions(env)
     env.step(addr actions)
-    let cur = totalTeamResources(env)
+    let cur = getTotalStockpileAllTeams(env)
     if cur > result.peakResources:
       result.peakResources = cur
 
   result.stepsCompleted = env.currentStep
   result.endAlive = countAliveAgents(env)
-  result.totalEndResources = totalTeamResources(env)
+  result.totalEndResources = getTotalStockpileAllTeams(env)
   result.endBuildingCount = countBuildings(env)
   result.totalDeaths = countDeaths(env)
   result.agentsCarryingResources = countAgentsCarryingResources(env)
