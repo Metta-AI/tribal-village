@@ -76,22 +76,18 @@ proc refreshDamagedBuildingCache*(controller: Controller, env: Environment) =
   # Clear counts
   for t in 0 ..< MapRoomObjectsTeams:
     controller.damagedBuildingCounts[t] = 0
-  # Scan all things once and cache damaged building positions per team
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    # Check if it's a repairable structure (building, wall, or door)
-    let isRepairable = isBuildingKind(thing.kind) or thing.kind in {Wall, Door}
-    if not isRepairable:
-      continue
-    if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
-      continue
-    if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
-      continue  # Not damaged or doesn't have hp
-    let t = thing.teamId
-    if controller.damagedBuildingCounts[t] < MaxDamagedBuildingsPerTeam:
-      controller.damagedBuildingPositions[t][controller.damagedBuildingCounts[t]] = thing.pos
-      controller.damagedBuildingCounts[t] += 1
+  # Optimized: iterate only building kinds via thingsByKind instead of all env.things
+  # TeamBuildingKinds already includes Wall and Door
+  for bKind in TeamBuildingKinds:
+    for thing in env.thingsByKind[bKind]:
+      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
+        continue
+      if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
+        continue  # Not damaged or doesn't have hp
+      let t = thing.teamId
+      if controller.damagedBuildingCounts[t] < MaxDamagedBuildingsPerTeam:
+        controller.damagedBuildingPositions[t][controller.damagedBuildingCounts[t]] = thing.pos
+        controller.damagedBuildingCounts[t] += 1
 
 proc findDamagedBuilding*(controller: Controller, env: Environment, agent: Thing): Thing =
   ## Find nearest damaged friendly building that needs repair.

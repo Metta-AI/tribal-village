@@ -610,14 +610,12 @@ proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, ki
     # Clear claimed buildings at start of new step - claims are per-step to prevent
     # multiple builders from trying to build the same building type in the same step
     controller.claimedBuildings = default(array[MapRoomObjectsTeams, set[ThingKind]])
-    for thing in env.things:
-      if thing.isNil:
-        continue
-      if not isBuildingKind(thing.kind):
-        continue
-      if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
-        continue
-      controller.buildingCounts[thing.teamId][thing.kind] += 1
+    # Optimized: iterate only building kinds via thingsByKind instead of all env.things
+    for bKind in TeamBuildingKinds:
+      for thing in env.thingsByKind[bKind]:
+        if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
+          continue
+        controller.buildingCounts[thing.teamId][thing.kind] += 1
   controller.buildingCounts[teamId][kind]
 
 proc isBuildingClaimed*(controller: Controller, teamId: int, kind: ThingKind): bool =
