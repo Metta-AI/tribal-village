@@ -6,6 +6,8 @@ import spatial_index
 import formations
 import state_dumper
 import arena_alloc
+when defined(techAudit):
+  import tech_audit
 export terrain, items, common
 export types, registry
 export spatial_index
@@ -1171,6 +1173,8 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   building.cooldown = 5  # Short cooldown after research
   when defined(eventLog):
     logTechResearched(teamId, "Blacksmith " & $upgradeType & " Level " & $(currentLevel + 1), env.currentStep)
+  when defined(techAudit):
+    logBlacksmithUpgrade(teamId, upgradeType, currentLevel + 1, env.currentStep)
   true
 
 proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
@@ -1223,6 +1227,8 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   building.cooldown = 8  # Longer cooldown for tech research
   when defined(eventLog):
     logTechResearched(teamId, "University " & $techType, env.currentStep)
+  when defined(techAudit):
+    logUniversityTech(teamId, techType, env.currentStep)
   true
 
 proc castleTechsForTeam*(teamId: int): (CastleTechType, CastleTechType) =
@@ -1386,6 +1392,8 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
   building.cooldown = 10  # Longer cooldown for unique tech research
   when defined(eventLog):
     logTechResearched(teamId, "Castle " & $techType, env.currentStep)
+  when defined(techAudit):
+    logCastleTech(teamId, techType, isImperial, env.currentStep)
   true
 
 # ---- Unit upgrade / promotion chain logic (AoE2-style) ----
@@ -1466,6 +1474,12 @@ proc getNextUnitUpgrade*(env: Environment, teamId: int, buildingKind: ThingKind)
 proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitClass, toClass: AgentUnitClass) =
   ## Upgrade all living units of fromClass on the given team to toClass.
   ## Preserves current HP ratio.
+  when defined(techAudit):
+    var unitsUpgraded = 0
+    let baseHpFrom = UnitMaxHpByClass[fromClass]
+    let baseHpTo = UnitMaxHpByClass[toClass]
+    let baseAttackFrom = UnitAttackDamageByClass[fromClass]
+    let baseAttackTo = UnitAttackDamageByClass[toClass]
   for agent in env.agents:
     if agent.isNil:
       continue
@@ -1483,6 +1497,14 @@ proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitCl
     agent.maxHp = UnitMaxHpByClass[toClass] + modifiers.unitHpBonus[toClass]
     agent.attackDamage = UnitAttackDamageByClass[toClass] + modifiers.unitAttackBonus[toClass]
     agent.hp = max(1, int(hpRatio * agent.maxHp.float))
+    when defined(techAudit):
+      inc unitsUpgraded
+  when defined(techAudit):
+    if unitsUpgraded > 0:
+      let attackDelta = baseAttackTo - baseAttackFrom
+      let hpDelta = baseHpTo - baseHpFrom
+      logUpgradeApplication(teamId, $fromClass & " -> " & $toClass, unitsUpgraded,
+                            attackDelta, 0, hpDelta, env.currentStep)
 
 proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): bool =
   ## Attempt to research the next unit upgrade at a military building.
@@ -1517,6 +1539,8 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
   building.cooldown = 8
   when defined(eventLog):
     logTechResearched(teamId, "Unit Upgrade " & $upgrade, env.currentStep)
+  when defined(techAudit):
+    logUnitUpgrade(teamId, upgrade, env.currentStep, costs)
   true
 
 proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
