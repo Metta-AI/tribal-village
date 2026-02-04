@@ -1148,6 +1148,100 @@ let MonkConversionOption* = OptionDef(
   interruptible: true
 )
 
+# ============================================================================
+# Trade Cog Behaviors
+# ============================================================================
+
+# TradeCogTradeRoute: Trade cogs travel between friendly docks to generate gold
+proc findNearestFriendlyDock(env: Environment, pos: IVec2, teamId: int, excludePos: IVec2): Thing =
+  ## Find the nearest friendly dock, optionally excluding a specific position
+  var best: Thing = nil
+  var bestDist = int.high
+  for thing in env.thingsByKind[Dock]:
+    if thing.teamId != teamId:
+      continue
+    if excludePos.x >= 0 and thing.pos == excludePos:
+      continue
+    let dist = int(chebyshevDist(pos, thing.pos))
+    if dist < bestDist:
+      bestDist = dist
+      best = thing
+  best
+
+proc canStartTradeCogTradeRoute*(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Trade cogs trade when there are at least 2 friendly docks
+  if agent.unitClass != UnitTradeCog:
+    return false
+  let teamId = getTeamId(agent)
+  var dockCount = 0
+  for thing in env.thingsByKind[Dock]:
+    if thing.teamId == teamId:
+      inc dockCount
+      if dockCount >= 2:
+        return true
+  false
+
+proc shouldTerminateTradeCogTradeRoute*(controller: Controller, env: Environment, agent: Thing,
+                                         agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer a trade cog or fewer than 2 friendly docks
+  not canStartTradeCogTradeRoute(controller, env, agent, agentId, state)
+
+proc optTradeCogTradeRoute*(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): uint8 =
+  ## Trade cog navigates between friendly docks to generate gold
+  let teamId = getTeamId(agent)
+  let homeDock = agent.tradeHomeDock
+
+  # Find target dock (different from home dock)
+  let targetDock = findNearestFriendlyDock(env, agent.pos, teamId, homeDock)
+  if isNil(targetDock):
+    return 0'u8
+
+  # Move toward target dock
+  controller.moveTo(env, agent, agentId, state, targetDock.pos)
+
+let TradeCogTradeRouteOption* = OptionDef(
+  name: "TradeCogTradeRoute",
+  canStart: canStartTradeCogTradeRoute,
+  shouldTerminate: shouldTerminateTradeCogTradeRoute,
+  act: optTradeCogTradeRoute,
+  interruptible: true
+)
+
+# ============================================================================
+# Siege Behaviors
+# ============================================================================
+
+# SiegeAdvance: Mangonels and Trebuchets advance toward and attack enemy buildings
+proc canStartSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): bool =
+  ## Siege units (mangonel, trebuchet) advance when there are enemy buildings
+  agent.unitClass in {UnitMangonel, UnitTrebuchet} and
+    not isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+
+proc shouldTerminateSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
+                                  agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer siege or no enemy buildings remain
+  agent.unitClass notin {UnitMangonel, UnitTrebuchet} or
+    isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+
+proc optSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 =
+  ## Siege unit advances toward enemy buildings and attacks them
+  let enemy = findNearestEnemyBuilding(env, agent.pos, getTeamId(agent))
+  if isNil(enemy):
+    return 0'u8
+  return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+let SiegeAdvanceOption* = OptionDef(
+  name: "SiegeAdvance",
+  canStart: canStartSiegeAdvance,
+  shouldTerminate: shouldTerminateSiegeAdvance,
+  act: optSiegeAdvance,
+  interruptible: true
+)
+
 let MetaBehaviorOptions* = [
   OptionDef(
     name: "BehaviorLanternFrontierPush",
@@ -1345,6 +1439,7 @@ let MetaBehaviorOptions* = [
     act: optTempleFusion,
     interruptible: true
   ),
+  # Monk behaviors
   OptionDef(
     name: "BehaviorMonkHeal",
     canStart: canStartMonkHeal,
@@ -1364,6 +1459,21 @@ let MetaBehaviorOptions* = [
     canStart: canStartMonkConversion,
     shouldTerminate: shouldTerminateMonkConversion,
     act: optMonkConversion,
+    interruptible: true
+  ),
+  # Trade and siege behaviors
+  OptionDef(
+    name: "BehaviorTradeCogTradeRoute",
+    canStart: canStartTradeCogTradeRoute,
+    shouldTerminate: shouldTerminateTradeCogTradeRoute,
+    act: optTradeCogTradeRoute,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorSiegeAdvance",
+    canStart: canStartSiegeAdvance,
+    shouldTerminate: shouldTerminateSiegeAdvance,
+    act: optSiegeAdvance,
     interruptible: true
   )
 ]
