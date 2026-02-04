@@ -60,6 +60,10 @@ type
 # Team-indexed economy state (global storage)
 var teamEconomy*: array[MapRoomObjectsTeams, EconomyState]
 
+# Per-step cache for worker counts to avoid O(n) env.agents scan
+var workerCountCacheStep: int = -1
+var workerCountCache: array[MapRoomObjectsTeams, tuple[counts: WorkerCounts, hasEnemy: bool]]
+
 proc recordSnapshot*(teamId: int, env: Environment) =
   ## Record current stockpile levels for resource flow tracking
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
@@ -120,29 +124,42 @@ proc getFlowRate*(teamId: int): ResourceFlowRate =
   teamEconomy[teamId].flowRate
 
 proc countWorkersAndEnemies*(controller: Controller, env: Environment, teamId: int): tuple[counts: WorkerCounts, hasEnemy: bool] =
-  ## Count agents by role for a team and detect enemy presence in a single pass
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if getTeamId(agent) != teamId:
-      result.hasEnemy = true
-      continue
-    inc result.counts.total
-    let agentId = agent.agentId
-    if agentId < 0 or agentId >= MapAgents or not controller.agentsInitialized[agentId]:
-      # Default to gatherer if not initialized
-      inc result.counts.gatherers
-      continue
-    case controller.agents[agentId].role
-    of Gatherer:
-      inc result.counts.gatherers
-    of Builder:
-      inc result.counts.builders
-    of Fighter:
-      inc result.counts.fighters
-    of Scripted:
-      # Count scripted as gatherers for ratio purposes
-      inc result.counts.gatherers
+  ## Count agents by role for a team and detect enemy presence in a single pass.
+  ## Cached per-step to avoid O(n) env.agents scan - all teams computed together on first call.
+  if workerCountCacheStep != env.currentStep:
+    # Cache miss - recompute for all teams in single pass
+    workerCountCacheStep = env.currentStep
+    for t in 0 ..< MapRoomObjectsTeams:
+      workerCountCache[t] = (WorkerCounts(), false)
+    for agent in env.agents:
+      if not isAgentAlive(env, agent):
+        continue
+      let agentTeam = getTeamId(agent)
+      if agentTeam < 0 or agentTeam >= MapRoomObjectsTeams:
+        continue
+      # Mark all other teams as having enemy presence
+      for t in 0 ..< MapRoomObjectsTeams:
+        if t != agentTeam:
+          workerCountCache[t].hasEnemy = true
+      inc workerCountCache[agentTeam].counts.total
+      let agentId = agent.agentId
+      if agentId < 0 or agentId >= MapAgents or not controller.agentsInitialized[agentId]:
+        # Default to gatherer if not initialized
+        inc workerCountCache[agentTeam].counts.gatherers
+        continue
+      case controller.agents[agentId].role
+      of Gatherer:
+        inc workerCountCache[agentTeam].counts.gatherers
+      of Builder:
+        inc workerCountCache[agentTeam].counts.builders
+      of Fighter:
+        inc workerCountCache[agentTeam].counts.fighters
+      of Scripted:
+        # Count scripted as gatherers for ratio purposes
+        inc workerCountCache[agentTeam].counts.gatherers
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    return workerCountCache[teamId]
+  (WorkerCounts(), false)
 
 proc countWorkers*(controller: Controller, env: Environment, teamId: int): WorkerCounts =
   ## Count agents by role for a team using controller's agent state
@@ -218,3 +235,4 @@ proc updateEconomy*(controller: Controller, env: Environment, teamId: int) =
 proc resetEconomy*() =
   ## Reset all economy state (call on environment reset)
   zeroMem(addr teamEconomy, sizeof(teamEconomy))
+  workerCountCacheStep = -1
