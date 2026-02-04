@@ -62,6 +62,54 @@ const
   SearchRadius* = 50
   SpiralAdvanceSteps = 3
 
+# ---------------------------------------------------------------------------
+# Generic per-agent per-step cache infrastructure
+# Consolidates repeated cache boilerplate pattern used in fighter.nim
+# ---------------------------------------------------------------------------
+
+type
+  PerAgentCache*[T] = object
+    ## Generic per-agent cache with per-step invalidation.
+    ## Used to avoid redundant spatial lookups when canStart/shouldTerminate/act
+    ## all call the same expensive function for the same agent in the same step.
+    cacheStep*: int
+    cache*: array[MapAgents, T]
+    valid*: array[MapAgents, bool]
+
+proc invalidateIfStale*[T](cache: var PerAgentCache[T], currentStep: int) {.inline.} =
+  ## Invalidate the cache if the step has changed.
+  if cache.cacheStep != currentStep:
+    cache.cacheStep = currentStep
+    for i in 0 ..< MapAgents:
+      cache.valid[i] = false
+
+proc get*[T](cache: var PerAgentCache[T], env: Environment, agentId: int,
+             compute: proc(env: Environment, agentId: int): T): T =
+  ## Get cached value or compute and cache if not valid.
+  ## The compute proc takes env and agentId and returns the result.
+  cache.invalidateIfStale(env.currentStep)
+  if agentId >= 0 and agentId < MapAgents:
+    if not cache.valid[agentId]:
+      cache.cache[agentId] = compute(env, agentId)
+      cache.valid[agentId] = true
+    return cache.cache[agentId]
+  # Fallback: compute without caching for invalid agentId
+  compute(env, agentId)
+
+proc getWithAgent*[T](cache: var PerAgentCache[T], env: Environment, agent: Thing,
+                       compute: proc(env: Environment, agent: Thing): T): T =
+  ## Get cached value or compute and cache if not valid.
+  ## The compute proc takes env and agent Thing and returns the result.
+  cache.invalidateIfStale(env.currentStep)
+  let aid = agent.agentId
+  if aid >= 0 and aid < MapAgents:
+    if not cache.valid[aid]:
+      cache.cache[aid] = compute(env, agent)
+      cache.valid[aid] = true
+    return cache.cache[aid]
+  # Fallback: compute without caching for invalid agentId
+  compute(env, agent)
+
 proc getDifficulty*(controller: Controller, teamId: int): DifficultyConfig =
   ## Get the difficulty configuration for a team.
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
