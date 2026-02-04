@@ -153,6 +153,7 @@ proc stepNoop*(env: Environment) =
   for i in 0 ..< MapAgents:
     actions[i] = 0
   env.step(addr actions)
+  env.ensureObservations()
 
 proc stepAction*(env: Environment, agentId: int, verb: uint8, argument: int) =
   while env.agents.len < MapAgents:
@@ -178,6 +179,7 @@ proc stepAction*(env: Environment, agentId: int, verb: uint8, argument: int) =
     actions[i] = 0
   actions[agentId] = encodeAction(verb, argument.uint8)
   env.step(addr actions)
+  env.ensureObservations()
 
 proc newTestController*(seed: int): Controller =
   ## Create a controller configured for testing with Brutal difficulty (no decision delays).
