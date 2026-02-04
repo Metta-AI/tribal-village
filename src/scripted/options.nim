@@ -868,6 +868,14 @@ proc optMarketTrade*(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u8)
 
+let MarketTradeOption* = OptionDef(
+  name: "MarketTrade",
+  canStart: canStartMarketTrade,
+  shouldTerminate: shouldTerminateMarketTrade,
+  act: optMarketTrade,
+  interruptible: true
+)
+
 proc canStartStockpileDistributor(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   canStartStoreValuables(controller, env, agent, agentId, state)

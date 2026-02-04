@@ -665,13 +665,7 @@ let BuilderOptions* = [
     act: optBuilderGatherScarce,
     interruptible: true
   ),
-  OptionDef(
-    name: "BuilderMarketTrade",
-    canStart: canStartMarketTrade,
-    shouldTerminate: shouldTerminateMarketTrade,
-    act: optMarketTrade,
-    interruptible: true
-  ),
+  MarketTradeOption,
   OptionDef(
     name: "BuilderVisitTradingHub",
     canStart: canStartBuilderVisitTradingHub,
@@ -794,13 +788,7 @@ let BuilderOptionsThreat* = [
     act: optBuilderGatherScarce,
     interruptible: true
   ),
-  OptionDef(
-    name: "BuilderMarketTrade",
-    canStart: canStartMarketTrade,
-    shouldTerminate: shouldTerminateMarketTrade,
-    act: optMarketTrade,
-    interruptible: true
-  ),
+  MarketTradeOption,
   OptionDef(
     name: "BuilderVisitTradingHub",
     canStart: canStartBuilderVisitTradingHub,

@@ -446,13 +446,7 @@ let GathererOptions* = [
     act: optPlantOnFertile,
     interruptible: true
   ),
-  OptionDef(
-    name: "GathererMarketTrade",
-    canStart: canStartMarketTrade,
-    shouldTerminate: shouldTerminateMarketTrade,
-    act: optMarketTrade,
-    interruptible: true
-  ),
+  MarketTradeOption,
   OptionDef(
     name: "GathererCarryingStockpile",
     canStart: canStartGathererCarrying,
