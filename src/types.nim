@@ -109,6 +109,11 @@ const
   ActionTintAttackHussar* = 52'u8
   ActionTintAttackCrossbowman* = 53'u8
   ActionTintAttackArbalester* = 54'u8
+  # Naval combat units
+  ActionTintAttackGalley* = 55'u8
+  ActionTintAttackFireShip* = 56'u8
+  # Additional siege unit
+  ActionTintAttackScorpion* = 57'u8
   ActionTintDeath* = 60'u8            # Death animation tint at kill location
 
   # Computed Values
@@ -333,6 +338,11 @@ type
     UnitHussar         # Scout upgrade tier 3
     UnitCrossbowman    # Archer upgrade tier 2
     UnitArbalester     # Archer upgrade tier 3
+    # Naval combat units
+    UnitGalley         # Combat warship, ranged attack on water
+    UnitFireShip       # Anti-ship fire unit, bonus vs water units
+    # Additional siege unit
+    UnitScorpion       # Anti-infantry siege ballista, ranged
 
 const
   ## Tank units with shield auras (ManAtArms and Knight)
@@ -377,7 +387,12 @@ const
     "Light Cavalry",
     "Hussar",
     "Crossbowman",
-    "Arbalester"
+    "Arbalester",
+    # Naval combat units
+    "Galley",
+    "Fire Ship",
+    # Additional siege unit
+    "Scorpion"
   ]
 
 type

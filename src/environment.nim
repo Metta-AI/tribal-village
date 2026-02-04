@@ -534,7 +534,12 @@ const
     LightCavalryMaxHp,
     HussarMaxHp,
     CrossbowmanMaxHp,
-    ArbalesterMaxHp
+    ArbalesterMaxHp,
+    # Naval combat units
+    GalleyMaxHp,
+    FireShipMaxHp,
+    # Additional siege unit
+    ScorpionMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
     VillagerAttackDamage,
@@ -565,7 +570,12 @@ const
     LightCavalryAttackDamage,
     HussarAttackDamage,
     CrossbowmanAttackDamage,
-    ArbalesterAttackDamage
+    ArbalesterAttackDamage,
+    # Naval combat units
+    GalleyAttackDamage,
+    FireShipAttackDamage,
+    # Additional siege unit
+    ScorpionAttackDamage
   ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
@@ -578,7 +588,8 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
      UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing,
-     UnitLongSwordsman, UnitChampion, UnitLightCavalry, UnitHussar, UnitCrossbowman, UnitArbalester:
+     UnitLongSwordsman, UnitChampion, UnitLightCavalry, UnitHussar, UnitCrossbowman, UnitArbalester,
+     UnitGalley, UnitFireShip, UnitScorpion:
     StanceDefensive
 
 type
@@ -602,7 +613,8 @@ proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
   of UnitArcher, UnitLongbowman, UnitJanissary,
      UnitCrossbowman, UnitArbalester:
     CategoryArcher
-  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat, UnitKing, UnitTradeCog:
+  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat, UnitKing, UnitTradeCog,
+     UnitGalley, UnitFireShip, UnitScorpion:
     CategoryNone
 
 proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
@@ -865,7 +877,7 @@ proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
   not isNil(background) and background.kind == Dock
 
 proc isWaterUnit*(agent: Thing): bool {.inline.} =
-  agent.unitClass in {UnitBoat, UnitTradeCog}
+  agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip}
 
 proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
   env.terrain[pos.x][pos.y] == Water and not agent.isWaterUnit and not env.hasDockAt(pos)

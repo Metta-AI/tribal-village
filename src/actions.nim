@@ -88,6 +88,17 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitArbalester - Yellow archer (strongest)
   UnitAttackTint(tint: TileColor(r: 0.95, g: 0.85, b: 0.20, intensity: 1.20),
     duration: 2'i8, code: ActionTintAttackArbalester),
+  # Naval combat units
+  # UnitGalley - Blue naval ranged
+  UnitAttackTint(tint: TileColor(r: 0.30, g: 0.50, b: 0.95, intensity: 1.15),
+    duration: 2'i8, code: ActionTintAttackGalley),
+  # UnitFireShip - Orange/red fire ship
+  UnitAttackTint(tint: TileColor(r: 1.00, g: 0.50, b: 0.20, intensity: 1.25),
+    duration: 3'i8, code: ActionTintAttackFireShip),
+  # Additional siege unit
+  # UnitScorpion - Cyan/purple bolt thrower
+  UnitAttackTint(tint: TileColor(r: 0.60, g: 0.50, b: 0.90, intensity: 1.18),
+    duration: 3'i8, code: ActionTintAttackScorpion),
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =

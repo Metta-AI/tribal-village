@@ -136,6 +136,7 @@ const
     UnitLongSwordsman: -1, UnitChampion: -1,
     UnitLightCavalry: -1, UnitHussar: -1,
     UnitCrossbowman: -1, UnitArbalester: -1,
+    UnitGalley: -1, UnitFireShip: -1, UnitScorpion: -1,
   ]
 
   ## Base ranged attack range per unit class (0 = melee)
@@ -150,11 +151,13 @@ const
     UnitLongSwordsman: 0, UnitChampion: 0,
     UnitLightCavalry: 0, UnitHussar: 0,
     UnitCrossbowman: ArcherBaseRange, UnitArbalester: ArcherBaseRange,
+    UnitGalley: GalleyBaseRange, UnitFireShip: 0, UnitScorpion: ScorpionBaseRange,
   ]
 
   ## Units eligible for Ballistics tech damage bonus
   BallisticsUnits: set[AgentUnitClass] = {
-    UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester
+    UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester,
+    UnitGalley, UnitScorpion
   }
 
   ## Units eligible for Siege Engineers tech range bonus

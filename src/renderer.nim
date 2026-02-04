@@ -69,6 +69,9 @@ const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
   "oriented/scout",                # UnitHussar
   "oriented/archer",               # UnitCrossbowman
   "oriented/archer",               # UnitArbalester
+  "oriented/boat",                 # UnitGalley (uses boat sprite)
+  "oriented/boat",                 # UnitFireShip (uses boat sprite)
+  "oriented/mangonel",             # UnitScorpion (uses mangonel sprite)
 ]
 
 const CliffDrawOrder = [

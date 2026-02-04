@@ -433,6 +433,11 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
   of UnitHussar: 40
   of UnitCrossbowman: 40
   of UnitArbalester: 45
+  # Naval combat units (trained at Dock)
+  of UnitGalley: 60
+  of UnitFireShip: 50
+  # Additional siege unit (trained at SiegeWorkshop)
+  of UnitScorpion: 70
 
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex
