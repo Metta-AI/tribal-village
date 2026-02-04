@@ -18,8 +18,7 @@ const
 
 proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within flee radius using spatial index
-  let teamId = getTeamId(agent)
-  findNearestEnemyAgentSpatial(env, agent.pos, teamId, GathererFleeRadius)
+  findNearbyEnemyForFlee(env, agent, GathererFleeRadius)
 
 gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
   not isNil(gathererFindNearbyEnemy(env, agent))
@@ -195,12 +194,6 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
 
 gathererGuard(canStartGathererPlantOnFertile, shouldTerminateGathererPlantOnFertile):
   state.gathererTask != TaskHearts and (agent.inventoryWheat > 0 or agent.inventoryWood > 0)
-
-proc optGathererPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): uint8 =
-  let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
-  if didPlant: return actPlant
-  0'u8
 
 gathererGuard(canStartGathererCarrying, shouldTerminateGathererCarrying):
   gathererStockpileTotal(agent) > 0
@@ -395,15 +388,6 @@ proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   return actOrMove(controller, env, agent, agentId, state, skeleton.pos, 3'u8)
 
-proc optGathererFallbackSearch(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): uint8 =
-  controller.moveNextSearch(env, agent, agentId, state)
-
-proc findNearestPredatorInRadius(env: Environment, pos: IVec2, radius: int): Thing =
-  ## Find the nearest wolf or bear within the given radius
-  ## Uses spatial query instead of O(n) scan
-  findNearestThingOfKindsSpatial(env, pos, {Wolf, Bear}, radius)
-
 gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
   not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius))
 
@@ -459,7 +443,7 @@ let GathererOptions* = [
     name: "GathererPlantOnFertile",
     canStart: canStartGathererPlantOnFertile,
     shouldTerminate: shouldTerminateGathererPlantOnFertile,
-    act: optGathererPlantOnFertile,
+    act: optPlantOnFertile,
     interruptible: true
   ),
   OptionDef(
@@ -512,11 +496,5 @@ let GathererOptions* = [
     interruptible: true
   ),
   StoreValuablesOption,
-  OptionDef(
-    name: "GathererFallbackSearch",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optGathererFallbackSearch,
-    interruptible: true
-  )
+  FallbackSearchOption
 ]

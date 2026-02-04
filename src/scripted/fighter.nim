@@ -1386,10 +1386,6 @@ proc optFighterFormation(controller: Controller, env: Environment, agent: Thing,
   # Move toward formation slot
   controller.moveTo(env, agent, agentId, state, targetPos)
 
-proc optFighterFallbackSearch(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): uint8 =
-  controller.moveNextSearch(env, agent, agentId, state)
-
 # Patrol behavior - walk between waypoints and attack enemies encountered
 const PatrolArrivalThreshold = 2  # Distance at which we consider waypoint "reached"
 
@@ -1440,8 +1436,7 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
 
 proc scoutFindNearbyEnemyUncached(env: Environment, agent: Thing): Thing =
   ## Internal: actual search logic for scout nearby enemy.
-  let teamId = getTeamId(agent)
-  findNearestEnemyAgentSpatial(env, agent.pos, teamId, ScoutFleeRadius)
+  findNearbyEnemyForFlee(env, agent, ScoutFleeRadius)
 
 proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within scout detection radius using spatial index.
@@ -1844,11 +1839,5 @@ let FighterOptions* = [
     act: optScoutExplore,
     interruptible: true  # Can be interrupted by higher priority behaviors
   ),
-  OptionDef(
-    name: "FighterFallbackSearch",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optFighterFallbackSearch,
-    interruptible: true
-  )
+  FallbackSearchOption
 ]

@@ -251,8 +251,39 @@ proc findNearestThingOfKinds(env: Environment, pos: IVec2, kinds: openArray[Thin
         best = thing
   best
 
+proc findNearestPredatorInRadius*(env: Environment, pos: IVec2, radius: int): Thing =
+  ## Find the nearest wolf or bear within the given radius using spatial index.
+  findNearestThingOfKindsSpatial(env, pos, {Wolf, Bear}, radius)
+
 proc findNearestPredator(env: Environment, pos: IVec2): Thing =
+  ## Find the nearest predator (unbounded search).
   findNearestThingOfKinds(env, pos, [Bear, Wolf])
+
+proc findNearbyEnemyForFlee*(env: Environment, agent: Thing, radius: int): Thing =
+  ## Find nearest enemy agent within given radius using spatial index.
+  ## Shared utility for gatherer/builder/fighter flee behaviors.
+  let teamId = getTeamId(agent)
+  findNearestEnemyAgentSpatial(env, agent.pos, teamId, radius)
+
+proc optFallbackSearch*(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): uint8 =
+  ## Shared fallback search behavior - explore when nothing else to do.
+  controller.moveNextSearch(env, agent, agentId, state)
+
+let FallbackSearchOption* = OptionDef(
+  name: "FallbackSearch",
+  canStart: optionsAlwaysCanStart,
+  shouldTerminate: optionsAlwaysTerminate,
+  act: optFallbackSearch,
+  interruptible: true
+)
+
+proc optPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): uint8 =
+  ## Shared act proc for PlantOnFertile behavior - plants seeds on fertile tiles.
+  let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
+  if didPlant: return actPlant
+  0'u8
 
 proc findNearestGoblinStructure(env: Environment, pos: IVec2): Thing =
   findNearestThingOfKinds(env, pos, [GoblinHive, GoblinHut, GoblinTotem])

@@ -45,8 +45,7 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
 
 proc builderFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within flee radius using spatial index
-  let teamId = getTeamId(agent)
-  findNearestEnemyAgentSpatial(env, agent.pos, teamId, BuilderFleeRadius)
+  findNearbyEnemyForFlee(env, agent, BuilderFleeRadius)
 
 proc canStartBuilderFlee(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
@@ -173,12 +172,6 @@ proc shouldTerminateBuilderPlantOnFertile(controller: Controller, env: Environme
                                           agentId: int, state: var AgentState): bool =
   ## Terminate when no seeds to plant
   agent.inventoryWheat == 0 and agent.inventoryWood == 0
-
-proc optBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): uint8 =
-  let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
-  if didPlant: return actPlant
-  0'u8
 
 proc canStartBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
@@ -572,10 +565,6 @@ proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: 
     return 0'u8
   controller.moveTo(env, agent, agentId, state, hub.pos)
 
-proc optBuilderFallbackSearch(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): uint8 =
-  controller.moveNextSearch(env, agent, agentId, state)
-
 let BuilderOptions* = [
   OptionDef(
     name: "BuilderFlee",
@@ -589,7 +578,7 @@ let BuilderOptions* = [
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
     shouldTerminate: shouldTerminateBuilderPlantOnFertile,
-    act: optBuilderPlantOnFertile,
+    act: optPlantOnFertile,
     interruptible: true
   ),
   OptionDef(
@@ -693,13 +682,7 @@ let BuilderOptions* = [
   SmeltGoldOption,
   CraftBreadOption,
   StoreValuablesOption,
-  OptionDef(
-    name: "BuilderFallbackSearch",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderFallbackSearch,
-    interruptible: true
-  )
+  FallbackSearchOption
 ]
 
 # BuilderOptionsThreat: Reordered priorities for when under threat.
@@ -718,7 +701,7 @@ let BuilderOptionsThreat* = [
     name: "BuilderPlantOnFertile",
     canStart: canStartBuilderPlantOnFertile,
     shouldTerminate: shouldTerminateBuilderPlantOnFertile,
-    act: optBuilderPlantOnFertile,
+    act: optPlantOnFertile,
     interruptible: true
   ),
   OptionDef(
@@ -828,11 +811,5 @@ let BuilderOptionsThreat* = [
   SmeltGoldOption,
   CraftBreadOption,
   StoreValuablesOption,
-  OptionDef(
-    name: "BuilderFallbackSearch",
-    canStart: optionsAlwaysCanStart,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderFallbackSearch,
-    interruptible: true
-  )
+  FallbackSearchOption
 ]
