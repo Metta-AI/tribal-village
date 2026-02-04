@@ -13,26 +13,12 @@ var threateningCache: Table[int, bool]
 
 # Per-step caches for expensive AI lookups
 # These avoid redundant scans when canStart/shouldTerminate/act all call the same lookup
-# Each cache needs a "valid" array because nil is a valid result (no target found)
-var meleeEnemyCacheStep: int = -1
-var meleeEnemyCache: array[MapAgents, Thing]  # Indexed by agentId
-var meleeEnemyCacheValid: array[MapAgents, bool]
-
-var siegeEnemyCacheStep: int = -1
-var siegeEnemyCache: array[MapAgents, Thing]  # Indexed by agentId
-var siegeEnemyCacheValid: array[MapAgents, bool]
-
-var friendlyMonkCacheStep: int = -1
-var friendlyMonkCache: array[MapAgents, Thing]  # Indexed by agentId
-var friendlyMonkCacheValid: array[MapAgents, bool]
-
-var scoutEnemyCacheStep: int = -1
-var scoutEnemyCache: array[MapAgents, Thing]  # Indexed by agentId
-var scoutEnemyCacheValid: array[MapAgents, bool]
-
-var seesEnemyStructureCacheStep: int = -1
-var seesEnemyStructureCache: array[MapAgents, bool]  # Indexed by agentId
-var seesEnemyStructureCacheValid: array[MapAgents, bool]  # Track which entries are valid
+# Uses PerAgentCache[T] from ai_core.nim to eliminate boilerplate
+var meleeEnemyCache: PerAgentCache[Thing]
+var siegeEnemyCache: PerAgentCache[Thing]
+var friendlyMonkCache: PerAgentCache[Thing]
+var scoutEnemyCache: PerAgentCache[Thing]
+var seesEnemyStructureCache: PerAgentCache[bool]
 
 proc stanceAllowsChase*(agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -241,17 +227,7 @@ proc fighterSeesEnemyStructureUncached(env: Environment, agent: Thing): bool =
 proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
   ## Check if agent can see an enemy structure within observation radius.
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
-  if seesEnemyStructureCacheStep != env.currentStep:
-    seesEnemyStructureCacheStep = env.currentStep
-    for i in 0 ..< MapAgents:
-      seesEnemyStructureCacheValid[i] = false
-  let aid = agent.agentId
-  if aid >= 0 and aid < MapAgents:
-    if not seesEnemyStructureCacheValid[aid]:
-      seesEnemyStructureCache[aid] = fighterSeesEnemyStructureUncached(env, agent)
-      seesEnemyStructureCacheValid[aid] = true
-    return seesEnemyStructureCache[aid]
-  fighterSeesEnemyStructureUncached(env, agent)
+  seesEnemyStructureCache.getWithAgent(env, agent, fighterSeesEnemyStructureUncached)
 
 proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
@@ -345,17 +321,7 @@ proc findNearestFriendlyMonkUncached(env: Environment, agent: Thing): Thing =
 proc findNearestFriendlyMonk(env: Environment, agent: Thing): Thing =
   ## Find the nearest friendly monk to seek healing from using spatial index.
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
-  if friendlyMonkCacheStep != env.currentStep:
-    friendlyMonkCacheStep = env.currentStep
-    for i in 0 ..< MapAgents:
-      friendlyMonkCacheValid[i] = false
-  let aid = agent.agentId
-  if aid >= 0 and aid < MapAgents:
-    if not friendlyMonkCacheValid[aid]:
-      friendlyMonkCache[aid] = findNearestFriendlyMonkUncached(env, agent)
-      friendlyMonkCacheValid[aid] = true
-    return friendlyMonkCache[aid]
-  findNearestFriendlyMonkUncached(env, agent)
+  friendlyMonkCache.getWithAgent(env, agent, findNearestFriendlyMonkUncached)
 
 proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
@@ -882,17 +848,7 @@ proc findNearestMeleeEnemyUncached(env: Environment, agent: Thing): Thing =
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
-  if meleeEnemyCacheStep != env.currentStep:
-    meleeEnemyCacheStep = env.currentStep
-    for i in 0 ..< MapAgents:
-      meleeEnemyCacheValid[i] = false
-  let aid = agent.agentId
-  if aid >= 0 and aid < MapAgents:
-    if not meleeEnemyCacheValid[aid]:
-      meleeEnemyCache[aid] = findNearestMeleeEnemyUncached(env, agent)
-      meleeEnemyCacheValid[aid] = true
-    return meleeEnemyCache[aid]
-  findNearestMeleeEnemyUncached(env, agent)
+  meleeEnemyCache.getWithAgent(env, agent, findNearestMeleeEnemyUncached)
 
 proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): bool =
   ## Check if enemy siege unit is close to any friendly structures
@@ -953,23 +909,17 @@ proc findNearestSiegeEnemyUncached(env: Environment, agent: Thing, prioritizeThr
           bestEnemy = other
   bestEnemy
 
+proc findNearestSiegeEnemyPrioritized(env: Environment, agent: Thing): Thing =
+  ## Wrapper that calls uncached with prioritizeThreatening=true for caching.
+  findNearestSiegeEnemyUncached(env, agent, true)
+
 proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
   ## Find the nearest enemy siege unit (BatteringRam or Mangonel)
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
   ## Note: cache only applies when prioritizeThreatening=true (default).
   if not prioritizeThreatening:
     return findNearestSiegeEnemyUncached(env, agent, prioritizeThreatening)
-  if siegeEnemyCacheStep != env.currentStep:
-    siegeEnemyCacheStep = env.currentStep
-    for i in 0 ..< MapAgents:
-      siegeEnemyCacheValid[i] = false
-  let aid = agent.agentId
-  if aid >= 0 and aid < MapAgents:
-    if not siegeEnemyCacheValid[aid]:
-      siegeEnemyCache[aid] = findNearestSiegeEnemyUncached(env, agent, prioritizeThreatening)
-      siegeEnemyCacheValid[aid] = true
-    return siegeEnemyCache[aid]
-  findNearestSiegeEnemyUncached(env, agent, prioritizeThreatening)
+  siegeEnemyCache.getWithAgent(env, agent, findNearestSiegeEnemyPrioritized)
 
 proc canStartFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
@@ -1431,17 +1381,7 @@ proc scoutFindNearbyEnemyUncached(env: Environment, agent: Thing): Thing =
 proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
   ## Find nearest enemy agent within scout detection radius using spatial index.
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
-  if scoutEnemyCacheStep != env.currentStep:
-    scoutEnemyCacheStep = env.currentStep
-    for i in 0 ..< MapAgents:
-      scoutEnemyCacheValid[i] = false
-  let aid = agent.agentId
-  if aid >= 0 and aid < MapAgents:
-    if not scoutEnemyCacheValid[aid]:
-      scoutEnemyCache[aid] = scoutFindNearbyEnemyUncached(env, agent)
-      scoutEnemyCacheValid[aid] = true
-    return scoutEnemyCache[aid]
-  scoutFindNearbyEnemyUncached(env, agent)
+  scoutEnemyCache.getWithAgent(env, agent, scoutFindNearbyEnemyUncached)
 
 proc canStartScoutFlee(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): bool =
