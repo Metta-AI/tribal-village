@@ -185,10 +185,10 @@ proc classifyUnit(unitClass: AgentUnitClass): string =
      UnitTeutonicKnight, UnitHuskarl: "infantry"
   of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman, UnitJanissary: "archers"
   of UnitScout, UnitKnight, UnitLightCavalry, UnitHussar, UnitCataphract, UnitMameluke: "cavalry"
-  of UnitBatteringRam, UnitMangonel, UnitTrebuchet: "siege"
+  of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion: "siege"
   of UnitMonk: "monks"
   of UnitSamurai: "unique"
-  of UnitGoblin, UnitBoat, UnitTradeCog, UnitKing: "other"
+  of UnitGoblin, UnitBoat, UnitTradeCog, UnitKing, UnitGalley, UnitFireShip: "other"
 
 proc sampleResources(env: Environment, teamId: int, step: int): ResourceSample =
   result.step = step

@@ -570,10 +570,9 @@ proc stepApplyMonkAuras(env: Environment) =
 
 proc stepRechargeMonkFaith(env: Environment) =
   ## Regenerate faith for monks over time (AoE2-style faith recharge)
-  for monk in env.agents:
+  ## Optimized: iterates only monkUnits collection instead of all agents
+  for monk in env.monkUnits:
     if not isAgentAlive(env, monk):
-      continue
-    if monk.unitClass != UnitMonk:
       continue
     if isThingFrozen(monk, env):
       continue
@@ -1066,6 +1065,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Pre-compute team pop caps before action processing (for monk conversion)
   # This avoids O(buildings) iteration inside the action loop
+  # Also used later for respawning and production building spawning
   for i in 0 ..< MapRoomObjectsTeams:
     env.stepTeamPopCaps[i] = 0
     env.stepTeamPopCounts[i] = 0
@@ -1075,6 +1075,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for thing in env.thingsByKind[House]:
     if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
       env.stepTeamPopCaps[thing.teamId] += HousePopCap
+  # Clamp to agent pool limit
+  for i in 0 ..< MapRoomObjectsTeams:
+    if env.stepTeamPopCaps[i] > MapAgentsPerTeam:
+      env.stepTeamPopCaps[i] = MapAgentsPerTeam
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
@@ -2632,14 +2636,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     env.wolfPackSumX[i] = 0
     env.wolfPackSumY[i] = 0
 
-  # Pop cap: only TownCenter and House contribute (buildingPopCap returns 0 for all others)
-  var teamPopCaps: array[MapRoomObjectsTeams, int]
-  for thing in env.thingsByKind[TownCenter]:
-    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
-      teamPopCaps[thing.teamId] += TownCenterPopCap
-  for thing in env.thingsByKind[House]:
-    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
-      teamPopCaps[thing.teamId] += HousePopCap
+  # Pop caps already pre-computed at step start in env.stepTeamPopCaps
 
   # Defensive buildings: process tower attacks first to populate tempTowerRemovals
   for thing in env.thingsByKind[GuardTower]:
@@ -2801,9 +2798,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if not thing.hasClaimedTerritory:
       env.tempTumorsToProcess.add(thing)
 
-  for teamId in 0 ..< teamPopCaps.len:
-    if teamPopCaps[teamId] > MapAgentsPerTeam:
-      teamPopCaps[teamId] = MapAgentsPerTeam
+  # Pop cap clamping already done in pre-computation at step start
 
   if env.tempTowerRemovals.len > 0:
     for target in env.tempTowerRemovals:
@@ -3071,7 +3066,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       let teamId = getTeamId(agent)
       if teamId < 0 or teamId >= MapRoomObjectsTeams:
         continue
-      if teamPopCounts[teamId] >= teamPopCaps[teamId]:
+      if teamPopCounts[teamId] >= env.stepTeamPopCaps[teamId]:
         continue
       # Find the altar via direct grid lookup (avoids O(things) scan)
       let altarThing = env.getThing(agent.homeAltar)
@@ -3137,7 +3132,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         break
     if parentA.isNil or parentB.isNil:
       continue
-    if teamPopCounts[teamId] >= teamPopCaps[teamId]:
+    if teamPopCounts[teamId] >= env.stepTeamPopCaps[teamId]:
       continue
     # Find a dormant agent slot for this team.
     let teamStart = teamId * MapAgentsPerTeam
