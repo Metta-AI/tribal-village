@@ -290,29 +290,9 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
   if not isNil(relic):
     return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
-  # Find nearest enemy using grid scan within a reasonable radius
-  var bestEnemy: Thing = nil
-  var bestDist = int.high
+  # Find nearest enemy using spatial index (O(cells) instead of O(grid area))
   let mr = ObservationRadius.int * 3  # Search moderately far for monks
-  let msx = max(0, agent.pos.x.int - mr)
-  let mex = min(MapWidth - 1, agent.pos.x.int + mr)
-  let msy = max(0, agent.pos.y.int - mr)
-  let mey = min(MapHeight - 1, agent.pos.y.int + mr)
-  for mx in msx .. mex:
-    for my in msy .. mey:
-      let other = env.grid[mx][my]
-      if other.isNil or other.kind != Agent:
-        continue
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      if getTeamId(other) == teamId:
-        continue
-      let dist = max(abs(mx - agent.pos.x.int), abs(my - agent.pos.y.int))
-      if dist < bestDist:
-        bestDist = dist
-        bestEnemy = other
+  let bestEnemy = findNearestEnemyAgentSpatial(env, agent.pos, teamId, mr)
   if not isNil(bestEnemy):
     return actOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
 
@@ -870,33 +850,38 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
 
 proc findNearestMeleeEnemyUncached(env: Environment, agent: Thing): Thing =
   ## Internal: actual search logic for nearest melee enemy.
+  ## Optimized: uses spatial index cells instead of grid scan.
   let teamMask = getTeamMask(agent)  # Pre-compute for bitwise checks
   var bestEnemy: Thing = nil
   var bestDist = int.high
   # Kiting only triggers at KiteTriggerDistance, so search a modest radius
   let r = KiteTriggerDistance + 2
-  let sx = max(0, agent.pos.x.int - r)
-  let ex = min(MapWidth - 1, agent.pos.x.int + r)
-  let sy = max(0, agent.pos.y.int - r)
-  let ey = min(MapHeight - 1, agent.pos.y.int + r)
-  for x in sx .. ex:
-    for y in sy .. ey:
-      let other = env.grid[x][y]
-      if other.isNil or other.kind != Agent:
+  # Use spatial index cells instead of grid scan
+  let (cx, cy) = cellCoords(agent.pos)
+  let clampedMax = min(r, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = distToCellRadius16(clampedMax)
+  for ddx in -cellRadius .. cellRadius:
+    for ddy in -cellRadius .. cellRadius:
+      let nx = cx + ddx
+      let ny = cy + ddy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
         continue
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
-      if (getTeamMask(other) and teamMask) != 0:
-        continue
-      if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat, UnitTradeCog}:
-        continue
-      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
-      if dist < bestDist:
-        bestDist = dist
-        bestEnemy = other
+      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if other.isNil or other.agentId == agent.agentId:
+          continue
+        if not isAgentAlive(env, other):
+          continue
+        # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
+        if (getTeamMask(other) and teamMask) != 0:
+          continue
+        if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat, UnitTradeCog}:
+          continue
+        let dist = int(chebyshevDist(agent.pos, other.pos))
+        if dist > r:
+          continue
+        if dist < bestDist:
+          bestDist = dist
+          bestEnemy = other
   bestEnemy
 
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
@@ -930,6 +915,7 @@ proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): b
 
 proc findNearestSiegeEnemyUncached(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
   ## Internal: actual search logic for nearest siege enemy.
+  ## Optimized: uses spatial index cells instead of grid scan.
   let teamId = getTeamId(agent)
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   var bestEnemy: Thing = nil
@@ -937,37 +923,39 @@ proc findNearestSiegeEnemyUncached(env: Environment, agent: Thing, prioritizeThr
   var bestThreatening = false
 
   let r = AntiSiegeDetectionRadius
-  let sx = max(0, agent.pos.x.int - r)
-  let ex = min(MapWidth - 1, agent.pos.x.int + r)
-  let sy = max(0, agent.pos.y.int - r)
-  let ey = min(MapHeight - 1, agent.pos.y.int + r)
-  for x in sx .. ex:
-    for y in sy .. ey:
-      let other = env.grid[x][y]
-      if other.isNil or other.kind != Agent:
+  # Use spatial index cells instead of grid scan
+  let (cx, cy) = cellCoords(agent.pos)
+  let clampedMax = min(r, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = distToCellRadius16(clampedMax)
+  for ddx in -cellRadius .. cellRadius:
+    for ddy in -cellRadius .. cellRadius:
+      let nx = cx + ddx
+      let ny = cy + ddy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
         continue
-      if other.agentId == agent.agentId:
-        continue
-      if not isAgentAlive(env, other):
-        continue
-      # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
-      if (getTeamMask(other) and teamMask) != 0:
-        continue
-      if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
-        continue
-      let dist = max(abs(x - agent.pos.x.int), abs(y - agent.pos.y.int))
-      if dist > r:
-        continue
+      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if other.isNil or other.agentId == agent.agentId:
+          continue
+        if not isAgentAlive(env, other):
+          continue
+        # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
+        if (getTeamMask(other) and teamMask) != 0:
+          continue
+        if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
+          continue
+        let dist = int(chebyshevDist(agent.pos, other.pos))
+        if dist > r:
+          continue
 
-      let threatening = prioritizeThreatening and isSiegeThreateningStructure(env, other, teamId)
+        let threatening = prioritizeThreatening and isSiegeThreateningStructure(env, other, teamId)
 
-      if threatening and not bestThreatening:
-        bestThreatening = true
-        bestDist = dist
-        bestEnemy = other
-      elif threatening == bestThreatening and dist < bestDist:
-        bestDist = dist
-        bestEnemy = other
+        if threatening and not bestThreatening:
+          bestThreatening = true
+          bestDist = dist
+          bestEnemy = other
+        elif threatening == bestThreatening and dist < bestDist:
+          bestDist = dist
+          bestEnemy = other
   bestEnemy
 
 proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
@@ -1566,14 +1554,16 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
     if not env.isRevealed(teamId, candidate):
       score += 50  # Strong preference for unexplored areas
 
-    # Also check if there are unexplored tiles nearby
+    # Sample only 4 cardinal directions + center to check for unexplored tiles nearby
+    # (Optimization: O(5) instead of O(49) per candidate)
     var nearbyUnexplored = 0
-    for dx in -3 .. 3:
-      for dy in -3 .. 3:
-        let nearby = ivec2(candidate.x + dx, candidate.y + dy)
-        if isValidPos(nearby) and not env.isRevealed(teamId, nearby):
-          inc nearbyUnexplored
-    score += nearbyUnexplored * 2  # Bonus for areas with more unexplored tiles nearby
+    if not env.isRevealed(teamId, candidate):
+      inc nearbyUnexplored
+    for d in CardinalOffsets:
+      let nearby = candidate + d * 3
+      if isValidPos(nearby) and not env.isRevealed(teamId, nearby):
+        inc nearbyUnexplored
+    score += nearbyUnexplored * 10  # Bonus for areas with more unexplored tiles nearby
 
     if score > bestScore:
       bestScore = score

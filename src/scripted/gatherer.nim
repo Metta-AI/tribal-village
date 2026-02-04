@@ -68,18 +68,12 @@ proc gathererStockpileTotal(agent: Thing): int =
       result += count
 
 proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
-  let (startX, endX, startY, endY) = radiusBounds(pos, radius)
-  let cx = pos.x.int
-  let cy = pos.y.int
-  for x in startX .. endX:
-    for y in startY .. endY:
-      if max(abs(x - cx), abs(y - cy)) > radius:
+  ## Optimized: uses thingsByKind iteration instead of grid scan
+  for kind in FoodKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.isNil:
         continue
-      let occ = env.grid[x][y]
-      if not isNil(occ) and occ.kind in FoodKinds:
-        return true
-      let background = env.backgroundGrid[x][y]
-      if not isNil(background) and background.kind in FoodKinds:
+      if chebyshevDist(pos, thing.pos) <= radius.int32:
         return true
   false
 
