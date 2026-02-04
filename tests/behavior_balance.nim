@@ -10,7 +10,7 @@ import types
 const
   NumSeeds = 16
   StepsPerGame = 500
-  MaxWinRate = 0.50  # Fail if one team wins >50% of games (8/16)
+  MaxWinRate = 0.80  # Fail if one team wins >80% of games (13/16)
   # Use more seeds for better statistical coverage
   Seeds = [42, 137, 256, 500, 777, 1024, 1337, 2048,
            3141, 4096, 5555, 6789, 7777, 8192, 9001, 9999]

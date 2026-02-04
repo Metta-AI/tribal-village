@@ -60,6 +60,58 @@ suite "Formation - Box Formation":
         inc distinct_count
     check distinct_count >= 4  # At least 4 distinct positions for 6 units
 
+suite "Formation - Staggered Formation":
+  test "staggered formation creates offset rows":
+    let positions = calcStaggeredPositions(ivec2(50, 50), 6, 0)
+    check positions.len == 6
+    # Staggered formation should have alternating row offsets
+    # With 6 units in a roughly 3x2 grid, second row should be offset
+    var row0Xs: seq[int32] = @[]
+    var row1Xs: seq[int32] = @[]
+    for i, pos in positions:
+      if i < 3:
+        row0Xs.add(pos.x)
+      else:
+        row1Xs.add(pos.x)
+    # Second row should have different x positions (offset by half spacing)
+    if row0Xs.len > 0 and row1Xs.len > 0:
+      check row0Xs[0] != row1Xs[0]  # First unit of each row at different x
+
+  test "single unit staggered formation":
+    let positions = calcStaggeredPositions(ivec2(50, 50), 1, 0)
+    check positions.len == 1
+    check positions[0] == ivec2(50, 50)
+
+  test "empty staggered formation":
+    let positions = calcStaggeredPositions(ivec2(50, 50), 0, 0)
+    check positions.len == 0
+
+  test "staggered formation has unique positions":
+    let positions = calcStaggeredPositions(ivec2(50, 50), 9, 0)
+    check positions.len == 9
+    var distinct_count = 0
+    for i in 0 ..< positions.len:
+      var unique = true
+      for j in 0 ..< i:
+        if positions[i] == positions[j]:
+          unique = false
+          break
+      if unique:
+        inc distinct_count
+    check distinct_count == 9  # All positions should be unique
+
+  test "staggered formation rotation changes orientation":
+    let pos0 = calcStaggeredPositions(ivec2(50, 50), 4, 0)
+    let pos2 = calcStaggeredPositions(ivec2(50, 50), 4, 2)
+    check pos0.len == pos2.len
+    # Rotated 90 degrees should give different layout
+    var allSame = true
+    for i in 0 ..< pos0.len:
+      if pos0[i] != pos2[i]:
+        allSame = false
+        break
+    check not allSame
+
 suite "Formation - Control Group Integration":
   test "set and get formation type":
     resetAllFormations()
@@ -142,6 +194,8 @@ suite "Formation - FFI API":
     check getControlGroupFormation(0) == 1
     setControlGroupFormation(0, 2)  # Box
     check getControlGroupFormation(0) == 2
+    setControlGroupFormation(0, 5)  # Staggered
+    check getControlGroupFormation(0) == 5
     clearControlGroupFormation(0)
     check getControlGroupFormation(0) == 0  # None
 

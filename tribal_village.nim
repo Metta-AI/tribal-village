@@ -381,6 +381,30 @@ proc display() =
       for sel in selection:
         if not isNil(sel) and sel.kind == Agent:
           stopAgent(sel.agentId)
+    of CmdFormationLine, CmdFormationBox, CmdFormationStaggered:
+      # Find which control group the selection belongs to
+      # or create a new control group from the selection
+      var targetGroup = -1
+      if selection.len > 0 and not isNil(selection[0]) and selection[0].kind == Agent:
+        targetGroup = findAgentControlGroup(selection[0].agentId)
+      if targetGroup < 0 and selection.len > 1:
+        # No existing group - assign selection to first empty group
+        for g in 0 ..< ControlGroupCount:
+          if controlGroups[g].len == 0:
+            controlGroups[g] = selection
+            targetGroup = g
+            break
+        # If no empty group, use group 0
+        if targetGroup < 0:
+          controlGroups[0] = selection
+          targetGroup = 0
+      if targetGroup >= 0:
+        let ftype = case clickedCmd
+          of CmdFormationLine: FormationLine
+          of CmdFormationBox: FormationBox
+          of CmdFormationStaggered: FormationStaggered
+          else: FormationNone
+        setFormation(targetGroup, ftype)
     else:
       discard
 
@@ -679,6 +703,26 @@ proc display() =
         for sel in selection:
           if not isNil(sel) and sel.kind == Agent:
             stopAgent(sel.agentId)
+      # Formation hotkeys (L=Line, O=Box, T=Staggered)
+      elif window.buttonPressed[KeyL] or window.buttonPressed[KeyO] or window.buttonPressed[KeyT]:
+        var targetGroup = -1
+        if selection.len > 0 and not isNil(selection[0]) and selection[0].kind == Agent:
+          targetGroup = findAgentControlGroup(selection[0].agentId)
+        if targetGroup < 0 and selection.len > 1:
+          # No existing group - assign selection to first empty group
+          for g in 0 ..< ControlGroupCount:
+            if controlGroups[g].len == 0:
+              controlGroups[g] = selection
+              targetGroup = g
+              break
+          if targetGroup < 0:
+            controlGroups[0] = selection
+            targetGroup = 0
+        if targetGroup >= 0:
+          let ftype = if window.buttonPressed[KeyL]: FormationLine
+                      elif window.buttonPressed[KeyO]: FormationBox
+                      else: FormationStaggered
+          setFormation(targetGroup, ftype)
 
   # Building placement click handling
   if buildingPlacementMode and window.buttonPressed[MouseLeft] and not blockSelection:

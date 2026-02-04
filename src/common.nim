@@ -138,6 +138,10 @@ type
     CmdStop
     CmdPatrol
     CmdStance
+    # Formation commands
+    CmdFormationLine
+    CmdFormationBox
+    CmdFormationStaggered
     # Villager-specific
     CmdBuild
     CmdGather
