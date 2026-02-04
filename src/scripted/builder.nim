@@ -1,5 +1,13 @@
 # coordination is already imported by ai_core.nim (included before this file)
 
+template builderGuard(canName, termName: untyped, body: untyped) {.dirty.} =
+  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
+  ## shouldTerminate is the logical negation of canStart.
+  proc canName(controller: Controller, env: Environment, agent: Thing,
+               agentId: int, state: var AgentState): bool = body
+  proc termName(controller: Controller, env: Environment, agent: Thing,
+                agentId: int, state: var AgentState): bool = not (body)
+
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
@@ -7,15 +15,15 @@ const
     Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
     Outpost, Castle, Market, Monastery
   ]
-  # Coordination-requested building priority
-  DefenseRequestBuildingKinds = [Barracks, Outpost]  # Buildings to prioritize when defense requested
+  DefenseRequestBuildingKinds = [Barracks, Outpost]
   CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
     (kind: LumberCamp, nearbyKinds: {Tree}, minCount: 6),
     (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
-  BuilderThreatRadius* = 15  # Distance from home altar to consider "under threat"
-  BuilderFleeRadius* = 8    # Radius at which builders flee from enemies (same as gatherer)
+  BuilderThreatRadius* = 15
+  BuilderFleeRadius* = 8
+  BuilderFleeRadiusConst = BuilderFleeRadius
 
 proc getTotalBuildingCount(controller: Controller, env: Environment, teamId: int): int =
   ## Count total buildings for a team using the public getBuildingCount API.
@@ -32,26 +40,15 @@ proc calculateWallRingRadius(controller: Controller, env: Environment, teamId: i
 
 proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   ## Check if the builder's home area is under threat from enemies.
-  ## Returns true if any enemy agent or building is within BuilderThreatRadius of home altar.
   let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
-  # Use spatial index to check for enemy agents nearby
   let nearestEnemy = findNearestEnemyAgentSpatial(env, basePos, teamId, BuilderThreatRadius)
   if not nearestEnemy.isNil:
     return true
-  # Use spatial index to check for enemy buildings
-  let nearestEnemyBuilding = findNearestEnemyBuildingSpatial(env, basePos, teamId, BuilderThreatRadius)
-  not nearestEnemyBuilding.isNil
+  not findNearestEnemyBuildingSpatial(env, basePos, teamId, BuilderThreatRadius).isNil
 
-const BuilderFleeRadiusConst = BuilderFleeRadius  # Local alias for consistency
-
-proc canStartBuilderFlee(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderFlee, shouldTerminateBuilderFlee):
   not isNil(findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst))
-
-proc shouldTerminateBuilderFlee(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
-  isNil(findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst))
 
 proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
@@ -121,13 +118,8 @@ proc findDamagedBuilding*(controller: Controller, env: Environment, agent: Thing
         best = thing
   best
 
-proc canStartBuilderRepair(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderRepair, shouldTerminateBuilderRepair):
   not isNil(findDamagedBuilding(controller, env, agent))
-
-proc shouldTerminateBuilderRepair(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  isNil(findDamagedBuilding(controller, env, agent))
 
 proc optBuilderRepair(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
@@ -152,33 +144,17 @@ proc buildFirstMissing(controller: Controller, env: Environment, agent: Thing,
     if did: return act
   0'u8
 
-template millResourceCount(env: Environment, pos: IVec2): int =
-  countNearbyThings(env, pos, 4, {Wheat, Stubble}) +
-    countNearbyTerrain(env, pos, 4, {Fertile})
-
-proc canStartBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderPlantOnFertile, shouldTerminateBuilderPlantOnFertile):
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
 
-proc shouldTerminateBuilderPlantOnFertile(controller: Controller, env: Environment, agent: Thing,
-                                          agentId: int, state: var AgentState): bool =
-  ## Terminate when no seeds to plant
-  agent.inventoryWheat == 0 and agent.inventoryWood == 0
-
-proc canStartBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
+proc hasCarryingResources(agent: Thing): bool =
   for key, count in agent.inventory.pairs:
     if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
       return true
   false
 
-proc shouldTerminateBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
-                                           agentId: int, state: var AgentState): bool =
-  # Terminate when no longer carrying resources
-  for key, count in agent.inventory.pairs:
-    if count > 0 and (isFoodItem(key) or isStockpileResourceKey(key)):
-      return false
-  true
+builderGuard(canStartBuilderDropoffCarrying, shouldTerminateBuilderDropoffCarrying):
+  hasCarryingResources(agent)
 
 proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
@@ -192,16 +168,8 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
   if didDrop: return dropAct
   0'u8
 
-proc canStartBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  needsPopCapHouse(controller, env, teamId)
-
-proc shouldTerminateBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  # Terminate when pop cap house no longer needed
-  let teamId = getTeamId(agent)
-  not needsPopCapHouse(controller, env, teamId)
+builderGuard(canStartBuilderPopCap, shouldTerminateBuilderPopCap):
+  needsPopCapHouse(controller, env, getTeamId(agent))
 
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
@@ -213,21 +181,16 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
   if didHouse: return houseAct
   0'u8
 
-proc canStartBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
-                                       agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  anyMissingBuilding(controller, env, teamId, CoreInfrastructureKinds)
-
-proc shouldTerminateBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
-                                              agentId: int, state: var AgentState): bool =
-  # Terminate when all core infrastructure is built
-  let teamId = getTeamId(agent)
-  not anyMissingBuilding(controller, env, teamId, CoreInfrastructureKinds)
+builderGuard(canStartBuilderCoreInfrastructure, shouldTerminateBuilderCoreInfrastructure):
+  anyMissingBuilding(controller, env, getTeamId(agent), CoreInfrastructureKinds)
 
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   buildFirstMissing(controller, env, agent, agentId, state, teamId, CoreInfrastructureKinds)
+
+proc millResourceCount(env: Environment, pos: IVec2): int =
+  countNearbyThings(env, pos, 4, {Wheat, Stubble}) + countNearbyTerrain(env, pos, 4, {Fertile})
 
 proc canStartBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
@@ -235,38 +198,30 @@ proc canStartBuilderMillNearResource(controller: Controller, env: Environment, a
       max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10:
     return false
   let teamId = getTeamId(agent)
-  let resourceCount = millResourceCount(env, agent.pos)
-  if resourceCount < 8:
+  if millResourceCount(env, agent.pos) < 8:
     return false
   nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos) > 5
 
 proc shouldTerminateBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                             agentId: int, state: var AgentState): bool =
-  ## Terminate when mill built nearby or conditions no longer met
   not canStartBuilderMillNearResource(controller, env, agent, agentId, state)
 
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let (didMill, actMill) = controller.tryBuildNearResource(
-    env, agent, agentId, state, teamId, Mill,
-    millResourceCount(env, agent.pos),
-    8,
-    [Mill, Granary, TownCenter], 5
-  )
+    env, agent, agentId, state, teamId, Mill, millResourceCount(env, agent.pos),
+    8, [Mill, Granary, TownCenter], 5)
   if didMill: return actMill
   0'u8
 
 proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
-  if agent.inventoryWheat <= 0 and agent.inventoryWood <= 0:
-    return false
-  let teamId = getTeamId(agent)
-  controller.getBuildingCount(env, teamId, Mill) >= 2
+  (agent.inventoryWheat > 0 or agent.inventoryWood > 0) and
+    controller.getBuildingCount(env, getTeamId(agent), Mill) >= 2
 
 proc shouldTerminateBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                                         agentId: int, state: var AgentState): bool =
-  ## Terminate when no seeds to plant
   agent.inventoryWheat <= 0 and agent.inventoryWood <= 0
 
 proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
@@ -305,16 +260,8 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
     if did: return act
   0'u8
 
-proc canStartBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  anyMissingBuilding(controller, env, teamId, TechBuildingKinds)
-
-proc shouldTerminateBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
-                                         agentId: int, state: var AgentState): bool =
-  # Terminate when all tech buildings are built
-  let teamId = getTeamId(agent)
-  not anyMissingBuilding(controller, env, teamId, TechBuildingKinds)
+builderGuard(canStartBuilderTechBuildings, shouldTerminateBuilderTechBuildings):
+  anyMissingBuilding(controller, env, getTeamId(agent), TechBuildingKinds)
 
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
@@ -330,7 +277,6 @@ proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Th
 
 proc shouldTerminateBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
-  ## Terminate when wall ring conditions no longer met (no altar, no lumber camp, or insufficient wood)
   not canStartBuilderWallRing(controller, env, agent, agentId, state)
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
@@ -465,18 +411,8 @@ proc builderShouldBuildSiege(controller: Controller, env: Environment, teamId: i
   # Only if we don't already have one
   controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0
 
-# Coordination-responsive behavior: respond to siege build requests
-proc canStartBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  ## Check if there's a siege build request
-  let teamId = getTeamId(agent)
-  builderShouldBuildSiege(controller, env, teamId)
-
-proc shouldTerminateBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
-                                         agentId: int, state: var AgentState): bool =
-  ## Terminate when siege workshop built or no more requests
-  let teamId = getTeamId(agent)
-  not builderShouldBuildSiege(controller, env, teamId)
+builderGuard(canStartBuilderSiegeResponse, shouldTerminateBuilderSiegeResponse):
+  builderShouldBuildSiege(controller, env, getTeamId(agent))
 
 proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint8 =
@@ -496,13 +432,8 @@ proc minBasicStockpile(env: Environment, teamId: int): int =
   if wood < result: result = wood
   if stone < result: result = stone
 
-proc canStartBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderGatherScarce, shouldTerminateBuilderGatherScarce):
   agent.unitClass == UnitVillager and minBasicStockpile(env, getTeamId(agent)) < 5
-
-proc shouldTerminateBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
-                                        agentId: int, state: var AgentState): bool =
-  agent.unitClass != UnitVillager or minBasicStockpile(env, getTeamId(agent)) >= 5
 
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
@@ -542,11 +473,7 @@ proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, ag
 
 proc shouldTerminateBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                            agentId: int, state: var AgentState): bool =
-  ## Terminate when reached trading hub (within 6 tiles), have inventory, or no hub available
-  if agent.inventory.len != 0:
-    return true
-  let hub = findNearestNeutralHub(env, agent.pos)
-  isNil(hub) or chebyshevDist(agent.pos, hub.pos) <= 6'i32
+  not canStartBuilderVisitTradingHub(controller, env, agent, agentId, state)
 
 proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint8 =
@@ -557,114 +484,76 @@ proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: 
     return 0'u8
   controller.moveTo(env, agent, agentId, state, hub.pos)
 
+# Shared OptionDefs used in both BuilderOptions and BuilderOptionsThreat
+let BuilderFleeOption = OptionDef(
+  name: "BuilderFlee", canStart: canStartBuilderFlee,
+  shouldTerminate: shouldTerminateBuilderFlee, act: optBuilderFlee,
+  interruptible: false)
+let BuilderPlantOnFertileOption = OptionDef(
+  name: "BuilderPlantOnFertile", canStart: canStartBuilderPlantOnFertile,
+  shouldTerminate: shouldTerminateBuilderPlantOnFertile, act: optPlantOnFertile,
+  interruptible: true)
+let BuilderWallRingOption = OptionDef(
+  name: "BuilderWallRing", canStart: canStartBuilderWallRing,
+  shouldTerminate: shouldTerminateBuilderWallRing, act: optBuilderWallRing,
+  interruptible: true)
+let BuilderDefenseResponseOption = OptionDef(
+  name: "BuilderDefenseResponse", canStart: canStartBuilderDefenseResponse,
+  shouldTerminate: shouldTerminateBuilderDefenseResponse, act: optBuilderDefenseResponse,
+  interruptible: true)
+let BuilderSiegeResponseOption = OptionDef(
+  name: "BuilderSiegeResponse", canStart: canStartBuilderSiegeResponse,
+  shouldTerminate: shouldTerminateBuilderSiegeResponse, act: optBuilderSiegeResponse,
+  interruptible: true)
+let BuilderRepairOption = OptionDef(
+  name: "BuilderRepair", canStart: canStartBuilderRepair,
+  shouldTerminate: shouldTerminateBuilderRepair, act: optBuilderRepair,
+  interruptible: true)
+let BuilderMillNearResourceOption = OptionDef(
+  name: "BuilderMillNearResource", canStart: canStartBuilderMillNearResource,
+  shouldTerminate: shouldTerminateBuilderMillNearResource, act: optBuilderMillNearResource,
+  interruptible: true)
+let BuilderPlantIfMillsOption = OptionDef(
+  name: "BuilderPlantIfMills", canStart: canStartBuilderPlantIfMills,
+  shouldTerminate: shouldTerminateBuilderPlantIfMills, act: optBuilderPlantIfMills,
+  interruptible: true)
+let BuilderCampThresholdOption = OptionDef(
+  name: "BuilderCampThreshold", canStart: canStartBuilderCampThreshold,
+  shouldTerminate: shouldTerminateBuilderCampThreshold, act: optBuilderCampThreshold,
+  interruptible: true)
+let BuilderVisitTradingHubOption = OptionDef(
+  name: "BuilderVisitTradingHub", canStart: canStartBuilderVisitTradingHub,
+  shouldTerminate: shouldTerminateBuilderVisitTradingHub, act: optBuilderVisitTradingHub,
+  interruptible: true)
+
 let BuilderOptions* = [
-  OptionDef(
-    name: "BuilderFlee",
-    canStart: canStartBuilderFlee,
-    shouldTerminate: shouldTerminateBuilderFlee,
-    act: optBuilderFlee,
-    interruptible: false  # Flee is not interruptible - survival is priority
-  ),
+  BuilderFleeOption,
   EmergencyHealOption,
-  OptionDef(
-    name: "BuilderPlantOnFertile",
-    canStart: canStartBuilderPlantOnFertile,
-    shouldTerminate: shouldTerminateBuilderPlantOnFertile,
-    act: optPlantOnFertile,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderDropoffCarrying",
-    canStart: canStartBuilderDropoffCarrying,
-    shouldTerminate: shouldTerminateBuilderDropoffCarrying,
-    act: optBuilderDropoffCarrying,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderPopCap",
-    canStart: canStartBuilderPopCap,
-    shouldTerminate: shouldTerminateBuilderPopCap,
-    act: optBuilderPopCap,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderCoreInfrastructure",
-    canStart: canStartBuilderCoreInfrastructure,
-    shouldTerminate: shouldTerminateBuilderCoreInfrastructure,
-    act: optBuilderCoreInfrastructure,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderMillNearResource",
-    canStart: canStartBuilderMillNearResource,
-    shouldTerminate: shouldTerminateBuilderMillNearResource,
-    act: optBuilderMillNearResource,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderPlantIfMills",
-    canStart: canStartBuilderPlantIfMills,
-    shouldTerminate: shouldTerminateBuilderPlantIfMills,
-    act: optBuilderPlantIfMills,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderCampThreshold",
-    canStart: canStartBuilderCampThreshold,
-    shouldTerminate: shouldTerminateBuilderCampThreshold,
-    act: optBuilderCampThreshold,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderRepair",
-    canStart: canStartBuilderRepair,
-    shouldTerminate: shouldTerminateBuilderRepair,
-    act: optBuilderRepair,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderTechBuildings",
-    canStart: canStartBuilderTechBuildings,
-    shouldTerminate: shouldTerminateBuilderTechBuildings,
-    act: optBuilderTechBuildings,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderDefenseResponse",
-    canStart: canStartBuilderDefenseResponse,
-    shouldTerminate: shouldTerminateBuilderDefenseResponse,
-    act: optBuilderDefenseResponse,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderSiegeResponse",
-    canStart: canStartBuilderSiegeResponse,
-    shouldTerminate: shouldTerminateBuilderSiegeResponse,
-    act: optBuilderSiegeResponse,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderWallRing",
-    canStart: canStartBuilderWallRing,
-    shouldTerminate: shouldTerminateBuilderWallRing,
-    act: optBuilderWallRing,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderGatherScarce",
-    canStart: canStartBuilderGatherScarce,
-    shouldTerminate: shouldTerminateBuilderGatherScarce,
-    act: optBuilderGatherScarce,
-    interruptible: true
-  ),
+  BuilderPlantOnFertileOption,
+  OptionDef(name: "BuilderDropoffCarrying", canStart: canStartBuilderDropoffCarrying,
+    shouldTerminate: shouldTerminateBuilderDropoffCarrying, act: optBuilderDropoffCarrying,
+    interruptible: true),
+  OptionDef(name: "BuilderPopCap", canStart: canStartBuilderPopCap,
+    shouldTerminate: shouldTerminateBuilderPopCap, act: optBuilderPopCap,
+    interruptible: true),
+  OptionDef(name: "BuilderCoreInfrastructure", canStart: canStartBuilderCoreInfrastructure,
+    shouldTerminate: shouldTerminateBuilderCoreInfrastructure, act: optBuilderCoreInfrastructure,
+    interruptible: true),
+  BuilderMillNearResourceOption,
+  BuilderPlantIfMillsOption,
+  BuilderCampThresholdOption,
+  BuilderRepairOption,
+  OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
+    shouldTerminate: shouldTerminateBuilderTechBuildings, act: optBuilderTechBuildings,
+    interruptible: true),
+  BuilderDefenseResponseOption,
+  BuilderSiegeResponseOption,
+  BuilderWallRingOption,
+  OptionDef(name: "BuilderGatherScarce", canStart: canStartBuilderGatherScarce,
+    shouldTerminate: shouldTerminateBuilderGatherScarce, act: optBuilderGatherScarce,
+    interruptible: true),
   MarketTradeOption,
-  OptionDef(
-    name: "BuilderVisitTradingHub",
-    canStart: canStartBuilderVisitTradingHub,
-    shouldTerminate: shouldTerminateBuilderVisitTradingHub,
-    act: optBuilderVisitTradingHub,
-    interruptible: true
-  ),
+  BuilderVisitTradingHubOption,
   SmeltGoldOption,
   CraftBreadOption,
   StoreValuablesOption,
@@ -672,122 +561,35 @@ let BuilderOptions* = [
 ]
 
 # BuilderOptionsThreat: Reordered priorities for when under threat.
-# Priority order: Flee -> WallRing -> TechBuildings -> Infrastructure
-# (vs safe mode: Flee -> Infrastructure -> TechBuildings -> WallRing)
+# Priority order: Flee -> WallRing -> Defense -> TechBuildings -> Infrastructure
 let BuilderOptionsThreat* = [
-  OptionDef(
-    name: "BuilderFlee",
-    canStart: canStartBuilderFlee,
-    shouldTerminate: shouldTerminateBuilderFlee,
-    act: optBuilderFlee,
-    interruptible: false  # Flee is not interruptible - survival is priority
-  ),
+  BuilderFleeOption,
   EmergencyHealOption,
-  OptionDef(
-    name: "BuilderPlantOnFertile",
-    canStart: canStartBuilderPlantOnFertile,
-    shouldTerminate: shouldTerminateBuilderPlantOnFertile,
-    act: optPlantOnFertile,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderDropoffCarrying",
-    canStart: canStartBuilderDropoffCarrying,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderDropoffCarrying,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderPopCap",
-    canStart: canStartBuilderPopCap,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderPopCap,
-    interruptible: true
-  ),
-  # Threat mode: WallRing first (defensive priority)
-  OptionDef(
-    name: "BuilderWallRing",
-    canStart: canStartBuilderWallRing,
-    shouldTerminate: shouldTerminateBuilderWallRing,
-    act: optBuilderWallRing,
-    interruptible: true
-  ),
-  # Threat mode: Respond to defense requests (build barracks/outposts)
-  OptionDef(
-    name: "BuilderDefenseResponse",
-    canStart: canStartBuilderDefenseResponse,
-    shouldTerminate: shouldTerminateBuilderDefenseResponse,
-    act: optBuilderDefenseResponse,
-    interruptible: true
-  ),
-  # Threat mode: Respond to siege requests
-  OptionDef(
-    name: "BuilderSiegeResponse",
-    canStart: canStartBuilderSiegeResponse,
-    shouldTerminate: shouldTerminateBuilderSiegeResponse,
-    act: optBuilderSiegeResponse,
-    interruptible: true
-  ),
-  # Threat mode: Repair second (maintain defensive structures)
-  OptionDef(
-    name: "BuilderRepair",
-    canStart: canStartBuilderRepair,
-    shouldTerminate: shouldTerminateBuilderRepair,
-    act: optBuilderRepair,
-    interruptible: true
-  ),
-  # Threat mode: TechBuildings third (military capability)
-  OptionDef(
-    name: "BuilderTechBuildings",
-    canStart: canStartBuilderTechBuildings,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderTechBuildings,
-    interruptible: true
-  ),
-  # Threat mode: CoreInfrastructure deprioritized
-  OptionDef(
-    name: "BuilderCoreInfrastructure",
-    canStart: canStartBuilderCoreInfrastructure,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderCoreInfrastructure,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderMillNearResource",
-    canStart: canStartBuilderMillNearResource,
-    shouldTerminate: shouldTerminateBuilderMillNearResource,
-    act: optBuilderMillNearResource,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderPlantIfMills",
-    canStart: canStartBuilderPlantIfMills,
-    shouldTerminate: shouldTerminateBuilderPlantIfMills,
-    act: optBuilderPlantIfMills,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderCampThreshold",
-    canStart: canStartBuilderCampThreshold,
-    shouldTerminate: shouldTerminateBuilderCampThreshold,
-    act: optBuilderCampThreshold,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "BuilderGatherScarce",
-    canStart: canStartBuilderGatherScarce,
-    shouldTerminate: optionsAlwaysTerminate,
-    act: optBuilderGatherScarce,
-    interruptible: true
-  ),
+  BuilderPlantOnFertileOption,
+  OptionDef(name: "BuilderDropoffCarrying", canStart: canStartBuilderDropoffCarrying,
+    shouldTerminate: optionsAlwaysTerminate, act: optBuilderDropoffCarrying,
+    interruptible: true),
+  OptionDef(name: "BuilderPopCap", canStart: canStartBuilderPopCap,
+    shouldTerminate: optionsAlwaysTerminate, act: optBuilderPopCap,
+    interruptible: true),
+  BuilderWallRingOption,        # WallRing prioritized in threat mode
+  BuilderDefenseResponseOption,
+  BuilderSiegeResponseOption,
+  BuilderRepairOption,          # Repair prioritized in threat mode
+  OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
+    shouldTerminate: optionsAlwaysTerminate, act: optBuilderTechBuildings,
+    interruptible: true),
+  OptionDef(name: "BuilderCoreInfrastructure", canStart: canStartBuilderCoreInfrastructure,
+    shouldTerminate: optionsAlwaysTerminate, act: optBuilderCoreInfrastructure,
+    interruptible: true),
+  BuilderMillNearResourceOption,
+  BuilderPlantIfMillsOption,
+  BuilderCampThresholdOption,
+  OptionDef(name: "BuilderGatherScarce", canStart: canStartBuilderGatherScarce,
+    shouldTerminate: optionsAlwaysTerminate, act: optBuilderGatherScarce,
+    interruptible: true),
   MarketTradeOption,
-  OptionDef(
-    name: "BuilderVisitTradingHub",
-    canStart: canStartBuilderVisitTradingHub,
-    shouldTerminate: shouldTerminateBuilderVisitTradingHub,
-    act: optBuilderVisitTradingHub,
-    interruptible: true
-  ),
+  BuilderVisitTradingHubOption,
   SmeltGoldOption,
   CraftBreadOption,
   StoreValuablesOption,
