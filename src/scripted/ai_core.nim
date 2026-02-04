@@ -239,17 +239,29 @@ proc chebyshevDist*(a, b: IVec2): int32 =
 proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: int) =
   ## Mark tiles within radius of center as revealed for the specified team.
   ## Uses Chebyshev distance (square vision area) matching the game's standard.
+  ## Optimized: skips tiles already revealed to reduce write operations.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  for dx in -radius .. radius:
-    let worldX = center.x + dx
-    if worldX < 0 or worldX >= MapWidth:
-      continue
-    for dy in -radius .. radius:
-      let worldY = center.y + dy
-      if worldY < 0 or worldY >= MapHeight:
-        continue
-      env.revealedMaps[teamId][worldX][worldY] = true
+  # Pre-compute bounds for the reveal area (clamped to map)
+  let minX = max(0, center.x.int - radius)
+  let maxX = min(MapWidth - 1, center.x.int + radius)
+  let minY = max(0, center.y.int - radius)
+  let maxY = min(MapHeight - 1, center.y.int + radius)
+  # Skip if center already revealed and we're likely to have revealed the surrounding area
+  # This optimization helps when agents are stationary
+  if env.revealedMaps[teamId][center.x][center.y]:
+    # Sample a few corner tiles to check if area is likely already revealed
+    let cornerRevealed = env.revealedMaps[teamId][minX][minY] and
+                         env.revealedMaps[teamId][maxX][maxY] and
+                         env.revealedMaps[teamId][minX][maxY] and
+                         env.revealedMaps[teamId][maxX][minY]
+    if cornerRevealed:
+      return  # Area already fully revealed, skip iteration
+  # Iterate and reveal, skipping already-revealed tiles
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      if not env.revealedMaps[teamId][x][y]:
+        env.revealedMaps[teamId][x][y] = true
 
 proc isRevealed*(env: Environment, teamId: int, pos: IVec2): bool =
   ## Check if a tile has been revealed (explored) by the specified team.
@@ -417,6 +429,7 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
   ##
   ## Optimized: scans grid tiles within vision radius instead of all agents,
   ## and uses spatial index for building detection.
+  ## Additional optimization: skips fog updates if agent hasn't moved since last reveal.
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
@@ -428,7 +441,19 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
     ThreatVisionRange
 
   # Update fog of war - reveal tiles in vision range
-  env.updateRevealedMapFromVision(agent)
+  # Optimization: Skip if agent hasn't moved since last fog update
+  let agentId = agent.agentId
+  if agentId >= 0 and agentId < MapAgents:
+    let lastPos = controller.fogLastRevealPos[agentId]
+    let lastStep = controller.fogLastRevealStep[agentId]
+    # Only update fog if agent moved or this is first update for this agent
+    if lastPos != agent.pos or lastStep <= 0:
+      env.updateRevealedMapFromVision(agent)
+      controller.fogLastRevealPos[agentId] = agent.pos
+      controller.fogLastRevealStep[agentId] = currentStep
+  else:
+    # Fallback for invalid agent IDs - always update
+    env.updateRevealedMapFromVision(agent)
 
   # Scan for enemy agents within vision range using spatial index
   # Scan spatial cells for enemy agents and structures

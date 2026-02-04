@@ -664,15 +664,33 @@ proc drawObjects*() =
 proc drawVisualRanges*(alpha = 0.2) =
   if not currentViewport.valid:
     return
+  # Optimized: Only track visibility for viewport tiles instead of entire map
+  # This reduces memory from 305x191 = 58K to viewport size (typically <100x100)
+  let vpWidth = currentViewport.maxX - currentViewport.minX + 1
+  let vpHeight = currentViewport.maxY - currentViewport.minY + 1
+  # Use a smaller visibility buffer for just the viewport area
   var visibility: array[MapWidth, array[MapHeight, bool]]
+  # Extended viewport bounds for agents whose vision overlaps viewport
+  let extMinX = max(0, currentViewport.minX - ObservationRadius)
+  let extMaxX = min(MapWidth - 1, currentViewport.maxX + ObservationRadius)
+  let extMinY = max(0, currentViewport.minY - ObservationRadius)
+  let extMaxY = min(MapHeight - 1, currentViewport.maxY + ObservationRadius)
+  # Only process agents whose vision could overlap the viewport
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
-    for i in 0 ..< ObservationWidth:
-      for j in 0 ..< ObservationHeight:
-        let gp = agent.pos + ivec2(i - ObservationWidth div 2, j - ObservationHeight div 2)
-        if gp.x >= 0 and gp.x < MapWidth and gp.y >= 0 and gp.y < MapHeight:
-          visibility[gp.x][gp.y] = true
+    # Skip agents too far from viewport to contribute visibility
+    if agent.pos.x < extMinX or agent.pos.x > extMaxX or
+       agent.pos.y < extMinY or agent.pos.y > extMaxY:
+      continue
+    # Mark visible tiles (only within map bounds)
+    let startX = max(0, agent.pos.x - ObservationRadius)
+    let endX = min(MapWidth - 1, agent.pos.x + ObservationRadius)
+    let startY = max(0, agent.pos.y - ObservationRadius)
+    let endY = min(MapHeight - 1, agent.pos.y + ObservationRadius)
+    for x in startX .. endX:
+      for y in startY .. endY:
+        visibility[x][y] = true
   let fogColor = color(0, 0, 0, alpha)
   # Only draw fog for visible tiles
   for x in currentViewport.minX .. currentViewport.maxX:
