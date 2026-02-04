@@ -1,8 +1,5 @@
 import std/[unittest, strformat, math]
-import environment
-import types
-import terrain
-import test_utils
+import test_common
 import common
 
 ## Behavioral tests for biome effects on unit stats and movement:

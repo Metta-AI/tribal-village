@@ -8,11 +8,7 @@
 ## - Edge cases like minimal resources and concurrent advancement
 
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 suite "Age Rush - Basic Age Advancement":
   test "team can research Castle Age tech at Castle":

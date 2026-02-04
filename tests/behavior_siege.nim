@@ -1,8 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral tests for siege unit mechanics: battering rams target buildings
 ## preferentially, trebuchets use minimum range and area damage, siege units

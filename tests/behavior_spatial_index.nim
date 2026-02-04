@@ -1,10 +1,6 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
+import test_common
 import spatial_index
-import test_utils
 import common
 
 ## Behavioral tests for spatial index operations.

@@ -1,18 +1,9 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral victory tests that verify victory conditions work in multi-step games.
 ## These use controlled setups with fixed seeds to simulate realistic victory scenarios
 ## and check that victories trigger correctly with proper rewards and state changes.
-
-proc runGameSteps(env: Environment, steps: int) =
-  ## Run the game for N steps using the global AI controller.
-  for i in 0 ..< steps:
-    let actions = getActions(env)
     env.step(addr actions)
 
 suite "Behavioral Victory - Wonder Victory":

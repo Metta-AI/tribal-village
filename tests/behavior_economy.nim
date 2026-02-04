@@ -1,25 +1,8 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral economy tests that verify economy behaviors work in multi-step games.
 ## These use full AI controllers with fixed seeds to run simulations and check outcomes.
-
-proc runGameSteps(env: Environment, steps: int) =
-  ## Run the game for N steps using the global AI controller.
-  for i in 0 ..< steps:
-    let actions = getActions(env)
-    env.step(addr actions)
-
-proc printStockpileSummary(env: Environment, teamId: int, label: string) =
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let gold = env.stockpileCount(teamId, ResourceGold)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  echo fmt"  [{label}] Team {teamId}: food={food} wood={wood} gold={gold} stone={stone}"
 
 suite "Behavioral Economy - Resource Gathering":
   test "gatherers accumulate food/wood/gold/stone over 200 steps":

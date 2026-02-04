@@ -1,10 +1,6 @@
 import std/[unittest, strformat]
-import environment
-import types
-import items
-import terrain
+import test_common
 import registry
-import test_utils
 
 ## Behavioral tests for building placement validation.
 ## Verifies valid/invalid placement, terrain restrictions, overlap detection,

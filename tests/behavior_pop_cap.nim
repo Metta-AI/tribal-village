@@ -1,8 +1,5 @@
 import std/[unittest]
-import environment
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral tests for population cap enforcement.
 ## Population cap = number of houses * HousePopCap (4).

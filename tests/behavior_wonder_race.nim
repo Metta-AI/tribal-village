@@ -1,18 +1,9 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral tests for the wonder race game mode: first team to build a wonder
 ## and survive the countdown wins, wonder destruction resets the countdown timer,
 ## and competing teams race to complete their wonder first. Uses 500-step sims.
-
-proc runGameSteps(env: Environment, steps: int) =
-  ## Run the game for N steps using the global AI controller.
-  for i in 0 ..< steps:
-    let actions = getActions(env)
     env.step(addr actions)
 
 suite "Behavior: Wonder Race - First to Complete Wins":

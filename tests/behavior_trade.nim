@@ -1,9 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 ## Behavioral trade tests verifying market buy/sell, dynamic pricing,
 ## price decay, cooldowns, and independent team prices.

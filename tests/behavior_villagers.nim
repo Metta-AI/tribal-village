@@ -3,61 +3,12 @@
 ## and idle villagers seeking work. Uses 300-step simulations.
 
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import test_utils
+import test_common
 
 const
-  TestSeed = 42
-  SimSteps = 300
-  ShortSteps = 100
-
-proc runGameSteps(env: Environment, steps: int) =
-  ## Run the game for N steps using the global AI controller.
-  for i in 0 ..< steps:
-    let actions = getActions(env)
-    env.step(addr actions)
-
-proc printStockpileSummary(env: Environment, teamId: int, label: string) =
-  let food = env.stockpileCount(teamId, ResourceFood)
-  let wood = env.stockpileCount(teamId, ResourceWood)
-  let gold = env.stockpileCount(teamId, ResourceGold)
-  let stone = env.stockpileCount(teamId, ResourceStone)
-  echo fmt"  [{label}] Team {teamId}: food={food} wood={wood} gold={gold} stone={stone}"
-
-proc countRolesByTeam(teamId: int): tuple[gatherers, builders, fighters: int] =
-  ## Count agents by role for a given team.
-  let controller = globalController.aiController
-  let startIdx = teamId * MapAgentsPerTeam
-  let endIdx = min(startIdx + MapAgentsPerTeam, MapAgents)
-  for agentId in startIdx ..< endIdx:
-    if controller.isAgentInitialized(agentId):
-      let role = controller.getAgentRole(agentId)
-      case role
-      of Gatherer: inc result.gatherers
-      of Builder: inc result.builders
-      of Fighter: inc result.fighters
-      of Scripted: discard
-
-proc countDamagedBuildings(env: Environment, teamId: int): int =
-  ## Count buildings owned by team that have HP < maxHp.
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    let isRepairable = isBuildingKind(thing.kind) or thing.kind in {Wall, Door}
-    if not isRepairable:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if thing.maxHp > 0 and thing.hp < thing.maxHp:
-      inc result
-
-proc damageBuilding(thing: Thing, damageAmount: int) =
-  ## Apply damage to a building, reducing its HP.
-  if thing.maxHp > 0:
-    thing.hp = max(1, thing.hp - damageAmount)  # Don't destroy, just damage
+  TestSeed = DefaultTestSeed
+  SimSteps = LongSimSteps
+  ShortSteps = ShortSimSteps
 
 suite "Behavior: Villager Task Switching":
   test "gatherers switch tasks based on resource needs":

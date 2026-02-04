@@ -1,7 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import types
-import test_utils
+import test_common
 
 suite "Behavior: Auto-Attack Nearest Enemy":
   test "attacker hits adjacent enemy before farther one":

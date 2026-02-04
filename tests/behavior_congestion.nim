@@ -1,9 +1,5 @@
 import std/[unittest, strformat, sequtils]
-import environment
-import types
-import items
-import terrain
-import test_utils
+import test_common
 import common
 
 ## Behavioral tests for unit pathfinding under congestion scenarios:

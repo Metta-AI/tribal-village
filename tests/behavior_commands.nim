@@ -1,11 +1,7 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
+import test_common
 import common
-import types
-import items
 import registry
-import test_utils
 
 suite "Behavior: Attack-Move Waypoints":
   test "attack-move target is set and readable":

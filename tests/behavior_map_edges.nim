@@ -1,10 +1,5 @@
 import std/[unittest, strformat]
-import environment
-import agent_control
-import types
-import items
-import terrain
-import test_utils
+import test_common
 import common
 
 ## Behavioral tests for map edge boundary conditions.
