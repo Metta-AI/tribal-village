@@ -1548,6 +1548,243 @@ proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int)
   else:
     return baseUnit
 
+# ---- Economy tech logic (AoE2-style) ----
+
+proc hasEconomyTech*(env: Environment, teamId: int, tech: EconomyTechType): bool {.inline.} =
+  ## Check if a team has researched a specific economy tech.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  env.teamEconomyTechs[teamId].researched[tech]
+
+proc getWoodGatherBonus*(env: Environment, teamId: int): int =
+  ## Calculate total wood gathering bonus percentage from Lumber Camp techs.
+  ## Returns bonus as integer percentage (e.g., 50 = +50%).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  var bonus = 0
+  if env.teamEconomyTechs[teamId].researched[TechDoubleBitAxe]:
+    bonus += DoubleBitAxeGatherBonus
+  if env.teamEconomyTechs[teamId].researched[TechBowSaw]:
+    bonus += BowSawGatherBonus
+  if env.teamEconomyTechs[teamId].researched[TechTwoManSaw]:
+    bonus += TwoManSawGatherBonus
+  bonus
+
+proc getGoldGatherBonus*(env: Environment, teamId: int): int =
+  ## Calculate total gold gathering bonus percentage from Mining Camp techs.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  var bonus = 0
+  if env.teamEconomyTechs[teamId].researched[TechGoldMining]:
+    bonus += GoldMiningGatherBonus
+  if env.teamEconomyTechs[teamId].researched[TechGoldShaftMining]:
+    bonus += GoldShaftMiningGatherBonus
+  bonus
+
+proc getStoneGatherBonus*(env: Environment, teamId: int): int =
+  ## Calculate total stone gathering bonus percentage from Mining Camp techs.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  var bonus = 0
+  if env.teamEconomyTechs[teamId].researched[TechStoneMining]:
+    bonus += StoneMiningGatherBonus
+  if env.teamEconomyTechs[teamId].researched[TechStoneShaftMining]:
+    bonus += StoneShaftMiningGatherBonus
+  bonus
+
+proc getVillagerCarryCapacity*(env: Environment, teamId: int): int =
+  ## Calculate villager carry capacity including economy tech bonuses.
+  ## Base capacity is ResourceCarryCapacity (5).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return ResourceCarryCapacity
+  var capacity = ResourceCarryCapacity
+  if env.teamEconomyTechs[teamId].researched[TechWheelbarrow]:
+    capacity += WheelbarrowCarryBonus
+  if env.teamEconomyTechs[teamId].researched[TechHandCart]:
+    capacity += HandCartCarryBonus
+  capacity
+
+proc getVillagerSpeedBonus*(env: Environment, teamId: int): int =
+  ## Calculate villager speed bonus percentage from economy techs.
+  ## Returns bonus as integer percentage (e.g., 20 = +20%).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  var bonus = 0
+  if env.teamEconomyTechs[teamId].researched[TechWheelbarrow]:
+    bonus += WheelbarrowSpeedBonus
+  if env.teamEconomyTechs[teamId].researched[TechHandCart]:
+    bonus += HandCartSpeedBonus
+  bonus
+
+proc getFarmFoodBonus*(env: Environment, teamId: int): int =
+  ## Calculate total farm food bonus from Mill techs.
+  ## Returns bonus food amount per farm.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  var bonus = 0
+  if env.teamEconomyTechs[teamId].researched[TechHorseCollar]:
+    bonus += HorseCollarFarmBonus
+  if env.teamEconomyTechs[teamId].researched[TechHeavyPlow]:
+    bonus += HeavyPlowFarmBonus
+  if env.teamEconomyTechs[teamId].researched[TechCropRotation]:
+    bonus += CropRotationFarmBonus
+  bonus
+
+proc canAutoReseed*(env: Environment, teamId: int): bool {.inline.} =
+  ## Check if team has researched Horse Collar (enables auto-reseed).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  env.teamEconomyTechs[teamId].researched[TechHorseCollar]
+
+proc economyTechBuilding*(tech: EconomyTechType): ThingKind =
+  ## Returns the building where this economy tech is researched.
+  case tech
+  of TechWheelbarrow, TechHandCart: TownCenter
+  of TechDoubleBitAxe, TechBowSaw, TechTwoManSaw: LumberCamp
+  of TechGoldMining, TechGoldShaftMining, TechStoneMining, TechStoneShaftMining: MiningCamp
+  of TechHorseCollar, TechHeavyPlow, TechCropRotation: Mill
+
+proc economyTechCost*(tech: EconomyTechType): seq[tuple[res: StockpileResource, count: int]] =
+  ## Returns the resource costs for an economy tech.
+  case tech
+  of TechWheelbarrow:
+    @[(res: ResourceFood, count: WheelbarrowFoodCost),
+      (res: ResourceWood, count: WheelbarrowWoodCost)]
+  of TechHandCart:
+    @[(res: ResourceFood, count: HandCartFoodCost),
+      (res: ResourceWood, count: HandCartWoodCost)]
+  of TechDoubleBitAxe:
+    @[(res: ResourceFood, count: DoubleBitAxeFoodCost),
+      (res: ResourceWood, count: DoubleBitAxeWoodCost)]
+  of TechBowSaw:
+    @[(res: ResourceFood, count: BowSawFoodCost),
+      (res: ResourceWood, count: BowSawWoodCost)]
+  of TechTwoManSaw:
+    @[(res: ResourceFood, count: TwoManSawFoodCost),
+      (res: ResourceWood, count: TwoManSawWoodCost)]
+  of TechGoldMining:
+    @[(res: ResourceFood, count: GoldMiningFoodCost),
+      (res: ResourceWood, count: GoldMiningWoodCost)]
+  of TechGoldShaftMining:
+    @[(res: ResourceFood, count: GoldShaftMiningFoodCost),
+      (res: ResourceWood, count: GoldShaftMiningWoodCost)]
+  of TechStoneMining:
+    @[(res: ResourceFood, count: StoneMiningFoodCost),
+      (res: ResourceWood, count: StoneMiningWoodCost)]
+  of TechStoneShaftMining:
+    @[(res: ResourceFood, count: StoneShaftMiningFoodCost),
+      (res: ResourceWood, count: StoneShaftMiningWoodCost)]
+  of TechHorseCollar:
+    @[(res: ResourceFood, count: HorseCollarFoodCost),
+      (res: ResourceWood, count: HorseCollarWoodCost)]
+  of TechHeavyPlow:
+    @[(res: ResourceFood, count: HeavyPlowFoodCost),
+      (res: ResourceWood, count: HeavyPlowWoodCost)]
+  of TechCropRotation:
+    @[(res: ResourceFood, count: CropRotationFoodCost),
+      (res: ResourceWood, count: CropRotationWoodCost)]
+
+proc economyTechPrerequisite*(tech: EconomyTechType): EconomyTechType =
+  ## Returns the prerequisite tech that must be researched first.
+  ## Returns itself if no prerequisite.
+  case tech
+  of TechWheelbarrow: TechWheelbarrow  # no prereq
+  of TechHandCart: TechWheelbarrow
+  of TechDoubleBitAxe: TechDoubleBitAxe  # no prereq
+  of TechBowSaw: TechDoubleBitAxe
+  of TechTwoManSaw: TechBowSaw
+  of TechGoldMining: TechGoldMining  # no prereq
+  of TechGoldShaftMining: TechGoldMining
+  of TechStoneMining: TechStoneMining  # no prereq
+  of TechStoneShaftMining: TechStoneMining
+  of TechHorseCollar: TechHorseCollar  # no prereq
+  of TechHeavyPlow: TechHorseCollar
+  of TechCropRotation: TechHeavyPlow
+
+proc getNextEconomyTech*(env: Environment, teamId: int, buildingKind: ThingKind): EconomyTechType =
+  ## Find the next available economy tech for the given building type.
+  ## Returns the first unresearched tech whose prerequisites are met.
+  for tech in EconomyTechType:
+    if economyTechBuilding(tech) != buildingKind:
+      continue
+    if env.teamEconomyTechs[teamId].researched[tech]:
+      continue
+    # Check prerequisite
+    let prereq = economyTechPrerequisite(tech)
+    if prereq != tech and not env.teamEconomyTechs[teamId].researched[prereq]:
+      continue
+    return tech
+  # No techs available; return first of this building type (caller checks researched)
+  for tech in EconomyTechType:
+    if economyTechBuilding(tech) == buildingKind:
+      return tech
+  TechWheelbarrow  # fallback
+
+proc tryResearchEconomyTech*(env: Environment, agent: Thing, building: Thing): bool =
+  ## Attempt to research the next economy tech at a building.
+  ## Only villagers can research. Returns true if research was successful.
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if building.teamId != teamId:
+    return false
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  let tech = env.getNextEconomyTech(teamId, building.kind)
+
+  # Check if already researched
+  if env.teamEconomyTechs[teamId].researched[tech]:
+    return false
+
+  # Check prerequisite
+  let prereq = economyTechPrerequisite(tech)
+  if prereq != tech and not env.teamEconomyTechs[teamId].researched[prereq]:
+    return false
+
+  # Check and spend resources
+  let costs = economyTechCost(tech)
+  if not env.spendStockpile(teamId, costs):
+    return false
+
+  # Apply the tech
+  env.teamEconomyTechs[teamId].researched[tech] = true
+  building.cooldown = 6
+  when defined(eventLog):
+    logTechResearched(teamId, "Economy " & $tech, env.currentStep)
+  true
+
+proc addFarmToMillQueue*(env: Environment, mill: Thing, farmPos: IVec2) =
+  ## Add a farm position to a mill's auto-reseed queue.
+  ## Only adds if the farm is within the mill's fertile radius.
+  if mill.kind != Mill:
+    return
+  let dist = max(abs(farmPos.x - mill.pos.x), abs(farmPos.y - mill.pos.y))
+  if dist > buildingFertileRadius(Mill):
+    return
+  # Avoid duplicates
+  for pos in mill.farmQueue:
+    if pos == farmPos:
+      return
+  mill.farmQueue.add(farmPos)
+
+proc findNearestMill*(env: Environment, pos: IVec2, teamId: int): Thing =
+  ## Find the nearest mill belonging to the given team within range.
+  ## Returns nil if no mill found.
+  var bestMill: Thing = nil
+  var bestDist = high(int32)
+  for mill in env.thingsByKind[Mill]:
+    if mill.teamId != teamId:
+      continue
+    let dist = max(abs(pos.x - mill.pos.x), abs(pos.y - mill.pos.y))
+    if dist <= buildingFertileRadius(Mill) and dist < bestDist:
+      bestDist = dist
+      bestMill = mill
+  bestMill
+
+proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool
+  ## Forward declaration - implemented after placement include
+
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
     if recipe.station != station:
@@ -1608,6 +1845,46 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
 
 include "placement"
 
+proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
+  ## Try to auto-reseed a farm from the mill's queue.
+  ## Returns true if a farm was reseeded.
+  if mill.kind != Mill:
+    return false
+  if mill.farmQueue.len == 0:
+    return false
+  let teamId = mill.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if not env.canAutoReseed(teamId):
+    return false
+
+  # Check cost
+  let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
+  if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
+    return false
+
+  let farmPos = mill.farmQueue[0]
+  mill.farmQueue.delete(0)
+
+  # Check if the position is valid for farm
+  if not isValidPos(farmPos):
+    return false
+  if env.grid[farmPos.x][farmPos.y] != nil:
+    return false  # Something blocking
+
+  # Check terrain
+  let terrain = env.terrain[farmPos.x][farmPos.y]
+  if terrain != Fertile:
+    return false
+
+  # Create the farm (wheat crop)
+  let crop = Thing(kind: Wheat, pos: farmPos)
+  crop.inventory = emptyInventory()
+  let farmFood = ResourceNodeInitial + env.getFarmFoodBonus(teamId)
+  setInv(crop, ItemWheat, farmFood)
+  env.add(crop)
+  true
+
 proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): bool =
   if amount <= 0:
     return true
@@ -1624,8 +1901,13 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   let bonus = env.getBiomeGatherBonus(tree.pos, ItemWood)
   if bonus > 0:
     discard env.grantItem(agent, ItemWood, bonus)
+  # Apply lumber camp tech gathering bonus (AoE2-style)
+  let teamId = getTeamId(agent)
+  let techBonusPct = env.getWoodGatherBonus(teamId)
+  if techBonusPct > 0 and (env.currentStep mod (100 div max(1, techBonusPct))) == 0:
+    discard env.grantItem(agent, ItemWood)
   when defined(eventLog):
-    logResourceGathered(getTeamId(agent), "Wood", 1 + bonus, env.currentStep)
+    logResourceGathered(teamId, "Wood", 1 + bonus, env.currentStep)
   let stumpPos = tree.pos  # Capture before pool release
   removeThing(env, tree)
   let stump = acquireThing(env, Stump)

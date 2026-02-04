@@ -127,3 +127,6 @@ zippy/
 # Gas Town (added by gt)
 # .beads/ - removed: inner .beads/.gitignore handles selective tracking
 scorecards/
+
+# Gas Town (added by gt)
+.beads/

@@ -1763,6 +1763,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let bonus = env.getBiomeGatherBonus(thing.pos, key)
             if bonus > 0:
               discard env.giveItem(agent, key, bonus)
+            # Apply economy tech gathering bonus (AoE2-style)
+            let teamId = getTeamId(agent)
+            var techBonusPct = 0
+            if key == ItemGold:
+              techBonusPct = env.getGoldGatherBonus(teamId)
+            elif key == ItemStone:
+              techBonusPct = env.getStoneGatherBonus(teamId)
+            elif key == ItemWood:
+              techBonusPct = env.getWoodGatherBonus(teamId)
+            if techBonusPct > 0 and (env.currentStep mod (100 div max(1, techBonusPct))) == 0:
+              # Probabilistic bonus: techBonusPct% chance per gather to get +1
+              discard env.giveItem(agent, key)
             used = true
         case thing.kind:
         of Relic:
@@ -1799,6 +1811,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if bonus > 0:
               discard env.grantItem(agent, ItemWheat, bonus)
             let stubblePos = thing.pos  # Capture before pool release
+            let teamId = getTeamId(agent)
             removeThing(env, thing)
             let stubble = acquireThing(env, Stubble)
             stubble.pos = stubblePos
@@ -1806,6 +1819,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let remaining = stored - 1
             if remaining > 0:
               setInv(stubble, ItemWheat, remaining)
+            else:
+              # Farm exhausted - add to nearest mill's auto-reseed queue
+              if env.canAutoReseed(teamId):
+                let mill = env.findNearestMill(stubblePos, teamId)
+                if mill != nil:
+                  env.addFarmToMillQueue(mill, stubblePos)
             env.add(stubble)
             used = true
         of Stubble, Stump:
@@ -2663,6 +2682,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
       thing.cooldown = MillFertileCooldown
+    # Process farm auto-reseed queue (AoE2-style)
+    if thing.farmQueue.len > 0:
+      discard env.tryAutoReseedFarm(thing)
 
   for thing in env.thingsByKind[Temple]:
     if thing.cooldown > 0:
