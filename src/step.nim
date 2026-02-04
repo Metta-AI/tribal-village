@@ -92,6 +92,9 @@ when defined(perfRegression):
   proc msBetweenPerfTiming(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
+when defined(flameGraph):
+  include "flame_graph"
+
 let logRenderEnabled = getEnv("TV_LOG_RENDER", "") notin ["", "0", "false"]
 let logRenderWindow = max(100, parseEnvInt(getEnv("TV_LOG_RENDER_WINDOW", "100"), 100))
 let logRenderEvery = max(1, parseEnvInt(getEnv("TV_LOG_RENDER_EVERY", "1"), 1))
@@ -988,6 +991,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     var prfTotalStart = prfStart
     var prfSubsystems: array[PerfSubsystemCount, float64]
 
+  when defined(flameGraph):
+    ensureFlameInit()
+    var fgStart = getMonoTime()
+    var fgNow: MonoTime
+    var fgTotalStart = fgStart
+    var fgSubsystems: array[FlameSubsystemCount, int64]
+
   when defined(combatAudit):
     ensureCombatAuditInit()
 
@@ -1017,6 +1027,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[0] = msBetweenPerfTiming(prfStart, prfNow)  # actionTint
     prfStart = prfNow
 
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[0] = usBetween(fgStart, fgNow)  # actionTint
+    fgStart = fgNow
+
   # Decay shields
   env.stepDecayShields()
 
@@ -1031,6 +1046,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[1] = msBetweenPerfTiming(prfStart, prfNow)  # shields
     prfStart = prfNow
 
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[1] = usBetween(fgStart, fgNow)  # shields
+    fgStart = fgNow
+
   # Remove any agents that already hit zero HP so they can't act this step
   env.enforceZeroHpDeaths()
 
@@ -1044,6 +1064,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfNow = getMonoTime()
     prfSubsystems[2] = msBetweenPerfTiming(prfStart, prfNow)  # preDeaths
     prfStart = prfNow
+
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[2] = usBetween(fgStart, fgNow)  # preDeaths
+    fgStart = fgNow
 
   inc env.currentStep
 
@@ -2618,6 +2643,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[3] = msBetweenPerfTiming(prfStart, prfNow)  # actions
     prfStart = prfNow
 
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[3] = usBetween(fgStart, fgNow)  # actions
+    fgStart = fgNow
+
   # Per-kind object updates: iterate each type separately for cache locality.
   # Same-type objects share field access patterns, so grouping them avoids
   # polymorphic dispatch overhead and reduces cache line waste from loading
@@ -2999,6 +3029,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[4] = msBetweenPerfTiming(prfStart, prfNow)  # things
     prfStart = prfNow
 
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[4] = usBetween(fgStart, fgNow)  # things
+    fgStart = fgNow
+
   env.stepProcessTumors(env.tempTumorsToProcess, env.tempTumorsToSpawn, stepRng)
 
   when defined(stepTiming):
@@ -3012,6 +3047,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[5] = msBetweenPerfTiming(prfStart, prfNow)  # tumors
     prfStart = prfNow
 
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[5] = usBetween(fgStart, fgNow)  # tumors
+    fgStart = fgNow
+
   env.stepApplyTumorDamage(stepRng)
 
   when defined(stepTiming):
@@ -3024,6 +3064,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfNow = getMonoTime()
     prfSubsystems[6] = msBetweenPerfTiming(prfStart, prfNow)  # tumorDamage
     prfStart = prfNow
+
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[6] = usBetween(fgStart, fgNow)  # tumorDamage
+    fgStart = fgNow
 
   # Tank aura tints
   env.stepApplyTankAuras()
@@ -3044,6 +3089,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfNow = getMonoTime()
     prfSubsystems[7] = msBetweenPerfTiming(prfStart, prfNow)  # auras
     prfStart = prfNow
+
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[7] = usBetween(fgStart, fgNow)  # auras
+    fgStart = fgNow
 
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
@@ -3192,6 +3242,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfSubsystems[8] = msBetweenPerfTiming(prfStart, prfNow)  # popRespawn
     prfStart = prfNow
 
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[8] = usBetween(fgStart, fgNow)  # popRespawn
+    fgStart = fgNow
+
   # Apply per-step survival penalty to all living agents
   env.stepApplySurvivalPenalty()
 
@@ -3205,6 +3260,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfNow = getMonoTime()
     prfSubsystems[9] = msBetweenPerfTiming(prfStart, prfNow)  # survival
     prfStart = prfNow
+
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[9] = usBetween(fgStart, fgNow)  # survival
+    fgStart = fgNow
 
   # Update heatmap using batch tint modification system
   # This is much more efficient than updating during each entity move
@@ -3230,6 +3290,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     prfNow = getMonoTime()
     prfSubsystems[10] = msBetweenPerfTiming(prfStart, prfNow)  # tintObs
     prfStart = prfNow
+
+  when defined(flameGraph):
+    fgNow = getMonoTime()
+    fgSubsystems[10] = usBetween(fgStart, fgNow)  # tintObs
+    fgStart = fgNow
 
   # Check victory conditions
   if env.config.victoryCondition != VictoryNone and env.victoryWinner < 0:
@@ -3318,6 +3383,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let prfTotal = msBetweenPerfTiming(prfTotalStart, getMonoTime())
     recordPerfStep(prfSubsystems, prfTotal)
     checkPerfRegression(env.currentStep)
+
+  when defined(flameGraph):
+    let fgTotalUs = usBetween(fgTotalStart, getMonoTime())
+    recordFlameStep(env.currentStep, fgSubsystems, fgTotalUs)
 
   # Check if all agents are terminated/truncated
   var allDone = true
