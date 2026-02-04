@@ -1049,6 +1049,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   if env.currentStep mod MarketPriceDecayInterval == 0:
     env.decayMarketPrices()
 
+  # Periodically tune spatial index bucket size based on unit density
+  when defined(spatialAutoTune):
+    env.maybeTuneSpatialIndex(env.currentStep)
+
   # Single RNG for entire step - XOR gameSeed for variation across different games.
   # Without gameSeed, all games at the same step have identical agent ordering.
   var stepRng = initRand(env.gameSeed xor env.currentStep)

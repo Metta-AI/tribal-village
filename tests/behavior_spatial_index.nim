@@ -174,3 +174,78 @@ suite "Behavior: Spatial Index Robustness":
     check nearest == friendlyHouse
     check nearest != enemyHouse
     echo "  Correctly ignored enemy building, found friendly building"
+
+when defined(spatialAutoTune):
+  suite "Behavior: Spatial Index Auto-Tuning":
+    test "maybeTuneSpatialIndex initializes dynamic grid lazily":
+      let env = makeEmptyEnv()
+      env.rebuildSpatialIndex()
+
+      # Dynamic grid should be initialized after rebuild
+      check env.spatialIndex.activeCellSize > 0
+      check env.spatialIndex.activeCellsX > 0
+      check env.spatialIndex.activeCellsY > 0
+      echo "  Dynamic grid initialized with cell size ", env.spatialIndex.activeCellSize
+
+    test "analyzeCellDensity returns correct statistics":
+      let env = makeEmptyEnv()
+
+      # Add agents clustered in one area
+      for i in 0 ..< 10:
+        discard addAgentAt(env, i, ivec2(50 + i.int32, 50))
+
+      env.rebuildSpatialIndex()
+      let (maxCount, totalCount, nonEmpty) = env.spatialIndex.analyzeCellDensity()
+
+      check totalCount == 10
+      check maxCount >= 1
+      check nonEmpty >= 1
+      echo &"  Density: max={maxCount}, total={totalCount}, cells={nonEmpty}"
+
+    test "computeOptimalCellSize recommends smaller cells for dense clusters":
+      let env = makeEmptyEnv()
+
+      # Add many agents in a very small area to create density hotspot
+      for i in 0 ..< 50:
+        discard addAgentAt(env, i mod MapAgentsPerTeam, ivec2(50 + (i mod 5).int32, 50 + (i div 5).int32))
+
+      env.rebuildSpatialIndex()
+      let initial = env.spatialIndex.activeCellSize
+      let optimal = env.spatialIndex.computeOptimalCellSize()
+
+      # With high density, should recommend smaller or equal cell size
+      check optimal <= initial
+      echo &"  Initial cell size: {initial}, optimal: {optimal}"
+
+    test "maybeTuneSpatialIndex respects interval":
+      let env = makeEmptyEnv()
+      env.rebuildSpatialIndex()
+
+      let initialLastTune = env.spatialIndex.lastTuneStep
+
+      # Call at step 1 (should not tune yet if initial was 0)
+      env.maybeTuneSpatialIndex(1)
+      let afterFirstCall = env.spatialIndex.lastTuneStep
+
+      # Call at step 50 (within interval, should not update lastTuneStep)
+      env.maybeTuneSpatialIndex(50)
+      let afterSecondCall = env.spatialIndex.lastTuneStep
+
+      # lastTuneStep should remain at afterFirstCall since interval not reached
+      check afterSecondCall == afterFirstCall
+      echo &"  Tuning interval respected: lastTune stayed at {afterSecondCall}"
+
+    test "queries still work after auto-tune resize":
+      let env = makeEmptyEnv()
+      let agent = addAgentAt(env, 0, ivec2(50, 50))
+      let tree = addResource(env, Tree, ivec2(55, 50), ItemWood)
+
+      env.rebuildSpatialIndex()
+
+      # Force a tune check (this will initialize tracking)
+      env.maybeTuneSpatialIndex(0)
+
+      # Query should still work regardless of cell size
+      let nearest = env.findNearestThingSpatial(agent.pos, Tree, 100)
+      check nearest == tree
+      echo "  Queries work correctly after auto-tune"

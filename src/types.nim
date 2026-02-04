@@ -567,6 +567,7 @@ when defined(spatialAutoTune):
     SpatialAutoTuneThreshold* = 32  ## Max entities per cell before rebalance
     SpatialMinCellSize* = 4         ## Minimum cell size in tiles
     SpatialMaxCellSize* = 64        ## Maximum cell size in tiles
+    SpatialAutoTuneInterval* = 100  ## Steps between density checks
 
 type
   SpatialCell* = object
@@ -582,6 +583,7 @@ type
       activeCellsY*: int          ## Current grid height in cells
       dynCells*: seq[seq[SpatialCell]]
       dynKindCells*: array[ThingKind, seq[seq[seq[Thing]]]]
+      lastTuneStep*: int          ## Step when tuning was last checked
 
   Stats* = ref object
     # Agent Stats - simplified actions:
