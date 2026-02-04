@@ -889,7 +889,7 @@ proc findNearestEnemyBuildingSpatial*(env: Environment, pos: IVec2,
   ## Uses Chebyshev distance for consistency with game mechanics.
   result = nil
   var minDist = int.high
-  let cellSz = effectiveCellSize()
+  let cellSz = effectiveCellSize(env)
   let teamMask = getTeamMask(teamId)
 
   for kind in TeamBuildingKinds:

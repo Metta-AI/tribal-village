@@ -445,9 +445,11 @@ suite "UI - Unit Info Panel State":
 suite "UI - Panel Hit Testing":
   test "isInResourceBarArea detects resource bar":
     let panelRect = makeTestPanelRect(1280, 720)
+    # Resource bar is offset down by half its height (16px), spanning y=16 to y=48
 
-    check isInResourceBarArea(panelRect, vec2(100, 10))  # In resource bar
-    check isInResourceBarArea(panelRect, vec2(100, 30))  # Just at boundary
+    check not isInResourceBarArea(panelRect, vec2(100, 10))  # Above resource bar
+    check isInResourceBarArea(panelRect, vec2(100, 20))  # In resource bar
+    check isInResourceBarArea(panelRect, vec2(100, 45))  # Near bottom boundary
     check not isInResourceBarArea(panelRect, vec2(100, 50))  # Below resource bar
 
   test "isInFooterArea detects footer":
