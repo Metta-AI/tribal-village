@@ -16,25 +16,21 @@ const
   LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
   MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
 
-proc gathererFindNearbyEnemy(env: Environment, agent: Thing): Thing =
-  ## Find nearest enemy agent within flee radius using spatial index
-  findNearbyEnemyForFlee(env, agent, GathererFleeRadius)
+const GathererFleeRadiusConst = GathererFleeRadius  # Local alias for use in guard template
 
 gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
-  not isNil(gathererFindNearbyEnemy(env, agent))
+  not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst))
 
 proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   ## Flee toward home altar when enemies are nearby
-  let enemy = gathererFindNearbyEnemy(env, agent)
+  let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)
   if isNil(enemy):
     return 0'u8
   # Request protection from nearby fighters via coordination system
   requestProtectionFromFighter(env, agent, enemy.pos)
   # Move toward home altar for safety
-  let basePos = agent.getBasePos()
-  state.basePosition = basePos
-  controller.moveTo(env, agent, agentId, state, basePos)
+  fleeToBase(controller, env, agent, agentId, state)
 
 proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IVec2): IVec2 =
   let (startX, endX, startY, endY) = radiusBounds(center, radius)
@@ -88,18 +84,6 @@ proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thin
     return (true, actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8))
   (false, 0'u8)
 
-proc findTeamAltar(env: Environment, agent: Thing, teamId: int): (IVec2, int) =
-  ## Find the nearest team altar, preferring the agent's home altar.
-  ## Returns (position, hearts) or (ivec2(-1,-1), 0) if none found.
-  if agent.homeAltar.x >= 0:
-    let homeAltar = env.getThing(agent.homeAltar)
-    if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
-      return (homeAltar.pos, homeAltar.hearts)
-  # Use spatial query instead of O(n) altar scan
-  let nearestAltar = findNearestFriendlyThingSpatial(env, agent.pos, teamId, Altar, 1000)
-  if not nearestAltar.isNil:
-    return (nearestAltar.pos, nearestAltar.hearts)
-  (ivec2(-1, -1), 0)
 
 proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
@@ -383,39 +367,15 @@ proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
   return actOrMove(controller, env, agent, agentId, state, skeleton.pos, 3'u8)
 
 gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
-  not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius))
+  not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadiusConst))
 
 proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   ## Flee away from predators toward friendly structures
-  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
+  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadiusConst)
   if isNil(predator):
     return 0'u8
-
-  let basePos = agent.getBasePos()
-  state.basePosition = basePos
-
-  # Try all directions and pick the one that maximizes distance from predator
-  var bestDir = -1
-  var bestScore = int.low
-  for dirIdx in 0 .. 7:
-    let delta = Directions8[dirIdx]
-    let newPos = agent.pos + delta
-    if not canEnterForMove(env, agent, agent.pos, newPos):
-      continue
-    # Score: distance from predator + proximity to base
-    let distFromPredator = max(abs(newPos.x - predator.pos.x), abs(newPos.y - predator.pos.y))
-    let distToBase = max(abs(newPos.x - basePos.x), abs(newPos.y - basePos.y))
-    let score = distFromPredator * 2 - distToBase  # Prioritize getting away from predator
-    if score > bestScore:
-      bestScore = score
-      bestDir = dirIdx
-
-  if bestDir >= 0:
-    return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, bestDir.uint8))
-
-  # If can't move, just noop
-  return saveStateAndReturn(controller, agentId, state, 0'u8)
+  fleeAwayFrom(controller, env, agent, agentId, state, predator.pos)
 
 let GathererOptions* = [
   OptionDef(
