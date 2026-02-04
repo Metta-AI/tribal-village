@@ -17,6 +17,7 @@ type
     FormationBox = 2      ## Box formation (rectangular perimeter)
     FormationWedge = 3    ## Wedge/V-shape (reserved)
     FormationScatter = 4  ## Explicit scatter
+    FormationStaggered = 5 ## Staggered/checkerboard formation (offset rows)
 
   FormationState* = object
     formationType*: FormationType
@@ -195,6 +196,52 @@ proc calcBoxPositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2]
         center.y + ((innerOffset div 3) - 1).int32
       )
 
+proc calcStaggeredPositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2] =
+  ## Calculate positions for staggered/checkerboard formation around a center point.
+  ## Units are arranged in a grid where every other row is offset by half the spacing.
+  ## rotation: 0=horizontal rows, 2=vertical columns
+  result = newSeq[IVec2](unitCount)
+  if unitCount == 0:
+    return
+  if unitCount == 1:
+    result[0] = center
+    return
+
+  # Calculate grid dimensions - try to make roughly square
+  let cols = max(1, (unitCount.float32.sqrt + 0.5).int)
+  let rows = (unitCount + cols - 1) div cols
+
+  # Direction vectors based on rotation
+  let (rowDir, colDir) = case rotation
+    of 0: (ivec2(0, 1), ivec2(1, 0))      # Horizontal rows (standard)
+    of 1: (ivec2(1, 1), ivec2(1, -1))     # Diagonal NE
+    of 2: (ivec2(1, 0), ivec2(0, 1))      # Vertical columns
+    of 3: (ivec2(1, -1), ivec2(-1, -1))   # Diagonal SE
+    of 4: (ivec2(0, -1), ivec2(-1, 0))    # Reversed horizontal
+    of 5: (ivec2(-1, -1), ivec2(-1, 1))   # Diagonal SW
+    of 6: (ivec2(-1, 0), ivec2(0, -1))    # Reversed vertical
+    of 7: (ivec2(-1, 1), ivec2(1, 1))     # Diagonal NW
+    else: (ivec2(0, 1), ivec2(1, 0))
+
+  # Calculate offsets to center the formation
+  let halfRows = (rows - 1) * FormationSpacing div 2
+  let halfCols = (cols - 1) * FormationSpacing div 2
+
+  var idx = 0
+  for row in 0 ..< rows:
+    # Stagger offset: every other row is shifted by half spacing
+    let staggerOffset = if row mod 2 == 1: FormationSpacing div 2 else: 0
+    for col in 0 ..< cols:
+      if idx >= unitCount:
+        break
+      let rowOffset = row * FormationSpacing - halfRows
+      let colOffset = col * FormationSpacing - halfCols + staggerOffset
+      result[idx] = ivec2(
+        center.x + colDir.x * colOffset.int32 + rowDir.x * rowOffset.int32,
+        center.y + colDir.y * colOffset.int32 + rowDir.y * rowOffset.int32
+      )
+      inc idx
+
 proc calcFormationPositions*(center: IVec2, unitCount: int,
                               formationType: FormationType,
                               rotation: int = 0): seq[IVec2] =
@@ -204,6 +251,8 @@ proc calcFormationPositions*(center: IVec2, unitCount: int,
     calcLinePositions(center, unitCount, rotation)
   of FormationBox:
     calcBoxPositions(center, unitCount, rotation)
+  of FormationStaggered:
+    calcStaggeredPositions(center, unitCount, rotation)
   of FormationNone, FormationScatter, FormationWedge:
     # No formation - return empty (units use their own movement)
     newSeq[IVec2](0)
