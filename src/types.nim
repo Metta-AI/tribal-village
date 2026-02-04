@@ -339,6 +339,47 @@ const
   ## Used for optimized aura processing collections
   TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight}
 
+  ## Display labels for AgentStance
+  StanceLabels*: array[AgentStance, string] = [
+    "Aggressive",
+    "Defensive",
+    "Stand Ground",
+    "No Attack"
+  ]
+
+  ## Display labels for AgentUnitClass
+  UnitClassLabels*: array[AgentUnitClass, string] = [
+    "Villager",
+    "Man-at-Arms",
+    "Archer",
+    "Scout",
+    "Knight",
+    "Monk",
+    "Battering Ram",
+    "Mangonel",
+    "Trebuchet",
+    "Goblin",
+    "Boat",
+    "Trade Cog",
+    # Castle unique units
+    "Samurai",
+    "Longbowman",
+    "Cataphract",
+    "Woad Raider",
+    "Teutonic Knight",
+    "Huskarl",
+    "Mameluke",
+    "Janissary",
+    "King",
+    # Unit upgrade tiers
+    "Long Swordsman",
+    "Champion",
+    "Light Cavalry",
+    "Hussar",
+    "Crossbowman",
+    "Arbalester"
+  ]
+
 type
   ThingKind* = enum
     Agent
@@ -1089,3 +1130,19 @@ proc defaultTeamModifiers*(): TeamModifiers =
     unitHpBonus: default(array[AgentUnitClass, int]),
     unitAttackBonus: default(array[AgentUnitClass, int])
   )
+
+proc getUnitAttackRange*(agent: Thing): int =
+  ## Get the attack range for a unit based on its class.
+  case agent.unitClass
+  of UnitArcher, UnitCrossbowman, UnitArbalester:
+    ArcherBaseRange
+  of UnitLongbowman:
+    ArcherBaseRange + 2  # Extended range
+  of UnitMangonel:
+    MangonelBaseRange
+  of UnitTrebuchet:
+    TrebuchetBaseRange
+  of UnitMameluke, UnitJanissary:
+    2  # Short ranged
+  else:
+    1  # Melee

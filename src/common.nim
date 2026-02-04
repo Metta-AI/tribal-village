@@ -129,6 +129,46 @@ const OrientationDeltas*: array[8, IVec2] = [
   ivec2(1, 1)     # SE (Southeast)
 ]
 
+type
+  CommandButtonKind* = enum
+    CmdNone
+    # Unit commands (common)
+    CmdMove
+    CmdAttack
+    CmdStop
+    CmdPatrol
+    CmdStance
+    # Villager-specific
+    CmdBuild
+    CmdGather
+    CmdBuildBack  # Return from build submenu
+    # Building placement commands (build submenu)
+    CmdBuildHouse
+    CmdBuildMill
+    CmdBuildLumberCamp
+    CmdBuildMiningCamp
+    CmdBuildBarracks
+    CmdBuildArcheryRange
+    CmdBuildStable
+    CmdBuildWall
+    CmdBuildBlacksmith
+    CmdBuildMarket
+    # Building commands
+    CmdSetRally
+    CmdUngarrison
+    # Production (for military buildings)
+    CmdTrainVillager
+    CmdTrainManAtArms
+    CmdTrainArcher
+    CmdTrainScout
+    CmdTrainKnight
+    CmdTrainMonk
+    CmdTrainBatteringRam
+    CmdTrainMangonel
+    CmdTrainTrebuchet
+    CmdTrainBoat
+    CmdTrainTradeCog
+
 const
   ActionVerbCount* = 11  # Added set rally point action (verb 10)
   ActionArgumentCount* = 25

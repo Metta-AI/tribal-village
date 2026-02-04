@@ -1,7 +1,7 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
   src/environment, src/common, src/renderer, src/agent_control, src/tileset,
-  src/minimap, src/command_panel
+  src/minimap, src/command_panel, src/tooltips
 
 when compileOption("profiler"):
   import std/nimprof
@@ -853,6 +853,9 @@ proc display() =
   drawFooter(panelRectInt, footerButtons)
   drawUnitInfoPanel(panelRectInt)
   drawCommandPanel(panelRectInt, mousePosPx)
+  # Update and draw tooltips (after command panel so tooltip appears on top)
+  updateTooltip()
+  drawTooltip(vec2(panelRectInt.w.float32, panelRectInt.h.float32))
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
   drawControlModeLabel(panelRectInt)

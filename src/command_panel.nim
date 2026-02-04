@@ -9,52 +9,13 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/strutils,
-  common, environment
+  common, environment, tooltips
 
 # ---------------------------------------------------------------------------
 # Types
 # ---------------------------------------------------------------------------
 
 type
-  CommandButtonKind* = enum
-    CmdNone
-    # Unit commands (common)
-    CmdMove
-    CmdAttack
-    CmdStop
-    CmdPatrol
-    CmdStance
-    # Villager-specific
-    CmdBuild
-    CmdGather
-    CmdBuildBack  # Return from build submenu
-    # Building placement commands (build submenu)
-    CmdBuildHouse
-    CmdBuildMill
-    CmdBuildLumberCamp
-    CmdBuildMiningCamp
-    CmdBuildBarracks
-    CmdBuildArcheryRange
-    CmdBuildStable
-    CmdBuildWall
-    CmdBuildBlacksmith
-    CmdBuildMarket
-    # Building commands
-    CmdSetRally
-    CmdUngarrison
-    # Production (for military buildings)
-    CmdTrainVillager
-    CmdTrainManAtArms
-    CmdTrainArcher
-    CmdTrainScout
-    CmdTrainKnight
-    CmdTrainMonk
-    CmdTrainBatteringRam
-    CmdTrainMangonel
-    CmdTrainTrebuchet
-    CmdTrainBoat
-    CmdTrainTradeCog
-
   CommandButton* = object
     kind*: CommandButtonKind
     rect*: Rect
@@ -372,6 +333,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
   # Build and draw buttons
   let buttons = buildCommandButtons(panelRect)
+  var anyButtonHovered = false
 
   for button in buttons:
     # Check hover state
@@ -379,6 +341,12 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
                   mousePosPx.x <= button.rect.x + button.rect.w and
                   mousePosPx.y >= button.rect.y and
                   mousePosPx.y <= button.rect.y + button.rect.h
+
+    # Handle tooltip on hover
+    if hovered and button.enabled:
+      anyButtonHovered = true
+      let tooltipContent = buildCommandTooltip(button.kind, button.hotkey)
+      startHover(TooltipCommand, button.rect, tooltipContent)
 
     # Draw button background
     let bgColor = if not button.enabled:
@@ -410,6 +378,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
       let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x.float32 - 2
       let hotkeyY = button.rect.y + 2
       bxy.drawImage(hotkeyKey, vec2(hotkeyX, hotkeyY), angle = 0, scale = 1)
+
+  # Clear tooltip if no button is hovered
+  if not anyButtonHovered:
+    clearTooltip()
 
 # ---------------------------------------------------------------------------
 # Click handling

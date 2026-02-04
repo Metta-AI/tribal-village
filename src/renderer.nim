@@ -40,37 +40,6 @@ type FloorSpriteKind = enum
   FloorCave
   FloorDungeon
 
-const UnitClassLabels: array[AgentUnitClass, string] = [
-  "Villager",
-  "Man-at-Arms",
-  "Archer",
-  "Scout",
-  "Knight",
-  "Monk",
-  "Battering Ram",
-  "Mangonel",
-  "Trebuchet",
-  "Goblin",
-  "Boat",
-  "Trade Cog",
-  # Castle unique units
-  "Samurai",
-  "Longbowman",
-  "Cataphract",
-  "Woad Raider",
-  "Teutonic Knight",
-  "Huskarl",
-  "Mameluke",
-  "Janissary",
-  "King",
-  # Unit upgrade tiers
-  "Long Swordsman",
-  "Champion",
-  "Light Cavalry",
-  "Hussar",
-  "Crossbowman",
-  "Arbalester"
-]
 
 const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
   "",                              # UnitVillager (uses role-based key)
@@ -1281,28 +1250,6 @@ proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize): (stri
     unitInfoLabelImages[cacheKey] = key
     unitInfoLabelSizes[cacheKey] = size
     result = (key, size)
-
-const StanceLabels: array[AgentStance, string] = [
-  "Aggressive",
-  "Defensive",
-  "Stand Ground",
-  "No Attack"
-]
-
-proc getUnitAttackRange(agent: Thing): int =
-  case agent.unitClass
-  of UnitArcher, UnitCrossbowman, UnitArbalester:
-    ArcherBaseRange
-  of UnitLongbowman:
-    ArcherBaseRange + 2  # Extended range
-  of UnitMangonel:
-    MangonelBaseRange
-  of UnitTrebuchet:
-    TrebuchetBaseRange
-  of UnitMameluke, UnitJanissary:
-    2  # Short ranged
-  else:
-    1  # Melee
 
 proc drawUnitInfoPanel*(panelRect: IRect) =
   if selection.len == 0:
