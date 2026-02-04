@@ -39,7 +39,7 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
     intensity: base.intensity + (1.0'f32 - base.intensity) * alpha
   )
 
-proc isTileFrozen*(pos: IVec2, env: Environment): bool =
+proc isTileFrozen*(pos: IVec2, env: Environment): bool {.inline.} =
   if not isValidPos(pos):
     return false
   let color = combinedTileTint(env, pos.x, pos.y)
@@ -47,7 +47,7 @@ proc isTileFrozen*(pos: IVec2, env: Environment): bool =
     abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
     abs(color.b - ClippyTint.b) <= ClippyTintTolerance
 
-proc isThingFrozen*(thing: Thing, env: Environment): bool =
+proc isThingFrozen*(thing: Thing, env: Environment): bool {.inline.} =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.
   thing.frozen > 0 or isTileFrozen(thing.pos, env)
 

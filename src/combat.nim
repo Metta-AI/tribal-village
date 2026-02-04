@@ -397,12 +397,16 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
   let teamId = getTeamId(target)
   if teamId >= 0:
     # Iterate tankUnits directly (no allocation, avoids collecting all allies then filtering)
+    # Cache target position to avoid repeated field access in hot loop
+    let targetX = target.pos.x
+    let targetY = target.pos.y
     for tank in env.tankUnits:
       if getTeamId(tank) != teamId: continue
       if not isAgentAlive(env, tank): continue
-      if isThingFrozen(tank, env): continue
+      # Fast frozen check: skip explicit frozen first, then tile check
+      if tank.frozen > 0 or isTileFrozen(tank.pos, env): continue
       let radius = if tank.unitClass == UnitKnight: 2 else: 1
-      if max(abs(tank.pos.x - target.pos.x), abs(tank.pos.y - target.pos.y)) <= radius:
+      if max(abs(tank.pos.x - targetX), abs(tank.pos.y - targetY)) <= radius:
         remaining = max(1, (remaining + 1) div 2)
         break
 

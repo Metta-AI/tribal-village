@@ -612,29 +612,52 @@ type
     CategoryCavalry   ## Scout, Knight, Cataphract, Mameluke
     CategoryArcher    ## Archer, Longbowman, Janissary
 
-proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory =
-  ## Returns the Blacksmith upgrade category for a unit class.
-  ## Used to determine which upgrades apply to a unit.
-  case unitClass
-  of UnitManAtArms, UnitSamurai, UnitWoadRaider, UnitTeutonicKnight, UnitHuskarl,
-     UnitLongSwordsman, UnitChampion:
-    CategoryInfantry
-  of UnitScout, UnitKnight, UnitCataphract, UnitMameluke,
-     UnitLightCavalry, UnitHussar:
-    CategoryCavalry
-  of UnitArcher, UnitLongbowman, UnitJanissary,
-     UnitCrossbowman, UnitArbalester:
-    CategoryArcher
-  of UnitVillager, UnitMonk, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin, UnitBoat, UnitKing, UnitTradeCog,
-     UnitGalley, UnitFireShip, UnitScorpion:
-    CategoryNone
+const
+  ## Pre-computed lookup table for unit category (eliminates switch/case in hot path)
+  UnitCategoryByClass*: array[AgentUnitClass, UnitCategory] = [
+    CategoryNone,      # UnitVillager
+    CategoryInfantry,  # UnitManAtArms
+    CategoryArcher,    # UnitArcher
+    CategoryCavalry,   # UnitScout
+    CategoryCavalry,   # UnitKnight
+    CategoryNone,      # UnitMonk
+    CategoryNone,      # UnitBatteringRam
+    CategoryNone,      # UnitMangonel
+    CategoryNone,      # UnitTrebuchet
+    CategoryNone,      # UnitGoblin
+    CategoryNone,      # UnitBoat
+    CategoryNone,      # UnitTradeCog
+    CategoryInfantry,  # UnitSamurai
+    CategoryArcher,    # UnitLongbowman
+    CategoryCavalry,   # UnitCataphract
+    CategoryInfantry,  # UnitWoadRaider
+    CategoryInfantry,  # UnitTeutonicKnight
+    CategoryInfantry,  # UnitHuskarl
+    CategoryCavalry,   # UnitMameluke
+    CategoryArcher,    # UnitJanissary
+    CategoryNone,      # UnitKing
+    CategoryInfantry,  # UnitLongSwordsman
+    CategoryInfantry,  # UnitChampion
+    CategoryCavalry,   # UnitLightCavalry
+    CategoryCavalry,   # UnitHussar
+    CategoryArcher,    # UnitCrossbowman
+    CategoryArcher,    # UnitArbalester
+    CategoryNone,      # UnitGalley
+    CategoryNone,      # UnitFireShip
+    CategoryNone,      # UnitScorpion
+  ]
 
-proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
+proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory {.inline.} =
+  ## Returns the Blacksmith upgrade category for a unit class.
+  ## Uses pre-computed lookup table for O(1) access.
+  UnitCategoryByClass[unitClass]
+
+proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int {.inline.} =
   ## Returns the attack bonus from Blacksmith upgrades for a unit.
   ## Melee attack (Forging line) applies to infantry + cavalry.
   ## Archer attack (Fletching line) applies to archers.
   ## Bonus varies by tier: level 3 melee gives +2 extra (Blast Furnace).
-  let category = getUnitCategory(unitClass)
+  let category = UnitCategoryByClass[unitClass]
   case category
   of CategoryInfantry, CategoryCavalry:
     let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeMeleeAttack]
@@ -645,10 +668,10 @@ proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUn
   of CategoryNone:
     0
 
-proc getBlacksmithArmorBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int =
+proc getBlacksmithArmorBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int {.inline.} =
   ## Returns the armor bonus from Blacksmith upgrades for a unit.
   ## Bonus varies by tier: level 3 gives +2 extra (Plate/Ring upgrades).
-  let category = getUnitCategory(unitClass)
+  let category = UnitCategoryByClass[unitClass]
   case category
   of CategoryInfantry:
     let level = env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor]
