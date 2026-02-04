@@ -255,6 +255,8 @@ proc tribal_village_get_obs_height(): int32 {.exportc, dynlib.} =
 
 proc tribal_village_destroy(env: pointer) {.exportc, dynlib.} =
   ## Clean up environment
+  when defined(flameGraph):
+    closeFlameGraph()
   globalEnv = nil
 
 # --- Rendering interface (ANSI) ---
