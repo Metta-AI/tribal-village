@@ -3358,6 +3358,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(eventLog):
     flushEventSummary(env.currentStep)
 
+  when defined(techAudit):
+    maybePrintTechSummary(env, env.currentStep)
+
   when defined(stateDiff):
     comparePostStep(env)
 
@@ -3506,6 +3509,8 @@ proc reset*(env: Environment) =
   env.teamUniversityTechs.clear()
   env.teamCastleTechs.clear()
   env.teamUnitUpgrades.clear()
+  when defined(techAudit):
+    resetTechAudit()
   # Clear colors
   env.agentColors.setLen(0)
   env.teamColors.setLen(0)
