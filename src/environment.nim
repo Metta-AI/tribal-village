@@ -779,15 +779,20 @@ proc hasRallyPoint*(building: Thing): bool =
 
 proc rebuildObservationsForAgent(env: Environment, agentId: int, agent: Thing) {.inline.} =
   ## Rebuild all observation layers for a single agent.
+  ## Optimization: precompute valid observation bounds to avoid per-iteration checks.
   let agentPos = agent.pos
-  for obsX in 0 ..< ObservationWidth:
+  # Precompute valid observation ranges - eliminates per-iteration boundary checks
+  # For obsX: worldX = agentPos.x + (obsX - ObservationRadius) must be in [0, MapWidth)
+  # Solving: 0 <= agentPos.x + obsX - ObservationRadius < MapWidth
+  #          ObservationRadius - agentPos.x <= obsX < MapWidth - agentPos.x + ObservationRadius
+  let minObsX = max(0, ObservationRadius - agentPos.x)
+  let maxObsX = min(ObservationWidth, MapWidth - agentPos.x + ObservationRadius)
+  let minObsY = max(0, ObservationRadius - agentPos.y)
+  let maxObsY = min(ObservationHeight, MapHeight - agentPos.y + ObservationRadius)
+  for obsX in minObsX ..< maxObsX:
     let worldX = agentPos.x + (obsX - ObservationRadius)
-    if worldX < 0 or worldX >= MapWidth:
-      continue
-    for obsY in 0 ..< ObservationHeight:
+    for obsY in minObsY ..< maxObsY:
       let worldY = agentPos.y + (obsY - ObservationRadius)
-      if worldY < 0 or worldY >= MapHeight:
-        continue
       writeTileObs(env, agentId, obsX, obsY, worldX, worldY)
 
 proc rebuildObservations*(env: Environment) =
@@ -830,28 +835,28 @@ proc ensureObservations*(env: Environment) {.inline.} =
     # staleness for major perf gain. Next movement will refresh.
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
-  for thing in env.things:
-    if not isBuildingKind(thing.kind):
-      continue
-    if not thing.hasRallyPoint():
-      continue
-    let rp = thing.rallyPoint
-    if not isValidPos(rp):
-      continue
-    let buildingTeam = thing.teamId
-    # Mark rally point in observations for agents on the same team
-    for agentId in 0 ..< env.agents.len:
-      let agent = env.agents[agentId]
-      if not isAgentAlive(env, agent):
+  # Optimization: use thingsByKind with TeamBuildingKinds instead of iterating all env.things
+  for bKind in TeamBuildingKinds:
+    for thing in env.thingsByKind[bKind]:
+      if not thing.hasRallyPoint():
         continue
-      if getTeamId(agent) != buildingTeam:
+      let rp = thing.rallyPoint
+      if not isValidPos(rp):
         continue
-      let obsX = rp.x - agent.pos.x + ObservationRadius
-      let obsY = rp.y - agent.pos.y + ObservationRadius
-      if obsX < 0 or obsX >= ObservationWidth or obsY < 0 or obsY >= ObservationHeight:
-        continue
-      var agentObs = addr env.observations[agentId]
-      agentObs[][ord(RallyPointLayer)][obsX][obsY] = 1
+      let buildingTeam = thing.teamId
+      # Mark rally point in observations for agents on the same team
+      for agentId in 0 ..< env.agents.len:
+        let agent = env.agents[agentId]
+        if not isAgentAlive(env, agent):
+          continue
+        if getTeamId(agent) != buildingTeam:
+          continue
+        let obsX = rp.x - agent.pos.x + ObservationRadius
+        let obsY = rp.y - agent.pos.y + ObservationRadius
+        if obsX < 0 or obsX >= ObservationWidth or obsY < 0 or obsY >= ObservationHeight:
+          continue
+        var agentObs = addr env.observations[agentId]
+        agentObs[][ord(RallyPointLayer)][obsX][obsY] = 1
 
   env.observationsInitialized = true
 
