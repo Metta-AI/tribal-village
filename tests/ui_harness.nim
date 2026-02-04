@@ -169,8 +169,10 @@ proc makeTestPanelRect*(width: int = 1280, height: int = 720): IRect =
 
 proc isInResourceBarArea*(panelRect: IRect, screenPos: Vec2): bool =
   ## Check if a screen position is within the resource bar HUD area.
-  screenPos.y >= panelRect.y.float32 and
-    screenPos.y <= panelRect.y.float32 + ResourceBarHeight.float32
+  ## Note: Resource bar is offset down by half its height to avoid top clipping.
+  let barTop = panelRect.y.float32 + ResourceBarHeight.float32 * 0.5
+  screenPos.y >= barTop and
+    screenPos.y <= barTop + ResourceBarHeight.float32
 
 proc isInFooterArea*(panelRect: IRect, screenPos: Vec2): bool =
   ## Check if a screen position is within the footer area.

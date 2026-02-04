@@ -1545,7 +1545,8 @@ proc ensureResourceBarLabel(text: string): (string, IVec2) =
 
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw the resource bar HUD at the top of the viewport.
-  let barY = panelRect.y.float32
+  # Offset bar down by half its height to avoid text clipping at viewport top
+  let barY = panelRect.y.float32 + ResourceBarHeight.float32 * 0.5
   let barW = panelRect.w.float32
   let barH = ResourceBarHeight.float32
 
