@@ -1006,6 +1006,148 @@ proc optTempleFusion(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   return actOrMove(controller, env, agent, agentId, state, temple.pos, 3'u8)
 
+# ============================================================================
+# Monk Behaviors
+# ============================================================================
+
+proc findNearestWoundedAlly(env: Environment, agent: Thing, radius: int): Thing =
+  ## Find nearest allied agent with HP < maxHp within radius using spatial index.
+  let teamId = getTeamId(agent)
+  var allies: seq[Thing] = @[]
+  collectAlliesInRangeSpatial(env, agent.pos, teamId, radius, allies)
+  var best: Thing = nil
+  var bestDist = int.high
+  for ally in allies:
+    if ally.agentId == agent.agentId:
+      continue
+    if ally.hp >= ally.maxHp:
+      continue
+    let dist = int(chebyshevDist(agent.pos, ally.pos))
+    if dist < bestDist:
+      bestDist = dist
+      best = ally
+  best
+
+proc canStartMonkHeal*(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): bool =
+  ## Monk healing: position near wounded allies to heal them with aura.
+  ## Requires: monk unit class and a wounded ally within seek radius.
+  if agent.unitClass != UnitMonk:
+    return false
+  not isNil(findNearestWoundedAlly(env, agent, HealerSeekRadius))
+
+proc shouldTerminateMonkHeal*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer a monk or no wounded allies nearby.
+  if agent.unitClass != UnitMonk:
+    return true
+  isNil(findNearestWoundedAlly(env, agent, HealerSeekRadius))
+
+proc optMonkHeal*(controller: Controller, env: Environment, agent: Thing,
+                  agentId: int, state: var AgentState): uint8 =
+  ## Move toward the nearest wounded ally to heal them with aura.
+  let wounded = findNearestWoundedAlly(env, agent, HealerSeekRadius)
+  if isNil(wounded):
+    return 0'u8
+  let dist = int(chebyshevDist(agent.pos, wounded.pos))
+  # Already within healing aura range - stay put and let aura heal
+  if dist <= MonkAuraRadius:
+    return 0'u8
+  controller.moveTo(env, agent, agentId, state, wounded.pos)
+
+let MonkHealOption* = OptionDef(
+  name: "MonkHeal",
+  canStart: canStartMonkHeal,
+  shouldTerminate: shouldTerminateMonkHeal,
+  act: optMonkHeal,
+  interruptible: true
+)
+
+proc canStartMonkRelicCollect*(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  ## Monk relic collection: pick up relics and deposit in monastery.
+  ## Requires: monk unit class.
+  if agent.unitClass != UnitMonk:
+    return false
+  # Either carrying a relic (need to deposit) or relics exist (need to collect)
+  agent.inventoryRelic > 0 or env.thingsByKind[Relic].len > 0
+
+proc shouldTerminateMonkRelicCollect*(controller: Controller, env: Environment, agent: Thing,
+                                      agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer a monk, or no relics to collect and not carrying any.
+  if agent.unitClass != UnitMonk:
+    return true
+  agent.inventoryRelic == 0 and env.thingsByKind[Relic].len == 0
+
+proc optMonkRelicCollect*(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): uint8 =
+  ## Collect relics and deposit them in a monastery for gold generation.
+  let teamId = getTeamId(agent)
+  # If carrying a relic, deposit it in a monastery
+  if agent.inventoryRelic > 0:
+    let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
+    if not isNil(monastery):
+      return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u8)
+    # No monastery - return to home altar
+    if agent.homeAltar.x >= 0:
+      return controller.moveTo(env, agent, agentId, state, agent.homeAltar)
+    return 0'u8
+  # Otherwise, find and collect a relic
+  let relic = env.findNearestThingSpiral(state, Relic)
+  if isNil(relic):
+    return 0'u8
+  return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
+
+let MonkRelicCollectOption* = OptionDef(
+  name: "MonkRelicCollect",
+  canStart: canStartMonkRelicCollect,
+  shouldTerminate: shouldTerminateMonkRelicCollect,
+  act: optMonkRelicCollect,
+  interruptible: true
+)
+
+proc canStartMonkConversion*(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): bool =
+  ## Monk conversion: convert enemy units using faith.
+  ## Requires: monk unit class with sufficient faith and enemy in range.
+  if agent.unitClass != UnitMonk:
+    return false
+  if agent.faith < MonkConversionFaithCost:
+    return false
+  let teamId = getTeamId(agent)
+  let conversionRadius = ObservationRadius.int * 2
+  not isNil(findNearestEnemyAgentSpatial(env, agent.pos, teamId, conversionRadius))
+
+proc shouldTerminateMonkConversion*(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Terminate when no longer a monk, faith depleted, or no enemies nearby.
+  if agent.unitClass != UnitMonk:
+    return true
+  if agent.faith < MonkConversionFaithCost:
+    return true
+  let teamId = getTeamId(agent)
+  let conversionRadius = ObservationRadius.int * 2
+  isNil(findNearestEnemyAgentSpatial(env, agent.pos, teamId, conversionRadius))
+
+proc optMonkConversion*(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): uint8 =
+  ## Move toward and convert the nearest enemy agent.
+  let teamId = getTeamId(agent)
+  let conversionRadius = ObservationRadius.int * 2
+  let enemy = findNearestEnemyAgentSpatial(env, agent.pos, teamId, conversionRadius)
+  if isNil(enemy):
+    return 0'u8
+  # Monks use attack action (verb 2) to convert
+  return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+let MonkConversionOption* = OptionDef(
+  name: "MonkConversion",
+  canStart: canStartMonkConversion,
+  shouldTerminate: shouldTerminateMonkConversion,
+  act: optMonkConversion,
+  interruptible: true
+)
+
 let MetaBehaviorOptions* = [
   OptionDef(
     name: "BehaviorLanternFrontierPush",
@@ -1201,6 +1343,27 @@ let MetaBehaviorOptions* = [
     canStart: canStartTempleFusion,
     shouldTerminate: shouldTerminateTempleFusion,
     act: optTempleFusion,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorMonkHeal",
+    canStart: canStartMonkHeal,
+    shouldTerminate: shouldTerminateMonkHeal,
+    act: optMonkHeal,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorMonkRelicCollect",
+    canStart: canStartMonkRelicCollect,
+    shouldTerminate: shouldTerminateMonkRelicCollect,
+    act: optMonkRelicCollect,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "BehaviorMonkConversion",
+    canStart: canStartMonkConversion,
+    shouldTerminate: shouldTerminateMonkConversion,
+    act: optMonkConversion,
     interruptible: true
   )
 ]
