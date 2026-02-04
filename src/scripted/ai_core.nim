@@ -594,16 +594,14 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
 
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =
+  ## Find distance to nearest friendly building of specified kinds.
+  ## Optimized: uses thingsByKind instead of iterating all env.things.
   result = int.high
-  for thing in env.things:
-    if thing.teamId != teamId:
-      continue
-    block kindCheck:
-      for kind in kinds:
-        if thing.kind == kind:
-          break kindCheck
-      continue
-    result = min(result, int(chebyshevDist(thing.pos, pos)))
+  for kind in kinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.isNil or thing.teamId != teamId:
+        continue
+      result = min(result, int(chebyshevDist(thing.pos, pos)))
 
 proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
   if controller.buildingCountsStep != env.currentStep:
@@ -980,10 +978,10 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
   @[]
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  for thing in env.things:
-    if thing.kind != Lantern:
-      continue
-    if not thing.lanternHealthy or thing.teamId != teamId:
+  ## Check if there's a healthy team lantern within 3 tiles of position.
+  ## Optimized: uses thingsByKind[Lantern] instead of iterating all env.things.
+  for thing in env.thingsByKind[Lantern]:
+    if thing.isNil or not thing.lanternHealthy or thing.teamId != teamId:
       continue
     if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:
       return true
