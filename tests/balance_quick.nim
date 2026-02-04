@@ -2,9 +2,7 @@
 ## For thorough balance testing, use behavior_balance.nim
 
 import std/[unittest, math]
-import environment
-import agent_control
-import types
+import test_common
 
 const
   NumSeeds = 3          # Reduced from 10
@@ -17,11 +15,6 @@ type
     seed: int
     winnerTeam: int
     aliveUnits: array[MapRoomObjectsTeams, int]
-
-proc countAliveUnits(env: Environment, teamId: int): int =
-  for agent in env.agents:
-    if getTeamId(agent) == teamId and isAgentAlive(env, agent):
-      inc result
 
 proc computeScore(env: Environment, teamId: int): int =
   let stockpile = env.teamStockpiles[teamId]
