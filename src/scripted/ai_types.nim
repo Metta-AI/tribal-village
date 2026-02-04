@@ -184,6 +184,10 @@ type
     damagedBuildingCacheStep*: int
     damagedBuildingPositions*: array[MapRoomObjectsTeams, array[MaxDamagedBuildingsPerTeam, IVec2]]
     damagedBuildingCounts*: array[MapRoomObjectsTeams, int]
+    # Fog of war optimization: track last position where fog was revealed per agent
+    # Skip redundant fog updates when agent hasn't moved
+    fogLastRevealPos*: array[MapAgents, IVec2]
+    fogLastRevealStep*: array[MapAgents, int32]
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.
@@ -251,3 +255,7 @@ proc newController*(seed: int): Controller =
   # Initialize all teams to Normal difficulty by default
   for teamId in 0 ..< MapRoomObjectsTeams:
     result.difficulty[teamId] = defaultDifficultyConfig(DiffNormal)
+  # Initialize fog tracking - set invalid positions so first update always runs
+  for agentId in 0 ..< MapAgents:
+    result.fogLastRevealPos[agentId] = ivec2(-1, -1)
+    result.fogLastRevealStep[agentId] = 0
