@@ -409,6 +409,9 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
                    $attacker.unitClass, $target.unitClass, remaining, env.currentStep)
 
   if target.hp <= 0:
+    # Track veterancy: increment killer's kill count
+    if not attacker.isNil:
+      inc attacker.kills
     when defined(combatAudit):
       if not attacker.isNil:
         recordKill(env.currentStep, getTeamId(attacker), getTeamId(target),

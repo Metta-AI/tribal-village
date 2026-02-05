@@ -512,6 +512,7 @@ type
     hp*: int
     maxHp*: int
     attackDamage*: int
+    kills*: int                 # Number of enemy units killed (for veterancy)
     unitClass*: AgentUnitClass
     stance*: AgentStance        # Combat stance mode (Aggressive/Defensive/StandGround/NoAttack)
     isIdle*: bool               # True if agent took NOOP/ORIENT action last step (AoE2-style idle detection)
