@@ -500,6 +500,42 @@ proc drawObjects*() =
       bxy.drawImage(agentSpriteKey, thingPos.vec2, angle = 0,
                     scale = SpriteScale, tint = env.agentColors[agent.agentId])
 
+  # Draw dying units with fade-out animation
+  for dying in env.dyingUnits:
+    if not isInViewport(dying.pos):
+      continue
+    let dyingBaseKey = block:
+      let tbl = UnitClassSpriteKeys[dying.unitClass]
+      if tbl.len > 0: tbl
+      elif dying.unitClass == UnitTrebuchet: "oriented/trebuchet_packed"
+      else:  # UnitVillager: role-based
+        case dying.agentId mod MapAgentsPerTeam
+        of 0, 1: "oriented/gatherer"
+        of 2, 3: "oriented/builder"
+        of 4, 5: "oriented/fighter"
+        else: "oriented/gatherer"
+    let dyingDirKey = OrientationDirKeys[dying.orientation.int]
+    let dyingImage = dyingBaseKey & "." & dyingDirKey
+    let dyingSpriteKey = if dyingImage in bxy: dyingImage
+                         elif dyingBaseKey & ".s" in bxy: dyingBaseKey & ".s"
+                         else: ""
+    if dyingSpriteKey.len > 0:
+      # Calculate fade: starts at 1.0 (full opacity), fades to 0.0
+      let fade = dying.countdown.float32 / dying.lifetime.float32
+      # Calculate scale: starts at 1.0, shrinks to 0.3 for collapse effect
+      let dyingScale = SpriteScale * (0.3 + 0.7 * fade)
+      # Get base unit color and apply alpha fade
+      let baseColor = env.agentColors[dying.agentId]
+      # Tint towards red during death, then fade out
+      let deathTint = color(
+        min(1.0, baseColor.r + 0.3 * (1.0 - fade)),
+        baseColor.g * fade,
+        baseColor.b * fade,
+        fade * 0.9 + 0.1  # Never fully transparent until removed
+      )
+      bxy.drawImage(dyingSpriteKey, dying.pos.vec2, angle = 0,
+                    scale = dyingScale, tint = deathTint)
+
   drawThings(Altar):
     let altarTint = if env.altarColors.hasKey(thingPos): env.altarColors[thingPos]
       elif thingPos.x >= 0 and thingPos.x < MapWidth and thingPos.y >= 0 and thingPos.y < MapHeight:

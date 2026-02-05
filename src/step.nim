@@ -225,6 +225,18 @@ proc stepDecayDamageNumbers(env: Environment) =
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
 
+proc stepDecayDyingUnits(env: Environment) =
+  ## Decay and remove expired dying unit animations.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.dyingUnits.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.dyingUnits.len:
+      env.dyingUnits[readIdx].countdown -= 1
+      if env.dyingUnits[readIdx].countdown > 0:
+        env.dyingUnits[writeIdx] = env.dyingUnits[readIdx]
+        inc writeIdx
+    env.dyingUnits.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1016,6 +1028,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+  env.stepDecayDyingUnits()
 
   when defined(stepTiming):
     if timing:

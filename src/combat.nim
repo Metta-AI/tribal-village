@@ -284,6 +284,17 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
 proc killAgent(env: Environment, victim: Thing) =
   ## Remove an agent from the board and mark for respawn
   let deathPos = victim.pos
+
+  # Create dying unit for fade-out animation before removing from grid
+  env.dyingUnits.add(DyingUnit(
+    pos: deathPos,
+    orientation: victim.orientation,
+    unitClass: victim.unitClass,
+    agentId: victim.agentId,
+    countdown: DyingUnitLifetime,
+    lifetime: DyingUnitLifetime
+  ))
+
   env.grid[deathPos.x][deathPos.y] = nil
   env.updateObservations(AgentLayer, victim.pos, 0)
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
