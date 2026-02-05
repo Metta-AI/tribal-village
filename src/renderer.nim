@@ -995,6 +995,20 @@ proc drawAgentDecorations*() =
         bxy.drawImage(badgeKey, posVec + badgeOffset, angle = 0,
                       scale = ControlGroupBadgeScale)
 
+    # Draw veterancy stars above HP bar for units with kills
+    if agent.kills > 0:
+      const VeterancyStarScale = 1.0 / 500.0
+      const VeterancyStarColor = color(1.0, 0.85, 0.2, 1.0)  # Gold/yellow
+      const MaxStarsDisplayed = 5
+      let starsToShow = min(agent.kills, MaxStarsDisplayed)
+      let starSpacing = 0.14'f32
+      let starY = -0.72'f32  # Above HP bar
+      let startX = -starSpacing * (starsToShow - 1).float32 / 2.0
+      for i in 0 ..< starsToShow:
+        let starPos = posVec + vec2(startX + starSpacing * i.float32, starY)
+        bxy.drawImage("floor", starPos, angle = 0, scale = VeterancyStarScale,
+                      tint = VeterancyStarColor)
+
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
       if count > 0:
