@@ -708,6 +708,25 @@ proc drawObjects*() =
           else:
             color(1, 1, 1, 1)
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+        # Construction scaffolding visual for buildings under construction
+        if thing.maxHp > 0 and thing.hp < thing.maxHp:
+          let constructionRatio = thing.hp.float32 / thing.maxHp.float32
+          # Draw scaffolding frame (4 corner posts using floor sprite as small dots)
+          let scaffoldTint = color(0.7, 0.5, 0.2, 0.8)  # Brown/wood color
+          let scaffoldScale = 1.0 / 600.0  # Smaller dots for scaffolding posts
+          let offsets = [vec2(-0.35, -0.35), vec2(0.35, -0.35),
+                         vec2(-0.35, 0.35), vec2(0.35, 0.35)]
+          for offset in offsets:
+            bxy.drawImage("floor", pos.vec2 + offset, angle = 0,
+                          scale = scaffoldScale, tint = scaffoldTint)
+          # Draw horizontal scaffold bars connecting posts
+          let barTint = color(0.6, 0.4, 0.15, 0.7)
+          for yOff in [-0.35'f32, 0.35'f32]:
+            bxy.drawImage("floor", pos.vec2 + vec2(0, yOff), angle = 0,
+                          scale = scaffoldScale, tint = barTint)
+          # Draw construction progress bar below the building
+          drawSegmentBar(pos.vec2, vec2(0, 0.65), constructionRatio,
+                         color(0.9, 0.7, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
         # Production queue progress bar (AoE2-style)
         if thing.productionQueue.entries.len > 0:
           let entry = thing.productionQueue.entries[0]
