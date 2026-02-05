@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 
 from tribal_village_env.build import ensure_nim_library_current
+from tribal_village_env.constants import DEFAULT_ANSI_STEPS, DEFAULT_PROFILE_STEPS
 from tribal_village_env.environment import TribalVillageEnv
 
 # Optional CoGames training integration
@@ -118,7 +119,7 @@ def _options():
             help="Render mode: gui (default) or ansi (text-only)",
         ),
         "steps": typer.Option(
-            128, "--steps", "-s", help="Steps to run when using ANSI render", min=1
+            DEFAULT_ANSI_STEPS, "--steps", "-s", help="Steps to run when using ANSI render", min=1
         ),
         "max_steps": typer.Option(
             None, "--max-steps", help="Override max steps in ANSI mode", min=1
@@ -134,7 +135,7 @@ def _options():
             help="Enable Nim profiler (GUI mode only; runs headless steps then exits)",
         ),
         "profile_steps": typer.Option(
-            512,
+            DEFAULT_PROFILE_STEPS,
             "--profile-steps",
             help="Steps to run when profiling",
             min=1,

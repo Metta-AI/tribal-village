@@ -14,6 +14,14 @@ from gymnasium import spaces
 
 import pufferlib
 
+from tribal_village_env.constants import (
+    DEFAULT_ANSI_BUFFER_SIZE,
+    DEFAULT_MAX_STEPS,
+    DEFAULT_RENDER_SCALE,
+    OBS_MAX_VALUE,
+    OBS_MIN_VALUE,
+)
+
 ACTION_VERB_COUNT = 10
 ACTION_ARGUMENT_COUNT = 25
 ACTION_SPACE_SIZE = ACTION_VERB_COUNT * ACTION_ARGUMENT_COUNT
@@ -50,7 +58,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, buf=None):
         self.config = config or {}
-        self.max_steps = self.config.get("max_steps", 10_000)
+        self.max_steps = self.config.get("max_steps", DEFAULT_MAX_STEPS)
         self._render_mode = self.config.get("render_mode", "rgb_array")
 
         # Load the optimized Nim library - cross-platform
@@ -87,7 +95,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         try:
             self.map_width = int(self.lib.tribal_village_get_map_width())
             self.map_height = int(self.lib.tribal_village_get_map_height())
-            self.render_scale = max(1, int(self.config.get("render_scale", 4)))
+            self.render_scale = max(1, int(self.config.get("render_scale", DEFAULT_RENDER_SCALE)))
             height = self.map_height * self.render_scale
             width = self.map_width * self.render_scale
             self._rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
@@ -104,8 +112,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         # Define spaces - use direct observation shape (no sparse tokens!)
         self.single_observation_space = spaces.Box(
-            low=0,
-            high=255,
+            low=OBS_MIN_VALUE,
+            high=OBS_MAX_VALUE,
             shape=(self.obs_layers, self.obs_width, self.obs_height),
             dtype=np.uint8,
         )
@@ -172,7 +180,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 return self._rgb_frame
             # fall through to ansi if RGB export missing
 
-        buf_size = int(self.config.get("ansi_buffer_size", 1_000_000))
+        buf_size = int(self.config.get("ansi_buffer_size", DEFAULT_ANSI_BUFFER_SIZE))
         cbuf = ctypes.create_string_buffer(buf_size)
         try:
             n_written = self.lib.tribal_village_render_ansi(

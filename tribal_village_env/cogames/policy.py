@@ -14,6 +14,12 @@ import pufferlib.pytorch  # type: ignore[import-untyped]
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.simulator import Action, AgentObservation, Simulation
 
+from tribal_village_env.constants import (
+    DEFAULT_HIDDEN_SIZE,
+    OBS_MAX_VALUE,
+    OBS_NORMALIZATION_FACTOR,
+)
+
 
 @dataclass
 class TribalPolicyEnvInfo:
@@ -56,7 +62,7 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
         self,
         policy_env_info: TribalPolicyEnvInfo,
         *,
-        hidden_size: int = 256,
+        hidden_size: int = DEFAULT_HIDDEN_SIZE,
         device: Optional[Union[str, torch.device]] = None,
     ) -> None:
         MultiAgentPolicy.__init__(self, policy_env_info)
@@ -103,7 +109,7 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
             num_tokens, token_dim = obs_shape
             obs_tensor = torch.full(
                 (num_tokens, token_dim),
-                fill_value=255.0,
+                fill_value=float(OBS_MAX_VALUE),
                 device=self._device,
                 dtype=torch.float32,
             )
@@ -120,7 +126,7 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
         if obs_tensor.ndim == len(self.policy_env_info.observation_space.shape):
             obs_tensor = obs_tensor.unsqueeze(0)
 
-        obs_tensor = obs_tensor * (1.0 / 255.0)
+        obs_tensor = obs_tensor * OBS_NORMALIZATION_FACTOR
 
         with torch.no_grad():
             self._net.eval()
