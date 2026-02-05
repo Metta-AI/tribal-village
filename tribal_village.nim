@@ -451,6 +451,18 @@ proc display() =
     clearUiCapture = true
     blockSelection = true
 
+  # Handle queue cancel button clicks
+  if window.buttonPressed[MouseLeft] and queueCancelButtons.len > 0:
+    for btn in queueCancelButtons:
+      if mousePosPx.x >= btn.rect.x and mousePosPx.x <= btn.rect.x + btn.rect.w and
+         mousePosPx.y >= btn.rect.y and mousePosPx.y <= btn.rect.y + btn.rect.h:
+        # Cancel the queue entry at this index
+        let building = env.grid[btn.buildingPos.x][btn.buildingPos.y]
+        if not isNil(building):
+          discard cancelQueueEntry(env, building, btn.queueIndex)
+        blockSelection = true
+        break
+
   if not blockSelection:
     if window.buttonPressed[MouseLeft]:
       mouseDownPos = logicalMousePos(window)
