@@ -417,5 +417,15 @@ const
   ShadowOffsetY* = 0.15'f32      # Shadow offset in Y direction (positive = south)
   ShadowAlpha* = 0.35'f32        # Shadow transparency (0.0 = invisible, 1.0 = opaque)
 
+  # ============================================================================
+  # Town Splitting / Settlement
+  # ============================================================================
+  TownSplitPopulationThreshold* = 25  # Villager count near altar that triggers split
+  TownSplitSettlerCount* = 10         # Number of villagers in settler party
+  TownSplitMinDistance* = 18          # Min distance for new town from original altar
+  TownSplitMaxDistance* = 25          # Max distance for new town from original altar
+  TownSplitNewAltarRadius* = 2       # Max distance of new altar from new town center
+  TownSplitCooldownSteps* = 200      # Steps between splits for a team
+
   # Derived constants
   VillagerMaxHp* = AgentMaxHp

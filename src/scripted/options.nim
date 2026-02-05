@@ -1243,6 +1243,14 @@ let SiegeAdvanceOption* = OptionDef(
 )
 
 let MetaBehaviorOptions* = [
+  # Settler founding: highest priority - settlers who arrived should found immediately
+  OptionDef(
+    name: "BehaviorSettlerFounding",
+    canStart: canStartSettlerFounding,
+    shouldTerminate: shouldTerminateSettlerFounding,
+    act: optSettlerFounding,
+    interruptible: false  # Don't interrupt founding once started
+  ),
   OptionDef(
     name: "BehaviorLanternFrontierPush",
     canStart: canStartLanternFrontierPush,

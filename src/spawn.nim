@@ -750,8 +750,8 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       ))
       inc scatterPlaced
 
-proc placeStartingTownCenter(env: Environment, center: IVec2, teamId: int,
-                              rng: var Rand): IVec2 =
+proc placeStartingTownCenter*(env: Environment, center: IVec2, teamId: int,
+                               rng: var Rand): IVec2 =
   ## Place a town center near the altar for a team's starting village.
   var candidates: seq[IVec2] = @[]
   for dx in -3 .. 3:
@@ -839,7 +839,7 @@ proc placeStartingRoads(env: Environment, center: IVec2, teamId: int,
       let pos = center + ivec2(dir.x.int32 * step.int32, dir.y.int32 * step.int32)
       placeRoad(pos)
 
-proc placeStartingResourceBuildings(env: Environment, center: IVec2, teamId: int) =
+proc placeStartingResourceBuildings*(env: Environment, center: IVec2, teamId: int) =
   ## Place starting resource buildings at corners around the altar.
   for entry in [
     (offset: ivec2(2, -2), kind: LumberCamp, res: ResourceWood),
@@ -1140,6 +1140,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
       env.add(altar)
       villageCenters.add(elements.center)
       env.altarColors[elements.center] = teamColor  # Associate altar position with team color
+      env.teamAltars[teamId].add(elements.center)  # Register in multi-altar tracking
 
       discard placeStartingTownCenter(env, elements.center, teamId, rng)
 

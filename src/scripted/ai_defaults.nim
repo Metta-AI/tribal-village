@@ -369,6 +369,7 @@ proc tryBuildHouseForPopCap(controller: Controller, env: Environment, agent: Thi
       )
   (false, 0'u8)
 
+include "settlement"
 include "options"
 include "economy"
 
