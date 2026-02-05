@@ -166,6 +166,7 @@ proc display() =
     lastSimTime += playSpeed
     actionsArray = getActions(env)
     env.step(addr actionsArray)
+    updateDayNightCycle()  # Advance day/night cycle with simulation
 
   bxy.beginFrame(window.size)
 
