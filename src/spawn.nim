@@ -181,6 +181,11 @@ proc initState(env: Environment) =
   # Reset team stockpiles
   env.teamStockpiles.clear()
 
+  # Reset multi-altar tracking
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.teamAltars[teamId].setLen(0)
+  env.altarPopulation.clear()
+
   # Initialize AoE2-style market prices
   env.initMarketPrices()
 
@@ -1140,6 +1145,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
       env.add(altar)
       villageCenters.add(elements.center)
       env.altarColors[elements.center] = teamColor  # Associate altar position with team color
+      env.teamAltars[teamId].add(elements.center)  # Register in multi-altar tracking
 
       discard placeStartingTownCenter(env, elements.center, teamId, rng)
 

@@ -520,6 +520,9 @@ type
     embarkedUnitClass*: AgentUnitClass
     teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning
+    isSettler*: bool           # Whether this agent is part of a settler party
+    settlerTarget*: IVec2      # Target position for settler migration
+    settlementId*: int         # Which settlement (altar index) this agent belongs to
     movementDebt*: float32     # Accumulated terrain penalty (movement skipped when >= 1.0)
     herdId*: int               # Cow herd grouping id
     packId*: int               # Wolf pack grouping id
@@ -1230,6 +1233,9 @@ type
     agentColors*: seq[Color]           ## Per-agent colors for rendering
     teamColors*: seq[Color]            ## Per-team colors for rendering
     altarColors*: Table[IVec2, Color]  ## Altar position to color mapping
+    # Multi-altar tracking (town splitting/expansion)
+    teamAltars*: array[MapRoomObjectsTeams, seq[IVec2]]  ## All altar positions per team
+    altarPopulation*: Table[IVec2, int]  ## Villager count near each altar
     # Victory conditions tracking
     victoryStates*: array[MapRoomObjectsTeams, VictoryState]
     victoryWinner*: int              ## Team that won (-1 = no winner yet)
