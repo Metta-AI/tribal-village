@@ -110,6 +110,40 @@ var
   dayNightEnabled*: bool = true              ## Whether day/night cycle is active
   dayTimeProgress*: float32 = 0.25'f32       ## Current time of day (0.0-1.0), starts at mid-day
 
+# Screen shake state for combat feedback
+const
+  ScreenShakeDecayRate* = 0.85'f32  ## Multiplicative decay per frame
+  ScreenShakeMaxIntensity* = 8.0'f32  ## Maximum shake intensity in pixels
+  ScreenShakeDeathIntensity* = 4.0'f32  ## Shake intensity when a unit dies
+
+var
+  screenShakeIntensity*: float32 = 0.0  ## Current shake intensity
+  screenShakeOffset*: Vec2 = vec2(0, 0)  ## Current frame's random offset
+  screenShakeRng: uint32 = 12345  ## Simple RNG state for shake
+
+proc screenShakeLcg(): float32 =
+  ## Simple LCG for screen shake randomness (deterministic per frame).
+  screenShakeRng = screenShakeRng * 1103515245'u32 + 12345'u32
+  let normalized = (screenShakeRng.float32 / uint32.high.float32) * 2.0 - 1.0
+  normalized
+
+proc triggerScreenShake*(intensity: float32 = ScreenShakeDeathIntensity) =
+  ## Trigger a screen shake effect. Intensity is additive up to max.
+  screenShakeIntensity = min(ScreenShakeMaxIntensity,
+                              screenShakeIntensity + intensity)
+
+proc updateScreenShake*() =
+  ## Update screen shake each frame: decay intensity and generate new offset.
+  if screenShakeIntensity > 0.1:
+    screenShakeOffset = vec2(
+      screenShakeLcg() * screenShakeIntensity,
+      screenShakeLcg() * screenShakeIntensity
+    )
+    screenShakeIntensity *= ScreenShakeDecayRate
+  else:
+    screenShakeIntensity = 0.0
+    screenShakeOffset = vec2(0, 0)
+
 proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).
   window.mousePos.vec2 / window.contentScale
