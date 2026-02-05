@@ -1251,7 +1251,7 @@ const
   UnitInfoLargeFontSize: float32 = 28
   UnitInfoLineHeight = 28.0'f32
   UnitInfoBarHeight = 12.0'f32
-  UnitInfoBarWidth = 180.0'f32
+  UnitInfoBarWidth = 110.0'f32  # Reduced to fit HP text within panel bounds
 
 var
   unitInfoLabelImages: Table[string, string] = initTable[string, string]()
