@@ -1246,7 +1246,88 @@ let SiegeAdvanceOption* = OptionDef(
   interruptible: true
 )
 
+# ============================================================================
+# Settler Migration Behaviors
+# ============================================================================
+
+const SettlerMinGroupSize = 5  ## Minimum settlers alive to continue migration
+const SettlerArrivalRadius = 3  ## Tiles from target to consider "arrived"
+
+proc countTeamSettlers(env: Environment, teamId: int): int =
+  ## Count living settlers on a team.
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if getTeamId(agent) != teamId:
+      continue
+    if agent.isSettler:
+      inc result
+
+proc canStartSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): bool =
+  agent.isSettler and agent.settlerTarget.x >= 0 and not agent.settlerArrived
+
+proc shouldTerminateSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  not agent.isSettler or agent.settlerTarget.x < 0 or agent.settlerArrived
+
+proc optSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+
+  # Abort migration if too few settlers remain alive
+  if countTeamSettlers(env, teamId) < SettlerMinGroupSize:
+    agent.isSettler = false
+    agent.settlerTarget = ivec2(-1, -1)
+    agent.settlerArrived = false
+    return 0'u8
+
+  # Check if target is blocked by an enemy building; find alternate if so
+  var target = agent.settlerTarget
+  let thingAtTarget = env.getThing(target)
+  if not isNil(thingAtTarget) and thingAtTarget.teamId != teamId and thingAtTarget.teamId >= 0:
+    # Find a nearby open position
+    var found = false
+    for radius in 1 .. 5:
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          if abs(dx) != radius and abs(dy) != radius:
+            continue
+          let candidate = target + ivec2(dx.int32, dy.int32)
+          if not isValidPos(candidate):
+            continue
+          let t = env.getThing(candidate)
+          if isNil(t) or (t.teamId == teamId):
+            agent.settlerTarget = candidate
+            target = candidate
+            found = true
+            break
+        if found: break
+      if found: break
+
+  let dist = int(chebyshevDist(agent.pos, target))
+  if dist <= SettlerArrivalRadius:
+    agent.settlerArrived = true
+    return 0'u8
+
+  controller.moveTo(env, agent, agentId, state, target)
+
+let SettlerMigrateOption* = OptionDef(
+  name: "SettlerMigrate",
+  canStart: canStartSettlerMigrate,
+  shouldTerminate: shouldTerminateSettlerMigrate,
+  act: optSettlerMigrate,
+  interruptible: false  # Settlers should not be interrupted by lower-priority options
+)
+
 let MetaBehaviorOptions* = [
+  OptionDef(
+    name: "BehaviorSettlerMigrate",
+    canStart: canStartSettlerMigrate,
+    shouldTerminate: shouldTerminateSettlerMigrate,
+    act: optSettlerMigrate,
+    interruptible: false
+  ),
   OptionDef(
     name: "BehaviorLanternFrontierPush",
     canStart: canStartLanternFrontierPush,

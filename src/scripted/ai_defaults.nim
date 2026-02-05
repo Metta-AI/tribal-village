@@ -1057,6 +1057,15 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       setAuditBranch(BranchAttackMoveAdvance)
       return controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
 
+  # Settler migration: settlers move to new town site, ignoring normal role behaviors.
+  # This check is high priority - settlers skip gather/build/fight but keep threat response.
+  if agent.isSettler and agent.settlerTarget.x >= 0 and not agent.settlerArrived:
+    let settlerAction = optSettlerMigrate(controller, env, agent, agentId, state)
+    if settlerAction != 0'u8:
+      setAuditBranch(BranchSettlerMigrate)
+      return saveStateAndReturn(controller, agentId, state, settlerAction)
+    # If optSettlerMigrate returned 0 (arrived or aborted), fall through to normal behavior
+
   # Global: prioritize getting hearts to 10 via gold -> magma -> altar (gatherers only).
   if state.role == Gatherer:
     let (didHearts, heartsAct) = tryPrioritizeHearts(controller, env, agent, agentId, state)

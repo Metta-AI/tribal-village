@@ -30,6 +30,7 @@ when defined(aiAudit):
       BranchRallyPoint     ## Moving to rally point
       BranchAttackMoveEngage ## Attack-move engaging enemy
       BranchAttackMoveAdvance ## Attack-move advancing to target
+      BranchSettlerMigrate ## Settler migrating to new town site
       BranchHearts         ## Hearts prioritization (gatherer)
       BranchPopCapWood     ## Pop cap house - gathering wood
       BranchPopCapBuild    ## Pop cap house - building

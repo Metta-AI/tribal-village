@@ -521,8 +521,9 @@ type
     teamIdOverride*: int
     homeAltar*: IVec2      # Position of agent's home altar for respawning
     isGarrisoned*: bool    # True if this agent is garrisoned inside a building
-    isSettler*: bool       # True if this villager is part of a settler group migrating to a new town
-    settlerTarget*: IVec2  # Target position for settler migration (-1,-1 = none)
+    isSettler*: bool               # Whether this agent is migrating to found a new town
+    settlerTarget*: IVec2          # Target position for settler migration (-1,-1 = none)
+    settlerArrived*: bool          # Whether settler has arrived at the target site
     movementDebt*: float32     # Accumulated terrain penalty (movement skipped when >= 1.0)
     herdId*: int               # Cow herd grouping id
     packId*: int               # Wolf pack grouping id
