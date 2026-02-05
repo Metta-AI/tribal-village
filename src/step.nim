@@ -196,6 +196,30 @@ proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKi
   env.projectilePool.stats.acquired += 1
   env.projectilePool.stats.poolSize = env.projectiles.len
 
+proc spawnDustParticles(env: Environment, pos: IVec2, terrain: TerrainType, r: var Rand) =
+  ## Spawn dust cloud particles at the given position based on terrain type.
+  ## Only spawns particles for terrain types that would realistically produce dust.
+  ## Uses the step's random generator for variation.
+  # Only spawn dust for appropriate terrain types
+  case terrain
+  of Sand, Dune, Snow, Mud, Grass, Fertile, Road:
+    # Spawn multiple particles with varying velocities
+    for i in 0 ..< DustParticlesPerStep:
+      # Random offset from center of tile
+      let offsetX = (randFloat(r) - 0.5) * 0.6
+      let offsetY = (randFloat(r) - 0.5) * 0.6
+      # Upward drift with slight horizontal spread
+      let velX = (randFloat(r) - 0.5) * 0.08
+      let velY = -0.04 - randFloat(r) * 0.04  # Upward bias
+      env.dustParticles.add(DustParticle(
+        pos: vec2(pos.x.float32 + offsetX, pos.y.float32 + offsetY),
+        velocity: vec2(velX, velY),
+        countdown: DustParticleLifetime,
+        lifetime: DustParticleLifetime,
+        terrainType: terrain))
+  else:
+    discard  # No dust for water, bridges, empty, ramps
+
 proc stepDecayProjectiles(env: Environment) =
   ## Decay and remove expired projectiles.
   ## Uses in-place compaction - setLen preserves capacity for pool reuse.
@@ -224,6 +248,21 @@ proc stepDecayDamageNumbers(env: Environment) =
         env.damageNumbers[writeIdx] = env.damageNumbers[readIdx]
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
+
+proc stepDecayDustParticles(env: Environment) =
+  ## Decay and remove expired dust particles.
+  ## Updates particle positions based on velocity each frame.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.dustParticles.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.dustParticles.len:
+      env.dustParticles[readIdx].countdown -= 1
+      if env.dustParticles[readIdx].countdown > 0:
+        # Update position based on velocity
+        env.dustParticles[readIdx].pos += env.dustParticles[readIdx].velocity
+        env.dustParticles[writeIdx] = env.dustParticles[readIdx]
+        inc writeIdx
+    env.dustParticles.setLen(writeIdx)
 
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
@@ -1016,6 +1055,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+  env.stepDecayDustParticles()
 
   when defined(stepTiming):
     if timing:
@@ -1314,9 +1354,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         # Accumulate terrain movement debt (water units are unaffected by terrain penalties)
         if not agent.isWaterUnit:
-          let terrainModifier = getTerrainSpeedModifier(env.terrain[agent.pos.x][agent.pos.y])
+          let terrainType = env.terrain[agent.pos.x][agent.pos.y]
+          let terrainModifier = getTerrainSpeedModifier(terrainType)
           if terrainModifier < 1.0'f32:
             agent.movementDebt += (1.0'f32 - terrainModifier)
+          # Spawn dust particles based on terrain type
+          env.spawnDustParticles(agent.pos, terrainType, stepRng)
 
         # Apply cliff fall damage when dropping elevation without a ramp/road
         # Check both steps of movement (original→step1 and step1→finalPos if different)

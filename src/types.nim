@@ -735,6 +735,22 @@ const
   DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
   DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
 
+type
+  DustParticle* = object
+    ## A dust cloud particle spawned when units walk on terrain.
+    ## Floats upward and outward, fading over lifetime.
+    pos*: Vec2               ## World position (floating point for smooth movement)
+    velocity*: Vec2          ## Movement direction and speed
+    countdown*: int8         ## Frames remaining before removal
+    lifetime*: int8          ## Total frames (for fade calculation)
+    terrainType*: TerrainType ## Source terrain for color variation
+
+const
+  ## Dust particle visual constants
+  DustParticleLifetime* = 8'i8     ## Frames dust particles persist
+  DustParticlePoolCapacity* = 128  ## Initial capacity for dust particle pool
+  DustParticlesPerStep* = 3        ## Number of particles to spawn per movement
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1080,6 +1096,7 @@ type
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
+    dustParticles*: seq[DustParticle]  # Dust cloud particles from unit movement
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

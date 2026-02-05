@@ -827,6 +827,55 @@ proc drawDamageNumbers*() =
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
                   tint = color(1.0, 1.0, 1.0, alpha))
 
+const
+  ## Dust particle colors based on terrain type
+  DustParticleColors: array[TerrainType, Color] = [
+    Empty: color(0.0, 0.0, 0.0, 0.0),        # No dust
+    Water: color(0.0, 0.0, 0.0, 0.0),        # No dust
+    ShallowWater: color(0.0, 0.0, 0.0, 0.0), # No dust (splash would be separate)
+    Bridge: color(0.0, 0.0, 0.0, 0.0),       # No dust
+    Fertile: color(0.45, 0.35, 0.25, 0.6),   # Brown earth
+    Road: color(0.55, 0.50, 0.45, 0.5),      # Gray-brown road dust
+    Grass: color(0.40, 0.45, 0.30, 0.4),     # Green-tinged dust
+    Dune: color(0.85, 0.75, 0.55, 0.7),      # Tan sand
+    Sand: color(0.90, 0.80, 0.60, 0.6),      # Yellow sand
+    Snow: color(0.95, 0.95, 1.0, 0.5),       # White snow spray
+    Mud: color(0.35, 0.30, 0.25, 0.7),       # Dark brown mud
+    RampUpN: color(0.0, 0.0, 0.0, 0.0),      # No dust
+    RampUpS: color(0.0, 0.0, 0.0, 0.0),      # No dust
+    RampUpW: color(0.0, 0.0, 0.0, 0.0),      # No dust
+    RampUpE: color(0.0, 0.0, 0.0, 0.0),      # No dust
+    RampDownN: color(0.0, 0.0, 0.0, 0.0),    # No dust
+    RampDownS: color(0.0, 0.0, 0.0, 0.0),    # No dust
+    RampDownW: color(0.0, 0.0, 0.0, 0.0),    # No dust
+    RampDownE: color(0.0, 0.0, 0.0, 0.0),    # No dust
+  ]
+
+  ## Scale for dust particles (small dots)
+  DustParticleScale = (1.0 / 500.0).float32
+
+proc drawDustParticles*() =
+  ## Draw dust cloud particles from unit movement.
+  ## Particles fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for dust in env.dustParticles:
+    if dust.lifetime <= 0:
+      continue
+    # Check if within viewport (approximately - particles can drift slightly)
+    let approxPos = ivec2(dust.pos.x.int, dust.pos.y.int)
+    if not isInViewport(approxPos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = dust.countdown.float32 / dust.lifetime.float32
+    # Fade out with quadratic easing
+    let alpha = t * t
+    let baseColor = DustParticleColors[dust.terrainType]
+    if baseColor.a <= 0:
+      continue  # Skip terrain types that don't produce dust
+    let tintColor = color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * alpha)
+    bxy.drawImage("floor", dust.pos, angle = 0, scale = DustParticleScale, tint = tintColor)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return
