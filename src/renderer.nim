@@ -764,6 +764,29 @@ proc drawProjectiles*() =
     let sc = ProjectileScales[proj.kind]
     bxy.drawImage("floor", pos, angle = 0, scale = sc, tint = c)
 
+const GatherParticleColors: array[GatherParticleKind, Color] = [
+  color(0.60, 0.45, 0.25, 1.0),  # GatherWoodChip - brown
+  color(0.70, 0.70, 0.75, 1.0),  # GatherStoneSpark - gray
+  color(1.00, 0.85, 0.20, 1.0),  # GatherGoldSpark - yellow/gold
+]
+
+proc drawGatherParticles*() =
+  ## Draw visual particles for resource gathering feedback.
+  ## Uses the "floor" sprite as a small colored dot at the particle position.
+  for particle in env.gatherParticles:
+    if particle.lifetime <= 0:
+      continue
+    # Calculate alpha based on remaining lifetime (fade out)
+    let alpha = particle.countdown.float32 / particle.lifetime.float32
+    let pos = vec2(
+      particle.pos.x.float32 + particle.offsetX,
+      particle.pos.y.float32 + particle.offsetY)
+    let baseColor = GatherParticleColors[particle.kind]
+    let c = color(baseColor.r, baseColor.g, baseColor.b, alpha)
+    # Smaller scale for particles than projectiles
+    let sc = (1.0 / 500.0).float32
+    bxy.drawImage("floor", pos, angle = 0, scale = sc, tint = c)
+
 proc renderDamageNumberLabel(text: string, textColor: Color): (Image, IVec2) =
   ## Render a damage number label with outline for visibility.
   let fontSize = DamageNumberFontSize

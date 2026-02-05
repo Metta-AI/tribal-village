@@ -735,6 +735,36 @@ const
   DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
   DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
 
+type
+  GatherParticleKind* = enum
+    GatherWoodChip     ## Brown wood chip when chopping trees
+    GatherStoneSpark   ## Gray spark when mining stone
+    GatherGoldSpark    ## Yellow spark when mining gold
+
+  GatherParticle* = object
+    ## A small particle effect for resource gathering visual feedback.
+    ## Multiple particles spawn per gather action and drift outward.
+    pos*: IVec2          ## World position of the resource being gathered
+    offsetX*: float32    ## X offset from pos (for spread effect)
+    offsetY*: float32    ## Y offset from pos (for spread effect)
+    velocityX*: float32  ## X velocity for drift
+    velocityY*: float32  ## Y velocity for drift (negative = upward)
+    kind*: GatherParticleKind
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Gather particle visual constants
+  GatherParticleLifetime* = 8'i8    ## Frames gather particles persist
+  GatherParticleCount* = 3          ## Number of particles per gather action
+  GatherParticlePoolCapacity* = 64  ## Initial capacity for gather particle pool
+
+const
+  ## Action tint codes for gathering (visual feedback on resource tile)
+  ActionTintGatherWood* = 70'u8
+  ActionTintGatherStone* = 71'u8
+  ActionTintGatherGold* = 72'u8
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1080,6 +1110,7 @@ type
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
+    gatherParticles*: seq[GatherParticle]  # Visual particles for resource gathering feedback
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

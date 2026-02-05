@@ -843,6 +843,7 @@ proc display() =
 
   drawAgentDecorations()
   drawProjectiles()
+  drawGatherParticles()
   drawDamageNumbers()
   when defined(renderTiming):
     if timing:

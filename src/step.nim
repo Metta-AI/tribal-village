@@ -225,6 +225,47 @@ proc stepDecayDamageNumbers(env: Environment) =
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
 
+proc spawnGatherParticles(env: Environment, pos: IVec2, kind: GatherParticleKind) =
+  ## Spawn visual particles for resource gathering feedback.
+  ## Creates multiple small particles that drift outward from the gather position.
+  if not isValidPos(pos):
+    return
+  for i in 0 ..< GatherParticleCount:
+    # Random offset and velocity for particle spread
+    # Use deterministic pseudo-random based on step and position for reproducibility
+    let seed = env.currentStep.int + pos.x.int * 31 + pos.y.int * 17 + i * 7
+    let angle = (seed mod 360).float32 * 3.14159 / 180.0
+    let speed = 0.05 + (seed mod 100).float32 * 0.001
+    # Vertical bias - particles tend to go up (negative Y in screen space)
+    let verticalBias = case kind
+      of GatherWoodChip: -0.03'f32  # Wood chips fall slightly
+      of GatherStoneSpark, GatherGoldSpark: -0.06'f32  # Sparks fly up
+    env.gatherParticles.add(GatherParticle(
+      pos: pos,
+      offsetX: 0.0,
+      offsetY: 0.0,
+      velocityX: cos(angle) * speed,
+      velocityY: sin(angle) * speed + verticalBias,
+      kind: kind,
+      countdown: GatherParticleLifetime,
+      lifetime: GatherParticleLifetime
+    ))
+
+proc stepDecayGatherParticles(env: Environment) =
+  ## Decay and remove expired gather particles, updating positions.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.gatherParticles.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.gatherParticles.len:
+      env.gatherParticles[readIdx].countdown -= 1
+      if env.gatherParticles[readIdx].countdown > 0:
+        # Update particle position based on velocity
+        env.gatherParticles[readIdx].offsetX += env.gatherParticles[readIdx].velocityX
+        env.gatherParticles[readIdx].offsetY += env.gatherParticles[readIdx].velocityY
+        env.gatherParticles[writeIdx] = env.gatherParticles[readIdx]
+        inc writeIdx
+    env.gatherParticles.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1012,10 +1053,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Reset arena allocator for this step's temporary allocations
   env.arena.reset()
 
-  # Decay short-lived action tints and projectile visuals
+  # Decay short-lived action tints, projectile visuals, and gather particles
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+  env.stepDecayGatherParticles()
 
   when defined(stepTiming):
     if timing:
@@ -1867,6 +1909,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             (ItemWheat, env.config.wheatReward)
           else:
             (ItemWood, env.config.woodReward)
+          let gatherPos = thing.pos
           if env.grantItem(agent, key):
             env.rewards[id] += reward
             # Apply biome gathering bonus
@@ -1879,18 +1922,33 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             else:
               setInv(thing, key, remaining)
             used = true
+            # Visual feedback: wood chips for stumps
+            if thing.kind == Stump:
+              env.spawnGatherParticles(gatherPos, GatherWoodChip)
         of Stone:
+          let stonePos = thing.pos
           takeFromThing(ItemStone)
+          if used:
+            env.spawnGatherParticles(stonePos, GatherStoneSpark)
         of Gold:
+          let goldPos = thing.pos
           takeFromThing(ItemGold)
+          if used:
+            env.spawnGatherParticles(goldPos, GatherGoldSpark)
         of Bush, Cactus:
           takeFromThing(ItemPlant)
         of Stalagmite:
+          let stalagmitePos = thing.pos
           takeFromThing(ItemStone)
+          if used:
+            env.spawnGatherParticles(stalagmitePos, GatherStoneSpark)
         of Fish:
           takeFromThing(ItemFish)
         of Tree:
+          let treePos = thing.pos
           used = env.harvestTree(agent, thing)
+          if used:
+            env.spawnGatherParticles(treePos, GatherWoodChip)
         of Corpse:
           var lootKey = ItemNone
           var lootCount = 0
