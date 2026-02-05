@@ -1036,9 +1036,10 @@ proc updateController*(controller: Controller, env: Environment) =
     resetScriptedAssignments(scriptedState)
     scriptedState.scoredAtStep = false
     scriptedState.lastEpisodeStep = -1
-    # Clear shared threat maps on episode reset
+    # Clear shared threat maps and town split cooldowns on episode reset
     for teamId in 0 ..< MapRoomObjectsTeams:
       controller.clearThreatMap(teamId)
+      controller.townSplitLastStep[teamId] = 0
     # Reset economy state on episode reset
     resetEconomy()
     # Clear resource reservations on episode reset
