@@ -19,7 +19,7 @@
 ## and maintains ambient loops based on camera position.
 
 when defined(audio):
-  import std/[tables, sets, random, math, os, strutils]
+  import std/[tables, sets, random, math, os]
   import vmath
 
   # Option type for optional world position
