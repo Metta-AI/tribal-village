@@ -847,6 +847,17 @@ proc drawAgentDecorations*() =
       drawSegmentBar(posVec, vec2(0, -0.40), cooldownRatio,
                      color(0.2, 0.8, 0.9, 1.0), color(0.3, 0.3, 0.3, 0.7))
 
+    # Draw cooldown indicator for unit abilities (e.g., Trebuchet pack/unpack)
+    if agent.cooldown > 0:
+      let maxCooldown = case agent.unitClass
+        of UnitTrebuchet: TrebuchetPackDuration
+        else: agent.cooldown  # Fallback for unknown units
+      let cooldownRatio = agent.cooldown.float32 / maxCooldown.float32
+      drawSegmentBar(posVec, vec2(0, -0.40),
+                     clamp(cooldownRatio, 0.0, 1.0),
+                     color(0.2, 0.7, 0.9, 1.0),  # Cyan for cooldown
+                     color(0.3, 0.3, 0.3, 0.5))
+
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
       if count > 0:
