@@ -1299,6 +1299,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 let dist = abs(agent.pos.x - homeDock.x) + abs(agent.pos.y - homeDock.y)
                 let goldAmount = max(1, dist div TradeCogDistanceDivisor * TradeCogGoldPerDistance)
                 env.addToStockpile(getTeamId(agent), ResourceGold, goldAmount)
+                when defined(econAudit):
+                  recordTradeShipGold(getTeamId(agent), goldAmount, env.currentStep)
                 agent.tradeHomeDock = agent.pos  # Flip home dock for return trip
         elif agent.unitClass == UnitBoat:
           if dockHere or env.terrain[agent.pos.x][agent.pos.y] != Water:
@@ -2549,6 +2551,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         if placedOk:
           discard spendCosts(env, agent, payment, costs)
+          when defined(econAudit):
+            if payment == PayStockpile:
+              # Convert ItemKey costs to StockpileResource costs for tracking
+              for cost in costs:
+                let res = stockpileResourceForItem(cost.key)
+                if res != ResourceNone:
+                  recordFlow(teamId, res, -cost.count, rfsBuildingCost, env.currentStep)
           if placedKindValid and placedKind in {Mill, LumberCamp, MiningCamp}:
             # Use spatial query instead of O(n) scan for nearest team anchor
             var anchor = ivec2(-1, -1)
@@ -2731,6 +2740,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if teamId >= 0 and teamId < MapRoomObjectsTeams:
           let goldAmount = thing.garrisonedRelics * MonasteryRelicGoldAmount
           env.teamStockpiles[teamId].counts[ResourceGold] += goldAmount
+          when defined(econAudit):
+            recordRelicGold(teamId, goldAmount, env.currentStep)
         thing.cooldown = MonasteryRelicGoldInterval
     else:
       if thing.cooldown > 0:
@@ -3429,6 +3440,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(techAudit):
     maybePrintTechSummary(env, env.currentStep)
+
+  when defined(econAudit):
+    maybePrintEconDashboard(env, env.currentStep)
 
   when defined(stateDiff):
     comparePostStep(env)

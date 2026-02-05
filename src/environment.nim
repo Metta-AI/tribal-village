@@ -8,6 +8,8 @@ import state_dumper
 import arena_alloc
 when defined(techAudit):
   import tech_audit
+when defined(econAudit):
+  import econ_audit
 export terrain, items, common
 export types, registry
 export spatial_index
@@ -380,6 +382,9 @@ proc marketBuyResource*(env: Environment, teamId: int, res: StockpileResource,
   # Increase price (supply decreased, demand increased)
   env.setMarketPrice(teamId, res, currentPrice + MarketBuyPriceIncrease)
 
+  when defined(econAudit):
+    recordMarketBuy(teamId, res, amount, goldCost, env.currentStep)
+
   result = (goldCost, amount)
 
 proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
@@ -404,6 +409,9 @@ proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
 
   # Decrease price (supply increased)
   env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
+
+  when defined(econAudit):
+    recordMarketSell(teamId, res, amount, goldGained, env.currentStep)
 
   result = (amount, goldGained)
 
@@ -1060,6 +1068,8 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
     env.addToStockpile(teamId, stockpileRes, count)
     when defined(eventLog):
       logResourceDeposited(teamId, $stockpileRes, count, env.currentStep)
+    when defined(econAudit):
+      recordDeposit(teamId, stockpileRes, count, env.currentStep)
     setInv(agent, key, 0)
     env.updateAgentInventoryObs(agent, key)
   true
@@ -1092,6 +1102,8 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
     return false
   if not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    recordTrainingCost(teamId, costs, env.currentStep)
   let trainTime = unitTrainTime(unitClass)
   building.productionQueue.entries.add(ProductionQueueEntry(
     unitClass: unitClass,
@@ -1110,6 +1122,8 @@ proc cancelLastQueued*(env: Environment, building: Thing): bool =
     let costs = buildingTrainCosts(building.kind)
     for cost in costs:
       env.teamStockpiles[teamId].counts[cost.res] += cost.count
+    when defined(econAudit):
+      recordRefund(teamId, costs, env.currentStep)
   true
 
 proc tryBatchQueueTrain*(env: Environment, building: Thing, teamId: int,
@@ -1184,6 +1198,8 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
   if not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
 
   # Apply the upgrade
   env.teamBlacksmithUpgrades[teamId].levels[upgradeType] = currentLevel + 1
@@ -1238,6 +1254,8 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost), (ResourceWood, woodCost)]
   if not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
 
   # Apply the tech
   env.teamUniversityTechs[teamId].researched[techType] = true
@@ -1402,6 +1420,8 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
   let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
   if not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
 
   # Apply the tech
   env.teamCastleTechs[teamId].researched[techType] = true
@@ -1549,6 +1569,8 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
   let costs = upgradeCosts(upgrade)
   if not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
 
   # Apply the upgrade
   env.teamUnitUpgrades[teamId].researched[upgrade] = true
@@ -1787,6 +1809,8 @@ proc tryResearchEconomyTech*(env: Environment, agent: Thing, building: Thing): b
   let costs = economyTechCost(tech)
   if not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
 
   # Apply the tech
   env.teamEconomyTechs[teamId].researched[tech] = true
@@ -1903,6 +1927,9 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
   let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
   if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
     return false
+  when defined(econAudit):
+    if FarmReseedWoodCost > 0:
+      recordFarmReseed(teamId, FarmReseedWoodCost, env.currentStep)
 
   let farmPos = mill.farmQueue[0]
   mill.farmQueue.delete(0)
