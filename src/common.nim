@@ -142,6 +142,7 @@ type
     CmdFormationLine
     CmdFormationBox
     CmdFormationStaggered
+    CmdFormationRangedSpread
     # Villager-specific
     CmdBuild
     CmdGather

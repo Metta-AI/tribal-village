@@ -18,6 +18,7 @@ type
     FormationWedge = 3    ## Wedge/V-shape (reserved)
     FormationScatter = 4  ## Explicit scatter
     FormationStaggered = 5 ## Staggered/checkerboard formation (offset rows)
+    FormationRangedSpread = 6 ## Wide spread for ranged units - avoids friendly fire
 
   FormationState* = object
     formationType*: FormationType
@@ -242,6 +243,60 @@ proc calcStaggeredPositions*(center: IVec2, unitCount: int, rotation: int): seq[
       )
       inc idx
 
+proc calcRangedSpreadPositions*(center: IVec2, unitCount: int, rotation: int): seq[IVec2] =
+  ## Calculate positions for ranged unit formation optimized for avoiding friendly fire.
+  ## Units are arranged in staggered rows with wider spacing (RangedFormationSpacing = 3)
+  ## and offset between rows so archers don't shoot through each other.
+  ## rotation: 0=facing East (line runs N-S), 2=facing North (line runs E-W)
+  result = newSeq[IVec2](unitCount)
+  if unitCount == 0:
+    return
+  if unitCount == 1:
+    result[0] = center
+    return
+
+  # Use wider spacing for ranged units
+  let spacing = RangedFormationSpacing
+  let rowOffset = RangedFormationRowOffset
+
+  # Calculate grid dimensions - prefer wide lines for maximum firing arc
+  # More units per row than regular formations
+  let cols = max(1, min(unitCount, (unitCount + 1) div 2 + 1))
+  let rows = (unitCount + cols - 1) div cols
+
+  # Direction vectors based on rotation
+  # Row direction is perpendicular to facing, col direction is backward from facing
+  let (rowDir, colDir) = case rotation
+    of 0: (ivec2(0, 1), ivec2(-1, 0))      # Facing East: line runs N-S, depth goes West
+    of 1: (ivec2(1, 1), ivec2(-1, 1))      # Facing NE: diagonal
+    of 2: (ivec2(1, 0), ivec2(0, 1))       # Facing North: line runs E-W, depth goes South
+    of 3: (ivec2(1, -1), ivec2(1, 1))      # Facing NW: diagonal
+    of 4: (ivec2(0, -1), ivec2(1, 0))      # Facing West: line runs N-S, depth goes East
+    of 5: (ivec2(-1, -1), ivec2(1, -1))    # Facing SW: diagonal
+    of 6: (ivec2(-1, 0), ivec2(0, -1))     # Facing South: line runs E-W, depth goes North
+    of 7: (ivec2(-1, 1), ivec2(-1, -1))    # Facing SE: diagonal
+    else: (ivec2(0, 1), ivec2(-1, 0))
+
+  # Calculate offsets to center the formation
+  let halfCols = (cols - 1) * spacing div 2
+  let halfRows = (rows - 1) * rowOffset div 2
+
+  var idx = 0
+  for row in 0 ..< rows:
+    # Stagger offset: every other row shifts by half spacing for line of sight
+    # This ensures back row archers can fire between front row archers
+    let staggerOffset = if row mod 2 == 1: spacing div 2 else: 0
+    for col in 0 ..< cols:
+      if idx >= unitCount:
+        break
+      let colOffset = col * spacing - halfCols + staggerOffset
+      let rowDepth = row * rowOffset - halfRows
+      result[idx] = ivec2(
+        center.x + rowDir.x * colOffset.int32 + colDir.x * rowDepth.int32,
+        center.y + rowDir.y * colOffset.int32 + colDir.y * rowDepth.int32
+      )
+      inc idx
+
 proc calcFormationPositions*(center: IVec2, unitCount: int,
                               formationType: FormationType,
                               rotation: int = 0): seq[IVec2] =
@@ -253,6 +308,8 @@ proc calcFormationPositions*(center: IVec2, unitCount: int,
     calcBoxPositions(center, unitCount, rotation)
   of FormationStaggered:
     calcStaggeredPositions(center, unitCount, rotation)
+  of FormationRangedSpread:
+    calcRangedSpreadPositions(center, unitCount, rotation)
   of FormationNone, FormationScatter, FormationWedge:
     # No formation - return empty (units use their own movement)
     newSeq[IVec2](0)
@@ -333,3 +390,38 @@ proc resetAllFormations*() =
   ## Reset all formation state (called on environment reset).
   for g in 0 ..< ControlGroupCount:
     groupFormations[g] = FormationState()
+
+proc countRangedUnitsInGroup*(groupIndex: int, env: Environment): int =
+  ## Count how many ranged units are in a control group.
+  if groupIndex < 0 or groupIndex >= ControlGroupCount:
+    return 0
+  for thing in controlGroups[groupIndex]:
+    if not thing.isNil and isAgentAlive(env, thing):
+      if thing.unitClass in RangedUnitClasses:
+        inc result
+
+proc isGroupMostlyRanged*(groupIndex: int, env: Environment): bool =
+  ## Returns true if more than half the alive units in a control group are ranged.
+  ## Used to determine if ranged spread formation should be automatically applied.
+  let total = aliveGroupSize(groupIndex, env)
+  if total < 2:
+    return false
+  let rangedCount = countRangedUnitsInGroup(groupIndex, env)
+  rangedCount * 2 > total  # More than 50% are ranged
+
+proc getRecommendedFormation*(groupIndex: int, env: Environment): FormationType =
+  ## Get the recommended formation type for a control group based on unit composition.
+  ## - Mostly ranged units: FormationRangedSpread (wider spacing, staggered rows)
+  ## - Mixed/melee units: FormationLine (default tight formation)
+  if isGroupMostlyRanged(groupIndex, env):
+    FormationRangedSpread
+  else:
+    FormationLine
+
+proc setFormationAuto*(groupIndex: int, env: Environment) =
+  ## Automatically set the best formation for a control group based on unit composition.
+  ## Ranged units get spread formation to avoid friendly fire; melee units get line formation.
+  if groupIndex < 0 or groupIndex >= ControlGroupCount:
+    return
+  let recommended = getRecommendedFormation(groupIndex, env)
+  setFormation(groupIndex, recommended)
