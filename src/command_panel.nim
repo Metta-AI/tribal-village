@@ -96,6 +96,7 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdStop: "Stop"
   of CmdPatrol: "Patrol"
   of CmdStance: "Stance"
+  of CmdHoldPosition: "Hold"
   of CmdBuild: "Build"
   of CmdGather: "Gather"
   of CmdBuildBack: "Back"
@@ -135,6 +136,7 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdStop: "S"
   of CmdPatrol: "P"
   of CmdStance: "D"
+  of CmdHoldPosition: "H"
   of CmdBuild: "B"
   of CmdGather: "G"
   of CmdBuildBack: "Esc"
@@ -183,7 +185,7 @@ proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
 
 proc buildUnitCommands(): seq[CommandButtonKind] =
   ## Commands available for military units.
-  @[CmdMove, CmdAttack, CmdStop, CmdPatrol, CmdStance]
+  @[CmdMove, CmdAttack, CmdStop, CmdHoldPosition, CmdPatrol, CmdStance]
 
 proc buildVillagerCommands(): seq[CommandButtonKind] =
   ## Commands available for villagers.
@@ -229,7 +231,7 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
 
 proc buildMultiSelectCommands(): seq[CommandButtonKind] =
   ## Commands for multi-selection (common commands only).
-  @[CmdMove, CmdAttack, CmdStop, CmdPatrol]
+  @[CmdMove, CmdAttack, CmdStop, CmdHoldPosition, CmdPatrol]
 
 # ---------------------------------------------------------------------------
 # Panel rect calculation

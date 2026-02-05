@@ -382,6 +382,10 @@ proc display() =
       for sel in selection:
         if not isNil(sel) and sel.kind == Agent:
           stopAgent(sel.agentId)
+    of CmdHoldPosition:
+      for sel in selection:
+        if not isNil(sel) and sel.kind == Agent:
+          setAgentHoldPosition(sel.agentId, sel.pos)
     of CmdFormationLine, CmdFormationBox, CmdFormationStaggered:
       # Find which control group the selection belongs to
       # or create a new control group from the selection
@@ -716,6 +720,10 @@ proc display() =
         for sel in selection:
           if not isNil(sel) and sel.kind == Agent:
             stopAgent(sel.agentId)
+      elif window.buttonPressed[KeyH]:
+        for sel in selection:
+          if not isNil(sel) and sel.kind == Agent:
+            setAgentHoldPosition(sel.agentId, sel.pos)
       # Formation hotkeys (L=Line, O=Box, T=Staggered)
       elif window.buttonPressed[KeyL] or window.buttonPressed[KeyO] or window.buttonPressed[KeyT]:
         var targetGroup = -1

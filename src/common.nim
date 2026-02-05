@@ -151,6 +151,7 @@ type
     CmdStop
     CmdPatrol
     CmdStance
+    CmdHoldPosition
     # Formation commands
     CmdFormationLine
     CmdFormationBox
