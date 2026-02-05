@@ -1196,6 +1196,28 @@ proc drawSpawnEffects*() =
     let tint = color(0.6, 0.9, 1.0, alpha)
     bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
 
+proc drawGatherSparkles*() =
+  ## Draw sparkle particles when workers collect resources.
+  ## Golden particles burst outward and fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for sparkle in env.gatherSparkles:
+    if sparkle.lifetime <= 0:
+      continue
+    # Check viewport bounds (convert float pos to int for check)
+    let ipos = ivec2(sparkle.pos.x.int32, sparkle.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = sparkle.countdown.float32 / sparkle.lifetime.float32
+    # Fade out with quadratic ease
+    let alpha = t * t * 0.9  # Bright golden sparkle
+    # Golden/yellow color for resource collection
+    let tintColor = color(1.0, 0.85, 0.3, alpha)
+    # Draw as small glowing dot
+    let scale = (1.0 / 400.0).float32  # Small sparkle particle
+    bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return
