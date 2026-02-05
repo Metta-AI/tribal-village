@@ -408,5 +408,14 @@ const
   ThreatDecaySteps* = 50      # Steps before threat decays
   ThreatUpdateStagger* = 4    # Only update threat map every N steps per agent
 
+  # ============================================================================
+  # Shadow Casting
+  # ============================================================================
+  # Light direction determines shadow offset (opposite to light source)
+  # Using NW light source, so shadows cast to SE (positive X and Y)
+  ShadowOffsetX* = 0.15'f32      # Shadow offset in X direction (positive = east)
+  ShadowOffsetY* = 0.15'f32      # Shadow offset in Y direction (positive = south)
+  ShadowAlpha* = 0.35'f32        # Shadow transparency (0.0 = invisible, 1.0 = opaque)
+
   # Derived constants
   VillagerMaxHp* = AgentMaxHp

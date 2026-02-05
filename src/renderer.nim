@@ -530,6 +530,39 @@ proc drawObjects*() =
         if isTileFrozen(pos, env):
           bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
 
+  # Draw unit shadows first (before agents, so shadows appear underneath)
+  # Light source is NW, so shadows cast to SE (positive X and Y offset)
+  let shadowTint = color(0.0, 0.0, 0.0, ShadowAlpha)
+  let shadowOffset = vec2(ShadowOffsetX, ShadowOffsetY)
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    let pos = agent.pos
+    if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent or not isInViewport(pos):
+      continue
+    let baseKey = block:
+      let tbl = UnitClassSpriteKeys[agent.unitClass]
+      if tbl.len > 0: tbl
+      elif agent.unitClass == UnitTrebuchet:
+        if agent.packed: "oriented/trebuchet_packed"
+        else: "oriented/trebuchet_unpacked"
+      else: # UnitVillager: role-based
+        case agent.agentId mod MapAgentsPerTeam
+        of 0, 1: "oriented/gatherer"
+        of 2, 3: "oriented/builder"
+        of 4, 5: "oriented/fighter"
+        else: "oriented/gatherer"
+    let dirKey = OrientationDirKeys[agent.orientation.int]
+    let agentImage = baseKey & "." & dirKey
+    let shadowSpriteKey = if agentImage in bxy: agentImage
+                          elif baseKey & ".s" in bxy: baseKey & ".s"
+                          else: ""
+    if shadowSpriteKey.len > 0:
+      # Draw shadow: offset from unit position, dark semi-transparent tint
+      let shadowPos = pos.vec2 + shadowOffset
+      bxy.drawImage(shadowSpriteKey, shadowPos, angle = 0,
+                    scale = SpriteScale, tint = shadowTint)
+
   drawThings(Agent):
     let agent = thing
     let baseKey = block:
