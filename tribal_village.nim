@@ -771,6 +771,24 @@ proc display() =
     if window.buttonPressed[KeyU]:
       let useDir = agent.orientation.uint8
       overrideAndStep(encodeAction(3'u8, useDir))
+  else:
+    # Camera panning with WASD/arrow keys (when no agent selected)
+    const CameraPanSpeed = 12.0'f32  # Pan speed in pixels per frame
+    var panVel = vec2(0, 0)
+    # W/Up: pan camera up (see content above)
+    if window.buttonDown[KeyW] or window.buttonDown[KeyUp]:
+      panVel.y += CameraPanSpeed
+    # S/Down: pan camera down (see content below)
+    if window.buttonDown[KeyS] or window.buttonDown[KeyDown]:
+      panVel.y -= CameraPanSpeed
+    # A/Left: pan camera left (see content to the left)
+    if window.buttonDown[KeyA] or window.buttonDown[KeyLeft]:
+      panVel.x += CameraPanSpeed
+    # D/Right: pan camera right (see content to the right)
+    if window.buttonDown[KeyD] or window.buttonDown[KeyRight]:
+      panVel.x -= CameraPanSpeed
+    if panVel.x != 0 or panVel.y != 0:
+      worldMapPanel.vel = panVel
 
   when defined(renderTiming):
     let timing = renderTimingStart >= 0 and frame >= renderTimingStart and
