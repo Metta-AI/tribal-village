@@ -733,7 +733,9 @@ proc drawObjects*() =
         if not isPlacedAt(thing) or not isInViewport(thing.pos):
           continue
         let pos = thing.pos
-        let tint =
+        # Check if building is under construction
+        let isUnderConstruction = thing.maxHp > 0 and thing.hp < thing.maxHp
+        let baseTint =
           if thing.kind in {Door, TownCenter, Barracks, ArcheryRange, Stable, SiegeWorkshop, Castle}:
             let teamId = thing.teamId
             let base = if teamId >= 0 and teamId < env.teamColors.len:
@@ -743,6 +745,20 @@ proc drawObjects*() =
             color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
           else:
             color(1, 1, 1, 1)
+        # Apply scaffolding effect: desaturate and add transparency when under construction
+        let tint = if isUnderConstruction:
+          let constructionProgress = thing.hp.float32 / thing.maxHp.float32
+          # Desaturate: blend toward gray, more gray at lower progress
+          let desatFactor = 0.4 + 0.6 * constructionProgress  # 0.4 to 1.0
+          let gray = (baseTint.r + baseTint.g + baseTint.b) / 3.0
+          color(
+            baseTint.r * desatFactor + gray * (1.0 - desatFactor),
+            baseTint.g * desatFactor + gray * (1.0 - desatFactor),
+            baseTint.b * desatFactor + gray * (1.0 - desatFactor),
+            0.7 + 0.3 * constructionProgress  # 0.7 to 1.0 alpha
+          )
+        else:
+          baseTint
         bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
         # Construction scaffolding visual for buildings under construction
         if thing.maxHp > 0 and thing.hp < thing.maxHp:
