@@ -125,6 +125,7 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdFormationLine: "Line"
   of CmdFormationBox: "Box"
   of CmdFormationStaggered: "Stagger"
+  of CmdFormationRangedSpread: "Spread"
 
 proc getButtonHotkey*(kind: CommandButtonKind): string =
   case kind
@@ -163,6 +164,7 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdFormationLine: "1"
   of CmdFormationBox: "2"
   of CmdFormationStaggered: "3"
+  of CmdFormationRangedSpread: "4"
 
 proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
   ## Convert a build command to the corresponding ThingKind.
