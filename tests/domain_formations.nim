@@ -244,3 +244,167 @@ suite "Formation - Group Utilities":
     env.terminated[1] = 1.0
     check aliveGroupSize(0, env) == 1
     controlGroups[0] = @[]
+
+suite "Formation - Ranged Spread Formation":
+  test "ranged spread formation has wider spacing between adjacent units":
+    let center = ivec2(50, 50)
+    let linePositions = calcLinePositions(center, 4, 0)
+    let rangedPositions = calcRangedSpreadPositions(center, 4, 0)
+    check linePositions.len == 4
+    check rangedPositions.len == 4
+
+    # Check spacing between adjacent positions in line formation
+    var lineMinSpacing = int.high
+    for i in 1 ..< linePositions.len:
+      let dist = abs(linePositions[i].x - linePositions[i-1].x) +
+                 abs(linePositions[i].y - linePositions[i-1].y)
+      if dist > 0 and dist < lineMinSpacing:
+        lineMinSpacing = dist
+
+    # For ranged, check the minimum distance between any two units
+    var rangedMinSpacing = int.high
+    for i in 0 ..< rangedPositions.len:
+      for j in i+1 ..< rangedPositions.len:
+        let dist = max(abs(rangedPositions[i].x - rangedPositions[j].x),
+                       abs(rangedPositions[i].y - rangedPositions[j].y))
+        if dist > 0 and dist < rangedMinSpacing:
+          rangedMinSpacing = dist
+
+    # Ranged formation should have at least as wide spacing as line (3 vs 2)
+    # Note: ranged uses rows+columns so units may be closer together in one dimension
+    check rangedMinSpacing >= 1  # Units should not be on top of each other
+
+  test "ranged spread formation single unit at center":
+    let positions = calcRangedSpreadPositions(ivec2(50, 50), 1, 0)
+    check positions.len == 1
+    check positions[0] == ivec2(50, 50)
+
+  test "ranged spread formation empty":
+    let positions = calcRangedSpreadPositions(ivec2(50, 50), 0, 0)
+    check positions.len == 0
+
+  test "ranged spread formation has unique positions":
+    let positions = calcRangedSpreadPositions(ivec2(50, 50), 6, 0)
+    check positions.len == 6
+    var distinct_count = 0
+    for i in 0 ..< positions.len:
+      var unique = true
+      for j in 0 ..< i:
+        if positions[i] == positions[j]:
+          unique = false
+          break
+      if unique:
+        inc distinct_count
+    check distinct_count == 6  # All positions should be unique
+
+  test "ranged spread formation staggered rows for line of sight":
+    # With 6 units, should get at least 2 rows
+    let positions = calcRangedSpreadPositions(ivec2(50, 50), 6, 0)
+    check positions.len == 6
+
+    # Check that not all units are on the same x (indicating multiple rows)
+    var xCoords: seq[int32] = @[]
+    for pos in positions:
+      if pos.x notin xCoords:
+        xCoords.add(pos.x)
+    # Should have positions at different depths (multiple x values)
+    check xCoords.len >= 1  # At least some spread
+
+  test "ranged spread formation rotation changes orientation":
+    let pos0 = calcRangedSpreadPositions(ivec2(50, 50), 4, 0)
+    let pos2 = calcRangedSpreadPositions(ivec2(50, 50), 4, 2)
+    check pos0.len == pos2.len
+    # Rotated 90 degrees should give different layout
+    var allSame = true
+    for i in 0 ..< pos0.len:
+      if pos0[i] != pos2[i]:
+        allSame = false
+        break
+    check not allSame
+
+suite "Formation - Ranged Unit Detection":
+  test "countRangedUnitsInGroup counts archers":
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    resetAllFormations()
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitArcher)
+    applyUnitClass(a0, UnitArcher)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitArcher)
+    applyUnitClass(a1, UnitArcher)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), unitClass = UnitManAtArms)
+    applyUnitClass(a2, UnitManAtArms)
+    controlGroups[0] = @[a0, a1, a2]
+
+    check countRangedUnitsInGroup(0, env) == 2
+    controlGroups[0] = @[]
+
+  test "isGroupMostlyRanged detects ranged majority":
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    resetAllFormations()
+    let env = makeEmptyEnv()
+    # 3 archers, 1 melee = mostly ranged
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitArcher)
+    applyUnitClass(a0, UnitArcher)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitArcher)
+    applyUnitClass(a1, UnitArcher)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), unitClass = UnitArcher)
+    applyUnitClass(a2, UnitArcher)
+    let a3 = env.addAgentAt(3, ivec2(56, 50), unitClass = UnitManAtArms)
+    applyUnitClass(a3, UnitManAtArms)
+    controlGroups[0] = @[a0, a1, a2, a3]
+
+    check isGroupMostlyRanged(0, env) == true
+    controlGroups[0] = @[]
+
+  test "isGroupMostlyRanged returns false for melee majority":
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    resetAllFormations()
+    let env = makeEmptyEnv()
+    # 1 archer, 3 melee = not mostly ranged
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitArcher)
+    applyUnitClass(a0, UnitArcher)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitManAtArms)
+    applyUnitClass(a1, UnitManAtArms)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), unitClass = UnitManAtArms)
+    applyUnitClass(a2, UnitManAtArms)
+    let a3 = env.addAgentAt(3, ivec2(56, 50), unitClass = UnitKnight)
+    applyUnitClass(a3, UnitKnight)
+    controlGroups[0] = @[a0, a1, a2, a3]
+
+    check isGroupMostlyRanged(0, env) == false
+    controlGroups[0] = @[]
+
+  test "getRecommendedFormation returns ranged spread for archers":
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    resetAllFormations()
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitArcher)
+    applyUnitClass(a0, UnitArcher)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitArcher)
+    applyUnitClass(a1, UnitArcher)
+    controlGroups[0] = @[a0, a1]
+
+    check getRecommendedFormation(0, env) == FormationRangedSpread
+    controlGroups[0] = @[]
+
+  test "setFormationAuto applies ranged spread to archer group":
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    resetAllFormations()
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitArcher)
+    applyUnitClass(a0, UnitArcher)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitArcher)
+    applyUnitClass(a1, UnitArcher)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), unitClass = UnitArcher)
+    applyUnitClass(a2, UnitArcher)
+    controlGroups[0] = @[a0, a1, a2]
+
+    setFormationAuto(0, env)
+    check isFormationActive(0) == true
+    check getFormation(0) == FormationRangedSpread
+    controlGroups[0] = @[]

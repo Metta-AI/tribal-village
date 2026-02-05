@@ -349,6 +349,13 @@ const
   ## Used for optimized aura processing collections
   TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight}
 
+  ## Ranged units that benefit from spread formations to avoid friendly fire
+  ## Includes archers, ranged siege, and ranged unique units
+  RangedUnitClasses*: set[AgentUnitClass] = {
+    UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester,
+    UnitMangonel, UnitTrebuchet, UnitGalley, UnitScorpion
+  }
+
   ## Display labels for AgentStance
   StanceLabels*: array[AgentStance, string] = [
     "Aggressive",

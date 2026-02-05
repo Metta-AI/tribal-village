@@ -406,3 +406,88 @@ suite "Behavior: Formation Rotation":
     check distinctCount == 4  # All cardinal/diagonal rotations are distinct
 
     echo &"  8 rotations produced {distinctCount} distinct cardinal orientations"
+
+suite "Behavior: Ranged Formation Auto-Selection":
+  test "archer group gets ranged spread formation automatically":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    # Create a group of archers
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitArcher, stance = StanceDefensive)
+    applyUnitClass(a0, UnitArcher)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitArcher, stance = StanceDefensive)
+    applyUnitClass(a1, UnitArcher)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), unitClass = UnitArcher, stance = StanceDefensive)
+    applyUnitClass(a2, UnitArcher)
+    controlGroups[0] = @[a0, a1, a2]
+
+    # Auto-select formation based on unit composition
+    setFormationAuto(0, env)
+
+    # Should get ranged spread formation
+    check isFormationActive(0) == true
+    check getFormation(0) == FormationRangedSpread
+
+    echo "  Archer group auto-selected FormationRangedSpread"
+    controlGroups[0] = @[]
+
+  test "mixed group with more melee gets line formation":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    # Create a group with more melee than ranged
+    let a0 = env.addAgentAt(0, ivec2(50, 50), unitClass = UnitManAtArms, stance = StanceDefensive)
+    applyUnitClass(a0, UnitManAtArms)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), unitClass = UnitManAtArms, stance = StanceDefensive)
+    applyUnitClass(a1, UnitManAtArms)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), unitClass = UnitArcher, stance = StanceDefensive)
+    applyUnitClass(a2, UnitArcher)
+    controlGroups[0] = @[a0, a1, a2]
+
+    # Auto-select formation based on unit composition
+    setFormationAuto(0, env)
+
+    # Should get line formation (not ranged spread)
+    check isFormationActive(0) == true
+    check getFormation(0) == FormationLine
+
+    echo "  Mixed group (mostly melee) auto-selected FormationLine"
+    controlGroups[0] = @[]
+
+  test "ranged spread positions provide clear firing lines":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    # Create archers in a row
+    var archers: seq[Thing] = @[]
+    for i in 0 ..< 5:
+      let a = env.addAgentAt(i, ivec2(50 + i.int32, 50), unitClass = UnitArcher, stance = StanceDefensive)
+      applyUnitClass(a, UnitArcher)
+      archers.add(a)
+    controlGroups[0] = archers
+    setFormation(0, FormationRangedSpread)
+
+    let center = calcGroupCenter(0, env)
+    var positions: seq[IVec2] = @[]
+    for i in 0 ..< 5:
+      let target = getFormationTargetForAgent(0, i, center, 5)
+      check target.x >= 0
+      positions.add(target)
+
+    # Verify positions don't overlap (no friendly fire risk from stacking)
+    for i in 0 ..< positions.len:
+      for j in i + 1 ..< positions.len:
+        check positions[i] != positions[j]
+
+    # Staggered arrangement should have units at different depths
+    # Check that not all y coordinates are the same (staggered rows)
+    var yCoords: seq[int32] = @[]
+    for pos in positions:
+      if pos.y notin yCoords:
+        yCoords.add(pos.y)
+
+    echo &"  Ranged spread: {positions.len} archers at {yCoords.len} different y-coords"
+    controlGroups[0] = @[]

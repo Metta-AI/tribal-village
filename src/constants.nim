@@ -377,6 +377,10 @@ const
   AttackMoveDetectionRadius* = 8  # Distance to detect enemies while attack-moving
   FormationArrivalThreshold* = 1  # Distance at which formation slot is reached
 
+  # Ranged formation
+  RangedFormationSpacing* = 3     # Wider spacing for ranged units to avoid friendly fire
+  RangedFormationRowOffset* = 2   # Offset between rows in ranged formation
+
   # Scout behavior
   ScoutFleeRadius* = 10       # Distance at which scouts flee from enemies
   ScoutFleeRecoverySteps* = 30  # Steps after enemy sighting before resuming
