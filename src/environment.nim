@@ -843,7 +843,13 @@ proc ensureObservations*(env: Environment) {.inline.} =
     # staleness for major perf gain. Next movement will refresh.
 
   # Rally point layer: mark tiles that are rally targets for friendly buildings
-  # Optimization: use thingsByKind with TeamBuildingKinds instead of iterating all env.things
+  # Optimization: collect rally points by team first, then iterate agents once
+  # This changes O(buildings × agents) to O(buildings + agents × rally_points_per_team)
+  var rallyPointsByTeam: array[MapRoomObjectsTeams + 1, seq[IVec2]]
+  for i in 0 .. MapRoomObjectsTeams:
+    rallyPointsByTeam[i] = @[]
+
+  # First pass: collect all rally points grouped by team
   for bKind in TeamBuildingKinds:
     for thing in env.thingsByKind[bKind]:
       if not thing.hasRallyPoint():
@@ -852,18 +858,22 @@ proc ensureObservations*(env: Environment) {.inline.} =
       if not isValidPos(rp):
         continue
       let buildingTeam = thing.teamId
-      # Mark rally point in observations for agents on the same team
-      for agentId in 0 ..< env.agents.len:
-        let agent = env.agents[agentId]
-        if not isAgentAlive(env, agent):
-          continue
-        if getTeamId(agent) != buildingTeam:
-          continue
-        let obsX = rp.x - agent.pos.x + ObservationRadius
-        let obsY = rp.y - agent.pos.y + ObservationRadius
-        if obsX < 0 or obsX >= ObservationWidth or obsY < 0 or obsY >= ObservationHeight:
-          continue
-        var agentObs = addr env.observations[agentId]
+      if buildingTeam >= 0 and buildingTeam <= MapRoomObjectsTeams:
+        rallyPointsByTeam[buildingTeam].add(rp)
+
+  # Second pass: for each agent, mark rally points from their team
+  for agentId in 0 ..< env.agents.len:
+    let agent = env.agents[agentId]
+    if not isAgentAlive(env, agent):
+      continue
+    let teamId = getTeamId(agent)
+    if teamId < 0 or teamId > MapRoomObjectsTeams:
+      continue
+    var agentObs = addr env.observations[agentId]
+    for rp in rallyPointsByTeam[teamId]:
+      let obsX = rp.x - agent.pos.x + ObservationRadius
+      let obsY = rp.y - agent.pos.y + ObservationRadius
+      if obsX >= 0 and obsX < ObservationWidth and obsY >= 0 and obsY < ObservationHeight:
         agentObs[][ord(RallyPointLayer)][obsX][obsY] = 1
 
   env.observationsInitialized = true
