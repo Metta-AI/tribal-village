@@ -96,7 +96,6 @@ var
   renderCacheGeneration = -1
   # Fog of war visibility buffer - reused across frames to avoid allocation overhead
   fogVisibility: array[MapWidth, array[MapHeight, bool]]
-  fogLastViewport: ViewportBounds  # Track last cleared region for efficient reset
 
 const
   InfoLabelFontPath = HeartCountFontPath
@@ -1007,6 +1006,10 @@ var
   minimapTeamColors: array[MapRoomObjectsTeams, ColorRGBX]
   minimapTeamBrightColors: array[MapRoomObjectsTeams, ColorRGBX]  # For buildings
   minimapTeamColorsInitialized = false
+  # Fog mask cache: pre-computed minimap-to-map coordinate lookup to avoid float ops in inner loop
+  minimapToMapX: array[MinimapSize, int]  # minimap px -> map x
+  minimapToMapY: array[MinimapSize, int]  # minimap py -> map y
+  minimapCoordCacheInitialized = false
 
 proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
   ## Map a terrain+biome to a minimap pixel color.
@@ -1093,6 +1096,15 @@ proc initMinimapTeamColors() =
     ))
   minimapTeamColorsInitialized = true
 
+proc initMinimapCoordCache() =
+  ## Pre-compute minimap pixel to map coordinate lookup tables.
+  ## Avoids float multiplication and clamp in inner fog loop.
+  for px in 0 ..< MinimapSize:
+    minimapToMapX[px] = clamp(int(px.float32 * minimapInvScaleX), 0, MapWidth - 1)
+  for py in 0 ..< MinimapSize:
+    minimapToMapY[py] = clamp(int(py.float32 * minimapInvScaleY), 0, MapHeight - 1)
+  minimapCoordCacheInitialized = true
+
 # Building kinds that commonly have instances (skip iteration for unlikely kinds)
 const MinimapBuildingKinds = [
   TownCenter, House, Mill, LumberCamp, MiningCamp, Market, Blacksmith,
@@ -1108,6 +1120,10 @@ proc rebuildMinimapComposite(fogTeamId: int) =
   # Ensure team colors are initialized
   if not minimapTeamColorsInitialized:
     initMinimapTeamColors()
+
+  # Ensure coordinate cache is initialized (avoids float ops in fog loop)
+  if not minimapCoordCacheInitialized:
+    initMinimapCoordCache()
 
   if minimapCompositeImage.isNil or
      minimapCompositeImage.width != MinimapSize or
@@ -1160,15 +1176,15 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSize - 1)
     minimapCompositeImage.unsafe[px, py] = dot
 
-  # Apply fog of war
+  # Apply fog of war using pre-computed coordinate lookup tables
+  # This avoids float multiplication and clamp operations in the inner loop
   if fogTeamId >= 0 and fogTeamId < MapRoomObjectsTeams:
-    let invScaleX = minimapInvScaleX
-    let invScaleY = minimapInvScaleY
+    let revMap = addr env.revealedMaps[fogTeamId]
     for py in 0 ..< MinimapSize:
-      let my = clamp(int(py.float32 * invScaleY), 0, MapHeight - 1)
+      let my = minimapToMapY[py]
       for px in 0 ..< MinimapSize:
-        let mx = clamp(int(px.float32 * invScaleX), 0, MapWidth - 1)
-        if not env.revealedMaps[fogTeamId][mx][my]:
+        let mx = minimapToMapX[px]
+        if not revMap[][mx][my]:
           # Darken unexplored tiles
           let c = minimapCompositeImage.unsafe[px, py]
           minimapCompositeImage.unsafe[px, py] = rgbx(
