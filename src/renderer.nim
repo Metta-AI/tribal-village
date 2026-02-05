@@ -837,6 +837,20 @@ proc drawGrid*() =
 proc drawSelection*() =
   for thing in selection:
     if not isNil(thing) and isValidPos(thing.pos) and isInViewport(thing.pos):
+      # Draw glow effect for buildings
+      if isBuildingKind(thing.kind):
+        let baseGlowColor =
+          if thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+            let tc = env.teamColors[thing.teamId]
+            color(tc.r, tc.g, tc.b, 0.15)
+          else:
+            color(1.0, 0.9, 0.5, 0.15)  # Neutral gold glow
+        # Draw multiple glow layers with decreasing alpha and increasing scale
+        for i in countdown(3, 1):
+          let glowScale = SpriteScale * (1.0 + 0.15 * i.float32)
+          let glowAlpha = baseGlowColor.a * (4 - i).float32 / 3.0
+          let glowColor = color(baseGlowColor.r, baseGlowColor.g, baseGlowColor.b, glowAlpha)
+          bxy.drawImage("selection", thing.pos.vec2, angle = 0, scale = glowScale, tint = glowColor)
       bxy.drawImage("selection", thing.pos.vec2, angle = 0, scale = SpriteScale)
 
 proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset: float32) =
