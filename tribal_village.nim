@@ -774,7 +774,6 @@ proc display() =
   else:
     # Camera panning with WASD/arrow keys (when no agent selected)
     const CameraPanSpeed = 12.0'f32  # Pan speed in pixels per frame
-    let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
     var panVel = vec2(0, 0)
     # W/Up: pan camera up (see content above)
     if window.buttonDown[KeyW] or window.buttonDown[KeyUp]:
