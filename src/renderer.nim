@@ -771,8 +771,8 @@ proc drawProjectiles*() =
     # Draw trail points (from back to front, oldest first)
     # Trail points represent past positions along the trajectory
     for i in countdown(ProjectileTrailPoints - 1, 0):
-      let trailT = min(1.0'f32, t + ProjectileTrailStep * (i + 1).float32)
-      # Only draw if the trail point is within valid range (not past the source)
+      let trailT = t + ProjectileTrailStep * (i + 1).float32
+      # Skip trail points that would be beyond the source position
       if trailT > 1.0:
         continue
       let trailPos = vec2(
