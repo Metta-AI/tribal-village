@@ -35,6 +35,14 @@ const
   DamageNumberFontSize: float32 = 28
   DamageNumberFloatHeight: float32 = 0.8  # World units to float upward
 
+  # Building smoke/chimney effect constants
+  SmokeParticleCount = 3           # Number of smoke particles per building
+  SmokeParticleScale = 1.0 / 500.0 # Smaller than sprites for wispy look
+  SmokeBaseHeight = -0.4           # Start position above building center
+  SmokeMaxHeight = 1.2             # How high particles rise
+  SmokeAnimSpeed = 12              # Frames per animation cycle
+  SmokeDriftAmount = 0.15          # Horizontal drift amplitude
+
 type FloorSpriteKind = enum
   FloorBase
   FloorCave
@@ -144,6 +152,40 @@ proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
     bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
                   angle = 0, scale = 1/500,
                   tint = if i < filled: filledColor else: emptyColor)
+
+proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
+  ## Draw procedural smoke particles rising from an active building.
+  ## Uses deterministic noise based on frame and building ID for consistent animation.
+  for i in 0 ..< SmokeParticleCount:
+    # Each particle has a unique phase offset based on building ID and particle index
+    let phase = (buildingId * 7 + i * 13) mod 100
+    let cycleFrame = (frame + phase * 3) mod (SmokeAnimSpeed * SmokeParticleCount)
+
+    # Calculate particle's position in its rise cycle (0.0 to 1.0)
+    let particleCycle = (cycleFrame + i * SmokeAnimSpeed) mod (SmokeAnimSpeed * SmokeParticleCount)
+    let t = particleCycle.float32 / (SmokeAnimSpeed * SmokeParticleCount).float32
+
+    # Vertical rise with slight acceleration at start
+    let rise = t * t * SmokeMaxHeight
+
+    # Horizontal drift using sine wave for gentle swaying
+    let driftPhase = (frame.float32 * 0.05 + phase.float32 * 0.1 + i.float32 * 2.1)
+    let drift = sin(driftPhase) * SmokeDriftAmount * t
+
+    # Position particle above building
+    let particlePos = buildingPos + vec2(drift, SmokeBaseHeight - rise)
+
+    # Fade out as particle rises (full opacity at start, transparent at top)
+    let alpha = (1.0 - t) * 0.6
+
+    # Slight size variation based on rise (particles expand as they rise)
+    let sizeScale = SmokeParticleScale * (1.0 + t * 0.5)
+
+    # Gray-white smoke color with slight variation per particle
+    let grayVal = 0.7 + (i.float32 * 0.1)
+    let smokeTint = color(grayVal, grayVal, grayVal, alpha)
+
+    bxy.drawImage("floor", particlePos, angle = 0, scale = sizeScale, tint = smokeTint)
 
 type FooterButtonKind* = enum
   FooterPlayPause
@@ -596,6 +638,8 @@ proc drawObjects*() =
             let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
             drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
                            color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
+            # Draw smoke/chimney effect for active production buildings
+            drawBuildingSmoke(pos.vec2, thing.id)
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let teamId = thing.teamId
