@@ -2108,6 +2108,21 @@ proc spawnConstructionDust*(env: Environment, pos: IVec2) =
       countdown: ConstructionDustLifetime,
       lifetime: ConstructionDustLifetime))
 
+proc spawnUnitTrail*(env: Environment, pos: IVec2, teamId: int) =
+  ## Spawn a dust/footprint trail particle at the given position when a unit moves.
+  ## Creates a fading trail effect behind moving units.
+  if not isValidPos(pos):
+    return
+  # Add slight random drift for more natural dust dispersal
+  let xDrift = ((env.currentStep mod 3).float32 - 1.0) * 0.005
+  let yDrift = ((env.currentStep mod 5).float32 - 2.0) * 0.003
+  env.unitTrails.add(UnitTrail(
+    pos: vec2(pos.x.float32, pos.y.float32),
+    velocity: vec2(xDrift, yDrift),
+    countdown: UnitTrailLifetime,
+    lifetime: UnitTrailLifetime,
+    teamId: teamId.int8))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"

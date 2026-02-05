@@ -324,6 +324,24 @@ proc stepDecayConstructionDust(env: Environment) =
         inc writeIdx
     env.constructionDust.setLen(writeIdx)
 
+proc stepDecayUnitTrails(env: Environment) =
+  ## Update unit trail particle positions and remove expired ones.
+  ## Trails drift slightly and fade over time.
+  if env.unitTrails.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.unitTrails.len:
+      env.unitTrails[readIdx].countdown -= 1
+      if env.unitTrails[readIdx].countdown > 0:
+        # Update position based on velocity (slight drift)
+        env.unitTrails[readIdx].pos.x += env.unitTrails[readIdx].velocity.x
+        env.unitTrails[readIdx].pos.y += env.unitTrails[readIdx].velocity.y
+        # Trails settle quickly (reduce drift)
+        env.unitTrails[readIdx].velocity.x *= 0.9
+        env.unitTrails[readIdx].velocity.y *= 0.9
+        env.unitTrails[writeIdx] = env.unitTrails[readIdx]
+        inc writeIdx
+    env.unitTrails.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1121,6 +1139,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayDyingUnits()
   env.stepDecayGatherSparkles()
   env.stepDecayConstructionDust()
+  env.stepDecayUnitTrails()
 
   when defined(stepTiming):
     if timing:
@@ -1392,6 +1411,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         agent.orientation = moveOrientation
         env.grid[agent.pos.x][agent.pos.y] = agent
         updateSpatialIndex(env, agent, originalPos)
+
+        # Spawn dust trail at the position the unit left (not every move to reduce particles)
+        if env.currentStep mod UnitTrailSpawnChance == 0:
+          env.spawnUnitTrail(originalPos, getTeamId(agent))
 
         let dockHere = env.hasDockAt(agent.pos)
         if agent.unitClass == UnitTradeCog:

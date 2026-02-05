@@ -1257,6 +1257,28 @@ proc drawConstructionDust*() =
     let scale = (1.0 / 350.0).float32 * (1.0 + (1.0 - t) * 0.5)  # 1.0x to 1.5x
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
 
+proc drawUnitTrails*() =
+  ## Draw dust/footprint trail particles behind moving units.
+  ## Small dust particles that fade out where units have walked.
+  if not currentViewport.valid:
+    return
+  for trail in env.unitTrails:
+    if trail.lifetime <= 0:
+      continue
+    # Check viewport bounds (convert float pos to int for check)
+    let ipos = ivec2(trail.pos.x.int32, trail.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = trail.countdown.float32 / trail.lifetime.float32
+    # Fade out with cubic ease - trails fade quickly but linger slightly
+    let alpha = t * t * t * 0.5  # Semi-transparent dust
+    # Light brown/tan dust color with slight team tint
+    let baseColor = color(0.55, 0.45, 0.35, alpha)
+    # Small dust particles that shrink as they fade
+    let scale = (1.0 / 500.0).float32 * (0.5 + t * 0.5)  # 0.5x to 1.0x
+    bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = baseColor)
+
 proc drawWeatherEffects*() =
   ## Draw ambient weather effects (rain or wind particles) across the viewport.
   ## Uses deterministic animation based on frame counter for consistent effects.
