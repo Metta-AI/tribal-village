@@ -1977,6 +1977,9 @@ proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): b
       return false
   true
 
+# Forward declaration for sparkle effect (defined later in file)
+proc spawnGatherSparkle*(env: Environment, pos: IVec2)
+
 proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if not env.grantItem(agent, ItemWood):
     return false
@@ -2001,6 +2004,8 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if remaining > 0:
     setInv(stump, ItemWood, remaining)
   env.add(stump)
+  # Spawn sparkle effect at harvest location
+  env.spawnGatherSparkle(stumpPos)
   true
 
 proc spawnDamageNumber*(env: Environment, pos: IVec2, amount: int,
@@ -2068,6 +2073,22 @@ proc spawnSpawnEffect*(env: Environment, pos: IVec2) =
   env.spawnEffects.add(SpawnEffect(
     pos: pos,
     countdown: SpawnEffectLifetime, lifetime: SpawnEffectLifetime))
+
+proc spawnGatherSparkle*(env: Environment, pos: IVec2) =
+  ## Spawn sparkle particles at the given position when a worker collects resources.
+  ## Particles burst outward and fade over GatherSparkleLifetime frames.
+  if not isValidPos(pos):
+    return
+  # Spawn multiple particles in a burst pattern
+  for i in 0 ..< GatherSparkleParticleCount:
+    let angle = (i.float32 / GatherSparkleParticleCount.float32) * 6.28318  # 2*PI
+    let speed = 0.06 + (i mod 3).float32 * 0.02  # Vary speed slightly
+    let velocity = vec2(cos(angle) * speed, sin(angle) * speed)
+    env.gatherSparkles.add(GatherSparkle(
+      pos: vec2(pos.x.float32, pos.y.float32),
+      velocity: velocity,
+      countdown: GatherSparkleLifetime,
+      lifetime: GatherSparkleLifetime))
 
 include "combat_audit"
 include "tumor_audit"

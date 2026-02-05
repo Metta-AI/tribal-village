@@ -288,6 +288,24 @@ proc stepDecayDyingUnits(env: Environment) =
         inc writeIdx
     env.dyingUnits.setLen(writeIdx)
 
+proc stepDecayGatherSparkles(env: Environment) =
+  ## Update gather sparkle particle positions and remove expired ones.
+  ## Particles burst outward and fade over time.
+  if env.gatherSparkles.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.gatherSparkles.len:
+      env.gatherSparkles[readIdx].countdown -= 1
+      if env.gatherSparkles[readIdx].countdown > 0:
+        # Update position based on velocity
+        env.gatherSparkles[readIdx].pos.x += env.gatherSparkles[readIdx].velocity.x
+        env.gatherSparkles[readIdx].pos.y += env.gatherSparkles[readIdx].velocity.y
+        # Apply slight deceleration (sparkles slow down as they expand)
+        env.gatherSparkles[readIdx].velocity.x *= 0.92
+        env.gatherSparkles[readIdx].velocity.y *= 0.92
+        env.gatherSparkles[writeIdx] = env.gatherSparkles[readIdx]
+        inc writeIdx
+    env.gatherSparkles.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1083,6 +1101,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayDebris()
   env.stepDecaySpawnEffects()
   env.stepDecayDyingUnits()
+  env.stepDecayGatherSparkles()
 
   when defined(stepTiming):
     if timing:
@@ -1854,6 +1873,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             removeThing(env, thing)
             used = true
           elif env.giveItem(agent, key):
+            let gatherPos = thing.pos  # Capture for sparkle effect
             let remaining = stored - 1
             if rewardAmount != 0:
               env.rewards[id] += rewardAmount
@@ -1862,7 +1882,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             else:
               setInv(thing, key, remaining)
             # Apply biome gathering bonus
-            let bonus = env.getBiomeGatherBonus(thing.pos, key)
+            let bonus = env.getBiomeGatherBonus(gatherPos, key)
             if bonus > 0:
               discard env.giveItem(agent, key, bonus)
             # Apply economy tech gathering bonus (AoE2-style)
@@ -1877,6 +1897,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if techBonusPct > 0 and (env.currentStep mod (100 div max(1, techBonusPct))) == 0:
               # Probabilistic bonus: techBonusPct% chance per gather to get +1
               discard env.giveItem(agent, key)
+            # Spawn sparkle effect at resource location
+            env.spawnGatherSparkle(gatherPos)
             used = true
         case thing.kind:
         of Relic:
@@ -1928,6 +1950,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if mill != nil:
                   env.addFarmToMillQueue(mill, stubblePos)
             env.add(stubble)
+            # Spawn sparkle effect at harvest location
+            env.spawnGatherSparkle(stubblePos)
             used = true
         of Stubble, Stump:
           let (key, reward) = if thing.kind == Stubble:
@@ -1935,9 +1959,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           else:
             (ItemWood, env.config.woodReward)
           if env.grantItem(agent, key):
+            let gatherPos = thing.pos  # Capture for sparkle effect
             env.rewards[id] += reward
             # Apply biome gathering bonus
-            let bonus = env.getBiomeGatherBonus(thing.pos, key)
+            let bonus = env.getBiomeGatherBonus(gatherPos, key)
             if bonus > 0:
               discard env.grantItem(agent, key, bonus)
             let remaining = getInv(thing, key) - 1
@@ -1945,6 +1970,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               removeThing(env, thing)
             else:
               setInv(thing, key, remaining)
+            # Spawn sparkle effect at resource location
+            env.spawnGatherSparkle(gatherPos)
             used = true
         of Stone:
           takeFromThing(ItemStone)

@@ -809,6 +809,21 @@ const
   DyingUnitLifetime* = 8'i8      ## Steps dying unit animation persists
   DyingUnitPoolCapacity* = 32    ## Initial capacity for dying unit pool
 
+type
+  GatherSparkle* = object
+    ## A sparkle particle spawned when workers collect resources.
+    ## Bursts outward from the resource node and fades out.
+    pos*: Vec2           ## Current world position (float for smooth animation)
+    velocity*: Vec2      ## Movement velocity (outward burst)
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Gather sparkle visual constants
+  GatherSparkleLifetime* = 18'i8       ## Frames sparkle particles persist
+  GatherSparklePoolCapacity* = 64      ## Initial capacity for sparkle pool
+  GatherSparkleParticleCount* = 5      ## Number of sparkle particles per gather
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1158,6 +1173,7 @@ type
     debris*: seq[Debris]  # Debris particles from destroyed buildings
     spawnEffects*: seq[SpawnEffect]    # Visual effects when units spawn from buildings
     dyingUnits*: seq[DyingUnit]  # Units in death animation (fade-out before corpse)
+    gatherSparkles*: seq[GatherSparkle]  # Sparkle particles when collecting resources
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
