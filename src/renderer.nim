@@ -1,7 +1,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[algorithm, math, os, strutils],
-  common, environment
+  common, constants, environment
 
 # Infection system constants
 const
@@ -712,6 +712,13 @@ proc drawAgentDecorations*() =
       drawSegmentBar(posVec, vec2(0, -0.55),
                      clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0),
                      color(0.1, 0.8, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
+    # Cooldown indicator bar (for Trebuchet pack/unpack and other ability cooldowns)
+    if agent.cooldown > 0:
+      let maxCooldown = if agent.unitClass == UnitTrebuchet: TrebuchetPackDuration
+                        else: agent.cooldown  # Fallback: treat current as max
+      let cooldownRatio = clamp(agent.cooldown.float32 / maxCooldown.float32, 0.0, 1.0)
+      drawSegmentBar(posVec, vec2(0, -0.40), cooldownRatio,
+                     color(0.2, 0.8, 0.9, 1.0), color(0.3, 0.3, 0.3, 0.7))
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
