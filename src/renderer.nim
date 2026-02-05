@@ -148,6 +148,18 @@ proc getTeamColor*(env: Environment, teamId: int,
   else:
     fallback
 
+proc getHealthBarColor*(ratio: float32): Color =
+  ## Get health bar color based on HP ratio. Gradient from green (full) to red (low).
+  ## Green (1.0) -> Yellow (0.5) -> Red (0.0)
+  if ratio > 0.5:
+    # Green to yellow: ratio 1.0->0.5 maps to green->yellow
+    let t = (ratio - 0.5) * 2.0  # t: 1.0 at full, 0.0 at half
+    color(1.0 - t * 0.9, 0.8, 0.1, 1.0)  # from yellow(1.0,0.8,0.1) to green(0.1,0.8,0.1)
+  else:
+    # Yellow to red: ratio 0.5->0.0 maps to yellow->red
+    let t = ratio * 2.0  # t: 1.0 at half, 0.0 at empty
+    color(1.0, t * 0.8, 0.1, 1.0)  # from red(1.0,0.0,0.1) to yellow(1.0,0.8,0.1)
+
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
                      filledColor, emptyColor: Color, segments = 5) =
   let filled = int(ceil(ratio * segments.float32))
@@ -835,10 +847,11 @@ proc drawAgentDecorations*() =
     let posVec = pos.vec2
     if agent.frozen > 0:
       bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
-    if agent.maxHp > 0:
-      drawSegmentBar(posVec, vec2(0, -0.55),
-                     clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0),
-                     color(0.1, 0.8, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
+    # Health bar: only show when damaged (hp < maxHp), hide at full health
+    if agent.maxHp > 0 and agent.hp < agent.maxHp:
+      let hpRatio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
+      drawSegmentBar(posVec, vec2(0, -0.55), hpRatio,
+                     getHealthBarColor(hpRatio), color(0.3, 0.3, 0.3, 0.7))
     # Cooldown indicator bar (for Trebuchet pack/unpack and other ability cooldowns)
     if agent.cooldown > 0:
       let maxCooldown = if agent.unitClass == UnitTrebuchet: TrebuchetPackDuration
@@ -846,17 +859,6 @@ proc drawAgentDecorations*() =
       let cooldownRatio = clamp(agent.cooldown.float32 / maxCooldown.float32, 0.0, 1.0)
       drawSegmentBar(posVec, vec2(0, -0.40), cooldownRatio,
                      color(0.2, 0.8, 0.9, 1.0), color(0.3, 0.3, 0.3, 0.7))
-
-    # Draw cooldown indicator for unit abilities (e.g., Trebuchet pack/unpack)
-    if agent.cooldown > 0:
-      let maxCooldown = case agent.unitClass
-        of UnitTrebuchet: TrebuchetPackDuration
-        else: agent.cooldown  # Fallback for unknown units
-      let cooldownRatio = agent.cooldown.float32 / maxCooldown.float32
-      drawSegmentBar(posVec, vec2(0, -0.40),
-                     clamp(cooldownRatio, 0.0, 1.0),
-                     color(0.2, 0.7, 0.9, 1.0),  # Cyan for cooldown
-                     color(0.3, 0.3, 0.3, 0.5))
 
     # Draw veterancy stars above HP bar for units with kills
     if agent.kills > 0:
