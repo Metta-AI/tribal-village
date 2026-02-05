@@ -1126,6 +1126,20 @@ proc cancelLastQueued*(env: Environment, building: Thing): bool =
       recordRefund(teamId, costs, env.currentStep)
   true
 
+proc cancelQueueEntry*(env: Environment, building: Thing, index: int): bool =
+  ## Cancel a specific unit in the production queue by index, refunding resources.
+  if index < 0 or index >= building.productionQueue.entries.len:
+    return false
+  building.productionQueue.entries.delete(index)
+  let teamId = building.teamId
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let costs = buildingTrainCosts(building.kind)
+    for cost in costs:
+      env.teamStockpiles[teamId].counts[cost.res] += cost.count
+    when defined(econAudit):
+      recordRefund(teamId, costs, env.currentStep)
+  true
+
 proc tryBatchQueueTrain*(env: Environment, building: Thing, teamId: int,
                          count: int): int =
   ## Queue multiple units for training (batch/shift-click).

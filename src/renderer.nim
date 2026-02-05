@@ -162,6 +162,14 @@ type FooterButton* = object
   labelSize*: IVec2
   active*: bool
 
+type QueueCancelButton* = object
+  ## Button to cancel a queued unit in the production queue
+  rect*: Rect
+  queueIndex*: int
+  buildingPos*: IVec2
+
+var queueCancelButtons*: seq[QueueCancelButton] = @[]
+
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   let iconKeys = [if play: "ui/pause" else: "ui/play", "ui/stepForward", "ui/turtle", "ui/speed", "", "ui/rabbit"]
   let labels = ["Pause", "Step", "Slow", "Fast", ">>", "Super"]
@@ -1270,6 +1278,9 @@ proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize): (stri
     result = (key, size)
 
 proc drawUnitInfoPanel*(panelRect: IRect) =
+  # Clear cancel buttons from previous frame
+  queueCancelButtons.setLen(0)
+
   if selection.len == 0:
     return
 
@@ -1423,32 +1434,80 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
         bxy.drawImage(garrisonKey, vec2(textX, y), angle = 0, scale = 1.0)
         y += UnitInfoLineHeight
 
-      # Production Queue
+      # Production Queue with icons and cancel buttons
       if building.productionQueue.entries.len > 0:
         let (queueLabelKey, _) = getUnitInfoLabel("Production Queue:")
         bxy.drawImage(queueLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
         y += UnitInfoLineHeight - 4.0
 
+        const
+          QueueIconSize = 24.0'f32
+          QueueIconScale = QueueIconSize / 200.0'f32  # Sprites are ~200px
+          QueueCancelBtnSize = 18.0'f32
+          QueueEntryHeight = 28.0'f32
+          QueueProgressBarW = 60.0'f32
+
         for i, entry in building.productionQueue.entries:
-          if i >= 3: break  # Show max 3 entries
+          if i >= 5: break  # Show max 5 entries
           let unitName = UnitClassLabels[entry.unitClass]
+          let entryY = y
+
+          # Draw unit icon
+          let baseKey = UnitClassSpriteKeys[entry.unitClass]
+          let iconKey = if baseKey.len > 0 and (baseKey & ".s") in bxy:
+            baseKey & ".s"
+          elif entry.unitClass == UnitVillager and "oriented/gatherer.s" in bxy:
+            "oriented/gatherer.s"
+          else:
+            ""
+          if iconKey.len > 0:
+            bxy.drawImage(iconKey, vec2(textX, entryY), angle = 0, scale = QueueIconScale)
+
+          # Draw unit name after icon
+          let nameX = textX + QueueIconSize + 4.0
           if i == 0 and entry.totalSteps > 0:
-            # First entry with progress bar
+            # First entry: show progress bar
             let (entryKey, _) = getUnitInfoLabel(unitName)
-            bxy.drawImage(entryKey, vec2(textX, y), angle = 0, scale = 1.0)
+            bxy.drawImage(entryKey, vec2(nameX, entryY), angle = 0, scale = 1.0)
             let progRatio = clamp(1.0 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
-            let progBarX = textX + 100.0
-            let progBarW = 100.0'f32
-            bxy.drawRect(Rect(x: progBarX, y: y + 4.0, w: progBarW, h: UnitInfoBarHeight),
+            let progBarX = nameX + 70.0
+            bxy.drawRect(Rect(x: progBarX, y: entryY + 6.0, w: QueueProgressBarW, h: UnitInfoBarHeight),
                          color(0.2, 0.2, 0.2, 0.9))
-            bxy.drawRect(Rect(x: progBarX, y: y + 4.0, w: progBarW * progRatio, h: UnitInfoBarHeight),
+            bxy.drawRect(Rect(x: progBarX, y: entryY + 6.0, w: QueueProgressBarW * progRatio, h: UnitInfoBarHeight),
                          color(0.2, 0.5, 1.0, 1.0))
           else:
-            let queuedText = unitName & " (queued)"
-            let (queuedKey, _) = getUnitInfoLabel(queuedText)
-            bxy.drawImage(queuedKey, vec2(textX, y), angle = 0, scale = 1.0,
+            # Queued entries: show dimmed text
+            let (queuedKey, _) = getUnitInfoLabel(unitName)
+            bxy.drawImage(queuedKey, vec2(nameX, entryY), angle = 0, scale = 1.0,
                           tint = color(0.6, 0.6, 0.6, 1.0))
-          y += UnitInfoLineHeight - 4.0
+
+          # Draw cancel button (X) on the right side
+          let cancelBtnX = panelX + UnitInfoPanelWidth - UnitInfoPanelPadding - QueueCancelBtnSize
+          let cancelBtnY = entryY + (QueueEntryHeight - QueueCancelBtnSize) * 0.5 - 2.0
+          let cancelRect = Rect(x: cancelBtnX, y: cancelBtnY, w: QueueCancelBtnSize, h: QueueCancelBtnSize)
+
+          # Check if mouse is hovering over this cancel button
+          let mousePos = window.mousePos.vec2
+          let hovered = mousePos.x >= cancelRect.x and mousePos.x <= cancelRect.x + cancelRect.w and
+                        mousePos.y >= cancelRect.y and mousePos.y <= cancelRect.y + cancelRect.h
+          let btnBgColor = if hovered: color(0.6, 0.2, 0.2, 0.9) else: color(0.3, 0.15, 0.15, 0.8)
+          bxy.drawRect(cancelRect, btnBgColor)
+
+          # Draw X text in center of button
+          let (xKey, xSize) = getUnitInfoLabel("X", 14.0)
+          let xPosX = cancelBtnX + (QueueCancelBtnSize - xSize.x.float32) * 0.5
+          let xPosY = cancelBtnY + (QueueCancelBtnSize - xSize.y.float32) * 0.5
+          bxy.drawImage(xKey, vec2(xPosX, xPosY), angle = 0, scale = 1.0,
+                        tint = if hovered: color(1.0, 0.8, 0.8, 1.0) else: color(0.9, 0.6, 0.6, 1.0))
+
+          # Track this cancel button for click handling
+          queueCancelButtons.add(QueueCancelButton(
+            rect: cancelRect,
+            queueIndex: i,
+            buildingPos: building.pos
+          ))
+
+          y += QueueEntryHeight
 
     else:
       # --- Other thing selected (resource, terrain object) ---

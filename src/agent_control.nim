@@ -248,6 +248,17 @@ proc cancelLastQueuedUnit*(env: Environment, buildingX, buildingY: int32): bool 
     return false
   cancelLastQueued(env, thing)
 
+proc cancelQueuedUnitAtIndex*(env: Environment, buildingX, buildingY: int32, index: int32): bool =
+  ## Cancel a specific unit in the production queue at the given index.
+  ## Returns true if a unit was cancelled.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  cancelQueueEntry(env, thing, index.int)
+
 proc getProductionQueueSize*(env: Environment, buildingX, buildingY: int32): int32 =
   ## Get the number of units in the production queue at the given building.
   let pos = ivec2(buildingX, buildingY)
