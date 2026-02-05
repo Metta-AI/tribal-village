@@ -749,19 +749,44 @@ const ProjectileScales: array[ProjectileKind, float32] = [
   (1.0 / 240.0).float32,  # ProjTrebuchet - large
 ]
 
+const
+  ProjectileTrailPoints = 5     # Number of trail segments behind projectile
+  ProjectileTrailStep = 0.12'f32  # Time step between trail points (fraction of lifetime)
+
 proc drawProjectiles*() =
   ## Draw visual-only projectiles traveling from source to target.
-  ## Uses the "floor" sprite as a small colored dot at the interpolated position.
+  ## Renders a trail of fading points behind the projectile head.
   for proj in env.projectiles:
     if proj.lifetime <= 0:
       continue
     # Interpolate position: t=1 at source, t=0 at target
     let t = proj.countdown.float32 / proj.lifetime.float32
-    let pos = vec2(
-      proj.source.x.float32 * t + proj.target.x.float32 * (1.0 - t),
-      proj.source.y.float32 * t + proj.target.y.float32 * (1.0 - t))
     let c = ProjectileColors[proj.kind]
     let sc = ProjectileScales[proj.kind]
+    let srcX = proj.source.x.float32
+    let srcY = proj.source.y.float32
+    let tgtX = proj.target.x.float32
+    let tgtY = proj.target.y.float32
+
+    # Draw trail points (from back to front, oldest first)
+    # Trail points represent past positions along the trajectory
+    for i in countdown(ProjectileTrailPoints - 1, 0):
+      let trailT = min(1.0'f32, t + ProjectileTrailStep * (i + 1).float32)
+      # Only draw if the trail point is within valid range (not past the source)
+      if trailT > 1.0:
+        continue
+      let trailPos = vec2(
+        srcX * trailT + tgtX * (1.0 - trailT),
+        srcY * trailT + tgtY * (1.0 - trailT))
+      # Fade opacity and shrink scale for older trail points
+      let fadeRatio = 1.0 - (i + 1).float32 / (ProjectileTrailPoints + 1).float32
+      let trailAlpha = c.a * fadeRatio * 0.7  # Max 70% opacity for trails
+      let trailScale = sc * (0.5 + 0.5 * fadeRatio)  # Shrink to 50% at tail
+      let trailColor = color(c.r, c.g, c.b, trailAlpha)
+      bxy.drawImage("floor", trailPos, angle = 0, scale = trailScale, tint = trailColor)
+
+    # Draw projectile head at current position
+    let pos = vec2(srcX * t + tgtX * (1.0 - t), srcY * t + tgtY * (1.0 - t))
     bxy.drawImage("floor", pos, angle = 0, scale = sc, tint = c)
 
 proc renderDamageNumberLabel(text: string, textColor: Color): (Image, IVec2) =
