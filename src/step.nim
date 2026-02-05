@@ -225,6 +225,97 @@ proc stepDecayDamageNumbers(env: Environment) =
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
 
+proc stepSpawnWeatherParticles(env: Environment) =
+  ## Spawn weather particles based on current weather type and intensity.
+  ## Particles spawn in the visible viewport area for efficiency.
+  if env.weatherType == WeatherClear or env.weatherIntensity <= 0.0:
+    return
+  if env.weatherParticles.len >= WeatherMaxParticles:
+    return
+
+  # Spawn rate scales with intensity
+  let spawnCount = int(float32(WeatherSpawnRate) * env.weatherIntensity)
+  if spawnCount <= 0:
+    return
+
+  # Spawn particles across the map area (they'll be culled during render)
+  var seed = uint32(env.currentStep * 31337 + env.weatherParticles.len * 7919)
+  for _ in 0 ..< spawnCount:
+    if env.weatherParticles.len >= WeatherMaxParticles:
+      break
+
+    # Simple pseudo-random using LCG
+    seed = seed * 1103515245'u32 + 12345'u32
+    let rx = float32((seed shr 16) mod uint32(MapWidth))
+    seed = seed * 1103515245'u32 + 12345'u32
+    let ry = float32((seed shr 16) mod uint32(MapHeight))
+    seed = seed * 1103515245'u32 + 12345'u32
+    let randVal = float32(seed mod 1000'u32) / 1000.0'f32
+
+    var particle: WeatherParticle
+    particle.x = rx
+    particle.y = ry
+    particle.lifetime = WeatherParticleLifetime
+    particle.countdown = WeatherParticleLifetime
+
+    case env.weatherType
+    of WeatherRain:
+      # Rain falls straight down with slight variation
+      particle.vx = (randVal - 0.5'f32) * 0.1'f32
+      particle.vy = 0.4'f32 + randVal * 0.2'f32
+      particle.alpha = 0.5'f32 + randVal * 0.3'f32
+      particle.size = 0.8'f32 + randVal * 0.4'f32
+    of WeatherSnow:
+      # Snow drifts slowly with lateral movement
+      particle.vx = (randVal - 0.5'f32) * 0.15'f32
+      particle.vy = 0.08'f32 + randVal * 0.08'f32
+      particle.alpha = 0.7'f32 + randVal * 0.3'f32
+      particle.size = 0.6'f32 + randVal * 0.6'f32
+      particle.lifetime = int16(float32(WeatherParticleLifetime) * 1.5'f32)
+      particle.countdown = particle.lifetime
+    of WeatherDustStorm:
+      # Dust blows horizontally with some vertical variance
+      particle.vx = 0.5'f32 + randVal * 0.3'f32
+      particle.vy = (randVal - 0.5'f32) * 0.1'f32
+      particle.alpha = 0.3'f32 + randVal * 0.4'f32
+      particle.size = 0.5'f32 + randVal * 0.8'f32
+    of WeatherClear:
+      discard
+
+    env.weatherParticles.add(particle)
+
+proc stepUpdateWeatherParticles(env: Environment) =
+  ## Update weather particle positions and remove expired particles.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.weatherParticles.len == 0:
+    return
+
+  var writeIdx = 0
+  for readIdx in 0 ..< env.weatherParticles.len:
+    var p = env.weatherParticles[readIdx]
+    p.countdown -= 1
+    if p.countdown > 0:
+      # Update position
+      p.x += p.vx
+      p.y += p.vy
+      # Wrap around map boundaries for continuous effect
+      if p.x < 0: p.x += float32(MapWidth)
+      elif p.x >= float32(MapWidth): p.x -= float32(MapWidth)
+      if p.y < 0: p.y += float32(MapHeight)
+      elif p.y >= float32(MapHeight): p.y -= float32(MapHeight)
+      env.weatherParticles[writeIdx] = p
+      inc writeIdx
+  env.weatherParticles.setLen(writeIdx)
+
+proc stepUpdateWeatherDuration(env: Environment) =
+  ## Update weather duration countdown and potentially change weather.
+  if env.weatherDuration > 0:
+    env.weatherDuration -= 1
+    if env.weatherDuration == 0:
+      # Weather ends - return to clear
+      env.weatherType = WeatherClear
+      env.weatherIntensity = 0.0
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1016,6 +1107,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+
+  # Update weather particles
+  env.stepUpdateWeatherDuration()
+  env.stepSpawnWeatherParticles()
+  env.stepUpdateWeatherParticles()
 
   when defined(stepTiming):
     if timing:
@@ -3574,6 +3670,10 @@ proc reset*(env: Environment) =
   env.projectiles.setLen(0)  # Keeps pre-allocated capacity
   env.projectilePool.stats = PoolStats()  # Reset pool stats
   env.damageNumbers.setLen(0)  # Keeps pre-allocated capacity
+  env.weatherParticles.setLen(0)  # Keeps pre-allocated capacity
+  env.weatherType = WeatherClear
+  env.weatherIntensity = 0.0
+  env.weatherDuration = 0
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)

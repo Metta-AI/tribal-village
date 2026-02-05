@@ -337,6 +337,42 @@ proc spendStockpile*(env: Environment, teamId: int,
   true
 
 # ============================================================================
+# Weather System API
+# ============================================================================
+
+proc setWeather*(env: Environment, weatherType: WeatherType, intensity: float32,
+                 duration: int = 500) =
+  ## Set the current weather type, intensity, and duration.
+  ## - weatherType: The type of weather effect (Clear, Rain, Snow, DustStorm)
+  ## - intensity: Weather intensity from 0.0 (light) to 1.0 (heavy)
+  ## - duration: Number of game steps the weather lasts (0 = indefinite)
+  env.weatherType = weatherType
+  env.weatherIntensity = clamp(intensity, 0.0'f32, 1.0'f32)
+  env.weatherDuration = duration
+  if weatherType == WeatherClear:
+    env.weatherIntensity = 0.0
+    env.weatherParticles.setLen(0)
+
+proc setRain*(env: Environment, intensity: float32 = 0.7, duration: int = 500) =
+  ## Start rain weather effect.
+  ## - intensity: 0.0 (drizzle) to 1.0 (heavy downpour)
+  env.setWeather(WeatherRain, intensity, duration)
+
+proc setSnow*(env: Environment, intensity: float32 = 0.5, duration: int = 600) =
+  ## Start snow weather effect.
+  ## - intensity: 0.0 (light flurries) to 1.0 (blizzard)
+  env.setWeather(WeatherSnow, intensity, duration)
+
+proc setDustStorm*(env: Environment, intensity: float32 = 0.6, duration: int = 400) =
+  ## Start dust storm weather effect.
+  ## - intensity: 0.0 (light haze) to 1.0 (heavy sandstorm)
+  env.setWeather(WeatherDustStorm, intensity, duration)
+
+proc clearWeather*(env: Environment) =
+  ## Clear all weather effects immediately.
+  env.setWeather(WeatherClear, 0.0, 0)
+
+# ============================================================================
 # AoE2-style Market Trading with Dynamic Prices
 # ============================================================================
 

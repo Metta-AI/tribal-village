@@ -827,6 +827,48 @@ proc drawDamageNumbers*() =
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
                   tint = color(1.0, 1.0, 1.0, alpha))
 
+proc drawWeatherParticles*() =
+  ## Draw weather particles (rain, snow, dust storm) as visual effects.
+  ## Particles are viewport-culled and render with weather-appropriate colors.
+  if env.weatherType == WeatherClear or env.weatherParticles.len == 0:
+    return
+  if not currentViewport.valid:
+    return
+
+  # Weather-specific colors
+  let (baseColor, particleScale) = case env.weatherType
+    of WeatherRain:
+      (color(0.6, 0.7, 0.9, 1.0), 1.0'f32 / 600.0'f32)  # Light blue-gray
+    of WeatherSnow:
+      (color(0.95, 0.97, 1.0, 1.0), 1.0'f32 / 400.0'f32)  # Near-white
+    of WeatherDustStorm:
+      (color(0.85, 0.75, 0.55, 1.0), 1.0'f32 / 500.0'f32)  # Sandy tan
+    of WeatherClear:
+      (color(1.0, 1.0, 1.0, 1.0), 1.0'f32 / 500.0'f32)
+
+  for p in env.weatherParticles:
+    if p.countdown <= 0:
+      continue
+
+    # Viewport culling
+    let px = int(p.x)
+    let py = int(p.y)
+    if px < currentViewport.minX - 2 or px > currentViewport.maxX + 2 or
+       py < currentViewport.minY - 2 or py > currentViewport.maxY + 2:
+      continue
+
+    # Calculate alpha based on lifetime (fade in and out)
+    let t = p.countdown.float32 / p.lifetime.float32
+    # Fade in during first 20%, fade out during last 20%
+    let fadeAlpha = if t > 0.8: (1.0 - t) / 0.2
+                    elif t < 0.2: t / 0.2
+                    else: 1.0
+    let finalAlpha = p.alpha * fadeAlpha * env.weatherIntensity
+
+    let tint = color(baseColor.r, baseColor.g, baseColor.b, finalAlpha)
+    let scale = particleScale * p.size
+    bxy.drawImage("floor", vec2(p.x, p.y), angle = 0, scale = scale, tint = tint)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return

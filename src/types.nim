@@ -735,6 +735,32 @@ const
   DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
   DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
 
+type
+  WeatherType* = enum
+    WeatherClear       ## No weather effects
+    WeatherRain        ## Rain particles falling downward
+    WeatherSnow        ## Snow particles drifting downward
+    WeatherDustStorm   ## Dust/sand particles blowing horizontally
+
+  WeatherParticle* = object
+    ## A visual-only weather particle for ambient effects.
+    ## Position in world coordinates (floating point for smooth movement).
+    x*: float32          ## X position in world coordinates
+    y*: float32          ## Y position in world coordinates
+    vx*: float32         ## X velocity (world units per step)
+    vy*: float32         ## Y velocity (world units per step)
+    alpha*: float32      ## Opacity (0.0-1.0)
+    size*: float32       ## Relative size multiplier
+    countdown*: int16    ## Frames remaining before removal
+    lifetime*: int16     ## Total frames (for fade calculation)
+
+const
+  ## Weather particle visual constants
+  WeatherParticleLifetime* = 60'i16      ## Base lifetime for weather particles
+  WeatherParticlePoolCapacity* = 512     ## Initial capacity for weather particle pool
+  WeatherSpawnRate* = 8                  ## Particles spawned per step at full intensity
+  WeatherMaxParticles* = 400             ## Maximum particles to prevent performance issues
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1080,6 +1106,11 @@ type
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
+    # Weather system
+    weatherParticles*: seq[WeatherParticle]  # Visual-only weather particles
+    weatherType*: WeatherType                 # Current weather type
+    weatherIntensity*: float32                # Weather intensity (0.0-1.0)
+    weatherDuration*: int                     # Steps remaining for current weather
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
