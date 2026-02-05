@@ -131,6 +131,8 @@ when defined(settlerMetrics):
 
       # Villagers per altar for this team
       for altarPos, count in settlerMetrics.villagersPerAltar:
+        if not isValidPos(altarPos):
+          continue
         # Check if this altar belongs to this team
         let altarThing = env.grid[altarPos.x][altarPos.y]
         if not altarThing.isNil and altarThing.kind == Altar and
