@@ -1073,6 +1073,25 @@ proc drawDebris*() =
     let scale = (1.0 / 350.0).float32  # Slightly smaller than projectiles
     bxy.drawImage("floor", deb.pos, angle = 0, scale = scale, tint = tintColor)
 
+proc drawSpawnEffects*() =
+  ## Draw visual effects for unit spawning from buildings.
+  ## Shows an expanding, fading glow at the spawn location.
+  if not currentViewport.valid:
+    return
+  for effect in env.spawnEffects:
+    if effect.lifetime <= 0 or not isInViewport(effect.pos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = effect.countdown.float32 / effect.lifetime.float32
+    let progress = 1.0 - t  # 0.0 at spawn, 1.0 at expire
+    # Expand from small to large as effect progresses
+    let baseScale = SpriteScale * (0.3 + progress * 0.7)  # 30% to 100%
+    # Fade out with quadratic ease (bright at start, fades smoothly)
+    let alpha = t * t * 0.6  # Max alpha 0.6 to not be too bright
+    # Use a bright cyan/white tint for spawn effect
+    let tint = color(0.6, 0.9, 1.0, alpha)
+    bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return

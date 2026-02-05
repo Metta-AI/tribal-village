@@ -780,6 +780,19 @@ const
   DebrisPoolCapacity* = 128        ## Initial capacity for debris pool
   DebrisParticlesPerBuilding* = 8  ## Number of debris particles per destroyed building
 
+type
+  SpawnEffect* = object
+    ## A visual effect when a unit spawns from a training building.
+    ## Shows a pulsing/expanding ring that fades out.
+    pos*: IVec2          ## World position where unit spawned
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for animation calculation)
+
+const
+  ## Spawn effect visual constants
+  SpawnEffectLifetime* = 16'i8   ## Frames spawn effects persist (~1 second)
+  SpawnEffectPoolCapacity* = 16  ## Initial capacity for spawn effect pool
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1127,6 +1140,7 @@ type
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
     ragdolls*: seq[RagdollBody]  # Death ragdoll bodies with physics
     debris*: seq[Debris]  # Debris particles from destroyed buildings
+    spawnEffects*: seq[SpawnEffect]    # Visual effects when units spawn from buildings
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
