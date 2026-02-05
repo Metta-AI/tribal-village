@@ -306,6 +306,24 @@ proc stepDecayGatherSparkles(env: Environment) =
         inc writeIdx
     env.gatherSparkles.setLen(writeIdx)
 
+proc stepDecayConstructionDust(env: Environment) =
+  ## Update construction dust particle positions and remove expired ones.
+  ## Particles rise upward and fade over time.
+  if env.constructionDust.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.constructionDust.len:
+      env.constructionDust[readIdx].countdown -= 1
+      if env.constructionDust[readIdx].countdown > 0:
+        # Update position based on velocity (rising upward)
+        env.constructionDust[readIdx].pos.x += env.constructionDust[readIdx].velocity.x
+        env.constructionDust[readIdx].pos.y += env.constructionDust[readIdx].velocity.y
+        # Dust slows down as it rises and spreads slightly
+        env.constructionDust[readIdx].velocity.y *= 0.96
+        env.constructionDust[readIdx].velocity.x *= 0.98
+        env.constructionDust[writeIdx] = env.constructionDust[readIdx]
+        inc writeIdx
+    env.constructionDust.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1102,6 +1120,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecaySpawnEffects()
   env.stepDecayDyingUnits()
   env.stepDecayGatherSparkles()
+  env.stepDecayConstructionDust()
 
   when defined(stepTiming):
     if timing:
@@ -2737,6 +2756,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     when defined(audio):
       let wasBelowMaxAudio = thing.hp < thing.maxHp
     thing.hp = min(thing.maxHp, thing.hp + hpGain)
+    # Spawn construction dust particles while building is under construction
+    if thing.hp < thing.maxHp:
+      env.spawnConstructionDust(thing.pos)
     when defined(eventLog):
       if wasBelowMax and thing.hp >= thing.maxHp:
         logBuildingCompleted(thing.teamId, $thing.kind,
