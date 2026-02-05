@@ -31,10 +31,15 @@ proc getTotalBuildingCount(controller: Controller, env: Environment, teamId: int
     if isBuildingKind(kind):
       result += controller.getBuildingCount(env, teamId, kind)
 
-proc calculateWallRingRadius(controller: Controller, env: Environment, teamId: int): int =
-  ## Calculate adaptive wall radius based on building count.
+proc calculateWallRingRadius(controller: Controller, env: Environment, teamId: int,
+                             altarPos: IVec2): int =
+  ## Calculate adaptive wall radius based on per-settlement building count.
   ## Starts at WallRingBaseRadius and grows by 1 for every WallRingBuildingsPerRadius buildings.
-  let totalBuildings = getTotalBuildingCount(controller, env, teamId)
+  let totalBuildings =
+    if altarPos.x >= 0:
+      getTotalBuildingCountNear(env, teamId, altarPos)
+    else:
+      getTotalBuildingCount(controller, env, teamId)
   let extraRadius = totalBuildings div WallRingBuildingsPerRadius
   result = min(WallRingMaxRadius, WallRingBaseRadius + extraRadius)
 
@@ -182,12 +187,24 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
   0'u8
 
 builderGuard(canStartBuilderCoreInfrastructure, shouldTerminateBuilderCoreInfrastructure):
-  anyMissingBuilding(controller, env, getTeamId(agent), CoreInfrastructureKinds)
+  let altarPos = agent.homeAltar
+  if altarPos.x >= 0:
+    anyMissingBuildingNear(env, getTeamId(agent), CoreInfrastructureKinds, altarPos)
+  else:
+    anyMissingBuilding(controller, env, getTeamId(agent), CoreInfrastructureKinds)
 
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  buildFirstMissing(controller, env, agent, agentId, state, teamId, CoreInfrastructureKinds)
+  let altarPos = agent.homeAltar
+  if altarPos.x >= 0:
+    # Per-settlement: only build infrastructure missing near this agent's home altar
+    for kind in CoreInfrastructureKinds:
+      let (did, act) = controller.tryBuildForSettlement(env, agent, agentId, state, teamId, kind, altarPos)
+      if did: return act
+    0'u8
+  else:
+    buildFirstMissing(controller, env, agent, agentId, state, teamId, CoreInfrastructureKinds)
 
 proc millResourceCount(env: Environment, pos: IVec2): int =
   countNearbyThings(env, pos, 4, {Wheat, Stubble}) + countNearbyTerrain(env, pos, 4, {Fertile})
@@ -290,8 +307,8 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
   var ringDoorCount = 0
   var bestBlocked = int.high
   var bestDist = int.high
-  # Calculate adaptive wall radius based on building count
-  let baseRadius = calculateWallRingRadius(controller, env, teamId)
+  # Calculate adaptive wall radius based on per-settlement building count
+  let baseRadius = calculateWallRingRadius(controller, env, teamId, altarPos)
   let wallRingRadii = [baseRadius, baseRadius - WallRingRadiusSlack, baseRadius + WallRingRadiusSlack]
   for radius in wallRingRadii:
     var blocked = 0

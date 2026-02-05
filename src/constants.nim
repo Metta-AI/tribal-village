@@ -387,6 +387,11 @@ const
   ScoutExploreGrowth* = 3     # How much to expand explore radius each cycle
 
   # ============================================================================
+  # Settlement (per-altar building association)
+  # ============================================================================
+  SettlementRadius*: int32 = 15  # Buildings within this Chebyshev distance of an altar belong to that settlement
+
+  # ============================================================================
   # Wall Ring (Builder AI)
   # ============================================================================
   WallRingBaseRadius* = 5

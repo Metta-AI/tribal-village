@@ -262,6 +262,79 @@ proc tryBuildIfMissing(controller: Controller, env: Environment, agent: Thing, a
       standPos, buildPos, idx)
   (false, 0'u8)
 
+proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, teamId: int, kind: ThingKind,
+                            settlementCenter: IVec2): tuple[did: bool, action: uint8] =
+  ## Like tryBuildIfMissing, but checks per-settlement building counts instead of global.
+  ## Allows each settlement to independently build its own infrastructure.
+  if getBuildingCountNear(env, teamId, kind, settlementCenter) != 0:
+    return (false, 0'u8)
+  if controller.isBuildingClaimed(teamId, kind):
+    return (false, 0'u8)
+  let idx = buildIndexFor(kind)
+  if idx < 0:
+    return (false, 0'u8)
+  let key = BuildChoices[idx]
+  let costs = buildCostsForKey(key)
+  if costs.len == 0:
+    return (false, 0'u8)
+  if choosePayment(env, agent, costs) == PayNone:
+    controller.claimBuilding(teamId, kind)
+    for cost in costs:
+      case stockpileResourceForItem(cost.key)
+      of ResourceWood:
+        return controller.ensureWood(env, agent, agentId, state)
+      of ResourceStone:
+        return controller.ensureStone(env, agent, agentId, state)
+      of ResourceGold:
+        return controller.ensureGold(env, agent, agentId, state)
+      of ResourceFood:
+        return controller.ensureWheat(env, agent, agentId, state)
+      of ResourceWater, ResourceNone:
+        discard
+    return (false, 0'u8)
+
+  let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, idx)
+  if didAdjacent:
+    controller.claimBuilding(teamId, kind)
+    return (didAdjacent, actAdjacent)
+
+  # Use settlement center as the anchor for building placement
+  let anchor = settlementCenter
+  const searchRadius = 8
+  var bestDist = int.high
+  var buildPos = ivec2(-1, -1)
+  var standPos = ivec2(-1, -1)
+  let minX = max(0, anchor.x - searchRadius)
+  let maxX = min(MapWidth - 1, anchor.x + searchRadius)
+  let minY = max(0, anchor.y - searchRadius)
+  let maxY = min(MapHeight - 1, anchor.y + searchRadius)
+  let ax = anchor.x.int
+  let ay = anchor.y.int
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      let pos = ivec2(x.int32, y.int32)
+      if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
+        continue
+      for d in CardinalOffsets:
+        let stand = pos + d
+        if isValidPos(stand) and not env.hasDoor(stand) and
+            not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
+            not isTileFrozen(stand, env) and
+            (env.isEmpty(stand) or stand == agent.pos) and
+            env.canAgentPassDoor(agent, stand):
+          let dist = abs(x - ax) + abs(y - ay)
+          if dist < bestDist:
+            bestDist = dist
+            buildPos = pos
+            standPos = stand
+          break
+  if buildPos.x >= 0:
+    controller.claimBuilding(teamId, kind)
+    return goToStandAndBuild(controller, env, agent, agentId, state,
+      standPos, buildPos, idx)
+  (false, 0'u8)
+
 proc getTeamPopCount(controller: Controller, env: Environment, teamId: int): int =
   ## Get cached team population count. Recomputed once per step.
   if controller.teamPopCountsStep != env.currentStep:
