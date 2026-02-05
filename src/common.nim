@@ -34,6 +34,11 @@ type
     Horizontal
     Vertical
 
+  WeatherType* = enum
+    WeatherNone     ## No weather effects
+    WeatherRain     ## Rain particles falling
+    WeatherWind     ## Wind particles blowing horizontally
+
   Area* = ref object
     layout*: AreaLayout
     rect*: IRect
@@ -47,6 +52,7 @@ type
     showGrid* = true
     showObservations* = -1
     showDayNightCycle* = true  ## Whether to show day/night lighting cycle
+    weatherType* = WeatherRain  ## Current weather effect (Rain, Wind, or None)
 
 proc nowSeconds*(): float64 =
   when defined(emscripten):
