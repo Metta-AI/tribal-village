@@ -688,11 +688,29 @@ proc drawVisualRanges*(alpha = 0.2) =
     for x in startX .. endX:
       for y in startY .. endY:
         visibility[x][y] = true
-  let fogColor = color(0, 0, 0, alpha)
-  # Only draw fog for visible tiles
+
+  # Draw fog with smooth edges
+  # Edge smoothing: tiles at the boundary get lighter alpha based on visible neighbors
+  const
+    FogEdgeSmoothFactor = 0.7  # How much to reduce alpha at edges (0=no smoothing, 1=full)
+    Neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+
   for x in currentViewport.minX .. currentViewport.maxX:
     for y in currentViewport.minY .. currentViewport.maxY:
       if not visibility[x][y]:
+        # Count visible neighbors for edge smoothing
+        var visibleNeighbors = 0
+        for (dx, dy) in Neighbors:
+          let nx = x + dx
+          let ny = y + dy
+          if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
+            if visibility[nx][ny]:
+              visibleNeighbors += 1
+
+        # Compute alpha: more visible neighbors = lighter fog (smoother edge)
+        let edgeRatio = visibleNeighbors.float32 / 8.0
+        let tileAlpha = alpha * (1.0 - edgeRatio * FogEdgeSmoothFactor)
+        let fogColor = color(0, 0, 0, tileAlpha)
         bxy.drawRect(rect(x.float32 - 0.5, y.float32 - 0.5, 1, 1), fogColor)
 
 proc drawAgentDecorations*() =
@@ -1151,21 +1169,37 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSize - 1)
     minimapCompositeImage.unsafe[px, py] = dot
 
-  # Apply fog of war
+  # Apply fog of war with edge smoothing
   if fogTeamId >= 0 and fogTeamId < MapRoomObjectsTeams:
     let invScaleX = minimapInvScaleX
     let invScaleY = minimapInvScaleY
+    const
+      MinimapFogEdgeSmoothFactor = 0.6  # How much to lighten edge tiles
+      Neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
     for py in 0 ..< MinimapSize:
       let my = clamp(int(py.float32 * invScaleY), 0, MapHeight - 1)
       for px in 0 ..< MinimapSize:
         let mx = clamp(int(px.float32 * invScaleX), 0, MapWidth - 1)
         if not env.revealedMaps[fogTeamId][mx][my]:
-          # Darken unexplored tiles
+          # Count revealed neighbors for edge smoothing
+          var revealedNeighbors = 0
+          for (dx, dy) in Neighbors:
+            let nx = mx + dx
+            let ny = my + dy
+            if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
+              if env.revealedMaps[fogTeamId][nx][ny]:
+                revealedNeighbors += 1
+
+          # Compute darkening factor: more revealed neighbors = less darkening (smoother edge)
+          # Base darkening is shr 2 (divide by 4), edge tiles get less darkening
+          let edgeRatio = revealedNeighbors.float32 / 8.0
+          let darkenFactor = 0.25 + edgeRatio * MinimapFogEdgeSmoothFactor * 0.75  # 0.25 to 1.0
+
           let c = minimapCompositeImage.unsafe[px, py]
           minimapCompositeImage.unsafe[px, py] = rgbx(
-            uint8(c.r.int shr 2),
-            uint8(c.g.int shr 2),
-            uint8(c.b.int shr 2),
+            uint8(clamp(c.r.float32 * darkenFactor, 0, 255)),
+            uint8(clamp(c.g.float32 * darkenFactor, 0, 255)),
+            uint8(clamp(c.b.float32 * darkenFactor, 0, 255)),
             c.a
           )
 
