@@ -596,6 +596,11 @@ proc drawObjects*() =
             let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
             drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
                            color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
+        # Construction progress bar (shown when building is under construction)
+        if thing.maxHp > 0 and thing.hp > 0 and thing.hp < thing.maxHp:
+          let constructionRatio = clamp(thing.hp.float32 / thing.maxHp.float32, 0.0, 1.0)
+          drawSegmentBar(pos.vec2, vec2(0, -0.55), constructionRatio,
+                         color(0.9, 0.7, 0.2, 1.0), color(0.3, 0.3, 0.3, 0.7))
         let res = buildingStockpileRes(thing.kind)
         if res != ResourceNone:
           let teamId = thing.teamId
