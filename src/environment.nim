@@ -1997,6 +1997,30 @@ proc spawnDamageNumber*(env: Environment, pos: IVec2, amount: int,
     pos: pos, amount: amount, kind: kind,
     countdown: DamageNumberLifetime, lifetime: DamageNumberLifetime))
 
+proc spawnRagdoll*(env: Environment, pos: IVec2, direction: Vec2,
+                   unitClass: AgentUnitClass, teamId: int) =
+  ## Spawn a ragdoll body at the death position.
+  ## The body tumbles away from the damage source direction.
+  if not isValidPos(pos):
+    return
+  # Normalize direction and apply initial speed
+  let dirLen = sqrt(direction.x * direction.x + direction.y * direction.y)
+  let normalizedDir = if dirLen > 0.001:
+    vec2(direction.x / dirLen, direction.y / dirLen)
+  else:
+    vec2(1.0, 0.0)  # Default direction if no attacker
+  # Add randomness to angular velocity (clockwise or counter-clockwise)
+  let angularDir = if (pos.x + pos.y) mod 2 == 0: 1.0'f32 else: -1.0'f32
+  env.ragdolls.add(RagdollBody(
+    pos: vec2(pos.x.float32, pos.y.float32),
+    velocity: vec2(normalizedDir.x * RagdollInitialSpeed, normalizedDir.y * RagdollInitialSpeed),
+    angle: 0.0'f32,
+    angularVel: RagdollAngularSpeed * angularDir,
+    unitClass: unitClass,
+    teamId: teamId,
+    countdown: RagdollLifetime,
+    lifetime: RagdollLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"

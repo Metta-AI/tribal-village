@@ -827,6 +827,38 @@ proc drawDamageNumbers*() =
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
                   tint = color(1.0, 1.0, 1.0, alpha))
 
+proc drawRagdolls*() =
+  ## Draw ragdoll death bodies with physics-based tumbling.
+  ## Bodies tumble away from damage source and fade out.
+  if not currentViewport.valid:
+    return
+  for ragdoll in env.ragdolls:
+    if ragdoll.lifetime <= 0:
+      continue
+    # Check viewport bounds using integer position
+    let ipos = ivec2(ragdoll.pos.x.int32, ragdoll.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Get sprite key for the unit class
+    let baseKey = UnitClassSpriteKeys[ragdoll.unitClass]
+    # Fall back to villager sprites for villager-like units
+    let spriteKey = if baseKey.len > 0 and baseKey & ".s" in bxy:
+      baseKey & ".s"  # Use south-facing sprite as death pose
+    elif "oriented/gatherer.s" in bxy:
+      "oriented/gatherer.s"  # Fallback for villagers
+    else:
+      ""
+    if spriteKey.len == 0:
+      continue
+    # Calculate alpha fade (quadratic ease for smoother fade)
+    let t = ragdoll.countdown.float32 / ragdoll.lifetime.float32
+    let alpha = t * t
+    # Get team color with alpha applied
+    let teamColor = getTeamColor(env, ragdoll.teamId)
+    let tint = color(teamColor.r, teamColor.g, teamColor.b, alpha)
+    # Draw with rotation
+    bxy.drawImage(spriteKey, ragdoll.pos, angle = ragdoll.angle, scale = SpriteScale, tint = tint)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return

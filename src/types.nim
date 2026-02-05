@@ -735,6 +735,28 @@ const
   DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
   DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
 
+type
+  RagdollBody* = object
+    ## A ragdoll body for death animation physics.
+    ## Tumbles away from damage source and fades out.
+    pos*: Vec2           ## World position (continuous, not grid-based)
+    velocity*: Vec2      ## Movement velocity (world units per frame)
+    angle*: float32      ## Current rotation angle (radians)
+    angularVel*: float32 ## Rotation speed (radians per frame)
+    unitClass*: AgentUnitClass  ## Unit type for sprite selection
+    teamId*: int         ## Team for color tinting
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Ragdoll physics constants
+  RagdollLifetime* = 24'i8        ## Frames ragdoll persists (longer than damage number)
+  RagdollGravity* = 0.08'f32      ## Downward acceleration per frame
+  RagdollFriction* = 0.92'f32     ## Velocity damping per frame
+  RagdollInitialSpeed* = 0.3'f32  ## Initial tumble velocity magnitude
+  RagdollAngularSpeed* = 0.4'f32  ## Initial rotation speed (radians/frame)
+  RagdollPoolCapacity* = 32       ## Initial capacity for ragdoll pool
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1080,6 +1102,7 @@ type
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
+    ragdolls*: seq[RagdollBody]  # Death ragdoll bodies with physics
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

@@ -225,6 +225,27 @@ proc stepDecayDamageNumbers(env: Environment) =
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
 
+proc stepRagdolls(env: Environment) =
+  ## Update ragdoll physics and remove expired ragdolls.
+  ## Applies velocity, gravity, friction, and rotation each frame.
+  if env.ragdolls.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.ragdolls.len:
+      var ragdoll = env.ragdolls[readIdx]
+      ragdoll.countdown -= 1
+      if ragdoll.countdown > 0:
+        # Apply physics: velocity, gravity, friction, rotation
+        ragdoll.pos.x += ragdoll.velocity.x
+        ragdoll.pos.y += ragdoll.velocity.y
+        ragdoll.velocity.y += RagdollGravity  # Gravity pulls "down" (positive Y)
+        ragdoll.velocity.x *= RagdollFriction
+        ragdoll.velocity.y *= RagdollFriction
+        ragdoll.angle += ragdoll.angularVel
+        ragdoll.angularVel *= RagdollFriction  # Angular friction
+        env.ragdolls[writeIdx] = ragdoll
+        inc writeIdx
+    env.ragdolls.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1012,10 +1033,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Reset arena allocator for this step's temporary allocations
   env.arena.reset()
 
-  # Decay short-lived action tints and projectile visuals
+  # Decay short-lived action tints, projectile visuals, damage numbers, and ragdolls
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+  env.stepRagdolls()
 
   when defined(stepTiming):
     if timing:
