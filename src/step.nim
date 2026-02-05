@@ -264,6 +264,18 @@ proc stepDecayDebris(env: Environment) =
         inc writeIdx
     env.debris.setLen(writeIdx)
 
+proc stepDecaySpawnEffects(env: Environment) =
+  ## Decay and remove expired spawn effects.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.spawnEffects.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.spawnEffects.len:
+      env.spawnEffects[readIdx].countdown -= 1
+      if env.spawnEffects[readIdx].countdown > 0:
+        env.spawnEffects[writeIdx] = env.spawnEffects[readIdx]
+        inc writeIdx
+    env.spawnEffects.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1057,6 +1069,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayDamageNumbers()
   env.stepRagdolls()
   env.stepDecayDebris()
+  env.stepDecaySpawnEffects()
 
   when defined(stepTiming):
     if timing:
@@ -2165,6 +2178,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if thing.productionQueueHasReady():
                     let unitClass = thing.consumeReadyQueueEntry()
                     applyUnitClass(agent, unitClass)
+                    env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
                     if agent.inventorySpear > 0:
                       agent.inventorySpear = 0
                     # Assign rally point target if building has one
@@ -2189,6 +2203,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     if thing.productionQueueHasReady():
                       let unitClass = thing.consumeReadyQueueEntry()
                       applyUnitClass(agent, unitClass)
+                      env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
                       if agent.inventorySpear > 0:
                         agent.inventorySpear = 0
                       # Assign rally point target if building has one
@@ -2224,6 +2239,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if thing.productionQueueHasReady():
                     let unitClass = thing.consumeReadyQueueEntry()
                     applyUnitClass(agent, unitClass)
+                    env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
                     if agent.inventorySpear > 0:
                       agent.inventorySpear = 0
                     # Assign rally point target if building has one
@@ -3621,6 +3637,7 @@ proc reset*(env: Environment) =
   env.projectilePool.stats = PoolStats()  # Reset pool stats
   env.damageNumbers.setLen(0)  # Keeps pre-allocated capacity
   env.debris.setLen(0)  # Keeps pre-allocated capacity
+  env.spawnEffects.setLen(0)   # Keeps pre-allocated capacity
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)

@@ -2060,6 +2060,15 @@ proc spawnDebris*(env: Environment, pos: IVec2, buildingKind: ThingKind) =
       countdown: DebrisLifetime,
       lifetime: DebrisLifetime))
 
+proc spawnSpawnEffect*(env: Environment, pos: IVec2) =
+  ## Spawn a visual effect at the given position when a unit is created.
+  ## Shows a pulsing/expanding effect that fades out.
+  if not isValidPos(pos):
+    return
+  env.spawnEffects.add(SpawnEffect(
+    pos: pos,
+    countdown: SpawnEffectLifetime, lifetime: SpawnEffectLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"
