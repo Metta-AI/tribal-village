@@ -11,6 +11,11 @@ const
   HeartCountPadding = 6
   SpriteScale = 1.0 / 200.0
 
+  # Idle animation constants
+  IdleAnimationSpeed = 2.0        # Breathing cycles per second
+  IdleAnimationAmplitude = 0.02   # Scale variation (+/- 2% from base)
+  IdleAnimationPhaseScale = 0.7   # Phase offset multiplier for variation between units
+
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
   overlayLabelImages: Table[string, string] = initTable[string, string]()
@@ -583,8 +588,16 @@ proc drawObjects*() =
                          elif baseKey & ".s" in bxy: baseKey & ".s"
                          else: ""
     if agentSpriteKey.len > 0:
+      # Apply subtle breathing animation when idle
+      let animScale = if agent.isIdle:
+        # Use agent position for phase offset so units don't breathe in sync
+        let phaseOffset = (thingPos.x.float32 + thingPos.y.float32 * 1.3) * IdleAnimationPhaseScale
+        let breathPhase = nowSeconds() * IdleAnimationSpeed * 2 * PI + phaseOffset
+        SpriteScale * (1.0 + IdleAnimationAmplitude * sin(breathPhase))
+      else:
+        SpriteScale
       bxy.drawImage(agentSpriteKey, thingPos.vec2, angle = 0,
-                    scale = SpriteScale, tint = env.agentColors[agent.agentId])
+                    scale = animScale, tint = env.agentColors[agent.agentId])
 
   drawThings(Altar):
     let altarTint = if env.altarColors.hasKey(thingPos): env.altarColors[thingPos]
