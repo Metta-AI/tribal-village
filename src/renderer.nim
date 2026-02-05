@@ -1,7 +1,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[algorithm, math, os, strutils],
-  common, environment
+  common, environment, items, constants
 
 # Infection system constants
 const
@@ -10,6 +10,10 @@ const
   HeartCountFontSize: float32 = 40
   HeartCountPadding = 6
   SpriteScale = 1.0 / 200.0
+
+  # Resource depletion animation constants
+  DepletionMinScale = 0.5          # Minimum scale when fully depleted (50% of original)
+  DepletionMaxScale = 1.0          # Maximum scale when full (100% of original)
 
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
@@ -412,6 +416,33 @@ const TumorDirKeys = [
   "e"  # SE
 ]
 
+proc getDepletionScale(thing: Thing): float32 =
+  ## Calculate the visual scale for a resource node based on how depleted it is.
+  ## Returns a value between DepletionMinScale and DepletionMaxScale.
+  let (itemKey, maxAmount) = case thing.kind
+    of Tree, Stump:
+      (ItemWood, if thing.kind == Tree: ResourceNodeInitial else: ResourceNodeInitial - 1)
+    of Wheat, Stubble:
+      (ItemWheat, if thing.kind == Wheat: ResourceNodeInitial else: ResourceNodeInitial - 1)
+    of Stone, Stalagmite:
+      (ItemStone, if thing.kind == Stone: MineDepositAmount else: ResourceNodeInitial)
+    of Gold:
+      (ItemGold, MineDepositAmount)
+    of Bush, Cactus:
+      (ItemPlant, ResourceNodeInitial)
+    of Fish:
+      (ItemFish, ResourceNodeInitial)
+    else:
+      return DepletionMaxScale  # Non-resource things get full scale
+
+  if maxAmount <= 0:
+    return DepletionMaxScale
+
+  let currentAmount = getInv(thing, itemKey)
+  let ratio = clamp(currentAmount.float32 / maxAmount.float32, 0.0, 1.0)
+  # Linear interpolation from min to max scale based on depletion ratio
+  result = DepletionMinScale + ratio * (DepletionMaxScale - DepletionMinScale)
+
 proc drawObjects*() =
   var teamPopCounts: array[MapRoomObjectsTeams, int]
   var teamHouseCounts: array[MapRoomObjectsTeams, int]
@@ -473,9 +504,10 @@ proc drawObjects*() =
         let pos = thing.pos
         if not isInViewport(pos):
           continue
-        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
+        let depletionScale = getDepletionScale(thing)
+        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale * depletionScale)
         if isTileFrozen(pos, env):
-          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale * depletionScale)
 
   drawThings(Agent):
     let agent = thing
@@ -642,9 +674,16 @@ proc drawObjects*() =
       let spriteKey = thingSpriteKey(kind)
       if spriteKey.len == 0 or spriteKey notin bxy:
         continue
+      # Resource nodes that should have depletion animation
+      let isResourceNode = kind in {Stone, Gold, Bush, Stump, Cactus, Stalagmite, Fish}
       for thing in env.thingsByKind[kind]:
         if not isPlacedAt(thing) or not isInViewport(thing.pos):
           continue
+        # Calculate scale for resource nodes (depletion animation)
+        let scale = if isResourceNode:
+          SpriteScale * getDepletionScale(thing)
+        else:
+          SpriteScale
         # Death animation: tint corpse/skeleton during death transition
         if thing.kind in {Corpse, Skeleton}:
           let px = thing.pos.x
@@ -653,13 +692,13 @@ proc drawObjects*() =
           if countdown > 0 and env.actionTintCode[px][py] == ActionTintDeath:
             let fade = countdown.float32 / DeathTintDuration.float32
             let tint = color(1.0, 0.3 + 0.7 * (1.0 - fade), 0.3 + 0.7 * (1.0 - fade), fade * 0.6 + 0.4)
-            bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
+            bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = scale, tint = tint)
           else:
-            bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+            bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = scale)
         else:
-          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = scale)
         if thing.kind in {Magma, Stump} and isTileFrozen(thing.pos, env):
-          bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = SpriteScale)
+          bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = scale)
 
 proc drawVisualRanges*(alpha = 0.2) =
   if not currentViewport.valid:
