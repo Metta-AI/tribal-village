@@ -334,6 +334,9 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
     vec2(0.0, 0.0)  # No direction if no attacker (falls in place)
   env.spawnRagdoll(deathPos, ragdollDir, victim.unitClass, getTeamId(victim))
 
+  # Trigger screen shake for combat impact
+  triggerScreenShake()
+
   if lanternCount > 0 or relicCount > 0:
     var candidates: seq[IVec2] = @[]
     for dy in -1 .. 1:

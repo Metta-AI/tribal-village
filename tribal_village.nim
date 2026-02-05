@@ -316,7 +316,9 @@ proc display() =
       worldMapPanel.pos.y = rectH / 2.0'f32 - cy * zoomScale
 
   let scaleF = window.contentScale.float32
-  bxy.translate(worldMapPanel.pos * scaleF)
+  # Update screen shake for combat feedback
+  updateScreenShake()
+  bxy.translate((worldMapPanel.pos + screenShakeOffset) * scaleF)
   let zoomScaled = worldMapPanel.zoom * worldMapPanel.zoom * scaleF
   bxy.scale(vec2(zoomScaled, zoomScaled))
 
