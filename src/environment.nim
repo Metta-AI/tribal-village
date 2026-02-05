@@ -2037,6 +2037,29 @@ proc spawnRagdoll*(env: Environment, pos: IVec2, direction: Vec2,
     countdown: RagdollLifetime,
     lifetime: RagdollLifetime))
 
+proc spawnDebris*(env: Environment, pos: IVec2, buildingKind: ThingKind) =
+  ## Spawn debris particles at the given position when a building is destroyed.
+  ## Particles spread outward and fade over DebrisLifetime frames.
+  if not isValidPos(pos):
+    return
+  # Determine debris kind based on building type
+  let debrisKind = case buildingKind
+    of Wall, Outpost, GuardTower, Castle, Monastery, University: DebrisStone
+    of TownCenter, House, Barracks, ArcheryRange, Stable, Market: DebrisBrick
+    else: DebrisWood  # Default for wooden structures
+  # Spawn multiple debris particles with random-ish directions
+  for i in 0 ..< DebrisParticlesPerBuilding:
+    # Create outward velocity with some variation using simple deterministic spread
+    let angle = (i.float32 / DebrisParticlesPerBuilding.float32) * 6.28318  # 2*PI
+    let speed = 0.08 + (i mod 3).float32 * 0.03  # Vary speed slightly
+    let velocity = vec2(cos(angle) * speed, sin(angle) * speed - 0.02)  # Slight downward drift
+    env.debris.add(Debris(
+      pos: vec2(pos.x.float32, pos.y.float32),
+      velocity: velocity,
+      kind: debrisKind,
+      countdown: DebrisLifetime,
+      lifetime: DebrisLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"

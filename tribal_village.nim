@@ -882,6 +882,7 @@ proc display() =
   drawProjectiles()
   drawDamageNumbers()
   drawRagdolls()
+  drawDebris()
   drawTradeRoutes()
   when defined(renderTiming):
     if timing:

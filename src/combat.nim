@@ -281,6 +281,8 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
       relic.inventory = emptyInventory()
       env.add(relic)
     target.garrisonedRelics = 0
+  # Spawn debris particles for visual feedback on building destruction
+  env.spawnDebris(target.pos, target.kind)
   removeThing(env, target)
   true
 

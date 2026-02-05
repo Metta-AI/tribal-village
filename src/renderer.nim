@@ -1045,6 +1045,34 @@ proc drawRagdolls*() =
     # Draw with rotation
     bxy.drawImage(spriteKey, ragdoll.pos, angle = ragdoll.angle, scale = SpriteScale, tint = tint)
 
+const DebrisColors: array[DebrisKind, Color] = [
+  color(0.55, 0.35, 0.15, 1.0),  # DebrisWood - brown
+  color(0.50, 0.50, 0.50, 1.0),  # DebrisStone - gray
+  color(0.70, 0.40, 0.25, 1.0),  # DebrisBrick - terracotta/orange-brown
+]
+
+proc drawDebris*() =
+  ## Draw debris particles from destroyed buildings.
+  ## Particles move outward and fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for deb in env.debris:
+    if deb.lifetime <= 0:
+      continue
+    # Check viewport bounds (convert float pos to int for check)
+    let ipos = ivec2(deb.pos.x.int32, deb.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = deb.countdown.float32 / deb.lifetime.float32
+    # Fade out
+    let alpha = t * t  # Quadratic ease for smoother fade
+    let baseColor = DebrisColors[deb.kind]
+    let tintColor = color(baseColor.r, baseColor.g, baseColor.b, alpha)
+    # Draw as small colored dot using floor sprite
+    let scale = (1.0 / 350.0).float32  # Slightly smaller than projectiles
+    bxy.drawImage("floor", deb.pos, angle = 0, scale = scale, tint = tintColor)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return
