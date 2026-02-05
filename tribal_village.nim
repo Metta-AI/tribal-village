@@ -164,6 +164,13 @@ proc display() =
   if window.buttonPressed[KeyF7]: playerTeam = 6
   if window.buttonPressed[KeyF8]: playerTeam = 7
 
+  # F9 cycles weather effects: Rain -> Wind -> None -> Rain
+  if window.buttonPressed[KeyF9]:
+    settings.weatherType = case settings.weatherType
+      of WeatherRain: WeatherWind
+      of WeatherWind: WeatherNone
+      of WeatherNone: WeatherRain
+
   let now = nowSeconds()
   while play and (lastSimTime + playSpeed < now):
     lastSimTime += playSpeed
@@ -893,6 +900,7 @@ proc display() =
   drawDebris()
   drawSpawnEffects()
   drawTradeRoutes()
+  drawWeatherEffects()
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()

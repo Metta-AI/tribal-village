@@ -56,6 +56,23 @@ const
   SmokeAnimSpeed = 12              # Frames per animation cycle
   SmokeDriftAmount = 0.15          # Horizontal drift amplitude
 
+  # Weather effect constants
+  WeatherParticleDensity = 0.015   # Particles per tile (0.015 = ~1 particle per 67 tiles)
+  WeatherParticleScale = 1.0 / 600.0  # Small particles for weather
+
+  # Rain constants
+  RainFallSpeed = 0.25'f32         # World units per frame (downward)
+  RainDriftSpeed = 0.03'f32        # Slight horizontal drift
+  RainCycleFrames = 48             # Frames for one full rain cycle
+  RainAlpha = 0.5'f32              # Rain particle opacity
+  RainStreakLength = 3             # Number of particles per streak
+
+  # Wind constants
+  WindBlowSpeed = 0.18'f32         # World units per frame (horizontal)
+  WindDriftSpeed = 0.02'f32        # Vertical drift
+  WindCycleFrames = 64             # Frames for one full wind cycle
+  WindAlpha = 0.35'f32             # Wind particle opacity (subtle)
+
 type FloorSpriteKind = enum
   FloorBase
   FloorCave
@@ -1218,6 +1235,96 @@ proc drawGatherSparkles*() =
     let scale = (1.0 / 400.0).float32  # Small sparkle particle
     bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
 
+proc drawWeatherEffects*() =
+  ## Draw ambient weather effects (rain or wind particles) across the viewport.
+  ## Uses deterministic animation based on frame counter for consistent effects.
+  if not currentViewport.valid or settings.weatherType == WeatherNone:
+    return
+
+  let viewWidth = currentViewport.maxX - currentViewport.minX + 1
+  let viewHeight = currentViewport.maxY - currentViewport.minY + 1
+  let viewArea = viewWidth * viewHeight
+
+  # Calculate number of particles based on viewport size
+  let particleCount = max(10, int(viewArea.float32 * WeatherParticleDensity))
+
+  case settings.weatherType
+  of WeatherRain:
+    # Rain particles falling diagonally with slight drift
+    for i in 0 ..< particleCount:
+      # Use deterministic positioning based on particle index and frame
+      let seed = i * 17 + 31
+      let cycleOffset = (seed * 7) mod RainCycleFrames
+      let cycleFrame = (frame + cycleOffset) mod RainCycleFrames
+      let t = cycleFrame.float32 / RainCycleFrames.float32
+
+      # Horizontal position: spread across viewport with some variation
+      let xBase = currentViewport.minX.float32 +
+                  ((seed * 13) mod (viewWidth * 100)).float32 / 100.0
+      let xDrift = t * RainDriftSpeed * RainCycleFrames.float32
+
+      # Vertical position: cycle from top to bottom of viewport
+      let yBase = currentViewport.minY.float32 - 2.0  # Start above viewport
+      let yFall = t * RainFallSpeed * RainCycleFrames.float32
+
+      let particlePos = vec2(xBase + xDrift, yBase + yFall)
+
+      # Skip if outside viewport (with margin)
+      if particlePos.y < currentViewport.minY.float32 - 1.0 or
+         particlePos.y > currentViewport.maxY.float32 + 1.0:
+        continue
+
+      # Rain color: light blue-white with some variation
+      let blueVal = 0.7 + ((seed * 3) mod 30).float32 / 100.0
+      let rainTint = color(0.8, 0.85, blueVal, RainAlpha)
+
+      # Draw rain streak (multiple particles in a line)
+      for s in 0 ..< RainStreakLength:
+        let streakOffset = vec2(
+          -RainDriftSpeed * s.float32 * 2.0,
+          -RainFallSpeed * s.float32 * 2.0
+        )
+        let streakAlpha = RainAlpha * (1.0 - s.float32 / RainStreakLength.float32)
+        let streakTint = color(rainTint.r, rainTint.g, rainTint.b, streakAlpha)
+        bxy.drawImage("floor", particlePos + streakOffset, angle = 0,
+                      scale = WeatherParticleScale, tint = streakTint)
+
+  of WeatherWind:
+    # Wind particles blowing horizontally with slight vertical drift
+    for i in 0 ..< particleCount:
+      let seed = i * 23 + 47
+      let cycleOffset = (seed * 11) mod WindCycleFrames
+      let cycleFrame = (frame + cycleOffset) mod WindCycleFrames
+      let t = cycleFrame.float32 / WindCycleFrames.float32
+
+      # Vertical position: spread across viewport
+      let yBase = currentViewport.minY.float32 +
+                  ((seed * 19) mod (viewHeight * 100)).float32 / 100.0
+      let yDrift = sin(t * 3.14159 * 2.0) * WindDriftSpeed * 4.0
+
+      # Horizontal position: cycle from left to right of viewport
+      let xBase = currentViewport.minX.float32 - 2.0  # Start left of viewport
+      let xBlow = t * WindBlowSpeed * WindCycleFrames.float32
+
+      let particlePos = vec2(xBase + xBlow, yBase + yDrift)
+
+      # Skip if outside viewport (with margin)
+      if particlePos.x < currentViewport.minX.float32 - 1.0 or
+         particlePos.x > currentViewport.maxX.float32 + 1.0:
+        continue
+
+      # Wind color: dusty tan/gray for leaves and dust
+      let grayVal = 0.6 + ((seed * 5) mod 20).float32 / 100.0
+      let brownVal = 0.5 + ((seed * 7) mod 15).float32 / 100.0
+      let windTint = color(grayVal, brownVal, 0.4, WindAlpha)
+
+      # Draw wind particle with slight size variation
+      let sizeVar = 1.0 + ((seed * 3) mod 50).float32 / 100.0
+      bxy.drawImage("floor", particlePos, angle = 0,
+                    scale = WeatherParticleScale * sizeVar, tint = windTint)
+
+  of WeatherNone:
+    discard
 proc drawGrid*() =
   if not currentViewport.valid:
     return
