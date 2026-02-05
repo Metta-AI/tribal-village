@@ -858,6 +858,20 @@ proc drawAgentDecorations*() =
                      color(0.2, 0.7, 0.9, 1.0),  # Cyan for cooldown
                      color(0.3, 0.3, 0.3, 0.5))
 
+    # Draw veterancy stars above HP bar for units with kills
+    if agent.kills > 0:
+      const VeterancyStarScale = 1.0 / 500.0
+      const VeterancyStarColor = color(1.0, 0.85, 0.2, 1.0)  # Gold/yellow
+      const MaxStarsDisplayed = 5
+      let starsToShow = min(agent.kills, MaxStarsDisplayed)
+      let starSpacing = 0.14'f32
+      let starY = -0.72'f32  # Above HP bar
+      let startX = -starSpacing * (starsToShow - 1).float32 / 2.0
+      for i in 0 ..< starsToShow:
+        let starPos = posVec + vec2(startX + starSpacing * i.float32, starY)
+        bxy.drawImage("floor", starPos, angle = 0, scale = VeterancyStarScale,
+                      tint = VeterancyStarColor)
+
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
       if count > 0:
@@ -1667,6 +1681,14 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
       let (stanceLabelKey, _) = getUnitInfoLabel(stanceText)
       bxy.drawImage(stanceLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
       y += UnitInfoLineHeight
+
+      # Kills (veterancy)
+      if agent.kills > 0:
+        let killsText = "Kills: " & $agent.kills
+        let (killsLabelKey, _) = getUnitInfoLabel(killsText)
+        let killsTint = color(1.0, 0.85, 0.2, 1.0)  # Gold color for veterancy
+        bxy.drawImage(killsLabelKey, vec2(textX, y), angle = 0, scale = 1.0, tint = killsTint)
+        y += UnitInfoLineHeight
 
       # Status (idle or not)
       let statusText = if agent.isIdle: "Status: Idle" else: "Status: Active"
