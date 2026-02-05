@@ -14,6 +14,21 @@ export ai_types
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
   ThreatMapStaggerInterval* = 5  # Only 1/5 of agents update threat map per step
+  DefensiveRetaliationWindow* = 30  ## Steps after being attacked that defensive stance allows retaliation
+
+proc stanceAllowsAutoAttack*(env: Environment, agent: Thing): bool =
+  ## Returns true if the agent's stance allows auto-attacking enemies.
+  ## - Aggressive: always auto-attack
+  ## - Defensive: only auto-attack if recently attacked (retaliation)
+  ## - StandGround: auto-attack enemies in range
+  ## - NoAttack: never auto-attack
+  case agent.stance
+  of StanceAggressive, StanceStandGround: true
+  of StanceDefensive:
+    # Defensive stance: only attack if attacked within the retaliation window
+    agent.lastAttackedStep > 0 and
+      (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
+  of StanceNoAttack: false
 
 proc hasHarvestableResource*(thing: Thing): bool =
   ## Check if a resource thing still has harvestable inventory.
@@ -733,14 +748,17 @@ proc findTeamAltar*(env: Environment, agent: Thing, teamId: int): tuple[pos: IVe
 proc findAttackOpportunity*(env: Environment, agent: Thing): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Simplified: pick the closest aligned target within range using a priority order.
-  ## Respects agent stance: StanceNoAttack disables auto-attacking.
+  ## Respects agent stance:
+  ## - Aggressive/StandGround: auto-attack enemies in range
+  ## - Defensive: only auto-attack if recently attacked (retaliation)
+  ## - NoAttack: never auto-attack
   ##
   ## Optimized: scans 8 attack lines (cardinal+diagonal) out to maxRange
   ## instead of iterating all env.things. Cost: O(8 * maxRange) = O(48) max.
   if agent.unitClass == UnitMonk:
     return -1
-  # NoAttack stance never auto-attacks
-  if agent.stance == StanceNoAttack:
+  # Check stance allows auto-attacking (handles defensive retaliation logic)
+  if not stanceAllowsAutoAttack(env, agent):
     return -1
 
   let maxRange = case agent.unitClass

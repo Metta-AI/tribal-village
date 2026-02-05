@@ -359,6 +359,9 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
 # Apply damage to an agent; respects armor and marks terminated when HP <= 0.
 # Returns true if the agent died this call.
 proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Thing = nil): bool =
+  # Track when this unit was attacked (for defensive stance retaliation)
+  target.lastAttackedStep = env.currentStep
+
   var remaining = max(1, amount)
 
   # Apply Blacksmith attack upgrade bonus from attacker

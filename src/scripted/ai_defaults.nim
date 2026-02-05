@@ -930,7 +930,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Patrol behavior - applies to all roles when patrol is active
   if state.patrolActive and state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0:
     # Check for nearby enemies and chase them if stance allows
-    if stanceAllowsChase(agent):
+    if stanceAllowsChase(env, agent):
       let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
       if not isNil(enemy):
         # Move toward enemy to engage
@@ -971,7 +971,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       state.attackMoveTarget = ivec2(-1, -1)
     else:
       # Check for nearby enemies to engage while moving
-      if stanceAllowsChase(agent):
+      if stanceAllowsChase(env, agent):
         let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
         if not isNil(enemy):
           let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
