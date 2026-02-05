@@ -238,6 +238,9 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
     logBuildingDestroyed(target.teamId, $target.kind,
                          "(" & $target.pos.x & "," & $target.pos.y & ")", env.currentStep)
 
+  when defined(audio):
+    audioOnBuildingDestroyed(target.pos)
+
   if target.kind == Wall:
     if isValidPos(target.pos):
       env.updateObservations(ThingAgentLayer, target.pos, 0)
@@ -419,6 +422,11 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
       logCombatHit(getTeamId(attacker), getTeamId(target),
                    $attacker.unitClass, $target.unitClass, remaining, env.currentStep)
 
+  when defined(audio):
+    if remaining > 0 and not attacker.isNil:
+      audioOnAttack(attacker.unitClass, attacker.pos)
+      audioOnHit(target.unitClass, target.pos, remaining)
+
   if target.hp <= 0:
     # Track veterancy: increment killer's kill count
     if not attacker.isNil:
@@ -428,6 +436,8 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
         recordKill(env.currentStep, getTeamId(attacker), getTeamId(target),
                    attacker.agentId, target.agentId,
                    $attacker.unitClass, $target.unitClass)
+    when defined(audio):
+      audioOnDeath(target.unitClass, target.pos)
     env.killAgent(target, attacker)
     return true
   false
