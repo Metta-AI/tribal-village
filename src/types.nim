@@ -793,6 +793,22 @@ const
   SpawnEffectLifetime* = 16'i8   ## Frames spawn effects persist (~1 second)
   SpawnEffectPoolCapacity* = 16  ## Initial capacity for spawn effect pool
 
+type
+  DyingUnit* = object
+    ## A unit in the process of dying, rendered with fade-out animation.
+    ## The actual unit is already removed from the grid; this is visual-only.
+    pos*: IVec2              ## World position where unit died
+    orientation*: Orientation ## Unit's orientation at death
+    unitClass*: AgentUnitClass ## What type of unit this was
+    agentId*: int            ## Original agent ID (for team color lookup)
+    countdown*: int8         ## Frames remaining before removal
+    lifetime*: int8          ## Total frames (for fade calculation)
+
+const
+  ## Dying unit visual constants
+  DyingUnitLifetime* = 8'i8      ## Steps dying unit animation persists
+  DyingUnitPoolCapacity* = 32    ## Initial capacity for dying unit pool
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1141,6 +1157,7 @@ type
     ragdolls*: seq[RagdollBody]  # Death ragdoll bodies with physics
     debris*: seq[Debris]  # Debris particles from destroyed buildings
     spawnEffects*: seq[SpawnEffect]    # Visual effects when units spawn from buildings
+    dyingUnits*: seq[DyingUnit]  # Units in death animation (fade-out before corpse)
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
