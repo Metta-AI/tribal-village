@@ -20,21 +20,29 @@ var friendlyMonkCache: PerAgentCache[Thing]
 var scoutEnemyCache: PerAgentCache[Thing]
 var seesEnemyStructureCache: PerAgentCache[bool]
 
-proc stanceAllowsChase*(agent: Thing): bool =
+proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
   ## Aggressive: chase freely
-  ## Defensive: limited chase (within observation radius of home)
+  ## Defensive: only chase if recently attacked (retaliation)
   ## StandGround/NoAttack: no chasing
   case agent.stance
   of StanceAggressive: true
-  of StanceDefensive: true  # Defensive allows chasing, but returns to position
+  of StanceDefensive:
+    # Defensive: only chase if recently attacked
+    agent.lastAttackedStep > 0 and
+      (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
   of StanceStandGround, StanceNoAttack: false
 
-proc stanceAllowsMovementToAttack*(agent: Thing): bool =
+proc stanceAllowsMovementToAttack*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows moving to attack.
   ## Used for determining if agent should move toward enemy to engage.
+  ## Defensive: only move to attack if recently attacked (retaliation)
   case agent.stance
-  of StanceAggressive, StanceDefensive: true
+  of StanceAggressive: true
+  of StanceDefensive:
+    # Defensive: only move to attack if recently attacked
+    agent.lastAttackedStep > 0 and
+      (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
   of StanceStandGround, StanceNoAttack: false
 
 proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
@@ -926,7 +934,7 @@ proc canStartFighterAntiSiege(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   ## Anti-siege triggers when there's an enemy siege unit nearby
   ## Requires stance that allows chasing
-  if not stanceAllowsChase(agent):
+  if not stanceAllowsChase(env, agent):
     return false
   not isNil(findNearestSiegeEnemy(env, agent))
 
@@ -949,7 +957,7 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
   ## StandGround stance disables kiting (no movement allowed)
   if agent.unitClass != UnitArcher:
     return false
-  if not stanceAllowsMovementToAttack(agent):
+  if not stanceAllowsMovementToAttack(env, agent):
     return false
   let meleeEnemy = findNearestMeleeEnemy(env, agent)
   if isNil(meleeEnemy):
@@ -1035,7 +1043,7 @@ proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
 proc canStartFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   ## Hunting predators requires chasing them - check stance
-  if not stanceAllowsChase(agent):
+  if not stanceAllowsChase(env, agent):
     return false
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestPredator(env, agent.pos))
 
@@ -1054,7 +1062,7 @@ proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Th
 proc canStartFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Clearing goblin structures requires chasing - check stance
-  if not stanceAllowsChase(agent):
+  if not stanceAllowsChase(env, agent):
     return false
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestGoblinStructure(env, agent.pos))
 
@@ -1074,7 +1082,7 @@ proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thi
 proc canStartFighterEscort(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   ## Check if there's a nearby protection request to respond to
-  if not stanceAllowsChase(agent):
+  if not stanceAllowsChase(env, agent):
     return false
   # Only combat units can escort
   if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitScout, UnitArcher}:
@@ -1115,7 +1123,7 @@ proc optFighterEscort(controller: Controller, env: Environment, agent: Thing,
 proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
   ## Aggressive hunting requires chasing - check stance
-  if not stanceAllowsChase(agent):
+  if not stanceAllowsChase(env, agent):
     return false
   if agent.hp * 2 >= agent.maxHp:
     return true
@@ -1157,7 +1165,7 @@ proc canStartFighterAttackMove*(controller: Controller, env: Environment, agent:
                                 agentId: int, state: var AgentState): bool =
   ## Attack-move is active when the agent has a valid attack-move destination set.
   ## Requires stance that allows movement to attack.
-  if not stanceAllowsMovementToAttack(agent):
+  if not stanceAllowsMovementToAttack(env, agent):
     return false
   state.attackMoveTarget.x >= 0
 
@@ -1351,7 +1359,7 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
 
   # Check for nearby enemies and chase them if stance allows
-  if stanceAllowsChase(agent):
+  if stanceAllowsChase(env, agent):
     let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
     if not isNil(enemy):
       # Move toward enemy to engage

@@ -304,8 +304,8 @@ const
 type
   AgentStance* = enum
     StanceAggressive    ## Chase enemies, attack anything in sight
-    StanceDefensive     ## Attack enemies in range, return to position
-    StanceStandGround   ## Don't move, only attack what's in range
+    StanceDefensive     ## Only attack if attacked (retaliation mode)
+    StanceStandGround   ## Don't move, only attack what's in range (hold position)
     StanceNoAttack      ## Never auto-attack, useful for scouts
 
   AgentUnitClass* = enum
@@ -514,6 +514,7 @@ type
     attackDamage*: int
     unitClass*: AgentUnitClass
     stance*: AgentStance        # Combat stance mode (Aggressive/Defensive/StandGround/NoAttack)
+    lastAttackedStep*: int      # Step when this unit was last attacked (for defensive stance retaliation)
     isIdle*: bool               # True if agent took NOOP/ORIENT action last step (AoE2-style idle detection)
     embarkedUnitClass*: AgentUnitClass
     teamIdOverride*: int
