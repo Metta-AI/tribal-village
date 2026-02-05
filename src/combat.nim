@@ -281,8 +281,9 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   removeThing(env, target)
   true
 
-proc killAgent(env: Environment, victim: Thing) =
-  ## Remove an agent from the board and mark for respawn
+proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
+  ## Remove an agent from the board and mark for respawn.
+  ## If attacker is provided, spawn ragdoll tumbling away from damage source.
   let deathPos = victim.pos
   env.grid[deathPos.x][deathPos.y] = nil
   env.updateObservations(AgentLayer, victim.pos, 0)
@@ -320,6 +321,13 @@ proc killAgent(env: Environment, victim: Thing) =
 
   # Apply death animation tint at kill location
   env.applyActionTint(deathPos, DeathTint, DeathTintDuration, ActionTintDeath)
+
+  # Spawn ragdoll body tumbling away from damage source
+  let ragdollDir = if not attacker.isNil:
+    vec2((deathPos.x - attacker.pos.x).float32, (deathPos.y - attacker.pos.y).float32)
+  else:
+    vec2(0.0, 0.0)  # No direction if no attacker (falls in place)
+  env.spawnRagdoll(deathPos, ragdollDir, victim.unitClass, getTeamId(victim))
 
   if lanternCount > 0 or relicCount > 0:
     var candidates: seq[IVec2] = @[]
@@ -414,7 +422,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
         recordKill(env.currentStep, getTeamId(attacker), getTeamId(target),
                    attacker.agentId, target.agentId,
                    $attacker.unitClass, $target.unitClass)
-    env.killAgent(target)
+    env.killAgent(target, attacker)
     return true
   false
 
