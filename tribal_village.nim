@@ -866,6 +866,7 @@ proc display() =
   drawProjectiles()
   drawDamageNumbers()
   drawRagdolls()
+  drawTradeRoutes()
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()

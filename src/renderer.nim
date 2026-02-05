@@ -1997,6 +1997,180 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
     bxy.drawImage(modeLabelKey, vec2(modeX, centerY - modeLabelSize.y.float32 * 0.5),
                   angle = 0, scale = 1.0)
 
+# ─── Trade Route Visualization ─────────────────────────────────────────────────
+
+const
+  TradeRouteLineWidth = 0.08'f32       # World-space line width
+  TradeRouteGoldColor = color(0.95, 0.78, 0.15, 0.7)  # Gold color for route lines
+  TradeRouteFlowDotCount = 5           # Number of animated dots per route segment
+  TradeRouteFlowSpeed = 0.015'f32      # Animation speed (fraction per frame)
+
+var
+  tradeRouteAnimationPhase: float32 = 0.0  # Global animation phase for flow indicators
+
+proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRouteLineWidth) =
+  ## Draw a line between two world-space points using floor sprites along the path.
+  let dx = p2.x - p1.x
+  let dy = p2.y - p1.y
+  let length = sqrt(dx * dx + dy * dy)
+  if length < 0.001:
+    return
+
+  # Draw line as a series of small floor sprites along the path
+  let segments = max(1, int(length / 0.5))
+  for i in 0 ..< segments:
+    let t0 = i.float32 / segments.float32
+    let t1 = (i + 1).float32 / segments.float32
+    let x0 = p1.x + dx * t0
+    let y0 = p1.y + dy * t0
+    let x1 = p1.x + dx * t1
+    let y1 = p1.y + dy * t1
+    let midX = (x0 + x1) * 0.5
+    let midY = (y0 + y1) * 0.5
+    let segLen = length / segments.float32
+    # Use floor sprite scaled down as line segment
+    bxy.drawImage("floor", vec2(midX, midY), angle = 0,
+                  scale = max(segLen, width) / 200.0, tint = lineColor)
+
+proc drawTradeRoutes*() =
+  ## Draw trade route visualization showing paths between docks with gold flow indicators.
+  ## Trade cogs travel between friendly docks generating gold - visualize their routes.
+  if not currentViewport.valid:
+    return
+
+  # Update animation phase
+  tradeRouteAnimationPhase += TradeRouteFlowSpeed
+  if tradeRouteAnimationPhase >= 1.0:
+    tradeRouteAnimationPhase -= 1.0
+
+  # Collect active trade routes by team
+  # A trade route exists when a trade cog has a valid home dock
+  type TradeRoute = object
+    tradeCogPos: Vec2
+    homeDockPos: Vec2
+    targetDockPos: Vec2
+    teamId: int
+    hasTarget: bool
+
+  var activeRoutes: seq[TradeRoute] = @[]
+
+  # Find all active trade cogs and their routes
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    if agent.unitClass != UnitTradeCog:
+      continue
+
+    let teamId = getTeamId(agent)
+    let homeDockPos = agent.tradeHomeDock
+
+    # Check if trade cog has a valid home dock
+    if not isValidPos(homeDockPos):
+      continue
+
+    # Find target dock (nearest friendly dock that isn't home dock)
+    var targetDock: Thing = nil
+    var targetDist = int.high
+    for dock in env.thingsByKind[Dock]:
+      if dock.teamId != teamId:
+        continue
+      if dock.pos == homeDockPos:
+        continue
+      let dist = abs(dock.pos.x - agent.pos.x) + abs(dock.pos.y - agent.pos.y)
+      if dist < targetDist:
+        targetDist = dist
+        targetDock = dock
+
+    var route: TradeRoute
+    route.tradeCogPos = agent.pos.vec2
+    route.homeDockPos = homeDockPos.vec2
+    route.teamId = teamId
+    route.hasTarget = not isNil(targetDock)
+    if route.hasTarget:
+      route.targetDockPos = targetDock.pos.vec2
+
+    activeRoutes.add(route)
+
+  if activeRoutes.len == 0:
+    return
+
+  # Draw route lines and flow indicators
+  for route in activeRoutes:
+    let teamColor = getTeamColor(env, route.teamId)
+    # Blend team color with gold for route visualization
+    let routeColor = color(
+      (teamColor.r * 0.3 + TradeRouteGoldColor.r * 0.7),
+      (teamColor.g * 0.3 + TradeRouteGoldColor.g * 0.7),
+      (teamColor.b * 0.3 + TradeRouteGoldColor.b * 0.7),
+      TradeRouteGoldColor.a
+    )
+
+    # Draw dashed line from home dock to trade cog
+    let p1 = route.homeDockPos
+    let p2 = route.tradeCogPos
+    let dx1 = p2.x - p1.x
+    let dy1 = p2.y - p1.y
+    let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
+
+    if len1 > 0.5:
+      # Check if either endpoint is in viewport (with margin for long routes)
+      let inView1 = isInViewport(p1.ivec2) or isInViewport(p2.ivec2)
+      if inView1:
+        # Draw the route line
+        drawLineWorldSpace(p1, p2, routeColor)
+
+        # Draw animated gold flow dots (moving from dock toward trade cog)
+        for i in 0 ..< TradeRouteFlowDotCount:
+          let baseT = i.float32 / TradeRouteFlowDotCount.float32
+          let t = (baseT + tradeRouteAnimationPhase) mod 1.0
+          let dotX = p1.x + dx1 * t
+          let dotY = p1.y + dy1 * t
+          let dotPos = vec2(dotX, dotY)
+          if isInViewport(dotPos.ivec2):
+            # Pulsing brightness based on position
+            let brightness = 0.7 + 0.3 * sin(t * 3.14159)
+            let dotColor = color(
+              min(routeColor.r * brightness + 0.2, 1.0),
+              min(routeColor.g * brightness + 0.1, 1.0),
+              min(routeColor.b * brightness, 1.0),
+              0.9
+            )
+            bxy.drawImage("floor", dotPos, angle = 0, scale = 1/350, tint = dotColor)
+
+    # Draw line from trade cog to target dock (if exists)
+    if route.hasTarget:
+      let p3 = route.targetDockPos
+      let dx2 = p3.x - p2.x
+      let dy2 = p3.y - p2.y
+      let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
+
+      if len2 > 0.5:
+        let inView2 = isInViewport(p2.ivec2) or isInViewport(p3.ivec2)
+        if inView2:
+          # Draw lighter line to target (trade cog hasn't been there yet)
+          let targetColor = color(routeColor.r, routeColor.g, routeColor.b, routeColor.a * 0.5)
+          drawLineWorldSpace(p2, p3, targetColor)
+
+  # Draw dock markers for docks with active trade routes
+  var drawnDocks: seq[IVec2] = @[]
+  for route in activeRoutes:
+    let homeDock = route.homeDockPos.ivec2
+    if isInViewport(homeDock) and homeDock notin drawnDocks:
+      drawnDocks.add(homeDock)
+      # Draw a gold coin indicator at the dock
+      bxy.drawImage("floor", homeDock.vec2 + vec2(0.0, -0.4), angle = 0,
+                    scale = 1/280, tint = TradeRouteGoldColor)
+
+    if route.hasTarget:
+      let targetDock = route.targetDockPos.ivec2
+      if isInViewport(targetDock) and targetDock notin drawnDocks:
+        drawnDocks.add(targetDock)
+        # Draw a smaller gold indicator at target dock
+        bxy.drawImage("floor", targetDock.vec2 + vec2(0.0, -0.4), angle = 0,
+                      scale = 1/320, tint = color(TradeRouteGoldColor.r,
+                                                   TradeRouteGoldColor.g,
+                                                   TradeRouteGoldColor.b, 0.5))
+
 # ─── Building Ghost Preview ─────────────────────────────────────────────────────
 
 proc canPlaceBuildingAt*(pos: IVec2, kind: ThingKind): bool =
