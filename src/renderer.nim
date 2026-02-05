@@ -1203,10 +1203,37 @@ proc drawGrid*() =
     for y in currentViewport.minY .. currentViewport.maxY:
       bxy.drawImage("grid", ivec2(x, y).vec2, angle = 0, scale = SpriteScale)
 
+# Selection glow pulse constants
+const
+  SelectionPulseSpeed = 0.12'f32      # Animation speed (slower than rally point)
+  SelectionPulseMin = 0.4'f32         # Minimum glow alpha
+  SelectionPulseMax = 0.8'f32         # Maximum glow alpha
+  SelectionGlowScale = 1.8'f32        # Glow layer scale multiplier
+
 proc drawSelection*() =
+  if selection.len == 0:
+    return
+
+  # Calculate pulsing animation based on frame counter
+  let pulse = sin(frame.float32 * SelectionPulseSpeed) * 0.5 + 0.5
+  let pulseAlpha = SelectionPulseMin + pulse * (SelectionPulseMax - SelectionPulseMin)
+
   for thing in selection:
-    if not isNil(thing) and isValidPos(thing.pos) and isInViewport(thing.pos):
-      bxy.drawImage("selection", thing.pos.vec2, angle = 0, scale = SpriteScale)
+    if isNil(thing) or not isValidPos(thing.pos) or not isInViewport(thing.pos):
+      continue
+
+    let pos = thing.pos.vec2
+
+    # Get team color for the glow (use neutral white if no team)
+    let teamColor = getTeamColor(env, thing.teamId, color(1.0, 1.0, 1.0, 1.0))
+
+    # Draw outer glow layer (larger, more transparent, pulsing)
+    let glowColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * 0.35)
+    bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
+                  tint = glowColor)
+
+    # Draw main selection indicator (full opacity)
+    bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale)
 
 # ─── Rally Point Visual Indicators ──────────────────────────────────────────
 
