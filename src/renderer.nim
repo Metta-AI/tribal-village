@@ -1,7 +1,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[algorithm, math, os, strutils],
-  common, constants, environment
+  common, constants, environment, formations
 
 # Infection system constants
 const
@@ -33,12 +33,20 @@ var
   # Damage number label cache
   damageNumberImages: Table[string, string] = initTable[string, string]()
   damageNumberSizes: Table[string, IVec2] = initTable[string, IVec2]()
+  # Control group badge cache
+  controlGroupBadgeImages: Table[int, string] = initTable[int, string]()
+  controlGroupBadgeSizes: Table[int, IVec2] = initTable[int, IVec2]()
 
 const
   # Damage number rendering constants
   DamageNumberFontPath = "data/Inter-Regular.ttf"
   DamageNumberFontSize: float32 = 28
   DamageNumberFloatHeight: float32 = 0.8  # World units to float upward
+  # Control group badge constants
+  ControlGroupBadgeFontPath = "data/Inter-Regular.ttf"
+  ControlGroupBadgeFontSize: float32 = 24
+  ControlGroupBadgePadding = 4.0'f32
+  ControlGroupBadgeScale = 1.0 / 180.0  # Scale for rendering in world space
 
   # Building smoke/chimney effect constants
   SmokeParticleCount = 3           # Number of smoke particles per building
@@ -397,6 +405,21 @@ proc ensureHeartCountLabel(count: int): string =
   bxy.addImage(key, image)
   heartCountImages[count] = key
   result = key
+
+proc ensureControlGroupBadge(groupNum: int): (string, IVec2) =
+  ## Cache a control group badge label (1-9) for display above units.
+  if groupNum < 0 or groupNum >= 10: return ("", ivec2(0, 0))
+  if groupNum in controlGroupBadgeImages:
+    return (controlGroupBadgeImages[groupNum], controlGroupBadgeSizes[groupNum])
+  # Display 1-9 for groups 0-8, 0 for group 9
+  let displayNum = if groupNum == 9: 0 else: groupNum + 1
+  let (image, size) = renderTextLabel($displayNum, ControlGroupBadgeFontPath,
+                                      ControlGroupBadgeFontSize, ControlGroupBadgePadding, 0.7)
+  let key = "control_group/" & $groupNum
+  bxy.addImage(key, image)
+  controlGroupBadgeImages[groupNum] = key
+  controlGroupBadgeSizes[groupNum] = size
+  result = (key, size)
 
 let wallSprites = block:
   var sprites = newSeq[string](16)
@@ -944,6 +967,16 @@ proc drawAgentDecorations*() =
         let starPos = posVec + vec2(startX + starSpacing * i.float32, starY)
         bxy.drawImage("floor", starPos, angle = 0, scale = VeterancyStarScale,
                       tint = VeterancyStarColor)
+
+    # Draw control group badge if assigned
+    let groupNum = findAgentControlGroup(agent.agentId)
+    if groupNum >= 0:
+      let (badgeKey, badgeSize) = ensureControlGroupBadge(groupNum)
+      if badgeKey.len > 0:
+        # Position badge at upper-right of unit, offset from health bar
+        let badgeOffset = vec2(0.35, -0.45)
+        bxy.drawImage(badgeKey, posVec + badgeOffset, angle = 0,
+                      scale = ControlGroupBadgeScale)
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
