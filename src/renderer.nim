@@ -1200,7 +1200,7 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
 
   # Draw the minimap texture
   if minimapImageKey in bxy:
-    bxy.drawImage(minimapImageKey, vec2(mmX, mmY), angle = 0, scale = 1.0)
+    bxy.drawImage(minimapImageKey, vec2(mmX, mmY))
 
   # Draw viewport rectangle
   let scaleVal = window.contentScale

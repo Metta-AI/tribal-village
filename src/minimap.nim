@@ -142,7 +142,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
   bxy.drawRect(rect = Rect(x: mmRect.x - 2, y: mmRect.y - 2,
                w: mmRect.w + 4, h: mmRect.h + 4),
                color = color(0.15, 0.15, 0.15, 0.95))
-  bxy.drawImage(minimapImageKey, vec2(mmRect.x, mmRect.y), angle = 0, scale = 1)
+  bxy.drawImage(minimapImageKey, vec2(mmRect.x, mmRect.y))
 
   # Viewport rectangle ---------------------------------------------------
   let scaleF = window.contentScale.float32
