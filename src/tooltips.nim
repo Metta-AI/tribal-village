@@ -173,6 +173,7 @@ proc getCommandDescription*(kind: CommandButtonKind): string =
   of CmdFormationLine: "Arrange selected units in a horizontal line formation."
   of CmdFormationBox: "Arrange selected units in a defensive box formation."
   of CmdFormationStaggered: "Arrange selected units in a staggered formation for ranged combat."
+  of CmdFormationRangedSpread: "Spread ranged units to avoid friendly fire from siege weapons."
 
 proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
   ## Get resource costs for a command (building or training).
@@ -317,6 +318,7 @@ proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipConte
     of CmdFormationLine: "Line Formation"
     of CmdFormationBox: "Box Formation"
     of CmdFormationStaggered: "Staggered Formation"
+    of CmdFormationRangedSpread: "Ranged Spread"
 
   result.description = getCommandDescription(kind)
   result.costLines = getCommandCosts(kind)
