@@ -1,4 +1,4 @@
-.PHONY: check build lib clean test test-nim test-python test-integration install-hooks audit-settlement
+.PHONY: check build lib clean test test-nim test-python test-integration test-settlement install-hooks audit-settlement
 
 # CI gate for nim check - syncs deps first
 check:
@@ -32,9 +32,14 @@ test-integration: lib
 	nim r --path:src tests/integration_behaviors.nim
 	pytest tests/test_python_integration.py -v -k "EndToEnd"
 
+# Run settlement behavior tests
+test-settlement:
+	nim r --path:src tests/behavior_settlement.nim
+
 # Audit settlement expansion metrics
 audit-settlement:
 	nim r -d:release --path:src scripts/audit_settlement.nim
+
 
 # Install git hooks for development
 install-hooks:
