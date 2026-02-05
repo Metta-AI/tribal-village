@@ -2659,11 +2659,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     let hpGain = int(float32(ConstructionHpPerAction) * multiplier + 0.5)
     when defined(eventLog):
       let wasBelowMax = thing.hp < thing.maxHp
+    when defined(audio):
+      let wasBelowMaxAudio = thing.hp < thing.maxHp
     thing.hp = min(thing.maxHp, thing.hp + hpGain)
     when defined(eventLog):
       if wasBelowMax and thing.hp >= thing.maxHp:
         logBuildingCompleted(thing.teamId, $thing.kind,
                              "(" & $thing.pos.x & "," & $thing.pos.y & ")", env.currentStep)
+    when defined(audio):
+      if wasBelowMaxAudio and thing.hp >= thing.maxHp:
+        audioOnBuildingComplete(thing.pos)
 
   when defined(stepTiming):
     if timing:

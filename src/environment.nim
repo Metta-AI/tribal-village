@@ -10,6 +10,8 @@ when defined(techAudit):
   import tech_audit
 when defined(econAudit):
   import econ_audit
+when defined(audio):
+  import audio_events
 export terrain, items, common
 export types, registry
 export spatial_index

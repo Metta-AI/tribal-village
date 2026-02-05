@@ -9,6 +9,9 @@ when compileOption("profiler"):
 when defined(renderTiming):
   import std/monotimes
 
+when defined(audio):
+  import src/audio, src/audio_events
+
 # Initialize the global environment for the renderer/game loop.
 env = newEnvironment()
 
@@ -500,6 +503,10 @@ proc display() =
         if boxSelection.len > 0:
           selection = boxSelection
           selectedPos = boxSelection[0].pos
+          # Play selection sound for first selected unit
+          when defined(audio):
+            if boxSelection[0].kind == Agent:
+              audioOnUnitSelected(boxSelection[0].unitClass)
         else:
           selection = @[]
         isDragging = false
@@ -526,6 +533,10 @@ proc display() =
                 selection.add(thing)
             else:
               selection = @[thing]
+              # Play selection sound when selecting a unit
+              when defined(audio):
+                if thing.kind == Agent:
+                  audioOnUnitSelected(thing.unitClass)
 
     # Right-click command handling (AoE2-style)
     if window.buttonPressed[MouseRight] and selection.len > 0 and playerTeam >= 0:
@@ -537,6 +548,11 @@ proc display() =
         let shiftDown = window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
         let targetThing = env.grid[gridPos.x][gridPos.y]
         let bgThing = env.backgroundGrid[gridPos.x][gridPos.y]
+
+        # Play command acknowledgment sound for first selected unit
+        when defined(audio):
+          if selection.len > 0 and not isNil(selection[0]) and selection[0].kind == Agent:
+            audioOnUnitCommand(selection[0].unitClass)
 
         # Determine command type based on target
         # Check if there's something at the target position
@@ -1052,12 +1068,21 @@ else:
 if globalController != nil and globalController.controllerType == ExternalNN:
   play = true
 
+# Initialize audio system if enabled
+when defined(audio):
+  echo "🔊 Initializing audio system..."
+  initAudio()
+
 when defined(emscripten):
   proc main() {.cdecl.} =
     display()
+    when defined(audio):
+      updateAudio()
     pollEvents()
   window.run(main)
 else:
   while not window.closeRequested:
     display()
+    when defined(audio):
+      updateAudio()
     pollEvents()
