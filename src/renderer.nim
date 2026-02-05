@@ -136,14 +136,18 @@ proc getTeamColor*(env: Environment, teamId: int,
     fallback
 
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
-                     filledColor, emptyColor: Color, segments = 5) =
+                     filledColor, emptyColor: Color, segments = 5,
+                     alpha: float32 = 1.0) =
+  if alpha <= 0.0:
+    return
   let filled = int(ceil(ratio * segments.float32))
   const segStep = 0.16'f32
   let origin = basePos + vec2(-segStep * (segments.float32 - 1) / 2 + offset.x, offset.y)
   for i in 0 ..< segments:
+    let baseColor = if i < filled: filledColor else: emptyColor
+    let tintColor = color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * alpha)
     bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
-                  angle = 0, scale = 1/500,
-                  tint = if i < filled: filledColor else: emptyColor)
+                  angle = 0, scale = 1/500, tint = tintColor)
 
 type FooterButtonKind* = enum
   FooterPlayPause
@@ -701,6 +705,19 @@ proc drawAgentDecorations*() =
     icon: string
     count: int
 
+  # Health bar fade constants
+  const
+    HealthBarFadeZoomMax = 3.0'f32   # Zoom level for full visibility
+    HealthBarFadeZoomMin = 1.5'f32   # Zoom level where bars are hidden
+    HealthBarDamageThreshold = 0.95'f32  # Show bar when HP below this ratio
+    HealthBarTintFadeDuration = 8'i8  # Frames after damage to keep bar visible
+
+  # Calculate base zoom fade (0.0 = hidden, 1.0 = full visibility)
+  let zoomFade = clamp(
+    (worldMapPanel.zoom - HealthBarFadeZoomMin) / (HealthBarFadeZoomMax - HealthBarFadeZoomMin),
+    0.0'f32, 1.0'f32
+  )
+
   for agent in env.agents:
     let pos = agent.pos
     if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent or not isInViewport(pos):
@@ -709,9 +726,37 @@ proc drawAgentDecorations*() =
     if agent.frozen > 0:
       bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
     if agent.maxHp > 0:
-      drawSegmentBar(posVec, vec2(0, -0.55),
-                     clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0),
-                     color(0.1, 0.8, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
+      let hpRatio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
+
+      # Calculate health bar alpha based on multiple factors
+      var barAlpha = zoomFade
+
+      # Check if agent is selected (always show full bar)
+      var isSelected = false
+      for sel in selection:
+        if not isNil(sel) and sel == agent:
+          isSelected = true
+          break
+
+      if isSelected:
+        barAlpha = 1.0'f32
+      else:
+        # Boost visibility for damaged units
+        if hpRatio < HealthBarDamageThreshold:
+          let damageBoost = (1.0'f32 - hpRatio) * 0.8'f32  # More damage = more visible
+          barAlpha = max(barAlpha, damageBoost + zoomFade * 0.5'f32)
+
+        # Boost visibility for recently hit units (using action tint countdown)
+        let tintCountdown = env.actionTintCountdown[pos.x][pos.y]
+        if tintCountdown > 0:
+          let recentDamageBoost = tintCountdown.float32 / HealthBarTintFadeDuration.float32
+          barAlpha = max(barAlpha, recentDamageBoost)
+
+      barAlpha = clamp(barAlpha, 0.0'f32, 1.0'f32)
+
+      drawSegmentBar(posVec, vec2(0, -0.55), hpRatio,
+                     color(0.1, 0.8, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7),
+                     alpha = barAlpha)
 
     var overlays: seq[OverlayItem] = @[]
     for key, count in agent.inventory.pairs:
