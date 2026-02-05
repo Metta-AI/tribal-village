@@ -417,5 +417,16 @@ const
   ShadowOffsetY* = 0.15'f32      # Shadow offset in Y direction (positive = south)
   ShadowAlpha* = 0.35'f32        # Shadow transparency (0.0 = invisible, 1.0 = opaque)
 
+  # ============================================================================
+  # Town Split (AI Settlement Expansion)
+  # ============================================================================
+  TownSplitPopulationThreshold* = 25  # Villagers per altar before split triggers
+  TownSplitSettlerCount* = 10         # Number of settlers to send to new town
+  TownSplitMinDistance* = 18          # Minimum tiles from old altar to new site
+  TownSplitMaxDistance* = 25          # Maximum tiles from old altar to new site
+  TownSplitCooldownSteps* = 200      # Steps between splits for the same team
+  TownSplitCheckInterval* = 50       # Only check every N steps to save CPU
+  TownSplitOpenSpaceRadius* = 1      # Radius around center that must be empty (3x3)
+
   # Derived constants
   VillagerMaxHp* = AgentMaxHp

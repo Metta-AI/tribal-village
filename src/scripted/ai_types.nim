@@ -188,6 +188,8 @@ type
     # Skip redundant fog updates when agent hasn't moved
     fogLastRevealPos*: array[MapAgents, IVec2]
     fogLastRevealStep*: array[MapAgents, int32]
+    # Town split cooldown: tracks last step when each team triggered a split
+    townSplitLastStep*: array[MapRoomObjectsTeams, int32]
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.

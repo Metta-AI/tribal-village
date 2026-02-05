@@ -377,6 +377,7 @@ include "builder"
 include "fighter"
 include "roles"
 include "evolution"
+include "settlement"
 include "../replay_analyzer"
 
 const
@@ -1051,4 +1052,6 @@ proc updateController*(controller: Controller, env: Environment) =
     processTempleHybridRequests(controller, env)
   # Update adaptive difficulty for teams that have it enabled
   controller.updateAdaptiveDifficulty(env)
+  # Check for town splits (AI settlement expansion)
+  controller.checkAndTriggerTownSplit(env)
   scriptedState.lastEpisodeStep = env.currentStep
