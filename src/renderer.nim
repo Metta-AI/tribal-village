@@ -35,6 +35,15 @@ const
   DamageNumberFontSize: float32 = 28
   DamageNumberFloatHeight: float32 = 0.8  # World units to float upward
 
+  # Fire flicker effect constants
+  FlickerBaseIntensity: float32 = 1.0       # Base brightness
+  FlickerAmplitude: float32 = 0.15          # Max brightness variation (±15%)
+  FlickerSpeed1: float32 = 0.12             # Primary flicker frequency
+  FlickerSpeed2: float32 = 0.23             # Secondary flicker (for organic look)
+  FlickerSpeed3: float32 = 0.07             # Slow glow variation
+  MagmaFlickerAmplitude: float32 = 0.10     # Magma flickers less than lanterns
+  MagmaGlowPulse: float32 = 0.05            # Additional slow pulse for magma
+
 type FloorSpriteKind = enum
   FloorBase
   FloorCave
@@ -111,6 +120,30 @@ template setupCtxFont(ctx: untyped, fontPath: string, fontSize: float32) =
   ctx.font = fontPath
   ctx.fontSize = fontSize
   ctx.textBaseline = TopBaseline
+
+proc getFireFlicker*(posHash: int): float32 =
+  ## Calculate a fire/torch flicker intensity based on frame and position.
+  ## Returns a value between (1 - amplitude) and (1 + amplitude).
+  ## Uses multiple sine waves at different frequencies for organic-looking flicker.
+  ## posHash provides spatial variation so different fires flicker independently.
+  let t = frame.float32
+  let offset = (posHash mod 1000).float32 * 0.1  # Spatial phase offset
+  # Combine multiple sine waves for organic flicker pattern
+  let wave1 = sin((t * FlickerSpeed1 + offset) * PI)
+  let wave2 = sin((t * FlickerSpeed2 + offset * 1.7) * PI) * 0.6
+  let wave3 = sin((t * FlickerSpeed3 + offset * 0.3) * PI) * 0.3
+  # Combine waves and scale to amplitude
+  let combined = (wave1 + wave2 + wave3) / 1.9  # Normalize to ~[-1, 1]
+  result = FlickerBaseIntensity + combined * FlickerAmplitude
+
+proc getMagmaFlicker*(posHash: int): float32 =
+  ## Calculate magma glow intensity - slower, more subtle than torch flicker.
+  ## Magma has a steady glow with slow pulsing.
+  let t = frame.float32
+  let offset = (posHash mod 1000).float32 * 0.1
+  let wave1 = sin((t * 0.05 + offset) * PI) * MagmaGlowPulse
+  let wave2 = sin((t * 0.11 + offset * 1.3) * PI) * MagmaFlickerAmplitude
+  result = FlickerBaseIntensity + wave1 + wave2
 
 proc renderTextLabel(text: string, fontPath: string, fontSize: float32,
                      padding: float32, bgAlpha: float32): (Image, IVec2) =
@@ -551,11 +584,22 @@ proc drawObjects*() =
 
   drawThings(Lantern):
     if "lantern" in bxy:
-      let tint = if thing.lanternHealthy:
+      let baseTint = if thing.lanternHealthy:
         let teamId = thing.teamId
         if teamId >= 0 and teamId < env.teamColors.len: env.teamColors[teamId]
         else: color(0.6, 0.6, 0.6, 1.0)
       else: color(0.5, 0.5, 0.5, 1.0)
+      # Apply fire flicker effect to healthy lanterns
+      let flicker = if thing.lanternHealthy:
+        getFireFlicker(thingPos.x * 1000 + thingPos.y)
+      else:
+        1.0'f32
+      let tint = color(
+        min(baseTint.r * flicker, 1.5),
+        min(baseTint.g * flicker, 1.5),
+        min(baseTint.b * flicker, 1.5),
+        baseTint.a
+      )
       bxy.drawImage("lantern", thingPos.vec2, angle = 0, scale = SpriteScale, tint = tint)
 
   template isPlacedAt(thing: Thing): bool =
@@ -656,6 +700,11 @@ proc drawObjects*() =
             bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
           else:
             bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+        elif thing.kind == Magma:
+          # Apply magma flicker effect - glowing lava with slow pulsing
+          let flicker = getMagmaFlicker(thing.pos.x * 1000 + thing.pos.y)
+          let magmaTint = color(flicker, flicker * 0.85, flicker * 0.6, 1.0)
+          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = magmaTint)
         else:
           bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
         if thing.kind in {Magma, Stump} and isTileFrozen(thing.pos, env):
