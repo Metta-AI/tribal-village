@@ -1510,8 +1510,7 @@ proc ensureResourceBarLabel(text: string): (string, IVec2) =
 
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw the resource bar HUD at the top of the viewport.
-  # Offset bar down by half its height to avoid text clipping at viewport top
-  let barY = panelRect.y.float32 + ResourceBarHeight.float32 * 0.5
+  let barY = panelRect.y.float32
   let barW = panelRect.w.float32
   let barH = ResourceBarHeight.float32
 
@@ -1521,7 +1520,8 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let validTeamId = if teamId >= 0 and teamId < MapRoomObjectsTeams: teamId else: 0
 
   var x = panelRect.x.float32 + ResourceBarPadding
-  let centerY = barY + barH * 0.5
+  # Offset content down by half bar height to avoid text clipping at viewport top
+  let centerY = barY + barH
 
   # Team color swatch (16x16)
   let swatchSize = 16.0'f32
