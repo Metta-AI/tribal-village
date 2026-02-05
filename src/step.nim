@@ -225,6 +225,28 @@ proc stepDecayDamageNumbers(env: Environment) =
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
 
+proc stepDecayRipples(env: Environment) =
+  ## Decay and remove expired water ripples.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.ripples.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.ripples.len:
+      env.ripples[readIdx].countdown -= 1
+      if env.ripples[readIdx].countdown > 0:
+        env.ripples[writeIdx] = env.ripples[readIdx]
+        inc writeIdx
+    env.ripples.setLen(writeIdx)
+
+proc spawnWaterRipple*(env: Environment, pos: IVec2) =
+  ## Spawn a water ripple effect at the given position.
+  ## Called when a non-water unit walks through water terrain.
+  if env.ripples.len >= RipplePoolCapacity:
+    return  # Pool full, skip oldest by not adding new
+  env.ripples.add(Ripple(
+    pos: pos,
+    countdown: RippleLifetime,
+    lifetime: RippleLifetime))
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1012,10 +1034,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Reset arena allocator for this step's temporary allocations
   env.arena.reset()
 
-  # Decay short-lived action tints and projectile visuals
+  # Decay short-lived action tints, projectile visuals, and water ripples
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+  env.stepDecayRipples()
 
   when defined(stepTiming):
     if timing:
@@ -1317,6 +1340,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let terrainModifier = getTerrainSpeedModifier(env.terrain[agent.pos.x][agent.pos.y])
           if terrainModifier < 1.0'f32:
             agent.movementDebt += (1.0'f32 - terrainModifier)
+
+        # Spawn water ripple when non-water units walk through water terrain
+        if not agent.isWaterUnit:
+          let newTerrain = env.terrain[agent.pos.x][agent.pos.y]
+          if isWaterTerrain(newTerrain):
+            env.spawnWaterRipple(agent.pos)
 
         # Apply cliff fall damage when dropping elevation without a ramp/road
         # Check both steps of movement (original→step1 and step1→finalPos if different)

@@ -730,10 +730,20 @@ type
     countdown*: int8     ## Frames remaining before removal
     lifetime*: int8      ## Total frames (for fade calculation)
 
+  Ripple* = object
+    ## A water ripple effect spawned when units walk through water.
+    ## Expands outward and fades over its lifetime.
+    pos*: IVec2          ## World position where ripple spawned
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade/expansion calculation)
+
 const
   ## Damage number visual constants
   DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
   DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
+  ## Water ripple visual constants
+  RippleLifetime* = 16'i8         ## Frames water ripples persist
+  RipplePoolCapacity* = 32        ## Initial capacity for ripple pool
 
 const
   TeamOwnedKinds* = {
@@ -1080,6 +1090,7 @@ type
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
+    ripples*: seq[Ripple]  # Water ripple effects when units walk through water
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

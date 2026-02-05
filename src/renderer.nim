@@ -827,6 +827,26 @@ proc drawDamageNumbers*() =
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
                   tint = color(1.0, 1.0, 1.0, alpha))
 
+proc drawRipples*() =
+  ## Draw water ripple effects for units walking through water.
+  ## Ripples expand outward and fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for ripple in env.ripples:
+    if ripple.lifetime <= 0 or not isInViewport(ripple.pos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = ripple.countdown.float32 / ripple.lifetime.float32
+    # Ripple expands as time progresses (starts small, grows larger)
+    let expansion = (1.0 - t) * 0.5 + 0.5  # Scale from 0.5x to 1.0x
+    let rippleScale = SpriteScale * expansion
+    # Fade out with quadratic ease
+    let alpha = t * t * 0.6  # Max 60% opacity for subtle effect
+    # Light cyan/blue tint for water ripple
+    let rippleColor = color(0.7, 0.9, 1.0, alpha)
+    # Draw ripple using floor sprite as a circular shape
+    bxy.drawImage("floor", ripple.pos.vec2, angle = 0, scale = rippleScale, tint = rippleColor)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return
