@@ -292,6 +292,7 @@ proc drawFloor*() =
     rebuildRenderCaches()
   # Draw the floor tiles everywhere first as the base layer
   # Use viewport culling to skip off-screen tiles
+  let ambient = getAmbientLight()
   for floorKind in FloorSpriteKind:
     let floorSprite = case floorKind
       of FloorCave: "cave"
@@ -301,9 +302,11 @@ proc drawFloor*() =
       if not isInViewport(pos):
         continue
       let bc = combinedTileTint(env, pos.x, pos.y)
+      # Apply ambient light to tile color
+      let lit = applyAmbient(bc.r, bc.g, bc.b, bc.intensity, ambient)
       bxy.drawImage(floorSprite, pos.vec2, angle = 0, scale = SpriteScale,
-        tint = color(min(bc.r * bc.intensity, 1.5), min(bc.g * bc.intensity, 1.5),
-                     min(bc.b * bc.intensity, 1.5), 1.0))
+        tint = color(min(lit.r * lit.i, 1.5), min(lit.g * lit.i, 1.5),
+                     min(lit.b * lit.i, 1.5), 1.0))
 
 proc drawTerrain*() =
   # Only iterate over visible tiles for viewport culling
@@ -425,14 +428,19 @@ proc drawObjects*() =
     if teamId >= 0 and teamId < MapRoomObjectsTeams:
       inc teamHouseCounts[teamId]
 
+  # Get ambient light for day/night cycle
+  let ambient = getAmbientLight()
+
   for pos in env.actionTintPositions:
     if not isValidPos(pos) or not isInViewport(pos):
       continue
     if env.actionTintCountdown[pos.x][pos.y] > 0:
       let c = env.actionTintColor[pos.x][pos.y]
+      # Apply ambient light to action tint overlay
+      let lit = applyAmbient(c.r, c.g, c.b, 1.0, ambient)
       # Render the short-lived action overlay fully opaque so it sits above the
       # normal tint layer and clearly masks the underlying tile color.
-      bxy.drawImage("floor", pos.vec2, angle = 0, scale = SpriteScale, tint = color(c.r, c.g, c.b, 1.0))
+      bxy.drawImage("floor", pos.vec2, angle = 0, scale = SpriteScale, tint = color(lit.r, lit.g, lit.b, 1.0))
 
   let waterKey = terrainSpriteKey(Water)
 
@@ -441,12 +449,15 @@ proc drawObjects*() =
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
   if waterKey.len > 0:
-    # Draw deep water (impassable) with standard tint
+    # Draw deep water (impassable) with ambient-lit tint
+    let waterLit = applyAmbient(1.0, 1.0, 1.0, 1.0, ambient)
+    let waterTint = color(waterLit.r * waterLit.i, waterLit.g * waterLit.i, waterLit.b * waterLit.i, 1.0)
     for pos in waterPositions:
       if isInViewport(pos):
-        bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale)
+        bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = waterTint)
     # Draw shallow water (passable but slow) with lighter tint to distinguish
-    let shallowTint = color(0.6, 0.85, 0.95, 1.0)  # Lighter blue-green for wading depth
+    let shallowLit = applyAmbient(0.6, 0.85, 0.95, 1.0, ambient)
+    let shallowTint = color(shallowLit.r * shallowLit.i, shallowLit.g * shallowLit.i, shallowLit.b * shallowLit.i, 1.0)
     for pos in shallowWaterPositions:
       if isInViewport(pos):
         bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
