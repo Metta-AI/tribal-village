@@ -821,6 +821,7 @@ proc display() =
       tStart = tNow
 
   drawTerrain()
+  drawTrailEffects()  # Draw unit trails on top of terrain but under objects
   when defined(renderTiming):
     if timing:
       tNow = getMonoTime()

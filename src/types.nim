@@ -735,6 +735,30 @@ const
   DamageNumberLifetime* = 12'i8   ## Frames damage numbers persist
   DamageNumberPoolCapacity* = 64  ## Initial capacity for damage number pool
 
+type
+  TrailEffectKind* = enum
+    TrailDust        ## Desert sand/dune dust clouds
+    TrailFootprint   ## Snow/mud footprints
+    TrailSplash      ## Shallow water ripples
+    TrailGrass       ## Crushed grass
+
+  TrailEffect* = object
+    ## A visual trail effect left behind by moving units.
+    ## Fades out over its lifetime based on terrain type.
+    pos*: IVec2          ## World position where trail was created
+    kind*: TrailEffectKind
+    teamId*: int8        ## Team ID for optional color tinting
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Trail effect visual constants (frames at 60fps = seconds * 60)
+  TrailDustLifetime* = 20'i8       ## Desert dust clouds fade quickly
+  TrailFootprintLifetime* = 40'i8  ## Snow/mud prints linger longer
+  TrailSplashLifetime* = 12'i8     ## Water splashes are brief
+  TrailGrassLifetime* = 15'i8      ## Crushed grass fades fast
+  TrailEffectPoolCapacity* = 256   ## Initial capacity for trail pool
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1080,6 +1104,7 @@ type
     actionTintPositions*: seq[IVec2]
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
+    trailEffects*: seq[TrailEffect]  # Visual trail effects behind moving units
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

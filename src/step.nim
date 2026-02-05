@@ -225,6 +225,18 @@ proc stepDecayDamageNumbers(env: Environment) =
         inc writeIdx
     env.damageNumbers.setLen(writeIdx)
 
+proc stepDecayTrailEffects(env: Environment) =
+  ## Decay and remove expired trail effects.
+  ## Uses in-place compaction - setLen preserves capacity for pool reuse.
+  if env.trailEffects.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.trailEffects.len:
+      env.trailEffects[readIdx].countdown -= 1
+      if env.trailEffects[readIdx].countdown > 0:
+        env.trailEffects[writeIdx] = env.trailEffects[readIdx]
+        inc writeIdx
+    env.trailEffects.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1016,6 +1028,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
+  env.stepDecayTrailEffects()
 
   when defined(stepTiming):
     if timing:
@@ -1328,6 +1341,36 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             fallDamage += CliffFallDamage
           if fallDamage > 0:
             discard env.applyAgentDamage(agent, fallDamage)
+
+        # Create trail effect at original position based on terrain
+        if originalPos != finalPos and env.trailEffects.len < TrailEffectPoolCapacity:
+          let terrainAtOrig = env.terrain[originalPos.x][originalPos.y]
+          var trailKind: TrailEffectKind
+          var trailLifetime: int8
+          case terrainAtOrig
+          of Sand, Dune:
+            trailKind = TrailDust
+            trailLifetime = TrailDustLifetime
+          of Snow, Mud:
+            trailKind = TrailFootprint
+            trailLifetime = TrailFootprintLifetime
+          of ShallowWater:
+            trailKind = TrailSplash
+            trailLifetime = TrailSplashLifetime
+          of Grass, Fertile, Empty:
+            trailKind = TrailGrass
+            trailLifetime = TrailGrassLifetime
+          else:
+            # Road, Bridge, Ramps, Water - no visible trails
+            trailLifetime = 0
+          if trailLifetime > 0:
+            env.trailEffects.add(TrailEffect(
+              pos: originalPos,
+              kind: trailKind,
+              teamId: getTeamId(agent).int8,
+              countdown: trailLifetime,
+              lifetime: trailLifetime
+            ))
 
         inc env.stats[id].actionMove
     of 2:

@@ -827,6 +827,33 @@ proc drawDamageNumbers*() =
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
                   tint = color(1.0, 1.0, 1.0, alpha))
 
+# Trail effect colors based on kind
+const TrailEffectColors: array[TrailEffectKind, Color] = [
+  TrailDust: color(0.85, 0.75, 0.55, 1.0),     # Sandy tan for dust
+  TrailFootprint: color(0.9, 0.95, 1.0, 1.0),  # Blueish white for snow/mud prints
+  TrailSplash: color(0.5, 0.7, 0.9, 1.0),      # Light blue for water
+  TrailGrass: color(0.5, 0.7, 0.4, 1.0),       # Greenish for grass
+]
+
+proc drawTrailEffects*() =
+  ## Draw visual trail effects left behind by moving units.
+  ## Trails fade out over their lifetime based on terrain type.
+  if not currentViewport.valid:
+    return
+  for trail in env.trailEffects:
+    if trail.lifetime <= 0 or not isInViewport(trail.pos):
+      continue
+    # Calculate alpha fade (1.0 at spawn, 0.0 at expire)
+    let t = trail.countdown.float32 / trail.lifetime.float32
+    let alpha = t * t  # Quadratic ease for smoother fade
+    # Get base color for this trail kind
+    let baseColor = TrailEffectColors[trail.kind]
+    # Scale down and fade
+    let trailScale = SpriteScale * (0.3 + 0.2 * t)  # Shrink slightly as it fades
+    let tintColor = color(baseColor.r, baseColor.g, baseColor.b, alpha * 0.6)
+    # Use "floor" sprite as simple circle marker (same as projectiles)
+    bxy.drawImage("floor", trail.pos.vec2, angle = 0, scale = trailScale, tint = tintColor)
+
 proc drawGrid*() =
   if not currentViewport.valid:
     return
