@@ -169,8 +169,7 @@ proc makeTestPanelRect*(width: int = 1280, height: int = 720): IRect =
 
 proc isInResourceBarArea*(panelRect: IRect, screenPos: Vec2): bool =
   ## Check if a screen position is within the resource bar HUD area.
-  ## Note: Resource bar is offset down by half its height to avoid top clipping.
-  let barTop = panelRect.y.float32 + ResourceBarHeight.float32 * 0.5
+  let barTop = panelRect.y.float32
   screenPos.y >= barTop and
     screenPos.y <= barTop + ResourceBarHeight.float32
 
