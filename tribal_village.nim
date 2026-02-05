@@ -556,9 +556,15 @@ proc display() =
           if selection.len > 0 and not isNil(selection[0]) and selection[0].kind == Agent:
             audioOnUnitCommand(selection[0].unitClass)
 
+        # Check if selection is a single production building for rally point setting
+        if selection.len == 1 and isBuildingKind(selection[0].kind) and
+           selection[0].teamId == playerTeam and
+           (buildingHasTrain(selection[0].kind) or selection[0].kind == TownCenter):
+          # Set rally point for the building (AoE2-style)
+          setBuildingRallyPoint(env, selection[0].pos.x, selection[0].pos.y, gridPos.x, gridPos.y)
         # Determine command type based on target
         # Check if there's something at the target position
-        if not isNil(targetThing):
+        elif not isNil(targetThing):
           if targetThing.kind == Agent:
             # Right-click on agent
             let targetTeam = getTeamId(targetThing)
