@@ -1235,6 +1235,28 @@ proc drawGatherSparkles*() =
     let scale = (1.0 / 400.0).float32  # Small sparkle particle
     bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
 
+proc drawConstructionDust*() =
+  ## Draw dust particles rising from buildings under construction.
+  ## Brown/tan particles rise upward and fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for dust in env.constructionDust:
+    if dust.lifetime <= 0:
+      continue
+    # Check viewport bounds (convert float pos to int for check)
+    let ipos = ivec2(dust.pos.x.int32, dust.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = dust.countdown.float32 / dust.lifetime.float32
+    # Fade out with quadratic ease, dust becomes more transparent as it rises
+    let alpha = t * t * 0.7  # Semi-transparent dust
+    # Brown/tan dust color
+    let tintColor = color(0.6, 0.5, 0.35, alpha)
+    # Dust particles grow slightly as they rise and dissipate
+    let scale = (1.0 / 350.0).float32 * (1.0 + (1.0 - t) * 0.5)  # 1.0x to 1.5x
+    bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
+
 proc drawWeatherEffects*() =
   ## Draw ambient weather effects (rain or wind particles) across the viewport.
   ## Uses deterministic animation based on frame counter for consistent effects.

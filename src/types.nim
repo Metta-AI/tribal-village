@@ -824,6 +824,21 @@ const
   GatherSparklePoolCapacity* = 64      ## Initial capacity for sparkle pool
   GatherSparkleParticleCount* = 5      ## Number of sparkle particles per gather
 
+type
+  ConstructionDust* = object
+    ## A dust particle spawned during building construction.
+    ## Rises upward from the construction site and fades out.
+    pos*: Vec2           ## Current world position (float for smooth animation)
+    velocity*: Vec2      ## Movement velocity (upward drift)
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Construction dust visual constants
+  ConstructionDustLifetime* = 24'i8       ## Frames dust particles persist
+  ConstructionDustPoolCapacity* = 64      ## Initial capacity for dust pool
+  ConstructionDustParticleCount* = 3      ## Number of dust particles per construction tick
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1174,6 +1189,7 @@ type
     spawnEffects*: seq[SpawnEffect]    # Visual effects when units spawn from buildings
     dyingUnits*: seq[DyingUnit]  # Units in death animation (fade-out before corpse)
     gatherSparkles*: seq[GatherSparkle]  # Sparkle particles when collecting resources
+    constructionDust*: seq[ConstructionDust]  # Dust particles during building construction
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

@@ -2090,6 +2090,24 @@ proc spawnGatherSparkle*(env: Environment, pos: IVec2) =
       countdown: GatherSparkleLifetime,
       lifetime: GatherSparkleLifetime))
 
+proc spawnConstructionDust*(env: Environment, pos: IVec2) =
+  ## Spawn dust particles at the given position during building construction.
+  ## Particles rise upward and fade over ConstructionDustLifetime frames.
+  if not isValidPos(pos):
+    return
+  # Spawn multiple dust particles rising from the construction site
+  for i in 0 ..< ConstructionDustParticleCount:
+    # Horizontal spread: particles start at random-ish positions around the building
+    let xOffset = (i.float32 - 1.0) * 0.25  # Spread horizontally (-0.25, 0, 0.25)
+    # Upward velocity with slight variation
+    let ySpeed = -0.04 - (i mod 2).float32 * 0.02  # Negative Y = upward
+    let xDrift = (i mod 3).float32 * 0.01 - 0.01  # Slight horizontal drift
+    env.constructionDust.add(ConstructionDust(
+      pos: vec2(pos.x.float32 + xOffset, pos.y.float32 + 0.3),  # Start at base of building
+      velocity: vec2(xDrift, ySpeed),
+      countdown: ConstructionDustLifetime,
+      lifetime: ConstructionDustLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"

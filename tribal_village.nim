@@ -898,6 +898,7 @@ proc display() =
   drawDamageNumbers()
   drawRagdolls()
   drawDebris()
+  drawConstructionDust()
   drawSpawnEffects()
   drawTradeRoutes()
   drawWeatherEffects()
