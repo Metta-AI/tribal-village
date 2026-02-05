@@ -246,6 +246,24 @@ proc stepRagdolls(env: Environment) =
         inc writeIdx
     env.ragdolls.setLen(writeIdx)
 
+proc stepDecayDebris(env: Environment) =
+  ## Update debris particle positions and remove expired ones.
+  ## Particles move outward with velocity and fade over time.
+  if env.debris.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.debris.len:
+      env.debris[readIdx].countdown -= 1
+      if env.debris[readIdx].countdown > 0:
+        # Update position based on velocity
+        env.debris[readIdx].pos.x += env.debris[readIdx].velocity.x
+        env.debris[readIdx].pos.y += env.debris[readIdx].velocity.y
+        # Apply slight gravity/drag to velocity
+        env.debris[readIdx].velocity.y += 0.005  # Gravity pulls down
+        env.debris[readIdx].velocity.x *= 0.95   # Horizontal drag
+        env.debris[writeIdx] = env.debris[readIdx]
+        inc writeIdx
+    env.debris.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1033,11 +1051,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Reset arena allocator for this step's temporary allocations
   env.arena.reset()
 
-  # Decay short-lived action tints, projectile visuals, damage numbers, and ragdolls
+  # Decay short-lived action tints, projectile visuals, damage numbers, ragdolls, and debris particles
   env.stepDecayActionTints()
   env.stepDecayProjectiles()
   env.stepDecayDamageNumbers()
   env.stepRagdolls()
+  env.stepDecayDebris()
 
   when defined(stepTiming):
     if timing:
@@ -3601,6 +3620,7 @@ proc reset*(env: Environment) =
   env.projectiles.setLen(0)  # Keeps pre-allocated capacity
   env.projectilePool.stats = PoolStats()  # Reset pool stats
   env.damageNumbers.setLen(0)  # Keeps pre-allocated capacity
+  env.debris.setLen(0)  # Keeps pre-allocated capacity
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)

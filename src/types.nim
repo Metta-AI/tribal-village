@@ -759,6 +759,27 @@ const
   RagdollAngularSpeed* = 0.4'f32  ## Initial rotation speed (radians/frame)
   RagdollPoolCapacity* = 32       ## Initial capacity for ragdoll pool
 
+type
+  DebrisKind* = enum
+    DebrisWood         ## Wood debris from wooden structures
+    DebrisStone        ## Stone debris from walls, towers, castles
+    DebrisBrick        ## Brick/mixed debris from town centers, houses
+
+  Debris* = object
+    ## A debris particle spawned when buildings are destroyed.
+    ## Falls outward from destruction point and fades out over lifetime.
+    pos*: Vec2           ## Current world position (float for smooth animation)
+    velocity*: Vec2      ## Movement velocity (outward + downward drift)
+    kind*: DebrisKind    ## Type affects color/appearance
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Debris visual constants
+  DebrisLifetime* = 18'i8          ## Frames debris particles persist
+  DebrisPoolCapacity* = 128        ## Initial capacity for debris pool
+  DebrisParticlesPerBuilding* = 8  ## Number of debris particles per destroyed building
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1105,6 +1126,7 @@ type
     projectiles*: seq[Projectile]  # Visual-only projectile sprites for ranged attacks
     damageNumbers*: seq[DamageNumber]  # Floating damage numbers for combat feedback
     ragdolls*: seq[RagdollBody]  # Death ragdoll bodies with physics
+    debris*: seq[Debris]  # Debris particles from destroyed buildings
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
