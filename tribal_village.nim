@@ -875,6 +875,7 @@ proc display() =
       tStart = tNow
 
   drawSelection()
+  drawRallyPoints()
 
   # Draw building ghost preview if in placement mode
   if buildingPlacementMode:

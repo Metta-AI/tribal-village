@@ -839,6 +839,108 @@ proc drawSelection*() =
     if not isNil(thing) and isValidPos(thing.pos) and isInViewport(thing.pos):
       bxy.drawImage("selection", thing.pos.vec2, angle = 0, scale = SpriteScale)
 
+# ─── Rally Point Visual Indicators ──────────────────────────────────────────
+
+const
+  RallyPointLineWidth = 0.06'f32    # Width of the path line in world units
+  RallyPointLineSegments = 12       # Number of segments in the path line
+  RallyPointBeaconScale = 1.0 / 280.0  # Scale for the beacon sprite
+  RallyPointPulseSpeed = 0.15'f32   # Speed of the pulsing animation
+  RallyPointPulseMin = 0.6'f32      # Minimum alpha during pulse
+  RallyPointPulseMax = 1.0'f32      # Maximum alpha during pulse
+
+# Building kinds that can have rally points (military/training buildings)
+const RallyPointBuildingKinds = [
+  TownCenter, Barracks, ArcheryRange, Stable, SiegeWorkshop,
+  MangonelWorkshop, TrebuchetWorkshop, Castle, Dock, Monastery
+]
+
+proc drawRallyPoints*() =
+  ## Draw visual indicators for rally points on selected buildings.
+  ## Shows an animated beacon at the rally point with a path line to the building.
+  if selection.len == 0:
+    return
+
+  # Calculate pulsing animation based on frame counter
+  let pulse = sin(frame.float32 * RallyPointPulseSpeed) * 0.5 + 0.5
+  let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
+
+  for thing in selection:
+    if thing.isNil or not isBuildingKind(thing.kind):
+      continue
+    if not hasRallyPoint(thing):
+      continue
+
+    let buildingPos = thing.pos
+    let rallyPos = thing.rallyPoint
+
+    # Skip if rally point is at the building itself
+    if rallyPos == buildingPos:
+      continue
+
+    # Get team color for the rally point indicator
+    let teamId = thing.teamId
+    let teamColor = getTeamColor(env, teamId, color(0.8, 0.8, 0.8, 1.0))
+
+    # Draw path line from building to rally point using small rectangles
+    let startVec = buildingPos.vec2
+    let endVec = rallyPos.vec2
+    let lineDir = endVec - startVec
+    let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
+
+    if lineLen > 0.1:
+      let stepLen = lineLen / RallyPointLineSegments.float32
+      let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
+
+      # Draw dashed line segments
+      for i in 0 ..< RallyPointLineSegments:
+        # Alternating segments for dashed effect
+        if i mod 2 == 0:
+          continue
+
+        let segStart = startVec + normalizedDir * (i.float32 * stepLen)
+        let segEnd = startVec + normalizedDir * ((i.float32 + 1.0) * stepLen)
+
+        # Check if segment is in viewport (approximate check using midpoint)
+        let midpoint = (segStart + segEnd) * 0.5
+        if not isInViewport(ivec2(midpoint.x.int, midpoint.y.int)):
+          continue
+
+        # Calculate perpendicular for line width
+        let perpX = -normalizedDir.y * RallyPointLineWidth * 0.5
+        let perpY = normalizedDir.x * RallyPointLineWidth * 0.5
+
+        # Draw segment as a colored rectangle (using floor sprite with team color)
+        let segMid = (segStart + segEnd) * 0.5
+        let lineColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * 0.7)
+        bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * 2,
+                      tint = lineColor)
+
+    # Draw the rally point beacon (animated flag/marker)
+    if isInViewport(rallyPos):
+      # Pulsing scale effect for the beacon
+      let beaconScale = RallyPointBeaconScale * (1.0 + pulse * 0.15)
+
+      # Draw outer glow (larger, more transparent)
+      let glowColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * 0.3)
+      bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * 3.0,
+                    tint = glowColor)
+
+      # Draw main beacon (use lantern sprite if available, otherwise floor)
+      let beaconColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha)
+      if "lantern" in bxy:
+        bxy.drawImage("lantern", rallyPos.vec2, angle = 0, scale = SpriteScale * 0.8,
+                      tint = beaconColor)
+      else:
+        # Fallback: draw a colored circle using floor sprite
+        bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * 1.5,
+                      tint = beaconColor)
+
+      # Draw inner bright core
+      let coreColor = color(1.0, 1.0, 1.0, pulseAlpha * 0.8)
+      bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * 0.8,
+                    tint = coreColor)
+
 proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset: float32) =
   let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
