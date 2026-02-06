@@ -122,11 +122,22 @@ const GatherableResourceKinds* = {Tree, Wheat, Fish, Stone, Gold, Bush, Cactus}
 var actionsArray: array[MapAgents, uint8]
 
 proc display() =
+  when defined(renderTiming):
+    # Early frame timing - capture from the very start
+    let timingActive = renderTimingStart >= 0 and frame >= renderTimingStart and
+      frame <= renderTimingStart + renderTimingWindow
+    var tFrameStart: MonoTime
+    var tPhaseStart: MonoTime
+    var tInputMs, tSimMs, tBeginFrameMs, tSetupMs, tInteractionMs: float64
+    if timingActive:
+      tFrameStart = getMonoTime()
+      tPhaseStart = tFrameStart
+
   # Handle mouse capture release
   if window.buttonReleased[MouseLeft]:
     common.mouseCaptured = false
     common.mouseCapturedPanel = nil
-  
+
   if window.buttonPressed[KeySpace]:
     if play:
       play = false
@@ -171,6 +182,12 @@ proc display() =
       of WeatherWind: WeatherNone
       of WeatherNone: WeatherRain
 
+  when defined(renderTiming):
+    if timingActive:
+      let tNow = getMonoTime()
+      tInputMs = msBetween(tPhaseStart, tNow)
+      tPhaseStart = tNow
+
   let now = nowSeconds()
   while play and (lastSimTime + playSpeed < now):
     lastSimTime += playSpeed
@@ -178,7 +195,19 @@ proc display() =
     env.step(addr actionsArray)
     updateDayNightCycle()  # Advance day/night cycle with simulation
 
+  when defined(renderTiming):
+    if timingActive:
+      let tNow = getMonoTime()
+      tSimMs = msBetween(tPhaseStart, tNow)
+      tPhaseStart = tNow
+
   bxy.beginFrame(window.size)
+
+  when defined(renderTiming):
+    if timingActive:
+      let tNow = getMonoTime()
+      tBeginFrameMs = msBetween(tPhaseStart, tNow)
+      tPhaseStart = tNow
 
   # Panels fill the window; simple recursive sizing
   rootArea.rect = IRect(x: 0, y: 0, w: window.size.x, h: window.size.y)
@@ -331,6 +360,12 @@ proc display() =
 
   # Update viewport bounds for culling (before any rendering)
   updateViewport(worldMapPanel, panelRectInt, MapWidth, MapHeight, scaleF)
+
+  when defined(renderTiming):
+    if timingActive:
+      let tNow = getMonoTime()
+      tSetupMs = msBetween(tPhaseStart, tNow)
+      tPhaseStart = tNow
 
   let footerRect = Rect(
     x: panelRect.x,
@@ -843,16 +878,31 @@ proc display() =
       worldMapPanel.vel = panVel
 
   when defined(renderTiming):
-    let timing = renderTimingStart >= 0 and frame >= renderTimingStart and
-      frame <= renderTimingStart + renderTimingWindow
-    var tStart: MonoTime
+    # Capture interaction phase timing (world selection, mouse handling)
+    if timingActive:
+      let tNow = getMonoTime()
+      tInteractionMs = msBetween(tPhaseStart, tNow)
+      tPhaseStart = tNow
+
+    # Render phase timing variables
     var tNow: MonoTime
+    var tStart: MonoTime
     var tRenderStart: MonoTime
     var tFloorMs: float64
     var tTerrainMs: float64
     var tWallsMs: float64
     var tObjectsMs: float64
-    var tDecorMs: float64
+    # Decoration breakdown (previously combined into tDecorMs)
+    var tAgentDecorMs: float64
+    var tProjectilesMs: float64
+    var tDamageNumsMs: float64
+    var tRagdollsMs: float64
+    var tDebrisMs: float64
+    var tDustMs: float64
+    var tTrailsMs: float64
+    var tSpawnMs: float64
+    var tTradeMs: float64
+    var tWeatherMs: float64
     var tVisualMs: float64
     var tGridMs: float64
     var tFogMs: float64
@@ -861,59 +911,113 @@ proc display() =
     var tMaskMs: float64
     var tEndFrameMs: float64
     var tSwapMs: float64
-    if timing:
+    if timingActive:
       tRenderStart = getMonoTime()
       tStart = tRenderStart
 
   drawFloor()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tFloorMs = msBetween(tStart, tNow)
       tStart = tNow
 
   drawTerrain()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tTerrainMs = msBetween(tStart, tNow)
       tStart = tNow
 
   drawWalls()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tWallsMs = msBetween(tStart, tNow)
       tStart = tNow
 
   drawObjects()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tObjectsMs = msBetween(tStart, tNow)
       tStart = tNow
 
   drawAgentDecorations()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tAgentDecorMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawProjectiles()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tProjectilesMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawDamageNumbers()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tDamageNumsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawRagdolls()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tRagdollsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawDebris()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tDebrisMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawConstructionDust()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tDustMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawUnitTrails()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tTrailsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawWaterRipples()
   drawSpawnEffects()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tSpawnMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawTradeRoutes()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tTradeMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawWeatherEffects()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
-      tDecorMs = msBetween(tStart, tNow)
+      tWeatherMs = msBetween(tStart, tNow)
       tStart = tNow
 
   if settings.showVisualRange:
     drawVisualRanges()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tVisualMs = msBetween(tStart, tNow)
       tStart = tNow
@@ -921,7 +1025,7 @@ proc display() =
   if settings.showGrid:
     drawGrid()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tGridMs = msBetween(tStart, tNow)
       tStart = tNow
@@ -929,7 +1033,7 @@ proc display() =
   if settings.showFogOfWar:
     drawVisualRanges(alpha = 1.0)
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tFogMs = msBetween(tStart, tNow)
       tStart = tNow
@@ -961,7 +1065,7 @@ proc display() =
     bxy.drawRect(Rect(x: maxX - lineWidth, y: minY, w: lineWidth, h: maxY - minY), dragColor)
 
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tSelectionMs = msBetween(tStart, tNow)
       tStart = tNow
@@ -985,7 +1089,7 @@ proc display() =
   if clearUiCapture:
     uiMouseCaptured = false
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tUiMs = msBetween(tStart, tNow)
       tStart = tNow
@@ -994,32 +1098,57 @@ proc display() =
   bxy.popLayer(blendMode = MaskBlend)
   bxy.popLayer()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tMaskMs = msBetween(tStart, tNow)
       tStart = tNow
 
   bxy.endFrame()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tEndFrameMs = msBetween(tStart, tNow)
       tStart = tNow
   window.swapBuffers()
   when defined(renderTiming):
-    if timing:
+    if timingActive:
       tNow = getMonoTime()
       tSwapMs = msBetween(tStart, tNow)
       let shouldLog = (frame - renderTimingStart) mod renderTimingEvery == 0
       if shouldLog:
-        let totalMs = msBetween(tRenderStart, tNow)
+        let totalMs = msBetween(tFrameStart, tNow)
+        let renderMs = msBetween(tRenderStart, tNow)
+        # Sum decoration timings for backwards-compatible decor_ms
+        let tDecorMs = tAgentDecorMs + tProjectilesMs + tDamageNumsMs +
+          tRagdollsMs + tDebrisMs + tDustMs + tTrailsMs + tSpawnMs +
+          tTradeMs + tWeatherMs
         echo "frame=", frame,
           " total_ms=", totalMs,
+          # Early frame phases
+          " input_ms=", tInputMs,
+          " sim_ms=", tSimMs,
+          " beginframe_ms=", tBeginFrameMs,
+          " setup_ms=", tSetupMs,
+          " interaction_ms=", tInteractionMs,
+          # Render phases
+          " render_ms=", renderMs,
           " floor_ms=", tFloorMs,
           " terrain_ms=", tTerrainMs,
           " walls_ms=", tWallsMs,
           " objects_ms=", tObjectsMs,
+          # Decoration breakdown (and combined for compatibility)
           " decor_ms=", tDecorMs,
+          " agentdecor_ms=", tAgentDecorMs,
+          " projectiles_ms=", tProjectilesMs,
+          " damagenums_ms=", tDamageNumsMs,
+          " ragdolls_ms=", tRagdollsMs,
+          " debris_ms=", tDebrisMs,
+          " dust_ms=", tDustMs,
+          " trails_ms=", tTrailsMs,
+          " spawn_ms=", tSpawnMs,
+          " trade_ms=", tTradeMs,
+          " weather_ms=", tWeatherMs,
+          # Other render phases
           " visual_ms=", tVisualMs,
           " grid_ms=", tGridMs,
           " fog_ms=", tFogMs,
