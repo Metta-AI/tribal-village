@@ -923,7 +923,7 @@ proc drawVisualRanges*(alpha = 0.2) =
     let endY = min(currentViewport.maxY, agent.pos.y + ObservationRadius)
     for x in startX .. endX:
       for y in startY .. endY:
-        visibility[x][y] = true
+        fogVisibility[x][y] = true
 
   # Draw fog with smooth edges
   # Edge smoothing: tiles at the boundary get lighter alpha based on visible neighbors
@@ -933,14 +933,14 @@ proc drawVisualRanges*(alpha = 0.2) =
 
   for x in currentViewport.minX .. currentViewport.maxX:
     for y in currentViewport.minY .. currentViewport.maxY:
-      if not visibility[x][y]:
+      if not fogVisibility[x][y]:
         # Count visible neighbors for edge smoothing
         var visibleNeighbors = 0
         for (dx, dy) in Neighbors:
           let nx = x + dx
           let ny = y + dy
           if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
-            if visibility[nx][ny]:
+            if fogVisibility[nx][ny]:
               visibleNeighbors += 1
 
         # Compute alpha: more visible neighbors = lighter fog (smoother edge)
