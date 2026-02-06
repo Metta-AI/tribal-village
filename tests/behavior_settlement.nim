@@ -5,20 +5,11 @@
 ##
 ## These tests define the expected behavior for the settler migration system.
 ## They depend on the instrumentation from tv-72vq8 being in place.
+## Constants (TownSplitPopulationThreshold, etc.) are imported from
+## src/constants.nim via test_common → types → constants.
 
 import std/[unittest, strformat, math, tables]
 import test_common
-
-# ============================================================================
-# Expected constants for the settler migration system.
-# These should eventually be defined in src/constants.nim once the feature
-# is implemented. Until then, we define them here as the specification.
-# ============================================================================
-const
-  TownSplitPopulationThreshold* = 20  ## Population count that triggers a town split
-  TownSplitSettlerCount* = 10         ## Number of villagers sent as settlers
-  TownSplitMinDistance* = 18          ## Minimum distance for new town placement
-  TownSplitMaxDistance* = 25          ## Maximum distance for new town placement
 
 # ============================================================================
 # Helper procs for settlement tests
@@ -75,9 +66,10 @@ proc euclideanDistance(a, b: IVec2): float =
 suite "Behavior: Town Split Triggers at Threshold":
   test "town split triggers when population exceeds threshold":
     ## Set up a game with 1 team, spawn enough villagers to exceed
-    ## TownSplitPopulationThreshold, run simulation, and verify that
-    ## the team ends up with more than 1 altar and more than 1 town center.
-    let env = makeEmptyEnv()
+    ## TownSplitPopulationThreshold, run simulation with AI controller,
+    ## and verify that the team ends up with more than 1 altar and
+    ## more than 1 town center.
+    let env = setupGameWithAI(seed = 42)
 
     let altarPos = ivec2(50, 50)
     discard addAltar(env, altarPos, 0, 100)
@@ -89,6 +81,9 @@ suite "Behavior: Town Split Triggers at Threshold":
     for i in 0 ..< 10:
       discard addBuilding(env, House, ivec2(45 + i.int32, 45), 0)
 
+    # Provide wood resources needed for town split (requires >= 14 wood)
+    giveTeamPlentyOfResources(env, 0, 500)
+
     # Spawn villagers exceeding the split threshold
     let villagerCount = TownSplitPopulationThreshold + 5
     for i in 0 ..< villagerCount:
@@ -96,9 +91,8 @@ suite "Behavior: Town Split Triggers at Threshold":
       let y = 48 + (i div 10).int32
       discard addAgentAt(env, i, ivec2(x, y), homeAltar = altarPos)
 
-    # Run simulation long enough for split to trigger and complete
-    for step in 0 ..< VeryLongSimSteps:
-      env.stepNoop()
+    # Run simulation with AI controller long enough for split to trigger
+    env.runGameSteps(VeryLongSimSteps * 2)
 
     # After simulation, the team should have expanded
     let altarCount = countAltarsForTeam(env, 0)
@@ -112,9 +106,9 @@ suite "Behavior: Town Split Triggers at Threshold":
 
 suite "Behavior: Villagers Redistribute After Split":
   test "villagers redistribute after town split":
-    ## Set up game, trigger a town split, run simulation until settlers
-    ## arrive and found new town. Verify villager distribution across altars.
-    let env = makeEmptyEnv()
+    ## Set up game with AI, trigger a town split, run simulation until
+    ## settlers arrive and found new town. Verify villager distribution.
+    let env = setupGameWithAI(seed = 42)
 
     let altarPos = ivec2(50, 50)
     discard addAltar(env, altarPos, 0, 100)
@@ -123,6 +117,9 @@ suite "Behavior: Villagers Redistribute After Split":
     # Enough houses for large population
     for i in 0 ..< 15:
       discard addBuilding(env, House, ivec2(40 + i.int32, 45), 0)
+
+    # Provide resources needed for town split
+    giveTeamPlentyOfResources(env, 0, 500)
 
     # Spawn more than threshold villagers
     let villagerCount = TownSplitPopulationThreshold + TownSplitSettlerCount
@@ -134,9 +131,8 @@ suite "Behavior: Villagers Redistribute After Split":
     let totalBefore = countAliveUnits(env, 0)
     echo fmt"  Total villagers before: {totalBefore}"
 
-    # Run simulation for settlers to split and found new town
-    for step in 0 ..< VeryLongSimSteps * 2:
-      env.stepNoop()
+    # Run simulation with AI for settlers to split and found new town
+    env.runGameSteps(VeryLongSimSteps * 2)
 
     # Check villager distribution
     let villagersPerAltar = getVillagersPerAltar(env, 0)
@@ -168,7 +164,7 @@ suite "Behavior: New Town Center Distance":
     ## After a split completes, measure distance between original and new
     ## town center. Assert distance is between TownSplitMinDistance and
     ## TownSplitMaxDistance.
-    let env = makeEmptyEnv()
+    let env = setupGameWithAI(seed = 42)
 
     let altarPos = ivec2(100, 95)
     let tcPos = ivec2(102, 95)
@@ -179,6 +175,9 @@ suite "Behavior: New Town Center Distance":
     for i in 0 ..< 12:
       discard addBuilding(env, House, ivec2(90 + i.int32, 90), 0)
 
+    # Provide resources needed for town split
+    giveTeamPlentyOfResources(env, 0, 500)
+
     # Spawn villagers exceeding threshold
     let villagerCount = TownSplitPopulationThreshold + 5
     for i in 0 ..< villagerCount:
@@ -186,9 +185,8 @@ suite "Behavior: New Town Center Distance":
       let y = 93 + (i div 8).int32
       discard addAgentAt(env, i, ivec2(x, y), homeAltar = altarPos)
 
-    # Run simulation
-    for step in 0 ..< VeryLongSimSteps * 2:
-      env.stepNoop()
+    # Run simulation with AI
+    env.runGameSteps(VeryLongSimSteps * 2)
 
     let tcPositions = getTownCenterPositions(env, 0)
     echo fmt"  Town center positions: {tcPositions}"
@@ -209,7 +207,7 @@ suite "Behavior: New Town Center Distance":
 suite "Behavior: Team Color Preserved After Split":
   test "new town center and altar have same teamId as original":
     ## After split, verify new town center and altar have same teamId.
-    let env = makeEmptyEnv()
+    let env = setupGameWithAI(seed = 42)
 
     let teamId = 0
     let altarPos = ivec2(50, 50)
@@ -220,6 +218,9 @@ suite "Behavior: Team Color Preserved After Split":
     for i in 0 ..< 10:
       discard addBuilding(env, House, ivec2(45 + i.int32, 45), teamId)
 
+    # Provide resources needed for town split
+    giveTeamPlentyOfResources(env, teamId, 500)
+
     # Spawn villagers above threshold
     let villagerCount = TownSplitPopulationThreshold + 5
     for i in 0 ..< villagerCount:
@@ -227,9 +228,8 @@ suite "Behavior: Team Color Preserved After Split":
       let y = 48 + (i div 10).int32
       discard addAgentAt(env, i, ivec2(x, y), homeAltar = altarPos)
 
-    # Run simulation
-    for step in 0 ..< VeryLongSimSteps * 2:
-      env.stepNoop()
+    # Run simulation with AI
+    env.runGameSteps(VeryLongSimSteps * 2)
 
     # All altars should belong to the same team
     let altarPositions = getAltarPositions(env, teamId)
@@ -260,10 +260,10 @@ suite "Behavior: Team Color Preserved After Split":
 
 suite "Behavior: Multiple Splits":
   test "team can split more than once with sufficient population":
-    ## Run a long simulation with generous resources. Assert that the team
-    ## can split more than once (3+ altars eventually).
+    ## Run a long simulation with generous resources and AI controller.
+    ## Assert that the team can split more than once (3+ altars eventually).
     ## This tests that the system works recursively.
-    let env = makeEmptyEnv()
+    let env = setupGameWithAI(seed = 42)
 
     let altarPos = ivec2(100, 95)
     discard addAltar(env, altarPos, 0, 200)  # Lots of hearts
@@ -295,9 +295,8 @@ suite "Behavior: Multiple Splits":
 
     echo fmt"  Starting with {villagerCount} villagers"
 
-    # Run a very long simulation
-    for step in 0 ..< VeryLongSimSteps * 4:
-      env.stepNoop()
+    # Run a very long simulation with AI
+    env.runGameSteps(VeryLongSimSteps * 4)
 
     let altarCount = countAltarsForTeam(env, 0)
     let tcCount = countTownCentersForTeam(env, 0)
