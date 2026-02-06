@@ -73,6 +73,14 @@ const
   WindCycleFrames = 64             # Frames for one full wind cycle
   WindAlpha = 0.35'f32             # Wind particle opacity (subtle)
 
+  # Fire flicker constants
+  LanternFlickerSpeed1 = 0.15'f32    # Primary flicker wave speed
+  LanternFlickerSpeed2 = 0.23'f32    # Secondary flicker wave speed (faster, irregular)
+  LanternFlickerSpeed3 = 0.07'f32    # Tertiary slow wave for organic feel
+  LanternFlickerAmplitude = 0.12'f32 # Brightness variation (+/- 12%)
+  MagmaGlowSpeed = 0.04'f32          # Slower pulsing for magma pools
+  MagmaGlowAmplitude = 0.08'f32      # Subtle glow variation (+/- 8%)
+
 type FloorSpriteKind = enum
   FloorBase
   FloorCave
@@ -747,8 +755,16 @@ proc drawObjects*() =
     if "lantern" in bxy:
       let tint = if thing.lanternHealthy:
         let teamId = thing.teamId
-        if teamId >= 0 and teamId < env.teamColors.len: env.teamColors[teamId]
-        else: color(0.6, 0.6, 0.6, 1.0)
+        let baseColor = if teamId >= 0 and teamId < env.teamColors.len: env.teamColors[teamId]
+                        else: color(0.6, 0.6, 0.6, 1.0)
+        # Multi-wave fire flicker using position-based phase offset for independent animation
+        let posHash = (thingPos.x * 73 + thingPos.y * 137).float32
+        let wave1 = sin((frame.float32 * LanternFlickerSpeed1) + posHash * 0.1)
+        let wave2 = sin((frame.float32 * LanternFlickerSpeed2) + posHash * 0.17)
+        let wave3 = sin((frame.float32 * LanternFlickerSpeed3) + posHash * 0.23)
+        let flicker = 1.0 + LanternFlickerAmplitude * (wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2)
+        color(min(1.2, baseColor.r * flicker), min(1.2, baseColor.g * flicker),
+              min(1.2, baseColor.b * flicker), baseColor.a)
       else: color(0.5, 0.5, 0.5, 1.0)
       bxy.drawImage("lantern", thingPos.vec2, angle = 0, scale = SpriteScale, tint = tint)
 
@@ -887,6 +903,12 @@ proc drawObjects*() =
             bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
           else:
             bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+        elif thing.kind == Magma:
+          # Magma glow pulsing - slower, subtle variation for molten effect
+          let posHash = (thing.pos.x * 73 + thing.pos.y * 137).float32
+          let glow = 1.0 + MagmaGlowAmplitude * sin((frame.float32 * MagmaGlowSpeed) + posHash * 0.1)
+          let tint = color(min(1.2, glow), min(1.1, 0.85 * glow), min(1.0, 0.7 * glow), 1.0)
+          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
         else:
           bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
         if thing.kind in {Magma, Stump} and isTileFrozen(thing.pos, env):
