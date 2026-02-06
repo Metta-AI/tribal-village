@@ -601,8 +601,8 @@ proc initTradingHub(env: Environment, rng: var Rand) =
     let wallMaxX = min(MapWidth - MapBorder - 2, x1 + 2)
     let wallMinY = max(MapBorder + 1, y0 - 2)
     let wallMaxY = min(MapHeight - MapBorder - 2, y1 + 2)
-    let wallChance = 0.6
-    let driftChance = 0.45
+    let wallChance = TradingHubWallChance
+    let driftChance = TradingHubDriftChance
     let topMin = wallMinY
     let topMax = min(wallMaxY, y0 + 2)
     let bottomMin = max(wallMinY, y1 - 2)
@@ -636,7 +636,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       if randChance(rng, driftChance):
         rightX = max(rightMin, min(rightMax, rightX + randIntInclusive(rng, -1, 1)))
 
-    let spurCount = randIntInclusive(rng, 8, 14)
+    let spurCount = randIntInclusive(rng, TradingHubSpurCountMin, TradingHubSpurCountMax)
     let spurDirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
     for _ in 0 ..< spurCount:
       let startX = randIntInclusive(rng, x0 + 1, x1 - 1)
@@ -644,13 +644,13 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       if startX == roadX or startY == centerY:
         continue
       let dir = spurDirs[randIntInclusive(rng, 0, spurDirs.len - 1)]
-      let length = randIntInclusive(rng, 2, 4)
+      let length = randIntInclusive(rng, TradingHubSpurLengthMin, TradingHubSpurLengthMax)
       var pos = ivec2(startX.int32, startY.int32)
       for _ in 0 ..< length:
         tryAddWall(pos.x.int, pos.y.int)
         pos = pos + dir
 
-    var towerSlots = min(4, wallPositions.len)
+    var towerSlots = min(TradingHubTowerSlots, wallPositions.len)
     while towerSlots > 0 and wallPositions.len > 0:
       let wallIdx = randIntInclusive(rng, 0, wallPositions.len - 1)
       let pos = wallPositions[wallIdx]
@@ -664,8 +664,8 @@ proc initTradingHub(env: Environment, rng: var Rand) =
 
     let center = ivec2(centerX.int32, centerY.int32)
     env.add(Thing(kind: Castle, pos: center, teamId: -1))
-    let hubCoreMultiplier = 2
-    let hubScatterMultiplier = 3
+    let hubCoreMultiplier = TradingHubCoreMultiplier
+    let hubScatterMultiplier = TradingHubScatterMultiplier
     let baseHubBuildings = @[
       Market, Market, Market, Outpost, Blacksmith, ClayOven, WeavingLoom,
       Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
@@ -679,13 +679,13 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       let j = randIntInclusive(rng, 0, i)
       swap(hubBuildings[i], hubBuildings[j])
     var placed = 0
-    let mainTarget = min(hubBuildings.len, randIntInclusive(rng, 10, 14) * hubCoreMultiplier)
+    let mainTarget = min(hubBuildings.len, randIntInclusive(rng, TradingHubMainBuildingMin, TradingHubMainBuildingMax) * hubCoreMultiplier)
     for kind in hubBuildings:
       if placed >= mainTarget:
         break
       var attempts = 0
       var placedHere = false
-      while attempts < 80 and not placedHere:
+      while attempts < TradingHubBuildingAttempts and not placedHere:
         inc attempts
         let x = randIntInclusive(rng, x0 + 1, x1 - 1)
         let y = randIntInclusive(rng, y0 + 1, y1 - 1)
@@ -706,7 +706,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
         placedHere = true
 
     let minorPool = [House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill]
-    let extraTarget = randIntInclusive(rng, 6, 10) * hubCoreMultiplier
+    let extraTarget = randIntInclusive(rng, TradingHubExtraBuildingMin, TradingHubExtraBuildingMax) * hubCoreMultiplier
     var extraPlaced = 0
     var extraAttempts = 0
     while extraPlaced < extraTarget and extraAttempts < extraTarget * 60:
@@ -729,9 +729,9 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       House, House, House, House, Barrel, Barrel, Outpost, Market, Granary, Mill,
       LumberCamp, Quarry, MiningCamp, WeavingLoom, ClayOven, Blacksmith, University
     ]
-    let scatterTarget = randIntInclusive(rng, 24, 36) * hubScatterMultiplier
-    let scatterRadius = half + 18
-    let scatterInner = half + 4
+    let scatterTarget = randIntInclusive(rng, TradingHubScatterBuildingMin, TradingHubScatterBuildingMax) * hubScatterMultiplier
+    let scatterRadius = half + TradingHubScatterPadding
+    let scatterInner = half + TradingHubScatterInnerPad
     var scatterPlaced = 0
     var scatterAttempts = 0
     while scatterPlaced < scatterTarget and scatterAttempts < scatterTarget * 80:
@@ -984,12 +984,11 @@ proc placeStartingHouses(env: Environment, center: IVec2, teamId: int,
     inc placed
 
 proc placeTemple(env: Environment, rng: var Rand, villageCenters: seq[IVec2]) =
-  const TempleMinDistance = 10
   let center = ivec2((MapWidth div 2).int32, (MapHeight div 2).int32)
   var placed = false
-  for _ in 0 ..< 200:
-    let dx = randIntInclusive(rng, -14, 14)
-    let dy = randIntInclusive(rng, -14, 14)
+  for _ in 0 ..< TemplePlacementAttempts:
+    let dx = randIntInclusive(rng, -TemplePlacementRange, TemplePlacementRange)
+    let dy = randIntInclusive(rng, -TemplePlacementRange, TemplePlacementRange)
     let pos = center + ivec2(dx.int32, dy.int32)
     if not isValidPos(pos):
       continue
@@ -1030,9 +1029,9 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
   var tempVillageCenters: seq[IVec2] = @[]  # Used for spacing constraint
   for _ in 0 ..< numTeams:
     let villageStruct = block:
-      const size = 7
-      const radius = 3
-      let center = ivec2(radius, radius)
+      let size = VillageStructureSize
+      let radius = VillageStructureRadius
+      let center = ivec2(radius.int32, radius.int32)
       var layout: seq[seq[char]] = newSeq[seq[char]](size)
       for y in 0 ..< size:
         layout[y] = newSeq[char](size)
@@ -1040,11 +1039,11 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
           layout[y][x] = ' '
       for y in 0 ..< size:
         for x in 0 ..< size:
-          if abs(x - center.x) + abs(y - center.y) <= 2:
+          if abs(x - center.x) + abs(y - center.y) <= VillageFloorDistance:
             layout[y][x] = StructureFloorChar
       Structure(width: size, height: size, centerPos: center, layout: layout)
     var placementPosition: IVec2
-    let placed = tryPickEmptyPos(rng, env, 200, proc(candidatePos: IVec2, attempt: int): bool =
+    let placed = tryPickEmptyPos(rng, env, TemplePlacementAttempts, proc(candidatePos: IVec2, attempt: int): bool =
       for dy in 0 ..< villageStruct.height:
         for dx in 0 ..< villageStruct.width:
           let checkX = candidatePos.x + dx
@@ -1087,9 +1086,9 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
     let placementPosition = foundPositions[i]
     let villageStruct = block:
       ## Small town starter: altar + town center, no walls.
-      const size = 7
-      const radius = 3
-      let center = ivec2(radius, radius)
+      let size = VillageStructureSize
+      let radius = VillageStructureRadius
+      let center = ivec2(radius.int32, radius.int32)
       var layout: seq[seq[char]] = newSeq[seq[char]](size)
       for y in 0 ..< size:
         layout[y] = newSeq[char](size)
@@ -1099,7 +1098,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
       # Clear a small plaza around the altar so the start isn't cluttered.
       for y in 0 ..< size:
         for x in 0 ..< size:
-          if abs(x - center.x) + abs(y - center.y) <= 2:
+          if abs(x - center.x) + abs(y - center.y) <= VillageFloorDistance:
             layout[y][x] = StructureFloorChar
 
       Structure(
@@ -1557,8 +1556,8 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
         placeResourceCluster(env, x, y, groveSize, 0.8, 0.4, Tree, ItemWood, ResourceGround, rng)
 
     proc buildClusterSizes(targetDeposits: int, clusterCount: int, rng: var Rand): seq[int] =
-      let minCluster = 3
-      let maxCluster = 4
+      let minCluster = ClusterMineSizeMin
+      let maxCluster = ClusterMineSizeMax
       let minDeposits = clusterCount * minCluster
       let maxDeposits = clusterCount * maxCluster
       let clamped = max(minDeposits, min(maxDeposits, targetDeposits))
@@ -1595,14 +1594,14 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
     let fishClusters = max(8, MapWidth div 20)
     for _ in 0 ..< fishClusters:
       var placed = false
-      for attempt in 0 ..< 20:
+      for attempt in 0 ..< FishPlacementAttempts:
         let pos = randInteriorPos(rng, 2)
         let x = pos.x.int
         let y = pos.y.int
         if env.terrain[x][y] notin {Water, ShallowWater}:
           continue
-        let size = randIntInclusive(rng, 3, 7)
-        placeResourceCluster(env, x, y, size, 0.85, 0.45, Fish, ItemFish, {Water, ShallowWater}, rng)
+        let size = randIntInclusive(rng, FishClusterSizeMin, FishClusterSizeMax)
+        placeResourceCluster(env, x, y, size, ClusterDensityHigh, ClusterFalloffSteep, Fish, ItemFish, {Water, ShallowWater}, rng)
         placed = true
         break
       if not placed:
@@ -1622,12 +1621,12 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
         env.add(relic)
         inc relicsPlaced
 
-    for _ in 0 ..< 30:
+    for _ in 0 ..< BushClusterCount:
       let pos = pickInteriorPos(rng, 2, 12, proc(pos: IVec2, attempt: int): bool =
-        isNearWater(env, pos, 4) or attempt >= 9
+        isNearWater(env, pos, BushWaterProximity) or attempt >= 9
       )
-      let size = randIntInclusive(rng, 3, 7)
-      placeResourceCluster(env, pos.x.int, pos.y.int, size, 0.75, 0.45, Bush, ItemPlant, ResourceGround, rng)
+      let size = randIntInclusive(rng, BushClusterSizeMin, BushClusterSizeMax)
+      placeResourceCluster(env, pos.x.int, pos.y.int, size, ClusterDensityMedium, ClusterFalloffSteep, Bush, ItemPlant, ResourceGround, rng)
 
     placeBiomeResourceClusters(env, rng, max(10, MapWidth div 20),
       2, 5, 0.65, 0.4, Cactus, ItemPlant, BiomeDesertType)

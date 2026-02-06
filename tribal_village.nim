@@ -264,7 +264,7 @@ proc display() =
     if (window.buttonDown[MouseLeft] and not isDragging) or window.buttonDown[MouseMiddle]:
       worldMapPanel.vel = window.mouseDelta.vec2 / window.contentScale
     else:
-      worldMapPanel.vel *= 0.9
+      worldMapPanel.vel *= VelocityDecayRate
 
     worldMapPanel.pos += worldMapPanel.vel
 
@@ -273,7 +273,7 @@ proc display() =
       let rectOrigin = vec2(panelRect.x / scaleF, panelRect.y / scaleF)
       let localMouse = logicalMousePos(window) - rectOrigin
 
-      let zoomSensitivity = when defined(emscripten): 0.002 else: 0.005
+      let zoomSensitivity = when defined(emscripten): ZoomSensitivityWeb else: ZoomSensitivityDesktop
       let oldMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
       let oldWorldPoint = oldMat.inverse() * localMouse
 
@@ -306,7 +306,7 @@ proc display() =
       var cx = (rectW / 2.0'f32 - worldMapPanel.pos.x) / zoomScale
       var cy = (rectH / 2.0'f32 - worldMapPanel.pos.y) / zoomScale
 
-      let minVisiblePixels = min(500.0'f32, min(rectW, rectH) * 0.5'f32)
+      let minVisiblePixels = min(MinVisibleMapPixels, min(rectW, rectH) * 0.5'f32)
       let minVisibleWorld = minVisiblePixels / zoomScale
       let maxVisibleUnitsX = min(minVisibleWorld, mapWidthF / 2.0'f32)
       let maxVisibleUnitsY = min(minVisibleWorld, mapHeightF / 2.0'f32)
@@ -487,7 +487,7 @@ proc display() =
 
     if window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
       let dragDist = (logicalMousePos(window) - mouseDownPos).length
-      if dragDist > 5.0:
+      if dragDist > DragDistanceThreshold:
         isDragging = true
 
     if window.buttonReleased[MouseLeft]:
@@ -648,7 +648,7 @@ proc display() =
   let ctrlDown = window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl]
   const numberKeys = [Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9]
   let groupNow = nowSeconds()
-  const doubleTapThreshold = 0.3  # seconds
+  let doubleTapThreshold = DoubleTapThreshold  # Use named constant
 
   for i in 0 ..< ControlGroupCount:
     if window.buttonPressed[numberKeys[i]]:
@@ -948,8 +948,8 @@ proc display() =
     let maxX = max(dragStartWorld.x, dragEndWorld.x)
     let minY = min(dragStartWorld.y, dragEndWorld.y)
     let maxY = max(dragStartWorld.y, dragEndWorld.y)
-    let lineWidth = 0.05'f32  # Thin line in world units
-    let dragColor = color(0.2, 0.9, 0.2, 0.8)
+    let lineWidth = SelectionBoxLineWidth
+    let dragColor = color(SelectionBoxColorR, SelectionBoxColorG, SelectionBoxColorB, SelectionBoxAlpha)
     # Top edge
     bxy.drawRect(Rect(x: minX, y: minY, w: maxX - minX, h: lineWidth), dragColor)
     # Bottom edge
