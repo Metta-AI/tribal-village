@@ -733,17 +733,13 @@ proc drawObjects*() =
     if key in bxy:
       bxy.drawImage(key, thingPos.vec2, angle = 0, scale = SpriteScale)
 
-  drawThings(Cow):
-    let cowKey = if thing.orientation == Orientation.E: "oriented/cow.r" else: "oriented/cow"
-    if cowKey in bxy:
-      bxy.drawImage(cowKey, thingPos.vec2, angle = 0, scale = SpriteScale)
-
   template drawOrientedThings(thingKind: ThingKind, prefix: string) =
     drawThings(thingKind):
       let key = prefix & OrientationDirKeys[thing.orientation.int]
       if key in bxy:
         bxy.drawImage(key, thingPos.vec2, angle = 0, scale = SpriteScale)
 
+  drawOrientedThings(Cow, "oriented/cow.")
   drawOrientedThings(Bear, "oriented/bear.")
   drawOrientedThings(Wolf, "oriented/wolf.")
 
