@@ -458,30 +458,34 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   let garrisonCount = tower.garrisonedUnits.len
   if garrisonCount > 0:
     let bonusArrows = garrisonCount * GarrisonArrowBonus
-    var allTargets = newSeqOfCap[Thing](32)
-    collectEnemiesInRangeSpatial(env, tower.pos, tower.teamId, range, allTargets)
+    # Reuse env temp buffer to avoid per-call heap allocation
+    env.tempTowerTargets.setLen(0)
+    collectEnemiesInRangeSpatial(env, tower.pos, tower.teamId, range, env.tempTowerTargets)
+    # Filter by minRange in-place (swap-and-pop) to avoid second allocation
     if minRange > 1:
-      var filtered = newSeqOfCap[Thing](allTargets.len)
-      for t in allTargets:
-        if chebyshevDist(t.pos, tower.pos) >= minRange:
-          filtered.add(t)
-      allTargets = filtered
-    # Use spatial query for Tumor/Spawner targets instead of O(n) scan
-    for kind in [Tumor, Spawner]:
-      collectThingsInRangeSpatial(env, tower.pos, kind, range, allTargets)
-    # Filter by minRange after collection (spatial query doesn't support minRange)
-    if minRange > 1 and allTargets.len > 0:
       var i = 0
-      while i < allTargets.len:
-        if allTargets[i].kind in {Tumor, Spawner} and
-           chebyshevDist(allTargets[i].pos, tower.pos) < minRange:
-          allTargets[i] = allTargets[^1]
-          allTargets.setLen(allTargets.len - 1)
+      while i < env.tempTowerTargets.len:
+        if chebyshevDist(env.tempTowerTargets[i].pos, tower.pos) < minRange:
+          env.tempTowerTargets[i] = env.tempTowerTargets[^1]
+          env.tempTowerTargets.setLen(env.tempTowerTargets.len - 1)
         else:
           inc i
-    if allTargets.len > 0:
+    # Use spatial query for Tumor/Spawner targets instead of O(n) scan
+    for kind in [Tumor, Spawner]:
+      collectThingsInRangeSpatial(env, tower.pos, kind, range, env.tempTowerTargets)
+    # Filter Tumor/Spawner by minRange after collection (spatial query doesn't support minRange)
+    if minRange > 1 and env.tempTowerTargets.len > 0:
+      var i = 0
+      while i < env.tempTowerTargets.len:
+        if env.tempTowerTargets[i].kind in {Tumor, Spawner} and
+           chebyshevDist(env.tempTowerTargets[i].pos, tower.pos) < minRange:
+          env.tempTowerTargets[i] = env.tempTowerTargets[^1]
+          env.tempTowerTargets.setLen(env.tempTowerTargets.len - 1)
+        else:
+          inc i
+    if env.tempTowerTargets.len > 0:
       for i in 0 ..< bonusArrows:
-        let bonusTarget = allTargets[i mod allTargets.len]
+        let bonusTarget = env.tempTowerTargets[i mod env.tempTowerTargets.len]
         env.applyActionTint(bonusTarget.pos, tint, tintDuration, tintCode)
         env.spawnProjectile(tower.pos, bonusTarget.pos, projKind)
         applyTowerHit(bonusTarget)
@@ -494,13 +498,14 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
     return
 
   # Gather all valid targets in range using spatial index
-  var targets = newSeqOfCap[Thing](32)
-  collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, targets)
+  # Reuse env temp buffer to avoid per-call heap allocation
+  env.tempTCTargets.setLen(0)
+  collectEnemiesInRangeSpatial(env, tc.pos, tc.teamId, TownCenterRange, env.tempTCTargets)
   # Use spatial query for Tumor/Spawner targets instead of O(n) scan
   for kind in [Tumor, Spawner]:
-    collectThingsInRangeSpatial(env, tc.pos, kind, TownCenterRange, targets)
+    collectThingsInRangeSpatial(env, tc.pos, kind, TownCenterRange, env.tempTCTargets)
 
-  if targets.len == 0:
+  if env.tempTCTargets.len == 0:
     return
 
   # Calculate number of arrows: base damage + 1 per garrisoned unit
@@ -509,8 +514,8 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
 
   # Fire arrows at targets (round-robin if more arrows than targets)
   for i in 0 ..< arrowCount:
-    let targetIdx = i mod targets.len
-    let target = targets[targetIdx]
+    let targetIdx = i mod env.tempTCTargets.len
+    let target = env.tempTCTargets[targetIdx]
     env.applyActionTint(target.pos, TownCenterAttackTint, TownCenterAttackTintDuration,
                         ActionTintAttackTower)
     env.spawnProjectile(tc.pos, target.pos, ProjTowerArrow)
@@ -572,7 +577,8 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
     return
 
   # Find empty tiles around the building (5x5 grid minus center = 24 max)
-  var emptyTiles = newSeqOfCap[IVec2](24)
+  # Reuse env temp buffer to avoid per-call heap allocation
+  env.tempEmptyTiles.setLen(0)
   for dy in -2 .. 2:
     for dx in -2 .. 2:
       if dx == 0 and dy == 0:
@@ -584,13 +590,13 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
         continue
       if env.terrain[pos.x][pos.y] == Water:
         continue
-      emptyTiles.add(pos)
+      env.tempEmptyTiles.add(pos)
 
   var tileIdx = 0
   for unit in building.garrisonedUnits:
-    if tileIdx >= emptyTiles.len:
+    if tileIdx >= env.tempEmptyTiles.len:
       break  # No more space, remaining units stay garrisoned
-    let pos = emptyTiles[tileIdx]
+    let pos = env.tempEmptyTiles[tileIdx]
     unit.pos = pos
     unit.isGarrisoned = false
     env.grid[pos.x][pos.y] = unit
