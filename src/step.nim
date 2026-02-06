@@ -23,20 +23,15 @@ when defined(rewardBatch):
       rewardBatchCumMs = 0.0
       rewardBatchSteps = 0
 
-proc parseEnvInt(raw: string, fallback: int): int =
-  if raw.len == 0:
-    return fallback
-  try:
-    parseInt(raw)
-  except ValueError:
-    fallback
+# parseEnvInt is now provided by envconfig module (imported by environment.nim)
+# Use parseEnvIntRaw for cases where we already have the raw string value
 
 when defined(stepTiming):
   import std/monotimes
 
-  let stepTimingTarget = parseEnvInt(getEnv("TV_STEP_TIMING", ""), -1)
-  let stepTimingWindow = parseEnvInt(getEnv("TV_STEP_TIMING_WINDOW", "0"), 0)
-  let stepTimingInterval = parseEnvInt(getEnv("TV_TIMING_INTERVAL", "100"), 100)
+  let stepTimingTarget = parseEnvInt("TV_STEP_TIMING", -1)
+  let stepTimingWindow = parseEnvInt("TV_STEP_TIMING_WINDOW", 0)
+  let stepTimingInterval = parseEnvInt("TV_TIMING_INTERVAL", 100)
 
   proc msBetween(a, b: MonoTime): float64 =
     (b.ticks - a.ticks).float64 / 1_000_000.0
@@ -95,9 +90,9 @@ when defined(perfRegression):
 when defined(flameGraph):
   include "flame_graph"
 
-let logRenderEnabled = getEnv("TV_LOG_RENDER", "") notin ["", "0", "false"]
-let logRenderWindow = max(100, parseEnvInt(getEnv("TV_LOG_RENDER_WINDOW", "100"), 100))
-let logRenderEvery = max(1, parseEnvInt(getEnv("TV_LOG_RENDER_EVERY", "1"), 1))
+let logRenderEnabled = parseEnvBool("TV_LOG_RENDER", false)
+let logRenderWindow = max(100, parseEnvInt("TV_LOG_RENDER_WINDOW", 100))
+let logRenderEvery = max(1, parseEnvInt("TV_LOG_RENDER_EVERY", 1))
 let logRenderPath = block:
   let raw = getEnv("TV_LOG_RENDER_PATH", "")
   if raw.len > 0: raw else: "tribal_village.log"

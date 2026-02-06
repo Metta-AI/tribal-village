@@ -17,14 +17,7 @@
 when defined(perfRegression):
   import std/[monotimes, strutils, json, os, algorithm, math]
 
-  when not declared(parseEnvInt):
-    proc parseEnvInt(raw: string, fallback: int): int =
-      if raw.len == 0:
-        return fallback
-      try:
-        parseInt(raw)
-      except ValueError:
-        fallback
+  # parseEnvInt is provided by envconfig module (imported by environment.nim)
 
   const
     PerfSubsystemCount* = 11
@@ -194,22 +187,17 @@ when defined(perfRegression):
          " (", result.stepCount, " samples, window=", result.windowSize, ")"
 
   proc initPerfRegression*() =
-    let windowSize = parseEnvInt(getEnv("TV_PERF_WINDOW", ""), DefaultWindowSize)
-    let threshold = getEnv("TV_PERF_THRESHOLD", "")
-    let interval = parseEnvInt(getEnv("TV_PERF_INTERVAL", ""), DefaultReportInterval)
+    let windowSize = parseEnvInt("TV_PERF_WINDOW", DefaultWindowSize)
+    let interval = parseEnvInt("TV_PERF_INTERVAL", DefaultReportInterval)
     let baselinePath = getEnv("TV_PERF_BASELINE", "")
     let savePath = getEnv("TV_PERF_SAVE_BASELINE", "")
-    let failOn = getEnv("TV_PERF_FAIL_ON_REGRESSION", "")
 
     perfState.window = initSlidingWindow(windowSize)
-    perfState.thresholdPct = if threshold.len > 0:
-      parseFloat(threshold)
-    else:
-      DefaultThresholdPct
+    perfState.thresholdPct = parseEnvFloat("TV_PERF_THRESHOLD", DefaultThresholdPct)
     perfState.reportInterval = max(1, interval)
     perfState.stepsSinceReport = 0
     perfState.saveBaselinePath = savePath
-    perfState.failOnRegression = failOn == "1"
+    perfState.failOnRegression = parseEnvBool("TV_PERF_FAIL_ON_REGRESSION", false)
     perfState.regressionDetected = false
 
     if baselinePath.len > 0 and fileExists(baselinePath):
