@@ -33,7 +33,7 @@ when defined(tumorAudit):
 
   proc initTumorAudit*() =
     tumorAudit = TumorAuditState(
-      reportInterval: max(1, parseInt(getEnv("TV_TUMOR_REPORT_INTERVAL", "100"))),
+      reportInterval: max(1, parseEnvInt("TV_TUMOR_REPORT_INTERVAL", 100)),
       lastReportStep: 0
     )
     tumorAuditInitialized = true

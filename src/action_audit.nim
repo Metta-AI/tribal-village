@@ -38,7 +38,7 @@ when defined(actionAudit):
 
   proc initActionAudit*() =
     actionAuditState = ActionAuditState(
-      reportInterval: max(1, parseInt(getEnv("TV_ACTION_AUDIT_INTERVAL", "100")))
+      reportInterval: max(1, parseEnvInt("TV_ACTION_AUDIT_INTERVAL", 100))
     )
     actionAuditInitialized = true
 

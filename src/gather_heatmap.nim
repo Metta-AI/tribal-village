@@ -25,10 +25,7 @@ when defined(gatherHeatmap):
     heatmapCounts*: array[HeatCellsX, array[HeatCellsY, array[GatherResourceKind, int]]]
     heatmapStepsSinceReset*: int = 0
 
-  block:
-    let raw = getEnv("TV_HEATMAP_INTERVAL", "50")
-    try: heatmapInterval = max(1, parseInt(raw))
-    except ValueError: discard
+  heatmapInterval = max(1, parseEnvInt("TV_HEATMAP_INTERVAL", 50))
 
   proc resetHeatmap*() =
     for cx in 0 ..< HeatCellsX:

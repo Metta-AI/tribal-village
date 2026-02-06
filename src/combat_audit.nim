@@ -54,9 +54,8 @@ when defined(combatAudit):
   proc initCombatAudit*() =
     auditState = CombatAuditState(
       events: @[],
-      reportInterval: max(1, parseInt(getEnv("TV_COMBAT_REPORT_INTERVAL", "100"))
-        .int),
-      verbose: getEnv("TV_COMBAT_VERBOSE", "") notin ["", "0", "false"],
+      reportInterval: max(1, parseEnvInt("TV_COMBAT_REPORT_INTERVAL", 100)),
+      verbose: parseEnvBool("TV_COMBAT_VERBOSE", false),
       lastReportStep: 0
     )
     for i in 0 ..< auditState.teamStats.len:

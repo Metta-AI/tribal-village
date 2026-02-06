@@ -15,14 +15,7 @@
 when defined(flameGraph):
   import std/[monotimes, strutils, os]
 
-  when not declared(parseEnvInt):
-    proc parseEnvInt(raw: string, fallback: int): int =
-      if raw.len == 0:
-        return fallback
-      try:
-        parseInt(raw)
-      except ValueError:
-        fallback
+  # parseEnvInt is provided by envconfig module (imported by environment.nim)
 
   const
     FlameSubsystemCount* = 11
@@ -54,8 +47,8 @@ when defined(flameGraph):
 
   proc initFlameGraph*() =
     let outputPath = getEnv("TV_FLAME_OUTPUT", DefaultFlameOutput)
-    let flushInterval = parseEnvInt(getEnv("TV_FLAME_INTERVAL", ""), DefaultFlameInterval)
-    let sampleInterval = parseEnvInt(getEnv("TV_FLAME_SAMPLE", ""), DefaultFlameSample)
+    let flushInterval = parseEnvInt("TV_FLAME_INTERVAL", DefaultFlameInterval)
+    let sampleInterval = parseEnvInt("TV_FLAME_SAMPLE", DefaultFlameSample)
 
     flameState.outputPath = outputPath
     flameState.flushInterval = max(1, flushInterval)

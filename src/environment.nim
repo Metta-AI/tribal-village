@@ -1,5 +1,6 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
+import envconfig
 import terrain, items, common, biome
 import types, registry
 import spatial_index

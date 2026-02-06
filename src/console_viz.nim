@@ -7,13 +7,8 @@
 # Included by environment.nim — types, strutils are in scope.
 import std/os
 
-let consoleVizEnabled* = getEnv("TV_CONSOLE_VIZ", "") notin ["", "0", "false"]
-let consoleVizInterval* = block:
-  let raw = getEnv("TV_VIZ_INTERVAL", "10")
-  var v = 10
-  try: v = parseInt(raw)
-  except ValueError: discard
-  max(1, v)
+let consoleVizEnabled* = parseEnvBool("TV_CONSOLE_VIZ", false)
+let consoleVizInterval* = max(1, parseEnvInt("TV_VIZ_INTERVAL", 10))
 
 # ANSI escape helpers
 const
