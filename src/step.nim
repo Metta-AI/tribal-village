@@ -627,7 +627,6 @@ proc stepApplyTankAuras(env: Environment) =
 proc stepApplyMonkAuras(env: Environment) =
   ## Apply monk aura tints and heal nearby allies
   ## Optimized: iterates only monkUnits collection instead of all agents
-  var healFlags: array[MapAgents, bool]
   for monk in env.monkUnits:
     if not isAgentAlive(env, monk):
       continue
@@ -659,16 +658,10 @@ proc stepApplyMonkAuras(env: Environment) =
           continue
         env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
 
+    # Apply healing directly to spatially-collected allies (no redundant agent scan)
     for ally in env.tempMonkAuraAllies:
-      if not isThingFrozen(ally, env):
-        healFlags[ally.agentId] = true
-
-  for agentId in 0 ..< env.agents.len:
-    if not healFlags[agentId]:
-      continue
-    let target = env.agents[agentId]
-    if isAgentAlive(env, target) and target.hp < target.maxHp and not isThingFrozen(target, env):
-      target.hp = min(target.maxHp, target.hp + 1)
+      if isAgentAlive(env, ally) and ally.hp < ally.maxHp and not isThingFrozen(ally, env):
+        ally.hp = min(ally.maxHp, ally.hp + 1)
 
 proc stepRechargeMonkFaith(env: Environment) =
   ## Regenerate faith for monks over time (AoE2-style faith recharge)
