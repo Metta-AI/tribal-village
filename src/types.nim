@@ -841,6 +841,22 @@ const
   ConstructionDustPoolCapacity* = 64      ## Initial capacity for dust pool
   ConstructionDustParticleCount* = 3      ## Number of dust particles per construction tick
 
+type
+  UnitTrail* = object
+    ## A dust/footprint particle spawned behind moving units.
+    ## Creates a trail effect that fades out as units move across the map.
+    pos*: Vec2           ## World position where trail was left
+    velocity*: Vec2      ## Slight drift velocity (for dust dispersal)
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+    teamId*: int8        ## Team of the unit that left this trail (for coloring)
+
+const
+  ## Unit trail visual constants
+  UnitTrailLifetime* = 20'i8          ## Frames trail particles persist
+  UnitTrailPoolCapacity* = 256        ## Initial capacity for trail pool (many units moving)
+  UnitTrailSpawnChance* = 3           ## Spawn trail every N moves (reduces particle count)
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1192,6 +1208,7 @@ type
     dyingUnits*: seq[DyingUnit]  # Units in death animation (fade-out before corpse)
     gatherSparkles*: seq[GatherSparkle]  # Sparkle particles when collecting resources
     constructionDust*: seq[ConstructionDust]  # Dust particles during building construction
+    unitTrails*: seq[UnitTrail]  # Dust/footprint trails behind moving units
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
