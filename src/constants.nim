@@ -43,6 +43,7 @@ const
   GuardTowerGarrisonCapacity* = 5
   HouseGarrisonCapacity* = 5
   GarrisonArrowBonus* = 1
+  GarrisonSeekRadius* = 15  # Max distance AI villagers will seek garrisonable buildings under threat
 
   # ============================================================================
   # Siege
