@@ -304,9 +304,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         for name, argtypes, restype, optional in func_specs:
             func = getattr(self.lib, name, None)
+            if func is None and optional:
+                continue
             if func is None:
-                if optional:
-                    continue
                 raise AttributeError(f"Required symbol missing: {name}")
             if argtypes is not None:
                 func.argtypes = argtypes

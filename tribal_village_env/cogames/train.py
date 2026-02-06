@@ -195,10 +195,8 @@ def train(settings: dict[str, Any]) -> None:
         )
         num_workers = adjusted_workers
 
-    vector_batch_size = settings.get("vector_batch_size")
-    if vector_batch_size is None:
-        vector_batch_size = num_envs
-    elif num_envs % vector_batch_size != 0:
+    vector_batch_size = settings.get("vector_batch_size") or num_envs
+    if num_envs % vector_batch_size != 0:
         logger.warning(
             "vector_batch_size=%s does not evenly divide num_envs=%s; resetting to %s",
             vector_batch_size,
