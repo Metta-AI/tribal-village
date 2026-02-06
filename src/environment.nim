@@ -1,7 +1,7 @@
 import std/[algorithm, strutils, tables, sets], vmath, chroma
 import entropy
 import envconfig
-import terrain, items, common, biome
+import terrain, items, common_types, biome
 import types, registry
 import spatial_index
 import formations
@@ -17,7 +17,7 @@ when defined(settlerMetrics):
   import settler_metrics
 when defined(audio):
   import audio_events
-export terrain, items, common
+export terrain, items, common_types
 export types, registry
 export spatial_index
 export formations

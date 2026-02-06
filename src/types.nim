@@ -8,8 +8,8 @@
 ##   2. Other modules that use these types
 
 import std/[tables, sets], vmath, chroma
-import terrain, items, common, constants
-export terrain, items, common, constants
+import terrain, items, common_types, constants
+export terrain, items, common_types, constants
 
 # Re-export key types from dependencies
 export tables, vmath, chroma
