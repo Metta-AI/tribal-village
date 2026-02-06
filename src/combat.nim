@@ -318,6 +318,15 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
         env.monkUnits[i] = env.monkUnits[^1]
         env.monkUnits.setLen(env.monkUnits.len - 1)
         break
+  elif victim.unitClass == UnitVillager:
+    # Remove from teamVillagers cache (swap-and-pop for O(1))
+    let teamId = getTeamId(victim)
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      for i in 0 ..< env.teamVillagers[teamId].len:
+        if env.teamVillagers[teamId][i] == victim:
+          env.teamVillagers[teamId][i] = env.teamVillagers[teamId][^1]
+          env.teamVillagers[teamId].setLen(env.teamVillagers[teamId].len - 1)
+          break
 
   when defined(eventLog):
     logDeath(getTeamId(victim), $victim.unitClass,

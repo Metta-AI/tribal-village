@@ -722,6 +722,21 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   elif isMonk and not wasMonk:
     env.monkUnits.add(agent)
 
+  # Villager tracking for town bell garrison optimization
+  let wasVillager = oldClass == UnitVillager
+  let isVillager = unitClass == UnitVillager
+  # teamId already computed above at function start
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    if wasVillager and not isVillager:
+      # Remove from teamVillagers (swap-and-pop for O(1))
+      for i in 0 ..< env.teamVillagers[teamId].len:
+        if env.teamVillagers[teamId][i] == agent:
+          env.teamVillagers[teamId][i] = env.teamVillagers[teamId][^1]
+          env.teamVillagers[teamId].setLen(env.teamVillagers[teamId].len - 1)
+          break
+    elif isVillager and not wasVillager:
+      env.teamVillagers[teamId].add(agent)
+
 proc embarkAgent*(agent: Thing) =
   if agent.unitClass in {UnitBoat, UnitTradeCog}:
     return

@@ -160,6 +160,10 @@ proc initState(env: Environment) =
   env.tankUnits.setLen(0)
   env.monkUnits.setLen(0)
 
+  # Clear villager tracking per team
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.teamVillagers[teamId].setLen(0)
+
   # Reset victory conditions (must be -1, not default 0, or Team 0 wins immediately)
   env.victoryWinner = -1
   for teamId in 0 ..< MapRoomObjectsTeams:

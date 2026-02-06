@@ -168,6 +168,11 @@ proc add*(env: Environment, thing: Thing) =
       env.tankUnits.add(thing)
     elif thing.unitClass == UnitMonk:
       env.monkUnits.add(thing)
+    # Add villagers to per-team cache for O(team_size) town bell garrison
+    if thing.unitClass == UnitVillager:
+      let teamId = getTeamId(thing)
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        env.teamVillagers[teamId].add(thing)
   if isValidPos(thing.pos):
     if isBlocking:
       env.grid[thing.pos.x][thing.pos.y] = thing
