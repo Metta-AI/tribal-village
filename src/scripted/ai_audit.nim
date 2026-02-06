@@ -1,9 +1,11 @@
-# This file is included by src/agent_control.nim
 ## AI decision audit logging system.
 ## Compile with -d:aiAudit to enable. At runtime:
 ##   TV_AI_LOG=1  -> summary every 50 steps
 ##   TV_AI_LOG=2  -> verbose per-agent per-step logging
 ## When compiled without -d:aiAudit, this file is a no-op.
+
+import ai_types
+export ai_types
 
 when defined(aiAudit):
   import std/[os, strformat, strutils]

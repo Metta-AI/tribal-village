@@ -1,6 +1,5 @@
-# This file is included by src/agent_control.nim
-## Simplified AI system - clean and efficient
-## Replaces the 1200+ line complex system with ~150 lines
+## Core AI system module - imported by agent_control.nim via ai_defaults.
+## Provides foundational AI types, pathfinding, and utility functions.
 import std/[tables, sets]
 import ../entropy
 import vmath
@@ -8,8 +7,8 @@ import ../environment, ../common, ../terrain
 import ai_types
 import coordination
 
-# Re-export types from ai_types for backwards compatibility with include chain
-export ai_types
+# Re-export modules so downstream importers get full environment/AI type access
+export ai_types, environment, common, terrain, coordination, entropy
 
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
@@ -246,8 +245,7 @@ proc signi*(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
-proc chebyshevDist*(a, b: IVec2): int32 =
-  max(abs(a.x - b.x), abs(a.y - b.y))
+# chebyshevDist is provided by environment (via step.nim template)
 
 # Fog of War / Revealed Map Functions
 

@@ -1,6 +1,19 @@
-# This file is included by src/ai_defaults.nim
 ## Meta-role definitions and behavior registry for evolutionary roles.
-import std/json
+
+import std/[json, os, strutils]
+import ai_options
+export ai_options
+
+import ../entropy
+
+import gatherer
+export gatherer
+
+import builder
+export builder
+
+import fighter
+export fighter
 
 type
   BehaviorSource* = enum
@@ -328,7 +341,7 @@ proc shuffleIds(rng: var Rand, ids: var seq[int]) =
     ids[j] = tmp
     dec i
 
-proc weightedPickIndex(rng: var Rand, weights: openArray[float32]): int =
+proc weightedPickIndex*(rng: var Rand, weights: openArray[float32]): int =
   if weights.len == 0:
     return 0
   var total = 0.0

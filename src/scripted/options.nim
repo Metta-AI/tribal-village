@@ -1,10 +1,14 @@
-# Minimal RL-style options: initiation, termination, and per-tick policy step.
-# This file is included by ai_defaults.nim and imports the ai_options module.
+## Minimal RL-style options: initiation, termination, and per-tick policy step.
 
 import ai_options
 export ai_options
 
-proc actOrMove(controller: Controller, env: Environment, agent: Thing,
+import ai_build_helpers
+export ai_build_helpers
+
+import ../entropy
+
+proc actOrMove*(controller: Controller, env: Environment, agent: Thing,
                agentId: int, state: var AgentState,
                targetPos: IVec2, verb: uint8): uint8 =
   if isAdjacent(agent.pos, targetPos):
@@ -163,7 +167,7 @@ proc findNearestEnemyPresence(env: Environment, pos: IVec2,
   ## O(cells) instead of O(n) where n = total agents + things.
   findNearestEnemyPresenceSpatial(env, pos, teamId)
 
-proc findNearestNeutralHub(env: Environment, pos: IVec2): Thing =
+proc findNearestNeutralHub*(env: Environment, pos: IVec2): Thing =
   ## Find nearest neutral hub building (teamId < 0).
   ## Optimized: iterates only hub building kinds via thingsByKind instead of all env.things.
   const NeutralHubKinds = [Castle, Market, Outpost, University, Blacksmith, Barracks,
@@ -219,7 +223,7 @@ proc findDirectionalBuildPos(env: Environment, basePos: IVec2, targetPos: IVec2,
       return pos
   ivec2(-1, -1)
 
-proc findIrrigationTarget(env: Environment, center: IVec2, radius: int): IVec2 =
+proc findIrrigationTarget*(env: Environment, center: IVec2, radius: int): IVec2 =
   let (startX, endX, startY, endY) = radiusBounds(center, radius)
   let cx = center.x.int
   let cy = center.y.int
@@ -257,7 +261,7 @@ proc findNearestPredatorInRadius*(env: Environment, pos: IVec2, radius: int): Th
   ## Find the nearest wolf or bear within the given radius using spatial index.
   findNearestThingOfKindsSpatial(env, pos, {Wolf, Bear}, radius)
 
-proc findNearestPredator(env: Environment, pos: IVec2): Thing =
+proc findNearestPredator*(env: Environment, pos: IVec2): Thing =
   ## Find the nearest predator (unbounded search).
   findNearestThingOfKinds(env, pos, [Bear, Wolf])
 
@@ -325,7 +329,7 @@ proc optPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
   if didPlant: return actPlant
   0'u8
 
-proc findNearestGoblinStructure(env: Environment, pos: IVec2): Thing =
+proc findNearestGoblinStructure*(env: Environment, pos: IVec2): Thing =
   findNearestThingOfKinds(env, pos, [GoblinHive, GoblinHut, GoblinTotem])
 
 proc canStartLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,

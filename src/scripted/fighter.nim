@@ -1,5 +1,16 @@
-# coordination is already imported by ai_core.nim (included before this file)
+import std/tables
+
+import ai_build_helpers
+export ai_build_helpers
+
+import options
+export options
+
+import coordination
+export coordination
+
 import ../formations
+export formations
 
 const
   DividerInvSqrt2 = 0.70710677'f32
@@ -154,7 +165,7 @@ proc scoreEnemy(controller: Controller, env: Environment, agent: Thing, enemy: T
 
   score
 
-proc fighterFindNearbyEnemy(controller: Controller, env: Environment, agent: Thing,
+proc fighterFindNearbyEnemy*(controller: Controller, env: Environment, agent: Thing,
                             state: var AgentState): Thing =
   ## Find the best enemy target using smart target selection with periodic re-evaluation.
   ## Prioritizes: enemies threatening allies > low HP enemies > closest enemies.

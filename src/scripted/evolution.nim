@@ -1,5 +1,9 @@
-# This file is included by src/ai_defaults.nim
 ## Evolution helpers for sampling and recombining role definitions.
+
+import roles
+export roles
+
+import ../entropy
 
 type
   EvolutionConfig* = object
