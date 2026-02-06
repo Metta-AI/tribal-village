@@ -1,4 +1,14 @@
-# coordination is already imported by ai_core.nim (included before this file)
+import ai_build_helpers
+export ai_build_helpers
+
+import options
+export options
+
+import coordination
+export coordination
+
+import economy
+export economy
 
 template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
   ## Generate a canStart/shouldTerminate pair from a single boolean expression.
@@ -115,7 +125,7 @@ proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thin
   (false, 0'u8)
 
 
-proc updateGathererTask(controller: Controller, env: Environment, agent: Thing,
+proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
   let teamId = getTeamId(agent)
   let (altarPos, altarHearts) = findTeamAltar(env, agent, teamId)

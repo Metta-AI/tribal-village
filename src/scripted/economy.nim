@@ -1,7 +1,8 @@
-# Economy Management and Worker Allocation System
-# Tracks resource flow and detects bottlenecks for AI decision-making
-# This file is included by ai_defaults.nim which is included by agent_control.nim
-# It has access to types defined in ai_core.nim (AgentRole, Controller, etc.)
+## Economy Management and Worker Allocation System
+## Tracks resource flow and detects bottlenecks for AI decision-making
+
+import ai_core
+export ai_core
 
 const
   # Resource flow tracking window (in steps)

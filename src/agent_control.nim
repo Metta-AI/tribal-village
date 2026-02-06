@@ -4,9 +4,11 @@
 
 import std/os, std/strutils
 
-include "scripted/ai_core"
-include "scripted/ai_audit"
-include "scripted/ai_defaults"
+import scripted/ai_defaults
+export ai_defaults
+
+import formations
+export formations
 
 const
   ActionsFile = "actions.tmp"
@@ -510,8 +512,7 @@ proc stopAgent*(agentId: int) =
 # Formation API
 # Formation system for coordinated group movement (Line, Box formations).
 # Formations are per-control-group, not per-agent.
-# formations is already imported by fighter.nim (in ai_defaults include chain)
-export formations
+# formations is imported at module level and re-exported
 
 proc setControlGroupFormation*(groupIndex: int, formationType: int32) =
   ## Set formation type for a control group.

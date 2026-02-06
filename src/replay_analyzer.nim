@@ -1,14 +1,15 @@
-# This file is included by src/ai_defaults.nim
 ## Replay analysis system for AI learning.
 ##
 ## Loads compressed replay files produced by replay_writer.nim,
 ## extracts per-team strategy summaries, and feeds results back
 ## into the evolutionary role/behavior fitness system.
 
-# json is already imported by roles.nim, os by agent_control.nim (in include chain)
-import std/[algorithm, times]
+import std/[algorithm, json, os, strutils, times]
 import zippy
 import replay_common
+
+import scripted/roles
+export roles
 
 const
   ReplayAnalysisVersion* = 1

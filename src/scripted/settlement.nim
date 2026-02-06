@@ -1,5 +1,7 @@
-# This file is included by src/scripted/ai_defaults.nim
 ## Town split AI: detects overcrowding and initiates settler groups.
+
+import ai_core
+export ai_core
 
 proc countVillagersAtAltar(env: Environment, teamId: int, altarPos: IVec2): int =
   ## Count living villagers whose homeAltar matches the given altar position.
