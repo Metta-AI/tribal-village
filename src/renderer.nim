@@ -923,7 +923,7 @@ proc drawVisualRanges*(alpha = 0.2) =
     let endY = min(currentViewport.maxY, agent.pos.y + ObservationRadius)
     for x in startX .. endX:
       for y in startY .. endY:
-        visibility[x][y] = true
+        fogVisibility[x][y] = true
 
   # Draw fog with smooth edges
   # Edge smoothing: tiles at the boundary get lighter alpha based on visible neighbors
@@ -933,14 +933,14 @@ proc drawVisualRanges*(alpha = 0.2) =
 
   for x in currentViewport.minX .. currentViewport.maxX:
     for y in currentViewport.minY .. currentViewport.maxY:
-      if not visibility[x][y]:
+      if not fogVisibility[x][y]:
         # Count visible neighbors for edge smoothing
         var visibleNeighbors = 0
         for (dx, dy) in Neighbors:
           let nx = x + dx
           let ny = y + dy
           if nx >= 0 and nx < MapWidth and ny >= 0 and ny < MapHeight:
-            if visibility[nx][ny]:
+            if fogVisibility[nx][ny]:
               visibleNeighbors += 1
 
         # Compute alpha: more visible neighbors = lighter fog (smoother edge)
@@ -1296,6 +1296,35 @@ proc drawUnitTrails*() =
     # Small dust particles that shrink as they fade
     let scale = (1.0 / 500.0).float32 * (0.5 + t * 0.5)  # 0.5x to 1.0x
     bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = baseColor)
+
+proc drawRipples*() =
+  ## Draw water ripple effects when units walk through water.
+  ## Shows expanding rings that fade out.
+  if not currentViewport.valid:
+    return
+  for ripple in env.ripples:
+    if ripple.lifetime <= 0:
+      continue
+    # Check viewport bounds
+    let ipos = ivec2(ripple.pos.x.int32, ripple.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = ripple.countdown.float32 / ripple.lifetime.float32
+    # Expand radius from 0 to max as time progresses
+    let radius = RippleMaxRadius * (1.0 - t)
+    # Fade out with quadratic ease
+    let alpha = t * t * 0.6
+    # Light blue/cyan water ripple color
+    let rippleColor = color(0.6, 0.8, 1.0, alpha)
+    # Draw ripple as a ring using multiple small circles around the perimeter
+    let segments = 16
+    for i in 0 ..< segments:
+      let angle = (i.float32 / segments.float32) * 6.28318  # 2*PI
+      let px = ripple.pos.x + cos(angle) * radius
+      let py = ripple.pos.y + sin(angle) * radius
+      let scale = (1.0 / 600.0).float32  # Small dots for ring segments
+      bxy.drawImage("floor", vec2(px, py), angle = 0, scale = scale, tint = rippleColor)
 
 proc drawWeatherEffects*() =
   ## Draw ambient weather effects (rain or wind particles) across the viewport.

@@ -337,6 +337,21 @@ proc stepDecayUnitTrails(env: Environment) =
         inc writeIdx
     env.unitTrails.setLen(writeIdx)
 
+proc stepDecayRipples(env: Environment) =
+  ## Update water ripple effects and remove expired ones.
+  ## Ripples expand as they decay.
+  if env.ripples.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.ripples.len:
+      env.ripples[readIdx].countdown -= 1
+      if env.ripples[readIdx].countdown > 0:
+        # Expand radius as ripple decays
+        let t = env.ripples[readIdx].countdown.float32 / env.ripples[readIdx].lifetime.float32
+        env.ripples[readIdx].radius = RippleMaxRadius * (1.0 - t)
+        env.ripples[writeIdx] = env.ripples[readIdx]
+        inc writeIdx
+    env.ripples.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1135,6 +1150,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayGatherSparkles()
   env.stepDecayConstructionDust()
   env.stepDecayUnitTrails()
+  env.stepDecayRipples()
 
   when defined(stepTiming):
     if timing:
@@ -1410,6 +1426,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Spawn dust trail at the position the unit left (not every move to reduce particles)
         if env.currentStep mod UnitTrailSpawnChance == 0:
           env.spawnUnitTrail(originalPos, getTeamId(agent))
+
+        # Spawn water ripple when non-water units enter shallow water
+        if not agent.isWaterUnit and env.terrain[agent.pos.x][agent.pos.y] == ShallowWater:
+          env.spawnRipple(agent.pos)
 
         let dockHere = env.hasDockAt(agent.pos)
         if agent.unitClass == UnitTradeCog:

@@ -2180,6 +2180,17 @@ proc spawnUnitTrail*(env: Environment, pos: IVec2, teamId: int) =
     lifetime: UnitTrailLifetime,
     teamId: teamId.int8))
 
+proc spawnRipple*(env: Environment, pos: IVec2) =
+  ## Spawn a water ripple effect at the given position when a non-water unit enters water.
+  ## Creates an expanding ring that fades out.
+  if not isValidPos(pos):
+    return
+  env.ripples.add(Ripple(
+    pos: vec2(pos.x.float32, pos.y.float32),
+    radius: 0.0'f32,
+    countdown: RippleLifetime,
+    lifetime: RippleLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "combat"
