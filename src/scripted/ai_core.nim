@@ -713,6 +713,35 @@ proc claimBuilding*(controller: Controller, teamId: int, kind: ThingKind) =
     return
   controller.claimedBuildings[teamId].incl(kind)
 
+proc getBuildingCountNear*(env: Environment, teamId: int, kind: ThingKind,
+                          center: IVec2, radius: int32 = SettlementRadius): int =
+  ## Count buildings of a given type for a team within Chebyshev distance of center.
+  ## Used for per-settlement building checks (e.g., each settlement needs its own Granary).
+  for thing in env.thingsByKind[kind]:
+    if thing.teamId != teamId:
+      continue
+    if chebyshevDist(center, thing.pos) <= radius:
+      inc result
+
+proc anyMissingBuildingNear*(env: Environment, teamId: int,
+                             kinds: openArray[ThingKind],
+                             center: IVec2, radius: int32 = SettlementRadius): bool =
+  ## Check if any of the given building types are missing near a settlement center.
+  for kind in kinds:
+    if getBuildingCountNear(env, teamId, kind, center, radius) == 0:
+      return true
+  false
+
+proc getTotalBuildingCountNear*(env: Environment, teamId: int,
+                                center: IVec2, radius: int32 = SettlementRadius): int =
+  ## Count total buildings for a team within Chebyshev distance of a settlement center.
+  for bKind in TeamBuildingKinds:
+    for thing in env.thingsByKind[bKind]:
+      if thing.teamId != teamId:
+        continue
+      if chebyshevDist(center, thing.pos) <= radius:
+        inc result
+
 proc canAffordBuild*(env: Environment, agent: Thing, key: ItemKey): bool =
   let costs = buildCostsForKey(key)
   choosePayment(env, agent, costs) != PayNone

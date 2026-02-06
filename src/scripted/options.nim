@@ -359,13 +359,17 @@ proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let agentPos = agent.pos
-  # Find lantern gap candidate
-  # Optimized: iterate only building kinds via thingsByKind instead of all env.things
+  let altarPos = agent.homeAltar
+  # Find lantern gap candidate near agent's settlement
+  # When agent has a homeAltar, only consider buildings within settlement radius
   var target = ivec2(-1, -1)
   var bestDist = int.high
   for bKind in TeamBuildingKinds:
     for thing in env.thingsByKind[bKind]:
       if thing.teamId != teamId:
+        continue
+      # Per-settlement: only fill lantern gaps near this agent's home altar
+      if altarPos.x >= 0 and chebyshevDist(altarPos, thing.pos) > SettlementRadius:
         continue
       if hasTeamLanternNear(env, teamId, thing.pos):
         continue
