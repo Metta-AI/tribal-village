@@ -2182,6 +2182,8 @@ proc spawnUnitTrail*(env: Environment, pos: IVec2, teamId: int) =
 
 include "combat_audit"
 include "tumor_audit"
+include "action_audit"
+include "action_freq_counter"
 include "combat"
 
 # ============== CLIPPY AI ==============

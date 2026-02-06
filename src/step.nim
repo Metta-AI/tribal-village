@@ -1112,6 +1112,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(actionAudit):
     ensureActionAuditInit()
 
+  when defined(actionFreqCounter):
+    ensureActionFreqInit()
+
   when defined(stateDiff):
     capturePreStep(env)
 
@@ -1245,6 +1248,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
     when defined(actionAudit):
       recordAction(id, verb)
+
+    when defined(actionFreqCounter):
+      recordActionByUnitType(id, verb, agent.unitClass)
 
     template invalidAndBreak(label: untyped) =
       inc env.stats[id].actionInvalid
@@ -3575,6 +3581,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   when defined(actionAudit):
     printActionAuditReport(env.currentStep)
+
+  when defined(actionFreqCounter):
+    printActionFreqReport(env.currentStep)
 
   when defined(eventLog):
     flushEventSummary(env.currentStep)
