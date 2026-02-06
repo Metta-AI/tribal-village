@@ -1297,6 +1297,29 @@ proc drawUnitTrails*() =
     let scale = (1.0 / 500.0).float32 * (0.5 + t * 0.5)  # 0.5x to 1.0x
     bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = baseColor)
 
+proc drawWaterRipples*() =
+  ## Draw ripple effects when units walk through water.
+  ## Expanding rings that fade out over their lifetime.
+  if not currentViewport.valid:
+    return
+  for ripple in env.waterRipples:
+    if ripple.lifetime <= 0:
+      continue
+    # Check viewport bounds (convert float pos to int for check)
+    let ipos = ivec2(ripple.pos.x.int32, ripple.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = ripple.countdown.float32 / ripple.lifetime.float32
+    let progress = 1.0 - t  # 0.0 at spawn, 1.0 at expire
+    # Expand from small to large as effect progresses
+    let baseScale = SpriteScale * (0.2 + progress * 0.8)  # 20% to 100%
+    # Fade out with quadratic ease (visible at start, fades smoothly)
+    let alpha = t * t * 0.5  # Max alpha 0.5 for subtle effect
+    # Use a light cyan/blue tint for water ripple
+    let tint = color(0.5, 0.7, 0.9, alpha)
+    bxy.drawImage("floor", ripple.pos, angle = 0, scale = baseScale, tint = tint)
+
 proc drawWeatherEffects*() =
   ## Draw ambient weather effects (rain or wind particles) across the viewport.
   ## Uses deterministic animation based on frame counter for consistent effects.
