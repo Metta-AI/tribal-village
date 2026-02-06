@@ -85,14 +85,10 @@ def _run_ansi(steps: int, max_steps: Optional[int], random_actions: bool) -> Non
     env = TribalVillageEnv(config=config)
 
     def _make_actions() -> dict[str, int]:
-        actions: dict[str, int] = {}
-        for agent_id in range(env.num_agents):
-            key = f"agent_{agent_id}"
-            if random_actions:
-                actions[key] = int(env.single_action_space.sample())
-            else:
-                actions[key] = 0
-        return actions
+        return {
+            f"agent_{agent_id}": int(env.single_action_space.sample()) if random_actions else 0
+            for agent_id in range(env.num_agents)
+        }
 
     try:
         env.reset()
