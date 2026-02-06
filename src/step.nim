@@ -2829,12 +2829,16 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for thing in env.thingsByKind[TownCenter]:
     env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
     if thing.townBellActive:
-      # Use teamVillagers cache instead of iterating all agents (O(team_villagers) vs O(all_agents))
+      # Town Bell garrison loop - optimized to early-exit when full
       let teamId = thing.teamId
+      let capacity = garrisonCapacity(thing.kind)
       if teamId >= 0 and teamId < MapRoomObjectsTeams:
         for villager in env.teamVillagers[teamId]:
-          if isAgentAlive(env, villager):
-            discard env.garrisonUnitInBuilding(villager, thing)
+          if thing.garrisonedUnits.len >= capacity:
+            break  # Garrison full, stop early
+          if villager.isGarrisoned:
+            continue  # Already garrisoned elsewhere
+          discard env.garrisonUnitInBuilding(villager, thing)
       thing.townBellActive = false
 
   # Resource and economy buildings
