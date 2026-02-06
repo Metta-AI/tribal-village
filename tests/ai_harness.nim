@@ -1045,17 +1045,33 @@ suite "AI - Stance Behavior":
     # Agent should NOT attack (verb 2) even though enemy is adjacent
     check verb != 2
 
-  test "Defensive stance allows attack":
+  test "Defensive stance allows attack when recently attacked":
     let env = makeEmptyEnv()
     let controller = newTestController(41)
     # Create agent with Defensive stance
+    let agent = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    # Simulate being recently attacked (triggers retaliation window)
+    # lastAttackedStep must be > 0 for the retaliation check
+    env.currentStep = 1
+    agent.lastAttackedStep = 1
+    # Place enemy adjacent
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
+
+    let (verb, _) = decodeAction(controller.decideAction(env, 0))
+    # Agent should attack (verb 2) when enemy is adjacent and recently attacked
+    check verb == 2
+
+  test "Defensive stance prevents attack when not recently attacked":
+    let env = makeEmptyEnv()
+    let controller = newTestController(41)
+    # Create agent with Defensive stance (not recently attacked)
     let agent = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
     # Place enemy adjacent
     discard addAgentAt(env, MapAgentsPerTeam, ivec2(10, 9))
 
     let (verb, _) = decodeAction(controller.decideAction(env, 0))
-    # Agent should attack (verb 2) when enemy is adjacent
-    check verb == 2
+    # Agent should NOT attack (verb 2) when not recently attacked
+    check verb != 2
 
   test "default stance is NoAttack for villagers":
     let env = makeEmptyEnv()
