@@ -1,6 +1,5 @@
 import std/[unittest, strformat]
 import test_common
-import registry
 
 ## Behavioral tests for building placement validation.
 ## Verifies valid/invalid placement, terrain restrictions, overlap detection,

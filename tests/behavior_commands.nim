@@ -1,7 +1,6 @@
 import std/[unittest, strformat]
 import test_common
 import common
-import registry
 
 suite "Behavior: Attack-Move Waypoints":
   test "attack-move target is set and readable":
