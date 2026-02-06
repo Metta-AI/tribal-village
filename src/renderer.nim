@@ -132,6 +132,9 @@ var
   waterPositions: seq[IVec2] = @[]
   shallowWaterPositions: seq[IVec2] = @[]
   renderCacheGeneration = -1
+  # Fog of war visibility buffer - reused across frames to avoid allocation overhead
+  fogVisibility: array[MapWidth, array[MapHeight, bool]]
+  fogLastViewport: ViewportBounds  # Track last cleared region for efficient reset
 
 const
   InfoLabelFontPath = HeartCountFontPath
@@ -896,14 +899,19 @@ proc drawObjects*() =
 proc drawVisualRanges*(alpha = 0.2) =
   if not currentViewport.valid:
     return
-  # Optimized: Only process agents whose vision could overlap the viewport
-  # Use a smaller visibility buffer for just the viewport area
-  var visibility: array[MapWidth, array[MapHeight, bool]]
+
+  # Clear only the viewport region of the reused visibility buffer
+  # This avoids allocating a full MapWidth x MapHeight array each frame
+  for x in currentViewport.minX .. currentViewport.maxX:
+    for y in currentViewport.minY .. currentViewport.maxY:
+      fogVisibility[x][y] = false
+
   # Extended viewport bounds for agents whose vision overlaps viewport
   let extMinX = max(0, currentViewport.minX - ObservationRadius)
   let extMaxX = min(MapWidth - 1, currentViewport.maxX + ObservationRadius)
   let extMinY = max(0, currentViewport.minY - ObservationRadius)
   let extMaxY = min(MapHeight - 1, currentViewport.maxY + ObservationRadius)
+
   # Only process agents whose vision could overlap the viewport
   for agent in env.agents:
     if not isAgentAlive(env, agent):
@@ -912,11 +920,11 @@ proc drawVisualRanges*(alpha = 0.2) =
     if agent.pos.x < extMinX or agent.pos.x > extMaxX or
        agent.pos.y < extMinY or agent.pos.y > extMaxY:
       continue
-    # Mark visible tiles (only within map bounds)
-    let startX = max(0, agent.pos.x - ObservationRadius)
-    let endX = min(MapWidth - 1, agent.pos.x + ObservationRadius)
-    let startY = max(0, agent.pos.y - ObservationRadius)
-    let endY = min(MapHeight - 1, agent.pos.y + ObservationRadius)
+    # Mark visible tiles - clamp to viewport bounds for efficiency
+    let startX = max(currentViewport.minX, agent.pos.x - ObservationRadius)
+    let endX = min(currentViewport.maxX, agent.pos.x + ObservationRadius)
+    let startY = max(currentViewport.minY, agent.pos.y - ObservationRadius)
+    let endY = min(currentViewport.maxY, agent.pos.y + ObservationRadius)
     for x in startX .. endX:
       for y in startY .. endY:
         visibility[x][y] = true
