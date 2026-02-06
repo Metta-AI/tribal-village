@@ -2853,7 +2853,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for thing in env.thingsByKind[Altar]:
     if thing.cooldown > 0:
       thing.cooldown -= 1
-    if env.currentStep >= env.config.maxSteps:
+    if env.currentStep == env.config.maxSteps:
       let altarHearts = thing.hearts.float32
       let perAgentReward = altarHearts / MapAgentsPerTeam.float32
       for agent in env.agents:
