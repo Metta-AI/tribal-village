@@ -245,6 +245,26 @@ These variables control runtime behavior and are read at process startup.
 | `TV_STEP_TIMING` | -1 | Target step to start timing (-1 = disabled). |
 | `TV_STEP_TIMING_WINDOW` | 0 | Number of steps to time. |
 
+### AI Decision Timing (requires `-d:stepTiming`)
+
+Instruments agent decision-making loops to identify slow AI evaluations.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TV_AI_TIMING` | 0 | Enable AI timing (1 = enabled, 0 = disabled). |
+| `TV_AI_TIMING_INTERVAL` | 100 | Print report every N steps. |
+| `TV_AI_TIMING_TOP_N` | 10 | Number of slowest agents to show in report. |
+
+Example usage:
+```bash
+TV_AI_TIMING=1 TV_AI_TIMING_INTERVAL=50 nim r -d:stepTiming -d:release --path:src src/tribal_village.nim
+```
+
+The report shows:
+- Total AI decision time (average and max per step)
+- Top N slowest agents by cumulative decision time
+- Per-agent average and max decision times
+
 ### Render Timing (requires `-d:renderTiming`)
 
 | Variable | Default | Description |
