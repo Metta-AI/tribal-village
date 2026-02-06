@@ -2845,11 +2845,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if thing.cooldown > 0:
       thing.cooldown -= 1
     if env.currentStep == env.config.maxSteps:
-      let altarHearts = thing.hearts.float32
-      let perAgentReward = altarHearts / MapAgentsPerTeam.float32
-      for agent in env.agents:
-        if agent.homeAltar == thing.pos:
-          env.rewards[agent.agentId] += perAgentReward
+      # Use teamVillagers cache instead of iterating all agents (O(team_villagers) vs O(all_agents))
+      let teamId = thing.teamId
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        let altarHearts = thing.hearts.float32
+        let perAgentReward = altarHearts / MapAgentsPerTeam.float32
+        for agent in env.teamVillagers[teamId]:
+          if agent.homeAltar == thing.pos:
+            env.rewards[agent.agentId] += perAgentReward
 
   for thing in env.thingsByKind[Magma]:
     if thing.cooldown > 0:
