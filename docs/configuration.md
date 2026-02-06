@@ -254,6 +254,49 @@ These variables control runtime behavior and are read at process startup.
 | `TV_RENDER_TIMING_EVERY` | 1 | Log every N frames. |
 | `TV_RENDER_TIMING_EXIT` | -1 | Exit after this frame (-1 = disabled). |
 
+#### Timing Output Format
+
+When enabled, outputs one line per frame with the following metrics (all times in milliseconds):
+
+| Metric | Description |
+|--------|-------------|
+| `total_ms` | Full frame time from start of display() to end of swapBuffers |
+| **Early Frame Phases** | |
+| `input_ms` | Input handling (keyboard, mouse, UI toggles) |
+| `sim_ms` | Simulation step(s) - may include multiple steps if catching up |
+| `beginframe_ms` | bxy.beginFrame() call |
+| `setup_ms` | Transform setup (camera, zoom, viewport) |
+| `interaction_ms` | World interaction (selection, drag, minimap, commands) |
+| **Render Phases** | |
+| `render_ms` | Total rendering time (from after interaction to swapBuffers) |
+| `floor_ms` | Floor tile rendering |
+| `terrain_ms` | Terrain sprite rendering |
+| `walls_ms` | Wall structure rendering |
+| `objects_ms` | Agents, buildings, resources rendering |
+| `decor_ms` | Combined decoration time (sum of individual below) |
+| `agentdecor_ms` | Agent decorations (health bars, status icons) |
+| `projectiles_ms` | Projectile rendering |
+| `damagenums_ms` | Floating damage numbers |
+| `ragdolls_ms` | Corpse/ragdoll rendering |
+| `debris_ms` | Debris particles |
+| `dust_ms` | Construction dust effects |
+| `trails_ms` | Unit movement trails |
+| `spawn_ms` | Spawn effect animations |
+| `trade_ms` | Trade route visualization |
+| `weather_ms` | Weather effects (rain, wind) |
+| `visual_ms` | Visual range indicators |
+| `grid_ms` | Debug grid overlay |
+| `fog_ms` | Fog of war rendering |
+| `selection_ms` | Selection highlight |
+| `ui_ms` | UI elements (resource bar, minimap, panels) |
+| `mask_ms` | Masking/compositing |
+| `end_ms` | bxy.endFrame() call |
+| `swap_ms` | window.swapBuffers() call |
+| **Diagnostics** | |
+| `things` | Total thing count |
+| `agents` | Agent count |
+| `tumors` | Tumor count |
+
 ### Render Logging
 
 | Variable | Default | Description |
