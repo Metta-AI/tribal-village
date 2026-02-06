@@ -2,7 +2,7 @@
 
 import
   boxy, pixie, vmath, windy,
-  common, environment
+  common, constants, environment
 
 # ---------------------------------------------------------------------------
 # State
@@ -84,7 +84,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
 
   # Rebuild composite image when game state changes
   let needsRebuild = minimapCacheStep != env.currentStep or
-                     (minimapFullRebuildCounter mod 10 == 0)
+                     (minimapFullRebuildCounter mod MinimapRebuildInterval == 0)
   inc minimapFullRebuildCounter
 
   if needsRebuild:
@@ -123,9 +123,9 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
       let py = clamp(int(apos.y.float32 / scaleY), 0, mmH - 1)
       let c = env.agentColors[agent.agentId]
       img.unsafe[px, py] = rgbx(
-        uint8(clamp(c.r * 280, 60, 255)),
-        uint8(clamp(c.g * 280, 60, 255)),
-        uint8(clamp(c.b * 280, 60, 255)), 255)
+        uint8(clamp(c.r * MinimapBrightnessMult.float32, MinimapBrightnessMin.float32, 255)),
+        uint8(clamp(c.g * MinimapBrightnessMult.float32, MinimapBrightnessMin.float32, 255)),
+        uint8(clamp(c.b * MinimapBrightnessMult.float32, MinimapBrightnessMin.float32, 255)), 255)
 
     # Walls as gray
     for wall in env.thingsByKind[Wall]:
@@ -133,14 +133,14 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
         continue
       let px = clamp(int(wall.pos.x.float32 / scaleX), 0, mmW - 1)
       let py = clamp(int(wall.pos.y.float32 / scaleY), 0, mmH - 1)
-      img.unsafe[px, py] = rgbx(100, 100, 100, 255)
+      img.unsafe[px, py] = rgbx(MinimapWallGray.uint8, MinimapWallGray.uint8, MinimapWallGray.uint8, 255)
 
     bxy.addImage(minimapImageKey, img)
 
   # Draw minimap border and image
   let mmRect = minimapRect(panelRect)
-  bxy.drawRect(rect = Rect(x: mmRect.x - 2, y: mmRect.y - 2,
-               w: mmRect.w + 4, h: mmRect.h + 4),
+  bxy.drawRect(rect = Rect(x: mmRect.x - MinimapBorderWidth, y: mmRect.y - MinimapBorderWidth,
+               w: mmRect.w + MinimapBorderExpand, h: mmRect.h + MinimapBorderExpand),
                color = color(0.15, 0.15, 0.15, 0.95))
   bxy.drawImage(minimapImageKey, vec2(mmRect.x, mmRect.y))
 
@@ -174,8 +174,8 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
   let clBottom = min(vpTop + vpH, mmRect.y + mmRect.h)
 
   if clRight > clLeft and clBottom > clTop:
-    let lineW = 1.5'f32
-    let vpColor = color(1, 1, 1, 0.85)
+    let lineW = MinimapViewportLineWidth
+    let vpColor = color(1, 1, 1, MinimapViewportAlpha)
     # Top
     bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
                  w: clRight - clLeft, h: lineW), color = vpColor)

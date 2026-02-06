@@ -433,5 +433,98 @@ const
   TownSplitCheckInterval* = 50       # Only check every N steps to save CPU
   TownSplitOpenSpaceRadius* = 1      # Radius around center that must be empty (3x3)
 
+  # ============================================================================
+  # Map Generation & Spawn
+  # ============================================================================
+  # Trading hub wall generation
+  TradingHubWallChance* = 0.6          # Probability of placing wall segment
+  TradingHubDriftChance* = 0.45        # Probability of wall edge drifting
+  TradingHubSpurCountMin* = 8          # Minimum interior wall spurs
+  TradingHubSpurCountMax* = 14         # Maximum interior wall spurs
+  TradingHubSpurLengthMin* = 2         # Minimum spur length
+  TradingHubSpurLengthMax* = 4         # Maximum spur length
+  TradingHubTowerSlots* = 4            # Max guard towers per hub
+  TradingHubCoreMultiplier* = 2        # Building count multiplier for core
+  TradingHubScatterMultiplier* = 3     # Building count multiplier for scatter
+  TradingHubMainBuildingMin* = 10      # Min core buildings per multiplier
+  TradingHubMainBuildingMax* = 14      # Max core buildings per multiplier
+  TradingHubExtraBuildingMin* = 6      # Min extra buildings per multiplier
+  TradingHubExtraBuildingMax* = 10     # Max extra buildings per multiplier
+  TradingHubScatterBuildingMin* = 24   # Min scatter buildings per multiplier
+  TradingHubScatterBuildingMax* = 36   # Max scatter buildings per multiplier
+  TradingHubScatterPadding* = 18       # Scatter radius beyond hub edge
+  TradingHubScatterInnerPad* = 4       # Inner exclusion radius
+  TradingHubBuildingAttempts* = 80     # Max attempts per building placement
+
+  # Temple placement
+  TempleMinDistance* = 10              # Min Chebyshev distance from village centers
+  TemplePlacementAttempts* = 200       # Max attempts to place temple
+  TemplePlacementRange* = 14           # Max offset from map center
+
+  # Village structure
+  VillageStructureSize* = 7            # Village layout grid size
+  VillageStructureRadius* = 3          # Village center radius
+  VillageFloorDistance* = 2            # Floor tile manhattan distance from center
+  VillageTownCenterRange* = 3          # TC placement distance from altar
+
+  # Resource cluster generation
+  ClusterDensityHigh* = 0.85           # Dense resource placement probability
+  ClusterDensityMedium* = 0.75         # Medium resource placement probability
+  ClusterDensityLow* = 0.65            # Sparse resource placement probability
+  ClusterFalloffSteep* = 0.45          # Fast density falloff from center
+  ClusterFalloffNormal* = 0.4          # Normal density falloff
+  ClusterMineSizeMin* = 3              # Minimum mine cluster size
+  ClusterMineSizeMax* = 4              # Maximum mine cluster size
+
+  # Fish cluster generation
+  FishClusterSizeMin* = 3              # Minimum fish cluster size
+  FishClusterSizeMax* = 7              # Maximum fish cluster size
+  FishPlacementAttempts* = 20          # Max attempts per fish cluster
+
+  # Bush/Foliage generation
+  BushClusterCount* = 30               # Number of bush clusters to generate
+  BushClusterSizeMin* = 3              # Minimum bush cluster size
+  BushClusterSizeMax* = 7              # Maximum bush cluster size
+  BushWaterProximity* = 4              # Prefer placing bushes near water
+
+  # ============================================================================
+  # UI Interaction
+  # ============================================================================
+  DragDistanceThreshold* = 5.0'f32     # Pixels to trigger drag mode
+  DoubleTapThreshold* = 0.3            # Seconds between taps for double-tap
+  ZoomSensitivityDesktop* = 0.005      # Zoom scroll sensitivity (desktop)
+  ZoomSensitivityWeb* = 0.002          # Zoom scroll sensitivity (emscripten)
+  VelocityDecayRate* = 0.9'f32         # Camera velocity decay per frame
+  MinVisibleMapPixels* = 500.0'f32     # Minimum visible map area in pixels
+
+  # Selection box rendering
+  SelectionBoxLineWidth* = 0.05'f32    # Line width in world units
+  SelectionBoxColorR* = 0.2'f32        # Selection box red component
+  SelectionBoxColorG* = 0.9'f32        # Selection box green component
+  SelectionBoxColorB* = 0.2'f32        # Selection box blue component
+  SelectionBoxAlpha* = 0.8'f32         # Selection box opacity
+
+  # ============================================================================
+  # Minimap
+  # ============================================================================
+  MinimapBrightnessMult* = 280         # Agent color brightness multiplier
+  MinimapBrightnessMin* = 60           # Minimum agent color component
+  MinimapWallGray* = 100               # Wall color (gray value 0-255)
+  MinimapRebuildInterval* = 10         # Frames between full rebuilds
+  MinimapBorderWidth* = 2.0'f32        # Border line width in pixels
+  MinimapBorderExpand* = 4.0'f32       # Border expansion amount
+  MinimapViewportLineWidth* = 1.5'f32  # Viewport indicator line width
+  MinimapViewportAlpha* = 0.85'f32     # Viewport indicator opacity
+
+  # ============================================================================
+  # Projectile Timing
+  # ============================================================================
+  ProjArrowBaseLifetime* = 1           # Base arrow flight frames
+  ProjArrowMaxLifetime* = 4            # Maximum arrow flight frames
+  ProjMangonelAddedFrames* = 2         # Extra frames for mangonel
+  ProjMangonelMaxLifetime* = 6         # Maximum mangonel flight frames
+  ProjTrebuchetAddedFrames* = 3        # Extra frames for trebuchet
+  ProjTrebuchetMaxLifetime* = 8        # Maximum trebuchet flight frames
+
   # Derived constants
   VillagerMaxHp* = AgentMaxHp

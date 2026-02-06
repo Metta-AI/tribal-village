@@ -187,9 +187,9 @@ proc spawnProjectile(env: Environment, source, target: IVec2, kind: ProjectileKi
     return
   # Siege projectiles travel slower (more frames), arrows faster
   let lifetime = case kind
-    of ProjMangonel: min(dist + 2, 6).int8
-    of ProjTrebuchet: min(dist + 3, 8).int8
-    else: min(dist + 1, 4).int8
+    of ProjMangonel: min(dist + ProjMangonelAddedFrames, ProjMangonelMaxLifetime).int8
+    of ProjTrebuchet: min(dist + ProjTrebuchetAddedFrames, ProjTrebuchetMaxLifetime).int8
+    else: min(dist + ProjArrowBaseLifetime, ProjArrowMaxLifetime).int8
   env.projectiles.add(Projectile(
     source: source, target: target, kind: kind,
     countdown: lifetime, lifetime: lifetime))
