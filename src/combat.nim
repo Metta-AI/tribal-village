@@ -255,6 +255,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
           emptyTiles.add(pos)
     var tileIdx = 0
     for unit in target.garrisonedUnits:
+      unit.isGarrisoned = false
       if tileIdx >= emptyTiles.len:
         env.terminated[unit.agentId] = 1.0
         unit.hp = 0

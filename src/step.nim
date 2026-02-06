@@ -567,6 +567,7 @@ proc garrisonUnitInBuilding*(env: Environment, unit: Thing, building: Thing): bo
   # Add to garrison
   building.garrisonedUnits.add(unit)
   unit.pos = ivec2(-1, -1)  # Mark as off-grid
+  unit.isGarrisoned = true
   true
 
 proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
@@ -596,6 +597,7 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
       break  # No more space, remaining units stay garrisoned
     let pos = emptyTiles[tileIdx]
     unit.pos = pos
+    unit.isGarrisoned = false
     env.grid[pos.x][pos.y] = unit
     env.updateObservations(AgentLayer, pos, getTeamId(unit) + 1)
     env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)

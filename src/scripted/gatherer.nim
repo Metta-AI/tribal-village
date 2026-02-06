@@ -17,6 +17,41 @@ const
   MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
 
 const GathererFleeRadiusConst = GathererFleeRadius  # Local alias for use in guard template
+const GarrisonSeekRadiusConst = GarrisonSeekRadius  # Local alias for use in guard template
+const GarrisonableKinds = {TownCenter, Castle, GuardTower, House}
+
+proc findNearestGarrisonableBuilding(env: Environment, pos: IVec2, teamId: int,
+                                     maxDist: int): Thing =
+  ## Find the nearest friendly garrisonable building with available capacity.
+  var best: Thing = nil
+  var bestDist = int.high
+  for kind in GarrisonableKinds:
+    let building = findNearestFriendlyThingSpatial(env, pos, teamId, kind, maxDist)
+    if not building.isNil and building.hp > 0:
+      let capacity = garrisonCapacity(building.kind)
+      if building.garrisonedUnits.len < capacity:
+        let dist = abs(building.pos.x - pos.x) + abs(building.pos.y - pos.y)
+        if dist < bestDist:
+          bestDist = dist
+          best = building
+  best
+
+gathererGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
+  not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)) and
+    not isNil(findNearestGarrisonableBuilding(env, agent.pos, getTeamId(agent), GarrisonSeekRadiusConst))
+
+proc optGathererGarrison(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  ## Seek nearest garrisonable building for protection when enemies are nearby.
+  let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)
+  if isNil(enemy):
+    return 0'u8
+  let teamId = getTeamId(agent)
+  let building = findNearestGarrisonableBuilding(env, agent.pos, teamId, GarrisonSeekRadiusConst)
+  if isNil(building):
+    return 0'u8
+  requestProtectionFromFighter(env, agent, enemy.pos)
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
 
 gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
   not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst))
@@ -373,6 +408,13 @@ proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Th
   fleeAwayFrom(controller, env, agent, agentId, state, predator.pos)
 
 let GathererOptions* = [
+  OptionDef(
+    name: "GathererGarrison",
+    canStart: canStartGathererGarrison,
+    shouldTerminate: shouldTerminateGathererGarrison,
+    act: optGathererGarrison,
+    interruptible: false  # Garrison is not interruptible - survival is priority
+  ),
   OptionDef(
     name: "GathererFlee",
     canStart: canStartGathererFlee,

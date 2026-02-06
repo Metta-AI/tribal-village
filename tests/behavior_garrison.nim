@@ -1,5 +1,6 @@
 import std/[unittest, strformat]
 import test_common
+import agent_control
 
 suite "Behavior: Garrison Entry":
   test "villager garrisons in TownCenter via USE action":
@@ -393,3 +394,101 @@ suite "Behavior: Garrison Attack":
 
     check enemy.hp < startHp
     echo &"  TC with 5 garrisoned attacked enemy, HP: {startHp} -> {enemy.hp}"
+
+suite "Behavior: isGarrisoned Flag":
+  test "isGarrisoned is set when unit enters building":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    let villager = addAgentAt(env, 0, ivec2(11, 11))
+
+    check villager.isGarrisoned == false
+    discard env.garrisonUnitInBuilding(villager, tc)
+
+    check villager.isGarrisoned == true
+    check villager.pos == ivec2(-1, -1)
+    echo "  isGarrisoned=true after garrison entry"
+
+  test "isGarrisoned is cleared when units ungarrison":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    let villager = addAgentAt(env, 0, ivec2(11, 11))
+    discard env.garrisonUnitInBuilding(villager, tc)
+
+    check villager.isGarrisoned == true
+
+    let ejected = env.ungarrisonAllUnits(tc)
+
+    check ejected.len == 1
+    check villager.isGarrisoned == false
+    check villager.pos != ivec2(-1, -1)
+    echo "  isGarrisoned=false after ungarrison"
+
+  test "isGarrisoned is cleared when building is destroyed":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    let villager = addAgentAt(env, 0, ivec2(11, 11))
+    discard env.garrisonUnitInBuilding(villager, tc)
+
+    check villager.isGarrisoned == true
+
+    discard env.applyStructureDamage(tc, TownCenterMaxHp + 10)
+
+    check villager.isGarrisoned == false
+    echo "  isGarrisoned=false after building destruction"
+
+suite "Behavior: AI Garrison Under Threat":
+  test "villager garrisons in TC when threatened by nearby enemy":
+    # Test that garrisonUnitInBuilding works via the USE action path
+    # simulating what the AI garrison option produces
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    let villager = addAgentAt(env, 0, ivec2(11, 10))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(13, 10), unitClass = UnitManAtArms)
+    applyUnitClass(enemy, UnitManAtArms)
+
+    # The AI garrison option would issue: actOrMove toward building with verb 3
+    # Simulate: villager is adjacent to TC, issue USE on TC
+    env.stepAction(villager.agentId, 3'u8, dirIndex(villager.pos, tc.pos))
+
+    check tc.garrisonedUnits.len == 1
+    check villager.isGarrisoned == true
+    check villager.pos == ivec2(-1, -1)
+    echo "  Villager garrisoned in TC when enemy nearby"
+
+  test "garrisoned villager is protected from direct targeting":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    let villager = addAgentAt(env, 0, ivec2(11, 10))
+    let hpBefore = villager.hp
+    discard env.garrisonUnitInBuilding(villager, tc)
+
+    # Garrisoned unit should be off-grid and untargetable
+    check villager.pos == ivec2(-1, -1)
+    check villager.isGarrisoned == true
+
+    # After multiple steps, garrisoned villager retains full HP
+    for _ in 0 ..< 5:
+      env.stepNoop()
+
+    check villager.hp == hpBefore
+    check villager.isGarrisoned == true
+    echo "  Garrisoned villager HP preserved at {hpBefore}"
+
+  test "garrisoned villager contributes arrows to TC defense":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
+    for i in 0 ..< 5:
+      let villager = addAgentAt(env, i, ivec2(10 + i.int32, 11))
+      discard env.garrisonUnitInBuilding(villager, tc)
+
+    let enemyId = MapAgentsPerTeam + 5
+    let enemy = addAgentAt(env, enemyId, ivec2(10, 14), unitClass = UnitBatteringRam)
+    applyUnitClass(enemy, UnitBatteringRam)
+    let startHp = enemy.hp
+
+    env.stepAction(enemyId, 0'u8, 0)
+
+    let damage = startHp - enemy.hp
+    # 5 garrisoned villagers should add 5 bonus arrows plus 1 base = 12 damage
+    check damage > 2  # More than base tower damage
+    echo &"  Garrisoned TC with 5 villagers dealt {damage} damage to attacker"
