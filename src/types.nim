@@ -1214,6 +1214,8 @@ type
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)
     tankUnits*: seq[Thing]  # ManAtArms and Knight units with auras
     monkUnits*: seq[Thing]  # Monk units with auras
+    # Villager tracking per team for O(team_size) town bell garrison
+    teamVillagers*: array[MapRoomObjectsTeams, seq[Thing]]
     cowHerdCounts*: seq[int]
     cowHerdSumX*: seq[int]
     cowHerdSumY*: seq[int]

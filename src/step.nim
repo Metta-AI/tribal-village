@@ -2832,14 +2832,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   for thing in env.thingsByKind[TownCenter]:
     env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
     if thing.townBellActive:
-      for agent in env.agents:
-        if not isAgentAlive(env, agent):
-          continue
-        if getTeamId(agent) != thing.teamId:
-          continue
-        if agent.unitClass != UnitVillager:
-          continue
-        discard env.garrisonUnitInBuilding(agent, thing)
+      # Use teamVillagers cache instead of iterating all agents (O(team_villagers) vs O(all_agents))
+      let teamId = thing.teamId
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        for villager in env.teamVillagers[teamId]:
+          if isAgentAlive(env, villager):
+            discard env.garrisonUnitInBuilding(villager, thing)
       thing.townBellActive = false
 
   # Resource and economy buildings
