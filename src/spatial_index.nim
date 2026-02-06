@@ -245,12 +245,41 @@ when defined(spatialAutoTune):
             maxCount = count
     (maxCount, totalCount, nonEmpty)
 
+  proc computeOptimalCellSizeFromDensity*(totalEntities: int): int =
+    ## Calculate optimal cell size based on total entity count on the map.
+    ## Uses the formula: cell_size = sqrt(map_area * target_per_cell / total_entities)
+    ## This ensures each cell has approximately target_per_cell entities on average.
+    const
+      MapArea = MapWidth * MapHeight
+      TargetPerCell = SpatialAutoTuneThreshold div 4  # Target ~8 entities per cell
+
+    if totalEntities <= 0:
+      # Very few entities: use large cells to minimize overhead
+      return SpatialMaxCellSize
+
+    # Calculate optimal area per cell to achieve target density
+    let optimalAreaPerCell = MapArea * TargetPerCell div totalEntities
+
+    # Cell size is sqrt of area (cells are square)
+    # Use integer sqrt approximation: find largest power of 2 that fits
+    var cellSize = SpatialMinCellSize
+    while cellSize * cellSize * 4 <= optimalAreaPerCell and cellSize < SpatialMaxCellSize:
+      cellSize = cellSize * 2
+
+    # Clamp to valid range
+    result = clamp(cellSize, SpatialMinCellSize, SpatialMaxCellSize)
+
   proc computeOptimalCellSize*(si: SpatialIndex): int =
     ## Determine if the cell size should change based on current density.
     ## Returns the recommended cell size.
-    ## Uses both max count and average to make smarter tuning decisions.
+    ## Primary: density-based calculation from total entity count
+    ## Secondary: hotspot detection for clustered entities
     let (maxCount, totalCount, nonEmpty) = si.analyzeCellDensity()
 
+    # Primary: Calculate cell size based on total unit density
+    let densityOptimal = computeOptimalCellSizeFromDensity(totalCount)
+
+    # Secondary: Check for hotspots that need finer partitioning
     # Calculate average occupancy for non-empty cells
     let avgCount = if nonEmpty > 0: totalCount div nonEmpty else: 0
 
@@ -259,14 +288,12 @@ when defined(spatialAutoTune):
     let hotspotThreshold = avgCount * 3  # Cell is a hotspot if 3x average
     let isHotspot = maxCount > hotspotThreshold and maxCount > SpatialAutoTuneThreshold
 
-    if isHotspot and si.activeCellSize > SpatialMinCellSize:
-      # Cells too dense: halve the cell size for finer partitioning
-      result = max(si.activeCellSize div 2, SpatialMinCellSize)
-    elif maxCount < SpatialAutoTuneThreshold div 4 and avgCount < SpatialAutoTuneThreshold div 8 and si.activeCellSize < SpatialMaxCellSize:
-      # Cells very sparse (both max and average): double the cell size to reduce overhead
-      result = min(si.activeCellSize * 2, SpatialMaxCellSize)
+    if isHotspot and densityOptimal > SpatialMinCellSize:
+      # Hotspot detected: use smaller of density-optimal or halved current size
+      result = max(min(densityOptimal, si.activeCellSize div 2), SpatialMinCellSize)
     else:
-      result = si.activeCellSize
+      # No hotspot: use density-optimal size
+      result = densityOptimal
 
   proc resizeDynGrid(env: Environment, newCellSize: int) =
     ## Resize the dynamic grid to a new cell size and repopulate from things list.

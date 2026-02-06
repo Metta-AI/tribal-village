@@ -245,3 +245,41 @@ when defined(spatialAutoTune):
       let nearest = env.findNearestThingSpatial(agent.pos, Tree, 100)
       check nearest == tree
       echo "  Queries work correctly after auto-tune"
+
+    test "density-based tuning: empty map uses large cells":
+      # With no entities, should use maximum cell size to minimize overhead
+      let optimal = computeOptimalCellSizeFromDensity(0)
+      check optimal == SpatialMaxCellSize
+      echo &"  Empty map optimal cell size: {optimal}"
+
+    test "density-based tuning: few entities use large cells":
+      # With very few entities, should still use large cells
+      let optimal = computeOptimalCellSizeFromDensity(10)
+      check optimal >= SpatialCellSize  # At least default size
+      echo &"  10 entities optimal cell size: {optimal}"
+
+    test "density-based tuning: many entities use smaller cells":
+      # With many entities, should use smaller cells
+      let optimal = computeOptimalCellSizeFromDensity(1000)
+      check optimal <= SpatialCellSize  # At most default size
+      check optimal >= SpatialMinCellSize
+      echo &"  1000 entities optimal cell size: {optimal}"
+
+    test "density-based tuning: scales with entity count":
+      # More entities should result in smaller or equal cell size
+      let opt100 = computeOptimalCellSizeFromDensity(100)
+      let opt500 = computeOptimalCellSizeFromDensity(500)
+      let opt2000 = computeOptimalCellSizeFromDensity(2000)
+
+      check opt100 >= opt500
+      check opt500 >= opt2000
+      echo &"  Scaling: 100->{opt100}, 500->{opt500}, 2000->{opt2000}"
+
+    test "density-based tuning: respects cell size bounds":
+      # Should never exceed bounds
+      let optMin = computeOptimalCellSizeFromDensity(100000)
+      let optMax = computeOptimalCellSizeFromDensity(1)
+
+      check optMin >= SpatialMinCellSize
+      check optMax <= SpatialMaxCellSize
+      echo &"  Bounds respected: min={optMin}, max={optMax}"
