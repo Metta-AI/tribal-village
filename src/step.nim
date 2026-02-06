@@ -482,6 +482,9 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
     if allTargets.len > 0:
       for i in 0 ..< bonusArrows:
         let bonusTarget = allTargets[i mod allTargets.len]
+        # Skip targets killed by earlier arrows in this volley
+        if bonusTarget.kind == Agent and not isAgentAlive(env, bonusTarget):
+          continue
         env.applyActionTint(bonusTarget.pos, tint, tintDuration, tintCode)
         env.spawnProjectile(tower.pos, bonusTarget.pos, projKind)
         applyTowerHit(bonusTarget)
@@ -511,6 +514,9 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   for i in 0 ..< arrowCount:
     let targetIdx = i mod targets.len
     let target = targets[targetIdx]
+    # Skip targets killed by earlier arrows in this volley
+    if target.kind == Agent and not isAgentAlive(env, target):
+      continue
     env.applyActionTint(target.pos, TownCenterAttackTint, TownCenterAttackTintDuration,
                         ActionTintAttackTower)
     env.spawnProjectile(tc.pos, target.pos, ProjTowerArrow)
