@@ -20,6 +20,29 @@ from pufferlib import pufferl
 from pufferlib import vector as pvector
 from pufferlib.pufferlib import set_buffers
 from tribal_village_env.cogames.policy import TribalPolicyEnvInfo
+from tribal_village_env.constants import (
+    DEFAULT_ADAM_BETA1,
+    DEFAULT_ADAM_BETA2,
+    DEFAULT_ADAM_EPS,
+    DEFAULT_BPTT_HORIZON,
+    DEFAULT_CHECKPOINT_INTERVAL,
+    DEFAULT_CLIP_COEF,
+    DEFAULT_ENT_COEF,
+    DEFAULT_GAE_LAMBDA,
+    DEFAULT_GAMMA,
+    DEFAULT_LEARNING_RATE,
+    DEFAULT_MAX_GRAD_NORM,
+    DEFAULT_MAX_MINIBATCH_SIZE,
+    DEFAULT_NUM_ENVS,
+    DEFAULT_PRIO_ALPHA,
+    DEFAULT_PRIO_BETA0,
+    DEFAULT_TRAIN_MAX_STEPS,
+    DEFAULT_UPDATE_EPOCHS,
+    DEFAULT_VF_CLIP_COEF,
+    DEFAULT_VF_COEF,
+    DEFAULT_VTRACE_C_CLIP,
+    DEFAULT_VTRACE_RHO_CLIP,
+)
 
 logger = logging.getLogger("cogames.tribal_village.train")
 
@@ -145,7 +168,7 @@ def train(settings: dict[str, Any]) -> None:
     cpu_cores = psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True)
     desired_workers = vector_num_workers or cpu_cores or 4
     num_workers = min(desired_workers, max(1, cpu_cores or desired_workers))
-    num_envs = vector_num_envs or 64
+    num_envs = vector_num_envs or DEFAULT_NUM_ENVS
 
     adjusted_envs, adjusted_workers = _resolve_vector_counts(
         num_envs,
@@ -189,7 +212,7 @@ def train(settings: dict[str, Any]) -> None:
         settings.get(
             "env_config",
             {
-                "max_steps": 1_000,
+                "max_steps": DEFAULT_TRAIN_MAX_STEPS,
                 "render_scale": 1,
                 "render_mode": "ansi",
             },
@@ -247,10 +270,10 @@ def train(settings: dict[str, Any]) -> None:
 
     env_name = "tribal_village"
 
-    learning_rate = 0.0005
-    bptt_horizon = 64 if use_rnn else 1
+    learning_rate = DEFAULT_LEARNING_RATE
+    bptt_horizon = DEFAULT_BPTT_HORIZON if use_rnn else 1
     optimizer = "adam"
-    adam_eps = 1e-8
+    adam_eps = DEFAULT_ADAM_EPS
 
     total_agents = max(
         1, getattr(vecenv, "num_agents", getattr(driver_env, "num_agents", 1))
@@ -285,7 +308,7 @@ def train(settings: dict[str, Any]) -> None:
             effective_timesteps,
         )
 
-    checkpoint_interval = 200
+    checkpoint_interval = DEFAULT_CHECKPOINT_INTERVAL
     train_args = dict(
         env=env_name,
         device=settings["device"].type,
@@ -303,23 +326,23 @@ def train(settings: dict[str, Any]) -> None:
         anneal_lr=True,
         precision="float32",
         learning_rate=learning_rate,
-        gamma=0.995,
-        gae_lambda=0.90,
-        update_epochs=1,
-        clip_coef=0.2,
-        vf_coef=2.0,
-        vf_clip_coef=0.2,
-        max_grad_norm=1.5,
-        ent_coef=0.01,
-        adam_beta1=0.95,
-        adam_beta2=0.999,
+        gamma=DEFAULT_GAMMA,
+        gae_lambda=DEFAULT_GAE_LAMBDA,
+        update_epochs=DEFAULT_UPDATE_EPOCHS,
+        clip_coef=DEFAULT_CLIP_COEF,
+        vf_coef=DEFAULT_VF_COEF,
+        vf_clip_coef=DEFAULT_VF_CLIP_COEF,
+        max_grad_norm=DEFAULT_MAX_GRAD_NORM,
+        ent_coef=DEFAULT_ENT_COEF,
+        adam_beta1=DEFAULT_ADAM_BETA1,
+        adam_beta2=DEFAULT_ADAM_BETA2,
         adam_eps=adam_eps,
-        max_minibatch_size=32768,
+        max_minibatch_size=DEFAULT_MAX_MINIBATCH_SIZE,
         compile=False,
-        vtrace_rho_clip=1.0,
-        vtrace_c_clip=1.0,
-        prio_alpha=0.8,
-        prio_beta0=0.2,
+        vtrace_rho_clip=DEFAULT_VTRACE_RHO_CLIP,
+        vtrace_c_clip=DEFAULT_VTRACE_C_CLIP,
+        prio_alpha=DEFAULT_PRIO_ALPHA,
+        prio_beta0=DEFAULT_PRIO_BETA0,
     )
 
     trainer = pufferl.PuffeRL(train_args, vecenv, network)

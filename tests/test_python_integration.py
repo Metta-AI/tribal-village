@@ -9,6 +9,13 @@ import ctypes
 import numpy as np
 import pytest
 
+from tribal_village_env.constants import (
+    DEFAULT_MAX_STEPS,
+    DEFAULT_RENDER_SCALE,
+    OBS_MAX_VALUE,
+    OBS_MIN_VALUE,
+    OBS_NORMALIZATION_FACTOR,
+)
 from tribal_village_env.environment import (
     TribalVillageEnv,
     NimConfig,
@@ -17,6 +24,21 @@ from tribal_village_env.environment import (
     ACTION_VERB_COUNT,
     ACTION_ARGUMENT_COUNT,
 )
+
+
+class TestConstants:
+    """Test constants module values."""
+
+    def test_observation_bounds(self):
+        """Verify observation space bounds are valid."""
+        assert OBS_MIN_VALUE == 0
+        assert OBS_MAX_VALUE == 255
+        assert OBS_NORMALIZATION_FACTOR == 1.0 / 255.0
+
+    def test_defaults_are_positive(self):
+        """Verify default values are positive."""
+        assert DEFAULT_MAX_STEPS > 0
+        assert DEFAULT_RENDER_SCALE > 0
 
 
 class TestNimConfigStruct:
