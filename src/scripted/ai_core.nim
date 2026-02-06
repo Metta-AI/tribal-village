@@ -3,7 +3,7 @@
 import std/[tables, sets]
 import ../entropy
 import vmath
-import ../environment, ../common, ../terrain
+import ../environment, ../common_types, ../terrain
 import ai_types
 import coordination
 

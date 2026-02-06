@@ -8,7 +8,7 @@
 # It doesn't import ai_core to avoid type namespace conflicts.
 
 import vmath
-import ../common, ../environment
+import ../common_types, ../environment
 
 const
   MaxCoordinationRequests* = 16  # Max pending requests per team
