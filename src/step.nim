@@ -3585,6 +3585,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   when defined(eventLog):
     flushEventSummary(env.currentStep)
 
+  when defined(settlerMetrics):
+    if shouldUpdateMetrics(env.currentStep):
+      updateSettlerMetrics(env)
+
   when defined(techAudit):
     maybePrintTechSummary(env, env.currentStep)
 

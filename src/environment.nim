@@ -10,6 +10,10 @@ when defined(techAudit):
   import tech_audit
 when defined(econAudit):
   import econ_audit
+when defined(settlerLog):
+  import settler_events
+when defined(settlerMetrics):
+  import settler_metrics
 when defined(audio):
   import audio_events
 export terrain, items, common
@@ -17,6 +21,10 @@ export types, registry
 export spatial_index
 export formations
 export state_dumper
+when defined(settlerLog):
+  export settler_events
+when defined(settlerMetrics):
+  export settler_metrics
 
 const
   ## Default tumor behavior constants
