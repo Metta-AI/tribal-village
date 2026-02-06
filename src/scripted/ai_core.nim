@@ -8,7 +8,7 @@ import ai_types
 import coordination
 
 # Re-export modules so downstream importers get full environment/AI type access
-export ai_types, environment, common, terrain, coordination, entropy
+export ai_types, environment, common_types, terrain, coordination, entropy
 
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
