@@ -1264,6 +1264,7 @@ type
     tempTowerTargets*: seq[Thing]      ## Tower attack target candidates
     tempTCTargets*: seq[Thing]         ## Town center attack targets
     tempMonkAuraAllies*: seq[Thing]    ## Nearby allies for monk auras
+    tempMonkHealTargets*: seq[Thing]   ## Allies that need healing (subset of above)
     tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
     tempLanternSpacing*: seq[Thing]    ## Lantern spacing check buffer
     # Reusable per-step state to avoid heap allocations

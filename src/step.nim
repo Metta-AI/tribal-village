@@ -651,12 +651,12 @@ proc stepApplyMonkAuras(env: Environment) =
     # Use spatial index to find nearby allies - reuse pre-allocated buffer
     env.tempMonkAuraAllies.setLen(0)
     collectAlliesInRangeSpatial(env, monk.pos, teamId, MonkAuraRadius, env.tempMonkAuraAllies)
-    var needsHeal = false
+    # Single-pass: collect allies that need healing (avoids redundant iteration)
+    env.tempMonkHealTargets.setLen(0)
     for ally in env.tempMonkAuraAllies:
       if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
-        needsHeal = true
-        break
-    if not needsHeal:
+        env.tempMonkHealTargets.add(ally)
+    if env.tempMonkHealTargets.len == 0:
       continue
 
     for dx in -MonkAuraRadius .. MonkAuraRadius:
@@ -673,10 +673,9 @@ proc stepApplyMonkAuras(env: Environment) =
           continue
         env.applyActionTint(pos, MonkAuraTint, MonkAuraTintDuration, ActionTintHealMonk)
 
-    # Apply healing directly to spatially-collected allies (no redundant agent scan)
-    for ally in env.tempMonkAuraAllies:
-      if isAgentAlive(env, ally) and ally.hp < ally.maxHp and not isThingFrozen(ally, env):
-        ally.hp = min(ally.maxHp, ally.hp + 1)
+    # Apply healing to pre-filtered targets (no redundant condition checks)
+    for ally in env.tempMonkHealTargets:
+      ally.hp = min(ally.maxHp, ally.hp + 1)
 
 proc stepRechargeMonkFaith(env: Environment) =
   ## Regenerate faith for monks over time (AoE2-style faith recharge)
