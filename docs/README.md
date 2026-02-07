@@ -1,8 +1,8 @@
 # Docs Index
 
-Date: 2026-01-28
+Date: 2026-02-06
 Owner: Docs / Systems
-Status: Draft
+Status: Active
 
 This index lists the canonical docs for the Tribal Village repo.
 
@@ -42,6 +42,8 @@ This index lists the canonical docs for the Tribal Village repo.
 - `aoe2_design_plan.md`: AoE2-inspired design notes and constraints.
 - `siege_fortifications_plan.md`: siege and defenses design plan.
 - `temple_hybridization.md`: temple-based hybrid spawn notes.
+- `ui_overhaul_design.md`: AoE2-style UI design (partially implemented).
+- `recently-merged-features.md`: recently merged feature documentation.
 
 ## Analysis and Reviews (`analysis/`)
 All analysis, audit, investigation, and code review files live in `docs/analysis/`:

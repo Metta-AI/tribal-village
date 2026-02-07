@@ -1,16 +1,28 @@
 # UI Overhaul Design: Interactive Agent Control
 
-Date: 2026-01-28
+Date: 2026-02-06
 Owner: Design / UI
-Status: Draft
+Status: Partially Implemented
 
 ## 0) Scope & Goals
 
-### Current State
-The game has observation-only GUI: play/pause/speed controls, click-to-select (with shift-click
-multi-select), control groups (Ctrl+0-9), WASD movement override for selected units, and a
-minimal footer bar showing selection name and step counter. All rendering is in Nim using
-Boxy/Windy/OpenGL.
+### Current State (as of 2026-02-06)
+The game now has a functional AoE2-style RTS interface with many features implemented:
+- **Resource bar HUD** (top): team resources, population, step counter
+- **Minimap** (bottom-left): clickable bird's-eye view with terrain colors, unit dots, viewport rectangle
+- **Unit info panel** (right): selected unit stats, HP bars, inventory
+- **Command panel** (right-lower): context-sensitive action buttons with hotkeys
+- **Drag-box multi-select**: click-and-drag rectangle selection
+- **Right-click commands**: AoE2-style move/attack/gather/garrison
+- **Building placement mode**: ghost preview, validity checking, shift-click multibuild
+- **Control groups**: Ctrl+0-9 assign, 0-9 recall, double-tap to center
+- **Formations**: Line, Box, Staggered, Ranged Spread (with 8-direction rotation)
+- **Rally points**: visual beacon with path line from building
+- **Team switching**: Tab cycle, F1-F8 quick switch, observer mode
+- **Weather effects**: Rain, Wind, None (F9 cycle)
+- **Visual effects**: water ripples, unit trails, torch flicker, damage numbers, ragdolls, debris, spawn effects, trade route visualization
+
+All rendering is in Nim using Boxy/Windy/OpenGL.
 
 ### Goals
 Transform the viewer into a playable RTS interface inspired by AoE2, enabling direct player
@@ -477,32 +489,32 @@ the AI for selected units, while unselected units continue under AI control.
 
 ## 13) Implementation Phases
 
-### Phase 1: Foundation (no gameplay change)
-1. Resource bar HUD
-2. Unit info panel (read-only stats display)
-3. Drag-box multi-select
+### Phase 1: Foundation (DONE)
+1. ~~Resource bar HUD~~
+2. ~~Unit info panel (read-only stats display)~~
+3. ~~Drag-box multi-select~~
 
-### Phase 2: Minimap & Navigation
-4. Minimap rendering
-5. Minimap click-to-pan
-6. Viewport rectangle on minimap
+### Phase 2: Minimap & Navigation (DONE)
+4. ~~Minimap rendering~~
+5. ~~Minimap click-to-pan~~
+6. ~~Viewport rectangle on minimap~~
 
-### Phase 3: Command System
-7. Right-click move/attack commands
-8. Command panel with context-sensitive buttons
-9. AI takeover toggle
-10. Player command queue
+### Phase 3: Command System (DONE)
+7. ~~Right-click move/attack commands~~
+8. ~~Command panel with context-sensitive buttons~~
+9. ~~AI takeover toggle (Tab / F1-F8)~~
+10. ~~Player command queue~~
 
-### Phase 4: Building & Production
-11. Building placement mode with ghost preview
-12. Research/production queue panels
-13. Rally point visualization and setting
+### Phase 4: Building & Production (DONE)
+11. ~~Building placement mode with ghost preview~~
+12. ~~Research/production queue panels~~
+13. ~~Rally point visualization and setting~~
 
-### Phase 5: Polish
-14. Hotkey system with prefix menus
-15. Cursor changes by context
-16. Selection filtering and idle unit finding
-17. Fog of war on minimap
+### Phase 5: Polish (Partially Done)
+14. ~~Hotkey system with prefix menus~~ (basic hotkeys implemented)
+15. Cursor changes by context (not yet implemented)
+16. ~~Selection filtering and idle unit finding~~
+17. Fog of war on minimap (toggle available, not fully on minimap)
 
 ---
 

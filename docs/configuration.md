@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Date: 2026-01-27
+Date: 2026-02-06
 Owner: Docs / Systems
 Status: Active
 
@@ -204,9 +204,12 @@ They define the structural parameters of the simulation.
 | Wall | 10 | Basic defense. |
 | Door | 5 | Passable by team. |
 | Outpost | 8 | Vision. |
-| Guard Tower | 14 | Auto-attacks (damage: 2, range: 4). |
-| Town Center | 20 | Population cap. |
-| Castle | 30 | Auto-attacks (damage: 3, range: 6). |
+| Guard Tower | 14 | Auto-attacks (damage: 2, range: 4). Garrison capacity: 5. |
+| Town Center | 20 | Garrison capacity: 15. |
+| Castle | 30 | Auto-attacks (damage: 3, range: 6). Garrison capacity: 20. |
+| Monastery | 12 | Monk training. |
+| Wonder | 80 | Victory condition (600 step countdown). |
+| House | — | Population cap: +4. Garrison capacity: 5. |
 
 ### Wildlife
 
@@ -294,16 +297,16 @@ When enabled, outputs one line per frame with the following metrics (all times i
 | `walls_ms` | Wall structure rendering |
 | `objects_ms` | Agents, buildings, resources rendering |
 | `decor_ms` | Combined decoration time (sum of individual below) |
-| `agentdecor_ms` | Agent decorations (health bars, status icons) |
+| `agentdecor_ms` | Agent decorations (health bars, control group badges, status icons) |
 | `projectiles_ms` | Projectile rendering |
 | `damagenums_ms` | Floating damage numbers |
 | `ragdolls_ms` | Corpse/ragdoll rendering |
-| `debris_ms` | Debris particles |
+| `debris_ms` | Building debris particles |
 | `dust_ms` | Construction dust effects |
-| `trails_ms` | Unit movement trails |
-| `spawn_ms` | Spawn effect animations |
-| `trade_ms` | Trade route visualization |
-| `weather_ms` | Weather effects (rain, wind) |
+| `trails_ms` | Unit movement trails (footprints/dust) |
+| `spawn_ms` | Unit spawn effect animations |
+| `trade_ms` | Trade route line visualization |
+| `weather_ms` | Weather effects (rain particles, wind debris) |
 | `visual_ms` | Visual range indicators |
 | `grid_ms` | Debug grid overlay |
 | `fog_ms` | Fog of war rendering |
@@ -384,10 +387,14 @@ These flags are passed to the Nim compiler to enable optional features.
 | `-d:renderTiming` | Enable render timing instrumentation. |
 | `-d:perfRegression` | Enable performance regression detection. |
 | `-d:enableEvolution` | Enable AI evolution layer. |
+| `-d:audio` | Enable audio system. |
 
 ## Reference Files
 
 - `src/types.nim`: EnvironmentConfig definition and compile-time constants.
+- `src/constants.nim`: Balance constants (building HP, unit stats, tech costs, combat AI).
+- `src/perf_regression.nim`: Performance regression detection system.
 - `src/ffi.nim`: FFI layer for Python config passing.
 - `tribal_village_env/environment.py`: Python configuration interface.
+- `Makefile`: Build/test/benchmark targets.
 - `docs/quickstart.md`: Additional environment variable documentation.

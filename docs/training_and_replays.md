@@ -1,8 +1,8 @@
 # Training and Replay Integration Notes
 
-Date: 2026-01-19
+Date: 2026-02-06
 Owner: Docs / ML Systems
-Status: Draft
+Status: Active
 
 ## Purpose
 Codex sessions frequently revisit training wiring, metta integration, and replay

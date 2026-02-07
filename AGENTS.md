@@ -9,12 +9,12 @@ At the start of each prompt, run:
 
 ## Validation Steps (required)
 1. Ensure Nim code compiles:
-   `nim c -d:release tribal_village.nim`
+   `make check`
 2. Ensure the main play command runs (15s timeout):
-   `timeout 15s nim r -d:release tribal_village.nim`
+   `timeout 15s nim r -d:release --path:src src/tribal_village.nim`
    (On macOS without `timeout`, use `gtimeout` from coreutils.)
 3. Run the test suite as the final step:
-   `nim r --path:src tests/ai_harness.nim`
+   `make test-nim`
 
 ## Post-Validation Steps (required)
 After the 15s play run and AI harness tests pass:

@@ -1,8 +1,8 @@
 # Quickstart Guide
 
-Date: 2026-01-24
+Date: 2026-02-06
 Owner: Docs / Onboarding
-Status: Draft
+Status: Active
 
 This guide helps new developers get up and running with Tribal Village quickly.
 
@@ -10,7 +10,7 @@ This guide helps new developers get up and running with Tribal Village quickly.
 
 ### Nim
 
-- **Version**: 2.2.6 or later
+- **Version**: 2.2.4 or later (2.2.6 recommended)
 - **Installation**: Use [nimby](https://github.com/treeform/nimby) for version management
 
 ```bash
@@ -50,6 +50,24 @@ pip install -e .[cogames]
 - **macOS**: Metal/OpenGL (included with system)
 
 ## Building the Project
+
+### Using the Makefile (Recommended)
+
+The Makefile provides convenient targets for common operations:
+
+```bash
+make check          # CI gate: syncs deps + runs nim check
+make build          # Build shared library (alias: make lib)
+make test           # Run all tests (Nim + Python)
+make test-nim       # Run Nim unit and integration tests only
+make test-python    # Run Python integration tests (builds lib first)
+make test-integration  # Full integration suite
+make test-settlement   # Run settlement behavior tests
+make audit-settlement  # Audit settlement expansion metrics
+make benchmark      # Measure steps/second with perf regression instrumentation
+make clean          # Remove build artifacts
+make install-hooks  # Install git hooks for development
+```
 
 ### Basic Compilation
 
@@ -159,23 +177,50 @@ tribal-village play
 
 ### Keyboard Controls
 
+#### Simulation
+
 | Key | Action |
 |-----|--------|
 | **Space** | Play/pause; step once when paused |
 | **-** or **[** | Decrease simulation speed (0.5x) |
 | **=** or **]** | Increase simulation speed (2x) |
 | **N** / **M** | Cycle observation overlays |
-| **Mouse drag** | Pan the map |
-| **Scroll wheel** | Zoom in/out |
+| **Tab** | Cycle through teams (observer / team 0-7) |
+| **F1-F8** | Quick switch to teams 0-7 |
+| **F9** | Cycle weather effects (Rain / Wind / None) |
 
-#### Agent Selection and Control
+#### Mouse Controls
+
+| Action | Effect |
+|--------|--------|
+| **Left-click** | Select unit/building (shift-click toggles) |
+| **Left-drag** | Pan map (or drag-box multi-select on units) |
+| **Right-click** | AoE2-style contextual command (move/attack/gather) |
+| **Shift+Right-click** | Queue patrol waypoint |
+| **Scroll wheel** | Zoom in/out |
+| **Minimap click** | Pan camera to that location |
+
+#### Unit Selection and Control
 
 | Key | Action |
 |-----|--------|
-| **Click** | Select agent or tile |
-| **W/S/A/D** or **Arrow keys** | Move selected agent (cardinal) |
+| **Ctrl+0-9** | Assign selection to control group |
+| **0-9** | Recall control group (double-tap to center camera) |
+| **S** | Stop |
+| **H** | Hold position (fighters only) |
+| **L / O / T** | Set formation (Line / Box / Staggered) |
+| **W/S/A/D** | Move selected agent (cardinal) or pan camera |
 | **Q/E/Z/C** | Move selected agent (diagonal) |
 | **U** | Use/craft action in facing direction |
+
+#### Building Placement (when villager selected)
+
+| Key | Action |
+|-----|--------|
+| **B** | Open build menu |
+| **Q/W/E/R/A/S/D/F/Z/X** | Build specific buildings (when menu open) |
+| **Esc** | Cancel building placement |
+| **Shift+Click** | Place multiple buildings |
 
 ### Render Timing
 
@@ -194,37 +239,40 @@ TV_RENDER_TIMING=0 TV_RENDER_TIMING_WINDOW=100 TV_RENDER_TIMING_EVERY=10 \
 
 ## Running Tests
 
-### Full Test Suite
-
-Run all tests via the aggregator script:
+### Using Makefile (Recommended)
 
 ```bash
-nim r --path:src scripts/run_all_tests.nim
+make check          # Quick compilation check (syncs deps first)
+make test           # Run all tests (Nim + Python)
+make test-nim       # Nim unit/integration tests only
+make test-python    # Python integration tests (builds lib first)
+make test-settlement  # Settlement behavior tests
 ```
 
-### AI Harness Only
-
-Run just the AI harness tests:
+### Individual Test Files
 
 ```bash
-nim r --path:src tests/ai_harness.nim
+nim r --path:src tests/test_balance_scorecard.nim
+nim r --path:src tests/test_map_determinism.nim
+nim r --path:src tests/test_score_tracking.nim
+nim r --path:src tests/integration_behaviors.nim
 ```
 
-### Validation Sequence (from AGENTS.md)
+### Validation Sequence
 
 1. Compile check:
    ```bash
-   nim c -d:release tribal_village.nim
+   make check
    ```
 
 2. Smoke test (15s timeout):
    ```bash
-   timeout 15s nim r -d:release tribal_village.nim
+   timeout 15s nim r -d:release --path:src src/tribal_village.nim
    ```
 
 3. Test suite:
    ```bash
-   nim r --path:src tests/ai_harness.nim
+   make test-nim
    ```
 
 ## Environment Variables Reference
@@ -236,6 +284,17 @@ nim r --path:src tests/ai_harness.nim
 | `TV_PROFILE_STEPS` | Number of steps to run in headless profile mode | 3000 |
 | `TV_PROFILE_REPORT_EVERY` | Log progress every N steps (0 disables) | 0 |
 | `TV_PROFILE_SEED` | Random seed for profiling runs | 42 |
+
+### Performance Regression Detection (requires `-d:perfRegression`)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TV_PERF_BASELINE` | Path to baseline JSON file to compare against | (none) |
+| `TV_PERF_SAVE_BASELINE` | Path to save captured baseline (capture mode) | (none) |
+| `TV_PERF_THRESHOLD` | Regression threshold percentage | 10 |
+| `TV_PERF_WINDOW` | Sliding window size in steps | 100 |
+| `TV_PERF_INTERVAL` | Report/check interval in steps | 100 |
+| `TV_PERF_FAIL_ON_REGRESSION` | If "1", exit non-zero on regression (CI mode) | "0" |
 
 ### Step Timing (requires `-d:stepTiming`)
 
@@ -289,14 +348,20 @@ nim r -d:release --path:src src/tribal_village.nim
 # Headless smoke test
 tribal-village play --render ansi --steps 128
 
+# Compile check (CI gate)
+make check
+
+# Run all tests
+make test
+
 # Profile AI for 3000 steps
 TV_PROFILE_STEPS=3000 nim r -d:release --path:src scripts/profile_ai.nim
 
-# Run tests
-nim r --path:src scripts/run_all_tests.nim
+# Benchmark with perf regression detection
+make benchmark
 
 # Build shared library for Python
-nim c --app:lib --mm:arc --opt:speed -d:danger --out:libtribal_village.so src/ffi.nim
+make build
 
 # Train with CoGames
 tribal-village train --steps 1000000 --parallel-envs 8 --num-workers 4 --log-outputs
@@ -310,7 +375,9 @@ tribal-village train --steps 1000000 --parallel-envs 8 --num-workers 4 --log-out
 | `-d:danger` | Maximum speed (no bounds checks) |
 | `-d:stepTiming` | Enable step timing instrumentation |
 | `-d:renderTiming` | Enable render timing instrumentation |
+| `-d:perfRegression` | Enable performance regression detection |
 | `-d:enableEvolution` | Enable AI evolution layer |
+| `-d:audio` | Enable audio system |
 
 ## Troubleshooting
 

@@ -31,18 +31,20 @@ pip install -e .[cogames]
 tribal-village train --steps 1000000 --parallel-envs 8 --num-workers 4
 ```
 
-**Controls:** Arrow keys/WASD (move), U (use/craft), Space (pause/step), scroll (zoom), Ctrl+1-9 (control groups)
+**Controls:** Left-click (select), Right-click (command), WASD (move/pan), Space (pause/step), scroll (zoom), Ctrl+0-9 (control groups), Tab (cycle teams), F9 (weather), B (build menu)
 
 ## Key Features
 
 - **Victory conditions**: Conquest, Wonder, Relic, King of the Hill, Regicide
 - **Tech trees**: Blacksmith upgrades, University research, Castle unique techs per civilization
 - **Production system**: Batch training, production queues, per-unit training times, rally points
-- **Military commands**: Attack-move, patrol, unit stances, control groups
+- **Military commands**: Attack-move, patrol, unit stances, control groups, formations (Line/Box/Staggered)
 - **Economy**: AoE2-style market trading, Trade Cog dock-to-dock gold generation, biome resource bonuses
 - **Unit mechanics**: Garrisoning, Trebuchet pack/unpack, Monk conversion, Scout exploration, unit upgrades
 - **AI system**: Role-based agents (Gatherer/Builder/Fighter) with inter-role coordination, shared threat maps, adaptive difficulty
 - **Terrain**: Biome zones, elevation with cliffs/ramps, mud and shallow water, terrain movement speed modifiers
+- **AoE2-style UI**: Resource bar, minimap, command panel, unit info, drag-box select, right-click commands, building placement
+- **Visual effects**: Weather (rain/wind), water ripples, unit trails, torch flicker, damage numbers, ragdolls, debris, spawn effects
 
 ## Python API
 
