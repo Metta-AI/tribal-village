@@ -1317,6 +1317,7 @@ var buildingPlacementValid*: bool = false     # Whether current position is vali
 # Helper function for checking if agent is alive
 proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
   not agent.isNil and
+    agent.agentId >= 0 and agent.agentId < MapAgents and
     env.terminated[agent.agentId] == 0.0 and
     isValidPos(agent.pos) and
     env.grid[agent.pos.x][agent.pos.y] == agent

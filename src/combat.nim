@@ -290,11 +290,22 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
 proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
   ## Remove an agent from the board and mark for respawn.
   ## If attacker is provided, spawn ragdoll tumbling away from damage source.
+
+  # Guard against invalid agentId
   if victim.agentId < 0 or victim.agentId >= MapAgents:
     return
+  # Already dead — avoid double-kill
   if env.terminated[victim.agentId] != 0.0:
-    return  # Already dead — avoid double-kill
+    return
+
   let deathPos = victim.pos
+
+  # Guard against invalid position (e.g., garrisoned unit with pos = (-1,-1))
+  if not isValidPos(deathPos):
+    # The unit might be garrisoned or in an invalid state - just mark as terminated
+    env.terminated[victim.agentId] = 1.0
+    victim.hp = 0
+    return
 
   # Create dying unit for fade-out animation before removing from grid
   env.dyingUnits.add(DyingUnit(
