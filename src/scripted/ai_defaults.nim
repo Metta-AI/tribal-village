@@ -707,4 +707,6 @@ proc updateController*(controller: Controller, env: Environment) =
   controller.updateAdaptiveDifficulty(env)
   # Check for town splits (AI settlement expansion)
   controller.checkAndTriggerTownSplit(env)
+  # Check if settler groups have arrived and should found new towns
+  controller.checkSettlerArrivals(env)
   scriptedState.lastEpisodeStep = env.currentStep

@@ -1,7 +1,10 @@
 ## Town split AI: detects overcrowding and initiates settler groups.
+## Also handles town founding when settlers arrive at their target.
 
 import ai_core
 export ai_core
+
+const SettlerFoundingQuorum = 5  ## Minimum arrived settlers to found a town
 
 proc countVillagersAtAltar(env: Environment, teamId: int, altarPos: IVec2): int =
   ## Count living villagers whose homeAltar matches the given altar position.
@@ -183,6 +186,137 @@ proc findNewTownSite*(controller: Controller, env: Environment,
       if score > bestScore:
         bestScore = score
         result = pos
+
+proc placeTownCenter(env: Environment, center: IVec2, teamId: int): IVec2 =
+  ## Place a town center near a new altar. Follows the same pattern as
+  ## placeStartingTownCenter in spawn.nim.
+  for radius in 1 .. 3:
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        if max(abs(dx), abs(dy)) != radius:
+          continue
+        let pos = center + ivec2(dx.int32, dy.int32)
+        if not isValidPos(pos):
+          continue
+        if env.terrain[pos.x][pos.y] == Water:
+          continue
+        if env.hasDoor(pos) or not env.isEmpty(pos):
+          continue
+        env.add(Thing(kind: TownCenter, pos: pos, teamId: teamId))
+        return pos
+  # Fallback: place directly east
+  let fallback = center + ivec2(1, 0)
+  if isValidPos(fallback) and env.isEmpty(fallback) and
+      env.terrain[fallback.x][fallback.y] != Water and not env.hasDoor(fallback):
+    env.add(Thing(kind: TownCenter, pos: fallback, teamId: teamId))
+    return fallback
+  center
+
+proc foundNewTown(env: Environment, teamId: int, site: IVec2,
+                   settlers: seq[int]) =
+  ## Found a new town at the given site: place Altar + TownCenter,
+  ## register in altarColors, reassign settlers' homeAltar, clear flags,
+  ## and deduct resources.
+
+  # 1. Find a clear position at or near the site for the altar
+  var altarPos = site
+  if not env.isEmpty(site):
+    # Search nearby for an empty spot
+    altarPos = ivec2(-1, -1)
+    for radius in 1 .. 3:
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          if max(abs(dx), abs(dy)) != radius:
+            continue
+          let pos = site + ivec2(dx.int32, dy.int32)
+          if isValidPos(pos) and env.isEmpty(pos) and
+              env.terrain[pos.x][pos.y] != Water:
+            altarPos = pos
+            break
+        if altarPos.x >= 0: break
+      if altarPos.x >= 0: break
+    if altarPos.x < 0:
+      return  # Cannot place altar, abort founding
+
+  let altar = Thing(
+    kind: Altar,
+    pos: altarPos,
+    teamId: teamId
+  )
+  altar.inventory = emptyInventory()
+  altar.hearts = MapObjectAltarInitialHearts
+  env.add(altar)
+
+  # 2. Register altar color (use the team's color)
+  if teamId < env.teamColors.len:
+    env.altarColors[altarPos] = env.teamColors[teamId]
+
+  # 3. Place a town center nearby
+  discard placeTownCenter(env, altarPos, teamId)
+
+  # 4. Reassign settlers' homeAltar to the new altar and clear flags
+  for agentId in settlers:
+    let agent = env.agents[agentId]
+    if not isAgentAlive(env, agent):
+      continue
+    agent.homeAltar = altarPos
+    agent.isSettler = false
+    agent.settlerTarget = ivec2(-1, -1)
+    agent.settlerArrived = false
+
+  # 5. Deduct wood for the town center (14 wood, same as split check)
+  let woodCost = 14
+  env.teamStockpiles[teamId].counts[ResourceWood] =
+    max(0, env.teamStockpiles[teamId].counts[ResourceWood] - woodCost)
+
+proc checkSettlerArrivals*(controller: Controller, env: Environment) =
+  ## Check if any settler groups have enough members arrived to found a town.
+  ## Called periodically from updateController alongside checkAndTriggerTownSplit.
+
+  # Only check at the configured interval (same as split checks)
+  if env.currentStep.int32 mod TownSplitCheckInterval != 0:
+    return
+
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    # Collect settlers by target site
+    var settlersByTarget: seq[(IVec2, seq[int])] = @[]
+
+    for agent in env.agents:
+      if not isAgentAlive(env, agent):
+        continue
+      if getTeamId(agent) != teamId:
+        continue
+      if not agent.isSettler or agent.settlerTarget.x < 0:
+        continue
+
+      # Find or create entry for this target
+      var found = false
+      for entry in settlersByTarget.mitems:
+        if entry[0] == agent.settlerTarget:
+          if agent.settlerArrived:
+            entry[1].add(agent.agentId)
+          found = true
+          break
+      if not found and agent.settlerArrived:
+        settlersByTarget.add((agent.settlerTarget, @[agent.agentId]))
+
+    # For each target site, check if enough settlers have arrived
+    for (site, arrivedSettlers) in settlersByTarget:
+      if arrivedSettlers.len < SettlerFoundingQuorum:
+        continue
+
+      # Collect ALL settlers targeting this site (arrived or not) for reassignment
+      var allSettlers: seq[int] = @[]
+      for agent in env.agents:
+        if not isAgentAlive(env, agent):
+          continue
+        if getTeamId(agent) != teamId:
+          continue
+        if agent.isSettler and agent.settlerTarget == site:
+          allSettlers.add(agent.agentId)
+
+      # Found the new town
+      foundNewTown(env, teamId, site, allSettlers)
 
 proc checkAndTriggerTownSplit*(controller: Controller, env: Environment) =
   ## Called periodically from updateController to check all teams for town splits.
