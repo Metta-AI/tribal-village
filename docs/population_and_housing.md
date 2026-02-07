@@ -36,8 +36,23 @@ The scripted builder logic checks for cap pressure in
 - `needsPopCapHouse` compares current pop count + buffer against the cap.
 - When needed, builders try to place `House` near the base position.
 
+## Garrison Capacity
+Buildings have garrison capacity (AoE2-style):
+- Town Center: `TownCenterGarrisonCapacity` (15)
+- Castle: `CastleGarrisonCapacity` (20)
+- Guard Tower: `GuardTowerGarrisonCapacity` (5)
+- House: `HouseGarrisonCapacity` (5)
+
+Garrisoned units are removed from the map. When a garrisoned building is destroyed,
+units are ejected to nearby empty tiles (or killed if no space).
+
+## Town Bell
+Buildings have a `townBellActive` flag. When rung, villagers seek nearby garrisonable
+buildings for safety. The `GarrisonSeekRadius` (15) determines how far villagers will
+search for shelter.
+
 ## Practical Notes
 - Houses are the sole pop-cap building right now.
-- Town Centers are important for other mechanics (training and hearth focus),
+- Town Centers are important for other mechanics (training, garrison, and hearth focus),
   but do not add cap.
 - Tuning `HousePopCap` or `MapAgentsPerTeam` changes growth dynamics quickly.

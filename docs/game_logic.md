@@ -22,7 +22,7 @@ The main loop is `proc step*(env, actions)` in `src/step.nim`.
 Order of operations (high level):
 1. Decay short-lived effects (combat/heal tints, shields).
 2. Remove agents already at 0 HP so they cannot act this step.
-3. Apply each alive agent action in ID order.
+3. Apply each alive agent's action in shuffled order (randomized each step for fairness).
 4. Update world objects (building cooldowns, tower/castle attacks, spawners, wildlife movement).
 5. Process tumor branching/spawning.
 6. Resolve adjacency deaths for agents/predators touching tumors.
@@ -41,11 +41,17 @@ Order of operations (high level):
   (`src/colors.nim`). Frozen tiles and things on them are non-interactable.
 
 ## Teams and Agents
-- 8 teams, 125 agent slots each (1000 total). Only 6 are active per team at spawn; the rest
-  start dormant and can respawn later.
-- Each agent has: position, orientation, HP/max HP, unit class, inventory, and home altar.
-- Unit classes include villager, man-at-arms, archer, scout, knight, monk, battering ram,
-  mangonel, trebuchet, boat, trade cog, and goblin. Castle unique units are available per civilization.
+- 8 teams, 125 agent slots each (1000 total), plus 6 goblin agents = 1006 total slots.
+  Only 6 are active per team at spawn; the rest start dormant and can respawn later.
+- Each agent has: position, orientation, HP/max HP, unit class, inventory, home altar, stance, and movement debt.
+- Base unit classes: villager, man-at-arms, archer, scout, knight, monk, battering ram,
+  mangonel, trebuchet, boat, trade cog, and goblin.
+- Castle unique units (one per civilization/team): samurai, longbowman, cataphract, woad raider,
+  teutonic knight, huskarl, mameluke, janissary, king.
+- Unit upgrade tiers: long swordsman, champion (infantry); light cavalry, hussar (cavalry);
+  crossbowman, arbalester (archer).
+- Naval combat units: galley, fire ship.
+- Additional siege: scorpion (anti-infantry ballista).
 
 ## Inventory and Stockpiles
 - Each agent carries a small inventory (see `MapObjectAgentMaxInventory`).

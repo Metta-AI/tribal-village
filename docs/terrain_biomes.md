@@ -91,10 +91,16 @@ above the agent's elevation via `ObscuredLayer` in `src/ffi.nim`
 - Uses `env.canTraverseElevation`, so ramps matter for connectivity.
 
 ## Terrain Movement Speed Modifiers
-Different terrain types apply **movement speed modifiers**:
-- Roads grant faster movement (2-tile steps for cavalry, 1.5x for infantry).
-- Mud terrain slows movement.
-- Shallow water allows wading at reduced speed; deep water blocks non-boat units.
+Different terrain types apply **movement speed modifiers** via `TerrainSpeedModifier`
+in `src/terrain.nim`. Agents accumulate `movementDebt` when moving on slow terrain;
+when debt >= 1.0, one move is skipped:
+- **Shallow water**: 0.5x (50% slower wading)
+- **Mud**: 0.7x (30% slower in swamp)
+- **Snow**: 0.8x (20% slower)
+- **Dune**: 0.85x (15% slower)
+- **Sand**: 0.9x (10% slower)
+- **Road**: 1.0x base, but cavalry (Scout/Knight) get 2-tile steps on roads
+- **Deep water**: Impassable to non-boat units
 
 ## Water Depth Visualization
 Water tiles have two visual depth levels:
@@ -113,8 +119,8 @@ ramp (road), **cliff fall damage** is applied:
 ## Mud Terrain
 Swamp biomes include **Mud** tiles:
 - Rendered with a dedicated `mud.png` sprite.
-- Movement through mud is slowed.
-- Mud tiles are walkable but not buildable.
+- Movement through mud is slowed (0.7x speed modifier = 30% slower).
+- Mud tiles are walkable and buildable.
 
 ## Ramp Sprites
 Elevation transitions now have **visual ramp sprites** for each cardinal

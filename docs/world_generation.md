@@ -72,9 +72,19 @@ Current behavior:
 This guarantees two distinct goblin clusters rather than a single concentrated
 spawn.
 
+## Dungeon Zones
+Dungeon zones (`BiomeDungeonType`) are procedurally generated regions with wall
+structures. Two layout types alternate:
+- **Maze** (`DungeonMaze`): classic maze wall patterns.
+- **Radial** (`DungeonRadial`): corridor-based radial layouts (mask is inverted).
+
+Dungeon edges are softened with `ditherEdges` for organic blending.
+Wildlife avoids dungeon biomes.
+
 ## Where to tweak
-- **Hub density / shape**: `tradingHub` in `src/spawn.nim`.
+- **Hub density / shape**: `initTradingHub` in `src/spawn.nim`.
 - **River meander**: `generateRiver()` in `src/terrain.nim`.
-- **Goblin hive rules**: goblin hive block in `src/spawn.nim`.
+- **Goblin hive rules**: `initNeutralStructures` in `src/spawn.nim`.
 - **Post-pass connectivity**: `makeConnected()` in `src/connectivity.nim` if
   map generation introduces disconnected traversable regions.
+- **Dungeon zones**: `UseDungeonZones` and dungeon mask builders in `src/spawn.nim`.
