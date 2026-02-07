@@ -12,7 +12,6 @@ import agent_control
 import common
 import types
 import items
-import colors
 import test_utils
 import ui_harness
 

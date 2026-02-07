@@ -13,7 +13,6 @@ import vmath, boxy
 import test_common
 import common
 import ui_harness
-import command_panel
 import tooltips
 
 # ---------------------------------------------------------------------------

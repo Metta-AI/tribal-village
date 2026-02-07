@@ -572,24 +572,24 @@ proc tribal_village_market_buy*(env: pointer, teamId: int32, resource: int32, am
   ## Returns 1 on success, 0 on failure. Writes gold cost and resource gained to output pointers.
   if resource < 0 or resource > ord(StockpileResource.high):
     return 0
-  let result = marketBuyResource(globalEnv, teamId, StockpileResource(resource), amount)
+  let buyResult = marketBuyResource(globalEnv, teamId, StockpileResource(resource), amount)
   if not outGoldCost.isNil:
-    outGoldCost[] = result.goldCost.int32
+    outGoldCost[] = buyResult.goldCost.int32
   if not outResourceGained.isNil:
-    outResourceGained[] = result.resourceGained.int32
-  if result.resourceGained > 0: 1 else: 0
+    outResourceGained[] = buyResult.resourceGained.int32
+  if buyResult.resourceGained > 0: 1 else: 0
 
 proc tribal_village_market_sell*(env: pointer, teamId: int32, resource: int32, amount: int32, outResourceSold: ptr int32, outGoldGained: ptr int32): int32 {.exportc, dynlib.} =
   ## Sell resources to market for gold.
   ## Returns 1 on success, 0 on failure. Writes resource sold and gold gained to output pointers.
   if resource < 0 or resource > ord(StockpileResource.high):
     return 0
-  let result = marketSellResource(globalEnv, teamId, StockpileResource(resource), amount)
+  let sellResult = marketSellResource(globalEnv, teamId, StockpileResource(resource), amount)
   if not outResourceSold.isNil:
-    outResourceSold[] = result.resourceSold.int32
+    outResourceSold[] = sellResult.resourceSold.int32
   if not outGoldGained.isNil:
-    outGoldGained[] = result.goldGained.int32
-  if result.goldGained > 0: 1 else: 0
+    outGoldGained[] = sellResult.goldGained.int32
+  if sellResult.goldGained > 0: 1 else: 0
 
 proc tribal_village_market_sell_inventory*(env: pointer, agentId: int32, itemKind: int32, outAmountSold: ptr int32, outGoldGained: ptr int32): int32 {.exportc, dynlib.} =
   ## Sell all of an item from agent's inventory to their team's market.
@@ -600,12 +600,12 @@ proc tribal_village_market_sell_inventory*(env: pointer, agentId: int32, itemKin
     return 0
   let agent = globalEnv.agents[agentId]
   let itemKey = ItemKey(kind: ItemKeyItem, item: ItemKind(itemKind))
-  let result = marketSellInventory(globalEnv, agent, itemKey)
+  let invSellResult = marketSellInventory(globalEnv, agent, itemKey)
   if not outAmountSold.isNil:
-    outAmountSold[] = result.amountSold.int32
+    outAmountSold[] = invSellResult.amountSold.int32
   if not outGoldGained.isNil:
-    outGoldGained[] = result.goldGained.int32
-  if result.goldGained > 0: 1 else: 0
+    outGoldGained[] = invSellResult.goldGained.int32
+  if invSellResult.goldGained > 0: 1 else: 0
 
 proc tribal_village_market_buy_food*(env: pointer, agentId: int32, goldAmount: int32, outGoldSpent: ptr int32, outFoodGained: ptr int32): int32 {.exportc, dynlib.} =
   ## Buy food with gold from agent's inventory.
@@ -613,12 +613,12 @@ proc tribal_village_market_buy_food*(env: pointer, agentId: int32, goldAmount: i
   if agentId < 0 or agentId >= MapAgents:
     return 0
   let agent = globalEnv.agents[agentId]
-  let result = marketBuyFood(globalEnv, agent, goldAmount)
+  let foodBuyResult = marketBuyFood(globalEnv, agent, goldAmount)
   if not outGoldSpent.isNil:
-    outGoldSpent[] = result.goldSpent.int32
+    outGoldSpent[] = foodBuyResult.goldSpent.int32
   if not outFoodGained.isNil:
-    outFoodGained[] = result.foodGained.int32
-  if result.foodGained > 0: 1 else: 0
+    outFoodGained[] = foodBuyResult.foodGained.int32
+  if foodBuyResult.foodGained > 0: 1 else: 0
 
 proc tribal_village_decay_market_prices*(env: pointer) {.exportc, dynlib.} =
   ## Slowly drift market prices back toward base rate.
@@ -709,7 +709,7 @@ proc tribal_village_get_nearest_threat*(env: pointer, agentId: int32,
       return 0
     let teamId = agent.getTeamId()
     let currentStep = globalEnv.currentStep.int32
-    let (pos, dist, found) = getNearestThreat(globalController.aiController, teamId, agent.pos, currentStep)
+    let (pos, _, found) = getNearestThreat(globalController.aiController, teamId, agent.pos, currentStep)
     if not found:
       return 0
     if not outX.isNil:
