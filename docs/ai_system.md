@@ -268,8 +268,25 @@ Goal: replace `include` with explicit `import` to reduce accidental coupling
 without changing behavior.
 
 ## Debugging and profiling hooks
-- `scripts/profile_ai.nim`: quick AI profiling entrypoint.
-- `scripts/run_all_tests.nim`: run the full Nim test sequence.
 
-These are the fastest paths for AI iteration when you don’t need a full
-rendered run.
+### Quick profiling scripts
+- `scripts/profile_ai.nim`: headless AI profiling (population, altar hearts)
+- `scripts/profile_env.nim`: low-level `nimprof`-compatible profiling
+- `scripts/benchmark_steps.nim`: measure steps/second with perf regression detection (`make benchmark`)
+- `scripts/run_all_tests.nim`: run the full Nim test sequence
+
+### Compile-time instrumentation flags
+All flags are zero-cost when disabled (code is compiled out entirely):
+
+| Flag | Purpose |
+|------|---------|
+| `-d:stepTiming` | Per-subsystem step timing breakdown (11 subsystems) |
+| `-d:perfRegression` | Sliding-window regression detection with baseline comparison |
+| `-d:actionFreqCounter` | Action distribution by unit type per step |
+| `-d:renderTiming` | Per-frame render timing |
+| `-d:spatialAutoTune` | Density-based spatial index cell size adaptation |
+| `-d:spatialStats` | Spatial query efficiency metrics |
+| `-d:flameGraph` | CPU sampling in collapsed stack format |
+| `-d:aiAudit` | AI decision logging (with `TV_AI_LOG=1`) |
+
+See `docs/recently-merged-features.md` for full environment variable reference.

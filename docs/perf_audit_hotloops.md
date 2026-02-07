@@ -17,82 +17,35 @@ This audit identifies hotloop inefficiencies in the step processing and AI contr
 
 ## Critical Issues
 
-### 1. O(n) Containment Checks in step.nim
+### 1. O(n) Containment Checks in step.nim (OPEN)
 
-**Location**: `step.nim:2729`, `step.nim:2796`, `step.nim:908`, `step.nim:936`
+**Location**: `step.nim` (spawner/tumor loops), `step.nim` (agent loops)
 
 **Problem**: Using `in` operator on `seq[Thing]` performs O(n) linear scan. When called inside loops over Spawners/Tumors/Agents, this creates O(n*m) complexity.
 
 ```nim
-# step.nim:2729 - Inside loop over all Spawners
+# Inside loop over all Spawners
 if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
   continue
 
-# step.nim:2796 - Inside loop over all Tumors
+# Inside loop over all Tumors
 if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
   continue
-
-# step.nim:908 - Inside loop over all Agents
-if tumor in tumorsToRemove[]:
-  continue
-
-# step.nim:936
-if predator notin predatorsToRemove[]:
-  predatorsToRemove[].add(predator)
 ```
 
-**Impact**: With ~50 towers firing per step and ~200 tumors, this is O(50*200) = 10,000 comparisons. The `tempTowerRemovals` is typically small, but worst-case could be significant.
+**Status**: `tempTowerRemovals` is still `seq[Thing]` in `types.nim`. The `len > 0` guard avoids the scan when the list is empty, but worst-case is still O(n).
 
-**Recommended Fix**: Convert `tempTowerRemovals`, `tumorsToRemove`, and `predatorsToRemove` to `HashSet[Thing]` (or `HashSet[pointer]`) for O(1) lookups:
+**Impact**: Mitigated by the length guard (skips scan when no towers fired), but converting to `HashSet[Thing]` would provide O(1) lookups.
 
-```nim
-# In Environment object, change:
-#   tempTowerRemovals*: seq[Thing]
-# To:
-#   tempTowerRemovals*: HashSet[Thing]
-
-# Usage becomes:
-if thing in env.tempTowerRemovals:  # Now O(1)
-  continue
-```
+**Recommended Fix**: Convert `tempTowerRemovals` to `HashSet[Thing]` for O(1) lookups.
 
 ---
 
-### 2. Iterating All Agents Instead of Specialized Collection
+### 2. ~~Iterating All Agents Instead of Specialized Collection~~ (FIXED)
 
-**Location**: `step.nim:568-578` (`stepRechargeMonkFaith`)
+**Location**: `step.nim` (`stepRechargeMonkFaith`)
 
-**Problem**: This proc iterates ALL agents to find monks, but `env.monkUnits` already tracks monks specifically:
-
-```nim
-proc stepRechargeMonkFaith(env: Environment) =
-  ## Regenerate faith for monks over time (AoE2-style faith recharge)
-  for monk in env.agents:           # <-- Iterates ALL agents
-    if not isAgentAlive(env, monk):
-      continue
-    if monk.unitClass != UnitMonk:  # <-- Filters out ~95% of iterations
-      continue
-    # ... rest of logic
-```
-
-**Contrast with stepApplyMonkAuras** at line 526 which correctly uses the specialized collection:
-```nim
-for monk in env.monkUnits:  # <-- Correct: only iterates actual monks
-```
-
-**Impact**: With 100+ agents per team, this scans ~400 agents to find ~4-8 monks. The monkUnits collection has exactly the monks.
-
-**Recommended Fix**:
-```nim
-proc stepRechargeMonkFaith(env: Environment) =
-  for monk in env.monkUnits:  # Use specialized collection
-    if not isAgentAlive(env, monk):
-      continue
-    if isThingFrozen(monk, env):
-      continue
-    if monk.faith < MonkMaxFaith:
-      monk.faith = min(MonkMaxFaith, monk.faith + MonkFaithRechargeRate)
-```
+**Status**: **Fixed.** `stepRechargeMonkFaith` now iterates `env.monkUnits` instead of all agents, consistent with `stepApplyMonkAuras`.
 
 ---
 
@@ -215,48 +168,25 @@ for x in startX..endX:
 
 ---
 
-### 6. hasTeamLanternNear Iterates All Lanterns
+### 6. ~~hasTeamLanternNear Iterates All Lanterns~~ (FIXED)
 
-**Location**: `ai_core.nim:991-999`
+**Location**: `ai_core.nim`
 
-**Problem**: Iterates all lanterns to find one within 3 tiles:
-
-```nim
-proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  for thing in env.thingsByKind[Lantern]:  # O(lanterns)
-    if thing.isNil or not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:
-      return true
-  false
-```
-
-**Impact**: With 50+ lanterns and called during building decisions, this adds up.
-
-**Recommended Fix**: Use spatial index query:
-```nim
-proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  var lanterns: seq[Thing] = @[]
-  collectThingsInRangeSpatial(env, pos, Lantern, 3, lanterns)
-  for thing in lanterns:
-    if thing.teamId == teamId and thing.lanternHealthy:
-      return true
-  false
-```
+**Status**: **Fixed.** `hasTeamLanternNear` now uses `collectThingsInRangeSpatial(env, pos, Lantern, 3, nearby)` for O(1 cell) lookups instead of iterating all lanterns. Note: still allocates a local `seq[Thing]` per call; could be further optimized with a pre-allocated buffer.
 
 ---
 
 ## Summary Table
 
-| Issue | Location | Severity | Fix Complexity |
-|-------|----------|----------|----------------|
-| O(n) `in` on tempTowerRemovals | step.nim:2729,2796 | High | Low (use HashSet) |
-| O(n) `in` on tumorsToRemove | step.nim:908 | High | Low (use HashSet) |
-| stepRechargeMonkFaith iterates all agents | step.nim:568 | Medium | Low (use monkUnits) |
-| Duplicate pop cap calculation | step.nim:2632,3054 | Medium | Low (reuse existing) |
-| Seq allocation in canEnterForMove | ai_core.nim:776 | Medium | Low (use arena) |
-| Fertile tile 17x17 scan | ai_core.nim:1013 | Low | Medium (add index) |
-| hasTeamLanternNear O(n) scan | ai_core.nim:991 | Low | Low (use spatial) |
+| Issue | Location | Severity | Status |
+|-------|----------|----------|--------|
+| O(n) `in` on tempTowerRemovals | step.nim | High | **Open** (mitigated by len>0 guard) |
+| O(n) `in` on tumorsToRemove | step.nim | High | Open |
+| stepRechargeMonkFaith iterates all agents | step.nim | Medium | **Fixed** (uses monkUnits) |
+| Duplicate pop cap calculation | step.nim | Medium | Open |
+| Seq allocation in canEnterForMove | ai_core.nim | Medium | Open |
+| Fertile tile 17x17 scan | ai_core.nim | Low | Open |
+| hasTeamLanternNear O(n) scan | ai_core.nim | Low | **Fixed** (uses spatial index) |
 
 ---
 
@@ -264,13 +194,15 @@ proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
 
 1. **Immediate** (high impact, low effort):
    - Convert tempTowerRemovals/tumorsToRemove to HashSet
-   - Use monkUnits in stepRechargeMonkFaith
    - Remove duplicate pop cap calculations
 
 2. **Short-term** (medium impact):
-   - Replace @[] with arena buffers in canEnterForMove
-   - Add spatial query for hasTeamLanternNear
+   - Replace `@[]` with arena buffers in `canEnterForMove`
 
 3. **Later** (optimization opportunities):
    - Index fertile tiles per team
    - Profile to find additional hotspots
+
+### Already Completed
+- ~~Use monkUnits in stepRechargeMonkFaith~~ (done)
+- ~~Add spatial query for hasTeamLanternNear~~ (done)

@@ -11,7 +11,7 @@ The AI decision-making system is well-optimized with extensive per-agent per-ste
 
 ## Architecture Overview
 
-The AI system uses an **options-based framework** (`ai_options.nim:32-71`) where:
+The AI system uses an **options-based framework** (`src/scripted/options.nim`) where:
 1. Each role (Gatherer, Builder, Fighter, Scripted) has a priority-ordered list of `OptionDef` behaviors
 2. `runOptions` evaluates options by priority, calling `canStart` to check eligibility
 3. Active options can be preempted by higher-priority options if `interruptible=true`
@@ -77,7 +77,7 @@ proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, ki
 
 Per-step cache in both module-level `Table[int, bool]` and `controller.allyThreatCache` array.
 
-### 7. Threat Map Staggering (`ai_core.nim:16-17`)
+### 7. Threat Map Staggering (`ai_core.nim`)
 
 ```nim
 ThreatMapStaggerInterval* = 5  # Only 1/5 of agents update threat map per step
@@ -200,3 +200,6 @@ The AI system is well-optimized for the <1ms per agent per tick target. The iden
 For profiling, compile with:
 - `-d:aiAudit` + `TV_AI_LOG=1` for decision summary
 - `-d:spatialStats` + `TV_SPATIAL_STATS_INTERVAL=100` for spatial query stats
+- `-d:stepTiming` for per-subsystem step timing breakdown
+- `-d:perfRegression` for regression detection (see `make benchmark`)
+- `-d:actionFreqCounter` for action distribution by unit type
