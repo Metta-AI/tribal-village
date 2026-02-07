@@ -20,9 +20,10 @@ Status: Draft
 
 ### Design Note (Locked)
 - One building = one unit type for training.
-- Siege is split into two buildings:
+- Siege is split into three buildings:
   - **Siege Workshop** -> **Battering Ram**
   - **Mangonel Workshop** -> **Mangonel**
+  - **Trebuchet Workshop** -> **Trebuchet**
 
 ### 1.1 Battering Ram
 **Role:** Best vs structures, weak vs units.
@@ -77,9 +78,11 @@ Status: Draft
 - Higher HP than Guard Tower.
 
 ## 3) Combat Rules
-- Buildings (Wall, Door, Outpost, Guard Tower, Castle, Town Center) are attackable.
-- Siege units do x3 damage vs buildings.
-- Ranged towers use basic “nearest target in range” logic.
+- Buildings (Wall, Door, Outpost, Guard Tower, Castle, Town Center, Monastery) are attackable.
+- Siege units (Ram, Mangonel, Trebuchet) do x3 damage vs buildings.
+- Siege Engineers university tech adds +20% building damage for siege units.
+- Masonry and Architecture university techs reduce incoming building damage by 1 each.
+- Ranged towers and town centers use basic "nearest target in range" logic.
 
 ## 4) AI Rules (Simple, deterministic)
 - Siege units:
@@ -99,11 +102,13 @@ Status: Draft
   - `oriented/mangonel.{dir}.png`
 
 ## 6) Implementation Milestones (first pass)
-1) Make walls destructible with HP=10.
-2) Add building HP + attackability (doors + main fortifications).
-3) Add siege building damage multiplier (x3).
-4) Add Guard Tower with range 4 and simple auto‑attack.
-5) Arm Castle with range 6 and simple auto‑attack.
-6) Add Siege Workshop (Ram) + Mangonel Workshop (Mangonel).
-7) Add Battering Ram unit + simple AI.
-8) Add Mangonel unit + extended spear AoE + simple AI.
+1) ~~Make walls destructible with HP=10.~~ (Done)
+2) ~~Add building HP + attackability (doors + main fortifications).~~ (Done: Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery are attackable)
+3) ~~Add siege building damage multiplier (x3).~~ (Done: `SiegeStructureMultiplier = 3`)
+4) ~~Add Guard Tower with range 4 and simple auto‑attack.~~ (Done)
+5) ~~Arm Castle with range 6 and simple auto‑attack.~~ (Done)
+6) ~~Add Siege Workshop (Ram) + Mangonel Workshop (Mangonel).~~ (Done: also TrebuchetWorkshop)
+7) ~~Add Battering Ram unit + simple AI.~~ (Done)
+8) ~~Add Mangonel unit + extended spear AoE + simple AI.~~ (Done)
+9) Add Trebuchet unit with pack/unpack mechanic. (Done: `TrebuchetBaseRange = 6`, `TrebuchetPackDuration = 15`)
+10) Add Scorpion (anti-infantry siege ballista). (Done: `ScorpionBaseRange = 4`)

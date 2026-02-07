@@ -22,7 +22,7 @@ Each step, the engine checks every Temple:
 4) Consume one heart, spawn a dormant villager near the temple, and enqueue
    a `TempleHybridRequest`.
 
-Temple spawns have a short cooldown to prevent rapid chaining.
+Temple spawns have a cooldown (`TempleHybridCooldown` = 25 steps, `TempleInteractionCooldown` = 12 steps) to prevent rapid chaining.
 
 ## Role Recombination (Scripted AI)
 `processTempleHybridRequests` handles queued hybrids:

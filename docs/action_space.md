@@ -225,9 +225,8 @@ Quick reference for common actions:
 
 ## Source Code References
 
-- **Action encoding**: `src/common.nim` (lines 117-122)
-- **Action processing**: `src/step.nim` (lines 133-1280)
-- **Verb names**: `src/replay_writer.nim` (lines 8-19)
-- **BuildChoices array**: `src/environment.nim` (lines 706-721)
-- **Building registry**: `src/registry.nim` (lines 33-114)
-- **Invalid action analysis**: `docs/analysis/game_mechanics_analysis.md`
+- **Action encoding**: `src/common.nim` (`actionVerb`, `actionArgument` procs)
+- **Action processing**: `src/step.nim` and `src/actions.nim` (included by step.nim)
+- **Verb names**: `src/replay_writer.nim`
+- **BuildChoices array**: `src/environment.nim`
+- **Building registry**: `src/registry.nim`

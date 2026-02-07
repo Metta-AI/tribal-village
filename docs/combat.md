@@ -11,12 +11,21 @@ We introduced AoE-style class counters using explicit bonus damage by unit class
 The counter system lives in `src/combat.nim` as a lookup table:
 - `BonusDamageByClass[attacker][target]`
 
-Current intent:
-- **Archer > Infantry** (UnitArcher gets bonus vs UnitManAtArms)
-- **Infantry > Cavalry** (UnitManAtArms gets bonus vs UnitScout / UnitKnight)
-- **Cavalry > Archer** (UnitScout / UnitKnight get bonus vs UnitArcher)
+Current bonuses:
+- **Archer > Infantry** (UnitArcher gets +1 vs UnitManAtArms/LongSwordsman/Champion)
+- **Infantry > Cavalry** (UnitManAtArms gets +1 vs UnitScout/Knight/LightCavalry/Hussar)
+- **Cavalry > Archer** (UnitScout/Knight get +1 vs UnitArcher/Crossbowman/Arbalester)
 
-Villagers, monks, and siege currently have no class bonus.
+Upgrade tiers inherit and strengthen counter relationships:
+- LongSwordsman/Champion get +1/+2 vs cavalry
+- Crossbowman/Arbalester get +1/+2 vs infantry
+- LightCavalry/Hussar get +1/+2 vs archers
+
+Castle unique units have specialized counters:
+- Samurai +1 vs infantry, Cataphract +1 vs infantry, Huskarl +2 vs archers
+- Fire Ship +2 vs water units, Scorpion +2 vs infantry
+
+Villagers, monks, and non-specialized siege have no class bonus.
 
 To tune counters:
 - Adjust values in `BonusDamageByClass`.
@@ -34,14 +43,15 @@ When a bonus applies (class counters or siege-vs-structure), the target tile rec
 - Applied via `env.applyActionTint` when bonus damage > 0
 
 This makes counter hits visually identifiable in the renderer (a "critical hit" signal) and emits **per-unit `TintLayer` codes** for bonus hits:
-- `ActionTintBonusArcher` (13) - archer counter hits on infantry
-- `ActionTintBonusInfantry` (14) - man-at-arms counter hits on cavalry
-- `ActionTintBonusScout` (15) - scout counter hits on archers
-- `ActionTintBonusKnight` (16) - knight counter hits on archers
-- `ActionTintBonusBatteringRam` (17) - battering ram siege hits on structures
-- `ActionTintBonusMangonel` (18) - mangonel siege hits on structures
+- `ActionTintBonusArcher` (14) - archer counter hits on infantry
+- `ActionTintBonusInfantry` (15) - man-at-arms counter hits on cavalry
+- `ActionTintBonusScout` (16) - scout counter hits on archers
+- `ActionTintBonusKnight` (17) - knight counter hits on archers
+- `ActionTintBonusBatteringRam` (18) - battering ram siege hits on structures
+- `ActionTintBonusMangonel` (19) - mangonel siege hits on structures
+- `ActionTintBonusTrebuchet` (20) - trebuchet siege hits on structures
 
-Bonus flashes use **per‑attacker colors** so you can tell which unit type scored the critical hit. Siege units (battering ram, mangonel) have stronger intensity (1.40 vs 1.18-1.20) for more visible feedback against structures.
+Bonus flashes use **per‑attacker colors** so you can tell which unit type scored the critical hit. Siege units (battering ram, mangonel, trebuchet) have stronger intensity (1.40-1.45 vs 1.18-1.20) for more visible feedback against structures.
 
 ## Action Tint Observation Codes
 The action tint layer now exposes more detail so agents can tell what kind of event occurred:

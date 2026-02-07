@@ -40,6 +40,8 @@ The core game simulation written in Nim for performance. Key modules:
 | `spawn.nim` | Map generation, entity placement |
 | `combat.nim` | Damage calculation, unit interactions |
 | `terrain.nim` | Terrain types, movement costs, biomes |
+| `spatial_index.nim` | Spatial partitioning for O(1) nearest-thing queries |
+| `registry.nim` | Building/unit registry (costs, training, sprite keys) |
 | `agent_control.nim` | Controller interface (built-in AI or external NN) |
 | `renderer.nim` | Visual rendering (Boxy/OpenGL) |
 | `scripted/` | Built-in AI behavior system |
@@ -94,7 +96,7 @@ Python                          Nim FFI                    Nim Core
 Shape: `[MapAgents, ObservationLayers, 11, 11]`
 
 - 1006 agents total (8 teams × 125 + 6 goblins)
-- ~85 observation layers (terrain one-hot, thing one-hot, metadata)
+- 96 observation layers (terrain one-hot, thing one-hot, metadata)
 - 11×11 viewport centered on each agent
 
 Observations are rebuilt in batch at end of each step for efficiency.
@@ -118,7 +120,8 @@ tribal_village.nim (main entry)
     │       ├── types.nim
     │       │       ├── terrain.nim
     │       │       ├── items.nim
-    │       │       └── common.nim
+    │       │       ├── common_types.nim
+    │       │       └── constants.nim
     │       ├── registry.nim
     │       ├── spatial_index.nim
     │       ├── biome.nim

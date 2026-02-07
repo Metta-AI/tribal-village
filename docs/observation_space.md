@@ -110,7 +110,7 @@ are written to the same layer for that tile.
 | 80 | `ThingCliffCornerOutNWLayer` | Cliff outside corner (northwest) |
 
 **Note:** `ThingKind` in types.nim includes `Temple` and `ControlPoint` which do
-not have corresponding observation layers.
+not have corresponding observation layers (they are `BackgroundThingKinds`).
 
 ### 3) Meta layers (15 layers, indices 81-95)
 
@@ -151,6 +151,8 @@ These layers encode non-spatial entity state and game mechanics.
 
 ## Action tint codes (TintLayer)
 Defined in `src/types.nim`:
+
+**Attack codes (per unit class):**
 - `ActionTintNone` = 0
 - `ActionTintAttackVillager` = 1
 - `ActionTintAttackManAtArms` = 2
@@ -160,20 +162,35 @@ Defined in `src/types.nim`:
 - `ActionTintAttackMonk` = 6
 - `ActionTintAttackBatteringRam` = 7
 - `ActionTintAttackMangonel` = 8
-- `ActionTintAttackBoat` = 9
-- `ActionTintAttackTower` = 10
-- `ActionTintAttackCastle` = 11
-- `ActionTintAttackBonus` = 12 (generic bonus, rarely used)
-- `ActionTintBonusArcher` = 13 (archer counter bonus vs infantry)
-- `ActionTintBonusInfantry` = 14 (infantry counter bonus vs cavalry)
-- `ActionTintBonusScout` = 15 (scout counter bonus vs archers)
-- `ActionTintBonusKnight` = 16 (knight counter bonus vs archers)
-- `ActionTintBonusBatteringRam` = 17 (battering ram siege bonus vs structures)
-- `ActionTintBonusMangonel` = 18 (mangonel siege bonus vs structures)
-- `ActionTintShield` = 20
+- `ActionTintAttackTrebuchet` = 9
+- `ActionTintAttackBoat` = 10
+- `ActionTintAttackTower` = 11
+- `ActionTintAttackCastle` = 12
+
+**Counter/bonus codes:**
+- `ActionTintAttackBonus` = 13 (generic bonus, rarely used)
+- `ActionTintBonusArcher` = 14 (archer counter bonus vs infantry)
+- `ActionTintBonusInfantry` = 15 (infantry counter bonus vs cavalry)
+- `ActionTintBonusScout` = 16 (scout counter bonus vs archers)
+- `ActionTintBonusKnight` = 17 (knight counter bonus vs archers)
+- `ActionTintBonusBatteringRam` = 18 (battering ram siege bonus vs structures)
+- `ActionTintBonusMangonel` = 19 (mangonel siege bonus vs structures)
+- `ActionTintBonusTrebuchet` = 20 (trebuchet siege bonus vs structures)
+- `ActionTintShield` = 21
+
+**Heal codes:**
 - `ActionTintHealMonk` = 30
 - `ActionTintHealBread` = 31
-- `ActionTintMixed` = 200
+
+**Castle unique unit attack tints (40-48):**
+- `ActionTintAttackSamurai` = 40 through `ActionTintAttackKing` = 48
+
+**Unit upgrade tier attack tints (49-57):**
+- `ActionTintAttackLongSwordsman` = 49 through `ActionTintAttackScorpion` = 57
+
+**Special codes:**
+- `ActionTintDeath` = 60 (death animation tint at kill location)
+- `ActionTintMixed` = 200 (multiple events overlap on same tile)
 
 These codes are written into the tint layer per world tile as events occur.
 
