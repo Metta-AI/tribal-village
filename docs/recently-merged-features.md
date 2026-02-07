@@ -6,7 +6,7 @@ Consolidated reference for recently merged performance instrumentation, visual f
 
 | Feature | PR/Bead | Type | Compile Flag | Key Files |
 |---------|---------|------|-------------|-----------|
-| AI decision timing | #253 | Perf | `-d:stepTiming` | `src/agent_control.nim` |
+| AI decision timing | #253 | Perf | `-d:stepTiming` | `src/step.nim`, `src/agent_control.nim` |
 | Pathfinding audit | #254 | Perf | &mdash; | `docs/perf-audit-pathfinding-movement.md` |
 | Action frequency counter | #257 | Perf | `-d:actionFreqCounter` | `src/action_freq_counter.nim` |
 | Spatial index pre-computation | #249 | Perf | &mdash; | `src/spatial_index.nim` |
@@ -237,4 +237,5 @@ Removed unused imports and fixed unused variable warnings across `src/ffi.nim` a
 
 - **Spatial query optimization**: `collectThings` hotspot (83% of queries) has 40-50% reduction potential but requires implementation of resource caching and staggered search (see `docs/analysis/spatial_stats_audit.md`)
 - **Enemy search radius**: Current `enemyRadius ~ 50 tiles` could be reduced to 30 for ~50% fewer thing examinations
-- **Pre-existing test failure**: `ai_core.nim` cannot export `common` (tv-l0psj, fixed in `952504f` by switching to `common_types`)
+- **tempTowerRemovals**: Still `seq[Thing]` with O(n) containment checks; converting to `HashSet` would provide O(1) lookups (see `docs/perf_audit_hotloops.md`)
+- **canEnterForMove heap allocation**: Lantern spacing check still allocates local `seq[Thing]`; could use pre-allocated buffer (see `docs/perf-audit-pathfinding-movement.md`)

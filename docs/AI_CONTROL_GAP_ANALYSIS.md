@@ -41,7 +41,7 @@ Status: Active
 
 These features exist internally but lack an external control surface:
 
-1. **Stance Control API** - Stance types exist and fully affect behavior (`stanceAllowsChase`, `stanceAllowsMovementToAttack`) but there is no public function to set stance on a unit. Users/Python cannot change unit aggression behavior.
+1. **Stance Control API** - Stance types exist and affect behavior (`stanceAllowsChase`, `stanceAllowsMovementToAttack`, `stanceAllowsAutoAttack`). Default stances are assigned per unit class via `defaultStanceForClass()` in `environment.nim` (military units default to `StanceDefensive`, villagers/monks to `StanceNoAttack`). Fighter role enforces `StanceDefensive` in `ai_defaults.nim`. However, there is no public function to dynamically set stance on a unit at runtime. Users/Python cannot change unit aggression behavior.
 
 2. **Garrison Control API** - Garrison/ungarrison logic exists in `step.nim` but only via raw action encoding (argument 9). No high-level `garrisonUnit(agentId, buildingPos)` or `ungarrisonAll(buildingPos)` API.
 

@@ -72,33 +72,27 @@ These were O(n) but have been fixed:
 
 | Function | Location | Current Complexity | Notes |
 |----------|----------|-------------------|-------|
-| `nearestFriendlyBuildingDistance` | ai_core.nim:676 | O(buildings) per call | Uses `thingsByKind` iteration |
-| `hasTeamLanternNear` | ai_core.nim:1104 | O(lanterns in range) | Uses spatial, but allocs seq |
-| `revealTilesInRange` | ai_core.nim:252 | O(visionRadius²) per agent | Called every step per agent |
+| ~~`nearestFriendlyBuildingDistance`~~ | ai_core.nim | ~~O(buildings)~~ **O(cells)** | **Fixed**: uses `findNearestFriendlyThingSpatial` |
+| ~~`hasTeamLanternNear`~~ | ai_core.nim | ~~O(all lanterns)~~ **O(cells)** | **Fixed**: uses `collectThingsInRangeSpatial` (still allocs local seq) |
+| `revealTilesInRange` | ai_core.nim | O(visionRadius²) per agent | Called every step per agent |
 
 ## Recommendations
 
 ### High Impact / Low Effort
 
-1. **Use existing lantern spacing buffer in canEnterForMove**
+1. **Use existing lantern spacing buffer in canEnterForMove** (OPEN)
 
-   The buffer already exists (types.nim:1269, used in step.nim:1302), but `canEnterForMove` in ai_core.nim allocates locally:
+   `canEnterForMove` in `ai_core.nim` still allocates locally:
    ```nim
-   # Current in ai_core.nim (allocates):
    var nearbyLanterns: seq[Thing] = @[]
    collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
-
-   # Should use existing buffer like step.nim does:
-   env.tempLanternSpacing.setLen(0)
-   collectThingsInRangeSpatial(env, nextPos, Lantern, 2, env.tempLanternSpacing)
    ```
+   A pre-allocated `tempLanternSpacing` buffer exists on Environment but is not used here.
    **Impact**: Eliminates heap allocation per blocked lantern check in AI pathfinding
 
-2. **Add path result buffer to PathfindingCache**
-   ```nim
-   # Instead of allocating new seq each pathfind:
-   pathResult*: seq[IVec2]  # Pre-allocated, resized as needed
-   ```
+2. **Add path result buffer to PathfindingCache** (OPEN)
+
+   `findPath` still allocates `newSeq[IVec2](pathLen)` on success. Could reuse a pre-allocated buffer.
    **Impact**: Eliminates heap allocation per successful pathfind
 
 ### Medium Impact / Medium Effort
@@ -133,7 +127,7 @@ Implementing recommendations 1-2 would reduce GC pressure. Recommendations 3-4 w
 ## Files Analyzed
 
 - `src/scripted/ai_core.nim` - Core pathfinding and movement
-- `src/scripted/ai_types.nim` - PathfindingCache structure
 - `src/scripted/ai_defaults.nim` - decideAction entry point
 - `src/spatial_index.nim` - Spatial query system
 - `scripts/profile_ai.nim` - Profiling infrastructure
+- `scripts/benchmark_steps.nim` - Performance regression detection

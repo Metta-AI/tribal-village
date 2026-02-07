@@ -49,30 +49,9 @@ SpatialIndex* = object
 
 ## 2. Identified Inefficiencies
 
-### 2.1 HIGH: `nearestFriendlyBuildingDistance` (ai_core.nim:595-604)
+### 2.1 ~~HIGH: `nearestFriendlyBuildingDistance`~~ (FIXED)
 
-**Problem**: Iterates ALL buildings of specified types globally.
-
-```nim
-proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
-                                      kinds: openArray[ThingKind], pos: IVec2): int =
-  result = int.high
-  for kind in kinds:
-    for thing in env.thingsByKind[kind]:  # O(count[kind]) per kind
-      if thing.isNil or thing.teamId != teamId:
-        continue
-      result = min(result, int(chebyshevDist(thing.pos, pos)))
-```
-
-**Call Sites**:
-- `ai_defaults.nim:133` - Building placement checks
-- `ai_defaults.nim:149` - Building spacing validation
-- `builder.nim:241` - Mill placement near resources
-- `builder.nim:285` - Resource camp placement
-
-**Impact**: With ~50-200 buildings per type, this is O(k * n) where k = number of kinds checked.
-
-**Fix**: Use `findNearestFriendlyThingSpatial` for each kind with appropriate maxDist:
+**Status**: **Fixed.** Now uses `findNearestFriendlyThingSpatial` for each kind with the current best distance as `maxDist` for early-exit optimization. Changed from O(k * n) to O(k * cells_in_radius).
 
 ```nim
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
@@ -86,90 +65,21 @@ proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
 
 ---
 
-### 2.2 HIGH: `hasTeamLanternNear` (ai_core.nim:991-999)
+### 2.2 ~~HIGH: `hasTeamLanternNear`~~ (FIXED)
 
-**Problem**: Iterates ALL lanterns to find one within 3 tiles.
-
-```nim
-proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  for thing in env.thingsByKind[Lantern]:  # O(all lanterns)
-    if thing.isNil or not thing.lanternHealthy or thing.teamId != teamId:
-      continue
-    if max(abs(thing.pos.x - pos.x), abs(thing.pos.y - pos.y)) < 3'i32:
-      return true
-  false
-```
-
-**Impact**: With ~50-100 lanterns, checking 50-100 entities when spatial query would check ~1-2 cells.
-
-**Fix**: Use spatial index with radius 3:
-
-```nim
-proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  var nearby: seq[Thing] = @[]
-  collectThingsInRangeSpatial(env, pos, Lantern, 3, nearby)
-  for thing in nearby:
-    if thing.lanternHealthy and thing.teamId == teamId:
-      return true
-  false
-```
+**Status**: **Fixed.** Now uses `collectThingsInRangeSpatial(env, pos, Lantern, 3, nearby)` for O(1 cell) lookups instead of iterating all lanterns. Remaining optimization opportunity: the local `seq[Thing]` allocation could be replaced with a pre-allocated buffer.
 
 ---
 
-### 2.3 MEDIUM: `hasNearbyFood` (gatherer.nim:66-71)
+### 2.3 ~~MEDIUM: `hasNearbyFood`~~ (FIXED)
 
-**Problem**: Iterates ALL food things instead of using spatial query.
-
-```nim
-proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
-  for kind in FoodKinds:
-    for thing in env.thingsByKind[kind]:  # O(all food of each kind)
-      if thing.isNil:
-        continue
-      if chebyshevDist(thing.pos, pos) <= radius:
-        return true
-  false
-```
-
-**Impact**: With hundreds of food items, this iterates them all.
-
-**Fix**: Use `findNearestThingOfKindsSpatial`:
-
-```nim
-proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
-  let nearest = findNearestThingOfKindsSpatial(env, pos, FoodKinds, radius)
-  not nearest.isNil
-```
+**Status**: **Fixed.** Now uses `findNearestThingOfKindsSpatial(env, pos, FoodKinds, radius)` for O(cells) lookups instead of iterating all food items.
 
 ---
 
-### 2.4 MEDIUM: `fighterSeesEnemyStructureUncached` (fighter.nim:230-241)
+### 2.4 ~~MEDIUM: `fighterSeesEnemyStructureUncached`~~ (FIXED)
 
-**Problem**: Iterates building kinds via thingsByKind within vision radius.
-
-```nim
-proc fighterSeesEnemyStructureUncached(env: Environment, agent: Thing): bool =
-  let teamId = getTeamId(agent)
-  let radius = ObservationRadius.int32
-  for kind in [Wall, Outpost, GuardTower, Castle, TownCenter, Monastery]:
-    for thing in env.thingsByKind[kind]:  # O(all buildings of kind)
-      if thing.isNil or thing.teamId == teamId or thing.teamId < 0:
-        continue
-      if chebyshevDist(agent.pos, thing.pos) <= radius:
-        return true
-  false
-```
-
-**Note**: This is already cached per-step (`fighterEnemyStructureCacheStep`), mitigating the impact.
-
-**Fix**: Use `findNearestEnemyBuildingSpatial` with `ObservationRadius`:
-
-```nim
-proc fighterSeesEnemyStructureUncached(env: Environment, agent: Thing): bool =
-  let teamId = getTeamId(agent)
-  let building = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, ObservationRadius.int)
-  not building.isNil
-```
+**Status**: **Fixed.** Now uses `findNearestEnemyBuildingSpatial(env, agent.pos, teamId, radius)` for O(cells) lookups instead of iterating all buildings by kind. Also remains cached per-step via `seesEnemyStructureCache`.
 
 ---
 
@@ -214,14 +124,14 @@ for dx in -maxRadius .. maxRadius:
 
 ## 3. Entity Lookup Patterns Summary
 
-| Pattern | Current | Optimal | Files |
-|---------|---------|---------|-------|
-| Find nearest building (any team) | `thingsByKind` O(n) | Spatial O(cells) | ai_core.nim |
-| Find nearest friendly building | `thingsByKind` O(n) | Spatial O(cells) | ai_core.nim |
-| Find lantern within 3 tiles | `thingsByKind` O(n) | Spatial O(1 cell) | ai_core.nim |
-| Find nearest food | `thingsByKind` O(n) | Spatial O(cells) | gatherer.nim |
-| Find enemy in vision | Already cached | Spatial + cache | fighter.nim |
-| Direct grid lookup | `grid[x][y]` O(1) | Already optimal | environment.nim |
+| Pattern | Current | Status | Files |
+|---------|---------|--------|-------|
+| Find nearest building (any team) | Spatial O(cells) | **Fixed** | ai_core.nim |
+| Find nearest friendly building | Spatial O(cells) | **Fixed** | ai_core.nim |
+| Find lantern within 3 tiles | Spatial O(1 cell) | **Fixed** | ai_core.nim |
+| Find nearest food | Spatial O(cells) | **Fixed** | gatherer.nim |
+| Find enemy in vision | Spatial + cache | **Fixed** | fighter.nim |
+| Direct grid lookup | `grid[x][y]` O(1) | Optimal | environment.nim |
 | Per-kind iteration (render) | `thingsByKind` O(n) | Acceptable | renderer.nim |
 
 ---
@@ -252,31 +162,36 @@ if firstRun or agentMoved:
 
 ## 5. Recommendations Priority Matrix
 
-| Priority | Change | Estimated Gain | Risk | Effort |
-|----------|--------|----------------|------|--------|
-| **P0** | Replace `nearestFriendlyBuildingDistance` with spatial queries | High | Low | Low |
-| **P0** | Replace `hasTeamLanternNear` with spatial query | High | Low | Low |
-| **P1** | Replace `hasNearbyFood` with spatial query | Medium | Low | Low |
-| **P1** | Replace `fighterSeesEnemyStructureUncached` with spatial query | Medium | Low | Low |
-| **P2** | Cache teamMask on Thing objects | Low | Medium | Medium |
-| **P3** | Per-agent observation dirty bits | Low | Medium | High |
+| Priority | Change | Status |
+|----------|--------|--------|
+| ~~P0~~ | ~~Replace `nearestFriendlyBuildingDistance` with spatial queries~~ | **Done** |
+| ~~P0~~ | ~~Replace `hasTeamLanternNear` with spatial query~~ | **Done** |
+| ~~P1~~ | ~~Replace `hasNearbyFood` with spatial query~~ | **Done** |
+| ~~P1~~ | ~~Replace `fighterSeesEnemyStructureUncached` with spatial query~~ | **Done** |
+| **P2** | Cache teamMask on Thing objects | Open |
+| **P3** | Per-agent observation dirty bits | Open |
 
 ---
 
 ## 6. Implementation Notes
 
-### For P0 Changes:
+### Completed P0 Changes:
 
-1. **nearestFriendlyBuildingDistance**: Can be implemented as a wrapper that calls `findNearestFriendlyThingSpatial` for each kind and returns minimum distance. The spatial index already supports team filtering.
+All P0 and P1 recommendations have been implemented. The spatial index is now used
+consistently for entity lookups throughout the AI system.
 
-2. **hasTeamLanternNear**: Use `collectThingsInRangeSpatial(env, pos, Lantern, 3, nearby)` and filter for healthy + teamId match. Alternatively, add a dedicated `hasTeamThingNearSpatial` helper.
+### Remaining Optimization (P2):
+
+Caching `teamMask` on Thing objects would eliminate per-entity `getTeamMask()` calls
+in spatial queries. Currently `getTeamMask` is a simple `1 shl teamId` computation,
+so overhead is minimal.
 
 ### Testing Strategy:
 
-1. Add unit tests comparing old vs new implementation results
-2. Profile with `nimprof` before/after changes
-3. Run existing test suite (`tests/test_behavior_balance.nim`)
-4. Monitor `spatial_index.nim` stats with `-d:spatialStats`
+1. Run benchmark: `make benchmark`
+2. Profile with `-d:spatialStats` + `TV_SPATIAL_STATS_INTERVAL=100`
+3. Run integration tests: `nim r --path:src tests/integration_behaviors.nim`
+4. Run settlement tests: `make test-settlement`
 
 ---
 
