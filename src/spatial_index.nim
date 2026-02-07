@@ -31,6 +31,7 @@
 ##   - collectThingsInRangeSpatial(env, pos, kind, maxRange, targets) - all of kind in range
 ##   - collectAgentsByClassInRange(env, pos, teamId, classes, maxRange, targets) - agents by unit class
 
+import std/algorithm
 import vmath
 import types, registry
 
@@ -94,6 +95,57 @@ proc distToCellRadius16*(dist: int): int {.inline.} =
   ## O(1) distance-to-cell-radius for static cell size (16)
   DistToCellRadius16[min(dist, MaxLookupDist - 1)].int
 
+# ---------------------------------------------------------------------------
+# Pre-computed neighbor cell offset lists for O(1) spatial query setup
+# Replaces runtime nested loop: for dx in -r..r: for dy in -r..r
+# ---------------------------------------------------------------------------
+
+const
+  ## Maximum cell radius to pre-compute (32 cells * 16 pixels = 512 pixel radius)
+  MaxPrecomputedRadius* = 32
+
+  ## Cell offset type - stores (dx, dy) as int8 to minimize memory
+  ## Chebyshev distance is implicit: max(|dx|, |dy|)
+
+type
+  CellOffset* = object
+    dx*, dy*: int8
+
+const
+  ## Pre-computed neighbor offsets for each radius, sorted by Chebyshev distance.
+  ## NeighborOffsets[r] contains all (dx, dy) pairs where max(|dx|, |dy|) <= r,
+  ## sorted so closer cells come first (enables early exit optimization).
+  ##
+  ## Memory: ~68KB for radius 0-32 (worst case (2r+1)² entries per radius)
+  NeighborOffsets*: array[MaxPrecomputedRadius + 1, seq[CellOffset]] = block:
+    var result: array[MaxPrecomputedRadius + 1, seq[CellOffset]]
+    for radius in 0 .. MaxPrecomputedRadius:
+      var offsets: seq[CellOffset] = @[]
+      # Generate all offsets within this radius
+      for dx in -radius .. radius:
+        for dy in -radius .. radius:
+          offsets.add(CellOffset(dx: int8(dx), dy: int8(dy)))
+      # Sort by Chebyshev distance (max of abs values) for early exit optimization
+      # Stable sort preserves spatial locality within same distance
+      offsets.sort do (a, b: CellOffset) -> int:
+        let distA = max(abs(a.dx.int), abs(a.dy.int))
+        let distB = max(abs(b.dx.int), abs(b.dy.int))
+        distA - distB
+      result[radius] = offsets
+    result
+
+  ## Count of offsets per radius (for bounds checking and stats)
+  NeighborOffsetCounts*: array[MaxPrecomputedRadius + 1, int] = block:
+    var result: array[MaxPrecomputedRadius + 1, int]
+    for radius in 0 .. MaxPrecomputedRadius:
+      result[radius] = (2 * radius + 1) * (2 * radius + 1)
+    result
+
+when defined(spatialStats):
+  var
+    neighborCacheHits*: int = 0
+    neighborCacheMisses*: int = 0
+
 when defined(spatialStats):
   import std/[strutils, os]
 
@@ -126,6 +178,8 @@ when defined(spatialStats):
       spatialTotalThingsExamined[k] = 0
       spatialTotalHits[k] = 0
       spatialTotalMisses[k] = 0
+    neighborCacheHits = 0
+    neighborCacheMisses = 0
 
   proc printSpatialReport*() =
     inc spatialStepCounter
@@ -187,6 +241,16 @@ when defined(spatialStats):
         padLeft(fmtFloat1(avgC), 9) & padLeft(fmtFloat1(avgT), 11) &
         padLeft($totalH, 10) & padLeft($totalM, 9) & padLeft(fmtFloat1(hitPct) & "%", 7)
     echo ""
+
+    # Report neighbor offset cache stats
+    let cacheTotal = neighborCacheHits + neighborCacheMisses
+    if cacheTotal > 0:
+      let cachePct = (neighborCacheHits.float64 / cacheTotal.float64) * 100.0
+      echo "Neighbor Cache: " & $neighborCacheHits & " hits, " & $neighborCacheMisses &
+        " misses (" & fmtFloat1(cachePct) & "% hit rate)"
+      echo "Memory: ~" & $(NeighborOffsetCounts[MaxPrecomputedRadius] * sizeof(CellOffset) *
+        (MaxPrecomputedRadius + 1) div 1024) & "KB for pre-computed offsets"
+      echo ""
 
     resetSpatialCounters()
 
@@ -470,6 +534,8 @@ when defined(spatialAutoTune):
                             kindExpr: ThingKind, maxDistExpr: int,
                             thingVar: untyped, body: untyped) =
     ## Auto-tuned variant: uses dynamic grid with adaptive cell size.
+    ## Uses pre-computed neighbor offset lists for O(1) query setup when radius
+    ## is within MaxPrecomputedRadius. Falls back to nested loops for larger radii.
     envExpr.spatialIndex.ensureDynGrid()
     let qPos  {.inject.} = posExpr
     let si = envExpr.spatialIndex
@@ -487,12 +553,19 @@ when defined(spatialAutoTune):
       var cellsScanned {.inject.} = 0
       var thingsExamined {.inject.} = 0
 
-    for dx in -maxRadius .. maxRadius:
-      if abs(dx) > searchRadius: continue
-      for dy in -maxRadius .. maxRadius:
-        if abs(dy) > searchRadius: continue
-        let nx = qCx + dx
-        let ny = qCy + dy
+    # Use pre-computed neighbor lists when radius is within cache range
+    if maxRadius <= MaxPrecomputedRadius:
+      when defined(spatialStats):
+        inc neighborCacheHits
+      let offsets = NeighborOffsets[maxRadius]
+      for offset in offsets:
+        # Early exit: offsets are sorted by distance, so if this one exceeds
+        # searchRadius (which may have shrunk), all remaining ones will too
+        let offsetDist = max(abs(offset.dx.int), abs(offset.dy.int))
+        if offsetDist > searchRadius:
+          break
+        let nx = qCx + offset.dx.int
+        let ny = qCy + offset.dy.int
         if nx < 0 or nx >= cellsX or ny < 0 or ny >= cellsY:
           continue
         when defined(spatialStats):
@@ -502,6 +575,25 @@ when defined(spatialAutoTune):
             when defined(spatialStats):
               inc thingsExamined
             body
+    else:
+      # Fallback to nested loops for large radii (rare case)
+      when defined(spatialStats):
+        inc neighborCacheMisses
+      for dx in -maxRadius .. maxRadius:
+        if abs(dx) > searchRadius: continue
+        for dy in -maxRadius .. maxRadius:
+          if abs(dy) > searchRadius: continue
+          let nx = qCx + dx
+          let ny = qCy + dy
+          if nx < 0 or nx >= cellsX or ny < 0 or ny >= cellsY:
+            continue
+          when defined(spatialStats):
+            inc cellsScanned
+          for thingVar in queryEnv.spatialIndex.dynKindCells[queryKind][nx][ny]:
+            if not thingVar.isNil:
+              when defined(spatialStats):
+                inc thingsExamined
+              body
 else:
   template forEachInRadius(envExpr: Environment, posExpr: IVec2,
                             kindExpr: ThingKind, maxDistExpr: int,
@@ -510,6 +602,9 @@ else:
     ## The body receives each thing as `thingVar`. A mutable `searchRadius` (in
     ## cells) is injected; the body may shrink it for early-exit optimisation in
     ## findNearest* queries.
+    ##
+    ## Uses pre-computed neighbor offset lists for O(1) query setup when radius
+    ## is within MaxPrecomputedRadius. Falls back to nested loops for larger radii.
     let qPos  {.inject.} = posExpr
     let (qCx, qCy) = cellCoords(qPos)
     let clampedMax = min(maxDistExpr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
@@ -521,12 +616,19 @@ else:
       var cellsScanned {.inject.} = 0
       var thingsExamined {.inject.} = 0
 
-    for dx in -maxRadius .. maxRadius:
-      if abs(dx) > searchRadius: continue
-      for dy in -maxRadius .. maxRadius:
-        if abs(dy) > searchRadius: continue
-        let nx = qCx + dx
-        let ny = qCy + dy
+    # Use pre-computed neighbor lists when radius is within cache range
+    if maxRadius <= MaxPrecomputedRadius:
+      when defined(spatialStats):
+        inc neighborCacheHits
+      let offsets = NeighborOffsets[maxRadius]
+      for offset in offsets:
+        # Early exit: offsets are sorted by distance, so if this one exceeds
+        # searchRadius (which may have shrunk), all remaining ones will too
+        let offsetDist = max(abs(offset.dx.int), abs(offset.dy.int))
+        if offsetDist > searchRadius:
+          break
+        let nx = qCx + offset.dx.int
+        let ny = qCy + offset.dy.int
         if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
           continue
         when defined(spatialStats):
@@ -536,6 +638,25 @@ else:
             when defined(spatialStats):
               inc thingsExamined
             body
+    else:
+      # Fallback to nested loops for large radii (rare case)
+      when defined(spatialStats):
+        inc neighborCacheMisses
+      for dx in -maxRadius .. maxRadius:
+        if abs(dx) > searchRadius: continue
+        for dy in -maxRadius .. maxRadius:
+          if abs(dy) > searchRadius: continue
+          let nx = qCx + dx
+          let ny = qCy + dy
+          if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+            continue
+          when defined(spatialStats):
+            inc cellsScanned
+          for thingVar in queryEnv.spatialIndex.kindCells[queryKind][nx][ny]:
+            if not thingVar.isNil:
+              when defined(spatialStats):
+                inc thingsExamined
+              body
 
 # Helper: get effective cell size for searchRadius computation in query procs
 template effectiveCellSize(envParam: Environment): int =
