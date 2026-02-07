@@ -1,8 +1,8 @@
 # Clippy Tint, Tumors, and Frozen Tiles
 
-Date: 2026-01-19
+Date: 2026-02-06
 Owner: Docs / Systems
-Status: Draft
+Status: Active
 
 ## Overview
 The game uses three tint layers:

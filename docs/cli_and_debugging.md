@@ -1,11 +1,11 @@
 # CLI Playbook and Debugging
 
-Date: 2026-01-19
+Date: 2026-02-06
 Owner: Docs / Systems
-Status: Draft
+Status: Active
 
 ## Purpose
-This document consolidates the repeated CLI and runtime issues seen in recent Codex sessions.
+This document consolidates the CLI and runtime issues seen in recent sessions.
 It gives a single source of truth for how to run the game, what the CLI actually does, and
 how to debug common failures.
 
@@ -18,12 +18,29 @@ Text-only smoke test (no GUI):
 - `tribal-village play --render ansi --steps 128`
 
 Direct Nim run (bypasses Python CLI):
-- `nim r -d:release tribal_village.nim`
+- `nim r -d:release --path:src src/tribal_village.nim`
+
+### Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make check` | CI gate: syncs deps + runs `nim check` |
+| `make build` / `make lib` | Build shared library via `nimble buildLib` |
+| `make test` | Run all tests (Nim + Python) |
+| `make test-nim` | Nim unit and integration tests only |
+| `make test-python` | Python integration tests (builds lib first) |
+| `make test-integration` | Full integration suite (Nim + Python end-to-end) |
+| `make test-settlement` | Settlement behavior tests |
+| `make audit-settlement` | Audit settlement expansion metrics |
+| `make benchmark` | Steps/second benchmark with perf regression instrumentation |
+| `make clean` | Remove build artifacts |
+| `make install-hooks` | Install git hooks for development |
 
 Key files:
 - `tribal_village_env/cli.py` (CLI entry point)
 - `tribal_village_env/build.py` (Nim toolchain + lib build)
 - `tribal_village.nim` (Nim GUI main)
+- `Makefile` (build/test/benchmark targets)
 
 ## What the CLI Actually Does
 - Ensures the Nim library is built and up-to-date via `ensure_nim_library_current()`.
@@ -69,7 +86,8 @@ Fix:
 - Verify OpenGL availability on the local machine.
 
 ## Fast Triage Checklist
-1. `tribal-village --help` (confirm you are using the correct CLI)
-2. `tribal-village play --render ansi --steps 32` (confirm stepping)
-3. `nim r -d:release tribal_village.nim` (confirm Nim GUI path)
-4. Check assets exist under `data/` and `data/oriented/`
+1. `make check` (confirm code compiles)
+2. `tribal-village --help` (confirm you are using the correct CLI)
+3. `tribal-village play --render ansi --steps 32` (confirm stepping)
+4. `nim r -d:release --path:src src/tribal_village.nim` (confirm Nim GUI path)
+5. Check assets exist under `data/` and `data/oriented/`

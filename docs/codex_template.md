@@ -1,8 +1,8 @@
 # Codex Command Templates
 
-Date: 2026-01-19
+Date: 2026-02-06
 Owner: DevEx / Tools
-Status: Draft
+Status: Active
 
 This file collects candidate slash-command / skill templates derived from Codex
 session analysis. Each entry is a repeatable ask with a suggested command
@@ -17,9 +17,9 @@ signature and expected artifacts.
 **Typical prompt:** "debug and make sure tests pass" / "run validations".
 **Outputs:** Command results + summarized status.
 **Commands:**
-- `nim c -d:release tribal_village.nim`
-- `timeout 15s nim r -d:release tribal_village.nim` (or `gtimeout` on macOS)
-- `nim r --path:src tests/ai_harness.nim`
+- `make check` (CI gate: syncs deps + nim check)
+- `timeout 15s nim r -d:release --path:src src/tribal_village.nim` (or `gtimeout` on macOS)
+- `make test-nim` (run Nim unit/integration tests)
 
 ### /tv-spelunk <pattern>
 **Intent:** Fast codebase search + open likely files for a mechanic.

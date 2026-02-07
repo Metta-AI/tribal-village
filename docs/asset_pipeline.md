@@ -1,8 +1,8 @@
 # Asset Pipeline and Oriented Sprites
 
-Date: 2026-01-19
+Date: 2026-02-06
 Owner: Docs / Art Systems
-Status: Draft
+Status: Active
 
 ## Purpose
 Codex sessions repeatedly hit issues around missing sprites, incorrect orientations, and
