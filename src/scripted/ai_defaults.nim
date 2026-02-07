@@ -389,6 +389,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
+    # Fighters need Defensive stance to engage enemies (villagers default to NoAttack)
+    if role == Fighter and agent.stance == StanceNoAttack:
+      agent.stance = StanceDefensive
+
   var state = controller.agents[agentId]
 
   # Get team info and difficulty settings
