@@ -10,6 +10,76 @@ export ai_defaults
 import formations
 export formations
 
+when defined(stepTiming):
+  import std/monotimes
+  import std/algorithm
+
+  # AI decision timing state
+  let aiTimingEnabled = getEnv("TV_AI_TIMING", "0") != "0"
+  let aiTimingInterval = block:
+    let raw = getEnv("TV_AI_TIMING_INTERVAL", "100")
+    try: parseInt(raw) except: 100
+  let aiTimingTopN = block:
+    let raw = getEnv("TV_AI_TIMING_TOP_N", "10")
+    try: parseInt(raw) except: 10
+
+  var aiTimingCumTotal: float64 = 0.0
+  var aiTimingCumMax: float64 = 0.0
+  var aiTimingStepCount: int = 0
+  var aiTimingAgentCum: array[MapAgents, float64]
+  var aiTimingAgentMax: array[MapAgents, float64]
+  var aiTimingAgentCount: array[MapAgents, int]
+
+  proc aiMsBetween(a, b: MonoTime): float64 =
+    (b.ticks - a.ticks).float64 / 1_000_000.0
+
+  proc resetAiTimingCounters() =
+    aiTimingCumTotal = 0.0
+    aiTimingCumMax = 0.0
+    aiTimingStepCount = 0
+    for i in 0 ..< MapAgents:
+      aiTimingAgentCum[i] = 0.0
+      aiTimingAgentMax[i] = 0.0
+      aiTimingAgentCount[i] = 0
+
+  proc printAiTimingReport(currentStep: int) =
+    if aiTimingStepCount == 0:
+      return
+    let n = aiTimingStepCount.float64
+
+    # Collect agents with timing data and sort by cumulative time
+    type AgentTimingEntry = tuple[agentId: int, cumMs: float64, maxMs: float64, count: int]
+    var entries: seq[AgentTimingEntry] = @[]
+    for i in 0 ..< MapAgents:
+      if aiTimingAgentCount[i] > 0:
+        entries.add((agentId: i, cumMs: aiTimingAgentCum[i], maxMs: aiTimingAgentMax[i], count: aiTimingAgentCount[i]))
+
+    # Sort by cumulative time descending
+    entries.sort(proc(a, b: AgentTimingEntry): int =
+      if a.cumMs > b.cumMs: -1
+      elif a.cumMs < b.cumMs: 1
+      else: 0
+    )
+
+    echo ""
+    echo "=== AI Decision Timing Report (steps ", currentStep - aiTimingStepCount + 1, "-", currentStep, ", n=", aiTimingStepCount, ") ==="
+    echo "Total AI decision time: avg=", formatFloat(aiTimingCumTotal / n, ffDecimal, 4), "ms, max=", formatFloat(aiTimingCumMax, ffDecimal, 4), "ms"
+    echo ""
+    echo "Top ", aiTimingTopN, " slowest agents (by cumulative time):"
+    echo align("Agent", 8), " | ", align("Avg ms", 10), " | ", align("Max ms", 10), " | ", align("Decisions", 10)
+    echo repeat("-", 8), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 10)
+
+    let showCount = min(aiTimingTopN, entries.len)
+    for i in 0 ..< showCount:
+      let e = entries[i]
+      let avgMs = e.cumMs / e.count.float64
+      echo align($e.agentId, 8), " | ",
+           align(formatFloat(avgMs, ffDecimal, 4), 10), " | ",
+           align(formatFloat(e.maxMs, ffDecimal, 4), 10), " | ",
+           align($e.count, 10)
+    echo ""
+    resetAiTimingCounters()
+
 const
   ActionsFile = "actions.tmp"
 
@@ -59,14 +129,47 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
   of BuiltinAI:
     var actions: array[MapAgents, uint8]
     let controller = globalController.aiController
+
+    when defined(stepTiming):
+      var tLoopStart, tAgentStart, tAgentEnd: MonoTime
+      var tLoopTotalMs: float64 = 0.0
+      if aiTimingEnabled:
+        tLoopStart = getMonoTime()
+
     for i in 0 ..< env.agents.len:
+      when defined(stepTiming):
+        if aiTimingEnabled:
+          tAgentStart = getMonoTime()
+
       setAuditBranch(BranchInactive)
       actions[i] = controller.decideAction(env, i)
+
+      when defined(stepTiming):
+        if aiTimingEnabled:
+          tAgentEnd = getMonoTime()
+          let agentMs = aiMsBetween(tAgentStart, tAgentEnd)
+          aiTimingAgentCum[i] += agentMs
+          if agentMs > aiTimingAgentMax[i]:
+            aiTimingAgentMax[i] = agentMs
+          inc aiTimingAgentCount[i]
+
       when defined(aiAudit):
         let agent = env.agents[i]
         let teamId = if not agent.isNil: getTeamId(agent) else: -1
         let role = if controller.agentsInitialized[i]: controller.agents[i].role else: Gatherer
         recordAuditDecision(i, teamId, role, actions[i])
+
+    when defined(stepTiming):
+      if aiTimingEnabled:
+        let tLoopEnd = getMonoTime()
+        tLoopTotalMs = aiMsBetween(tLoopStart, tLoopEnd)
+        aiTimingCumTotal += tLoopTotalMs
+        if tLoopTotalMs > aiTimingCumMax:
+          aiTimingCumMax = tLoopTotalMs
+        inc aiTimingStepCount
+        if aiTimingStepCount >= aiTimingInterval:
+          printAiTimingReport(env.currentStep.int)
+
     controller.updateController(env)
     printAuditSummary(env.currentStep.int)
     return actions
