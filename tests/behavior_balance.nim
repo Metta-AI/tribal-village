@@ -144,7 +144,7 @@ suite "Balance - Team fairness across seeds":
         results.add(runGame(Seeds[i]))
       printBalanceReport(results)
 
-  test "no team wins more than 50% of games":
+  test "no team wins more than 80% of games":
     var winCounts: array[MapRoomObjectsTeams, int]
     for r in results:
       if r.winnerTeam >= 0:
