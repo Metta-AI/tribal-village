@@ -859,6 +859,19 @@ const
   UnitTrailPoolCapacity* = 256        ## Initial capacity for trail pool (many units moving)
   UnitTrailSpawnChance* = 3           ## Spawn trail every N moves (reduces particle count)
 
+type
+  WaterRipple* = object
+    ## A ripple effect when units walk through water.
+    ## Expands outward and fades over its lifetime.
+    pos*: Vec2           ## World position where ripple originated
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade/expansion calculation)
+
+const
+  ## Water ripple visual constants
+  WaterRippleLifetime* = 16'i8        ## Frames ripples persist (~1 second)
+  WaterRipplePoolCapacity* = 64       ## Initial capacity for ripple pool
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1211,6 +1224,7 @@ type
     gatherSparkles*: seq[GatherSparkle]  # Sparkle particles when collecting resources
     constructionDust*: seq[ConstructionDust]  # Dust particles during building construction
     unitTrails*: seq[UnitTrail]  # Dust/footprint trails behind moving units
+    waterRipples*: seq[WaterRipple]  # Ripple effects when units walk through water
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

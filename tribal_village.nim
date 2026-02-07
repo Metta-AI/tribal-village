@@ -900,6 +900,7 @@ proc display() =
   drawDebris()
   drawConstructionDust()
   drawUnitTrails()
+  drawWaterRipples()
   drawSpawnEffects()
   drawTradeRoutes()
   drawWeatherEffects()
