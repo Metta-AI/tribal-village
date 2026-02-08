@@ -403,6 +403,30 @@ proc tribal_village_queue_progress*(env: pointer, buildingX: int32, buildingY: i
   ## Get remaining steps for a production queue entry. Returns -1 if invalid.
   getProductionQueueEntryProgress(globalEnv, buildingX, buildingY, index)
 
+proc tribal_village_can_train_unit*(env: pointer, buildingX: int32, buildingY: int32, unitClass: int32, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Check if a building can train the specified unit class. Returns 1 if yes, 0 if no.
+  if canBuildingTrainUnit(globalEnv, buildingX, buildingY, unitClass, teamId): 1 else: 0
+
+proc tribal_village_queue_train_class*(env: pointer, buildingX: int32, buildingY: int32, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
+  ## Queue a specific unit class for training. Validates building can train this class. Returns 1 on success, 0 on failure.
+  if queueUnitTrainingWithClass(globalEnv, buildingX, buildingY, teamId, unitClass): 1 else: 0
+
+proc tribal_village_cancel_all_train*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Cancel all units in the production queue. Returns the number of units cancelled.
+  cancelAllTrainingQueue(globalEnv, buildingX, buildingY)
+
+proc tribal_village_queue_entry_unit_class*(env: pointer, buildingX: int32, buildingY: int32, index: int32): int32 {.exportc, dynlib.} =
+  ## Get the unit class for a production queue entry. Returns -1 if invalid.
+  getProductionQueueEntryUnitClass(globalEnv, buildingX, buildingY, index)
+
+proc tribal_village_queue_entry_total_steps*(env: pointer, buildingX: int32, buildingY: int32, index: int32): int32 {.exportc, dynlib.} =
+  ## Get the total training steps for a production queue entry. Returns -1 if invalid.
+  getProductionQueueEntryTotalSteps(globalEnv, buildingX, buildingY, index)
+
+proc tribal_village_queue_ready*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
+  ## Check if the production queue has a ready entry. Returns 1 if ready, 0 if not.
+  if isProductionQueueReady(globalEnv, buildingX, buildingY): 1 else: 0
+
 # --- Research ---
 
 proc tribal_village_research_blacksmith*(env: pointer, agentId: int32, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =

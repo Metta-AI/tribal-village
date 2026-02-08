@@ -396,6 +396,100 @@ proc getProductionQueueEntryProgress*(env: Environment, buildingX, buildingY: in
     return -1
   thing.productionQueue.entries[index].remainingSteps.int32
 
+proc canBuildingTrainUnit*(env: Environment, buildingX, buildingY: int32, unitClass: int32, teamId: int32): bool =
+  ## Check if a building can train the specified unit class.
+  ## Returns true if the building supports training this unit type.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  if not buildingHasTrain(thing.kind):
+    return false
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return false
+  let requestedClass = AgentUnitClass(unitClass)
+  let defaultClass = buildingTrainUnit(thing.kind, teamId.int)
+  # Building can only train its default unit class for the given team
+  requestedClass == defaultClass
+
+proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32, teamId: int32, unitClass: int32): bool =
+  ## Queue a specific unit class for training at the building.
+  ## Validates that the building can produce the requested unit class.
+  ## Returns true if successfully queued.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  if not buildingHasTrain(thing.kind):
+    return false
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return false
+  let requestedClass = AgentUnitClass(unitClass)
+  let defaultClass = buildingTrainUnit(thing.kind, teamId.int)
+  # Validate the building can train this unit class
+  if requestedClass != defaultClass:
+    return false
+  let costs = buildingTrainCosts(thing.kind)
+  queueTrainUnit(env, thing, teamId.int, requestedClass, costs)
+
+proc cancelAllTrainingQueue*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Cancel all units in the production queue at the given building.
+  ## Returns the number of units cancelled (resources are refunded for each).
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return 0
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return 0
+  var cancelled: int32 = 0
+  while thing.productionQueue.entries.len > 0:
+    if cancelLastQueued(env, thing):
+      inc cancelled
+    else:
+      break
+  cancelled
+
+proc getProductionQueueEntryUnitClass*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
+  ## Get the unit class for a production queue entry.
+  ## Returns -1 if invalid, otherwise the AgentUnitClass enum ordinal.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return -1
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return -1
+  if index < 0 or index >= thing.productionQueue.entries.len.int32:
+    return -1
+  ord(thing.productionQueue.entries[index].unitClass).int32
+
+proc getProductionQueueEntryTotalSteps*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
+  ## Get the total training steps for a production queue entry.
+  ## Returns -1 if invalid.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return -1
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return -1
+  if index < 0 or index >= thing.productionQueue.entries.len.int32:
+    return -1
+  thing.productionQueue.entries[index].totalSteps.int32
+
+proc isProductionQueueReady*(env: Environment, buildingX, buildingY: int32): bool =
+  ## Check if the building has a queue entry ready for unit conversion.
+  ## Returns true if the front entry has completed training.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  productionQueueHasReady(thing)
+
 # Research API
 # These functions allow external code to research technologies at buildings.
 
