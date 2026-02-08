@@ -112,3 +112,10 @@ Status: Draft
 8) ~~Add Mangonel unit + extended spear AoE + simple AI.~~ (Done)
 9) Add Trebuchet unit with pack/unpack mechanic. (Done: `TrebuchetBaseRange = 6`, `TrebuchetPackDuration = 15`)
 10) Add Scorpion (anti-infantry siege ballista). (Done: `ScorpionBaseRange = 4`)
+
+## Known Issues
+
+1. **Battering ram targeting priority** - Rams use the default target priority (Tumor > Spawner > Agent > Structure) instead of prioritizing structures like mangonels do. Fix: add `UnitBatteringRam` to the structure-priority condition in `src/scripted/ai_core.nim` `targetPriority()`.
+2. **No repair mechanic** - Buildings cannot be healed once damaged. Villagers could be given a repair ability.
+3. **No garrison mechanic** - Units cannot shelter inside buildings for protection.
+4. **Siege training visibility requirement** - Villagers must see enemy structures within ObservationRadius (5 tiles) to trigger siege training. May not activate fast enough during active combat.

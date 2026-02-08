@@ -3,7 +3,7 @@
 Date: 2026-01-13
 Owner: Design / Systems
 Status: Active
-Notes: Civ asymmetry remaining
+Notes: 7/8 systems complete. Civ asymmetry remaining.
 
 ## 0) Scope & Non-Goals
 
@@ -209,7 +209,18 @@ At episode end (`env.config.maxSteps`), compute a **territory score** for each t
 
 ---
 
+## Undocumented Systems (Present in Codebase)
+
+The following systems exist in code but are not part of the original AoE2 plan:
+
+- **Temple/Hybridization** (`TempleInteraction`, `TempleHybridRequest` in types.nim) - evolution/breeding mechanic
+- **Goblin NPC Faction** (GoblinHive, GoblinHut, GoblinTotem, UnitGoblin) - hostile NPC system
+- **Tumor/Clippy System** (Spawner, Tumor, frozen tiles) - creep spread environmental hazard
+- **Wolf Pack and Cow Herd Systems** (pack/herd IDs, drift mechanics) - sophisticated animal AI
+
+---
+
 ## Summary of Proposed Changes
 - **Complete**: unit counters, siege/fortification dynamics, market conversion tuning, map control readability, UI readability, territory scoring.
-- **Remaining (optional)**: civ-style asymmetry.
+- **Remaining (optional)**: civ-style asymmetry (team modifiers for gather rate, build cost, unit HP/attack).
 - **Non-goals**: housing changes, age gates, conquest win condition.
