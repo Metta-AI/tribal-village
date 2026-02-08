@@ -105,7 +105,7 @@ suite "Behavior: Auto-Repair Damaged Buildings":
       # Pass if building was repaired, improved, or is at least not worse
       # (Builders may prioritize other tasks, especially if building is not critical)
       echo fmt"  HP change: {hpBefore} -> {hpAfter} (repaired={repaired})"
-      check repaired or hpAfter >= hpBefore - 1 or true  # Relaxed check - repair is best-effort
+      check repaired or hpAfter >= hpBefore - 1
 
   test "builders prioritize repair over new construction when buildings damaged":
     ## Verify builders handle repair when multiple buildings are damaged.
@@ -287,7 +287,7 @@ suite "Behavior: 300-Step Simulation Summary":
       anyProgress = true
 
     echo fmt"  Progress made: {anyProgress}"
-    check anyProgress or true  # Pass if simulation ran
+    check anyProgress
 
   test "villagers handle mixed gather-build-repair over 300 steps":
     ## Test combined villager behaviors in a single long simulation.

@@ -75,26 +75,29 @@ suite "Behavioral AI - Fighter Role":
     check finalTotalHp < initialTotalHp or deadAgents > 0
 
   test "fighter AI pursues enemies in multi-team game":
-    ## Verify fighters reduce enemy counts over time.
+    ## Verify fighters engage in combat over time.
     let env = setupGameWithAI(256)
-    let initialCounts = countAgentsPerTeam(env)
-    echo fmt"  Initial agent counts: {initialCounts}"
+    echo fmt"  Initial agent counts: {countAgentsPerTeam(env)}"
 
     # Run game
     runGameSteps(env, 300)
 
-    let finalCounts = countAgentsPerTeam(env)
-    echo fmt"  Final agent counts: {finalCounts}"
+    echo fmt"  Final agent counts: {countAgentsPerTeam(env)}"
 
-    # At least some combat should have occurred
-    var anyCombat = false
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      if finalCounts[teamId] < initialCounts[teamId]:
-        anyCombat = true
-        break
+    # Check for combat indicators: damaged agents or dead agents
+    var damagedAgents = 0
+    var deadAgents = 0
+    for i, agent in env.agents:
+      if not agent.isNil:
+        if agent.hp > 0 and agent.hp < agent.maxHp:
+          inc damagedAgents
+        elif agent.hp <= 0 and env.terminated[i] == 1.0:
+          inc deadAgents
 
-    # Combat is expected in a multi-team game
-    check anyCombat or true  # Pass even if no combat (teams might not have met)
+    echo fmt"  Damaged agents: {damagedAgents}, Dead agents: {deadAgents}"
+
+    # Combat should have occurred - agents damaged or killed
+    check damagedAgents > 0 or deadAgents > 0
 
 suite "Behavioral AI - Builder Role":
   test "builder AI constructs buildings when resources available":
