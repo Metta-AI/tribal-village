@@ -150,7 +150,7 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdBuildWall: "F"
   of CmdBuildBlacksmith: "Z"
   of CmdBuildMarket: "X"
-  of CmdSetRally: "R"
+  of CmdSetRally: "G"
   of CmdUngarrison: "V"
   of CmdTrainVillager: "Q"
   of CmdTrainManAtArms: "W"

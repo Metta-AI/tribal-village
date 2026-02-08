@@ -1320,6 +1320,9 @@ var buildingPlacementMode*: bool = false
 var buildingPlacementKind*: ThingKind = Wall  # Default to wall
 var buildingPlacementValid*: bool = false     # Whether current position is valid
 
+# Rally point mode (for setting rally points on production buildings)
+var rallyPointMode*: bool = false
+
 # Helper function for checking if agent is alive
 proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
   not agent.isNil and

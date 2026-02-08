@@ -14,6 +14,8 @@ import test_common
 import common
 import ui_harness
 import tooltips
+import types
+import command_panel
 
 # ---------------------------------------------------------------------------
 # Selection Tests
@@ -629,3 +631,36 @@ suite "UI - Tooltip System":
     check content.title == "Build Barracks"
     check content.costLines.len > 0  # Should have wood cost
     check content.description.len > 0
+
+
+# ---------------------------------------------------------------------------
+# Rally Point Mode Tests
+# ---------------------------------------------------------------------------
+
+suite "UI - Rally Point Mode":
+  setup:
+    resetSelection()
+    rallyPointMode = false
+
+  test "rally point mode starts disabled":
+    check not rallyPointMode
+
+  test "rally point mode can be enabled":
+    rallyPointMode = true
+    check rallyPointMode
+
+  test "rally point mode is cleared on reset":
+    rallyPointMode = true
+    rallyPointMode = false
+    check not rallyPointMode
+
+  test "CmdSetRally button appears for barracks":
+    let env = makeEmptyEnv()
+    let barracks = addBuilding(env, Barracks, ivec2(10, 10), 0)
+    selectThing(barracks)
+    let panelRect = makeTestPanelRect()
+    check hasCommandButton(panelRect, CmdSetRally)
+
+  test "CmdSetRally button hotkey is G":
+    let hotkey = getButtonHotkey(CmdSetRally)
+    check hotkey == "G"

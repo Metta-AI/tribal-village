@@ -457,6 +457,11 @@ proc display() =
           of CmdFormationStaggered: FormationStaggered
           else: FormationNone
         setFormation(targetGroup, ftype)
+    of CmdSetRally:
+      # Enter rally point mode when clicking the Set Rally button on a building
+      if selection.len == 1 and isBuildingKind(selection[0].kind) and
+         selection[0].teamId == playerTeam:
+        rallyPointMode = true
     else:
       discard
 
@@ -604,6 +609,8 @@ proc display() =
            (buildingHasTrain(selection[0].kind) or selection[0].kind == TownCenter):
           # Set rally point for the building (AoE2-style)
           setBuildingRallyPoint(env, selection[0].pos.x, selection[0].pos.y, gridPos.x, gridPos.y)
+          # Exit rally point mode if active
+          rallyPointMode = false
         # Determine command type based on target
         # Check if there's something at the target position
         elif not isNil(targetThing):
@@ -728,15 +735,26 @@ proc display() =
           lastGroupKeyTime[i] = groupNow
           lastGroupKeyIndex = i
 
-  # Escape key: cancel building placement mode or close build menu
+  # Escape key: cancel building placement mode, rally point mode, or close build menu
   if window.buttonPressed[KeyEscape]:
     if buildingPlacementMode:
       buildingPlacementMode = false
+    elif rallyPointMode:
+      rallyPointMode = false
     elif buildMenuOpen:
       buildMenuOpen = false
 
-  # Command panel hotkeys (when not in building placement mode)
-  if not buildingPlacementMode and selection.len > 0 and playerTeam >= 0:
+  # Command panel hotkeys (when not in building placement mode or rally point mode)
+  if not buildingPlacementMode and not rallyPointMode and selection.len > 0 and playerTeam >= 0:
+    # Check if a production building is selected (for rally point hotkey)
+    let isBuildingSelected = selection.len == 1 and isBuildingKind(selection[0].kind) and
+                             selection[0].teamId == playerTeam and
+                             (buildingHasTrain(selection[0].kind) or selection[0].kind == TownCenter)
+    if isBuildingSelected:
+      # Building hotkeys
+      if window.buttonPressed[KeyG]:
+        rallyPointMode = true
+
     let isVillagerSelected = selection.len == 1 and selection[0].kind == Agent and
                              selection[0].unitClass == UnitVillager
     if isVillagerSelected:
@@ -826,6 +844,19 @@ proc display() =
       if not (window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]):
         buildingPlacementMode = false
         buildMenuOpen = false
+    blockSelection = true
+
+  # Rally point mode click handling
+  if rallyPointMode and window.buttonPressed[MouseLeft] and not blockSelection:
+    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
+    if gridPos.x >= 0 and gridPos.x < MapWidth and
+       gridPos.y >= 0 and gridPos.y < MapHeight:
+      # Set rally point for the selected building
+      if selection.len == 1 and isBuildingKind(selection[0].kind) and
+         selection[0].teamId == playerTeam:
+        setBuildingRallyPoint(env, selection[0].pos.x, selection[0].pos.y, gridPos.x, gridPos.y)
+      rallyPointMode = false
     blockSelection = true
 
   if selection.len > 0 and selection[0].kind == Agent:
@@ -1045,6 +1076,12 @@ proc display() =
   if buildingPlacementMode:
     let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
     drawBuildingGhost(mousePos)
+
+  # Draw rally point preview if in rally point mode
+  if rallyPointMode and selection.len == 1 and isBuildingKind(selection[0].kind):
+    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let buildingPos = selection[0].pos.vec2
+    drawRallyPointPreview(buildingPos, mousePos)
 
   # Draw drag-box selection rectangle
   if isDragging and window.buttonDown[MouseLeft]:

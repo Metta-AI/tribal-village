@@ -1661,6 +1661,57 @@ proc drawRallyPoints*() =
       bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * 0.8,
                     tint = coreColor)
 
+proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
+  ## Draw a preview of where the rally point will be set.
+  ## Shows a dashed line from building to mouse position and a beacon at mouse.
+  let pulse = sin(frame.float32 * RallyPointPulseSpeed) * 0.5 + 0.5
+  let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
+
+  # Get team color for the preview (use green for valid placement)
+  let previewColor = color(0.3, 1.0, 0.3, pulseAlpha * 0.8)
+
+  # Draw path line from building to mouse position
+  let lineDir = mousePos - buildingPos
+  let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
+
+  if lineLen > 0.5:
+    let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
+    let stepLen = lineLen / RallyPointLineSegments.float32
+
+    # Draw dashed line segments
+    for i in 0 ..< RallyPointLineSegments:
+      if i mod 2 == 0:
+        continue
+      let segStart = buildingPos + normalizedDir * (i.float32 * stepLen)
+      let segMid = segStart + normalizedDir * (stepLen * 0.5)
+      if isInViewport(ivec2(segMid.x.int, segMid.y.int)):
+        let lineColor = color(previewColor.r, previewColor.g, previewColor.b, pulseAlpha * 0.5)
+        bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * 2,
+                      tint = lineColor)
+
+  # Draw the rally point preview beacon at mouse position
+  let mouseGrid = ivec2(mousePos.x.int, mousePos.y.int)
+  if isInViewport(mouseGrid):
+    let beaconScale = RallyPointBeaconScale * (1.0 + pulse * 0.2)
+
+    # Draw outer glow
+    let glowColor = color(previewColor.r, previewColor.g, previewColor.b, pulseAlpha * 0.4)
+    bxy.drawImage("floor", mousePos, angle = 0, scale = beaconScale * 3.5,
+                  tint = glowColor)
+
+    # Draw main beacon
+    if "lantern" in bxy:
+      bxy.drawImage("lantern", mousePos, angle = 0, scale = SpriteScale * 0.9,
+                    tint = previewColor)
+    else:
+      bxy.drawImage("floor", mousePos, angle = 0, scale = beaconScale * 1.8,
+                    tint = previewColor)
+
+    # Draw inner bright core
+    let coreColor = color(1.0, 1.0, 1.0, pulseAlpha * 0.9)
+    bxy.drawImage("floor", mousePos, angle = 0, scale = beaconScale * 0.9,
+                  tint = coreColor)
+
 proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset: float32) =
   let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
