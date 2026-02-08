@@ -24,6 +24,7 @@ proc parseChanges*(series: JsonNode): ChangeSeries =
   ## Parse a [[step, value], ...] JSON array into a change list.
   if series.isNil or series.kind != JArray:
     return @[]
+  result = newSeqOfCap[(int, JsonNode)](series.len)
   for entry in series.items:
     if entry.kind == JArray and entry.len >= 2:
       let step = entry[0].getInt()

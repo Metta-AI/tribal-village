@@ -206,14 +206,18 @@ proc strategyScore*(strategy: TeamStrategy): float32 =
 # Fitness feedback - update role catalog from replay analysis
 # ---------------------------------------------------------------------------
 
+template blendFitness(fitness: var float32, target: float32, alpha: float32) =
+  ## Blend fitness toward target using exponential moving average.
+  fitness = clamp(fitness * (1.0 - alpha) + target * alpha, 0.0, 1.0)
+
 proc applyReplayFeedback*(catalog: var RoleCatalog, analysis: ReplayAnalysis) =
   ## Update role and behavior fitness scores based on replay analysis.
   ## Uses a lower alpha than live scoring to blend gradually.
   if analysis.teams.len == 0:
     return
 
-  # Compute per-strategy scores
-  var scores: seq[float32] = @[]
+  # Compute per-strategy scores with pre-allocated seq
+  var scores = newSeqOfCap[float32](analysis.teams.len)
   for team in analysis.teams:
     scores.add strategyScore(team)
 
@@ -225,19 +229,13 @@ proc applyReplayFeedback*(catalog: var RoleCatalog, analysis: ReplayAnalysis) =
 
   # Boost roles that appear in winning strategies, penalize losers
   for role in catalog.roles.mitems:
-    if role.games <= 0:
-      continue
-    let blended = role.fitness * (1.0 - ReplayFeedbackAlpha) +
-                  avgScore * ReplayFeedbackAlpha
-    role.fitness = clamp(blended, 0.0, 1.0)
+    if role.games > 0:
+      blendFitness(role.fitness, avgScore, ReplayFeedbackAlpha)
 
   # Update behavior fitness similarly
   for behavior in catalog.behaviors.mitems:
-    if behavior.games <= 0:
-      continue
-    let blended = behavior.fitness * (1.0 - ReplayFeedbackAlpha) +
-                  avgScore * ReplayFeedbackAlpha
-    behavior.fitness = clamp(blended, 0.0, 1.0)
+    if behavior.games > 0:
+      blendFitness(behavior.fitness, avgScore, ReplayFeedbackAlpha)
 
 proc applyWinnerBoost*(catalog: var RoleCatalog, analysis: ReplayAnalysis,
                        boostAlpha: float32 = 0.15) =
@@ -253,9 +251,7 @@ proc applyWinnerBoost*(catalog: var RoleCatalog, analysis: ReplayAnalysis,
     return
   for role in catalog.roles.mitems:
     if role.fitness >= 0.5 and role.games > 0:
-      let boost = role.fitness * (1.0 - boostAlpha) +
-                  winnerScore * boostAlpha
-      role.fitness = clamp(boost, 0.0, 1.0)
+      blendFitness(role.fitness, winnerScore, boostAlpha)
 
 # ---------------------------------------------------------------------------
 # Human pattern extraction
@@ -308,15 +304,17 @@ proc extractTopActionSequences*(replayJson: JsonNode,
     else: 0
   )
 
-  # Extract windows from top agents
+  # Extract windows from top agents with pre-allocated result
   let topCount = min(agents.len, maxSequences)
+  result = newSeqOfCap[ActionSequence](topCount)
   for i in 0 ..< topCount:
     let a = agents[i]
     let startIdx = max(0, a.actions.len - windowSize)
-    var verbs: seq[int] = @[]
-    for j in startIdx ..< a.actions.len:
-      verbs.add a.actions[j]
-    if verbs.len > 0:
+    let verbCount = a.actions.len - startIdx
+    if verbCount > 0:
+      var verbs = newSeqOfCap[int](verbCount)
+      for j in startIdx ..< a.actions.len:
+        verbs.add a.actions[j]
       result.add ActionSequence(verbs: verbs, teamReward: a.reward)
 
 proc dominantActionVerb*(seq_data: ActionSequence): int =
@@ -353,6 +351,7 @@ proc analyzeReplayBatch*(dir: string, maxFiles: int = MaxReplaysPerPass): seq[Re
   ## Analyze up to maxFiles replay files from a directory.
   let files = findReplayFiles(dir)
   let count = min(files.len, maxFiles)
+  result = newSeqOfCap[ReplayAnalysis](count)
   for i in 0 ..< count:
     try:
       result.add analyzeReplayFile(files[i])
