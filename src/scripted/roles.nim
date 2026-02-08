@@ -1,8 +1,8 @@
 ## Meta-role definitions and behavior registry for evolutionary roles.
 
 import std/[json, os, strutils]
-import ai_options
-export ai_options
+import ai_types
+export ai_types
 
 import ../entropy
 
