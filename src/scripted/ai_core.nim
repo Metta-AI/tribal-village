@@ -851,8 +851,36 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
 
   return bestDir
 
+# ---------------------------------------------------------------------------
+# Pathfinding System
+# ---------------------------------------------------------------------------
+# This section implements the pathfinding subsystem used by AI agents.
+#
+# Architecture:
+#   - isPassable: Static passability check (ignores agent swapping)
+#   - canEnterForMove: Directional passability with lantern pushing rules
+#   - getMoveTowards: Greedy single-step movement with obstacle avoidance
+#   - findPath: A* pathfinding for longer distances (>6 tiles)
+#   - moveTo: High-level movement that combines A* and greedy approaches
+#
+# The system uses a generation-counter pattern for the PathfindingCache to
+# achieve O(1) cache invalidation without clearing large map-sized arrays.
+# ---------------------------------------------------------------------------
+
 proc isPassable*(env: Environment, agent: Thing, pos: IVec2): bool =
-  ## Consider lantern tiles passable for generic checks and respect doors/water.
+  ## Check if a position is passable for static pathfinding purposes.
+  ##
+  ## This is a simplified passability check used by A* to evaluate potential
+  ## path nodes. It checks:
+  ##   - Position validity (within map bounds)
+  ##   - Water blocking (non-ship agents can't cross water)
+  ##   - Door access (team-based door permissions)
+  ##   - Grid occupancy (empty or lantern only)
+  ##
+  ## Note: This does NOT check agent-agent swapping rules, which are handled
+  ## separately by canEnterForMove for actual movement decisions.
+  ##
+  ## Returns true if the tile can be traversed during pathfinding.
   if not isValidPos(pos):
     return false
   if env.isWaterBlockedForAgent(agent, pos):
@@ -865,7 +893,21 @@ proc isPassable*(env: Environment, agent: Thing, pos: IVec2): bool =
   return occupant.kind == Lantern
 
 proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bool =
-  ## Directional passability check that mirrors move logic (lantern pushing rules).
+  ## Check if an agent can move from fromPos to toPos in a single step.
+  ##
+  ## This is a directional passability check that mirrors the actual move
+  ## execution logic, including lantern pushing rules. It validates:
+  ##   - Target position validity and playable bounds (within map border)
+  ##   - Elevation traversal (ramps required for uphill movement)
+  ##   - Water and door blocking
+  ##   - Grid occupancy with special handling for pushable lanterns
+  ##
+  ## Lantern Pushing Rules:
+  ##   When the target tile contains a lantern, the agent can push it if
+  ##   there's a valid destination for the lantern (ahead of movement or
+  ##   adjacent) that maintains minimum spacing from other lanterns.
+  ##
+  ## Returns true if the move from fromPos to toPos is valid.
   if not isValidPos(toPos):
     return false
   if toPos.x < MapBorder.int32 or toPos.x >= (MapWidth - MapBorder).int32 or
@@ -918,188 +960,228 @@ proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bo
 
 proc getMoveTowards*(env: Environment, agent: Thing, fromPos, toPos: IVec2,
                     rng: var Rand, avoidDir: int = -1): int =
-  ## Get a movement direction towards target, with obstacle avoidance
+  ## Get a single-step movement direction towards a target position.
+  ##
+  ## This is the greedy movement function used for short-distance navigation.
+  ## It tries to find the best direction to move closer to the target while
+  ## respecting obstacles and optional direction avoidance.
+  ##
+  ## Algorithm:
+  ##   1. If target is outside playable bounds, move toward the interior
+  ##   2. Try the primary direction (direct line to target) first
+  ##   3. Fall back to the direction that minimizes distance to target
+  ##   4. Use avoidDir as last resort if all other directions are blocked
+  ##
+  ## Parameters:
+  ##   - fromPos: Current agent position
+  ##   - toPos: Target position to move toward
+  ##   - rng: Random number generator (unused but kept for API consistency)
+  ##   - avoidDir: Direction index (0-7) to avoid, or -1 for no avoidance
+  ##
+  ## Returns direction index (0-7) or -1 if completely blocked.
   let clampedTarget = clampToPlayable(toPos)
   if clampedTarget == fromPos:
     # Target is outside playable bounds; push back inward toward the widest margin.
     var bestDir = -1
     var bestMargin = -1
     var avoidCandidate = -1
-    for idx, d in Directions8:
-      let np = fromPos + d
-      if not canEnterForMove(env, agent, fromPos, np):
+    for dirIdx, delta in Directions8:
+      let neighborPos = fromPos + delta
+      if not canEnterForMove(env, agent, fromPos, neighborPos):
         continue
-      if idx == avoidDir:
-        avoidCandidate = idx
+      if dirIdx == avoidDir:
+        avoidCandidate = dirIdx
         continue
-      let marginX = min(np.x - MapBorder, (MapWidth - MapBorder - 1) - np.x)
-      let marginY = min(np.y - MapBorder, (MapHeight - MapBorder - 1) - np.y)
+      let marginX = min(neighborPos.x - MapBorder, (MapWidth - MapBorder - 1) - neighborPos.x)
+      let marginY = min(neighborPos.y - MapBorder, (MapHeight - MapBorder - 1) - neighborPos.y)
       let margin = min(marginX, marginY)
       if margin > bestMargin:
         bestMargin = margin
-        bestDir = idx
+        bestDir = dirIdx
     if bestDir >= 0:
       return bestDir
     if avoidCandidate >= 0:
       return avoidCandidate
     return -1
 
+  # Calculate direction vector to target
   let dx = clampedTarget.x - fromPos.x
   let dy = clampedTarget.y - fromPos.y
-  let step = ivec2(signi(dx), signi(dy))
-  if step.x != 0 or step.y != 0:
-    let primaryDir = vecToOrientation(step)
+  let stepVector = ivec2(signi(dx), signi(dy))
+
+  # Try primary direction first (direct path to target)
+  if stepVector.x != 0 or stepVector.y != 0:
+    let primaryDir = vecToOrientation(stepVector)
     let primaryMove = fromPos + Directions8[primaryDir]
     if primaryDir != avoidDir and canEnterForMove(env, agent, fromPos, primaryMove):
       return primaryDir
 
+  # Fall back to best alternative direction
   var bestDir = -1
   var bestDist = int.high
   var avoidCandidate = -1
-  for idx, d in Directions8:
-    let np = fromPos + d
-    if not canEnterForMove(env, agent, fromPos, np):
+  for dirIdx, delta in Directions8:
+    let neighborPos = fromPos + delta
+    if not canEnterForMove(env, agent, fromPos, neighborPos):
       continue
-    if idx == avoidDir:
-      avoidCandidate = idx
+    if dirIdx == avoidDir:
+      avoidCandidate = dirIdx
       continue
-    let dist = int(chebyshevDist(np, clampedTarget))
+    let dist = int(chebyshevDist(neighborPos, clampedTarget))
     if dist < bestDist:
       bestDist = dist
-      bestDir = idx
+      bestDir = dirIdx
   if bestDir >= 0:
     return bestDir
   if avoidCandidate >= 0:
     return avoidCandidate
 
-  # All blocked - return -1 to signal no valid move (caller should noop)
+  # All directions blocked - return -1 to signal no valid move
   return -1
 
 proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
-  ## A* pathfinding from fromPos toward targetPos, returning the path as a
-  ## sequence of positions (including start). If targetPos itself is impassable,
-  ## the algorithm targets passable neighbors instead.
+  ## A* pathfinding from fromPos toward targetPos.
   ##
-  ## Implementation notes:
-  ## - Uses a generation counter to invalidate stale cache entries in O(1)
-  ##   instead of clearing the full map-sized arrays each call.
-  ## - Open set uses a binary heap (min-heap by f-score) for O(log n) extraction.
-  ## - Exploration is capped at 250 nodes to bound worst-case cost per tick.
+  ## Returns a sequence of positions forming the path (including start position).
+  ## Returns an empty sequence if no path exists or exploration limit is reached.
+  ##
+  ## Goal Handling:
+  ##   If targetPos itself is impassable (e.g., occupied by a building), the
+  ##   algorithm automatically targets passable neighbors of targetPos instead.
+  ##   This allows pathfinding "to" a building by finding a path to stand next to it.
+  ##
+  ## Performance Characteristics:
+  ##   - Time: O(n log n) where n is nodes explored (capped at 250)
+  ##   - Space: O(1) amortized via pre-allocated PathfindingCache
+  ##   - Cache invalidation: O(1) via generation counter pattern
+  ##
+  ## Implementation Details:
+  ##   - Uses generation counter to invalidate stale cache entries without
+  ##     clearing map-sized arrays (O(1) vs O(MapWidth * MapHeight))
+  ##   - Open set uses binary heap (min-heap by f-score) for O(log n) operations
+  ##   - Exploration capped at 250 nodes to bound worst-case cost per tick
+  ##   - Heuristic: minimum Chebyshev distance to any goal position
 
-  # Increment generation for this call - makes all previous data stale
+  # Increment generation counter - invalidates all previous cache entries
   inc controller.pathCache.generation
-  let gen = controller.pathCache.generation
+  let currentGen = controller.pathCache.generation
 
-  # Build goals list (target or passable neighbors)
+  # Build goals list: target position if passable, otherwise passable neighbors
   controller.pathCache.goalsLen = 0
   if isPassable(env, agent, targetPos):
     controller.pathCache.goals[0] = targetPos
     controller.pathCache.goalsLen = 1
   else:
-    for d in Directions8:
-      let candidate = targetPos + d
+    # Target is impassable - collect passable neighbor positions as goals
+    for delta in Directions8:
+      let candidate = targetPos + delta
       if isValidPos(candidate) and isPassable(env, agent, candidate):
         if controller.pathCache.goalsLen < MaxPathGoals:
           controller.pathCache.goals[controller.pathCache.goalsLen] = candidate
           inc controller.pathCache.goalsLen
 
   if controller.pathCache.goalsLen == 0:
-    return @[]
+    return @[]  # No reachable goal positions
 
-  # Check if already at goal
-  for i in 0 ..< controller.pathCache.goalsLen:
-    if controller.pathCache.goals[i] == fromPos:
+  # Early exit if already at a goal position
+  for goalIdx in 0 ..< controller.pathCache.goalsLen:
+    if controller.pathCache.goals[goalIdx] == fromPos:
       return @[fromPos]
 
-  # Heuristic: minimum chebyshev distance to any goal
-  proc heuristic(cache: PathfindingCache, loc: IVec2): int32 =
-    var best = int32.high
-    for i in 0 ..< cache.goalsLen:
-      let d = int32(chebyshevDist(loc, cache.goals[i]))
-      if d < best:
-        best = d
-    best
+  # A* heuristic: minimum Chebyshev distance to any goal position
+  # Admissible and consistent for grid-based movement
+  proc heuristic(cache: PathfindingCache, pos: IVec2): int32 =
+    var minDist = int32.high
+    for goalIdx in 0 ..< cache.goalsLen:
+      let dist = int32(chebyshevDist(pos, cache.goals[goalIdx]))
+      if dist < minDist:
+        minDist = dist
+    minDist
 
-  # Initialize open heap with starting position
+  # Initialize open set with starting position
   controller.pathCache.openHeap.clear()
-  let startH = heuristic(controller.pathCache, fromPos)
-  controller.pathCache.openHeap.push(PathHeapNode(fScore: startH, pos: fromPos))
+  let startHeuristic = heuristic(controller.pathCache, fromPos)
+  controller.pathCache.openHeap.push(PathHeapNode(fScore: startHeuristic, pos: fromPos))
 
-  # Initialize gScore for start
-  controller.pathCache.gScoreGen[fromPos.x][fromPos.y] = gen
+  # Initialize g-score for start position (cost from start to start = 0)
+  controller.pathCache.gScoreGen[fromPos.x][fromPos.y] = currentGen
   controller.pathCache.gScoreVal[fromPos.x][fromPos.y] = 0
 
-  var explored = 0
+  var nodesExplored = 0
+  const MaxExplorationNodes = 250  # Bound worst-case cost per tick
+
   while controller.pathCache.openHeap.len > 0:
-    if explored > 250:
-      return @[]
+    if nodesExplored > MaxExplorationNodes:
+      return @[]  # Exploration limit reached - path too complex
 
-    # Pop node with lowest f-score from heap
+    # Extract node with lowest f-score from open set
     let node = controller.pathCache.openHeap.pop()
-    let current = node.pos
+    let currentPos = node.pos
 
-    # Skip if already processed (closed) - handles duplicate heap entries
-    if controller.pathCache.closedGen[current.x][current.y] == gen:
+    # Skip if already in closed set (handles duplicate heap entries)
+    if controller.pathCache.closedGen[currentPos.x][currentPos.y] == currentGen:
       continue
 
-    # Mark as closed
-    controller.pathCache.closedGen[current.x][current.y] = gen
-    inc explored
+    # Add to closed set
+    controller.pathCache.closedGen[currentPos.x][currentPos.y] = currentGen
+    inc nodesExplored
 
-    # Check if current is a goal
-    for i in 0 ..< controller.pathCache.goalsLen:
-      if current == controller.pathCache.goals[i]:
-        # Reconstruct path
+    # Check if current position is a goal
+    for goalIdx in 0 ..< controller.pathCache.goalsLen:
+      if currentPos == controller.pathCache.goals[goalIdx]:
+        # Goal reached - reconstruct path by following cameFrom links
         controller.pathCache.pathLen = 0
-        var cur = current
+        var tracePos = currentPos
         while true:
           if controller.pathCache.pathLen >= MaxPathLength:
             break
-          controller.pathCache.path[controller.pathCache.pathLen] = cur
+          controller.pathCache.path[controller.pathCache.pathLen] = tracePos
           inc controller.pathCache.pathLen
-          # Check if we have a parent
-          if controller.pathCache.cameFromGen[cur.x][cur.y] != gen:
+          # Check if we have a parent node in the path
+          if controller.pathCache.cameFromGen[tracePos.x][tracePos.y] != currentGen:
             break
-          cur = controller.pathCache.cameFromVal[cur.x][cur.y]
+          tracePos = controller.pathCache.cameFromVal[tracePos.x][tracePos.y]
 
-        # Build result seq in correct order (path is reversed)
+        # Build result sequence (path was traced backwards, so reverse it)
         result = newSeq[IVec2](controller.pathCache.pathLen)
-        for j in 0 ..< controller.pathCache.pathLen:
-          result[j] = controller.pathCache.path[controller.pathCache.pathLen - 1 - j]
+        for pathIdx in 0 ..< controller.pathCache.pathLen:
+          result[pathIdx] = controller.pathCache.path[controller.pathCache.pathLen - 1 - pathIdx]
         return result
 
-    # Explore neighbors
+    # Explore all 8 neighbor directions
     for dirIdx in 0 .. 7:
-      let nextPos = current + Directions8[dirIdx]
-      if not isValidPos(nextPos):
+      let neighborPos = currentPos + Directions8[dirIdx]
+      if not isValidPos(neighborPos):
         continue
-      if not canEnterForMove(env, agent, current, nextPos):
-        continue
-
-      # Skip if already closed
-      if controller.pathCache.closedGen[nextPos.x][nextPos.y] == gen:
+      if not canEnterForMove(env, agent, currentPos, neighborPos):
         continue
 
-      # Get current gScore (or int32.high if not visited)
-      let currentG = controller.pathCache.gScoreVal[current.x][current.y]
-      let tentativeG = currentG + 1
+      # Skip if already in closed set
+      if controller.pathCache.closedGen[neighborPos.x][neighborPos.y] == currentGen:
+        continue
 
-      # Get neighbor's current gScore
-      let neighborHasScore = controller.pathCache.gScoreGen[nextPos.x][nextPos.y] == gen
-      let nextG = if neighborHasScore: controller.pathCache.gScoreVal[nextPos.x][nextPos.y] else: int32.high
+      # Calculate tentative g-score (current cost + 1 step)
+      let currentGScore = controller.pathCache.gScoreVal[currentPos.x][currentPos.y]
+      let tentativeGScore = currentGScore + 1
 
-      if tentativeG < nextG:
-        # Update cameFrom
-        controller.pathCache.cameFromGen[nextPos.x][nextPos.y] = gen
-        controller.pathCache.cameFromVal[nextPos.x][nextPos.y] = current
-        # Update gScore
-        controller.pathCache.gScoreGen[nextPos.x][nextPos.y] = gen
-        controller.pathCache.gScoreVal[nextPos.x][nextPos.y] = tentativeG
-        # Push to heap (duplicates OK - stale entries skipped via closed check)
-        let h = heuristic(controller.pathCache, nextPos)
-        controller.pathCache.openHeap.push(PathHeapNode(fScore: tentativeG + h, pos: nextPos))
+      # Get neighbor's current g-score (or int32.high if not yet visited)
+      let neighborHasScore = controller.pathCache.gScoreGen[neighborPos.x][neighborPos.y] == currentGen
+      let neighborGScore = if neighborHasScore: controller.pathCache.gScoreVal[neighborPos.x][neighborPos.y] else: int32.high
 
-  @[]
+      # Update path if this route is better than any previously found
+      if tentativeGScore < neighborGScore:
+        # Record that we reached neighbor from current position
+        controller.pathCache.cameFromGen[neighborPos.x][neighborPos.y] = currentGen
+        controller.pathCache.cameFromVal[neighborPos.x][neighborPos.y] = currentPos
+        # Update g-score for neighbor
+        controller.pathCache.gScoreGen[neighborPos.x][neighborPos.y] = currentGen
+        controller.pathCache.gScoreVal[neighborPos.x][neighborPos.y] = tentativeGScore
+        # Add to open set (duplicates are OK - stale entries skipped via closed check)
+        let neighborHeuristic = heuristic(controller.pathCache, neighborPos)
+        let fScore = tentativeGScore + neighborHeuristic
+        controller.pathCache.openHeap.push(PathHeapNode(fScore: fScore, pos: neighborPos))
+
+  @[]  # No path found within exploration limit
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
   ## Check if there's a healthy team lantern within 3 tiles of position.
@@ -1201,9 +1283,27 @@ proc isOscillating*(state: AgentState): bool =
 
 proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint8 =
-  ## Move agent toward targetPos using A* for long distances and greedy movement
-  ## for short distances. Detects oscillation and falls back to spiral search
-  ## when paths are blocked.
+  ## High-level movement function: move agent toward targetPos.
+  ##
+  ## This is the primary movement API used by AI behaviors. It automatically
+  ## selects the appropriate pathfinding strategy based on distance and handles
+  ## stuck detection with recovery mechanisms.
+  ##
+  ## Strategy Selection:
+  ##   - Short distance (<6 tiles): Greedy movement via getMoveTowards
+  ##   - Long distance (≥6 tiles): A* pathfinding via findPath
+  ##   - Stuck detection: Falls back to spiral search when oscillating
+  ##
+  ## Stuck Recovery:
+  ##   The function tracks recent positions and detects oscillation (bouncing
+  ##   between 2 tiles). When detected, it marks the target as temporarily
+  ##   blocked and switches to spiral search to find an alternative approach.
+  ##
+  ## Builder Special Case:
+  ##   Builder agents get special handling to avoid blocking themselves when
+  ##   constructing buildings by preferring alternative directions.
+  ##
+  ## Returns an encoded move action, or NOOP (0) if completely blocked.
   if state.pathBlockedTarget == targetPos:
     return controller.moveNextSearch(env, agent, agentId, state)
   let stuck = isOscillating(state)
