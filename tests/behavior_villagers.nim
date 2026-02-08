@@ -109,35 +109,47 @@ suite "Behavior: Auto-Repair Damaged Buildings":
 
   test "builders prioritize repair over new construction when buildings damaged":
     ## Verify builders handle repair when multiple buildings are damaged.
+    ## Note: We track specific damaged buildings to verify repairs occurred,
+    ## since combat may damage additional buildings during simulation.
     let env = setupGameWithAI(256)
     setAllTeamsResources(env, food = 300, wood = 300)
 
     # Stabilize
     runGameSteps(env, 50)
 
-    # Damage all buildings for team 0
-    var damagedCount = 0
+    # Damage buildings for team 0 and track their HP
+    type DamagedBuilding = tuple[thing: Thing, hpBefore: int]
+    var damagedBuildings: seq[DamagedBuilding]
+
     for thing in env.things:
       if thing.isNil:
         continue
       if thing.teamId == 0 and thing.maxHp > 0:
         if isBuildingKind(thing.kind) or thing.kind == Wall:
+          let hpBefore = thing.hp
           damageBuilding(thing, thing.maxHp div 3)
-          inc damagedCount
+          damagedBuildings.add((thing, thing.hp))  # Track post-damage HP
 
-    echo fmt"  Damaged {damagedCount} buildings for team 0"
-
-    let initialDamaged = countDamagedBuildings(env, 0)
-    echo fmt"  Initially damaged buildings: {initialDamaged}"
+    echo fmt"  Damaged {damagedBuildings.len} buildings for team 0"
 
     # Run simulation
     runGameSteps(env, SimSteps)
 
-    let finalDamaged = countDamagedBuildings(env, 0)
-    echo fmt"  Damaged buildings after {SimSteps} steps: {finalDamaged}"
+    # Check how many of the originally damaged buildings were repaired
+    var repairCount = 0
+    var stillDamagedCount = 0
+    for (building, hpAfterDamage) in damagedBuildings:
+      if building.hp > hpAfterDamage:
+        inc repairCount
+      if building.hp < building.maxHp:
+        inc stillDamagedCount
 
-    # Some buildings should have been repaired
-    check finalDamaged <= initialDamaged
+    echo fmt"  Buildings repaired: {repairCount} of {damagedBuildings.len}"
+    echo fmt"  Still damaged: {stillDamagedCount}"
+
+    # At least some repairs should have occurred on the intentionally damaged buildings
+    # (builders may not repair all, but should repair some)
+    check repairCount > 0 or damagedBuildings.len == 0
 
 suite "Behavior: Return to Task After Interrupt":
   test "gatherers return to gathering after fleeing from enemy":

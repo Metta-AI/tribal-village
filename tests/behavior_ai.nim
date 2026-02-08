@@ -287,9 +287,9 @@ suite "Behavioral AI - Long Game Stability":
         check agent.hp <= agent.maxHp
         check agent.maxHp > 0
 
-    # Verify positions are valid
+    # Verify positions are valid for live agents (not garrisoned or terminated)
     for agent in env.agents:
-      if not agent.isNil and agent.hp > 0:
+      if isAgentAlive(env, agent):
         check agent.pos.x >= 0 and agent.pos.x < MapWidth
         check agent.pos.y >= 0 and agent.pos.y < MapHeight
 
