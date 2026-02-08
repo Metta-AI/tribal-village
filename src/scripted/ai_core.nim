@@ -1662,8 +1662,10 @@ proc setAgentStanceDeferred*(controller: Controller, agentId: int, stance: Agent
 
 proc getAgentPendingStance*(controller: Controller, agentId: int): AgentStance =
   ## Get the pending stance for an agent (what will be applied on next decideAction).
+  ## Returns StanceDefensive if no stance has been set or if agentId is invalid.
   if agentId >= 0 and agentId < MapAgents:
-    return controller.agents[agentId].pendingStance
+    if controller.agents[agentId].stanceModified:
+      return controller.agents[agentId].pendingStance
   StanceDefensive
 
 proc isAgentStanceModified*(controller: Controller, agentId: int): bool =

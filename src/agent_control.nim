@@ -286,8 +286,9 @@ proc setAgentStance*(agentId: int, stance: AgentStance) =
 
 proc getAgentStance*(agentId: int): AgentStance =
   ## Get the pending combat stance for an agent.
-  ## Returns the pending stance if modified, otherwise StanceDefensive.
-  ## Requires BuiltinAI controller.
+  ## Returns the pending stance if one has been set via setAgentStance(agentId, stance).
+  ## Returns StanceDefensive if no stance has been set or if not using BuiltinAI.
+  ## Note: To get the agent's current actual stance, use getAgentStance(env, agentId).
   withBuiltinAI:
     return globalController.aiController.getAgentPendingStance(agentId)
   StanceDefensive
