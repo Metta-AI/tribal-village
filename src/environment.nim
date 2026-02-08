@@ -1030,11 +1030,26 @@ proc stockpileCapacityLeft(agent: Thing): int {.inline.} =
       total += invCount
   max(0, ResourceCarryCapacity - total)
 
+proc getVillagerCarryCapacity*(env: Environment, teamId: int): int
+  ## Forward declaration - defined in economy tech section below
+
+proc stockpileCapacityLeftWithTech(env: Environment, agent: Thing): int {.inline.} =
+  ## Stockpile capacity respecting Wheelbarrow/Hand Cart tech bonuses for villagers.
+  let capacity = if agent.unitClass == UnitVillager:
+    env.getVillagerCarryCapacity(getTeamId(agent))
+  else:
+    ResourceCarryCapacity
+  var total = 0
+  for invKey, invCount in agent.inventory.pairs:
+    if invCount > 0 and isStockpileResourceKey(invKey):
+      total += invCount
+  max(0, capacity - total)
+
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
   if count <= 0:
     return false
   if isStockpileResourceKey(key):
-    if stockpileCapacityLeft(agent) < count:
+    if env.stockpileCapacityLeftWithTech(agent) < count:
       return false
   else:
     if getInv(agent, key) + count > MapObjectAgentMaxInventory:
@@ -1072,7 +1087,7 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
       return true
     let capacityLeft =
       if isStockpileResourceKey(storedKey):
-        stockpileCapacityLeft(agent)
+        env.stockpileCapacityLeftWithTech(agent)
       else:
         max(0, MapObjectAgentMaxInventory - agentCount)
     if capacityLeft > 0:
