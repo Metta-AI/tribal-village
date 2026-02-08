@@ -25,7 +25,6 @@ This index lists the canonical docs for the Tribal Village repo.
 
 ## AI
 - `ai_system.md`: AI roles, inter-role coordination, shared threat maps, adaptive difficulty, economy management, scout exploration, OptionDef behavior model, evolution toggle.
-- `ai_profiling.md`: profiling entrypoints and evolution compile-time flag.
 
 ## Worldgen and Spawning
 - `world_generation.md`: trading hub, rivers, goblin hives, tuning notes.
@@ -48,8 +47,6 @@ This index lists the canonical docs for the Tribal Village repo.
 ## Analysis and Reviews (`analysis/`)
 All analysis, audit, investigation, and code review files live in `docs/analysis/`:
 - `analysis/ai_behavior_analysis.md`: AI behavior invalid action root causes.
-- `analysis/ai_profile_3000_steps.md`: profile results from 3000 step run.
-- `analysis/ai_profiling_p1_gaps.md`: P1 profiling gaps analysis and recommendations.
 - `analysis/aoe2_design_investigation.md`: AoE2 design investigation notes.
 - `analysis/building_siege_analysis.md`: building and siege mechanic analysis.
 - `analysis/codebase_audit.md`: full codebase audit.
@@ -64,6 +61,13 @@ All analysis, audit, investigation, and code review files live in `docs/analysis
 - `analysis/siege_fortifications_investigation_report.md`: siege fortifications investigation.
 - `analysis/temple_hybridization_audit.md`: temple hybridization audit.
 - `analysis/terrain_biomes_audit.md`: terrain and biomes audit.
+
+## Archived (`archive/`)
+Historical profiling snapshots with no remaining action items:
+- `archive/ai_profiling.md`: profiling entrypoints and evolution compile-time flag.
+- `archive/ai_profile_3000_steps.md`: profile results from 3000 step run.
+- `archive/ai_profiling_p1_gaps.md`: P1 profiling gaps analysis and recommendations.
+- `archive/AI_PERF_AUDIT.md`: performance audit snapshot.
 
 ## Repo and Process
 - `repo_history_cleanup.md`: repository history cleanup notes.
