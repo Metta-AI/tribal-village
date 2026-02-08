@@ -1,19 +1,41 @@
 # AI Coordination & Agent Control Surface: Gap Analysis
 
-Date: 2026-01-28
+Date: 2026-01-28 (updated 2026-02-08)
 Owner: Engineering / AI
 Status: Active
 
 ## Current State
 
-### Existing Coordination Commands (Fully Implemented)
+### Fully Implemented Control APIs (with FFI + Nim API)
 
-| Command | API Location | Internal Implementation | GUI/FFI Exposed |
-|---------|-------------|------------------------|-----------------|
-| Attack-Move | `agent_control.nim:91-117` | `fighter.nim` optFighterAttackMove | Nim API only |
-| Patrol | `agent_control.nim:123-150` | `ai_core.nim:1423-1459`, `fighter.nim` optFighterPatrol | Nim API only |
-| Scout | `ai_core.nim:1462-1492` | `fighter.nim` optScoutExplore, auto-enabled for UnitScout | Internal only |
-| Rally Point | `ai_defaults.nim` | Applied to newly trained units via `agent.rallyTarget` | Internal only |
+All high-priority control APIs from the original gap analysis have been implemented
+in `agent_control.nim` and exported via `ffi.nim`.
+
+| Command | Nim API (`agent_control.nim`) | FFI Export (`ffi.nim`) | Status |
+|---------|------------------------------|----------------------|--------|
+| Attack-Move | `setAgentAttackMoveTarget`, `clearAgentAttackMoveTarget`, `getAgentAttackMoveTarget`, `isAgentAttackMoveActive` | `tribal_village_set_attack_move`, `tribal_village_clear_attack_move`, `tribal_village_get_attack_move_x/y`, `tribal_village_is_attack_move_active` | Done |
+| Patrol | `setAgentPatrol`, `clearAgentPatrol`, `getAgentPatrolTarget`, `isAgentPatrolActive` | `tribal_village_set_patrol`, `tribal_village_clear_patrol`, `tribal_village_get_patrol_target_x/y`, `tribal_village_is_patrol_active` | Done |
+| Stance | `setAgentStance`, `getAgentStance` | `tribal_village_set_stance`, `tribal_village_get_stance` | Done |
+| Garrison | `garrisonAgentInBuilding`, `ungarrisonAllFromBuilding`, `getGarrisonCount` | `tribal_village_garrison`, `tribal_village_ungarrison`, `tribal_village_garrison_count` | Done |
+| Production Queue | `queueUnitTraining`, `cancelLastQueuedUnit`, `getProductionQueueSize`, `getProductionQueueEntryProgress` | `tribal_village_queue_train`, `tribal_village_cancel_train`, `tribal_village_queue_size`, `tribal_village_queue_progress` | Done |
+| Research | `researchBlacksmithUpgrade`, `researchUniversityTech`, `researchCastleTech`, `researchUnitUpgrade` | `tribal_village_research_blacksmith`, `tribal_village_research_university`, `tribal_village_research_castle`, `tribal_village_research_unit_upgrade` | Done |
+| Research Query | `hasBlacksmithUpgrade`, `hasUniversityTechResearched`, `hasCastleTechResearched`, `hasUnitUpgradeResearched` | `tribal_village_has_blacksmith_upgrade`, `tribal_village_has_university_tech`, `tribal_village_has_castle_tech`, `tribal_village_has_unit_upgrade` | Done |
+| Scout Mode | `setAgentScoutMode`, `isAgentScoutModeActive`, `getAgentScoutExploreRadius` | `tribal_village_set_scout_mode`, `tribal_village_is_scout_mode_active`, `tribal_village_get_scout_explore_radius` | Done |
+| Rally Point | `setBuildingRallyPoint`, `clearBuildingRallyPoint`, `getBuildingRallyPoint` | `tribal_village_set_rally_point`, `tribal_village_clear_rally_point`, `tribal_village_get_rally_point_x/y` | Done |
+| Stop | `stopAgent` | `tribal_village_stop` | Done |
+| Hold Position | `setAgentHoldPosition`, `clearAgentHoldPosition`, `getAgentHoldPosition`, `isAgentHoldPositionActive` | `tribal_village_hold_position`, `tribal_village_clear_hold_position`, `tribal_village_get_hold_position_x/y`, `tribal_village_is_hold_position_active` | Done |
+| Follow | `setAgentFollowTarget`, `clearAgentFollowTarget`, `getAgentFollowTargetId`, `isAgentFollowActive` | `tribal_village_follow_agent`, `tribal_village_clear_follow`, `tribal_village_get_follow_target`, `tribal_village_is_follow_active` | Done |
+| Formation | `setControlGroupFormation`, `getControlGroupFormation`, `clearControlGroupFormation`, `setControlGroupFormationRotation`, `getControlGroupFormationRotation` | `tribal_village_set_formation`, `tribal_village_get_formation`, `tribal_village_clear_formation`, `tribal_village_set_formation_rotation`, `tribal_village_get_formation_rotation` | Done |
+| Selection | `selectUnits`, `addToSelection`, `removeFromSelection`, `clearSelection`, `getSelectionCount`, `getSelectedAgentId` | `tribal_village_select_units`, `tribal_village_add_to_selection`, `tribal_village_remove_from_selection`, `tribal_village_clear_selection`, `tribal_village_get_selection_count`, `tribal_village_get_selected_agent_id` | Done |
+| Control Groups | `createControlGroup`, `recallControlGroup`, `getControlGroupCount`, `getControlGroupAgentId` | `tribal_village_create_control_group`, `tribal_village_recall_control_group`, `tribal_village_get_control_group_count`, `tribal_village_get_control_group_agent_id` | Done |
+| Command to Selection | `issueCommandToSelection` | `tribal_village_issue_command_to_selection` | Done |
+| Market Trading | `initMarketPrices`, `getMarketPrice`, `setMarketPrice`, `marketBuyResource`, `marketSellResource`, etc. | `tribal_village_init_market_prices`, `tribal_village_get_market_price`, `tribal_village_market_buy`, `tribal_village_market_sell`, etc. | Done |
+| Fog of War | `isRevealed`, `getRevealedTileCount`, `clearRevealedMap` | `tribal_village_is_tile_revealed`, `tribal_village_get_revealed_tile_count`, `tribal_village_clear_revealed_map` | Done |
+| Threat Map | — | `tribal_village_has_known_threats`, `tribal_village_get_nearest_threat`, `tribal_village_get_threats_in_range`, `tribal_village_get_threat_at` | Done |
+| Team Modifiers | — | `tribal_village_get/set_gather_rate_multiplier`, `tribal_village_get/set_build_cost_multiplier`, `tribal_village_get/set_unit_hp_bonus`, `tribal_village_get/set_unit_attack_bonus` | Done |
+| Territory Scoring | — | `tribal_village_score_territory`, `tribal_village_get_territory_team_tiles`, etc. | Done |
+| AI Difficulty | — | `tribal_village_get/set_difficulty_level`, `tribal_village_get/set_difficulty`, adaptive difficulty controls, threat response, coordination, targeting | Done |
+| Error Handling | — | `tribal_village_has_error`, `tribal_village_get_error_code`, `tribal_village_get_error_message`, `tribal_village_clear_error` | Done |
 
 ### Existing Coordination System (`coordination.nim`)
 
@@ -23,80 +45,16 @@ Status: Active
 | RequestDefense | Fighter (threat) | Builder (walls/towers) | `builderShouldPrioritizeDefense()` |
 | RequestSiegeBuild | Fighter (structures) | Builder (siege workshop) | `hasSiegeBuildRequest()` |
 
-### Existing Infrastructure (Not Exposed as Control API)
+## Remaining Gaps
 
-| Feature | Engine Location | State |
-|---------|----------------|-------|
-| Stance types | `types.nim:388-392` (AggressiveDefensiveStandGround/NoAttack) | Defined, used in fighter.nim, **no setter API** |
-| Garrison | `step.nim:242-307` | Implemented, available via action arg 9, **no high-level API** |
-| Production Queue | `environment.nim:960-1096` | Fully functional, **no external API** |
-| Research (Blacksmith) | `environment.nim:1034` | Implemented, **AI-driven only** |
-| Research (University) | `environment.nim:1070-1096` | Implemented, **AI-driven only** |
-| Selection/Control Groups | `types.nim:997-1008` | Variables exist, **no programmatic API** |
-| Difficulty System | `ai_core.nim:28-124` | Fully implemented per-team with adaptive mode |
+### Category 1: Missing Features (Lower Priority)
 
-## Gap Analysis
+These features from the original analysis have not been implemented:
 
-### Category 1: Missing Control APIs (High Priority)
+1. **Guard Command** - No ability to assign a military unit to guard a specific building or economic unit (distinct from the coordination-based escort).
 
-These features exist internally but lack an external control surface:
+2. **Waypoint Paths** - Patrol only supports 2 waypoints. No multi-waypoint patrol or custom movement paths.
 
-1. **Stance Control API** - Stance types exist and affect behavior (`stanceAllowsChase`, `stanceAllowsMovementToAttack`, `stanceAllowsAutoAttack`). Default stances are assigned per unit class via `defaultStanceForClass()` in `environment.nim` (military units default to `StanceDefensive`, villagers/monks to `StanceNoAttack`). Fighter role enforces `StanceDefensive` in `ai_defaults.nim`. However, there is no public function to dynamically set stance on a unit at runtime. Users/Python cannot change unit aggression behavior.
+3. **Economy Priority Override** - No API to force gatherers to prioritize specific resources (override the automatic task selection system).
 
-2. **Garrison Control API** - Garrison/ungarrison logic exists in `step.nim` but only via raw action encoding (argument 9). No high-level `garrisonUnit(agentId, buildingPos)` or `ungarrisonAll(buildingPos)` API.
-
-3. **Production Queue Control API** - `queueTrainUnit`, `cancelLastQueued`, `tryBatchQueueTrain` exist but are only called by AI builder/fighter options. No external API to queue unit training from user input.
-
-4. **Research Queue Control API** - `tryResearchBlacksmithUpgrade` and `tryResearchUniversityTech` exist but are AI-internal. No external API to initiate research.
-
-5. **Scout Control API** - `setScoutMode` and `clearScoutMode` exist in `ai_core.nim` but are not exposed in `agent_control.nim` like attack-move and patrol are.
-
-6. **Rally Point Control API** - Rally points are used internally for newly trained units but there's no API to set/get/clear rally points on buildings.
-
-### Category 2: Missing Features (Medium Priority)
-
-These features don't exist yet:
-
-7. **Formation System** - No formation commands exist. Units move individually. Missing: line, box, staggered, wedge formations for military units.
-
-8. **Stop Command** - No explicit "stop all activity" command. Units always follow their AI role. A stop command should clear patrol, attack-move, and current task.
-
-9. **Hold Position Command** - Different from StanceStandGround. Should anchor unit at current position and engage nearby enemies without moving.
-
-10. **Follow Command** - No ability to make one unit follow another unit.
-
-11. **Guard Command** - No ability to assign a military unit to guard a specific building or economic unit (distinct from the coordination-based escort).
-
-### Category 3: FFI/GUI Integration Gaps (High Priority)
-
-12. **FFI Layer Missing Control Exports** - `ffi.nim` only exports environment creation, config, step, and rendering. None of the high-level control APIs (attack-move, patrol, stance, garrison, production) are exported to Python.
-
-13. **Selection System API** - Selection and control group infrastructure exists (`types.nim:997-1008`) but has no programmatic API for selecting units, creating control groups, or issuing commands to selections.
-
-### Category 4: AI Behavior Gaps (Lower Priority)
-
-14. **Waypoint Paths** - Patrol only supports 2 waypoints. No multi-waypoint patrol or custom movement paths.
-
-15. **Economy Priority Override** - No API to force gatherers to prioritize specific resources (override the automatic task selection system).
-
-16. **Aggressive Stance for Non-Fighters** - Gatherers/builders can only flee from threats. No option for them to fight back when cornered.
-
-## Recommendations
-
-### Immediate (beads to create):
-- Stance control API + FFI export
-- Garrison control API + FFI export
-- Production queue control API + FFI export
-- Research control API + FFI export
-- Scout mode API in agent_control.nim
-- Rally point API in agent_control.nim
-- Stop command API
-- Formation system (basic: line, box)
-- FFI export layer for all control APIs
-- Selection/command API for programmatic unit control
-
-### Future consideration:
-- Follow/guard commands
-- Multi-waypoint patrol
-- Economy priority override API
-- Hold position command
+4. **Aggressive Stance for Non-Fighters** - Gatherers/builders can only flee from threats. No option for them to fight back when cornered (though StanceAggressive exists, AI roles override it).
