@@ -1550,7 +1550,8 @@ proc shouldTerminateFighterHoldPosition(controller: Controller, env: Environment
 proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
   ## Hold position: stay at the designated location, attack enemies in range,
-  ## but do not chase. If drifted too far (e.g. from knockback), walk back.
+  ## and engage enemies within HoldPositionEngageRadius but return afterward.
+  ## Unlike StandGround, can move to attack nearby enemies.
   if not state.holdPositionActive or state.holdPositionTarget.x < 0:
     return 0'u8
 
@@ -1559,10 +1560,18 @@ proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thi
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
 
-  # If too far from hold position, move back
-  let dist = int(chebyshevDist(agent.pos, state.holdPositionTarget))
-  if dist > HoldPositionReturnRadius:
+  # If too far from hold position, prioritize returning
+  let distFromHold = int(chebyshevDist(agent.pos, state.holdPositionTarget))
+  if distFromHold > HoldPositionReturnRadius:
     return controller.moveTo(env, agent, agentId, state, state.holdPositionTarget)
+
+  # Look for enemies within engage radius of the hold position
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    let enemyDistFromHold = int(chebyshevDist(enemy.pos, state.holdPositionTarget))
+    if enemyDistFromHold <= HoldPositionEngageRadius:
+      # Enemy is within engage radius of hold position - move to attack
+      return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
 
   # Stay put
   0'u8

@@ -363,6 +363,7 @@ const
   AllyThreatRadius* = 2       # Distance at which enemy is considered threatening an ally
   EscortRadius* = 3           # Stay within this distance of the protected unit
   HoldPositionReturnRadius* = 3  # Max distance to drift from hold position
+  HoldPositionEngageRadius* = 5  # Max distance to move toward enemies while holding position
   FollowProximityRadius* = 3  # Stay within this distance of followed target
 
   # Divider wall building
