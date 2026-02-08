@@ -225,7 +225,7 @@ Quick reference for common actions:
 
 ## Source Code References
 
-- **Action encoding**: `src/common.nim` (`actionVerb`, `actionArgument` procs)
+- **Action encoding**: `src/common_types.nim` (`encodeAction` proc, `ActionVerbCount`, `ActionArgumentCount` constants)
 - **Action processing**: `src/step.nim` and `src/actions.nim` (included by step.nim)
 - **Verb names**: `src/replay_writer.nim`
 - **BuildChoices array**: `src/environment.nim`

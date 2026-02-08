@@ -165,7 +165,7 @@ They define the structural parameters of the simulation.
 | `ObservationWidth` | 11 | Width of agent observation window. |
 | `ObservationHeight` | 11 | Height of agent observation window. |
 | `ObservationRadius` | 5 | Observation radius (width / 2). |
-| `ObservationLayers` | 79 | Total observation tensor layers. |
+| `ObservationLayers` | 96 | Total observation tensor layers. |
 
 ### Unit Stats
 
