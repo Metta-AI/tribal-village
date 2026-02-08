@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Date: 2026-01-27
+Date: 2026-02-08
 Owner: Systems
 Status: Active
 
@@ -28,7 +28,7 @@ The system consists of three main layers:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Nim Core (~17,000 lines)
+### Nim Core (~37,000 lines)
 
 The core game simulation written in Nim for performance. Key modules:
 
@@ -39,22 +39,48 @@ The core game simulation written in Nim for performance. Key modules:
 | `step.nim` | Per-tick action execution, entity updates |
 | `spawn.nim` | Map generation, entity placement |
 | `combat.nim` | Damage calculation, unit interactions |
-| `terrain.nim` | Terrain types, movement costs, biomes |
+| `terrain.nim` | Terrain types, movement costs |
+| `biome.nim` | Biome definitions, resource bonuses |
 | `spatial_index.nim` | Spatial partitioning for O(1) nearest-thing queries |
 | `registry.nim` | Building/unit registry (costs, training, sprite keys) |
+| `formations.nim` | Unit formation logic (Line/Box/Staggered) |
 | `agent_control.nim` | Controller interface (built-in AI or external NN) |
-| `renderer.nim` | Visual rendering (Boxy/OpenGL) |
+| `renderer.nim` | Visual rendering (Boxy/OpenGL), UI panels |
 | `scripted/` | Built-in AI behavior system |
 
 ### FFI Layer
 
 `src/ffi.nim` exports C-compatible functions for Python:
 
+**Core Environment:**
 - `tribal_village_create()` - Create environment
 - `tribal_village_reset_and_get_obs()` - Reset and get observations
 - `tribal_village_step_with_pointers()` - Step with direct buffer I/O
 - `tribal_village_render_rgb()` / `tribal_village_render_ansi()` - Rendering
 - `tribal_village_destroy()` - Cleanup
+
+**Unit Commands:**
+- `tribal_village_set_attack_move()` / `tribal_village_set_patrol()` - Movement commands
+- `tribal_village_set_stance()` / `tribal_village_garrison()` - Unit stance and garrisoning
+- `tribal_village_stop()` / `tribal_village_hold_position()` - Position commands
+- `tribal_village_follow_agent()` - Unit following
+
+**Production & Research:**
+- `tribal_village_queue_train()` / `tribal_village_queue_train_class()` - Unit training
+- `tribal_village_research_blacksmith()` / `tribal_village_research_university()` - Research
+- `tribal_village_set_rally_point()` - Building rally points
+
+**Control Groups & Formations:**
+- `tribal_village_create_control_group()` / `tribal_village_recall_control_group()`
+- `tribal_village_set_formation()` / `tribal_village_get_formation()`
+
+**Economy:**
+- `tribal_village_market_buy()` / `tribal_village_market_sell()` - Market trading
+- `tribal_village_get_gather_rate_multiplier()` - Economy bonuses
+
+**AI & Difficulty:**
+- `tribal_village_set_difficulty_level()` / `tribal_village_enable_adaptive_difficulty()`
+- `tribal_village_set_threat_response_enabled()` / `tribal_village_set_coordination_enabled()`
 
 Uses zero-copy buffer communication for performance.
 
@@ -108,7 +134,7 @@ Actions are encoded as single uint8:
 action = verb * 25 + argument
 ```
 
-10 verbs × 25 arguments = 250 action space.
+11 verbs × 25 arguments = 275 action space.
 
 See `docs/action_space.md` for verb definitions.
 
@@ -117,36 +143,41 @@ See `docs/action_space.md` for verb definitions.
 ```
 tribal_village.nim (main entry)
     ├── environment.nim
-    │       ├── types.nim
-    │       │       ├── terrain.nim
-    │       │       ├── items.nim
-    │       │       ├── common_types.nim
-    │       │       └── constants.nim
-    │       ├── registry.nim
-    │       ├── spatial_index.nim
-    │       ├── biome.nim
-    │       ├── entropy.nim
+    │       ├── imports:
+    │       │   ├── entropy.nim, envconfig.nim
+    │       │   ├── terrain.nim, items.nim, common_types.nim, biome.nim
+    │       │   ├── types.nim (re-exports constants.nim)
+    │       │   ├── registry.nim
+    │       │   ├── spatial_index.nim
+    │       │   ├── formations.nim
+    │       │   ├── state_dumper.nim, arena_alloc.nim
     │       └── includes:
-    │           ├── colors.nim
+    │           ├── colors.nim, event_log.nim
     │           ├── placement.nim
+    │           ├── combat_audit.nim, tumor_audit.nim
+    │           ├── action_audit.nim, action_freq_counter.nim
     │           ├── combat.nim
+    │           ├── tint.nim
     │           ├── connectivity.nim
     │           ├── spawn.nim
-    │           ├── tint.nim
+    │           ├── console_viz.nim, gather_heatmap.nim
     │           └── step.nim
     │               └── actions.nim
     ├── renderer.nim
+    │       ├── minimap.nim
+    │       ├── command_panel.nim
+    │       └── tooltips.nim
     ├── agent_control.nim
     │       └── scripted/
     │           ├── ai_core.nim
-    │           ├── ai_defaults.nim
-    │           ├── roles.nim
-    │           ├── options.nim
-    │           ├── gatherer.nim
-    │           ├── builder.nim
-    │           ├── fighter.nim
+    │           ├── ai_types.nim, ai_defaults.nim
+    │           ├── ai_build_helpers.nim
+    │           ├── roles.nim, options.nim
+    │           ├── gatherer.nim, builder.nim, fighter.nim
     │           ├── coordination.nim
-    │           └── evolution.nim
+    │           ├── economy.nim, settlement.nim
+    │           ├── evolution.nim
+    │           └── ai_audit.nim
     └── tileset.nim
 
 ffi.nim (shared library entry)
@@ -189,9 +220,10 @@ Python environment wrapper:
 
 ### Prerequisites
 
-- Nim 2.2.4+
+- Nim 2.2.4+ (2.2.6+ recommended, install via nimby)
 - nimble (Nim package manager)
-- Python 3.10+ with pufferlib
+- Python 3.12+ with pufferlib
+- OpenGL (for renderer)
 
 ### Building the Shared Library
 
@@ -223,8 +255,9 @@ nim c -r tribal_village.nim
 |--------|--------|
 | `-d:danger` | Disable all runtime checks (production) |
 | `-d:release` | Optimized build with some checks |
-| `-d:renderTiming` | Enable frame timing profiler |
+| `-d:renderTiming` | Enable frame timing profiler (main entry only) |
 | `-d:stepTiming` | Enable step timing profiler |
+| `-d:perfRegression` | Enable performance regression testing |
 | `-d:enableEvolution` | Enable AI role evolution |
 | `-d:emscripten` | WASM build for web |
 
@@ -241,11 +274,17 @@ pip install -e .
 
 | Variable | Purpose |
 |----------|---------|
-| `TRIBAL_PYTHON_CONTROL` | Enable external NN controller |
-| `TRIBAL_EXTERNAL_CONTROL` | Enable external NN controller |
-| `TV_PROFILE_STEPS` | Run N steps then exit (profiling) |
-| `TV_RENDER_TIMING` | Start frame timing at step N |
-| `TV_LOG_RENDER` | Enable step logging |
+| `TV_LOG_RENDER_PATH` | Path for render logging output |
+| `TV_AI_TIMING` | Enable AI timing profiler (set to "1") |
+| `TV_AI_TIMING_INTERVAL` | Interval for AI timing reports |
+| `TV_AI_LOG` | AI decision logging level |
+| `TV_REPLAY_PATH` / `TV_REPLAY_DIR` | Replay output configuration |
+| `TV_SCORECARD_ENABLED` | Enable balance scorecard collection |
+| `TV_DUMP_INTERVAL` / `TV_DUMP_DIR` | State dumper for debugging |
+| `TV_PERF_BASELINE` / `TV_PERF_SAVE_BASELINE` | Performance regression testing |
+| `TV_EVENT_FILTER` / `TV_EVENT_SUMMARY` | Event log filtering |
+| `TV_ECON_VERBOSE` / `TV_ECON_DETAILED` | Economy audit verbosity |
+| `TV_SETTLER_LOG` / `TV_SETTLER_METRICS_INTERVAL` | Settlement system debugging |
 
 ### Python Config
 
@@ -254,13 +293,19 @@ pip install -e .
 env = TribalVillageEnv(config={
     "max_steps": 10000,
     "render_mode": "rgb_array",
-    "render_scale": 4,
+    "victory_condition": 0,
     "tumor_spawn_rate": 0.1,
-    # ... reward coefficients
+    # Reward coefficients:
+    "heart_reward": 0.0,
+    "ore_reward": 0.0,
+    "wood_reward": 0.0,
+    "food_reward": 0.0,
+    "death_penalty": 0.0,
+    # ... etc
 })
 ```
 
-Config is passed to Nim via `tribal_village_set_config()`.
+Config is passed to Nim via `NimConfig` struct in the FFI layer.
 
 ## Related Documentation
 
