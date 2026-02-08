@@ -240,6 +240,18 @@ proc zoneBounds(zone: ZoneRect, mapWidth, mapHeight, mapBorder: int): tuple[x0, 
    x1: min(mapWidth - mapBorder, zone.x + zone.w),
    y1: min(mapHeight - mapBorder, zone.y + zone.h))
 
+proc isInCorner*(x, y, mapBorder, reserve, mapWidth, mapHeight: int): bool =
+  ## Check if a position is within a reserved corner area.
+  ## Corners are reserved for villages so rivers/roads don't block them.
+  let left = mapBorder
+  let right = mapWidth - mapBorder
+  let top = mapBorder
+  let bottom = mapHeight - mapBorder
+  ((x >= left and x < left + reserve) and (y >= top and y < top + reserve)) or
+  ((x >= right - reserve and x < right) and (y >= top and y < top + reserve)) or
+  ((x >= left and x < left + reserve) and (y >= bottom - reserve and y < bottom)) or
+  ((x >= right - reserve and x < right) and (y >= bottom - reserve and y < bottom))
+
 proc maskEdgeDistance(mask: MaskGrid, mapWidth, mapHeight: int, x, y, maxDepth: int): int =
   if not mask[x][y]:
     return 0
@@ -404,20 +416,15 @@ proc evenlyDistributedZones*(r: var Rand, mapWidth, mapHeight, mapBorder: int, c
     let y = clamp(int(centerY) - sizeH div 2, mapBorder, mapHeight - mapBorder - sizeH)
     result.add(ZoneRect(x: x, y: y, w: sizeW, h: sizeH))
 
-proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
-                        zone: ZoneRect, r: var Rand) =
-  mask.clearMask(mapWidth, mapHeight)
-  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
-  if x1 <= x0 or y1 <= y0:
-    return
-  let cx = (x0 + x1 - 1) div 2
-  let cy = (y0 + y1 - 1) div 2
-  let rx = max(2, (x1 - x0) div 2)
-  let ry = max(2, (y1 - y0) div 2)
+type
+  BlobLobe = tuple[cx, cy, rx, ry: float]
+
+proc generateBlobLobes(cx, cy, rx, ry: int, r: var Rand): seq[BlobLobe] =
+  ## Generate elliptical lobes for zone blob shapes.
   let lobeCount = randIntInclusive(r, ZoneBlobLobesMin, ZoneBlobLobesMax)
-  var lobes: seq[tuple[cx, cy, rx, ry: float]] = @[]
+  result = @[]
   let baseStretch = max(0.35, 1.0 + (randFloat(r) * 2.0 - 1.0) * ZoneBlobAnisotropy)
-  lobes.add((
+  result.add((
     cx: cx.float,
     cy: cy.float,
     rx: max(2.0, rx.float * baseStretch),
@@ -431,28 +438,53 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
       let stretch = max(0.35, 1.0 + (randFloat(r) * 2.0 - 1.0) * ZoneBlobAnisotropy)
       let lrx = max(2.0, rx.float * (0.45 + 0.55 * randFloat(r)) * stretch)
       let lry = max(2.0, ry.float * (0.45 + 0.55 * randFloat(r)) / stretch)
-      lobes.add((
+      result.add((
         cx: cx.float + cos(angle) * offset,
         cy: cy.float + sin(angle) * offset,
         rx: lrx,
         ry: lry
       ))
 
-  for x in x0 ..< x1:
-    for y in y0 ..< y1:
-      let noise = (randFloat(r) - 0.5) * ZoneBlobNoise
-      var inside = false
-      for lobe in lobes:
-        let dx = (x.float - lobe.cx) / lobe.rx
-        let dy = (y.float - lobe.cy) / lobe.ry
-        let dist = dx * dx + dy * dy
-        if dist <= 1.0 + noise:
-          inside = true
-          break
-      if inside:
-        mask[x][y] = true
+proc isInsideLobe(x, y: int, lobes: seq[BlobLobe], noise: float): bool =
+  ## Check if a point is inside any of the lobes (with noise factor).
+  for lobe in lobes:
+    let dx = (x.float - lobe.cx) / lobe.rx
+    let dy = (y.float - lobe.cy) / lobe.ry
+    let dist = dx * dx + dy * dy
+    if dist <= 1.0 + noise:
+      return true
+  false
 
-  let baseRadius = max(2, min(rx, ry))
+proc normalizeAngle(ang: float): float =
+  ## Normalize angle to [-PI, PI] range.
+  result = ang
+  while result > PI:
+    result -= 2.0 * PI
+  while result < -PI:
+    result += 2.0 * PI
+
+proc carveBlobBite(mask: var MaskGrid, bx, by, biteRadius: int,
+                   biteAngle, biteSpread: float, x0, y0, x1, y1: int) =
+  ## Carve a wedge-shaped bite out of the blob mask.
+  let minX = max(x0, bx - biteRadius)
+  let maxX = min(x1 - 1, bx + biteRadius)
+  let minY = max(y0, by - biteRadius)
+  let maxY = min(y1 - 1, by + biteRadius)
+  let radiusSq = biteRadius * biteRadius
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      if not mask[x][y]:
+        continue
+      let dx = x - bx
+      let dy = y - by
+      if dx * dx + dy * dy > radiusSq:
+        continue
+      let ang = normalizeAngle(arctan2(dy.float, dx.float) - biteAngle)
+      if abs(ang) <= biteSpread:
+        mask[x][y] = false
+
+proc applyBlobBites(mask: var MaskGrid, baseRadius, x0, y0, x1, y1: int, r: var Rand) =
+  ## Apply random wedge-shaped bites to create irregular blob edges.
   let biteCount = randIntInclusive(r, ZoneBlobBiteCountMin, ZoneBlobBiteCountMax)
   for _ in 0 ..< biteCount:
     var bx = randIntInclusive(r, x0, x1 - 1)
@@ -470,48 +502,53 @@ proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
     let biteAngle = randFloat(r) * 2.0 * PI
     let biteSpread = (ZoneBlobBiteAngleMin + randFloat(r) *
       (ZoneBlobBiteAngleMax - ZoneBlobBiteAngleMin)) * PI
-    let minX = max(x0, bx - biteRadius)
-    let maxX = min(x1 - 1, bx + biteRadius)
-    let minY = max(y0, by - biteRadius)
-    let maxY = min(y1 - 1, by + biteRadius)
-    for x in minX .. maxX:
-      for y in minY .. maxY:
-        if not mask[x][y]:
-          continue
-        let dx = x - bx
-        let dy = y - by
-        if dx * dx + dy * dy > biteRadius * biteRadius:
-          continue
-        var ang = arctan2(dy.float, dx.float) - biteAngle
-        while ang > PI:
-          ang -= 2.0 * PI
-        while ang < -PI:
-          ang += 2.0 * PI
-        if abs(ang) <= biteSpread:
-          mask[x][y] = false
+    carveBlobBite(mask, bx, by, biteRadius, biteAngle, biteSpread, x0, y0, x1, y1)
 
+proc isEdgeCell(mask: MaskGrid, x, y, x0, y0, x1, y1: int): bool =
+  ## Check if a cell is on the edge of the masked region.
+  for dx in -1 .. 1:
+    for dy in -1 .. 1:
+      if dx == 0 and dy == 0:
+        continue
+      let nx = x + dx
+      let ny = y + dy
+      if nx < x0 or nx >= x1 or ny < y0 or ny >= y1 or not mask[nx][ny]:
+        return true
+  false
+
+proc applyJaggedEdges(mask: var MaskGrid, x0, y0, x1, y1: int, r: var Rand) =
+  ## Apply jagged edge erosion passes to create natural-looking boundaries.
   for _ in 0 ..< ZoneBlobJaggedPasses:
     var nextMask = mask
     for x in x0 ..< x1:
       for y in y0 ..< y1:
         if not mask[x][y]:
           continue
-        var edge = false
-        for dx in -1 .. 1:
-          for dy in -1 .. 1:
-            if dx == 0 and dy == 0:
-              continue
-            let nx = x + dx
-            let ny = y + dy
-            if nx < x0 or nx >= x1 or ny < y0 or ny >= y1 or not mask[nx][ny]:
-              edge = true
-              break
-          if edge:
-            break
-        if edge and randChance(r, ZoneBlobJaggedProb):
+        if isEdgeCell(mask, x, y, x0, y0, x1, y1) and randChance(r, ZoneBlobJaggedProb):
           nextMask[x][y] = false
     mask = nextMask
 
+proc buildZoneBlobMask*(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
+                        zone: ZoneRect, r: var Rand) =
+  mask.clearMask(mapWidth, mapHeight)
+  let (x0, y0, x1, y1) = zoneBounds(zone, mapWidth, mapHeight, mapBorder)
+  if x1 <= x0 or y1 <= y0:
+    return
+  let cx = (x0 + x1 - 1) div 2
+  let cy = (y0 + y1 - 1) div 2
+  let rx = max(2, (x1 - x0) div 2)
+  let ry = max(2, (y1 - y0) div 2)
+  let lobes = generateBlobLobes(cx, cy, rx, ry, r)
+
+  for x in x0 ..< x1:
+    for y in y0 ..< y1:
+      let noise = (randFloat(r) - 0.5) * ZoneBlobNoise
+      if isInsideLobe(x, y, lobes, noise):
+        mask[x][y] = true
+
+  let baseRadius = max(2, min(rx, ry))
+  applyBlobBites(mask, baseRadius, x0, y0, x1, y1, r)
+  applyJaggedEdges(mask, x0, y0, x1, y1, r)
   mask[cx][cy] = true
   ditherEdges(mask, mapWidth, mapHeight, ZoneBlobDitherProb, ZoneBlobDitherDepth, r)
 
@@ -953,6 +990,78 @@ proc placeBridges(terrain: var TerrainGrid,
 # Road generation (extracted from generateRiver)
 # ---------------------------------------------------------------------------
 
+proc computeDirectionToGoal(current, goal: IVec2): IVec2 =
+  ## Compute the primary direction vector toward a goal position.
+  let dx = goal.x - current.x
+  let dy = goal.y - current.y
+  let sx = (if dx < 0: -1'i32 elif dx > 0: 1'i32 else: 0'i32)
+  let sy = (if dy < 0: -1'i32 elif dy > 0: 1'i32 else: 0'i32)
+  if abs(dx) >= abs(dy): ivec2(sx, 0) else: ivec2(0, sy)
+
+proc chooseSegmentDirection(baseDir: IVec2, r: var Rand): tuple[dir: IVec2, steps: int, toggle: bool] =
+  ## Choose a randomized segment direction based on the base direction toward goal.
+  let orthoA = ivec2(baseDir.y, baseDir.x)
+  let orthoB = ivec2(-baseDir.y, -baseDir.x)
+  let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
+  let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
+  let roll = randFloat(r)
+  let dir = if roll < 0.35:
+    if randChance(r, 0.5): diagA else: diagB
+  elif roll < 0.92:
+    baseDir
+  else:
+    if randChance(r, 0.5): orthoA else: orthoB
+  (dir: dir, steps: randIntInclusive(r, 7, 12), toggle: randChance(r, 0.5))
+
+proc isValidRoadPosition(pos: IVec2, terrain: TerrainGrid,
+                         side, riverMid, mapBorder, mapWidth, mapHeight: int,
+                         inCorner: proc(x, y: int): bool): bool =
+  ## Check if a position is valid for road placement.
+  if pos.x < mapBorder or pos.x >= mapWidth - mapBorder:
+    return false
+  if pos.y < mapBorder or pos.y >= mapHeight - mapBorder:
+    return false
+  if inCorner(pos.x, pos.y):
+    return false
+  if terrain[pos.x][pos.y] == Water:
+    return false
+  if side < 0 and pos.y >= riverMid:
+    return false
+  if side > 0 and pos.y <= riverMid:
+    return false
+  true
+
+proc findBestFallbackMove(terrain: TerrainGrid, current, goalPos: IVec2,
+                          side, riverMid, mapBorder, mapWidth, mapHeight: int,
+                          inCorner: proc(x, y: int): bool, r: var Rand): IVec2 =
+  ## Find the best fallback move when the preferred direction is blocked.
+  ## Returns (0, 0) if no valid move exists.
+  const dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
+  var bestScore = int.high
+  var best: seq[IVec2] = @[]
+  for d in dirs:
+    let nx = current.x + d.x
+    let ny = current.y + d.y
+    if not isValidRoadPosition(ivec2(nx, ny), terrain, side, riverMid,
+                               mapBorder, mapWidth, mapHeight, inCorner):
+      continue
+    let terrainHere = terrain[nx][ny]
+    var score = abs(goalPos.x - nx).int + abs(goalPos.y - ny).int
+    if terrainHere == Bridge:
+      score -= 2
+    elif terrainHere == Road:
+      score -= 1
+    score += randIntInclusive(r, 0, 2)
+    if score < bestScore:
+      bestScore = score
+      best.setLen(0)
+      best.add(ivec2(nx, ny))
+    elif score == bestScore:
+      best.add(ivec2(nx, ny))
+  if best.len == 0:
+    return ivec2(0, 0)
+  best[randIntExclusive(r, 0, best.len)]
+
 proc carveRoadPath(terrain: var TerrainGrid, startPos, goalPos: IVec2,
                    side, riverMid: int,
                    mapWidth, mapHeight, mapBorder: int,
@@ -960,7 +1069,6 @@ proc carveRoadPath(terrain: var TerrainGrid, startPos, goalPos: IVec2,
                    r: var Rand) =
   ## Carve a meandering road path between two points.
   ## `side` constrains which side of the river to stay on: -1 = north, 1 = south, 0 = either.
-  let dirs = [ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1)]
   var current = startPos
   var segmentDir = ivec2(0, 0)
   var segmentStepsLeft = 0
@@ -969,88 +1077,48 @@ proc carveRoadPath(terrain: var TerrainGrid, startPos, goalPos: IVec2,
   var steps = 0
   var stagnation = 0
   var lastDist = abs(goalPos.x - current.x).int + abs(goalPos.y - current.y).int
+
   if terrain[current.x][current.y] notin {Water, Bridge}:
     terrain[current.x][current.y] = Road
+
   while current != goalPos and steps < maxSteps:
+    # Choose a new segment direction when needed
     if segmentStepsLeft <= 0 or stagnation > 10 or steps > (maxSteps div 2):
-      let dxGoal = goalPos.x - current.x
-      let dyGoal = goalPos.y - current.y
-      let baseDir = block:
-        let sx = (if dxGoal < 0: -1'i32 elif dxGoal > 0: 1'i32 else: 0'i32)
-        let sy = (if dyGoal < 0: -1'i32 elif dyGoal > 0: 1'i32 else: 0'i32)
-        if abs(dxGoal) >= abs(dyGoal):
-          ivec2(sx, 0)
-        else:
-          ivec2(0, sy)
+      let baseDir = computeDirectionToGoal(current, goalPos)
       if baseDir.x == 0 and baseDir.y == 0:
         break
-      let orthoA = ivec2(baseDir.y, baseDir.x)
-      let orthoB = ivec2(-baseDir.y, -baseDir.x)
-      let diagA = ivec2(baseDir.x + orthoA.x, baseDir.y + orthoA.y)
-      let diagB = ivec2(baseDir.x + orthoB.x, baseDir.y + orthoB.y)
-      let roll = randFloat(r)
-      if roll < 0.35:
-        segmentDir = if randChance(r, 0.5): diagA else: diagB
-      elif roll < 0.92:
-        segmentDir = baseDir
-      else:
-        segmentDir = if randChance(r, 0.5): orthoA else: orthoB
-      segmentStepsLeft = randIntInclusive(r, 7, 12)
-      diagToggle = randChance(r, 0.5)
+      let segment = chooseSegmentDirection(baseDir, r)
+      segmentDir = segment.dir
+      segmentStepsLeft = segment.steps
+      diagToggle = segment.toggle
 
+    # Compute step direction (handle diagonal by alternating)
     let stepDir = if segmentDir.x != 0 and segmentDir.y != 0:
       let dir = if diagToggle: ivec2(segmentDir.x, 0) else: ivec2(0, segmentDir.y)
       diagToggle = not diagToggle
       dir
     else:
       segmentDir
+
+    # Try preferred direction, fallback to best alternative
     let nextPos = current + stepDir
     var moved = false
-    if nextPos.x >= mapBorder and nextPos.x < mapWidth - mapBorder and
-       nextPos.y >= mapBorder and nextPos.y < mapHeight - mapBorder and
-       not inCorner(nextPos.x, nextPos.y) and terrain[nextPos.x][nextPos.y] != Water and
-       not (side < 0 and nextPos.y >= riverMid) and
-       not (side > 0 and nextPos.y <= riverMid):
+    if isValidRoadPosition(nextPos, terrain, side, riverMid,
+                           mapBorder, mapWidth, mapHeight, inCorner):
       current = nextPos
       dec segmentStepsLeft
       moved = true
     else:
       segmentStepsLeft = 0
-      var bestScore = int.high
-      var best: seq[IVec2] = @[]
-      for d in dirs:
-        let nx = current.x + d.x
-        let ny = current.y + d.y
-        if nx < mapBorder or nx >= mapWidth - mapBorder or
-           ny < mapBorder or ny >= mapHeight - mapBorder:
-          continue
-        if inCorner(nx, ny):
-          continue
-        let terrainHere = terrain[nx][ny]
-        if terrainHere == Water:
-          continue
-        if side < 0 and ny >= riverMid:
-          continue
-        if side > 0 and ny <= riverMid:
-          continue
-        var score = abs(goalPos.x - nx).int + abs(goalPos.y - ny).int
-        if terrainHere == Bridge:
-          score -= 2
-        elif terrainHere == Road:
-          score -= 1
-        score += randIntInclusive(r, 0, 2)
-        if score < bestScore:
-          bestScore = score
-          best.setLen(0)
-          best.add(ivec2(nx, ny))
-        elif score == bestScore:
-          best.add(ivec2(nx, ny))
-      if best.len == 0:
+      let fallback = findBestFallbackMove(terrain, current, goalPos,
+                                          side, riverMid, mapBorder, mapWidth, mapHeight,
+                                          inCorner, r)
+      if fallback.x == 0 and fallback.y == 0:
         break
-      let fallback = best[randIntExclusive(r, 0, best.len)]
       current = fallback
       moved = true
 
+    # Place road tile and update tracking
     if moved:
       if terrain[current.x][current.y] notin {Water, Bridge}:
         terrain[current.x][current.y] = Road
@@ -1144,16 +1212,9 @@ proc generateRiver*(terrain: var TerrainGrid, mapWidth, mapHeight, mapBorder: in
 
   # Reserve corners for villages so river doesn't block them
   let reserve = max(8, min(mapWidth, mapHeight) div 10)
-  let left = mapBorder
-  let right = mapWidth - mapBorder
-  let top = mapBorder
-  let bottom = mapHeight - mapBorder
 
   let inCorner = proc(x, y: int): bool =
-    ((x >= left and x < left + reserve) and (y >= top and y < top + reserve)) or
-    ((x >= right - reserve and x < right) and (y >= top and y < top + reserve)) or
-    ((x >= left and x < left + reserve) and (y >= bottom - reserve and y < bottom)) or
-    ((x >= right - reserve and x < right) and (y >= bottom - reserve and y < bottom))
+    isInCorner(x, y, mapBorder, reserve, mapWidth, mapHeight)
 
   # Generate main river path (left to right)
   let centerY = mapHeight div 2
