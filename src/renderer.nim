@@ -16,6 +16,16 @@ const
   IdleAnimationAmplitude = 0.02   # Scale variation (+/- 2% from base)
   IdleAnimationPhaseScale = 0.7   # Phase offset multiplier for variation between units
 
+  # Resource depletion animation constants
+  DepletionScaleMin = 0.5         # Minimum scale when resource is empty (50% of full size)
+  DepletionScaleMax = 1.0         # Maximum scale when resource is full (100%)
+
+  # Health bar fade constants
+  HealthBarFadeInDuration = 5     # Steps to fade in after taking damage
+  HealthBarVisibleDuration = 60   # Steps to stay fully visible after damage
+  HealthBarFadeOutDuration = 30   # Steps to fade out after visible period
+  HealthBarMinAlpha = 0.3         # Minimum alpha when faded out (never fully invisible)
+
 var
   heartCountImages: Table[int, string] = initTable[int, string]()
   overlayLabelImages: Table[string, string] = initTable[string, string]()
@@ -196,15 +206,39 @@ proc getHealthBarColor*(ratio: float32): Color =
     let t = ratio * 2.0  # t: 1.0 at half, 0.0 at empty
     color(1.0, t * 0.8, 0.1, 1.0)  # from red(1.0,0.0,0.1) to yellow(1.0,0.8,0.1)
 
+proc getHealthBarAlpha*(currentStep: int, lastAttackedStep: int): float32 =
+  ## Calculate health bar alpha based on damage recency.
+  ## Fades in quickly after damage, stays visible, then fades out gradually.
+  let stepsSinceDamage = currentStep - lastAttackedStep
+  if lastAttackedStep <= 0:
+    # Never attacked - show at minimum alpha
+    return HealthBarMinAlpha
+  if stepsSinceDamage < HealthBarFadeInDuration:
+    # Fade in phase: 0.0 -> 1.0 over FadeInDuration steps
+    let progress = stepsSinceDamage.float32 / HealthBarFadeInDuration.float32
+    return HealthBarMinAlpha + (1.0 - HealthBarMinAlpha) * progress
+  elif stepsSinceDamage < HealthBarFadeInDuration + HealthBarVisibleDuration:
+    # Fully visible phase
+    return 1.0
+  elif stepsSinceDamage < HealthBarFadeInDuration + HealthBarVisibleDuration + HealthBarFadeOutDuration:
+    # Fade out phase: 1.0 -> MinAlpha over FadeOutDuration steps
+    let fadeProgress = (stepsSinceDamage - HealthBarFadeInDuration - HealthBarVisibleDuration).float32 / HealthBarFadeOutDuration.float32
+    return 1.0 - (1.0 - HealthBarMinAlpha) * fadeProgress
+  else:
+    # Fully faded out (to minimum alpha)
+    return HealthBarMinAlpha
+
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
-                     filledColor, emptyColor: Color, segments = 5) =
+                     filledColor, emptyColor: Color, segments = 5, alpha = 1.0'f32) =
   let filled = int(ceil(ratio * segments.float32))
   const segStep = 0.16'f32
   let origin = basePos + vec2(-segStep * (segments.float32 - 1) / 2 + offset.x, offset.y)
   for i in 0 ..< segments:
+    let baseColor = if i < filled: filledColor else: emptyColor
+    let fadedColor = color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * alpha)
     bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
                   angle = 0, scale = 1/500,
-                  tint = if i < filled: filledColor else: emptyColor)
+                  tint = fadedColor)
 
 proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
   ## Draw procedural smoke particles rising from an active building.
@@ -595,6 +629,23 @@ proc drawObjects*() =
       let thingPos {.inject.} = it.pos
       body
 
+  # Resource depletion scale - shrinks nodes from 100% to 50% as resources deplete
+  proc getResourceDepletionScale(thing: Thing): float32 =
+    let (itemKey, maxAmount) = case thing.kind
+      of Tree, Stump: (ItemWood, ResourceNodeInitial)
+      of Wheat, Stubble: (ItemWheat, ResourceNodeInitial)
+      of Stone, Stalagmite: (ItemStone, ResourceNodeInitial)
+      of Gold: (ItemGold, ResourceNodeInitial)
+      of Bush, Cactus: (ItemPlant, ResourceNodeInitial)
+      of Fish: (ItemFish, ResourceNodeInitial)
+      else: (ItemNone, 1)
+    if itemKey == ItemNone or maxAmount <= 0:
+      return SpriteScale
+    let remaining = getInv(thing, itemKey)
+    let ratio = remaining.float32 / maxAmount.float32
+    # Scale from DepletionScaleMax (1.0) to DepletionScaleMin (0.5) based on remaining
+    SpriteScale * (DepletionScaleMin + ratio * (DepletionScaleMax - DepletionScaleMin))
+
   for kind in [Tree, Wheat, Stubble]:
     let spriteKey = thingSpriteKey(kind)
     if spriteKey.len > 0 and spriteKey in bxy:
@@ -602,9 +653,10 @@ proc drawObjects*() =
         let pos = thing.pos
         if not isInViewport(pos):
           continue
-        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = SpriteScale)
+        let depletionScale = getResourceDepletionScale(thing)
+        bxy.drawImage(spriteKey, pos.vec2, angle = 0, scale = depletionScale)
         if isTileFrozen(pos, env):
-          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
+          bxy.drawImage("frozen", pos.vec2, angle = 0, scale = depletionScale)
 
   # Draw unit shadows first (before agents, so shadows appear underneath)
   # Light source is NW, so shadows cast to SE (positive X and Y offset)
@@ -910,9 +962,15 @@ proc drawObjects*() =
           let tint = color(min(1.2, glow), min(1.1, 0.85 * glow), min(1.0, 0.7 * glow), 1.0)
           bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale, tint = tint)
         else:
-          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = SpriteScale)
+          # Apply depletion scale for resource nodes
+          let scale = if thing.kind in {Stone, Gold, Bush, Cactus, Fish, Stalagmite, Stump}:
+            getResourceDepletionScale(thing)
+          else:
+            SpriteScale
+          bxy.drawImage(spriteKey, thing.pos.vec2, angle = 0, scale = scale)
         if thing.kind in {Magma, Stump} and isTileFrozen(thing.pos, env):
-          bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = SpriteScale)
+          let frozenScale = if thing.kind == Stump: getResourceDepletionScale(thing) else: SpriteScale
+          bxy.drawImage("frozen", thing.pos.vec2, angle = 0, scale = frozenScale)
 
 proc drawVisualRanges*(alpha = 0.2) =
   if not currentViewport.valid:
@@ -984,11 +1042,12 @@ proc drawAgentDecorations*() =
     let posVec = pos.vec2
     if agent.frozen > 0:
       bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
-    # Health bar: only show when damaged (hp < maxHp), hide at full health
+    # Health bar: only show when damaged (hp < maxHp), with fade effect based on damage recency
     if agent.maxHp > 0 and agent.hp < agent.maxHp:
       let hpRatio = clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0)
+      let barAlpha = getHealthBarAlpha(env.currentStep, agent.lastAttackedStep)
       drawSegmentBar(posVec, vec2(0, -0.55), hpRatio,
-                     getHealthBarColor(hpRatio), color(0.3, 0.3, 0.3, 0.7))
+                     getHealthBarColor(hpRatio), color(0.3, 0.3, 0.3, 0.7), alpha = barAlpha)
     # Cooldown indicator bar (for Trebuchet pack/unpack and other ability cooldowns)
     if agent.cooldown > 0:
       let maxCooldown = if agent.unitClass == UnitTrebuchet: TrebuchetPackDuration
