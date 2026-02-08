@@ -559,6 +559,7 @@ type
     rallyTarget*: IVec2  # Agent: assigned rally destination after training (-1,-1 = none)
 
     # Wonder victory:
+    constructed*: bool            # True once building first reaches maxHp (distinguishes repair from construction)
     wonderVictoryCountdown*: int  # Steps remaining to hold Wonder for victory
 
     # Tint tracking:
