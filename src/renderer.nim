@@ -2537,8 +2537,8 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
                   angle = 0, scale = 1.0)
     x += stepLabelSize.x.float32 + ResourceBarItemGap
 
-  # Mode indicator (right-aligned)
-  let modeText = "[AI]"
+  # Mode indicator (right-aligned) - shows current AI/Player control state
+  let modeText = if teamId < 0: "[OBSERVING]" else: "[PLAYER Team " & $teamId & "]"
   let (modeLabelKey, modeLabelSize) = ensureResourceBarLabel(modeText)
   if modeLabelKey in bxy:
     let modeX = panelRect.x.float32 + barW - modeLabelSize.x.float32 - ResourceBarPadding

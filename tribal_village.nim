@@ -112,10 +112,6 @@ var lastContentScale: float32 = 0.0
 var dragStartWorld: Vec2 = vec2(0, 0)
 var isDragging: bool = false
 
-# Player control state for right-click commands
-# playerTeam: -1 = observer mode (no commands), 0-7 = controlling that team
-var playerTeam*: int = 0
-
 # Gatherable resource kinds for right-click gather command
 const GatherableResourceKinds* = {Tree, Wheat, Fish, Stone, Gold, Bush, Cactus}
 
@@ -162,18 +158,32 @@ proc display() =
 
   # AI takeover toggle: Tab cycles Observer -> Team 0-7 -> Observer
   if window.buttonPressed[KeyTab]:
+    let oldTeam = playerTeam
     playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
     # Cycles: -1 -> 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> -1
+    # Clear commands for agents on the old team when switching modes
+    if oldTeam >= 0:
+      for agent in env.thingsByKind[Agent]:
+        if not isNil(agent) and agent.getTeamId() == oldTeam:
+          stopAgent(agent.agentId)
 
-  # F1-F8 to switch team shown in resource bar
-  if window.buttonPressed[KeyF1]: playerTeam = 0
-  if window.buttonPressed[KeyF2]: playerTeam = 1
-  if window.buttonPressed[KeyF3]: playerTeam = 2
-  if window.buttonPressed[KeyF4]: playerTeam = 3
-  if window.buttonPressed[KeyF5]: playerTeam = 4
-  if window.buttonPressed[KeyF6]: playerTeam = 5
-  if window.buttonPressed[KeyF7]: playerTeam = 6
-  if window.buttonPressed[KeyF8]: playerTeam = 7
+  # F1-F8 to switch team - also clears commands on old team
+  template switchTeam(newTeam: int) =
+    let oldTeam = playerTeam
+    playerTeam = newTeam
+    if oldTeam >= 0 and oldTeam != newTeam:
+      for agent in env.thingsByKind[Agent]:
+        if not isNil(agent) and agent.getTeamId() == oldTeam:
+          stopAgent(agent.agentId)
+
+  if window.buttonPressed[KeyF1]: switchTeam(0)
+  if window.buttonPressed[KeyF2]: switchTeam(1)
+  if window.buttonPressed[KeyF3]: switchTeam(2)
+  if window.buttonPressed[KeyF4]: switchTeam(3)
+  if window.buttonPressed[KeyF5]: switchTeam(4)
+  if window.buttonPressed[KeyF6]: switchTeam(5)
+  if window.buttonPressed[KeyF7]: switchTeam(6)
+  if window.buttonPressed[KeyF8]: switchTeam(7)
 
   # F9 cycles weather effects: Rain -> Wind -> None -> Rain
   if window.buttonPressed[KeyF9]:
