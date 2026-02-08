@@ -7,7 +7,7 @@
 ##   1. types (this file) - for type definitions
 ##   2. Other modules that use these types
 
-import std/[tables, sets], vmath, chroma
+import std/[tables, sets, hashes], vmath, chroma
 import terrain, items, common_types, constants
 export terrain, items, common_types, constants
 
@@ -583,6 +583,9 @@ type
     ## Pool statistics for projectile allocation tracking.
     ## Projectiles use seq with pre-allocated capacity to avoid growth allocations.
     stats*: PoolStats
+
+proc hash*(t: Thing): Hash =
+  hash(cast[pointer](t))
 
 const
   ## Thing kinds eligible for object pooling (frequently created/destroyed)
@@ -1276,7 +1279,7 @@ type
     # Reusable scratch seqs for step() to avoid per-frame heap allocations
     tempTumorsToSpawn*: seq[Thing]
     tempTumorsToProcess*: seq[Thing]
-    tempTowerRemovals*: seq[Thing]
+    tempTowerRemovals*: HashSet[Thing]
     # Additional scratch buffers for hot-path allocations
     tempTowerTargets*: seq[Thing]      ## Tower attack target candidates
     tempTCTargets*: seq[Thing]         ## Town center attack targets

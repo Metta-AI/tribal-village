@@ -379,7 +379,7 @@ proc stepDecayShields(env: Environment) =
       env.shieldCountdown[i] = env.shieldCountdown[i] - 1
 
 proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
-                        towerRemovals: var seq[Thing]) =
+                        towerRemovals: var HashSet[Thing]) =
   ## Have a tower attack the nearest valid target in range.
   ## University techs affect tower behavior:
   ## - Murder Holes: Allow attacking adjacent units (min range 0 instead of 1)
@@ -457,7 +457,7 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
         discard env.applyAgentDamage(target, max(1, targetDamage))
     of Tumor, Spawner:
       if target notin towerRemovals:
-        towerRemovals.add(target)
+        towerRemovals.incl(target)
     else:
       discard
 
@@ -503,7 +503,7 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
         applyTowerHit(bonusTarget)
 
 proc stepTryTownCenterAttack(env: Environment, tc: Thing,
-                              towerRemovals: var seq[Thing]) =
+                              towerRemovals: var HashSet[Thing]) =
   ## Have a Town Center attack enemies in range. Garrisoned units add extra arrows.
   ## Each garrisoned unit fires one additional arrow at a unique target.
   if tc.teamId < 0:
@@ -549,7 +549,7 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
         discard env.applyAgentDamage(target, max(1, tc.attackDamage))
     of Tumor, Spawner:
       if target notin towerRemovals:
-        towerRemovals.add(target)
+        towerRemovals.incl(target)
     else:
       discard
 
@@ -2862,7 +2862,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # irrelevant fields of mixed-type objects.
   env.tempTumorsToSpawn.setLen(0)
   env.tempTumorsToProcess.setLen(0)
-  env.tempTowerRemovals.setLen(0)
+  env.tempTowerRemovals.clear()
 
   for i in 0 ..< env.cowHerdCounts.len:
     env.cowHerdCounts[i] = 0
