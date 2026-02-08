@@ -647,6 +647,59 @@ proc getControlGroupFormationRotation*(groupIndex: int): int32 =
   ## Get formation rotation for a control group.
   getFormationRotation(groupIndex).int32
 
+# Agent-ID based Formation API
+# Convenience functions that work directly with agent IDs rather than control group indices.
+# These create/use control groups internally.
+
+proc findAvailableControlGroup*(): int =
+  ## Find an empty control group index, or return the last one (9) as fallback.
+  ## Used by setFormationForAgents to allocate a group.
+  for i in 0 ..< ControlGroupCount:
+    if controlGroups[i].len == 0:
+      return i
+  # All groups in use - use the last one
+  ControlGroupCount - 1
+
+proc setFormationForAgents*(env: Environment, agentIds: seq[int], formationType: FormationType) =
+  ## Set formation for a group of agents by their IDs.
+  ## This creates a control group containing the specified agents and sets the formation.
+  ## If no empty control group is available, uses control group 9 (overwriting it).
+  if agentIds.len == 0:
+    return
+  let groupIndex = findAvailableControlGroup()
+  # Assign agents to the control group
+  controlGroups[groupIndex] = @[]
+  for agentId in agentIds:
+    if agentId >= 0 and agentId < env.agents.len:
+      let agent = env.agents[agentId]
+      if isAgentAlive(env, agent):
+        controlGroups[groupIndex].add(agent)
+  # Set the formation
+  setFormation(groupIndex, formationType)
+
+proc setFormationForAgentsWithRotation*(env: Environment, agentIds: seq[int],
+                                         formationType: FormationType, rotation: int) =
+  ## Set formation and rotation for a group of agents by their IDs.
+  if agentIds.len == 0:
+    return
+  let groupIndex = findAvailableControlGroup()
+  controlGroups[groupIndex] = @[]
+  for agentId in agentIds:
+    if agentId >= 0 and agentId < env.agents.len:
+      let agent = env.agents[agentId]
+      if isAgentAlive(env, agent):
+        controlGroups[groupIndex].add(agent)
+  setFormation(groupIndex, formationType)
+  setFormationRotation(groupIndex, rotation)
+
+proc clearFormationForAgents*(agentIds: seq[int]) =
+  ## Clear formation for the specified agents.
+  ## Finds which control group(s) contain the agents and clears their formations.
+  for agentId in agentIds:
+    let groupIdx = findAgentControlGroup(agentId)
+    if groupIdx >= 0:
+      clearFormation(groupIdx)
+
 # Selection API
 # Programmatic interface for the selection system (bridges GUI selection and control APIs).
 

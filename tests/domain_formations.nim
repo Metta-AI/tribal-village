@@ -408,3 +408,101 @@ suite "Formation - Ranged Unit Detection":
     check isFormationActive(0) == true
     check getFormation(0) == FormationRangedSpread
     controlGroups[0] = @[]
+
+suite "Formation - Agent ID API":
+  test "setFormationForAgents creates group and sets formation":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), stance = StanceDefensive)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), stance = StanceDefensive)
+    let a2 = env.addAgentAt(2, ivec2(54, 50), stance = StanceDefensive)
+
+    # Use agent IDs directly
+    setFormationForAgents(env, @[0, 1, 2], FormationLine)
+
+    # Should have created a control group with formation
+    let groupIdx = findAgentControlGroup(0)
+    check groupIdx >= 0
+    check isFormationActive(groupIdx) == true
+    check getFormation(groupIdx) == FormationLine
+    check aliveGroupSize(groupIdx, env) == 3
+
+  test "setFormationForAgents with rotation":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), stance = StanceDefensive)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), stance = StanceDefensive)
+
+    setFormationForAgentsWithRotation(env, @[0, 1], FormationBox, 2)
+
+    let groupIdx = findAgentControlGroup(0)
+    check groupIdx >= 0
+    check getFormation(groupIdx) == FormationBox
+    check getFormationRotation(groupIdx) == 2
+
+  test "clearFormationForAgents clears formation":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), stance = StanceDefensive)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), stance = StanceDefensive)
+
+    setFormationForAgents(env, @[0, 1], FormationLine)
+    let groupIdx = findAgentControlGroup(0)
+    check isFormationActive(groupIdx) == true
+
+    clearFormationForAgents(@[0])
+    check isFormationActive(groupIdx) == false
+
+  test "setFormationForAgents with empty list does nothing":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+
+    setFormationForAgents(env, @[], FormationLine)
+    # Should not crash, no group created
+    for i in 0 ..< ControlGroupCount:
+      check controlGroups[i].len == 0
+
+  test "setFormationForAgents filters dead agents":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), stance = StanceDefensive)
+    let a1 = env.addAgentAt(1, ivec2(52, 50), stance = StanceDefensive)
+    # Kill a1
+    a1.hp = 0
+    env.terminated[1] = 1.0
+
+    setFormationForAgents(env, @[0, 1], FormationLine)
+
+    let groupIdx = findAgentControlGroup(0)
+    check groupIdx >= 0
+    # Only alive agent should be in group
+    check aliveGroupSize(groupIdx, env) == 1
+
+  test "findAvailableControlGroup finds empty group":
+    resetAllFormations()
+    for i in 0 ..< ControlGroupCount:
+      controlGroups[i] = @[]
+    let env = makeEmptyEnv()
+    let a0 = env.addAgentAt(0, ivec2(50, 50), stance = StanceDefensive)
+
+    # All groups empty, should return 0
+    check findAvailableControlGroup() == 0
+
+    # Fill group 0
+    controlGroups[0] = @[a0]
+    check findAvailableControlGroup() == 1
+
+    # Fill groups 0-8, should return 9
+    for i in 0 ..< ControlGroupCount - 1:
+      controlGroups[i] = @[a0]
+    check findAvailableControlGroup() == ControlGroupCount - 1
