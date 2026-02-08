@@ -199,55 +199,26 @@ proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Normal: Moderate delay (10%), most features enabled
   ## Hard: Low delay (2%), all features enabled
   ## Brutal: No delay, all features, aggressive behavior
+  result = DifficultyConfig(level: level, adaptive: false, adaptiveTarget: 0.5, lastAdaptiveCheck: 0)
   case level
   of DiffEasy:
-    result = DifficultyConfig(
-      level: DiffEasy,
-      decisionDelayChance: 0.30,
-      threatResponseEnabled: false,
-      advancedTargetingEnabled: false,
-      coordinationEnabled: false,
-      optimalBuildOrderEnabled: false,
-      adaptive: false,
-      adaptiveTarget: 0.5,
-      lastAdaptiveCheck: 0
-    )
+    result.decisionDelayChance = 0.30
   of DiffNormal:
-    result = DifficultyConfig(
-      level: DiffNormal,
-      decisionDelayChance: 0.10,
-      threatResponseEnabled: true,
-      advancedTargetingEnabled: false,
-      coordinationEnabled: true,
-      optimalBuildOrderEnabled: true,
-      adaptive: false,
-      adaptiveTarget: 0.5,
-      lastAdaptiveCheck: 0
-    )
+    result.decisionDelayChance = 0.10
+    result.threatResponseEnabled = true
+    result.coordinationEnabled = true
+    result.optimalBuildOrderEnabled = true
   of DiffHard:
-    result = DifficultyConfig(
-      level: DiffHard,
-      decisionDelayChance: 0.02,
-      threatResponseEnabled: true,
-      advancedTargetingEnabled: true,
-      coordinationEnabled: true,
-      optimalBuildOrderEnabled: true,
-      adaptive: false,
-      adaptiveTarget: 0.5,
-      lastAdaptiveCheck: 0
-    )
+    result.decisionDelayChance = 0.02
+    result.threatResponseEnabled = true
+    result.advancedTargetingEnabled = true
+    result.coordinationEnabled = true
+    result.optimalBuildOrderEnabled = true
   of DiffBrutal:
-    result = DifficultyConfig(
-      level: DiffBrutal,
-      decisionDelayChance: 0.0,
-      threatResponseEnabled: true,
-      advancedTargetingEnabled: true,
-      coordinationEnabled: true,
-      optimalBuildOrderEnabled: true,
-      adaptive: false,
-      adaptiveTarget: 0.5,
-      lastAdaptiveCheck: 0
-    )
+    result.threatResponseEnabled = true
+    result.advancedTargetingEnabled = true
+    result.coordinationEnabled = true
+    result.optimalBuildOrderEnabled = true
 
 proc newController*(seed: int): Controller =
   result = Controller(

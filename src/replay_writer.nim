@@ -184,9 +184,6 @@ proc maybeLogReplayStep*(env: Environment, actions: ptr array[MapAgents, uint8])
         obj.active = false
         obj.addSeries("location", stepIndex, locationNode(ivec2(-1, -1)))
 
-proc seriesToJson(series: ReplaySeries): JsonNode =
-  serializeChanges(series.changes)
-
 proc buildReplayJson(writer: ReplayWriter): JsonNode =
   result = newJObject()
   result["version"] = newJInt(ReplayVersion)
@@ -222,7 +219,7 @@ proc buildReplayJson(writer: ReplayWriter): JsonNode =
     for key, value in obj.constFields:
       objNode[key] = value
     for key, series in obj.series:
-      objNode[key] = seriesToJson(series)
+      objNode[key] = serializeChanges(series.changes)
     objectsArr.add(objNode)
   result["objects"] = objectsArr
 
