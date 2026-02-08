@@ -2,6 +2,9 @@ import std/unittest
 import environment
 import types
 import items
+import constants
+import registry
+import common_types
 import test_utils
 
 suite "Economy Techs - Research":
@@ -157,3 +160,153 @@ suite "Mill Farm Queue":
     env.thingsByKind[Mill].add(mill)
     let found = env.findNearestMill(ivec2(50, 50), 0)  # Too far
     check found == nil
+
+suite "Economy Tech Research via Buildings":
+  test "villager researches Double Bit Axe at Lumber Camp":
+    let env = makeEmptyEnv()
+    let lc = addBuilding(env, LumberCamp, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Provide resources for research cost
+    setStockpile(env, 0, ResourceFood, DoubleBitAxeFoodCost)
+    setStockpile(env, 0, ResourceWood, DoubleBitAxeWoodCost)
+
+    check not env.hasEconomyTech(0, TechDoubleBitAxe)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, lc.pos))
+    check env.hasEconomyTech(0, TechDoubleBitAxe)
+
+  test "villager researches Wheelbarrow at Town Center":
+    let env = makeEmptyEnv()
+    let tc = addBuilding(env, TownCenter, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    setStockpile(env, 0, ResourceFood, WheelbarrowFoodCost)
+    setStockpile(env, 0, ResourceWood, WheelbarrowWoodCost)
+
+    check not env.hasEconomyTech(0, TechWheelbarrow)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, tc.pos))
+    check env.hasEconomyTech(0, TechWheelbarrow)
+
+  test "villager researches Gold Mining at Mining Camp":
+    let env = makeEmptyEnv()
+    let mc = addBuilding(env, MiningCamp, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    setStockpile(env, 0, ResourceFood, GoldMiningFoodCost)
+    setStockpile(env, 0, ResourceWood, GoldMiningWoodCost)
+
+    check not env.hasEconomyTech(0, TechGoldMining)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, mc.pos))
+    check env.hasEconomyTech(0, TechGoldMining)
+
+  test "villager researches Horse Collar at Mill":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    setStockpile(env, 0, ResourceFood, HorseCollarFoodCost)
+    setStockpile(env, 0, ResourceWood, HorseCollarWoodCost)
+
+    check not env.hasEconomyTech(0, TechHorseCollar)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, mill.pos))
+    check env.hasEconomyTech(0, TechHorseCollar)
+
+  test "research fails without sufficient resources":
+    let env = makeEmptyEnv()
+    let lc = addBuilding(env, LumberCamp, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # No resources provided
+    setStockpile(env, 0, ResourceFood, 0)
+    setStockpile(env, 0, ResourceWood, 0)
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, lc.pos))
+    check not env.hasEconomyTech(0, TechDoubleBitAxe)
+
+  test "research deducts stockpile resources":
+    let env = makeEmptyEnv()
+    let lc = addBuilding(env, LumberCamp, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    setStockpile(env, 0, ResourceFood, 10)
+    setStockpile(env, 0, ResourceWood, 10)
+
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, lc.pos))
+    check env.hasEconomyTech(0, TechDoubleBitAxe)
+    check env.stockpileCount(0, ResourceFood) == 10 - DoubleBitAxeFoodCost
+    check env.stockpileCount(0, ResourceWood) == 10 - DoubleBitAxeWoodCost
+
+  test "research respects prerequisite chain":
+    let env = makeEmptyEnv()
+    let lc = addBuilding(env, LumberCamp, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Give enough for Bow Saw but not Double Bit Axe researched
+    setStockpile(env, 0, ResourceFood, 20)
+    setStockpile(env, 0, ResourceWood, 20)
+
+    # First research should get Double Bit Axe (tier 1)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, lc.pos))
+    check env.hasEconomyTech(0, TechDoubleBitAxe)
+    check not env.hasEconomyTech(0, TechBowSaw)
+
+    # Wait for cooldown
+    for i in 0 ..< 10:
+      env.stepNoop()
+
+    # Second research should get Bow Saw (tier 2)
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, lc.pos))
+    check env.hasEconomyTech(0, TechBowSaw)
+
+  test "dropoff takes priority over research":
+    let env = makeEmptyEnv()
+    let lc = addBuilding(env, LumberCamp, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    setInv(agent, ItemWood, 3)  # Agent carrying wood
+    setStockpile(env, 0, ResourceFood, DoubleBitAxeFoodCost)
+    setStockpile(env, 0, ResourceWood, DoubleBitAxeWoodCost)
+
+    # Use action should drop off wood first, not research
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, lc.pos))
+    check agent.inventoryWood == 0  # Wood was dropped off
+    check not env.hasEconomyTech(0, TechDoubleBitAxe)  # Research didn't happen
+
+suite "Villager Carry Capacity - In-Game":
+  test "villager gathers more resources with Wheelbarrow":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    # Place a gold resource node adjacent to agent
+    let gold = addResource(env, Gold, ivec2(10, 9), ItemGold, 50)
+
+    # Without tech: base capacity is ResourceCarryCapacity (5)
+    for i in 0 ..< ResourceCarryCapacity:
+      env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, gold.pos))
+    check agent.inventoryGold == ResourceCarryCapacity
+
+    # Try to gather one more - should fail (at capacity)
+    let goldBefore = agent.inventoryGold
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, gold.pos))
+    check agent.inventoryGold == goldBefore  # No change
+
+  test "Wheelbarrow increases villager carry capacity":
+    let env = makeEmptyEnv()
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+    let gold = addResource(env, Gold, ivec2(10, 9), ItemGold, 50)
+
+    # Research Wheelbarrow
+    env.teamEconomyTechs[0].researched[TechWheelbarrow] = true
+    let newCap = ResourceCarryCapacity + WheelbarrowCarryBonus
+
+    for i in 0 ..< newCap:
+      env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, gold.pos))
+    check agent.inventoryGold == newCap
+
+    # One more should fail
+    let goldBefore = agent.inventoryGold
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, gold.pos))
+    check agent.inventoryGold == goldBefore
+
+suite "Villager Speed Bonus":
+  test "getVillagerSpeedBonus returns 0 with no techs":
+    let env = makeEmptyEnv()
+    check env.getVillagerSpeedBonus(0) == 0
+
+  test "getVillagerSpeedBonus accumulates with techs":
+    let env = makeEmptyEnv()
+    env.teamEconomyTechs[0].researched[TechWheelbarrow] = true
+    check env.getVillagerSpeedBonus(0) == WheelbarrowSpeedBonus
+    env.teamEconomyTechs[0].researched[TechHandCart] = true
+    check env.getVillagerSpeedBonus(0) == WheelbarrowSpeedBonus + HandCartSpeedBonus

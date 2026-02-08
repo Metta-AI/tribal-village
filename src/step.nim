@@ -1466,7 +1466,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         if not agent.isWaterUnit:
           let terrainModifier = getTerrainSpeedModifier(env.terrain[agent.pos.x][agent.pos.y])
           if terrainModifier < 1.0'f32:
-            agent.movementDebt += (1.0'f32 - terrainModifier)
+            var penalty = 1.0'f32 - terrainModifier
+            # Villager speed bonus reduces terrain penalty (Wheelbarrow/Hand Cart)
+            if agent.unitClass == UnitVillager:
+              let speedBonus = env.getVillagerSpeedBonus(getTeamId(agent))
+              if speedBonus > 0:
+                penalty = penalty * (1.0'f32 - speedBonus.float32 / 100.0'f32)
+            agent.movementDebt += penalty
 
         # Apply cliff fall damage when dropping elevation without a ramp/road
         # Check both steps of movement (original→step1 and step1→finalPos if different)
@@ -2255,6 +2261,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if thing.teamId == getTeamId(agent):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
+                  # Economy tech research (AoE2-style) - villagers research at economy buildings
+                  if not used and thing.cooldown == 0:
+                    if env.tryResearchEconomyTech(agent, thing):
+                      used = true
                   # Town Center garrison: villagers can garrison if no resources to drop off
                   if not used and thing.kind == TownCenter and agent.unitClass == UnitVillager:
                     if env.garrisonUnitInBuilding(agent, thing):
@@ -2927,8 +2937,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if thing.wonderVictoryCountdown <= 0:
         env.victoryWinner = thing.teamId
 
-  # Production/craft buildings: cooldown-only buildings
-  for kind in [ClayOven, WeavingLoom, Blacksmith, Market]:
+  # Production/craft buildings and economy tech buildings: cooldown-only buildings
+  for kind in [ClayOven, WeavingLoom, Blacksmith, Market, LumberCamp, MiningCamp, Quarry, TownCenter]:
     for thing in env.thingsByKind[kind]:
       if thing.cooldown > 0:
         dec thing.cooldown
