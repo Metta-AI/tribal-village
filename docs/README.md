@@ -59,9 +59,7 @@ All analysis, audit, investigation, and code review files live in `docs/analysis
 - `analysis/code_review_verbosity.md`: code verbosity patterns review.
 - `analysis/entity_interaction_analysis.md`: entity interaction analysis.
 - `analysis/game_mechanics_analysis.md`: game mechanics action failure analysis.
-- `analysis/perf-improvements.md`: performance improvement notes.
-- `analysis/performance_analysis.md`: performance optimization opportunities.
-- `analysis/performance_scaling_1000_agents.md`: scaling analysis for 1000 agents.
+- `performance_optimization_roadmap.md`: consolidated performance audits, completed optimizations, and open optimization roadmap.
 - `analysis/role_audit_report.md`: AI role audit report.
 - `analysis/siege_fortifications_investigation_report.md`: siege fortifications investigation.
 - `analysis/temple_hybridization_audit.md`: temple hybridization audit.
