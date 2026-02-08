@@ -1446,6 +1446,14 @@ const
   SelectionPulseMax = 0.8'f32         # Maximum glow alpha
   SelectionGlowScale = 1.8'f32        # Glow layer scale multiplier
 
+  # Building-specific glow constants for better visibility
+  BuildingGlowScale1 = 2.4'f32        # Outermost glow layer (largest, faintest)
+  BuildingGlowScale2 = 2.0'f32        # Middle glow layer
+  BuildingGlowScale3 = 1.6'f32        # Inner glow layer (smallest, brightest)
+  BuildingGlowAlpha1 = 0.15'f32       # Outermost layer alpha
+  BuildingGlowAlpha2 = 0.25'f32       # Middle layer alpha
+  BuildingGlowAlpha3 = 0.35'f32       # Inner layer alpha
+
 proc drawSelection*() =
   if selection.len == 0:
     return
@@ -1463,10 +1471,31 @@ proc drawSelection*() =
     # Get team color for the glow (use neutral white if no team)
     let teamColor = getTeamColor(env, thing.teamId, color(1.0, 1.0, 1.0, 1.0))
 
-    # Draw outer glow layer (larger, more transparent, pulsing)
-    let glowColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * 0.35)
-    bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
-                  tint = glowColor)
+    # Buildings get enhanced multi-layer glow for better visibility
+    if isBuildingKind(thing.kind):
+      # Draw three glow layers for a soft, visible building glow
+      # Outermost layer - largest, faintest
+      let glowColor1 = color(teamColor.r, teamColor.g, teamColor.b,
+                             pulseAlpha * BuildingGlowAlpha1)
+      bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * BuildingGlowScale1,
+                    tint = glowColor1)
+
+      # Middle layer
+      let glowColor2 = color(teamColor.r, teamColor.g, teamColor.b,
+                             pulseAlpha * BuildingGlowAlpha2)
+      bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * BuildingGlowScale2,
+                    tint = glowColor2)
+
+      # Inner layer - smallest, brightest
+      let glowColor3 = color(teamColor.r, teamColor.g, teamColor.b,
+                             pulseAlpha * BuildingGlowAlpha3)
+      bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * BuildingGlowScale3,
+                    tint = glowColor3)
+    else:
+      # Units get standard single-layer glow
+      let glowColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * 0.35)
+      bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
+                    tint = glowColor)
 
     # Draw main selection indicator (full opacity)
     bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale)
