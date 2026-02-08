@@ -15,12 +15,12 @@ action = verb * 25 + argument
 ```
 
 Where:
-- **verb**: The action type (0-9)
+- **verb**: The action type (0-10)
 - **argument**: The action parameter (0-24)
 
 ### Total Action Space
 
-- **10 verbs** x **25 arguments** = **250 total actions**
+- **11 verbs** x **25 arguments** = **275 total actions**
 
 ---
 
@@ -38,6 +38,7 @@ Where:
 | 7 | plant_resource | Plant wheat/tree on fertile tile | 0-3 wheat, 4-7 tree (cardinal dirs) |
 | 8 | build | Build structure | 0-24 (BuildChoices index) |
 | 9 | orient | Change orientation without moving | 0-7 (directions) |
+| 10 | set_rally_point | Set building rally point | 0-7 (directions) |
 
 ---
 
@@ -193,7 +194,13 @@ Invalid when:
 Invalid when:
 - Argument < 0 or > 7 (invalid direction)
 
-### Unknown Verbs (>= 10)
+### Verb 10: Set Rally Point
+Invalid when:
+- Agent is not adjacent to a production building (Barracks, Archery Range, etc.)
+- Target building does not belong to agent's team
+- Argument > 7 (invalid direction)
+
+### Unknown Verbs (>= 11)
 - Always invalid
 
 ---
@@ -220,6 +227,7 @@ Quick reference for common actions:
 | Build House | 8 | 0 | 200 |
 | Build Town Center | 8 | 1 | 201 |
 | Orient North | 9 | 0 | 225 |
+| Set Rally Point North | 10 | 0 | 250 |
 
 ---
 

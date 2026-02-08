@@ -45,14 +45,24 @@ Crafting is done via `use` on specific buildings (when off cooldown):
 Buildings can also serve as storage and dropoff points.
 
 ## Market (Trade)
-Markets convert carried stockpile goods into team stockpiles:
-- Gold -> food at `DefaultMarketBuyFoodNumerator/Denominator` (1/1).
-- Wood/stone/food -> gold at `DefaultMarketSellNumerator/Denominator` (1/2).
-- Water is not traded.
-- Market cooldown: `DefaultMarketCooldown` (2 steps).
+Markets use AoE2-style dynamic pricing for resource trading:
+
+**Pricing mechanics:**
+- Base price: `MarketBasePrice` (100 gold per 100 resources)
+- Price floor: `MarketMinPrice` (20)
+- Price ceiling: `MarketMaxPrice` (300)
+- Each buy increases price by `MarketBuyPriceIncrease` (3)
+- Each sell decreases price by `MarketSellPriceDecrease` (3)
+- Prices drift toward base at `MarketPriceDecayInterval` (50 steps)
+
+**Resources tradeable:**
+- Food, wood, stone can be bought/sold for gold
+- Water is not traded
+- Market cooldown: `DefaultMarketCooldown` (2 steps)
 
 Trading is per-agent inventory; the market adds resources directly to team stockpiles and
-then clears or reduces carried inventory.
+then clears or reduces carried inventory. Prices are tracked per-team to allow economic
+differentiation.
 
 ## Trade Cogs (Dock-to-Dock Trading)
 - **Trade Cog** units travel between Docks to generate gold.
