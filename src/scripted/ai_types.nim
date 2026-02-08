@@ -140,6 +140,9 @@ type
     # Follow state: follow another agent maintaining proximity
     followTargetAgentId*: int         # Target agent to follow (-1 = inactive)
     followActive*: bool               # Whether follow mode is enabled
+    # Stop state: agent is stopped and idle until new command or threshold expires
+    stoppedActive*: bool              # Whether agent is currently stopped
+    stoppedUntilStep*: int32          # Step at which stopped state expires
 
   # Difficulty levels for AI - affects decision quality and reaction time
   DifficultyLevel* = enum

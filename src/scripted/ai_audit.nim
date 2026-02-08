@@ -22,6 +22,7 @@ when defined(aiAudit):
     AuditDecisionBranch* = enum
       BranchInactive       ## Agent dead/inactive
       BranchDecisionDelay  ## Difficulty-based NOOP delay
+      BranchStopped        ## Agent stopped via stop command
       BranchGoblinRelic    ## Goblin relic collection behavior
       BranchGoblinAvoid    ## Goblin threat avoidance
       BranchGoblinSearch   ## Goblin relic search/wander

@@ -213,8 +213,9 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
 proc setAgentAttackMoveTarget*(agentId: int, target: IVec2) =
   ## Set an attack-move target for an agent.
   ## The agent will move toward the target while engaging enemies along the way.
-  ## Requires BuiltinAI controller.
+  ## Requires BuiltinAI controller. Clears any stopped state.
   withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setAttackMoveTarget(agentId, target)
 
 proc setAgentAttackMoveTargetXY*(agentId: int, x, y: int32) =
@@ -245,8 +246,9 @@ proc isAgentAttackMoveActive*(agentId: int): bool =
 proc setAgentPatrol*(agentId: int, point1, point2: IVec2) =
   ## Set patrol waypoints for an agent. Enables patrol mode.
   ## The agent will walk between the two points, attacking any enemies encountered.
-  ## Requires BuiltinAI controller.
+  ## Requires BuiltinAI controller. Clears any stopped state.
   withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setPatrol(agentId, point1, point2)
 
 proc setAgentPatrolXY*(agentId: int, x1, y1, x2, y2: int32) =
@@ -497,8 +499,10 @@ proc hasUnitUpgradeResearched*(env: Environment, teamId: int, upgradeType: int32
 
 proc setAgentScoutMode*(agentId: int, active: bool) =
   ## Enable or disable scout mode for an agent.
-  ## Requires BuiltinAI controller.
+  ## Requires BuiltinAI controller. Clears any stopped state when enabling.
   withBuiltinAI:
+    if active:
+      globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setScoutMode(agentId, active)
 
 proc isAgentScoutModeActive*(agentId: int): bool =
@@ -555,8 +559,9 @@ proc getBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32): IVec
 proc setAgentHoldPosition*(agentId: int, pos: IVec2) =
   ## Set hold position for an agent. The agent stays at the given position,
   ## attacks enemies in range, but won't chase.
-  ## Requires BuiltinAI controller.
+  ## Requires BuiltinAI controller. Clears any stopped state.
   withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setHoldPosition(agentId, pos)
 
 proc setAgentHoldPositionXY*(agentId: int, x, y: int32) =
@@ -586,8 +591,9 @@ proc isAgentHoldPositionActive*(agentId: int): bool =
 
 proc setAgentFollowTarget*(agentId: int, targetAgentId: int) =
   ## Set an agent to follow another agent.
-  ## Requires BuiltinAI controller.
+  ## Requires BuiltinAI controller. Clears any stopped state.
   withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setFollowTarget(agentId, targetAgentId)
 
 proc clearAgentFollowTarget*(agentId: int) =
@@ -608,16 +614,33 @@ proc isAgentFollowActive*(agentId: int): bool =
   false
 
 # Stop Command API
-# Clears all movement orders for an agent.
+# Stops an agent completely: clears all orders, path, and active option.
+# Agent remains idle until given a new command or idle threshold expires.
 
 proc stopAgent*(agentId: int) =
-  ## Stop an agent by clearing all active orders (attack-move, patrol, scout, hold, follow).
-  clearAgentAttackMoveTarget(agentId)
-  clearAgentPatrol(agentId)
-  clearAgentHoldPosition(agentId)
-  clearAgentFollowTarget(agentId)
+  ## Stop an agent completely: clears all orders, path, and active option.
+  ## Agent will remain idle until given a new command or until StopIdleSteps passes.
   withBuiltinAI:
-    globalController.aiController.clearScoutMode(agentId)
+    globalController.aiController.stopAgentDeferred(agentId)
+
+proc clearAgentStop*(agentId: int) =
+  ## Clear the stopped state for an agent, allowing normal behavior to resume.
+  ## Called automatically when issuing new movement commands.
+  withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
+
+proc isAgentStopped*(agentId: int): bool =
+  ## Check if an agent is currently in stopped state.
+  withBuiltinAI:
+    return globalController.aiController.isAgentStopped(agentId)
+  false
+
+proc getAgentStoppedUntilStep*(agentId: int): int32 =
+  ## Get the step at which the stopped state will expire.
+  ## Returns 0 if not stopped or -1 if deferred (not yet initialized).
+  withBuiltinAI:
+    return globalController.aiController.getAgentStoppedUntilStep(agentId)
+  0
 
 # Formation API
 # Formation system for coordinated group movement (Line, Box formations).

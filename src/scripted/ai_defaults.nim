@@ -406,6 +406,22 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     setAuditBranch(BranchDecisionDelay)
     return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
 
+  # Handle stopped state - agent remains idle until new command or threshold expires
+  if state.stoppedActive:
+    # Initialize deferred expiry if using sentinel (-1)
+    if state.stoppedUntilStep < 0:
+      state.stoppedUntilStep = currentStep + StopIdleSteps
+      controller.agents[agentId] = state
+    if currentStep >= state.stoppedUntilStep:
+      # Threshold expired, resume normal behavior
+      state.stoppedActive = false
+      state.stoppedUntilStep = 0
+      controller.agents[agentId] = state
+    else:
+      # Still stopped - return NOOP
+      setAuditBranch(BranchStopped)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
+
   # Update shared threat map with what this agent can see
   # Only if threat response is enabled for this difficulty level
   # Staggered: only update 1/5 of agents per step to reduce overhead (5x speedup)

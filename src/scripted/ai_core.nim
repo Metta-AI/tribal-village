@@ -1591,3 +1591,62 @@ proc getFollowTargetId*(controller: Controller, agentId: int): int =
     return controller.agents[agentId].followTargetAgentId
   -1
 
+# Stop behavior helpers
+const StopIdleSteps* = 200  # Steps before stopped agent returns to default role behavior
+
+proc stopAgentInternal(controller: Controller, agentId: int) =
+  ## Internal helper: clears all orders, path, and active option without setting expiry.
+  if agentId >= 0 and agentId < MapAgents:
+    # Clear all movement/behavior modes
+    controller.agents[agentId].patrolActive = false
+    controller.agents[agentId].patrolPoint1 = ivec2(-1, -1)
+    controller.agents[agentId].patrolPoint2 = ivec2(-1, -1)
+    controller.agents[agentId].attackMoveTarget = ivec2(-1, -1)
+    controller.agents[agentId].scoutActive = false
+    controller.agents[agentId].holdPositionActive = false
+    controller.agents[agentId].holdPositionTarget = ivec2(-1, -1)
+    controller.agents[agentId].followActive = false
+    controller.agents[agentId].followTargetAgentId = -1
+    # Clear current path
+    controller.agents[agentId].plannedPath.setLen(0)
+    controller.agents[agentId].plannedPathIndex = 0
+    controller.agents[agentId].plannedTarget = ivec2(-1, -1)
+    controller.agents[agentId].pathBlockedTarget = ivec2(-1, -1)
+    # Reset active option
+    controller.agents[agentId].activeOptionId = -1
+    controller.agents[agentId].activeOptionTicks = 0
+
+proc stopAgentFull*(controller: Controller, agentId: int, currentStep: int32) =
+  ## Fully stop an agent: clears all orders, path, and active option.
+  ## Agent will remain idle until given a new command or StopIdleSteps passes.
+  stopAgentInternal(controller, agentId)
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].stoppedActive = true
+    controller.agents[agentId].stoppedUntilStep = currentStep + StopIdleSteps
+
+proc stopAgentDeferred*(controller: Controller, agentId: int) =
+  ## Stop an agent without knowing the current step.
+  ## Sets stoppedUntilStep to -1 (sentinel); decideAction will initialize it properly.
+  stopAgentInternal(controller, agentId)
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].stoppedActive = true
+    controller.agents[agentId].stoppedUntilStep = -1  # Sentinel for deferred init
+
+proc clearAgentStop*(controller: Controller, agentId: int) =
+  ## Clear the stopped state for an agent, allowing normal behavior to resume.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].stoppedActive = false
+    controller.agents[agentId].stoppedUntilStep = 0
+
+proc isAgentStopped*(controller: Controller, agentId: int): bool =
+  ## Check if an agent is currently in stopped state.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].stoppedActive
+  false
+
+proc getAgentStoppedUntilStep*(controller: Controller, agentId: int): int32 =
+  ## Get the step at which the stopped state will expire.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].stoppedUntilStep
+  0
+
