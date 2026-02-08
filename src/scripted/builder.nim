@@ -7,7 +7,7 @@ export options
 import coordination
 export coordination
 
-# Use shared optionGuard template from options module
+# Use shared optionGuard template from ai_types
 template builderGuard(canName, termName: untyped, body: untyped) {.dirty.} =
   optionGuard(canName, termName, body)
 
@@ -24,7 +24,8 @@ const
     (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
-  # Note: BuilderThreatRadius and BuilderFleeRadius are defined in constants.nim
+  BuilderThreatRadius* = 15
+  BuilderFleeRadius* = 8
   BuilderFleeRadiusConst = BuilderFleeRadius
 
 proc getTotalBuildingCount(controller: Controller, env: Environment, teamId: int): int =

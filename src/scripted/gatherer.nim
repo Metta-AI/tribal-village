@@ -10,7 +10,7 @@ export coordination
 import economy
 export economy
 
-# Use shared optionGuard template from options module
+# Use shared optionGuard template from ai_types
 template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
   optionGuard(canName, termName, body)
 
