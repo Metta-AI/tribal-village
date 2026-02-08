@@ -417,6 +417,45 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if agent.agentId mod ThreatMapStaggerInterval == currentStep mod ThreatMapStaggerInterval:
       controller.updateThreatMapFromVision(env, agent, currentStep)
 
+  # AI auto-trigger Town Bell when enemy army detected near base
+  # Staggered: check once per team per TownBellAutoCheckInterval steps
+  if teamId >= 0 and teamId < MapRoomObjectsTeams and
+      diffConfig.threatResponseEnabled and
+      currentStep - controller.townBellAutoCheckStep[teamId] >= TownBellAutoCheckInterval:
+    controller.townBellAutoCheckStep[teamId] = currentStep
+    # Count enemies near any of the team's TownCenters
+    var enemyCount = 0
+    block countEnemies:
+      for tc in env.thingsByKind[TownCenter]:
+        if tc.teamId != teamId:
+          continue
+        let (cx, cy) = cellCoords(tc.pos)
+        let cellRadius = distToCellRadius16(TownBellAutoTriggerRadius)
+        for ddx in -cellRadius .. cellRadius:
+          for ddy in -cellRadius .. cellRadius:
+            let nx = cx + ddx
+            let ny = cy + ddy
+            if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+              continue
+            for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+              if other.isNil or not isAgentAlive(env, other):
+                continue
+              if getTeamId(other) != teamId and getTeamId(other) >= 0:
+                let dist = int(chebyshevDist(tc.pos, other.pos))
+                if dist <= TownBellAutoTriggerRadius:
+                  inc enemyCount
+                  if enemyCount >= TownBellAutoTriggerCount:
+                    break countEnemies
+    if enemyCount >= TownBellAutoTriggerCount and not env.townBellActive[teamId]:
+      env.townBellActive[teamId] = true
+    elif enemyCount == 0 and env.townBellActive[teamId]:
+      # Auto-deactivate when threat passes: ungarrison all team buildings
+      env.townBellActive[teamId] = false
+      for kind in [TownCenter, Castle, GuardTower, House]:
+        for building in env.thingsByKind[kind]:
+          if building.teamId == teamId and building.garrisonedUnits.len > 0:
+            discard env.ungarrisonAllUnits(building)
+
   # Auto-enable scout mode for UnitScout units
   # Scouts are trained at Stables and should automatically enter scouting behavior
   if agent.unitClass == UnitScout and not state.scoutActive:

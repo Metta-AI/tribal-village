@@ -1824,7 +1824,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             invalidAndBreak(useAction)
           break useAction
 
-        # Town Bell: argument 10 rings the town bell, recalling all villagers
+        # Town Bell: argument 10 toggles the town bell for the team
         if argument == 10:
           # Find adjacent TownCenter belonging to agent's team
           var foundTC: Thing = nil
@@ -1841,7 +1841,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               break
           if foundTC.isNil:
             invalidAndBreak(useAction)
-          foundTC.townBellActive = true
+          let teamId = getTeamId(agent)
+          if teamId >= 0 and teamId < MapRoomObjectsTeams:
+            if env.townBellActive[teamId]:
+              # Second press: deactivate bell, ungarrison all team buildings
+              env.townBellActive[teamId] = false
+              for kind in [TownCenter, Castle, GuardTower, House]:
+                for building in env.thingsByKind[kind]:
+                  if building.teamId == teamId and building.garrisonedUnits.len > 0:
+                    discard env.ungarrisonAllUnits(building)
+            else:
+              # First press: activate bell, villagers will seek garrison via AI options
+              env.townBellActive[teamId] = true
           inc env.stats[id].actionUse
           break useAction
 
@@ -2863,18 +2874,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   for thing in env.thingsByKind[TownCenter]:
     env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
-    if thing.townBellActive:
-      # Town Bell garrison loop - optimized to early-exit when full
-      let teamId = thing.teamId
-      let capacity = garrisonCapacity(thing.kind)
-      if teamId >= 0 and teamId < MapRoomObjectsTeams:
-        for villager in env.teamVillagers[teamId]:
-          if thing.garrisonedUnits.len >= capacity:
-            break  # Garrison full, stop early
-          if villager.isGarrisoned:
-            continue  # Already garrisoned elsewhere
-          discard env.garrisonUnitInBuilding(villager, thing)
-      thing.townBellActive = false
 
   # Resource and economy buildings
   for thing in env.thingsByKind[Altar]:

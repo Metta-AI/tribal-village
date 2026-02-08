@@ -322,6 +322,67 @@ let FallbackSearchOption* = OptionDef(
   interruptible: true
 )
 
+# ============================================================================
+# Town Bell Garrison - shared highest-priority option for gatherer/builder
+# ============================================================================
+
+const TownBellGarrisonableKinds = {TownCenter, Castle, GuardTower, House}
+
+proc townBellGarrisonCapacity(kind: ThingKind): int =
+  ## Garrison capacity lookup (mirrors step.garrisonCapacity for use in AI options).
+  case kind
+  of TownCenter: TownCenterGarrisonCapacity
+  of Castle: CastleGarrisonCapacity
+  of GuardTower: GuardTowerGarrisonCapacity
+  of House: HouseGarrisonCapacity
+  else: 0
+
+proc findNearestGarrisonableBuilding*(env: Environment, pos: IVec2, teamId: int,
+                                       maxDist: int): Thing =
+  ## Find the nearest friendly garrisonable building with available capacity.
+  var best: Thing = nil
+  var bestDist = int.high
+  for kind in TownBellGarrisonableKinds:
+    for building in env.thingsByKind[kind]:
+      if building.teamId != teamId or building.hp <= 0:
+        continue
+      let capacity = townBellGarrisonCapacity(building.kind)
+      if building.garrisonedUnits.len >= capacity:
+        continue
+      let dist = abs(building.pos.x - pos.x) + abs(building.pos.y - pos.y)
+      if dist < bestDist and dist <= maxDist:
+        bestDist = dist
+        best = building
+  best
+
+proc canStartTownBellGarrison(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  teamId >= 0 and teamId < MapRoomObjectsTeams and env.townBellActive[teamId]
+
+proc shouldTerminateTownBellGarrison(controller: Controller, env: Environment, agent: Thing,
+                                      agentId: int, state: var AgentState): bool =
+  let teamId = getTeamId(agent)
+  teamId < 0 or teamId >= MapRoomObjectsTeams or not env.townBellActive[teamId]
+
+proc optTownBellGarrison(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): uint8 =
+  ## When town bell is active, pathfind to nearest garrisonable building.
+  ## Garrison happens automatically via actOrMove when adjacent (ActionUse on building).
+  let teamId = getTeamId(agent)
+  let building = findNearestGarrisonableBuilding(env, agent.pos, teamId, GarrisonSeekRadius)
+  if isNil(building):
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+
+let TownBellGarrisonOption* = OptionDef(
+  name: "TownBellGarrison",
+  canStart: canStartTownBellGarrison,
+  shouldTerminate: shouldTerminateTownBellGarrison,
+  act: optTownBellGarrison,
+  interruptible: false  # Town bell garrison is not interruptible - recall is highest priority
+)
+
 proc optPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   ## Shared act proc for PlantOnFertile behavior - plants seeds on fertile tiles.
