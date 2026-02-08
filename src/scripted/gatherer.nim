@@ -10,13 +10,9 @@ export coordination
 import economy
 export economy
 
+# Use shared optionGuard template from ai_types
 template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
-  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
-  ## shouldTerminate is the logical negation of canStart.
-  proc canName(controller: Controller, env: Environment, agent: Thing,
-               agentId: int, state: var AgentState): bool = body
-  proc termName(controller: Controller, env: Environment, agent: Thing,
-                agentId: int, state: var AgentState): bool = not (body)
+  optionGuard(canName, termName, body)
 
 # Game phase resource weights (not balance-tunable, just weighting tables)
 const

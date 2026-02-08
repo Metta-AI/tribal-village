@@ -332,3 +332,12 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
     resetActiveOption(state)
 
   return 0'u8
+
+template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
+  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
+  ## shouldTerminate is the logical negation of canStart.
+  ## Shared template used by gatherer, builder, and fighter options.
+  proc canName(controller: Controller, env: Environment, agent: Thing,
+               agentId: int, state: var AgentState): bool = body
+  proc termName(controller: Controller, env: Environment, agent: Thing,
+                agentId: int, state: var AgentState): bool = not (body)
