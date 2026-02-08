@@ -83,6 +83,13 @@ when defined(stepTiming):
 const
   ActionsFile = "actions.tmp"
 
+# Helper template to reduce nil-check boilerplate for AI controller access
+template withBuiltinAI(body: untyped) =
+  ## Execute body only if globalController is initialized as BuiltinAI.
+  ## Used to guard access to aiController methods.
+  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+    body
+
 type
   ControllerType* = enum
     BuiltinAI,      # Use built-in Nim AI controller
@@ -207,7 +214,7 @@ proc setAgentAttackMoveTarget*(agentId: int, target: IVec2) =
   ## Set an attack-move target for an agent.
   ## The agent will move toward the target while engaging enemies along the way.
   ## Requires BuiltinAI controller.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.setAttackMoveTarget(agentId, target)
 
 proc setAgentAttackMoveTargetXY*(agentId: int, x, y: int32) =
@@ -216,13 +223,13 @@ proc setAgentAttackMoveTargetXY*(agentId: int, x, y: int32) =
 
 proc clearAgentAttackMoveTarget*(agentId: int) =
   ## Clear the attack-move target for an agent, stopping attack-move behavior.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.clearAttackMoveTarget(agentId)
 
 proc getAgentAttackMoveTarget*(agentId: int): IVec2 =
   ## Get the current attack-move target for an agent.
   ## Returns (-1, -1) if no attack-move is active.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.getAttackMoveTarget(agentId)
   ivec2(-1, -1)
 
@@ -239,7 +246,7 @@ proc setAgentPatrol*(agentId: int, point1, point2: IVec2) =
   ## Set patrol waypoints for an agent. Enables patrol mode.
   ## The agent will walk between the two points, attacking any enemies encountered.
   ## Requires BuiltinAI controller.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.setPatrol(agentId, point1, point2)
 
 proc setAgentPatrolXY*(agentId: int, x1, y1, x2, y2: int32) =
@@ -248,19 +255,19 @@ proc setAgentPatrolXY*(agentId: int, x1, y1, x2, y2: int32) =
 
 proc clearAgentPatrol*(agentId: int) =
   ## Clear the patrol for an agent, disabling patrol mode.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.clearPatrol(agentId)
 
 proc getAgentPatrolTarget*(agentId: int): IVec2 =
   ## Get the current patrol target waypoint for an agent.
   ## Returns (-1, -1) if no patrol is active.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.getPatrolTarget(agentId)
   ivec2(-1, -1)
 
 proc isAgentPatrolActive*(agentId: int): bool =
   ## Check if an agent currently has patrol mode active.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.isPatrolActive(agentId)
   false
 
@@ -491,18 +498,18 @@ proc hasUnitUpgradeResearched*(env: Environment, teamId: int, upgradeType: int32
 proc setAgentScoutMode*(agentId: int, active: bool) =
   ## Enable or disable scout mode for an agent.
   ## Requires BuiltinAI controller.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.setScoutMode(agentId, active)
 
 proc isAgentScoutModeActive*(agentId: int): bool =
   ## Check if an agent has scout mode active.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.isScoutModeActive(agentId)
   false
 
 proc getAgentScoutExploreRadius*(agentId: int): int32 =
   ## Get the current scout exploration radius for an agent.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.getScoutExploreRadius(agentId)
   0
 
@@ -549,7 +556,7 @@ proc setAgentHoldPosition*(agentId: int, pos: IVec2) =
   ## Set hold position for an agent. The agent stays at the given position,
   ## attacks enemies in range, but won't chase.
   ## Requires BuiltinAI controller.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.setHoldPosition(agentId, pos)
 
 proc setAgentHoldPositionXY*(agentId: int, x, y: int32) =
@@ -558,18 +565,18 @@ proc setAgentHoldPositionXY*(agentId: int, x, y: int32) =
 
 proc clearAgentHoldPosition*(agentId: int) =
   ## Clear hold position for an agent.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.clearHoldPosition(agentId)
 
 proc getAgentHoldPosition*(agentId: int): IVec2 =
   ## Get the hold position target. Returns (-1, -1) if not active.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.getHoldPosition(agentId)
   ivec2(-1, -1)
 
 proc isAgentHoldPositionActive*(agentId: int): bool =
   ## Check if hold position is active for an agent.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.isHoldPositionActive(agentId)
   false
 
@@ -580,23 +587,23 @@ proc isAgentHoldPositionActive*(agentId: int): bool =
 proc setAgentFollowTarget*(agentId: int, targetAgentId: int) =
   ## Set an agent to follow another agent.
   ## Requires BuiltinAI controller.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.setFollowTarget(agentId, targetAgentId)
 
 proc clearAgentFollowTarget*(agentId: int) =
   ## Clear follow target for an agent.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.clearFollowTarget(agentId)
 
 proc getAgentFollowTargetId*(agentId: int): int =
   ## Get the follow target agent ID. Returns -1 if not active.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.getFollowTargetId(agentId)
   -1
 
 proc isAgentFollowActive*(agentId: int): bool =
   ## Check if follow mode is active for an agent.
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     return globalController.aiController.isFollowActive(agentId)
   false
 
@@ -609,7 +616,7 @@ proc stopAgent*(agentId: int) =
   clearAgentPatrol(agentId)
   clearAgentHoldPosition(agentId)
   clearAgentFollowTarget(agentId)
-  if not isNil(globalController) and globalController.controllerType == BuiltinAI:
+  withBuiltinAI:
     globalController.aiController.clearScoutMode(agentId)
 
 # Formation API
