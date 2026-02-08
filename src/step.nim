@@ -2715,6 +2715,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           # They need villagers to complete construction
           if isBuilding and placed.maxHp > 0:
             placed.hp = 1
+            placed.constructed = false
           if isBuilding:
             let radius = buildingFertileRadius(placedKind)
             if radius > 0:
@@ -2803,7 +2804,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       inc env.stats[id].actionInvalid
 
-  # Apply multi-builder construction speed bonus
+  # Apply multi-builder construction/repair speed bonus
+  # Repair uses RepairHpPerAction (faster), construction uses ConstructionHpPerAction
   # Treadmill Crane: +20% construction speed from University tech
   for pos, builderCount in env.constructionBuilders.pairs:
     let thing = env.getThing(pos)
@@ -2816,12 +2818,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     # Treadmill Crane: +20% construction speed
     if thing.teamId >= 0 and env.hasUniversityTech(thing.teamId, TechTreadmillCrane):
       multiplier = multiplier * 1.2'f32
-    let hpGain = int(float32(ConstructionHpPerAction) * multiplier + 0.5)
+    # Repair (previously constructed buildings) uses faster rate than initial construction
+    let baseHp = if thing.constructed: RepairHpPerAction else: ConstructionHpPerAction
+    let hpGain = int(float32(baseHp) * multiplier + 0.5)
     when defined(eventLog):
       let wasBelowMax = thing.hp < thing.maxHp
     when defined(audio):
       let wasBelowMaxAudio = thing.hp < thing.maxHp
     thing.hp = min(thing.maxHp, thing.hp + hpGain)
+    # Mark building as constructed when it first reaches maxHp
+    if thing.hp >= thing.maxHp:
+      thing.constructed = true
     # Spawn construction dust particles while building is under construction
     if thing.hp < thing.maxHp:
       env.spawnConstructionDust(thing.pos)

@@ -58,6 +58,7 @@ const
   # ============================================================================
   ConstructionBonusTable* = [1.0'f32, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
   ConstructionHpPerAction* = 1
+  RepairHpPerAction* = 2  ## Repair rate: faster than initial construction (AoE2-style)
   RoadWoodCost* = 1
   OutpostWoodCost* = 1
 
