@@ -1085,8 +1085,72 @@ proc stepApplyTumorDamage(env: Environment, stepRng: var Rand) =
     for predator in predatorsToRemove[]:
       removeThing(env, predator)
 
+# ============================================================================
+# Movement Helpers
+# ============================================================================
+
+proc stepToward*(fromPos, toPos: IVec2): IVec2 =
+  ## Calculate a single cardinal step from fromPos toward toPos.
+  ## Returns zero vector if positions are equal.
+  let dx = toPos.x - fromPos.x
+  let dy = toPos.y - fromPos.y
+  if dx == 0 and dy == 0:
+    return ivec2(0, 0)
+  if abs(dx) >= abs(dy):
+    return ivec2((if dx > 0: 1 else: -1), 0)
+  return ivec2(0, (if dy > 0: 1 else: -1))
+
+proc tryMoveWildlife*(env: Environment, thing: Thing, desired: IVec2) =
+  ## Try to move a wildlife entity (cow/wolf/bear) by the desired delta.
+  ## Updates grid and spatial index if move is valid.
+  if desired.x == 0 and desired.y == 0:
+    return
+  let nextPos = thing.pos + desired
+  if isValidPos(nextPos) and not env.hasDoor(nextPos) and
+     not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
+    let oldPos = thing.pos
+    env.grid[thing.pos.x][thing.pos.y] = nil
+    thing.pos = nextPos
+    env.grid[nextPos.x][nextPos.y] = thing
+    updateSpatialIndex(env, thing, oldPos)
+    if desired.x < 0:
+      thing.orientation = Orientation.W
+    elif desired.x > 0:
+      thing.orientation = Orientation.E
+
+# ============================================================================
+# Adjacent Building Search
+# ============================================================================
+
+proc findAdjacentFriendlyBuilding*(env: Environment, pos: IVec2, teamId: int,
+                                    kindPredicate: proc(k: ThingKind): bool): Thing =
+  ## Find an adjacent building matching kindPredicate owned by the given team.
+  ## Returns nil if no matching building found.
+  for dy in -1 .. 1:
+    for dx in -1 .. 1:
+      let checkPos = pos + ivec2(dx.int32, dy.int32)
+      if not isValidPos(checkPos):
+        continue
+      let b = env.getThing(checkPos)
+      if not b.isNil and kindPredicate(b.kind) and b.teamId == teamId:
+        return b
+  nil
+
+proc isGarrisonableBuilding(k: ThingKind): bool =
+  ## Check if a building kind can garrison units.
+  garrisonCapacity(k) > 0
+
+proc isTownCenterKind(k: ThingKind): bool =
+  ## Check if a building kind is a TownCenter.
+  k == TownCenter
+
+# ============================================================================
+# Main Step Procedure
+# ============================================================================
+
 proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
-  ## Step the environment
+  ## Step the environment forward by one tick.
+  ## Processes agent actions, updates all entities, checks victory conditions.
   when defined(stepTiming):
     let perStepTiming = stepTimingTarget >= 0 and env.currentStep >= stepTimingTarget and
       env.currentStep <= stepTimingTarget + stepTimingWindow
@@ -1250,9 +1314,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     if teamId >= 0 and teamId < MapRoomObjectsTeams:
       inc env.stepTeamPopCounts[teamId]
 
+  # -------------------------------------------------------------------------
+  # Agent Action Processing
+  # Actions are processed in shuffled order to ensure fair team access.
+  # Each agent executes one action per step (move, attack, use, build, etc.)
+  # -------------------------------------------------------------------------
+
   # Shuffle agent processing order to prevent Team 0 from always acting first.
-  # This ensures fair resource access and combat timing across all teams.
-  # Array is initialized once at env creation; we just shuffle in place each step.
   stepRng.shuffle(env.agentOrder)
 
   for id in env.agentOrder:
@@ -1806,18 +1874,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         # Ungarrison: argument 9 triggers ungarrison of all units from adjacent garrisonable building
         if argument == 9:
-          var foundBuilding: Thing = nil
-          for dy in -1 .. 1:
-            for dx in -1 .. 1:
-              let checkPos = agent.pos + ivec2(dx.int32, dy.int32)
-              if not isValidPos(checkPos):
-                continue
-              let b = env.getThing(checkPos)
-              if not b.isNil and garrisonCapacity(b.kind) > 0 and b.teamId == getTeamId(agent):
-                foundBuilding = b
-                break
-            if not foundBuilding.isNil:
-              break
+          let foundBuilding = env.findAdjacentFriendlyBuilding(
+            agent.pos, getTeamId(agent), isGarrisonableBuilding)
           if foundBuilding.isNil:
             invalidAndBreak(useAction)
           let ejected = env.ungarrisonAllUnits(foundBuilding)
@@ -1830,18 +1888,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         # Town Bell: argument 10 toggles the town bell for the team
         if argument == 10:
           # Find adjacent TownCenter belonging to agent's team
-          var foundTC: Thing = nil
-          for dy in -1 .. 1:
-            for dx in -1 .. 1:
-              let checkPos = agent.pos + ivec2(dx.int32, dy.int32)
-              if not isValidPos(checkPos):
-                continue
-              let tc = env.getThing(checkPos)
-              if not tc.isNil and tc.kind == TownCenter and tc.teamId == getTeamId(agent):
-                foundTC = tc
-                break
-            if not foundTC.isNil:
-              break
+          let foundTC = env.findAdjacentFriendlyBuilding(
+            agent.pos, getTeamId(agent), isTownCenterKind)
           if foundTC.isNil:
             invalidAndBreak(useAction)
           let teamId = getTeamId(agent)
@@ -2876,6 +2924,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Pop caps already pre-computed at step start in env.stepTeamPopCaps
 
+  # -------------------------------------------------------------------------
+  # Building Updates
+  # Each building type is processed separately for cache locality.
+  # Defensive buildings attack enemies; production buildings spawn units.
+  # -------------------------------------------------------------------------
+
   # Defensive buildings: process tower attacks first to populate tempTowerRemovals
   for thing in env.thingsByKind[GuardTower]:
     env.stepTryTowerAttack(thing, GuardTowerRange, env.tempTowerRemovals)
@@ -3037,30 +3091,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     for target in env.tempTowerRemovals:
       removeThing(env, target)
 
-  proc stepToward(fromPos, toPos: IVec2): IVec2 =
-    let dx = toPos.x - fromPos.x
-    let dy = toPos.y - fromPos.y
-    if dx == 0 and dy == 0:
-      return ivec2(0, 0)
-    if abs(dx) >= abs(dy):
-      return ivec2((if dx > 0: 1 else: -1), 0)
-    return ivec2(0, (if dy > 0: 1 else: -1))
-
-  proc tryStep(thing: Thing, desired: IVec2) =
-    if desired.x == 0 and desired.y == 0:
-      return
-    let nextPos = thing.pos + desired
-    if isValidPos(nextPos) and not env.hasDoor(nextPos) and
-       not isBlockedTerrain(env.terrain[nextPos.x][nextPos.y]) and env.isEmpty(nextPos):
-      let oldPos = thing.pos
-      env.grid[thing.pos.x][thing.pos.y] = nil
-      thing.pos = nextPos
-      env.grid[nextPos.x][nextPos.y] = thing
-      updateSpatialIndex(env, thing, oldPos)
-      if desired.x < 0:
-        thing.orientation = Orientation.W
-      elif desired.x > 0:
-        thing.orientation = Orientation.E
+  # -------------------------------------------------------------------------
+  # Wildlife Movement (cows, wolves, bears)
+  # Uses module-level stepToward and tryMoveWildlife helpers
+  # -------------------------------------------------------------------------
 
   let cornerMin = (MapBorder + 2).int32
   let cornerMaxX = (MapWidth - MapBorder - 3).int32
@@ -3152,7 +3186,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif randFloat(stepRng) < CowRandomMoveChance:
       desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
-    tryStep(thing, desired)
+    env.tryMoveWildlife(thing, desired)
 
   for thing in env.thingsByKind[Wolf]:
     if thing.cooldown > 0:
@@ -3164,7 +3198,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Scattered wolves wander randomly
       if randFloat(stepRng) < WolfScatteredMoveChance:
         let desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
-        tryStep(thing, desired)
+        env.tryMoveWildlife(thing, desired)
       continue
 
     let pack = thing.packId
@@ -3186,7 +3220,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif randFloat(stepRng) < WolfRandomMoveChance:
       desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
-    tryStep(thing, desired)
+    env.tryMoveWildlife(thing, desired)
 
   for thing in env.thingsByKind[Bear]:
     if thing.cooldown > 0:
@@ -3200,7 +3234,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     elif randFloat(stepRng) < BearRandomMoveChance:
       desired = CardinalOffsets[randIntInclusive(stepRng, 0, 3)]
 
-    tryStep(thing, desired)
+    env.tryMoveWildlife(thing, desired)
 
   for kind in [Wolf, Bear]:
     for predator in env.thingsByKind[kind]:
