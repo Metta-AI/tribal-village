@@ -11,10 +11,11 @@ and drive respawning.
 
 Key files:
 - `src/items.nim` (item kinds and inventory helpers)
-- `src/environment.nim` (inventory/stockpile helpers)
+- `src/constants.nim` (game balance constants: HP, damage, costs, capacities)
+- `src/environment.nim` (inventory/stockpile helpers, market trading)
 - `src/step.nim` (use/craft/market/respawn logic)
 - `src/registry.nim` (building use/craft/train definitions)
-- `src/types.nim` (core constants)
+- `src/types.nim` (type definitions, map constants)
 
 ## Inventory vs Stockpile
 **Inventory**:
@@ -70,9 +71,12 @@ differentiation.
 - Trade Cogs follow pre-computed water routes and are vulnerable to naval attack.
 
 ## Biome Resource Bonuses
-- Different biomes provide **gathering bonuses** for specific resources.
-- For example, forest biomes may yield extra wood, while desert biomes may provide bonus gold.
-- Bonuses are applied as multipliers during resource collection.
+Different biomes provide **gathering bonuses** (20% chance for +1 item) for specific resources:
+- **Forest**: +20% wood
+- **Plains**: +20% food (wheat)
+- **Caves**: +20% stone
+- **Snow**: +20% gold
+- **Desert** (oasis effect): +10% all resources when gathering near water (within 3 tiles)
 
 ## Altars and Hearts
 Altars are team-owned buildings that store **hearts**:
@@ -87,8 +91,9 @@ Constants:
 
 ## Population Cap
 Each step computes team pop-cap from buildings (`buildingPopCap`):
-- Town centers and houses contribute pop-cap.
-- Cap is clamped to `MapAgentsPerVillage`.
+- Houses contribute `HousePopCap` (4) each.
+- Town centers contribute `TownCenterPopCap` (currently 0).
+- Cap is clamped to `MapAgentsPerTeam` (125).
 
 Pop-cap gates:
 - Respawns
