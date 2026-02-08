@@ -395,6 +395,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   var state = controller.agents[agentId]
 
+  # Apply any pending stance modification
+  if state.stanceModified:
+    agent.stance = state.pendingStance
+    state.stanceModified = false
+    controller.agents[agentId] = state
+
   # Get team info and difficulty settings
   let currentStep = env.currentStep.int32
   let teamId = getTeamId(agent)

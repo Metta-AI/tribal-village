@@ -1650,3 +1650,30 @@ proc getAgentStoppedUntilStep*(controller: Controller, agentId: int): int32 =
     return controller.agents[agentId].stoppedUntilStep
   0
 
+# Stance API - Controller-level procs for setting/getting agent stance.
+# Stance is stored on the agent (Thing) but we use AgentState.pendingStance
+# for deferred application when we have env access in decideAction.
+
+proc setAgentStanceDeferred*(controller: Controller, agentId: int, stance: AgentStance) =
+  ## Set pending stance for an agent. Applied in decideAction when we have env access.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].pendingStance = stance
+    controller.agents[agentId].stanceModified = true
+
+proc getAgentPendingStance*(controller: Controller, agentId: int): AgentStance =
+  ## Get the pending stance for an agent (what will be applied on next decideAction).
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].pendingStance
+  StanceDefensive
+
+proc isAgentStanceModified*(controller: Controller, agentId: int): bool =
+  ## Check if agent has a pending stance modification.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].stanceModified
+  false
+
+proc clearAgentStanceModified*(controller: Controller, agentId: int) =
+  ## Clear the stance modified flag after applying the stance.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].stanceModified = false
+

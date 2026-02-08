@@ -143,6 +143,9 @@ type
     # Stop state: agent is stopped and idle until new command or threshold expires
     stoppedActive*: bool              # Whether agent is currently stopped
     stoppedUntilStep*: int32          # Step at which stopped state expires
+    # Pending stance change: applied to agent when decideAction has env access
+    pendingStance*: AgentStance       # Stance to apply on next decideAction
+    stanceModified*: bool             # Whether pendingStance should be applied
 
   # Difficulty levels for AI - affects decision quality and reaction time
   DifficultyLevel* = enum

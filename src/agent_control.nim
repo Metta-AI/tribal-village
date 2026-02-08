@@ -275,16 +275,40 @@ proc isAgentPatrolActive*(agentId: int): bool =
 
 # Stance API
 # These functions allow external code to set combat stance for agents.
+# Deferred versions (no env required) apply the stance on next decideAction.
+
+proc setAgentStance*(agentId: int, stance: AgentStance) =
+  ## Set the combat stance for an agent (deferred).
+  ## The stance will be applied on the next decideAction call.
+  ## Requires BuiltinAI controller.
+  withBuiltinAI:
+    globalController.aiController.setAgentStanceDeferred(agentId, stance)
+
+proc getAgentStance*(agentId: int): AgentStance =
+  ## Get the pending combat stance for an agent.
+  ## Returns the pending stance if modified, otherwise StanceDefensive.
+  ## Requires BuiltinAI controller.
+  withBuiltinAI:
+    return globalController.aiController.getAgentPendingStance(agentId)
+  StanceDefensive
+
+proc clearAgentStance*(agentId: int) =
+  ## Clear any pending stance modification for an agent.
+  ## Requires BuiltinAI controller.
+  withBuiltinAI:
+    globalController.aiController.clearAgentStanceModified(agentId)
+
+# Environment-based stance API (for direct modification when env is available)
 
 proc setAgentStance*(env: Environment, agentId: int, stance: AgentStance) =
-  ## Set the combat stance for an agent.
+  ## Set the combat stance for an agent (immediate, requires env).
   if agentId >= 0 and agentId < env.agents.len:
     let agent = env.agents[agentId]
     if isAgentAlive(env, agent):
       agent.stance = stance
 
 proc getAgentStance*(env: Environment, agentId: int): AgentStance =
-  ## Get the current combat stance for an agent.
+  ## Get the current combat stance for an agent (requires env).
   if agentId >= 0 and agentId < env.agents.len:
     let agent = env.agents[agentId]
     if isAgentAlive(env, agent):
