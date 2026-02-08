@@ -22,8 +22,11 @@ Upgrade tiers inherit and strengthen counter relationships:
 - LightCavalry/Hussar get +1/+2 vs archers
 
 Castle unique units have specialized counters:
-- Samurai +1 vs infantry, Cataphract +1 vs infantry, Huskarl +2 vs archers
-- Fire Ship +2 vs water units, Scorpion +2 vs infantry
+- Samurai +1 vs infantry (ManAtArms, LongSwordsman)
+- Cataphract +1 vs infantry (ManAtArms, LongSwordsman)
+- Huskarl +2 vs archers (Archer, Crossbowman, Arbalester, Longbowman)
+- Fire Ship +2 vs water units (Boat, TradeCog, Galley), +1 vs other Fire Ships
+- Scorpion +2 vs infantry (ManAtArms, LongSwordsman, Champion, Samurai, WoadRaider, TeutonicKnight, Huskarl)
 
 Villagers, monks, and non-specialized siege have no class bonus.
 
@@ -79,7 +82,7 @@ See `docs/observation_space.md` for the full list of tint codes.
 - **Archer**: line shot to range (stops on first hit).
 - **Scout**: short jab (2-tile line, stops on first hit).
 - **Battering Ram**: 2-tile line strike (stops on first hit).
-- **Mangonel**: widened area strike (5-wide line over its range).
+- **Mangonel**: widened area strike (3-wide prong extending 5 tiles forward).
 - **Boat**: 3-wide forward band (broadside).
 
 ## Trebuchet Pack/Unpack
@@ -93,9 +96,8 @@ See `docs/observation_space.md` for the full list of tint codes.
 - Converted units switch team ownership and retain their current stats.
 
 ## Cliff Fall Damage
-- Units that move off a cliff edge (elevation drop > 1) take **fall damage**.
-- Fall damage is proportional to the elevation difference.
-- Ramps (road tiles at elevation boundaries) allow safe traversal.
+- Units that move off a cliff edge (any elevation drop) take **1 fall damage** per tile dropped.
+- Ramps and roads at elevation boundaries allow safe traversal without damage.
 
 ## Attack-Move and Patrol
 - **Attack-move**: Units move toward a destination and automatically engage any enemy encountered en route.
