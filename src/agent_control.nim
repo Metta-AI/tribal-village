@@ -332,6 +332,15 @@ proc getGarrisonCount*(env: Environment, buildingX, buildingY: int32): int32 =
     return 0
   thing.garrisonedUnits.len.int32
 
+proc isAgentGarrisoned*(env: Environment, agentId: int): bool =
+  ## Check if an agent is currently garrisoned inside a building.
+  if agentId < 0 or agentId >= env.agents.len:
+    return false
+  let agent = env.agents[agentId]
+  if not isAgentAlive(env, agent):
+    return false
+  agent.isGarrisoned
+
 # Production Queue API
 # These functions allow external code to queue/cancel unit training at buildings.
 
