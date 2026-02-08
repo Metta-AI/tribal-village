@@ -494,6 +494,260 @@ proc hasUnitUpgradeResearched*(env: Environment, teamId: int, upgradeType: int32
     return false
   hasUnitUpgrade(env, teamId, UnitUpgradeType(upgradeType))
 
+# Extended Research Control API
+# These functions allow external code to start/query research at buildings by position.
+# Research categories: 0=Blacksmith, 1=University, 2=Castle, 3=UnitUpgrade
+
+const
+  ResearchCategoryBlacksmith* = 0'i32
+  ResearchCategoryUniversity* = 1'i32
+  ResearchCategoryCastle* = 2'i32
+  ResearchCategoryUnitUpgrade* = 3'i32
+
+proc startResearchAtBuilding*(env: Environment, buildingX, buildingY: int32,
+                               researchCategory: int32, researchType: int32): bool =
+  ## Start research at a building by position (no villager required).
+  ## researchCategory: 0=Blacksmith, 1=University, 2=Castle, 3=UnitUpgrade
+  ## researchType: specific tech/upgrade index within category
+  ## Returns true if research was successfully started.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+
+  case researchCategory
+  of ResearchCategoryBlacksmith:
+    if thing.kind != Blacksmith:
+      return false
+    if researchType < 0 or researchType > ord(BlacksmithUpgradeType.high).int32:
+      return false
+    uiResearchBlacksmithUpgrade(env, thing, BlacksmithUpgradeType(researchType))
+  of ResearchCategoryUniversity:
+    if thing.kind != University:
+      return false
+    if researchType < 0 or researchType > ord(UniversityTechType.high).int32:
+      return false
+    uiResearchUniversityTech(env, thing, UniversityTechType(researchType))
+  of ResearchCategoryCastle:
+    if thing.kind != Castle:
+      return false
+    if researchType < 0 or researchType > 1:  # 0=Castle Age, 1=Imperial Age
+      return false
+    uiResearchCastleTech(env, thing, researchType.int)
+  of ResearchCategoryUnitUpgrade:
+    # Unit upgrades require matching building type
+    if researchType < 0 or researchType > ord(UnitUpgradeType.high).int32:
+      return false
+    let upgradeType = UnitUpgradeType(researchType)
+    if upgradeBuilding(upgradeType) != thing.kind:
+      return false
+    # Use the UI version to research without villager
+    let teamId = thing.teamId
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return false
+    if env.teamUnitUpgrades[teamId].researched[upgradeType]:
+      return false
+    let prereq = upgradePrerequisite(upgradeType)
+    if prereq != upgradeType and not env.teamUnitUpgrades[teamId].researched[prereq]:
+      return false
+    let costs = upgradeCosts(upgradeType)
+    if not env.spendStockpile(teamId, costs):
+      return false
+    env.teamUnitUpgrades[teamId].researched[upgradeType] = true
+    env.upgradeExistingUnits(teamId, upgradeSourceUnit(upgradeType), upgradeTargetUnit(upgradeType))
+    thing.cooldown = 8
+    true
+  else:
+    false
+
+proc isResearchInProgress*(env: Environment, buildingX, buildingY: int32): bool =
+  ## Check if a building has research in progress (is on cooldown).
+  ## Returns true if the building exists and has cooldown > 0.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return false
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return false
+  thing.cooldown > 0
+
+proc getResearchCooldown*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Get the remaining research cooldown for a building.
+  ## Returns 0 if no research is in progress, -1 if invalid building.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return -1
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return -1
+  thing.cooldown.int32
+
+proc getAvailableResearchCount*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Get the number of available (unresearched, affordable) research options at a building.
+  ## Returns 0 if building is invalid or has no research options.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return 0
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return 0
+
+  let teamId = thing.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+
+  var count: int32 = 0
+  case thing.kind
+  of Blacksmith:
+    for upgradeType in BlacksmithUpgradeType:
+      let level = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+      if level < BlacksmithUpgradeMaxLevel:
+        inc count
+  of University:
+    for techType in UniversityTechType:
+      if not env.teamUniversityTechs[teamId].researched[techType]:
+        inc count
+  of Castle:
+    let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+    if not env.teamCastleTechs[teamId].researched[castleAge]:
+      inc count
+    elif not env.teamCastleTechs[teamId].researched[imperialAge]:
+      inc count
+  of Barracks, Stable, ArcheryRange:
+    for upgradeType in UnitUpgradeType:
+      if upgradeBuilding(upgradeType) != thing.kind:
+        continue
+      if env.teamUnitUpgrades[teamId].researched[upgradeType]:
+        continue
+      let prereq = upgradePrerequisite(upgradeType)
+      if prereq != upgradeType and not env.teamUnitUpgrades[teamId].researched[prereq]:
+        continue
+      inc count
+  else:
+    discard
+
+  count
+
+proc getAvailableResearchAtIndex*(env: Environment, buildingX, buildingY: int32,
+                                   index: int32): tuple[category: int32, researchType: int32] =
+  ## Get the category and type of the nth available research at a building.
+  ## Returns (-1, -1) if index is out of range or building is invalid.
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return (-1'i32, -1'i32)
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return (-1'i32, -1'i32)
+
+  let teamId = thing.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return (-1'i32, -1'i32)
+
+  var currentIndex: int32 = 0
+  case thing.kind
+  of Blacksmith:
+    for upgradeType in BlacksmithUpgradeType:
+      let level = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+      if level < BlacksmithUpgradeMaxLevel:
+        if currentIndex == index:
+          return (ResearchCategoryBlacksmith, ord(upgradeType).int32)
+        inc currentIndex
+  of University:
+    for techType in UniversityTechType:
+      if not env.teamUniversityTechs[teamId].researched[techType]:
+        if currentIndex == index:
+          return (ResearchCategoryUniversity, ord(techType).int32)
+        inc currentIndex
+  of Castle:
+    let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+    if not env.teamCastleTechs[teamId].researched[castleAge]:
+      if currentIndex == index:
+        return (ResearchCategoryCastle, 0'i32)
+      inc currentIndex
+    if env.teamCastleTechs[teamId].researched[castleAge] and
+       not env.teamCastleTechs[teamId].researched[imperialAge]:
+      if currentIndex == index:
+        return (ResearchCategoryCastle, 1'i32)
+      inc currentIndex
+  of Barracks, Stable, ArcheryRange:
+    for upgradeType in UnitUpgradeType:
+      if upgradeBuilding(upgradeType) != thing.kind:
+        continue
+      if env.teamUnitUpgrades[teamId].researched[upgradeType]:
+        continue
+      let prereq = upgradePrerequisite(upgradeType)
+      if prereq != upgradeType and not env.teamUnitUpgrades[teamId].researched[prereq]:
+        continue
+      if currentIndex == index:
+        return (ResearchCategoryUnitUpgrade, ord(upgradeType).int32)
+      inc currentIndex
+  else:
+    discard
+
+  (-1'i32, -1'i32)
+
+proc canAffordResearch*(env: Environment, teamId: int32, researchCategory: int32,
+                         researchType: int32): bool =
+  ## Check if a team can afford a specific research.
+  ## Does not check if the research is available (use getAvailableResearchAtIndex for that).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  case researchCategory
+  of ResearchCategoryBlacksmith:
+    if researchType < 0 or researchType > ord(BlacksmithUpgradeType.high).int32:
+      return false
+    let upgradeType = BlacksmithUpgradeType(researchType)
+    let level = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+    if level >= BlacksmithUpgradeMaxLevel:
+      return false
+    let costMultiplier = level + 1
+    let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
+    let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
+    env.canSpendStockpile(teamId, [(res: ResourceFood, count: foodCost), (res: ResourceGold, count: goldCost)])
+  of ResearchCategoryUniversity:
+    if researchType < 0 or researchType > ord(UniversityTechType.high).int32:
+      return false
+    let techIndex = researchType + 1
+    let foodCost = UniversityTechFoodCost * techIndex.int
+    let goldCost = UniversityTechGoldCost * techIndex.int
+    let woodCost = UniversityTechWoodCost * techIndex.int
+    env.canSpendStockpile(teamId, [(res: ResourceFood, count: foodCost), (res: ResourceGold, count: goldCost), (res: ResourceWood, count: woodCost)])
+  of ResearchCategoryCastle:
+    if researchType < 0 or researchType > 1:
+      return false
+    let isImperial = researchType == 1
+    let foodCost = if isImperial: CastleTechImperialFoodCost else: CastleTechFoodCost
+    let goldCost = if isImperial: CastleTechImperialGoldCost else: CastleTechGoldCost
+    env.canSpendStockpile(teamId, [(res: ResourceFood, count: foodCost), (res: ResourceGold, count: goldCost)])
+  of ResearchCategoryUnitUpgrade:
+    if researchType < 0 or researchType > ord(UnitUpgradeType.high).int32:
+      return false
+    let upgradeType = UnitUpgradeType(researchType)
+    let costs = upgradeCosts(upgradeType)
+    env.canSpendStockpile(teamId, costs)
+  else:
+    false
+
+proc getBuildingResearchCategory*(env: Environment, buildingX, buildingY: int32): int32 =
+  ## Get the research category for a building (what type of research it supports).
+  ## Returns: 0=Blacksmith, 1=University, 2=Castle, 3=UnitUpgrade, -1=none
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return -1
+  let thing = env.grid[pos.x][pos.y]
+  if isNil(thing) or not isBuildingKind(thing.kind):
+    return -1
+
+  case thing.kind
+  of Blacksmith: ResearchCategoryBlacksmith
+  of University: ResearchCategoryUniversity
+  of Castle: ResearchCategoryCastle
+  of Barracks, Stable, ArcheryRange: ResearchCategoryUnitUpgrade
+  else: -1
+
 # Scout Mode API
 # These functions allow external code to enable/disable scout mode for agents.
 
