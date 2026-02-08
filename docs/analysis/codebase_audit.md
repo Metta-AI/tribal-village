@@ -152,9 +152,8 @@ Cross-cutting behaviors available to evolutionary roles:
 
 ### 3.1 Potentially Dead Code
 
-1. **`ScriptedTempleAssignEnabled = false`** (ai_defaults.nim:401)
-   - Temple hybrid assignment is disabled
-   - Related code exists but never executes: `processTempleHybridRequests`, `pendingHybridRoles`
+1. ~~**`ScriptedTempleAssignEnabled = false`**~~ — Now enabled (`= true`, ai_defaults.nim:30).
+   Temple hybrid assignment is active; `processTempleHybridRequests` and `pendingHybridRoles` execute at runtime.
 
 2. **`EvolutionEnabled = defined(enableEvolution)`** (ai_defaults.nim:395)
    - Role evolution is compile-flag gated

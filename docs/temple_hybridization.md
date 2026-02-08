@@ -30,11 +30,10 @@ Temple spawns have a cooldown (`TempleHybridCooldown` = 25 steps, `TempleInterac
 - Optionally mutate or inject a random behavior.
 - Register the new role with `origin = "temple"`.
 
-By default, hybrid roles are saved but **not automatically assigned** to the
-new agent unless `ScriptedTempleAssignEnabled` is enabled.
+Hybrid roles are automatically assigned to spawned children when
+`ScriptedTempleAssignEnabled` is `true` (the default). This resets the child's
+initialization so it receives the hybrid role instead of a default assignment.
 
 ## Notes / Future Hooks
 - `BehaviorTempleFusion` exists as an option for explicit temple use, but the
   current hybrid spawn is adjacency-based (no explicit action needed).
-- The hybrid system is ready for experimentation once scripted roles are
-  enabled in the agent assignment path.

@@ -8,7 +8,7 @@ Investigator: cheedo
 
 ## Executive Summary
 
-The temple hybridization system is **fully implemented** but **partially enabled**. The core mechanics work correctly: temples spawn hybrid children when two villagers are adjacent, and hybrid roles are created via genetic crossover. However, the `ScriptedTempleAssignEnabled` flag is hardcoded to `false`, meaning hybrid roles are generated but **not assigned** to the spawned children.
+The temple hybridization system is **fully implemented and enabled**. The core mechanics work correctly: temples spawn hybrid children when two villagers are adjacent, hybrid roles are created via genetic crossover, and `ScriptedTempleAssignEnabled` is set to `true`, meaning hybrid roles are both generated **and assigned** to spawned children.
 
 ## 1. How Temple Hybridization Works
 
@@ -31,10 +31,9 @@ The temple hybridization system is **fully implemented** but **partially enabled
 - Optional mutation based on `ScriptedRoleMutationChance`
 - New role registered with `origin = "temple"`
 
-### Role Assignment (Currently Disabled)
-- `ScriptedTempleAssignEnabled = false` (line 401 in ai_defaults.nim)
-- When false: hybrid role is created and added to pool, but child gets default assignment
-- When true: would reset `agentsInitialized[childId]` to force hybrid role assignment
+### Role Assignment (Enabled)
+- `ScriptedTempleAssignEnabled = true` (line 30 in ai_defaults.nim)
+- Resets `agentsInitialized[childId]` to force hybrid role assignment on the spawned child
 
 ## 2. Implementation vs. Documentation
 
@@ -46,7 +45,7 @@ The temple hybridization system is **fully implemented** but **partially enabled
 | Heart cost | One heart from altar | Uses MapObjectAltarRespawnCost | ACCURATE |
 | Spawn cooldown | "Short cooldown" | 25 steps | ACCURATE |
 | Role recombination | Via recombineRoles | Crossover of tiers | ACCURATE |
-| Auto-assignment | "Not assigned by default" | ScriptedTempleAssignEnabled=false | ACCURATE |
+| Auto-assignment | Assigned to spawned child | ScriptedTempleAssignEnabled=true | ACCURATE |
 | BehaviorTempleFusion | "No explicit action needed" | Exists but unused | ACCURATE |
 
 **Conclusion:** Documentation accurately reflects implementation state.
@@ -55,16 +54,8 @@ The temple hybridization system is **fully implemented** but **partially enabled
 
 ### HIGH PRIORITY
 
-#### 3.1 Enable Hybrid Role Assignment
-**Issue:** Children don't get their hybrid roles
-```nim
-# Current (ai_defaults.nim:401)
-const ScriptedTempleAssignEnabled = false
-
-# Recommended: Make configurable
-var ScriptedTempleAssignEnabled* = true
-```
-**Rationale:** This is the entire point of hybridization - without assignment, hybrids just get default roles. Since "we recently enabled temple hybrids", this should be the first fix.
+#### 3.1 ~~Enable Hybrid Role Assignment~~ (DONE)
+Hybrid role assignment is now enabled (`ScriptedTempleAssignEnabled = true` at line 30 in ai_defaults.nim). Children spawned via temple hybridization receive their hybrid roles automatically.
 
 #### 3.2 Add Temple Assignment Analytics
 **Issue:** No visibility into hybrid success
@@ -129,13 +120,13 @@ Consider:
 | Hybrid trigger | src/step.nim | 1963-2034 |
 | Request processing | src/scripted/ai_defaults.nim | 603-627 |
 | Role recombination | src/scripted/evolution.nim | 69-88 |
-| Assignment flag | src/scripted/ai_defaults.nim | 401 |
+| Assignment flag | src/scripted/ai_defaults.nim | 30 |
 | BehaviorTempleFusion | src/scripted/options.nim | 783-793, 985-991 |
 | TempleHybridRequest type | src/types.nim | 411-416 |
 
 ## 5. Recommended Next Steps
 
-1. **Immediate:** Enable `ScriptedTempleAssignEnabled` and test hybrid role assignment
+1. ~~**Immediate:** Enable `ScriptedTempleAssignEnabled` and test hybrid role assignment~~ (DONE)
 2. **Short-term:** Add analytics to measure hybrid effectiveness
 3. **Medium-term:** Balance heart costs and parent selection
 4. **Long-term:** Consider temple upgrades and genetic diversity mechanics
