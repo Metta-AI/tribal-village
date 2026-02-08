@@ -28,23 +28,6 @@ const
 
 const GathererFleeRadiusConst = GathererFleeRadius  # Local alias for use in guard template
 const GarrisonSeekRadiusConst = GarrisonSeekRadius  # Local alias for use in guard template
-const GarrisonableKinds = {TownCenter, Castle, GuardTower, House}
-
-proc findNearestGarrisonableBuilding(env: Environment, pos: IVec2, teamId: int,
-                                     maxDist: int): Thing =
-  ## Find the nearest friendly garrisonable building with available capacity.
-  var best: Thing = nil
-  var bestDist = int.high
-  for kind in GarrisonableKinds:
-    let building = findNearestFriendlyThingSpatial(env, pos, teamId, kind, maxDist)
-    if not building.isNil and building.hp > 0:
-      let capacity = garrisonCapacity(building.kind)
-      if building.garrisonedUnits.len < capacity:
-        let dist = abs(building.pos.x - pos.x) + abs(building.pos.y - pos.y)
-        if dist < bestDist:
-          bestDist = dist
-          best = building
-  best
 
 gathererGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
   not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)) and
@@ -418,6 +401,7 @@ proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Th
   fleeAwayFrom(controller, env, agent, agentId, state, predator.pos)
 
 let GathererOptions* = [
+  TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   OptionDef(
     name: "GathererGarrison",
     canStart: canStartGathererGarrison,

@@ -44,6 +44,9 @@ const
   HouseGarrisonCapacity* = 5
   GarrisonArrowBonus* = 1
   GarrisonSeekRadius* = 15  # Max distance AI villagers will seek garrisonable buildings under threat
+  TownBellAutoTriggerRadius* = 20  # Distance from TC to detect enemy army for auto-bell
+  TownBellAutoTriggerCount* = 3    # Min enemies near base to auto-trigger bell
+  TownBellAutoCheckInterval* = 10  # Steps between auto-trigger checks
 
   # ============================================================================
   # Siege

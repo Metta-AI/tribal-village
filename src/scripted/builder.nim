@@ -551,6 +551,7 @@ let BuilderVisitTradingHubOption = OptionDef(
   interruptible: true)
 
 let BuilderOptions* = [
+  TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   BuilderFleeOption,
   EmergencyHealOption,
   BuilderPlantOnFertileOption,
@@ -587,6 +588,7 @@ let BuilderOptions* = [
 # BuilderOptionsThreat: Reordered priorities for when under threat.
 # Priority order: Flee -> WallRing -> Defense -> TechBuildings -> Infrastructure
 let BuilderOptionsThreat* = [
+  TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   BuilderFleeOption,
   EmergencyHealOption,
   BuilderPlantOnFertileOption,

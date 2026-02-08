@@ -190,6 +190,8 @@ type
     fogLastRevealStep*: array[MapAgents, int32]
     # Town split cooldown: tracks last step when each team triggered a split
     townSplitLastStep*: array[MapRoomObjectsTeams, int32]
+    # Town bell auto-trigger: last step when each team's bell was auto-checked
+    townBellAutoCheckStep*: array[MapRoomObjectsTeams, int32]
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.

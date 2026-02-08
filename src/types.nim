@@ -1232,6 +1232,8 @@ type
     monkUnits*: seq[Thing]  # Monk units with auras
     # Villager tracking per team for O(team_size) town bell garrison
     teamVillagers*: array[MapRoomObjectsTeams, seq[Thing]]
+    # Town Bell: per-team toggle for recall/garrison mechanic
+    townBellActive*: array[MapRoomObjectsTeams, bool]
     cowHerdCounts*: seq[int]
     cowHerdSumX*: seq[int]
     cowHerdSumY*: seq[int]
