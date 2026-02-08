@@ -127,6 +127,25 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdFormationBox: "Box"
   of CmdFormationStaggered: "Stagger"
   of CmdFormationRangedSpread: "Spread"
+  # Blacksmith research
+  of CmdResearchMeleeAttack: "MeleeAtk"
+  of CmdResearchArcherAttack: "RangeAtk"
+  of CmdResearchInfantryArmor: "InfArmor"
+  of CmdResearchCavalryArmor: "CavArmor"
+  of CmdResearchArcherArmor: "ArcArmor"
+  # University research
+  of CmdResearchBallistics: "Ballist"
+  of CmdResearchMurderHoles: "MrdHole"
+  of CmdResearchMasonry: "Masonry"
+  of CmdResearchArchitecture: "Archit"
+  of CmdResearchTreadmillCrane: "Treadml"
+  of CmdResearchArrowslits: "Arrowsl"
+  of CmdResearchHeatedShot: "HeatSht"
+  of CmdResearchSiegeEngineers: "SiegeEn"
+  of CmdResearchChemistry: "Chemist"
+  # Castle research
+  of CmdResearchCastleTech1: "CstlT1"
+  of CmdResearchCastleTech2: "CstlT2"
 
 proc getButtonHotkey*(kind: CommandButtonKind): string =
   case kind
@@ -167,6 +186,25 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdFormationBox: "2"
   of CmdFormationStaggered: "3"
   of CmdFormationRangedSpread: "4"
+  # Blacksmith research hotkeys (Q-T for 5 upgrade lines)
+  of CmdResearchMeleeAttack: "Q"
+  of CmdResearchArcherAttack: "W"
+  of CmdResearchInfantryArmor: "E"
+  of CmdResearchCavalryArmor: "R"
+  of CmdResearchArcherArmor: "T"
+  # University research hotkeys (Q-O for 9 techs in 2 rows)
+  of CmdResearchBallistics: "Q"
+  of CmdResearchMurderHoles: "W"
+  of CmdResearchMasonry: "E"
+  of CmdResearchArchitecture: "R"
+  of CmdResearchTreadmillCrane: "T"
+  of CmdResearchArrowslits: "A"
+  of CmdResearchHeatedShot: "S"
+  of CmdResearchSiegeEngineers: "D"
+  of CmdResearchChemistry: "F"
+  # Castle research hotkeys
+  of CmdResearchCastleTech1: "Q"
+  of CmdResearchCastleTech2: "W"
 
 proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
   ## Convert a build command to the corresponding ThingKind.
@@ -226,12 +264,82 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
   of Dock:
     result.add(CmdTrainBoat)
     result.add(CmdTrainTradeCog)
+  of Blacksmith:
+    # Blacksmith: 5 upgrade lines (attack/armor research)
+    result.add(CmdResearchMeleeAttack)
+    result.add(CmdResearchArcherAttack)
+    result.add(CmdResearchInfantryArmor)
+    result.add(CmdResearchCavalryArmor)
+    result.add(CmdResearchArcherArmor)
+  of University:
+    # University: 9 technologies
+    result.add(CmdResearchBallistics)
+    result.add(CmdResearchMurderHoles)
+    result.add(CmdResearchMasonry)
+    result.add(CmdResearchArchitecture)
+    result.add(CmdResearchTreadmillCrane)
+    result.add(CmdResearchArrowslits)
+    result.add(CmdResearchHeatedShot)
+    result.add(CmdResearchSiegeEngineers)
+    result.add(CmdResearchChemistry)
+  of Castle:
+    # Castle: 2 unique techs per team (already has ungarrison)
+    result.add(CmdResearchCastleTech1)
+    result.add(CmdResearchCastleTech2)
   else:
     discard
 
 proc buildMultiSelectCommands(): seq[CommandButtonKind] =
   ## Commands for multi-selection (common commands only).
   @[CmdMove, CmdAttack, CmdStop, CmdHoldPosition, CmdPatrol]
+
+proc isResearchButtonEnabled*(kind: CommandButtonKind, building: Thing): bool =
+  ## Check if a research button should be enabled (not yet researched).
+  let teamId = building.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  case kind
+  # Blacksmith upgrades - enabled if not at max level
+  of CmdResearchMeleeAttack:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeMeleeAttack] < BlacksmithUpgradeMaxLevel
+  of CmdResearchArcherAttack:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherAttack] < BlacksmithUpgradeMaxLevel
+  of CmdResearchInfantryArmor:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor] < BlacksmithUpgradeMaxLevel
+  of CmdResearchCavalryArmor:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryArmor] < BlacksmithUpgradeMaxLevel
+  of CmdResearchArcherArmor:
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherArmor] < BlacksmithUpgradeMaxLevel
+  # University techs - enabled if not researched
+  of CmdResearchBallistics:
+    not env.teamUniversityTechs[teamId].researched[TechBallistics]
+  of CmdResearchMurderHoles:
+    not env.teamUniversityTechs[teamId].researched[TechMurderHoles]
+  of CmdResearchMasonry:
+    not env.teamUniversityTechs[teamId].researched[TechMasonry]
+  of CmdResearchArchitecture:
+    not env.teamUniversityTechs[teamId].researched[TechArchitecture]
+  of CmdResearchTreadmillCrane:
+    not env.teamUniversityTechs[teamId].researched[TechTreadmillCrane]
+  of CmdResearchArrowslits:
+    not env.teamUniversityTechs[teamId].researched[TechArrowslits]
+  of CmdResearchHeatedShot:
+    not env.teamUniversityTechs[teamId].researched[TechHeatedShot]
+  of CmdResearchSiegeEngineers:
+    not env.teamUniversityTechs[teamId].researched[TechSiegeEngineers]
+  of CmdResearchChemistry:
+    not env.teamUniversityTechs[teamId].researched[TechChemistry]
+  # Castle unique techs - enabled if not researched (and prereq met for Imperial)
+  of CmdResearchCastleTech1:
+    let (castleAge, _) = castleTechsForTeam(teamId)
+    not env.teamCastleTechs[teamId].researched[castleAge]
+  of CmdResearchCastleTech2:
+    let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+    env.teamCastleTechs[teamId].researched[castleAge] and  # Prereq met
+      not env.teamCastleTechs[teamId].researched[imperialAge]
+  else:
+    true  # Non-research buttons are always enabled
 
 # ---------------------------------------------------------------------------
 # Panel rect calculation
@@ -291,18 +399,30 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
   let startX = cpRect.x + CommandPanelPadding.float32
   let startY = cpRect.y + CommandPanelPadding.float32 + 20  # Leave room for header
 
+  # Get reference to selected building (if any) for research state checks
+  let selectedBuilding = if selection.len == 1 and isBuildingKind(selection[0].kind):
+    selection[0]
+  else:
+    nil
+
   for i, kind in commandKinds:
     let col = i mod CommandButtonCols
     let row = i div CommandButtonCols
     let x = startX + col.float32 * (CommandButtonSize.float32 + CommandButtonGap.float32)
     let y = startY + row.float32 * (CommandButtonSize.float32 + CommandButtonGap.float32)
 
+    # Check if research buttons should be enabled
+    let buttonEnabled = if not isNil(selectedBuilding):
+      isResearchButtonEnabled(kind, selectedBuilding)
+    else:
+      true
+
     result.add(CommandButton(
       kind: kind,
       rect: Rect(x: x, y: y, w: CommandButtonSize.float32, h: CommandButtonSize.float32),
       label: getButtonLabel(kind),
       hotkey: getButtonHotkey(kind),
-      enabled: true,
+      enabled: buttonEnabled,
       hovered: false
     ))
 
@@ -388,6 +508,20 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
       let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x.float32 - 2
       let hotkeyY = button.rect.y + 2
       bxy.drawImage(hotkeyKey, vec2(hotkeyX, hotkeyY), angle = 0, scale = 1)
+
+    # Draw checkmark for researched techs (disabled research buttons)
+    if not button.enabled and button.kind in {CmdResearchMeleeAttack, CmdResearchArcherAttack,
+        CmdResearchInfantryArmor, CmdResearchCavalryArmor, CmdResearchArcherArmor,
+        CmdResearchBallistics, CmdResearchMurderHoles, CmdResearchMasonry,
+        CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
+        CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
+        CmdResearchCastleTech1, CmdResearchCastleTech2}:
+      # Draw a green checkmark in the top-left corner
+      let checkColor = color(0.2, 0.8, 0.2, 1.0)
+      let (checkKey, checkSize) = renderCommandLabel("OK", CommandHotkeyFontSize)
+      let checkX = button.rect.x + 2
+      let checkY = button.rect.y + 2
+      bxy.drawImage(checkKey, vec2(checkX, checkY), angle = 0, scale = 1, tint = checkColor)
 
   # Clear tooltip if no button is hovered
   if not anyButtonHovered:

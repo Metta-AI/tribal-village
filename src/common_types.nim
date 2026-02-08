@@ -80,6 +80,25 @@ type
     CmdTrainTrebuchet
     CmdTrainBoat
     CmdTrainTradeCog
+    # Research commands (Blacksmith upgrades - 5 lines)
+    CmdResearchMeleeAttack      # Forging → Iron Casting → Blast Furnace
+    CmdResearchArcherAttack     # Fletching → Bodkin Arrow → Bracer
+    CmdResearchInfantryArmor    # Scale Mail → Chain Mail → Plate Mail
+    CmdResearchCavalryArmor     # Scale Barding → Chain Barding → Plate Barding
+    CmdResearchArcherArmor      # Padded Archer → Leather Archer → Ring Archer
+    # Research commands (University techs)
+    CmdResearchBallistics
+    CmdResearchMurderHoles
+    CmdResearchMasonry
+    CmdResearchArchitecture
+    CmdResearchTreadmillCrane
+    CmdResearchArrowslits
+    CmdResearchHeatedShot
+    CmdResearchSiegeEngineers
+    CmdResearchChemistry
+    # Research commands (Castle unique techs)
+    CmdResearchCastleTech1      # Team's first unique tech (Castle Age)
+    CmdResearchCastleTech2      # Team's second unique tech (Imperial Age)
 
 {.push inline.}
 proc ivec2*(x, y: int): IVec2 =

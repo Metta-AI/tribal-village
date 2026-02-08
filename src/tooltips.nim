@@ -9,7 +9,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[strutils, strformat],
-  common, types, registry, items
+  common, types, registry, items, constants
 
 # ---------------------------------------------------------------------------
 # Types
@@ -175,6 +175,25 @@ proc getCommandDescription*(kind: CommandButtonKind): string =
   of CmdFormationBox: "Arrange selected units in a defensive box formation."
   of CmdFormationStaggered: "Arrange selected units in a staggered formation for ranged combat."
   of CmdFormationRangedSpread: "Spread ranged units to avoid friendly fire."
+  # Blacksmith research descriptions
+  of CmdResearchMeleeAttack: "Forging line: +1 melee attack per tier. Affects infantry and cavalry."
+  of CmdResearchArcherAttack: "Fletching line: +1 ranged attack per tier. Affects archers and towers."
+  of CmdResearchInfantryArmor: "Scale Mail line: +1 infantry armor per tier."
+  of CmdResearchCavalryArmor: "Scale Barding line: +1 cavalry armor per tier."
+  of CmdResearchArcherArmor: "Padded Archer line: +1 archer armor per tier."
+  # University research descriptions
+  of CmdResearchBallistics: "Projectiles lead moving targets for better accuracy."
+  of CmdResearchMurderHoles: "Towers can attack adjacent units (no minimum range)."
+  of CmdResearchMasonry: "+10% building HP, +1/+1 building armor."
+  of CmdResearchArchitecture: "+10% building HP, +1/+1 building armor (stacks with Masonry)."
+  of CmdResearchTreadmillCrane: "+20% construction speed for villagers."
+  of CmdResearchArrowslits: "+1 tower attack damage."
+  of CmdResearchHeatedShot: "+2 attack vs ships for towers and castles."
+  of CmdResearchSiegeEngineers: "+1 range, +20% building damage for siege units."
+  of CmdResearchChemistry: "Enables gunpowder units (future tech)."
+  # Castle research descriptions
+  of CmdResearchCastleTech1: "Team's unique Castle Age technology."
+  of CmdResearchCastleTech2: "Team's unique Imperial Age technology."
 
 proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
   ## Get resource costs for a command (building or training).
@@ -262,6 +281,26 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
     let costs = buildingTrainCosts(Dock)
     for cost in costs:
       result.add(&"{resourceName(cost.res)}: {cost.count}")
+  # Blacksmith research costs (scales with tier)
+  of CmdResearchMeleeAttack, CmdResearchArcherAttack, CmdResearchInfantryArmor,
+     CmdResearchCavalryArmor, CmdResearchArcherArmor:
+    # Base cost at tier 1, scaled by multiplier for higher tiers
+    result.add(&"Food: {BlacksmithUpgradeFoodCost} per tier")
+    result.add(&"Gold: {BlacksmithUpgradeGoldCost} per tier")
+  # University research costs (scales with tech index)
+  of CmdResearchBallistics, CmdResearchMurderHoles, CmdResearchMasonry,
+     CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
+     CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry:
+    result.add(&"Food: {UniversityTechFoodCost}+ (scales)")
+    result.add(&"Gold: {UniversityTechGoldCost}+ (scales)")
+    result.add(&"Wood: {UniversityTechWoodCost}+ (scales)")
+  # Castle research costs
+  of CmdResearchCastleTech1:
+    result.add(&"Food: {CastleTechFoodCost}")
+    result.add(&"Gold: {CastleTechGoldCost}")
+  of CmdResearchCastleTech2:
+    result.add(&"Food: {CastleTechImperialFoodCost}")
+    result.add(&"Gold: {CastleTechImperialGoldCost}")
   else:
     discard
 
@@ -321,6 +360,25 @@ proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipConte
     of CmdFormationBox: "Box Formation"
     of CmdFormationStaggered: "Staggered Formation"
     of CmdFormationRangedSpread: "Ranged Spread Formation"
+    # Blacksmith research
+    of CmdResearchMeleeAttack: "Forging Line"
+    of CmdResearchArcherAttack: "Fletching Line"
+    of CmdResearchInfantryArmor: "Infantry Armor"
+    of CmdResearchCavalryArmor: "Cavalry Armor"
+    of CmdResearchArcherArmor: "Archer Armor"
+    # University research
+    of CmdResearchBallistics: "Ballistics"
+    of CmdResearchMurderHoles: "Murder Holes"
+    of CmdResearchMasonry: "Masonry"
+    of CmdResearchArchitecture: "Architecture"
+    of CmdResearchTreadmillCrane: "Treadmill Crane"
+    of CmdResearchArrowslits: "Arrowslits"
+    of CmdResearchHeatedShot: "Heated Shot"
+    of CmdResearchSiegeEngineers: "Siege Engineers"
+    of CmdResearchChemistry: "Chemistry"
+    # Castle research
+    of CmdResearchCastleTech1: "Unique Tech I"
+    of CmdResearchCastleTech2: "Unique Tech II"
 
   result.description = getCommandDescription(kind)
   result.costLines = getCommandCosts(kind)

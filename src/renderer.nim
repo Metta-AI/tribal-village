@@ -2323,23 +2323,24 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
         bxy.drawImage(garrisonKey, vec2(textX, y), angle = 0, scale = 1.0)
         y += UnitInfoLineHeight
 
-      # Production Queue with icons and cancel buttons
+      # Production Queue with horizontal icon row (up to 10 entries)
       if building.productionQueue.entries.len > 0:
-        let (queueLabelKey, _) = getUnitInfoLabel("Production Queue:")
+        let (queueLabelKey, _) = getUnitInfoLabel("Queue:")
         bxy.drawImage(queueLabelKey, vec2(textX, y), angle = 0, scale = 1.0)
-        y += UnitInfoLineHeight - 4.0
+        y += UnitInfoLineHeight - 2.0
 
         const
-          QueueIconSize = 24.0'f32
+          QueueIconSize = 20.0'f32
           QueueIconScale = QueueIconSize / 200.0'f32  # Sprites are ~200px
-          QueueCancelBtnSize = 18.0'f32
-          QueueEntryHeight = 28.0'f32
-          QueueProgressBarW = 60.0'f32
+          QueueIconGap = 2.0'f32
+          QueueProgressBarH = 4.0'f32
+          MaxQueueIcons = 10
+
+        let queueRowY = y
+        var iconX = textX
 
         for i, entry in building.productionQueue.entries:
-          if i >= 5: break  # Show max 5 entries
-          let unitName = UnitClassLabels[entry.unitClass]
-          let entryY = y
+          if i >= MaxQueueIcons: break  # Show max 10 entries
 
           # Draw unit icon
           let baseKey = UnitClassSpriteKeys[entry.unitClass]
@@ -2349,54 +2350,46 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
             "oriented/gatherer.s"
           else:
             ""
-          if iconKey.len > 0:
-            bxy.drawImage(iconKey, vec2(textX, entryY), angle = 0, scale = QueueIconScale)
 
-          # Draw unit name after icon
-          let nameX = textX + QueueIconSize + 4.0
-          if i == 0 and entry.totalSteps > 0:
-            # First entry: show progress bar
-            let (entryKey, _) = getUnitInfoLabel(unitName)
-            bxy.drawImage(entryKey, vec2(nameX, entryY), angle = 0, scale = 1.0)
-            let progRatio = clamp(1.0 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
-            let progBarX = nameX + 70.0
-            bxy.drawRect(Rect(x: progBarX, y: entryY + 6.0, w: QueueProgressBarW, h: UnitInfoBarHeight),
-                         color(0.2, 0.2, 0.2, 0.9))
-            bxy.drawRect(Rect(x: progBarX, y: entryY + 6.0, w: QueueProgressBarW * progRatio, h: UnitInfoBarHeight),
-                         color(0.2, 0.5, 1.0, 1.0))
+          # Background for icon (darker for queued, brighter for first)
+          let iconBgColor = if i == 0:
+            color(0.25, 0.35, 0.45, 0.9)
           else:
-            # Queued entries: show dimmed text
-            let (queuedKey, _) = getUnitInfoLabel(unitName)
-            bxy.drawImage(queuedKey, vec2(nameX, entryY), angle = 0, scale = 1.0,
-                          tint = color(0.6, 0.6, 0.6, 1.0))
+            color(0.15, 0.18, 0.22, 0.8)
+          bxy.drawRect(Rect(x: iconX, y: queueRowY, w: QueueIconSize, h: QueueIconSize), iconBgColor)
 
-          # Draw cancel button (X) on the right side
-          let cancelBtnX = panelX + UnitInfoPanelWidth - UnitInfoPanelPadding - QueueCancelBtnSize
-          let cancelBtnY = entryY + (QueueEntryHeight - QueueCancelBtnSize) * 0.5 - 2.0
-          let cancelRect = Rect(x: cancelBtnX, y: cancelBtnY, w: QueueCancelBtnSize, h: QueueCancelBtnSize)
+          if iconKey.len > 0:
+            let tint = if i == 0: color(1.0, 1.0, 1.0, 1.0) else: color(0.7, 0.7, 0.7, 1.0)
+            bxy.drawImage(iconKey, vec2(iconX, queueRowY), angle = 0, scale = QueueIconScale, tint = tint)
 
-          # Check if mouse is hovering over this cancel button
-          let mousePos = window.mousePos.vec2
-          let hovered = mousePos.x >= cancelRect.x and mousePos.x <= cancelRect.x + cancelRect.w and
-                        mousePos.y >= cancelRect.y and mousePos.y <= cancelRect.y + cancelRect.h
-          let btnBgColor = if hovered: color(0.6, 0.2, 0.2, 0.9) else: color(0.3, 0.15, 0.15, 0.8)
-          bxy.drawRect(cancelRect, btnBgColor)
+          # Progress bar under first entry
+          if i == 0 and entry.totalSteps > 0:
+            let progRatio = clamp(1.0 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
+            let progBarY = queueRowY + QueueIconSize
+            bxy.drawRect(Rect(x: iconX, y: progBarY, w: QueueIconSize, h: QueueProgressBarH),
+                         color(0.2, 0.2, 0.2, 0.9))
+            bxy.drawRect(Rect(x: iconX, y: progBarY, w: QueueIconSize * progRatio, h: QueueProgressBarH),
+                         color(0.2, 0.5, 1.0, 1.0))
 
-          # Draw X text in center of button
-          let (xKey, xSize) = getUnitInfoLabel("X", 14.0)
-          let xPosX = cancelBtnX + (QueueCancelBtnSize - xSize.x.float32) * 0.5
-          let xPosY = cancelBtnY + (QueueCancelBtnSize - xSize.y.float32) * 0.5
-          bxy.drawImage(xKey, vec2(xPosX, xPosY), angle = 0, scale = 1.0,
-                        tint = if hovered: color(1.0, 0.8, 0.8, 1.0) else: color(0.9, 0.6, 0.6, 1.0))
-
-          # Track this cancel button for click handling
+          # Track this icon for right-click cancel
+          let iconRect = Rect(x: iconX, y: queueRowY, w: QueueIconSize, h: QueueIconSize + QueueProgressBarH)
           queueCancelButtons.add(QueueCancelButton(
-            rect: cancelRect,
+            rect: iconRect,
             queueIndex: i,
             buildingPos: building.pos
           ))
 
-          y += QueueEntryHeight
+          iconX += QueueIconSize + QueueIconGap
+
+        y += QueueIconSize + QueueProgressBarH + 6.0
+
+        # Show count if queue is longer than displayed
+        if building.productionQueue.entries.len > MaxQueueIcons:
+          let moreText = "+" & $(building.productionQueue.entries.len - MaxQueueIcons) & " more"
+          let (moreKey, _) = getUnitInfoLabel(moreText)
+          bxy.drawImage(moreKey, vec2(textX, y), angle = 0, scale = 1.0,
+                        tint = color(0.6, 0.6, 0.6, 1.0))
+          y += UnitInfoLineHeight
 
     else:
       # --- Other thing selected (resource, terrain object) ---

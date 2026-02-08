@@ -1521,6 +1521,124 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
     logCastleTech(teamId, techType, isImperial, env.currentStep)
   true
 
+# ---- UI-driven research (no villager required) ----
+
+proc uiResearchBlacksmithUpgrade*(env: Environment, building: Thing,
+                                  upgradeType: BlacksmithUpgradeType): bool =
+  ## UI-driven research: directly research a specific Blacksmith upgrade.
+  ## Used when player clicks research button in command panel.
+  if building.kind != Blacksmith:
+    return false
+  let teamId = building.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+  if currentLevel >= BlacksmithUpgradeMaxLevel:
+    return false
+
+  let costMultiplier = currentLevel + 1
+  let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
+  let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
+
+  if not env.spendStockpile(teamId, costs):
+    return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
+
+  env.teamBlacksmithUpgrades[teamId].levels[upgradeType] = currentLevel + 1
+  building.cooldown = 5
+  when defined(eventLog):
+    logTechResearched(teamId, "Blacksmith " & $upgradeType & " Level " & $(currentLevel + 1), env.currentStep)
+  when defined(techAudit):
+    logBlacksmithUpgrade(teamId, upgradeType, currentLevel + 1, env.currentStep)
+  true
+
+proc uiResearchUniversityTech*(env: Environment, building: Thing,
+                               techType: UniversityTechType): bool =
+  ## UI-driven research: directly research a specific University tech.
+  if building.kind != University:
+    return false
+  let teamId = building.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  if env.teamUniversityTechs[teamId].researched[techType]:
+    return false
+
+  let techIndex = ord(techType) + 1
+  let foodCost = UniversityTechFoodCost * techIndex
+  let goldCost = UniversityTechGoldCost * techIndex
+  let woodCost = UniversityTechWoodCost * techIndex
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost), (ResourceWood, woodCost)]
+
+  if not env.spendStockpile(teamId, costs):
+    return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
+
+  env.teamUniversityTechs[teamId].researched[techType] = true
+  building.cooldown = 8
+  when defined(eventLog):
+    logTechResearched(teamId, "University " & $techType, env.currentStep)
+  when defined(techAudit):
+    logUniversityTech(teamId, techType, env.currentStep)
+  true
+
+proc uiResearchCastleTech*(env: Environment, building: Thing, techIndex: int): bool =
+  ## UI-driven research: research Castle unique tech by index (0=Castle Age, 1=Imperial).
+  if building.kind != Castle:
+    return false
+  let teamId = building.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+
+  let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+  let techType = if techIndex == 0: castleAge else: imperialAge
+
+  if env.teamCastleTechs[teamId].researched[techType]:
+    return false
+  # Imperial Age requires Castle Age
+  if techIndex == 1 and not env.teamCastleTechs[teamId].researched[castleAge]:
+    return false
+
+  let isImperial = techIndex == 1
+  let foodCost = if isImperial: CastleTechImperialFoodCost else: CastleTechFoodCost
+  let goldCost = if isImperial: CastleTechImperialGoldCost else: CastleTechGoldCost
+  let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
+
+  if not env.spendStockpile(teamId, costs):
+    return false
+  when defined(econAudit):
+    recordResearchCost(teamId, costs, env.currentStep)
+
+  env.teamCastleTechs[teamId].researched[techType] = true
+  env.applyCastleTechBonuses(teamId, techType)
+  building.cooldown = 10
+  when defined(eventLog):
+    logTechResearched(teamId, "Castle " & $techType, env.currentStep)
+  when defined(techAudit):
+    logCastleTech(teamId, techType, isImperial, env.currentStep)
+  true
+
+proc uiQueueTrainUnit*(env: Environment, building: Thing, unitClass: AgentUnitClass,
+                       count: int = 1): int =
+  ## UI-driven training: queue units directly from building without villager.
+  ## Returns number of units successfully queued.
+  if not buildingHasTrain(building.kind):
+    return 0
+  let teamId = building.teamId
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  let costs = buildingTrainCosts(building.kind)
+  var queued = 0
+  for i in 0 ..< count:
+    if not env.queueTrainUnit(building, teamId, unitClass, costs):
+      break
+    inc queued
+  queued
+
 # ---- Unit upgrade / promotion chain logic (AoE2-style) ----
 
 proc upgradePrerequisite*(upgrade: UnitUpgradeType): UnitUpgradeType =

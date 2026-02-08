@@ -462,6 +462,69 @@ proc display() =
       if selection.len == 1 and isBuildingKind(selection[0].kind) and
          selection[0].teamId == playerTeam:
         rallyPointMode = true
+    # Training commands - queue unit production
+    of CmdTrainVillager, CmdTrainManAtArms, CmdTrainArcher, CmdTrainScout,
+       CmdTrainKnight, CmdTrainMonk, CmdTrainBatteringRam, CmdTrainMangonel,
+       CmdTrainTrebuchet, CmdTrainBoat, CmdTrainTradeCog:
+      if selection.len == 1 and isBuildingKind(selection[0].kind) and
+         selection[0].teamId == playerTeam:
+        let building = selection[0]
+        let unitClass = case clickedCmd
+          of CmdTrainVillager: UnitVillager
+          of CmdTrainManAtArms: UnitManAtArms
+          of CmdTrainArcher: UnitArcher
+          of CmdTrainScout: UnitScout
+          of CmdTrainKnight: UnitKnight
+          of CmdTrainMonk: UnitMonk
+          of CmdTrainBatteringRam: UnitBatteringRam
+          of CmdTrainMangonel: UnitMangonel
+          of CmdTrainTrebuchet: UnitTrebuchet
+          of CmdTrainBoat: UnitBoat
+          of CmdTrainTradeCog: UnitTradeCog
+          else: UnitVillager
+        # Shift-click to train 5 units, normal click trains 1
+        let count = if window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]: 5 else: 1
+        discard env.uiQueueTrainUnit(building, unitClass, count)
+    # Blacksmith research commands
+    of CmdResearchMeleeAttack, CmdResearchArcherAttack, CmdResearchInfantryArmor,
+       CmdResearchCavalryArmor, CmdResearchArcherArmor:
+      if selection.len == 1 and selection[0].kind == Blacksmith and
+         selection[0].teamId == playerTeam:
+        let upgradeType = case clickedCmd
+          of CmdResearchMeleeAttack: UpgradeMeleeAttack
+          of CmdResearchArcherAttack: UpgradeArcherAttack
+          of CmdResearchInfantryArmor: UpgradeInfantryArmor
+          of CmdResearchCavalryArmor: UpgradeCavalryArmor
+          of CmdResearchArcherArmor: UpgradeArcherArmor
+          else: UpgradeMeleeAttack
+        discard env.uiResearchBlacksmithUpgrade(selection[0], upgradeType)
+    # University research commands
+    of CmdResearchBallistics, CmdResearchMurderHoles, CmdResearchMasonry,
+       CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
+       CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry:
+      if selection.len == 1 and selection[0].kind == University and
+         selection[0].teamId == playerTeam:
+        let techType = case clickedCmd
+          of CmdResearchBallistics: TechBallistics
+          of CmdResearchMurderHoles: TechMurderHoles
+          of CmdResearchMasonry: TechMasonry
+          of CmdResearchArchitecture: TechArchitecture
+          of CmdResearchTreadmillCrane: TechTreadmillCrane
+          of CmdResearchArrowslits: TechArrowslits
+          of CmdResearchHeatedShot: TechHeatedShot
+          of CmdResearchSiegeEngineers: TechSiegeEngineers
+          of CmdResearchChemistry: TechChemistry
+          else: TechBallistics
+        discard env.uiResearchUniversityTech(selection[0], techType)
+    # Castle unique tech research commands
+    of CmdResearchCastleTech1:
+      if selection.len == 1 and selection[0].kind == Castle and
+         selection[0].teamId == playerTeam:
+        discard env.uiResearchCastleTech(selection[0], 0)
+    of CmdResearchCastleTech2:
+      if selection.len == 1 and selection[0].kind == Castle and
+         selection[0].teamId == playerTeam:
+        discard env.uiResearchCastleTech(selection[0], 1)
     else:
       discard
 
