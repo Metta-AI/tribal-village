@@ -8,6 +8,15 @@ export ai_build_helpers
 
 import ../entropy
 
+template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
+  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
+  ## shouldTerminate is the logical negation of canStart.
+  ## Shared template to reduce boilerplate across role modules.
+  proc canName(controller: Controller, env: Environment, agent: Thing,
+               agentId: int, state: var AgentState): bool = body
+  proc termName(controller: Controller, env: Environment, agent: Thing,
+                agentId: int, state: var AgentState): bool = not (body)
+
 proc actOrMove*(controller: Controller, env: Environment, agent: Thing,
                agentId: int, state: var AgentState,
                targetPos: IVec2, verb: uint8): uint8 =

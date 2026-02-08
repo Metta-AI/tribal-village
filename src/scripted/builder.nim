@@ -7,13 +7,9 @@ export options
 import coordination
 export coordination
 
+# Use shared optionGuard template from options module
 template builderGuard(canName, termName: untyped, body: untyped) {.dirty.} =
-  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
-  ## shouldTerminate is the logical negation of canStart.
-  proc canName(controller: Controller, env: Environment, agent: Thing,
-               agentId: int, state: var AgentState): bool = body
-  proc termName(controller: Controller, env: Environment, agent: Thing,
-                agentId: int, state: var AgentState): bool = not (body)
+  optionGuard(canName, termName, body)
 
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
@@ -28,8 +24,7 @@ const
     (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
-  BuilderThreatRadius* = 15
-  BuilderFleeRadius* = 8
+  # Note: BuilderThreatRadius and BuilderFleeRadius are defined in constants.nim
   BuilderFleeRadiusConst = BuilderFleeRadius
 
 proc getTotalBuildingCount(controller: Controller, env: Environment, teamId: int): int =

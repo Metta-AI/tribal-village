@@ -100,6 +100,8 @@ const
   # ============================================================================
   VillagerAttackDamage* = 1
   GathererFleeRadius* = 8  # Radius at which gatherers flee from predators
+  BuilderFleeRadius* = 8     # Radius at which builders flee from enemies
+  BuilderThreatRadius* = 15  # Radius at which builder detects threat to base
   EarlyGameThreshold* = 0.33  # First third of game
   LateGameThreshold* = 0.66   # Last third of game
   TaskSwitchHysteresis* = 5.0
