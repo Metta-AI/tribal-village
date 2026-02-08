@@ -1,7 +1,7 @@
 ## Minimal RL-style options: initiation, termination, and per-tick policy step.
 
-import ai_options
-export ai_options
+import ai_types
+export ai_types
 
 import ai_build_helpers
 export ai_build_helpers
