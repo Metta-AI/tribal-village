@@ -205,8 +205,8 @@ proc sampleUnitComposition(env: Environment, teamId: int, step: int): UnitCompos
       continue
     if agent.getTeamId() != teamId:
       continue
-    if env.terminated[agent.agentId] != 0.0:
-      continue  # Dead
+    if not isAgentAlive(env, agent):
+      continue  # Dead or not on grid
 
     inc result.total
     case classifyUnit(agent.unitClass)
