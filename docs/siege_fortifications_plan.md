@@ -2,7 +2,7 @@
 
 Date: 2026-01-13
 Owner: Design / Systems
-Status: Draft
+Status: Complete
 
 ## Goals
 - Make siege the clear, efficient answer to fortifications.

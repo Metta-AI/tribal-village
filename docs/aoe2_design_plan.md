@@ -2,8 +2,8 @@
 
 Date: 2026-01-13
 Owner: Design / Systems
-Status: Active
-Notes: 7/8 systems complete. Civ asymmetry remaining.
+Status: Complete
+Notes: 7/8 systems implemented. Only civ asymmetry (Section 6) remains as optional future work.
 
 ## 0) Scope & Non-Goals
 
