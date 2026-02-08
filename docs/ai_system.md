@@ -11,122 +11,153 @@ from a prioritized list of **behaviors (OptionDef)** rather than running a large
 monolithic policy. The gatherer/builder/fighter roles are the current stable
 baselines; a separate scripted/evolutionary path exists for generated roles.
 
-## Current AI wiring (include chain)
-This is the current include-based chain (flat scope):
+## Current AI architecture (module imports)
+The AI system uses proper Nim module imports with explicit exports:
+
 - `src/agent_control.nim`
-  - includes `src/scripted/ai_core.nim`
-  - includes `src/scripted/ai_defaults.nim`
+  - imports `scripted/ai_defaults` (re-exports it)
+  - imports `formations`
+  - Provides the unified action interface for agent control
+
 - `src/scripted/ai_defaults.nim`
-  - includes `src/scripted/options.nim`
-  - includes `src/scripted/gatherer.nim`
-  - includes `src/scripted/builder.nim`
-  - includes `src/scripted/fighter.nim`
-  - includes `src/scripted/roles.nim`
-  - includes `src/scripted/evolution.nim`
+  - imports and exports: `ai_build_helpers`, `ai_audit`, `economy`, `evolution`, `settlement`, `replay_analyzer`
+  - Contains role catalog management, decision-making, and controller update loop
 
-This structure is the "include sprawl" discussed in recent sessions. It works
-but makes ownership and symbol boundaries hard to reason about.
+- `src/scripted/ai_core.nim`
+  - imports and exports: `ai_types`, `coordination`, `environment`, `common_types`, `terrain`, `entropy`
+  - Provides foundational AI types, pathfinding, threat maps, and utility functions
 
-## Understanding the include pattern
+- `src/scripted/options.nim`
+  - imports and exports: `ai_types`, `ai_build_helpers`
+  - Defines the OptionDef behavior system and common behavior implementations
 
-### Nim's `include` vs `import`
+Role files (`gatherer.nim`, `builder.nim`, `fighter.nim`, `roles.nim`) import the
+core modules and define role-specific behavior option arrays.
 
-Nim has two mechanisms for code organization:
+## Module architecture
 
-| Mechanism | Behavior | Use Case |
-|-----------|----------|----------|
-| `import` | Loads a module with its own namespace | Standard modular code, clear dependencies |
-| `include` | Textually inserts file contents at that point | Code splitting within a single compilation unit |
+### Import-based design
 
-**`include` merges files into one scope.** All symbols from included files become
-part of the including file's namespace, as if you had written one large file.
+The AI system now uses proper Nim module imports with explicit exports. This
+provides clear symbol boundaries and explicit dependencies.
 
-### Why the AI uses `include`
+**Key modules:**
 
-The scripted AI system uses `include` for historical and practical reasons:
+| Module | Purpose |
+|--------|---------|
+| `ai_types.nim` | Shared types: `AgentRole`, `AgentState`, `Controller`, `PathfindingCache`, `ThreatMap` |
+| `ai_core.nim` | Foundational AI: pathfinding, threat maps, utility functions |
+| `ai_defaults.nim` | Role catalog, decision-making, controller update loop |
+| `options.nim` | `OptionDef` behavior system and common behaviors |
+| `coordination.nim` | Inter-role coordination and cooperation |
+| `economy.nim` | Economy tracking and resource prioritization |
+| `settlement.nim` | Town expansion and settler behavior |
+| `ai_build_helpers.nim` | Builder-specific helpers and site selection |
+| `ai_audit.nim` | AI decision logging (with `-d:aiAudit`) |
+| `evolution.nim` | Role evolution and fitness tracking |
 
-1. **Shared state access**: All behavior procs need access to `Environment`,
-   `Controller`, `AgentState`, and helper functions. With `include`, these
-   are automatically in scope without explicit imports or circular dependency
-   issues.
+### How imports work
 
-2. **Compile-time behavior registration**: The `OptionDef` arrays (e.g.,
-   `GathererOptions`, `BuilderOptions`) are static arrays that must be known
-   at compile time. `include` makes it easy to compose these without forward
-   declarations.
+Each module explicitly imports what it needs and exports what downstream modules
+should access. For example:
 
-3. **Incremental growth**: The system started small and grew by adding files.
-   `include` was the path of least resistance.
+```nim
+# ai_core.nim
+import ai_types
+import coordination
+export ai_types, coordination  # Make available to importers
+```
+
+This creates a clean dependency graph where:
+- `ai_types.nim` is at the root (no AI-specific dependencies)
+- `ai_core.nim` builds on types
+- `ai_defaults.nim` orchestrates everything
 
 ### Implications for developers
 
 **What works:**
-- Adding new procs that use existing types and helpers
+- Adding new procs to any module with proper imports
 - Adding new `OptionDef` entries to role arrays
-- Calling any proc defined anywhere in the include chain
+- Calling exported procs from imported modules
 
 **What to watch for:**
-- **Implicit dependencies**: A file may use symbols defined elsewhere in the
-  chain without any visible import statement. Check the include order if you
-  see "undeclared identifier" errors.
-- **Order matters**: Files are processed top-to-bottom. A proc in `fighter.nim`
-  can call procs from `ai_core.nim` (included earlier), but not vice versa
-  without forward declarations.
-- **No namespace isolation**: Name collisions between files are real. Prefix
-  role-specific helpers (e.g., `gathererFindResource`, `builderSelectSite`).
+- **Explicit imports required**: Unlike the old include model, you must import
+  modules to use their symbols
+- **Export visibility**: Procs/types not marked with `*` or `export` are private
+- **Circular dependency prevention**: The module hierarchy prevents cycles
 
-### The complete include graph
+### The module dependency graph
 
 ```
 src/agent_control.nim
-├── includes src/scripted/ai_core.nim
-│   ├── imports std/[tables, sets, algorithm]
-│   ├── imports ../entropy, vmath, ../environment, ../common, ../terrain
-│   └── defines: AgentRole, AgentState, Controller, PathfindingCache, helpers
+├── imports scripted/ai_defaults (exports it)
+│   ├── imports ai_build_helpers (exports it)
+│   ├── imports ai_audit (exports it)
+│   ├── imports economy (exports it)
+│   ├── imports evolution (exports it)
+│   ├── imports settlement (exports it)
+│   └── imports ../replay_analyzer (exports it)
 │
-└── includes src/scripted/ai_defaults.nim
-    ├── defines: tryBuildAction, goToAdjacentAndBuild, decideAction, etc.
-    │
-    ├── includes src/scripted/options.nim
-    │   └── defines: OptionDef, runOptions, MetaBehaviorOptions
-    │
-    ├── includes src/scripted/gatherer.nim
-    │   └── defines: GathererOptions array
-    │
-    ├── includes src/scripted/builder.nim
-    │   └── defines: BuilderOptions array
-    │
-    ├── includes src/scripted/fighter.nim
-    │   └── defines: FighterOptions array
-    │
-    ├── includes src/scripted/roles.nim
-    │   └── defines: RoleDef, RoleCatalog, materializeRoleOptions
-    │
-    └── includes src/scripted/evolution.nim
-        └── defines: generateRandomRole, applyScriptedScoring
+└── imports formations (exports it)
+
+src/scripted/ai_core.nim
+├── imports ai_types (exports it)
+├── imports coordination (exports it)
+├── imports ../environment, ../common_types, ../terrain (exports all)
+└── defines: pathfinding, threat maps, utility functions
+
+src/scripted/ai_types.nim
+├── imports ../environment, ../types
+└── defines: AgentRole, AgentState, Controller, PathfindingCache, ThreatMap
+
+src/scripted/options.nim
+├── imports ai_types (exports it)
+├── imports ai_build_helpers (exports it)
+└── defines: OptionDef, runOptions, behavior implementations
+
+Role files (gatherer.nim, builder.nim, fighter.nim):
+├── import options (gets ai_types, ai_core via re-exports)
+└── define: role-specific OptionDef arrays (GathererOptions, etc.)
+
+src/scripted/roles.nim
+├── imports options
+└── defines: RoleDef, RoleCatalog, materializeRoleOptions
+
+src/scripted/evolution.nim
+├── imports roles
+└── defines: role evolution, scoring, mutation
 ```
 
 ### Adding new code
 
 **To add a new behavior:**
 1. Define `canStart*` and `opt*` procs in the appropriate role file
-2. Add an `OptionDef` entry to that role's options array
-3. The `*` export marker is optional (everything is in scope anyway) but helps
-   indicate public API intent
+2. Export them with `*` so they're accessible to the options system
+3. Add an `OptionDef` entry to that role's options array
+4. Ensure you import any needed modules (types come via `options` re-export)
 
 **To add a new role file:**
 1. Create `src/scripted/newrole.nim`
-2. Add `include "newrole"` in `ai_defaults.nim` after dependencies
-3. Define your options array and register it in `seedDefaultBehaviorCatalog`
+2. Add `import options` (or `import ai_types` for minimal dependencies)
+3. Define your options array
+4. Add `import newrole` and `export newrole` in `ai_defaults.nim`
+5. Register behaviors in `seedDefaultBehaviorCatalog`
+
+**To add a new utility module:**
+1. Create `src/scripted/newmodule.nim`
+2. Import `ai_types` for core types
+3. Add to appropriate module's imports (e.g., `ai_core.nim` or `ai_defaults.nim`)
+4. Export if needed by downstream modules
 
 **Best practice**: Each file should have a header comment like:
 ```nim
-# This file is included by src/agent_control.nim
+## Description of module purpose
+## Imported by: ai_defaults.nim, options.nim
 ```
-This helps developers understand the context when viewing the file in isolation.
+This documents the module's role in the dependency graph.
 
 ## Roles and controller state
-- `AgentRole` (in `src/scripted/ai_core.nim`): `Gatherer`, `Builder`, `Fighter`,
+- `AgentRole` (in `src/scripted/ai_types.nim`): `Gatherer`, `Builder`, `Fighter`,
   `Scripted`.
 - `Controller` owns per-agent `AgentState` (spiral search state, cached
   resource positions, active option tracking, path hints).
@@ -257,15 +288,23 @@ are easy to diff and audit.
 5) Keep the behavior **focused** (one goal) so future meta-roles can re-order
    it safely.
 
-## Modularization plan (documented intent)
-If/when we refactor the include chain, a minimal, low-risk modularization is:
-- `ai_types.nim`: shared types (`AgentRole`, `AgentState`, `Controller`).
-- `ai_options.nim`: `OptionDef`, `runOptions`, and helper procs.
-- `ai_roles.nim`: role assembly (gatherer/builder/fighter lists).
-- `ai_controller.nim`: `decideAction`, controller update logic.
+## Modularization (completed)
+The include-to-import refactoring has been completed. The current module structure:
 
-Goal: replace `include` with explicit `import` to reduce accidental coupling
-without changing behavior.
+- `ai_types.nim`: shared types (`AgentRole`, `AgentState`, `Controller`, `PathfindingCache`, `ThreatMap`)
+- `options.nim`: `OptionDef`, `runOptions`, and common behavior implementations
+- `ai_core.nim`: pathfinding, threat maps, and core utility functions
+- `ai_defaults.nim`: `decideAction`, controller update logic, role catalog management
+- Role files: `gatherer.nim`, `builder.nim`, `fighter.nim` (behavior option arrays)
+- `roles.nim`: `RoleDef`, `RoleCatalog`, role materialization
+- `evolution.nim`: role evolution, scoring, and mutation
+
+Additional specialized modules:
+- `coordination.nim`: inter-role coordination and team cooperation
+- `economy.nim`: resource tracking and economy-driven decisions
+- `settlement.nim`: town expansion and settler management
+- `ai_build_helpers.nim`: builder site selection and construction helpers
+- `ai_audit.nim`: AI decision logging for debugging
 
 ## Debugging and profiling hooks
 
