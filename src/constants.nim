@@ -376,6 +376,10 @@ const
   HealerSeekRadius* = 30      # Max distance to search for friendly monks
   MonkHealRadius* = 2         # Distance to stay near monk for healing (matches MonkAuraRadius)
 
+  # Retreat
+  RetreatAllySeekRadius* = 15 # Max distance to search for allied combat units when retreating
+  RetreatAllyMinDist* = 3     # Minimum distance to ally (don't retreat if already close)
+
   # Kiting and siege detection
   KiteTriggerDistance* = 3    # Distance at which kiting triggers
   AntiSiegeDetectionRadius* = 12  # Distance to detect enemy siege units

@@ -28,6 +28,7 @@ var threateningCache: Table[int, bool]
 var meleeEnemyCache: PerAgentCache[Thing]
 var siegeEnemyCache: PerAgentCache[Thing]
 var friendlyMonkCache: PerAgentCache[Thing]
+var combatAllyCache: PerAgentCache[Thing]
 var scoutEnemyCache: PerAgentCache[Thing]
 var seesEnemyStructureCache: PerAgentCache[bool]
 
@@ -342,6 +343,49 @@ proc findNearestFriendlyMonk(env: Environment, agent: Thing): Thing =
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
   friendlyMonkCache.getWithAgent(env, agent, findNearestFriendlyMonkUncached)
 
+proc findNearestCombatAllyUncached(env: Environment, agent: Thing): Thing =
+  ## Internal: actual search logic for nearest friendly combat unit (for retreat).
+  ## Prioritizes healthy allies (HP > 50%) that are not too close.
+  ## Combat units: ManAtArms, Knight, Archer (ranged support counts too).
+  let teamId = getTeamId(agent)
+  var bestAlly: Thing = nil
+  var bestDist = int.high
+  let (cx, cy) = cellCoords(agent.pos)
+  let clampedMax = min(RetreatAllySeekRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = distToCellRadius16(clampedMax)
+  for ddx in -cellRadius .. cellRadius:
+    for ddy in -cellRadius .. cellRadius:
+      let nx = cx + ddx
+      let ny = cy + ddy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if other.isNil or other.agentId == agent.agentId:
+          continue
+        if not isAgentAlive(env, other):
+          continue
+        if getTeamId(other) != teamId:
+          continue
+        # Only consider combat units that can help in a fight
+        if other.unitClass notin {UnitManAtArms, UnitKnight, UnitArcher}:
+          continue
+        # Prefer healthy allies (HP > 50%) - don't retreat to wounded allies
+        if other.hp * 2 < other.maxHp:
+          continue
+        let dist = int(chebyshevDist(agent.pos, other.pos))
+        # Must be within search radius but not too close (already grouped)
+        if dist > RetreatAllySeekRadius or dist < RetreatAllyMinDist:
+          continue
+        if dist < bestDist:
+          bestDist = dist
+          bestAlly = other
+  bestAlly
+
+proc findNearestCombatAlly(env: Environment, agent: Thing): Thing =
+  ## Find the nearest friendly combat unit to retreat toward using spatial index.
+  ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
+  combatAllyCache.getWithAgent(env, agent, findNearestCombatAllyUncached)
+
 proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
   ## Seek healer when low HP and no bread available.
@@ -384,11 +428,21 @@ proc shouldTerminateFighterRetreat(controller: Controller, env: Environment, age
 
 proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint8 =
+  ## Retreat when HP is low. Prioritizes retreating toward allied combat units
+  ## for mutual defense, falling back to defensive buildings if no allies nearby.
   if agent.hp * 3 > agent.maxHp:
     return 0'u8
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   state.basePosition = basePos
+
+  # First priority: retreat toward nearby allied combat units
+  # Grouping up with allies provides mutual defense and increases survivability
+  let ally = findNearestCombatAlly(env, agent)
+  if not isNil(ally):
+    return controller.moveTo(env, agent, agentId, state, ally.pos)
+
+  # Fallback: retreat to defensive buildings
   var safePos = basePos
   for kind in [Outpost, Barracks, TownCenter, Monastery]:
     let safe = env.findNearestFriendlyThingSpiral(state, teamId, kind)
