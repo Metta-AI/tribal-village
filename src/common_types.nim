@@ -85,6 +85,15 @@ type
 proc ivec2*(x, y: int): IVec2 =
   result.x = x.int32
   result.y = y.int32
+
+# Distance calculations - use these instead of inline expressions
+template chebyshevDist*(a, b: IVec2): int32 =
+  ## Chebyshev distance (max of abs differences) - used for tower/building ranges
+  max(abs(a.x - b.x), abs(a.y - b.y))
+
+template manhattanDist*(a, b: IVec2): int32 =
+  ## Manhattan distance (sum of abs differences) - used for pathfinding costs
+  abs(a.x - b.x) + abs(a.y - b.y)
 {.pop.}
 
 const OrientationDeltas*: array[8, IVec2] = [

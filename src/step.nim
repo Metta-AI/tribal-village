@@ -103,10 +103,7 @@ var logRenderCount = 0
 
 include "actions"
 
-# Common distance calculation used throughout step logic
-template chebyshevDist*(a, b: IVec2): int32 =
-  ## Chebyshev distance (max of abs differences) - used for tower/building ranges
-  max(abs(a.x - b.x), abs(a.y - b.y))
+# chebyshevDist and manhattanDist templates are now in common_types.nim
 
 const
   # Tower/Castle/TownCenter attack visuals (colors are display-only, not in constants.nim)

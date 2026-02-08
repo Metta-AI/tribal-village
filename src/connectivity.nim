@@ -1,13 +1,10 @@
+# AdjacentOffsets8 is imported via environment.nim from common_types
+
 const
   ConnectWallCost = 5
   ConnectTerrainCost = 6
   ConnectWaterCost = 50
   ConnectDiggableKinds = {Wall, Tree, Wheat, Stubble, Stone, Gold, Bush, Cactus, Stalagmite, Stump}
-
-let ConnectDirs8 = [
-  ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1),
-  ivec2(-1, -1), ivec2(1, -1), ivec2(-1, 1), ivec2(1, 1)
-]
 
 proc makeConnected*(env: Environment) =
   template inPlayableBounds(pos: IVec2): bool =
@@ -64,7 +61,7 @@ proc makeConnected*(env: Environment) =
           let pos = queue[head]
           inc head
           inc count
-          for d in ConnectDirs8:
+          for d in AdjacentOffsets8:
             let nx = pos.x + d.x
             let ny = pos.y + d.y
             let npos = ivec2(nx.int32, ny.int32)
@@ -109,7 +106,7 @@ proc makeConnected*(env: Environment) =
       let x = cellIdx mod MapWidth
       let y = cellIdx div MapWidth
       let curPos = ivec2(x.int32, y.int32)
-      for d in ConnectDirs8:
+      for d in AdjacentOffsets8:
         let nx = x + d.x.int
         let ny = y + d.y.int
         let npos = ivec2(nx.int32, ny.int32)
