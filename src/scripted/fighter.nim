@@ -31,6 +31,7 @@ var friendlyMonkCache: PerAgentCache[Thing]
 var combatAllyCache: PerAgentCache[Thing]
 var scoutEnemyCache: PerAgentCache[Thing]
 var seesEnemyStructureCache: PerAgentCache[bool]
+var allyNearbyCache: PerAgentCache[bool]
 
 proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -401,6 +402,21 @@ proc countNearbyEnemies(env: Environment, agent: Thing, radius: int): int =
   var enemies: seq[Thing] = @[]
   collectEnemiesInRangeSpatial(env, agent.pos, getTeamId(agent), radius, enemies)
   result = enemies.len
+
+proc hasAllyNearbyUncached(env: Environment, agent: Thing): bool =
+  ## Check if any ally (other than self) is within 4 tiles.
+  ## Uncached version - use hasAllyNearby for cached lookups.
+  var allies: seq[Thing] = @[]
+  collectAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), 4, allies)
+  for a in allies:
+    if a.agentId != agent.agentId:
+      return true
+  false
+
+proc hasAllyNearby(env: Environment, agent: Thing): bool =
+  ## Check if any ally (other than self) is within 4 tiles.
+  ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate.
+  allyNearbyCache.getWithAgent(env, agent, hasAllyNearbyUncached)
 
 proc shouldWaitForAllies*(env: Environment, agent: Thing): bool =
   ## Return true if agent should wait for nearby allies before engaging.
@@ -1218,26 +1234,14 @@ proc canStartFighterAggressive(controller: Controller, env: Environment, agent: 
     return false
   if agent.hp * 2 >= agent.maxHp:
     return true
-  # Use spatial index to check for nearby allies within 4 tiles
-  var allies: seq[Thing] = @[]
-  collectAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), 4, allies)
-  for a in allies:
-    if a.agentId != agent.agentId:
-      return true
-  false
+  hasAllyNearby(env, agent)
 
 proc shouldTerminateFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                       agentId: int, state: var AgentState): bool =
   # Terminate when HP drops low and no allies nearby for support
   if agent.hp * 2 >= agent.maxHp:
     return false
-  # Use spatial index to check for nearby allies within 4 tiles
-  var allies: seq[Thing] = @[]
-  collectAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), 4, allies)
-  for a in allies:
-    if a.agentId != agent.agentId:
-      return false
-  true
+  not hasAllyNearby(env, agent)
 
 proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint8 =
