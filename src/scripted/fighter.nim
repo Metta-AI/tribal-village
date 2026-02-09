@@ -386,6 +386,32 @@ proc findNearestCombatAlly(env: Environment, agent: Thing): Thing =
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
   combatAllyCache.getWithAgent(env, agent, findNearestCombatAllyUncached)
 
+proc countNearbyAllies(env: Environment, agent: Thing, radius: int): int =
+  ## Count allied agents within radius Chebyshev distance.
+  ## Excludes the agent itself from the count.
+  var allies: seq[Thing] = @[]
+  collectAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), radius, allies)
+  result = 0
+  for a in allies:
+    if a.agentId != agent.agentId:
+      inc result
+
+proc countNearbyEnemies(env: Environment, agent: Thing, radius: int): int =
+  ## Count enemy agents within radius Chebyshev distance.
+  var enemies: seq[Thing] = @[]
+  collectEnemiesInRangeSpatial(env, agent.pos, getTeamId(agent), radius, enemies)
+  result = enemies.len
+
+proc shouldWaitForAllies*(env: Environment, agent: Thing): bool =
+  ## Return true if agent should wait for nearby allies before engaging.
+  ## Delays engagement when outnumbered but more allies are approaching.
+  ## This enables coordinated attacks rather than piecemeal engagements.
+  let nearbyAllies = countNearbyAllies(env, agent, radius=5)
+  let nearbyEnemies = countNearbyEnemies(env, agent, radius=7)
+  # Wait if outnumbered and allies are coming
+  result = nearbyEnemies > nearbyAllies + 1 and
+           countNearbyAllies(env, agent, radius=10) > nearbyAllies
+
 proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
   ## Seek healer when low HP and no bread available.
