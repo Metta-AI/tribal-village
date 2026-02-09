@@ -155,16 +155,16 @@ let TerrainCatalog* = block:
 
   for (terrain, displayName, spriteKey, ascii) in [
     (Empty, "Empty", "", ' '),
-    (Water, "Water", "", '~'),
-    (ShallowWater, "Shallow Water", "", '.'),
-    (Bridge, "Bridge", "", '='),
-    (Fertile, "Fertile", "", 'f'),
-    (Road, "Road", "", 'r'),
-    (Grass, "Grass", "", 'g'),
-    (Dune, "Dune", "", 'd'),
-    (Sand, "Sand", "", 's'),
-    (Snow, "Snow", "", 'n'),
-    (Mud, "Mud", "", 'm')
+    (Water, "Water", "water", '~'),
+    (ShallowWater, "Shallow Water", "shallow_water", '.'),
+    (Bridge, "Bridge", "bridge", '='),
+    (Fertile, "Fertile", "fertile", 'f'),
+    (Road, "Road", "road", 'r'),
+    (Grass, "Grass", "grass", 'g'),
+    (Dune, "Dune", "dune", 'd'),
+    (Sand, "Sand", "sand", 's'),
+    (Snow, "Snow", "snow", 'n'),
+    (Mud, "Mud", "mud", 'm')
   ]:
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
   reg
@@ -242,7 +242,8 @@ proc terrainSpriteKey*(terrain: TerrainType): string =
   if terrain == Empty or isRampTerrain(terrain):
     return ""
   let key = TerrainCatalog[terrain].spriteKey
-  if key.len == 0: toSnakeCase($terrain) else: key
+  assert key.len > 0, "Missing spriteKey for terrain: " & $terrain
+  key
 
 
 proc thingSpriteKey*(kind: ThingKind): string =
