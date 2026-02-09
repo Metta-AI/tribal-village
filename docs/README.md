@@ -32,6 +32,10 @@ This index lists the canonical docs for the Tribal Village repo.
 - `terrain_biomes.md`: biome masks, elevation, cliffs, ramps, mud, water depth, movement speed modifiers, biome resource bonuses, connectivity.
 - `wildlife_predators.md`: wildlife spawn and behavior rules.
 
+## Testing
+- `testing.md`: test organization, `behavior_*` vs `domain_*` conventions, naming guidelines.
+- `TEST_AUDIT_REPORT.md`: test suite audit findings and recommendations.
+
 ## Tooling and Pipelines
 - `cli_and_debugging.md`: CLI usage, debugging flags, common failure modes.
 - `training_and_replays.md`: training entrypoints and replay writer setup.

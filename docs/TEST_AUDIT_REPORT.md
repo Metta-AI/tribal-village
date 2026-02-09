@@ -160,6 +160,8 @@ Some functionality is tested in multiple places with slight variations:
 - `behavior_*` vs `domain_*` distinction is unclear
 - Some `domain_*` tests are behavioral, some are unit-level
 
+**Resolution**: See `testing.md` for documented conventions on when to use each category.
+
 ---
 
 ## 5. Recommendations Summary
@@ -179,7 +181,7 @@ Some functionality is tested in multiple places with slight variations:
    - Out-of-range attacks
    - Cross-team action blocking
 
-5. **Document Test Categories** - Clarify the distinction between `behavior_*` and `domain_*` tests
+5. ~~**Document Test Categories**~~ - Complete. See `testing.md` for `behavior_*` vs `domain_*` conventions.
 
 ### Long-term Considerations
 
