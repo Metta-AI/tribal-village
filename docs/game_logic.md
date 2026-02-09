@@ -124,15 +124,14 @@ Verbs:
 - **Idle villager detection**: The UI highlights idle villagers with an indicator for quick task assignment.
 
 ## Victory Conditions
-Multiple victory modes are supported (configurable per game):
+Multiple victory modes are supported (configurable per game). See [Victory Conditions](victory_conditions.md) for detailed mechanics, countdown durations, and implementation references.
 
 - **Conquest**: Eliminate all enemy units and buildings. Rewards are applied for total elimination.
-- **Wonder**: Build a Wonder structure and defend it for a countdown period. The countdown starts
+- **Wonder**: Build a Wonder structure and defend it for 600 steps. The countdown starts
   when the Wonder is **completed**, not when placement begins.
-- **Relic**: Collect and hold relics in a Monastery. Destroying a Monastery releases held relics.
-  Relic victory requires controlling a threshold number of relics.
-- **King of the Hill**: Capture and hold a central control point for a set duration.
-- **Regicide**: Each team has a King unit; the game ends when the enemy King is killed.
+- **Relic**: Collect all 18 relics and hold them in Monasteries for 200 steps. Destroying a Monastery releases held relics.
+- **King of the Hill**: Control the central ControlPoint for 300 consecutive steps (most units within 5-tile radius).
+- **Regicide**: Each team has a King unit; the game ends when only one team's King survives.
 
 ## Rewards and Episode End
 - Rewards are configured in `EnvironmentConfig` (`src/types.nim`): ore, bar, heart, tumor kill,
@@ -146,3 +145,4 @@ Multiple victory modes are supported (configurable per game):
 - Combat overlays and bonuses: `src/combat.nim`
 - Items/inventory: `src/items.nim`
 - Terrain/biomes: `src/terrain.nim` and `src/biome.nim`
+- Victory conditions: [Victory Conditions](victory_conditions.md) and `src/step.nim:783-980`
