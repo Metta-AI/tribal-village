@@ -940,6 +940,27 @@ proc drawObjects*() =
             if popLabel.len > 0 and popLabel in bxy:
               bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
                             scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+        # Garrison indicator for buildings that can garrison units
+        if thing.kind in {TownCenter, Castle, GuardTower, House}:
+          let garrisonCount = thing.garrisonedUnits.len
+          if garrisonCount > 0:
+            # Position on right side of building to avoid overlap with stockpile icons
+            let garrisonIconPos = pos.vec2 + vec2(0.22, -0.62)
+            if "oriented/fighter.s" in bxy:
+              bxy.drawImage("oriented/fighter.s", garrisonIconPos, angle = 0,
+                            scale = OverlayIconScale, tint = color(1, 1, 1, 1))
+            let garrisonText = "x" & $garrisonCount
+            let garrisonLabel = if garrisonText in overlayLabelImages: overlayLabelImages[garrisonText]
+              else:
+                let (image, _) = renderTextLabel(garrisonText, HeartCountFontPath,
+                                                 HeartCountFontSize, HeartCountPadding.float32, 0.7)
+                let key = "overlay_label/" & garrisonText.replace(" ", "_")
+                bxy.addImage(key, image)
+                overlayLabelImages[garrisonText] = key
+                key
+            if garrisonLabel.len > 0 and garrisonLabel in bxy:
+              bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(0.12, -0.08), angle = 0,
+                            scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
     else:
       let spriteKey = thingSpriteKey(kind)
       if spriteKey.len == 0 or spriteKey notin bxy:
