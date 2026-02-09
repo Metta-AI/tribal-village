@@ -455,6 +455,8 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     # Spawn floating damage number for combat feedback
     let dmgKind = if bonus > 0: DmgNumCritical else: DmgNumDamage
     env.spawnDamageNumber(target.pos, remaining, dmgKind)
+    # Spawn attack impact particles for visual hit feedback
+    env.spawnAttackImpact(target.pos)
 
   when defined(combatAudit):
     if remaining > 0 and not attacker.isNil:

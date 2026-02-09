@@ -346,6 +346,24 @@ proc stepDecayWaterRipples(env: Environment) =
         inc writeIdx
     env.waterRipples.setLen(writeIdx)
 
+proc stepDecayAttackImpacts(env: Environment) =
+  ## Update attack impact particle positions and remove expired ones.
+  ## Particles burst outward and fade quickly.
+  if env.attackImpacts.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.attackImpacts.len:
+      env.attackImpacts[readIdx].countdown -= 1
+      if env.attackImpacts[readIdx].countdown > 0:
+        # Update position based on velocity
+        env.attackImpacts[readIdx].pos.x += env.attackImpacts[readIdx].velocity.x
+        env.attackImpacts[readIdx].pos.y += env.attackImpacts[readIdx].velocity.y
+        # Apply drag to slow particles
+        env.attackImpacts[readIdx].velocity.x *= 0.85
+        env.attackImpacts[readIdx].velocity.y *= 0.85
+        env.attackImpacts[writeIdx] = env.attackImpacts[readIdx]
+        inc writeIdx
+    env.attackImpacts.setLen(writeIdx)
+
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
   if env.actionTintPositions.len > 0:
@@ -1218,6 +1236,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayConstructionDust()
   env.stepDecayUnitTrails()
   env.stepDecayWaterRipples()
+  env.stepDecayAttackImpacts()
 
   when defined(stepTiming):
     if timing:

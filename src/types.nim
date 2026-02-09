@@ -876,6 +876,21 @@ const
   WaterRippleLifetime* = 16'i8        ## Frames ripples persist (~1 second)
   WaterRipplePoolCapacity* = 64       ## Initial capacity for ripple pool
 
+type
+  AttackImpact* = object
+    ## A burst particle spawned when attacks hit targets.
+    ## Particles radiate outward from the impact point and fade quickly.
+    pos*: Vec2           ## Current world position (float for smooth animation)
+    velocity*: Vec2      ## Movement velocity (outward burst)
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+
+const
+  ## Attack impact visual constants
+  AttackImpactLifetime* = 10'i8          ## Frames impact particles persist (quick burst)
+  AttackImpactPoolCapacity* = 128        ## Initial capacity for impact pool
+  AttackImpactParticleCount* = 6         ## Number of particles per impact
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1229,6 +1244,7 @@ type
     constructionDust*: seq[ConstructionDust]  # Dust particles during building construction
     unitTrails*: seq[UnitTrail]  # Dust/footprint trails behind moving units
     waterRipples*: seq[WaterRipple]  # Ripple effects when units walk through water
+    attackImpacts*: seq[AttackImpact]  # Burst particles when attacks hit targets
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

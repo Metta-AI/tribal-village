@@ -2323,6 +2323,22 @@ proc spawnWaterRipple*(env: Environment, pos: IVec2) =
     countdown: WaterRippleLifetime,
     lifetime: WaterRippleLifetime))
 
+proc spawnAttackImpact*(env: Environment, pos: IVec2) =
+  ## Spawn burst particles at the given position when an attack hits a target.
+  ## Particles radiate outward and fade quickly for a sharp impact effect.
+  if not isValidPos(pos):
+    return
+  # Spawn multiple particles in a radial burst pattern
+  for i in 0 ..< AttackImpactParticleCount:
+    let angle = (i.float32 / AttackImpactParticleCount.float32) * 6.28318  # 2*PI
+    let speed = 0.12 + (i mod 3).float32 * 0.04  # Vary speed for organic burst
+    let velocity = vec2(cos(angle) * speed, sin(angle) * speed)
+    env.attackImpacts.add(AttackImpact(
+      pos: vec2(pos.x.float32, pos.y.float32),
+      velocity: velocity,
+      countdown: AttackImpactLifetime,
+      lifetime: AttackImpactLifetime))
+
 include "combat_audit"
 include "tumor_audit"
 include "action_audit"

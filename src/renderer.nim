@@ -1401,6 +1401,28 @@ proc drawWaterRipples*() =
     let tint = color(0.5, 0.7, 0.9, alpha)
     bxy.drawImage("floor", ripple.pos, angle = 0, scale = baseScale, tint = tint)
 
+proc drawAttackImpacts*() =
+  ## Draw attack impact burst particles when attacks hit targets.
+  ## Particles radiate outward and fade quickly for a sharp impact effect.
+  if not currentViewport.valid:
+    return
+  for impact in env.attackImpacts:
+    if impact.lifetime <= 0:
+      continue
+    # Check viewport bounds (convert float pos to int for check)
+    let ipos = ivec2(impact.pos.x.int32, impact.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = impact.countdown.float32 / impact.lifetime.float32
+    # Fade out quickly with quadratic ease for punchy effect
+    let alpha = t * t * 0.9
+    # Orange/red impact color for combat feedback
+    let tintColor = color(1.0, 0.5, 0.2, alpha)
+    # Small particles that shrink as they fade
+    let scale = (1.0 / 400.0).float32 * (0.3 + t * 0.7)  # 30% to 100%
+    bxy.drawImage("floor", impact.pos, angle = 0, scale = scale, tint = tintColor)
+
 proc drawWeatherEffects*() =
   ## Draw ambient weather effects (rain or wind particles) across the viewport.
   ## Uses deterministic animation based on frame counter for consistent effects.
