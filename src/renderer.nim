@@ -95,6 +95,7 @@ type FloorSpriteKind = enum
   FloorBase
   FloorCave
   FloorDungeon
+  FloorSnow
 
 
 const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
@@ -415,6 +416,7 @@ proc rebuildRenderCaches() =
           var v = uint32(x) * 374761393'u32 + uint32(y) * 668265263'u32
           v = (v xor (v shr 13)) * 1274126177'u32
           if ((v xor (v shr 16)) mod 100) < 35: FloorDungeon else: FloorBase
+        of BiomeSnowType: FloorSnow
         else: FloorBase
       floorSpritePositions[floorKind].add(ivec2(x, y))
 
@@ -434,6 +436,7 @@ proc drawFloor*() =
     let floorSprite = case floorKind
       of FloorCave: "cave"
       of FloorDungeon: "dungeon"
+      of FloorSnow: "snow"
       of FloorBase: "floor"
     for pos in floorSpritePositions[floorKind]:
       if not isInViewport(pos):
