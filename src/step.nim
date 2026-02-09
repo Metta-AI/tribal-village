@@ -114,6 +114,7 @@ const
   # Aura tints (colors are display-only, not in constants.nim)
   TankAuraTint = TileColor(r: 0.95, g: 0.75, b: 0.25, intensity: 1.05)
   MonkAuraTint = TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.05)
+  ConversionTint = TileColor(r: 0.95, g: 0.85, b: 0.35, intensity: 1.25)  # Golden divine glow
 
   # Compile-time dispatch tables: replace runtime case/branching with array lookups
   # indexed by AgentUnitClass enum ordinal. This eliminates branch mispredictions in
@@ -363,6 +364,18 @@ proc stepDecayAttackImpacts(env: Environment) =
         env.attackImpacts[writeIdx] = env.attackImpacts[readIdx]
         inc writeIdx
     env.attackImpacts.setLen(writeIdx)
+
+proc stepDecayConversionEffects(env: Environment) =
+  ## Update conversion effect countdowns and remove expired ones.
+  ## Conversion effects display as pulsing glows on converted units.
+  if env.conversionEffects.len > 0:
+    var writeIdx = 0
+    for readIdx in 0 ..< env.conversionEffects.len:
+      env.conversionEffects[readIdx].countdown -= 1
+      if env.conversionEffects[readIdx].countdown > 0:
+        env.conversionEffects[writeIdx] = env.conversionEffects[readIdx]
+        inc writeIdx
+    env.conversionEffects.setLen(writeIdx)
 
 proc stepDecayActionTints(env: Environment) =
   ## Decay short-lived action tints, removing expired ones
@@ -1237,6 +1250,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayUnitTrails()
   env.stepDecayWaterRipples()
   env.stepDecayAttackImpacts()
+  env.stepDecayConversionEffects()
 
   when defined(stepTiming):
     if timing:
@@ -1722,7 +1736,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
-              env.applyUnitAttackTint(agent.unitClass, healPos)
+              # Apply conversion-specific visual effect (golden tint + pulsing glow)
+              env.applyActionTint(healPos, ConversionTint, ConversionTintDuration, ActionTintConvertMonk)
+              if newTeam < env.teamColors.len:
+                env.spawnConversionEffect(healPos, env.teamColors[newTeam])
               # Consume faith on successful conversion
               agent.faith = agent.faith - MonkConversionFaithCost
               when defined(combatAudit):

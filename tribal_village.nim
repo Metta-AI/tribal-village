@@ -1098,6 +1098,7 @@ proc display() =
 
   drawWaterRipples()
   drawAttackImpacts()
+  drawConversionEffects()
   drawSpawnEffects()
   when defined(renderTiming):
     if timingActive:

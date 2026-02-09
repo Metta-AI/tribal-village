@@ -1423,6 +1423,38 @@ proc drawAttackImpacts*() =
     let scale = (1.0 / 400.0).float32 * (0.3 + t * 0.7)  # 30% to 100%
     bxy.drawImage("floor", impact.pos, angle = 0, scale = scale, tint = tintColor)
 
+proc drawConversionEffects*() =
+  ## Draw pulsing glow effects when monks convert enemy units.
+  ## Displays as a golden/team-colored radial glow that pulses and fades.
+  if not currentViewport.valid:
+    return
+  for effect in env.conversionEffects:
+    if effect.lifetime <= 0:
+      continue
+    # Check viewport bounds
+    let ipos = ivec2(effect.pos.x.int32, effect.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = effect.countdown.float32 / effect.lifetime.float32
+    # Pulsing effect: sine wave for divine/spiritual feel (2 pulses over lifetime)
+    let pulse = (sin(t * 6.28318 * 2.0) + 1.0) * 0.5  # 0 to 1
+    # Fade out over time with pulsing intensity
+    let alpha = t * (0.5 + pulse * 0.5)
+    # Blend between golden divine color and team color
+    let golden = color(0.95, 0.85, 0.35, alpha)
+    let teamAlpha = effect.teamColor
+    let blendT = 1.0 - t  # More team color as time progresses
+    let tintColor = color(
+      golden.r * (1.0 - blendT) + teamAlpha.r * blendT,
+      golden.g * (1.0 - blendT) + teamAlpha.g * blendT,
+      golden.b * (1.0 - blendT) + teamAlpha.b * blendT,
+      alpha * 0.8)
+    # Draw expanding ring effect
+    let baseScale = (1.0 / 400.0).float32
+    let expandScale = baseScale * (1.0 + (1.0 - t) * 1.5)  # Expands as it fades
+    bxy.drawImage("floor", effect.pos, angle = 0, scale = expandScale, tint = tintColor)
+
 proc drawWeatherEffects*() =
   ## Draw ambient weather effects (rain or wind particles) across the viewport.
   ## Uses deterministic animation based on frame counter for consistent effects.

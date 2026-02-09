@@ -2339,6 +2339,17 @@ proc spawnAttackImpact*(env: Environment, pos: IVec2) =
       countdown: AttackImpactLifetime,
       lifetime: AttackImpactLifetime))
 
+proc spawnConversionEffect*(env: Environment, pos: IVec2, teamColor: Color) =
+  ## Spawn a pulsing glow effect at the given position when a monk converts a unit.
+  ## The effect uses the new team's color for visual feedback.
+  if not isValidPos(pos):
+    return
+  env.conversionEffects.add(ConversionEffect(
+    pos: vec2(pos.x.float32, pos.y.float32),
+    countdown: ConversionEffectLifetime,
+    lifetime: ConversionEffectLifetime,
+    teamColor: teamColor))
+
 include "combat_audit"
 include "tumor_audit"
 include "action_audit"

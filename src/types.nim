@@ -91,6 +91,7 @@ const
   ActionTintShield* = 21'u8
   ActionTintHealMonk* = 30'u8
   ActionTintHealBread* = 31'u8
+  ActionTintConvertMonk* = 32'u8  # Monk conversion (enemy to friendly)
   ActionTintMixed* = 200'u8
   # Castle unique unit attack tints
   ActionTintAttackSamurai* = 40'u8
@@ -891,6 +892,21 @@ const
   AttackImpactPoolCapacity* = 128        ## Initial capacity for impact pool
   AttackImpactParticleCount* = 6         ## Number of particles per impact
 
+type
+  ConversionEffect* = object
+    ## A pulsing visual effect when a monk converts an enemy unit.
+    ## Displays as a golden/divine glow on the converted unit.
+    pos*: Vec2           ## World position (at converted unit)
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for pulse calculation)
+    teamColor*: Color    ## Team color of the monk (new owner)
+
+const
+  ## Conversion effect visual constants
+  ConversionEffectLifetime* = 20'i8      ## Frames conversion effect persists (pulsing glow)
+  ConversionEffectPoolCapacity* = 32     ## Initial capacity for effect pool
+  ConversionTintDuration* = 4'i8         ## Duration of tile tint for conversion
+
 const
   TeamOwnedKinds* = {
     Agent,
@@ -1245,6 +1261,7 @@ type
     unitTrails*: seq[UnitTrail]  # Dust/footprint trails behind moving units
     waterRipples*: seq[WaterRipple]  # Ripple effects when units walk through water
     attackImpacts*: seq[AttackImpact]  # Burst particles when attacks hit targets
+    conversionEffects*: seq[ConversionEffect]  # Pulsing glow when monks convert units
     thingsByKind*: array[ThingKind, seq[Thing]]
     spatialIndex*: SpatialIndex  # Spatial partitioning for O(1) nearest queries
     # Aura unit tracking for O(1) iteration (avoids scanning all agents)

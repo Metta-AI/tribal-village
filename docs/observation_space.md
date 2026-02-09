@@ -181,6 +181,7 @@ Defined in `src/types.nim`:
 **Heal codes:**
 - `ActionTintHealMonk` = 30
 - `ActionTintHealBread` = 31
+- `ActionTintConvertMonk` = 32 (monk conversion of enemy unit)
 
 **Castle unique unit attack tints (40-48):**
 - `ActionTintAttackSamurai` = 40 through `ActionTintAttackKing` = 48
