@@ -1603,6 +1603,10 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
     if score > bestScore:
       bestScore = score
       bestTarget = candidate
+      # Early-exit: good-enough candidate found (unexplored + decent position)
+      # Threshold 140 = unexplored(+50) + good distance(~90+) with minimal threats
+      if bestScore >= 140:
+        break
 
   # If no good target found, use the spiral position directly
   if bestTarget.x < 0:
