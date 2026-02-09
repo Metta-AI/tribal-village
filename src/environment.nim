@@ -718,8 +718,17 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
     agent.embarkedUnitClass = unitClass
   let teamId = getTeamId(agent)
   let modifiers = env.teamModifiers[teamId]
-  agent.maxHp = UnitMaxHpByClass[unitClass] + modifiers.unitHpBonus[unitClass]
-  agent.attackDamage = UnitAttackDamageByClass[unitClass] + modifiers.unitAttackBonus[unitClass]
+  # Use base stat override if set (>0), otherwise use default
+  let baseHp = if modifiers.unitBaseHpOverride[unitClass] > 0:
+    modifiers.unitBaseHpOverride[unitClass]
+  else:
+    UnitMaxHpByClass[unitClass]
+  let baseAttack = if modifiers.unitBaseAttackOverride[unitClass] > 0:
+    modifiers.unitBaseAttackOverride[unitClass]
+  else:
+    UnitAttackDamageByClass[unitClass]
+  agent.maxHp = baseHp + modifiers.unitHpBonus[unitClass]
+  agent.attackDamage = baseAttack + modifiers.unitAttackBonus[unitClass]
   agent.hp = agent.maxHp
   # Initialize monk faith
   if unitClass == UnitMonk:
@@ -1737,8 +1746,17 @@ proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitCl
     agent.unitClass = toClass
     if toClass != UnitBoat:
       agent.embarkedUnitClass = toClass
-    agent.maxHp = UnitMaxHpByClass[toClass] + modifiers.unitHpBonus[toClass]
-    agent.attackDamage = UnitAttackDamageByClass[toClass] + modifiers.unitAttackBonus[toClass]
+    # Use base stat override if set (>0), otherwise use default
+    let baseHp = if modifiers.unitBaseHpOverride[toClass] > 0:
+      modifiers.unitBaseHpOverride[toClass]
+    else:
+      UnitMaxHpByClass[toClass]
+    let baseAttack = if modifiers.unitBaseAttackOverride[toClass] > 0:
+      modifiers.unitBaseAttackOverride[toClass]
+    else:
+      UnitAttackDamageByClass[toClass]
+    agent.maxHp = baseHp + modifiers.unitHpBonus[toClass]
+    agent.attackDamage = baseAttack + modifiers.unitAttackBonus[toClass]
     agent.hp = max(1, int(hpRatio * agent.maxHp.float))
     when defined(techAudit):
       inc unitsUpgraded

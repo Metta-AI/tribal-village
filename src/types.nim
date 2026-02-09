@@ -1105,6 +1105,15 @@ type
     buildCostMultiplier*: float32   ## 1.0 = normal build costs
     unitHpBonus*: array[AgentUnitClass, int]      ## Bonus HP per unit class
     unitAttackBonus*: array[AgentUnitClass, int]  ## Bonus attack per unit class
+    # Runtime configuration for building/unit availability
+    disabledBuildings*: set[ThingKind]            ## Buildings this team cannot build
+    disabledUnits*: set[AgentUnitClass]           ## Unit classes this team cannot train
+    # Base stat overrides (0 = use default, >0 = override value)
+    unitBaseHpOverride*: array[AgentUnitClass, int]
+    unitBaseAttackOverride*: array[AgentUnitClass, int]
+    # Per-building and per-unit cost multipliers (0.0 or 1.0 = normal, other = multiplied)
+    buildingCostMultiplier*: array[ThingKind, float32]
+    trainCostMultiplier*: array[AgentUnitClass, float32]
 
   MarketPrices* = object
     ## AoE2-style dynamic market prices per resource (in gold per 100 units)
@@ -1366,12 +1375,23 @@ proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
 
 proc defaultTeamModifiers*(): TeamModifiers =
   ## Create default (neutral) team modifiers with no bonuses
-  TeamModifiers(
+  result = TeamModifiers(
     gatherRateMultiplier: 1.0'f32,
     buildCostMultiplier: 1.0'f32,
     unitHpBonus: default(array[AgentUnitClass, int]),
-    unitAttackBonus: default(array[AgentUnitClass, int])
+    unitAttackBonus: default(array[AgentUnitClass, int]),
+    disabledBuildings: {},
+    disabledUnits: {},
+    unitBaseHpOverride: default(array[AgentUnitClass, int]),
+    unitBaseAttackOverride: default(array[AgentUnitClass, int]),
+    buildingCostMultiplier: default(array[ThingKind, float32]),
+    trainCostMultiplier: default(array[AgentUnitClass, float32])
   )
+  # Initialize cost multipliers to 1.0 (normal cost)
+  for kind in ThingKind:
+    result.buildingCostMultiplier[kind] = 1.0'f32
+  for unitClass in AgentUnitClass:
+    result.trainCostMultiplier[unitClass] = 1.0'f32
 
 proc getUnitAttackRange*(agent: Thing): int =
   ## Get the attack range for a unit based on its class.

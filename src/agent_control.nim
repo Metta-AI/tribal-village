@@ -444,6 +444,10 @@ proc canBuildingTrainUnit*(env: Environment, buildingX, buildingY: int32, unitCl
   if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
     return false
   let requestedClass = AgentUnitClass(unitClass)
+  # Check if unit class is disabled for this team
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    if requestedClass in env.teamModifiers[teamId].disabledUnits:
+      return false
   let defaultClass = buildingTrainUnit(thing.kind, teamId.int)
   # Building can only train its default unit class for the given team
   requestedClass == defaultClass
@@ -463,11 +467,21 @@ proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32, 
   if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
     return false
   let requestedClass = AgentUnitClass(unitClass)
+  # Check if unit class is disabled for this team
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    if requestedClass in env.teamModifiers[teamId].disabledUnits:
+      return false
   let defaultClass = buildingTrainUnit(thing.kind, teamId.int)
   # Validate the building can train this unit class
   if requestedClass != defaultClass:
     return false
-  let costs = buildingTrainCosts(thing.kind)
+  var costs = buildingTrainCosts(thing.kind)
+  # Apply per-unit cost multiplier
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let mult = env.teamModifiers[teamId].trainCostMultiplier[requestedClass]
+    if mult != 0.0'f32 and mult != 1.0'f32:
+      for i in 0 ..< costs.len:
+        costs[i] = (res: costs[i].res, count: max(1, int(float32(costs[i].count) * mult + 0.5)))
   queueTrainUnit(env, thing, teamId.int, requestedClass, costs)
 
 proc cancelAllTrainingQueue*(env: Environment, buildingX, buildingY: int32): int32 =

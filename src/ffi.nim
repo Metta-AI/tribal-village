@@ -1053,3 +1053,131 @@ proc tribal_village_set_optimal_build_order_enabled*(env: pointer, teamId: int32
   if isNil(globalController) or isNil(globalController.aiController):
     return
   globalController.aiController.difficulty[teamId].optimalBuildOrderEnabled = enabled != 0
+
+# ============== Building/Unit Availability Configuration FFI Functions ==============
+
+proc tribal_village_set_building_enabled*(env: pointer, teamId: int32, buildingKind: int32, enabled: int32) {.exportc, dynlib.} =
+  ## Enable or disable a building type for a team.
+  ## buildingKind: ordinal of ThingKind enum
+  ## enabled: 1=enabled (can build), 0=disabled (cannot build)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if buildingKind < 0 or buildingKind > ord(ThingKind.high):
+    return
+  let kind = ThingKind(buildingKind)
+  if enabled != 0:
+    globalEnv.teamModifiers[teamId].disabledBuildings.excl(kind)
+  else:
+    globalEnv.teamModifiers[teamId].disabledBuildings.incl(kind)
+
+proc tribal_village_is_building_enabled*(env: pointer, teamId: int32, buildingKind: int32): int32 {.exportc, dynlib.} =
+  ## Check if a building type is enabled for a team.
+  ## Returns 1 if enabled, 0 if disabled.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1  # Default to enabled
+  if buildingKind < 0 or buildingKind > ord(ThingKind.high):
+    return 1
+  let kind = ThingKind(buildingKind)
+  if kind in globalEnv.teamModifiers[teamId].disabledBuildings: 0 else: 1
+
+proc tribal_village_set_unit_enabled*(env: pointer, teamId: int32, unitClass: int32, enabled: int32) {.exportc, dynlib.} =
+  ## Enable or disable a unit class for a team.
+  ## unitClass: ordinal of AgentUnitClass enum
+  ## enabled: 1=enabled (can train), 0=disabled (cannot train)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return
+  let uc = AgentUnitClass(unitClass)
+  if enabled != 0:
+    globalEnv.teamModifiers[teamId].disabledUnits.excl(uc)
+  else:
+    globalEnv.teamModifiers[teamId].disabledUnits.incl(uc)
+
+proc tribal_village_is_unit_enabled*(env: pointer, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
+  ## Check if a unit class is enabled for a team.
+  ## Returns 1 if enabled, 0 if disabled.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1  # Default to enabled
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return 1
+  let uc = AgentUnitClass(unitClass)
+  if uc in globalEnv.teamModifiers[teamId].disabledUnits: 0 else: 1
+
+proc tribal_village_set_unit_base_hp*(env: pointer, teamId: int32, unitClass: int32, baseHp: int32) {.exportc, dynlib.} =
+  ## Set the base HP for a unit class on a team.
+  ## baseHp: 0 = use default, >0 = override value
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return
+  globalEnv.teamModifiers[teamId].unitBaseHpOverride[AgentUnitClass(unitClass)] = max(0, baseHp.int)
+
+proc tribal_village_get_unit_base_hp*(env: pointer, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
+  ## Get the base HP override for a unit class on a team.
+  ## Returns 0 if using default, >0 if overridden.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return 0
+  globalEnv.teamModifiers[teamId].unitBaseHpOverride[AgentUnitClass(unitClass)].int32
+
+proc tribal_village_set_unit_base_attack*(env: pointer, teamId: int32, unitClass: int32, baseAttack: int32) {.exportc, dynlib.} =
+  ## Set the base attack for a unit class on a team.
+  ## baseAttack: 0 = use default, >0 = override value
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return
+  globalEnv.teamModifiers[teamId].unitBaseAttackOverride[AgentUnitClass(unitClass)] = max(0, baseAttack.int)
+
+proc tribal_village_get_unit_base_attack*(env: pointer, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
+  ## Get the base attack override for a unit class on a team.
+  ## Returns 0 if using default, >0 if overridden.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return 0
+  globalEnv.teamModifiers[teamId].unitBaseAttackOverride[AgentUnitClass(unitClass)].int32
+
+proc tribal_village_set_building_cost_multiplier*(env: pointer, teamId: int32, buildingKind: int32, multiplier: float32) {.exportc, dynlib.} =
+  ## Set the cost multiplier for a building type on a team.
+  ## multiplier: 1.0 = normal cost, 0.5 = half cost, 2.0 = double cost
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if buildingKind < 0 or buildingKind > ord(ThingKind.high):
+    return
+  globalEnv.teamModifiers[teamId].buildingCostMultiplier[ThingKind(buildingKind)] = max(0.0'f32, multiplier)
+
+proc tribal_village_get_building_cost_multiplier*(env: pointer, teamId: int32, buildingKind: int32): float32 {.exportc, dynlib.} =
+  ## Get the cost multiplier for a building type on a team.
+  ## Returns 1.0 if normal cost.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1.0'f32
+  if buildingKind < 0 or buildingKind > ord(ThingKind.high):
+    return 1.0'f32
+  let mult = globalEnv.teamModifiers[teamId].buildingCostMultiplier[ThingKind(buildingKind)]
+  if mult == 0.0'f32: 1.0'f32 else: mult
+
+proc tribal_village_set_train_cost_multiplier*(env: pointer, teamId: int32, unitClass: int32, multiplier: float32) {.exportc, dynlib.} =
+  ## Set the training cost multiplier for a unit class on a team.
+  ## multiplier: 1.0 = normal cost, 0.5 = half cost, 2.0 = double cost
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return
+  globalEnv.teamModifiers[teamId].trainCostMultiplier[AgentUnitClass(unitClass)] = max(0.0'f32, multiplier)
+
+proc tribal_village_get_train_cost_multiplier*(env: pointer, teamId: int32, unitClass: int32): float32 {.exportc, dynlib.} =
+  ## Get the training cost multiplier for a unit class on a team.
+  ## Returns 1.0 if normal cost.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 1.0'f32
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return 1.0'f32
+  let mult = globalEnv.teamModifiers[teamId].trainCostMultiplier[AgentUnitClass(unitClass)]
+  if mult == 0.0'f32: 1.0'f32 else: mult
+
+proc tribal_village_get_num_building_kinds*(): int32 {.exportc, dynlib.} =
+  ## Get the number of ThingKind values (for iterating over building types).
+  int32(ord(ThingKind.high) + 1)

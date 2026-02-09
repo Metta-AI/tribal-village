@@ -2708,7 +2708,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       block buildFromChoices:
         let key = BuildChoices[argument]
         var buildKind: ThingKind
-        let isDock = parseThingKey(key, buildKind) and buildKind == Dock
+        let buildKindValid = parseThingKey(key, buildKind)
+        let isDock = buildKindValid and buildKind == Dock
+
+        # Check if building is disabled for this team
+        if buildKindValid:
+          let buildTeamId = getTeamId(agent)
+          if buildTeamId >= 0 and buildTeamId < MapRoomObjectsTeams:
+            if buildKind in env.teamModifiers[buildTeamId].disabledBuildings:
+              invalidAndBreak(buildFromChoices)
 
         var offsets: array[9, IVec2]
         var offsetCount = 0
@@ -2740,9 +2748,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           invalidAndBreak(buildFromChoices)
 
         let teamId = getTeamId(agent)
-        let costs = buildCostsForKey(key)
+        var costs = buildCostsForKey(key)
         if costs.len == 0:
           invalidAndBreak(buildFromChoices)
+        # Apply per-building cost multiplier
+        if buildKindValid and teamId >= 0 and teamId < MapRoomObjectsTeams:
+          let mult = env.teamModifiers[teamId].buildingCostMultiplier[buildKind]
+          if mult != 0.0'f32 and mult != 1.0'f32:
+            for i in 0 ..< costs.len:
+              costs[i].count = max(1, int(float32(costs[i].count) * mult + 0.5))
         let payment = choosePayment(env, agent, costs)
         if payment == PayNone:
           invalidAndBreak(buildFromChoices)
