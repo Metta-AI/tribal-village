@@ -1077,11 +1077,22 @@ proc optFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   actOrMove(controller, env, agent, agentId, state, siege.pos, 2'u8)
 
+const
+  # Ranged units that should kite (move away from melee threats while attacking)
+  # Excludes siege units (Scorpion, Mangonel, Trebuchet) which should stand and fire
+  KitingRangedUnits = {
+    UnitArcher, UnitCrossbowman, UnitArbalester,
+    UnitSkirmisher, UnitEliteSkirmisher,
+    UnitCavalryArcher, UnitHeavyCavalryArcher,
+    UnitHandCannoneer
+  }
+
 proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
-  ## Kiting triggers for archers when a melee enemy is within trigger distance
+  ## Kiting triggers for ranged units when a melee enemy is within trigger distance
   ## StandGround stance disables kiting (no movement allowed)
-  if agent.unitClass notin {UnitArcher, UnitCrossbowman, UnitArbalester}:
+  ## Excludes siege units (Scorpion) which should stand and fire rather than kite
+  if agent.unitClass notin KitingRangedUnits:
     return false
   if not stanceAllowsMovementToAttack(env, agent):
     return false
@@ -1094,7 +1105,7 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
 proc shouldTerminateFighterKite(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
   ## Terminate when no melee enemy within trigger distance
-  if agent.unitClass notin {UnitArcher, UnitCrossbowman, UnitArbalester}:
+  if agent.unitClass notin KitingRangedUnits:
     return true
   let meleeEnemy = findNearestMeleeEnemy(env, agent)
   if isNil(meleeEnemy):
