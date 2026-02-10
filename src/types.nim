@@ -579,6 +579,7 @@ type
 
     # Lantern:
     teamId*: int               # Which team this lantern belongs to (for color spreading)
+    teamMask*: TeamMask        # Cached team bitmask (1 shl teamId) for O(1) spatial queries
     lanternHealthy*: bool      # Whether lantern is active (not destroyed by tumor)
 
     # Garrison (TownCenter, Castle, GuardTower, House):
@@ -1014,12 +1015,20 @@ proc getTeamId*(agent: Thing): int =
   else:
     getTeamId(agent.agentId)
 
-proc getTeamMask*(agent: Thing): TeamMask =
-  ## Get team bitmask for a Thing. Respects conversions.
-  ## Returns NoTeamMask for nil agents or invalid teams.
+proc updateTeamMask*(thing: Thing) {.inline.} =
+  ## Update the cached teamMask field from current teamId/teamIdOverride.
+  ## Call this whenever teamId or teamIdOverride changes.
+  if thing.isNil:
+    return
+  thing.teamMask = getTeamMask(getTeamId(thing))
+
+proc getTeamMask*(agent: Thing): TeamMask {.inline.} =
+  ## Get cached team bitmask for a Thing. O(1) lookup.
+  ## Returns NoTeamMask for nil agents.
+  ## IMPORTANT: Caller must ensure updateTeamMask was called after any teamId changes.
   if agent.isNil:
     return NoTeamMask
-  getTeamMask(getTeamId(agent))
+  agent.teamMask
 
 proc sameTeamMask*(a, b: Thing): bool =
   ## Check if two Things are on the same team using bitwise AND.

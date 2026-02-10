@@ -156,6 +156,7 @@ suite "Behavior: Combat Respects Team Affiliation":
     let env2 = makeEmptyEnv()
     let unit = addAgentAt(env2, MapAgentsPerTeam, ivec2(10, 9))
     unit.teamIdOverride = 0  # Simulate conversion to team 0
+    updateTeamMask(unit)     # Update cached mask after override change
     let attacker = addAgentAt(env2, MapAgentsPerTeam + 1, ivec2(10, 8))
     attacker.attackDamage = 5
     let hpBefore = unit.hp
@@ -533,6 +534,7 @@ suite "Behavior: Multi-team Diplomacy State Transitions (3+ teams)":
     applyUnitClass(t2unit, UnitManAtArms)
     # Simulate conversion to team 0
     t2unit.teamIdOverride = 0
+    updateTeamMask(t2unit)  # Update cached mask after override change
     check getTeamId(t2unit) == 0
 
     let hpBefore = t2unit.hp
