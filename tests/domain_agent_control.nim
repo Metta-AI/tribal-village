@@ -35,10 +35,10 @@ suite "Agent Control - Garrison (env-based)":
     let agent = env.addAgentAt(0, ivec2(49, 50))
     let success = env.garrisonAgentInBuilding(0, 50, 50)
     check success == true
-    # Agent is garrisoned (verified through Thing field and garrison count)
     check agent.isGarrisoned == true
     check agent.pos == ivec2(-1, -1)
     check env.getGarrisonCount(50, 50) == 1
+    check env.isAgentGarrisoned(0) == true
 
   test "ungarrison all from building":
     var env = makeEmptyEnv()
@@ -46,10 +46,10 @@ suite "Agent Control - Garrison (env-based)":
     discard env.addBuilding(GuardTower, ivec2(50, 50), 0)
     let agent = env.addAgentAt(0, ivec2(49, 50))
     discard env.garrisonAgentInBuilding(0, 50, 50)
-    check agent.isGarrisoned == true
+    check env.isAgentGarrisoned(0) == true
     let count = env.ungarrisonAllFromBuilding(50, 50)
     check count == 1
-    check agent.isGarrisoned == false
+    check env.isAgentGarrisoned(0) == false
     check env.getGarrisonCount(50, 50) == 0
 
   test "garrison at invalid position returns false":

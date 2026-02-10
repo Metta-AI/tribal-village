@@ -391,11 +391,13 @@ proc getGarrisonCount*(env: Environment, buildingX, buildingY: int32): int32 =
 
 proc isAgentGarrisoned*(env: Environment, agentId: int): bool =
   ## Check if an agent is currently garrisoned inside a building.
+  ## Note: Garrisoned agents are NOT on the grid (pos is -1,-1), so we check
+  ## terminated status directly rather than isAgentAlive (which requires grid presence).
   if agentId < 0 or agentId >= env.agents.len:
     return false
-  let agent = env.agents[agentId]
-  if not isAgentAlive(env, agent):
+  if env.terminated[agentId] != 0.0:
     return false
+  let agent = env.agents[agentId]
   agent.isGarrisoned
 
 # Production Queue API
