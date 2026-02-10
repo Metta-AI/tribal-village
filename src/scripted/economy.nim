@@ -267,6 +267,8 @@ proc evaluateTribute*(env: Environment, teamId: int) =
     for otherTeam in 0 ..< MapRoomObjectsTeams:
       if otherTeam == teamId:
         continue
+      if not env.areAllied(teamId, otherTeam):
+        continue  # Only tribute allied teams
       let otherStock = env.stockpileCount(otherTeam, res)
       if otherStock < lowestStock:
         lowestStock = otherStock

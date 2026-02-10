@@ -97,10 +97,10 @@ proc checkRelicVictory(env: Environment): int =
   -1
 
 proc checkRegicideVictory(env: Environment): int =
-  ## Returns winning team ID if only one team's king survives, else -1.
+  ## Returns winning team ID if only one allied group's king(s) survive, else -1.
   ## Teams without a king assigned are ignored (not playing regicide).
-  var survivingTeam = -1
-  var survivingCount = 0
+  var survivingMask: TeamMask = NoTeamMask
+  var firstSurvivor = -1
   var participatingTeams = 0
   for teamId in 0 ..< MapRoomObjectsTeams:
     let kingId = env.victoryStates[teamId].kingAgentId
@@ -108,14 +108,17 @@ proc checkRegicideVictory(env: Environment): int =
       continue  # Team has no king, not participating
     inc participatingTeams
     if isAgentAlive(env, env.agents[kingId]):
-      survivingTeam = teamId
-      inc survivingCount
-      if survivingCount > 1:
-        return -1  # Multiple kings alive
+      survivingMask = survivingMask or getTeamMask(teamId)
+      if firstSurvivor < 0:
+        firstSurvivor = teamId
   if participatingTeams < 2:
     return -1  # Need at least 2 teams with kings
-  if survivingCount == 1:
-    return survivingTeam
+  if survivingMask == NoTeamMask:
+    return -1  # All kings dead (draw)
+  # Check if all surviving kings belong to the same alliance group
+  let firstSurvivorAllies = env.teamAlliances[firstSurvivor]
+  if (survivingMask and (not firstSurvivorAllies)) == NoTeamMask:
+    return firstSurvivor
   -1
 
 proc checkKingOfTheHillVictory(env: Environment): int =
