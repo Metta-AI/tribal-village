@@ -273,6 +273,38 @@ proc isAgentPatrolActive*(agentId: int): bool =
     return globalController.aiController.isPatrolActive(agentId)
   false
 
+# Multi-waypoint Patrol API
+# These functions allow external code to set custom patrol routes with 2-8 waypoints.
+# Agent cycles through waypoints in order, wrapping to first after reaching last.
+
+proc setAgentMultiWaypointPatrol*(agentId: int, waypoints: seq[IVec2]) =
+  ## Set a multi-waypoint patrol route for an agent.
+  ## Accepts 2-8 waypoints. Agent cycles through in order, wrapping after last.
+  ## Requires BuiltinAI controller. Clears any stopped state.
+  withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
+    globalController.aiController.setMultiWaypointPatrol(agentId, waypoints)
+
+proc setAgentMultiWaypointPatrolXY*(agentId: int, coords: seq[tuple[x, y: int32]]) =
+  ## Set a multi-waypoint patrol route using x,y coordinate tuples.
+  var waypoints: seq[IVec2] = @[]
+  for coord in coords:
+    waypoints.add(ivec2(coord.x, coord.y))
+  setAgentMultiWaypointPatrol(agentId, waypoints)
+
+proc getAgentPatrolWaypointCount*(agentId: int): int =
+  ## Get the number of waypoints in a multi-waypoint patrol route.
+  ## Returns 0 if using legacy 2-point patrol or no patrol active.
+  withBuiltinAI:
+    return globalController.aiController.getPatrolWaypointCount(agentId)
+  0
+
+proc getAgentPatrolCurrentWaypointIndex*(agentId: int): int =
+  ## Get the current waypoint index in multi-waypoint patrol (0-based).
+  withBuiltinAI:
+    return globalController.aiController.getPatrolCurrentWaypointIndex(agentId)
+  0
+
 # Stance API
 # These functions allow external code to set combat stance for agents.
 # Deferred versions (no env required) apply the stance on next decideAction.

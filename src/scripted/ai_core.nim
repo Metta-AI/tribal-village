@@ -1585,11 +1585,13 @@ proc setPatrol*(controller: Controller, agentId: int, point1, point2: IVec2) =
     controller.agents[agentId].patrolActive = true
 
 proc clearPatrol*(controller: Controller, agentId: int) =
-  ## Disable patrol mode for an agent.
+  ## Disable patrol mode for an agent. Clears both legacy and multi-waypoint patrol.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].patrolActive = false
     controller.agents[agentId].patrolPoint1 = ivec2(-1, -1)
     controller.agents[agentId].patrolPoint2 = ivec2(-1, -1)
+    controller.agents[agentId].patrolWaypointCount = 0
+    controller.agents[agentId].patrolCurrentWaypoint = 0
 
 proc isPatrolActive*(controller: Controller, agentId: int): bool =
   ## Check if patrol mode is active for an agent.
@@ -1599,13 +1601,58 @@ proc isPatrolActive*(controller: Controller, agentId: int): bool =
 
 proc getPatrolTarget*(controller: Controller, agentId: int): IVec2 =
   ## Get the current patrol target waypoint.
+  ## Handles both legacy 2-point patrol and multi-waypoint patrol.
   if agentId >= 0 and agentId < MapAgents:
     let state = controller.agents[agentId]
+    # Multi-waypoint patrol takes priority
+    if state.patrolWaypointCount > 0:
+      return state.patrolWaypoints[state.patrolCurrentWaypoint]
+    # Legacy 2-point patrol
     if state.patrolToSecondPoint:
       return state.patrolPoint2
     else:
       return state.patrolPoint1
   ivec2(-1, -1)
+
+proc setMultiWaypointPatrol*(controller: Controller, agentId: int, waypoints: openArray[IVec2]) =
+  ## Set a multi-waypoint patrol route for an agent.
+  ## Accepts 2-8 waypoints. Agent cycles through waypoints in order,
+  ## wrapping to first after reaching last. Enables patrol mode.
+  if agentId < 0 or agentId >= MapAgents:
+    return
+  let count = min(waypoints.len, 8)
+  if count < 2:
+    return  # Need at least 2 waypoints for patrol
+  controller.agents[agentId].patrolWaypointCount = count
+  controller.agents[agentId].patrolCurrentWaypoint = 0
+  for i in 0 ..< count:
+    controller.agents[agentId].patrolWaypoints[i] = waypoints[i]
+  controller.agents[agentId].patrolActive = true
+  # Also set legacy points for backward compatibility (first and last waypoints)
+  controller.agents[agentId].patrolPoint1 = waypoints[0]
+  controller.agents[agentId].patrolPoint2 = waypoints[count - 1]
+  controller.agents[agentId].patrolToSecondPoint = true
+
+proc advancePatrolWaypoint*(controller: Controller, agentId: int) =
+  ## Advance to the next waypoint in multi-waypoint patrol, wrapping to first.
+  if agentId >= 0 and agentId < MapAgents:
+    let count = controller.agents[agentId].patrolWaypointCount
+    if count > 0:
+      controller.agents[agentId].patrolCurrentWaypoint =
+        (controller.agents[agentId].patrolCurrentWaypoint + 1) mod count
+
+proc getPatrolWaypointCount*(controller: Controller, agentId: int): int =
+  ## Get the number of waypoints in a multi-waypoint patrol route.
+  ## Returns 0 if using legacy 2-point patrol.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].patrolWaypointCount
+  0
+
+proc getPatrolCurrentWaypointIndex*(controller: Controller, agentId: int): int =
+  ## Get the current waypoint index in multi-waypoint patrol.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].patrolCurrentWaypoint
+  0
 
 # Scout behavior helpers
 proc setScoutMode*(controller: Controller, agentId: int, active: bool = true) =

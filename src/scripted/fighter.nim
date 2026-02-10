@@ -1435,8 +1435,15 @@ const PatrolArrivalThreshold = 2  # Distance at which we consider waypoint "reac
 
 proc canStartFighterPatrol(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
-  ## Patrol activates when patrol mode is enabled for this agent
-  state.patrolActive and state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0
+  ## Patrol activates when patrol mode is enabled for this agent.
+  ## Supports both legacy 2-point patrol and multi-waypoint patrol.
+  if not state.patrolActive:
+    return false
+  # Multi-waypoint patrol: need at least 2 waypoints
+  if state.patrolWaypointCount >= 2:
+    return true
+  # Legacy 2-point patrol: need both points set
+  state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0
 
 proc shouldTerminateFighterPatrol(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
@@ -1445,8 +1452,9 @@ proc shouldTerminateFighterPatrol(controller: Controller, env: Environment, agen
 
 proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint8 =
-  ## Patrol between two waypoints, attacking any enemies encountered.
+  ## Patrol between waypoints, attacking any enemies encountered.
   ## Uses AoE2-style patrol: walk to waypoint, attack nearby enemies, continue patrol.
+  ## Supports both legacy 2-point patrol and multi-waypoint patrol (2-8 points).
 
   # First check for attack opportunity - attack takes priority during patrol
   let attackDir = findAttackOpportunity(env, agent)
@@ -1460,7 +1468,18 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
       # Move toward enemy to engage
       return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
-  # Determine current patrol target
+  # Multi-waypoint patrol mode
+  if state.patrolWaypointCount >= 2:
+    let target = state.patrolWaypoints[state.patrolCurrentWaypoint]
+    let distToTarget = int(chebyshevDist(agent.pos, target))
+    if distToTarget <= PatrolArrivalThreshold:
+      # Advance to next waypoint (wraps to first after last)
+      state.patrolCurrentWaypoint = (state.patrolCurrentWaypoint + 1) mod state.patrolWaypointCount
+      let newTarget = state.patrolWaypoints[state.patrolCurrentWaypoint]
+      return controller.moveTo(env, agent, agentId, state, newTarget)
+    return controller.moveTo(env, agent, agentId, state, target)
+
+  # Legacy 2-point patrol mode
   let target = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
 
   # Check if we've reached the current waypoint

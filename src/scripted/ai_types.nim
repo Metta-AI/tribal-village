@@ -123,11 +123,15 @@ type
     plannedPath*: seq[IVec2]
     plannedPathIndex*: int
     pathBlockedTarget*: IVec2
-    # Patrol state
+    # Patrol state (legacy 2-point patrol)
     patrolPoint1*: IVec2      # First patrol waypoint
     patrolPoint2*: IVec2      # Second patrol waypoint
     patrolToSecondPoint*: bool # True = heading to point2, False = heading to point1
     patrolActive*: bool       # Whether patrol mode is enabled
+    # Multi-waypoint patrol state (2-8 waypoints)
+    patrolWaypoints*: array[8, IVec2]  # Custom patrol route waypoints
+    patrolWaypointCount*: int         # Number of active waypoints (0 = use legacy 2-point)
+    patrolCurrentWaypoint*: int       # Current waypoint index in patrolWaypoints
     # Attack-move state: move to destination, attack enemies along the way
     attackMoveTarget*: IVec2  # Destination for attack-move (-1,-1 = inactive)
     # Scout state: exploration and enemy detection
