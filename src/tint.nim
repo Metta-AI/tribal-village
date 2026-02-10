@@ -12,9 +12,17 @@ template markActiveTile(active: var ActiveTiles, tileX, tileY: int) =
 
 proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame
-  # Clear previous frame's modifications
+  # Adaptive epsilon: cull weaker trails when active tile count is high
+  let tileCount = env.activeTiles.positions.len
+  let epsilon =
+    if tileCount > 3000: MinTintEpsilon * 20  # Aggressive cleanup
+    elif tileCount > 2000: MinTintEpsilon * 10
+    elif tileCount > 1000: MinTintEpsilon * 4
+    else: MinTintEpsilon
+
+  # Decay existing tint trails
   var writeIdx = 0
-  for readIdx in 0 ..< env.activeTiles.positions.len:
+  for readIdx in 0 ..< tileCount:
     let pos = env.activeTiles.positions[readIdx]
     if not isValidPos(pos):
       continue
@@ -26,7 +34,7 @@ proc updateTintModifications(env: Environment) =
     let g = int(round(current.g.float32 * TrailDecay))
     let b = int(round(current.b.float32 * TrailDecay))
     let decayedStrength = int(round(strength.float32 * TrailDecay))
-    if abs(decayedStrength) < MinTintEpsilon:
+    if abs(decayedStrength) < epsilon:
       env.tintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tintStrength[tileX][tileY] = 0
       env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
@@ -38,8 +46,16 @@ proc updateTintModifications(env: Environment) =
     inc writeIdx
   env.activeTiles.positions.setLen(writeIdx)
 
+  # Adaptive epsilon for tumor tiles
+  let tumorTileCount = env.tumorActiveTiles.positions.len
+  let tumorEpsilon =
+    if tumorTileCount > 3000: MinTintEpsilon * 20
+    elif tumorTileCount > 2000: MinTintEpsilon * 10
+    elif tumorTileCount > 1000: MinTintEpsilon * 4
+    else: MinTintEpsilon
+
   writeIdx = 0
-  for readIdx in 0 ..< env.tumorActiveTiles.positions.len:
+  for readIdx in 0 ..< tumorTileCount:
     let pos = env.tumorActiveTiles.positions[readIdx]
     if not isValidPos(pos):
       continue
@@ -51,7 +67,7 @@ proc updateTintModifications(env: Environment) =
     let g = int(round(current.g.float32 * TumorDecay))
     let b = int(round(current.b.float32 * TumorDecay))
     let decayedStrength = int(round(strength.float32 * TumorDecay))
-    if abs(decayedStrength) < MinTintEpsilon:
+    if abs(decayedStrength) < tumorEpsilon:
       env.tumorTintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tumorStrength[tileX][tileY] = 0
       env.tumorActiveTiles.flags[tileX][tileY] = false
@@ -83,63 +99,70 @@ proc updateTintModifications(env: Environment) =
         safeTintAdd(env.tintMods[tileX][tileY].g, int(color.g * strength))
         safeTintAdd(env.tintMods[tileX][tileY].b, int(color.b * strength))
 
-  # Process all entities and mark their affected positions as active
+  # Process only tint-relevant entity kinds (Agent, Lantern, Tumor) using
+  # thingsByKind instead of iterating all env.things (skips ~7000 irrelevant things)
   # Optimization: only add tint for entities that moved since last step
-  for thing in env.things:
+  for thing in env.thingsByKind[Agent]:
     let pos = thing.pos
     if not isValidPos(pos):
       continue
+    let agentId = thing.agentId
+    if agentId < 0 or agentId >= MapAgents:
+      continue
+    # Skip tint update if agent hasn't moved (delta optimization).
+    let lastPos = env.lastAgentPos[agentId]
+    if lastPos == pos and isValidPos(lastPos):
+      continue
+    # Update tracking and add tint for moved agents.
+    env.lastAgentPos[agentId] = pos
+    if agentId < env.agentColors.len:
+      let baseX = pos.x.int
+      let baseY = pos.y.int
+      addTintArea(baseX, baseY, env.agentColors[agentId], radius = 2, scale = 90)
+
+  for thing in env.thingsByKind[Lantern]:
+    if not thing.lanternHealthy:
+      continue
+    let pos = thing.pos
+    if not isValidPos(pos):
+      continue
+    # Skip tint update if lantern hasn't moved (delta optimization).
+    if thing.lastTintPos == pos and isValidPos(thing.lastTintPos):
+      continue
+    thing.lastTintPos = pos
+    if thing.teamId >= 0 and thing.teamId < env.teamColors.len:
+      let baseX = pos.x.int
+      let baseY = pos.y.int
+      addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
+
+  for thing in env.thingsByKind[Tumor]:
+    let pos = thing.pos
+    if not isValidPos(pos):
+      continue
+    # Skip tint update if tumor hasn't moved (delta optimization).
+    if thing.lastTintPos == pos and isValidPos(thing.lastTintPos):
+      continue
+    thing.lastTintPos = pos
     let baseX = pos.x.int
     let baseY = pos.y.int
-
-    case thing.kind
-    of Agent:
-      let agentId = thing.agentId
-      if agentId < 0 or agentId >= MapAgents:
-        continue
-      # Skip tint update if agent hasn't moved (delta optimization).
-      let lastPos = env.lastAgentPos[agentId]
-      if lastPos == pos and isValidPos(lastPos):
-        continue
-      # Update tracking and add tint for moved agents.
-      env.lastAgentPos[agentId] = pos
-      if agentId < env.agentColors.len:
-        addTintArea(baseX, baseY, env.agentColors[agentId], radius = 2, scale = 90)
-
-    of Lantern:
-      if thing.lanternHealthy:
-        # Skip tint update if lantern hasn't moved (delta optimization).
-        if thing.lastTintPos == pos and isValidPos(thing.lastTintPos):
+    let minX = max(0, baseX - 2)
+    let maxX = min(MapWidth - 1, baseX + 2)
+    let minY = max(0, baseY - 2)
+    let maxY = min(MapHeight - 1, baseY + 2)
+    for tileX in minX .. maxX:
+      let dx = tileX - baseX
+      for tileY in minY .. maxY:
+        if env.tintLocked[tileX][tileY]:
           continue
-        thing.lastTintPos = pos
-        if thing.teamId >= 0 and thing.teamId < env.teamColors.len:
-          addTintArea(baseX, baseY, env.teamColors[thing.teamId], radius = 2, scale = 60)
-    of Tumor:
-      # Skip tint update if tumor hasn't moved (delta optimization).
-      if thing.lastTintPos == pos and isValidPos(thing.lastTintPos):
-        continue
-      thing.lastTintPos = pos
-      let minX = max(0, baseX - 2)
-      let maxX = min(MapWidth - 1, baseX + 2)
-      let minY = max(0, baseY - 2)
-      let maxY = min(MapHeight - 1, baseY + 2)
-      for tileX in minX .. maxX:
-        let dx = tileX - baseX
-        for tileY in minY .. maxY:
-          if env.tintLocked[tileX][tileY]:
-            continue
-          let dy = tileY - baseY
-          let manDist = abs(dx) + abs(dy)
-          let falloff = max(1, 5 - manDist)
-          markActiveTile(env.tumorActiveTiles, tileX, tileY)
-          let strength = TumorIncrementBase * falloff.float32
-          safeTintAdd(env.tumorStrength[tileX][tileY], int(strength))
-          safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
-          safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
-          safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
-
-    else:
-      discard
+        let dy = tileY - baseY
+        let manDist = abs(dx) + abs(dy)
+        let falloff = max(1, 5 - manDist)
+        markActiveTile(env.tumorActiveTiles, tileX, tileY)
+        let strength = TumorIncrementBase * falloff.float32
+        safeTintAdd(env.tumorStrength[tileX][tileY], int(strength))
+        safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
+        safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
+        safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
 
 proc computeTileColor(env: Environment, tileX, tileY: int): TileColor =
   ## Compute the tint color for a single tile based on combined tint modifications
