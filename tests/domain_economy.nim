@@ -110,6 +110,7 @@ suite "Economy - Flow Rate Calculation":
 
 suite "Economy - Worker Counting":
   test "countWorkers counts by role":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -132,10 +133,11 @@ suite "Economy - Worker Counting":
     check counts.fighters == 1
 
   test "countWorkers ignores dead agents":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
-    let alive = addAgentAt(env, 0, ivec2(10, 10))
+    discard addAgentAt(env, 0, ivec2(10, 10))
     let dead = addAgentAt(env, 1, ivec2(11, 10))
     # Mark agent as terminated (isAgentAlive checks env.terminated)
     env.terminated[dead.agentId] = 1.0
@@ -147,6 +149,7 @@ suite "Economy - Worker Counting":
     check counts.total == 1
 
   test "countWorkers separates teams":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -165,6 +168,7 @@ suite "Economy - Worker Counting":
 
 suite "Economy - Bottleneck Detection":
   test "detectBottleneck returns FoodCritical when food low":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -178,6 +182,7 @@ suite "Economy - Bottleneck Detection":
     check bottleneck == FoodCritical
 
   test "detectBottleneck returns WoodCritical when wood low":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -191,6 +196,7 @@ suite "Economy - Bottleneck Detection":
     check bottleneck == WoodCritical
 
   test "detectBottleneck returns TooFewFighters when enemies present":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -211,6 +217,7 @@ suite "Economy - Bottleneck Detection":
     check bottleneck == TooFewFighters
 
   test "detectBottleneck returns TooManyGatherers":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -226,6 +233,7 @@ suite "Economy - Bottleneck Detection":
     check bottleneck == TooManyGatherers
 
   test "detectBottleneck returns NoBottleneck when balanced":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
@@ -248,6 +256,7 @@ suite "Economy - Bottleneck Detection":
     check bottleneck == NoBottleneck
 
   test "detectBottleneck handles invalid team":
+    resetEconomy()
     let env = makeEmptyEnv()
     let controller = newTestController(42)
 
