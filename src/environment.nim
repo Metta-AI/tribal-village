@@ -1606,6 +1606,25 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     env.teamModifiers[teamId].unitAttackBonus[UnitHussar] += 2
     env.teamModifiers[teamId].unitAttackBonus[UnitCrossbowman] += 2
     env.teamModifiers[teamId].unitAttackBonus[UnitArbalester] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitCavalier] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitPaladin] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitCamel] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitHeavyCamel] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitImperialCamel] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitSkirmisher] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitEliteSkirmisher] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitCavalryArcher] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitHeavyCavalryArcher] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitHandCannoneer] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitScorpion] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitSamurai] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitLongbowman] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitCataphract] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitWoadRaider] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitTeutonicKnight] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitHuskarl] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitMameluke] += 2
+    env.teamModifiers[teamId].unitAttackBonus[UnitJanissary] += 2
   of CastleTechIronclad:
     # +3 siege HP
     env.teamModifiers[teamId].unitHpBonus[UnitBatteringRam] += 3
@@ -1627,18 +1646,28 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     # +1 cavalry attack
     env.teamModifiers[teamId].unitAttackBonus[UnitScout] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitKnight] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitCavalier] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitPaladin] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitCataphract] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitMameluke] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitLightCavalry] += 1
     env.teamModifiers[teamId].unitAttackBonus[UnitHussar] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitCamel] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitHeavyCamel] += 1
+    env.teamModifiers[teamId].unitAttackBonus[UnitImperialCamel] += 1
   of CastleTechZealotry:
     # +2 cavalry HP
     env.teamModifiers[teamId].unitHpBonus[UnitScout] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitKnight] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitCavalier] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitPaladin] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitCataphract] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitMameluke] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitLightCavalry] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitHussar] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitCamel] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitHeavyCamel] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitImperialCamel] += 2
   of CastleTechMahayana:
     # +1 monk effectiveness (modeled as +1 monk attack)
     env.teamModifiers[teamId].unitAttackBonus[UnitMonk] += 1
@@ -1649,6 +1678,11 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
     env.teamModifiers[teamId].unitHpBonus[UnitJanissary] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitCrossbowman] += 2
     env.teamModifiers[teamId].unitHpBonus[UnitArbalester] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitSkirmisher] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitEliteSkirmisher] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitCavalryArcher] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitHeavyCavalryArcher] += 2
+    env.teamModifiers[teamId].unitHpBonus[UnitHandCannoneer] += 2
   of CastleTechArtillery:
     # +2 tower and castle attack (applied via hasCastleTech check in tower attack)
     discard
