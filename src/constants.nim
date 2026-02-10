@@ -360,7 +360,6 @@ const
   # Production Queue (AoE2-style)
   # ============================================================================
   ProductionQueueMaxSize* = 10
-  ProductionTrainDuration* = 5
   BatchTrainSmall* = 5
   BatchTrainLarge* = 10
 

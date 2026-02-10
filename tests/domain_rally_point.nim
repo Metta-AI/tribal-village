@@ -55,9 +55,9 @@ suite "Rally Point - Trained Unit Rally":
     # Set rally point on barracks
     barracks.setRallyPoint(ivec2(15, 15))
 
-    # Queue and wait for training
+    # Queue and wait for training (unitTrainTime ticks via processProductionQueue each step)
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, barracks.pos))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitManAtArms) - 1:
       env.stepNoop()
 
     # Convert villager - should get rally target
@@ -74,7 +74,7 @@ suite "Rally Point - Trained Unit Rally":
 
     # Queue and wait for training (no rally point set)
     env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, barracks.pos))
-    for i in 0 ..< ProductionTrainDuration - 1:
+    for i in 0 ..< unitTrainTime(UnitManAtArms) - 1:
       env.stepNoop()
 
     # Convert villager - should have no rally target
