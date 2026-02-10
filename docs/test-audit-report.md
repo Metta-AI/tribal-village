@@ -1,7 +1,7 @@
 # Test Suite Audit Report
 
 Date: 2026-01-31
-Updated: 2026-02-09 (tv-9i55qe - balance tests resolved)
+Updated: 2026-02-10 (tv-gaalsg - always-true assertions resolved)
 Owner: Engineering / QA
 Status: Active
 Issue: tv-o4qfd
@@ -108,27 +108,18 @@ Tests in `behavior_wonder_race.nim` depend on specific step ordering which could
 
 ## 3. Poor Assertions
 
-### 3.1 Always-True Assertions
+### 3.1 Always-True Assertions (Resolved)
 
-These assertions effectively pass regardless of actual behavior:
+**Resolution (tv-8wi7pj, tv-gaalsg 2026-02-10):** The `or true` patterns have been removed from the
+test suite. All assertions now test actual behavior:
 
-```nim
-# behavior_ai.nim:190
-check anyCombat or true  # Pass even if no combat (teams might not have met)
+| Original | Fixed |
+|----------|-------|
+| `check anyCombat or true` | Removed - combat tests now use proper outcome verification |
+| `check repaired or hpAfter >= hpBefore - 1 or true` | `check repaired or hpAfter >= hpBefore - 1` |
+| `check anyProgress or true` | `check anyProgress` |
 
-# behavior_villagers.nim:191
-check repaired or hpAfter >= hpBefore - 1 or true  # Relaxed check - repair is best-effort
-
-# behavior_villagers.nim:454
-check anyProgress or true  # Pass if simulation ran
-```
-
-**Impact:** These tests provide no regression protection - they always pass.
-
-**Recommendation:** Either:
-- Remove these tests (they provide false confidence)
-- Tighten assertions to require actual behavior
-- Add comments explaining why relaxed checks are acceptable
+The tests now provide meaningful regression protection.
 
 ### 3.2 Overly Permissive Assertions
 
@@ -176,7 +167,7 @@ Some functionality is tested in multiple places with slight variations:
 
 1. ~~**Fix or Skip Balance Tests**~~ - RESOLVED (tv-9i55qe, 2026-02-09): Balance tests now passing
 
-2. **Remove Always-True Assertions** - Tests with `or true` provide no value and should be tightened or removed
+2. ~~**Remove Always-True Assertions**~~ - RESOLVED (tv-8wi7pj, tv-gaalsg 2026-02-10): Tests with `or true` removed or tightened
 
 3. **Add spatial_index Tests** - This is a critical module without dedicated tests
 
