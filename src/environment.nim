@@ -1354,18 +1354,30 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
   ))
   true
 
+proc refundTrainCosts(env: Environment, building: Thing) =
+  ## Refund training costs for a cancelled queue entry, applying CivBonus multipliers.
+  let teamId = building.teamId
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let baseCosts = buildingTrainCosts(building.kind)
+    let civBonus = env.teamCivBonuses[teamId]
+    let applyFood = civBonus.foodCostMultiplier != 0.0'f32 and civBonus.foodCostMultiplier != 1.0'f32
+    let applyWood = civBonus.woodCostMultiplier != 0.0'f32 and civBonus.woodCostMultiplier != 1.0'f32
+    for cost in baseCosts:
+      var refundAmount = cost.count
+      if applyFood and cost.res == ResourceFood:
+        refundAmount = max(1, int(float32(cost.count) * civBonus.foodCostMultiplier + 0.5))
+      elif applyWood and cost.res == ResourceWood:
+        refundAmount = max(1, int(float32(cost.count) * civBonus.woodCostMultiplier + 0.5))
+      env.teamStockpiles[teamId].counts[cost.res] += refundAmount
+    when defined(econAudit):
+      recordRefund(teamId, baseCosts, env.currentStep)
+
 proc cancelLastQueued*(env: Environment, building: Thing): bool =
   ## Cancel the last unit in the production queue, refunding resources.
   if building.productionQueue.entries.len == 0:
     return false
   building.productionQueue.entries.setLen(building.productionQueue.entries.len - 1)
-  let teamId = building.teamId
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    let costs = buildingTrainCosts(building.kind)
-    for cost in costs:
-      env.teamStockpiles[teamId].counts[cost.res] += cost.count
-    when defined(econAudit):
-      recordRefund(teamId, costs, env.currentStep)
+  env.refundTrainCosts(building)
   true
 
 proc cancelQueueEntry*(env: Environment, building: Thing, index: int): bool =
@@ -1373,13 +1385,7 @@ proc cancelQueueEntry*(env: Environment, building: Thing, index: int): bool =
   if index < 0 or index >= building.productionQueue.entries.len:
     return false
   building.productionQueue.entries.delete(index)
-  let teamId = building.teamId
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    let costs = buildingTrainCosts(building.kind)
-    for cost in costs:
-      env.teamStockpiles[teamId].counts[cost.res] += cost.count
-    when defined(econAudit):
-      recordRefund(teamId, costs, env.currentStep)
+  env.refundTrainCosts(building)
   true
 
 proc tryBatchQueueTrain*(env: Environment, building: Thing, teamId: int,
