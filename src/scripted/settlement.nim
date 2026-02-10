@@ -253,8 +253,9 @@ proc foundNewTown(env: Environment, teamId: int, site: IVec2,
   if teamId < env.teamColors.len:
     env.altarColors[altarPos] = env.teamColors[teamId]
 
-  # 3. Place a town center nearby
-  discard placeTownCenter(env, altarPos, teamId)
+  # 3. Place a town center nearby (only deduct resources if placement succeeds)
+  let tcPos = placeTownCenter(env, altarPos, teamId)
+  let tcPlaced = tcPos != altarPos  # Returns altarPos on failure
 
   # 4. Reassign settlers' homeAltar to the new altar and clear flags
   for agentId in settlers:
@@ -268,10 +269,11 @@ proc foundNewTown(env: Environment, teamId: int, site: IVec2,
     agent.settlerTarget = ivec2(-1, -1)
     agent.settlerArrived = false
 
-  # 5. Deduct wood for the town center (14 wood, same as split check)
-  let woodCost = 14
-  env.teamStockpiles[teamId].counts[ResourceWood] =
-    max(0, env.teamStockpiles[teamId].counts[ResourceWood] - woodCost)
+  # 5. Deduct wood for the town center (only if TC was actually placed)
+  if tcPlaced:
+    let woodCost = 14
+    env.teamStockpiles[teamId].counts[ResourceWood] =
+      max(0, env.teamStockpiles[teamId].counts[ResourceWood] - woodCost)
 
 proc checkSettlerArrivals*(controller: Controller, env: Environment) =
   ## Check if any settler groups have enough members arrived to found a town.

@@ -648,7 +648,7 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
       if not isAgentAlive(env, tank): continue
       # Fast frozen check: skip explicit frozen first, then tile check
       if tank.frozen > 0 or isTileFrozen(tank.pos, env): continue
-      let radius = if tank.unitClass == UnitKnight: 2 else: 1
+      let radius = if tank.unitClass in {UnitKnight, UnitCavalier, UnitPaladin}: KnightAuraRadius else: ManAtArmsAuraRadius
       if max(abs(tank.pos.x - targetX), abs(tank.pos.y - targetY)) <= radius:
         remaining = max(1, (remaining + 1) div 2)
         break
