@@ -43,18 +43,20 @@ suite "Town Center Garrison":
     check agent.pos != ivec2(-1, -1)
     check isValidPos(agent.pos)
 
-  test "town bell recalls villagers to garrison":
+  test "town bell activates garrison recall flag":
     let env = makeEmptyEnv()
     let tc = addBuilding(env, TownCenter, ivec2(10, 10), 0)
     let triggerer = addAgentAt(env, 0, ivec2(9, 10))  # Adjacent to TC
-    let villager1 = addAgentAt(env, 1, ivec2(5, 5))
-    let villager2 = addAgentAt(env, 2, ivec2(20, 20))
 
-    # Ring town bell (argument 10)
+    check env.townBellActive[0] == false
+
+    # Ring town bell (argument 10) — sets flag, villagers garrison via AI over subsequent steps
     env.stepAction(triggerer.agentId, 3'u8, 10)
+    check env.townBellActive[0] == true
 
-    # All villagers should be garrisoned
-    check tc.garrisonedUnits.len == 3
+    # Ring again to deactivate
+    env.stepAction(triggerer.agentId, 3'u8, 10)
+    check env.townBellActive[0] == false
 
   test "ungarrison command ejects all units":
     let env = makeEmptyEnv()
