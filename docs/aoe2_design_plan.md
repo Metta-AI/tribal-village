@@ -3,7 +3,7 @@
 Date: 2026-01-13
 Owner: Design / Systems
 Status: Complete
-Notes: 7/8 systems implemented. Only civ asymmetry (Section 6) remains as optional future work.
+Notes: All 8/8 systems implemented. Civ asymmetry (Section 6) added with 6 predefined civ profiles.
 
 ## 0) Scope & Non-Goals
 
@@ -27,7 +27,7 @@ Notes: 7/8 systems implemented. Only civ asymmetry (Section 6) remains as option
 - **Action-tint driven feedback**: combat and control readability use tint overlays (for both players and agents).
 - **Auras instead of single-target support**: tank mitigation and monk healing operate as area effects.
 - **Market is conversion-only**: no trade route economy; conversion rates/cooldown are tuned instead.
-- **No civ asymmetry yet**: teams are currently symmetric; civ-style modifiers are optional future work.
+- **Civ asymmetry**: teams can have different CivBonus profiles (gather rate, build speed, unit HP/attack, building HP, costs). 6 predefined civs available.
 
 ---
 
@@ -117,17 +117,20 @@ Notes: 7/8 systems implemented. Only civ asymmetry (Section 6) remains as option
 
 ---
 
-## 6) Civilization / Team Asymmetry (Remaining)
+## 6) Civilization / Team Asymmetry (Complete)
 
 ### Current State
-- Teams currently share the same unit access and costs.
+- CivBonus system implemented with 7 multiplier fields (gather rate, build speed, unit HP, unit attack, building HP, wood cost, food cost).
+- 6 predefined civ profiles: Neutral, Britons, Franks, Byzantines, Mongols, Teutons.
+- Bonuses are 5-15% with meaningful tradeoffs (e.g., Mongols: +15% gather, -10% building HP).
+- Applied at point-of-use without breaking shared action/obs interface.
+- FFI functions available for Python integration.
 
 ### AoE2-Style Meaning
 - AoE2 civs feel distinct via tech tree differences and small systemic bonuses.
 
 ### Changes Needed
-- **Remaining (optional, low-risk)**: small team modifiers (gather rate, build cost, unit HP/attack offsets).
-- Avoid asymmetric rules that break the shared action/obs interface.
+- **Done.** CivBonus system with predefined profiles and FFI integration. 18 tests passing.
 
 ---
 
