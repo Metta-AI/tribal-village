@@ -2,6 +2,9 @@
 # std/os is already imported by console_viz.nim (included before this file)
 # std/strutils is already imported by environment.nim
 
+when defined(stateDiff):
+  import state_diff
+
 when defined(rewardBatch):
   import std/monotimes
   var rewardBatchOps: int = 0
