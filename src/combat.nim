@@ -343,6 +343,10 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
       relic.inventory = emptyInventory()
       env.add(relic)
     target.garrisonedRelics = 0
+  # Refund production queue resources before destroying the building
+  while target.productionQueue.entries.len > 0:
+    target.productionQueue.entries.setLen(target.productionQueue.entries.len - 1)
+    env.refundTrainCosts(target)
   # Spawn debris particles for visual feedback on building destruction
   env.spawnDebris(target.pos, target.kind)
   removeThing(env, target)
