@@ -2991,6 +2991,14 @@ proc reset*(env: Environment) =
   env.damageNumbers.setLen(0)  # Keeps pre-allocated capacity
   env.debris.setLen(0)  # Keeps pre-allocated capacity
   env.spawnEffects.setLen(0)   # Keeps pre-allocated capacity
+  env.ragdolls.setLen(0)       # Keeps pre-allocated capacity
+  env.dyingUnits.setLen(0)     # Keeps pre-allocated capacity
+  env.gatherSparkles.setLen(0) # Keeps pre-allocated capacity
+  env.constructionDust.setLen(0) # Keeps pre-allocated capacity
+  env.unitTrails.setLen(0)     # Keeps pre-allocated capacity
+  env.waterRipples.setLen(0)   # Keeps pre-allocated capacity
+  env.attackImpacts.setLen(0)  # Keeps pre-allocated capacity
+  env.conversionEffects.setLen(0) # Keeps pre-allocated capacity
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)
@@ -3017,6 +3025,10 @@ proc reset*(env: Environment) =
   env.altarColors.clear()
   env.territoryScore = default(TerritoryScore)
   env.territoryScored = false
+  # Reset tribute tracking and town bell state
+  env.teamTributesSent = default(array[MapRoomObjectsTeams, int])
+  env.teamTributesReceived = default(array[MapRoomObjectsTeams, int])
+  env.townBellActive = default(array[MapRoomObjectsTeams, bool])
   # Reset victory conditions
   env.victoryWinner = -1
   for teamId in 0 ..< MapRoomObjectsTeams:
