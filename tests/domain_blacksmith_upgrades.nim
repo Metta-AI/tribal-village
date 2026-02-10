@@ -131,8 +131,9 @@ suite "Blacksmith Upgrades":
     # Attack
     env.stepAction(attacker.agentId, 2'u8, dirIndex(attacker.pos, defender.pos))
 
-    # Base damage is 8, ManAtArms aura halves to (8+1)/2 = 4, -4 Plate Mail armor = 0 damage
-    check defender.hp == 10
+    # Base damage is 8, ManAtArms aura halves to (8+1)/2 = 4, -4 Plate Mail armor = 0,
+    # but minimum damage is 1 (AoE2 rule)
+    check defender.hp == 9
 
   test "melee attack upgrade applies to cavalry":
     let env = makeEmptyEnv()

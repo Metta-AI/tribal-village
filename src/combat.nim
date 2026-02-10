@@ -663,6 +663,9 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
     target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
     remaining -= absorbed
 
+  # Guarantee minimum 1 damage (AoE2 rule: attacks always deal at least 1)
+  remaining = max(1, remaining)
+
   if remaining > 0:
     target.hp = max(0, target.hp - remaining)
     # Spawn floating damage number for combat feedback
