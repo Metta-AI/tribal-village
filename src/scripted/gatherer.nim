@@ -410,6 +410,53 @@ proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Th
     return 0'u8
   fleeAwayFrom(controller, env, agent, agentId, state, predator.pos)
 
+# Follow: Follow another agent, maintaining proximity (non-combat version)
+
+proc canStartGathererFollow(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  ## Follow activates when follow mode is enabled and target is valid and alive.
+  if not state.followActive or state.followTargetAgentId < 0:
+    return false
+  if state.followTargetAgentId >= env.agents.len:
+    return false
+  let target = env.agents[state.followTargetAgentId]
+  isAgentAlive(env, target)
+
+proc shouldTerminateGathererFollow(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  ## Follow terminates when disabled or target dies.
+  if not state.followActive or state.followTargetAgentId < 0:
+    return true
+  if state.followTargetAgentId >= env.agents.len:
+    return true
+  let target = env.agents[state.followTargetAgentId]
+  not isAgentAlive(env, target)
+
+proc optGathererFollow(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): uint8 =
+  ## Follow: stay close to the target agent.
+  ## Unlike fighters, gatherers do not attack while following.
+  ## If target dies, follow is automatically terminated.
+  if not state.followActive or state.followTargetAgentId < 0:
+    return 0'u8
+  if state.followTargetAgentId >= env.agents.len:
+    state.followActive = false
+    return 0'u8
+  let target = env.agents[state.followTargetAgentId]
+  if not isAgentAlive(env, target):
+    state.followActive = false
+    state.followTargetAgentId = -1
+    return 0'u8
+
+  # Check distance to target
+  let dist = int(chebyshevDist(agent.pos, target.pos))
+  if dist > FollowProximityRadius:
+    # Too far - move toward target
+    return controller.moveTo(env, agent, agentId, state, target.pos)
+
+  # Within range - stay put
+  0'u8
+
 let GathererOptions* = [
   TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   OptionDef(
@@ -432,6 +479,13 @@ let GathererOptions* = [
     shouldTerminate: shouldTerminateGathererPredatorFlee,
     act: optGathererPredatorFlee,
     interruptible: false  # Flee is not interruptible - survival is priority
+  ),
+  OptionDef(
+    name: "GathererFollow",
+    canStart: canStartGathererFollow,
+    shouldTerminate: shouldTerminateGathererFollow,
+    act: optGathererFollow,
+    interruptible: true  # Follow can be interrupted by higher priority options
   ),
   EmergencyHealOption,
   OptionDef(
