@@ -687,6 +687,30 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
   var target = ivec2(-1, -1)
   var unlit: Thing = nil
   var bestUnlitDist = int.high
+  # Pre-collect healthy team lantern positions once to avoid repeated spatial queries.
+  # Each hasTeamLanternNear call allocates a seq and runs a spatial query; this replaces
+  # O(buildings + candidates) spatial queries with one O(lanterns) scan + simple distance checks.
+  var teamLanternCount = 0
+  var teamLanternFarthest = 0
+  env.tempLanternSpacing.setLen(0)
+  for thing in env.thingsByKind[Lantern]:
+    if thing.isNil or not thing.lanternHealthy or thing.teamId != teamId:
+      continue
+    env.tempLanternSpacing.add(thing)
+    inc teamLanternCount
+    let dist = int(chebyshevDist(basePos, thing.pos))
+    if dist > teamLanternFarthest:
+      teamLanternFarthest = dist
+
+  # Inline lantern proximity check using pre-collected positions
+  template hasLanternNearCached(checkPos: IVec2): bool =
+    var found = false
+    for lantern in env.tempLanternSpacing:
+      if chebyshevDist(lantern.pos, checkPos) <= 3:
+        found = true
+        break
+    found
+
   # Optimized: iterate specific building kinds via thingsByKind instead of all env.things
   const LanternBuildingKinds = [Outpost, GuardTower, TownCenter, House, Barracks, ArcheryRange,
     Stable, SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock, Monastery,
@@ -696,7 +720,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     for thing in env.thingsByKind[kind]:
       if thing.isNil or thing.teamId != teamId:
         continue
-      if hasTeamLanternNear(env, teamId, thing.pos):
+      if hasLanternNearCached(thing.pos):
         continue
       let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
       if dist < bestUnlitDist:
@@ -713,7 +737,7 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
         let cand = unlit.pos + ivec2(dx.int32, dy.int32)
         if not isLanternPlacementValid(env, cand):
           continue
-        if hasTeamLanternNear(env, teamId, cand):
+        if hasLanternNearCached(cand):
           continue
         let dist = abs(cand.x - agent.pos.x).int + abs(cand.y - agent.pos.y).int
         if dist < bestDist:
@@ -722,24 +746,14 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     if bestPos.x >= 0:
       target = bestPos
   if target.x < 0:
-    var lanternCount = 0
-    var farthest = 0
-    for thing in env.thingsByKind[Lantern]:
-      if not thing.lanternHealthy or thing.teamId != teamId:
-        continue
-      inc lanternCount
-      let dist = int(chebyshevDist(basePos, thing.pos))
-      if dist > farthest:
-        farthest = dist
-
-    let desiredRadius = max(ObservationRadius + 1, max(3, farthest + 2 + lanternCount div 6))
+    let desiredRadius = max(ObservationRadius + 1, max(3, teamLanternFarthest + 2 + teamLanternCount div 6))
     for _ in 0 ..< 18:
       let candidate = getNextSpiralPoint(state)
       if chebyshevDist(candidate, basePos) < desiredRadius:
         continue
       if not isLanternPlacementValid(env, candidate):
         continue
-      if hasTeamLanternNear(env, teamId, candidate):
+      if hasLanternNearCached(candidate):
         continue
       target = candidate
       break
