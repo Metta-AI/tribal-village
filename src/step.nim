@@ -731,12 +731,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if target.hearts == 0:
               let oldTeam = target.teamId
               target.teamId = attackerTeam
+              updateTeamMask(target)  # Update cached mask after teamId change
               if attackerTeam >= 0 and attackerTeam < env.teamColors.len:
                 env.altarColors[target.pos] = env.teamColors[attackerTeam]
               if oldTeam >= 0:
                 for door in env.thingsByKind[Door]:
                   if door.teamId == oldTeam:
                     door.teamId = attackerTeam
+                    updateTeamMask(door)  # Update cached mask after teamId change
             return true
           of Cow, Bear, Wolf:
             if not env.giveItem(agent, ItemMeat):
@@ -805,6 +807,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 target.teamIdOverride = -1
               else:
                 target.teamIdOverride = newTeam
+              updateTeamMask(target)  # Update cached mask after teamIdOverride change
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)

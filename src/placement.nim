@@ -43,6 +43,7 @@ proc resetThing(thing: Thing, kind: ThingKind) =
   thing.hasClaimedTerritory = false
   thing.turnsAlive = 0
   thing.teamId = 0
+  thing.teamMask = NoTeamMask  # Will be updated when teamId is properly set
   thing.lanternHealthy = false
   thing.garrisonedUnits = @[]
   thing.townBellActive = false
@@ -162,6 +163,7 @@ proc add*(env: Environment, thing: Thing) =
     thing.rallyTarget = ivec2(-1, -1)
     if thing.teamIdOverride == 0:
       thing.teamIdOverride = -1
+    updateTeamMask(thing)  # Initialize cached teamMask from agentId
     if thing.embarkedUnitClass == UnitVillager and thing.unitClass != UnitVillager:
       thing.embarkedUnitClass = thing.unitClass
     env.agents.add(thing)
@@ -176,6 +178,9 @@ proc add*(env: Environment, thing: Thing) =
       let teamId = getTeamId(thing)
       if teamId >= 0 and teamId < MapRoomObjectsTeams:
         env.teamVillagers[teamId].add(thing)
+  # Update cached teamMask for non-agent Things (agents handled above)
+  if thing.kind != Agent:
+    updateTeamMask(thing)
   if isValidPos(thing.pos):
     if isBlocking:
       env.grid[thing.pos.x][thing.pos.y] = thing
