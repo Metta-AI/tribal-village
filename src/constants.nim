@@ -217,6 +217,24 @@ const
   ScorpionBaseRange* = 4
 
   # ============================================================================
+  # Stable Cavalry Upgrades (AoE2-style Knight line)
+  # ============================================================================
+  CavalierMaxHp* = 10
+  CavalierAttackDamage* = 3
+  PaladinMaxHp* = 12
+  PaladinAttackDamage* = 4
+
+  # ============================================================================
+  # Camel Line (Counters cavalry, trained at Stable)
+  # ============================================================================
+  CamelMaxHp* = 7
+  CamelAttackDamage* = 2
+  HeavyCamelMaxHp* = 9
+  HeavyCamelAttackDamage* = 2
+  ImperialCamelMaxHp* = 11
+  ImperialCamelAttackDamage* = 3
+
+  # ============================================================================
   # Monk Mechanics (AoE2-style)
   # ============================================================================
   MonkMaxFaith* = 10

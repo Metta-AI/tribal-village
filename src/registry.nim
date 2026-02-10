@@ -443,6 +443,13 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
   of UnitCannonGalleon: 80
   # Additional siege unit (trained at SiegeWorkshop)
   of UnitScorpion: 70
+  # Stable cavalry upgrades
+  of UnitCavalier: 65
+  of UnitPaladin: 70
+  # Camel line (trained at Stable)
+  of UnitCamel: 55
+  of UnitHeavyCamel: 60
+  of UnitImperialCamel: 65
 
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex

@@ -154,6 +154,18 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.20, g: 0.35, b: 0.85, intensity: 1.35),
   # UnitScorpion (siege - cyan-purple)
   TileColor(r: 0.60, g: 0.50, b: 0.90, intensity: 1.35),
+  # Stable cavalry upgrades (same cyan family as Knight)
+  # UnitCavalier
+  TileColor(r: 0.25, g: 0.95, b: 0.90, intensity: 1.22),
+  # UnitPaladin
+  TileColor(r: 0.25, g: 0.95, b: 0.90, intensity: 1.28),
+  # Camel line (sandy brown - anti-cavalry specialists)
+  # UnitCamel
+  TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.20),
+  # UnitHeavyCamel
+  TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.25),
+  # UnitImperialCamel
+  TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.30),
 ]
 
 # Action tint codes for per-unit bonus damage
@@ -209,6 +221,13 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintAttackBonus,    # UnitCannonGalleon - artillery
   # Additional siege unit
   ActionTintAttackBonus,    # UnitScorpion - anti-infantry siege
+  # Stable cavalry upgrades (same counter as Knight)
+  ActionTintBonusKnight,    # UnitCavalier
+  ActionTintBonusKnight,    # UnitPaladin
+  # Camel line (anti-cavalry specialists - unique bonus tint)
+  ActionTintAttackBonus,    # UnitCamel
+  ActionTintAttackBonus,    # UnitHeavyCamel
+  ActionTintAttackBonus,    # UnitImperialCamel
 ]
 
 # Death animation tint: dark red flash at kill location

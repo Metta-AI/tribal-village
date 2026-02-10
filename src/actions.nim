@@ -111,6 +111,23 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitScorpion - Cyan/purple bolt thrower
   UnitAttackTint(tint: TileColor(r: 0.60, g: 0.50, b: 0.90, intensity: 1.18),
     duration: 3'i8, code: ActionTintAttackScorpion),
+  # Stable cavalry upgrades (Knight line)
+  # UnitCavalier - Cyan cavalry (like Knight, stronger)
+  UnitAttackTint(tint: TileColor(r: 0.20, g: 0.90, b: 0.85, intensity: 1.18),
+    duration: 3'i8, code: ActionTintAttackKnight),
+  # UnitPaladin - Cyan cavalry (strongest)
+  UnitAttackTint(tint: TileColor(r: 0.20, g: 0.90, b: 0.85, intensity: 1.25),
+    duration: 3'i8, code: ActionTintAttackKnight),
+  # Camel line (anti-cavalry specialists)
+  # UnitCamel - Sandy brown
+  UnitAttackTint(tint: TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.12),
+    duration: 2'i8, code: ActionTintAttackCataphract),
+  # UnitHeavyCamel - Sandy brown (stronger)
+  UnitAttackTint(tint: TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.18),
+    duration: 2'i8, code: ActionTintAttackCataphract),
+  # UnitImperialCamel - Sandy brown (strongest)
+  UnitAttackTint(tint: TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.25),
+    duration: 2'i8, code: ActionTintAttackCataphract),
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =

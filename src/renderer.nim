@@ -128,7 +128,16 @@ const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
   "oriented/archer",               # UnitArbalester
   "oriented/boat",                 # UnitGalley (uses boat sprite)
   "oriented/boat",                 # UnitFireShip (uses boat sprite)
+  "oriented/boat",                 # UnitFishingShip (uses boat sprite)
+  "oriented/boat",                 # UnitTransportShip (uses boat sprite)
+  "oriented/boat",                 # UnitDemoShip (uses boat sprite)
+  "oriented/boat",                 # UnitCannonGalleon (uses boat sprite)
   "oriented/mangonel",             # UnitScorpion (uses mangonel sprite)
+  "oriented/knight",               # UnitCavalier (uses knight sprite)
+  "oriented/knight",               # UnitPaladin (uses knight sprite)
+  "oriented/cataphract",           # UnitCamel (uses cataphract sprite)
+  "oriented/cataphract",           # UnitHeavyCamel (uses cataphract sprite)
+  "oriented/cataphract",           # UnitImperialCamel (uses cataphract sprite)
 ]
 
 const CliffDrawOrder = [

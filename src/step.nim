@@ -135,6 +135,8 @@ const
     UnitGalley: -1, UnitFireShip: -1,
     UnitFishingShip: -1, UnitTransportShip: -1, UnitDemoShip: -1, UnitCannonGalleon: -1,
     UnitScorpion: -1,
+    UnitCavalier: KnightAuraRadius, UnitPaladin: KnightAuraRadius,
+    UnitCamel: -1, UnitHeavyCamel: -1, UnitImperialCamel: -1,
   ]
 
   ## Base ranged attack range per unit class (0 = melee)
@@ -152,6 +154,8 @@ const
     UnitGalley: GalleyBaseRange, UnitFireShip: 0,
     UnitFishingShip: 0, UnitTransportShip: 0, UnitDemoShip: 0, UnitCannonGalleon: CannonGalleonBaseRange,
     UnitScorpion: ScorpionBaseRange,
+    UnitCavalier: 0, UnitPaladin: 0,
+    UnitCamel: 0, UnitHeavyCamel: 0, UnitImperialCamel: 0,
   ]
 
   ## Units eligible for Ballistics tech damage bonus
@@ -167,7 +171,8 @@ const
 
   ## Cavalry units that get double-move in step
   CavalryMoveUnits: set[AgentUnitClass] = {
-    UnitScout, UnitKnight
+    UnitScout, UnitKnight, UnitLightCavalry, UnitHussar,
+    UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel
   }
 
   ## Units with charge attack (2-tile forward attack)

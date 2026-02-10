@@ -348,11 +348,18 @@ type
     UnitCannonGalleon  # Late-game artillery ship, ranged siege
     # Additional siege unit
     UnitScorpion       # Anti-infantry siege ballista, ranged
+    # Stable cavalry upgrades (AoE2-style)
+    UnitCavalier       # Knight upgrade tier 2
+    UnitPaladin        # Knight upgrade tier 3
+    # Camel line (trained at Stable, counters cavalry)
+    UnitCamel          # Base camel rider
+    UnitHeavyCamel     # Camel upgrade tier 2
+    UnitImperialCamel  # Camel upgrade tier 3
 
 const
   ## Tank units with shield auras (ManAtArms and Knight)
   ## Used for optimized aura processing collections
-  TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight}
+  TankUnitClasses*: set[AgentUnitClass] = {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin}
 
   ## Ranged units that benefit from spread formations to avoid friendly fire
   ## Includes archers, ranged siege, and ranged unique units
@@ -408,7 +415,14 @@ const
     "Demolition Ship",
     "Cannon Galleon",
     # Additional siege unit
-    "Scorpion"
+    "Scorpion",
+    # Stable cavalry upgrades
+    "Cavalier",
+    "Paladin",
+    # Camel line
+    "Camel Rider",
+    "Heavy Camel Rider",
+    "Imperial Camel Rider"
   ]
 
 type
@@ -488,7 +502,7 @@ const
   ObservationLayers* = ord(ObservationName.high) + 1
   ## Tank units with shield auras (ManAtArms and Knight)
   TankAuraUnits*: set[AgentUnitClass] = {
-    UnitManAtArms, UnitKnight
+    UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin
   }
 
 type

@@ -564,7 +564,14 @@ const
     DemoShipMaxHp,
     CannonGalleonMaxHp,
     # Additional siege unit
-    ScorpionMaxHp
+    ScorpionMaxHp,
+    # Stable cavalry upgrades
+    CavalierMaxHp,
+    PaladinMaxHp,
+    # Camel line
+    CamelMaxHp,
+    HeavyCamelMaxHp,
+    ImperialCamelMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
     VillagerAttackDamage,
@@ -604,7 +611,14 @@ const
     DemoShipAttackDamage,
     CannonGalleonAttackDamage,
     # Additional siege unit
-    ScorpionAttackDamage
+    ScorpionAttackDamage,
+    # Stable cavalry upgrades
+    CavalierAttackDamage,
+    PaladinAttackDamage,
+    # Camel line
+    CamelAttackDamage,
+    HeavyCamelAttackDamage,
+    ImperialCamelAttackDamage
   ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
@@ -618,7 +632,8 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
      UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing,
      UnitLongSwordsman, UnitChampion, UnitLightCavalry, UnitHussar, UnitCrossbowman, UnitArbalester,
-     UnitGalley, UnitFireShip, UnitDemoShip, UnitCannonGalleon, UnitScorpion:
+     UnitGalley, UnitFireShip, UnitDemoShip, UnitCannonGalleon, UnitScorpion,
+     UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel:
     StanceDefensive
 
 type
@@ -666,6 +681,11 @@ const
     CategoryNone,      # UnitDemoShip
     CategoryNone,      # UnitCannonGalleon
     CategoryNone,      # UnitScorpion
+    CategoryCavalry,   # UnitCavalier
+    CategoryCavalry,   # UnitPaladin
+    CategoryCavalry,   # UnitCamel
+    CategoryCavalry,   # UnitHeavyCamel
+    CategoryCavalry,   # UnitImperialCamel
   ]
 
 proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory {.inline.} =
