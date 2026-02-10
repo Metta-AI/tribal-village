@@ -178,3 +178,49 @@ suite "Monastery Relic Garrison":
     check monastery.maxHp == MonasteryMaxHp
     check monastery.hp == MonasteryMaxHp
     check Monastery in AttackableStructures
+
+  test "relic count observable in monastery via RelicCountLayer":
+    # Setup: agent at (10,10), monastery at (10,9) within observation range
+    let env = makeEmptyEnv()
+    let monasteryPos = ivec2(10, 9)
+    let monastery = addBuilding(env, Monastery, monasteryPos, 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Initial state: no relics
+    monastery.garrisonedRelics = 0
+    env.ensureObservations()
+
+    # Observation coords: agent is at center (5,5), monastery is 1 tile north
+    let obsX = ObservationRadius  # 5 = center
+    let obsY = ObservationRadius - 1  # 4 = one tile north
+    check env.observations[agent.agentId][ord(RelicCountLayer)][obsX][obsY] == 0
+
+    # Add 3 relics to monastery
+    monastery.garrisonedRelics = 3
+    # Force observation rebuild by marking dirty
+    env.observationsDirty = true
+    env.ensureObservations()
+
+    # Verify relic count is now observable
+    check env.observations[agent.agentId][ord(RelicCountLayer)][obsX][obsY] == 3
+
+  test "relic count layer shows correct value up to 255":
+    let env = makeEmptyEnv()
+    let monastery = addBuilding(env, Monastery, ivec2(10, 9), 0)
+    let agent = addAgentAt(env, 0, ivec2(10, 10))
+
+    # Test edge cases
+    monastery.garrisonedRelics = 255
+    env.observationsDirty = true
+    env.ensureObservations()
+
+    let obsX = ObservationRadius
+    let obsY = ObservationRadius - 1
+    check env.observations[agent.agentId][ord(RelicCountLayer)][obsX][obsY] == 255
+
+    # Values over 255 should be clamped
+    monastery.garrisonedRelics = 300
+    env.observationsDirty = true
+    env.ensureObservations()
+
+    check env.observations[agent.agentId][ord(RelicCountLayer)][obsX][obsY] == 255
