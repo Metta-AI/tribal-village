@@ -12,14 +12,9 @@ proc stepPopRespawn*(env: Environment) =
   # Catch any agents that were reduced to zero HP during the step
   env.enforceZeroHpDeaths()
 
-  # Precompute team population counts (Town Centers + Houses already counted above)
-  var teamPopCounts: array[MapRoomObjectsTeams, int]
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    let teamId = getTeamId(agent)
-    if teamId >= 0 and teamId < MapRoomObjectsTeams:
-      inc teamPopCounts[teamId]
+  # Reuse pre-computed team population counts from step() (env.stepTeamPopCounts).
+  # We mutate these in-place as agents respawn — safe because step() recalculates
+  # them fresh at the start of each step before any actions are processed.
 
   # -------------------------------------------------------------------------
   # Respawn dead agents at their altars
@@ -32,7 +27,7 @@ proc stepPopRespawn*(env: Environment) =
       let teamId = getTeamId(agent)
       if teamId < 0 or teamId >= MapRoomObjectsTeams:
         continue
-      if teamPopCounts[teamId] >= env.stepTeamPopCaps[teamId]:
+      if env.stepTeamPopCounts[teamId] >= env.stepTeamPopCaps[teamId]:
         continue
       # Find the altar via direct grid lookup (avoids O(things) scan)
       let altarThing = env.getThing(agent.homeAltar)
@@ -59,7 +54,7 @@ proc stepPopRespawn*(env: Environment) =
 
           # Update grid
           env.grid[agent.pos.x][agent.pos.y] = agent
-          inc teamPopCounts[teamId]
+          inc env.stepTeamPopCounts[teamId]
           updateSpatialIndex(env, agent, oldPos)
 
           # Update observations
@@ -99,7 +94,7 @@ proc stepPopRespawn*(env: Environment) =
         break
     if parentA.isNil or parentB.isNil:
       continue
-    if teamPopCounts[teamId] >= env.stepTeamPopCaps[teamId]:
+    if env.stepTeamPopCounts[teamId] >= env.stepTeamPopCaps[teamId]:
       continue
     # Find a dormant agent slot for this team.
     let teamStart = teamId * MapAgentsPerTeam
@@ -133,7 +128,7 @@ proc stepPopRespawn*(env: Environment) =
       logSpawn(teamId, $child.unitClass,
                "(" & $spawnPos.x & "," & $spawnPos.y & ")", env.currentStep)
     env.grid[child.pos.x][child.pos.y] = child
-    inc teamPopCounts[teamId]
+    inc env.stepTeamPopCounts[teamId]
     updateSpatialIndex(env, child, childOldPos)
     env.updateObservations(AgentLayer, child.pos, getTeamId(child) + 1)
     env.updateObservations(AgentOrientationLayer, child.pos, child.orientation.int)

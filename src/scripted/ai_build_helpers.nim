@@ -343,19 +343,9 @@ proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thi
   (false, 0'u8)
 
 proc getTeamPopCount*(controller: Controller, env: Environment, teamId: int): int =
-  ## Get cached team population count. Recomputed once per step.
-  if controller.teamPopCountsStep != env.currentStep:
-    for t in 0 ..< MapRoomObjectsTeams:
-      controller.teamPopCounts[t] = 0
-    for otherAgent in env.agents:
-      if not isAgentAlive(env, otherAgent):
-        continue
-      let t = getTeamId(otherAgent)
-      if t >= 0 and t < MapRoomObjectsTeams:
-        inc controller.teamPopCounts[t]
-    controller.teamPopCountsStep = env.currentStep
+  ## Get team population count from pre-computed step data.
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    controller.teamPopCounts[teamId]
+    env.stepTeamPopCounts[teamId]
   else:
     0
 
