@@ -2631,7 +2631,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     child.pos = spawnPos
     child.inventory = emptyInventory()
     child.frozen = 0
-    applyUnitClass(child, UnitVillager)
+    applyUnitClass(env, child, UnitVillager)
     env.terminated[childId] = 0.0
     when defined(eventLog):
       logSpawn(teamId, $child.unitClass,

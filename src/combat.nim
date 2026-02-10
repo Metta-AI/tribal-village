@@ -250,7 +250,10 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
 # Death animation tint: dark red flash at kill location
 const DeathTint = TileColor(r: 0.80, g: 0.15, b: 0.15, intensity: 1.20)
 
-const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery}
+const AttackableStructures* = {Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery, Wonder}
+
+proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil)
+  ## Forward declaration: defined below applyStructureDamage
 
 proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
                            attacker: Thing = nil): bool =
@@ -311,9 +314,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
     for unit in target.garrisonedUnits:
       unit.isGarrisoned = false
       if tileIdx >= emptyTiles.len:
-        env.terminated[unit.agentId] = 1.0
-        unit.hp = 0
-        unit.pos = ivec2(-1, -1)
+        killAgent(env, unit)  # Proper cleanup: aura tracking, rewards, inventory
       else:
         unit.pos = emptyTiles[tileIdx]
         env.grid[unit.pos.x][unit.pos.y] = unit
@@ -362,9 +363,33 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
 
   # Guard against invalid position (e.g., garrisoned unit with pos = (-1,-1))
   if not isValidPos(deathPos):
-    # The unit might be garrisoned or in an invalid state - just mark as terminated
     env.terminated[victim.agentId] = 1.0
     victim.hp = 0
+    env.rewards[victim.agentId] += env.config.deathPenalty
+    # Remove from aura unit collections (same cleanup as normal death path)
+    if victim.unitClass in TankAuraUnits:
+      for i in 0 ..< env.tankUnits.len:
+        if env.tankUnits[i] == victim:
+          env.tankUnits[i] = env.tankUnits[^1]
+          env.tankUnits.setLen(env.tankUnits.len - 1)
+          break
+    elif victim.unitClass == UnitMonk:
+      for i in 0 ..< env.monkUnits.len:
+        if env.monkUnits[i] == victim:
+          env.monkUnits[i] = env.monkUnits[^1]
+          env.monkUnits.setLen(env.monkUnits.len - 1)
+          break
+    elif victim.unitClass == UnitVillager:
+      let teamId = getTeamId(victim)
+      if teamId >= 0 and teamId < MapRoomObjectsTeams:
+        for i in 0 ..< env.teamVillagers[teamId].len:
+          if env.teamVillagers[teamId][i] == victim:
+            env.teamVillagers[teamId][i] = env.teamVillagers[teamId][^1]
+            env.teamVillagers[teamId].setLen(env.teamVillagers[teamId].len - 1)
+            break
+    victim.inventory = emptyInventory()
+    for key in ObservedItemKeys:
+      env.updateAgentInventoryObs(victim, key)
     return
 
   # Create dying unit for fade-out animation before removing from grid

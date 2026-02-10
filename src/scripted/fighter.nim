@@ -970,7 +970,7 @@ proc findNearestMeleeEnemyUncached(env: Environment, agent: Thing): Thing =
         # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
         if (getTeamMask(other) and teamMask) != 0:
           continue
-        if other.unitClass in {UnitArcher, UnitMangonel, UnitTrebuchet, UnitMonk, UnitBoat, UnitTradeCog}:
+        if other.unitClass in RangedUnitClasses + {UnitMonk, UnitBoat, UnitTradeCog}:
           continue
         let dist = int(chebyshevDist(agent.pos, other.pos))
         if dist > r:
@@ -991,7 +991,7 @@ proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): b
   ## instead of iterating all env.things (O(k) where k = attackable structures, not O(n)).
   let radius = SiegeNearStructureRadius
   # Only check building kinds that are in AttackableStructures
-  for kind in [Wall, Outpost, GuardTower, Castle, TownCenter, Monastery]:
+  for kind in [Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery, Wonder]:
     for thing in env.thingsByKind[kind]:
       if thing.isNil or thing.teamId != teamId:
         continue
@@ -1081,7 +1081,7 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
   ## Kiting triggers for archers when a melee enemy is within trigger distance
   ## StandGround stance disables kiting (no movement allowed)
-  if agent.unitClass != UnitArcher:
+  if agent.unitClass notin {UnitArcher, UnitCrossbowman, UnitArbalester}:
     return false
   if not stanceAllowsMovementToAttack(env, agent):
     return false
@@ -1094,7 +1094,7 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
 proc shouldTerminateFighterKite(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
   ## Terminate when no melee enemy within trigger distance
-  if agent.unitClass != UnitArcher:
+  if agent.unitClass notin {UnitArcher, UnitCrossbowman, UnitArbalester}:
     return true
   let meleeEnemy = findNearestMeleeEnemy(env, agent)
   if isNil(meleeEnemy):
