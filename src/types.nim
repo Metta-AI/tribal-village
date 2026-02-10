@@ -355,6 +355,12 @@ type
     UnitCamel          # Base camel rider
     UnitHeavyCamel     # Camel upgrade tier 2
     UnitImperialCamel  # Camel upgrade tier 3
+    # Archery Range units (AoE2-style)
+    UnitSkirmisher        # Anti-archer ranged unit
+    UnitEliteSkirmisher   # Skirmisher upgrade tier 2
+    UnitCavalryArcher     # Mounted ranged unit
+    UnitHeavyCavalryArcher # Cavalry Archer upgrade tier 2
+    UnitHandCannoneer     # Powerful gunpowder ranged unit (no upgrades)
 
 const
   ## Tank units with shield auras (ManAtArms and Knight)
@@ -365,7 +371,9 @@ const
   ## Includes archers, ranged siege, and ranged unique units
   RangedUnitClasses*: set[AgentUnitClass] = {
     UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester,
-    UnitMangonel, UnitTrebuchet, UnitGalley, UnitCannonGalleon, UnitScorpion
+    UnitMangonel, UnitTrebuchet, UnitGalley, UnitCannonGalleon, UnitScorpion,
+    UnitSkirmisher, UnitEliteSkirmisher, UnitCavalryArcher, UnitHeavyCavalryArcher,
+    UnitHandCannoneer
   }
 
   ## Display labels for AgentStance
@@ -422,7 +430,13 @@ const
     # Camel line
     "Camel Rider",
     "Heavy Camel Rider",
-    "Imperial Camel Rider"
+    "Imperial Camel Rider",
+    # Archery Range units
+    "Skirmisher",
+    "Elite Skirmisher",
+    "Cavalry Archer",
+    "Heavy Cavalry Archer",
+    "Hand Cannoneer"
   ]
 
 type
@@ -1209,6 +1223,8 @@ type
     UpgradeHussar            ## LightCavalry → Hussar (Stable)
     UpgradeCrossbowman       ## Archer → Crossbowman (Archery Range)
     UpgradeArbalester        ## Crossbowman → Arbalester (Archery Range)
+    UpgradeEliteSkirmisher   ## Skirmisher → Elite Skirmisher (Archery Range)
+    UpgradeHeavyCavalryArcher ## Cavalry Archer → Heavy Cavalry Archer (Archery Range)
 
   UnitUpgrades* = object
     ## Team-level unit upgrade progress (AoE2-style promotion chains)

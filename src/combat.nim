@@ -166,6 +166,17 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.25),
   # UnitImperialCamel
   TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.30),
+  # Archery Range units (yellow-green archer family)
+  # UnitSkirmisher
+  TileColor(r: 0.70, g: 0.95, b: 0.30, intensity: 1.18),
+  # UnitEliteSkirmisher
+  TileColor(r: 0.70, g: 0.95, b: 0.30, intensity: 1.25),
+  # UnitCavalryArcher (cyan - mounted ranged)
+  TileColor(r: 0.35, g: 0.90, b: 0.85, intensity: 1.20),
+  # UnitHeavyCavalryArcher
+  TileColor(r: 0.35, g: 0.90, b: 0.85, intensity: 1.28),
+  # UnitHandCannoneer (orange-red gunpowder)
+  TileColor(r: 0.95, g: 0.45, b: 0.25, intensity: 1.35),
 ]
 
 # Action tint codes for per-unit bonus damage
@@ -228,6 +239,12 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   ActionTintAttackBonus,    # UnitCamel
   ActionTintAttackBonus,    # UnitHeavyCamel
   ActionTintAttackBonus,    # UnitImperialCamel
+  # Archery Range units (archer bonus tints)
+  ActionTintBonusArcher,    # UnitSkirmisher - anti-archer
+  ActionTintBonusArcher,    # UnitEliteSkirmisher
+  ActionTintBonusArcher,    # UnitCavalryArcher
+  ActionTintBonusArcher,    # UnitHeavyCavalryArcher
+  ActionTintBonusArcher,    # UnitHandCannoneer
 ]
 
 # Death animation tint: dark red flash at kill location

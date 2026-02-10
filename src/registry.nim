@@ -450,6 +450,12 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
   of UnitCamel: 55
   of UnitHeavyCamel: 60
   of UnitImperialCamel: 65
+  # Archery Range units
+  of UnitSkirmisher: 35
+  of UnitEliteSkirmisher: 40
+  of UnitCavalryArcher: 45
+  of UnitHeavyCavalryArcher: 50
+  of UnitHandCannoneer: 45
 
 proc buildIndexFor*(kind: ThingKind): int =
   BuildingRegistry[kind].buildIndex

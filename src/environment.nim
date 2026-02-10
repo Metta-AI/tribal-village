@@ -571,7 +571,13 @@ const
     # Camel line
     CamelMaxHp,
     HeavyCamelMaxHp,
-    ImperialCamelMaxHp
+    ImperialCamelMaxHp,
+    # Archery Range units
+    SkirmisherMaxHp,
+    EliteSkirmisherMaxHp,
+    CavalryArcherMaxHp,
+    HeavyCavalryArcherMaxHp,
+    HandCannoneerMaxHp
   ]
   UnitAttackDamageByClass: array[AgentUnitClass, int] = [
     VillagerAttackDamage,
@@ -618,7 +624,13 @@ const
     # Camel line
     CamelAttackDamage,
     HeavyCamelAttackDamage,
-    ImperialCamelAttackDamage
+    ImperialCamelAttackDamage,
+    # Archery Range units
+    SkirmisherAttackDamage,
+    EliteSkirmisherAttackDamage,
+    CavalryArcherAttackDamage,
+    HeavyCavalryArcherAttackDamage,
+    HandCannoneerAttackDamage
   ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
@@ -633,7 +645,8 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
      UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing,
      UnitLongSwordsman, UnitChampion, UnitLightCavalry, UnitHussar, UnitCrossbowman, UnitArbalester,
      UnitGalley, UnitFireShip, UnitDemoShip, UnitCannonGalleon, UnitScorpion,
-     UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel:
+     UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel,
+     UnitSkirmisher, UnitEliteSkirmisher, UnitCavalryArcher, UnitHeavyCavalryArcher, UnitHandCannoneer:
     StanceDefensive
 
 type
@@ -686,6 +699,12 @@ const
     CategoryCavalry,   # UnitCamel
     CategoryCavalry,   # UnitHeavyCamel
     CategoryCavalry,   # UnitImperialCamel
+    # Archery Range units
+    CategoryArcher,    # UnitSkirmisher
+    CategoryArcher,    # UnitEliteSkirmisher
+    CategoryArcher,    # UnitCavalryArcher (ranged cavalry, benefits from archer upgrades)
+    CategoryArcher,    # UnitHeavyCavalryArcher
+    CategoryArcher,    # UnitHandCannoneer
   ]
 
 proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory {.inline.} =
@@ -1693,6 +1712,8 @@ proc upgradePrerequisite*(upgrade: UnitUpgradeType): UnitUpgradeType =
   of UpgradeHussar: UpgradeLightCavalry
   of UpgradeCrossbowman: UpgradeCrossbowman      # no prereq
   of UpgradeArbalester: UpgradeCrossbowman
+  of UpgradeEliteSkirmisher: UpgradeEliteSkirmisher  # no prereq
+  of UpgradeHeavyCavalryArcher: UpgradeHeavyCavalryArcher  # no prereq
 
 proc upgradeSourceUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
   ## Returns the unit class that gets upgraded.
@@ -1703,6 +1724,8 @@ proc upgradeSourceUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
   of UpgradeHussar: UnitLightCavalry
   of UpgradeCrossbowman: UnitArcher
   of UpgradeArbalester: UnitCrossbowman
+  of UpgradeEliteSkirmisher: UnitSkirmisher
+  of UpgradeHeavyCavalryArcher: UnitCavalryArcher
 
 proc upgradeTargetUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
   ## Returns the unit class that results from the upgrade.
@@ -1713,18 +1736,22 @@ proc upgradeTargetUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
   of UpgradeHussar: UnitHussar
   of UpgradeCrossbowman: UnitCrossbowman
   of UpgradeArbalester: UnitArbalester
+  of UpgradeEliteSkirmisher: UnitEliteSkirmisher
+  of UpgradeHeavyCavalryArcher: UnitHeavyCavalryArcher
 
 proc upgradeBuilding*(upgrade: UnitUpgradeType): ThingKind =
   ## Returns the building where this upgrade is researched.
   case upgrade
   of UpgradeLongSwordsman, UpgradeChampion: Barracks
   of UpgradeLightCavalry, UpgradeHussar: Stable
-  of UpgradeCrossbowman, UpgradeArbalester: ArcheryRange
+  of UpgradeCrossbowman, UpgradeArbalester,
+     UpgradeEliteSkirmisher, UpgradeHeavyCavalryArcher: ArcheryRange
 
 proc upgradeCosts*(upgrade: UnitUpgradeType): seq[tuple[res: StockpileResource, count: int]] =
   ## Returns the resource costs for an upgrade.
   case upgrade
-  of UpgradeLongSwordsman, UpgradeLightCavalry, UpgradeCrossbowman:
+  of UpgradeLongSwordsman, UpgradeLightCavalry, UpgradeCrossbowman,
+     UpgradeEliteSkirmisher, UpgradeHeavyCavalryArcher:
     @[(res: ResourceFood, count: UnitUpgradeTier2FoodCost),
       (res: ResourceGold, count: UnitUpgradeTier2GoldCost)]
   of UpgradeChampion, UpgradeHussar, UpgradeArbalester:

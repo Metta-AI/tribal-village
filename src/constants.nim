@@ -235,6 +235,28 @@ const
   ImperialCamelAttackDamage* = 3
 
   # ============================================================================
+  # Archery Range Units (AoE2-style)
+  # ============================================================================
+  # Skirmisher line (anti-archer ranged unit)
+  SkirmisherMaxHp* = 5
+  SkirmisherAttackDamage* = 2
+  SkirmisherBaseRange* = 3
+  EliteSkirmisherMaxHp* = 6
+  EliteSkirmisherAttackDamage* = 3
+
+  # Cavalry Archer line (mounted ranged unit)
+  CavalryArcherMaxHp* = 6
+  CavalryArcherAttackDamage* = 2
+  CavalryArcherBaseRange* = 3
+  HeavyCavalryArcherMaxHp* = 8
+  HeavyCavalryArcherAttackDamage* = 3
+
+  # Hand Cannoneer (powerful gunpowder ranged unit, no upgrades)
+  HandCannoneerMaxHp* = 5
+  HandCannoneerAttackDamage* = 4
+  HandCannoneerBaseRange* = 4
+
+  # ============================================================================
   # Monk Mechanics (AoE2-style)
   # ============================================================================
   MonkMaxFaith* = 10

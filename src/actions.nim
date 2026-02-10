@@ -128,6 +128,22 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitImperialCamel - Sandy brown (strongest)
   UnitAttackTint(tint: TileColor(r: 0.85, g: 0.70, b: 0.40, intensity: 1.25),
     duration: 2'i8, code: ActionTintAttackCataphract),
+  # Archery Range units
+  # UnitSkirmisher - Yellow-green anti-archer
+  UnitAttackTint(tint: TileColor(r: 0.70, g: 0.95, b: 0.30, intensity: 1.12),
+    duration: 2'i8, code: ActionTintAttackArcher),
+  # UnitEliteSkirmisher - Yellow-green (stronger)
+  UnitAttackTint(tint: TileColor(r: 0.70, g: 0.95, b: 0.30, intensity: 1.18),
+    duration: 2'i8, code: ActionTintAttackArcher),
+  # UnitCavalryArcher - Cyan mounted ranged
+  UnitAttackTint(tint: TileColor(r: 0.35, g: 0.90, b: 0.85, intensity: 1.15),
+    duration: 2'i8, code: ActionTintAttackArcher),
+  # UnitHeavyCavalryArcher - Cyan mounted ranged (stronger)
+  UnitAttackTint(tint: TileColor(r: 0.35, g: 0.90, b: 0.85, intensity: 1.22),
+    duration: 2'i8, code: ActionTintAttackArcher),
+  # UnitHandCannoneer - Orange-red gunpowder
+  UnitAttackTint(tint: TileColor(r: 0.95, g: 0.45, b: 0.25, intensity: 1.28),
+    duration: 3'i8, code: ActionTintAttackArcher),
 ]
 
 proc applyUnitAttackTint(env: Environment, unit: AgentUnitClass, pos: IVec2) {.inline.} =

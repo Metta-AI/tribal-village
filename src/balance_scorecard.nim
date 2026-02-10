@@ -183,9 +183,11 @@ proc classifyUnit(unitClass: AgentUnitClass): string =
   of UnitVillager: "villager"
   of UnitManAtArms, UnitLongSwordsman, UnitChampion, UnitWoadRaider,
      UnitTeutonicKnight, UnitHuskarl: "infantry"
-  of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman, UnitJanissary: "archers"
+  of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman, UnitJanissary,
+     UnitSkirmisher, UnitEliteSkirmisher, UnitHandCannoneer: "archers"
   of UnitScout, UnitKnight, UnitLightCavalry, UnitHussar, UnitCataphract, UnitMameluke,
-     UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel: "cavalry"
+     UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel,
+     UnitCavalryArcher, UnitHeavyCavalryArcher: "cavalry"
   of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion: "siege"
   of UnitMonk: "monks"
   of UnitSamurai: "unique"

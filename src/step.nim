@@ -137,6 +137,10 @@ const
     UnitScorpion: -1,
     UnitCavalier: KnightAuraRadius, UnitPaladin: KnightAuraRadius,
     UnitCamel: -1, UnitHeavyCamel: -1, UnitImperialCamel: -1,
+    # Archery Range units
+    UnitSkirmisher: -1, UnitEliteSkirmisher: -1,
+    UnitCavalryArcher: -1, UnitHeavyCavalryArcher: -1,
+    UnitHandCannoneer: -1,
   ]
 
   ## Base ranged attack range per unit class (0 = melee)
@@ -156,12 +160,17 @@ const
     UnitScorpion: ScorpionBaseRange,
     UnitCavalier: 0, UnitPaladin: 0,
     UnitCamel: 0, UnitHeavyCamel: 0, UnitImperialCamel: 0,
+    # Archery Range units
+    UnitSkirmisher: SkirmisherBaseRange, UnitEliteSkirmisher: SkirmisherBaseRange,
+    UnitCavalryArcher: CavalryArcherBaseRange, UnitHeavyCavalryArcher: CavalryArcherBaseRange,
+    UnitHandCannoneer: HandCannoneerBaseRange,
   ]
 
   ## Units eligible for Ballistics tech damage bonus
   BallisticsUnits: set[AgentUnitClass] = {
     UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester,
-    UnitGalley, UnitScorpion
+    UnitGalley, UnitScorpion, UnitSkirmisher, UnitEliteSkirmisher,
+    UnitCavalryArcher, UnitHeavyCavalryArcher, UnitHandCannoneer
   }
 
   ## Units eligible for Siege Engineers tech range bonus
@@ -172,7 +181,8 @@ const
   ## Cavalry units that get double-move in step
   CavalryMoveUnits: set[AgentUnitClass] = {
     UnitScout, UnitKnight, UnitLightCavalry, UnitHussar,
-    UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel
+    UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel,
+    UnitCavalryArcher, UnitHeavyCavalryArcher
   }
 
   ## Units with charge attack (2-tile forward attack)
