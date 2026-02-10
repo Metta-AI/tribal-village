@@ -709,6 +709,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           invalidAndBreak(moveAction)
         if env.isWaterBlockedForAgent(agent, step1):
           invalidAndBreak(moveAction)
+        # Non-transport water units cannot move onto land
+        if agent.isWaterUnit and agent.unitClass != UnitBoat and
+            env.terrain[step1.x][step1.y] notin WaterTerrain:
+          invalidAndBreak(moveAction)
         if not env.canAgentPassDoor(agent, step1):
           inc env.stats[id].actionInvalid
           break moveAction
@@ -2316,9 +2320,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   for thing in env.thingsByKind[Castle]:
     env.stepTryTowerAttack(thing, CastleRange, env.tempTowerRemovals)
-    if thing.cooldown > 0:
-      dec thing.cooldown
-    thing.processProductionQueue()
 
   for thing in env.thingsByKind[TownCenter]:
     env.stepTryTownCenterAttack(thing, env.tempTowerRemovals)
@@ -2370,7 +2371,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       if thing.cooldown > 0:
         dec thing.cooldown
-    thing.processProductionQueue()
 
   for thing in env.thingsByKind[Wonder]:
     if thing.hp > 0 and thing.constructed and thing.wonderVictoryCountdown > 0:
