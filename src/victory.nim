@@ -20,18 +20,31 @@ proc teamHasUnitsOrBuildings(env: Environment, teamId: int): bool =
         return true
   false
 
+proc computeAlliedWinners(env: Environment, primaryWinner: int): TeamMask {.inline.} =
+  ## Given a primary winner team, compute the full bitmask of all winning teams
+  ## by including all teams allied with the winner.
+  if primaryWinner < 0 or primaryWinner >= MapRoomObjectsTeams:
+    return NoTeamMask
+  env.teamAlliances[primaryWinner]
+
 proc checkConquestVictory(env: Environment): int =
-  ## Returns the winning team ID if only one team remains, else -1.
-  var survivingTeam = -1
-  var survivingCount = 0
+  ## Returns the winning team ID if only one allied side remains, else -1.
+  ## Allied teams are treated as one side: if only allied teams survive,
+  ## the first surviving team is the primary winner and all allies share victory.
+  var survivingMask: TeamMask = NoTeamMask
+  var firstSurvivor = -1
   for teamId in 0 ..< MapRoomObjectsTeams:
     if env.teamHasUnitsOrBuildings(teamId):
-      survivingTeam = teamId
-      inc survivingCount
-      if survivingCount > 1:
-        return -1  # Multiple teams alive, no winner
-  if survivingCount == 1:
-    return survivingTeam
+      survivingMask = survivingMask or getTeamMask(teamId)
+      if firstSurvivor < 0:
+        firstSurvivor = teamId
+  if survivingMask == NoTeamMask:
+    return -1  # No survivors (draw)
+  # Check if all surviving teams are allied with the first survivor
+  let firstSurvivorAllies = env.teamAlliances[firstSurvivor]
+  if (survivingMask and (not firstSurvivorAllies)) == NoTeamMask:
+    # All surviving teams are within the first survivor's alliance
+    return firstSurvivor
   -1
 
 proc checkWonderVictory(env: Environment): int =
@@ -160,6 +173,7 @@ proc updateWonderTracking(env: Environment) =
 
 proc checkVictoryConditions(env: Environment) =
   ## Check all active victory conditions and set victoryWinner if met.
+  ## When a winner is found, also compute victoryWinners mask including allies.
   let cond = env.config.victoryCondition
 
   # Update Wonder tracking regardless of condition
@@ -171,6 +185,7 @@ proc checkVictoryConditions(env: Environment) =
     let winner = env.checkConquestVictory()
     if winner >= 0:
       env.victoryWinner = winner
+      env.victoryWinners = computeAlliedWinners(env, winner)
       return
 
   # Wonder check
@@ -178,6 +193,7 @@ proc checkVictoryConditions(env: Environment) =
     let winner = env.checkWonderVictory()
     if winner >= 0:
       env.victoryWinner = winner
+      env.victoryWinners = computeAlliedWinners(env, winner)
       return
 
   # Relic check
@@ -185,6 +201,7 @@ proc checkVictoryConditions(env: Environment) =
     let winner = env.checkRelicVictory()
     if winner >= 0:
       env.victoryWinner = winner
+      env.victoryWinners = computeAlliedWinners(env, winner)
       return
 
   # Regicide check
@@ -192,6 +209,7 @@ proc checkVictoryConditions(env: Environment) =
     let winner = env.checkRegicideVictory()
     if winner >= 0:
       env.victoryWinner = winner
+      env.victoryWinners = computeAlliedWinners(env, winner)
       return
 
   # King of the Hill check
@@ -199,4 +217,5 @@ proc checkVictoryConditions(env: Environment) =
     let winner = env.checkKingOfTheHillVictory()
     if winner >= 0:
       env.victoryWinner = winner
+      env.victoryWinners = computeAlliedWinners(env, winner)
       return

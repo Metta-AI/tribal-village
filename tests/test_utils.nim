@@ -55,10 +55,14 @@ proc makeEmptyEnv*(): Environment =
   result.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
   result.initMarketPrices()  # Initialize AoE2-style market prices
   result.victoryWinner = -1
+  result.victoryWinners = NoTeamMask
   for teamId in 0 ..< MapRoomObjectsTeams:
     result.victoryStates[teamId].wonderBuiltStep = -1
     result.victoryStates[teamId].relicHoldStartStep = -1
     result.victoryStates[teamId].kingAgentId = -1
+  # Initialize alliance state: each team is allied with itself only
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result.teamAlliances[teamId] = TeamMasks[teamId]
   result.actionTintPositions.setLen(0)
   result.activeTiles.positions.setLen(0)
   result.activeTiles.flags = default(array[MapWidth, array[MapHeight, bool]])

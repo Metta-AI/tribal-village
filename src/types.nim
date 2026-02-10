@@ -1360,6 +1360,9 @@ type
     # Victory conditions tracking
     victoryStates*: array[MapRoomObjectsTeams, VictoryState]
     victoryWinner*: int              ## Team that won (-1 = no winner yet)
+    victoryWinners*: TeamMask        ## Bitmask of all winning teams (includes allies)
+    # Alliance tracking
+    teamAlliances*: array[MapRoomObjectsTeams, TeamMask]  ## Per-team alliance bitmask (symmetric)
     # Reusable scratch seqs for step() to avoid per-frame heap allocations
     tempTumorsToSpawn*: seq[Thing]
     tempTumorsToProcess*: seq[Thing]

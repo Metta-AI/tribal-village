@@ -166,11 +166,16 @@ proc initState(env: Environment) =
 
   # Reset victory conditions (must be -1, not default 0, or Team 0 wins immediately)
   env.victoryWinner = -1
+  env.victoryWinners = NoTeamMask
   for teamId in 0 ..< MapRoomObjectsTeams:
     env.victoryStates[teamId].wonderBuiltStep = -1
     env.victoryStates[teamId].relicHoldStartStep = -1
     env.victoryStates[teamId].kingAgentId = -1
     env.victoryStates[teamId].hillControlStartStep = -1
+
+  # Initialize alliance state: each team is allied with itself only
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.teamAlliances[teamId] = TeamMasks[teamId]
 
   # Initialize tile colors: base to neutral brown, computed to zero
   for x in 0 ..< MapWidth:

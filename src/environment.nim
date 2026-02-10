@@ -540,6 +540,38 @@ proc tributeResources*(env: Environment, fromTeam, toTeam: int,
   received
 
 # ============================================================================
+# Alliance System (symmetric team alliances for shared victory)
+# ============================================================================
+
+proc formAlliance*(env: Environment, teamA, teamB: int) {.inline.} =
+  ## Form a symmetric alliance between two teams.
+  ## Both teams will consider each other allied.
+  if teamA < 0 or teamA >= MapRoomObjectsTeams: return
+  if teamB < 0 or teamB >= MapRoomObjectsTeams: return
+  env.teamAlliances[teamA] = env.teamAlliances[teamA] or getTeamMask(teamB)
+  env.teamAlliances[teamB] = env.teamAlliances[teamB] or getTeamMask(teamA)
+
+proc breakAlliance*(env: Environment, teamA, teamB: int) {.inline.} =
+  ## Break the alliance between two teams (both directions).
+  ## Teams cannot break alliance with themselves.
+  if teamA < 0 or teamA >= MapRoomObjectsTeams: return
+  if teamB < 0 or teamB >= MapRoomObjectsTeams: return
+  if teamA == teamB: return  # Cannot un-ally with self
+  env.teamAlliances[teamA] = env.teamAlliances[teamA] and (not getTeamMask(teamB))
+  env.teamAlliances[teamB] = env.teamAlliances[teamB] and (not getTeamMask(teamA))
+
+proc areAllied*(env: Environment, teamA, teamB: int): bool {.inline.} =
+  ## Check if two teams are allied. Teams are always allied with themselves.
+  if teamA < 0 or teamA >= MapRoomObjectsTeams: return false
+  if teamB < 0 or teamB >= MapRoomObjectsTeams: return false
+  isTeamInMask(teamB, env.teamAlliances[teamA])
+
+proc getAllies*(env: Environment, teamId: int): TeamMask {.inline.} =
+  ## Return the alliance bitmask for a team (includes self).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams: return NoTeamMask
+  env.teamAlliances[teamId]
+
+# ============================================================================
 
 proc spendInventory*(env: Environment, agent: Thing,
                      costs: openArray[tuple[key: ItemKey, count: int]]): bool =
