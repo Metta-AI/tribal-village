@@ -317,6 +317,7 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
       else:
         unit.pos = emptyTiles[tileIdx]
         env.grid[unit.pos.x][unit.pos.y] = unit
+        addToSpatialIndex(env, unit)
         env.updateObservations(AgentLayer, unit.pos, getTeamId(unit) + 1)
         env.updateObservations(AgentOrientationLayer, unit.pos, unit.orientation.int)
         inc tileIdx

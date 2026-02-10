@@ -203,10 +203,11 @@ proc garrisonUnitInBuilding*(env: Environment, unit: Thing, building: Thing): bo
   if getTeamId(unit) != building.teamId:
     return false
 
-  # Remove unit from the grid
+  # Remove unit from the grid and spatial index
   env.grid[unit.pos.x][unit.pos.y] = nil
   env.updateObservations(AgentLayer, unit.pos, 0)
   env.updateObservations(AgentOrientationLayer, unit.pos, 0)
+  removeFromSpatialIndex(env, unit)
 
   # Add to garrison
   building.garrisonedUnits.add(unit)
@@ -244,6 +245,7 @@ proc ungarrisonAllUnits*(env: Environment, building: Thing): seq[Thing] =
     unit.pos = pos
     unit.isGarrisoned = false
     env.grid[pos.x][pos.y] = unit
+    addToSpatialIndex(env, unit)
     env.updateObservations(AgentLayer, pos, getTeamId(unit) + 1)
     env.updateObservations(AgentOrientationLayer, pos, unit.orientation.int)
     result.add(unit)
