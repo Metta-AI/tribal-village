@@ -491,8 +491,12 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
           continue
         if chebyshevDist(agent.pos, other.pos) <= visionRange:
           let strength: int32 = case other.unitClass
-            of UnitKnight: 3
-            of UnitManAtArms, UnitArcher: 2
+            of UnitKnight, UnitCavalier: 3
+            of UnitPaladin: 4  # Paladin is stronger than Knight/Cavalier
+            of UnitManAtArms, UnitLongSwordsman, UnitArcher, UnitCrossbowman: 2
+            of UnitChampion, UnitArbalester: 3  # Top tier upgrades are stronger
+            of UnitScout, UnitLightCavalry: 1
+            of UnitHussar: 2  # Hussar is stronger than Scout/LightCavalry
             of UnitMangonel: 4
             of UnitTrebuchet: 5
             else: 1

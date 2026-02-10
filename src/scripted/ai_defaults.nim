@@ -478,9 +478,9 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           if building.teamId == teamId and building.garrisonedUnits.len > 0:
             discard env.ungarrisonAllUnits(building)
 
-  # Auto-enable scout mode for UnitScout units
+  # Auto-enable scout mode for scout-line units (Scout, LightCavalry, Hussar)
   # Scouts are trained at Stables and should automatically enter scouting behavior
-  if agent.unitClass == UnitScout and not state.scoutActive:
+  if agent.unitClass in {UnitScout, UnitLightCavalry, UnitHussar} and not state.scoutActive:
     state.scoutActive = true
     state.scoutExploreRadius = ObservationRadius.int32 + 5
     state.scoutLastEnemySeenStep = -100  # Long ago

@@ -372,8 +372,10 @@ proc findNearestCombatAllyUncached(env: Environment, agent: Thing): Thing =
         if (getTeamMask(other) and teamMask) == 0:
           continue
         # Only consider combat units that can help in a fight
-        if other.unitClass notin {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin, UnitArcher,
-                                  UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
+        if other.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
+                                  UnitKnight, UnitCavalier, UnitPaladin, UnitArcher,
+                                  UnitCrossbowman, UnitArbalester, UnitScout, UnitLightCavalry,
+                                  UnitHussar, UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
           continue
         # Prefer healthy allies (HP > 50%) - don't retreat to wounded allies
         if other.hp * 2 < other.maxHp:
@@ -877,9 +879,10 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
-  ## True siege conversion: combat units (ManAtArms, Knight, Cavalier, Paladin) can convert to siege
+  ## True siege conversion: combat units (infantry/cavalry lines) can convert to siege
   ## when they see enemy structures and a SiegeWorkshop is available.
-  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin}:
+  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
+                            UnitKnight, UnitCavalier, UnitPaladin}:
     return false
   if not fighterSeesEnemyStructure(env, agent):
     return false
@@ -893,7 +896,8 @@ proc canStartFighterBecomeSiege(controller: Controller, env: Environment, agent:
 proc shouldTerminateFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
                                        agentId: int, state: var AgentState): bool =
   ## Terminate when unit class changes (became siege) or conditions no longer met
-  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin}:
+  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
+                            UnitKnight, UnitCavalier, UnitPaladin}:
     return true
   if not fighterSeesEnemyStructure(env, agent):
     return true
@@ -917,14 +921,14 @@ proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent
                                  agentId: int, state: var AgentState): bool =
   if agent.inventoryArmor < ArmorPoints:
     return true
-  agent.unitClass == UnitManAtArms and agent.inventorySpear == 0
+  agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0
 
 proc shouldTerminateFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                                         agentId: int, state: var AgentState): bool =
-  # Terminate when fully geared (armor at max, and spear if ManAtArms)
+  # Terminate when fully geared (armor at max, and spear if infantry line)
   if agent.inventoryArmor < ArmorPoints:
     return false
-  if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
+  if agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0:
     return false
   true
 
@@ -936,7 +940,7 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
     return 0'u8
 
-  if agent.unitClass == UnitManAtArms and agent.inventorySpear == 0:
+  if agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0:
     if agent.inventoryWood == 0:
       let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
       if didWood: return actWood
@@ -1222,8 +1226,10 @@ proc canStartFighterEscort(controller: Controller, env: Environment, agent: Thin
   if not stanceAllowsChase(env, agent):
     return false
   # Only combat units can escort
-  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
-                            UnitLightCavalry, UnitHussar, UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
+  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
+                            UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
+                            UnitCrossbowman, UnitArbalester, UnitLightCavalry, UnitHussar,
+                            UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
     return false
   let (should, _) = fighterShouldEscort(env, agent)
   should
@@ -1542,8 +1548,8 @@ proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
 proc canStartScoutFlee(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): bool =
   ## Scout flee triggers when scout mode is active and enemies are nearby.
-  ## Scouts are squishy reconnaissance units - survival is priority.
-  if agent.unitClass != UnitScout:
+  ## Scout-line units are light reconnaissance units - survival is priority.
+  if agent.unitClass notin {UnitScout, UnitLightCavalry, UnitHussar}:
     return false
   if not state.scoutActive:
     return false
@@ -1593,8 +1599,8 @@ proc optScoutFlee(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartScoutExplore(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
-  ## Scout exploration activates when scout mode is active and agent is a scout.
-  agent.unitClass == UnitScout and state.scoutActive
+  ## Scout exploration activates when scout mode is active and agent is a scout-line unit.
+  agent.unitClass in {UnitScout, UnitLightCavalry, UnitHussar} and state.scoutActive
 
 proc shouldTerminateScoutExplore(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
@@ -1775,8 +1781,10 @@ proc canStartFighterGuard(controller: Controller, env: Environment, agent: Thing
   if not state.guardActive:
     return false
   # Combat units only
-  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
-                            UnitLightCavalry, UnitHussar, UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
+  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
+                            UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
+                            UnitCrossbowman, UnitArbalester, UnitLightCavalry, UnitHussar,
+                            UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
     return false
   # If guarding an agent, check if it's alive
   if state.guardTargetAgentId >= 0:
