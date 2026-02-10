@@ -145,9 +145,9 @@ const
     UnitScout: 0, UnitKnight: 0, UnitMonk: 0,
     UnitBatteringRam: 0, UnitMangonel: 0, UnitTrebuchet: TrebuchetBaseRange,
     UnitGoblin: 0, UnitBoat: 0, UnitTradeCog: 0,
-    UnitSamurai: 0, UnitLongbowman: 0, UnitCataphract: 0,
+    UnitSamurai: 0, UnitLongbowman: ArcherBaseRange + 2, UnitCataphract: 0,
     UnitWoadRaider: 0, UnitTeutonicKnight: 0, UnitHuskarl: 0,
-    UnitMameluke: 0, UnitJanissary: 0, UnitKing: 0,
+    UnitMameluke: 2, UnitJanissary: 2, UnitKing: 0,
     UnitLongSwordsman: 0, UnitChampion: 0,
     UnitLightCavalry: 0, UnitHussar: 0,
     UnitCrossbowman: ArcherBaseRange, UnitArbalester: ArcherBaseRange,
@@ -634,10 +634,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     env.stepTeamPopCaps[i] = 0
     env.stepTeamPopCounts[i] = 0
   for thing in env.thingsByKind[TownCenter]:
-    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams and thing.constructed:
       env.stepTeamPopCaps[thing.teamId] += TownCenterPopCap
   for thing in env.thingsByKind[House]:
-    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams and thing.constructed:
       env.stepTeamPopCaps[thing.teamId] += HousePopCap
   # Clamp to agent pool limit
   for i in 0 ..< MapRoomObjectsTeams:

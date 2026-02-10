@@ -16,6 +16,8 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
   ## - Heated Shot: +2 damage vs boats
   if tower.teamId < 0:
     return
+  if not tower.constructed:
+    return  # Incomplete buildings cannot fire
 
   # Murder Holes: allow attacking adjacent units (distance 1)
   # Without Murder Holes, towers have a "dead zone" at distance 1 (can't attack adjacent)
@@ -137,6 +139,8 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
   ## Each garrisoned unit fires one additional arrow at a unique target.
   if tc.teamId < 0:
     return
+  if not tc.constructed:
+    return  # Incomplete buildings cannot fire
 
   # Gather all valid targets in range using spatial index
   # Reuse env temp buffer to avoid per-call heap allocation
