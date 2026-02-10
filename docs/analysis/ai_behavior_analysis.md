@@ -1,12 +1,49 @@
-# AI Behavior Analysis: Invalid Action Root Causes
+# AI Behavior Analysis
 
 Date: 2026-01-28
 Owner: Engineering / Analysis
 Status: Active
 
-## Summary
+## Role Overview
 
-This analysis investigates the high invalid action rates observed in profiling:
+### Role Assignment
+- Agents are assigned roles based on their slot ID modulo 6:
+  - Slots 0-1: Gatherer (resource collection focus)
+  - Slots 2-3: Builder (construction focus)
+  - Slots 4-5: Fighter (combat/defense focus)
+- Teams operate independently with ~42 agents per team
+
+### Options Framework
+Each role uses a priority-ordered list of "OptionDefs" with:
+- `canStart`: Precondition check
+- `shouldTerminate`: Termination condition
+- `act`: Execution logic returning encoded action
+- `interruptible`: Whether higher-priority options can interrupt
+
+### Gatherer Priority Order
+1. PlantOnFertile → 2. MarketTrade → 3. CarryingStockpile → 4. Hearts → 5. Resource → 6. Food → 7. Irrigate → 8. Scavenge → 9. StoreValuables → 10. FallbackSearch
+
+### Builder Priority Order
+1. PlantOnFertile → 2. DropoffCarrying → 3. PopCap → 4. CoreInfrastructure → 5. MillNearResource → 6. PlantIfMills → 7. CampThreshold → 8. WallRing → 9. TechBuildings → 10. GatherScarce → 11. MarketTrade → 12. VisitTradingHub → 13. SmeltGold/CraftBread/StoreValuables → 14. FallbackSearch
+
+### Fighter Priority Order
+1. Breakout → 2. Retreat → 3. Monk → 4. DividerDefense → 5. Lanterns → 6. DropoffFood → 7. Train → 8. MaintainGear → 9. HuntPredators → 10. ClearGoblins → 11. SmeltGold/CraftBread/StoreValuables → 12. Aggressive → 13. FallbackSearch
+
+### Performance Metrics
+
+| Role     | Move  | Attack | Use   | Build | Invalid |
+|----------|-------|--------|-------|-------|---------|
+| Gatherer | 90.5% | 2.8%   | 0.8%  | 0.0%  | 3.5%    |
+| Builder  | 86.9% | 2.9%   | 0.8%  | 0.5%  | 5.9%    |
+| Fighter  | 85.9% | 4.5%   | 0.3%  | 0.1%  | 7.2%    |
+
+Success rates: Gatherer 94.1%, Builder 91.2%, Fighter 90.9%.
+
+---
+
+## Invalid Action Root Causes
+
+This section investigates the high invalid action rates observed in profiling:
 - **Gatherer: 13.9% invalid** (highest)
 - **Fighter: 12.7% invalid**
 - **Builder: 9.0% invalid**

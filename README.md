@@ -69,6 +69,7 @@ obs, reward, terminated, truncated, info = env.step(actions)
 | [Observation Space](docs/observation_space.md) | 84 layers, 11x11 grid per agent |
 | [Combat](docs/combat.md) | Combat rules, counters, siege, unit commands |
 | [Economy & Respawn](docs/economy_respawn.md) | Inventory, stockpiles, markets, trade, hearts |
+| [Victory Conditions](docs/victory_conditions.md) | Conquest, Wonder, Relic, KOTH, Regicide |
 | [AI System](docs/ai_system.md) | AI roles, coordination, threat maps, behaviors |
 | [Terrain & Biomes](docs/terrain_biomes.md) | Biomes, elevation, cliffs, mud, water depth |
 | [World Generation](docs/world_generation.md) | Trading hub, rivers, biomes, spawning |
