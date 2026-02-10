@@ -389,6 +389,8 @@ proc tribal_village_garrison_count*(env: pointer, buildingX: int32, buildingY: i
 
 proc tribal_village_queue_train*(env: pointer, buildingX: int32, buildingY: int32, teamId: int32): int32 {.exportc, dynlib.} =
   ## Queue a unit for training at a building. Returns 1 on success, 0 on failure.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if queueUnitTraining(globalEnv, buildingX, buildingY, teamId): 1 else: 0
 
 proc tribal_village_cancel_train*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
@@ -405,10 +407,14 @@ proc tribal_village_queue_progress*(env: pointer, buildingX: int32, buildingY: i
 
 proc tribal_village_can_train_unit*(env: pointer, buildingX: int32, buildingY: int32, unitClass: int32, teamId: int32): int32 {.exportc, dynlib.} =
   ## Check if a building can train the specified unit class. Returns 1 if yes, 0 if no.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if canBuildingTrainUnit(globalEnv, buildingX, buildingY, unitClass, teamId): 1 else: 0
 
 proc tribal_village_queue_train_class*(env: pointer, buildingX: int32, buildingY: int32, teamId: int32, unitClass: int32): int32 {.exportc, dynlib.} =
   ## Queue a specific unit class for training. Validates building can train this class. Returns 1 on success, 0 on failure.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if queueUnitTrainingWithClass(globalEnv, buildingX, buildingY, teamId, unitClass): 1 else: 0
 
 proc tribal_village_cancel_all_train*(env: pointer, buildingX: int32, buildingY: int32): int32 {.exportc, dynlib.} =
@@ -448,18 +454,26 @@ proc tribal_village_research_unit_upgrade*(env: pointer, agentId: int32, buildin
 proc tribal_village_has_blacksmith_upgrade*(env: pointer, teamId: int32, upgradeType: int32): int32 {.exportc, dynlib.} =
   ## Get the current level of a blacksmith upgrade for a team.
   ## upgradeType: 0=MeleeAttack, 1=ArcherAttack, 2=InfantryArmor, 3=CavalryArmor, 4=ArcherArmor
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   hasBlacksmithUpgrade(globalEnv, teamId, upgradeType)
 
 proc tribal_village_has_university_tech*(env: pointer, teamId: int32, techType: int32): int32 {.exportc, dynlib.} =
   ## Check if a university tech has been researched. Returns 1 if researched, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if hasUniversityTechResearched(globalEnv, teamId, techType): 1 else: 0
 
 proc tribal_village_has_castle_tech*(env: pointer, teamId: int32, techType: int32): int32 {.exportc, dynlib.} =
   ## Check if a castle tech has been researched. Returns 1 if researched, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if hasCastleTechResearched(globalEnv, teamId, techType): 1 else: 0
 
 proc tribal_village_has_unit_upgrade*(env: pointer, teamId: int32, upgradeType: int32): int32 {.exportc, dynlib.} =
   ## Check if a unit upgrade has been researched. Returns 1 if researched, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if hasUnitUpgradeResearched(globalEnv, teamId, upgradeType): 1 else: 0
 
 # --- Scout Mode ---
@@ -481,14 +495,20 @@ proc tribal_village_get_scout_explore_radius*(agentId: int32): int32 {.exportc, 
 proc tribal_village_is_tile_revealed*(env: pointer, teamId: int32, x: int32, y: int32): int32 {.exportc, dynlib.} =
   ## Check if a tile has been revealed by the specified team.
   ## Returns 1 if revealed, 0 otherwise.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if isRevealed(globalEnv, teamId, ivec2(x, y)): 1 else: 0
 
 proc tribal_village_get_revealed_tile_count*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Count how many tiles have been revealed by a team (exploration progress).
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   getRevealedTileCount(globalEnv, teamId).int32
 
 proc tribal_village_clear_revealed_map*(env: pointer, teamId: int32) {.exportc, dynlib.} =
   ## Clear the revealed map for a team.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
   clearRevealedMap(globalEnv, teamId)
 
 # --- Rally Point ---
@@ -589,6 +609,8 @@ proc tribal_village_init_market_prices*(env: pointer) {.exportc, dynlib.} =
 proc tribal_village_get_market_price*(env: pointer, teamId: int32, resource: int32): int32 {.exportc, dynlib.} =
   ## Get current market price for a resource (gold cost per 100 units).
   ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone, 4=Water, 5=None
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if resource < 0 or resource > ord(StockpileResource.high):
     return 0
   getMarketPrice(globalEnv, teamId, StockpileResource(resource)).int32
@@ -596,6 +618,8 @@ proc tribal_village_get_market_price*(env: pointer, teamId: int32, resource: int
 proc tribal_village_set_market_price*(env: pointer, teamId: int32, resource: int32, price: int32) {.exportc, dynlib.} =
   ## Set market price for a resource (clamped to min/max bounds).
   ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone, 4=Water, 5=None
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
   if resource < 0 or resource > ord(StockpileResource.high):
     return
   setMarketPrice(globalEnv, teamId, StockpileResource(resource), price)
@@ -603,6 +627,8 @@ proc tribal_village_set_market_price*(env: pointer, teamId: int32, resource: int
 proc tribal_village_market_buy*(env: pointer, teamId: int32, resource: int32, amount: int32, outGoldCost: ptr int32, outResourceGained: ptr int32): int32 {.exportc, dynlib.} =
   ## Buy resources from market using gold from stockpile.
   ## Returns 1 on success, 0 on failure. Writes gold cost and resource gained to output pointers.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if resource < 0 or resource > ord(StockpileResource.high):
     return 0
   let buyResult = marketBuyResource(globalEnv, teamId, StockpileResource(resource), amount)
@@ -615,6 +641,8 @@ proc tribal_village_market_buy*(env: pointer, teamId: int32, resource: int32, am
 proc tribal_village_market_sell*(env: pointer, teamId: int32, resource: int32, amount: int32, outResourceSold: ptr int32, outGoldGained: ptr int32): int32 {.exportc, dynlib.} =
   ## Sell resources to market for gold.
   ## Returns 1 on success, 0 on failure. Writes resource sold and gold gained to output pointers.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if resource < 0 or resource > ord(StockpileResource.high):
     return 0
   let sellResult = marketSellResource(globalEnv, teamId, StockpileResource(resource), amount)
@@ -1206,20 +1234,28 @@ proc tribal_village_is_gatherer_priority_active*(env: pointer, agentId: int32): 
 proc tribal_village_set_team_economy_focus*(env: pointer, teamId: int32, resource: int32) {.exportc, dynlib.} =
   ## Set a team-level economy focus to bias all gatherers toward a resource.
   ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
   setTeamEconomyFocusInt(teamId, resource)
 
 proc tribal_village_clear_team_economy_focus*(env: pointer, teamId: int32) {.exportc, dynlib.} =
   ## Clear the team-level economy focus.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
   clearTeamEconomyFocus(teamId)
 
 proc tribal_village_get_team_economy_focus*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Get the current team economy focus.
   ## Returns -1 if no focus is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return -1
   getTeamEconomyFocusInt(teamId)
 
 proc tribal_village_is_team_economy_focus_active*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Check if a team economy focus is active.
   ## Returns 1 if active, 0 if not.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
   if isTeamEconomyFocusActive(teamId): 1 else: 0
 
 # --- Civilization Bonus API ---
