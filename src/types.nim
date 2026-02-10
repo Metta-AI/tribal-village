@@ -342,6 +342,10 @@ type
     # Naval combat units
     UnitGalley         # Combat warship, ranged attack on water
     UnitFireShip       # Anti-ship fire unit, bonus vs water units
+    UnitFishingShip    # Economic fishing unit, gathers fish
+    UnitTransportShip  # Cargo transport, carries embarked units
+    UnitDemoShip       # Demolition ship, bonus vs buildings and ships
+    UnitCannonGalleon  # Late-game artillery ship, ranged siege
     # Additional siege unit
     UnitScorpion       # Anti-infantry siege ballista, ranged
 
@@ -354,7 +358,7 @@ const
   ## Includes archers, ranged siege, and ranged unique units
   RangedUnitClasses*: set[AgentUnitClass] = {
     UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester,
-    UnitMangonel, UnitTrebuchet, UnitGalley, UnitScorpion
+    UnitMangonel, UnitTrebuchet, UnitGalley, UnitCannonGalleon, UnitScorpion
   }
 
   ## Display labels for AgentStance
@@ -399,6 +403,10 @@ const
     # Naval combat units
     "Galley",
     "Fire Ship",
+    "Fishing Ship",
+    "Transport Ship",
+    "Demolition Ship",
+    "Cannon Galleon",
     # Additional siege unit
     "Scorpion"
   ]

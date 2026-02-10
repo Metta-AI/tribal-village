@@ -171,6 +171,12 @@ proc getCommandDescription*(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: "Long-range siege unit. Must unpack to fire."
   of CmdTrainBoat: "Naval unit for water control."
   of CmdTrainTradeCog: "Trade ship that generates gold on trade routes."
+  of CmdTrainGalley: "Combat warship with ranged attack."
+  of CmdTrainFireShip: "Anti-ship unit with fire attack. Bonus vs ships."
+  of CmdTrainFishingShip: "Economic ship that gathers fish resources."
+  of CmdTrainTransportShip: "Transport ship that carries land units across water."
+  of CmdTrainDemoShip: "Demolition ship. Explodes on contact for massive damage."
+  of CmdTrainCannonGalleon: "Long-range artillery ship. Effective vs buildings."
   of CmdFormationLine: "Arrange selected units in a horizontal line formation."
   of CmdFormationBox: "Arrange selected units in a defensive box formation."
   of CmdFormationStaggered: "Arrange selected units in a staggered formation for ranged combat."
@@ -277,7 +283,8 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
       result.add(&"{resourceName(cost.res)}: {cost.count}")
   of CmdTrainBoat:
     result.add("Wood: 3")
-  of CmdTrainTradeCog:
+  of CmdTrainTradeCog, CmdTrainGalley, CmdTrainFireShip, CmdTrainFishingShip,
+     CmdTrainTransportShip, CmdTrainDemoShip, CmdTrainCannonGalleon:
     let costs = buildingTrainCosts(Dock)
     for cost in costs:
       result.add(&"{resourceName(cost.res)}: {cost.count}")
@@ -318,6 +325,12 @@ proc getTrainingTime*(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: &"Train time: {unitTrainTime(UnitTrebuchet)} steps"
   of CmdTrainBoat: &"Train time: {unitTrainTime(UnitBoat)} steps"
   of CmdTrainTradeCog: &"Train time: {unitTrainTime(UnitTradeCog)} steps"
+  of CmdTrainGalley: &"Train time: {unitTrainTime(UnitGalley)} steps"
+  of CmdTrainFireShip: &"Train time: {unitTrainTime(UnitFireShip)} steps"
+  of CmdTrainFishingShip: &"Train time: {unitTrainTime(UnitFishingShip)} steps"
+  of CmdTrainTransportShip: &"Train time: {unitTrainTime(UnitTransportShip)} steps"
+  of CmdTrainDemoShip: &"Train time: {unitTrainTime(UnitDemoShip)} steps"
+  of CmdTrainCannonGalleon: &"Train time: {unitTrainTime(UnitCannonGalleon)} steps"
   else: ""
 
 proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipContent =
@@ -356,6 +369,12 @@ proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipConte
     of CmdTrainTrebuchet: "Train Trebuchet"
     of CmdTrainBoat: "Train Boat"
     of CmdTrainTradeCog: "Train Trade Cog"
+    of CmdTrainGalley: "Train Galley"
+    of CmdTrainFireShip: "Train Fire Ship"
+    of CmdTrainFishingShip: "Train Fishing Ship"
+    of CmdTrainTransportShip: "Train Transport Ship"
+    of CmdTrainDemoShip: "Train Demolition Ship"
+    of CmdTrainCannonGalleon: "Train Cannon Galleon"
     of CmdFormationLine: "Line Formation"
     of CmdFormationBox: "Box Formation"
     of CmdFormationStaggered: "Staggered Formation"

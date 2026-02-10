@@ -128,6 +128,10 @@ proc unitClassChar(uc: AgentUnitClass): char =
   of UnitKing:          'K'
   of UnitGalley:        'y'  # Galley warship
   of UnitFireShip:      'f'  # Fire Ship
+  of UnitFishingShip:   'F'  # Fishing Ship
+  of UnitTransportShip: 'P'  # Transport Ship (P for passenger)
+  of UnitDemoShip:      'D'  # Demolition Ship
+  of UnitCannonGalleon: 'N'  # Cannon Galleon (N for naval artillery)
   of UnitScorpion:      'x'  # Scorpion ballista
 
 proc printGameMap*(env: Environment) =

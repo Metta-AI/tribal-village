@@ -95,6 +95,18 @@ const UnitAttackTints: array[AgentUnitClass, UnitAttackTint] = [
   # UnitFireShip - Orange/red fire ship
   UnitAttackTint(tint: TileColor(r: 1.00, g: 0.50, b: 0.20, intensity: 1.25),
     duration: 3'i8, code: ActionTintAttackFireShip),
+  # UnitFishingShip - Light blue economic (non-combat, uses villager code)
+  UnitAttackTint(tint: TileColor(r: 0.40, g: 0.70, b: 0.90, intensity: 1.10),
+    duration: 1'i8, code: ActionTintAttackVillager),
+  # UnitTransportShip - Teal transport (non-combat, uses villager code)
+  UnitAttackTint(tint: TileColor(r: 0.35, g: 0.75, b: 0.75, intensity: 1.12),
+    duration: 1'i8, code: ActionTintAttackVillager),
+  # UnitDemoShip - Bright red kamikaze
+  UnitAttackTint(tint: TileColor(r: 1.00, g: 0.25, b: 0.15, intensity: 1.40),
+    duration: 4'i8, code: ActionTintAttackFireShip),
+  # UnitCannonGalleon - Dark blue artillery
+  UnitAttackTint(tint: TileColor(r: 0.20, g: 0.35, b: 0.85, intensity: 1.25),
+    duration: 3'i8, code: ActionTintAttackGalley),
   # Additional siege unit
   # UnitScorpion - Cyan/purple bolt thrower
   UnitAttackTint(tint: TileColor(r: 0.60, g: 0.50, b: 0.90, intensity: 1.18),

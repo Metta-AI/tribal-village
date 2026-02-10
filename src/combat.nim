@@ -63,6 +63,12 @@ const BonusDamageByClass*: array[AgentUnitClass, array[AgentUnitClass, int]] = b
     (UnitFireShip, UnitTradeCog, 2),
     (UnitFireShip, UnitGalley, 2),
     (UnitFireShip, UnitFireShip, 1),  # Less effective vs other fire ships
+    (UnitFireShip, UnitFishingShip, 2),
+    (UnitFireShip, UnitTransportShip, 2),
+    (UnitFireShip, UnitDemoShip, 2),
+    (UnitFireShip, UnitCannonGalleon, 2),
+
+    # Demo Ship (kamikaze) > all ships and buildings (high base damage handles this)
 
     # Scorpion (anti-infantry) > infantry
     (UnitScorpion, UnitManAtArms, 2),
@@ -138,6 +144,14 @@ const BonusDamageTintByClass: array[AgentUnitClass, TileColor] = [
   TileColor(r: 0.30, g: 0.50, b: 0.95, intensity: 1.25),
   # UnitFireShip (naval fire - orange-red)
   TileColor(r: 1.00, g: 0.50, b: 0.20, intensity: 1.35),
+  # UnitFishingShip (naval economic - light blue)
+  TileColor(r: 0.40, g: 0.70, b: 0.90, intensity: 1.10),
+  # UnitTransportShip (naval transport - teal)
+  TileColor(r: 0.35, g: 0.75, b: 0.75, intensity: 1.15),
+  # UnitDemoShip (naval kamikaze - bright red)
+  TileColor(r: 1.00, g: 0.25, b: 0.15, intensity: 1.40),
+  # UnitCannonGalleon (naval artillery - dark blue)
+  TileColor(r: 0.20, g: 0.35, b: 0.85, intensity: 1.35),
   # UnitScorpion (siege - cyan-purple)
   TileColor(r: 0.60, g: 0.50, b: 0.90, intensity: 1.35),
 ]
@@ -189,6 +203,10 @@ const BonusTintCodeByClass: array[AgentUnitClass, uint8] = [
   # Naval combat units
   ActionTintAttackBonus,    # UnitGalley - ranged naval
   ActionTintAttackBonus,    # UnitFireShip - anti-ship
+  ActionTintAttackBonus,    # UnitFishingShip - economic
+  ActionTintAttackBonus,    # UnitTransportShip - transport
+  ActionTintAttackBonus,    # UnitDemoShip - kamikaze
+  ActionTintAttackBonus,    # UnitCannonGalleon - artillery
   # Additional siege unit
   ActionTintAttackBonus,    # UnitScorpion - anti-infantry siege
 ]

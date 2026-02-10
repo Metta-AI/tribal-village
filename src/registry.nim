@@ -437,6 +437,10 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
   # Naval combat units (trained at Dock)
   of UnitGalley: 60
   of UnitFireShip: 50
+  of UnitFishingShip: 40
+  of UnitTransportShip: 55
+  of UnitDemoShip: 45
+  of UnitCannonGalleon: 80
   # Additional siege unit (trained at SiegeWorkshop)
   of UnitScorpion: 70
 

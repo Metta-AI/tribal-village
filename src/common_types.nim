@@ -80,6 +80,12 @@ type
     CmdTrainTrebuchet
     CmdTrainBoat
     CmdTrainTradeCog
+    CmdTrainGalley
+    CmdTrainFireShip
+    CmdTrainFishingShip
+    CmdTrainTransportShip
+    CmdTrainDemoShip
+    CmdTrainCannonGalleon
     # Research commands (Blacksmith upgrades - 5 lines)
     CmdResearchMeleeAttack      # Forging → Iron Casting → Blast Furnace
     CmdResearchArcherAttack     # Fletching → Bodkin Arrow → Bracer

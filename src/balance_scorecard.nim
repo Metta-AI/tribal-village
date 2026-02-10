@@ -188,7 +188,8 @@ proc classifyUnit(unitClass: AgentUnitClass): string =
   of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion: "siege"
   of UnitMonk: "monks"
   of UnitSamurai: "unique"
-  of UnitGoblin, UnitBoat, UnitTradeCog, UnitKing, UnitGalley, UnitFireShip: "other"
+  of UnitGoblin, UnitBoat, UnitTradeCog, UnitKing, UnitGalley, UnitFireShip,
+     UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon: "other"
 
 proc sampleResources(env: Environment, teamId: int, step: int): ResourceSample =
   result.step = step

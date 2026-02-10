@@ -198,6 +198,16 @@ const
   GalleyBaseRange* = 3
   FireShipMaxHp* = 6
   FireShipAttackDamage* = 3
+  FishingShipMaxHp* = 5
+  FishingShipAttackDamage* = 0
+  TransportShipMaxHp* = 10
+  TransportShipAttackDamage* = 0
+  TransportShipCapacity* = 5  # Max embarked units
+  DemoShipMaxHp* = 4
+  DemoShipAttackDamage* = 8  # High damage, single-use kamikaze
+  CannonGalleonMaxHp* = 12
+  CannonGalleonAttackDamage* = 4
+  CannonGalleonBaseRange* = 5
 
   # ============================================================================
   # Additional Siege Units

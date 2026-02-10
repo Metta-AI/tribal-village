@@ -559,6 +559,10 @@ const
     # Naval combat units
     GalleyMaxHp,
     FireShipMaxHp,
+    FishingShipMaxHp,
+    TransportShipMaxHp,
+    DemoShipMaxHp,
+    CannonGalleonMaxHp,
     # Additional siege unit
     ScorpionMaxHp
   ]
@@ -595,6 +599,10 @@ const
     # Naval combat units
     GalleyAttackDamage,
     FireShipAttackDamage,
+    FishingShipAttackDamage,
+    TransportShipAttackDamage,
+    DemoShipAttackDamage,
+    CannonGalleonAttackDamage,
     # Additional siege unit
     ScorpionAttackDamage
   ]
@@ -604,13 +612,13 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   ## Villagers use NoAttack (won't auto-attack).
   ## Military units use Defensive (attack in range, return to position).
   case unitClass
-  of UnitVillager, UnitMonk, UnitBoat, UnitTradeCog:
+  of UnitVillager, UnitMonk, UnitBoat, UnitTradeCog, UnitFishingShip, UnitTransportShip:
     StanceNoAttack
   of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
      UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing,
      UnitLongSwordsman, UnitChampion, UnitLightCavalry, UnitHussar, UnitCrossbowman, UnitArbalester,
-     UnitGalley, UnitFireShip, UnitScorpion:
+     UnitGalley, UnitFireShip, UnitDemoShip, UnitCannonGalleon, UnitScorpion:
     StanceDefensive
 
 type
@@ -653,6 +661,10 @@ const
     CategoryArcher,    # UnitArbalester
     CategoryNone,      # UnitGalley
     CategoryNone,      # UnitFireShip
+    CategoryNone,      # UnitFishingShip
+    CategoryNone,      # UnitTransportShip
+    CategoryNone,      # UnitDemoShip
+    CategoryNone,      # UnitCannonGalleon
     CategoryNone,      # UnitScorpion
   ]
 

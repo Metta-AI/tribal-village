@@ -123,6 +123,12 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: "Trebuc"
   of CmdTrainBoat: "Boat"
   of CmdTrainTradeCog: "T.Cog"
+  of CmdTrainGalley: "Galley"
+  of CmdTrainFireShip: "F.Ship"
+  of CmdTrainFishingShip: "Fisher"
+  of CmdTrainTransportShip: "Transp"
+  of CmdTrainDemoShip: "Demo"
+  of CmdTrainCannonGalleon: "C.Galln"
   of CmdFormationLine: "Line"
   of CmdFormationBox: "Box"
   of CmdFormationStaggered: "Stagger"
@@ -182,6 +188,12 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdTrainTrebuchet: "E"
   of CmdTrainBoat: "Q"
   of CmdTrainTradeCog: "W"
+  of CmdTrainGalley: "E"
+  of CmdTrainFireShip: "R"
+  of CmdTrainFishingShip: "A"
+  of CmdTrainTransportShip: "S"
+  of CmdTrainDemoShip: "D"
+  of CmdTrainCannonGalleon: "F"
   of CmdFormationLine: "1"
   of CmdFormationBox: "2"
   of CmdFormationStaggered: "3"
@@ -264,6 +276,12 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
   of Dock:
     result.add(CmdTrainBoat)
     result.add(CmdTrainTradeCog)
+    result.add(CmdTrainGalley)
+    result.add(CmdTrainFireShip)
+    result.add(CmdTrainFishingShip)
+    result.add(CmdTrainTransportShip)
+    result.add(CmdTrainDemoShip)
+    result.add(CmdTrainCannonGalleon)
   of Blacksmith:
     # Blacksmith: 5 upgrade lines (attack/armor research)
     result.add(CmdResearchMeleeAttack)
