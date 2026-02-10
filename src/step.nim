@@ -2370,10 +2370,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     thing.processProductionQueue()
 
   for thing in env.thingsByKind[Wonder]:
-    if thing.hp > 0 and thing.wonderVictoryCountdown > 0:
+    if thing.hp > 0 and thing.constructed and thing.wonderVictoryCountdown > 0:
       dec thing.wonderVictoryCountdown
       if thing.wonderVictoryCountdown <= 0:
         env.victoryWinner = thing.teamId
+        env.victoryWinners = computeAlliedWinners(env, thing.teamId)
 
   # Production/craft buildings and economy tech buildings: cooldown-only buildings
   for kind in [ClayOven, WeavingLoom, Blacksmith, Market, LumberCamp, MiningCamp, Quarry, TownCenter]:
