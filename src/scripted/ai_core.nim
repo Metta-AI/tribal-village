@@ -777,10 +777,10 @@ proc findTeamAltar*(env: Environment, agent: Thing, teamId: int): tuple[pos: IVe
     return (nearestAltar.pos, nearestAltar.hearts)
   (ivec2(-1, -1), 0)
 
-proc findAttackOpportunity*(env: Environment, agent: Thing): int =
+proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool = false): int =
   ## Return attack orientation index if a valid target is in reach, else -1.
   ## Simplified: pick the closest aligned target within range using a priority order.
-  ## Respects agent stance:
+  ## Respects agent stance (unless ignoreStance=true, used by patrol):
   ## - Aggressive/StandGround: auto-attack enemies in range
   ## - Defensive: only auto-attack if recently attacked (retaliation)
   ## - NoAttack: never auto-attack
@@ -790,7 +790,7 @@ proc findAttackOpportunity*(env: Environment, agent: Thing): int =
   if agent.unitClass == UnitMonk:
     return -1
   # Check stance allows auto-attacking (handles defensive retaliation logic)
-  if not stanceAllowsAutoAttack(env, agent):
+  if not ignoreStance and not stanceAllowsAutoAttack(env, agent):
     return -1
 
   let maxRange = case agent.unitClass

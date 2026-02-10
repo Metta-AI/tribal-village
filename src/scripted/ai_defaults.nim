@@ -634,13 +634,16 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   # Patrol behavior - applies to all roles when patrol is active
   if state.patrolActive and state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0:
-    # Check for nearby enemies and chase them if stance allows
-    if stanceAllowsChase(env, agent):
-      let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
-      if not isNil(enemy):
-        # Move toward enemy to engage
-        setAuditBranch(BranchPatrolChase)
-        return controller.moveTo(env, agent, agentId, state, enemy.pos)
+    # Patrol always attacks enemies (AoE2-style: patrol overrides stance for engagement)
+    let patrolAttackDir = findAttackOpportunity(env, agent, ignoreStance = true)
+    if patrolAttackDir >= 0:
+      setAuditBranch(BranchPatrolChase)
+      return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, patrolAttackDir.uint8))
+    # Chase nearby enemies (patrol overrides stance for chasing too)
+    let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+    if not isNil(enemy):
+      setAuditBranch(BranchPatrolChase)
+      return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
     # Determine current patrol target
     let target = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
@@ -682,15 +685,19 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         state = controller.agents[agentId]
         # Continue processing with updated state
     else:
-      # Check for nearby enemies to engage while moving
-      if stanceAllowsChase(env, agent):
-        let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
-        if not isNil(enemy):
-          let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
-          if enemyDist <= 8:  # Attack-move detection radius
-            # Enemy found - engage!
-            setAuditBranch(BranchAttackMoveEngage)
-            return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+      # Attack-move always engages enemies (overrides stance, like patrol)
+      let amAttackDir = findAttackOpportunity(env, agent, ignoreStance = true)
+      if amAttackDir >= 0:
+        setAuditBranch(BranchAttackMoveEngage)
+        return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, amAttackDir.uint8))
+      # Check for nearby enemies to chase toward
+      let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+      if not isNil(enemy):
+        let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
+        if enemyDist <= 8:  # Attack-move detection radius
+          # Enemy found - engage!
+          setAuditBranch(BranchAttackMoveEngage)
+          return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
       # No enemy nearby - continue moving toward destination
       setAuditBranch(BranchAttackMoveAdvance)
       return controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
