@@ -324,13 +324,18 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
   # Drop garrisoned relics when a Monastery is destroyed
   if target.kind == Monastery and target.garrisonedRelics > 0:
     var bgCandidates: seq[IVec2] = @[]
-    for dy in -2 .. 2:
-      for dx in -2 .. 2:
-        if dx == 0 and dy == 0: continue
-        let pos = target.pos + ivec2(dx.int32, dy.int32)
-        if isValidPos(pos) and env.terrain[pos.x][pos.y] != Water and
-            isNil(env.backgroundGrid[pos.x][pos.y]):
-          bgCandidates.add(pos)
+    # Search progressively wider radius to find enough empty tiles
+    var radius = 2
+    while bgCandidates.len < target.garrisonedRelics and radius <= 5:
+      bgCandidates.setLen(0)
+      for dy in -radius .. radius:
+        for dx in -radius .. radius:
+          if dx == 0 and dy == 0: continue
+          let pos = target.pos + ivec2(dx.int32, dy.int32)
+          if isValidPos(pos) and env.terrain[pos.x][pos.y] != Water and
+              isNil(env.backgroundGrid[pos.x][pos.y]):
+            bgCandidates.add(pos)
+      inc radius
     for i in 0 ..< min(target.garrisonedRelics, bgCandidates.len):
       let relic = Thing(kind: Relic, pos: bgCandidates[i])
       relic.inventory = emptyInventory()
@@ -428,14 +433,19 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
   triggerScreenShake()
 
   if lanternCount > 0 or relicCount > 0:
+    let totalNeeded = lanternCount + relicCount
     var candidates: seq[IVec2] = @[]
-    for dy in -1 .. 1:
-      for dx in -1 .. 1:
-        if dx == 0 and dy == 0: continue
-        let cand = deathPos + ivec2(dx.int32, dy.int32)
-        if isValidPos(cand) and env.isEmpty(cand) and not env.hasDoor(cand) and
-            not isBlockedTerrain(env.terrain[cand.x][cand.y]) and not isTileFrozen(cand, env):
-          candidates.add(cand)
+    var searchRadius = 1
+    while candidates.len < totalNeeded and searchRadius <= 4:
+      candidates.setLen(0)
+      for dy in -searchRadius .. searchRadius:
+        for dx in -searchRadius .. searchRadius:
+          if dx == 0 and dy == 0: continue
+          let cand = deathPos + ivec2(dx.int32, dy.int32)
+          if isValidPos(cand) and env.isEmpty(cand) and not env.hasDoor(cand) and
+              not isBlockedTerrain(env.terrain[cand.x][cand.y]) and not isTileFrozen(cand, env):
+            candidates.add(cand)
+      inc searchRadius
     let lanternSlots = min(lanternCount, candidates.len)
     for i in 0 ..< lanternSlots:
       let lantern = acquireThing(env, Lantern)
