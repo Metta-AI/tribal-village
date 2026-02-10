@@ -1812,6 +1812,8 @@ proc stopAgentInternal(controller: Controller, agentId: int) =
     # Reset active option
     controller.agents[agentId].activeOptionId = -1
     controller.agents[agentId].activeOptionTicks = 0
+    # Clear command queue
+    controller.agents[agentId].commandQueueCount = 0
 
 proc stopAgentFull*(controller: Controller, agentId: int, currentStep: int32) =
   ## Fully stop an agent: clears all orders, path, and active option.
@@ -1846,6 +1848,147 @@ proc getAgentStoppedUntilStep*(controller: Controller, agentId: int): int32 =
   if agentId >= 0 and agentId < MapAgents:
     return controller.agents[agentId].stoppedUntilStep
   0
+
+# Command Queue API - Shift-queue functionality for AoE2-style command queueing
+# Commands are added to the queue when shift+clicking, executed in order when
+# the current command completes.
+
+proc clearCommandQueue*(controller: Controller, agentId: int) =
+  ## Clear all queued commands for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].commandQueueCount = 0
+
+proc getCommandQueueCount*(controller: Controller, agentId: int): int =
+  ## Get the number of commands in an agent's queue.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].commandQueueCount
+  0
+
+proc hasQueuedCommands*(controller: Controller, agentId: int): bool =
+  ## Check if an agent has commands in the queue.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].commandQueueCount > 0
+  false
+
+proc queueCommand*(controller: Controller, agentId: int, cmd: QueuedCommand) =
+  ## Add a command to an agent's queue. Returns silently if queue is full.
+  if agentId >= 0 and agentId < MapAgents:
+    let count = controller.agents[agentId].commandQueueCount
+    if count < MaxCommandQueueSize:
+      controller.agents[agentId].commandQueue[count] = cmd
+      controller.agents[agentId].commandQueueCount = count + 1
+
+proc queueAttackMove*(controller: Controller, agentId: int, target: IVec2) =
+  ## Queue an attack-move command.
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: CmdAttackMove,
+    targetPos: target,
+    targetAgentId: -1
+  ))
+
+proc queuePatrol*(controller: Controller, agentId: int, target: IVec2) =
+  ## Queue a patrol command (from current position to target).
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: CmdPatrol,
+    targetPos: target,
+    targetAgentId: -1
+  ))
+
+proc queueFollow*(controller: Controller, agentId: int, targetAgentId: int) =
+  ## Queue a follow command.
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: CmdFollow,
+    targetPos: ivec2(-1, -1),
+    targetAgentId: targetAgentId.int32
+  ))
+
+proc queueGuardAgent*(controller: Controller, agentId: int, targetAgentId: int) =
+  ## Queue a guard-agent command.
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: CmdGuard,
+    targetPos: ivec2(-1, -1),
+    targetAgentId: targetAgentId.int32
+  ))
+
+proc queueGuardPosition*(controller: Controller, agentId: int, target: IVec2) =
+  ## Queue a guard-position command.
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: CmdGuard,
+    targetPos: target,
+    targetAgentId: -1
+  ))
+
+proc queueHoldPosition*(controller: Controller, agentId: int, target: IVec2) =
+  ## Queue a hold-position command.
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: CmdHoldPosition,
+    targetPos: target,
+    targetAgentId: -1
+  ))
+
+proc peekNextCommand*(controller: Controller, agentId: int): QueuedCommand =
+  ## Get the next command in the queue without removing it.
+  ## Returns a default command if queue is empty.
+  if agentId >= 0 and agentId < MapAgents and
+     controller.agents[agentId].commandQueueCount > 0:
+    return controller.agents[agentId].commandQueue[0]
+  QueuedCommand(cmdType: CmdAttackMove, targetPos: ivec2(-1, -1), targetAgentId: -1)
+
+proc popNextCommand*(controller: Controller, agentId: int): QueuedCommand =
+  ## Remove and return the next command from the queue.
+  ## Returns a default command (with targetPos -1,-1) if queue is empty.
+  if agentId >= 0 and agentId < MapAgents:
+    let count = controller.agents[agentId].commandQueueCount
+    if count > 0:
+      result = controller.agents[agentId].commandQueue[0]
+      # Shift remaining commands down
+      for i in 0 ..< count - 1:
+        controller.agents[agentId].commandQueue[i] = controller.agents[agentId].commandQueue[i + 1]
+      controller.agents[agentId].commandQueueCount = count - 1
+      return result
+  QueuedCommand(cmdType: CmdAttackMove, targetPos: ivec2(-1, -1), targetAgentId: -1)
+
+proc executeQueuedCommand*(controller: Controller, agentId: int, agentPos: IVec2) =
+  ## Pop the next command from the queue and execute it.
+  ## Sets the appropriate agent state based on the command type.
+  ## Uses inline state manipulation to avoid circular dependencies.
+  if agentId < 0 or agentId >= MapAgents:
+    return
+  let count = controller.agents[agentId].commandQueueCount
+  if count == 0:
+    return
+  let cmd = popNextCommand(controller, agentId)
+  case cmd.cmdType
+  of CmdAttackMove:
+    # Inline setAttackMoveTarget
+    controller.agents[agentId].attackMoveTarget = cmd.targetPos
+  of CmdPatrol:
+    # Inline setPatrol - patrol from current position to target
+    controller.agents[agentId].patrolPoint1 = agentPos
+    controller.agents[agentId].patrolPoint2 = cmd.targetPos
+    controller.agents[agentId].patrolToSecondPoint = true
+    controller.agents[agentId].patrolActive = true
+  of CmdFollow:
+    # Inline setFollowTarget
+    if cmd.targetAgentId >= 0 and cmd.targetAgentId < MapAgents:
+      controller.agents[agentId].followTargetAgentId = cmd.targetAgentId.int
+      controller.agents[agentId].followActive = true
+  of CmdGuard:
+    if cmd.targetAgentId >= 0:
+      # Inline setGuardTarget
+      if cmd.targetAgentId < MapAgents:
+        controller.agents[agentId].guardTargetAgentId = cmd.targetAgentId.int
+        controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
+        controller.agents[agentId].guardActive = true
+    else:
+      # Inline setGuardPosition
+      controller.agents[agentId].guardTargetAgentId = -1
+      controller.agents[agentId].guardTargetPos = cmd.targetPos
+      controller.agents[agentId].guardActive = true
+  of CmdHoldPosition:
+    # Inline setHoldPosition
+    controller.agents[agentId].holdPositionTarget = cmd.targetPos
+    controller.agents[agentId].holdPositionActive = true
 
 # Stance API - Controller-level procs for setting/getting agent stance.
 # Stance is stored on the agent (Thing) but we use AgentState.pendingStance

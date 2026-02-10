@@ -695,25 +695,29 @@ proc display() =
               for sel in selection:
                 if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
                   if shiftDown:
-                    # Shift+right-click: queue patrol waypoint
-                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                    # Shift+right-click: queue command (AoE2-style shift-queue)
+                    queueAgentAttackMove(sel.agentId, gridPos)
                   else:
+                    # Normal click: clear queue and issue immediate command
+                    clearAgentCommandQueue(sel.agentId)
                     setAgentAttackMoveTarget(sel.agentId, gridPos)
             else:
-              # Friendly agent: follow (using attack-move for now, could be follow command)
+              # Friendly agent: follow
               for sel in selection:
                 if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
                   if shiftDown:
-                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                    queueAgentFollow(sel.agentId, targetThing.agentId)
                   else:
+                    clearAgentCommandQueue(sel.agentId)
                     setAgentFollowTarget(sel.agentId, targetThing.agentId)
           elif targetThing.kind in GatherableResourceKinds:
             # Resource: gather command (attack-move for villagers)
             for sel in selection:
               if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
                 if shiftDown:
-                  setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                  queueAgentAttackMove(sel.agentId, gridPos)
                 else:
+                  clearAgentCommandQueue(sel.agentId)
                   setAgentAttackMoveTarget(sel.agentId, gridPos)
           elif isBuildingKind(targetThing.kind):
             # Building: check if friendly or enemy
@@ -722,41 +726,47 @@ proc display() =
               for sel in selection:
                 if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
                   if shiftDown:
-                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                    queueAgentAttackMove(sel.agentId, gridPos)
                   else:
+                    clearAgentCommandQueue(sel.agentId)
                     setAgentAttackMoveTarget(sel.agentId, gridPos)
             else:
               # Enemy building: attack-move
               for sel in selection:
                 if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
                   if shiftDown:
-                    setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                    queueAgentAttackMove(sel.agentId, gridPos)
                   else:
+                    clearAgentCommandQueue(sel.agentId)
                     setAgentAttackMoveTarget(sel.agentId, gridPos)
           else:
             # Other things (Tumor, Spawner, etc.): attack-move
             for sel in selection:
               if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
                 if shiftDown:
-                  setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                  queueAgentAttackMove(sel.agentId, gridPos)
                 else:
+                  clearAgentCommandQueue(sel.agentId)
                   setAgentAttackMoveTarget(sel.agentId, gridPos)
         elif not isNil(bgThing) and bgThing.kind in GatherableResourceKinds:
           # Background thing is a gatherable resource (like Fish)
           for sel in selection:
             if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
               if shiftDown:
-                setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                queueAgentAttackMove(sel.agentId, gridPos)
               else:
+                clearAgentCommandQueue(sel.agentId)
                 setAgentAttackMoveTarget(sel.agentId, gridPos)
         else:
           # Empty tile: move command
           for sel in selection:
             if not isNil(sel) and sel.kind == Agent and env.isAgentAlive(sel):
               if shiftDown:
-                # Shift+right-click: queue patrol waypoint
-                setAgentPatrol(sel.agentId, sel.pos, gridPos)
+                # Shift+right-click: queue command (AoE2-style shift-queue)
+                queueAgentAttackMove(sel.agentId, gridPos)
               else:
+                # Normal click: clear queue and issue immediate command
+                clearAgentCommandQueue(sel.agentId)
                 setAgentAttackMoveTarget(sel.agentId, gridPos)
 
   # Control group handling (AoE2-style: Ctrl+N assigns, N recalls, double-tap centers)

@@ -1119,6 +1119,68 @@ proc getAgentStoppedUntilStep*(agentId: int): int32 =
     return globalController.aiController.getAgentStoppedUntilStep(agentId)
   0
 
+# Command Queue API
+# Shift-queue functionality for AoE2-style command queueing.
+# When shift+clicking, commands are added to a queue and executed in order.
+
+proc clearAgentCommandQueue*(agentId: int) =
+  ## Clear all queued commands for an agent.
+  withBuiltinAI:
+    globalController.aiController.clearCommandQueue(agentId)
+
+proc getAgentCommandQueueCount*(agentId: int): int =
+  ## Get the number of commands in an agent's queue.
+  withBuiltinAI:
+    return globalController.aiController.getCommandQueueCount(agentId)
+  0
+
+proc hasAgentQueuedCommands*(agentId: int): bool =
+  ## Check if an agent has commands in the queue.
+  withBuiltinAI:
+    return globalController.aiController.hasQueuedCommands(agentId)
+  false
+
+proc queueAgentAttackMove*(agentId: int, target: IVec2) =
+  ## Queue an attack-move command for shift-queue.
+  withBuiltinAI:
+    globalController.aiController.queueAttackMove(agentId, target)
+
+proc queueAgentAttackMoveXY*(agentId: int, x, y: int32) =
+  ## Queue an attack-move command using x,y coordinates.
+  queueAgentAttackMove(agentId, ivec2(x, y))
+
+proc queueAgentPatrol*(agentId: int, target: IVec2) =
+  ## Queue a patrol command for shift-queue.
+  ## Patrol will go from the agent's position when the command executes to target.
+  withBuiltinAI:
+    globalController.aiController.queuePatrol(agentId, target)
+
+proc queueAgentFollow*(agentId: int, targetAgentId: int) =
+  ## Queue a follow command for shift-queue.
+  withBuiltinAI:
+    globalController.aiController.queueFollow(agentId, targetAgentId)
+
+proc queueAgentGuard*(agentId: int, targetAgentId: int) =
+  ## Queue a guard-agent command for shift-queue.
+  withBuiltinAI:
+    globalController.aiController.queueGuardAgent(agentId, targetAgentId)
+
+proc queueAgentGuardPosition*(agentId: int, target: IVec2) =
+  ## Queue a guard-position command for shift-queue.
+  withBuiltinAI:
+    globalController.aiController.queueGuardPosition(agentId, target)
+
+proc queueAgentHoldPosition*(agentId: int, target: IVec2) =
+  ## Queue a hold-position command for shift-queue.
+  withBuiltinAI:
+    globalController.aiController.queueHoldPosition(agentId, target)
+
+proc executeNextQueuedCommand*(agentId: int, agentPos: IVec2) =
+  ## Execute the next command in the queue (if any).
+  ## Call this when the current command completes.
+  withBuiltinAI:
+    globalController.aiController.executeQueuedCommand(agentId, agentPos)
+
 # Formation API
 # Formation system for coordinated group movement (Line, Box formations).
 # Formations are per-control-group, not per-agent.

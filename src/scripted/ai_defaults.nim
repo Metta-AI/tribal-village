@@ -674,6 +674,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if chebyshevDist(agent.pos, state.attackMoveTarget) <= 1'i32:
       # Clear the attack-move target - we've arrived
       state.attackMoveTarget = ivec2(-1, -1)
+      controller.agents[agentId].attackMoveTarget = ivec2(-1, -1)
+      # Check for queued commands (shift-queue) and execute next if present
+      if state.commandQueueCount > 0:
+        controller.executeQueuedCommand(agentId, agent.pos)
+        # Re-read state to get the command that was just set
+        state = controller.agents[agentId]
+        # Continue processing with updated state
     else:
       # Check for nearby enemies to engage while moving
       if stanceAllowsChase(env, agent):

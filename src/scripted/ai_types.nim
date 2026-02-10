@@ -17,6 +17,8 @@ const
   MaxThreatEntries* = 64  # Max threats tracked per team
   # Damaged building cache
   MaxDamagedBuildingsPerTeam* = 32  # Max damaged buildings tracked per team
+  # Command queue for shift-queue functionality
+  MaxCommandQueueSize* = 8  # Max queued commands per agent
 
 type
   ## Shared threat map entry for team coordination
@@ -77,6 +79,20 @@ type
     TaskStone
     TaskGold
     TaskHearts
+
+  # Command types for shift-queue functionality
+  QueuedCommandType* = enum
+    CmdAttackMove     # Move to position, attack enemies along the way
+    CmdPatrol         # Set up patrol between current position and target
+    CmdFollow         # Follow a target agent
+    CmdGuard          # Guard a target agent or position
+    CmdHoldPosition   # Hold position at target
+
+  # A queued command entry for shift-queue functionality
+  QueuedCommand* = object
+    cmdType*: QueuedCommandType
+    targetPos*: IVec2         # Target position for move/patrol/guard/hold
+    targetAgentId*: int32     # Target agent ID for follow/guard (-1 if using position)
 
   # Minimal state tracking with spiral search
   AgentState* = object
@@ -157,6 +173,9 @@ type
     # Economy priority override: force gatherer to collect specific resource
     gathererPriorityResource*: StockpileResource  # Resource to prioritize
     gathererPriorityActive*: bool                 # Whether override is active
+    # Command queue for shift-queue functionality (AoE2-style waypoint queuing)
+    commandQueue*: array[MaxCommandQueueSize, QueuedCommand]  # Queued commands
+    commandQueueCount*: int                       # Number of commands in queue
 
   # Difficulty levels for AI - affects decision quality and reaction time
   DifficultyLevel* = enum
