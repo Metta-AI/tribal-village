@@ -1,6 +1,7 @@
 # Test Suite Audit Report
 
 Date: 2026-01-31
+Updated: 2026-02-09 (tv-9i55qe - balance tests resolved)
 Owner: Engineering / QA
 Status: Active
 Issue: tv-o4qfd
@@ -61,18 +62,23 @@ Based on analysis of the codebase, these critical paths may need additional cove
 
 ## 2. Flaky Tests
 
-### 2.1 Currently Failing Tests (Pre-existing)
+### 2.1 Previously Failing Tests (Now Resolved)
 
 **File:** `tests/behavior_balance.nim`
 
 | Test | Status | Analysis |
 |------|--------|----------|
-| `no team wins more than 80% of games` | FAILING | Depends on emergent simulation behavior across seeds. May fail if game balance changes. |
-| `all teams have surviving units across seeds` | FAILING | Same issue - emergent behavior varies. |
+| `no team wins more than 80% of games` | PASSING | Now passing consistently. |
+| `all teams have surviving units across seeds` | PASSING | Now passing consistently. |
 
-**Root Cause:** These tests run multi-step simulations and check aggregate outcomes. They are inherently sensitive to any changes in AI behavior, combat mechanics, or spawn logic.
+**Resolution (tv-9i55qe, 2026-02-09):** These tests are now stable. Recent AI improvements
+(shouldWaitForAllies, retreatTowardAllies, optGathererFollow, guard commands, multi-waypoint
+patrol) and unit additions (Archery Range, Stable cavalry, Dock naval) have improved game
+balance, resulting in more even team outcomes across seeds.
 
-**Filed:** tv-iecjt
+**Note:** These tests remain inherently sensitive to AI behavior and game mechanics changes.
+Future changes may cause them to fail again - if so, investigate whether the change broke
+actual game balance or if thresholds need adjustment.
 
 ### 2.2 Tests with Flakiness Risk
 
@@ -168,7 +174,7 @@ Some functionality is tested in multiple places with slight variations:
 
 ### Immediate Actions
 
-1. **Fix or Skip Balance Tests** - The failing tests should be either fixed or marked as `skip` with a tracking issue
+1. ~~**Fix or Skip Balance Tests**~~ - RESOLVED (tv-9i55qe, 2026-02-09): Balance tests now passing
 
 2. **Remove Always-True Assertions** - Tests with `or true` provide no value and should be tightened or removed
 
