@@ -470,8 +470,10 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
 
   # Scan for enemy agents within vision range using spatial index
   # Scan spatial cells for enemy agents and structures
+  # Optimized: uses bitwise team mask comparison for O(1) team checks
   let (cx, cy) = cellCoords(agent.pos)
   let vr = visionRange.int
+  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
   let cellRadius = distToCellRadius16(min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize))
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
@@ -483,8 +485,9 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
       for other in env.spatialIndex.kindCells[Agent][nx][ny]:
         if other.isNil or not isAgentAlive(env, other):
           continue
-        let otherTeam = getTeamId(other)
-        if otherTeam == teamId or otherTeam < 0:
+        # Bitwise team check: skip same team or invalid team (NoTeamMask)
+        let otherMask = getTeamMask(other)
+        if (otherMask and teamMask) != 0 or otherMask == NoTeamMask:
           continue
         if chebyshevDist(agent.pos, other.pos) <= visionRange:
           let strength: int32 = case other.unitClass
@@ -499,7 +502,9 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
       for thing in env.spatialIndex.cells[nx][ny].things:
         if thing.isNil or not isBuildingKind(thing.kind):
           continue
-        if thing.teamId < 0 or thing.teamId == teamId:
+        # Bitwise team check: skip invalid team or same team
+        let thingMask = getTeamMask(thing.teamId)
+        if thingMask == NoTeamMask or (thingMask and teamMask) != 0:
           continue
         if chebyshevDist(agent.pos, thing.pos) <= visionRange:
           let strength: int32 = case thing.kind

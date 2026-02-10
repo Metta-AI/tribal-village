@@ -314,7 +314,8 @@ proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
 
 proc findNearestFriendlyMonkUncached(env: Environment, agent: Thing): Thing =
   ## Internal: actual search logic for nearest friendly monk.
-  let teamId = getTeamId(agent)
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  let teamMask = getTeamMask(agent)  # Pre-compute for bitwise checks
   var bestMonk: Thing = nil
   var bestDist = int.high
   let (cx, cy) = cellCoords(agent.pos)
@@ -331,7 +332,8 @@ proc findNearestFriendlyMonkUncached(env: Environment, agent: Thing): Thing =
           continue
         if not isAgentAlive(env, other):
           continue
-        if getTeamId(other) != teamId or other.unitClass != UnitMonk:
+        # Bitwise team check: (otherMask and teamMask) == 0 means different team
+        if (getTeamMask(other) and teamMask) == 0 or other.unitClass != UnitMonk:
           continue
         let dist = int(chebyshevDist(agent.pos, other.pos))
         if dist <= HealerSeekRadius and dist < bestDist:
@@ -348,7 +350,8 @@ proc findNearestCombatAllyUncached(env: Environment, agent: Thing): Thing =
   ## Internal: actual search logic for nearest friendly combat unit (for retreat).
   ## Prioritizes healthy allies (HP > 50%) that are not too close.
   ## Combat units: ManAtArms, Knight, Archer (ranged support counts too).
-  let teamId = getTeamId(agent)
+  ## Optimized: uses bitwise team mask comparison for O(1) team checks.
+  let teamMask = getTeamMask(agent)  # Pre-compute for bitwise checks
   var bestAlly: Thing = nil
   var bestDist = int.high
   let (cx, cy) = cellCoords(agent.pos)
@@ -365,7 +368,8 @@ proc findNearestCombatAllyUncached(env: Environment, agent: Thing): Thing =
           continue
         if not isAgentAlive(env, other):
           continue
-        if getTeamId(other) != teamId:
+        # Bitwise team check: (otherMask and teamMask) == 0 means different team
+        if (getTeamMask(other) and teamMask) == 0:
           continue
         # Only consider combat units that can help in a fight
         if other.unitClass notin {UnitManAtArms, UnitKnight, UnitCavalier, UnitPaladin, UnitArcher,

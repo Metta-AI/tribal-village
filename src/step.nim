@@ -787,7 +787,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let blocker = env.getThing(step1)
           if not isNil(blocker):
             if blocker.kind == Agent and not isThingFrozen(blocker, env) and
-                getTeamId(blocker) == getTeamId(agent):
+                sameTeamMask(blocker, agent):
               let agentOld = agent.pos
               let blockerOld = blocker.pos
               agent.pos = blockerOld
@@ -906,6 +906,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
         let delta = orientationToVec(attackOrientation)
         let attackerTeam = getTeamId(agent)
+        let attackerMask = getTeamMask(attackerTeam)  # Pre-compute for bitwise checks
         var damageAmount = max(1, agent.attackDamage)
 
         # Ballistics: +1 damage for ranged units (better accuracy = more effective shots)
@@ -927,12 +928,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if not isValidPos(pos):
             return false
           let door = env.getBackgroundThing(pos)
-          if not isNil(door) and door.kind == Door and door.teamId != attackerTeam:
+          if not isNil(door) and door.kind == Door and not isTeamInMask(door.teamId, attackerMask):
             discard env.applyStructureDamage(door, damageAmount, agent)
             return true
           let structure = env.getThing(pos)
           if not isNil(structure) and structure.kind in AttackableStructures:
-            if structure.teamId != attackerTeam:
+            if not isTeamInMask(structure.teamId, attackerMask):
               discard env.applyStructureDamage(structure, damageAmount, agent)
               return true
           var target = env.getThing(pos)
@@ -951,12 +952,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           of Agent:
             if target.agentId == agent.agentId:
               return false
-            if getTeamId(target) == attackerTeam:
+            if (getTeamMask(target) and attackerMask) != 0:  # Same team check via bitwise
               return false
             discard env.applyAgentDamage(target, damageAmount, agent)
             return true
           of Altar:
-            if target.teamId == attackerTeam:
+            if isTeamInMask(target.teamId, attackerMask):  # Same team check via bitwise
               return false
             target.hearts = max(0, target.hearts - 1)
             env.updateObservations(altarHeartsLayer, target.pos, target.hearts)
@@ -1000,7 +1001,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let healPos = agent.pos + delta
           let target = env.getThing(healPos)
           if not isNil(target) and target.kind == Agent:
-            if getTeamId(target) == attackerTeam:
+            if (getTeamMask(target) and attackerMask) != 0:  # Same team check via bitwise
               discard env.applyAgentHeal(target, 1, agent)
               env.applyActionTint(healPos, TileColor(r: 0.35, g: 0.85, b: 0.35, intensity: 1.1), 2, ActionTintHealMonk)
               inc env.stats[id].actionAttack
@@ -1334,6 +1335,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           inc env.stats[id].actionInvalid
           break useAction
 
+        let agentTeamId = getTeamId(agent)
+        let agentMask = getTeamMask(agentTeamId)  # Pre-compute for bitwise checks
         var used = false
         template takeFromThing(key: ItemKey, rewardAmount: float32 = 0.0) =
           let stored = getInv(thing, key)
@@ -1548,7 +1551,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             used = true
         of Wall, Door:
           # Construction/repair: villagers can work on walls and doors
-          if thing.teamId == getTeamId(agent) and thing.hp < thing.maxHp and
+          if isTeamInMask(thing.teamId, agentMask) and thing.hp < thing.maxHp and
              agent.unitClass == UnitVillager:
             # Register this builder for the multi-builder bonus
             env.constructionBuilders.mgetOrPut(thing.pos, 0) += 1
@@ -1557,7 +1560,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if isBuildingKind(thing.kind):
             # Construction: villagers can work on buildings under construction
             if thing.maxHp > 0 and thing.hp < thing.maxHp and
-               thing.teamId == getTeamId(agent) and agent.unitClass == UnitVillager:
+               isTeamInMask(thing.teamId, agentMask) and agent.unitClass == UnitVillager:
               # Register this builder for the multi-builder bonus
               env.constructionBuilders.mgetOrPut(thing.pos, 0) += 1
               used = true
@@ -1601,18 +1604,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if thing.cooldown == 0:
                   if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
-                if not used and thing.teamId == getTeamId(agent):
+                if not used and isTeamInMask(thing.teamId, agentMask):
                   if env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
                     used = true
                 # If crafting and storage failed, try researching a Blacksmith upgrade
-                if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                if not used and thing.cooldown == 0 and isTeamInMask(thing.teamId, agentMask):
                   if env.tryResearchBlacksmithUpgrade(agent, thing):
                     used = true
               of UseMarket:
                 # AoE2-style market trading with dynamic prices
                 if thing.cooldown == 0:
-                  let teamId = getTeamId(agent)
-                  if thing.teamId == teamId:
+                  if isTeamInMask(thing.teamId, agentMask):  # Same team check via bitwise
                     var traded = false
                     # Reuse arena buffer for inventory snapshot
                     env.arena.itemCounts.setLen(0)
@@ -1634,7 +1636,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                           let (goldSpent, foodGained) = env.marketBuyFood(agent, count)
                           if foodGained > 0:
                             env.updateAgentInventoryObs(agent, key)
-                            logMarketTrade(teamId, "Bought", "Food", foodGained, goldSpent, env.currentStep)
+                            logMarketTrade(agentTeamId, "Bought", "Food", foodGained, goldSpent, env.currentStep)
                             traded = true
                         else:
                           let (_, foodGained) = env.marketBuyFood(agent, count)
@@ -1647,7 +1649,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                           let (amountSold, goldGained) = env.marketSellInventory(agent, key)
                           if amountSold > 0:
                             env.updateAgentInventoryObs(agent, key)
-                            logMarketTrade(teamId, "Sold", $stockpileRes, amountSold, goldGained, env.currentStep)
+                            logMarketTrade(agentTeamId, "Sold", $stockpileRes, amountSold, goldGained, env.currentStep)
                             traded = true
                         else:
                           let (amountSold, _) = env.marketSellInventory(agent, key)
@@ -1658,7 +1660,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                       thing.cooldown = DefaultMarketCooldown
                       used = true
               of UseDropoff:
-                if thing.teamId == getTeamId(agent):
+                if isTeamInMask(thing.teamId, agentMask):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
                   # Economy tech research (AoE2-style) - villagers research at economy buildings
@@ -1670,19 +1672,18 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     if env.garrisonUnitInBuilding(agent, thing):
                       used = true
               of UseDropoffAndTrain:
-                if thing.teamId == getTeamId(agent):
+                if isTeamInMask(thing.teamId, agentMask):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
                   if not used and thing.cooldown == 0 and buildingHasTrain(thing.kind):
-                    let teamId = getTeamId(agent)
-                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, teamId),
+                    if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, agentTeamId),
                         buildingTrainCosts(thing.kind), 0):
                       # Trade Cog: remember origin dock for gold calculation
                       if agent.unitClass == UnitTradeCog:
                         agent.tradeHomeDock = thing.pos
                       used = true
               of UseDropoffAndStorage:
-                if thing.teamId == getTeamId(agent):
+                if isTeamInMask(thing.teamId, agentMask):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
                   if not used and env.useStorageBuilding(agent, thing, buildingStorageItems(thing.kind)):
@@ -1698,7 +1699,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   env.updateAgentInventoryObs(agent, ItemRelic)
                   used = true
                 elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
-                  let teamId = getTeamId(agent)
                   # If queue has a ready entry, convert villager immediately (pre-paid)
                   if thing.productionQueueHasReady():
                     let unitClass = thing.consumeReadyQueueEntry()
@@ -1715,8 +1715,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     used = true
                   # Otherwise queue a new training request (pay now, train later)
                   # Use effectiveTrainUnit to train the upgraded version
-                  elif env.queueTrainUnit(thing, teamId,
-                      env.effectiveTrainUnit(thing.kind, teamId),
+                  elif env.queueTrainUnit(thing, agentTeamId,
+                      env.effectiveTrainUnit(thing.kind, agentTeamId),
                       buildingTrainCosts(thing.kind)):
                     used = true
               of UseTrainAndCraft:
@@ -1724,7 +1724,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
                   elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
-                    let teamId = getTeamId(agent)
                     if thing.productionQueueHasReady():
                       let unitClass = thing.consumeReadyQueueEntry()
                       applyUnitClass(agent, unitClass)
@@ -1735,8 +1734,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                       if thing.hasRallyPoint():
                         agent.rallyTarget = thing.rallyPoint
                       used = true
-                    elif env.queueTrainUnit(thing, teamId,
-                        env.effectiveTrainUnit(thing.kind, teamId),
+                    elif env.queueTrainUnit(thing, agentTeamId,
+                        env.effectiveTrainUnit(thing.kind, agentTeamId),
                         buildingTrainCosts(thing.kind)):
                       used = true
               of UseCraft:
@@ -1749,18 +1748,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
                 # If crafting failed or not possible, try researching
-                if not used and thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                if not used and thing.cooldown == 0 and isTeamInMask(thing.teamId, agentMask):
                   if env.tryResearchUniversityTech(agent, thing):
                     used = true
               of UseCastle:
                 # Castle: research unique techs first, then train unique units
                 # Research takes priority (like AoE2 where research buttons are distinct)
-                if thing.cooldown == 0 and thing.teamId == getTeamId(agent):
+                if thing.cooldown == 0 and isTeamInMask(thing.teamId, agentMask):
                   if env.tryResearchCastleTech(agent, thing):
                     used = true
                 # If no research available, try training units
                 if not used and buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
-                  let teamId = getTeamId(agent)
                   if thing.productionQueueHasReady():
                     let unitClass = thing.consumeReadyQueueEntry()
                     applyUnitClass(agent, unitClass)
@@ -1771,17 +1769,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     if thing.hasRallyPoint():
                       agent.rallyTarget = thing.rallyPoint
                     used = true
-                  elif env.queueTrainUnit(thing, teamId,
-                      buildingTrainUnit(thing.kind, teamId),
+                  elif env.queueTrainUnit(thing, agentTeamId,
+                      buildingTrainUnit(thing.kind, agentTeamId),
                       buildingTrainCosts(thing.kind)):
                     used = true
                 # Castle garrison: military units can garrison if no other action
-                if not used and thing.teamId == getTeamId(agent) and agent.unitClass != UnitVillager:
+                if not used and isTeamInMask(thing.teamId, agentMask) and agent.unitClass != UnitVillager:
                   if env.garrisonUnitInBuilding(agent, thing):
                     used = true
               of UseNone:
                 # Garrison: any unit can garrison in buildings with garrison capacity
-                if thing.teamId == getTeamId(agent) and garrisonCapacity(thing.kind) > 0:
+                if isTeamInMask(thing.teamId, agentMask) and garrisonCapacity(thing.kind) > 0:
                   if env.garrisonUnitInBuilding(agent, thing):
                     used = true
 
