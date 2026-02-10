@@ -595,7 +595,451 @@ suite "Unit: NeighborOffsets pre-computed tables":
         lastDist = dist
 
 # ============================================================================
-# 14. Performance sanity: queries on populated index
+# 14. findNearestThingSpatial (dedicated tests)
+# ============================================================================
+
+suite "Unit: findNearestThingSpatial":
+  test "finds nearest tree of multiple":
+    let env = makeEmptyEnv()
+    let far = addResource(env, Tree, ivec2(80, 50), ItemWood)
+    let near = addResource(env, Tree, ivec2(55, 50), ItemWood)
+    let mid = addResource(env, Tree, ivec2(65, 50), ItemWood)
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestThingSpatial(ivec2(50, 50), Tree, 100)
+    check found == near
+
+  test "returns nil when kind not present":
+    let env = makeEmptyEnv()
+    discard addResource(env, Gold, ivec2(55, 50), ItemGold)
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestThingSpatial(ivec2(50, 50), Tree, 100)
+    check found == nil
+
+  test "returns nil when all outside maxDist":
+    let env = makeEmptyEnv()
+    discard addResource(env, Tree, ivec2(200, 200), ItemWood)
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestThingSpatial(ivec2(50, 50), Tree, 50)
+    check found == nil
+
+  test "finds thing at exact maxDist boundary":
+    let env = makeEmptyEnv()
+    # Manhattan distance: |60-50| + |50-50| = 10
+    let tree = addResource(env, Tree, ivec2(60, 50), ItemWood)
+    env.rebuildSpatialIndex()
+
+    # maxDist is exclusive, so 10 should NOT be found at maxDist=10
+    let notFound = env.findNearestThingSpatial(ivec2(50, 50), Tree, 10)
+    check notFound == nil
+
+    # But should be found at maxDist=11
+    let found = env.findNearestThingSpatial(ivec2(50, 50), Tree, 11)
+    check found == tree
+
+  test "finds thing across cell boundary":
+    let env = makeEmptyEnv()
+    # Place tree in different cell (SpatialCellSize=16)
+    let tree = addResource(env, Tree, ivec2(70, 50), ItemWood)
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestThingSpatial(ivec2(50, 50), Tree, 50)
+    check found == tree
+
+  test "handles query from edge of map":
+    let env = makeEmptyEnv()
+    let tree = addResource(env, Tree, ivec2(MapBorder.int32 + 5, MapBorder.int32 + 5), ItemWood)
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestThingSpatial(ivec2(MapBorder.int32, MapBorder.int32), Tree, 20)
+    check found == tree
+
+# ============================================================================
+# 15. findNearestFriendlyThingSpatial
+# ============================================================================
+
+suite "Unit: findNearestFriendlyThingSpatial":
+  test "finds nearest friendly building":
+    let env = makeEmptyEnv()
+    let farFriendly = addBuilding(env, House, ivec2(80, 50), 0)
+    let nearFriendly = addBuilding(env, House, ivec2(55, 50), 0)
+    discard addBuilding(env, House, ivec2(52, 50), 1)  # Enemy, even closer
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 0, House, 100)
+    check found == nearFriendly
+
+  test "ignores enemy buildings":
+    let env = makeEmptyEnv()
+    discard addBuilding(env, House, ivec2(55, 50), 1)  # Enemy
+    let friendly = addBuilding(env, House, ivec2(70, 50), 0)  # Friendly but farther
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 0, House, 100)
+    check found == friendly
+
+  test "returns nil when no friendly buildings in range":
+    let env = makeEmptyEnv()
+    discard addBuilding(env, House, ivec2(55, 50), 1)  # Enemy only
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 0, House, 100)
+    check found == nil
+
+  test "finds friendly resource node (unowned)":
+    let env = makeEmptyEnv()
+    # Resources have teamId = 0 by default (Thing default), which means
+    # team 0 can find them as "friendly" since team mask matches
+    let tree = addResource(env, Tree, ivec2(55, 50), ItemWood)
+    env.rebuildSpatialIndex()
+
+    # Tree has default teamId=0, so team 0 finds it as friendly
+    let found = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 0, Tree, 100)
+    check found == tree  # Default teamId is 0, so it's found as friendly
+
+    # Team 1 should NOT find it since teamId=0
+    let notFound = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 1, Tree, 100)
+    check notFound == nil
+
+  test "works with Altar kind":
+    let env = makeEmptyEnv()
+    let altar = addAltar(env, ivec2(60, 50), 0, 3)
+    discard addAltar(env, ivec2(55, 50), 1, 3)  # Enemy altar closer
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 0, Altar, 100)
+    check found == altar
+
+  test "respects maxDist limit":
+    let env = makeEmptyEnv()
+    discard addBuilding(env, House, ivec2(100, 50), 0)  # Friendly but far
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestFriendlyThingSpatial(ivec2(50, 50), 0, House, 30)
+    check found == nil
+
+# ============================================================================
+# 16. findNearestEnemyAgentSpatial
+# ============================================================================
+
+suite "Unit: findNearestEnemyAgentSpatial":
+  test "finds nearest enemy agent":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))  # Query origin (team 0)
+    # Create agents in ascending order to avoid dummy creation issues
+    let nearEnemy = addAgentAt(env, MapAgentsPerTeam, ivec2(55, 50))
+    let farEnemy = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(70, 50))
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 100)
+    check found == nearEnemy
+
+  test "ignores friendly agents":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))  # Team 0
+    discard addAgentAt(env, 1, ivec2(52, 50))  # Team 0, very close
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(60, 50))  # Team 1
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 100)
+    check found == enemy
+
+  test "returns nil when no enemies":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    discard addAgentAt(env, 1, ivec2(55, 50))  # Same team
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 100)
+    check found == nil
+
+  test "ignores dead enemy agents":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    # Create in ascending order; mark first one as dead
+    let deadEnemy = addAgentAt(env, MapAgentsPerTeam, ivec2(52, 50))
+    deadEnemy.hp = 0  # Mark as dead
+    env.terminated[MapAgentsPerTeam] = 1.0  # Also mark terminated
+    let aliveEnemy = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(60, 50))
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 100)
+    check found == aliveEnemy
+
+  test "uses Chebyshev distance":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    # Chebyshev: max(|55-50|, |55-50|) = 5 (diagonal)
+    let diag = addAgentAt(env, MapAgentsPerTeam, ivec2(55, 55))
+    # Chebyshev: max(|56-50|, |50-50|) = 6 (horizontal)
+    let horiz = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(56, 50))
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 100)
+    check found == diag  # Diagonal is closer in Chebyshev
+
+  test "respects maxDist limit":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(100, 50))  # Too far
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 30)
+    check found == nil
+
+  test "finds enemy at exact maxDist":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(60, 50))  # Chebyshev dist = 10
+    env.rebuildSpatialIndex()
+
+    let found = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 10)
+    check found == enemy  # Should be found at exactly maxDist
+
+# ============================================================================
+# 17. collectEnemiesInRangeSpatial (extended coverage)
+# ============================================================================
+
+suite "Unit: collectEnemiesInRangeSpatial":
+  test "collects all enemies in range":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))  # Team 0 origin
+    let e1 = addAgentAt(env, MapAgentsPerTeam, ivec2(55, 50))
+    let e2 = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(52, 55))
+    let e3 = addAgentAt(env, MapAgentsPerTeam + 2, ivec2(58, 50))
+    env.rebuildSpatialIndex()
+
+    var targets: seq[Thing] = @[]
+    env.collectEnemiesInRangeSpatial(ivec2(50, 50), 0, 20, targets)
+    check targets.len == 3
+    check e1 in targets
+    check e2 in targets
+    check e3 in targets
+
+  test "excludes friendlies":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    discard addAgentAt(env, 1, ivec2(52, 50))  # Friendly
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(55, 50))
+    env.rebuildSpatialIndex()
+
+    var targets: seq[Thing] = @[]
+    env.collectEnemiesInRangeSpatial(ivec2(50, 50), 0, 20, targets)
+    check targets.len == 1
+    check enemy in targets
+
+  test "excludes dead enemies":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    # Create in ascending order; mark first one as dead
+    let dead = addAgentAt(env, MapAgentsPerTeam, ivec2(52, 50))
+    dead.hp = 0
+    env.terminated[MapAgentsPerTeam] = 1.0  # Also mark terminated
+    let alive = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(55, 50))
+    env.rebuildSpatialIndex()
+
+    var targets: seq[Thing] = @[]
+    env.collectEnemiesInRangeSpatial(ivec2(50, 50), 0, 20, targets)
+    check targets.len == 1
+    check alive in targets
+    check dead notin targets
+
+  test "empty when no enemies in range":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    discard addAgentAt(env, MapAgentsPerTeam, ivec2(200, 200))  # Far away
+    env.rebuildSpatialIndex()
+
+    var targets: seq[Thing] = @[]
+    env.collectEnemiesInRangeSpatial(ivec2(50, 50), 0, 20, targets)
+    check targets.len == 0
+
+  test "appends to existing sequence":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(55, 50))
+    env.rebuildSpatialIndex()
+
+    var targets: seq[Thing] = @[nil, nil]  # Pre-existing items
+    env.collectEnemiesInRangeSpatial(ivec2(50, 50), 0, 20, targets)
+    check targets.len == 3
+    check enemy in targets
+
+  test "works across cell boundaries":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))
+    # Place enemies in different cells (cell size = 16)
+    let e1 = addAgentAt(env, MapAgentsPerTeam, ivec2(30, 50))
+    let e2 = addAgentAt(env, MapAgentsPerTeam + 1, ivec2(70, 50))
+    env.rebuildSpatialIndex()
+
+    var targets: seq[Thing] = @[]
+    env.collectEnemiesInRangeSpatial(ivec2(50, 50), 0, 30, targets)
+    check targets.len == 2
+    check e1 in targets
+    check e2 in targets
+
+# ============================================================================
+# 18. collectAlliesInRangeSpatial
+# ============================================================================
+
+suite "Unit: collectAlliesInRangeSpatial":
+  test "collects all allies in range":
+    let env = makeEmptyEnv()
+    let origin = addAgentAt(env, 0, ivec2(50, 50))  # Team 0 origin
+    let a1 = addAgentAt(env, 1, ivec2(55, 50))  # Same team
+    let a2 = addAgentAt(env, 2, ivec2(52, 55))  # Same team
+    env.rebuildSpatialIndex()
+
+    var allies: seq[Thing] = @[]
+    env.collectAlliesInRangeSpatial(ivec2(50, 50), 0, 20, allies)
+    check allies.len == 3  # Including the origin agent
+    check origin in allies
+    check a1 in allies
+    check a2 in allies
+
+  test "excludes enemies":
+    let env = makeEmptyEnv()
+    # Create in ascending order (team 0 agents first, then team 1)
+    let origin = addAgentAt(env, 0, ivec2(50, 50))
+    let ally = addAgentAt(env, 1, ivec2(55, 50))
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(52, 50))  # Enemy
+    env.rebuildSpatialIndex()
+
+    var allies: seq[Thing] = @[]
+    env.collectAlliesInRangeSpatial(ivec2(50, 50), 0, 20, allies)
+    check origin in allies
+    check ally in allies
+    check enemy notin allies
+    check allies.len == 2
+
+  test "excludes dead allies":
+    let env = makeEmptyEnv()
+    let alive = addAgentAt(env, 0, ivec2(50, 50))
+    let dead = addAgentAt(env, 1, ivec2(52, 50))
+    dead.hp = 0
+    env.terminated[1] = 1.0  # Also mark terminated
+    env.rebuildSpatialIndex()
+
+    var allies: seq[Thing] = @[]
+    env.collectAlliesInRangeSpatial(ivec2(50, 50), 0, 20, allies)
+    check allies.len == 1
+    check alive in allies
+    check dead notin allies
+
+  test "empty when no allies in range":
+    let env = makeEmptyEnv()
+    let origin = addAgentAt(env, 0, ivec2(50, 50))
+    discard addAgentAt(env, 1, ivec2(200, 200))  # Far away
+    env.rebuildSpatialIndex()
+
+    var allies: seq[Thing] = @[]
+    env.collectAlliesInRangeSpatial(ivec2(50, 50), 0, 5, allies)
+    check allies.len == 1  # Only the origin agent is in range
+    check origin in allies
+
+  test "works across cell boundaries":
+    let env = makeEmptyEnv()
+    let origin = addAgentAt(env, 0, ivec2(50, 50))
+    let a1 = addAgentAt(env, 1, ivec2(30, 50))
+    let a2 = addAgentAt(env, 2, ivec2(70, 50))
+    env.rebuildSpatialIndex()
+
+    var allies: seq[Thing] = @[]
+    env.collectAlliesInRangeSpatial(ivec2(50, 50), 0, 30, allies)
+    check origin in allies
+    check a1 in allies
+    check a2 in allies
+
+# ============================================================================
+# 19. Entity movement between cells
+# ============================================================================
+
+suite "Unit: Entity Movement Between Cells":
+  test "entity found after moving to different cell":
+    let env = makeEmptyEnv()
+    let tree = addResource(env, Tree, ivec2(10, 10), ItemWood)
+    env.rebuildSpatialIndex()
+
+    # Verify found at original position
+    let found1 = env.findNearestThingSpatial(ivec2(10, 10), Tree, 5)
+    check found1 == tree
+
+    # Move to a different cell (cell size = 16, so 10 -> 50 crosses cells)
+    let oldPos = tree.pos
+    tree.pos = ivec2(50, 50)
+    env.updateSpatialIndex(tree, oldPos)
+
+    # Should NOT be found at old position
+    let found2 = env.findNearestThingSpatial(ivec2(10, 10), Tree, 5)
+    check found2 == nil
+
+    # Should be found at new position
+    let found3 = env.findNearestThingSpatial(ivec2(50, 50), Tree, 5)
+    check found3 == tree
+
+  test "multiple entities moving between cells":
+    let env = makeEmptyEnv()
+    let t1 = addResource(env, Tree, ivec2(10, 10), ItemWood)
+    let t2 = addResource(env, Tree, ivec2(20, 10), ItemWood)
+    env.rebuildSpatialIndex()
+
+    # Move both to different cells
+    let old1 = t1.pos
+    let old2 = t2.pos
+    t1.pos = ivec2(50, 50)
+    t2.pos = ivec2(80, 80)
+    env.updateSpatialIndex(t1, old1)
+    env.updateSpatialIndex(t2, old2)
+
+    # Verify they're found at new positions
+    var targets: seq[Thing] = @[]
+    env.collectThingsInRangeSpatial(ivec2(65, 65), Tree, 50, targets)
+    check t1 in targets
+    check t2 in targets
+
+  test "agent movement updates spatial index":
+    let env = makeEmptyEnv()
+    discard addAgentAt(env, 0, ivec2(50, 50))  # Team 0
+    let enemy = addAgentAt(env, MapAgentsPerTeam, ivec2(55, 50))  # Team 1
+    env.rebuildSpatialIndex()
+
+    # Found at original position
+    let found1 = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 100)
+    check found1 == enemy
+
+    # Move enemy far away - also update the grid (use valid map coords < 192)
+    let oldPos = enemy.pos
+    env.grid[oldPos.x][oldPos.y] = nil
+    enemy.pos = ivec2(150, 150)  # Still within map bounds (192x192)
+    env.grid[enemy.pos.x][enemy.pos.y] = enemy
+    env.updateSpatialIndex(enemy, oldPos)
+
+    # Not found in small range
+    let found2 = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 50)
+    check found2 == nil
+
+    # Found in large range
+    let found3 = env.findNearestEnemyAgentSpatial(ivec2(50, 50), 0, 150)
+    check found3 == enemy
+
+  test "movement within same cell preserves findability":
+    let env = makeEmptyEnv()
+    let tree = addResource(env, Tree, ivec2(50, 50), ItemWood)
+    env.rebuildSpatialIndex()
+
+    # Small move within same cell (cell size = 16)
+    let oldPos = tree.pos
+    tree.pos = ivec2(51, 51)
+    env.updateSpatialIndex(tree, oldPos)
+
+    let found = env.findNearestThingSpatial(ivec2(50, 50), Tree, 10)
+    check found == tree
+
+# ============================================================================
+# 20. Performance sanity: queries on populated index
 # ============================================================================
 
 suite "Unit: Spatial Index Performance Sanity":
