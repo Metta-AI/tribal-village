@@ -1840,6 +1840,285 @@ proc optFighterGuard(controller: Controller, env: Environment, agent: Thing,
   # Within range and no enemies - stay put
   0'u8
 
+# ============================================================================
+# Naval Unit AI Behaviors
+# ============================================================================
+
+const NavalUnitClasses* = {UnitGalley, UnitFireShip, UnitFishingShip,
+                           UnitTransportShip, UnitDemoShip, UnitCannonGalleon}
+
+proc findNearestEnemyShip(env: Environment, agent: Thing, radius: int): Thing =
+  ## Find nearest enemy water unit within radius using spatial index.
+  var best: Thing = nil
+  var bestDist = int.high
+  let (cx, cy) = cellCoords(agent.pos)
+  let clampedMax = min(radius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = distToCellRadius16(clampedMax)
+  for ddx in -cellRadius .. cellRadius:
+    for ddy in -cellRadius .. cellRadius:
+      let nx = cx + ddx
+      let ny = cy + ddy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if other.isNil or other.agentId == agent.agentId:
+          continue
+        if not isAgentAlive(env, other):
+          continue
+        if sameTeam(agent, other):
+          continue
+        if not other.isWaterUnit:
+          continue
+        let dist = int(chebyshevDist(agent.pos, other.pos))
+        if dist <= radius and dist < bestDist:
+          bestDist = dist
+          best = other
+  best
+
+proc findNearestEnemyOnWater(env: Environment, agent: Thing, radius: int): Thing =
+  ## Find nearest enemy (ship or land unit near water) within radius.
+  var best: Thing = nil
+  var bestDist = int.high
+  let (cx, cy) = cellCoords(agent.pos)
+  let clampedMax = min(radius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  let cellRadius = distToCellRadius16(clampedMax)
+  for ddx in -cellRadius .. cellRadius:
+    for ddy in -cellRadius .. cellRadius:
+      let nx = cx + ddx
+      let ny = cy + ddy
+      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
+        continue
+      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
+        if other.isNil or other.agentId == agent.agentId:
+          continue
+        if not isAgentAlive(env, other):
+          continue
+        if sameTeam(agent, other):
+          continue
+        let dist = int(chebyshevDist(agent.pos, other.pos))
+        if dist <= radius and dist < bestDist:
+          bestDist = dist
+          best = other
+  best
+
+proc findNearestFriendlyDock(env: Environment, agent: Thing): Thing =
+  ## Find nearest friendly dock.
+  let teamId = getTeamId(agent)
+  env.findNearestFriendlyThingSpatial(agent.pos, teamId, Dock, int.high)
+
+# FishingShip: Gather fish resources
+proc canStartFishingShipFish(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState): bool =
+  agent.unitClass == UnitFishingShip and env.thingsByKind[Fish].len > 0
+
+proc shouldTerminateFishingShipFish(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  agent.unitClass != UnitFishingShip or env.thingsByKind[Fish].len == 0
+
+proc optFishingShipFish(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): uint8 =
+  ## Fishing ship gathers fish from water tiles, returns to dock to deposit.
+  # If carrying fish, return to dock to deposit
+  if getInv(agent, ItemFish) > 0:
+    let dock = findNearestFriendlyDock(env, agent)
+    if not isNil(dock):
+      return actOrMove(controller, env, agent, agentId, state, dock.pos, 3'u8)
+    # No dock - just hold fish for now
+    return 0'u8
+
+  # Find and gather fish
+  let fish = env.findNearestThingSpiral(state, Fish)
+  if isNil(fish):
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, fish.pos, 3'u8)
+
+# Galley: Ranged combat ship
+proc canStartGalleyAttack(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitGalley:
+    return false
+  let enemy = findNearestEnemyOnWater(env, agent, GalleyBaseRange * 3)
+  not isNil(enemy)
+
+proc shouldTerminateGalleyAttack(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitGalley:
+    return true
+  let enemy = findNearestEnemyOnWater(env, agent, GalleyBaseRange * 3)
+  isNil(enemy)
+
+proc optGalleyAttack(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  ## Galley attacks enemies at range, prioritizing other ships.
+  # First check for immediate attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Prioritize enemy ships
+  let enemyShip = findNearestEnemyShip(env, agent, GalleyBaseRange * 3)
+  if not isNil(enemyShip):
+    return actOrMove(controller, env, agent, agentId, state, enemyShip.pos, 2'u8)
+
+  # Fall back to any enemy
+  let enemy = findNearestEnemyOnWater(env, agent, GalleyBaseRange * 3)
+  if not isNil(enemy):
+    return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+  0'u8
+
+# FireShip: Anti-ship specialist
+proc canStartFireShipAttack(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitFireShip:
+    return false
+  # Fire ships prioritize enemy water units
+  let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
+  not isNil(enemyShip)
+
+proc shouldTerminateFireShipAttack(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitFireShip:
+    return true
+  let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
+  isNil(enemyShip)
+
+proc optFireShipAttack(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState): uint8 =
+  ## Fire ship aggressively pursues and attacks enemy water units.
+  ## Gets bonus damage vs water units.
+  # Check for immediate attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Chase enemy ships
+  let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
+  if not isNil(enemyShip):
+    return actOrMove(controller, env, agent, agentId, state, enemyShip.pos, 2'u8)
+  0'u8
+
+# DemoShip: Kamikaze attack ship
+proc canStartDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitDemoShip:
+    return false
+  # Demo ships look for high-value targets (ships or buildings near water)
+  let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
+  not isNil(enemy)
+
+proc shouldTerminateDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitDemoShip:
+    return true
+  let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
+  isNil(enemy)
+
+proc optDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState): uint8 =
+  ## Demo ship moves toward enemy and attacks (self-destructs on hit).
+  ## Prioritizes: enemy ships > docks > other coastal targets.
+  # Check for immediate attack opportunity (this is the kamikaze strike)
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Prioritize enemy ships
+  let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 3)
+  if not isNil(enemyShip):
+    return controller.moveTo(env, agent, agentId, state, enemyShip.pos)
+
+  # Check for enemy docks
+  let teamId = getTeamId(agent)
+  for dock in env.thingsByKind[Dock]:
+    if dock.teamId != teamId and dock.teamId >= 0:
+      return controller.moveTo(env, agent, agentId, state, dock.pos)
+
+  # Fall back to any enemy
+  let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
+  if not isNil(enemy):
+    return controller.moveTo(env, agent, agentId, state, enemy.pos)
+  0'u8
+
+# CannonGalleon: Long-range siege ship
+proc canStartCannonGalleonSiege(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitCannonGalleon:
+    return false
+  # Cannon galleons look for buildings or enemy units
+  let teamId = getTeamId(agent)
+  let enemyBuilding = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, CannonGalleonBaseRange * 3)
+  if not isNil(enemyBuilding):
+    return true
+  let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
+  not isNil(enemy)
+
+proc shouldTerminateCannonGalleonSiege(controller: Controller, env: Environment, agent: Thing,
+                                       agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitCannonGalleon:
+    return true
+  let teamId = getTeamId(agent)
+  let enemyBuilding = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, CannonGalleonBaseRange * 3)
+  if not isNil(enemyBuilding):
+    return false
+  let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
+  isNil(enemy)
+
+proc optCannonGalleonSiege(controller: Controller, env: Environment, agent: Thing,
+                           agentId: int, state: var AgentState): uint8 =
+  ## Cannon galleon attacks buildings and units at long range.
+  ## Prioritizes: buildings > ships > other units.
+  # Check for immediate attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  let teamId = getTeamId(agent)
+
+  # Prioritize enemy buildings (siege role)
+  let enemyBuilding = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, CannonGalleonBaseRange * 3)
+  if not isNil(enemyBuilding):
+    return actOrMove(controller, env, agent, agentId, state, enemyBuilding.pos, 2'u8)
+
+  # Then enemy ships
+  let enemyShip = findNearestEnemyShip(env, agent, CannonGalleonBaseRange * 3)
+  if not isNil(enemyShip):
+    return actOrMove(controller, env, agent, agentId, state, enemyShip.pos, 2'u8)
+
+  # Fall back to any enemy
+  let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
+  if not isNil(enemy):
+    return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+  0'u8
+
+# TransportShip: Unit transport with docking behavior
+proc canStartTransportShipDock(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitTransportShip:
+    return false
+  # Transport ships move toward friendly docks when carrying units or when idle
+  let dock = findNearestFriendlyDock(env, agent)
+  not isNil(dock)
+
+proc shouldTerminateTransportShipDock(controller: Controller, env: Environment, agent: Thing,
+                                      agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitTransportShip:
+    return true
+  let dock = findNearestFriendlyDock(env, agent)
+  isNil(dock)
+
+proc optTransportShipDock(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): uint8 =
+  ## Transport ship patrols near friendly docks to pick up/drop off units.
+  let dock = findNearestFriendlyDock(env, agent)
+  if isNil(dock):
+    return 0'u8
+
+  let dist = int(chebyshevDist(agent.pos, dock.pos))
+  # Stay within 3 tiles of dock
+  if dist <= 3:
+    return 0'u8  # Already close enough
+  controller.moveTo(env, agent, agentId, state, dock.pos)
+
 let FighterOptions* = [
   OptionDef(
     name: "BatteringRamAdvance",
@@ -1847,6 +2126,49 @@ let FighterOptions* = [
     shouldTerminate: shouldTerminateBatteringRamAdvance,
     act: optBatteringRamAdvance,
     interruptible: false  # Battering ram AI is not interruptible - it just advances and attacks
+  ),
+  # Naval unit behaviors
+  OptionDef(
+    name: "DemoShipKamikaze",
+    canStart: canStartDemoShipKamikaze,
+    shouldTerminate: shouldTerminateDemoShipKamikaze,
+    act: optDemoShipKamikaze,
+    interruptible: false  # Demo ship kamikaze is not interruptible - commit to attack
+  ),
+  OptionDef(
+    name: "FishingShipFish",
+    canStart: canStartFishingShipFish,
+    shouldTerminate: shouldTerminateFishingShipFish,
+    act: optFishingShipFish,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "GalleyAttack",
+    canStart: canStartGalleyAttack,
+    shouldTerminate: shouldTerminateGalleyAttack,
+    act: optGalleyAttack,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FireShipAttack",
+    canStart: canStartFireShipAttack,
+    shouldTerminate: shouldTerminateFireShipAttack,
+    act: optFireShipAttack,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "CannonGalleonSiege",
+    canStart: canStartCannonGalleonSiege,
+    shouldTerminate: shouldTerminateCannonGalleonSiege,
+    act: optCannonGalleonSiege,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "TransportShipDock",
+    canStart: canStartTransportShipDock,
+    shouldTerminate: shouldTerminateTransportShipDock,
+    act: optTransportShipDock,
+    interruptible: true
   ),
   OptionDef(
     name: "FighterBreakout",
