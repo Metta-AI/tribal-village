@@ -144,6 +144,10 @@ type
     # Follow state: follow another agent maintaining proximity
     followTargetAgentId*: int         # Target agent to follow (-1 = inactive)
     followActive*: bool               # Whether follow mode is enabled
+    # Guard state: guard a target agent or position, stay within radius, attack enemies
+    guardTargetAgentId*: int          # Agent to guard (-1 = use position instead)
+    guardTargetPos*: IVec2            # Position to guard (used if agentId is -1)
+    guardActive*: bool                # Whether guard mode is enabled
     # Stop state: agent is stopped and idle until new command or threshold expires
     stoppedActive*: bool              # Whether agent is currently stopped
     stoppedUntilStep*: int32          # Step at which stopped state expires

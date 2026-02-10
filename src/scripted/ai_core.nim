@@ -1738,6 +1738,53 @@ proc getFollowTargetId*(controller: Controller, agentId: int): int =
     return controller.agents[agentId].followTargetAgentId
   -1
 
+# Guard behavior helpers
+proc setGuardTarget*(controller: Controller, agentId: int, targetAgentId: int) =
+  ## Set an agent to guard another agent.
+  ## The guarding agent will stay within GuardRadius of the target, attack enemies in range,
+  ## and return to guard position after combat.
+  if agentId >= 0 and agentId < MapAgents and
+     targetAgentId >= 0 and targetAgentId < MapAgents:
+    controller.agents[agentId].guardTargetAgentId = targetAgentId
+    controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
+    controller.agents[agentId].guardActive = true
+
+proc setGuardPosition*(controller: Controller, agentId: int, pos: IVec2) =
+  ## Set an agent to guard a specific position.
+  ## The guarding agent will stay within GuardRadius of the position, attack enemies in range,
+  ## and return to guard position after combat.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].guardTargetAgentId = -1
+    controller.agents[agentId].guardTargetPos = pos
+    controller.agents[agentId].guardActive = true
+
+proc clearGuard*(controller: Controller, agentId: int) =
+  ## Disable guard mode for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    controller.agents[agentId].guardActive = false
+    controller.agents[agentId].guardTargetAgentId = -1
+    controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
+
+proc isGuardActive*(controller: Controller, agentId: int): bool =
+  ## Check if guard mode is active for an agent.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].guardActive
+  false
+
+proc getGuardTargetId*(controller: Controller, agentId: int): int =
+  ## Get the guard target agent ID for an agent.
+  ## Returns -1 if guarding a position or not guarding.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].guardTargetAgentId
+  -1
+
+proc getGuardPosition*(controller: Controller, agentId: int): IVec2 =
+  ## Get the guard target position for an agent.
+  ## Returns (-1, -1) if guarding an agent or not guarding.
+  if agentId >= 0 and agentId < MapAgents:
+    return controller.agents[agentId].guardTargetPos
+  ivec2(-1, -1)
+
 # Stop behavior helpers
 const StopIdleSteps* = 200  # Steps before stopped agent returns to default role behavior
 
@@ -1754,6 +1801,9 @@ proc stopAgentInternal(controller: Controller, agentId: int) =
     controller.agents[agentId].holdPositionTarget = ivec2(-1, -1)
     controller.agents[agentId].followActive = false
     controller.agents[agentId].followTargetAgentId = -1
+    controller.agents[agentId].guardActive = false
+    controller.agents[agentId].guardTargetAgentId = -1
+    controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
     # Clear current path
     controller.agents[agentId].plannedPath.setLen(0)
     controller.agents[agentId].plannedPathIndex = 0

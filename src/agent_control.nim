@@ -1041,6 +1041,55 @@ proc isAgentFollowActive*(agentId: int): bool =
     return globalController.aiController.isFollowActive(agentId)
   false
 
+# Guard API
+# These functions allow external code to set guard behavior for agents.
+# Guard: agent guards a target (agent or position), stays within radius, attacks enemies.
+
+proc setAgentGuard*(agentId: int, targetAgentId: int) =
+  ## Set an agent to guard another agent.
+  ## The guarding agent stays within GuardRadius (5 tiles) of the target,
+  ## attacks any enemies that enter range, and returns to guard position after combat.
+  ## Requires BuiltinAI controller. Clears any stopped state.
+  withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
+    globalController.aiController.setGuardTarget(agentId, targetAgentId)
+
+proc setAgentGuardPosition*(agentId: int, pos: IVec2) =
+  ## Set an agent to guard a specific position.
+  ## The guarding agent stays within GuardRadius (5 tiles) of the position,
+  ## attacks any enemies that enter range, and returns to guard position after combat.
+  ## Requires BuiltinAI controller. Clears any stopped state.
+  withBuiltinAI:
+    globalController.aiController.clearAgentStop(agentId)
+    globalController.aiController.setGuardPosition(agentId, pos)
+
+proc setAgentGuardPositionXY*(agentId: int, x, y: int32) =
+  ## Set guard position using x,y coordinates.
+  setAgentGuardPosition(agentId, ivec2(x, y))
+
+proc clearAgentGuard*(agentId: int) =
+  ## Clear guard mode for an agent.
+  withBuiltinAI:
+    globalController.aiController.clearGuard(agentId)
+
+proc getAgentGuardTargetId*(agentId: int): int =
+  ## Get the guard target agent ID. Returns -1 if guarding a position or not active.
+  withBuiltinAI:
+    return globalController.aiController.getGuardTargetId(agentId)
+  -1
+
+proc getAgentGuardPosition*(agentId: int): IVec2 =
+  ## Get the guard target position. Returns (-1, -1) if guarding an agent or not active.
+  withBuiltinAI:
+    return globalController.aiController.getGuardPosition(agentId)
+  ivec2(-1, -1)
+
+proc isAgentGuarding*(agentId: int): bool =
+  ## Check if guard mode is active for an agent.
+  withBuiltinAI:
+    return globalController.aiController.isGuardActive(agentId)
+  false
+
 # Stop Command API
 # Stops an agent completely: clears all orders, path, and active option.
 # Agent remains idle until given a new command or idle threshold expires.
@@ -1236,7 +1285,8 @@ proc getControlGroupAgentId*(groupIndex: int, index: int): int =
 proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, targetY: int32) =
   ## Issue a command to all selected units.
   ## commandType: 0=attack-move, 1=patrol (from current pos to target), 2=stop,
-  ##              3=hold position (at current pos), 4=follow (targetX=targetAgentId)
+  ##              3=hold position (at current pos), 4=follow (targetX=targetAgentId),
+  ##              5=guard agent (targetX=targetAgentId), 6=guard position (target pos)
   let target = ivec2(targetX, targetY)
   for thing in selection:
     if isAgentAlive(env, thing):
@@ -1252,6 +1302,10 @@ proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, tar
         setAgentHoldPosition(agentId, thing.pos)
       of 4: # Follow (targetX = target agent ID)
         setAgentFollowTarget(agentId, targetX.int)
+      of 5: # Guard agent (targetX = target agent ID)
+        setAgentGuard(agentId, targetX.int)
+      of 6: # Guard position
+        setAgentGuardPosition(agentId, target)
       else:
         discard
 

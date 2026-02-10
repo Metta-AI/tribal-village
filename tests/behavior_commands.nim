@@ -123,6 +123,74 @@ suite "Behavior: Follow Command":
     check not isAgentFollowActive(follower.agentId)
     check getAgentFollowTargetId(follower.agentId) == -1
 
+suite "Behavior: Guard Command":
+  test "guard agent target is set and readable":
+    let env = makeEmptyEnv()
+    initGlobalController(BuiltinAI, 42)
+    let target = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    let guard = addAgentAt(env, 1, ivec2(12, 12), stance = StanceDefensive)
+
+    setAgentGuard(guard.agentId, target.agentId)
+    check isAgentGuarding(guard.agentId)
+    check getAgentGuardTargetId(guard.agentId) == target.agentId
+    check getAgentGuardPosition(guard.agentId).x == -1  # Not guarding position
+
+  test "guard position is set and readable":
+    let env = makeEmptyEnv()
+    initGlobalController(BuiltinAI, 42)
+    let guard = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+
+    setAgentGuardPosition(guard.agentId, ivec2(15, 15))
+    check isAgentGuarding(guard.agentId)
+    check getAgentGuardTargetId(guard.agentId) == -1  # Not guarding agent
+    let pos = getAgentGuardPosition(guard.agentId)
+    check pos.x == 15
+    check pos.y == 15
+
+  test "clearing guard deactivates it":
+    let env = makeEmptyEnv()
+    initGlobalController(BuiltinAI, 42)
+    let target = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    let guard = addAgentAt(env, 1, ivec2(12, 12), stance = StanceDefensive)
+
+    setAgentGuard(guard.agentId, target.agentId)
+    check isAgentGuarding(guard.agentId)
+
+    clearAgentGuard(guard.agentId)
+    check not isAgentGuarding(guard.agentId)
+    check getAgentGuardTargetId(guard.agentId) == -1
+    check getAgentGuardPosition(guard.agentId).x == -1
+
+  test "guard agent switches to guard position clears agent target":
+    let env = makeEmptyEnv()
+    initGlobalController(BuiltinAI, 42)
+    let target = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    let guard = addAgentAt(env, 1, ivec2(12, 12), stance = StanceDefensive)
+
+    setAgentGuard(guard.agentId, target.agentId)
+    check getAgentGuardTargetId(guard.agentId) == target.agentId
+
+    # Switching to position-based guard clears agent target
+    setAgentGuardPosition(guard.agentId, ivec2(20, 20))
+    check getAgentGuardTargetId(guard.agentId) == -1
+    check getAgentGuardPosition(guard.agentId).x == 20
+
+  test "multiple agents can guard independently":
+    let env = makeEmptyEnv()
+    initGlobalController(BuiltinAI, 42)
+    let vip = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    let guard1 = addAgentAt(env, 1, ivec2(8, 10), stance = StanceDefensive)
+    let guard2 = addAgentAt(env, 2, ivec2(12, 10), stance = StanceDefensive)
+
+    setAgentGuard(guard1.agentId, vip.agentId)
+    setAgentGuardPosition(guard2.agentId, ivec2(5, 5))
+
+    check isAgentGuarding(guard1.agentId)
+    check isAgentGuarding(guard2.agentId)
+    check getAgentGuardTargetId(guard1.agentId) == vip.agentId
+    check getAgentGuardPosition(guard2.agentId).x == 5
+    echo "  Guard1 guarding agent, Guard2 guarding position"
+
 suite "Behavior: Stop Command (Cancel All Orders)":
   test "stop clears attack-move":
     let env = makeEmptyEnv()
@@ -169,6 +237,18 @@ suite "Behavior: Stop Command (Cancel All Orders)":
     stopAgent(follower.agentId)
     check not isAgentFollowActive(follower.agentId)
 
+  test "stop clears guard":
+    let env = makeEmptyEnv()
+    initGlobalController(BuiltinAI, 42)
+    let target = addAgentAt(env, 0, ivec2(10, 10), stance = StanceDefensive)
+    let guard = addAgentAt(env, 1, ivec2(12, 12), stance = StanceDefensive)
+
+    setAgentGuard(guard.agentId, target.agentId)
+    check isAgentGuarding(guard.agentId)
+
+    stopAgent(guard.agentId)
+    check not isAgentGuarding(guard.agentId)
+
   test "stop clears all commands simultaneously":
     let env = makeEmptyEnv()
     initGlobalController(BuiltinAI, 42)
@@ -179,11 +259,13 @@ suite "Behavior: Stop Command (Cancel All Orders)":
     setAgentAttackMoveTarget(follower.agentId, ivec2(20, 20))
     setAgentHoldPosition(follower.agentId, ivec2(12, 12))
     setAgentFollowTarget(follower.agentId, leader.agentId)
+    setAgentGuard(follower.agentId, leader.agentId)
 
     stopAgent(follower.agentId)
     check not isAgentAttackMoveActive(follower.agentId)
     check not isAgentHoldPositionActive(follower.agentId)
     check not isAgentFollowActive(follower.agentId)
+    check not isAgentGuarding(follower.agentId)
     echo "  Stop cleared all commands on agent"
 
 suite "Behavior: Selection and Command Issuing":
@@ -487,12 +569,14 @@ suite "Behavior: Command Buffer Ordering":
     setAgentPatrol(agent.agentId, ivec2(5, 5), ivec2(15, 15))
     setAgentHoldPosition(agent.agentId, ivec2(12, 12))
     setAgentFollowTarget(agent.agentId, leader.agentId)
+    setAgentGuard(agent.agentId, leader.agentId)
 
     # Verify all active
     check isAgentAttackMoveActive(agent.agentId)
     check isAgentPatrolActive(agent.agentId)
     check isAgentHoldPositionActive(agent.agentId)
     check isAgentFollowActive(agent.agentId)
+    check isAgentGuarding(agent.agentId)
 
     # Single stop clears everything
     stopAgent(agent.agentId)
@@ -500,7 +584,8 @@ suite "Behavior: Command Buffer Ordering":
     check not isAgentPatrolActive(agent.agentId)
     check not isAgentHoldPositionActive(agent.agentId)
     check not isAgentFollowActive(agent.agentId)
-    echo "  Stop cleared 4 active commands at once"
+    check not isAgentGuarding(agent.agentId)
+    echo "  Stop cleared 5 active commands at once"
 
 suite "Behavior: Rally Point and Trained Unit Destination":
   test "building rally point is set and readable":

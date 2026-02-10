@@ -365,6 +365,7 @@ const
   HoldPositionReturnRadius* = 3  # Max distance to drift from hold position
   HoldPositionEngageRadius* = 5  # Max distance to move toward enemies while holding position
   FollowProximityRadius* = 3  # Stay within this distance of followed target
+  GuardRadius* = 5            # Stay within this distance of guarded target
 
   # Divider wall building
   DividerDoorSpacing* = 5

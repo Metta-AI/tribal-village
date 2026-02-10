@@ -1734,6 +1734,89 @@ proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
   # Within range - stay put
   0'u8
 
+# Guard: Stay near a target (agent or position), attack enemies within range, return after combat
+
+proc canStartFighterGuard(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  ## Guard activates when guard mode is enabled and target is valid.
+  if not state.guardActive:
+    return false
+  # Combat units only
+  if agent.unitClass notin {UnitManAtArms, UnitKnight, UnitScout, UnitArcher}:
+    return false
+  # If guarding an agent, check if it's alive
+  if state.guardTargetAgentId >= 0:
+    if state.guardTargetAgentId >= env.agents.len:
+      return false
+    let target = env.agents[state.guardTargetAgentId]
+    return isAgentAlive(env, target)
+  # If guarding a position, just need valid position
+  state.guardTargetPos.x >= 0
+
+proc shouldTerminateFighterGuard(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  ## Guard terminates when disabled or target agent dies.
+  if not state.guardActive:
+    return true
+  # If guarding an agent, terminate if it dies
+  if state.guardTargetAgentId >= 0:
+    if state.guardTargetAgentId >= env.agents.len:
+      return true
+    let target = env.agents[state.guardTargetAgentId]
+    if not isAgentAlive(env, target):
+      return true
+  # If guarding a position, never auto-terminate (only when disabled)
+  false
+
+proc optFighterGuard(controller: Controller, env: Environment, agent: Thing,
+                     agentId: int, state: var AgentState): uint8 =
+  ## Guard: stay within GuardRadius of target, attack enemies within range,
+  ## return to guard position after combat.
+  if not state.guardActive:
+    return 0'u8
+
+  # Determine guard center position
+  var guardCenter: IVec2
+  if state.guardTargetAgentId >= 0:
+    # Guarding an agent - use their position
+    if state.guardTargetAgentId >= env.agents.len:
+      state.guardActive = false
+      return 0'u8
+    let target = env.agents[state.guardTargetAgentId]
+    if not isAgentAlive(env, target):
+      state.guardActive = false
+      state.guardTargetAgentId = -1
+      return 0'u8
+    guardCenter = target.pos
+  else:
+    # Guarding a position
+    if state.guardTargetPos.x < 0:
+      state.guardActive = false
+      return 0'u8
+    guardCenter = state.guardTargetPos
+
+  # First check for immediate attack opportunity
+  let attackDir = findAttackOpportunity(env, agent)
+  if attackDir >= 0:
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+
+  # Check for enemies within GuardRadius of the guard center and engage
+  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
+  if not isNil(enemy):
+    let enemyDistToCenter = int(chebyshevDist(enemy.pos, guardCenter))
+    if enemyDistToCenter <= GuardRadius:
+      # Enemy is within guard radius of center - engage
+      return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+
+  # Check our distance from guard center
+  let dist = int(chebyshevDist(agent.pos, guardCenter))
+  if dist > GuardRadius:
+    # Too far from guard position - return to center
+    return controller.moveTo(env, agent, agentId, state, guardCenter)
+
+  # Within range and no enemies - stay put
+  0'u8
+
 let FighterOptions* = [
   OptionDef(
     name: "BatteringRamAdvance",
@@ -1797,6 +1880,13 @@ let FighterOptions* = [
     canStart: canStartFighterFollow,
     shouldTerminate: shouldTerminateFighterFollow,
     act: optFighterFollow,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterGuard",
+    canStart: canStartFighterGuard,
+    shouldTerminate: shouldTerminateFighterGuard,
+    act: optFighterGuard,
     interruptible: true
   ),
   OptionDef(
