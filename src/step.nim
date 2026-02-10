@@ -2387,11 +2387,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         dec thing.cooldown
 
   # Production buildings with training queues
-  for kind in [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Dock]:
+  for kind in [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle, Dock]:
     for thing in env.thingsByKind[kind]:
       if thing.cooldown > 0:
         dec thing.cooldown
-      thing.processProductionQueue()
+      if thing.constructed:
+        thing.processProductionQueue()
 
   # Spawners: check tempTowerRemovals since towers can target spawners
   for thing in env.thingsByKind[Spawner]:
