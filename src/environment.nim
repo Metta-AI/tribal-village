@@ -2217,6 +2217,10 @@ proc tryResearchEconomyTech*(env: Environment, agent: Thing, building: Thing): b
 
   let tech = env.getNextEconomyTech(teamId, building.kind)
 
+  # Verify this tech belongs to this building type (handles fallback case)
+  if economyTechBuilding(tech) != building.kind:
+    return false
+
   # Check if already researched
   if env.teamEconomyTechs[teamId].researched[tech]:
     return false
