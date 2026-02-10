@@ -917,14 +917,14 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
     elif isVillager and not wasVillager:
       env.teamVillagers[teamId].add(agent)
 
-proc embarkAgent*(agent: Thing) =
+proc embarkAgent*(env: Environment, agent: Thing) =
   if agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip,
                           UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon}:
     return
   agent.embarkedUnitClass = agent.unitClass
-  applyUnitClass(agent, UnitBoat)
+  applyUnitClass(env, agent, UnitBoat)
 
-proc disembarkAgent*(agent: Thing) =
+proc disembarkAgent*(env: Environment, agent: Thing) =
   if agent.unitClass == UnitTradeCog:
     return  # Trade Cogs never disembark
   if agent.unitClass != UnitBoat:
@@ -932,7 +932,7 @@ proc disembarkAgent*(agent: Thing) =
   var target = agent.embarkedUnitClass
   if target == UnitBoat:
     target = UnitVillager
-  applyUnitClass(agent, target)
+  applyUnitClass(env, agent, target)
 {.pop.}
 
 proc scoreTerritory*(env: Environment): TerritoryScore =
@@ -1307,7 +1307,7 @@ proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: Ag
     return false
   if not env.spendStockpile(teamId, costs):
     return false
-  applyUnitClass(agent, unitClass)
+  applyUnitClass(env, agent, unitClass)
   if agent.inventorySpear > 0:
     agent.inventorySpear = 0
   building.cooldown = cooldown

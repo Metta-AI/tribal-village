@@ -860,9 +860,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 agent.tradeHomeDock = agent.pos  # Flip home dock for return trip
         elif agent.unitClass == UnitBoat:
           if dockHere or env.terrain[agent.pos.x][agent.pos.y] != Water:
-            disembarkAgent(agent)
+            disembarkAgent(env, agent)
         elif dockHere:
-          embarkAgent(agent)
+          embarkAgent(env, agent)
 
         # Update observations for new position only
         env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
@@ -1704,7 +1704,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   # If queue has a ready entry, convert villager immediately (pre-paid)
                   if thing.productionQueueHasReady():
                     let unitClass = thing.consumeReadyQueueEntry()
-                    applyUnitClass(agent, unitClass)
+                    applyUnitClass(env, agent, unitClass)
                     env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
                     if agent.inventorySpear > 0:
                       agent.inventorySpear = 0
@@ -1728,7 +1728,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
                     if thing.productionQueueHasReady():
                       let unitClass = thing.consumeReadyQueueEntry()
-                      applyUnitClass(agent, unitClass)
+                      applyUnitClass(env, agent, unitClass)
                       env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
                       if agent.inventorySpear > 0:
                         agent.inventorySpear = 0
@@ -1763,7 +1763,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if not used and buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
                   if thing.productionQueueHasReady():
                     let unitClass = thing.consumeReadyQueueEntry()
-                    applyUnitClass(agent, unitClass)
+                    applyUnitClass(env, agent, unitClass)
                     env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
                     if agent.inventorySpear > 0:
                       agent.inventorySpear = 0
@@ -2557,7 +2557,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           agent.pos = respawnPos
           agent.inventory = emptyInventory()
           agent.frozen = 0
-          applyUnitClass(agent, UnitVillager)
+          applyUnitClass(env, agent, UnitVillager)
           env.terminated[agentId] = 0.0
           when defined(eventLog):
             logSpawn(teamId, $agent.unitClass,
