@@ -1039,6 +1039,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if not nearestAltar.isNil:
                   newHome = nearestAltar.pos
               target.homeAltar = newHome
+              let oldTeam = getTeamId(target)  # Capture old team before override
               let defaultTeam = getTeamId(target.agentId)
               if newTeam == defaultTeam:
                 target.teamIdOverride = -1
@@ -1047,6 +1048,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if newTeam < env.teamColors.len:
                 env.agentColors[target.agentId] = env.teamColors[newTeam]
               env.updateObservations(AgentLayer, target.pos, newTeam + 1)
+              # Update regicide king tracking on conversion
+              if target.unitClass == UnitKing:
+                if oldTeam >= 0 and oldTeam < MapRoomObjectsTeams and
+                    env.victoryStates[oldTeam].kingAgentId == target.agentId:
+                  env.victoryStates[oldTeam].kingAgentId = -1  # Old team lost their king
+                if newTeam >= 0 and newTeam < MapRoomObjectsTeams:
+                  env.victoryStates[newTeam].kingAgentId = target.agentId  # New team gained a king
               # Apply conversion-specific visual effect (golden tint + pulsing glow)
               env.applyActionTint(healPos, ConversionTint, ConversionTintDuration, ActionTintConvertMonk)
               if newTeam < env.teamColors.len:
