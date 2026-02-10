@@ -918,7 +918,8 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
       env.teamVillagers[teamId].add(agent)
 
 proc embarkAgent*(agent: Thing) =
-  if agent.unitClass in {UnitBoat, UnitTradeCog}:
+  if agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip,
+                          UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon}:
     return
   agent.embarkedUnitClass = agent.unitClass
   applyUnitClass(agent, UnitBoat)
@@ -1099,7 +1100,8 @@ proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
   not isNil(background) and background.kind == Dock
 
 proc isWaterUnit*(agent: Thing): bool {.inline.} =
-  agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip}
+  agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip,
+                      UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon}
 
 proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
   env.terrain[pos.x][pos.y] == Water and not agent.isWaterUnit and not env.hasDockAt(pos)
