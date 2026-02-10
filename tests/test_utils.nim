@@ -105,6 +105,7 @@ proc addBuilding*(env: Environment, kind: ThingKind, pos: IVec2, teamId: int): T
   let thing = Thing(kind: kind, pos: pos, teamId: teamId)
   thing.inventory = emptyInventory()
   thing.rallyPoint = ivec2(-1, -1)  # No rally point by default
+  thing.constructed = true  # Test buildings are fully constructed
   let capacity = buildingBarrelCapacity(kind)
   if capacity > 0:
     thing.barrelCapacity = capacity
