@@ -1221,3 +1221,72 @@ proc tribal_village_is_team_economy_focus_active*(env: pointer, teamId: int32): 
   ## Check if a team economy focus is active.
   ## Returns 1 if active, 0 if not.
   if isTeamEconomyFocusActive(teamId): 1 else: 0
+
+# --- Civilization Bonus API ---
+
+type
+  CCivBonus* = object
+    ## C-compatible CivBonus structure for FFI.
+    gatherRateMultiplier*: float32
+    buildSpeedMultiplier*: float32
+    unitHpMultiplier*: float32
+    unitAttackMultiplier*: float32
+    buildingHpMultiplier*: float32
+    woodCostMultiplier*: float32
+    foodCostMultiplier*: float32
+
+proc tribal_village_set_civ_bonus*(env: pointer, teamId: int32, bonus: ptr CCivBonus): int32 {.exportc, dynlib.} =
+  ## Set the civilization bonus for a team.
+  ## All multiplier fields default to 1.0 (no effect).
+  ## Returns 1 on success, 0 on failure.
+  try:
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return 0
+    if isNil(globalEnv):
+      return 0
+    let b = bonus[]
+    globalEnv.teamCivBonuses[teamId] = CivBonus(
+      gatherRateMultiplier: b.gatherRateMultiplier,
+      buildSpeedMultiplier: b.buildSpeedMultiplier,
+      unitHpMultiplier: b.unitHpMultiplier,
+      unitAttackMultiplier: b.unitAttackMultiplier,
+      buildingHpMultiplier: b.buildingHpMultiplier,
+      woodCostMultiplier: b.woodCostMultiplier,
+      foodCostMultiplier: b.foodCostMultiplier
+    )
+    return 1
+  except CatchableError:
+    return 0
+
+proc tribal_village_get_civ_bonus*(env: pointer, teamId: int32, bonus: ptr CCivBonus): int32 {.exportc, dynlib.} =
+  ## Get the current civilization bonus for a team.
+  ## Returns 1 on success, 0 on failure.
+  try:
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return 0
+    if isNil(globalEnv):
+      return 0
+    let cb = globalEnv.teamCivBonuses[teamId]
+    bonus[].gatherRateMultiplier = cb.gatherRateMultiplier
+    bonus[].buildSpeedMultiplier = cb.buildSpeedMultiplier
+    bonus[].unitHpMultiplier = cb.unitHpMultiplier
+    bonus[].unitAttackMultiplier = cb.unitAttackMultiplier
+    bonus[].buildingHpMultiplier = cb.buildingHpMultiplier
+    bonus[].woodCostMultiplier = cb.woodCostMultiplier
+    bonus[].foodCostMultiplier = cb.foodCostMultiplier
+    return 1
+  except CatchableError:
+    return 0
+
+proc tribal_village_reset_civ_bonus*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Reset the civilization bonus for a team to neutral (all 1.0).
+  ## Returns 1 on success, 0 on failure.
+  try:
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return 0
+    if isNil(globalEnv):
+      return 0
+    globalEnv.teamCivBonuses[teamId] = defaultCivBonus()
+    return 1
+  except CatchableError:
+    return 0

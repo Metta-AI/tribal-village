@@ -307,10 +307,13 @@ proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int
   env.teamStockpiles[teamId].counts[res]
 
 proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
-  ## Add resources to team stockpile, applying gather rate modifier
+  ## Add resources to team stockpile, applying gather rate modifiers
   let rawModifier = env.teamModifiers[teamId].gatherRateMultiplier
   let modifier = if rawModifier == 0.0'f32: 1.0'f32 else: rawModifier  # Default to 1.0 if uninitialized
-  let adjustedAmount = int(float32(amount) * modifier)
+  # Apply CivBonus gather rate multiplier
+  let civGather = env.teamCivBonuses[teamId].gatherRateMultiplier
+  let civModifier = if civGather == 0.0'f32: 1.0'f32 else: civGather
+  let adjustedAmount = int(float32(amount) * modifier * civModifier)
   env.teamStockpiles[teamId].counts[res] += adjustedAmount
 
 proc canSpendStockpile*(env: Environment, teamId: int,
@@ -858,6 +861,13 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
     UnitAttackDamageByClass[unitClass]
   agent.maxHp = baseHp + modifiers.unitHpBonus[unitClass]
   agent.attackDamage = baseAttack + modifiers.unitAttackBonus[unitClass]
+  # Apply CivBonus unit HP and attack multipliers
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let civBonus = env.teamCivBonuses[teamId]
+    if civBonus.unitHpMultiplier != 0.0'f32 and civBonus.unitHpMultiplier != 1.0'f32:
+      agent.maxHp = max(1, int(float32(agent.maxHp) * civBonus.unitHpMultiplier + 0.5))
+    if civBonus.unitAttackMultiplier != 0.0'f32 and civBonus.unitAttackMultiplier != 1.0'f32:
+      agent.attackDamage = max(0, int(float32(agent.attackDamage) * civBonus.unitAttackMultiplier + 0.5))
   agent.hp = agent.maxHp
   # Initialize monk faith
   if unitClass == UnitMonk:
@@ -1312,8 +1322,26 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
     return false
   if building.teamId != teamId:
     return false
-  if not env.spendStockpile(teamId, costs):
-    return false
+  # Apply CivBonus food cost multiplier to training costs
+  var adjustedCosts: seq[tuple[res: StockpileResource, count: int]] = @[]
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    let civBonus = env.teamCivBonuses[teamId]
+    let applyFood = civBonus.foodCostMultiplier != 0.0'f32 and civBonus.foodCostMultiplier != 1.0'f32
+    let applyWood = civBonus.woodCostMultiplier != 0.0'f32 and civBonus.woodCostMultiplier != 1.0'f32
+    if applyFood or applyWood:
+      for cost in costs:
+        var c = cost
+        if applyFood and c.res == ResourceFood:
+          c.count = max(1, int(float32(c.count) * civBonus.foodCostMultiplier + 0.5))
+        elif applyWood and c.res == ResourceWood:
+          c.count = max(1, int(float32(c.count) * civBonus.woodCostMultiplier + 0.5))
+        adjustedCosts.add(c)
+  if adjustedCosts.len > 0:
+    if not env.spendStockpile(teamId, adjustedCosts):
+      return false
+  else:
+    if not env.spendStockpile(teamId, costs):
+      return false
   when defined(econAudit):
     recordTrainingCost(teamId, costs, env.currentStep)
   let trainTime = unitTrainTime(unitClass)

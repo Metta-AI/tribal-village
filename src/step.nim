@@ -2071,6 +2071,15 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if mult != 0.0'f32 and mult != 1.0'f32:
             for i in 0 ..< costs.len:
               costs[i].count = max(1, int(float32(costs[i].count) * mult + 0.5))
+        # Apply CivBonus wood/food cost multipliers for building costs
+        if teamId >= 0 and teamId < MapRoomObjectsTeams:
+          let civBonus = env.teamCivBonuses[teamId]
+          for i in 0 ..< costs.len:
+            let res = stockpileResourceForItem(costs[i].key)
+            if res == ResourceWood and civBonus.woodCostMultiplier != 0.0'f32 and civBonus.woodCostMultiplier != 1.0'f32:
+              costs[i].count = max(1, int(float32(costs[i].count) * civBonus.woodCostMultiplier + 0.5))
+            elif res == ResourceFood and civBonus.foodCostMultiplier != 0.0'f32 and civBonus.foodCostMultiplier != 1.0'f32:
+              costs[i].count = max(1, int(float32(costs[i].count) * civBonus.foodCostMultiplier + 0.5))
         let payment = choosePayment(env, agent, costs)
         if payment == PayNone:
           invalidAndBreak(buildFromChoices)
@@ -2121,8 +2130,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               hpMultiplier += 0.1
             if env.hasUniversityTech(placed.teamId, TechArchitecture):
               hpMultiplier += 0.1
-            if hpMultiplier > 1.0:
-              placed.maxHp = int(float32(placed.maxHp) * hpMultiplier + 0.5)
+            # Apply CivBonus building HP multiplier
+            if placed.teamId < MapRoomObjectsTeams:
+              let civBuildHp = env.teamCivBonuses[placed.teamId].buildingHpMultiplier
+              if civBuildHp != 0.0'f32 and civBuildHp != 1.0'f32:
+                hpMultiplier = hpMultiplier * civBuildHp
+            if hpMultiplier > 1.0 or hpMultiplier < 1.0:
+              placed.maxHp = max(1, int(float32(placed.maxHp) * hpMultiplier + 0.5))
           # Player-built buildings start under construction (hp=1)
           # They need villagers to complete construction
           if isBuilding and placed.maxHp > 0:
@@ -2232,6 +2246,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     # Treadmill Crane: +20% construction speed
     if thing.teamId >= 0 and env.hasUniversityTech(thing.teamId, TechTreadmillCrane):
       multiplier = multiplier * 1.2'f32
+    # Apply CivBonus build speed multiplier
+    if thing.teamId >= 0 and thing.teamId < MapRoomObjectsTeams:
+      let civBuild = env.teamCivBonuses[thing.teamId].buildSpeedMultiplier
+      if civBuild != 0.0'f32 and civBuild != 1.0'f32:
+        multiplier = multiplier * civBuild
     # Repair (previously constructed buildings) uses faster rate than initial construction
     let baseHp = if thing.constructed: RepairHpPerAction else: ConstructionHpPerAction
     let hpGain = int(float32(baseHp) * multiplier + 0.5)

@@ -53,6 +53,9 @@ proc makeEmptyEnv*(): Environment =
       result.tumorTintMods[x][y] = TintModification(r: 0, g: 0, b: 0)
       result.tumorStrength[x][y] = 0
   result.teamStockpiles = default(array[MapRoomObjectsTeams, TeamStockpile])
+  # Initialize civ bonuses to defaults
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    result.teamCivBonuses[teamId] = defaultCivBonus()
   result.initMarketPrices()  # Initialize AoE2-style market prices
   result.victoryWinner = -1
   result.victoryWinners = NoTeamMask

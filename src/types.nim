@@ -1127,6 +1127,17 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
   )
 
 type
+  CivBonus* = object
+    ## Civilization-style asymmetry multipliers for team differentiation.
+    ## All multipliers default to 1.0 (no effect). Applied at point of use.
+    gatherRateMultiplier*: float32    ## Multiplier for resource gathering speed (1.0 = normal)
+    buildSpeedMultiplier*: float32    ## Multiplier for construction/repair speed (1.0 = normal)
+    unitHpMultiplier*: float32        ## Multiplier for trained unit max HP (1.0 = normal)
+    unitAttackMultiplier*: float32    ## Multiplier for trained unit attack damage (1.0 = normal)
+    buildingHpMultiplier*: float32    ## Multiplier for building max HP (1.0 = normal)
+    woodCostMultiplier*: float32      ## Multiplier for wood building costs (1.0 = normal)
+    foodCostMultiplier*: float32      ## Multiplier for food unit costs (1.0 = normal)
+
   TerritoryScore* = object
     teamTiles*: array[MapRoomObjectsTeams, int]
     clippyTiles*: int
@@ -1276,6 +1287,7 @@ type
     elevation*: ElevationGrid
     teamStockpiles*: array[MapRoomObjectsTeams, TeamStockpile]
     teamModifiers*: array[MapRoomObjectsTeams, TeamModifiers]
+    teamCivBonuses*: array[MapRoomObjectsTeams, CivBonus]  # Civilization asymmetry multipliers
     teamMarketPrices*: array[MapRoomObjectsTeams, MarketPrices]  # AoE2-style dynamic market prices
     teamBlacksmithUpgrades*: array[MapRoomObjectsTeams, BlacksmithUpgrades]  # AoE2-style Blacksmith upgrades
     teamUniversityTechs*: array[MapRoomObjectsTeams, UniversityTechs]  # AoE2-style University techs
@@ -1436,6 +1448,54 @@ proc defaultTeamModifiers*(): TeamModifiers =
     result.buildingCostMultiplier[kind] = 1.0'f32
   for unitClass in AgentUnitClass:
     result.trainCostMultiplier[unitClass] = 1.0'f32
+
+proc defaultCivBonus*(): CivBonus {.inline.} =
+  ## Create a default (neutral) CivBonus with all multipliers at 1.0.
+  CivBonus(
+    gatherRateMultiplier: 1.0'f32,
+    buildSpeedMultiplier: 1.0'f32,
+    unitHpMultiplier: 1.0'f32,
+    unitAttackMultiplier: 1.0'f32,
+    buildingHpMultiplier: 1.0'f32,
+    woodCostMultiplier: 1.0'f32,
+    foodCostMultiplier: 1.0'f32
+  )
+
+const
+  ## Predefined civilization bonus profiles (AoE2-inspired).
+  ## Bonuses are subtle (5-15%) to avoid breaking balance.
+  CivNeutral* = CivBonus(
+    gatherRateMultiplier: 1.0'f32, buildSpeedMultiplier: 1.0'f32,
+    unitHpMultiplier: 1.0'f32, unitAttackMultiplier: 1.0'f32,
+    buildingHpMultiplier: 1.0'f32, woodCostMultiplier: 1.0'f32, foodCostMultiplier: 1.0'f32)
+
+  CivBritons* = CivBonus(
+    gatherRateMultiplier: 1.0'f32, buildSpeedMultiplier: 1.0'f32,
+    unitHpMultiplier: 1.0'f32, unitAttackMultiplier: 1.1'f32,  # +10% attack
+    buildingHpMultiplier: 1.0'f32, woodCostMultiplier: 0.9'f32, foodCostMultiplier: 1.0'f32)  # -10% wood costs
+
+  CivFranks* = CivBonus(
+    gatherRateMultiplier: 1.0'f32, buildSpeedMultiplier: 1.0'f32,
+    unitHpMultiplier: 1.1'f32, unitAttackMultiplier: 1.0'f32,  # +10% unit HP
+    buildingHpMultiplier: 1.0'f32, woodCostMultiplier: 1.0'f32, foodCostMultiplier: 0.9'f32)  # -10% food costs
+
+  CivByzantines* = CivBonus(
+    gatherRateMultiplier: 1.0'f32, buildSpeedMultiplier: 1.1'f32,  # +10% build speed
+    unitHpMultiplier: 1.0'f32, unitAttackMultiplier: 1.0'f32,
+    buildingHpMultiplier: 1.15'f32, woodCostMultiplier: 1.0'f32, foodCostMultiplier: 1.0'f32)  # +15% building HP
+
+  CivMongols* = CivBonus(
+    gatherRateMultiplier: 1.15'f32, buildSpeedMultiplier: 1.0'f32,  # +15% gather rate
+    unitHpMultiplier: 1.0'f32, unitAttackMultiplier: 1.05'f32,  # +5% attack
+    buildingHpMultiplier: 0.9'f32, woodCostMultiplier: 1.0'f32, foodCostMultiplier: 1.0'f32)  # -10% building HP (tradeoff)
+
+  CivTeutons* = CivBonus(
+    gatherRateMultiplier: 1.0'f32, buildSpeedMultiplier: 1.0'f32,
+    unitHpMultiplier: 1.05'f32, unitAttackMultiplier: 1.05'f32,  # +5% both
+    buildingHpMultiplier: 1.1'f32, woodCostMultiplier: 1.05'f32, foodCostMultiplier: 1.05'f32)  # strong but expensive
+
+  ## Array of all civs for random assignment
+  AllCivBonuses* = [CivNeutral, CivBritons, CivFranks, CivByzantines, CivMongols, CivTeutons]
 
 proc getUnitAttackRange*(agent: Thing): int =
   ## Get the attack range for a unit based on its class.

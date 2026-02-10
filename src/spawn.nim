@@ -190,6 +190,16 @@ proc initState(env: Environment) =
   # Reset team stockpiles
   env.teamStockpiles.clear()
 
+  # Initialize civ bonuses to defaults (preserve any pre-set bonuses)
+  # Only reset if all multipliers are zero (uninitialized)
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    let cb = env.teamCivBonuses[teamId]
+    if cb.gatherRateMultiplier == 0.0'f32 and cb.buildSpeedMultiplier == 0.0'f32 and
+       cb.unitHpMultiplier == 0.0'f32 and cb.unitAttackMultiplier == 0.0'f32 and
+       cb.buildingHpMultiplier == 0.0'f32 and cb.woodCostMultiplier == 0.0'f32 and
+       cb.foodCostMultiplier == 0.0'f32:
+      env.teamCivBonuses[teamId] = defaultCivBonus()
+
   # Initialize AoE2-style market prices
   env.initMarketPrices()
 
