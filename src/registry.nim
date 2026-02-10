@@ -54,6 +54,8 @@ let BuildingRegistry* = block:
       0, @[(ItemWood, 1)], 10),
     (Door, "Door", "door", 'D', (r: 120'u8, g: 100'u8, b: 80'u8),
       BuildIndexDoor, @[(ItemWood, 1)], 6),
+    (Wall, "Wall", "oriented/wall", '#', (r: 150'u8, g: 150'u8, b: 150'u8),
+      BuildIndexWall, @[(ItemWood, 1)], 6),
     (ClayOven, "Clay Oven", "clay_oven", 'C', (r: 255'u8, g: 180'u8, b: 120'u8),
       20, @[(ItemWood, 4)], 12),
     (WeavingLoom, "Weaving Loom", "weaving_loom", 'W', (r: 0'u8, g: 180'u8, b: 255'u8),

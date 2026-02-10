@@ -787,7 +787,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let blocker = env.getThing(step1)
           if not isNil(blocker):
             if blocker.kind == Agent and not isThingFrozen(blocker, env) and
-                sameTeamMask(blocker, agent):
+                sameTeamMask(blocker, agent) and
+                env.canTraverseElevation(agent.pos, step1) and
+                env.canTraverseElevation(step1, agent.pos):
               let agentOld = agent.pos
               let blockerOld = blocker.pos
               agent.pos = blockerOld
