@@ -2373,13 +2373,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       if thing.cooldown > 0:
         dec thing.cooldown
 
-  for thing in env.thingsByKind[Wonder]:
-    if thing.hp > 0 and thing.constructed and thing.wonderVictoryCountdown > 0:
-      if env.config.victoryCondition in {VictoryWonder, VictoryAll}:
-        dec thing.wonderVictoryCountdown
-        if thing.wonderVictoryCountdown <= 0:
-          env.victoryWinner = thing.teamId
-          env.victoryWinners = computeAlliedWinners(env, thing.teamId)
+  # Wonder victory is handled by checkVictoryConditions() via victory.nim
 
   # Production/craft buildings and economy tech buildings: cooldown-only buildings
   for kind in [ClayOven, WeavingLoom, Blacksmith, Market, LumberCamp, MiningCamp, Quarry, TownCenter]:
@@ -3040,6 +3034,7 @@ proc reset*(env: Environment) =
   env.townBellActive = default(array[MapRoomObjectsTeams, bool])
   # Reset victory conditions
   env.victoryWinner = -1
+  env.victoryWinners = NoTeamMask
   for teamId in 0 ..< MapRoomObjectsTeams:
     env.victoryStates[teamId].wonderBuiltStep = -1
     env.victoryStates[teamId].relicHoldStartStep = -1
