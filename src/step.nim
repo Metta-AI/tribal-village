@@ -2627,19 +2627,7 @@ proc reset*(env: Environment) =
   env.tumorStrength.clear()
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags.clear()
-  env.projectiles.setLen(0)  # Keeps pre-allocated capacity
-  env.projectilePool.stats = PoolStats()  # Reset pool stats
-  env.damageNumbers.setLen(0)  # Keeps pre-allocated capacity
-  env.debris.setLen(0)  # Keeps pre-allocated capacity
-  env.spawnEffects.setLen(0)   # Keeps pre-allocated capacity
-  env.ragdolls.setLen(0)       # Keeps pre-allocated capacity
-  env.dyingUnits.setLen(0)     # Keeps pre-allocated capacity
-  env.gatherSparkles.setLen(0) # Keeps pre-allocated capacity
-  env.constructionDust.setLen(0) # Keeps pre-allocated capacity
-  env.unitTrails.setLen(0)     # Keeps pre-allocated capacity
-  env.waterRipples.setLen(0)   # Keeps pre-allocated capacity
-  env.attackImpacts.setLen(0)  # Keeps pre-allocated capacity
-  env.conversionEffects.setLen(0) # Keeps pre-allocated capacity
+  env.resetVisualEffects()
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
   env.cowHerdSumX.setLen(0)
