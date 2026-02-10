@@ -241,9 +241,9 @@ suite "Behavior: Trade Cog Round-Trip and Home Dock Flipping":
     check totalGold > 0
 
 suite "Behavior: Trade Cog Pathfinding Around Obstacles":
-  test "trade cog traverses land gap but still delivers at dock":
-    ## Water units can traverse any terrain. A land gap between docks
-    ## does not block a Trade Cog; it still reaches the destination dock.
+  test "trade cog is blocked by land gap between docks":
+    ## Water units (except UnitBoat) cannot traverse land tiles.
+    ## A land gap between docks blocks a Trade Cog from reaching the destination.
     let env = makeEmptyEnv()
     let dockA = ivec2(30, 50)
     let dockB = ivec2(40, 50)
@@ -260,10 +260,10 @@ suite "Behavior: Trade Cog Pathfinding Around Obstacles":
     for i in 0 ..< 10:
       env.stepAction(cog.agentId, 1'u8, 3)
 
-    echo fmt"  Cog at ({cog.pos.x},{cog.pos.y}) after crossing land gap"
-    # Trade Cogs can move on any terrain, so they reach the dock
-    check cog.pos == dockB
-    check env.stockpileCount(0, ResourceGold) > 0
+    echo fmt"  Cog at ({cog.pos.x},{cog.pos.y}) after hitting land gap"
+    # Trade Cog should be stuck at the land gap, not at dockB
+    check cog.pos != dockB
+    check env.stockpileCount(0, ResourceGold) == 0
 
   test "trade cog reroutes around blocked water via detour":
     let env = makeEmptyEnv()
