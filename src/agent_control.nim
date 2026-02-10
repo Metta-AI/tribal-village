@@ -1254,3 +1254,90 @@ proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, tar
         setAgentFollowTarget(agentId, targetX.int)
       else:
         discard
+
+# Economy Priority Override API
+# These functions allow external code to override gatherer resource priorities.
+# Individual overrides take precedence over team-level focus.
+# Both override automatic task selection based on flow rates and bottlenecks.
+
+proc setGathererPriority*(agentId: int, resource: StockpileResource) =
+  ## Set an individual gatherer to prioritize collecting a specific resource.
+  ## Overrides automatic task selection for this gatherer.
+  ## resource: ResourceFood, ResourceWood, ResourceGold, or ResourceStone
+  withBuiltinAI:
+    globalController.aiController.setGathererPriority(agentId, resource)
+
+proc setGathererPriorityInt*(agentId: int, resource: int32) =
+  ## Set gatherer priority using integer resource index.
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
+  if resource < 0 or resource > ord(StockpileResource.high).int32:
+    return
+  setGathererPriority(agentId, StockpileResource(resource))
+
+proc clearGathererPriority*(agentId: int) =
+  ## Clear the individual gatherer priority override.
+  ## Returns the gatherer to automatic task selection.
+  withBuiltinAI:
+    globalController.aiController.clearGathererPriority(agentId)
+
+proc getGathererPriority*(agentId: int): StockpileResource =
+  ## Get the current gatherer priority for an agent.
+  ## Returns ResourceNone if no priority is set.
+  withBuiltinAI:
+    return globalController.aiController.getGathererPriority(agentId)
+  ResourceNone
+
+proc getGathererPriorityInt*(agentId: int): int32 =
+  ## Get the current gatherer priority as an integer.
+  ## Returns -1 if no priority is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
+  let resource = getGathererPriority(agentId)
+  if resource == ResourceNone:
+    return -1
+  ord(resource).int32
+
+proc isGathererPriorityActive*(agentId: int): bool =
+  ## Check if an individual gatherer priority is active.
+  withBuiltinAI:
+    return globalController.aiController.isGathererPriorityActive(agentId)
+  false
+
+proc setTeamEconomyFocus*(teamId: int, resource: StockpileResource) =
+  ## Set a team-level economy focus to bias all gatherers toward a resource.
+  ## This affects all gatherers on the team that don't have individual overrides.
+  ## resource: ResourceFood, ResourceWood, ResourceGold, or ResourceStone
+  withBuiltinAI:
+    globalController.aiController.setTeamEconomyFocus(teamId, resource)
+
+proc setTeamEconomyFocusInt*(teamId: int, resource: int32) =
+  ## Set team economy focus using integer resource index.
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
+  if resource < 0 or resource > ord(StockpileResource.high).int32:
+    return
+  setTeamEconomyFocus(teamId, StockpileResource(resource))
+
+proc clearTeamEconomyFocus*(teamId: int) =
+  ## Clear the team-level economy focus.
+  ## Returns all gatherers to automatic task selection.
+  withBuiltinAI:
+    globalController.aiController.clearTeamEconomyFocus(teamId)
+
+proc getTeamEconomyFocus*(teamId: int): StockpileResource =
+  ## Get the current team economy focus.
+  ## Returns ResourceNone if no focus is set.
+  withBuiltinAI:
+    return globalController.aiController.getTeamEconomyFocus(teamId)
+  ResourceNone
+
+proc getTeamEconomyFocusInt*(teamId: int): int32 =
+  ## Get the current team economy focus as an integer.
+  ## Returns -1 if no focus is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
+  let resource = getTeamEconomyFocus(teamId)
+  if resource == ResourceNone:
+    return -1
+  ord(resource).int32
+
+proc isTeamEconomyFocusActive*(teamId: int): bool =
+  ## Check if a team economy focus is active.
+  withBuiltinAI:
+    return globalController.aiController.isTeamEconomyFocusActive(teamId)
+  false

@@ -297,3 +297,111 @@ suite "Behavioral Economy - Relic Monastery Gold":
 
     # 3 relics should generate more gold than 1 relic
     check goldWith3 > goldWith1
+
+suite "Behavioral Economy - Priority Override API":
+  test "setGathererPriority forces gatherer to specific resource":
+    ## Verify individual gatherer priority override takes precedence.
+    let env = makeEmptyEnv()
+    let controller = newTestController(42)
+
+    let tcPos = ivec2(10, 10)
+    discard addBuilding(env, TownCenter, tcPos, 0)
+    let agent = addAgentAt(env, 0, ivec2(12, 12), homeAltar = tcPos)
+
+    # Initialize the agent in controller
+    discard controller.decideAction(env, agent.agentId)
+    let state = addr controller.agents[agent.agentId]
+
+    # Default: gatherer task is set automatically
+    controller.updateGathererTask(env, agent, state[])
+    let autoTask = state.gathererTask
+    echo fmt"  Auto task: {autoTask}"
+
+    # Set individual priority override to gold
+    controller.setGathererPriority(agent.agentId, ResourceGold)
+
+    controller.updateGathererTask(env, agent, state[])
+    let overrideTask = state.gathererTask
+
+    echo fmt"  After gold priority: {overrideTask}"
+    check overrideTask == TaskGold
+
+    # Clear priority - should return to auto
+    controller.clearGathererPriority(agent.agentId)
+    controller.updateGathererTask(env, agent, state[])
+    let clearedTask = state.gathererTask
+
+    echo fmt"  After clear: {clearedTask}"
+    # Task should return to automatic selection (may differ from original due to game state)
+    check controller.isGathererPriorityActive(agent.agentId) == false
+
+  test "setTeamEconomyFocus biases all gatherers":
+    ## Verify team-level economy focus affects all gatherers on the team.
+    let env = makeEmptyEnv()
+    let controller = newTestController(42)
+
+    let tcPos = ivec2(10, 10)
+    discard addBuilding(env, TownCenter, tcPos, 0)
+
+    # Add multiple agents on team 0 (agent IDs 0 and 1)
+    let agent1 = addAgentAt(env, 0, ivec2(12, 12), homeAltar = tcPos)
+    let agent2 = addAgentAt(env, 1, ivec2(14, 14), homeAltar = tcPos)
+
+    # Initialize agents
+    discard controller.decideAction(env, agent1.agentId)
+    discard controller.decideAction(env, agent2.agentId)
+
+    # Set team focus to wood
+    controller.setTeamEconomyFocus(0, ResourceWood)
+
+    # Both agents should now prioritize wood
+    let state1 = addr controller.agents[agent1.agentId]
+    let state2 = addr controller.agents[agent2.agentId]
+
+    controller.updateGathererTask(env, agent1, state1[])
+    controller.updateGathererTask(env, agent2, state2[])
+
+    echo fmt"  Agent 1 task: {state1.gathererTask}"
+    echo fmt"  Agent 2 task: {state2.gathererTask}"
+
+    check state1.gathererTask == TaskWood
+    check state2.gathererTask == TaskWood
+
+    # Clear team focus
+    controller.clearTeamEconomyFocus(0)
+    check controller.isTeamEconomyFocusActive(0) == false
+
+  test "individual priority overrides team focus":
+    ## Verify individual override takes precedence over team focus.
+    let env = makeEmptyEnv()
+    let controller = newTestController(42)
+
+    let tcPos = ivec2(10, 10)
+    discard addBuilding(env, TownCenter, tcPos, 0)
+
+    # Agent IDs 0 and 1 are both on team 0 (team = agentId div 125)
+    let agent1 = addAgentAt(env, 0, ivec2(12, 12), homeAltar = tcPos)
+    let agent2 = addAgentAt(env, 1, ivec2(14, 14), homeAltar = tcPos)
+
+    discard controller.decideAction(env, agent1.agentId)
+    discard controller.decideAction(env, agent2.agentId)
+
+    # Set team focus to wood
+    controller.setTeamEconomyFocus(0, ResourceWood)
+
+    # Set individual priority for agent1 to stone (overrides team)
+    controller.setGathererPriority(agent1.agentId, ResourceStone)
+
+    let state1 = addr controller.agents[agent1.agentId]
+    let state2 = addr controller.agents[agent2.agentId]
+
+    controller.updateGathererTask(env, agent1, state1[])
+    controller.updateGathererTask(env, agent2, state2[])
+
+    echo fmt"  Agent 1 (individual override): {state1.gathererTask}"
+    echo fmt"  Agent 2 (team focus only): {state2.gathererTask}"
+
+    # Agent 1 should have stone (individual override)
+    check state1.gathererTask == TaskStone
+    # Agent 2 should have wood (team focus)
+    check state2.gathererTask == TaskWood

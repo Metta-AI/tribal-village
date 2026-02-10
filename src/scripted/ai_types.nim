@@ -150,6 +150,9 @@ type
     # Pending stance change: applied to agent when decideAction has env access
     pendingStance*: AgentStance       # Stance to apply on next decideAction
     stanceModified*: bool             # Whether pendingStance should be applied
+    # Economy priority override: force gatherer to collect specific resource
+    gathererPriorityResource*: StockpileResource  # Resource to prioritize
+    gathererPriorityActive*: bool                 # Whether override is active
 
   # Difficulty levels for AI - affects decision quality and reaction time
   DifficultyLevel* = enum
@@ -203,6 +206,9 @@ type
     townSplitLastStep*: array[MapRoomObjectsTeams, int32]
     # Town bell auto-trigger: last step when each team's bell was auto-checked
     townBellAutoCheckStep*: array[MapRoomObjectsTeams, int32]
+    # Team-level economy focus: bias all gatherers toward a specific resource
+    teamEconomyFocus*: array[MapRoomObjectsTeams, StockpileResource]
+    teamEconomyFocusActive*: array[MapRoomObjectsTeams, bool]
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.
@@ -322,3 +328,86 @@ template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
                agentId: int, state: var AgentState): bool = body
   proc termName(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = not (body)
+
+# -----------------------------------------------------------------------------
+# Economy Priority Override API
+# -----------------------------------------------------------------------------
+
+proc stockpileResourceToGathererTask*(resource: StockpileResource): GathererTask =
+  ## Convert StockpileResource to corresponding GathererTask.
+  ## Returns TaskFood for unknown/unmapped resources.
+  case resource
+  of ResourceFood: TaskFood
+  of ResourceWood: TaskWood
+  of ResourceGold: TaskGold
+  of ResourceStone: TaskStone
+  of ResourceWater, ResourceNone: TaskFood  # Default to food for unmapped
+
+proc gathererTaskToStockpileResource*(task: GathererTask): StockpileResource =
+  ## Convert GathererTask to corresponding StockpileResource.
+  case task
+  of TaskFood: ResourceFood
+  of TaskWood: ResourceWood
+  of TaskGold: ResourceGold
+  of TaskStone: ResourceStone
+  of TaskHearts: ResourceGold  # Hearts require gold to make bars
+
+proc setGathererPriority*(controller: Controller, agentId: int, resource: StockpileResource) =
+  ## Set individual gatherer priority override.
+  ## Forces the gatherer to collect the specified resource.
+  if agentId < 0 or agentId >= MapAgents:
+    return
+  controller.agents[agentId].gathererPriorityResource = resource
+  controller.agents[agentId].gathererPriorityActive = true
+
+proc clearGathererPriority*(controller: Controller, agentId: int) =
+  ## Clear individual gatherer priority override.
+  ## Returns the gatherer to automatic task selection.
+  if agentId < 0 or agentId >= MapAgents:
+    return
+  controller.agents[agentId].gathererPriorityActive = false
+
+proc getGathererPriority*(controller: Controller, agentId: int): StockpileResource =
+  ## Get the current gatherer priority for an agent.
+  ## Returns ResourceNone if no priority is set.
+  if agentId < 0 or agentId >= MapAgents:
+    return ResourceNone
+  if not controller.agents[agentId].gathererPriorityActive:
+    return ResourceNone
+  controller.agents[agentId].gathererPriorityResource
+
+proc isGathererPriorityActive*(controller: Controller, agentId: int): bool =
+  ## Check if an individual gatherer priority is active.
+  if agentId < 0 or agentId >= MapAgents:
+    return false
+  controller.agents[agentId].gathererPriorityActive
+
+proc setTeamEconomyFocus*(controller: Controller, teamId: int, resource: StockpileResource) =
+  ## Set team-level economy focus.
+  ## Biases all gatherers on the team toward the specified resource.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  controller.teamEconomyFocus[teamId] = resource
+  controller.teamEconomyFocusActive[teamId] = true
+
+proc clearTeamEconomyFocus*(controller: Controller, teamId: int) =
+  ## Clear team-level economy focus.
+  ## Returns all gatherers to automatic task selection.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  controller.teamEconomyFocusActive[teamId] = false
+
+proc getTeamEconomyFocus*(controller: Controller, teamId: int): StockpileResource =
+  ## Get the current team economy focus.
+  ## Returns ResourceNone if no focus is set.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return ResourceNone
+  if not controller.teamEconomyFocusActive[teamId]:
+    return ResourceNone
+  controller.teamEconomyFocus[teamId]
+
+proc isTeamEconomyFocusActive*(controller: Controller, teamId: int): bool =
+  ## Check if a team economy focus is active.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  controller.teamEconomyFocusActive[teamId]

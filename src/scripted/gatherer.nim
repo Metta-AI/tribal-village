@@ -107,6 +107,20 @@ proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thin
 proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
   let teamId = getTeamId(agent)
+  let agentId = agent.agentId
+
+  # Check for individual gatherer priority override first (highest priority)
+  if controller.isGathererPriorityActive(agentId):
+    let resource = controller.getGathererPriority(agentId)
+    state.gathererTask = stockpileResourceToGathererTask(resource)
+    return
+
+  # Check for team-level economy focus (second priority)
+  if controller.isTeamEconomyFocusActive(teamId):
+    let resource = controller.getTeamEconomyFocus(teamId)
+    state.gathererTask = stockpileResourceToGathererTask(resource)
+    return
+
   let (altarPos, altarHearts) = findTeamAltar(env, agent, teamId)
   let altarFound = altarPos.x >= 0
   var task = TaskFood

@@ -1181,3 +1181,43 @@ proc tribal_village_get_train_cost_multiplier*(env: pointer, teamId: int32, unit
 proc tribal_village_get_num_building_kinds*(): int32 {.exportc, dynlib.} =
   ## Get the number of ThingKind values (for iterating over building types).
   int32(ord(ThingKind.high) + 1)
+
+# --- Economy Priority Override API ---
+
+proc tribal_village_set_gatherer_priority*(env: pointer, agentId: int32, resource: int32) {.exportc, dynlib.} =
+  ## Set an individual gatherer to prioritize collecting a specific resource.
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
+  setGathererPriorityInt(agentId, resource)
+
+proc tribal_village_clear_gatherer_priority*(env: pointer, agentId: int32) {.exportc, dynlib.} =
+  ## Clear the individual gatherer priority override.
+  clearGathererPriority(agentId)
+
+proc tribal_village_get_gatherer_priority*(env: pointer, agentId: int32): int32 {.exportc, dynlib.} =
+  ## Get the current gatherer priority for an agent.
+  ## Returns -1 if no priority is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
+  getGathererPriorityInt(agentId)
+
+proc tribal_village_is_gatherer_priority_active*(env: pointer, agentId: int32): int32 {.exportc, dynlib.} =
+  ## Check if an individual gatherer priority is active.
+  ## Returns 1 if active, 0 if not.
+  if isGathererPriorityActive(agentId): 1 else: 0
+
+proc tribal_village_set_team_economy_focus*(env: pointer, teamId: int32, resource: int32) {.exportc, dynlib.} =
+  ## Set a team-level economy focus to bias all gatherers toward a resource.
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
+  setTeamEconomyFocusInt(teamId, resource)
+
+proc tribal_village_clear_team_economy_focus*(env: pointer, teamId: int32) {.exportc, dynlib.} =
+  ## Clear the team-level economy focus.
+  clearTeamEconomyFocus(teamId)
+
+proc tribal_village_get_team_economy_focus*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Get the current team economy focus.
+  ## Returns -1 if no focus is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
+  getTeamEconomyFocusInt(teamId)
+
+proc tribal_village_is_team_economy_focus_active*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
+  ## Check if a team economy focus is active.
+  ## Returns 1 if active, 0 if not.
+  if isTeamEconomyFocusActive(teamId): 1 else: 0
