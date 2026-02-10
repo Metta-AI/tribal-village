@@ -858,7 +858,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               if homeDock != agent.pos and homeDock != ivec2(0, 0):
                 let dist = abs(agent.pos.x - homeDock.x) + abs(agent.pos.y - homeDock.y)
                 let goldAmount = max(1, dist div TradeCogDistanceDivisor * TradeCogGoldPerDistance)
-                env.addToStockpile(getTeamId(agent), ResourceGold, goldAmount)
+                # Trade route gold: no gather rate modifier (fixed economic mechanic)
+                env.teamStockpiles[getTeamId(agent)].counts[ResourceGold] += goldAmount
                 when defined(econAudit):
                   recordTradeShipGold(getTeamId(agent), goldAmount, env.currentStep)
                 agent.tradeHomeDock = agent.pos  # Flip home dock for return trip
@@ -2387,10 +2388,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         dec thing.cooldown
 
   # Production buildings with training queues
+  # Note: Monastery cooldown is handled in its dedicated relic gold loop above
   for kind in [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle, Dock]:
     for thing in env.thingsByKind[kind]:
-      if thing.cooldown > 0:
-        dec thing.cooldown
+      if kind != Monastery:
+        if thing.cooldown > 0:
+          dec thing.cooldown
       if thing.constructed:
         thing.processProductionQueue()
 

@@ -447,9 +447,9 @@ proc marketSellInventory*(env: Environment, agent: Thing, itemKey: ItemKey):
   let goldGained = (amount * currentPrice) div 100
 
   if goldGained > 0:
-    # Clear inventory and add gold to stockpile
+    # Clear inventory and add gold to stockpile (no gather rate modifier for market trades)
     setInv(agent, itemKey, 0)
-    env.addToStockpile(teamId, ResourceGold, goldGained)
+    env.teamStockpiles[teamId].counts[ResourceGold] += goldGained
     # Decrease price (supply increased)
     env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
     return (amount, goldGained)
@@ -474,7 +474,8 @@ proc marketBuyFood*(env: Environment, agent: Thing, goldAmount: int):
 
   if foodGained > 0:
     setInv(agent, ItemGold, invGold - goldAmount)
-    env.addToStockpile(teamId, ResourceFood, foodGained)
+    # No gather rate modifier for market trades
+    env.teamStockpiles[teamId].counts[ResourceFood] += foodGained
     # Increase price (demand increased)
     env.setMarketPrice(teamId, ResourceFood, currentPrice + MarketBuyPriceIncrease)
     return (goldAmount, foodGained)
