@@ -2337,7 +2337,19 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
   if not env.canAutoReseed(teamId):
     return false
 
-  # Check cost
+  let farmPos = mill.farmQueue[0]
+
+  # Validate position and terrain BEFORE spending resources or dequeuing
+  if not isValidPos(farmPos):
+    mill.farmQueue.delete(0)  # Invalid pos can be discarded
+    return false
+  if env.grid[farmPos.x][farmPos.y] != nil:
+    return false  # Something blocking; keep in queue, may clear later
+  let terrain = env.terrain[farmPos.x][farmPos.y]
+  if terrain != Fertile:
+    return false  # Terrain not yet fertile; keep in queue, Mill will refresh
+
+  # Check cost (only after validation passes)
   let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
   if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
     return false
@@ -2345,19 +2357,8 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
     if FarmReseedWoodCost > 0:
       recordFarmReseed(teamId, FarmReseedWoodCost, env.currentStep)
 
-  let farmPos = mill.farmQueue[0]
+  # Remove from queue only on successful reseed
   mill.farmQueue.delete(0)
-
-  # Check if the position is valid for farm
-  if not isValidPos(farmPos):
-    return false
-  if env.grid[farmPos.x][farmPos.y] != nil:
-    return false  # Something blocking
-
-  # Check terrain
-  let terrain = env.terrain[farmPos.x][farmPos.y]
-  if terrain != Fertile:
-    return false
 
   # Create the farm (wheat crop)
   let crop = Thing(kind: Wheat, pos: farmPos)
