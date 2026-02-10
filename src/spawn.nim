@@ -228,6 +228,19 @@ proc initState(env: Environment) =
     env.projectiles.setLen(0)  # Clear but keep existing capacity
   env.projectilePool.stats = PoolStats()  # Reset stats
 
+  # Clear visual effect arrays (setLen(0) retains capacity for pooling)
+  env.damageNumbers.setLen(0)
+  env.ragdolls.setLen(0)
+  env.debris.setLen(0)
+  env.spawnEffects.setLen(0)
+  env.dyingUnits.setLen(0)
+  env.gatherSparkles.setLen(0)
+  env.constructionDust.setLen(0)
+  env.unitTrails.setLen(0)
+  env.waterRipples.setLen(0)
+  env.attackImpacts.setLen(0)
+  env.conversionEffects.setLen(0)
+
   # Pre-allocate action tint positions capacity
   if env.actionTintPositions.len == 0:
     env.actionTintPositions = newSeqOfCap[IVec2](ActionTintPoolCapacity)
