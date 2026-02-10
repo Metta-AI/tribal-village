@@ -102,6 +102,7 @@ type
     CmdResearchHeatedShot
     CmdResearchSiegeEngineers
     CmdResearchChemistry
+    CmdResearchCoinage
     # Research commands (Castle unique techs)
     CmdResearchCastleTech1      # Team's first unique tech (Castle Age)
     CmdResearchCastleTech2      # Team's second unique tech (Imperial Age)

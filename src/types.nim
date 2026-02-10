@@ -1183,6 +1183,7 @@ type
     TechHeatedShot       ## +2 attack vs ships (bonus damage)
     TechSiegeEngineers   ## +1 range, +20% building damage for siege units
     TechChemistry        ## Enables gunpowder units (future tech)
+    TechCoinage          ## Reduces tribute tax rate from 20% to 10%
 
   UniversityTechs* = object
     ## Team-level University tech progress (AoE2-style)
@@ -1281,6 +1282,8 @@ type
     teamCastleTechs*: array[MapRoomObjectsTeams, CastleTechs]  # AoE2-style Castle unique techs
     teamUnitUpgrades*: array[MapRoomObjectsTeams, UnitUpgrades]  # AoE2-style unit promotion chains
     teamEconomyTechs*: array[MapRoomObjectsTeams, EconomyTechs]  # AoE2-style economy techs
+    teamTributesSent*: array[MapRoomObjectsTeams, int]     # Cumulative resources sent via tribute
+    teamTributesReceived*: array[MapRoomObjectsTeams, int] # Cumulative resources received via tribute
     revealedMaps*: array[MapRoomObjectsTeams, RevealedMap]  # Fog of war: explored tiles per team
     terrain*: TerrainGrid
     biomes*: BiomeGrid

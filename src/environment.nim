@@ -494,6 +494,52 @@ proc decayMarketPrices*(env: Environment) =
           currentPrice + MarketPriceDecayRate)
 
 # ============================================================================
+# AoE2-style Tribute System (resource transfer between teams)
+# ============================================================================
+
+proc tributeResources*(env: Environment, fromTeam, toTeam: int,
+                       resource: StockpileResource, amount: int): int =
+  ## Transfer resources from one team to another, applying a tax.
+  ## Returns the actual amount received after tax (0 if transfer failed).
+  ## Coinage tech (researched at University) reduces the tax rate.
+  if fromTeam < 0 or fromTeam >= MapRoomObjectsTeams:
+    return 0
+  if toTeam < 0 or toTeam >= MapRoomObjectsTeams:
+    return 0
+  if fromTeam == toTeam:
+    return 0
+  if amount < TributeMinAmount:
+    return 0
+  if resource == ResourceNone:
+    return 0
+
+  # Check if sender has enough resources
+  if env.teamStockpiles[fromTeam].counts[resource] < amount:
+    return 0
+
+  # Calculate tax rate (Coinage tech reduces it)
+  let taxRate = if env.teamUniversityTechs[fromTeam].researched[TechCoinage]:
+    TributeTaxRate - CoinageTaxReduction
+  else:
+    TributeTaxRate
+
+  let taxAmount = int(float(amount) * taxRate)
+  let received = amount - taxAmount
+
+  if received <= 0:
+    return 0
+
+  # Execute the transfer
+  env.teamStockpiles[fromTeam].counts[resource] -= amount
+  env.teamStockpiles[toTeam].counts[resource] += received
+
+  # Track cumulative tributes for scoring
+  env.teamTributesSent[fromTeam] += amount
+  env.teamTributesReceived[toTeam] += received
+
+  received
+
+# ============================================================================
 
 proc spendInventory*(env: Environment, agent: Thing,
                      costs: openArray[tuple[key: ItemKey, count: int]]): bool =

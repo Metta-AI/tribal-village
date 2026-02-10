@@ -237,3 +237,47 @@ proc resetEconomy*() =
   ## Reset all economy state (call on environment reset)
   zeroMem(addr teamEconomy, sizeof(teamEconomy))
   workerCountCacheStep = -1
+
+# ============================================================================
+# Tribute AI - Transfer surplus resources to allied teams in deficit
+# ============================================================================
+
+const
+  TributeCheckInterval* = 50     ## Steps between tribute checks
+  TributeSurplusThreshold* = 40  ## Must have at least this much of a resource to consider tributing
+  TributeDeficitThreshold* = 5   ## Ally must have less than this to receive tribute
+  TributeAmountFraction* = 0.25  ## Send 25% of surplus above threshold
+
+proc evaluateTribute*(env: Environment, teamId: int) =
+  ## Evaluate whether this team should tribute resources to another team.
+  ## AI tributes when it has surplus and another team is in deficit.
+  ## Called periodically from economy update.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+
+  # Check each resource type (except ResourceNone and ResourceWater)
+  for res in [ResourceFood, ResourceWood, ResourceGold, ResourceStone]:
+    let ownStock = env.stockpileCount(teamId, res)
+    if ownStock < TributeSurplusThreshold:
+      continue  # Not enough surplus to tribute
+
+    # Find a team in deficit for this resource
+    var bestTarget = -1
+    var lowestStock = TributeDeficitThreshold
+    for otherTeam in 0 ..< MapRoomObjectsTeams:
+      if otherTeam == teamId:
+        continue
+      let otherStock = env.stockpileCount(otherTeam, res)
+      if otherStock < lowestStock:
+        lowestStock = otherStock
+        bestTarget = otherTeam
+
+    if bestTarget < 0:
+      continue  # No team in deficit
+
+    # Calculate tribute amount: fraction of surplus above threshold
+    let surplus = ownStock - TributeSurplusThreshold
+    let tributeAmount = max(TributeMinAmount, int(float(surplus) * TributeAmountFraction))
+
+    # Execute the tribute
+    discard env.tributeResources(teamId, bestTarget, res, tributeAmount)

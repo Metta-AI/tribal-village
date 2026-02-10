@@ -589,5 +589,12 @@ const
   ProjTrebuchetAddedFrames* = 3        # Extra frames for trebuchet
   ProjTrebuchetMaxLifetime* = 8        # Maximum trebuchet flight frames
 
+  # ============================================================================
+  # Tribute System (AoE2-style resource transfer between teams)
+  # ============================================================================
+  TributeTaxRate* = 0.20          ## 20% fee on tributes (AoE2 default)
+  CoinageTaxReduction* = 0.10     ## Coinage tech reduces fee to 10%
+  TributeMinAmount* = 1           ## Minimum tribute amount
+
   # Derived constants
   VillagerMaxHp* = AgentMaxHp

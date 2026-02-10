@@ -149,6 +149,7 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdResearchHeatedShot: "HeatSht"
   of CmdResearchSiegeEngineers: "SiegeEn"
   of CmdResearchChemistry: "Chemist"
+  of CmdResearchCoinage: "Coinage"
   # Castle research
   of CmdResearchCastleTech1: "CstlT1"
   of CmdResearchCastleTech2: "CstlT2"
@@ -216,6 +217,7 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdResearchHeatedShot: "S"
   of CmdResearchSiegeEngineers: "D"
   of CmdResearchChemistry: "F"
+  of CmdResearchCoinage: "G"
   # Castle research hotkeys
   of CmdResearchCastleTech1: "Q"
   of CmdResearchCastleTech2: "W"
@@ -304,6 +306,7 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
     result.add(CmdResearchHeatedShot)
     result.add(CmdResearchSiegeEngineers)
     result.add(CmdResearchChemistry)
+    result.add(CmdResearchCoinage)
   of Castle:
     # Castle: 2 unique techs per team (already has ungarrison)
     result.add(CmdResearchCastleTech1)
@@ -355,6 +358,8 @@ proc isResearchButtonEnabled*(kind: CommandButtonKind, building: Thing): bool =
     not env.teamUniversityTechs[teamId].researched[TechSiegeEngineers]
   of CmdResearchChemistry:
     not env.teamUniversityTechs[teamId].researched[TechChemistry]
+  of CmdResearchCoinage:
+    not env.teamUniversityTechs[teamId].researched[TechCoinage]
   # Castle unique techs - enabled if not researched (and prereq met for Imperial)
   of CmdResearchCastleTech1:
     let (castleAge, _) = castleTechsForTeam(teamId)
@@ -540,7 +545,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
         CmdResearchBallistics, CmdResearchMurderHoles, CmdResearchMasonry,
         CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
         CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
-        CmdResearchCastleTech1, CmdResearchCastleTech2}:
+        CmdResearchCoinage, CmdResearchCastleTech1, CmdResearchCastleTech2}:
       # Draw a green checkmark in the top-left corner
       let checkColor = color(0.2, 0.8, 0.2, 1.0)
       let (checkKey, checkSize) = renderCommandLabel("OK", CommandHotkeyFontSize)

@@ -197,6 +197,7 @@ proc getCommandDescription*(kind: CommandButtonKind): string =
   of CmdResearchHeatedShot: "+2 attack vs ships for towers and castles."
   of CmdResearchSiegeEngineers: "+1 range, +20% building damage for siege units."
   of CmdResearchChemistry: "Enables gunpowder units (future tech)."
+  of CmdResearchCoinage: "Reduces tribute tax rate from 20% to 10%."
   # Castle research descriptions
   of CmdResearchCastleTech1: "Team's unique Castle Age technology."
   of CmdResearchCastleTech2: "Team's unique Imperial Age technology."
@@ -299,7 +300,8 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
   # University research costs (scales with tech index)
   of CmdResearchBallistics, CmdResearchMurderHoles, CmdResearchMasonry,
      CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
-     CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry:
+     CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
+     CmdResearchCoinage:
     result.add(&"Food: {UniversityTechFoodCost}+ (scales)")
     result.add(&"Gold: {UniversityTechGoldCost}+ (scales)")
     result.add(&"Wood: {UniversityTechWoodCost}+ (scales)")
@@ -400,6 +402,7 @@ proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipConte
     of CmdResearchHeatedShot: "Heated Shot"
     of CmdResearchSiegeEngineers: "Siege Engineers"
     of CmdResearchChemistry: "Chemistry"
+    of CmdResearchCoinage: "Coinage"
     # Castle research
     of CmdResearchCastleTech1: "Unique Tech I"
     of CmdResearchCastleTech2: "Unique Tech II"
