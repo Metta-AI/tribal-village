@@ -67,8 +67,8 @@ proc checkWonderVictory(env: Environment): int =
   -1
 
 proc checkRelicVictory(env: Environment): int =
-  ## Returns the winning team ID if one team holds all relics long enough, else -1.
-  ## A relic is "held" when garrisoned in a Monastery.
+  ## Returns the winning team ID if one team (or allied group) holds all relics
+  ## long enough, else -1. A relic is "held" when garrisoned in a Monastery.
   if TotalRelicsOnMap <= 0:
     return -1
   # Count garrisoned relics per team
@@ -79,16 +79,20 @@ proc checkRelicVictory(env: Environment): int =
     let teamId = monastery.teamId
     if teamId >= 0 and teamId < MapRoomObjectsTeams:
       teamRelics[teamId] += monastery.garrisonedRelics
-  # Check if any team holds all relics
+  # Check if any alliance group holds all relics (sum across allied teams)
   for teamId in 0 ..< MapRoomObjectsTeams:
-    if teamRelics[teamId] >= TotalRelicsOnMap:
+    var allianceRelics = 0
+    for otherTeam in 0 ..< MapRoomObjectsTeams:
+      if (getTeamMask(otherTeam) and env.teamAlliances[teamId]) != NoTeamMask:
+        allianceRelics += teamRelics[otherTeam]
+    if allianceRelics >= TotalRelicsOnMap:
       let holdStart = env.victoryStates[teamId].relicHoldStartStep
       if holdStart < 0:
         env.victoryStates[teamId].relicHoldStartStep = env.currentStep
       elif env.currentStep - holdStart >= RelicVictoryCountdown:
         return teamId
     else:
-      # Reset hold timer if not holding all relics
+      # Reset hold timer if alliance doesn't hold all relics
       env.victoryStates[teamId].relicHoldStartStep = -1
   -1
 
@@ -117,13 +121,12 @@ proc checkRegicideVictory(env: Environment): int =
 proc checkKingOfTheHillVictory(env: Environment): int =
   ## Returns the winning team ID if a team has controlled the hill for long enough, else -1.
   ## Control means having the most living units within HillControlRadius of a ControlPoint.
-  ## If tied (multiple teams have the same max count), the hill is contested and no one controls.
+  ## Allied teams' units are combined. Tie between unallied groups means contested.
   for cp in env.thingsByKind[ControlPoint]:
     if cp.isNil:
       continue
     # Count living agents per team within the control radius using spatial query
     var teamUnits: array[MapRoomObjectsTeams, int]
-    # Reuse tower targets buffer for control point agents (not used simultaneously)
     env.tempTowerTargets.setLen(0)
     collectThingsInRangeSpatial(env, cp.pos, Agent, HillControlRadius, env.tempTowerTargets)
     for agent in env.tempTowerTargets:
@@ -132,30 +135,38 @@ proc checkKingOfTheHillVictory(env: Environment): int =
       let teamId = getTeamId(agent)
       if teamId >= 0 and teamId < MapRoomObjectsTeams:
         inc teamUnits[teamId]
-    # Find the team with the most units (must be unique max and > 0)
+    # Aggregate allied teams' unit counts
+    var allianceUnits: array[MapRoomObjectsTeams, int]
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      for otherTeam in 0 ..< MapRoomObjectsTeams:
+        if (getTeamMask(otherTeam) and env.teamAlliances[teamId]) != NoTeamMask:
+          allianceUnits[teamId] += teamUnits[otherTeam]
+    # Find the alliance group with the most units (tie only between unallied groups)
     var bestTeam = -1
     var bestCount = 0
     var tied = false
     for teamId in 0 ..< MapRoomObjectsTeams:
-      if teamUnits[teamId] > bestCount:
+      if allianceUnits[teamId] > bestCount:
         bestTeam = teamId
-        bestCount = teamUnits[teamId]
+        bestCount = allianceUnits[teamId]
         tied = false
-      elif teamUnits[teamId] == bestCount and bestCount > 0:
-        tied = true
+      elif allianceUnits[teamId] == bestCount and bestCount > 0:
+        # Only tied if from a different alliance
+        if bestTeam >= 0 and (getTeamMask(teamId) and env.teamAlliances[bestTeam]) == NoTeamMask:
+          tied = true
     if tied or bestTeam < 0:
       # Contested or empty - reset all timers
       for teamId in 0 ..< MapRoomObjectsTeams:
         env.victoryStates[teamId].hillControlStartStep = -1
     else:
-      # bestTeam controls the hill
+      # bestTeam's alliance controls the hill
       if env.victoryStates[bestTeam].hillControlStartStep < 0:
         env.victoryStates[bestTeam].hillControlStartStep = env.currentStep
       elif env.currentStep - env.victoryStates[bestTeam].hillControlStartStep >= HillVictoryCountdown:
         return bestTeam
-      # Reset all other teams
+      # Reset all non-allied teams
       for teamId in 0 ..< MapRoomObjectsTeams:
-        if teamId != bestTeam:
+        if (getTeamMask(teamId) and env.teamAlliances[bestTeam]) == NoTeamMask:
           env.victoryStates[teamId].hillControlStartStep = -1
   -1
 

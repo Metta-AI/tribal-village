@@ -2371,10 +2371,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   for thing in env.thingsByKind[Wonder]:
     if thing.hp > 0 and thing.constructed and thing.wonderVictoryCountdown > 0:
-      dec thing.wonderVictoryCountdown
-      if thing.wonderVictoryCountdown <= 0:
-        env.victoryWinner = thing.teamId
-        env.victoryWinners = computeAlliedWinners(env, thing.teamId)
+      if env.config.victoryCondition in {VictoryWonder, VictoryAll}:
+        dec thing.wonderVictoryCountdown
+        if thing.wonderVictoryCountdown <= 0:
+          env.victoryWinner = thing.teamId
+          env.victoryWinners = computeAlliedWinners(env, thing.teamId)
 
   # Production/craft buildings and economy tech buildings: cooldown-only buildings
   for kind in [ClayOven, WeavingLoom, Blacksmith, Market, LumberCamp, MiningCamp, Quarry, TownCenter]:
@@ -3017,6 +3018,7 @@ proc reset*(env: Environment) =
   env.teamUniversityTechs.clear()
   env.teamCastleTechs.clear()
   env.teamUnitUpgrades.clear()
+  env.teamEconomyTechs = default(array[MapRoomObjectsTeams, EconomyTechs])
   when defined(techAudit):
     resetTechAudit()
   # Clear colors
