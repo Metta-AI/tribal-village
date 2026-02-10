@@ -231,7 +231,7 @@ proc fighterFindNearbyEnemy*(controller: Controller, env: Environment, agent: Th
 
   state.fighterEnemyStep = env.currentStep
   state.fighterEnemyAgentId = bestEnemyId
-  if bestEnemyId >= 0:
+  if bestEnemyId >= 0 and bestEnemyId < env.agents.len:
     return env.agents[bestEnemyId]
 
 proc fighterSeesEnemyStructureUncached(env: Environment, agent: Thing): bool =
@@ -1360,6 +1360,8 @@ proc optBatteringRamAdvance(controller: Controller, env: Environment, agent: Thi
     return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u8)
 
   # Check for blocking agent
+  if not isValidPos(forwardPos):
+    return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u8)
   let blockingAgent = env.grid[forwardPos.x][forwardPos.y]
   if not isNil(blockingAgent) and blockingAgent.agentId != agent.agentId:
     return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u8)

@@ -91,6 +91,8 @@ proc selectSettlerGroup*(controller: Controller, env: Environment,
   let count = min(TownSplitSettlerCount, candidates.len)
   for i in 0 ..< count:
     let agentId = candidates[i].agentId
+    if agentId < 0 or agentId >= env.agents.len:
+      continue
     let agent = env.agents[agentId]
     agent.isSettler = true
     result.add(agentId)
@@ -256,6 +258,8 @@ proc foundNewTown(env: Environment, teamId: int, site: IVec2,
 
   # 4. Reassign settlers' homeAltar to the new altar and clear flags
   for agentId in settlers:
+    if agentId < 0 or agentId >= env.agents.len:
+      continue
     let agent = env.agents[agentId]
     if not isAgentAlive(env, agent):
       continue
@@ -347,6 +351,8 @@ proc checkAndTriggerTownSplit*(controller: Controller, env: Environment) =
 
       # Mark settlers with their target position
       for agentId in settlers:
+        if agentId < 0 or agentId >= env.agents.len:
+          continue
         let agent = env.agents[agentId]
         agent.settlerTarget = newSite
 
