@@ -1915,21 +1915,10 @@ proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitCl
     if agent.unitClass != fromClass:
       continue
     let hpRatio = if agent.maxHp > 0: agent.hp.float / agent.maxHp.float else: 1.0
-    let modifiers = env.teamModifiers[teamId]
-    agent.unitClass = toClass
-    if toClass != UnitBoat:
-      agent.embarkedUnitClass = toClass
-    # Use base stat override if set (>0), otherwise use default
-    let baseHp = if modifiers.unitBaseHpOverride[toClass] > 0:
-      modifiers.unitBaseHpOverride[toClass]
-    else:
-      UnitMaxHpByClass[toClass]
-    let baseAttack = if modifiers.unitBaseAttackOverride[toClass] > 0:
-      modifiers.unitBaseAttackOverride[toClass]
-    else:
-      UnitAttackDamageByClass[toClass]
-    agent.maxHp = baseHp + modifiers.unitHpBonus[toClass]
-    agent.attackDamage = baseAttack + modifiers.unitAttackBonus[toClass]
+    # Use applyUnitClass to properly handle CivBonus multipliers, team modifiers,
+    # and aura collection tracking (tankUnits, monkUnits, teamVillagers)
+    applyUnitClass(env, agent, toClass)
+    # Restore HP ratio (applyUnitClass sets hp = maxHp)
     agent.hp = max(1, int(hpRatio * agent.maxHp.float))
     when defined(techAudit):
       inc unitsUpgraded
