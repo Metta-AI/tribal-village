@@ -5,6 +5,7 @@ import common
 import types
 import items
 import terrain
+import spatial_index
 import test_utils
 
 suite "Victory - Conquest":
@@ -283,9 +284,11 @@ suite "Victory - King of the Hill":
     check env.victoryStates[0].hillControlStartStep >= 0
     env.grid[50][51] = nil
     env.terminated[0] = 1.0
+    let oldPos = agent1.pos
     env.grid[100][100] = nil
     agent1.pos = ivec2(50, 52)
     env.grid[50][52] = agent1
+    env.updateSpatialIndex(agent1, oldPos)
     env.stepNoop()
     check env.victoryStates[0].hillControlStartStep == -1
     check env.victoryStates[1].hillControlStartStep >= 0
