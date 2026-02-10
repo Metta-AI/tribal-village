@@ -934,12 +934,13 @@ proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bo
   if isNil(blocker) or blocker.kind != Lantern:
     return false
 
-  # Uses spatial query instead of O(n) lantern scan
+  # Uses spatial query instead of O(n) lantern scan.
+  # Reuses env.tempTowerTargets as scratch buffer to avoid heap allocs in pathfinding.
   template spacingOk(nextPos: IVec2): bool =
     var ok = true
-    var nearbyLanterns: seq[Thing] = @[]
-    collectThingsInRangeSpatial(env, nextPos, Lantern, 2, nearbyLanterns)
-    for t in nearbyLanterns:
+    env.tempTowerTargets.setLen(0)
+    collectThingsInRangeSpatial(env, nextPos, Lantern, 2, env.tempTowerTargets)
+    for t in env.tempTowerTargets:
       if t != blocker:
         ok = false
         break
@@ -1195,9 +1196,10 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
   ## Check if there's a healthy team lantern within 3 tiles of position.
   ## Optimized: uses spatial index for O(1 cell) instead of O(all lanterns) iteration.
-  var nearby: seq[Thing] = @[]
-  collectThingsInRangeSpatial(env, pos, Lantern, 3, nearby)
-  for thing in nearby:
+  ## Reuses env.tempTowerTargets as scratch buffer to avoid heap allocs.
+  env.tempTowerTargets.setLen(0)
+  collectThingsInRangeSpatial(env, pos, Lantern, 3, env.tempTowerTargets)
+  for thing in env.tempTowerTargets:
     if thing.lanternHealthy and thing.teamId == teamId:
       return true
   false
