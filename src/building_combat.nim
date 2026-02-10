@@ -80,7 +80,7 @@ proc stepTryTowerAttack(env: Environment, tower: Thing, range: int,
                      towerDmg, $tower.kind, $target.unitClass, "tower")
         let died = env.applyAgentDamage(target, max(1, targetDamage))
         if died:
-          recordKill(env.currentStep, tower.teamId, getTeamId(target.agentId),
+          recordKill(env.currentStep, tower.teamId, getTeamId(target),
                      -1, target.agentId, $tower.kind, $target.unitClass)
       else:
         discard env.applyAgentDamage(target, max(1, targetDamage))
@@ -172,7 +172,7 @@ proc stepTryTownCenterAttack(env: Environment, tc: Thing,
                      tcDmg, "TownCenter", $target.unitClass, "tower")
         let tcDied = env.applyAgentDamage(target, max(1, tc.attackDamage))
         if tcDied:
-          recordKill(env.currentStep, tc.teamId, getTeamId(target.agentId),
+          recordKill(env.currentStep, tc.teamId, getTeamId(target),
                      -1, target.agentId, "TownCenter", $target.unitClass)
       else:
         discard env.applyAgentDamage(target, max(1, tc.attackDamage))
