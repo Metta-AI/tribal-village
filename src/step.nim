@@ -243,8 +243,8 @@ proc stepApplyMonkAuras(env: Environment) =
     var healedAny = false
     for ally in env.tempMonkAuraAllies:
       if ally.hp < ally.maxHp and not isThingFrozen(ally, env):
-        ally.hp = min(ally.maxHp, ally.hp + 1)
-        healedAny = true
+        if env.applyAgentHeal(ally, 1, monk) > 0:
+          healedAny = true
     if not healedAny:
       continue
 
@@ -1177,6 +1177,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 hit = true
             if hit:
               inc env.stats[id].actionAttack
+              # DemoShip: kamikaze self-destruction after successful attack
+              if agent.unitClass == UnitDemoShip:
+                env.killAgent(agent)
             else:
               inc env.stats[id].actionInvalid
           break attackAction
