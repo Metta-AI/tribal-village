@@ -41,10 +41,10 @@ suite "Behavioral Economy - Resource Gathering":
     let totalAt200 = getTotalStockpileAllTeams(env)
     echo fmt"  Total resources at step 200: {totalAt200}"
 
-    # Total resources across all teams should grow (or at least not decrease
-    # dramatically - some spending on buildings is expected)
-    # We check that resources were gathered at all
-    check totalAt200 > 0 or totalAt100 > 0
+    # Resources should be gathered by step 100 and not collapse by step 200.
+    # Some spending on buildings is expected, so we verify both checkpoints.
+    check totalAt100 > 0
+    check totalAt200 > 0
 
 suite "Behavioral Economy - Villager Deposits":
   test "villagers deposit resources at town centers":

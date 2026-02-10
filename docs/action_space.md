@@ -6,7 +6,7 @@ Status: Active
 
 ## Overview
 
-The Tribal Village action space uses a discrete encoding scheme where each action is represented as a single integer from 0 to 249.
+The Tribal Village action space uses a discrete encoding scheme where each action is represented as a single integer from 0 to 274.
 
 ### Action Encoding Formula
 

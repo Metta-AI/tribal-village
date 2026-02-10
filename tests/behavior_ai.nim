@@ -49,8 +49,9 @@ suite "Behavioral AI - Gatherer Role":
     let totalAt200 = getTotalStockpileAllTeams(env)
     echo fmt"  Total resources at step {ShortRunSteps * 2}: {totalAt200}"
 
-    # Resources should be non-zero at some point
-    check totalAt100 > 0 or totalAt200 > 0
+    # Resources should be gathered at both checkpoints
+    check totalAt100 > 0
+    check totalAt200 > 0
 
 suite "Behavioral AI - Fighter Role":
   test "fighter AI engages enemies when in range":
