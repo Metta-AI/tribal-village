@@ -184,7 +184,8 @@ proc classifyUnit(unitClass: AgentUnitClass): string =
   of UnitManAtArms, UnitLongSwordsman, UnitChampion, UnitWoadRaider,
      UnitTeutonicKnight, UnitHuskarl: "infantry"
   of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman, UnitJanissary: "archers"
-  of UnitScout, UnitKnight, UnitLightCavalry, UnitHussar, UnitCataphract, UnitMameluke: "cavalry"
+  of UnitScout, UnitKnight, UnitLightCavalry, UnitHussar, UnitCataphract, UnitMameluke,
+     UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel: "cavalry"
   of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion: "siege"
   of UnitMonk: "monks"
   of UnitSamurai: "unique"

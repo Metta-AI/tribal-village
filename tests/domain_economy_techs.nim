@@ -161,6 +161,89 @@ suite "Mill Farm Queue":
     let found = env.findNearestMill(ivec2(50, 50), 0)  # Too far
     check found == nil
 
+suite "Mill Farm Queue - Pre-paid Reseeds":
+  test "queueFarmReseed increments counter and spends wood":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 10), 0)
+    setStockpile(env, 0, ResourceWood, 10)
+
+    check mill.queuedFarmReseeds == 0
+    check env.queueFarmReseed(mill, 0)
+    check mill.queuedFarmReseeds == 1
+    check env.stockpileCount(0, ResourceWood) == 10 - FarmReseedWoodCost
+
+  test "queueFarmReseed fails without resources":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 10), 0)
+    # No wood available
+
+    check not env.queueFarmReseed(mill, 0)
+    check mill.queuedFarmReseeds == 0
+
+  test "queueFarmReseed fails for wrong team":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 10), 0)  # Team 0 mill
+    setStockpile(env, 1, ResourceWood, 10)
+
+    check not env.queueFarmReseed(mill, 1)  # Team 1 tries to queue
+    check mill.queuedFarmReseeds == 0
+
+  test "multiple queueFarmReseed calls accumulate":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 10), 0)
+    setStockpile(env, 0, ResourceWood, 50)
+
+    check env.queueFarmReseed(mill, 0)
+    check env.queueFarmReseed(mill, 0)
+    check env.queueFarmReseed(mill, 0)
+    check mill.queuedFarmReseeds == 3
+
+  test "pre-paid reseed immediately rebuilds exhausted farm":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 10), 0)
+    setStockpile(env, 0, ResourceWood, 10)
+
+    # Queue a farm reseed (pre-pay)
+    check env.queueFarmReseed(mill, 0)
+    check mill.queuedFarmReseeds == 1
+
+    # Create wheat field with 1 wheat (will be exhausted on next gather)
+    let farmPos = ivec2(11, 10)  # Within mill fertile radius
+    discard addResource(env, Wheat, farmPos, ItemWheat, 1)
+
+    # Add a villager to harvest
+    let agent = addAgentAt(env, 0, ivec2(11, 11))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, farmPos))
+
+    # Farm should be immediately rebuilt (no stubble)
+    let thing = env.getBackgroundThing(farmPos)
+    check thing != nil
+    check thing.kind == Wheat
+    check getInv(thing, ItemWheat) == ResourceNodeInitial
+    check mill.queuedFarmReseeds == 0  # Reseed was consumed
+
+  test "no pre-paid reseed creates stubble":
+    let env = makeEmptyEnv()
+    let mill = addBuilding(env, Mill, ivec2(10, 10), 0)
+    # No pre-paid reseeds, but enable auto-reseed
+    env.teamEconomyTechs[0].researched[TechHorseCollar] = true
+
+    # Create wheat field with 1 wheat
+    let farmPos = ivec2(11, 10)
+    discard addResource(env, Wheat, farmPos, ItemWheat, 1)
+
+    # Add a villager to harvest
+    let agent = addAgentAt(env, 0, ivec2(11, 11))
+    env.stepAction(agent.agentId, 3'u8, dirIndex(agent.pos, farmPos))
+
+    # Should create stubble since no pre-paid reseed
+    let thing = env.getBackgroundThing(farmPos)
+    check thing != nil
+    check thing.kind == Stubble
+    # Position should be added to mill's queue for delayed reseed
+    check mill.farmQueue.len == 1
+    check mill.farmQueue[0] == farmPos
+
 suite "Economy Tech Research via Buildings":
   test "villager researches Double Bit Axe at Lumber Camp":
     let env = makeEmptyEnv()

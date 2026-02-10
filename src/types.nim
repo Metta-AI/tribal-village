@@ -590,6 +590,7 @@ type
 
     # Mill farm queue (AoE2-style auto-reseed):
     farmQueue*: seq[IVec2]     # Queue of farm positions to auto-reseed when stubble appears
+    queuedFarmReseeds*: int    # Pre-paid farm reseeds (player queues these at Mill)
 
     # Spawner: (no longer needs altar targeting for new creep spread behavior)
 

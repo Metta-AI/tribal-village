@@ -200,6 +200,8 @@ proc getCommandDescription*(kind: CommandButtonKind): string =
   # Castle research descriptions
   of CmdResearchCastleTech1: "Team's unique Castle Age technology."
   of CmdResearchCastleTech2: "Team's unique Imperial Age technology."
+  # Mill commands
+  of CmdQueueFarm: "Queue a farm reseed. When a farm within range is exhausted, it auto-rebuilds."
 
 proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
   ## Get resource costs for a command (building or training).
@@ -308,6 +310,9 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
   of CmdResearchCastleTech2:
     result.add(&"Food: {CastleTechImperialFoodCost}")
     result.add(&"Gold: {CastleTechImperialGoldCost}")
+  # Mill commands
+  of CmdQueueFarm:
+    result.add(&"Wood: {FarmReseedWoodCost}")
   else:
     discard
 
@@ -398,6 +403,8 @@ proc buildCommandTooltip*(kind: CommandButtonKind, hotkey: string): TooltipConte
     # Castle research
     of CmdResearchCastleTech1: "Unique Tech I"
     of CmdResearchCastleTech2: "Unique Tech II"
+    # Mill commands
+    of CmdQueueFarm: "Queue Farm Reseed"
 
   result.description = getCommandDescription(kind)
   result.costLines = getCommandCosts(kind)

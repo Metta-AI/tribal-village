@@ -2117,13 +2117,26 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             let remaining = stored - 1
             if remaining > 0:
               setInv(stubble, ItemWheat, remaining)
+              env.add(stubble)
             else:
-              # Farm exhausted - add to nearest mill's auto-reseed queue
-              if env.canAutoReseed(teamId):
-                let mill = env.findNearestMill(stubblePos, teamId)
-                if mill != nil:
-                  env.addFarmToMillQueue(mill, stubblePos)
-            env.add(stubble)
+              # Farm exhausted - check for pre-paid reseed first
+              let mill = env.findNearestMill(stubblePos, teamId)
+              if mill != nil and mill.queuedFarmReseeds > 0:
+                # Consume pre-paid reseed and immediately rebuild farm
+                mill.queuedFarmReseeds -= 1
+                # Don't add stubble, create new farm instead
+                releaseThing(env, stubble)
+                let newFarm = Thing(kind: Wheat, pos: stubblePos)
+                newFarm.inventory = emptyInventory()
+                let farmFood = ResourceNodeInitial + env.getFarmFoodBonus(teamId)
+                setInv(newFarm, ItemWheat, farmFood)
+                env.add(newFarm)
+              elif env.canAutoReseed(teamId) and mill != nil:
+                # Add to mill queue for delayed processing
+                env.addFarmToMillQueue(mill, stubblePos)
+                env.add(stubble)
+              else:
+                env.add(stubble)
             # Spawn sparkle effect at harvest location
             env.spawnGatherSparkle(stubblePos)
             used = true

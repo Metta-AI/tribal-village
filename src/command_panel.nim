@@ -152,6 +152,8 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   # Castle research
   of CmdResearchCastleTech1: "CstlT1"
   of CmdResearchCastleTech2: "CstlT2"
+  # Mill commands
+  of CmdQueueFarm: "QFarm"
 
 proc getButtonHotkey*(kind: CommandButtonKind): string =
   case kind
@@ -217,6 +219,8 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   # Castle research hotkeys
   of CmdResearchCastleTech1: "Q"
   of CmdResearchCastleTech2: "W"
+  # Mill hotkeys
+  of CmdQueueFarm: "Q"
 
 proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
   ## Convert a build command to the corresponding ThingKind.
@@ -304,6 +308,9 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
     # Castle: 2 unique techs per team (already has ungarrison)
     result.add(CmdResearchCastleTech1)
     result.add(CmdResearchCastleTech2)
+  of Mill:
+    # Mill: queue farm reseeds (AoE2-style)
+    result.add(CmdQueueFarm)
   else:
     discard
 

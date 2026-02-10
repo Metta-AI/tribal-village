@@ -2106,6 +2106,23 @@ proc findNearestMill*(env: Environment, pos: IVec2, teamId: int): Thing =
 proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool
   ## Forward declaration - implemented after placement include
 
+proc queueFarmReseed*(env: Environment, mill: Thing, teamId: int): bool =
+  ## Queue a farm reseed at the Mill (pre-pay wood cost).
+  ## Returns true if successful.
+  if mill.kind != Mill:
+    return false
+  if mill.teamId != teamId:
+    return false
+  # Check and spend cost
+  let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
+  if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
+    return false
+  when defined(econAudit):
+    if FarmReseedWoodCost > 0:
+      recordFarmReseed(teamId, FarmReseedWoodCost, env.currentStep)
+  mill.queuedFarmReseeds += 1
+  true
+
 proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
   for recipe in CraftRecipes:
     if recipe.station != station:

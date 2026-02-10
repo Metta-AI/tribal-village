@@ -105,6 +105,8 @@ type
     # Research commands (Castle unique techs)
     CmdResearchCastleTech1      # Team's first unique tech (Castle Age)
     CmdResearchCastleTech2      # Team's second unique tech (Imperial Age)
+    # Mill commands
+    CmdQueueFarm                # Queue farm reseed (pre-pay wood for auto-reseed)
 
 {.push inline.}
 proc ivec2*(x, y: int): IVec2 =
