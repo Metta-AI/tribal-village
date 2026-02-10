@@ -462,6 +462,10 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
   victim.inventory = emptyInventory()
   for key in ObservedItemKeys:
     env.updateAgentInventoryObs(victim, key)
+  # Remove from spatial index before clearing position (prevents stale entries
+  # accumulating across death/respawn cycles since updateSpatialIndex skips
+  # removal when oldPos is invalid (-1,-1))
+  removeFromSpatialIndex(env, victim)
   victim.pos = ivec2(-1, -1)
 
 # Apply damage to an agent; respects armor and marks terminated when HP <= 0.

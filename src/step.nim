@@ -2543,13 +2543,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       # Respawn if altar exists and has at least one heart to spend
       if not isNil(altarThing) and altarThing.kind == ThingKind.Altar and
           altarThing.hearts >= MapObjectAltarRespawnCost:
-        # Deduct a heart from the altar (can reach 0, but not negative)
-        altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
-        env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
-
         # Find first empty position around altar (no allocation)
         let respawnPos = env.findFirstEmptyPositionAround(altarThing.pos, 2)
         if respawnPos.x >= 0:
+          # Deduct heart only after confirming a valid respawn position exists
+          altarThing.hearts = altarThing.hearts - MapObjectAltarRespawnCost
+          env.updateObservations(altarHeartsLayer, altarThing.pos, altarThing.hearts)
           # Respawn the agent
           let oldPos = agent.pos
           agent.pos = respawnPos
