@@ -876,9 +876,9 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
     agent.faith = 0
 
   # Update aura unit collections for optimized aura processing
-  # Tank units: ManAtArms and Knight have shield auras
-  let wasTank = oldClass in {UnitManAtArms, UnitKnight}
-  let isTank = unitClass in {UnitManAtArms, UnitKnight}
+  # Tank units: ManAtArms, Knight, Cavalier, Paladin have shield auras
+  let wasTank = oldClass in TankAuraUnits
+  let isTank = unitClass in TankAuraUnits
   if wasTank and not isTank:
     # Remove from tankUnits (swap-and-pop for O(1))
     for i in 0 ..< env.tankUnits.len:

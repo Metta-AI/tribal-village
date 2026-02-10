@@ -382,7 +382,7 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
   env.updateObservations(AgentOrientationLayer, victim.pos, 0)
 
   # Remove from aura unit collections (swap-and-pop for O(1))
-  if victim.unitClass in {UnitManAtArms, UnitKnight}:
+  if victim.unitClass in TankAuraUnits:
     for i in 0 ..< env.tankUnits.len:
       if env.tankUnits[i] == victim:
         env.tankUnits[i] = env.tankUnits[^1]
