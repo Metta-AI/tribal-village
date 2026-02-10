@@ -1010,8 +1010,8 @@ proc rebuildObservations*(env: Environment) =
 proc ensureObservations*(env: Environment) {.inline.} =
   ## Ensure observations are up-to-date (lazy rebuild if dirty).
   ## Call this before accessing env.observations directly.
-  ## Optimized: only full rebuild for agents that moved. Stationary agents
-  ## skip rebuild for major performance gain.
+  ## Optimized: uses per-agent dirty bits to skip stationary agents entirely.
+  ## Only agents that moved since last rebuild get their observations updated.
   if env.observationsDirty:
     env.rebuildObservations()
     env.observationsDirty = false
@@ -1024,19 +1024,17 @@ proc ensureObservations*(env: Environment) {.inline.} =
       # Dead agent: zero their observation slot if needed
       if env.observationsInitialized:
         zeroMem(addr env.observations[agentId], sizeof(env.observations[agentId]))
-      env.lastObsAgentPos[agentId] = ivec2(-1, -1)
+      env.agentObsDirty[agentId] = false  # Clear dirty bit for dead agent
       continue
 
-    let agentPos = agent.pos
-    let lastPos = env.lastObsAgentPos[agentId]
-    let agentMoved = lastPos.x != agentPos.x or lastPos.y != agentPos.y
-
-    if firstRun or agentMoved:
+    # Use per-agent dirty bit instead of position comparison
+    # Dirty bit is set when agent moves (in updateSpatialIndex) or at spawn
+    if firstRun or env.agentObsDirty[agentId]:
       # Agent moved or first run: zero and full rebuild
       if not firstRun:
         zeroMem(addr env.observations[agentId], sizeof(env.observations[agentId]))
       rebuildObservationsForAgent(env, agentId, agent)
-      env.lastObsAgentPos[agentId] = agentPos
+      env.agentObsDirty[agentId] = false  # Clear dirty bit after rebuild
     # else: Agent stationary - terrain/biome unchanged, skip rebuild
     # Note: Things could move in/out of view, but we accept this minor
     # staleness for major perf gain. Next movement will refresh.

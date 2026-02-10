@@ -455,6 +455,10 @@ proc updateSpatialIndex*(env: Environment, thing: Thing, oldPos: IVec2) =
   if thing.isNil:
     return
 
+  # Mark agent observations as dirty when they move (for lazy rebuild optimization)
+  if thing.kind == Agent:
+    env.agentObsDirty[thing.agentId] = true
+
   let (oldCx, oldCy) = cellCoords(oldPos)
   let (newCx, newCy) = cellCoords(thing.pos)
 

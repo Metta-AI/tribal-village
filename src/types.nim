@@ -1374,6 +1374,7 @@ type
     lastLanternPos*: seq[IVec2]              # Track lantern positions for delta tint
     # Observation tracking for incremental updates
     lastObsAgentPos*: array[MapAgents, IVec2]  # Track agent positions for delta observations
+    agentObsDirty*: array[MapAgents, bool]  # Per-agent dirty bits for observation rebuilding
     # Color management
     agentColors*: seq[Color]           ## Per-agent colors for rendering
     teamColors*: seq[Color]            ## Per-team colors for rendering

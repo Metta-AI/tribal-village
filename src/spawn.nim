@@ -256,6 +256,7 @@ proc initState(env: Environment) =
   for i in 0 ..< MapAgents:
     env.lastAgentPos[i] = ivec2(-1, -1)
     env.lastObsAgentPos[i] = ivec2(-1, -1)
+    env.agentObsDirty[i] = true  # All agents need initial observation build
     env.agentOrder[i] = i  # Initialize shuffle array (step() will shuffle in place)
   env.lastLanternPos.setLen(0)
 
