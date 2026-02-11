@@ -34,6 +34,18 @@ const
 ## Per-control-group formation state
 var groupFormations*: array[ControlGroupCount, FormationState]
 
+## Per-group position cache to avoid recomputing per-agent
+type
+  FormationPosCache = object
+    center: IVec2
+    size: int
+    ftype: FormationType
+    rotation: int
+    positions: array[MaxFormationSize, IVec2]
+    posCount: int
+
+var formationPosCache: array[ControlGroupCount, FormationPosCache]
+
 proc clearFormation*(groupIndex: int) =
   ## Clear formation for a control group, returning to scatter behavior.
   if groupIndex >= 0 and groupIndex < ControlGroupCount:
@@ -331,11 +343,24 @@ proc getFormationTargetForAgent*(groupIndex: int, agentIndex: int,
 
   let ftype = groupFormations[groupIndex].formationType
   let rotation = groupFormations[groupIndex].rotation
-  let positions = calcFormationPositions(groupCenter, groupSize, ftype, rotation)
 
-  if agentIndex < positions.len:
+  # Check cache - within a step, all agents in the same group call with identical params
+  var cache = addr formationPosCache[groupIndex]
+  if cache.center != groupCenter or cache.size != groupSize or
+     cache.ftype != ftype or cache.rotation != rotation:
+    # Cache miss - recompute and store
+    let positions = calcFormationPositions(groupCenter, groupSize, ftype, rotation)
+    cache.center = groupCenter
+    cache.size = groupSize
+    cache.ftype = ftype
+    cache.rotation = rotation
+    cache.posCount = min(positions.len, MaxFormationSize)
+    for i in 0 ..< cache.posCount:
+      cache.positions[i] = positions[i]
+
+  if agentIndex < cache.posCount:
     # Clamp to valid map positions
-    let pos = positions[agentIndex]
+    let pos = cache.positions[agentIndex]
     return ivec2(
       max(0'i32, min(MapWidth.int32 - 1, pos.x)),
       max(0'i32, min(MapHeight.int32 - 1, pos.y))
