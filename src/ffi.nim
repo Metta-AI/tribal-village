@@ -26,15 +26,6 @@ type
 
 var globalEnv: Environment = nil
 
-# Helper template to reduce nil-check boilerplate for AI controller access in FFI
-template withAIController(defaultVal: untyped, body: untyped): untyped =
-  ## Execute body only if globalController and aiController are initialized.
-  ## Returns defaultVal if not available. Used to guard AI controller access in FFI.
-  if isNil(globalController) or isNil(globalController.aiController):
-    defaultVal
-  else:
-    body
-
 const
   ObscuredLayerIndex = ord(ObscuredLayer)
   ObsTileStride = ObservationWidth * ObservationHeight

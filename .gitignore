@@ -131,3 +131,13 @@ scorecards/
 
 # Gas Town (added by gt)
 .beads/
+
+# Compiled script binaries
+scripts/benchmark_steps
+scripts/audit_*
+scripts/profile_*
+scripts/build_atlas
+
+# Session artifacts
+CLAUDE.md
+STATUS_LOG.md

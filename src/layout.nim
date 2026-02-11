@@ -4,7 +4,7 @@
 ## panel regions using a binary tree structure with named path accessors.
 
 import
-  vmath, bumpy
+  bumpy
 
 # ---------------------------------------------------------------------------
 # Types

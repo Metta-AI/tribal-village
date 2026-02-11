@@ -180,7 +180,6 @@ var
   renderCacheGeneration = -1
   # Fog of war visibility buffer - reused across frames to avoid allocation overhead
   fogVisibility: array[MapWidth, array[MapHeight, bool]]
-  fogLastViewport: ViewportBounds  # Track last cleared region for efficient reset
 
 const
   InfoLabelFontPath = HeartCountFontPath
@@ -1175,7 +1174,7 @@ proc drawAgentDecorations*() =
     # Draw control group badge if assigned
     let groupNum = findAgentControlGroup(agent.agentId)
     if groupNum >= 0:
-      let (badgeKey, badgeSize) = ensureControlGroupBadge(groupNum)
+      let (badgeKey, _) = ensureControlGroupBadge(groupNum)
       if badgeKey.len > 0:
         # Position badge at upper-right of unit, offset from health bar
         let badgeOffset = vec2(0.35, -0.45)
@@ -1725,12 +1724,6 @@ const
   RallyPointPulseMin = 0.6'f32      # Minimum alpha during pulse
   RallyPointPulseMax = 1.0'f32      # Maximum alpha during pulse
 
-# Building kinds that can have rally points (military/training buildings)
-const RallyPointBuildingKinds = [
-  TownCenter, Barracks, ArcheryRange, Stable, SiegeWorkshop,
-  MangonelWorkshop, TrebuchetWorkshop, Castle, Dock, Monastery
-]
-
 proc drawRallyPoints*() =
   ## Draw visual indicators for rally points on selected buildings.
   ## Shows an animated beacon at the rally point with a path line to the building.
@@ -1781,10 +1774,6 @@ proc drawRallyPoints*() =
         let midpoint = (segStart + segEnd) * 0.5
         if not isInViewport(ivec2(midpoint.x.int, midpoint.y.int)):
           continue
-
-        # Calculate perpendicular for line width
-        let perpX = -normalizedDir.y * RallyPointLineWidth * 0.5
-        let perpY = normalizedDir.x * RallyPointLineWidth * 0.5
 
         # Draw segment as a colored rectangle (using floor sprite with team color)
         let segMid = (segStart + segEnd) * 0.5
