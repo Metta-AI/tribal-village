@@ -5,10 +5,11 @@
 ## - Villager selected: build menu, gather commands
 ## - Building selected: production/research buttons
 ## - Multi-selection: common commands only
+##
+## Migrated to silky rendering for proper button states and consistent UI.
 
 import
-  boxy, pixie, vmath, windy, tables,
-  std/strutils,
+  silky, pixie, vmath, windy,
   common, environment, tooltips, semantic
 
 # ---------------------------------------------------------------------------
@@ -40,9 +41,9 @@ const
   CommandButtonHoverColor = UiBgButtonHover
   CommandButtonDisabledColor = UiBgButtonDisabled
 
-  CommandLabelFontPath = "data/Inter-Regular.ttf"
-  CommandLabelFontSize: float32 = 14
-  CommandHotkeyFontSize: float32 = 11
+  # Font used for button labels (must exist in silky atlas)
+  CommandLabelFont = "Default"
+  CommandHotkeyFont = "Default"
 
 # ---------------------------------------------------------------------------
 # State
@@ -50,40 +51,20 @@ const
 
 var
   commandPanelState*: CommandPanelState
-  commandLabelImages: Table[string, string] = initTable[string, string]()
-  commandLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
   buildMenuOpen*: bool = false  # Whether the build submenu is showing
 
 # ---------------------------------------------------------------------------
-# Label rendering
+# Color conversion helpers
 # ---------------------------------------------------------------------------
 
-proc renderCommandLabel(text: string, fontSize: float32): (string, IVec2) =
-  ## Render a text label and return the image key and size.
-  if text in commandLabelImages:
-    return (commandLabelImages[text], commandLabelSizes.getOrDefault(text, ivec2(0, 0)))
-
-  var measureCtx = newContext(1, 1)
-  measureCtx.font = CommandLabelFontPath
-  measureCtx.fontSize = fontSize
-  measureCtx.textBaseline = TopBaseline
-
-  let padding = 2.0'f32
-  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
-  let h = max(1, (fontSize + padding * 2).int)
-
-  var ctx = newContext(w, h)
-  ctx.font = CommandLabelFontPath
-  ctx.fontSize = fontSize
-  ctx.textBaseline = TopBaseline
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(padding, padding))
-
-  let key = "cmd_label/" & text.replace(" ", "_")
-  bxy.addImage(key, ctx.image)
-  commandLabelImages[text] = key
-  commandLabelSizes[text] = ivec2(w, h)
-  result = (key, ivec2(w, h))
+proc toRGBX(c: Color): ColorRGBX {.inline.} =
+  ## Convert pixie Color (float 0-1) to silky ColorRGBX (uint8 0-255).
+  rgbx(
+    (c.r * 255).uint8,
+    (c.g * 255).uint8,
+    (c.b * 255).uint8,
+    (c.a * 255).uint8
+  )
 
 # ---------------------------------------------------------------------------
 # Button generation (context-sensitive)
@@ -466,9 +447,12 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
 # ---------------------------------------------------------------------------
 
 proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
-  ## Draw the command panel with context-sensitive buttons.
+  ## Draw the command panel with context-sensitive buttons using silky.
   if selection.len == 0:
     return  # Don't draw if nothing selected
+
+  if sk.isNil:
+    return  # Silky not initialized
 
   let cpRect = commandPanelRect(panelRect)
 
@@ -476,13 +460,13 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   pushSemanticContext("CommandPanel")
   capturePanel("CommandPanel", vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h))
 
-  # Draw panel background
-  bxy.drawRect(
-    rect = Rect(x: cpRect.x - 2, y: cpRect.y - 2,
-                w: cpRect.w + 4, h: cpRect.h + 4),
-    color = UiBg
+  # Draw panel background with border
+  sk.drawRect(
+    vec2(cpRect.x - 2, cpRect.y - 2),
+    vec2(cpRect.w + 4, cpRect.h + 4),
+    UiBg.toRGBX
   )
-  bxy.drawRect(rect = cpRect, color = CommandPanelBgColor)
+  sk.drawRect(vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h), CommandPanelBgColor.toRGBX)
 
   # Draw header label
   let headerText = if selection.len == 1:
@@ -495,11 +479,11 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   else:
     "Commands (" & $selection.len & ")"
 
-  let (headerKey, headerSize) = renderCommandLabel(headerText, CommandLabelFontSize + 2)
-  let headerX = cpRect.x + (cpRect.w - headerSize.x.float32) * 0.5
+  let headerSize = sk.getTextSize(CommandLabelFont, headerText)
+  let headerX = cpRect.x + (cpRect.w - headerSize.x) * 0.5
   let headerY = cpRect.y + 4
-  bxy.drawImage(headerKey, vec2(headerX, headerY), angle = 0, scale = 1)
-  captureLabel(headerText, vec2(headerX, headerY), vec2(headerSize.x.float32, headerSize.y.float32))
+  discard sk.drawText(CommandLabelFont, headerText, vec2(headerX, headerY), UiFgBright.toRGBX)
+  captureLabel(headerText, vec2(headerX, headerY), headerSize)
 
   # Build and draw buttons
   let buttons = buildCommandButtons(panelRect)
@@ -526,21 +510,26 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
     else:
       CommandButtonBgColor
 
-    bxy.drawRect(rect = button.rect, color = bgColor)
+    sk.drawRect(vec2(button.rect.x, button.rect.y), vec2(button.rect.w, button.rect.h), bgColor.toRGBX)
 
     # Draw button border
     let borderColor = if hovered: UiBorderBright else: UiBorder
     let bw = 1.0'f32
-    bxy.drawRect(Rect(x: button.rect.x, y: button.rect.y, w: button.rect.w, h: bw), borderColor)
-    bxy.drawRect(Rect(x: button.rect.x, y: button.rect.y + button.rect.h - bw, w: button.rect.w, h: bw), borderColor)
-    bxy.drawRect(Rect(x: button.rect.x, y: button.rect.y, w: bw, h: button.rect.h), borderColor)
-    bxy.drawRect(Rect(x: button.rect.x + button.rect.w - bw, y: button.rect.y, w: bw, h: button.rect.h), borderColor)
+    # Top border
+    sk.drawRect(vec2(button.rect.x, button.rect.y), vec2(button.rect.w, bw), borderColor.toRGBX)
+    # Bottom border
+    sk.drawRect(vec2(button.rect.x, button.rect.y + button.rect.h - bw), vec2(button.rect.w, bw), borderColor.toRGBX)
+    # Left border
+    sk.drawRect(vec2(button.rect.x, button.rect.y), vec2(bw, button.rect.h), borderColor.toRGBX)
+    # Right border
+    sk.drawRect(vec2(button.rect.x + button.rect.w - bw, button.rect.y), vec2(bw, button.rect.h), borderColor.toRGBX)
 
     # Draw label centered
-    let (labelKey, labelSize) = renderCommandLabel(button.label, CommandLabelFontSize)
-    let labelX = button.rect.x + (button.rect.w - labelSize.x.float32) * 0.5
-    let labelY = button.rect.y + (button.rect.h - labelSize.y.float32) * 0.5
-    bxy.drawImage(labelKey, vec2(labelX, labelY), angle = 0, scale = 1)
+    let labelSize = sk.getTextSize(CommandLabelFont, button.label)
+    let labelX = button.rect.x + (button.rect.w - labelSize.x) * 0.5
+    let labelY = button.rect.y + (button.rect.h - labelSize.y) * 0.5
+    let labelColor = if button.enabled: UiFgText else: UiFgDim
+    discard sk.drawText(CommandLabelFont, button.label, vec2(labelX, labelY), labelColor.toRGBX)
 
     # Semantic capture: command button
     captureButton(button.label, vec2(button.rect.x, button.rect.y),
@@ -548,10 +537,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
     # Draw hotkey in corner
     if button.hotkey.len > 0:
-      let (hotkeyKey, hotkeySize) = renderCommandLabel(button.hotkey, CommandHotkeyFontSize)
-      let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x.float32 - 2
+      let hotkeySize = sk.getTextSize(CommandHotkeyFont, button.hotkey)
+      let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x - 2
       let hotkeyY = button.rect.y + 2
-      bxy.drawImage(hotkeyKey, vec2(hotkeyX, hotkeyY), angle = 0, scale = 1)
+      discard sk.drawText(CommandHotkeyFont, button.hotkey, vec2(hotkeyX, hotkeyY), UiFgMuted.toRGBX)
 
     # Draw checkmark for researched techs (disabled research buttons)
     if not button.enabled and button.kind in {CmdResearchMeleeAttack, CmdResearchArcherAttack,
@@ -560,12 +549,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
         CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
         CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
         CmdResearchCoinage, CmdResearchCastleTech1, CmdResearchCastleTech2}:
-      # Draw a green checkmark in the top-left corner
-      let checkColor = UiSuccess
-      let (checkKey, checkSize) = renderCommandLabel("OK", CommandHotkeyFontSize)
+      # Draw a green checkmark indicator in the top-left corner
       let checkX = button.rect.x + 2
       let checkY = button.rect.y + 2
-      bxy.drawImage(checkKey, vec2(checkX, checkY), angle = 0, scale = 1, tint = checkColor)
+      discard sk.drawText(CommandHotkeyFont, "OK", vec2(checkX, checkY), UiSuccess.toRGBX)
 
   # Clear tooltip if no button is hovered
   if not anyButtonHovered:
