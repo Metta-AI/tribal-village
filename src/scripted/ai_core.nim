@@ -1049,7 +1049,7 @@ proc getMoveTowards*(env: Environment, agent: Thing, fromPos, toPos: IVec2,
   # All directions blocked - return -1 to signal no valid move
   return -1
 
-proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, targetPos: IVec2): seq[IVec2] =
+proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, targetPos: IVec2, output: var seq[IVec2]) =
   ## A* pathfinding from fromPos toward targetPos.
   ##
   ## Returns a sequence of positions forming the path (including start position).
@@ -1091,12 +1091,15 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
           inc controller.pathCache.goalsLen
 
   if controller.pathCache.goalsLen == 0:
-    return @[]  # No reachable goal positions
+    output.setLen(0)
+    return
 
   # Early exit if already at a goal position
   for goalIdx in 0 ..< controller.pathCache.goalsLen:
     if controller.pathCache.goals[goalIdx] == fromPos:
-      return @[fromPos]
+      output.setLen(1)
+      output[0] = fromPos
+      return
 
   # A* heuristic: minimum Chebyshev distance to any goal position
   # Admissible and consistent for grid-based movement
@@ -1122,7 +1125,8 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
 
   while controller.pathCache.openHeap.len > 0:
     if nodesExplored > MaxExplorationNodes:
-      return @[]  # Exploration limit reached - path too complex
+      output.setLen(0)
+      return  # Exploration limit reached - path too complex
 
     # Extract node with lowest f-score from open set
     let node = controller.pathCache.openHeap.pop()
@@ -1152,11 +1156,11 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
             break
           tracePos = controller.pathCache.cameFromVal[tracePos.x][tracePos.y]
 
-        # Build result sequence (path was traced backwards, so reverse it)
-        result = newSeq[IVec2](controller.pathCache.pathLen)
+        # Build output sequence (path was traced backwards, so reverse it)
+        output.setLen(controller.pathCache.pathLen)
         for pathIdx in 0 ..< controller.pathCache.pathLen:
-          result[pathIdx] = controller.pathCache.path[controller.pathCache.pathLen - 1 - pathIdx]
-        return result
+          output[pathIdx] = controller.pathCache.path[controller.pathCache.pathLen - 1 - pathIdx]
+        return
 
     # Explore all 8 neighbor directions
     for dirIdx in 0 .. 7:
@@ -1191,7 +1195,7 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
         let fScore = tentativeGScore + neighborHeuristic
         controller.pathCache.openHeap.push(PathHeapNode(fScore: fScore, pos: neighborPos))
 
-  @[]  # No path found within exploration limit
+  output.setLen(0)  # No path found within exploration limit
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
   ## Check if there's a healthy team lantern within 3 tiles of position.
@@ -1323,7 +1327,7 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
     state.plannedPath.setLen(0)
 
   template replanPath() =
-    state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
+    findPath(controller, env, agent, agent.pos, targetPos, state.plannedPath)
     state.plannedTarget = targetPos
     state.plannedPathIndex = 0
 
@@ -1352,7 +1356,7 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
           return saveStateAndReturn(controller, agentId, state,
             encodeAction(1'u8, dirIdx.uint8))
         # Next step blocked - recompute path instead of giving up on target
-        state.plannedPath = findPath(controller, env, agent, agent.pos, targetPos)
+        findPath(controller, env, agent, agent.pos, targetPos, state.plannedPath)
         state.plannedTarget = targetPos
         state.plannedPathIndex = 0
         # If recomputed path is valid, follow it immediately

@@ -160,16 +160,20 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
     # Apply weights: lower weighted score = higher priority
     # Weight < 1.0 makes resource appear more scarce (prioritized)
     # Flow adjustment makes declining resources appear more scarce
-    var ordered: seq[(GathererTask, float)] = @[
-      (TaskFood, max(0.0, env.stockpileCount(teamId, ResourceFood).float + flowAdjust[0] * 10.0) * weights[0]),
-      (TaskWood, max(0.0, env.stockpileCount(teamId, ResourceWood).float + flowAdjust[1] * 10.0) * weights[1]),
-      (TaskStone, max(0.0, env.stockpileCount(teamId, ResourceStone).float + flowAdjust[2] * 10.0) * weights[2]),
-      (TaskGold, max(0.0, env.stockpileCount(teamId, ResourceGold).float + flowAdjust[3] * 10.0) * weights[3])
-    ]
+    var ordered: array[5, (GathererTask, float)]
+    var orderedLen = 4
+    ordered[0] = (TaskFood, max(0.0, env.stockpileCount(teamId, ResourceFood).float + flowAdjust[0] * 10.0) * weights[0])
+    ordered[1] = (TaskWood, max(0.0, env.stockpileCount(teamId, ResourceWood).float + flowAdjust[1] * 10.0) * weights[1])
+    ordered[2] = (TaskStone, max(0.0, env.stockpileCount(teamId, ResourceStone).float + flowAdjust[2] * 10.0) * weights[2])
+    ordered[3] = (TaskGold, max(0.0, env.stockpileCount(teamId, ResourceGold).float + flowAdjust[3] * 10.0) * weights[3])
     if altarFound:
-      ordered.insert((TaskHearts, altarHearts.float), 0)
+      # Shift elements right and insert hearts at index 0
+      for i in countdown(3, 0):
+        ordered[i + 1] = ordered[i]
+      ordered[0] = (TaskHearts, altarHearts.float)
+      orderedLen = 5
     var best = ordered[0]
-    for i in 1 ..< ordered.len:
+    for i in 1 ..< orderedLen:
       if ordered[i][1] < best[1]:
         best = ordered[i]
     # Anti-oscillation hysteresis: only switch task if difference is significant
@@ -178,9 +182,9 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
       task = best[0]
     elif currentTask != TaskHearts:  # Hearts task handled separately above
       var currentScore = float.high
-      for item in ordered:
-        if item[0] == currentTask:
-          currentScore = item[1]
+      for i in 0 ..< orderedLen:
+        if ordered[i][0] == currentTask:
+          currentScore = ordered[i][1]
           break
       # Only switch if new best is significantly better than current
       if best[1] > currentScore - TaskSwitchHysteresis:
