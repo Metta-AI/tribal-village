@@ -10,8 +10,8 @@ import types
 import balance_scorecard
 
 const
-  TestSeed = 42
-  TestSteps = 100
+  BalanceSeed = 42
+  BalanceSteps = 100
 
 suite "Balance Scorecard - Collection":
 
@@ -47,12 +47,12 @@ suite "Balance Scorecard - Collection":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = BalanceSteps
+    let env = newEnvironment(config, BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
-    check collector.currentScorecard.seed == TestSeed
+    check collector.currentScorecard.seed == BalanceSeed
     check collector.currentScorecard.matchId.len > 0
     for teamId in 0 ..< MapRoomObjectsTeams:
       check collector.currentScorecard.teams[teamId].teamId == teamId
@@ -66,12 +66,12 @@ suite "Balance Scorecard - Collection":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = BalanceSteps
+    let env = newEnvironment(config, BalanceSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
     # Run a few steps
     for step in 0 ..< 25:
@@ -93,12 +93,12 @@ suite "Balance Scorecard - Metrics":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
     # Run a few steps to generate some resource activity
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = BalanceSeed)
     for step in 0 ..< 50:
       var actions = getActions(env)
       env.step(addr actions)
@@ -123,11 +123,11 @@ suite "Balance Scorecard - Metrics":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = BalanceSeed)
     for step in 0 ..< 20:
       var actions = getActions(env)
       env.step(addr actions)
@@ -150,9 +150,9 @@ suite "Balance Scorecard - Metrics":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
     # Tech starts at 0
     let initialTech = collector.currentScorecard.teams[0].finalTech
@@ -170,9 +170,9 @@ suite "Balance Scorecard - Output":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
     endMatch(env)
 
     let jsonNode = scorecardToJson(collector.currentScorecard)
@@ -192,9 +192,9 @@ suite "Balance Scorecard - Output":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
     endMatch(env)
 
     let summary = generateSummary(collector.currentScorecard)
@@ -218,11 +218,11 @@ suite "Balance Scorecard - Balance Metrics":
 
     var config = defaultEnvironmentConfig()
     config.maxSteps = 100
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
     for step in 0 ..< 100:
       var actions = getActions(env)
@@ -245,11 +245,11 @@ suite "Balance Scorecard - Balance Metrics":
 
     var config = defaultEnvironmentConfig()
     config.maxSteps = 50
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, BalanceSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = BalanceSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, BalanceSeed)
 
     for step in 0 ..< 50:
       var actions = getActions(env)

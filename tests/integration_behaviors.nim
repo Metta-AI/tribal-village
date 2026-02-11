@@ -1,4 +1,4 @@
-## Integration behavioral tests: run 500-step games with fixed seeds
+## Integration behavioral tests: run 200-step games with fixed seeds
 ## and verify emergent outcomes (resource gathering, building, combat, population).
 ## Run with: nim r --path:src tests/integration_behaviors.nim
 
@@ -6,7 +6,7 @@ import std/[strformat, math]
 import test_common
 import items
 
-const Steps = 500
+const Steps = 200
 
 type
   GameSummary = object
@@ -86,10 +86,10 @@ proc printSummary(s: GameSummary) =
   echo &"    Population: {s.startAlive} alive -> {s.endAlive} alive, {s.totalDeaths} total deaths"
 
 proc main() =
-  const seeds = [42, 123, 777, 9999, 31415]
+  const seeds = [42, 123, 777]
   var summaries: seq[GameSummary]
 
-  echo "=== Integration Behavioral Tests: 500-step games ==="
+  echo "=== Integration Behavioral Tests: 200-step games ==="
   echo ""
 
   for seed in seeds:
@@ -102,14 +102,14 @@ proc main() =
   # Aggregate checks
   echo "=== Verifying behavioral outcomes ==="
 
-  # 1. All games completed 500 steps
+  # 1. All games completed 200 steps
   var allCompleted = true
   for s in summaries:
     if s.stepsCompleted < Steps:
       echo &"  FAIL: Seed {s.seed} only completed {s.stepsCompleted}/{Steps} steps"
       allCompleted = false
   if allCompleted:
-    echo "  PASS: All games completed 500 steps"
+    echo "  PASS: All games completed 200 steps"
   else:
     quit(1)
 

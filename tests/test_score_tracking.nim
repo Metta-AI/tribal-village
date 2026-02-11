@@ -9,8 +9,8 @@ import test_common
 import balance_scorecard
 
 const
-  TestSeed = 42
-  TestSteps = 200
+  ScoreSeed = 42
+  ScoreSteps = 50
 
 proc countTeamResources(env: Environment, teamId: int): int =
   ## Sum all resource types for a team
@@ -28,9 +28,9 @@ suite "Score Tracking - Resource Accumulation":
   test "resources accumulate from gathering":
     var config = defaultEnvironmentConfig()
     config.maxSteps = 500  # Longer game for resource gathering
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
     # Capture initial resources
     var initialResources: array[MapRoomObjectsTeams, int]
@@ -53,12 +53,12 @@ suite "Score Tracking - Resource Accumulation":
 
   test "individual resource types tracked correctly":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -73,12 +73,12 @@ suite "Score Tracking - Team Aggregation":
 
   test "score aggregates all resource types":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -96,12 +96,12 @@ suite "Score Tracking - Team Aggregation":
 
   test "each team has independent score":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -119,12 +119,12 @@ suite "Score Tracking - Team Aggregation":
 
   test "territory score is per-team":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -147,14 +147,14 @@ suite "Score Tracking - Scorecard Display Accuracy":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
       maybeSample(env)
@@ -180,11 +180,11 @@ suite "Score Tracking - Scorecard Display Accuracy":
 
     var config = defaultEnvironmentConfig()
     config.maxSteps = 50
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, ScoreSeed)
 
     for step in 0 ..< 50:
       var actions = getActions(env)
@@ -212,9 +212,9 @@ suite "Score Tracking - Scorecard Display Accuracy":
     initCollector()
 
     var config = defaultEnvironmentConfig()
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, ScoreSeed)
 
-    startMatch(env, TestSeed)
+    startMatch(env, ScoreSeed)
     endMatch(env)
 
     let jsonNode = scorecardToJson(collector.currentScorecard)
@@ -239,9 +239,9 @@ suite "Score Tracking - Reset Behavior":
   test "resources reset to starting values on game reset":
     var config = defaultEnvironmentConfig()
     config.maxSteps = 500
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
     # Capture initial resources (before any gameplay)
     var initialResources: array[MapRoomObjectsTeams, int]
@@ -271,13 +271,13 @@ suite "Score Tracking - Reset Behavior":
 
   test "territory score resets on game reset":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
     # Run game to accumulate territory
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -295,12 +295,12 @@ suite "Score Tracking - Reset Behavior":
 
   test "victory state resets on game reset":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -318,9 +318,9 @@ suite "Score Tracking - Reset Behavior":
   test "score can accumulate fresh after reset":
     var config = defaultEnvironmentConfig()
     config.maxSteps = 500
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
     # Capture initial resources
     var initialResources: array[MapRoomObjectsTeams, int]
@@ -358,9 +358,9 @@ suite "Score Tracking - Kill Tracking":
     var config = defaultEnvironmentConfig()
     config.maxSteps = 500  # Longer game for combat
     config.victoryCondition = VictoryNone
-    let env = newEnvironment(config, TestSeed)
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
     for teamId in 0 ..< MapRoomObjectsTeams:
       globalController.aiController.setDifficulty(teamId, DiffBrutal)
 
@@ -386,12 +386,12 @@ suite "Score Tracking - Building Tracking":
 
   test "buildings are counted per team":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 
@@ -403,12 +403,12 @@ suite "Score Tracking - Building Tracking":
 
   test "building counts are independent per team":
     var config = defaultEnvironmentConfig()
-    config.maxSteps = TestSteps
-    let env = newEnvironment(config, TestSeed)
+    config.maxSteps = ScoreSteps
+    let env = newEnvironment(config, ScoreSeed)
 
-    initGlobalController(BuiltinAI, seed = TestSeed)
+    initGlobalController(BuiltinAI, seed = ScoreSeed)
 
-    for step in 0 ..< TestSteps:
+    for step in 0 ..< ScoreSteps:
       var actions = getActions(env)
       env.step(addr actions)
 

@@ -16,12 +16,10 @@ clean:
 # Run all tests
 test: test-nim test-python
 
-# Run Nim unit and integration tests
+# Run Nim unit and integration tests (combined runner = single compilation, release = fast execution)
 test-nim:
-	nim r --path:src tests/test_balance_scorecard.nim
-	nim r --path:src tests/test_map_determinism.nim
-	nim r --path:src tests/test_score_tracking.nim
-	nim r --path:src tests/integration_behaviors.nim
+	nim r -d:release --path:src tests/run_all_tests.nim
+	nim r -d:release --path:src tests/integration_behaviors.nim
 
 # Run Python integration tests (requires lib to be built first)
 test-python: lib

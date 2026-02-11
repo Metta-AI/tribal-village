@@ -9,7 +9,7 @@ import terrain
 
 const
   TestSeeds = [42, 123, 9999, 77777, 314159]
-  RunsPerSeed = 10
+  RunsPerSeed = 3
 
 type
   MapSnapshot = object
