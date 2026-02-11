@@ -397,28 +397,16 @@ proc findNearestCombatAlly(env: Environment, agent: Thing): Thing =
 proc countNearbyAllies(env: Environment, agent: Thing, radius: int): int =
   ## Count allied agents within radius Chebyshev distance.
   ## Excludes the agent itself from the count.
-  var allies: seq[Thing] = @[]
-  collectAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), radius, allies)
-  result = 0
-  for a in allies:
-    if a.agentId != agent.agentId:
-      inc result
+  countAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), radius, agent.agentId)
 
 proc countNearbyEnemies(env: Environment, agent: Thing, radius: int): int =
   ## Count enemy agents within radius Chebyshev distance.
-  var enemies: seq[Thing] = @[]
-  collectEnemiesInRangeSpatial(env, agent.pos, getTeamId(agent), radius, enemies)
-  result = enemies.len
+  countEnemiesInRangeSpatial(env, agent.pos, getTeamId(agent), radius)
 
 proc hasAllyNearbyUncached(env: Environment, agent: Thing): bool =
   ## Check if any ally (other than self) is within 4 tiles.
   ## Uncached version - use hasAllyNearby for cached lookups.
-  var allies: seq[Thing] = @[]
-  collectAlliesInRangeSpatial(env, agent.pos, getTeamId(agent), 4, allies)
-  for a in allies:
-    if a.agentId != agent.agentId:
-      return true
-  false
+  hasAllyInRangeSpatial(env, agent.pos, getTeamId(agent), 4, agent.agentId)
 
 proc hasAllyNearby(env: Environment, agent: Thing): bool =
   ## Check if any ally (other than self) is within 4 tiles.
@@ -1136,26 +1124,28 @@ proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
 
   # Try to move in the direction away from enemy
   # Check multiple directions, preferring directly away, then diagonals
-  var candidates: seq[IVec2] = @[]
+  var candidates: array[3, IVec2]
+  var numCandidates = 0
   # Primary direction: directly away
   if awayDir.x != 0 or awayDir.y != 0:
-    candidates.add(awayDir)
+    candidates[numCandidates] = awayDir; inc numCandidates
   # Secondary: perpendicular directions (allows strafing)
   if awayDir.x != 0 and awayDir.y != 0:
     # Diagonal away - try the two perpendicular diagonals
-    candidates.add(ivec2(awayDir.x, 0))
-    candidates.add(ivec2(0, awayDir.y))
+    candidates[numCandidates] = ivec2(awayDir.x, 0); inc numCandidates
+    candidates[numCandidates] = ivec2(0, awayDir.y); inc numCandidates
   elif awayDir.x != 0:
     # Moving horizontally - can strafe vertically
-    candidates.add(ivec2(awayDir.x, 1))
-    candidates.add(ivec2(awayDir.x, -1))
+    candidates[numCandidates] = ivec2(awayDir.x, 1); inc numCandidates
+    candidates[numCandidates] = ivec2(awayDir.x, -1); inc numCandidates
   elif awayDir.y != 0:
     # Moving vertically - can strafe horizontally
-    candidates.add(ivec2(1, awayDir.y))
-    candidates.add(ivec2(-1, awayDir.y))
+    candidates[numCandidates] = ivec2(1, awayDir.y); inc numCandidates
+    candidates[numCandidates] = ivec2(-1, awayDir.y); inc numCandidates
 
   # Try each candidate direction
-  for dir in candidates:
+  for i in 0 ..< numCandidates:
+    let dir = candidates[i]
     let targetPos = agent.pos + dir
     if not isValidPos(targetPos):
       continue

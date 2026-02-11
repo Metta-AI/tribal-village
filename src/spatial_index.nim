@@ -853,6 +853,62 @@ proc collectAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
     if found > 0: inc spatialTotalHits[sqkCollectAllies]
     else: inc spatialTotalMisses[sqkCollectAllies]
 
+proc countAlliesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                  maxRange: int, excludeAgentId: int = -1): int =
+  ## Count allied agents within maxRange Chebyshev distance.
+  ## Allocation-free alternative to collectAlliesInRangeSpatial.
+  ## If excludeAgentId >= 0, that agent is excluded from the count.
+  let teamMask = getTeamMask(teamId)
+  result = 0
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if (getTeamMask(thing) and teamMask) == 0:
+      continue
+    if not isValidPos(thing.pos):
+      continue
+    if thing.agentId == excludeAgentId:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      inc result
+
+proc countEnemiesInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
+                                   maxRange: int): int =
+  ## Count enemy agents within maxRange Chebyshev distance.
+  ## Allocation-free alternative to collectEnemiesInRangeSpatial.
+  let teamMask = getTeamMask(teamId)
+  result = 0
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if (getTeamMask(thing) and teamMask) != 0:
+      continue
+    if not isValidPos(thing.pos):
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      inc result
+
+proc hasAllyInRangeSpatial*(env: Environment, pos: IVec2, teamId: int,
+                              maxRange: int, excludeAgentId: int): bool =
+  ## Check if any ally (excluding excludeAgentId) is within maxRange.
+  ## Early-exit, allocation-free alternative to collectAlliesInRangeSpatial.
+  let teamMask = getTeamMask(teamId)
+  forEachInRadius(env, pos, Agent, maxRange, thing):
+    if not isAgentAlive(env, thing):
+      continue
+    if (getTeamMask(thing) and teamMask) == 0:
+      continue
+    if not isValidPos(thing.pos):
+      continue
+    if thing.agentId == excludeAgentId:
+      continue
+    let dist = max(abs(thing.pos.x - qPos.x), abs(thing.pos.y - qPos.y))
+    if dist <= maxRange:
+      return true
+  return false
+
 proc findNearestThingOfKindsSpatial*(env: Environment, pos: IVec2,
                                       kinds: set[ThingKind], maxDist: int): Thing =
   ## Find nearest thing matching any of the given kinds using spatial index.

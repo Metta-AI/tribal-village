@@ -1397,6 +1397,7 @@ type
     tempMonkAuraAllies*: seq[Thing]    ## Nearby allies for monk auras
     tempEmptyTiles*: seq[IVec2]        ## Empty tiles for ungarrisoning
     tempLanternSpacing*: seq[Thing]    ## Lantern spacing check buffer
+    tempAIAllies*: seq[Thing]          ## AI phase: reusable ally collect buffer
     # Reusable per-step state to avoid heap allocations
     constructionBuilders*: Table[IVec2, int]  ## Builder count per construction site
     agentOrder*: array[MapAgents, int]        ## Shuffle buffer for action processing

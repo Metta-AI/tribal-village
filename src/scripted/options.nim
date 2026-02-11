@@ -1084,11 +1084,11 @@ proc optTempleFusion(controller: Controller, env: Environment, agent: Thing,
 proc findNearestWoundedAlly(env: Environment, agent: Thing, radius: int): Thing =
   ## Find nearest allied agent with HP < maxHp within radius using spatial index.
   let teamId = getTeamId(agent)
-  var allies: seq[Thing] = @[]
-  collectAlliesInRangeSpatial(env, agent.pos, teamId, radius, allies)
+  env.tempAIAllies.setLen(0)
+  collectAlliesInRangeSpatial(env, agent.pos, teamId, radius, env.tempAIAllies)
   var best: Thing = nil
   var bestDist = int.high
-  for ally in allies:
+  for ally in env.tempAIAllies:
     if ally.agentId == agent.agentId:
       continue
     if ally.hp >= ally.maxHp:
