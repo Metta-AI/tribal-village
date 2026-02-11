@@ -1,6 +1,14 @@
-import std/os
 import
-  boxy, windy, vmath, silky
+  boxy, windy, vmath
+
+# Silky UI renderer (optional - compile with -d:useSilky when available)
+when defined(useSilky):
+  import silky
+  export silky
+else:
+  # Stub types when silky is not available
+  type Silky* = ref object
+    discard
 
 import common_types
 export common_types
@@ -54,7 +62,7 @@ var
   window*: Window
   rootArea*: Area
   bxy*: Boxy           # World rendering (sprites, terrain)
-  sk*: Silky           # UI rendering (panels, buttons, HUD)
+  sk*: Silky           # UI rendering (panels, buttons, HUD) - nil when silky unavailable
   frame*: int
 
   # Transform stack (replaces boxy's transform management for silky)
@@ -122,13 +130,17 @@ proc initRendering*(dataDir: string = "data") =
   ## only boxy will be initialized and sk will remain nil.
   bxy = newBoxy()
 
-  let atlasPath = dataDir / "silky.atlas.png"
-  let jsonPath = dataDir / "silky.atlas.json"
-  if fileExists(atlasPath) and fileExists(jsonPath):
-    sk = newSilky(atlasPath, jsonPath)
+  when defined(useSilky):
+    import std/os
+    let atlasPath = dataDir / "silky.atlas.png"
+    let jsonPath = dataDir / "silky.atlas.json"
+    if fileExists(atlasPath) and fileExists(jsonPath):
+      sk = newSilky(atlasPath, jsonPath)
+    else:
+      # Atlas not yet built - silky features will be unavailable
+      discard
   else:
-    # Atlas not yet built - silky features will be unavailable
-    # Other beads handle atlas creation (tv-ek5e77)
+    # Silky not compiled in - sk remains nil
     discard
 
 # ─── Transform Stack (for silky UI rendering) ────────────────────────────────
@@ -172,13 +184,15 @@ proc applyTransform*(pos: Vec2): Vec2 =
 proc beginFrame*(size: IVec2) =
   ## Begin a new frame for both renderers.
   bxy.beginFrame(size)
-  if not sk.isNil:
-    sk.beginUI(window, size)
+  when defined(useSilky):
+    if not sk.isNil:
+      sk.beginUI(window, size)
 
 proc endFrame*() =
   ## End the current frame for both renderers.
-  if not sk.isNil:
-    sk.endUI()
+  when defined(useSilky):
+    if not sk.isNil:
+      sk.endUI()
   bxy.endFrame()
 
 # Viewport culling types and functions
