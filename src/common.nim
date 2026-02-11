@@ -378,3 +378,4 @@ proc applyAmbient*(baseR, baseG, baseB, baseI: float32, ambient: AmbientLight): 
     i: baseI * ambient.intensity
   )
 
+# Note: Transform Stack procs are defined above in section "Transform Stack (for silky UI rendering)"

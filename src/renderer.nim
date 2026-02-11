@@ -3,6 +3,9 @@ import
   std/[algorithm, math, os, strutils],
   common, constants, environment, formations, semantic
 
+# Import silky drawing procs directly to avoid operator conflicts from re-exports
+from silky/drawing import nil
+
 # Infection system constants
 const
   HeartPlusThreshold = 9           # Switch to compact heart counter after this many
@@ -243,6 +246,17 @@ proc getHealthBarAlpha*(currentStep: int, lastAttackedStep: int): float32 =
     # Fully faded out (to minimum alpha)
     return HealthBarMinAlpha
 
+# ─── Silky Color Conversion ──────────────────────────────────────────────────
+
+proc toRgbx*(c: Color): ColorRGBX {.inline.} =
+  ## Convert a boxy/pixie Color (float 0-1) to silky ColorRGBX (uint8 0-255).
+  rgbx(
+    uint8(clamp(c.r * 255, 0, 255)),
+    uint8(clamp(c.g * 255, 0, 255)),
+    uint8(clamp(c.b * 255, 0, 255)),
+    uint8(clamp(c.a * 255, 0, 255))
+  )
+
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
                      filledColor, emptyColor: Color, segments = 5, alpha = 1.0'f32) =
   let filled = int(ceil(ratio * segments.float32))
@@ -391,21 +405,33 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
 
 proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
   let fy = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
-  bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: fy,
-               w: panelRect.w.float32, h: FooterHeight.float32),
-               color = UiBgHeader)
+  let footerPos = vec2(panelRect.x.float32, fy)
+  let footerSize = vec2(panelRect.w.float32, FooterHeight.float32)
+
+  # Draw footer background using silky (UI rendering)
+  if not sk.isNil:
+    drawing.drawRect(sk, footerPos, footerSize, toRgbx(UiBgHeader))
+  else:
+    bxy.drawRect(rect = Rect(x: footerPos.x, y: footerPos.y,
+                 w: footerSize.x, h: footerSize.y), color = UiBgHeader)
 
   # Semantic capture: footer panel
   pushSemanticContext("Footer")
-  capturePanel("Footer", vec2(panelRect.x.float32, fy),
-               vec2(panelRect.w.float32, FooterHeight.float32))
+  capturePanel("Footer", footerPos, footerSize)
   let mousePos = window.mousePos.vec2
   for button in buttons:
     let hovered = mousePos.x >= button.rect.x and mousePos.x <= button.rect.x + button.rect.w and
       mousePos.y >= button.rect.y and mousePos.y <= button.rect.y + button.rect.h
     let baseColor = if button.active: UiBgButtonActive else: UiBgButton
     let drawColor = if hovered: color(baseColor.r + 0.08, baseColor.g + 0.08, baseColor.b + 0.08, baseColor.a) else: baseColor
-    bxy.drawRect(rect = button.rect, color = drawColor)
+
+    # Draw button background using silky
+    if not sk.isNil:
+      drawing.drawRect(sk, vec2(button.rect.x, button.rect.y),
+                  vec2(button.rect.w, button.rect.h), toRgbx(drawColor))
+    else:
+      bxy.drawRect(rect = button.rect, color = drawColor)
+
     template centerIn(r: Rect, sz: Vec2): Vec2 =
       vec2(r.x + (r.w - sz.x) * 0.5, r.y + (r.h - sz.y) * 0.5)
 
@@ -421,12 +447,21 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
                   vec2(button.rect.w, button.rect.h))
 
     if button.iconKey.len > 0 and button.iconSize.x > 0 and button.iconSize.y > 0:
-      let sc = min(1.0'f32, min(button.rect.w, button.rect.h) * 0.6 /
-               max(button.iconSize.x.float32, button.iconSize.y.float32))
-      let iconPos = centerIn(button.rect, vec2(button.iconSize.x.float32 * sc,
-                    button.iconSize.y.float32 * sc)) + vec2(8.0, 9.0) * sc
-      bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = sc)
+      # Draw icons using silky if available in atlas, otherwise fallback to boxy
+      if not sk.isNil and drawing.contains(sk, button.iconKey):
+        # Silky icons are drawn at native size (no scale support)
+        # Center the icon in the button
+        let iconSize = drawing.getImageSize(sk, button.iconKey)
+        let iconPos = centerIn(button.rect, iconSize)
+        drawing.drawImage(sk, button.iconKey, iconPos)
+      else:
+        let sc = min(1.0'f32, min(button.rect.w, button.rect.h) * 0.6 /
+                 max(button.iconSize.x.float32, button.iconSize.y.float32))
+        let iconPos = centerIn(button.rect, vec2(button.iconSize.x.float32 * sc,
+                      button.iconSize.y.float32 * sc)) + vec2(8.0, 9.0) * sc
+        bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = sc)
     else:
+      # Text labels still use boxy (no fonts in silky atlas yet)
       let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
       bxy.drawImage(button.labelKey,
         centerIn(button.rect, vec2(button.labelSize.x.float32, button.labelSize.y.float32)) + shift,
@@ -2563,6 +2598,7 @@ proc ensureResourceBarLabel(text: string): (string, IVec2) =
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw the resource bar HUD at the top of the viewport.
   ## Uses the layout system if available for positioning.
+  ## Uses silky for UI backgrounds, boxy for icons and text labels.
   let barRect = if uiLayout.resourceBarArea != nil and uiLayout.resourceBarArea.rect.w > 0:
     uiLayout.resourceBarArea.rect
   else:
@@ -2572,7 +2608,11 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let barW = barRect.w
   let barH = barRect.h
 
-  bxy.drawRect(rect = barRect, color = UiBgHeader)
+  # Draw resource bar background using silky (UI rendering)
+  if not sk.isNil:
+    drawing.drawRect(sk, vec2(barRect.x, barRect.y), vec2(barW, barH), toRgbx(UiBgHeader))
+  else:
+    bxy.drawRect(rect = barRect, color = UiBgHeader)
 
   # Semantic capture: resource bar panel
   pushSemanticContext("ResourceBar")
@@ -2584,12 +2624,16 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   # Offset content down by half bar height to avoid text clipping at viewport top
   let centerY = barY + barH
 
-  # Team color swatch (16x16)
+  # Team color swatch (16x16) - using silky for UI rect
   let swatchSize = 16.0'f32
   let teamColor = getTeamColor(env, validTeamId, color(0.5, 0.5, 0.5, 1.0))
-  bxy.drawRect(rect = Rect(x: x, y: centerY - swatchSize * 0.5, w: swatchSize, h: swatchSize),
-               color = teamColor)
-  captureRect("TeamColor", vec2(x, centerY - swatchSize * 0.5), vec2(swatchSize, swatchSize))
+  let swatchPos = vec2(x, centerY - swatchSize * 0.5)
+  if not sk.isNil:
+    drawing.drawRect(sk, swatchPos, vec2(swatchSize, swatchSize), toRgbx(teamColor))
+  else:
+    bxy.drawRect(rect = Rect(x: swatchPos.x, y: swatchPos.y, w: swatchSize, h: swatchSize),
+                 color = teamColor)
+  captureRect("TeamColor", swatchPos, vec2(swatchSize, swatchSize))
   x += swatchSize + ResourceBarItemGap
 
   # Resource counts
@@ -2615,9 +2659,15 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   drawResource(ResourceStone, itemSpriteKey(ItemStone), "stone")
   drawResource(ResourceGold, itemSpriteKey(ItemGold), "gold")
 
-  # Separator
-  bxy.drawRect(rect = Rect(x: x, y: centerY - barH * 0.3, w: ResourceBarSeparatorWidth, h: barH * 0.6),
-               color = color(0.4, 0.4, 0.4, 0.8))
+  # Separator - using silky for UI rendering
+  let separatorColor = color(0.4, 0.4, 0.4, 0.8)
+  let sep1Pos = vec2(x, centerY - barH * 0.3)
+  let sepSize = vec2(ResourceBarSeparatorWidth, barH * 0.6)
+  if not sk.isNil:
+    drawing.drawRect(sk, sep1Pos, sepSize, toRgbx(separatorColor))
+  else:
+    bxy.drawRect(rect = Rect(x: sep1Pos.x, y: sep1Pos.y, w: sepSize.x, h: sepSize.y),
+                 color = separatorColor)
   x += ResourceBarSeparatorWidth + ResourceBarItemGap
 
   # Population
@@ -2651,9 +2701,13 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
     captureLabel(popText, popLabelPos, vec2(popLabelSize.x.float32, popLabelSize.y.float32))
     x += popLabelSize.x.float32 + ResourceBarItemGap
 
-  # Separator
-  bxy.drawRect(rect = Rect(x: x, y: centerY - barH * 0.3, w: ResourceBarSeparatorWidth, h: barH * 0.6),
-               color = color(0.4, 0.4, 0.4, 0.8))
+  # Separator - using silky for UI rendering
+  let sep2Pos = vec2(x, centerY - barH * 0.3)
+  if not sk.isNil:
+    drawing.drawRect(sk, sep2Pos, sepSize, toRgbx(separatorColor))
+  else:
+    bxy.drawRect(rect = Rect(x: sep2Pos.x, y: sep2Pos.y, w: sepSize.x, h: sepSize.y),
+                 color = separatorColor)
   x += ResourceBarSeparatorWidth + ResourceBarItemGap
 
   # Step counter
