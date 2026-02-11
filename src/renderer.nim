@@ -393,12 +393,12 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
   let fy = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: fy,
                w: panelRect.w.float32, h: FooterHeight.float32),
-               color = color(0.12, 0.16, 0.2, 0.9))
+               color = UiBgHeader)
   let mousePos = window.mousePos.vec2
   for button in buttons:
     let hovered = mousePos.x >= button.rect.x and mousePos.x <= button.rect.x + button.rect.w and
       mousePos.y >= button.rect.y and mousePos.y <= button.rect.y + button.rect.h
-    let baseColor = if button.active: color(0.2, 0.5, 0.7, 0.95) else: color(0.2, 0.24, 0.28, 0.9)
+    let baseColor = if button.active: UiBgButtonActive else: UiBgButton
     let drawColor = if hovered: color(baseColor.r + 0.08, baseColor.g + 0.08, baseColor.b + 0.08, baseColor.a) else: baseColor
     bxy.drawRect(rect = button.rect, color = drawColor)
     template centerIn(r: Rect, sz: Vec2): Vec2 =
@@ -2176,7 +2176,7 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
       w: MinimapSize.float32 + MinimapBorderWidth * 2,
       h: MinimapSize.float32 + MinimapBorderWidth * 2
     ),
-    color = color(0.08, 0.10, 0.14, 0.95)
+    color = UiBg
   )
 
   # Draw the minimap texture
@@ -2265,7 +2265,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
   # Background
   bxy.drawRect(
     rect = Rect(x: panelX, y: panelY, w: UnitInfoPanelWidth, h: panelH),
-    color = color(0.08, 0.10, 0.14, 0.92)
+    color = UiBg
   )
 
   var y = panelY + UnitInfoPanelPadding
@@ -2300,11 +2300,11 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
       let hpRatio = if agent.maxHp > 0: clamp(agent.hp.float32 / agent.maxHp.float32, 0.0, 1.0) else: 0.0
       # Background bar
       bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth, h: UnitInfoBarHeight),
-                   color(0.2, 0.2, 0.2, 0.9))
+                   UiHealthBg)
       # Filled bar
-      let hpColor = if hpRatio > 0.5: color(0.1, 0.8, 0.1, 1.0)
-                    elif hpRatio > 0.25: color(0.9, 0.7, 0.1, 1.0)
-                    else: color(0.9, 0.2, 0.1, 1.0)
+      let hpColor = if hpRatio > 0.5: UiHealthHigh
+                    elif hpRatio > 0.25: UiHealthMid
+                    else: UiHealthLow
       bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth * hpRatio, h: UnitInfoBarHeight), hpColor)
       # HP text
       let hpText = $agent.hp & "/" & $agent.maxHp
@@ -2393,9 +2393,9 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
         let barY = y + 4.0
         let hpRatio = clamp(building.hp.float32 / building.maxHp.float32, 0.0, 1.0)
         bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth, h: UnitInfoBarHeight),
-                     color(0.2, 0.2, 0.2, 0.9))
+                     UiHealthBg)
         bxy.drawRect(Rect(x: barX, y: barY, w: UnitInfoBarWidth * hpRatio, h: UnitInfoBarHeight),
-                     color(0.1, 0.8, 0.1, 1.0))
+                     UiHealthHigh)
         let hpText = $building.hp & "/" & $building.maxHp
         let (hpTextKey, _) = getUnitInfoLabel(hpText)
         bxy.drawImage(hpTextKey, vec2(barX + UnitInfoBarWidth + 8.0, y), angle = 0, scale = 1.0)
@@ -2459,9 +2459,9 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
             let progRatio = clamp(1.0 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
             let progBarY = queueRowY + QueueIconSize
             bxy.drawRect(Rect(x: iconX, y: progBarY, w: QueueIconSize, h: QueueProgressBarH),
-                         color(0.2, 0.2, 0.2, 0.9))
+                         UiHealthBg)
             bxy.drawRect(Rect(x: iconX, y: progBarY, w: QueueIconSize * progRatio, h: QueueProgressBarH),
-                         color(0.2, 0.5, 1.0, 1.0))
+                         UiInfo)
 
           # Track this icon for right-click cancel
           let iconRect = Rect(x: iconX, y: queueRowY, w: QueueIconSize, h: QueueIconSize + QueueProgressBarH)
@@ -2548,7 +2548,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let barH = ResourceBarHeight.float32
 
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: barY, w: barW, h: barH),
-               color = color(0.12, 0.16, 0.2, 0.9))
+               color = UiBgHeader)
 
   let validTeamId = if teamId >= 0 and teamId < MapRoomObjectsTeams: teamId else: 0
 

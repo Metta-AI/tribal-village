@@ -34,10 +34,11 @@ type
 # ---------------------------------------------------------------------------
 
 const
-  CommandPanelBgColor = color(0.12, 0.16, 0.20, 0.92)
-  CommandButtonBgColor = color(0.20, 0.24, 0.28, 0.90)
-  CommandButtonHoverColor = color(0.28, 0.32, 0.38, 0.95)
-  CommandButtonDisabledColor = color(0.15, 0.18, 0.22, 0.70)
+  # Use UIColors from colors.nim for consistent theming
+  CommandPanelBgColor = UiBg
+  CommandButtonBgColor = UiBgButton
+  CommandButtonHoverColor = UiBgButtonHover
+  CommandButtonDisabledColor = UiBgButtonDisabled
 
   CommandLabelFontPath = "data/Inter-Regular.ttf"
   CommandLabelFontSize: float32 = 14
@@ -471,7 +472,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   bxy.drawRect(
     rect = Rect(x: cpRect.x - 2, y: cpRect.y - 2,
                 w: cpRect.w + 4, h: cpRect.h + 4),
-    color = color(0.08, 0.10, 0.14, 0.95)
+    color = UiBg
   )
   bxy.drawRect(rect = cpRect, color = CommandPanelBgColor)
 
@@ -519,7 +520,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
     bxy.drawRect(rect = button.rect, color = bgColor)
 
     # Draw button border
-    let borderColor = if hovered: color(0.5, 0.6, 0.7, 0.8) else: color(0.3, 0.35, 0.4, 0.6)
+    let borderColor = if hovered: UiBorderBright else: UiBorder
     let bw = 1.0'f32
     bxy.drawRect(Rect(x: button.rect.x, y: button.rect.y, w: button.rect.w, h: bw), borderColor)
     bxy.drawRect(Rect(x: button.rect.x, y: button.rect.y + button.rect.h - bw, w: button.rect.w, h: bw), borderColor)
@@ -547,7 +548,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
         CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
         CmdResearchCoinage, CmdResearchCastleTech1, CmdResearchCastleTech2}:
       # Draw a green checkmark in the top-left corner
-      let checkColor = color(0.2, 0.8, 0.2, 1.0)
+      let checkColor = UiSuccess
       let (checkKey, checkSize) = renderCommandLabel("OK", CommandHotkeyFontSize)
       let checkX = button.rect.x + 2
       let checkY = button.rect.y + 2

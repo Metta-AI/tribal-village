@@ -9,7 +9,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[strutils, strformat],
-  common, types, registry, items, constants
+  common, types, registry, items, constants, environment
 
 # ---------------------------------------------------------------------------
 # Types
@@ -46,13 +46,14 @@ type
 # ---------------------------------------------------------------------------
 
 const
-  TooltipBgColor = color(0.08, 0.10, 0.14, 0.95)
-  TooltipBorderColor = color(0.3, 0.35, 0.4, 0.8)
-  TooltipTitleColor = color(1.0, 0.9, 0.7, 1.0)
-  TooltipTextColor = color(0.9, 0.9, 0.9, 1.0)
-  TooltipCostColor = color(0.7, 0.85, 1.0, 1.0)
-  TooltipHotkeyColor = color(0.6, 0.8, 0.6, 1.0)
-  TooltipRequirementColor = color(1.0, 0.7, 0.5, 1.0)
+  # Use UIColors from colors.nim for consistent theming
+  TooltipBgColor = UiTooltipBg
+  TooltipBorderColor = UiTooltipBorder
+  TooltipTitleColor = UiTooltipTitle
+  TooltipTextColor = UiTooltipText
+  TooltipCostColor = UiTooltipCost
+  TooltipHotkeyColor = UiTooltipHotkey
+  TooltipRequirementColor = UiTooltipRequirement
 
   TooltipFontPath = "data/Inter-Regular.ttf"
   TooltipTitleFontSize: float32 = 16
