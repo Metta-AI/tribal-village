@@ -1618,6 +1618,9 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
   var bestTarget = ivec2(-1, -1)
   var bestScore = int.low
 
+  # Pre-check for threats (optimization: skip threat lookups when no threats known)
+  let hasThreats = controller.hasKnownThreats(teamId, env.currentStep.int32)
+
   # Try multiple candidate positions around the exploration frontier
   for _ in 0 ..< 16:  # Check more candidates for better exploration coverage
     let candidate = getNextSpiralPoint(state)
@@ -1629,9 +1632,11 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
     if distFromBase > state.scoutExploreRadius.int + 20:
       continue
 
-    # Check for threats near this position
-    let threatStrength = controller.getTotalThreatStrength(
-      teamId, candidate, 8, env.currentStep.int32)
+    # Check for threats near this position (skip if no threats known)
+    let threatStrength = if hasThreats:
+      controller.getTotalThreatStrength(teamId, candidate, 8, env.currentStep.int32)
+    else:
+      0'i32
 
     # Score: prefer unexplored positions at the frontier with fewer threats
     var score = 100 - abs(distFromBase - state.scoutExploreRadius.int) * 2
