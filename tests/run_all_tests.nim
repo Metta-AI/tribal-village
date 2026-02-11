@@ -3,7 +3,7 @@
 ## Run with: nim r --path:src tests/run_all_tests.nim
 
 # Union of all imports needed by included test files
-import std/[unittest, os, json, strutils, strformat, sets]
+import std/[unittest, os, json, strutils, strformat, sets, times, monotimes]
 import test_common
 import balance_scorecard
 import terrain
@@ -13,3 +13,4 @@ import terrain
 include "test_balance_scorecard"
 include "test_map_determinism"
 include "test_score_tracking"
+include "test_observations"
