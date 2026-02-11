@@ -364,38 +364,4 @@ proc applyAmbient*(baseR, baseG, baseB, baseI: float32, ambient: AmbientLight): 
     i: baseI * ambient.intensity
   )
 
-# ─── Transform Stack (silky migration) ────────────────────────────────────────
-
-proc saveTransform*() =
-  ## Push current transform onto stack for later restoration.
-  transformStack.add(transformMat)
-
-proc restoreTransform*() =
-  ## Pop and restore the last saved transform from the stack.
-  transformMat = transformStack.pop()
-
-proc getTransform*(): Mat3 =
-  ## Get the current transform matrix.
-  transformMat
-
-proc resetTransform*() =
-  ## Reset transform to identity and clear the stack.
-  transformMat = mat3()
-  transformStack.setLen(0)
-
-proc translateTransform*(v: Vec2) =
-  ## Apply a translation to the current transform.
-  transformMat = transformMat * translate(v)
-
-proc scaleTransform*(s: Vec2) =
-  ## Apply a scale to the current transform.
-  transformMat = transformMat * scale(s)
-
-proc rotateTransform*(angle: float32) =
-  ## Apply a rotation to the current transform.
-  transformMat = transformMat * rotate(angle)
-
-proc applyTransform*(pos: Vec2): Vec2 =
-  ## Apply current transform to a position.
-  let p = transformMat * vec3(pos.x, pos.y, 1.0)
-  vec2(p.x, p.y)
+# Note: Transform Stack procs are defined above in section "Transform Stack (for silky UI rendering)"
