@@ -1,7 +1,7 @@
 import std/[os, strutils, math],
   boxy, windy, vmath, pixie,
   src/environment, src/common, src/renderer, src/agent_control, src/tileset,
-  src/minimap, src/command_panel, src/tooltips
+  src/minimap, src/command_panel, src/tooltips, src/semantic
 
 when compileOption("profiler"):
   import std/nimprof
@@ -118,6 +118,9 @@ const GatherableResourceKinds* = {Tree, Wheat, Fish, Stone, Gold, Bush, Cactus}
 var actionsArray: array[MapAgents, uint8]
 
 proc display() =
+  # Begin semantic capture for this frame (no-op if disabled)
+  beginSemanticFrame()
+
   when defined(renderTiming):
     # Early frame timing - capture from the very start
     let timingActive = renderTimingStart >= 0 and frame >= renderTimingStart and
@@ -1282,6 +1285,12 @@ proc display() =
           " things=", env.things.len,
           " agents=", env.agents.len,
           " tumors=", env.thingsByKind[Tumor].len
+  # Output semantic capture if enabled
+  if semanticEnabled:
+    let semanticOutput = endSemanticFrame(frame)
+    if semanticOutput.len > 0:
+      echo semanticOutput
+
   inc frame
   when defined(renderTiming):
     if renderTimingExit >= 0 and frame >= renderTimingExit:
@@ -1315,13 +1324,16 @@ echo "✅ Loaded ", loadedCount, " assets (", totalBytes div 1024 div 1024, " MB
 if skippedCount > 0:
   echo "⚠️  Skipped ", skippedCount, " files due to errors"
 
-# Check for command line arguments to determine controller type
+# Check for command line arguments to determine controller type and features
 var useExternalController = false
 for i in 1..paramCount():
   let param = paramStr(i)
   if param == "--external-controller":
     useExternalController = true
     # Command line: Requested external controller mode
+  elif param == "--semantic":
+    enableSemanticCapture()
+    echo "Semantic capture enabled - will output UI hierarchy each frame"
 
 # Decide controller source.
 # Priority: explicit CLI flag --> env vars --> fallback to built-in AI.

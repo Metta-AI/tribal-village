@@ -9,7 +9,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/strutils,
-  common, environment, tooltips
+  common, environment, tooltips, semantic
 
 # ---------------------------------------------------------------------------
 # Types
@@ -467,6 +467,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
   let cpRect = commandPanelRect(panelRect)
 
+  # Semantic capture: command panel
+  pushSemanticContext("CommandPanel")
+  capturePanel("CommandPanel", vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h))
+
   # Draw panel background
   bxy.drawRect(
     rect = Rect(x: cpRect.x - 2, y: cpRect.y - 2,
@@ -490,6 +494,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   let headerX = cpRect.x + (cpRect.w - headerSize.x.float32) * 0.5
   let headerY = cpRect.y + 4
   bxy.drawImage(headerKey, vec2(headerX, headerY), angle = 0, scale = 1)
+  captureLabel(headerText, vec2(headerX, headerY), vec2(headerSize.x.float32, headerSize.y.float32))
 
   # Build and draw buttons
   let buttons = buildCommandButtons(panelRect)
@@ -532,6 +537,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
     let labelY = button.rect.y + (button.rect.h - labelSize.y.float32) * 0.5
     bxy.drawImage(labelKey, vec2(labelX, labelY), angle = 0, scale = 1)
 
+    # Semantic capture: command button
+    captureButton(button.label, vec2(button.rect.x, button.rect.y),
+                  vec2(button.rect.w, button.rect.h))
+
     # Draw hotkey in corner
     if button.hotkey.len > 0:
       let (hotkeyKey, hotkeySize) = renderCommandLabel(button.hotkey, CommandHotkeyFontSize)
@@ -556,6 +565,8 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   # Clear tooltip if no button is hovered
   if not anyButtonHovered:
     clearTooltip()
+
+  popSemanticContext()
 
 # ---------------------------------------------------------------------------
 # Click handling

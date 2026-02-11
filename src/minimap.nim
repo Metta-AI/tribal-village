@@ -2,7 +2,7 @@
 
 import
   boxy, pixie, vmath, windy,
-  common, constants, environment
+  common, constants, environment, semantic
 
 # ---------------------------------------------------------------------------
 # State
@@ -144,6 +144,10 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
                color = color(0.15, 0.15, 0.15, 0.95))
   bxy.drawImage(minimapImageKey, vec2(mmRect.x, mmRect.y))
 
+  # Semantic capture: minimap panel
+  pushSemanticContext("Minimap")
+  capturePanel("Minimap", vec2(mmRect.x, mmRect.y), vec2(mmRect.w, mmRect.h))
+
   # Viewport rectangle ---------------------------------------------------
   let scaleF = window.contentScale.float32
   let rectW = panelRect.w.float32 / scaleF
@@ -188,3 +192,5 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
     # Right
     bxy.drawRect(rect = Rect(x: clRight - lineW, y: clTop,
                  w: lineW, h: clBottom - clTop), color = vpColor)
+
+  popSemanticContext()

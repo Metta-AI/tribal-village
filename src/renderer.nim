@@ -1,7 +1,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[algorithm, math, os, strutils],
-  common, constants, environment, formations
+  common, constants, environment, formations, semantic
 
 # Infection system constants
 const
@@ -394,6 +394,12 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: fy,
                w: panelRect.w.float32, h: FooterHeight.float32),
                color = color(0.12, 0.16, 0.2, 0.9))
+
+  # Semantic capture: footer panel
+  pushSemanticContext("Footer")
+  capturePanel("Footer", vec2(panelRect.x.float32, fy),
+               vec2(panelRect.w.float32, FooterHeight.float32))
+
   let mousePos = window.mousePos.vec2
   for button in buttons:
     let hovered = mousePos.x >= button.rect.x and mousePos.x <= button.rect.x + button.rect.w and
@@ -403,6 +409,18 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
     bxy.drawRect(rect = button.rect, color = drawColor)
     template centerIn(r: Rect, sz: Vec2): Vec2 =
       vec2(r.x + (r.w - sz.x) * 0.5, r.y + (r.h - sz.y) * 0.5)
+
+    # Semantic capture: button
+    let buttonName = case button.kind
+      of FooterPlayPause: (if play: "Pause" else: "Play")
+      of FooterStep: "Step"
+      of FooterSlow: "Slow"
+      of FooterFast: "Fast"
+      of FooterFaster: "Faster"
+      of FooterSuper: "Super"
+    captureButton(buttonName, vec2(button.rect.x, button.rect.y),
+                  vec2(button.rect.w, button.rect.h))
+
     if button.iconKey.len > 0 and button.iconSize.x > 0 and button.iconSize.y > 0:
       let sc = min(1.0'f32, min(button.rect.w, button.rect.h) * 0.6 /
                max(button.iconSize.x.float32, button.iconSize.y.float32))
@@ -414,6 +432,8 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
       bxy.drawImage(button.labelKey,
         centerIn(button.rect, vec2(button.labelSize.x.float32, button.labelSize.y.float32)) + shift,
         angle = 0, scale = 1)
+
+  popSemanticContext()
 
 proc rebuildRenderCaches() =
   for kind in FloorSpriteKind:
@@ -2550,6 +2570,10 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: barY, w: barW, h: barH),
                color = color(0.12, 0.16, 0.2, 0.9))
 
+  # Semantic capture: resource bar panel
+  pushSemanticContext("ResourceBar")
+  capturePanel("ResourceBar", vec2(panelRect.x.float32, barY), vec2(barW, barH))
+
   let validTeamId = if teamId >= 0 and teamId < MapRoomObjectsTeams: teamId else: 0
 
   var x = panelRect.x.float32 + ResourceBarPadding
@@ -2561,27 +2585,31 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let teamColor = getTeamColor(env, validTeamId, color(0.5, 0.5, 0.5, 1.0))
   bxy.drawRect(rect = Rect(x: x, y: centerY - swatchSize * 0.5, w: swatchSize, h: swatchSize),
                color = teamColor)
+  captureRect("TeamColor", vec2(x, centerY - swatchSize * 0.5), vec2(swatchSize, swatchSize))
   x += swatchSize + ResourceBarItemGap
 
   # Resource counts
-  template drawResource(res: StockpileResource, iconKey: string) =
+  template drawResource(res: StockpileResource, iconKey: string, resName: string) =
     let count = env.teamStockpiles[validTeamId].counts[res]
     let countText = $count
     let (labelKey, labelSize) = ensureResourceBarLabel(countText)
     if iconKey in bxy:
       let iconSize = 24.0'f32
-      bxy.drawImage(iconKey, vec2(x, centerY - iconSize * 0.5 * 350 * ResourceBarIconScale),
-                    angle = 0, scale = ResourceBarIconScale)
+      let iconPos = vec2(x, centerY - iconSize * 0.5 * 350 * ResourceBarIconScale)
+      bxy.drawImage(iconKey, iconPos, angle = 0, scale = ResourceBarIconScale)
+      captureIcon(resName, iconPos, vec2(iconSize * ResourceBarIconScale * 350,
+                  iconSize * ResourceBarIconScale * 350))
       x += iconSize * ResourceBarIconScale * 350 + 4.0
     if labelKey in bxy:
-      bxy.drawImage(labelKey, vec2(x, centerY - labelSize.y.float32 * 0.5),
-                    angle = 0, scale = 1.0)
+      let labelPos = vec2(x, centerY - labelSize.y.float32 * 0.5)
+      bxy.drawImage(labelKey, labelPos, angle = 0, scale = 1.0)
+      captureLabel(countText, labelPos, vec2(labelSize.x.float32, labelSize.y.float32))
       x += labelSize.x.float32 + ResourceBarItemGap
 
-  drawResource(ResourceFood, itemSpriteKey(ItemWheat))
-  drawResource(ResourceWood, itemSpriteKey(ItemWood))
-  drawResource(ResourceStone, itemSpriteKey(ItemStone))
-  drawResource(ResourceGold, itemSpriteKey(ItemGold))
+  drawResource(ResourceFood, itemSpriteKey(ItemWheat), "food")
+  drawResource(ResourceWood, itemSpriteKey(ItemWood), "wood")
+  drawResource(ResourceStone, itemSpriteKey(ItemStone), "stone")
+  drawResource(ResourceGold, itemSpriteKey(ItemGold), "gold")
 
   # Separator
   bxy.drawRect(rect = Rect(x: x, y: centerY - barH * 0.3, w: ResourceBarSeparatorWidth, h: barH * 0.6),
@@ -2605,15 +2633,18 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   popCap = min(popCap, MapAgentsPerTeam)
 
   if "oriented/gatherer.s" in bxy:
-    bxy.drawImage("oriented/gatherer.s", vec2(x, centerY - 12.0),
-                  angle = 0, scale = ResourceBarIconScale)
+    let popIconPos = vec2(x, centerY - 12.0)
+    bxy.drawImage("oriented/gatherer.s", popIconPos, angle = 0, scale = ResourceBarIconScale)
+    captureIcon("population", popIconPos, vec2(24.0 * ResourceBarIconScale * 350,
+                24.0 * ResourceBarIconScale * 350))
     x += 24.0 * ResourceBarIconScale * 350 + 4.0
 
   let popText = $popCount & "/" & $popCap
   let (popLabelKey, popLabelSize) = ensureResourceBarLabel(popText)
   if popLabelKey in bxy:
-    bxy.drawImage(popLabelKey, vec2(x, centerY - popLabelSize.y.float32 * 0.5),
-                  angle = 0, scale = 1.0)
+    let popLabelPos = vec2(x, centerY - popLabelSize.y.float32 * 0.5)
+    bxy.drawImage(popLabelKey, popLabelPos, angle = 0, scale = 1.0)
+    captureLabel(popText, popLabelPos, vec2(popLabelSize.x.float32, popLabelSize.y.float32))
     x += popLabelSize.x.float32 + ResourceBarItemGap
 
   # Separator
@@ -2625,8 +2656,9 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let stepText = "Step " & $env.currentStep
   let (stepLabelKey, stepLabelSize) = ensureResourceBarLabel(stepText)
   if stepLabelKey in bxy:
-    bxy.drawImage(stepLabelKey, vec2(x, centerY - stepLabelSize.y.float32 * 0.5),
-                  angle = 0, scale = 1.0)
+    let stepLabelPos = vec2(x, centerY - stepLabelSize.y.float32 * 0.5)
+    bxy.drawImage(stepLabelKey, stepLabelPos, angle = 0, scale = 1.0)
+    captureLabel(stepText, stepLabelPos, vec2(stepLabelSize.x.float32, stepLabelSize.y.float32))
     x += stepLabelSize.x.float32 + ResourceBarItemGap
 
   # Mode indicator (right-aligned) - shows current AI/Player control state
@@ -2634,8 +2666,11 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let (modeLabelKey, modeLabelSize) = ensureResourceBarLabel(modeText)
   if modeLabelKey in bxy:
     let modeX = panelRect.x.float32 + barW - modeLabelSize.x.float32 - ResourceBarPadding
-    bxy.drawImage(modeLabelKey, vec2(modeX, centerY - modeLabelSize.y.float32 * 0.5),
-                  angle = 0, scale = 1.0)
+    let modeLabelPos = vec2(modeX, centerY - modeLabelSize.y.float32 * 0.5)
+    bxy.drawImage(modeLabelKey, modeLabelPos, angle = 0, scale = 1.0)
+    captureLabel(modeText, modeLabelPos, vec2(modeLabelSize.x.float32, modeLabelSize.y.float32))
+
+  popSemanticContext()
 
 # ─── Trade Route Visualization ─────────────────────────────────────────────────
 
