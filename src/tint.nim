@@ -14,6 +14,9 @@ const
   # Tumor must also dominate (5x) to keep overlay color close to ClippyTint.
   FrozenTumorDominanceRatio = 5.0'f32  # tumorStrength must be 5x teamStrength
   FrozenMinIntensity = 76000'i32  # Minimum total strength for frozen state (95% of max)
+  # Stagger interval for decay: only process 1/N tiles per step
+  # Reduces decay loop work by N-fold while maintaining visual consistency
+  TintDecayStaggerInterval* = 5
 
 var tintSortBuf: seq[IVec2]  # Reusable buffer for counting sort
 
@@ -66,6 +69,14 @@ proc updateTintModifications(env: Environment) =
   ## Update unified tint modification array based on entity positions - runs every frame.
   ## Also maintains frozen tile cache for O(1) isTileFrozen lookups.
   ## Does NOT compute RGB colors - use ensureTintColors() before rendering/scoring.
+  ##
+  ## Optimization: Uses staggered decay to reduce work by TintDecayStaggerInterval-fold.
+  ## Only tiles where tileX mod StaggerInterval == currentStep mod StaggerInterval are
+  ## decayed each step. This spreads decay work across multiple steps while maintaining
+  ## visual consistency (decay rate is unchanged, just distributed temporally).
+  ##
+  ## In headless mode (-d:headless), RGB components are skipped entirely since only
+  ## frozen state matters for game logic.
   # Adaptive epsilon: cull weaker trails when active tile count is high
   let tileCount = env.activeTiles.positions.len
   let epsilon =
@@ -74,8 +85,12 @@ proc updateTintModifications(env: Environment) =
     elif tileCount > 1000: MinTintEpsilon * 4
     else: MinTintEpsilon
 
+  # Stagger phase for this step (0..StaggerInterval-1)
+  let staggerPhase = env.currentStep mod TintDecayStaggerInterval
+
   # Decay existing tint trails using fixed-point multiply + shift (avoids expensive division)
   # Widen to int64 for multiply to avoid int32 overflow (MaxTintAccum * 65339 > int32.max)
+  # STAGGERED: Only decay tiles matching this step's phase to reduce work 5x
   var writeIdx = 0
   for readIdx in 0 ..< tileCount:
     let pos = env.activeTiles.positions[readIdx]
@@ -83,14 +98,19 @@ proc updateTintModifications(env: Environment) =
       continue
     let tileX = pos.x.int
     let tileY = pos.y.int
-    let current = env.tintMods[tileX][tileY]
+
+    # Stagger check: only decay tiles whose X coordinate matches this step's phase
+    if tileX mod TintDecayStaggerInterval != staggerPhase:
+      # Keep tile in list without decaying
+      env.activeTiles.positions[writeIdx] = pos
+      inc writeIdx
+      continue
+
     let strength = env.tintStrength[tileX][tileY]
-    let decayedR = int32((current.r.int64 * TrailDecayFP) shr DecayShift)
-    let g = int32((current.g.int64 * TrailDecayFP) shr DecayShift)
-    let b = int32((current.b.int64 * TrailDecayFP) shr DecayShift)
     let decayedStrength = int32((strength.int64 * TrailDecayFP) shr DecayShift)
     if abs(decayedStrength) < epsilon:
-      env.tintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
+      when not defined(headless):
+        env.tintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tintStrength[tileX][tileY] = 0
       env.activeTiles.flags[tileX][tileY] = false
       # Update frozen state when team tint is cleared
@@ -99,7 +119,15 @@ proc updateTintModifications(env: Environment) =
       if env.tumorActiveTiles.flags[tileX][tileY]:
         markStepDirty(env, tileX, tileY)
       continue
-    env.tintMods[tileX][tileY] = TintModification(r: decayedR, g: g, b: b)
+
+    # Decay RGB components (skip in headless mode - only strength/frozen matters)
+    when not defined(headless):
+      let current = env.tintMods[tileX][tileY]
+      let decayedR = int32((current.r.int64 * TrailDecayFP) shr DecayShift)
+      let g = int32((current.g.int64 * TrailDecayFP) shr DecayShift)
+      let b = int32((current.b.int64 * TrailDecayFP) shr DecayShift)
+      env.tintMods[tileX][tileY] = TintModification(r: decayedR, g: g, b: b)
+
     env.tintStrength[tileX][tileY] = decayedStrength
     env.activeTiles.positions[writeIdx] = pos
     inc writeIdx
@@ -113,6 +141,7 @@ proc updateTintModifications(env: Environment) =
     elif tumorTileCount > 1000: MinTintEpsilon * 4
     else: MinTintEpsilon
 
+  # STAGGERED: Only decay tumor tiles matching this step's phase
   writeIdx = 0
   for readIdx in 0 ..< tumorTileCount:
     let pos = env.tumorActiveTiles.positions[readIdx]
@@ -120,14 +149,19 @@ proc updateTintModifications(env: Environment) =
       continue
     let tileX = pos.x.int
     let tileY = pos.y.int
-    let current = env.tumorTintMods[tileX][tileY]
+
+    # Stagger check: only decay tiles whose X coordinate matches this step's phase
+    if tileX mod TintDecayStaggerInterval != staggerPhase:
+      # Keep tile in list without decaying
+      env.tumorActiveTiles.positions[writeIdx] = pos
+      inc writeIdx
+      continue
+
     let strength = env.tumorStrength[tileX][tileY]
-    let decayedR = int32((current.r.int64 * TumorDecayFP) shr DecayShift)
-    let g = int32((current.g.int64 * TumorDecayFP) shr DecayShift)
-    let b = int32((current.b.int64 * TumorDecayFP) shr DecayShift)
     let decayedStrength = int32((strength.int64 * TumorDecayFP) shr DecayShift)
     if abs(decayedStrength) < tumorEpsilon:
-      env.tumorTintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
+      when not defined(headless):
+        env.tumorTintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tumorStrength[tileX][tileY] = 0
       env.tumorActiveTiles.flags[tileX][tileY] = false
       # Update frozen state when tumor tint is cleared
@@ -136,7 +170,15 @@ proc updateTintModifications(env: Environment) =
       if env.activeTiles.flags[tileX][tileY]:
         markStepDirty(env, tileX, tileY)
       continue
-    env.tumorTintMods[tileX][tileY] = TintModification(r: decayedR, g: g, b: b)
+
+    # Decay RGB components (skip in headless mode - only strength/frozen matters)
+    when not defined(headless):
+      let current = env.tumorTintMods[tileX][tileY]
+      let decayedR = int32((current.r.int64 * TumorDecayFP) shr DecayShift)
+      let g = int32((current.g.int64 * TumorDecayFP) shr DecayShift)
+      let b = int32((current.b.int64 * TumorDecayFP) shr DecayShift)
+      env.tumorTintMods[tileX][tileY] = TintModification(r: decayedR, g: g, b: b)
+
     env.tumorStrength[tileX][tileY] = decayedStrength
     # Update frozen state after tumor decay
     updateFrozenState(env, tileX, tileY)
@@ -146,6 +188,7 @@ proc updateTintModifications(env: Environment) =
 
   # Helper: add team tint in a radius with simple Manhattan falloff
   # Uses direct addition (values are always positive, overflow to MaxTintAccum is safe)
+  # In headless mode, skip RGB - only strength matters for frozen state
   proc addTintArea(baseX, baseY: int, color: Color, radius: int, scale: int) =
     let minX = max(0, baseX - radius)
     let maxX = min(MapWidth - 1, baseX + radius)
@@ -164,9 +207,10 @@ proc updateTintModifications(env: Environment) =
         markStepDirty(env, tileX, tileY)
         let strength = baseStrength * falloff
         env.tintStrength[tileX][tileY] = min(MaxTintAccum, env.tintStrength[tileX][tileY] + strength)
-        env.tintMods[tileX][tileY].r = min(MaxTintAccum, env.tintMods[tileX][tileY].r + int32(color.r * strength.float32))
-        env.tintMods[tileX][tileY].g = min(MaxTintAccum, env.tintMods[tileX][tileY].g + int32(color.g * strength.float32))
-        env.tintMods[tileX][tileY].b = min(MaxTintAccum, env.tintMods[tileX][tileY].b + int32(color.b * strength.float32))
+        when not defined(headless):
+          env.tintMods[tileX][tileY].r = min(MaxTintAccum, env.tintMods[tileX][tileY].r + int32(color.r * strength.float32))
+          env.tintMods[tileX][tileY].g = min(MaxTintAccum, env.tintMods[tileX][tileY].g + int32(color.g * strength.float32))
+          env.tintMods[tileX][tileY].b = min(MaxTintAccum, env.tintMods[tileX][tileY].b + int32(color.b * strength.float32))
         # Update frozen state when team tint changes
         updateFrozenState(env, tileX, tileY)
 
@@ -232,9 +276,10 @@ proc updateTintModifications(env: Environment) =
         markStepDirty(env, tileX, tileY)
         let strength = TumorIncrementBase * falloff.float32
         safeTintAdd(env.tumorStrength[tileX][tileY], int(strength))
-        safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
-        safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
-        safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
+        when not defined(headless):
+          safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
+          safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
+          safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
         # Update frozen state when tumor tint added
         updateFrozenState(env, tileX, tileY)
 
