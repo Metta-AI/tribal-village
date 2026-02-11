@@ -1,5 +1,5 @@
 import
-  boxy, windy, vmath
+  boxy, windy, vmath, std/os
 
 when defined(useSilky):
   import std/os
