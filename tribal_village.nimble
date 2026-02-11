@@ -10,6 +10,8 @@ requires "vmath >= 2.0.0"
 requires "chroma >= 0.2.7"
 requires "boxy"
 requires "windy"
+requires "silky >= 0.0.1"
+requires "jsony >= 1.1.5"
 
 import std/[os, strformat, strutils]
 
