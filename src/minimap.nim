@@ -9,6 +9,9 @@ import
   boxy, pixie, vmath, windy, chroma,
   common, constants, environment, semantic
 
+when defined(useSilky):
+  import silky/drawing
+
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------

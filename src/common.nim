@@ -1,10 +1,15 @@
 import
   boxy, windy, vmath
 
+when defined(useSilky):
+  import std/os
+
 # Silky UI renderer (optional - compile with -d:useSilky when available)
+# Note: We import silky but do NOT export it to avoid operator overload
+# conflicts (opengl/vmath). Modules that need silky procs should import
+# silky sub-modules directly (e.g., `from silky/drawing import nil`).
 when defined(useSilky):
   import silky
-  export silky
 else:
   # Stub types and methods when silky is not available
   import pixie
@@ -142,7 +147,6 @@ proc initRendering*(dataDir: string = "data") =
   bxy = newBoxy()
 
   when defined(useSilky):
-    import std/os
     let atlasPath = dataDir / "silky.atlas.png"
     let jsonPath = dataDir / "silky.atlas.json"
     if fileExists(atlasPath) and fileExists(jsonPath):
