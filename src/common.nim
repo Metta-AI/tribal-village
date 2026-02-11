@@ -1,9 +1,6 @@
 import
   boxy, windy, vmath, std/os
 
-when defined(useSilky):
-  import std/os
-
 # Silky UI renderer (optional - compile with -d:useSilky when available)
 # Note: We import silky but do NOT export it to avoid operator overload
 # conflicts (opengl/vmath). Modules that need silky procs should import

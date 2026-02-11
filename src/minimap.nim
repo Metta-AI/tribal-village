@@ -10,7 +10,8 @@ import
   common, constants, environment, semantic
 
 when defined(useSilky):
-  import silky/drawing
+  # Use 'from import nil' to avoid vmath operator conflicts
+  from silky/drawing import nil
 
 # ---------------------------------------------------------------------------
 # State

@@ -13,7 +13,8 @@ import
   common, environment, tooltips, semantic
 
 when defined(useSilky):
-  import silky
+  # Use 'from import nil' to avoid vmath operator conflicts
+  from silky import nil
 
 # ---------------------------------------------------------------------------
 # Types

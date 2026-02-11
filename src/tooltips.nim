@@ -15,7 +15,8 @@ import
   common, types, registry, items, constants, environment
 
 when defined(useSilky):
-  import silky
+  # Use 'from import nil' to avoid vmath operator conflicts
+  from silky import nil
 
 # ---------------------------------------------------------------------------
 # Types
