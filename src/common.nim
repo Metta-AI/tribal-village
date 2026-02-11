@@ -1,5 +1,6 @@
+import std/os
 import
-  boxy, windy, vmath
+  boxy, windy, vmath, silky
 
 import common_types
 export common_types
@@ -49,8 +50,13 @@ type
 var
   window*: Window
   rootArea*: Area
-  bxy*: Boxy
+  bxy*: Boxy           # World rendering (sprites, terrain)
+  sk*: Silky           # UI rendering (panels, buttons, HUD)
   frame*: int
+
+  # Transform stack (replaces boxy's transform management for silky)
+  transformMat*: Mat3 = mat3()
+  transformStack*: seq[Mat3]
 
 
   worldMapPanel*: Panel
@@ -97,6 +103,78 @@ var
 proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).
   window.mousePos.vec2 / window.contentScale
+
+# ─── Rendering Initialization ────────────────────────────────────────────────
+
+var silkyAtlasPath* = "data/silky.atlas.png"
+var silkyAtlasJsonPath* = "data/silky.atlas.json"
+
+proc initRendering*(dataDir: string = "data") =
+  ## Initialize both renderers: boxy for world rendering, silky for UI.
+  ## Call this after window creation but before the main loop.
+  ##
+  ## Note: Silky atlas must be pre-built. If atlas files don't exist,
+  ## only boxy will be initialized and sk will remain nil.
+  bxy = newBoxy()
+
+  let atlasPath = dataDir / "silky.atlas.png"
+  let jsonPath = dataDir / "silky.atlas.json"
+  if fileExists(atlasPath) and fileExists(jsonPath):
+    sk = newSilky(atlasPath, jsonPath)
+  else:
+    # Atlas not yet built - silky features will be unavailable
+    # Other beads handle atlas creation (tv-ek5e77)
+    discard
+
+# ─── Transform Stack (for silky UI rendering) ────────────────────────────────
+
+proc saveTransform*() =
+  ## Push the current transform onto the stack.
+  transformStack.add(transformMat)
+
+proc restoreTransform*() =
+  ## Pop a transform off the stack.
+  transformMat = transformStack.pop()
+
+proc getTransform*(): Mat3 =
+  ## Get the current transform matrix.
+  transformMat
+
+proc resetTransform*() =
+  ## Reset transform to identity and clear stack.
+  transformMat = mat3()
+  transformStack.setLen(0)
+
+proc translateTransform*(v: Vec2) =
+  ## Translate the current transform.
+  transformMat = transformMat * translate(v)
+
+proc scaleTransform*(s: Vec2) =
+  ## Scale the current transform.
+  transformMat = transformMat * scale(s)
+
+proc rotateTransform*(angle: float32) =
+  ## Rotate the current transform.
+  transformMat = transformMat * rotate(angle)
+
+proc applyTransform*(pos: Vec2): Vec2 =
+  ## Apply current transform to a position.
+  let p = transformMat * vec3(pos.x, pos.y, 1.0)
+  vec2(p.x, p.y)
+
+# ─── Frame Lifecycle ─────────────────────────────────────────────────────────
+
+proc beginFrame*(size: IVec2) =
+  ## Begin a new frame for both renderers.
+  bxy.beginFrame(size)
+  if not sk.isNil:
+    sk.beginUI(window, size)
+
+proc endFrame*() =
+  ## End the current frame for both renderers.
+  if not sk.isNil:
+    sk.endUI()
+  bxy.endFrame()
 
 # Viewport culling types and functions
 type
