@@ -6,9 +6,20 @@ when defined(useSilky):
   import silky
   export silky
 else:
-  # Stub types when silky is not available
+  # Stub types and methods when silky is not available
+  import pixie
   type Silky* = ref object
     discard
+
+  # Stub methods that do nothing - allows code to compile without silky
+  proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) = discard
+  proc drawImage*(sk: Silky, name: string, pos: Vec2, color: ColorRGBX = rgbx(255,255,255,255)) = discard
+  proc contains*(sk: Silky, name: string): bool = false
+  proc getImageSize*(sk: Silky, name: string): Vec2 = vec2(0, 0)
+  proc drawText*(sk: Silky, font, text: string, pos: Vec2, color: ColorRGBX, maxWidth: float32 = float32.high, maxHeight: float32 = float32.high): Vec2 = vec2(0, 0)
+  proc getTextSize*(sk: Silky, font, text: string): Vec2 = vec2(0, 0)
+  proc beginUI*(sk: Silky, window: Window, size: IVec2) = discard
+  proc endUI*(sk: Silky) = discard
 
 import common_types
 export common_types

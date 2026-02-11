@@ -9,8 +9,11 @@
 ## Migrated to silky rendering for proper button states and consistent UI.
 
 import
-  silky, pixie, vmath, windy,
+  pixie, vmath, windy,
   common, environment, tooltips, semantic
+
+when defined(useSilky):
+  import silky
 
 # ---------------------------------------------------------------------------
 # Types

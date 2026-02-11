@@ -10,9 +10,12 @@
 ## - Tech requirements (prerequisites, costs, effects)
 
 import
-  boxy, pixie, vmath, windy, silky, tables,
+  boxy, pixie, vmath, windy, tables,
   std/[strutils, strformat],
   common, types, registry, items, constants, environment
+
+when defined(useSilky):
+  import silky
 
 # ---------------------------------------------------------------------------
 # Types
