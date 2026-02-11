@@ -377,6 +377,10 @@ proc isResearchButtonEnabled*(kind: CommandButtonKind, building: Thing): bool =
 
 proc commandPanelRect*(panelRect: IRect): Rect =
   ## Calculate the command panel rectangle (right side, above footer).
+  ## Uses the layout system if available, falls back to calculated position.
+  if uiLayout.commandPanelArea != nil and uiLayout.commandPanelArea.rect.w > 0:
+    return uiLayout.commandPanelArea.rect
+
   let x = panelRect.x.float32 + panelRect.w.float32 - CommandPanelWidth.float32 - CommandPanelMargin.float32
   let y = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32 - MinimapSize.float32 - CommandPanelMargin.float32 * 2
   let h = MinimapSize.float32  # Same height as minimap for visual balance

@@ -55,6 +55,10 @@ proc rebuildMinimapBase() =
 
 proc minimapRect*(panelRect: IRect): Rect =
   ## Screen rectangle for the minimap (bottom-left, above footer).
+  ## Uses the layout system if available, falls back to calculated position.
+  if uiLayout.minimapArea != nil and uiLayout.minimapArea.rect.w > 0:
+    return uiLayout.minimapArea.rect
+
   let x = panelRect.x.float32 + MinimapMargin.float32
   let y = panelRect.y.float32 + panelRect.h.float32 -
           FooterHeight.float32 - MinimapMargin.float32 - MinimapSize.float32

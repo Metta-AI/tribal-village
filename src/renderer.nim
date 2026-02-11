@@ -2543,16 +2543,21 @@ proc ensureResourceBarLabel(text: string): (string, IVec2) =
 
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw the resource bar HUD at the top of the viewport.
-  let barY = panelRect.y.float32
-  let barW = panelRect.w.float32
-  let barH = ResourceBarHeight.float32
+  ## Uses the layout system if available for positioning.
+  let barRect = if uiLayout.resourceBarArea != nil and uiLayout.resourceBarArea.rect.w > 0:
+    uiLayout.resourceBarArea.rect
+  else:
+    Rect(x: panelRect.x.float32, y: panelRect.y.float32, w: panelRect.w.float32, h: ResourceBarHeight.float32)
 
-  bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: barY, w: barW, h: barH),
-               color = color(0.12, 0.16, 0.2, 0.9))
+  let barY = barRect.y
+  let barW = barRect.w
+  let barH = barRect.h
+
+  bxy.drawRect(rect = barRect, color = color(0.12, 0.16, 0.2, 0.9))
 
   let validTeamId = if teamId >= 0 and teamId < MapRoomObjectsTeams: teamId else: 0
 
-  var x = panelRect.x.float32 + ResourceBarPadding
+  var x = barRect.x + ResourceBarPadding
   # Offset content down by half bar height to avoid text clipping at viewport top
   let centerY = barY + barH
 

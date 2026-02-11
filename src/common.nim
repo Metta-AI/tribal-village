@@ -4,6 +4,9 @@ import
 import common_types
 export common_types
 
+import layout
+export layout
+
 type
   PanelType* = enum
     WorldMap
@@ -52,6 +55,8 @@ var
   bxy*: Boxy
   frame*: int
 
+  # UI Layout system - binary tree for panel positioning
+  uiLayout*: UILayout
 
   worldMapPanel*: Panel
   globalFooterPanel*: Panel
