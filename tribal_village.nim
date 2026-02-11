@@ -1038,13 +1038,28 @@ proc display() =
     var tDebrisMs: float64
     var tDustMs: float64
     var tTrailsMs: float64
+    # Effects breakdown (previously combined into tSpawnMs)
+    var tRipplesMs: float64
+    var tImpactsMs: float64
+    var tConversionMs: float64
     var tSpawnMs: float64
     var tTradeMs: float64
     var tWeatherMs: float64
     var tVisualMs: float64
     var tGridMs: float64
     var tFogMs: float64
+    # Selection breakdown
     var tSelectionMs: float64
+    var tRallyMs: float64
+    var tGhostMs: float64
+    # UI breakdown (previously combined into tUiMs)
+    var tResourceBarMs: float64
+    var tMinimapMs: float64
+    var tFooterMs: float64
+    var tInfoPanelMs: float64
+    var tCommandPanelMs: float64
+    var tTooltipMs: float64
+    var tLabelsMs: float64
     var tUiMs: float64
     var tMaskMs: float64
     var tEndFrameMs: float64
@@ -1131,8 +1146,26 @@ proc display() =
       tStart = tNow
 
   drawWaterRipples()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tRipplesMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawAttackImpacts()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tImpactsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawConversionEffects()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tConversionMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawSpawnEffects()
   when defined(renderTiming):
     if timingActive:
@@ -1179,7 +1212,18 @@ proc display() =
       tStart = tNow
 
   drawSelection()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tSelectionMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawRallyPoints()
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tRallyMs = msBetween(tStart, tNow)
+      tStart = tNow
 
   # Draw building ghost preview if in placement mode
   if buildingPlacementMode:
@@ -1213,7 +1257,7 @@ proc display() =
   when defined(renderTiming):
     if timingActive:
       tNow = getMonoTime()
-      tSelectionMs = msBetween(tStart, tNow)
+      tGhostMs = msBetween(tStart, tNow)
       tStart = tNow
 
   bxy.restoreTransform()
@@ -1223,24 +1267,66 @@ proc display() =
   restoreTransform()  # Custom transform stack for silky migration
   # Draw UI elements
   drawResourceBar(panelRectInt, playerTeam)
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tResourceBarMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   let footerButtons = buildFooterButtons(panelRectInt)
   drawMinimap(panelRectInt, worldMapPanel)
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tMinimapMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawFooter(panelRectInt, footerButtons)
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tFooterMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawUnitInfoPanel(panelRectInt)
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tInfoPanelMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawCommandPanel(panelRectInt, mousePosPx)
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tCommandPanelMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   # Update and draw tooltips (after command panel so tooltip appears on top)
   updateTooltip()
   drawTooltip(vec2(panelRectInt.w.float32, panelRectInt.h.float32))
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tTooltipMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   drawSelectionLabel(panelRectInt)
   drawStepLabel(panelRectInt)
   drawControlModeLabel(panelRectInt)
+  when defined(renderTiming):
+    if timingActive:
+      tNow = getMonoTime()
+      tLabelsMs = msBetween(tStart, tNow)
+      tStart = tNow
+
   if clearUiCapture:
     uiMouseCaptured = false
   when defined(renderTiming):
     if timingActive:
-      tNow = getMonoTime()
-      tUiMs = msBetween(tStart, tNow)
-      tStart = tNow
+      # Compute combined UI time for backwards compatibility
+      tUiMs = tResourceBarMs + tMinimapMs + tFooterMs + tInfoPanelMs +
+              tCommandPanelMs + tTooltipMs + tLabelsMs
   bxy.pushLayer()
   bxy.drawRect(rect = panelRect, color = color(1, 0, 0, 1.0))
   bxy.popLayer(blendMode = MaskBlend)
@@ -1268,8 +1354,13 @@ proc display() =
         let renderMs = msBetween(tRenderStart, tNow)
         # Sum decoration timings for backwards-compatible decor_ms
         let tDecorMs = tAgentDecorMs + tProjectilesMs + tDamageNumsMs +
-          tRagdollsMs + tDebrisMs + tDustMs + tTrailsMs + tSpawnMs +
+          tRagdollsMs + tDebrisMs + tDustMs + tTrailsMs +
+          tRipplesMs + tImpactsMs + tConversionMs + tSpawnMs +
           tTradeMs + tWeatherMs
+        # Sum effects timings for backwards-compatible spawn_combined_ms
+        let tEffectsMs = tRipplesMs + tImpactsMs + tConversionMs + tSpawnMs
+        # Sum selection timings for backwards-compatible selection_combined_ms
+        let tSelectionCombinedMs = tSelectionMs + tRallyMs + tGhostMs
         echo "frame=", frame,
           " total_ms=", totalMs,
           # Early frame phases
@@ -1293,6 +1384,11 @@ proc display() =
           " debris_ms=", tDebrisMs,
           " dust_ms=", tDustMs,
           " trails_ms=", tTrailsMs,
+          # Effects breakdown (previously grouped into spawn_ms)
+          " effects_ms=", tEffectsMs,
+          " ripples_ms=", tRipplesMs,
+          " impacts_ms=", tImpactsMs,
+          " conversion_ms=", tConversionMs,
           " spawn_ms=", tSpawnMs,
           " trade_ms=", tTradeMs,
           " weather_ms=", tWeatherMs,
@@ -1300,8 +1396,21 @@ proc display() =
           " visual_ms=", tVisualMs,
           " grid_ms=", tGridMs,
           " fog_ms=", tFogMs,
+          # Selection breakdown
+          " selection_combined_ms=", tSelectionCombinedMs,
           " selection_ms=", tSelectionMs,
+          " rally_ms=", tRallyMs,
+          " ghost_ms=", tGhostMs,
+          # UI breakdown
           " ui_ms=", tUiMs,
+          " resourcebar_ms=", tResourceBarMs,
+          " minimap_ms=", tMinimapMs,
+          " footer_ms=", tFooterMs,
+          " infopanel_ms=", tInfoPanelMs,
+          " commandpanel_ms=", tCommandPanelMs,
+          " tooltip_ms=", tTooltipMs,
+          " labels_ms=", tLabelsMs,
+          # Final phases
           " mask_ms=", tMaskMs,
           " end_ms=", tEndFrameMs,
           " swap_ms=", tSwapMs,
