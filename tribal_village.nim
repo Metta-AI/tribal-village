@@ -218,6 +218,7 @@ proc display() =
       tPhaseStart = tNow
 
   bxy.beginFrame(window.size)
+  resetTransform()  # Reset custom transform stack at frame start
 
   when defined(renderTiming):
     if timingActive:
@@ -280,10 +281,13 @@ proc display() =
 
   bxy.pushLayer()
   bxy.saveTransform()
+  saveTransform()  # Custom transform stack for silky migration
   bxy.translate(vec2(panelRect.x, panelRect.y))
+  translateTransform(vec2(panelRect.x, panelRect.y))  # Keep custom stack in sync
 
   # Pan and zoom handling
   bxy.saveTransform()
+  saveTransform()  # Custom transform stack for silky migration
 
   let scaleVal = window.contentScale
   let logicalRect = Rect(
@@ -383,8 +387,10 @@ proc display() =
   # Update screen shake for combat feedback
   updateScreenShake()
   bxy.translate((worldMapPanel.pos + screenShakeOffset) * scaleF)
+  translateTransform((worldMapPanel.pos + screenShakeOffset) * scaleF)  # Keep custom stack in sync
   let zoomScaled = worldMapPanel.zoom * worldMapPanel.zoom * scaleF
   bxy.scale(vec2(zoomScaled, zoomScaled))
+  scaleTransform(vec2(zoomScaled, zoomScaled))  # Keep custom stack in sync
 
   # Update viewport bounds for culling (before any rendering)
   updateViewport(worldMapPanel, panelRectInt, MapWidth, MapHeight, scaleF)
@@ -613,7 +619,7 @@ proc display() =
   if not blockSelection:
     if window.buttonPressed[MouseLeft]:
       mouseDownPos = logicalMousePos(window)
-      dragStartWorld = bxy.getTransform().inverse * window.mousePos.vec2
+      dragStartWorld = getTransform().inverse * window.mousePos.vec2
       isDragging = false
 
     if window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
@@ -624,7 +630,7 @@ proc display() =
     if window.buttonReleased[MouseLeft]:
       if isDragging:
         # Drag-box multi-select: find all agents within the rectangle
-        let dragEndWorld = bxy.getTransform().inverse * window.mousePos.vec2
+        let dragEndWorld = getTransform().inverse * window.mousePos.vec2
         let minX = min(dragStartWorld.x, dragEndWorld.x)
         let maxX = max(dragStartWorld.x, dragEndWorld.x)
         let minY = min(dragStartWorld.y, dragEndWorld.y)
@@ -654,7 +660,7 @@ proc display() =
         # Click select (existing behavior)
         selection = @[]
         let
-          mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+          mousePos = getTransform().inverse * window.mousePos.vec2
           gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
         if gridPos.x >= 0 and gridPos.x < MapWidth and
            gridPos.y >= 0 and gridPos.y < MapHeight:
@@ -681,7 +687,7 @@ proc display() =
     # Right-click command handling (AoE2-style)
     if window.buttonPressed[MouseRight] and selection.len > 0 and playerTeam >= 0:
       let
-        mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+        mousePos = getTransform().inverse * window.mousePos.vec2
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < MapWidth and
          gridPos.y >= 0 and gridPos.y < MapHeight:
@@ -932,7 +938,7 @@ proc display() =
 
   # Building placement click handling
   if buildingPlacementMode and window.buttonPressed[MouseLeft] and not blockSelection:
-    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let mousePos = getTransform().inverse * window.mousePos.vec2
     let gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
     if canPlaceBuildingAt(gridPos, buildingPlacementKind) and playerTeam >= 0:
       # Place the building (using a villager if available)
@@ -949,7 +955,7 @@ proc display() =
 
   # Rally point mode click handling
   if rallyPointMode and window.buttonPressed[MouseLeft] and not blockSelection:
-    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let mousePos = getTransform().inverse * window.mousePos.vec2
     let gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
     if gridPos.x >= 0 and gridPos.x < MapWidth and
        gridPos.y >= 0 and gridPos.y < MapHeight:
@@ -1177,18 +1183,18 @@ proc display() =
 
   # Draw building ghost preview if in placement mode
   if buildingPlacementMode:
-    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let mousePos = getTransform().inverse * window.mousePos.vec2
     drawBuildingGhost(mousePos)
 
   # Draw rally point preview if in rally point mode
   if rallyPointMode and selection.len == 1 and isBuildingKind(selection[0].kind):
-    let mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+    let mousePos = getTransform().inverse * window.mousePos.vec2
     let buildingPos = selection[0].pos.vec2
     drawRallyPointPreview(buildingPos, mousePos)
 
   # Draw drag-box selection rectangle
   if isDragging and window.buttonDown[MouseLeft]:
-    let dragEndWorld = bxy.getTransform().inverse * window.mousePos.vec2
+    let dragEndWorld = getTransform().inverse * window.mousePos.vec2
     let minX = min(dragStartWorld.x, dragEndWorld.x)
     let maxX = max(dragStartWorld.x, dragEndWorld.x)
     let minY = min(dragStartWorld.y, dragEndWorld.y)
@@ -1211,8 +1217,10 @@ proc display() =
       tStart = tNow
 
   bxy.restoreTransform()
+  restoreTransform()  # Custom transform stack for silky migration
 
   bxy.restoreTransform()
+  restoreTransform()  # Custom transform stack for silky migration
   # Draw UI elements
   drawResourceBar(panelRectInt, playerTeam)
   let footerButtons = buildFooterButtons(panelRectInt)
