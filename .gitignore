@@ -18,6 +18,7 @@ src/tribal/tribal
 # Nim compiled binaries (executables without extension)
 src/tribal/environment
 src/tribal/renderer
+scripts/build_atlas
 src/tribal/clippy
 src/tribal/placement
 src/tribal/terrain

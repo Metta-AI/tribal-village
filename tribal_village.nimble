@@ -27,6 +27,9 @@ task buildLib, "Build shared library for PufferLib (nimby-friendly)":
 task run, "Run the tribal village game":
   exec "nim c -r tribal_village.nim"
 
+task buildAtlas, "Build silky texture atlas":
+  exec "nim c -r scripts/build_atlas.nim"
+
 task lib, "Build shared library for PufferLib (alias for buildLib)":
   let ext = when defined(windows): "dll"
             elif defined(macosx): "dylib"
