@@ -936,8 +936,13 @@ proc disembarkAgent*(env: Environment, agent: Thing) =
   applyUnitClass(env, agent, target)
 {.pop.}
 
+# Forward declaration - implementation in tint.nim (included below)
+proc ensureTintColors*(env: Environment) {.inline.}
+
 proc scoreTerritory*(env: Environment): TerritoryScore =
   ## Compute territory ownership by nearest tint color (teams + clippy).
+  ## Ensures tint colors are up-to-date before scoring.
+  env.ensureTintColors()
   var score: TerritoryScore
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:

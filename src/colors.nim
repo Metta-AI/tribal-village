@@ -129,12 +129,11 @@ proc combinedTileTint*(env: Environment, x, y: int): TileColor =
   )
 
 proc isTileFrozen*(pos: IVec2, env: Environment): bool {.inline.} =
+  ## Check if a tile is frozen (covered by clippy/tumor tint).
+  ## Uses cached frozen state updated during tint modifications for O(1) lookup.
   if not isValidPos(pos):
     return false
-  let color = combinedTileTint(env, pos.x, pos.y)
-  return abs(color.r - ClippyTint.r) <= ClippyTintTolerance and
-    abs(color.g - ClippyTint.g) <= ClippyTintTolerance and
-    abs(color.b - ClippyTint.b) <= ClippyTintTolerance
+  env.frozenTiles[pos.x][pos.y]
 
 proc isThingFrozen*(thing: Thing, env: Environment): bool {.inline.} =
   ## Anything explicitly frozen or sitting on a frozen tile counts as non-interactable.

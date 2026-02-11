@@ -7,6 +7,13 @@ const
   DecayShift = 16
   InvTintStrengthScale = 1.0'f32 / 80000.0'f32  # Pre-computed reciprocal of TintStrengthScale
   TumorIncrementBase = 30.0'f32
+  # Threshold for frozen state: tumor must dominate with sufficient intensity
+  # Derived from ClippyTintTolerance (0.06) and typical biome base colors.
+  # For combined.b >= 1.14 (within tolerance of ClippyTint.b=1.20), need α >= 0.95.
+  # α = strength / 80000, so need strength >= 76000.
+  # Tumor must also dominate (5x) to keep overlay color close to ClippyTint.
+  FrozenTumorDominanceRatio = 5.0'f32  # tumorStrength must be 5x teamStrength
+  FrozenMinIntensity = 76000'i32  # Minimum total strength for frozen state (95% of max)
 
 var tintSortBuf: seq[IVec2]  # Reusable buffer for counting sort
 
@@ -22,6 +29,18 @@ template markStepDirty(env: Environment, tileX, tileY: int) =
   if not env.stepDirtyFlags[tileX][tileY]:
     env.stepDirtyFlags[tileX][tileY] = true
     env.stepDirtyPositions.add(ivec2(tileX, tileY))
+
+template updateFrozenState(env: Environment, tileX, tileY: int) =
+  ## Update cached frozen state for a tile based on tumor vs team strength ratio.
+  ## A tile is frozen when tumor tint dominates strongly enough to shift combined
+  ## color toward ClippyTint. This avoids expensive RGB computation in isTileFrozen.
+  let tumorStr = env.tumorStrength[tileX][tileY]
+  let teamStr = env.tintStrength[tileX][tileY]
+  let totalStr = tumorStr + teamStr
+  # Frozen requires: sufficient intensity AND tumor dominates
+  env.frozenTiles[tileX][tileY] =
+    totalStr >= FrozenMinIntensity and
+    tumorStr.float32 > teamStr.float32 * FrozenTumorDominanceRatio
 
 proc countingSortByX(positions: var seq[IVec2]) =
   ## O(n) sort by X coordinate using counting sort. Much faster than
@@ -44,7 +63,9 @@ proc countingSortByX(positions: var seq[IVec2]) =
   swap(positions, tintSortBuf)
 
 proc updateTintModifications(env: Environment) =
-  ## Update unified tint modification array based on entity positions - runs every frame
+  ## Update unified tint modification array based on entity positions - runs every frame.
+  ## Also maintains frozen tile cache for O(1) isTileFrozen lookups.
+  ## Does NOT compute RGB colors - use ensureTintColors() before rendering/scoring.
   # Adaptive epsilon: cull weaker trails when active tile count is high
   let tileCount = env.activeTiles.positions.len
   let epsilon =
@@ -71,8 +92,9 @@ proc updateTintModifications(env: Environment) =
     if abs(decayedStrength) < epsilon:
       env.tintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tintStrength[tileX][tileY] = 0
-      env.computedTintColors[tileX][tileY] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
       env.activeTiles.flags[tileX][tileY] = false
+      # Update frozen state when team tint is cleared
+      updateFrozenState(env, tileX, tileY)
       # If tile has tumor tint, mark dirty so tumor pass does full recompute
       if env.tumorActiveTiles.flags[tileX][tileY]:
         markStepDirty(env, tileX, tileY)
@@ -108,12 +130,16 @@ proc updateTintModifications(env: Environment) =
       env.tumorTintMods[tileX][tileY] = TintModification(r: 0'i32, g: 0'i32, b: 0'i32)
       env.tumorStrength[tileX][tileY] = 0
       env.tumorActiveTiles.flags[tileX][tileY] = false
+      # Update frozen state when tumor tint is cleared
+      updateFrozenState(env, tileX, tileY)
       # If tile has agent tint, mark dirty so agent pass does full recompute
       if env.activeTiles.flags[tileX][tileY]:
         markStepDirty(env, tileX, tileY)
       continue
     env.tumorTintMods[tileX][tileY] = TintModification(r: decayedR, g: g, b: b)
     env.tumorStrength[tileX][tileY] = decayedStrength
+    # Update frozen state after tumor decay
+    updateFrozenState(env, tileX, tileY)
     env.tumorActiveTiles.positions[writeIdx] = pos
     inc writeIdx
   env.tumorActiveTiles.positions.setLen(writeIdx)
@@ -141,6 +167,8 @@ proc updateTintModifications(env: Environment) =
         env.tintMods[tileX][tileY].r = min(MaxTintAccum, env.tintMods[tileX][tileY].r + int32(color.r * strength.float32))
         env.tintMods[tileX][tileY].g = min(MaxTintAccum, env.tintMods[tileX][tileY].g + int32(color.g * strength.float32))
         env.tintMods[tileX][tileY].b = min(MaxTintAccum, env.tintMods[tileX][tileY].b + int32(color.b * strength.float32))
+        # Update frozen state when team tint changes
+        updateFrozenState(env, tileX, tileY)
 
   # Process only tint-relevant entity kinds (Agent, Lantern, Tumor) using
   # thingsByKind instead of iterating all env.things (skips ~7000 irrelevant things)
@@ -207,6 +235,11 @@ proc updateTintModifications(env: Environment) =
         safeTintAdd(env.tumorTintMods[tileX][tileY].r, int(ClippyTint.r * strength))
         safeTintAdd(env.tumorTintMods[tileX][tileY].g, int(ClippyTint.g * strength))
         safeTintAdd(env.tumorTintMods[tileX][tileY].b, int(ClippyTint.b * strength))
+        # Update frozen state when tumor tint added
+        updateFrozenState(env, tileX, tileY)
+
+  # Mark tint colors as needing recomputation (lazy evaluation)
+  env.tintColorsDirty = true
 
 proc computeTileColor(env: Environment, tileX, tileY: int): TileColor =
   ## Compute the tint color for a single tile based on combined tint modifications
@@ -235,8 +268,8 @@ proc computeTileColor(env: Environment, tileX, tileY: int): TileColor =
   let clampedB = min(1.2'f32, max(0.0'f32, bTint.float32 * invStrength))
   TileColor(r: clampedR, g: clampedG, b: clampedB, intensity: alpha)
 
-proc applyTintModifications(env: Environment) =
-  ## Apply tint modifications to computed colors.
+proc applyTintModificationsImpl(env: Environment) =
+  ## Internal: apply tint modifications to computed colors.
   ## Uses counting sort for O(n) cache-friendly ordering by X coordinate.
   ## Tiles that only underwent decay skip float division (RGB ratios unchanged).
   countingSortByX(env.activeTiles.positions)
@@ -279,3 +312,18 @@ proc applyTintModifications(env: Environment) =
   for pos in env.stepDirtyPositions:
     env.stepDirtyFlags[pos.x.int][pos.y.int] = false
   env.stepDirtyPositions.setLen(0)
+
+  # Clear dirty flag
+  env.tintColorsDirty = false
+
+proc ensureTintColors*(env: Environment) {.inline.} =
+  ## Ensure computedTintColors is up-to-date (lazy rebuild if dirty).
+  ## Call this before accessing computedTintColors for rendering or territory scoring.
+  ## Skip in headless/training mode where only frozen state matters.
+  if env.tintColorsDirty:
+    applyTintModificationsImpl(env)
+
+proc applyTintModifications*(env: Environment) =
+  ## Legacy wrapper - use ensureTintColors for new code.
+  ## Kept for backwards compatibility.
+  ensureTintColors(env)

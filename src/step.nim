@@ -2331,10 +2331,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     fgSubsystems[9] = usBetween(fgStart, fgNow)  # survival
     fgStart = fgNow
 
-  # Update heatmap using batch tint modification system
-  # This is much more efficient than updating during each entity move
-  env.updateTintModifications()  # Collect all entity contributions
-  env.applyTintModifications()   # Apply them to the main color array in one pass
+  # Update tint modifications and frozen tile cache
+  # RGB color computation is deferred (lazy) until rendering or territory scoring.
+  # Only frozen state is computed eagerly for game logic (isTileFrozen).
+  env.updateTintModifications()  # Collect entity contributions, update frozen cache
 
   # Mark observations as dirty for lazy rebuilding
   # This replaces the previous approach of rebuilding every step. Now we only

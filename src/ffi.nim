@@ -195,6 +195,8 @@ proc tribal_village_render_rgb(
   out_w: int32,
   out_h: int32
 ): int32 {.exportc, dynlib.} =
+  # Ensure tint colors are up-to-date before rendering
+  globalEnv.ensureTintColors()
   proc thingTintBytes(thing: Thing): tuple[r, g, b: uint8] =
     if isBuildingKind(thing.kind):
       let tint = BuildingRegistry[thing.kind].renderColor

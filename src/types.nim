@@ -1319,6 +1319,8 @@ type
     tumorActiveTiles*: ActiveTiles  # Sparse list of tiles touched by tumors
     stepDirtyFlags*: array[MapWidth, array[MapHeight, bool]]  # Tiles modified by entity contributions this step
     stepDirtyPositions*: seq[IVec2]  # Position list for clearing stepDirtyFlags
+    frozenTiles*: array[MapWidth, array[MapHeight, bool]]  # Cached frozen state (avoids recomputing combinedTileTint)
+    tintColorsDirty*: bool  # True when computedTintColors needs rebuilding (lazy computation)
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
     actionTintFlags*: ActionTintFlags

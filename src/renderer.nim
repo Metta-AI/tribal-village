@@ -506,6 +506,8 @@ proc rebuildRenderCaches() =
 proc drawFloor*() =
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
+  # Ensure tint colors are computed (lazy evaluation from step)
+  env.ensureTintColors()
   # Draw the floor tiles everywhere first as the base layer
   # Use viewport culling to skip off-screen tiles
   let ambient = getAmbientLight()
