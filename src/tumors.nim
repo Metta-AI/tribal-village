@@ -27,14 +27,26 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
                        stepRng: var Rand) =
   ## Process tumor branching and add all newly spawned tumors to the environment.
   ## Handles both spawner-created tumors (newTumorsToSpawn) and branch tumors.
+  ## Staggered: only 1/TumorProcessStagger tumors checked for branching each step.
   # Use arena buffer for temporary collection (reuses pre-allocated capacity)
   var newTumorBranches = addr env.arena.things3
   newTumorBranches[].setLen(0)
+
+  # Stagger processing: only check 1/N tumors per step for branching
+  let staggerBucket = env.currentStep mod TumorProcessStagger
+  var tumorIdx = 0
 
   for tumor in tumorsToProcess:
     if env.getThing(tumor.pos) != tumor:
       continue
     tumor.turnsAlive += 1
+
+    # Stagger: only check this tumor for branching every N steps
+    let inBucket = (tumorIdx mod TumorProcessStagger) == staggerBucket
+    tumorIdx += 1
+    if not inBucket:
+      continue
+
     if tumor.turnsAlive < TumorBranchMinAge:
       continue
 
