@@ -2622,7 +2622,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let validTeamId = if teamId >= 0 and teamId < MapRoomObjectsTeams: teamId else: 0
 
   var x = barRect.x + ResourceBarPadding
-  # Offset content down by half bar height to avoid text clipping at viewport top
+  # Center content vertically within the bar
   let centerY = barY + barH * 0.5
 
   # Team color swatch (16x16) - using silky for UI rect
