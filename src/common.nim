@@ -52,6 +52,9 @@ var
   bxy*: Boxy
   frame*: int
 
+  # Transform stack for silky migration (silky has no built-in transform management)
+  transformMat*: Mat3 = mat3()
+  transformStack*: seq[Mat3]
 
   worldMapPanel*: Panel
   globalFooterPanel*: Panel
@@ -280,3 +283,39 @@ proc applyAmbient*(baseR, baseG, baseB, baseI: float32, ambient: AmbientLight): 
     b: min(1.5'f32, baseB * ambient.b),
     i: baseI * ambient.intensity
   )
+
+# ─── Transform Stack (silky migration) ────────────────────────────────────────
+
+proc saveTransform*() =
+  ## Push current transform onto stack for later restoration.
+  transformStack.add(transformMat)
+
+proc restoreTransform*() =
+  ## Pop and restore the last saved transform from the stack.
+  transformMat = transformStack.pop()
+
+proc getTransform*(): Mat3 =
+  ## Get the current transform matrix.
+  transformMat
+
+proc resetTransform*() =
+  ## Reset transform to identity and clear the stack.
+  transformMat = mat3()
+  transformStack.setLen(0)
+
+proc translateTransform*(v: Vec2) =
+  ## Apply a translation to the current transform.
+  transformMat = transformMat * translate(v)
+
+proc scaleTransform*(s: Vec2) =
+  ## Apply a scale to the current transform.
+  transformMat = transformMat * scale(s)
+
+proc rotateTransform*(angle: float32) =
+  ## Apply a rotation to the current transform.
+  transformMat = transformMat * rotate(angle)
+
+proc applyTransform*(pos: Vec2): Vec2 =
+  ## Apply current transform to a position.
+  let p = transformMat * vec3(pos.x, pos.y, 1.0)
+  vec2(p.x, p.y)
