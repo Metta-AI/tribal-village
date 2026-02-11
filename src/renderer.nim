@@ -2623,7 +2623,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
   var x = barRect.x + ResourceBarPadding
   # Offset content down by half bar height to avoid text clipping at viewport top
-  let centerY = barY + barH
+  let centerY = barY + barH * 0.5
 
   # Team color swatch (16x16) - using silky for UI rect
   let swatchSize = 16.0'f32
