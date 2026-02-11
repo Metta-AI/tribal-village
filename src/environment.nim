@@ -2645,6 +2645,7 @@ const
   TumorBranchMinAge = DefaultTumorBranchMinAge
   TumorBranchChance = DefaultTumorBranchChance
   TumorAdjacencyDeathChance = DefaultTumorAdjacencyDeathChance
+  TumorProcessStagger* = 4  ## Process 1/N tumors per step for branching (perf optimization)
 
 let TumorBranchOffsets = block:
   var offsets: seq[IVec2] = @[]
