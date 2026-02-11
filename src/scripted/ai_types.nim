@@ -17,6 +17,7 @@ const
   MaxThreatEntries* = 64  # Max threats tracked per team
   # Damaged building cache
   MaxDamagedBuildingsPerTeam* = 32  # Max damaged buildings tracked per team
+  MaxUnlitBuildingsPerTeam* = 64    # Max unlit buildings tracked per team for lantern placement
   # Command queue for shift-queue functionality
   MaxCommandQueueSize* = 8  # Max queued commands per agent
 
@@ -221,6 +222,10 @@ type
     damagedBuildingCacheStep*: int
     damagedBuildingPositions*: array[MapRoomObjectsTeams, array[MaxDamagedBuildingsPerTeam, IVec2]]
     damagedBuildingCounts*: array[MapRoomObjectsTeams, int]
+    # Per-step cache for unlit buildings - avoids redundant O(buildings*lanterns) scans
+    unlitBuildingCacheStep*: array[MapRoomObjectsTeams, int]
+    unlitBuildingPositions*: array[MapRoomObjectsTeams, array[MaxUnlitBuildingsPerTeam, IVec2]]
+    unlitBuildingCounts*: array[MapRoomObjectsTeams, int]
     # Fog of war optimization: track last position where fog was revealed per agent
     # Skip redundant fog updates when agent hasn't moved
     fogLastRevealPos*: array[MapAgents, IVec2]

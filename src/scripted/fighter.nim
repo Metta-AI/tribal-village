@@ -673,6 +673,42 @@ proc shouldTerminateFighterLanterns(controller: Controller, env: Environment, ag
   ## Terminate when agent has no lanterns and isn't a villager (can't craft more)
   agent.inventoryLantern == 0 and agent.unitClass != UnitVillager
 
+# Building kinds that need lanterns - shared between cache refresh and optFighterLanterns
+const LanternBuildingKinds* = [Outpost, GuardTower, TownCenter, House, Barracks, ArcheryRange,
+  Stable, SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock, Monastery,
+  University, Castle, Granary, LumberCamp, Quarry, MiningCamp, Mill, WeavingLoom,
+  ClayOven, Altar, Wall]
+
+proc refreshUnlitBuildingCache(controller: Controller, env: Environment, teamId: int) =
+  ## Refresh the per-team unlit building cache if stale.
+  ## Called once per step per team, caches all unlit building positions.
+  ## Requires env.tempLanternSpacing to be populated with team lanterns first.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return
+  if controller.unlitBuildingCacheStep[teamId] == env.currentStep:
+    return  # Cache is fresh for this team this step
+  controller.unlitBuildingCacheStep[teamId] = env.currentStep
+  controller.unlitBuildingCounts[teamId] = 0
+
+  # Helper to check if position has a lantern nearby (uses pre-populated tempLanternSpacing)
+  proc hasLanternNear(env: Environment, pos: IVec2): bool =
+    for lantern in env.tempLanternSpacing:
+      if chebyshevDist(lantern.pos, pos) <= 3:
+        return true
+    return false
+
+  # Collect all unlit buildings for this team
+  for kind in LanternBuildingKinds:
+    for thing in env.thingsByKind[kind]:
+      if thing.isNil or thing.teamId != teamId:
+        continue
+      if hasLanternNear(env, thing.pos):
+        continue
+      # Found an unlit building - add to cache
+      if controller.unlitBuildingCounts[teamId] < MaxUnlitBuildingsPerTeam:
+        controller.unlitBuildingPositions[teamId][controller.unlitBuildingCounts[teamId]] = thing.pos
+        controller.unlitBuildingCounts[teamId] += 1
+
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
@@ -705,18 +741,22 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
         break
     found
 
-  # Optimized: iterate specific building kinds via thingsByKind instead of all env.things
-  const LanternBuildingKinds = [Outpost, GuardTower, TownCenter, House, Barracks, ArcheryRange,
-    Stable, SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock, Monastery,
-    University, Castle, Granary, LumberCamp, Quarry, MiningCamp, Mill, WeavingLoom,
-    ClayOven, Altar, Wall]
-  for kind in LanternBuildingKinds:
-    for thing in env.thingsByKind[kind]:
+  # Use per-team-per-step cache of unlit building positions instead of iterating all buildings.
+  # This reduces O(buildings * lanterns) per agent to O(cached_unlit * lanterns) for verification.
+  refreshUnlitBuildingCache(controller, env, teamId)
+
+  # Find closest unlit building from cache (verify still unlit - lantern may have been placed this step)
+  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+    for i in 0 ..< controller.unlitBuildingCounts[teamId]:
+      let pos = controller.unlitBuildingPositions[teamId][i]
+      # Verify position still has a building (may have been destroyed)
+      let thing = env.getThing(pos)
       if thing.isNil or thing.teamId != teamId:
         continue
-      if hasLanternNearCached(thing.pos):
+      # Verify still unlit (lantern may have been placed since cache was built)
+      if hasLanternNearCached(pos):
         continue
-      let dist = abs(thing.pos.x - agent.pos.x).int + abs(thing.pos.y - agent.pos.y).int
+      let dist = abs(pos.x - agent.pos.x).int + abs(pos.y - agent.pos.y).int
       if dist < bestUnlitDist:
         bestUnlitDist = dist
         unlit = thing
