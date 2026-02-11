@@ -11,7 +11,7 @@ import
 
 when defined(useSilky):
   # Use 'from import nil' to avoid vmath operator conflicts
-  from silky/drawing import nil
+  import silky
 
 # ---------------------------------------------------------------------------
 # State
@@ -158,7 +158,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
   when defined(useSilky):
     let borderColor = rgbx(38, 38, 38, 242)  # color(0.15, 0.15, 0.15, 0.95)
     if not sk.isNil:
-      sk.drawRect(borderPos, borderSize, borderColor)
+      sk.drawRect( borderPos, borderSize, borderColor)
     else:
       bxy.drawRect(rect = Rect(x: borderPos.x, y: borderPos.y, w: borderSize.x, h: borderSize.y),
                    color = color(0.15, 0.15, 0.15, 0.95))
@@ -210,13 +210,13 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
       let vpColorRgbx = rgbx(255, 255, 255, uint8(MinimapViewportAlpha * 255))
       if not sk.isNil:
         # Top
-        sk.drawRect(vec2(clLeft, clTop), vec2(clRight - clLeft, lineW), vpColorRgbx)
+        sk.drawRect( vec2(clLeft, clTop), vec2(clRight - clLeft, lineW), vpColorRgbx)
         # Bottom
-        sk.drawRect(vec2(clLeft, clBottom - lineW), vec2(clRight - clLeft, lineW), vpColorRgbx)
+        sk.drawRect( vec2(clLeft, clBottom - lineW), vec2(clRight - clLeft, lineW), vpColorRgbx)
         # Left
-        sk.drawRect(vec2(clLeft, clTop), vec2(lineW, clBottom - clTop), vpColorRgbx)
+        sk.drawRect( vec2(clLeft, clTop), vec2(lineW, clBottom - clTop), vpColorRgbx)
         # Right
-        sk.drawRect(vec2(clRight - lineW, clTop), vec2(lineW, clBottom - clTop), vpColorRgbx)
+        sk.drawRect( vec2(clRight - lineW, clTop), vec2(lineW, clBottom - clTop), vpColorRgbx)
       else:
         let vpColor = color(1, 1, 1, MinimapViewportAlpha)
         bxy.drawRect(rect = Rect(x: clLeft, y: clTop, w: clRight - clLeft, h: lineW), color = vpColor)

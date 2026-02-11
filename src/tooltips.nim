@@ -16,7 +16,7 @@ import
 
 when defined(useSilky):
   # Use 'from import nil' to avoid vmath operator conflicts
-  from silky import nil
+  import silky
 
 # ---------------------------------------------------------------------------
 # Types
@@ -646,19 +646,30 @@ proc drawTooltip*(screenSize: Vec2) =
   let pos = positionTooltip(tooltipState.anchorRect, size, screenSize)
 
   # Draw background using silky (when available) for consistent UI rendering
-  if not sk.isNil:
-    # Border (outer rect)
-    sk.drawRect(
-      vec2(pos.x - 2, pos.y - 2),
-      vec2(size.x + 4, size.y + 4),
-      colorToRgbx(TooltipBorderColor)
-    )
-    # Background (inner rect)
-    sk.drawRect(
-      pos,
-      size,
-      colorToRgbx(TooltipBgColor)
-    )
+  when defined(useSilky):
+    if not sk.isNil:
+      # Border (outer rect)
+      sk.drawRect(
+        vec2(pos.x - 2, pos.y - 2),
+        vec2(size.x + 4, size.y + 4),
+        colorToRgbx(TooltipBorderColor)
+      )
+      # Background (inner rect)
+      sk.drawRect(
+        pos,
+        size,
+        colorToRgbx(TooltipBgColor)
+      )
+    else:
+      # Fallback to boxy if silky not initialized
+      bxy.drawRect(
+        rect = Rect(x: pos.x - 2, y: pos.y - 2, w: size.x + 4, h: size.y + 4),
+        color = TooltipBorderColor
+      )
+      bxy.drawRect(
+        rect = Rect(x: pos.x, y: pos.y, w: size.x, h: size.y),
+        color = TooltipBgColor
+      )
   else:
     # Fallback to boxy if silky not initialized
     bxy.drawRect(

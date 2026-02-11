@@ -14,7 +14,7 @@ import
 
 when defined(useSilky):
   # Use 'from import nil' to avoid vmath operator conflicts
-  from silky import nil
+  import silky
 
 # ---------------------------------------------------------------------------
 # Types
@@ -465,12 +465,12 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   capturePanel("CommandPanel", vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h))
 
   # Draw panel background with border
-  sk.drawRect(
+  sk.drawRect( 
     vec2(cpRect.x - 2, cpRect.y - 2),
     vec2(cpRect.w + 4, cpRect.h + 4),
     UiBg.toRGBX
   )
-  sk.drawRect(vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h), CommandPanelBgColor.toRGBX)
+  sk.drawRect( vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h), CommandPanelBgColor.toRGBX)
 
   # Draw header label
   let headerText = if selection.len == 1:
@@ -483,10 +483,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   else:
     "Commands (" & $selection.len & ")"
 
-  let headerSize = sk.getTextSize(CommandLabelFont, headerText)
+  let headerSize = sk.getTextSize( CommandLabelFont, headerText)
   let headerX = cpRect.x + (cpRect.w - headerSize.x) * 0.5
   let headerY = cpRect.y + 4
-  discard sk.drawText(CommandLabelFont, headerText, vec2(headerX, headerY), UiFgBright.toRGBX)
+  discard sk.drawText( CommandLabelFont, headerText, vec2(headerX, headerY), UiFgBright.toRGBX)
   captureLabel(headerText, vec2(headerX, headerY), headerSize)
 
   # Build and draw buttons
@@ -514,26 +514,26 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
     else:
       CommandButtonBgColor
 
-    sk.drawRect(vec2(button.rect.x, button.rect.y), vec2(button.rect.w, button.rect.h), bgColor.toRGBX)
+    sk.drawRect( vec2(button.rect.x, button.rect.y), vec2(button.rect.w, button.rect.h), bgColor.toRGBX)
 
     # Draw button border
     let borderColor = if hovered: UiBorderBright else: UiBorder
     let bw = 1.0'f32
     # Top border
-    sk.drawRect(vec2(button.rect.x, button.rect.y), vec2(button.rect.w, bw), borderColor.toRGBX)
+    sk.drawRect( vec2(button.rect.x, button.rect.y), vec2(button.rect.w, bw), borderColor.toRGBX)
     # Bottom border
-    sk.drawRect(vec2(button.rect.x, button.rect.y + button.rect.h - bw), vec2(button.rect.w, bw), borderColor.toRGBX)
+    sk.drawRect( vec2(button.rect.x, button.rect.y + button.rect.h - bw), vec2(button.rect.w, bw), borderColor.toRGBX)
     # Left border
-    sk.drawRect(vec2(button.rect.x, button.rect.y), vec2(bw, button.rect.h), borderColor.toRGBX)
+    sk.drawRect( vec2(button.rect.x, button.rect.y), vec2(bw, button.rect.h), borderColor.toRGBX)
     # Right border
-    sk.drawRect(vec2(button.rect.x + button.rect.w - bw, button.rect.y), vec2(bw, button.rect.h), borderColor.toRGBX)
+    sk.drawRect( vec2(button.rect.x + button.rect.w - bw, button.rect.y), vec2(bw, button.rect.h), borderColor.toRGBX)
 
     # Draw label centered
-    let labelSize = sk.getTextSize(CommandLabelFont, button.label)
+    let labelSize = sk.getTextSize( CommandLabelFont, button.label)
     let labelX = button.rect.x + (button.rect.w - labelSize.x) * 0.5
     let labelY = button.rect.y + (button.rect.h - labelSize.y) * 0.5
     let labelColor = if button.enabled: UiFgText else: UiFgDim
-    discard sk.drawText(CommandLabelFont, button.label, vec2(labelX, labelY), labelColor.toRGBX)
+    discard sk.drawText( CommandLabelFont, button.label, vec2(labelX, labelY), labelColor.toRGBX)
 
     # Semantic capture: command button
     captureButton(button.label, vec2(button.rect.x, button.rect.y),
@@ -541,10 +541,10 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
     # Draw hotkey in corner
     if button.hotkey.len > 0:
-      let hotkeySize = sk.getTextSize(CommandHotkeyFont, button.hotkey)
+      let hotkeySize = sk.getTextSize( CommandHotkeyFont, button.hotkey)
       let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x - 2
       let hotkeyY = button.rect.y + 2
-      discard sk.drawText(CommandHotkeyFont, button.hotkey, vec2(hotkeyX, hotkeyY), UiFgMuted.toRGBX)
+      discard sk.drawText( CommandHotkeyFont, button.hotkey, vec2(hotkeyX, hotkeyY), UiFgMuted.toRGBX)
 
     # Draw checkmark for researched techs (disabled research buttons)
     if not button.enabled and button.kind in {CmdResearchMeleeAttack, CmdResearchArcherAttack,
@@ -556,7 +556,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
       # Draw a green checkmark indicator in the top-left corner
       let checkX = button.rect.x + 2
       let checkY = button.rect.y + 2
-      discard sk.drawText(CommandHotkeyFont, "OK", vec2(checkX, checkY), UiSuccess.toRGBX)
+      discard sk.drawText( CommandHotkeyFont, "OK", vec2(checkX, checkY), UiSuccess.toRGBX)
 
   # Clear tooltip if no button is hovered
   if not anyButtonHovered:
