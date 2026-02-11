@@ -1317,6 +1317,8 @@ type
     tumorTintMods*: array[MapWidth, array[MapHeight, TintModification]]  # Persistent tumor tint contributions
     tumorStrength*: array[MapWidth, array[MapHeight, int32]]  # Tumor tint strength accumulation
     tumorActiveTiles*: ActiveTiles  # Sparse list of tiles touched by tumors
+    stepDirtyFlags*: array[MapWidth, array[MapHeight, bool]]  # Tiles modified by entity contributions this step
+    stepDirtyPositions*: seq[IVec2]  # Position list for clearing stepDirtyFlags
     actionTintCountdown*: ActionTintCountdown  # Short-lived combat/heal highlights
     actionTintColor*: ActionTintColor
     actionTintFlags*: ActionTintFlags

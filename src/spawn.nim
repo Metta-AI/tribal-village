@@ -208,6 +208,8 @@ proc initState(env: Environment) =
   env.activeTiles.flags.clear()
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags.clear()
+  env.stepDirtyPositions.setLen(0)
+  env.stepDirtyFlags.clear()
   env.tumorTintMods.clear()
   env.tintStrength.clear()
   env.tumorStrength.clear()

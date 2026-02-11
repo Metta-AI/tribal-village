@@ -2630,6 +2630,8 @@ proc reset*(env: Environment) =
   env.tumorStrength.clear()
   env.tumorActiveTiles.positions.setLen(0)
   env.tumorActiveTiles.flags.clear()
+  env.stepDirtyPositions.setLen(0)
+  env.stepDirtyFlags.clear()
   env.resetVisualEffects()
   # Reset herd/pack tracking
   env.cowHerdCounts.setLen(0)
