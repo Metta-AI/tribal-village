@@ -102,6 +102,9 @@ worldMapPanel = Panel(panelType: WorldMap, name: "World Map")
 rootArea.areas.add(Area(layout: Horizontal))
 rootArea.panels.add(worldMapPanel)
 
+# Initialize the UI layout system
+uiLayout = createDefaultLayout()
+
 let mapCenter = vec2(
   (MapWidth.float32 - 1.0'f32) / 2.0'f32,
   (MapHeight.float32 - 1.0'f32) / 2.0'f32
@@ -231,6 +234,18 @@ proc display() =
       sub.rect = area.rect
       updateArea(sub)
   updateArea(rootArea)
+
+  # Update UI layout system for current window size
+  updateLayout(
+    uiLayout,
+    window.size.x.float32,
+    window.size.y.float32,
+    MinimapSize.float32,
+    CommandPanelWidth.float32,
+    ResourceBarHeight.float32,
+    FooterHeight.float32,
+    MinimapMargin.float32
+  )
 
   let panelRectInt = worldMapPanel.rect
   let panelRect = Rect(

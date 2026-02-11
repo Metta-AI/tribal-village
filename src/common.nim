@@ -4,6 +4,9 @@ import
 import common_types
 export common_types
 
+import layout
+export layout
+
 type
   PanelType* = enum
     WorldMap
@@ -55,6 +58,9 @@ var
   # Transform stack for silky migration (silky has no built-in transform management)
   transformMat*: Mat3 = mat3()
   transformStack*: seq[Mat3]
+
+  # UI Layout system - binary tree for panel positioning
+  uiLayout*: UILayout
 
   worldMapPanel*: Panel
   globalFooterPanel*: Panel
