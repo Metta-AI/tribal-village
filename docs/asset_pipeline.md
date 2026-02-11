@@ -81,46 +81,83 @@ Previews render a 3x3 grid with a sprite column to verify orientation and edge a
 - Cliff overlays commonly use **200x200** sprites.
 - Oriented sprites live in `data/oriented/` and follow `{dir}` naming.
 
-## Missing Asset Audit (2026-01-27)
+## Asset Audit (Updated 2026-02-11)
 
-### Oriented Sprites (Incomplete Direction Sets)
+### Status: All Assets Present
 
-| Entity | Status | Bead |
-|--------|--------|------|
-| Bear | Has 2 directions (.png/.r.png), needs 8 | tv-wisp-oip8 |
-| Wolf | Has 2 directions (.png/.r.png), needs 8 | tv-wisp-ihxq |
-| Cow | Has 2 directions (.png/.r.png), needs 8 | tv-wisp-nt7q |
+**522 PNG sprites** covering all game entities. Zero missing, zero orphaned.
 
-**Note:** Bear and wolf sprites added in e705cca are REAL distinct sprites (not placeholders
-or recolored cows). They just use 2-direction format instead of full 8-direction set.
+Previous issues (bear/wolf/cow 2-direction, mud.png, shallow_water.png) are all resolved.
 
-All other oriented unit sprites (gatherer, builder, fighter, man_at_arms, archer, scout,
-knight, monk, battering_ram, mangonel, boat, goblin, tumor) have complete 8-direction sets.
+### UnitClassSpriteKeys — Upgrade Unit Sprites
 
-### Terrain Sprites
+As of 2026-02-11, all 23 upgrade-tier units use their own dedicated sprites in
+`UnitClassSpriteKeys` (renderer.nim). Previously they fell back to base-tier sprites.
 
-| Terrain | Status | Bead |
-|---------|--------|------|
-| Mud | Missing mud.png | tv-vopua |
-| ShallowWater | Missing registry entry (code fix) | tv-gdlaj |
+| Upgrade Chain | Units with Dedicated Sprites |
+|---|---|
+| Infantry | man_at_arms -> long_swordsman -> champion |
+| Cavalry | scout -> light_cavalry -> hussar |
+| Archer | archer -> crossbowman -> arbalester |
+| Heavy Cavalry | knight -> cavalier -> paladin |
+| Camel | camel -> heavy_camel -> imperial_camel |
+| Ranged | skirmisher -> elite_skirmisher |
+| Mounted Ranged | cavalry_archer -> heavy_cavalry_archer |
+| Gunpowder | janissary, hand_cannoneer |
+| Siege | mangonel, scorpion |
+| Naval | boat, galley, fire_ship, fishing_ship, transport_ship, demo_ship, cannon_galleon |
 
-**Note:** ShallowWater can use tinting of existing water sprite rather than a new asset.
+All sprites have 8 directional variants (n/s/e/w/ne/nw/se/sw).
+
+### Art Quality Notes
+
+When generating new unit sprites or updating existing ones:
+
+1. **Upgrade tiers should look visually distinct.** Each upgrade sprite should show
+   progression (heavier armor, different weapons, more ornate gear). Verify by comparing
+   the base and upgrade sprites side-by-side.
+2. **Orientation consistency matters.** All 8 directions for a unit should be consistent
+   in pose, equipment, and color palette. Use the preview sheet to verify.
+3. **Team tinting compatibility.** Sprites should have neutral/white highlights that
+   accept team color tinting via the `tint` parameter in `bxy.drawImage()`.
+
+### Sprite Coverage by Category
+
+| Category | Count | Status |
+|---|---|---|
+| Base unit sprites (8 dirs each) | 21 types = 168 files | Complete |
+| Upgrade unit sprites (8 dirs each) | 23 types = 184 files | Complete |
+| Unique unit sprites (civ-specific) | 9 types = 72 files | Complete |
+| Villager roles (gatherer/builder/fighter) | 3 types = 24 files | Complete |
+| Animals (bear/wolf/cow, 8 dirs) | 3 types = 24 files | Complete |
+| Buildings | 27 types = 27 files | Complete |
+| Terrain | 10 types = 10 files | Complete |
+| Items/Resources | 15 types = 15 files | Complete |
+| Walls (oriented, 17 configs) | 18 files | Complete |
+| Cliffs (edges + corners) | 12 files | Complete |
+| Tumors (active + expired, 4 dirs) | 8 files | Complete |
+| Trebuchet (packed + unpacked, 8 dirs) | 16 files | Complete |
+| UI controls | 6 files | Complete |
+| **Total** | **522 PNG files** | **Complete** |
 
 ### Finding Missing Assets
 
 To audit assets vs code definitions:
 
 ```bash
-# List all entity kinds in code
-grep -E "^\s+\w+$" src/types.nim | head -60
+# List all oriented sprite bases
+ls data/oriented/*.n.png | sed 's/.*oriented\///' | sed 's/\.n\.png//' | sort
 
-# List entities with oriented spriteKeys in registry
+# List sprite keys referenced in registry
 grep 'oriented/' src/registry.nim
 
-# List existing oriented sprites
-ls data/oriented/*.png | sort
+# Check UnitClassSpriteKeys mapping
+grep -A50 'UnitClassSpriteKeys' src/renderer.nim
 
-# Cross-reference to find gaps
+# Cross-reference: count per-unit direction files
+for unit in $(ls data/oriented/*.n.png | sed 's/.*oriented\///' | sed 's/\.n\.png//'); do
+  echo "$unit: $(ls data/oriented/${unit}.*.png | wc -l) files"
+done
 ```
 
 ## Authentication Setup

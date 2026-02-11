@@ -133,29 +133,29 @@ const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
   "oriented/mameluke",             # UnitMameluke
   "oriented/janissary",            # UnitJanissary
   "oriented/king",                 # UnitKing
-  "oriented/man_at_arms",          # UnitLongSwordsman
-  "oriented/man_at_arms",          # UnitChampion
-  "oriented/scout",                # UnitLightCavalry
-  "oriented/scout",                # UnitHussar
-  "oriented/archer",               # UnitCrossbowman
-  "oriented/archer",               # UnitArbalester
-  "oriented/boat",                 # UnitGalley (uses boat sprite)
-  "oriented/boat",                 # UnitFireShip (uses boat sprite)
-  "oriented/boat",                 # UnitFishingShip (uses boat sprite)
-  "oriented/boat",                 # UnitTransportShip (uses boat sprite)
-  "oriented/boat",                 # UnitDemoShip (uses boat sprite)
-  "oriented/boat",                 # UnitCannonGalleon (uses boat sprite)
-  "oriented/mangonel",             # UnitScorpion (uses mangonel sprite)
-  "oriented/knight",               # UnitCavalier (uses knight sprite)
-  "oriented/knight",               # UnitPaladin (uses knight sprite)
-  "oriented/cataphract",           # UnitCamel (uses cataphract sprite)
-  "oriented/cataphract",           # UnitHeavyCamel (uses cataphract sprite)
-  "oriented/cataphract",           # UnitImperialCamel (uses cataphract sprite)
-  "oriented/archer",               # UnitSkirmisher (uses archer sprite)
-  "oriented/archer",               # UnitEliteSkirmisher (uses archer sprite)
-  "oriented/archer",               # UnitCavalryArcher (uses archer sprite)
-  "oriented/archer",               # UnitHeavyCavalryArcher (uses archer sprite)
-  "oriented/janissary",            # UnitHandCannoneer (uses janissary sprite)
+  "oriented/long_swordsman",       # UnitLongSwordsman
+  "oriented/champion",             # UnitChampion
+  "oriented/light_cavalry",        # UnitLightCavalry
+  "oriented/hussar",               # UnitHussar
+  "oriented/crossbowman",          # UnitCrossbowman
+  "oriented/arbalester",           # UnitArbalester
+  "oriented/galley",               # UnitGalley
+  "oriented/fire_ship",            # UnitFireShip
+  "oriented/fishing_ship",         # UnitFishingShip
+  "oriented/transport_ship",       # UnitTransportShip
+  "oriented/demo_ship",            # UnitDemoShip
+  "oriented/cannon_galleon",       # UnitCannonGalleon
+  "oriented/scorpion",             # UnitScorpion
+  "oriented/cavalier",             # UnitCavalier
+  "oriented/paladin",              # UnitPaladin
+  "oriented/camel",                # UnitCamel
+  "oriented/heavy_camel",          # UnitHeavyCamel
+  "oriented/imperial_camel",       # UnitImperialCamel
+  "oriented/skirmisher",           # UnitSkirmisher
+  "oriented/elite_skirmisher",     # UnitEliteSkirmisher
+  "oriented/cavalry_archer",       # UnitCavalryArcher
+  "oriented/heavy_cavalry_archer", # UnitHeavyCavalryArcher
+  "oriented/hand_cannoneer",       # UnitHandCannoneer
 ]
 
 const CliffDrawOrder = [
