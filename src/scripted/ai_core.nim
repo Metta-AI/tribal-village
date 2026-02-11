@@ -1226,16 +1226,19 @@ proc tryPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
     let endY = min(MapHeight - 1, agent.pos.y + 8)
     let ax = agent.pos.x.int
     let ay = agent.pos.y.int
-    for x in startX..endX:
-      for y in startY..endY:
-        if env.terrain[x][y] != TerrainType.Fertile:
-          continue
-        let candPos = ivec2(x.int32, y.int32)
-        if env.isEmpty(candPos) and isNil(env.getBackgroundThing(candPos)) and not env.hasDoor(candPos):
-          let dist = abs(x - ax) + abs(y - ay)
-          if dist < minDist:
-            minDist = dist
-            fertilePos = candPos
+    block search:
+      for x in startX..endX:
+        for y in startY..endY:
+          if env.terrain[x][y] != TerrainType.Fertile:
+            continue
+          let candPos = ivec2(x.int32, y.int32)
+          if env.isEmpty(candPos) and isNil(env.getBackgroundThing(candPos)) and not env.hasDoor(candPos):
+            let dist = abs(x - ax) + abs(y - ay)
+            if dist < minDist:
+              minDist = dist
+              fertilePos = candPos
+              if minDist <= 1:
+                break search  # Adjacent fertile tile found, can plant immediately
     if fertilePos.x >= 0:
       if max(abs(fertilePos.x - agent.pos.x), abs(fertilePos.y - agent.pos.y)) == 1'i32:
         let dirIdx = neighborDirIndex(agent.pos, fertilePos)
