@@ -1,3 +1,92 @@
+# ---------------------------------------------------------------------------
+# FlatUIColors Palette (matching mettascope)
+# ---------------------------------------------------------------------------
+# The best color palette - Flat UI colors for consistent theming across the UI.
+# See: https://flatuicolors.com/
+
+const
+  # Primary colors
+  Turquoise*   = parseHtmlColor("#1abc9c").color  ## Turquoise
+  Teal*        = parseHtmlColor("#16a085").color  ## Green Sea
+  Green*       = parseHtmlColor("#2ecc71").color  ## Emerald
+  DarkGreen*   = parseHtmlColor("#27ae60").color  ## Nephritis
+  Blue*        = parseHtmlColor("#3498db").color  ## Peter River
+  DarkBlue*    = parseHtmlColor("#2980b9").color  ## Belize Hole
+  Purple*      = parseHtmlColor("#9b59b6").color  ## Amethyst
+  DarkPurple*  = parseHtmlColor("#8e44ad").color  ## Wisteria
+
+  # Neutrals (dark theme base)
+  Slate*       = parseHtmlColor("#34495e").color  ## Wet Asphalt
+  MidnightBlue* = parseHtmlColor("#2c3e50").color ## Midnight Blue
+
+  # Warm accent colors
+  Yellow*      = parseHtmlColor("#f1c40f").color  ## Sun Flower
+  Orange*      = parseHtmlColor("#f39c12").color  ## Orange
+  DarkOrange*  = parseHtmlColor("#e67e22").color  ## Carrot
+  Pumpkin*     = parseHtmlColor("#d35400").color  ## Pumpkin
+  Red*         = parseHtmlColor("#e74c3c").color  ## Alizarin
+  DarkRed*     = parseHtmlColor("#c0392b").color  ## Pomegranate
+
+  # Light neutrals
+  Cloud*       = parseHtmlColor("#ecf0f1").color  ## Clouds
+  Silver*      = parseHtmlColor("#bdc3c7").color  ## Silver
+  Gray*        = parseHtmlColor("#95a5a6").color  ## Concrete
+  DarkGray*    = parseHtmlColor("#7f8c8d").color  ## Asbestos
+
+# ---------------------------------------------------------------------------
+# UIColors - Semantic mapping for UI components
+# ---------------------------------------------------------------------------
+# Maps FlatUIColors to UI purposes for consistent theming.
+# Use these instead of hardcoded colors in UI code.
+
+const
+  # Panel backgrounds
+  UiBg*         = color(0.08, 0.10, 0.14, 0.95)   ## Main panel background (near MidnightBlue)
+  UiBgHeader*   = color(0.15, 0.19, 0.25, 0.95)   ## Header/footer background (Slate-based)
+  UiBgButton*   = color(0.20, 0.24, 0.28, 0.90)   ## Button background
+  UiBgButtonHover* = color(0.28, 0.32, 0.38, 0.95) ## Button hover state
+  UiBgButtonDisabled* = color(0.15, 0.18, 0.22, 0.70) ## Button disabled state
+  UiBgButtonActive* = color(0.20, 0.50, 0.70, 0.95) ## Button active/pressed state
+
+  # Text colors
+  UiFgText*     = color(0.90, 0.90, 0.90, 1.0)    ## Primary text
+  UiFgBright*   = color(1.0, 0.9, 0.7, 1.0)       ## Highlight text (titles, emphasis)
+  UiFgDim*      = color(0.60, 0.65, 0.70, 1.0)    ## Dimmed/disabled text
+  UiFgMuted*    = color(0.50, 0.55, 0.60, 1.0)    ## Very muted text
+
+  # Border colors
+  UiBorder*     = color(0.30, 0.35, 0.40, 0.80)   ## Standard border
+  UiBorderBright* = color(0.50, 0.60, 0.70, 0.80) ## Highlighted border (hover)
+
+  # Semantic colors (status indicators)
+  UiSuccess*    = color(0.18, 0.80, 0.44, 1.0)    ## Success/positive (Green-based)
+  UiWarning*    = color(0.95, 0.77, 0.06, 1.0)    ## Warning (Yellow-based)
+  UiDanger*     = color(0.91, 0.30, 0.24, 1.0)    ## Error/danger (Red-based)
+  UiInfo*       = color(0.20, 0.60, 0.86, 1.0)    ## Info/neutral (Blue-based)
+
+  # Tooltip-specific colors
+  UiTooltipBg*  = color(0.08, 0.10, 0.14, 0.95)   ## Tooltip background
+  UiTooltipBorder* = color(0.30, 0.35, 0.40, 0.80) ## Tooltip border
+  UiTooltipTitle* = color(1.0, 0.9, 0.7, 1.0)     ## Tooltip title
+  UiTooltipText* = color(0.90, 0.90, 0.90, 1.0)   ## Tooltip body text
+  UiTooltipCost* = color(0.70, 0.85, 1.0, 1.0)    ## Tooltip cost lines
+  UiTooltipHotkey* = color(0.60, 0.80, 0.60, 1.0) ## Tooltip hotkey hints
+  UiTooltipRequirement* = color(1.0, 0.70, 0.50, 1.0) ## Tooltip requirements
+
+  # Health bar colors
+  UiHealthHigh* = color(0.10, 0.80, 0.10, 1.0)    ## Health > 50%
+  UiHealthMid*  = color(0.90, 0.70, 0.10, 1.0)    ## Health 25-50%
+  UiHealthLow*  = color(0.90, 0.20, 0.10, 1.0)    ## Health < 25%
+  UiHealthBg*   = color(0.20, 0.20, 0.20, 0.90)   ## Health bar background
+
+  # Selection/highlight colors
+  UiSelection*  = color(0.20, 0.90, 0.20, 1.0)    ## Selection highlight
+  UiHover*      = color(0.30, 0.70, 0.90, 0.80)   ## Hover highlight
+
+# ---------------------------------------------------------------------------
+# Team Colors (game-specific)
+# ---------------------------------------------------------------------------
+
 const WarmTeamPalette* = [
   # Eight bright, evenly spaced tints (similar brightness, varied hue; away from clippy purple)
   color(0.910, 0.420, 0.420, 1.0),  # team 0: soft red        (#e86b6b)
