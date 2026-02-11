@@ -1352,11 +1352,13 @@ type
     cowHerdSumY*: seq[int]
     cowHerdDrift*: seq[IVec2]
     cowHerdTargets*: seq[IVec2]
+    cowHerdCenters*: seq[IVec2]  # Precomputed herd centers for movement loops
     wolfPackCounts*: seq[int]
     wolfPackSumX*: seq[int]
     wolfPackSumY*: seq[int]
     wolfPackDrift*: seq[IVec2]
     wolfPackTargets*: seq[IVec2]
+    wolfPackCenters*: seq[IVec2]  # Precomputed pack centers for movement loops
     wolfPackLeaders*: seq[Thing]  # Leader wolf for each pack (nil if dead)
     shieldCountdown*: array[MapAgents, int8]  # shield active timer per agent
     territoryScore*: TerritoryScore

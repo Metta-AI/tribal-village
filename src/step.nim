@@ -2113,24 +2113,17 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           if agent.homeAltar == thing.pos:
             env.rewards[agent.agentId] += perAgentReward
 
-  for thing in env.thingsByKind[Magma]:
-    if thing.cooldown > 0:
-      dec thing.cooldown
-
+  # Mill: cooldown + fertility + farm queue (complex logic, separate loop)
   for thing in env.thingsByKind[Mill]:
     if thing.cooldown > 0:
       thing.cooldown -= 1
     else:
       env.applyFertileRadius(thing.pos, max(0, buildingFertileRadius(thing.kind)))
       thing.cooldown = MillFertileCooldown
-    # Process farm auto-reseed queue (AoE2-style)
     if thing.farmQueue.len > 0:
       discard env.tryAutoReseedFarm(thing)
 
-  for thing in env.thingsByKind[Temple]:
-    if thing.cooldown > 0:
-      dec thing.cooldown
-
+  # Monastery: relic gold generation (complex logic, separate loop)
   for thing in env.thingsByKind[Monastery]:
     if thing.garrisonedRelics > 0:
       if thing.cooldown > 0:
@@ -2146,43 +2139,45 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
     else:
       if thing.cooldown > 0:
         dec thing.cooldown
+    # Training queue for Monastery (no cooldown - handled above)
+    if thing.constructed:
+      thing.processProductionQueue()
 
-  # Wonder victory is handled by checkVictoryConditions() via victory.nim
-
-  # Production/craft buildings and economy tech buildings: cooldown-only buildings
-  for kind in [ClayOven, WeavingLoom, Blacksmith, Market, LumberCamp, MiningCamp, Quarry, TownCenter]:
+  # Cooldown-only buildings: consolidated single loop for better instruction cache efficiency
+  # Includes: Magma, Temple, economy tech buildings (ClayOven, WeavingLoom, Blacksmith, Market),
+  # and drop-off buildings (LumberCamp, MiningCamp, Quarry, TownCenter)
+  for kind in [Magma, Temple, ClayOven, WeavingLoom, Blacksmith, Market, LumberCamp, MiningCamp, Quarry, TownCenter]:
     for thing in env.thingsByKind[kind]:
       if thing.cooldown > 0:
         dec thing.cooldown
 
-  # Production buildings with training queues
-  # Note: Monastery cooldown is handled in its dedicated relic gold loop above
-  for kind in [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Monastery, Castle, Dock]:
+  # Production buildings with training queues (cooldown + queue processing)
+  # Monastery excluded - handled above with relic gold logic
+  for kind in [Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop, Castle, Dock]:
     for thing in env.thingsByKind[kind]:
-      if kind != Monastery:
-        if thing.cooldown > 0:
-          dec thing.cooldown
+      if thing.cooldown > 0:
+        dec thing.cooldown
       if thing.constructed:
         thing.processProductionQueue()
 
+  # Hoist tower removal check outside loops for efficiency
+  let hasTowerRemovals = env.tempTowerRemovals.len > 0
+
   # Spawners: check tempTowerRemovals since towers can target spawners
   for thing in env.thingsByKind[Spawner]:
-    if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
+    if hasTowerRemovals and thing in env.tempTowerRemovals:
       continue
     if thing.cooldown > 0:
       thing.cooldown -= 1
     else:
       let nearbyTumorCount = countUnclaimedTumorsInRangeSpatial(env, thing.pos, 5)
-
       if nearbyTumorCount < MaxTumorsPerSpawner:
         let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
         if spawnPos.x >= 0:
-
           let newTumor = createTumor(env, spawnPos, thing.pos, stepRng)
           env.tempTumorsToSpawn.add(newTumor)
           when defined(tumorAudit):
             recordTumorSpawned()
-
           let cooldown = if env.config.tumorSpawnRate > 0.0:
             max(1, int(TumorSpawnCooldownBase / env.config.tumorSpawnRate))
           else:
@@ -2200,14 +2195,14 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
   # Tumor collection: check tempTowerRemovals since towers can target tumors
   for thing in env.thingsByKind[Tumor]:
-    if env.tempTowerRemovals.len > 0 and thing in env.tempTowerRemovals:
+    if hasTowerRemovals and thing in env.tempTowerRemovals:
       continue
     if not thing.hasClaimedTerritory:
       env.tempTumorsToProcess.add(thing)
 
   # Pop cap clamping already done in pre-computation at step start
 
-  if env.tempTowerRemovals.len > 0:
+  if hasTowerRemovals:
     for target in env.tempTowerRemovals:
       removeThing(env, target)
 

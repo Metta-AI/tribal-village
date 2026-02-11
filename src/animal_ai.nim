@@ -116,8 +116,10 @@ proc stepAnimalAI*(env: Environment, rng: var Rand) =
       env.cowHerdSumY.setLen(newLen)
       env.cowHerdDrift.setLen(newLen)
       env.cowHerdTargets.setLen(newLen)
+      env.cowHerdCenters.setLen(newLen)
       for i in oldLen ..< newLen:
         env.cowHerdTargets[i] = ivec2(-1, -1)
+        env.cowHerdCenters[i] = ivec2(0, 0)
     env.cowHerdCounts[herd] += 1
     env.cowHerdSumX[herd] += thing.pos.x.int
     env.cowHerdSumY[herd] += thing.pos.y.int
@@ -135,8 +137,10 @@ proc stepAnimalAI*(env: Environment, rng: var Rand) =
       env.wolfPackSumY.setLen(newLen)
       env.wolfPackDrift.setLen(newLen)
       env.wolfPackTargets.setLen(newLen)
+      env.wolfPackCenters.setLen(newLen)
       for i in oldLen ..< newLen:
         env.wolfPackTargets[i] = ivec2(-1, -1)
+        env.wolfPackCenters[i] = ivec2(0, 0)
     env.wolfPackCounts[pack] += 1
     env.wolfPackSumX[pack] += thing.pos.x.int
     env.wolfPackSumY[pack] += thing.pos.y.int
@@ -145,27 +149,34 @@ proc stepAnimalAI*(env: Environment, rng: var Rand) =
   # Update Herd/Pack Targets and Drifts
   # -------------------------------------------------------------------------
 
-  # Cow herds: wander toward map corners
+  # Precompute herd/pack centers and update drift/targets
+  # This avoids recomputing centers for every animal in the movement loops
+
+  # Cow herds: compute centers and wander toward map corners
   for herdId in 0 ..< env.cowHerdCounts.len:
     if env.cowHerdCounts[herdId] <= 0:
       env.cowHerdDrift[herdId] = ivec2(0, 0)
+      env.cowHerdCenters[herdId] = ivec2(0, 0)
       continue
     let herdAccCount = max(1, env.cowHerdCounts[herdId])
     let center = ivec2((env.cowHerdSumX[herdId] div herdAccCount).int32,
                        (env.cowHerdSumY[herdId] div herdAccCount).int32)
+    env.cowHerdCenters[herdId] = center
     let target = env.cowHerdTargets[herdId]
     if needsNewCornerTarget(center, target):
       env.cowHerdTargets[herdId] = selectNewCornerTarget(center, target, rng)
     env.cowHerdDrift[herdId] = stepToward(center, env.cowHerdTargets[herdId])
 
-  # Wolf packs: hunt targets or wander toward corners
+  # Wolf packs: compute centers and hunt targets or wander toward corners
   for packId in 0 ..< env.wolfPackCounts.len:
     if env.wolfPackCounts[packId] <= 0:
       env.wolfPackDrift[packId] = ivec2(0, 0)
+      env.wolfPackCenters[packId] = ivec2(0, 0)
       continue
     let packAccCount = max(1, env.wolfPackCounts[packId])
     let center = ivec2((env.wolfPackSumX[packId] div packAccCount).int32,
                        (env.wolfPackSumY[packId] div packAccCount).int32)
+    env.wolfPackCenters[packId] = center
     let huntTarget = findNearestPredatorTargetSpatial(env, center, WolfPackAggroRadius)
     if huntTarget.x >= 0:
       env.wolfPackTargets[packId] = huntTarget
@@ -174,15 +185,13 @@ proc stepAnimalAI*(env: Environment, rng: var Rand) =
     env.wolfPackDrift[packId] = stepToward(center, env.wolfPackTargets[packId])
 
   # -------------------------------------------------------------------------
-  # Cow Movement
+  # Cow Movement (uses precomputed centers from above)
   # -------------------------------------------------------------------------
   for thing in env.thingsByKind[Cow]:
     if thing.cooldown > 0:
       thing.cooldown -= 1
     let herd = thing.herdId
-    let herdAccCount = max(1, env.cowHerdCounts[herd])
-    let center = ivec2((env.cowHerdSumX[herd] div herdAccCount).int32,
-                       (env.cowHerdSumY[herd] div herdAccCount).int32)
+    let center = env.cowHerdCenters[herd]  # Use precomputed center
     let drift = env.cowHerdDrift[herd]
     let herdTarget = if drift.x != 0 or drift.y != 0:
       center + drift * 3
@@ -201,7 +210,7 @@ proc stepAnimalAI*(env: Environment, rng: var Rand) =
     env.tryMoveWildlife(thing, desired)
 
   # -------------------------------------------------------------------------
-  # Wolf Movement
+  # Wolf Movement (uses precomputed centers from above)
   # -------------------------------------------------------------------------
   for thing in env.thingsByKind[Wolf]:
     if thing.cooldown > 0:
@@ -217,9 +226,7 @@ proc stepAnimalAI*(env: Environment, rng: var Rand) =
       continue
 
     let pack = thing.packId
-    let packAccCount = max(1, env.wolfPackCounts[pack])
-    let center = ivec2((env.wolfPackSumX[pack] div packAccCount).int32,
-                       (env.wolfPackSumY[pack] div packAccCount).int32)
+    let center = env.wolfPackCenters[pack]  # Use precomputed center
     let packTarget = env.wolfPackTargets[pack]
     let drift = env.wolfPackDrift[pack]
     let distFromCenter = max(abs(center.x - thing.pos.x), abs(center.y - thing.pos.y))
