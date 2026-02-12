@@ -6,8 +6,9 @@ import vmath
 import ../entropy
 import ../types
 import ../environment
+import cache_wrapper
 
-export IVec2, Rand, types, heapqueue, environment
+export IVec2, Rand, types, heapqueue, environment, cache_wrapper
 
 const
   MaxPathNodes* = 512     # Slightly more than 250 exploration limit
@@ -237,6 +238,8 @@ type
     # Team-level economy focus: bias all gatherers toward a specific resource
     teamEconomyFocus*: array[MapRoomObjectsTeams, StockpileResource]
     teamEconomyFocusActive*: array[MapRoomObjectsTeams, bool]
+    # Per-agent lifecycle tracking for coordinated state cleanup
+    agentLifecycle*: AgentStateLifecycle
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
   ## Create a default difficulty configuration for the given level.
@@ -279,6 +282,158 @@ proc newController*(seed: int): Controller =
   for agentId in 0 ..< MapAgents:
     result.fogLastRevealPos[agentId] = ivec2(-1, -1)
     result.fogLastRevealStep[agentId] = 0
+  # Initialize agent lifecycle tracking
+  result.agentLifecycle.init()
+
+# -----------------------------------------------------------------------------
+# Agent State Lifecycle Management
+# -----------------------------------------------------------------------------
+
+proc resetAgentState*(state: var AgentState) =
+  ## Reset all fields of an AgentState to default values.
+  ## Called when an agent dies, despawns, or needs full state reset.
+  ## Provides coordinated cleanup instead of scattered manual resets.
+  state.role = Gatherer
+  state.roleId = 0
+  state.activeOptionId = -1
+  state.activeOptionTicks = 0
+  state.gathererTask = TaskFood
+  state.fighterEnemyAgentId = -1
+  state.fighterEnemyStep = 0
+  # Spiral search state
+  state.spiralStepsInArc = 0
+  state.spiralArcsCompleted = 0
+  state.spiralClockwise = false
+  state.basePosition = ivec2(-1, -1)
+  state.lastSearchPosition = ivec2(-1, -1)
+  # Anti-oscillation state
+  state.lastPosition = ivec2(-1, -1)
+  for i in 0 ..< state.recentPositions.len:
+    state.recentPositions[i] = ivec2(-1, -1)
+  state.recentPosIndex = 0
+  state.recentPosCount = 0
+  state.escapeMode = false
+  state.escapeStepsRemaining = 0
+  state.escapeDirection = ivec2(0, 0)
+  state.lastActionVerb = 0
+  state.lastActionArg = 0
+  state.blockedMoveDir = -1
+  state.blockedMoveSteps = 0
+  # Cached positions
+  for kind in ThingKind:
+    state.cachedThingPos[kind] = ivec2(-1, -1)
+    state.cachedThingStep[kind] = 0
+  state.cachedWaterPos = ivec2(-1, -1)
+  state.cachedWaterStep = 0
+  state.closestFoodPos = ivec2(-1, -1)
+  state.closestWoodPos = ivec2(-1, -1)
+  state.closestStonePos = ivec2(-1, -1)
+  state.closestGoldPos = ivec2(-1, -1)
+  state.closestWaterPos = ivec2(-1, -1)
+  state.closestMagmaPos = ivec2(-1, -1)
+  # Build state
+  state.buildTarget = ivec2(-1, -1)
+  state.buildStand = ivec2(-1, -1)
+  state.buildIndex = -1
+  state.buildLockSteps = 0
+  # Planned path state
+  state.plannedTarget = ivec2(-1, -1)
+  state.plannedPath = @[]
+  state.plannedPathIndex = 0
+  state.pathBlockedTarget = ivec2(-1, -1)
+  # Patrol state (legacy 2-point)
+  state.patrolPoint1 = ivec2(-1, -1)
+  state.patrolPoint2 = ivec2(-1, -1)
+  state.patrolToSecondPoint = false
+  state.patrolActive = false
+  # Multi-waypoint patrol state
+  for i in 0 ..< state.patrolWaypoints.len:
+    state.patrolWaypoints[i] = ivec2(-1, -1)
+  state.patrolWaypointCount = 0
+  state.patrolCurrentWaypoint = 0
+  # Attack-move state
+  state.attackMoveTarget = ivec2(-1, -1)
+  # Scout state
+  state.scoutExploreRadius = 0
+  state.scoutLastEnemySeenStep = 0
+  state.scoutActive = false
+  # Hold position state
+  state.holdPositionActive = false
+  state.holdPositionTarget = ivec2(-1, -1)
+  # Follow state
+  state.followTargetAgentId = -1
+  state.followActive = false
+  # Guard state
+  state.guardTargetAgentId = -1
+  state.guardTargetPos = ivec2(-1, -1)
+  state.guardActive = false
+  # Stop state
+  state.stoppedActive = false
+  state.stoppedUntilStep = 0
+  # Pending stance
+  state.pendingStance = StanceAggressive
+  state.stanceModified = false
+  # Gatherer priority
+  state.gathererPriorityResource = ResourceNone
+  state.gathererPriorityActive = false
+  # Command queue
+  state.commandQueueCount = 0
+
+proc resetControllerCaches*(controller: Controller, currentStep: int) =
+  ## Reset per-step caches at the start of a new step.
+  ## Uses generation-counter approach where possible to avoid O(n) clears.
+  ## This provides explicit lifecycle management for step-based caches.
+
+  # Invalidate building counts cache (force recomputation)
+  if controller.buildingCountsStep != currentStep:
+    controller.buildingCountsStep = -1
+
+  # Invalidate team population counts cache
+  if controller.teamPopCountsStep != currentStep:
+    controller.teamPopCountsStep = -1
+
+  # Invalidate damaged building cache
+  if controller.damagedBuildingCacheStep != currentStep:
+    controller.damagedBuildingCacheStep = -1
+
+  # Invalidate ally threat caches for all teams
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    if controller.allyThreatCacheStep[teamId] != currentStep:
+      controller.allyThreatCacheStep[teamId] = -1
+    if controller.unlitBuildingCacheStep[teamId] != currentStep:
+      controller.unlitBuildingCacheStep[teamId] = -1
+
+  # Increment pathfinding cache generation for O(1) invalidation
+  inc controller.pathCache.generation
+
+  # Clear claimed buildings for the new step
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    controller.claimedBuildings[teamId] = {}
+
+proc cleanupAgentState*(controller: Controller, agentId: int) =
+  ## Cleanup agent state when agent dies or despawns.
+  ## Resets the agent's state and marks them as inactive in lifecycle tracking.
+  if agentId < 0 or agentId >= MapAgents:
+    return
+  controller.agents[agentId].resetAgentState()
+  controller.agentsInitialized[agentId] = false
+  controller.agentLifecycle.markInactive(agentId)
+
+proc markAgentActive*(controller: Controller, agentId: int, currentStep: int32) =
+  ## Mark an agent as active and track their lifecycle.
+  ## Called when processing an agent's turn.
+  if agentId < 0 or agentId >= MapAgents:
+    return
+  controller.agentLifecycle.markActive(agentId, currentStep)
+
+proc processAgentCleanup*(controller: Controller): seq[int] =
+  ## Process any pending agent cleanups and return list of cleaned agent IDs.
+  ## Call this at the end of a step to clean up agents that died during the step.
+  result = controller.agentLifecycle.getAgentsNeedingCleanup()
+  for agentId in result:
+    controller.agents[agentId].resetAgentState()
+    controller.agentsInitialized[agentId] = false
+    controller.agentLifecycle.clearCleanupFlag(agentId)
 
 # -----------------------------------------------------------------------------
 # Environment-aware lazy initialization pattern
