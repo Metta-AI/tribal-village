@@ -6,9 +6,11 @@ import vmath
 import ../environment, ../common_types, ../terrain
 import ai_types
 import coordination
+import memoization
 
 # Re-export modules so downstream importers get full environment/AI type access
 export ai_types, environment, common_types, terrain, coordination, entropy
+export memoization
 
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
