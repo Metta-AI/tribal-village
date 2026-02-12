@@ -5,7 +5,8 @@
 ## Prints periodic combat reports to console every N steps.
 
 when defined(combatAudit):
-  import std/[strutils, tables, algorithm, os]
+  import std/[strutils, tables, algorithm]
+  import envconfig
 
   type
     CombatEventKind* = enum

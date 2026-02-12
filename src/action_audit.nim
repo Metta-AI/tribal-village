@@ -5,7 +5,10 @@
 ## Prints periodic aggregate reports every N steps.
 
 when defined(actionAudit):
-  import std/[strutils, os]
+  import std/strutils
+  import envconfig
+  import common_types
+  import types
 
   const
     VerbCount = ActionVerbCount  # 11 verbs (0-10)

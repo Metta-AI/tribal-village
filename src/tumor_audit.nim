@@ -7,7 +7,9 @@
 ## Included by environment.nim — types, items, spatial_index, strutils, os are in scope.
 
 when defined(tumorAudit):
-  import std/[strutils, os]
+  import std/strutils
+  import envconfig
+  import types
 
   type
     TumorAuditState* = object
