@@ -22,14 +22,14 @@ proc makeConnected*(env: Environment) =
         return ConnectTerrainCost
       return 1
     let thing = env.getThing(pos)
-    if not isNil(thing) and thing.kind in ConnectDiggableKinds:
+    if not thing.isNil and thing.kind in ConnectDiggableKinds:
       return ConnectWallCost
     int.high
   proc digCell(env: Environment, pos: IVec2) =
     if not inPlayableBounds(pos):
       return
     let thing = env.getThing(pos)
-    if not isNil(thing):
+    if not thing.isNil:
       if thing.kind notin ConnectDiggableKinds:
         return  # Can't dig non-diggable things
       removeThing(env, thing)
@@ -37,7 +37,7 @@ proc makeConnected*(env: Environment) =
     if terrain in {Water, Dune, Snow}:
       # Remove background things (e.g. Fish) that depend on water terrain
       let bg = env.getBackgroundThing(pos)
-      if not isNil(bg) and bg.kind == Fish:
+      if not bg.isNil and bg.kind == Fish:
         removeThing(env, bg)
       env.terrain[pos.x][pos.y] = Empty
       env.resetTileColor(pos)

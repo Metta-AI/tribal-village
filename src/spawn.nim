@@ -31,7 +31,7 @@ proc setTerrain(env: Environment, pos: IVec2, kind: TerrainType) {.inline.} =
 
 proc clearTreeElseSkip(env: Environment, pos: IVec2): bool =
   let existing = env.getThing(pos)
-  if isNil(existing):
+  if existing.isNil:
     return true
   if existing.kind == Tree:
     removeThing(env, existing)
@@ -470,7 +470,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
       if env.terrain[x][y] != BiomeCityBlockTerrain:
         continue
       let pos = ivec2(x.int32, y.int32)
-      if not isNil(env.getBackgroundThing(pos)):
+      if not env.getBackgroundThing(pos).isNil:
         continue
       if env.hasDoor(pos):
         continue
@@ -531,7 +531,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
         if env.terrain[x][y] == Water:
           continue
         let pos = ivec2(x.int32, y.int32)
-        if not isNil(env.getBackgroundThing(pos)):
+        if not env.getBackgroundThing(pos).isNil:
           continue
         if env.hasDoor(pos):
           continue
@@ -544,7 +544,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
 
   if MapBorder > 0:
     proc addBorderWall(pos: IVec2) =
-      if not isNil(env.getBackgroundThing(pos)):
+      if not env.getBackgroundThing(pos).isNil:
         return
       env.add(Thing(kind: Wall, pos: pos, teamId: -1))
     for x in 0 ..< MapWidth:
@@ -575,10 +575,10 @@ proc initTradingHub(env: Environment, rng: var Rand) =
           continue
         let pos = ivec2(x.int32, y.int32)
         let existing = env.getThing(pos)
-        if not isNil(existing):
+        if not existing.isNil:
           removeThing(env, existing)
         let background = env.getBackgroundThing(pos)
-        if not isNil(background):
+        if not background.isNil:
           removeThing(env, background)
         setTerrain(env, pos, Empty)
         env.baseTintColors[x][y] = TradingHubTint
@@ -616,7 +616,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       let pos = ivec2(x.int32, y.int32)
       if not env.isEmpty(pos):
         return false
-      if not isNil(env.getBackgroundThing(pos)) or env.hasDoor(pos):
+      if not env.getBackgroundThing(pos).isNil or env.hasDoor(pos):
         return false
       true
 
@@ -686,7 +686,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       let wallIdx = randIntInclusive(rng, 0, wallPositions.len - 1)
       let pos = wallPositions[wallIdx]
       let wallThing = env.getThing(pos)
-      if not isNil(wallThing) and wallThing.kind == Wall:
+      if not wallThing.isNil and wallThing.kind == Wall:
         removeThing(env, wallThing)
         env.add(Thing(kind: GuardTower, pos: pos, teamId: -1))
         dec towerSlots
@@ -1201,7 +1201,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
 
       # Add the walls
       for wallPos in elements.walls:
-        if not isNil(env.getBackgroundThing(wallPos)):
+        if not env.getBackgroundThing(wallPos).isNil:
           continue
         env.add(Thing(
           kind: Wall,
@@ -1272,7 +1272,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
   # Now place additional random walls after villages to avoid blocking corner placement
   for i in 0 ..< MapRoomObjectsWalls:
     let pos = rng.randomEmptyPos(env)
-    if not isNil(env.getBackgroundThing(pos)):
+    if not env.getBackgroundThing(pos).isNil:
       continue
     env.add(Thing(kind: Wall, pos: pos, teamId: -1))
 
@@ -1339,7 +1339,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
           let pos = candidate + ivec2(dx, dy)
           if not isValidPos(pos):
             return false
-          if not env.isEmpty(pos) or not isNil(env.getBackgroundThing(pos)) or
+          if not env.isEmpty(pos) or not env.getBackgroundThing(pos).isNil or
               isBlockedTerrain(env.terrain[pos.x][pos.y]):
             return false
       true

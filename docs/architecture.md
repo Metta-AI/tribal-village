@@ -307,6 +307,28 @@ env = TribalVillageEnv(config={
 
 Config is passed to Nim via `NimConfig` struct in the FFI layer.
 
+## Code Style
+
+### Nil Checking
+
+Use the UFCS (Uniform Function Call Syntax) form `thing.isNil` rather than the function-call form `isNil(thing)`.
+
+```nim
+# Preferred - idiomatic Nim UFCS style
+if thing.isNil:
+  return
+if not agent.isNil and agent.hp > 0:
+  doSomething()
+
+# Avoid - function-call style
+if isNil(thing):
+  return
+if not isNil(agent) and agent.hp > 0:
+  doSomething()
+```
+
+This convention applies throughout the codebase for consistency and readability.
+
 ## Related Documentation
 
 - `docs/quickstart.md` - Getting started guide
