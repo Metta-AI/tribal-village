@@ -1319,3 +1319,141 @@ proc tribal_village_reset_civ_bonus*(env: pointer, teamId: int32): int32 {.expor
     return 1
   except CatchableError:
     return 0
+
+# ============== Environment Info FFI Functions ==============
+# Environment-aware lazy initialization pattern (mettascope-style)
+# Allows external callers to query and validate environment dimensions
+
+type
+  CEnvironmentInfo* = object
+    ## C-compatible environment info structure for FFI.
+    ## Contains runtime environment parameters for lazy initialization.
+    mapWidth*: int32
+    mapHeight*: int32
+    obsWidth*: int32
+    obsHeight*: int32
+    obsLayers*: int32
+    numAgents*: int32
+    numTeams*: int32
+    agentsPerTeam*: int32
+    numActionVerbs*: int32
+    numActionArgs*: int32
+    numActions*: int32
+
+proc tribal_village_get_env_info*(info: ptr CEnvironmentInfo): int32 {.exportc, dynlib.} =
+  ## Get current environment info (compile-time dimensions).
+  ## Writes environment parameters to the provided struct.
+  ## Returns 1 on success, 0 on failure.
+  ##
+  ## This enables external callers (Python/neural networks) to query
+  ## environment dimensions for policy initialization and portability.
+  try:
+    if info.isNil:
+      return 0
+    info[].mapWidth = MapWidth.int32
+    info[].mapHeight = MapHeight.int32
+    info[].obsWidth = ObservationWidth.int32
+    info[].obsHeight = ObservationHeight.int32
+    info[].obsLayers = ObservationLayers.int32
+    info[].numAgents = MapAgents.int32
+    info[].numTeams = MapRoomObjectsTeams.int32
+    info[].agentsPerTeam = MapAgentsPerTeam.int32
+    info[].numActionVerbs = ActionVerbCount.int32
+    info[].numActionArgs = ActionArgumentCount.int32
+    info[].numActions = int32(ActionVerbCount * ActionArgumentCount)
+    return 1
+  except CatchableError:
+    return 0
+
+proc tribal_village_validate_env_info*(info: ptr CEnvironmentInfo): int32 {.exportc, dynlib.} =
+  ## Validate that provided environment info matches compile-time dimensions.
+  ## Returns 1 if compatible, 0 if incompatible.
+  ##
+  ## This is the FFI equivalent of Controller.initializeToEnvironment() validation.
+  ## Use this to check if a pre-trained policy is compatible with this environment.
+  try:
+    if info.isNil:
+      return 0
+    if info[].mapWidth != MapWidth.int32:
+      return 0
+    if info[].mapHeight != MapHeight.int32:
+      return 0
+    if info[].numAgents != MapAgents.int32:
+      return 0
+    if info[].numTeams != MapRoomObjectsTeams.int32:
+      return 0
+    if info[].obsWidth != ObservationWidth.int32:
+      return 0
+    if info[].obsHeight != ObservationHeight.int32:
+      return 0
+    if info[].obsLayers != ObservationLayers.int32:
+      return 0
+    return 1
+  except CatchableError:
+    return 0
+
+proc tribal_village_initialize_controller_to_env*(
+  env: pointer,
+  numAgents: int32,
+  numTeams: int32,
+  mapWidth: int32,
+  mapHeight: int32,
+  outMessage: ptr char,
+  messageSize: int32
+): int32 {.exportc, dynlib.} =
+  ## Initialize the AI controller to runtime environment parameters.
+  ## Returns 1 on success, 0 on failure.
+  ## If outMessage is provided, writes the result message to it.
+  ##
+  ## This is the FFI interface for the initializeToEnvironment() pattern.
+  try:
+    if isNil(globalController) or isNil(globalController.aiController):
+      if not outMessage.isNil and messageSize > 0:
+        let msg = "Controller not initialized"
+        let copyLen = min(msg.len, messageSize - 1)
+        copyMem(outMessage, unsafeAddr msg[0], copyLen)
+        cast[ptr char](cast[uint](outMessage) + copyLen.uint)[] = '\0'
+      return 0
+
+    let initResult = globalController.aiController.initializeToEnvironment(
+      numAgents.int, numTeams.int, mapWidth.int, mapHeight.int
+    )
+
+    if not outMessage.isNil and messageSize > 0:
+      let copyLen = min(initResult.message.len, messageSize - 1)
+      if copyLen > 0:
+        copyMem(outMessage, unsafeAddr initResult.message[0], copyLen)
+      cast[ptr char](cast[uint](outMessage) + copyLen.uint)[] = '\0'
+
+    if initResult.success: 1 else: 0
+  except CatchableError:
+    return 0
+
+proc tribal_village_get_feature_count*(): int32 {.exportc, dynlib.} =
+  ## Get the number of observation feature layers.
+  ## For use in policy initialization to determine observation dimensions.
+  ObservationLayers.int32
+
+proc tribal_village_get_feature_name*(
+  featureId: int32,
+  outName: ptr char,
+  nameSize: int32
+): int32 {.exportc, dynlib.} =
+  ## Get the name of an observation feature by ID.
+  ## Writes the name to outName buffer.
+  ## Returns the length written, or -1 if invalid feature ID.
+  ##
+  ## This enables external code to build feature mappings for policy portability.
+  try:
+    if featureId < 0 or featureId >= ObservationLayers:
+      return -1
+    if outName.isNil or nameSize <= 0:
+      return -1
+    let name = $ObservationName(featureId)
+    let copyLen = min(name.len, nameSize - 1)
+    if copyLen > 0:
+      copyMem(outName, unsafeAddr name[0], copyLen)
+    cast[ptr char](cast[uint](outName) + copyLen.uint)[] = '\0'
+    copyLen.int32
+  except CatchableError:
+    return -1

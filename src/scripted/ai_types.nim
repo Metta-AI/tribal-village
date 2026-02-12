@@ -281,6 +281,80 @@ proc newController*(seed: int): Controller =
     result.fogLastRevealStep[agentId] = 0
 
 # -----------------------------------------------------------------------------
+# Environment-aware lazy initialization pattern
+# Allows Controller to adapt to runtime environment parameters
+# Reference: metta/agent/components/obs_shim.py
+# -----------------------------------------------------------------------------
+
+type
+  ControllerInitResult* = object
+    ## Result of initializeToEnvironment call
+    success*: bool
+    message*: string
+    ## Stored environment info for feature remapping
+    numAgents*: int
+    numTeams*: int
+    mapWidth*: int
+    mapHeight*: int
+
+proc initializeToEnvironment*(controller: Controller, numAgents, numTeams, mapWidth, mapHeight: int): ControllerInitResult =
+  ## Initialize controller to runtime environment parameters.
+  ## This enables policy portability across different environment configurations.
+  ##
+  ## Called after construction when the actual environment dimensions are known.
+  ## Allows the controller to adapt its internal state based on runtime config
+  ## rather than compile-time constants.
+  ##
+  ## Parameters:
+  ##   numAgents: Total number of agents in the environment
+  ##   numTeams: Number of teams
+  ##   mapWidth: Map width in tiles
+  ##   mapHeight: Map height in tiles
+  ##
+  ## Returns:
+  ##   ControllerInitResult with success status and any initialization messages
+  ##
+  ## Note: Currently the Controller uses compile-time arrays sized by MapAgents,
+  ## MapRoomObjectsTeams, etc. This proc validates that runtime params match
+  ## compile-time expectations and could be extended for runtime-sized containers.
+
+  result.numAgents = numAgents
+  result.numTeams = numTeams
+  result.mapWidth = mapWidth
+  result.mapHeight = mapHeight
+
+  # Validate runtime parameters match compile-time expectations
+  if numAgents != MapAgents:
+    result.success = false
+    result.message = "Agent count mismatch: runtime=" & $numAgents & " vs compile-time=" & $MapAgents
+    return
+
+  if numTeams != MapRoomObjectsTeams:
+    result.success = false
+    result.message = "Team count mismatch: runtime=" & $numTeams & " vs compile-time=" & $MapRoomObjectsTeams
+    return
+
+  if mapWidth != MapWidth:
+    result.success = false
+    result.message = "Map width mismatch: runtime=" & $mapWidth & " vs compile-time=" & $MapWidth
+    return
+
+  if mapHeight != MapHeight:
+    result.success = false
+    result.message = "Map height mismatch: runtime=" & $mapHeight & " vs compile-time=" & $MapHeight
+    return
+
+  # All validations passed - controller is compatible with this environment
+  result.success = true
+  result.message = "Controller initialized for " & $numAgents & " agents, " &
+                   $numTeams & " teams, " & $mapWidth & "x" & $mapHeight & " map"
+
+proc initializeToEnvironmentDefault*(controller: Controller): ControllerInitResult =
+  ## Initialize controller with compile-time default environment parameters.
+  ## Convenience proc for standard initialization.
+  controller.initializeToEnvironment(MapAgents, MapRoomObjectsTeams, MapWidth, MapHeight)
+
+# -----------------------------------------------------------------------------
 # Option framework (consolidated from ai_options.nim)
 # -----------------------------------------------------------------------------
 
