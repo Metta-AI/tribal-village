@@ -9,7 +9,7 @@
 ##   let interval = parseEnvInt("TV_INTERVAL", 100)
 ##   let enabled = parseEnvBool("TV_ENABLED", false)
 
-import std/[os, strutils]
+import std/[os, strutils, tables]
 
 const
   ## Set to true to enable debug logging for env var parsing
@@ -70,3 +70,8 @@ proc parseEnvFloat*(envVar: string, fallback: float): float =
       echo "[envconfig] Warning: Failed to parse ", envVar, "='", raw,
            "' as float, using fallback=", fallback
     result = fallback
+
+proc initStringIntTable*(capacity: int = 16): Table[string, int] =
+  ## Initialize a string->int table with pre-allocated capacity to avoid rehashing.
+  ## Default capacity of 16 covers most audit use cases (damage types, unit types, resources).
+  result = initTable[string, int](capacity)

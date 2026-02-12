@@ -60,8 +60,8 @@ when defined(combatAudit):
       lastReportStep: 0
     )
     for i in 0 ..< auditState.teamStats.len:
-      auditState.teamStats[i].damageByType = initTable[string, int]()
-      auditState.teamStats[i].killsByUnit = initTable[string, int]()
+      auditState.teamStats[i].damageByType = initStringIntTable()
+      auditState.teamStats[i].killsByUnit = initStringIntTable(32)  # More unit types expected
     auditInitialized = true
 
   proc ensureCombatAuditInit*() =

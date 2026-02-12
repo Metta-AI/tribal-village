@@ -11,6 +11,7 @@ when defined(techAudit):
   import std/[strformat, tables, strutils]
   import types
   import constants
+  import envconfig
 
   const
     TechAuditSummaryInterval* = 100  ## Print tech status every N steps
@@ -59,7 +60,7 @@ when defined(techAudit):
       lastSummaryStep: 0
     )
     for teamId in 0 ..< MapRoomObjectsTeams:
-      techAuditState.totalSpentByTeam[teamId] = initTable[string, int]()
+      techAuditState.totalSpentByTeam[teamId] = initStringIntTable()
     techAuditInitialized = true
 
   proc ensureTechAuditInit*() =
