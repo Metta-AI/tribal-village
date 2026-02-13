@@ -85,6 +85,27 @@ proc clearZoneMask(mask: var MaskGrid, mapWidth, mapHeight: int,
 template forClusterCenters(mapWidth, mapHeight, mapBorder: int,
                            period, jitter: int, prob: float,
                            r: var Rand, body: untyped) =
+  ## Iterates over cluster center positions on a grid with optional jitter and probability.
+  ## Used for procedural placement of biome features like forests, stone deposits, etc.
+  ##
+  ## **Injected variables:**
+  ## - `cx: int` - Center X coordinate (potentially jittered from grid position)
+  ## - `cy: int` - Center Y coordinate (potentially jittered from grid position)
+  ##
+  ## **Parameters:**
+  ## - `mapWidth`, `mapHeight` - Map dimensions
+  ## - `mapBorder` - Border margin to avoid placing centers too close to edges
+  ## - `period` - Grid spacing between potential cluster centers
+  ## - `jitter` - Maximum random offset from grid positions (0 for no jitter)
+  ## - `prob` - Probability (0.0-1.0) that each grid point becomes a cluster center
+  ## - `r` - Random number generator
+  ##
+  ## **Example:**
+  ## ```nim
+  ## forClusterCenters(MapWidth, MapHeight, 5, 20, 3, 0.8, rng):
+  ##   # Place a tree cluster at (cx, cy)
+  ##   placeTreeCluster(mask, cx, cy, radius = 5)
+  ## ```
   for ay in countup(mapBorder, mapHeight - mapBorder - 1, period):
     for ax in countup(mapBorder, mapWidth - mapBorder - 1, period):
       if randFloat(r) > prob:
@@ -295,9 +316,30 @@ type
 
 template cellularStep(mask: var MaskGrid, mapWidth, mapHeight, mapBorder: int,
                       countEdge: bool, rule: untyped) =
-  ## One step of cellular automata on mask. Injects `neighbors` (int) and
-  ## `alive` (bool) for use in the rule expression. When `countEdge` is true,
-  ## out-of-bounds cells count as neighbors.
+  ## Performs one step of cellular automata on a boolean mask.
+  ## The rule expression determines whether each cell should be alive in the next generation.
+  ##
+  ## **Injected variables:**
+  ## - `neighbors: int` - Count of alive neighboring cells (8-connectivity)
+  ## - `alive: bool` - Whether the current cell is alive in the current generation
+  ##
+  ## **Parameters:**
+  ## - `mask` - The boolean grid to evolve (modified in place)
+  ## - `mapWidth`, `mapHeight` - Map dimensions
+  ## - `mapBorder` - Border margin to exclude from processing
+  ## - `countEdge` - When true, out-of-bounds cells count as alive neighbors
+  ## - `rule` - Expression returning bool for whether cell should be alive
+  ##
+  ## **Example:**
+  ## ```nim
+  ## # Conway's Game of Life rule: survive with 2-3 neighbors, born with 3
+  ## cellularStep(mask, MapWidth, MapHeight, 5, false):
+  ##   (alive and neighbors in {2, 3}) or (not alive and neighbors == 3)
+  ##
+  ## # Growth rule: alive cells stay, dead cells become alive if 3+ neighbors
+  ## cellularStep(mask, MapWidth, MapHeight, 5, false):
+  ##   alive or (neighbors >= 3 and randFloat(r) < 0.5)
+  ## ```
   var nextMask: MaskGrid
   for x in mapBorder ..< mapWidth - mapBorder:
     for y in mapBorder ..< mapHeight - mapBorder:

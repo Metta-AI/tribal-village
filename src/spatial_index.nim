@@ -537,9 +537,35 @@ when defined(spatialAutoTune):
   template forEachInRadius(envExpr: Environment, posExpr: IVec2,
                             kindExpr: ThingKind, maxDistExpr: int,
                             thingVar: untyped, body: untyped) =
-    ## Auto-tuned variant: uses dynamic grid with adaptive cell size.
-    ## Uses pre-computed neighbor offset lists for O(1) query setup when radius
-    ## is within MaxPrecomputedRadius. Falls back to nested loops for larger radii.
+    ## Iterates over non-nil things of a given kind within a maximum distance.
+    ## Auto-tuned variant using dynamic grid with adaptive cell size.
+    ##
+    ## **Injected variables:**
+    ## - `qPos: IVec2` - The query position (copied from posExpr)
+    ## - `searchRadius: int` - Current search radius in cells (mutable - body can
+    ##   shrink this for early-exit optimization in findNearest queries)
+    ## - `cellsScanned: int` - Debug counter (only with -d:spatialStats)
+    ## - `thingsExamined: int` - Debug counter (only with -d:spatialStats)
+    ##
+    ## **Parameters:**
+    ## - `envExpr` - The Environment containing the spatial index
+    ## - `posExpr` - Query center position
+    ## - `kindExpr` - ThingKind to search for
+    ## - `maxDistExpr` - Maximum Chebyshev distance to search
+    ## - `thingVar` - Name for the iteration variable (each found Thing)
+    ## - `body` - Code to execute for each found thing
+    ##
+    ## **Example:**
+    ## ```nim
+    ## var nearest: Thing = nil
+    ## var bestDist = int.high
+    ## forEachInRadius(env, agentPos, Tree, 10, tree):
+    ##   let dist = chebyshevDist(tree.pos, agentPos)
+    ##   if dist < bestDist:
+    ##     bestDist = dist
+    ##     nearest = tree
+    ##     searchRadius = distToCellRadius(bestDist)  # Shrink search area
+    ## ```
     envExpr.spatialIndex.ensureDynGrid()
     let qPos  {.inject.} = posExpr
     let si = envExpr.spatialIndex
@@ -602,13 +628,35 @@ else:
   template forEachInRadius(envExpr: Environment, posExpr: IVec2,
                             kindExpr: ThingKind, maxDistExpr: int,
                             thingVar: untyped, body: untyped) =
-    ## Iterate over non-nil things of `kindExpr` within `maxDistExpr` of `posExpr`.
-    ## The body receives each thing as `thingVar`. A mutable `searchRadius` (in
-    ## cells) is injected; the body may shrink it for early-exit optimisation in
-    ## findNearest* queries.
+    ## Iterates over non-nil things of a given kind within a maximum distance.
+    ## Fixed-cell-size variant using 16x16 spatial grid.
     ##
-    ## Uses pre-computed neighbor offset lists for O(1) query setup when radius
-    ## is within MaxPrecomputedRadius. Falls back to nested loops for larger radii.
+    ## **Injected variables:**
+    ## - `qPos: IVec2` - The query position (copied from posExpr)
+    ## - `searchRadius: int` - Current search radius in cells (mutable - body can
+    ##   shrink this for early-exit optimization in findNearest queries)
+    ## - `cellsScanned: int` - Debug counter (only with -d:spatialStats)
+    ## - `thingsExamined: int` - Debug counter (only with -d:spatialStats)
+    ##
+    ## **Parameters:**
+    ## - `envExpr` - The Environment containing the spatial index
+    ## - `posExpr` - Query center position
+    ## - `kindExpr` - ThingKind to search for
+    ## - `maxDistExpr` - Maximum Chebyshev distance to search
+    ## - `thingVar` - Name for the iteration variable (each found Thing)
+    ## - `body` - Code to execute for each found thing
+    ##
+    ## **Example:**
+    ## ```nim
+    ## var nearest: Thing = nil
+    ## var bestDist = int.high
+    ## forEachInRadius(env, agentPos, Tree, 10, tree):
+    ##   let dist = chebyshevDist(tree.pos, agentPos)
+    ##   if dist < bestDist:
+    ##     bestDist = dist
+    ##     nearest = tree
+    ##     searchRadius = distToCellRadius16(bestDist)  # Shrink search area
+    ## ```
     let qPos  {.inject.} = posExpr
     let (qCx, qCy) = cellCoords(qPos)
     let clampedMax = min(maxDistExpr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
