@@ -7,6 +7,12 @@ import spatial_index
 import formations
 import state_dumper
 import arena_alloc
+
+# Import split modules
+import environment_state
+import environment_grid
+import environment_agents
+
 when defined(techAudit):
   import tech_audit
 when defined(econAudit):
@@ -17,6 +23,12 @@ when defined(settlerMetrics):
   import settler_metrics
 when defined(audio):
   import audio_events
+
+# Re-export split modules for backwards compatibility
+export environment_state
+export environment_grid
+export environment_agents
+
 export terrain, items, common_types
 export types, registry
 export spatial_index
@@ -75,44 +87,7 @@ const
   DesertOasisBonusChance* = 0.10  # 10% chance for bonus in desert near water
   DesertOasisRadius* = 3  # Tiles from water to get desert bonus
 
-## Error types and FFI error state management.
-type
-  TribalErrorKind* = enum
-    ## Error categories for better diagnostics
-    ErrNone = 0
-    ErrMapFull = 1          ## No empty positions available for placement
-    ErrInvalidPosition = 2  ## Position is out of bounds or invalid
-    ErrResourceNotFound = 3 ## Required resource not found
-    ErrInvalidState = 4     ## Invalid game state encountered
-    ErrFFIError = 5         ## Error in FFI layer
-
-  TribalError* = object of CatchableError
-    ## Base exception type for tribal village errors
-    kind*: TribalErrorKind
-    details*: string
-
-  FFIErrorState* = object
-    ## Thread-local error state for FFI layer
-    hasError*: bool
-    errorCode*: TribalErrorKind
-    errorMessage*: string
-
-var lastFFIError*: FFIErrorState
-
-proc clearFFIError*() =
-  ## Clear the last FFI error state
-  lastFFIError = FFIErrorState(hasError: false, errorCode: ErrNone, errorMessage: "")
-
-proc newTribalError*(kind: TribalErrorKind, message: string): ref TribalError =
-  ## Create a new tribal error with the given kind and message
-  result = new(TribalError)
-  result.kind = kind
-  result.details = message
-  result.msg = $kind & ": " & message
-
-proc raiseMapFullError*() {.noreturn.} =
-  ## Raise an error when the map is too full to place entities
-  raise newTribalError(ErrMapFull, "Failed to find an empty position, map too full!")
+## Error types and FFI error state management are in environment_state.nim
 
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
@@ -1079,98 +1054,22 @@ proc ensureObservations*(env: Environment) {.inline.} =
 
   env.observationsInitialized = true
 
-{.push inline.}
-proc getThing*(env: Environment, pos: IVec2): Thing =
-  if not isValidPos(pos): nil else: env.grid[pos.x][pos.y]
-
-proc getBackgroundThing*(env: Environment, pos: IVec2): Thing =
-  if not isValidPos(pos): nil else: env.backgroundGrid[pos.x][pos.y]
-
-proc isEmpty*(env: Environment, pos: IVec2): bool =
-  ## True when no blocking unit occupies the tile.
-  isValidPos(pos) and isNil(env.grid[pos.x][pos.y])
-
-proc hasDoor*(env: Environment, pos: IVec2): bool =
-  let door = env.getBackgroundThing(pos)
-  not isNil(door) and door.kind == Door
-
-proc canAgentPassDoor*(env: Environment, agent: Thing, pos: IVec2): bool =
-  let door = env.getBackgroundThing(pos)
-  isNil(door) or door.kind != Door or door.teamId == getTeamId(agent)
-
-proc hasDockAt*(env: Environment, pos: IVec2): bool {.inline.} =
-  let background = env.getBackgroundThing(pos)
-  not isNil(background) and background.kind == Dock
-
-proc isWaterUnit*(agent: Thing): bool {.inline.} =
-  agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip,
-                      UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon}
-
-proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool {.inline.} =
-  env.terrain[pos.x][pos.y] == Water and not agent.isWaterUnit and not env.hasDockAt(pos)
-{.pop.}
-
-proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
-  ## Allow flat movement, ramp-assisted elevation changes, or falling down cliffs.
-  ## Going UP requires a ramp/road. Going DOWN is always allowed (but may cause fall damage).
-  if not isValidPos(fromPos) or not isValidPos(toPos):
-    return false
-  let dx = toPos.x - fromPos.x
-  let dy = toPos.y - fromPos.y
-  if abs(dx) + abs(dy) != 1:
-    return false
-  let elevFrom = env.elevation[fromPos.x][fromPos.y]
-  let elevTo = env.elevation[toPos.x][toPos.y]
-  if elevFrom == elevTo:
-    return true
-  if abs(elevFrom - elevTo) != 1:
-    return false
-
-  # Dropping down is always allowed (may cause fall damage)
-  if elevFrom > elevTo:
-    return true
-
-  # Going up requires a ramp or road
-  let terrainFrom = env.terrain[fromPos.x][fromPos.y]
-  let terrainTo = env.terrain[toPos.x][toPos.y]
-  terrainFrom == Road or terrainTo == Road or
-    isRampTerrain(terrainFrom) or isRampTerrain(terrainTo)
-
-proc willCauseCliffFallDamage*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
-  ## Check if moving from fromPos to toPos would cause cliff fall damage.
-  ## Fall damage occurs when dropping elevation without using a ramp or road.
-  if not isValidPos(fromPos) or not isValidPos(toPos):
-    return false
-  let elevFrom = env.elevation[fromPos.x][fromPos.y]
-  let elevTo = env.elevation[toPos.x][toPos.y]
-  if elevFrom <= elevTo:
-    return false  # Not dropping elevation
-
-  # Check if there's a ramp/road that would prevent fall damage
-  let terrainFrom = env.terrain[fromPos.x][fromPos.y]
-  let terrainTo = env.terrain[toPos.x][toPos.y]
-  let hasRampOrRoad = terrainFrom == Road or terrainTo == Road or
-    isRampTerrain(terrainFrom) or isRampTerrain(terrainTo)
-
-  not hasRampOrRoad  # Fall damage if no ramp/road
-
-proc isBuildableTerrain*(terrain: TerrainType): bool {.inline.} =
-  terrain in BuildableTerrain
+## Grid queries (getThing, getBackgroundThing, isEmpty, hasDoor, etc.) are in environment_grid.nim
+## Elevation/movement checks (canTraverseElevation, willCauseCliffFallDamage, isBuildableTerrain, isSpawnable) are in environment_grid.nim
 
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
+  ## Check if a building can be placed at the position.
+  ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
-proc isSpawnable*(env: Environment, pos: IVec2): bool {.inline.} =
-  isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and not env.hasDoor(pos)
-
 proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
+  ## Check if a dock can be placed at the position (must be water).
+  ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] == Water
 
-proc resetTileColor*(env: Environment, pos: IVec2) =
-  ## Clear dynamic tint overlays for a tile
-  env.computedTintColors[pos.x][pos.y] = TileColor(r: 0, g: 0, b: 0, intensity: 0)
+## resetTileColor is in environment_grid.nim
 
 # Build craft recipes after registry is available.
 CraftRecipes = initCraftRecipesBase()
