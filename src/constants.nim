@@ -394,7 +394,7 @@ const
   # ============================================================================
   MillFertileCooldown* = 10
   MaxTumorsPerSpawner* = 3
-  MaxGlobalTumors* = 200
+  MaxGlobalTumors* = int.high
   TumorSpawnCooldownBase* = 20.0
   TumorSpawnDisabledCooldown* = 1000
 
