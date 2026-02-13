@@ -104,6 +104,16 @@ const
   MagmaGlowSpeed = 0.04'f32          # Slower pulsing for magma pools
   MagmaGlowAmplitude = 0.08'f32      # Subtle glow variation (+/- 8%)
 
+  # Icon and label scale constants
+  HeartIconScale = 1.0 / 420.0       # Scale for heart sprites at altars
+  HeartCountLabelScale = 1.0 / 200.0 # Scale for heart count labels
+  OverlayIconScale = 1.0 / 320.0     # Scale for building overlay icons
+  OverlayLabelScale = 1.0 / 200.0    # Scale for overlay text labels
+  SegmentBarDotScale = 1.0 / 500.0   # Scale for segment/health bar dots
+  ScaffoldingPostScale = 1.0 / 600.0 # Scale for scaffolding post dots
+  TradeRouteDotScale = 1.0 / 350.0   # Scale for trade route animation dots
+  DockMarkerScale = 1.0 / 280.0      # Scale for dock gold coin indicators
+
 type FloorSpriteKind = enum
   FloorBase
   FloorCave
@@ -275,7 +285,7 @@ proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
     let baseColor = if i < filled: filledColor else: emptyColor
     let fadedColor = color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * alpha)
     bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
-                  angle = 0, scale = 1/500,
+                  angle = 0, scale = SegmentBarDotScale,
                   tint = fadedColor)
 
 proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
@@ -855,17 +865,17 @@ proc drawObjects*() =
     let amt = max(0, thing.hearts)
     let heartPos = posVec + heartAnchor
     if amt == 0:
-      bxy.drawImage("heart", heartPos, angle = 0, scale = 1/420,
+      bxy.drawImage("heart", heartPos, angle = 0, scale = HeartIconScale,
                     tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
     elif amt <= HeartPlusThreshold:
       for i in 0 ..< amt:
         bxy.drawImage("heart", heartPos + vec2(0.12 * i.float32, 0.0),
-                      angle = 0, scale = 1/420, tint = altarTint)
+                      angle = 0, scale = HeartIconScale, tint = altarTint)
     else:
-      bxy.drawImage("heart", heartPos, angle = 0, scale = 1/420, tint = altarTint)
+      bxy.drawImage("heart", heartPos, angle = 0, scale = HeartIconScale, tint = altarTint)
       let labelKey = ensureHeartCountLabel(amt)
       bxy.drawImage(labelKey, heartPos + vec2(0.14, -0.08), angle = 0,
-                    scale = 1/200, tint = color(1, 1, 1, 1))
+                    scale = HeartCountLabelScale, tint = color(1, 1, 1, 1))
     if isTileFrozen(thingPos, env):
       bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
 
@@ -906,9 +916,6 @@ proc drawObjects*() =
     isValidPos(thing.pos) and (
       if thingBlocksMovement(thing.kind): env.grid[thing.pos.x][thing.pos.y] == thing
       else: env.backgroundGrid[thing.pos.x][thing.pos.y] == thing)
-
-  const OverlayIconScale = 1/320
-  const OverlayLabelScale = 1/200
 
   for kind in ThingKind:
     if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
@@ -954,7 +961,7 @@ proc drawObjects*() =
           let constructionRatio = thing.hp.float32 / thing.maxHp.float32
           # Draw scaffolding frame (4 corner posts using floor sprite as small dots)
           let scaffoldTint = color(0.7, 0.5, 0.2, 0.8)  # Brown/wood color
-          let scaffoldScale = 1.0 / 600.0  # Smaller dots for scaffolding posts
+          let scaffoldScale = ScaffoldingPostScale
           let offsets = [vec2(-0.35, -0.35), vec2(0.35, -0.35),
                          vec2(-0.35, 0.35), vec2(0.35, 0.35)]
           for offset in offsets:
@@ -1211,7 +1218,7 @@ proc drawAgentDecorations*() =
       let dir = vec2(cos(angle).float32, -sin(angle).float32)
       for j in 0 ..< min(ov.count, 4):
         bxy.drawImage(ov.icon, posVec + dir * (0.58 + 0.10 * j.float32),
-                      angle = 0, scale = 1/320)
+                      angle = 0, scale = OverlayIconScale)
 
 const ProjectileColors: array[ProjectileKind, Color] = [
   color(0.95, 0.85, 0.20, 1.0),  # ProjArrow - yellow
@@ -2869,7 +2876,7 @@ proc drawTradeRoutes*() =
               min(routeColor.b * brightness, 1.0),
               0.9
             )
-            bxy.drawImage("floor", dotPos, angle = 0, scale = 1/350, tint = dotColor)
+            bxy.drawImage("floor", dotPos, angle = 0, scale = TradeRouteDotScale, tint = dotColor)
 
     # Draw line from trade cog to target dock (if exists)
     if route.hasTarget:
@@ -2893,7 +2900,7 @@ proc drawTradeRoutes*() =
       drawnDocks.add(homeDock)
       # Draw a gold coin indicator at the dock
       bxy.drawImage("floor", homeDock.vec2 + vec2(0.0, -0.4), angle = 0,
-                    scale = 1/280, tint = TradeRouteGoldColor)
+                    scale = DockMarkerScale, tint = TradeRouteGoldColor)
 
     if route.hasTarget:
       let targetDock = route.targetDockPos.ivec2
@@ -2901,7 +2908,7 @@ proc drawTradeRoutes*() =
         drawnDocks.add(targetDock)
         # Draw a smaller gold indicator at target dock
         bxy.drawImage("floor", targetDock.vec2 + vec2(0.0, -0.4), angle = 0,
-                      scale = 1/320, tint = color(TradeRouteGoldColor.r,
+                      scale = OverlayIconScale, tint = color(TradeRouteGoldColor.r,
                                                    TradeRouteGoldColor.g,
                                                    TradeRouteGoldColor.b, 0.5))
 
