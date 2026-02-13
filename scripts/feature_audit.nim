@@ -392,13 +392,19 @@ proc main() =
 
   # Count relics on map vs in monasteries
   var relicsOnMap = 0
+  var relicsGarrisoned = 0
   var monasteryCount = 0
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let t = env.grid[x][y]
       if t != nil:
         if t.kind == Relic: inc relicsOnMap
-        if t.kind == Monastery: inc monasteryCount
+        if t.kind == Monastery:
+          inc monasteryCount
+          relicsGarrisoned += t.garrisonedRelics
+      let bg = env.backgroundGrid[x][y]
+      if bg != nil:
+        if bg.kind == Relic: inc relicsOnMap
 
   # Count naval units
   var navalUnits = 0
@@ -470,7 +476,7 @@ proc main() =
   check("Monks alive", monkUnits > 0, &"({monkUnits} monks)")
   check("Siege units alive", siegeUnits > 0, &"({siegeUnits} siege)")
   check("Unique castle units", uniqueUnits > 0, &"({uniqueUnits} unique)")
-  check("Relics on map", relicsOnMap > 0, &"({relicsOnMap} relics)")
+  check("Relics on map", relicsOnMap > 0, &"({relicsOnMap} relics, {relicsGarrisoned} garrisoned)")
   check("Monasteries built", monasteryCount > 0, &"({monasteryCount} monasteries)")
   check("Blacksmith upgrades", blacksmithCount > 0, &"({blacksmithCount} levels)")
   check("University techs", uniCount > 0, &"({uniCount} researched)")
