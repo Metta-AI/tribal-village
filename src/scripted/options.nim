@@ -997,6 +997,112 @@ let MarketTradeOption* = OptionDef(
   interruptible: true
 )
 
+# ============================================================================
+# Tech Research Options - University and Castle
+# ============================================================================
+
+proc hasUnresearchedUniversityTech(env: Environment, teamId: int): bool =
+  ## Check if the team has any unresearched University tech.
+  for techType in UniversityTechType:
+    if not env.teamUniversityTechs[teamId].researched[techType]:
+      return true
+  false
+
+proc canAffordNextUniversityTech(env: Environment, teamId: int): bool =
+  ## Check if the team can afford the next University tech.
+  for techType in UniversityTechType:
+    if not env.teamUniversityTechs[teamId].researched[techType]:
+      let techIndex = ord(techType) + 1
+      let foodCost = UniversityTechFoodCost * techIndex
+      let goldCost = UniversityTechGoldCost * techIndex
+      let woodCost = UniversityTechWoodCost * techIndex
+      return env.canSpendStockpile(teamId,
+        [(res: ResourceFood, count: foodCost),
+         (res: ResourceGold, count: goldCost),
+         (res: ResourceWood, count: woodCost)])
+  false
+
+proc canStartResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  controller.getBuildingCount(env, teamId, University) > 0 and
+    hasUnresearchedUniversityTech(env, teamId) and
+    canAffordNextUniversityTech(env, teamId)
+
+proc shouldTerminateResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
+                                            agentId: int, state: var AgentState): bool =
+  not canStartResearchUniversityTech(controller, env, agent, agentId, state)
+
+proc optResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let university = env.findNearestFriendlyThingSpiral(state, teamId, University)
+  if isNil(university) or university.cooldown != 0:
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, university.pos, 3'u8)
+
+let ResearchUniversityTechOption* = OptionDef(
+  name: "ResearchUniversityTech",
+  canStart: canStartResearchUniversityTech,
+  shouldTerminate: shouldTerminateResearchUniversityTech,
+  act: optResearchUniversityTech,
+  interruptible: true
+)
+
+proc hasUnresearchedCastleTech(env: Environment, teamId: int): bool =
+  ## Check if the team has any unresearched Castle tech.
+  let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+  not env.teamCastleTechs[teamId].researched[castleAge] or
+    not env.teamCastleTechs[teamId].researched[imperialAge]
+
+proc canAffordNextCastleTech(env: Environment, teamId: int): bool =
+  ## Check if the team can afford the next Castle tech.
+  let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+  if not env.teamCastleTechs[teamId].researched[castleAge]:
+    return env.canSpendStockpile(teamId,
+      [(res: ResourceFood, count: CastleTechFoodCost),
+       (res: ResourceGold, count: CastleTechGoldCost)])
+  if not env.teamCastleTechs[teamId].researched[imperialAge]:
+    return env.canSpendStockpile(teamId,
+      [(res: ResourceFood, count: CastleTechImperialFoodCost),
+       (res: ResourceGold, count: CastleTechImperialGoldCost)])
+  false
+
+proc canStartResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  controller.getBuildingCount(env, teamId, Castle) > 0 and
+    hasUnresearchedCastleTech(env, teamId) and
+    canAffordNextCastleTech(env, teamId)
+
+proc shouldTerminateResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  not canStartResearchCastleTech(controller, env, agent, agentId, state)
+
+proc optResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
+                            agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let castle = env.findNearestFriendlyThingSpiral(state, teamId, Castle)
+  if isNil(castle) or castle.cooldown != 0:
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, castle.pos, 3'u8)
+
+let ResearchCastleTechOption* = OptionDef(
+  name: "ResearchCastleTech",
+  canStart: canStartResearchCastleTech,
+  shouldTerminate: shouldTerminateResearchCastleTech,
+  act: optResearchCastleTech,
+  interruptible: true
+)
+
 proc canStartStockpileDistributor(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   canStartStoreValuables(controller, env, agent, agentId, state)
