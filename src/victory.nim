@@ -7,16 +7,14 @@
 
 proc teamHasUnitsOrBuildings(env: Environment, teamId: int): bool =
   ## Check if a team has any living agents or owned buildings.
-  for agent in env.agents:
-    if agent.isNil:
-      continue
+  for agent in env.liveAgents:
     if getTeamId(agent) == teamId and isAgentAlive(env, agent):
       return true
   for kind in TeamOwnedKinds:
     if kind == Agent:
       continue
     for thing in env.thingsByKind[kind]:
-      if not thing.isNil and thing.teamId == teamId:
+      if thing.hasValue and thing.teamId == teamId:
         return true
   false
 

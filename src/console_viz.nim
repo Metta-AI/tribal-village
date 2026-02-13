@@ -221,8 +221,7 @@ proc printGameHUD*(env: Environment) =
     # Count population, military, buildings for this team
     var pop = 0
     var mil = 0
-    for agent in env.agents:
-      if agent.isNil: continue
+    for agent in env.liveAgents:
       if not isAgentAlive(env, agent): continue
       if getTeamId(agent) != teamId: continue
       inc pop
@@ -233,7 +232,7 @@ proc printGameHUD*(env: Environment) =
     for kind in ThingKind:
       if not isBuildingKind(kind): continue
       for thing in env.thingsByKind[kind]:
-        if thing.isNil: continue
+        if not thing.hasValue: continue
         if thing.teamId == teamId:
           inc bldgCount
 

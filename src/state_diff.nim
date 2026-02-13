@@ -90,9 +90,7 @@ when defined(stateDiff):
       result.teams[teamId] = ts
 
     # Agent counts by team and class
-    for agent in env.agents:
-      if agent.isNil:
-        continue
+    for agent in env.liveAgents:
       let teamId = agent.getTeamId()
       if teamId < 0 or teamId >= MapRoomObjectsTeams:
         continue

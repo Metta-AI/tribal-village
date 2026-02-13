@@ -1942,9 +1942,7 @@ proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitCl
     let baseHpTo = UnitMaxHpByClass[toClass]
     let baseAttackFrom = UnitAttackDamageByClass[fromClass]
     let baseAttackTo = UnitAttackDamageByClass[toClass]
-  for agent in env.agents:
-    if agent.isNil:
-      continue
+  for agent in env.liveAgents:
     if env.terminated[agent.agentId] != 0.0:
       continue
     if getTeamId(agent) != teamId:

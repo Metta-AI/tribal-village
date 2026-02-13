@@ -686,7 +686,7 @@ proc initTradingHub(env: Environment, rng: var Rand) =
       let wallIdx = randIntInclusive(rng, 0, wallPositions.len - 1)
       let pos = wallPositions[wallIdx]
       let wallThing = env.getThing(pos)
-      if not wallThing.isNil and wallThing.kind == Wall:
+      if wallThing.isKind(Wall):
         removeThing(env, wallThing)
         env.add(Thing(kind: GuardTower, pos: pos, teamId: -1))
         dec towerSlots

@@ -90,8 +90,7 @@ when defined(gatherHeatmap):
       for cy in 0 ..< HeatCellsY:
         agentCells[cx][cy] = -1
 
-    for agent in env.agents:
-      if agent.isNil: continue
+    for agent in env.liveAgents:
       if not isAgentAlive(env, agent): continue
       let cx = agent.pos.x.int div SpatialCellSize
       let cy = agent.pos.y.int div SpatialCellSize

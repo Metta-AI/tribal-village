@@ -2082,7 +2082,7 @@ proc rebuildMinimapTerrain() =
       let biome = env.biomes[mx][my]
       # Check for trees at this tile
       let bg = env.backgroundGrid[mx][my]
-      let c = if not bg.isNil and bg.kind == Tree:
+      let c = if bg.isKind(Tree):
         rgbx(40, 100, 40, 255)    # dark green for trees
       else:
         toMinimapColor(terrain, biome)

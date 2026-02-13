@@ -204,9 +204,7 @@ proc sampleResources(env: Environment, teamId: int, step: int): ResourceSample =
 proc sampleUnitComposition(env: Environment, teamId: int, step: int): UnitComposition =
   result.step = step
 
-  for agent in env.agents:
-    if agent.isNil:
-      continue
+  for agent in env.liveAgents:
     if agent.getTeamId() != teamId:
       continue
     if not isAgentAlive(env, agent):
@@ -281,9 +279,7 @@ proc updateSpending(env: Environment, teamId: int) =
 proc updateVillagerIdleness(env: Environment) =
   ## Track villager activity for idle percentage calculation.
   ## Villagers with inventory items are considered "active" (gathering/delivering).
-  for agent in env.agents:
-    if agent.isNil:
-      continue
+  for agent in env.liveAgents:
     if env.terminated[agent.agentId] != 0.0:
       continue
     if agent.unitClass != UnitVillager:

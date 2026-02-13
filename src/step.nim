@@ -1093,7 +1093,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   let pos = agent.pos + ivec2(dx, dy)
                   env.applyActionTint(pos, tint, 2, ActionTintHealBread)
                   let occ = env.getThing(pos)
-                  if not occ.isNil and occ.kind == Agent:
+                  if occ.isKind(Agent):
                     let healAmt = min(BreadHealAmount, occ.maxHp - occ.hp)
                     if healAmt > 0:
                       discard env.applyAgentHeal(occ, healAmt)
@@ -2018,10 +2018,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   # Repair uses RepairHpPerAction (faster), construction uses ConstructionHpPerAction
   # Treadmill Crane: +20% construction speed from University tech
   for pos, builderCount in env.constructionBuilders.pairs:
-    let thing = block:
-      let fg = env.getThing(pos)
-      if fg.isNil: env.getBackgroundThing(pos) else: fg
-    if thing.isNil or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
+    let thing = env.getThing(pos).orElse(env.getBackgroundThing(pos))
+    if not thing.hasValue or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue
     # Calculate effective HP gain with diminishing returns
     # ConstructionBonusTable: [1.0, 1.0, 1.5, 1.83, 2.08, 2.28, 2.45, 2.59, 2.72]
@@ -2510,9 +2508,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   if logRenderEnabled and (env.currentStep mod logRenderEvery == 0):
     var logEntry = "STEP " & $env.currentStep & "\n"
     var teamSeen: array[MapRoomObjectsTeams, bool]
-    for agent in env.agents:
-      if agent.isNil:
-        continue
+    for agent in env.liveAgents:
       let teamId = getTeamId(agent)
       if teamId >= 0 and teamId < teamSeen.len:
         teamSeen[teamId] = true
@@ -2528,9 +2524,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         " gold=" & $env.stockpileCount(teamId, ResourceGold) & "\n"
       )
     logEntry.add("Agents:\n")
-    for id, agent in env.agents:
-      if agent.isNil:
-        continue
+    for id, agent in env.liveAgentsWithId:
       let actionValue = actions[][id]
       let verb = actionValue.int div ActionArgumentCount
       let arg = actionValue.int mod ActionArgumentCount

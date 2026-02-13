@@ -37,7 +37,7 @@ proc makeConnected*(env: Environment) =
     if terrain in {Water, Dune, Snow}:
       # Remove background things (e.g. Fish) that depend on water terrain
       let bg = env.getBackgroundThing(pos)
-      if not bg.isNil and bg.kind == Fish:
+      if bg.isKind(Fish):
         removeThing(env, bg)
       env.terrain[pos.x][pos.y] = Empty
       env.resetTileColor(pos)

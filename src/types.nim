@@ -1446,6 +1446,49 @@ proc isAgentAlive*(env: Environment, agent: Thing): bool {.inline.} =
     isValidPos(agent.pos) and
     env.grid[agent.pos.x][agent.pos.y] == agent
 
+# ─── Nil-safe Thing Helpers ───────────────────────────────────────────────────
+#
+# These helpers consolidate common nil check patterns throughout the codebase.
+# Using them improves readability and reduces boilerplate in hot paths.
+
+proc hasValue*(thing: Thing): bool {.inline.} =
+  ## Returns true if thing is not nil. Inverse of isNil for semantic clarity.
+  ## Useful when checking if a find/query returned a result.
+  not thing.isNil
+
+proc isKind*(thing: Thing, kind: ThingKind): bool {.inline.} =
+  ## Nil-safe kind check. Returns true only if thing is not nil AND matches kind.
+  ## Replaces the common pattern: `if not thing.isNil and thing.kind == X`
+  not thing.isNil and thing.kind == kind
+
+proc isKindIn*(thing: Thing, kinds: set[ThingKind]): bool {.inline.} =
+  ## Nil-safe kind set check. Returns true only if thing is not nil AND kind is in set.
+  ## Replaces: `if not thing.isNil and thing.kind in {X, Y, Z}`
+  not thing.isNil and thing.kind in kinds
+
+proc orElse*(primary, fallback: Thing): Thing {.inline.} =
+  ## Returns primary if not nil, otherwise returns fallback.
+  ## Replaces: `if primary.isNil: fallback else: primary`
+  if primary.isNil: fallback else: primary
+
+iterator liveAgents*(env: Environment): Thing =
+  ## Yields only non-nil agents from env.agents.
+  ## Replaces the common pattern:
+  ##   for agent in env.agents:
+  ##     if agent.isNil: continue
+  for agent in env.agents:
+    if not agent.isNil:
+      yield agent
+
+iterator liveAgentsWithId*(env: Environment): tuple[id: int, agent: Thing] =
+  ## Yields (agentId, agent) pairs for non-nil agents.
+  ## Replaces the common pattern:
+  ##   for id, agent in env.agents:
+  ##     if agent.isNil: continue
+  for id, agent in env.agents:
+    if not agent.isNil:
+      yield (id, agent)
+
 proc defaultTeamModifiers*(): TeamModifiers =
   ## Create default (neutral) team modifiers with no bonuses
   result = TeamModifiers(

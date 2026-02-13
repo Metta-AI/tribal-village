@@ -25,9 +25,7 @@ proc initDumper*() =
 proc dumpAgents(env: Environment): JsonNode =
   ## Serialize all agents as compact arrays: [agentId, x, y, hp, maxHp, teamId, unitClass, stance, inventoryItemCount]
   var arr = newJArray()
-  for agent in env.agents:
-    if agent.isNil:
-      continue
+  for agent in env.liveAgents:
     let alive = env.terminated[agent.agentId] == 0.0
     var a = newJArray()
     a.add(%agent.agentId)
@@ -72,9 +70,7 @@ proc dumpTeamResources(env: Environment): JsonNode =
 proc dumpTeamPopulations(env: Environment): JsonNode =
   ## Count alive agents per team
   var counts: array[MapRoomObjectsTeams, int]
-  for agent in env.agents:
-    if agent.isNil:
-      continue
+  for agent in env.liveAgents:
     if env.terminated[agent.agentId] == 0.0:
       let tid = agent.getTeamId()
       if tid >= 0 and tid < MapRoomObjectsTeams:

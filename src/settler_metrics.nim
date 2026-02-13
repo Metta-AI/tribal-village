@@ -74,9 +74,7 @@ when defined(settlerMetrics):
         inc settlerMetrics.altarCount[thing.teamId]
 
     # Count villagers per altar based on homeAltar assignments
-    for agent in env.agents:
-      if agent.isNil:
-        continue
+    for agent in env.liveAgents:
       if env.terminated[agent.agentId] != 0.0:
         continue
       if agent.homeAltar.x >= 0:
@@ -115,9 +113,7 @@ when defined(settlerMetrics):
 
       # Count total villagers for this team
       var totalVillagers = 0
-      for agent in env.agents:
-        if agent.isNil:
-          continue
+      for agent in env.liveAgents:
         if env.terminated[agent.agentId] != 0.0:
           continue
         let agentTeam = agent.agentId div MapAgentsPerTeam
@@ -135,8 +131,7 @@ when defined(settlerMetrics):
           continue
         # Check if this altar belongs to this team
         let altarThing = env.grid[altarPos.x][altarPos.y]
-        if not altarThing.isNil and altarThing.kind == Altar and
-            altarThing.teamId == teamId:
+        if altarThing.isKind(Altar) and altarThing.teamId == teamId:
           echo "      Altar (" & $altarPos.x & "," & $altarPos.y & "): " &
                $count & " villagers"
 
