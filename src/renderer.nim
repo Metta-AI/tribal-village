@@ -168,6 +168,23 @@ const UnitClassSpriteKeys: array[AgentUnitClass, string] = [
   "oriented/hand_cannoneer",       # UnitHandCannoneer
 ]
 
+proc getUnitSpriteBase*(unitClass: AgentUnitClass, agentId: int, packed: bool = true): string =
+  ## Determine the base sprite key for a unit based on its class and role.
+  ## Used for consistent sprite selection across shadow, agent, and dying unit rendering.
+  ## The packed parameter is only relevant for trebuchets (defaults to true for dying units).
+  let tbl = UnitClassSpriteKeys[unitClass]
+  if tbl.len > 0:
+    tbl
+  elif unitClass == UnitTrebuchet:
+    if packed: "oriented/trebuchet_packed"
+    else: "oriented/trebuchet_unpacked"
+  else: # UnitVillager: role-based
+    case agentId mod MapAgentsPerTeam
+    of 0, 1: "oriented/gatherer"
+    of 2, 3: "oriented/builder"
+    of 4, 5: "oriented/fighter"
+    else: "oriented/gatherer"
+
 const CliffDrawOrder = [
   CliffEdgeN,
   CliffEdgeE,
@@ -760,18 +777,7 @@ proc drawObjects*() =
     let pos = agent.pos
     if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent or not isInViewport(pos):
       continue
-    let baseKey = block:
-      let tbl = UnitClassSpriteKeys[agent.unitClass]
-      if tbl.len > 0: tbl
-      elif agent.unitClass == UnitTrebuchet:
-        if agent.packed: "oriented/trebuchet_packed"
-        else: "oriented/trebuchet_unpacked"
-      else: # UnitVillager: role-based
-        case agent.agentId mod MapAgentsPerTeam
-        of 0, 1: "oriented/gatherer"
-        of 2, 3: "oriented/builder"
-        of 4, 5: "oriented/fighter"
-        else: "oriented/gatherer"
+    let baseKey = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
     let shadowSpriteKey = if agentImage in bxy: agentImage
@@ -785,18 +791,7 @@ proc drawObjects*() =
 
   drawThings(Agent):
     let agent = thing
-    let baseKey = block:
-      let tbl = UnitClassSpriteKeys[agent.unitClass]
-      if tbl.len > 0: tbl
-      elif agent.unitClass == UnitTrebuchet:
-        if agent.packed: "oriented/trebuchet_packed"
-        else: "oriented/trebuchet_unpacked"
-      else: # UnitVillager: role-based
-        case agent.agentId mod MapAgentsPerTeam
-        of 0, 1: "oriented/gatherer"
-        of 2, 3: "oriented/builder"
-        of 4, 5: "oriented/fighter"
-        else: "oriented/gatherer"
+    let baseKey = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
     let dirKey = OrientationDirKeys[agent.orientation.int]
     let agentImage = baseKey & "." & dirKey
     let agentSpriteKey = if agentImage in bxy: agentImage
@@ -818,16 +813,7 @@ proc drawObjects*() =
   for dying in env.dyingUnits:
     if not isInViewport(dying.pos):
       continue
-    let dyingBaseKey = block:
-      let tbl = UnitClassSpriteKeys[dying.unitClass]
-      if tbl.len > 0: tbl
-      elif dying.unitClass == UnitTrebuchet: "oriented/trebuchet_packed"
-      else:  # UnitVillager: role-based
-        case dying.agentId mod MapAgentsPerTeam
-        of 0, 1: "oriented/gatherer"
-        of 2, 3: "oriented/builder"
-        of 4, 5: "oriented/fighter"
-        else: "oriented/gatherer"
+    let dyingBaseKey = getUnitSpriteBase(dying.unitClass, dying.agentId)
     let dyingDirKey = OrientationDirKeys[dying.orientation.int]
     let dyingImage = dyingBaseKey & "." & dyingDirKey
     let dyingSpriteKey = if dyingImage in bxy: dyingImage
