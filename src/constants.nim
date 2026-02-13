@@ -69,7 +69,7 @@ const
   MineDepositAmount* = 100
   BarrelCapacity* = 50
   ResourceNodeInitial* = 25
-  TownCenterPopCap* = 0
+  TownCenterPopCap* = 5
   HousePopCap* = 4
 
   # ============================================================================
@@ -394,6 +394,7 @@ const
   # ============================================================================
   MillFertileCooldown* = 10
   MaxTumorsPerSpawner* = 3
+  MaxGlobalTumors* = 200
   TumorSpawnCooldownBase* = 20.0
   TumorSpawnDisabledCooldown* = 1000
 

@@ -36,6 +36,10 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
   let staggerBucket = env.currentStep mod TumorProcessStagger
   var tumorIdx = 0
 
+  # Global tumor cap: stop branching when tumor count exceeds threshold
+  let totalTumors = tumorsToProcess.len + newTumorsToSpawn.len
+  let branchingAllowed = totalTumors < MaxGlobalTumors
+
   for tumor in tumorsToProcess:
     if env.getThing(tumor.pos) != tumor:
       continue
@@ -45,6 +49,9 @@ proc stepProcessTumors(env: Environment, tumorsToProcess: seq[Thing],
     let inBucket = (tumorIdx mod TumorProcessStagger) == staggerBucket
     tumorIdx += 1
     if not inBucket:
+      continue
+
+    if not branchingAllowed:
       continue
 
     if tumor.turnsAlive < TumorBranchMinAge:

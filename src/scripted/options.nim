@@ -526,6 +526,14 @@ proc optAntiTumorPatrol(controller: Controller, env: Environment, agent: Thing,
     return 0'u8
   actOrMove(controller, env, agent, agentId, state, tumor.pos, 2'u8)
 
+let AntiTumorPatrolOption* = OptionDef(
+  name: "AntiTumorPatrol",
+  canStart: canStartAntiTumorPatrol,
+  shouldTerminate: shouldTerminateAntiTumorPatrol,
+  act: optAntiTumorPatrol,
+  interruptible: true
+)
+
 proc canStartSpawnerHunter(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   env.thingsByKind[Spawner].len > 0

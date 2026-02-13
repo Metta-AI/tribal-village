@@ -2365,6 +2365,7 @@ let FighterOptions* = [
     act: optFighterClearGoblins,
     interruptible: true
   ),
+  AntiTumorPatrolOption,
   SmeltGoldOption,
   CraftBreadOption,
   StoreValuablesOption,

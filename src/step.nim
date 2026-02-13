@@ -2171,7 +2171,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
       thing.cooldown -= 1
     else:
       let nearbyTumorCount = countUnclaimedTumorsInRangeSpatial(env, thing.pos, 5)
-      if nearbyTumorCount < MaxTumorsPerSpawner:
+      if nearbyTumorCount < MaxTumorsPerSpawner and
+          env.thingsByKind[Tumor].len < MaxGlobalTumors:
         let spawnPos = env.findFirstEmptyPositionAround(thing.pos, 2)
         if spawnPos.x >= 0:
           let newTumor = createTumor(env, spawnPos, thing.pos, stepRng)

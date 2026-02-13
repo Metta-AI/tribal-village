@@ -129,8 +129,10 @@ proc add*(env: Environment, thing: Thing) =
       thing.maxHp = defaultMaxHp
     if thing.hp <= 0:
       thing.hp = thing.maxHp
-  # Mark buildings starting at full HP as constructed (map-generated buildings)
-  if thing.maxHp > 0 and thing.hp >= thing.maxHp:
+  # Mark buildings as constructed:
+  # - Full HP buildings (map-generated or completed construction)
+  # - Zero-maxHp buildings (instant placement, no construction needed: House, Mill, etc.)
+  if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
     thing.constructed = true
 
   if thing.attackDamage <= 0:
