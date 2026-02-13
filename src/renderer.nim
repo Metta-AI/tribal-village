@@ -738,8 +738,19 @@ proc drawObjects*() =
       let thingPos {.inject.} = it.pos
       body
 
-  # Resource depletion scale - shrinks nodes from 100% to 50% as resources deplete
   proc getResourceDepletionScale(thing: Thing): float32 =
+    ## Calculates a visual scale factor for resource nodes based on remaining resources.
+    ##
+    ## Returns a scale between DepletionScaleMin (0.5) and DepletionScaleMax (1.0)
+    ## multiplied by SpriteScale. Full resources render at full size; depleted
+    ## resources shrink to half size, providing visual feedback on resource availability.
+    ##
+    ## Parameters:
+    ##   thing: The resource node Thing (Tree, Wheat, Stone, Gold, Bush, Fish, etc.)
+    ##
+    ## Returns:
+    ##   Scale factor for sprite rendering. Returns SpriteScale (1.0) for non-resource
+    ##   things or those with no trackable inventory.
     let (itemKey, maxAmount) = case thing.kind
       of Tree, Stump: (ItemWood, ResourceNodeInitial)
       of Wheat, Stubble: (ItemWheat, ResourceNodeInitial)
@@ -903,6 +914,22 @@ proc drawObjects*() =
       if thingBlocksMovement(thing.kind): env.grid[thing.pos.x][thing.pos.y] == thing
       else: env.backgroundGrid[thing.pos.x][thing.pos.y] == thing)
 
+  # ---------------------------------------------------------------------------
+  # Building and Object Rendering
+  # ---------------------------------------------------------------------------
+  # Iterates through all ThingKinds to render buildings and miscellaneous objects.
+  # Buildings receive special treatment:
+  #   - Team-colored tinting for military/civic buildings (TownCenter, Barracks, etc.)
+  #   - Construction scaffolding effect when hp < maxHp (desaturated, semi-transparent)
+  #   - Scaffolding corner posts and progress bars during construction
+  #   - Production queue progress bars for buildings training units
+  #   - Smoke/chimney effects for active production
+  #   - Resource stockpile icons showing team resource counts
+  #   - Population display on TownCenters (current/max pop)
+  #   - Garrison indicators showing garrisoned unit counts
+  # Non-building things use simpler sprite rendering with optional death animations
+  # for corpses/skeletons and resource depletion scaling for resource nodes.
+  # ---------------------------------------------------------------------------
   for kind in ThingKind:
     if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
         kind in CliffKinds:

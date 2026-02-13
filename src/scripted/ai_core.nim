@@ -80,20 +80,43 @@ const
 
 # ---------------------------------------------------------------------------
 # Generic per-agent per-step cache infrastructure
-# Consolidates repeated cache boilerplate pattern used in fighter.nim
+# ---------------------------------------------------------------------------
+# Provides memoization for expensive per-agent computations (spatial lookups,
+# pathfinding, threat assessment) that may be called multiple times per step.
+#
+# Design rationale:
+#   - AI behaviors often call the same expensive function from canStart(),
+#     shouldTerminate(), and act() within a single simulation step
+#   - Without caching, this leads to 3x redundant computation per agent per step
+#   - The cache auto-invalidates when the step changes, ensuring fresh data
+#
+# Usage pattern:
+#   var myCache: PerAgentCache[ExpensiveResult]
+#   proc getExpensiveData(env: Environment, agentId: int): ExpensiveResult =
+#     myCache.get(env, agentId, computeExpensiveData)
 # ---------------------------------------------------------------------------
 
 type
   PerAgentCache*[T] = object
-    ## Generic per-agent cache with per-step invalidation.
-    ## Used to avoid redundant spatial lookups when canStart/shouldTerminate/act
-    ## all call the same expensive function for the same agent in the same step.
+    ## Generic per-agent cache with automatic per-step invalidation.
+    ##
+    ## Stores up to MapAgents cached values (one per agent slot). The cache
+    ## tracks the simulation step and automatically invalidates all entries
+    ## when the step changes, ensuring stale data is never returned.
+    ##
+    ## Fields:
+    ##   cacheStep: The simulation step when cache was last valid
+    ##   cache: Array of cached values indexed by agentId
+    ##   valid: Bitmap tracking which cache slots contain valid data
     cacheStep*: int
     cache*: array[MapAgents, T]
     valid*: array[MapAgents, bool]
 
 proc invalidateIfStale*[T](cache: var PerAgentCache[T], currentStep: int) {.inline.} =
-  ## Invalidate the cache if the step has changed.
+  ## Checks if cache is stale and invalidates all entries if step has changed.
+  ##
+  ## Called automatically by get() and getWithAgent(). Clears the valid bitmap
+  ## for all agents when the simulation advances to a new step.
   if cache.cacheStep != currentStep:
     cache.cacheStep = currentStep
     for i in 0 ..< MapAgents:
@@ -101,8 +124,21 @@ proc invalidateIfStale*[T](cache: var PerAgentCache[T], currentStep: int) {.inli
 
 proc get*[T](cache: var PerAgentCache[T], env: Environment, agentId: int,
              compute: proc(env: Environment, agentId: int): T): T =
-  ## Get cached value or compute and cache if not valid.
-  ## The compute proc takes env and agentId and returns the result.
+  ## Returns cached value for an agent, computing and caching if not already valid.
+  ##
+  ## Parameters:
+  ##   cache: The per-agent cache to query/update
+  ##   env: Environment (used for step tracking and passed to compute)
+  ##   agentId: The agent's ID (0..MapAgents-1)
+  ##   compute: Function to compute the value if not cached
+  ##
+  ## Returns:
+  ##   Cached or freshly computed value of type T
+  ##
+  ## Side effects:
+  ##   - May invalidate entire cache if step has changed
+  ##   - Updates cache entry for agentId if computed
+  ##   - Falls back to uncached computation for invalid agentId
   cache.invalidateIfStale(env.currentStep)
   if agentId >= 0 and agentId < MapAgents:
     if not cache.valid[agentId]:
@@ -114,8 +150,23 @@ proc get*[T](cache: var PerAgentCache[T], env: Environment, agentId: int,
 
 proc getWithAgent*[T](cache: var PerAgentCache[T], env: Environment, agent: Thing,
                        compute: proc(env: Environment, agent: Thing): T): T =
-  ## Get cached value or compute and cache if not valid.
-  ## The compute proc takes env and agent Thing and returns the result.
+  ## Returns cached value for an agent, computing and caching if not already valid.
+  ##
+  ## Variant of get() that accepts a Thing reference instead of agentId. Useful when
+  ## the compute function needs access to the full agent Thing (e.g., for position,
+  ## inventory, or state).
+  ##
+  ## Parameters:
+  ##   cache: The per-agent cache to query/update
+  ##   env: Environment (used for step tracking and passed to compute)
+  ##   agent: The agent Thing (must have valid agentId field)
+  ##   compute: Function to compute the value if not cached
+  ##
+  ## Returns:
+  ##   Cached or freshly computed value of type T
+  ##
+  ## Side effects:
+  ##   Same as get() - may invalidate cache and update entry
   cache.invalidateIfStale(env.currentStep)
   let aid = agent.agentId
   if aid >= 0 and aid < MapAgents:
