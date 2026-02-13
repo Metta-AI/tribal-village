@@ -185,6 +185,159 @@ proc getUnitSpriteBase*(unitClass: AgentUnitClass, agentId: int, packed: bool = 
     of 4, 5: "oriented/fighter"
     else: "oriented/gatherer"
 
+proc selectUnitSpriteKey*(baseKey: string, orientation: AgentOrientation): string =
+  ## Select the appropriate sprite key for a unit given its base key and orientation.
+  ##
+  ## Attempts to find a direction-specific sprite (e.g., "oriented/gatherer.nw").
+  ## Falls back to the south-facing sprite if the direction-specific one doesn't exist.
+  ## Returns an empty string if neither sprite is available.
+  ##
+  ## Parameters:
+  ##   baseKey: The base sprite key (e.g., "oriented/gatherer")
+  ##   orientation: The unit's facing direction
+  ##
+  ## Returns:
+  ##   The sprite key to use, or empty string if unavailable.
+  let dirKey = OrientationDirKeys[orientation.int]
+  let orientedImage = baseKey & "." & dirKey
+  if orientedImage in bxy: orientedImage
+  elif baseKey & ".s" in bxy: baseKey & ".s"
+  else: ""
+
+proc renderAgentShadow*(agent: Thing, shadowTint: Color, shadowOffset: Vec2) =
+  ## Render a shadow beneath a single agent.
+  ##
+  ## Draws a semi-transparent dark silhouette offset from the unit's position to
+  ## create the illusion of depth. Light source is assumed to be NW, so shadows
+  ## cast to the SE (positive X and Y offset).
+  ##
+  ## Parameters:
+  ##   agent: The agent Thing to render shadow for
+  ##   shadowTint: Color for the shadow (typically semi-transparent black)
+  ##   shadowOffset: Offset vector from agent position to shadow position
+  let pos = agent.pos
+  if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent or not isInViewport(pos):
+    return
+  let baseKey = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
+  let shadowSpriteKey = selectUnitSpriteKey(baseKey, agent.orientation)
+  if shadowSpriteKey.len > 0:
+    let shadowPos = pos.vec2 + shadowOffset
+    bxy.drawImage(shadowSpriteKey, shadowPos, angle = 0,
+                  scale = SpriteScale, tint = shadowTint)
+
+proc renderBuildingConstruction*(pos: Pos, constructionRatio: float32) =
+  ## Render construction scaffolding for a building under construction.
+  ##
+  ## Draws scaffolding posts at the four corners of the building and horizontal
+  ## bars connecting them, plus a progress bar showing construction completion.
+  ##
+  ## Parameters:
+  ##   pos: World position of the building
+  ##   constructionRatio: Progress from 0.0 (just started) to 1.0 (complete)
+  let scaffoldTint = color(0.7, 0.5, 0.2, 0.8)  # Brown/wood color
+  let scaffoldScale = ScaffoldingPostScale
+  let offsets = [vec2(-0.35, -0.35), vec2(0.35, -0.35),
+                 vec2(-0.35, 0.35), vec2(0.35, 0.35)]
+  for offset in offsets:
+    bxy.drawImage("floor", pos.vec2 + offset, angle = 0,
+                  scale = scaffoldScale, tint = scaffoldTint)
+  # Draw horizontal scaffold bars connecting posts
+  let barTint = color(0.6, 0.4, 0.15, 0.7)
+  for yOff in [-0.35'f32, 0.35'f32]:
+    bxy.drawImage("floor", pos.vec2 + vec2(0, yOff), angle = 0,
+                  scale = scaffoldScale, tint = barTint)
+  # Draw construction progress bar below the building
+  drawSegmentBar(pos.vec2, vec2(0, 0.65), constructionRatio,
+                 color(0.9, 0.7, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
+
+proc renderBuildingUI*(thing: Thing, pos: Pos,
+                       teamPopCounts, teamHouseCounts: array[MapRoomObjectsTeams, int]) =
+  ## Render UI overlays for a building (stockpiles, population, garrison).
+  ##
+  ## Handles:
+  ## - Production queue progress bars for buildings training units
+  ## - Resource stockpile icons showing team resource counts
+  ## - Population display on TownCenters (current/max pop)
+  ## - Garrison indicators showing garrisoned unit counts
+  ##
+  ## Parameters:
+  ##   thing: The building Thing
+  ##   pos: World position of the building
+  ##   teamPopCounts: Array of population counts per team
+  ##   teamHouseCounts: Array of house counts per team
+  # Production queue progress bar (AoE2-style)
+  if thing.productionQueue.entries.len > 0:
+    let entry = thing.productionQueue.entries[0]
+    if entry.totalSteps > 0 and entry.remainingSteps > 0:
+      let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
+      drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
+                     color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
+      # Draw smoke/chimney effect for active production buildings
+      drawBuildingSmoke(pos.vec2, thing.id)
+  let res = buildingStockpileRes(thing.kind)
+  if res != ResourceNone:
+    let teamId = thing.teamId
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return
+    let icon = case res
+      of ResourceFood: itemSpriteKey(ItemWheat)
+      of ResourceWood: itemSpriteKey(ItemWood)
+      of ResourceStone: itemSpriteKey(ItemStone)
+      of ResourceGold: itemSpriteKey(ItemGold)
+      of ResourceWater: itemSpriteKey(ItemWater)
+      of ResourceNone: ""
+    let count = env.teamStockpiles[teamId].counts[res]
+    let iconPos = pos.vec2 + vec2(-0.18, -0.62)
+    if icon.len > 0 and icon in bxy:
+      bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale,
+                    tint = color(1, 1, 1, if count > 0: 1.0 else: 0.35))
+    if count > 0:
+      let labelKey = ensureHeartCountLabel(count)
+      if labelKey.len > 0 and labelKey in bxy:
+        bxy.drawImage(labelKey, iconPos + vec2(0.14, -0.08), angle = 0,
+                      scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+  if thing.kind == TownCenter:
+    let teamId = thing.teamId
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      let iconPos = pos.vec2 + vec2(-0.18, -0.62)
+      if "oriented/gatherer.s" in bxy:
+        bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0,
+                      scale = OverlayIconScale, tint = color(1, 1, 1, 1))
+      let popText = "x " & $teamPopCounts[teamId] & "/" &
+                    $min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
+      let popLabel = if popText in overlayLabelImages: overlayLabelImages[popText]
+        else:
+          let (image, _) = renderTextLabel(popText, HeartCountFontPath,
+                                           HeartCountFontSize, HeartCountPadding.float32, 0.7)
+          let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
+          bxy.addImage(key, image)
+          overlayLabelImages[popText] = key
+          key
+      if popLabel.len > 0 and popLabel in bxy:
+        bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
+                      scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+  # Garrison indicator for buildings that can garrison units
+  if thing.kind in {TownCenter, Castle, GuardTower, House}:
+    let garrisonCount = thing.garrisonedUnits.len
+    if garrisonCount > 0:
+      # Position on right side of building to avoid overlap with stockpile icons
+      let garrisonIconPos = pos.vec2 + vec2(0.22, -0.62)
+      if "oriented/fighter.s" in bxy:
+        bxy.drawImage("oriented/fighter.s", garrisonIconPos, angle = 0,
+                      scale = OverlayIconScale, tint = color(1, 1, 1, 1))
+      let garrisonText = "x" & $garrisonCount
+      let garrisonLabel = if garrisonText in overlayLabelImages: overlayLabelImages[garrisonText]
+        else:
+          let (image, _) = renderTextLabel(garrisonText, HeartCountFontPath,
+                                           HeartCountFontSize, HeartCountPadding.float32, 0.7)
+          let key = "overlay_label/" & garrisonText.replace(" ", "_")
+          bxy.addImage(key, image)
+          overlayLabelImages[garrisonText] = key
+          key
+      if garrisonLabel.len > 0 and garrisonLabel in bxy:
+        bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(0.12, -0.08), angle = 0,
+                      scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+
 const CliffDrawOrder = [
   CliffEdgeN,
   CliffEdgeE,
@@ -785,29 +938,12 @@ proc drawObjects*() =
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
-    let pos = agent.pos
-    if not isValidPos(pos) or env.grid[pos.x][pos.y] != agent or not isInViewport(pos):
-      continue
-    let baseKey = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
-    let dirKey = OrientationDirKeys[agent.orientation.int]
-    let agentImage = baseKey & "." & dirKey
-    let shadowSpriteKey = if agentImage in bxy: agentImage
-                          elif baseKey & ".s" in bxy: baseKey & ".s"
-                          else: ""
-    if shadowSpriteKey.len > 0:
-      # Draw shadow: offset from unit position, dark semi-transparent tint
-      let shadowPos = pos.vec2 + shadowOffset
-      bxy.drawImage(shadowSpriteKey, shadowPos, angle = 0,
-                    scale = SpriteScale, tint = shadowTint)
+    renderAgentShadow(agent, shadowTint, shadowOffset)
 
   drawThings(Agent):
     let agent = thing
     let baseKey = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
-    let dirKey = OrientationDirKeys[agent.orientation.int]
-    let agentImage = baseKey & "." & dirKey
-    let agentSpriteKey = if agentImage in bxy: agentImage
-                         elif baseKey & ".s" in bxy: baseKey & ".s"
-                         else: ""
+    let agentSpriteKey = selectUnitSpriteKey(baseKey, agent.orientation)
     if agentSpriteKey.len > 0:
       # Apply subtle breathing animation when idle
       let animScale = if agent.isIdle:
@@ -825,11 +961,7 @@ proc drawObjects*() =
     if not isInViewport(dying.pos):
       continue
     let dyingBaseKey = getUnitSpriteBase(dying.unitClass, dying.agentId)
-    let dyingDirKey = OrientationDirKeys[dying.orientation.int]
-    let dyingImage = dyingBaseKey & "." & dyingDirKey
-    let dyingSpriteKey = if dyingImage in bxy: dyingImage
-                         elif dyingBaseKey & ".s" in bxy: dyingBaseKey & ".s"
-                         else: ""
+    let dyingSpriteKey = selectUnitSpriteKey(dyingBaseKey, dying.orientation)
     if dyingSpriteKey.len > 0:
       # Calculate fade: starts at 1.0 (full opacity), fades to 0.0
       let fade = dying.countdown.float32 / dying.lifetime.float32
@@ -972,94 +1104,9 @@ proc drawObjects*() =
         # Construction scaffolding visual for buildings under construction
         if thing.maxHp > 0 and thing.hp < thing.maxHp:
           let constructionRatio = thing.hp.float32 / thing.maxHp.float32
-          # Draw scaffolding frame (4 corner posts using floor sprite as small dots)
-          let scaffoldTint = color(0.7, 0.5, 0.2, 0.8)  # Brown/wood color
-          let scaffoldScale = ScaffoldingPostScale
-          let offsets = [vec2(-0.35, -0.35), vec2(0.35, -0.35),
-                         vec2(-0.35, 0.35), vec2(0.35, 0.35)]
-          for offset in offsets:
-            bxy.drawImage("floor", pos.vec2 + offset, angle = 0,
-                          scale = scaffoldScale, tint = scaffoldTint)
-          # Draw horizontal scaffold bars connecting posts
-          let barTint = color(0.6, 0.4, 0.15, 0.7)
-          for yOff in [-0.35'f32, 0.35'f32]:
-            bxy.drawImage("floor", pos.vec2 + vec2(0, yOff), angle = 0,
-                          scale = scaffoldScale, tint = barTint)
-          # Draw construction progress bar below the building
-          drawSegmentBar(pos.vec2, vec2(0, 0.65), constructionRatio,
-                         color(0.9, 0.7, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
-        # Production queue progress bar (AoE2-style)
-        if thing.productionQueue.entries.len > 0:
-          let entry = thing.productionQueue.entries[0]
-          if entry.totalSteps > 0 and entry.remainingSteps > 0:
-            let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
-            drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
-                           color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
-            # Draw smoke/chimney effect for active production buildings
-            drawBuildingSmoke(pos.vec2, thing.id)
-        let res = buildingStockpileRes(thing.kind)
-        if res != ResourceNone:
-          let teamId = thing.teamId
-          if teamId < 0 or teamId >= MapRoomObjectsTeams:
-            continue
-          let icon = case res
-            of ResourceFood: itemSpriteKey(ItemWheat)
-            of ResourceWood: itemSpriteKey(ItemWood)
-            of ResourceStone: itemSpriteKey(ItemStone)
-            of ResourceGold: itemSpriteKey(ItemGold)
-            of ResourceWater: itemSpriteKey(ItemWater)
-            of ResourceNone: ""
-          let count = env.teamStockpiles[teamId].counts[res]
-          let iconPos = pos.vec2 + vec2(-0.18, -0.62)
-          if icon.len > 0 and icon in bxy:
-            bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale,
-                          tint = color(1, 1, 1, if count > 0: 1.0 else: 0.35))
-          if count > 0:
-            let labelKey = ensureHeartCountLabel(count)
-            if labelKey.len > 0 and labelKey in bxy:
-              bxy.drawImage(labelKey, iconPos + vec2(0.14, -0.08), angle = 0,
-                            scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
-        if thing.kind == TownCenter:
-          let teamId = thing.teamId
-          if teamId >= 0 and teamId < MapRoomObjectsTeams:
-            let iconPos = pos.vec2 + vec2(-0.18, -0.62)
-            if "oriented/gatherer.s" in bxy:
-              bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0,
-                            scale = OverlayIconScale, tint = color(1, 1, 1, 1))
-            let popText = "x " & $teamPopCounts[teamId] & "/" &
-                          $min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
-            let popLabel = if popText in overlayLabelImages: overlayLabelImages[popText]
-              else:
-                let (image, _) = renderTextLabel(popText, HeartCountFontPath,
-                                                 HeartCountFontSize, HeartCountPadding.float32, 0.7)
-                let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
-                bxy.addImage(key, image)
-                overlayLabelImages[popText] = key
-                key
-            if popLabel.len > 0 and popLabel in bxy:
-              bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
-                            scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
-        # Garrison indicator for buildings that can garrison units
-        if thing.kind in {TownCenter, Castle, GuardTower, House}:
-          let garrisonCount = thing.garrisonedUnits.len
-          if garrisonCount > 0:
-            # Position on right side of building to avoid overlap with stockpile icons
-            let garrisonIconPos = pos.vec2 + vec2(0.22, -0.62)
-            if "oriented/fighter.s" in bxy:
-              bxy.drawImage("oriented/fighter.s", garrisonIconPos, angle = 0,
-                            scale = OverlayIconScale, tint = color(1, 1, 1, 1))
-            let garrisonText = "x" & $garrisonCount
-            let garrisonLabel = if garrisonText in overlayLabelImages: overlayLabelImages[garrisonText]
-              else:
-                let (image, _) = renderTextLabel(garrisonText, HeartCountFontPath,
-                                                 HeartCountFontSize, HeartCountPadding.float32, 0.7)
-                let key = "overlay_label/" & garrisonText.replace(" ", "_")
-                bxy.addImage(key, image)
-                overlayLabelImages[garrisonText] = key
-                key
-            if garrisonLabel.len > 0 and garrisonLabel in bxy:
-              bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(0.12, -0.08), angle = 0,
-                            scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+          renderBuildingConstruction(pos, constructionRatio)
+        # Building UI overlays (production queue, stockpiles, population, garrison)
+        renderBuildingUI(thing, pos, teamPopCounts, teamHouseCounts)
     else:
       let spriteKey = thingSpriteKey(kind)
       if spriteKey.len == 0 or spriteKey notin bxy:
