@@ -378,6 +378,12 @@ tribal-village train --steps 1000000 --parallel-envs 8 --num-workers 4 --log-out
 | `-d:perfRegression` | Enable performance regression detection |
 | `-d:enableEvolution` | Enable AI evolution layer |
 | `-d:audio` | Enable audio system |
+| `-d:aiAudit` | Enable AI decision audit logging |
+| `-d:actionAudit` | Enable action distribution logging |
+| `-d:actionFreqCounter` | Enable action frequency by unit type |
+
+See `docs/configuration.md` for detailed documentation of audit flags including
+environment variables and performance implications.
 
 ## Troubleshooting
 

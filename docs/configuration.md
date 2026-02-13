@@ -388,12 +388,166 @@ These flags are passed to the Nim compiler to enable optional features.
 | `-d:perfRegression` | Enable performance regression detection. |
 | `-d:enableEvolution` | Enable AI evolution layer. |
 | `-d:audio` | Enable audio system. |
+| `-d:aiAudit` | Enable AI decision audit logging. |
+| `-d:actionAudit` | Enable action distribution logging. |
+| `-d:actionFreqCounter` | Enable action frequency by unit type logging. |
+
+### Step Timing (`-d:stepTiming`)
+
+Instruments the main simulation loop to measure time spent in each phase per step.
+Useful for identifying performance bottlenecks in specific subsystems.
+
+**Usage:**
+```bash
+nim r -d:stepTiming -d:release --path:src src/tribal_village.nim
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TV_STEP_TIMING` | -1 | Target step to start timing (-1 = disabled). |
+| `TV_STEP_TIMING_WINDOW` | 0 | Number of steps to time around the target. |
+
+**Example:**
+```bash
+TV_STEP_TIMING=100 TV_STEP_TIMING_WINDOW=50 \
+  nim r -d:stepTiming -d:release --path:src src/tribal_village.nim
+```
+
+This will output detailed per-phase timing (in milliseconds) for steps 100-150, showing
+time spent in combat, movement, pathfinding, economy, and other simulation subsystems.
+
+**Performance impact:** Minimal when timing is disabled (TV_STEP_TIMING=-1). When active,
+adds overhead from `getMonoTime()` calls at each phase boundary.
+
+### AI Audit (`-d:aiAudit`)
+
+Instruments AI decision-making to track which code paths agents take and what actions
+they choose. Useful for debugging AI behavior and understanding agent decision patterns.
+
+**Usage:**
+```bash
+nim r -d:aiAudit -d:release --path:src src/tribal_village.nim
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TV_AI_LOG` | 0 | Logging level: 0=off, 1=summary every 50 steps, 2=verbose per-agent per-step. |
+
+**Example:**
+```bash
+TV_AI_LOG=1 nim r -d:aiAudit -d:release --path:src src/tribal_village.nim
+```
+
+**Output (summary mode, every 50 steps):**
+- Action distribution: counts and percentages for each action verb (move, attack, build, etc.)
+- Role distribution per team: breakdown by agent role (Gatherer, Builder, Fighter, Scripted)
+- Decision branches: which code paths led to each decision (escape mode, patrol, attack-move, etc.)
+
+**Performance impact:** Low when disabled (TV_AI_LOG=0). Summary mode (level 1) adds minimal
+overhead from counter increments. Verbose mode (level 2) has higher impact due to per-decision
+string formatting and output.
+
+### Action Audit (`-d:actionAudit`)
+
+Tracks per-step and per-team action distributions. Provides aggregate reports showing
+how actions are distributed across the simulation.
+
+**Usage:**
+```bash
+nim r -d:actionAudit -d:release --path:src src/tribal_village.nim
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TV_ACTION_AUDIT_INTERVAL` | 100 | Steps between aggregate reports. |
+
+**Example:**
+```bash
+TV_ACTION_AUDIT_INTERVAL=50 nim r -d:actionAudit -d:release --path:src src/tribal_village.nim
+```
+
+**Output:**
+- Per-step action counts by verb (noop, move, attack, use, swap, put, build, orient, etc.)
+- Per-team breakdown showing idle%, move%, attack%, build% for each team
+- Aggregate reports every N steps showing trends over the reporting window
+
+**Performance impact:** Adds counter increment per action (~1000 agents × 1 step = ~1000 increments).
+Negligible overhead in release builds. Report printing adds I/O overhead at intervals.
+
+### Action Frequency Counter (`-d:actionFreqCounter`)
+
+Tracks action frequency broken down by unit type (villager, archer, knight, etc.).
+Useful for understanding which unit types are performing which actions.
+
+**Usage:**
+```bash
+nim r -d:actionFreqCounter -d:release --path:src src/tribal_village.nim
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TV_ACTION_FREQ_INTERVAL` | 100 | Steps between aggregate reports. |
+
+**Example:**
+```bash
+TV_ACTION_FREQ_INTERVAL=50 nim r -d:actionFreqCounter -d:release --path:src src/tribal_village.nim
+```
+
+**Output:**
+```
+===============================================================================
+  ACTION FREQUENCY BY UNIT TYPE - Steps 1-100 (100 steps)
+===============================================================================
+
+Unit Type          noop   move attack    use   swap    put     pl     pr  build orient  rally   Total
+--------------------------------------------------------------------------------------------------
+Villager            523   1245    102     45     12      8      0      0    234      0      0    2169
+Man-at-Arms          45    312    456      0      0      0      0      0      0     23      0     836
+...
+```
+
+**Performance impact:** Similar to actionAudit. Adds counter increment per action indexed by
+unit type. Negligible overhead in release builds.
+
+### Combining Audit Flags
+
+Multiple audit flags can be combined for comprehensive analysis:
+
+```bash
+nim r -d:stepTiming -d:aiAudit -d:actionAudit -d:actionFreqCounter \
+  -d:release --path:src src/tribal_village.nim
+```
+
+Set environment variables to control output verbosity:
+```bash
+TV_STEP_TIMING=100 TV_STEP_TIMING_WINDOW=200 \
+TV_AI_LOG=1 \
+TV_ACTION_AUDIT_INTERVAL=100 \
+TV_ACTION_FREQ_INTERVAL=100 \
+  nim r -d:stepTiming -d:aiAudit -d:actionAudit -d:actionFreqCounter \
+  -d:release --path:src src/tribal_village.nim
+```
+
+**Note:** When compiled without these flags (`-d:actionAudit`, etc.), the audit code is
+completely eliminated by the compiler. There is zero runtime cost for disabled features.
 
 ## Reference Files
 
 - `src/types.nim`: EnvironmentConfig definition and compile-time constants.
 - `src/constants.nim`: Balance constants (building HP, unit stats, tech costs, combat AI).
+- `src/config.nim`: Centralized runtime configuration with validation and help generation.
 - `src/perf_regression.nim`: Performance regression detection system.
+- `src/action_audit.nim`: Action distribution logging (requires `-d:actionAudit`).
+- `src/action_freq_counter.nim`: Action frequency by unit type (requires `-d:actionFreqCounter`).
+- `src/scripted/ai_audit.nim`: AI decision audit logging (requires `-d:aiAudit`).
 - `src/ffi.nim`: FFI layer for Python config passing.
 - `tribal_village_env/environment.py`: Python configuration interface.
 - `Makefile`: Build/test/benchmark targets.
