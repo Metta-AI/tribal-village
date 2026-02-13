@@ -282,10 +282,7 @@ proc updateObservations(
   ## No-op: observations are rebuilt in batch at end of step() for efficiency.
   ## Previously iterated ALL agents per tile update which was O(updates * agents).
   ## Now rebuildObservations is called once at end of step() which is O(agents * tiles).
-  discard env
-  discard layer
-  discard pos
-  discard value
+  discard (env, layer, pos, value)
 
 include "colors"
 include "event_log"
@@ -296,12 +293,14 @@ const
 
 {.push inline.}
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
-  ## Inventory observations are not encoded in the spatial observation layers.
-  discard
+  ## No-op: inventory observations are rebuilt in batch at end of step() for efficiency.
+  ## Kept for API compatibility - call sites remain to enable future observation changes.
+  discard (env, agent, key)
 
 proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
-  ## Type-safe overload using ItemKind enum
-  discard
+  ## No-op: type-safe overload using ItemKind enum.
+  ## See updateAgentInventoryObs(env, agent, ItemKey) for rationale.
+  discard (env, agent, kind)
 
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
   env.teamStockpiles[teamId].counts[res]
