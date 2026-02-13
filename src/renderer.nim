@@ -220,7 +220,7 @@ proc drawObjects*() =
     let agent = thing
     let baseKey = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
     let agentSpriteKey = selectUnitSpriteKey(baseKey, agent.orientation)
-    if agentSpriteKey.len > 0:
+    if agentSpriteKey.len > 0 and agent.agentId >= 0 and agent.agentId < env.agentColors.len:
       # Apply subtle breathing animation when idle
       let animScale = if agent.isIdle:
         # Use agent position for phase offset so units don't breathe in sync
@@ -235,6 +235,8 @@ proc drawObjects*() =
   # Draw dying units with fade-out animation
   for dying in env.dyingUnits:
     if not isInViewport(dying.pos):
+      continue
+    if dying.agentId < 0 or dying.agentId >= env.agentColors.len:
       continue
     let dyingBaseKey = getUnitSpriteBase(dying.unitClass, dying.agentId)
     let dyingSpriteKey = selectUnitSpriteKey(dyingBaseKey, dying.orientation)
