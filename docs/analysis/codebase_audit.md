@@ -1,8 +1,9 @@
 # Tribal Village Codebase Structure Audit
 
 Date: 2026-01-28
+Updated: 2026-02-12
 Owner: Engineering / Analysis
-Status: Active
+Status: Complete (most recommendations implemented; see audit-world-sim-core.md for current state)
 
 ## 1. Codebase Overview
 

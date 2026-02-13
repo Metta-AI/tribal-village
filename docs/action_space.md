@@ -6,21 +6,21 @@ Status: Active
 
 ## Overview
 
-The Tribal Village action space uses a discrete encoding scheme where each action is represented as a single integer from 0 to 274.
+The Tribal Village action space uses a discrete encoding scheme where each action is represented as a single integer from 0 to 307.
 
 ### Action Encoding Formula
 
 ```
-action = verb * 25 + argument
+action = verb * 28 + argument
 ```
 
 Where:
 - **verb**: The action type (0-10)
-- **argument**: The action parameter (0-24)
+- **argument**: The action parameter (0-27)
 
 ### Total Action Space
 
-- **11 verbs** x **25 arguments** = **275 total actions**
+- **11 verbs** x **28 arguments** = **308 total actions**
 
 ---
 
@@ -36,7 +36,7 @@ Where:
 | 5 | put | Give items to adjacent agent | 0-7 (directions) |
 | 6 | plant_lantern | Plant lantern in direction | 0-7 (directions) |
 | 7 | plant_resource | Plant wheat/tree on fertile tile | 0-3 wheat, 4-7 tree (cardinal dirs) |
-| 8 | build | Build structure | 0-24 (BuildChoices index) |
+| 8 | build | Build structure | 0-27 (BuildChoices index) |
 | 9 | orient | Change orientation without moving | 0-7 (directions) |
 | 10 | set_rally_point | Set building rally point | 0-7 (directions) |
 
@@ -92,6 +92,9 @@ When verb = 8 (build), the argument selects from the following building types:
 | 22 | Barrel | 2 Wood | 10 |
 | 23 | Guard Tower | 5 Wood | 12 |
 | 24 | Mangonel Workshop | 10 Wood, 4 Stone | 14 |
+| 25 | Trebuchet Workshop | 12 Wood, 6 Stone | 16 |
+| 26 | Wonder | 50 Wood, 50 Stone, 50 Gold | 50 |
+| 27 | Mining Camp | 5 Wood | 12 |
 
 ---
 
@@ -212,22 +215,22 @@ Quick reference for common actions:
 | Action | Verb | Arg | Encoded Value |
 |--------|------|-----|---------------|
 | Noop | 0 | 0 | 0 |
-| Move North | 1 | 0 | 25 |
-| Move South | 1 | 1 | 26 |
-| Move West | 1 | 2 | 27 |
-| Move East | 1 | 3 | 28 |
-| Attack North | 2 | 0 | 50 |
-| Attack South | 2 | 1 | 51 |
-| Use North | 3 | 0 | 75 |
-| Swap North | 4 | 0 | 100 |
-| Put North | 5 | 0 | 125 |
-| Plant Lantern North | 6 | 0 | 150 |
-| Plant Wheat North | 7 | 0 | 175 |
-| Plant Tree North | 7 | 4 | 179 |
-| Build House | 8 | 0 | 200 |
-| Build Town Center | 8 | 1 | 201 |
-| Orient North | 9 | 0 | 225 |
-| Set Rally Point North | 10 | 0 | 250 |
+| Move North | 1 | 0 | 28 |
+| Move South | 1 | 1 | 29 |
+| Move West | 1 | 2 | 30 |
+| Move East | 1 | 3 | 31 |
+| Attack North | 2 | 0 | 56 |
+| Attack South | 2 | 1 | 57 |
+| Use North | 3 | 0 | 84 |
+| Swap North | 4 | 0 | 112 |
+| Put North | 5 | 0 | 140 |
+| Plant Lantern North | 6 | 0 | 168 |
+| Plant Wheat North | 7 | 0 | 196 |
+| Plant Tree North | 7 | 4 | 200 |
+| Build House | 8 | 0 | 224 |
+| Build Town Center | 8 | 1 | 225 |
+| Orient North | 9 | 0 | 252 |
+| Set Rally Point North | 10 | 0 | 280 |
 
 ---
 

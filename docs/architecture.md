@@ -131,10 +131,10 @@ Observations are rebuilt in batch at end of each step for efficiency.
 
 Actions are encoded as single uint8:
 ```
-action = verb * 25 + argument
+action = verb * 28 + argument
 ```
 
-11 verbs × 25 arguments = 275 action space.
+11 verbs × 28 arguments = 308 action space.
 
 See `docs/action_space.md` for verb definitions.
 

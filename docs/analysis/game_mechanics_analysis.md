@@ -20,10 +20,10 @@ Analysis of `/home/relh/Code/tribal-village/src/step.nim` reveals **32 distinct 
 
 ## Action Encoding
 
-From `/home/relh/Code/tribal-village/src/common.nim`:
-- **ActionVerbCount** = 10
-- **ActionArgumentCount** = 25
-- Action value = `verb * 25 + argument`
+From `src/common_types.nim`:
+- **ActionVerbCount** = 11
+- **ActionArgumentCount** = 28
+- Action value = `verb * 28 + argument`
 - Arguments 0-7 represent 8 directions (N, S, W, E, NW, NE, SW, SE)
 
 ### Verb Mapping (from replay_writer.nim)
@@ -39,6 +39,7 @@ From `/home/relh/Code/tribal-village/src/common.nim`:
 | 7 | plant_resource | Plant wheat/tree on fertile tile |
 | 8 | build | Build structure from BuildChoices |
 | 9 | orient | Change orientation without moving |
+| 10 | set_rally_point | Set building rally point in direction |
 
 ---
 
@@ -149,11 +150,13 @@ Attack failures when hitting nothing are **expected game mechanics**. An agent a
 |------|-----------|----------------|-----------|
 | 1273 | `argument < 0 or argument > 7` | Invalid orientation | **BUG** |
 
-### 10. Unknown Verb - 1 Location
+### 10. Set Rally Point (verb 10) - See action_space.md
+
+### 11. Unknown Verb - 1 Location
 
 | Line | Condition | Failure Reason | Expected? |
 |------|-----------|----------------|-----------|
-| 1280 | `else` case | Verb >= 10 | **BUG** |
+| 1280 | `else` case | Verb >= 11 | **BUG** |
 
 ---
 
@@ -161,7 +164,7 @@ Attack failures when hitting nothing are **expected game mechanics**. An agent a
 
 ### Category 1: BUGS (should never happen with valid RL policy)
 - Arguments > 7 for directional actions (lines 299, 551, 947, 971, 1044, 1273)
-- Unknown verb >= 10 (line 1280)
+- Unknown verb >= 11 (line 1280)
 - Invalid build key with no costs (line 1166)
 
 **Recommendation:** Add action masking to prevent invalid action indices.

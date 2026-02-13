@@ -1,8 +1,8 @@
 # Subsystem Audit: World Simulation Core
 
 **Issue:** tv-wisp-ywl24
-**Files:** step.nim (3810 lines), environment.nim (2343 lines), spawn.nim (1818 lines), types.nim (1350 lines)
-**Total:** 9321 lines
+**Files:** step.nim (2679 lines), environment.nim (2729 lines), spawn.nim (1849 lines), types.nim (1531 lines)
+**Total:** 8788 lines
 
 ---
 
@@ -12,7 +12,7 @@ The world simulation core has grown organically to 9321 lines across 4 files. Th
 
 ---
 
-## 1. step.nim Analysis (3810 lines)
+## 1. step.nim Analysis (2679 lines)
 
 ### 1.1 Current Structure
 
@@ -24,8 +24,8 @@ Lines 626-729:    Auras/survival/utility procs (~105 lines)
 Lines 730-907:    Victory condition checks (~175 lines)
 Lines 908-950:    Victory orchestration (~40 lines)
 Lines 951-1087:   Tumor processing (~135 lines)
-Lines 1088-3737:  THE MAIN step() FUNCTION (~2650 lines)
-Lines 3738-3810:  reset() function (~70 lines)
+Lines 248-2602:   THE MAIN step() FUNCTION (~2355 lines)
+Lines 2603-2679:  reset() function (~77 lines)
 ```
 
 ### 1.2 Extractable Sections
@@ -295,32 +295,34 @@ After searching the codebase, all major types appear to be in use. However:
 
 ```
 src/
-├── step.nim               # Main step() - reduced from 3810 to ~2500 lines
-├── step_visuals.nim       # Visual effects decay (~200 lines)
-├── building_combat.nim    # Tower/TC attacks, garrison (~245 lines)
-├── auras.nim              # Passive aura effects (~100 lines)
-├── victory.nim            # Victory conditions (~195 lines)
-├── tumors.nim             # Tumor mechanics (~135 lines)
-├── animal_ai.nim          # Cow/wolf/bear behavior (~220 lines)
-├── respawn.nim            # Population/respawn (~120 lines)
-├── environment.nim        # Core env state (unchanged)
-├── spawn.nim              # Map generation (unchanged initially)
-└── types.nim              # Type definitions (unchanged)
+├── step.nim               # Main step() (2679 lines)
+├── step_visuals.nim       # Visual effects decay (260 lines) ✅ extracted
+├── building_combat.nim    # Tower/TC attacks, garrison (259 lines) ✅ extracted
+├── auras.nim              # Passive aura effects (107 lines) ✅ extracted
+├── victory.nim            # Victory conditions (235 lines) ✅ extracted
+├── tumors.nim             # Tumor mechanics (183 lines) ✅ extracted
+├── animal_ai.nim          # Cow/wolf/bear behavior (284 lines) ✅ extracted
+├── respawn.nim            # Population/respawn (144 lines) ✅ extracted
+├── environment.nim        # Core env state (2729 lines)
+├── spawn.nim              # Map generation (1849 lines)
+└── types.nim              # Type definitions (1531 lines)
 ```
 
 ---
 
 ## Appendix: Line Count Summary
 
-| File | Current | After Phase 1 |
-|------|---------|---------------|
-| step.nim | 3810 | ~2500 |
-| step_visuals.nim | 0 | ~200 |
-| building_combat.nim | 0 | ~245 |
-| auras.nim | 0 | ~100 |
-| victory.nim | 0 | ~195 |
-| tumors.nim | 0 | ~135 |
-| animal_ai.nim | 0 | ~220 |
-| respawn.nim | 0 | ~120 |
+All Phase 1 extractions are complete.
+
+| File | Original | Current |
+|------|----------|---------|
+| step.nim | 3810 | 2679 |
+| step_visuals.nim | (in step.nim) | 260 |
+| building_combat.nim | (in step.nim) | 259 |
+| auras.nim | (in step.nim) | 107 |
+| victory.nim | (in step.nim) | 235 |
+| tumors.nim | (in step.nim) | 183 |
+| animal_ai.nim | (in step.nim) | 284 |
+| respawn.nim | (in step.nim) | 144 |
 
 Total lines remain similar, but step.nim becomes ~35% smaller and more focused.

@@ -65,10 +65,7 @@ Audited 41 documentation files in `docs/` against the current codebase. Overall 
 ActionVerbCount* = 11  # Added set rally point action (verb 10)
 ```
 
-**Fix Required:**
-- Update verb count from 10 to 11
-- Add verb 10 (`set_rally_point`) to the verb reference table
-- Update total action space from 250 to 275
+**Status: FIXED** — Verb count updated to 11, verb 10 added, action space updated to 308 (11 verbs × 28 arguments). ActionArgumentCount expanded from 25 to 28 to accommodate TrebuchetWorkshop (25), Wonder (26), and MiningCamp (27).
 
 ---
 

@@ -137,7 +137,7 @@ const OrientationDeltas*: array[8, IVec2] = [
 
 const
   ActionVerbCount* = 11  # Added set rally point action (verb 10)
-  ActionArgumentCount* = 25
+  ActionArgumentCount* = 28
 
   # Action verb indices (used by replay_writer, replay_analyzer, ai_audit)
   ActionNoop* = 0

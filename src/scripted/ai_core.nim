@@ -862,7 +862,8 @@ proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool =
     return -1
 
   proc targetPriority(kind: ThingKind): int =
-    if agent.unitClass == UnitMangonel:
+    if agent.unitClass in {UnitMangonel, UnitBatteringRam, UnitTrebuchet}:
+      # Siege units prioritize structures (their primary purpose)
       if kind in AttackableStructures:
         return 0
       case kind

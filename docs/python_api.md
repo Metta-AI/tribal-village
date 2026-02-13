@@ -58,7 +58,7 @@ TribalVillageEnv(config: Optional[Dict[str, Any]] = None, buf=None)
 | `agents` | `List[str]` | List of agent IDs (`["agent_0", "agent_1", ...]`) |
 | `possible_agents` | `List[str]` | Copy of `agents` list |
 | `single_observation_space` | `spaces.Box` | Observation space for one agent |
-| `single_action_space` | `spaces.Discrete` | Action space for one agent (250 actions) |
+| `single_action_space` | `spaces.Discrete` | Action space for one agent (308 actions) |
 | `action_space` | `JointSpace` | Combined action space for all agents |
 | `render_mode` | `str` | Current render mode (`"rgb_array"` or `"ansi"`) |
 | `step_count` | `int` | Current step number in episode |
@@ -93,7 +93,7 @@ step(actions: Dict[str, np.ndarray]) -> Tuple[Dict, Dict, Dict, Dict, Dict]
 Execute one environment step.
 
 **Parameters:**
-- `actions`: Dict mapping agent IDs to action integers (0-249)
+- `actions`: Dict mapping agent IDs to action integers (0-274)
 
 **Returns:**
 - `observations`: Dict mapping agent IDs to observation arrays
@@ -238,15 +238,15 @@ See `docs/observation_space.md` for complete layer documentation.
 
 ### Encoding
 
-Actions are encoded as a single integer from 0 to 249:
+Actions are encoded as a single integer from 0 to 307:
 
 ```
-action = verb * 25 + argument
+action = verb * 28 + argument
 ```
 
-- **Verbs**: 0-9 (10 action types)
-- **Arguments**: 0-24 (25 possible arguments per verb)
-- **Total**: 250 discrete actions
+- **Verbs**: 0-10 (11 action types)
+- **Arguments**: 0-27 (28 possible arguments per verb)
+- **Total**: 308 discrete actions
 
 ### Verb Reference
 
@@ -260,8 +260,9 @@ action = verb * 25 + argument
 | 5 | put | Give items to adjacent agent | 0-7 (directions) |
 | 6 | plant_lantern | Plant lantern | 0-7 (directions) |
 | 7 | plant_resource | Plant wheat/tree | 0-3 wheat, 4-7 tree |
-| 8 | build | Build structure | 0-24 (building index) |
+| 8 | build | Build structure | 0-27 (building index) |
 | 9 | orient | Change orientation | 0-7 (directions) |
+| 10 | set_rally_point | Set building rally point | 0-7 (directions) |
 
 ### Direction Arguments
 
@@ -281,11 +282,11 @@ action = verb * 25 + argument
 | Action | Verb | Arg | Value |
 |--------|------|-----|-------|
 | Noop | 0 | 0 | 0 |
-| Move North | 1 | 0 | 25 |
-| Move South | 1 | 1 | 26 |
-| Attack North | 2 | 0 | 50 |
-| Use North | 3 | 0 | 75 |
-| Build House | 8 | 0 | 200 |
+| Move North | 1 | 0 | 28 |
+| Move South | 1 | 1 | 29 |
+| Attack North | 2 | 0 | 56 |
+| Use North | 3 | 0 | 84 |
+| Build House | 8 | 0 | 224 |
 
 See `docs/action_space.md` for complete action documentation.
 

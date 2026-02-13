@@ -1,8 +1,8 @@
 # Population Caps and Housing
 
-Date: 2026-01-19
+Date: 2026-02-12
 Owner: Design / Systems
-Status: Draft
+Status: Current
 
 ## Team and Agent Limits
 Core scale constants in `src/types.nim`:
@@ -16,12 +16,13 @@ This means the environment targets ~1000 agents plus a small goblin set.
 Population cap is computed each step in `src/step.nim` by summing building
 pop caps per team:
 - `buildingPopCap(House) = HousePopCap` (currently 4)
-- `buildingPopCap(TownCenter) = TownCenterPopCap` (currently 0)
+- `buildingPopCap(TownCenter) = TownCenterPopCap` (currently 5)
 - Other buildings return 0
+- Only **constructed** buildings contribute (see `thing.constructed` in `placement.nim`)
 
 The total is clamped to `MapAgentsPerTeam`, so the effective cap is:
 
-`min(MapAgentsPerTeam, house_count * HousePopCap)`
+`min(MapAgentsPerTeam, townCenter_count * TownCenterPopCap + house_count * HousePopCap)`
 
 There is no separate hard cap beyond `MapAgentsPerTeam`.
 
@@ -52,7 +53,9 @@ buildings for safety. The `GarrisonSeekRadius` (15) determines how far villagers
 search for shelter.
 
 ## Practical Notes
-- Houses are the sole pop-cap building right now.
-- Town Centers are important for other mechanics (training, garrison, and hearth focus),
-  but do not add cap.
-- Tuning `HousePopCap` or `MapAgentsPerTeam` changes growth dynamics quickly.
+- Both Houses and Town Centers contribute to population cap.
+- Town Centers provide 5 pop cap each plus training, garrison, and hearth focus.
+- Houses provide 4 pop cap each and are the primary scaling mechanism.
+- Buildings with no HP requirement (House, Mill, Granary, etc.) are auto-constructed
+  on placement. Buildings with HP (Wall, Tower, Castle, etc.) must reach full HP first.
+- Tuning `HousePopCap`, `TownCenterPopCap`, or `MapAgentsPerTeam` changes growth dynamics.

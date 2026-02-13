@@ -115,7 +115,7 @@ Status: Complete
 
 ## Known Issues
 
-1. **Battering ram targeting priority** - Rams use the default target priority (Tumor > Spawner > Agent > Structure) instead of prioritizing structures like mangonels do. Fix: add `UnitBatteringRam` to the structure-priority condition in `src/scripted/ai_core.nim` `targetPriority()`.
+1. ~~**Battering ram targeting priority**~~ - FIXED: All siege units (BatteringRam, Mangonel, Trebuchet) now prioritize structures in `targetPriority()`.
 2. **No repair mechanic** - Buildings cannot be healed once damaged. Villagers could be given a repair ability.
-3. **No garrison mechanic** - Units cannot shelter inside buildings for protection.
+3. ~~**No garrison mechanic**~~ - IMPLEMENTED: Full AoE2-style garrison system with TC, Castle, Tower, and House garrison.
 4. **Siege training visibility requirement** - Villagers must see enemy structures within ObservationRadius (5 tiles) to trigger siege training. May not activate fast enough during active combat.

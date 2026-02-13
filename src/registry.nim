@@ -75,7 +75,7 @@ let BuildingRegistry* = block:
     (Quarry, "Quarry", "quarry", 'Q', (r: 120'u8, g: 120'u8, b: 120'u8),
       4, @[(ItemWood, 5)], 12),
     (MiningCamp, "Mining Camp", "mining_camp", 'M', (r: 200'u8, g: 190'u8, b: 120'u8),
-      15, @[(ItemWood, 5)], 12),
+      27, @[(ItemWood, 5)], 12),
     (Barracks, "Barracks", "barracks", 'r', (r: 160'u8, g: 90'u8, b: 60'u8),
       8, @[(ItemWood, 9)], 12),
     (ArcheryRange, "Archery Range", "archery_range", 'g', (r: 140'u8, g: 120'u8, b: 180'u8),

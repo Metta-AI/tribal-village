@@ -9,7 +9,7 @@ Auditor: polecat/nux
 
 ## Executive Summary
 
-The tribal_village test suite contains 49 test files covering various aspects of game behavior, domain logic, and integration scenarios. The tests are generally well-structured but have several coverage gaps, potential flaky tests, and some weak assertions that could mask real failures.
+The tribal_village test suite contains 97 test files covering various aspects of game behavior, domain logic, and integration scenarios. The tests are generally well-structured but have several coverage gaps, potential flaky tests, and some weak assertions that could mask real failures.
 
 ---
 
@@ -192,14 +192,14 @@ Some functionality is tested in multiple places with slight variations:
 
 | Category | Count | Files |
 |----------|-------|-------|
-| Behavior Tests | 25 | behavior_*.nim |
-| Domain Tests | 17 | domain_*.nim |
+| Behavior Tests | 33 | behavior_*.nim |
+| Domain Tests | 44 | domain_*.nim |
+| Unit/Functional Tests | 8 | test_*.nim (excluding utils) |
 | Integration | 1 | integration_behaviors.nim |
-| Fuzz/Stress | 1 | fuzz_seeds.nim |
-| Harness/Utils | 3 | ai_harness.nim, log_harness.nim, test_utils.nim |
-| Determinism | 1 | test_map_determinism.nim |
-| Unit Tests | 1 | test_balance_scorecard.nim |
-| **Total** | **49** | |
+| Fuzz/Stress | 3 | fuzz_seeds.nim, stress_*.nim |
+| Perf | 1 | perf_actions.nim |
+| Harness/Utils | 7 | *_harness.nim, test_utils.nim, test_common.nim, run_all_tests.nim, balance_quick.nim |
+| **Total** | **97** | |
 
 ---
 
