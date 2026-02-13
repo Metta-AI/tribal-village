@@ -853,12 +853,27 @@ proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thin
   if didFoodDrop: return foodDropAct
   0'u8
 
+proc fighterHasReadyTrainQueue(env: Environment, teamId: int,
+                               seesEnemyStructure: bool): bool =
+  ## Check if any friendly training building has a ready queue entry.
+  ## A villager can convert immediately at such a building (pre-paid).
+  for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
+    for building in env.thingsByKind[kind]:
+      if building.teamId == teamId and building.productionQueueHasReady():
+        return true
+  false
+
 proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
   let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  # Check for ready queue entries first (free conversion, already paid)
+  if fighterHasReadyTrainQueue(env, teamId, seesEnemyStructure):
+    return true
   for kind in FighterTrainKinds:
     if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
       continue
@@ -871,11 +886,14 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
 
 proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
-  ## Terminate when no longer a villager (was trained) or can't afford any training
+  ## Terminate when no longer a villager (was trained) or can't afford/collect any training
   if agent.unitClass != UnitVillager:
     return true
   let teamId = getTeamId(agent)
   let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  # Don't terminate if there's a ready queue entry to collect
+  if fighterHasReadyTrainQueue(env, teamId, seesEnemyStructure):
+    return false
   for kind in FighterTrainKinds:
     if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
       continue
@@ -889,7 +907,14 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
-  # Rotate starting building type per agent for unit diversity
+  # First: go to any building with a ready queue entry (free conversion)
+  for kind in FighterTrainKinds:
+    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+      continue
+    for building in env.thingsByKind[kind]:
+      if building.teamId == teamId and building.productionQueueHasReady():
+        return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+  # Second: queue new training and go to building (rotate starting type for diversity)
   let startIdx = agentId mod FighterTrainKinds.len
   for offset in 0 ..< FighterTrainKinds.len:
     let kind = FighterTrainKinds[(startIdx + offset) mod FighterTrainKinds.len]
@@ -2303,6 +2328,13 @@ let FighterOptions* = [
     canStart: canStartFighterDividerDefense,
     shouldTerminate: shouldTerminateFighterDividerDefense,
     act: optFighterDividerDefense,
+    interruptible: true
+  ),
+  OptionDef(
+    name: "FighterTrain",
+    canStart: canStartFighterTrain,
+    shouldTerminate: shouldTerminateFighterTrain,
+    act: optFighterTrain,
     interruptible: true
   ),
   OptionDef(
