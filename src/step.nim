@@ -5,93 +5,8 @@
 when defined(stateDiff):
   import state_diff
 
-when defined(rewardBatch):
-  import std/monotimes
-  var rewardBatchOps: int = 0
-  var rewardBatchCumMs: float64 = 0.0
-  var rewardBatchSteps: int = 0
-  const RewardBatchReportInterval = 500
-
-  proc rewardBatchMsBetween(a, b: MonoTime): float64 =
-    (b.ticks - a.ticks).float64 / 1_000_000.0
-
-  proc reportRewardBatch() =
-    if rewardBatchSteps > 0:
-      let avgOps = rewardBatchOps.float64 / rewardBatchSteps.float64
-      let avgMs = rewardBatchCumMs / rewardBatchSteps.float64
-      echo "[rewardBatch] steps=", rewardBatchSteps,
-        " avgOps/step=", avgOps,
-        " avgMs/step=", avgMs
-      rewardBatchOps = 0
-      rewardBatchCumMs = 0.0
-      rewardBatchSteps = 0
-
-# parseEnvInt is now provided by envconfig module (imported by environment.nim)
-# Use parseEnvIntRaw for cases where we already have the raw string value
-
-when defined(stepTiming):
-  import std/monotimes
-
-  let stepTimingTarget = parseEnvInt("TV_STEP_TIMING", -1)
-  let stepTimingWindow = parseEnvInt("TV_STEP_TIMING_WINDOW", 0)
-  let stepTimingInterval = parseEnvInt("TV_TIMING_INTERVAL", 100)
-
-  proc msBetween(a, b: MonoTime): float64 =
-    (b.ticks - a.ticks).float64 / 1_000_000.0
-
-  const TimingSystemCount = 11
-  const TimingSystemNames: array[TimingSystemCount, string] = [
-    "actionTint", "shields", "preDeaths", "actions", "things",
-    "tumors", "tumorDamage", "auras", "popRespawn", "survival", "tintObs"
-  ]
-
-  var timingCumSum: array[TimingSystemCount, float64]
-  var timingCumMax: array[TimingSystemCount, float64]
-  var timingCumTotal: float64 = 0.0
-  var timingStepCount: int = 0
-
-  proc resetTimingCounters() =
-    for i in 0 ..< TimingSystemCount:
-      timingCumSum[i] = 0.0
-      timingCumMax[i] = 0.0
-    timingCumTotal = 0.0
-    timingStepCount = 0
-
-  proc recordTimingSample(idx: int, ms: float64) =
-    timingCumSum[idx] += ms
-    if ms > timingCumMax[idx]:
-      timingCumMax[idx] = ms
-
-  proc printTimingReport(currentStep: int) =
-    if timingStepCount == 0:
-      return
-    let n = timingStepCount.float64
-    echo ""
-    echo "=== Step Timing Report (steps ", currentStep - timingStepCount + 1, "-", currentStep, ", n=", timingStepCount, ") ==="
-    echo align("System", 14), " | ", align("Avg ms", 10), " | ", align("Max ms", 10), " | ", align("% Total", 8)
-    echo repeat("-", 14), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 8)
-    for i in 0 ..< TimingSystemCount:
-      let avg = timingCumSum[i] / n
-      let maxMs = timingCumMax[i]
-      let pct = if timingCumTotal > 0.0: timingCumSum[i] / timingCumTotal * 100.0 else: 0.0
-      echo align(TimingSystemNames[i], 14), " | ",
-           align(formatFloat(avg, ffDecimal, 4), 10), " | ",
-           align(formatFloat(maxMs, ffDecimal, 4), 10), " | ",
-           align(formatFloat(pct, ffDecimal, 1), 8)
-    let totalAvg = timingCumTotal / n
-    echo repeat("-", 14), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 8)
-    echo align("TOTAL", 14), " | ", align(formatFloat(totalAvg, ffDecimal, 4), 10), " | ", align("", 10), " | ", align("100.0", 8)
-    echo ""
-    resetTimingCounters()
-
-when defined(perfRegression):
-  include "perf_regression"
-
-  proc msBetweenPerfTiming(a, b: MonoTime): float64 =
-    (b.ticks - a.ticks).float64 / 1_000_000.0
-
-when defined(flameGraph):
-  include "flame_graph"
+# Timing infrastructure, tick helpers, and utility procs
+include "step_tick"
 
 let logRenderEnabled = parseEnvBool("TV_LOG_RENDER", false)
 let logRenderWindow = max(100, parseEnvInt("TV_LOG_RENDER_WINDOW", 100))
@@ -111,128 +26,14 @@ include "respawn"
 
 # chebyshevDist and manhattanDist templates are now in common_types.nim
 
-const
-  ConversionTint = TileColor(r: 0.95, g: 0.85, b: 0.35, intensity: 1.25)  # Golden divine glow
-
-  # Compile-time dispatch tables: replace runtime case/branching with array lookups
-  # indexed by AgentUnitClass enum ordinal. This eliminates branch mispredictions in
-  # hot paths by converting conditional logic to direct memory loads.
-
-  ## Base ranged attack range per unit class (0 = melee)
-  UnitRangedRange: array[AgentUnitClass, int] = [
-    UnitVillager: 0, UnitManAtArms: 0, UnitArcher: ArcherBaseRange,
-    UnitScout: 0, UnitKnight: 0, UnitMonk: 0,
-    UnitBatteringRam: 0, UnitMangonel: 0, UnitTrebuchet: TrebuchetBaseRange,
-    UnitGoblin: 0, UnitBoat: 0, UnitTradeCog: 0,
-    UnitSamurai: 0, UnitLongbowman: ArcherBaseRange + 2, UnitCataphract: 0,
-    UnitWoadRaider: 0, UnitTeutonicKnight: 0, UnitHuskarl: 0,
-    UnitMameluke: 2, UnitJanissary: 2, UnitKing: 0,
-    UnitLongSwordsman: 0, UnitChampion: 0,
-    UnitLightCavalry: 0, UnitHussar: 0,
-    UnitCrossbowman: ArcherBaseRange, UnitArbalester: ArcherBaseRange,
-    UnitGalley: GalleyBaseRange, UnitFireShip: 0,
-    UnitFishingShip: 0, UnitTransportShip: 0, UnitDemoShip: 0, UnitCannonGalleon: CannonGalleonBaseRange,
-    UnitScorpion: ScorpionBaseRange,
-    UnitCavalier: 0, UnitPaladin: 0,
-    UnitCamel: 0, UnitHeavyCamel: 0, UnitImperialCamel: 0,
-    # Archery Range units
-    UnitSkirmisher: SkirmisherBaseRange, UnitEliteSkirmisher: SkirmisherBaseRange,
-    UnitCavalryArcher: CavalryArcherBaseRange, UnitHeavyCavalryArcher: CavalryArcherBaseRange,
-    UnitHandCannoneer: HandCannoneerBaseRange,
-  ]
-
-  ## Units eligible for Ballistics tech damage bonus
-  BallisticsUnits: set[AgentUnitClass] = {
-    UnitArcher, UnitLongbowman, UnitJanissary, UnitCrossbowman, UnitArbalester,
-    UnitGalley, UnitScorpion, UnitSkirmisher, UnitEliteSkirmisher,
-    UnitCavalryArcher, UnitHeavyCavalryArcher, UnitHandCannoneer
-  }
-
-  ## Units eligible for Siege Engineers tech range bonus
-  SiegeUnits: set[AgentUnitClass] = {
-    UnitBatteringRam, UnitMangonel, UnitTrebuchet
-  }
-
-  ## Cavalry units that get double-move in step
-  CavalryMoveUnits: set[AgentUnitClass] = {
-    UnitScout, UnitKnight, UnitLightCavalry, UnitHussar,
-    UnitCavalier, UnitPaladin, UnitCamel, UnitHeavyCamel, UnitImperialCamel,
-    UnitCavalryArcher, UnitHeavyCavalryArcher
-  }
-
-  ## Units with charge attack (2-tile forward attack)
-  ChargeAttackUnits: set[AgentUnitClass] = {
-    UnitScout, UnitBatteringRam
-  }
+# Action constants and dispatch tables
+include "step_actions"
 
 include "step_visuals"
 
 include "building_combat"
 
-proc stepApplySurvivalPenalty(env: Environment) =
-  ## Apply per-step survival penalty to all living agents
-  if env.config.survivalPenalty != 0.0:
-    let penalty = env.config.survivalPenalty
-    when defined(rewardBatch):
-      # Batch: apply penalty to contiguous rewards array for SIMD-friendly access
-      for i in 0 ..< MapAgents:
-        if env.terminated[i] == 0.0 and env.truncated[i] == 0.0:
-          env.rewards[i] += penalty
-    else:
-      for agent in env.agents:
-        if isAgentAlive(env, agent):
-          env.rewards[agent.agentId] += penalty
-
-proc isOutOfBounds(pos: IVec2): bool {.inline.} =
-  ## Check if position is outside the playable map area (within border margin)
-  pos.x < MapBorder.int32 or pos.x >= (MapWidth - MapBorder).int32 or
-  pos.y < MapBorder.int32 or pos.y >= (MapHeight - MapBorder).int32
-
-proc applyFertileRadius(env: Environment, center: IVec2, radius: int) =
-  ## Apply fertile terrain in a Chebyshev radius around center, skipping blocked tiles
-  for dx in -radius .. radius:
-    for dy in -radius .. radius:
-      if dx == 0 and dy == 0:
-        continue
-      if max(abs(dx), abs(dy)) > radius:
-        continue
-      let pos = center + ivec2(dx.int32, dy.int32)
-      if not isValidPos(pos):
-        continue
-      if not env.isEmpty(pos) or env.hasDoor(pos) or
-         isBlockedTerrain(env.terrain[pos.x][pos.y]) or isTileFrozen(pos, env):
-        continue
-      let terrain = env.terrain[pos.x][pos.y]
-      if terrain notin BuildableTerrain:
-        continue
-      env.terrain[pos.x][pos.y] = Fertile
-      env.resetTileColor(pos)
-      env.updateObservations(ThingAgentLayer, pos, 0)
-
-# Victory conditions extracted to victory.nim
-include "victory"
-
-# Tumor processing extracted to tumors.nim
-include "tumors"
-
-# ============================================================================
-# Adjacent Building Search
-# ============================================================================
-
-proc findAdjacentFriendlyBuilding*(env: Environment, pos: IVec2, teamId: int,
-                                    kindPredicate: proc(k: ThingKind): bool): Thing =
-  ## Find an adjacent building matching kindPredicate owned by the given team.
-  ## Returns nil if no matching building found.
-  for dy in -1 .. 1:
-    for dx in -1 .. 1:
-      let checkPos = pos + ivec2(dx.int32, dy.int32)
-      if not isValidPos(checkPos):
-        continue
-      let b = env.getThing(checkPos)
-      if not b.isNil and kindPredicate(b.kind) and b.teamId == teamId:
-        return b
-  nil
-
+# Building predicates (depend on garrisonCapacity from building_combat.nim)
 proc isGarrisonableBuilding(k: ThingKind): bool =
   ## Check if a building kind can garrison units.
   garrisonCapacity(k) > 0
@@ -240,6 +41,12 @@ proc isGarrisonableBuilding(k: ThingKind): bool =
 proc isTownCenterKind(k: ThingKind): bool =
   ## Check if a building kind is a TownCenter.
   k == TownCenter
+
+# Victory conditions extracted to victory.nim
+include "victory"
+
+# Tumor processing extracted to tumors.nim
+include "tumors"
 
 # ============================================================================
 # Main Step Procedure
