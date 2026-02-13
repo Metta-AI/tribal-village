@@ -430,14 +430,18 @@ proc main() =
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   # Count relics on map vs in monasteries
+  # Relics are BackgroundThingKinds so they live in backgroundGrid, not grid.
+  # Monasteries are blocking buildings so they live in grid.
   var relicsOnMap = 0
   var monasteryCount = 0
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
+      let bg = env.backgroundGrid[x][y]
+      if bg != nil and bg.kind == Relic:
+        inc relicsOnMap
       let t = env.grid[x][y]
-      if t != nil:
-        if t.kind == Relic: inc relicsOnMap
-        if t.kind == Monastery: inc monasteryCount
+      if t != nil and t.kind == Monastery:
+        inc monasteryCount
 
   # Count naval units
   var navalUnits = 0
