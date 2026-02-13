@@ -889,7 +889,10 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
-  for kind in FighterTrainKinds:
+  # Rotate starting building type per agent for unit diversity
+  let startIdx = agentId mod FighterTrainKinds.len
+  for offset in 0 ..< FighterTrainKinds.len:
+    let kind = FighterTrainKinds[(startIdx + offset) mod FighterTrainKinds.len]
     if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
@@ -2289,6 +2292,13 @@ let FighterOptions* = [
     interruptible: true
   ),
   OptionDef(
+    name: "FighterTrain",
+    canStart: canStartFighterTrain,
+    shouldTerminate: shouldTerminateFighterTrain,
+    act: optFighterTrain,
+    interruptible: true
+  ),
+  OptionDef(
     name: "FighterDividerDefense",
     canStart: canStartFighterDividerDefense,
     shouldTerminate: shouldTerminateFighterDividerDefense,
@@ -2307,13 +2317,6 @@ let FighterOptions* = [
     canStart: canStartFighterDropoffFood,
     shouldTerminate: shouldTerminateFighterDropoffFood,
     act: optFighterDropoffFood,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "FighterTrain",
-    canStart: canStartFighterTrain,
-    shouldTerminate: shouldTerminateFighterTrain,
-    act: optFighterTrain,
     interruptible: true
   ),
   OptionDef(
