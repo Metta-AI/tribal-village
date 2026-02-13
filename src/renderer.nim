@@ -171,6 +171,20 @@ proc drawObjects*() =
           bxy.drawImage(spriteKey, cliff.pos.vec2, angle = 0, scale = SpriteScale)
 
   template drawThings(thingKind: ThingKind, body: untyped) =
+    ## Iterates over all visible things of a given kind and executes `body` for each.
+    ## Automatically culls things outside the current viewport.
+    ##
+    ## **Injected variables:**
+    ## - `thing: Thing` - The current thing being iterated over
+    ## - `thingPos: IVec2` - The position of the current thing (shorthand for thing.pos)
+    ##
+    ## **Example:**
+    ## ```nim
+    ## drawThings(Tree):
+    ##   bxy.drawImage("tree", thingPos.vec2, scale = SpriteScale)
+    ##   if thing.health < thing.maxHealth:
+    ##     drawHealthBar(thingPos, thing.health, thing.maxHealth)
+    ## ```
     for it in env.thingsByKind[thingKind]:
       if not isInViewport(it.pos):
         continue
@@ -293,6 +307,22 @@ proc drawObjects*() =
       bxy.drawImage(key, thingPos.vec2, angle = 0, scale = SpriteScale)
 
   template drawOrientedThings(thingKind: ThingKind, prefix: string) =
+    ## Draws all visible things of a given kind using orientation-based sprites.
+    ## Builds sprite keys by combining the prefix with the thing's orientation.
+    ##
+    ## **Injected variables (from drawThings):**
+    ## - `thing: Thing` - The current thing being iterated over
+    ## - `thingPos: IVec2` - The position of the current thing
+    ##
+    ## **Parameters:**
+    ## - `thingKind` - The ThingKind to iterate over
+    ## - `prefix` - Sprite key prefix (e.g., "oriented/cow." -> "oriented/cow.N")
+    ##
+    ## **Example:**
+    ## ```nim
+    ## drawOrientedThings(Cow, "oriented/cow.")
+    ## # Draws cows using sprites like "oriented/cow.N", "oriented/cow.SE", etc.
+    ## ```
     drawThings(thingKind):
       let key = prefix & OrientationDirKeys[thing.orientation.int]
       if key in bxy:

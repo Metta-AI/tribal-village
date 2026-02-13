@@ -710,6 +710,26 @@ proc findNearestFriendlyThingSpiral*(env: Environment, state: var AgentState, te
   return result
 
 template forNearbyCells*(center: IVec2, radius: int, body: untyped) =
+  ## Iterates over all cells within a Chebyshev distance (square radius) of a center point.
+  ## Automatically clamps to map boundaries. Uses Chebyshev distance (max of dx, dy).
+  ##
+  ## **Injected variables:**
+  ## - `cx: int` - Center X coordinate (from center.x)
+  ## - `cy: int` - Center Y coordinate (from center.y)
+  ## - `startX: int` - Loop start X (clamped to 0)
+  ## - `endX: int` - Loop end X (clamped to MapWidth - 1)
+  ## - `startY: int` - Loop start Y (clamped to 0)
+  ## - `endY: int` - Loop end Y (clamped to MapHeight - 1)
+  ## - `x: int` - Current X coordinate in iteration
+  ## - `y: int` - Current Y coordinate in iteration
+  ##
+  ## **Example:**
+  ## ```nim
+  ## forNearbyCells(agentPos, 5):
+  ##   let occ = env.grid[x][y]
+  ##   if not isNil(occ) and occ.kind == Tree:
+  ##     inc treeCount
+  ## ```
   let cx {.inject.} = center.x.int
   let cy {.inject.} = center.y.int
   let startX {.inject.} = max(0, cx - radius)
