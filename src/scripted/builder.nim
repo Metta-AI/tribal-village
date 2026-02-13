@@ -424,6 +424,18 @@ proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: 
         return act
   0'u8
 
+builderGuard(canStartBuilderDock, shouldTerminateBuilderDock):
+  let checkPos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  controller.getBuildingCount(env, getTeamId(agent), Dock) == 0 and
+    hasWaterNearby(env, checkPos, 15)
+
+proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
+                    agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let (did, act) = controller.tryBuildDockIfMissing(env, agent, agentId, state, teamId)
+  if did: return act
+  0'u8
+
 proc builderShouldBuildSiege(controller: Controller, env: Environment, teamId: int): bool =
   ## Check if builder should build siege workshop due to request
   if not hasSiegeBuildRequest(teamId):
@@ -541,6 +553,10 @@ let BuilderCampThresholdOption = OptionDef(
   name: "BuilderCampThreshold", canStart: canStartBuilderCampThreshold,
   shouldTerminate: shouldTerminateBuilderCampThreshold, act: optBuilderCampThreshold,
   interruptible: true)
+let BuilderDockOption = OptionDef(
+  name: "BuilderDock", canStart: canStartBuilderDock,
+  shouldTerminate: shouldTerminateBuilderDock, act: optBuilderDock,
+  interruptible: true)
 let BuilderVisitTradingHubOption = OptionDef(
   name: "BuilderVisitTradingHub", canStart: canStartBuilderVisitTradingHub,
   shouldTerminate: shouldTerminateBuilderVisitTradingHub, act: optBuilderVisitTradingHub,
@@ -567,6 +583,7 @@ let BuilderOptions* = [
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: shouldTerminateBuilderTechBuildings, act: optBuilderTechBuildings,
     interruptible: true),
+  BuilderDockOption,
   ResearchUniversityTechOption,
   ResearchCastleTechOption,
   BuilderDefenseResponseOption,
@@ -603,6 +620,7 @@ let BuilderOptionsThreat* = [
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderTechBuildings,
     interruptible: true),
+  BuilderDockOption,
   ResearchUniversityTechOption,
   ResearchCastleTechOption,
   OptionDef(name: "BuilderCoreInfrastructure", canStart: canStartBuilderCoreInfrastructure,

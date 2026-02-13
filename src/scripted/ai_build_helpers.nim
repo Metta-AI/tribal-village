@@ -342,6 +342,86 @@ proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thi
       standPos, buildPos, idx)
   (false, 0'u8)
 
+proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thing, agentId: int,
+                            state: var AgentState, teamId: int): tuple[did: bool, action: uint8] =
+  ## Build a Dock on a Water tile near the base. Docks require water placement
+  ## (canPlaceDock) instead of normal land placement (canPlace).
+  if controller.getBuildingCount(env, teamId, Dock) != 0:
+    return (false, 0'u8)
+  if controller.isBuildingClaimed(teamId, Dock):
+    return (false, 0'u8)
+  let idx = buildIndexFor(Dock)
+  if idx < 0:
+    return (false, 0'u8)
+  let key = BuildChoices[idx]
+  let costs = buildCostsForKey(key)
+  if costs.len == 0:
+    return (false, 0'u8)
+  if choosePayment(env, agent, costs) == PayNone:
+    controller.claimBuilding(teamId, Dock)
+    for cost in costs:
+      case stockpileResourceForItem(cost.key)
+      of ResourceWood:
+        return controller.ensureWood(env, agent, agentId, state)
+      of ResourceStone:
+        return controller.ensureStone(env, agent, agentId, state)
+      of ResourceGold:
+        return controller.ensureGold(env, agent, agentId, state)
+      of ResourceFood:
+        return controller.ensureWheat(env, agent, agentId, state)
+      of ResourceWater, ResourceNone:
+        discard
+    return (false, 0'u8)
+
+  # Check if we can build adjacent to current position (agent on land, dock on water)
+  for d in AdjacentOffsets8:
+    let candidate = agent.pos + d
+    if isValidPos(candidate) and env.canPlaceDock(candidate):
+      controller.claimBuilding(teamId, Dock)
+      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, idx.uint8)))
+
+  # Search for water tile near base with an adjacent land stand position
+  let anchor =
+    if state.basePosition.x >= 0: state.basePosition
+    elif agent.homeAltar.x >= 0: agent.homeAltar
+    else: agent.pos
+
+  const searchRadius = 12
+  var bestDist = int.high
+  var bestStand = ivec2(-1, -1)
+  let minX = max(0, anchor.x - searchRadius)
+  let maxX = min(MapWidth - 1, anchor.x + searchRadius)
+  let minY = max(0, anchor.y - searchRadius)
+  let maxY = min(MapHeight - 1, anchor.y + searchRadius)
+  let ax = anchor.x.int
+  let ay = anchor.y.int
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      let pos = ivec2(x.int32, y.int32)
+      if not env.canPlaceDock(pos):
+        continue
+      # Find a land tile adjacent to this water tile where the builder can stand
+      for d in CardinalOffsets:
+        let stand = pos + d
+        if isValidPos(stand) and env.terrain[stand.x][stand.y] != Water and
+            not env.hasDoor(stand) and
+            not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
+            not isTileFrozen(stand, env) and
+            (env.isEmpty(stand) or stand == agent.pos) and
+            env.canAgentPassDoor(agent, stand):
+          let dist = abs(x - ax) + abs(y - ay)
+          if dist < bestDist:
+            bestDist = dist
+            bestStand = stand
+          break
+  if bestStand.x >= 0:
+    controller.claimBuilding(teamId, Dock)
+    # Move to the stand position; when adjacent to water, build action will place dock
+    if bestStand == agent.pos:
+      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u8, idx.uint8)))
+    return (true, controller.moveTo(env, agent, agentId, state, bestStand))
+  (false, 0'u8)
+
 proc getTeamPopCount*(controller: Controller, env: Environment, teamId: int): int =
   ## Get team population count from pre-computed step data.
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
