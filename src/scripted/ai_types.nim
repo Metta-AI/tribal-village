@@ -1,7 +1,7 @@
 ## Shared type definitions and option framework for the AI system.
 ## This module is imported by all other AI modules to avoid circular dependencies.
 
-import std/heapqueue
+import std/[heapqueue, macros]
 import vmath
 import ../entropy
 import ../types
@@ -585,6 +585,199 @@ template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
                agentId: int, state: var AgentState): bool = body
   proc termName(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = not (body)
+
+# -----------------------------------------------------------------------------
+# Behavior Definition Macros
+# -----------------------------------------------------------------------------
+# These macros reduce boilerplate for defining behavior triplets (canStart,
+# shouldTerminate, act) and their corresponding OptionDef.
+
+macro defineBehavior*(name: static[string], body: untyped): untyped =
+  ## Define a complete behavior with canStart, shouldTerminate, opt procs and OptionDef.
+  ##
+  ## This macro reduces boilerplate by generating all three procedure signatures
+  ## and the OptionDef from a single definition block.
+  ##
+  ## Usage (simple inverse - shouldTerminate is negation of canStart):
+  ##   defineBehavior("FighterMonk"):
+  ##     canStart: agent.unitClass == UnitMonk
+  ##     act:
+  ##       let teamId = getTeamId(agent)
+  ##       # ... logic ...
+  ##       0'u8
+  ##
+  ## Usage (complex - explicit shouldTerminate):
+  ##   defineBehavior("FighterTrain"):
+  ##     canStart:
+  ##       agent.unitClass == UnitVillager and canAffordTraining(env, agent)
+  ##     shouldTerminate:
+  ##       agent.unitClass != UnitVillager or not canAffordTraining(env, agent)
+  ##     act:
+  ##       # ... training logic ...
+  ##       0'u8
+  ##     interruptible: false
+  ##
+  ## The macro generates:
+  ##   - proc canStart{Name}*(controller, env, agent, agentId, state): bool
+  ##   - proc shouldTerminate{Name}*(controller, env, agent, agentId, state): bool
+  ##   - proc opt{Name}*(controller, env, agent, agentId, state): uint8
+  ##   - let {Name}Option* = OptionDef(...)
+
+  # Parse the body to extract canStart, shouldTerminate, act, and interruptible
+  var canStartBody: NimNode = nil
+  var shouldTerminateBody: NimNode = nil
+  var actBody: NimNode = nil
+  var interruptibleVal = true
+
+  for child in body:
+    if child.kind == nnkCall and child.len == 2:
+      let label = $child[0]
+      case label
+      of "canStart":
+        canStartBody = child[1]
+      of "shouldTerminate":
+        shouldTerminateBody = child[1]
+      of "act":
+        actBody = child[1]
+      of "interruptible":
+        if child[1].kind == nnkIdent:
+          interruptibleVal = $child[1] == "true"
+        elif child[1].kind in {nnkStmtList, nnkStmtListExpr} and child[1].len > 0:
+          interruptibleVal = $child[1][0] == "true"
+
+  if canStartBody.isNil:
+    error("defineBehavior requires a 'canStart' section", body)
+  if actBody.isNil:
+    error("defineBehavior requires an 'act' section", body)
+
+  # If shouldTerminate not provided, use negation of canStart
+  if shouldTerminateBody.isNil:
+    shouldTerminateBody = newTree(nnkPrefix, ident("not"),
+      newTree(nnkPar, canStartBody.copyNimTree))
+
+  # Generate procedure names (using non-gensym'd idents for export)
+  let canStartName = ident("canStart" & name)
+  let shouldTerminateName = ident("shouldTerminate" & name)
+  let optName = ident("opt" & name)
+  let optionName = ident(name & "Option")
+
+  # Create standard parameter names (must match what users write in their body)
+  let controllerParam = ident("controller")
+  let envParam = ident("env")
+  let agentParam = ident("agent")
+  let agentIdParam = ident("agentId")
+  let stateParam = ident("state")
+
+  # Build the formal params for each procedure
+  let boolParams = newTree(nnkFormalParams,
+    ident("bool"),
+    newIdentDefs(controllerParam, ident("Controller")),
+    newIdentDefs(envParam, ident("Environment")),
+    newIdentDefs(agentParam, ident("Thing")),
+    newIdentDefs(agentIdParam, ident("int")),
+    newIdentDefs(stateParam, newTree(nnkVarTy, ident("AgentState")))
+  )
+
+  let uint8Params = newTree(nnkFormalParams,
+    ident("uint8"),
+    newIdentDefs(ident("controller"), ident("Controller")),
+    newIdentDefs(ident("env"), ident("Environment")),
+    newIdentDefs(ident("agent"), ident("Thing")),
+    newIdentDefs(ident("agentId"), ident("int")),
+    newIdentDefs(ident("state"), newTree(nnkVarTy, ident("AgentState")))
+  )
+
+  # Create the three procedure definitions
+  let canStartProc = newTree(nnkProcDef,
+    newTree(nnkPostfix, ident("*"), canStartName),
+    newEmptyNode(),  # term rewriting template
+    newEmptyNode(),  # generic params
+    boolParams.copyNimTree,
+    newEmptyNode(),  # pragmas
+    newEmptyNode(),  # reserved
+    canStartBody
+  )
+
+  let shouldTerminateProc = newTree(nnkProcDef,
+    newTree(nnkPostfix, ident("*"), shouldTerminateName),
+    newEmptyNode(),
+    newEmptyNode(),
+    boolParams.copyNimTree,
+    newEmptyNode(),
+    newEmptyNode(),
+    shouldTerminateBody
+  )
+
+  let actProc = newTree(nnkProcDef,
+    newTree(nnkPostfix, ident("*"), optName),
+    newEmptyNode(),
+    newEmptyNode(),
+    uint8Params,
+    newEmptyNode(),
+    newEmptyNode(),
+    actBody
+  )
+
+  # Create the OptionDef
+  let interruptibleIdent = if interruptibleVal: ident("true") else: ident("false")
+  let optionDefExpr = newTree(nnkObjConstr,
+    ident("OptionDef"),
+    newTree(nnkExprColonExpr, ident("name"), newStrLitNode(name)),
+    newTree(nnkExprColonExpr, ident("canStart"), canStartName),
+    newTree(nnkExprColonExpr, ident("shouldTerminate"), shouldTerminateName),
+    newTree(nnkExprColonExpr, ident("act"), optName),
+    newTree(nnkExprColonExpr, ident("interruptible"), interruptibleIdent)
+  )
+
+  let optionLet = newTree(nnkLetSection,
+    newTree(nnkIdentDefs,
+      newTree(nnkPostfix, ident("*"), optionName),
+      newEmptyNode(),
+      optionDefExpr
+    )
+  )
+
+  # Return all definitions
+  result = newStmtList(canStartProc, shouldTerminateProc, actProc, optionLet)
+
+template behaviorGuard*(nameBase, canName, termName: untyped,
+                        condition: untyped, actBody: untyped,
+                        interruptibleVal: bool = true) {.dirty.} =
+  ## Generate canStart, shouldTerminate (inverse), opt procedures and OptionDef.
+  ##
+  ## This template is for simple behaviors where shouldTerminate is the
+  ## logical negation of canStart.
+  ##
+  ## Usage:
+  ##   behaviorGuard(FighterRetreat, canStartFighterRetreat, shouldTerminateFighterRetreat,
+  ##     agent.hp * 3 <= agent.maxHp,
+  ##     block:
+  ##       if agent.hp * 3 > agent.maxHp:
+  ##         return 0'u8
+  ##       controller.moveTo(env, agent, agentId, state, basePos)
+  ##   )
+  ##
+  ## Parameters:
+  ##   nameBase: Base name for the behavior (used for OptionDef name)
+  ##   canName: Name for the canStart procedure
+  ##   termName: Name for the shouldTerminate procedure
+  ##   condition: Boolean expression for canStart (shouldTerminate is negated)
+  ##   actBody: Body of the opt procedure
+  ##   interruptibleVal: Whether the option is interruptible (default true)
+
+  proc canName(controller: Controller, env: Environment, agent: Thing,
+               agentId: int, state: var AgentState): bool = condition
+  proc termName(controller: Controller, env: Environment, agent: Thing,
+                agentId: int, state: var AgentState): bool = not (condition)
+  proc `opt nameBase`(controller: Controller, env: Environment, agent: Thing,
+                      agentId: int, state: var AgentState): uint8 = actBody
+  let `nameBase Option`* = OptionDef(
+    name: astToStr(nameBase),
+    canStart: canName,
+    shouldTerminate: termName,
+    act: `opt nameBase`,
+    interruptible: interruptibleVal
+  )
 
 # -----------------------------------------------------------------------------
 # Economy Priority Override API
