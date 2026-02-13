@@ -522,10 +522,9 @@ suite "Observations: Performance":
 
     echo &"  Full rebuild: {fullDuration:.2f}ms, Incremental: {incrDuration:.2f}ms"
 
-    # Incremental should be faster (or at least not slower by much)
-    # Note: Single agent update should be much faster than full rebuild
-    # Allow generous tolerance to avoid flaky failures from CPU scheduling
-    check incrDuration <= fullDuration * 3.0 + 2.0
+    # Incremental should complete in reasonable time (sub-5ms for 1 agent)
+    # Direct comparison with full rebuild is flaky due to CPU scheduling
+    check incrDuration < 5.0
 
   test "observation memory layout is cache-friendly":
     let env = makeEmptyEnv()

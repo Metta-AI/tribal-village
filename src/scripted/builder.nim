@@ -288,58 +288,6 @@ proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Th
   let teamId = getTeamId(agent)
   buildFirstMissing(controller, env, agent, agentId, state, teamId, TechBuildingKinds)
 
-proc canStartBuilderDock(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): bool =
-  ## Build a Dock if the team doesn't have one yet.
-  let teamId = getTeamId(agent)
-  agent.unitClass == UnitVillager and
-    controller.getBuildingCount(env, teamId, Dock) == 0 and
-    not controller.isBuildingClaimed(teamId, Dock)
-
-proc shouldTerminateBuilderDock(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  controller.getBuildingCount(env, teamId, Dock) > 0
-
-proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
-                    agentId: int, state: var AgentState): uint8 =
-  ## Build a Dock near water.
-  let teamId = getTeamId(agent)
-  if controller.getBuildingCount(env, teamId, Dock) > 0:
-    return 0'u8
-  let idx = buildIndexFor(Dock)
-  let key = BuildChoices[idx]
-  if not env.canAffordBuild(agent, key):
-    controller.claimBuilding(teamId, Dock)
-    return controller.ensureWood(env, agent, agentId, state)[1]
-  # Claim the dock so other builders don't also try
-  controller.claimBuilding(teamId, Dock)
-  # Find water and adjacent standing position
-  let water = findNearestWaterSpiral(env, state)
-  if water.x < 0:
-    return 0'u8
-  var stand = ivec2(-1, -1)
-  for d in AdjacentOffsets8:
-    let pos = water + d
-    if not isValidPos(pos) or env.terrain[pos.x][pos.y] == Water:
-      continue
-    if env.isEmpty(pos) and not env.hasDoor(pos) and
-        not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
-        not isTileFrozen(pos, env):
-      stand = pos
-      break
-  if stand.x < 0:
-    return 0'u8
-  if stand == agent.pos:
-    return saveStateAndReturn(controller, agentId, state,
-      encodeAction(8'u8, idx.uint8))
-  controller.moveTo(env, agent, agentId, state, stand)
-
-let BuilderDockOption = OptionDef(
-  name: "BuilderDock", canStart: canStartBuilderDock,
-  shouldTerminate: shouldTerminateBuilderDock, act: optBuilderDock,
-  interruptible: true)
-
 proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
