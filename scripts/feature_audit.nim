@@ -15,6 +15,7 @@ import agent_control
 import types
 import items
 import registry
+import scripted/ai_types
 
 const Teams = MapRoomObjectsTeams  # 8
 
@@ -73,12 +74,29 @@ proc main() =
   for t in 0 ..< Teams:
     prevMarketPrices[t] = env.teamMarketPrices[t]
 
+  # Resource sampling: track min/max/avg stockpiles over time
+  var resourceSamples: array[Teams, array[StockpileResource, seq[int]]]
+  const SampleInterval = 100  # Sample every 100 steps
+
+  # Production queue tracking
+  var totalQueued: array[Teams, int]  # Total units ever queued
+  var totalProduced: array[Teams, int]  # Total units that finished production
+
+  # AI role distribution tracking
+  var roleCounts: array[AgentRole, int]
+
   let startTime = getMonoTime()
 
   # --- Main simulation loop ---
   for step in 0 ..< totalSteps:
     var actions = getActions(env)
     env.step(addr actions)
+
+    # Periodic resource sampling
+    if step mod SampleInterval == 0:
+      for t in 0 ..< Teams:
+        for res in StockpileResource:
+          resourceSamples[t][res].add(env.teamStockpiles[t].counts[res])
 
     # Track births (new agents appearing)
     for id in 0 ..< MapAgents:
@@ -340,6 +358,27 @@ proc main() =
         echo &"    Team {t} prices: {priceStr.join(\", \")}"
   echo ""
 
+  # Resource trends (min/avg/max over game)
+  echo "  Resource trends (sampled every 100 steps):"
+  for t in 0 ..< min(Teams, 3):  # Show first 3 teams
+    var parts: seq[string]
+    for res in StockpileResource:
+      let samples = resourceSamples[t][res]
+      if samples.len > 0:
+        var minVal = samples[0]
+        var maxVal = samples[0]
+        var sum = 0
+        for s in samples:
+          if s < minVal: minVal = s
+          if s > maxVal: maxVal = s
+          sum += s
+        let avg = sum div samples.len
+        if maxVal > 0:
+          parts.add(&"{res}: {minVal}/{avg}/{maxVal}")
+    if parts.len > 0:
+      echo &"    Team {t} (min/avg/max): {parts.join(\", \")}"
+  echo ""
+
   # Tribute
   var tributeActivity = false
   for t in 0 ..< Teams:
@@ -497,6 +536,46 @@ proc main() =
       echo &"    Step {step:>5d}: {key}"
   else:
     echo "    (no first-event data captured for buildings)"
+
+  # --- 9. AI ROLE DISTRIBUTION ---
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  9. AI ROLE DISTRIBUTION (end-of-game)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  for id in 0 ..< MapAgents:
+    if env.terminated[id] == 0.0:
+      let role = globalController.aiController.getAgentRole(id)
+      roleCounts[role] += 1
+
+  for role in AgentRole:
+    if roleCounts[role] > 0:
+      echo &"    {role:<20s} {roleCounts[role]:>5d}"
+
+  # Count fighter villagers vs fighter military
+  var fighterVillagers = 0
+  var fighterMilitary = 0
+  for id in 0 ..< MapAgents:
+    if env.terminated[id] == 0.0:
+      let role = globalController.aiController.getAgentRole(id)
+      if role == Fighter:
+        let agent = env.agents[id]
+        if agent != nil:
+          if agent.unitClass == UnitVillager:
+            inc fighterVillagers
+          else:
+            inc fighterMilitary
+  echo ""
+  echo &"    Fighter breakdown: {fighterVillagers} villagers, {fighterMilitary} military"
+
+  # Check if Barracks training is affordable right now
+  echo ""
+  echo "  Can-train check (current stockpiles):"
+  for t in 0 ..< Teams:
+    let canBarracks = env.canSpendStockpile(t, @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)])
+    let canArchery = env.canSpendStockpile(t, @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)])
+    let canStable = env.canSpendStockpile(t, @[(res: ResourceFood, count: 3)])
+    echo &"    Team {t}: Barracks={canBarracks}, ArcheryRange={canArchery}, Stable={canStable}"
+  echo ""
 
   echo ""
   echo "═══════════════════════════════════════════════════════════"
