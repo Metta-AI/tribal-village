@@ -296,6 +296,7 @@ suite "Score Tracking - Reset Behavior":
   test "victory state resets on game reset":
     var config = defaultEnvironmentConfig()
     config.maxSteps = ScoreSteps
+    config.victoryCondition = VictoryNone  # Explicit: no kings spawned on reset
     let env = newEnvironment(config, ScoreSeed)
 
     initGlobalController(BuiltinAI, seed = ScoreSeed)

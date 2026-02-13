@@ -1114,7 +1114,7 @@ proc defaultEnvironmentConfig*(): EnvironmentConfig =
   EnvironmentConfig(
     # Core game parameters
     maxSteps: 3000,
-    victoryCondition: VictoryNone,
+    victoryCondition: VictoryAll,
 
     # Combat configuration
     tumorSpawnRate: 0.1,

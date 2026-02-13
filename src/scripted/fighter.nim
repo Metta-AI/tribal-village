@@ -2289,6 +2289,13 @@ let FighterOptions* = [
     interruptible: true
   ),
   OptionDef(
+    name: "FighterTrain",
+    canStart: canStartFighterTrain,
+    shouldTerminate: shouldTerminateFighterTrain,
+    act: optFighterTrain,
+    interruptible: true
+  ),
+  OptionDef(
     name: "FighterDividerDefense",
     canStart: canStartFighterDividerDefense,
     shouldTerminate: shouldTerminateFighterDividerDefense,
@@ -2307,13 +2314,6 @@ let FighterOptions* = [
     canStart: canStartFighterDropoffFood,
     shouldTerminate: shouldTerminateFighterDropoffFood,
     act: optFighterDropoffFood,
-    interruptible: true
-  ),
-  OptionDef(
-    name: "FighterTrain",
-    canStart: canStartFighterTrain,
-    shouldTerminate: shouldTerminateFighterTrain,
-    act: optFighterTrain,
     interruptible: true
   ),
   OptionDef(
