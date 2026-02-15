@@ -943,7 +943,7 @@ proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool =
 #   - isPassable: Static passability check (ignores agent swapping)
 #   - canEnterForMove: Directional passability with lantern pushing rules
 #   - getMoveTowards: Greedy single-step movement with obstacle avoidance
-#   - findPath: A* pathfinding for longer distances (>6 tiles)
+#   - findPath: A* pathfinding for longer distances (>=4 tiles)
 #   - moveTo: High-level movement that combines A* and greedy approaches
 #
 # The system uses a generation-counter pattern for the PathfindingCache to
