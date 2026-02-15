@@ -1104,6 +1104,59 @@ let ResearchCastleTechOption* = OptionDef(
 )
 
 # ============================================================================
+# Economy Tech Research Option - Mill, LumberCamp, MiningCamp, TownCenter
+# ============================================================================
+
+const EconomyTechBuildings = [TownCenter, Mill, LumberCamp, MiningCamp]
+
+proc findNextAffordableEconomyTech(env: Environment, teamId: int): tuple[tech: EconomyTechType, building: ThingKind, found: bool] =
+  ## Find the next affordable, unresearched economy tech across all building types.
+  ## Returns the tech, the building it's researched at, and whether one was found.
+  for buildingKind in EconomyTechBuildings:
+    let tech = env.getNextEconomyTech(teamId, buildingKind)
+    if economyTechBuilding(tech) != buildingKind:
+      continue  # No available tech for this building
+    if env.teamEconomyTechs[teamId].researched[tech]:
+      continue  # Already researched
+    let costs = economyTechCost(tech)
+    if env.canSpendStockpile(teamId, costs):
+      return (tech, buildingKind, true)
+  return (TechWheelbarrow, TownCenter, false)
+
+proc canStartResearchEconomyTech*(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  let (_, _, found) = findNextAffordableEconomyTech(env, teamId)
+  found
+
+proc shouldTerminateResearchEconomyTech*(controller: Controller, env: Environment, agent: Thing,
+                                          agentId: int, state: var AgentState): bool =
+  not canStartResearchEconomyTech(controller, env, agent, agentId, state)
+
+proc optResearchEconomyTech*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let (_, buildingKind, found) = findNextAffordableEconomyTech(env, teamId)
+  if not found:
+    return 0'u8
+  let building = env.findNearestFriendlyThingSpiral(state, teamId, buildingKind)
+  if isNil(building) or building.cooldown != 0:
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+
+let ResearchEconomyTechOption* = OptionDef(
+  name: "ResearchEconomyTech",
+  canStart: canStartResearchEconomyTech,
+  shouldTerminate: shouldTerminateResearchEconomyTech,
+  act: optResearchEconomyTech,
+  interruptible: true
+)
+
+# ============================================================================
 # Unit Upgrade Research Option - Barracks, Stable, ArcheryRange
 # ============================================================================
 
