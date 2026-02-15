@@ -485,6 +485,13 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     state.scoutExploreRadius = ObservationRadius.int32 + 5
     state.scoutLastEnemySeenStep = -100  # Long ago
 
+  # Auto-reassign monks to Fighter role for monk-specific behavior (relic collection,
+  # healing, conversion). Monks trained from Gatherer/Builder-role villagers would
+  # otherwise lack FighterMonk behavior entirely.
+  if agent.unitClass == UnitMonk and state.role != Fighter:
+    let roleId = scriptedState.coreRoleIds[Fighter]
+    setAgentRole(agentId, state, roleId)
+
   if agent.unitClass == UnitGoblin:
     # Count relics held by goblins using thingsByKind[Agent] filtered for goblins
     # This is still O(agents_in_nearby_cells) but avoids scanning ALL 1000 agents
