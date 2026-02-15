@@ -1408,7 +1408,7 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
     state.plannedTarget = targetPos
     state.plannedPathIndex = 0
 
-  let usesAstar = chebyshevDist(agent.pos, targetPos) >= 6 or stuck
+  let usesAstar = chebyshevDist(agent.pos, targetPos) >= 4 or stuck
   if usesAstar:
     if state.pathBlockedTarget != targetPos or stuck:
       let needsReplan = state.plannedTarget != targetPos or
@@ -1458,6 +1458,10 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
     (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   )
   if dirIdx < 0:
+    # When blocked, try to attack adjacent enemies instead of idling
+    let attackDir = findAttackOpportunity(env, agent)
+    if attackDir >= 0:
+      return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
     return saveStateAndReturn(controller, agentId, state, 0'u8)  # Noop when blocked
   if state.role == Builder and state.lastPosition == agent.pos + Directions8[dirIdx]:
     let altDir = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, dirIdx)
