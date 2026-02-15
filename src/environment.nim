@@ -1290,13 +1290,56 @@ proc cancelQueueEntry*(env: Environment, building: Thing, index: int): bool =
   env.refundTrainCosts(building)
   true
 
+proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
+  ## Returns the effective unit class trained by a building, considering upgrades.
+  ## For example, if LongSwordsman upgrade is researched, Barracks trains LongSwordsman instead of ManAtArms.
+  ## "Unlock" upgrades (Knight, Skirmisher, CavalryArcher) switch the building's production line.
+  let baseUnit = buildingTrainUnit(buildingKind, teamId)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return baseUnit
+  # Check upgrade chain for the base unit
+  case baseUnit
+  of UnitManAtArms:
+    if env.teamUnitUpgrades[teamId].researched[UpgradeChampion]:
+      return UnitChampion
+    if env.teamUnitUpgrades[teamId].researched[UpgradeLongSwordsman]:
+      return UnitLongSwordsman
+    return UnitManAtArms
+  of UnitScout:
+    # Knight line replaces Scout line once researched
+    if env.teamUnitUpgrades[teamId].researched[UpgradeKnight]:
+      return UnitKnight
+    if env.teamUnitUpgrades[teamId].researched[UpgradeHussar]:
+      return UnitHussar
+    if env.teamUnitUpgrades[teamId].researched[UpgradeLightCavalry]:
+      return UnitLightCavalry
+    return UnitScout
+  of UnitArcher:
+    # CavalryArcher line replaces earlier lines once researched
+    if env.teamUnitUpgrades[teamId].researched[UpgradeCavalryArcher]:
+      if env.teamUnitUpgrades[teamId].researched[UpgradeHeavyCavalryArcher]:
+        return UnitHeavyCavalryArcher
+      return UnitCavalryArcher
+    # Skirmisher line replaces Archer line once researched
+    if env.teamUnitUpgrades[teamId].researched[UpgradeSkirmisher]:
+      if env.teamUnitUpgrades[teamId].researched[UpgradeEliteSkirmisher]:
+        return UnitEliteSkirmisher
+      return UnitSkirmisher
+    if env.teamUnitUpgrades[teamId].researched[UpgradeArbalester]:
+      return UnitArbalester
+    if env.teamUnitUpgrades[teamId].researched[UpgradeCrossbowman]:
+      return UnitCrossbowman
+    return UnitArcher
+  else:
+    return baseUnit
+
 proc tryBatchQueueTrain*(env: Environment, building: Thing, teamId: int,
                          count: int): int =
   ## Queue multiple units for training (batch/shift-click).
   ## Returns the number of units actually queued.
   if not buildingHasTrain(building.kind):
     return 0
-  let unitClass = buildingTrainUnit(building.kind, teamId)
+  let unitClass = env.effectiveTrainUnit(building.kind, teamId)
   let costs = buildingTrainCosts(building.kind)
   var queued = 0
   for i in 0 ..< count:
@@ -1760,47 +1803,61 @@ proc upgradePrerequisite*(upgrade: UnitUpgradeType): UnitUpgradeType =
   of UpgradeChampion: UpgradeLongSwordsman
   of UpgradeLightCavalry: UpgradeLightCavalry    # no prereq
   of UpgradeHussar: UpgradeLightCavalry
+  of UpgradeKnight: UpgradeKnight                # no prereq (unlocks Knight line)
   of UpgradeCrossbowman: UpgradeCrossbowman      # no prereq
   of UpgradeArbalester: UpgradeCrossbowman
-  of UpgradeEliteSkirmisher: UpgradeEliteSkirmisher  # no prereq
-  of UpgradeHeavyCavalryArcher: UpgradeHeavyCavalryArcher  # no prereq
+  of UpgradeSkirmisher: UpgradeSkirmisher         # no prereq (unlocks Skirmisher line)
+  of UpgradeEliteSkirmisher: UpgradeSkirmisher    # requires Skirmisher unlock
+  of UpgradeCavalryArcher: UpgradeCavalryArcher   # no prereq (unlocks CavalryArcher line)
+  of UpgradeHeavyCavalryArcher: UpgradeCavalryArcher  # requires CavalryArcher unlock
 
 proc upgradeSourceUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
   ## Returns the unit class that gets upgraded.
+  ## For "unlock" upgrades (Knight, Skirmisher, CavalryArcher), source = target
+  ## since these unlock new production lines rather than converting existing units.
   case upgrade
   of UpgradeLongSwordsman: UnitManAtArms
   of UpgradeChampion: UnitLongSwordsman
   of UpgradeLightCavalry: UnitScout
   of UpgradeHussar: UnitLightCavalry
+  of UpgradeKnight: UnitKnight              # unlock (no conversion)
   of UpgradeCrossbowman: UnitArcher
   of UpgradeArbalester: UnitCrossbowman
+  of UpgradeSkirmisher: UnitSkirmisher      # unlock (no conversion)
   of UpgradeEliteSkirmisher: UnitSkirmisher
+  of UpgradeCavalryArcher: UnitCavalryArcher  # unlock (no conversion)
   of UpgradeHeavyCavalryArcher: UnitCavalryArcher
 
 proc upgradeTargetUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
   ## Returns the unit class that results from the upgrade.
+  ## For "unlock" upgrades, source = target (no existing units to convert).
   case upgrade
   of UpgradeLongSwordsman: UnitLongSwordsman
   of UpgradeChampion: UnitChampion
   of UpgradeLightCavalry: UnitLightCavalry
   of UpgradeHussar: UnitHussar
+  of UpgradeKnight: UnitKnight              # unlock
   of UpgradeCrossbowman: UnitCrossbowman
   of UpgradeArbalester: UnitArbalester
+  of UpgradeSkirmisher: UnitSkirmisher      # unlock
   of UpgradeEliteSkirmisher: UnitEliteSkirmisher
+  of UpgradeCavalryArcher: UnitCavalryArcher  # unlock
   of UpgradeHeavyCavalryArcher: UnitHeavyCavalryArcher
 
 proc upgradeBuilding*(upgrade: UnitUpgradeType): ThingKind =
   ## Returns the building where this upgrade is researched.
   case upgrade
   of UpgradeLongSwordsman, UpgradeChampion: Barracks
-  of UpgradeLightCavalry, UpgradeHussar: Stable
+  of UpgradeLightCavalry, UpgradeHussar, UpgradeKnight: Stable
   of UpgradeCrossbowman, UpgradeArbalester,
-     UpgradeEliteSkirmisher, UpgradeHeavyCavalryArcher: ArcheryRange
+     UpgradeSkirmisher, UpgradeEliteSkirmisher,
+     UpgradeCavalryArcher, UpgradeHeavyCavalryArcher: ArcheryRange
 
 proc upgradeCosts*(upgrade: UnitUpgradeType): seq[tuple[res: StockpileResource, count: int]] =
   ## Returns the resource costs for an upgrade.
   case upgrade
   of UpgradeLongSwordsman, UpgradeLightCavalry, UpgradeCrossbowman,
+     UpgradeKnight, UpgradeSkirmisher, UpgradeCavalryArcher,
      UpgradeEliteSkirmisher, UpgradeHeavyCavalryArcher:
     @[(res: ResourceFood, count: UnitUpgradeTier2FoodCost),
       (res: ResourceGold, count: UnitUpgradeTier2GoldCost)]
@@ -1901,35 +1958,6 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
   when defined(techAudit):
     logUnitUpgrade(teamId, upgrade, env.currentStep, costs)
   true
-
-proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
-  ## Returns the effective unit class trained by a building, considering upgrades.
-  ## For example, if LongSwordsman upgrade is researched, Barracks trains LongSwordsman instead of ManAtArms.
-  let baseUnit = buildingTrainUnit(buildingKind, teamId)
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return baseUnit
-  # Check upgrade chain for the base unit
-  case baseUnit
-  of UnitManAtArms:
-    if env.teamUnitUpgrades[teamId].researched[UpgradeChampion]:
-      return UnitChampion
-    if env.teamUnitUpgrades[teamId].researched[UpgradeLongSwordsman]:
-      return UnitLongSwordsman
-    return UnitManAtArms
-  of UnitScout:
-    if env.teamUnitUpgrades[teamId].researched[UpgradeHussar]:
-      return UnitHussar
-    if env.teamUnitUpgrades[teamId].researched[UpgradeLightCavalry]:
-      return UnitLightCavalry
-    return UnitScout
-  of UnitArcher:
-    if env.teamUnitUpgrades[teamId].researched[UpgradeArbalester]:
-      return UnitArbalester
-    if env.teamUnitUpgrades[teamId].researched[UpgradeCrossbowman]:
-      return UnitCrossbowman
-    return UnitArcher
-  else:
-    return baseUnit
 
 # ---- Economy tech logic (AoE2-style) ----
 

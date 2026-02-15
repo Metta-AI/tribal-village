@@ -1242,9 +1242,12 @@ type
     UpgradeChampion          ## LongSwordsman → Champion (Barracks)
     UpgradeLightCavalry      ## Scout → LightCavalry (Stable)
     UpgradeHussar            ## LightCavalry → Hussar (Stable)
+    UpgradeKnight            ## Unlocks Knight at Stable (replaces Scout line)
     UpgradeCrossbowman       ## Archer → Crossbowman (Archery Range)
     UpgradeArbalester        ## Crossbowman → Arbalester (Archery Range)
+    UpgradeSkirmisher        ## Unlocks Skirmisher at Archery Range
     UpgradeEliteSkirmisher   ## Skirmisher → Elite Skirmisher (Archery Range)
+    UpgradeCavalryArcher     ## Unlocks Cavalry Archer at Archery Range
     UpgradeHeavyCavalryArcher ## Cavalry Archer → Heavy Cavalry Archer (Archery Range)
 
   UnitUpgrades* = object
