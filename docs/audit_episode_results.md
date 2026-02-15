@@ -205,20 +205,83 @@ Typical team breakdown: ~80% move, ~13% noop/idle, ~3-4% build, <1% attack
 | High NOOP rate | Blocked pathfinding → NOOP instead of attack | **Low** | Low (fallback) |
 | 80% MOVE | Expected for economic game with grid movement | **Normal** | N/A |
 
-## Recommendations
+## Round 1+2 Fixes Applied (2026-02-15)
 
-### High Priority (unlock mechanic usage)
-1. **Fix gold economy**: Rebalance gatherer weights, lower Mining Camp gate, increase gold spawns
-2. **Add unit upgrade AI option**: Create ResearchUnitUpgradeOption in options.nim + builder.nim
-3. **Cap wall building**: Add wall count limit in canStartBuilderWallRing
-4. **Fix blocked NOOP**: Try attack-adjacent before returning NOOP in ai_core.nim
+Seven changes merged to main in two rounds:
 
-### Medium Priority (deepen existing mechanics)
-5. **AI: add economy tech research** — Horse Collar, Double Bit Axe, Gold Mining
-6. **AI: train diverse unit types** — Skirmishers, Knights, Cavalry Archers
-7. **Increase episode length for audits** — test 5000-10000 steps
+| Bead | Fix | Files Changed |
+|------|-----|---------------|
+| tv-87mp | Gold economy: gatherer weights 1.5→0.8, mining camp gate 6→3, gold spawns 3-4→5-7 | gatherer.nim, builder.nim, spawn.nim |
+| tv-z0gt | New ResearchUnitUpgradeOption in AI decision tree (89 lines) | options.nim, builder.nim |
+| tv-9129 | Wall cap: MaxWallsPerTeam=60 in canStartBuilderWallRing | constants.nim, builder.nim |
+| tv-ap46 | Attack-adjacent when blocked + A* threshold 6→4 tiles | ai_core.nim |
+| tv-qhmo | New ResearchEconomyTechOption for farming/mining techs (53 lines) | options.nim, builder.nim |
+| tv-u0le | Monk relic garrison: direct USE on monastery + auto-reassign to Fighter | fighter.nim, ai_defaults.nim |
+| tv-owov | (Doc comment only — diverse unit training NOT implemented) | ai_core.nim |
+
+## Post-Fix Audit Results (same seed 42, 3000 steps)
+
+### Before → After Comparison
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Economy techs researched | 6 | **27** | +350% |
+| Combat deaths | 215-349 | **1068** | +5x |
+| Unit classes seen | 6 | **8** (+LongSwordsman, LightCavalry) | +33% |
+| Scouts trained | 42 | **193** | +4.6x |
+| ManAtArms trained | 56-74 | ~80 | stable |
+| Monks trained | 1 | **11** | +11x |
+| Kings killed (regicide) | 0 of 8 | **7 of 8** | NEW |
+| Hill control (KOTH) | none | **Team 3 since step 994** | NEW |
+| Mining Camps | 8 | **18** | +125% |
+| Walls built | 856 | **463** | -46% |
+| Blacksmith levels | 9-13 | 3 | -70% (resources redirected to economy techs) |
+
+### Updated Scorecard
+
+| Category | Implemented | Fires (Post-Fix) | Coverage |
+|----------|------------|-------------------|----------|
+| Unit classes | 45 | 8 (Villager, ManAtArms, LongSwordsman, Scout, LightCavalry, Archer, Monk, Boat) | **18%** |
+| Building types | 50+ | ~22 core types | ~44% |
+| Blacksmith upgrades | 15 tiers | 3 levels | **20%** |
+| University techs | 10 | 0 | **0%** |
+| Castle techs | 16 (2 per civ) | 0 | **0%** |
+| Unit upgrades | 5 lines | 2 lines (ManAtArms→LongSwordsman, Scout→LightCavalry) | **40%** |
+| Economy techs | 12 | 27 researched (farming + mining techs firing) | **75%+** |
+| Victory modes | 5 | 2 progressing (Regicide 7/8 kings dead, KOTH hill held) | **40%** |
+| Special mechanics | ~15 | ~7 (relic garrison, monks, hill control new) | **47%** |
+
+### What's New and Working
+- **Unit upgrades firing**: LongSwordsman and LightCavalry appearing — ResearchUnitUpgradeOption works
+- **Economy techs booming**: 27 researches vs 6 before — farming and mining techs now researched
+- **Victory progress**: Regicide nearly triggered (7 of 8 kings dead), KOTH hill control active
+- **Monks active**: 11 trained (was 1), relic behavior improved
+- **Gold economy functional**: Mining Camps doubled (8→18), gold no longer bottleneck for basic techs
+- **Wall spam controlled**: Down 46% (856→463), wall cap working
+
+### Still Not Firing (Next Priorities)
+- **University techs (0/10)**: Buildings exist but AI still never researches. May need dedicated priority boost or cheaper costs.
+- **Castle techs (0/16)**: No castles built → no civ tech usage.
+- **Diverse military (0)**: No Knights, Skirmishers, Cavalry Archers, Camels trained. tv-owov not implemented.
+- **Siege units (0)**: No Rams, Mangonels, Trebuchets, Scorpions.
+- **Naval (0)**: No Docks, no fishing, no naval combat.
+- **Unique castle units (0)**: No Samurai, Longbowman, Cataphract, etc.
+- **Wonders (0)**: Never built.
+- **Blacksmith regression**: Dropped from 9-13 to 3 levels — economy techs may be crowding out blacksmith research in the priority queue.
+
+## Recommendations (Updated)
+
+### High Priority (next round)
+1. **Train diverse military units**: Add AI options for Knights (Stable), Skirmishers (Archery Range), Cavalry Archers — tv-owov needs real implementation
+2. **Fix blacksmith regression**: Economy techs may need lower priority or blacksmith needs higher priority so both fire
+3. **University tech activation**: Boost priority or lower costs so AI researches at least some university techs
+
+### Medium Priority
+4. **Castle construction + techs**: AI needs to build Castles and research civ-specific techs
+5. **Siege unit training**: Add Siege Workshop construction + Ram/Mangonel training to AI
+6. **Increase episode length**: Test 5000-10000 steps to see if more mechanics unlock with time
 
 ### Low Priority (polish)
-8. **Relic collection behavior** — monks pick up and garrison relics
-9. **Naval AI** — dock building, fishing, naval combat
-10. **Victory condition pursuit** — AI actively works toward a victory type
+7. **Naval AI**: Dock building, fishing ships, naval combat
+8. **Victory condition pursuit**: AI actively works toward winning
+9. **Unique castle units**: Enable training of civ-specific units
