@@ -968,7 +968,7 @@ proc placeStartingResourceNodes(env: Environment, center: IVec2, rng: var Rand) 
 
   # Gold cluster
   block:
-    let count = randIntInclusive(rng, 3, 4)
+    let count = randIntInclusive(rng, 5, 7)
     var spot = findResourceSpot(env, center, rng, 8, 15, ResourceGround)
     if spot.x < 0:
       spot = rng.randomEmptyPos(env)

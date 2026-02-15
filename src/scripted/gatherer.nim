@@ -18,7 +18,7 @@ template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
 const
   # Weights: lower value = higher priority (divides the stockpile count)
   # Order: [Food, Wood, Stone, Gold]
-  EarlyGameWeights = [0.5, 0.75, 1.0, 1.5]   # Food prioritized
+  EarlyGameWeights = [0.5, 0.75, 1.0, 0.8]   # Food prioritized, gold rebalanced
   LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
   MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
 
@@ -276,7 +276,7 @@ proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
   of TaskGold:
     campKind = MiningCamp
     nearbyCount = countNearbyThings(env, agent.pos, 4, {Gold})
-    minCount = 6
+    minCount = 3
   of TaskWood:
     campKind = LumberCamp
     nearbyCount = countNearbyThings(env, agent.pos, 4, {Tree})

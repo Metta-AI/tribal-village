@@ -21,7 +21,7 @@ const
   DefenseRequestBuildingKinds = [Barracks, Outpost]
   CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
     (kind: LumberCamp, nearbyKinds: {Tree}, minCount: 6),
-    (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 6),
+    (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 3),
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
   ]
   BuilderThreatRadius* = 15
