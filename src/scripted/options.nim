@@ -1157,6 +1157,59 @@ let ResearchEconomyTechOption* = OptionDef(
 )
 
 # ============================================================================
+# Blacksmith Upgrade Research Option
+# ============================================================================
+
+proc hasUnresearchedBlacksmithUpgrade(env: Environment, teamId: int): bool =
+  for upgradeType in BlacksmithUpgradeType:
+    if env.teamBlacksmithUpgrades[teamId].levels[upgradeType] < BlacksmithUpgradeMaxLevel:
+      return true
+  false
+
+proc canAffordNextBlacksmithUpgrade(env: Environment, teamId: int): bool =
+  let upgradeType = env.getNextBlacksmithUpgrade(teamId)
+  let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+  if currentLevel >= BlacksmithUpgradeMaxLevel:
+    return false
+  let costMultiplier = currentLevel + 1
+  let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
+  let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
+  env.canSpendStockpile(teamId,
+    [(res: ResourceFood, count: foodCost),
+     (res: ResourceGold, count: goldCost)])
+
+proc canStartResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
+                                        agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  controller.getBuildingCount(env, teamId, Blacksmith) > 0 and
+    hasUnresearchedBlacksmithUpgrade(env, teamId) and
+    canAffordNextBlacksmithUpgrade(env, teamId)
+
+proc shouldTerminateResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
+                                                agentId: int, state: var AgentState): bool =
+  not canStartResearchBlacksmithUpgrade(controller, env, agent, agentId, state)
+
+proc optResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): uint8 =
+  let teamId = getTeamId(agent)
+  let blacksmith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
+  if isNil(blacksmith) or blacksmith.cooldown != 0:
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, blacksmith.pos, 3'u8)
+
+let ResearchBlacksmithUpgradeOption* = OptionDef(
+  name: "ResearchBlacksmithUpgrade",
+  canStart: canStartResearchBlacksmithUpgrade,
+  shouldTerminate: shouldTerminateResearchBlacksmithUpgrade,
+  act: optResearchBlacksmithUpgrade,
+  interruptible: true
+)
+
+# ============================================================================
 # Unit Upgrade Research Option - Barracks, Stable, ArcheryRange
 # ============================================================================
 

@@ -1365,7 +1365,7 @@ proc processProductionQueue*(building: Thing) =
      building.productionQueue.entries[0].remainingSteps > 0:
     building.productionQueue.entries[0].remainingSteps -= 1
 
-proc getNextBlacksmithUpgrade(env: Environment, teamId: int): BlacksmithUpgradeType =
+proc getNextBlacksmithUpgrade*(env: Environment, teamId: int): BlacksmithUpgradeType =
   ## Find the next upgrade to research (lowest level across all types).
   ## Returns the upgrade type with the lowest current level.
   var minLevel = BlacksmithUpgradeMaxLevel + 1

@@ -275,7 +275,7 @@ const
 
   # University techs
   UniversityTechFoodCost* = 5
-  UniversityTechGoldCost* = 3
+  UniversityTechGoldCost* = 1
   UniversityTechWoodCost* = 2
 
   # Castle unique techs
