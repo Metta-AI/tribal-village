@@ -269,19 +269,79 @@ Seven changes merged to main in two rounds:
 - **Wonders (0)**: Never built.
 - **Blacksmith regression**: Dropped from 9-13 to 3 levels — economy techs may be crowding out blacksmith research in the priority queue.
 
-## Recommendations (Updated)
+## Round 3 Fixes Applied (2026-02-15)
 
-### High Priority (next round)
-1. **Train diverse military units**: Add AI options for Knights (Stable), Skirmishers (Archery Range), Cavalry Archers — tv-owov needs real implementation
-2. **Fix blacksmith regression**: Economy techs may need lower priority or blacksmith needs higher priority so both fire
-3. **University tech activation**: Boost priority or lower costs so AI researches at least some university techs
+Three more changes merged:
+
+| Bead | Fix | Files Changed |
+|------|-----|---------------|
+| tv-5zi9 | Add ResearchBlacksmithUpgradeOption (53 lines) | options.nim, builder.nim, environment.nim |
+| tv-qyfl | Reduce UniversityTechGoldCost from 3 to 1 | constants.nim |
+| tv-1jj3 | Add Knight/Skirmisher/CavalryArcher unlock upgrades in effectiveTrainUnit | types.nim, environment.nim |
+
+## Round 3 Audit Results (same seed 42, 3000 steps)
+
+### Round 2 → Round 3 Comparison
+
+| Metric | Round 2 | **Round 3** | Change |
+|--------|---------|-------------|--------|
+| Blacksmith upgrades | 3 | **26** | +767% (regression FIXED) |
+| University techs | 0 | **1** | NEW (first ever!) |
+| Economy techs | 27 | **56** | +107% |
+| Unit upgrades | 2 lines | **4** (+Crossbowman, BatteringRam) | +100% |
+| Siege units (BatteringRam) | 0 | **4** | NEW |
+| Castle built | 0 | **1** | NEW |
+| LightCavalry trained | 1 | **117** | massive |
+| Crossbowman trained | 0 | **18** | NEW |
+| Monks trained | 11 | **22** | +100% |
+| Walls | 463 | **475** | stable (cap working) |
+| Siege Workshops | 0 | **2** | NEW |
+| Total tech events | ~33 | **115** | +250% |
+
+### Updated Scorecard (Round 3)
+
+| Category | Implemented | Fires (Round 3) | Coverage |
+|----------|------------|-----------------|----------|
+| Unit classes | 45 | 10 (+BatteringRam, Crossbowman) | **22%** |
+| Building types | 50+ | ~25 core types (+Castle, SiegeWorkshop) | ~50% |
+| Blacksmith upgrades | 15 tiers | 26 levels | **87%** (restored) |
+| University techs | 10 | 1 | **10%** |
+| Castle techs | 16 (2 per civ) | 0 | **0%** |
+| Unit upgrades | 8 lines | 4 researched | **50%** |
+| Economy techs | 12 | 56 researched | **100%** |
+| Victory modes | 5 | 0 triggered (no kings died this seed) | **0%** |
+| Special mechanics | ~15 | ~9 | **60%** |
+
+### Key Firsts in Round 3
+- **Siege units trained**: BatteringRam appears at step 1449
+- **Crossbowman trained**: Archer→Crossbowman upgrade working (step 1773)
+- **University tech researched**: First ever university tech in any audit
+- **Castle constructed**: First castle built (team 5)
+- **Blacksmith fully restored**: 26 levels (was 3 in round 2, 9-13 in baseline)
+- **115 tech events total**: 3.5x the baseline (~33)
+- **Siege Workshops built**: 2 (never before)
+
+### Still Not Firing
+- **Knights/Skirmishers/CavalryArchers**: Unlock upgrades exist but aren't researched yet (may need more game time or lower costs)
+- **Castle techs (0/16)**: Castle built but no civ techs researched
+- **Naval (0)**: No docks, no fishing, no naval combat (1 dock appeared in one seed)
+- **Unique castle units (0)**: No Samurai, Longbowman, etc.
+- **Wonders (0)**: Never built
+- **Victory conditions**: No victory triggered (seed-dependent; round 2 had 7/8 kings dead)
+
+## Recommendations (Updated after Round 3)
+
+### High Priority
+1. **Longer episodes**: Test 5000-10000 steps to see if more mechanics unlock with time (Knights, castle techs may just need time)
+2. **Castle tech activation**: Castle exists (1 built) but no civ techs researched — may need dedicated AI option
+3. **Knight/Skirmisher research priority**: Unlock upgrades are Tier 2 cost (3F+2G), but AI may prefer LightCavalry/Crossbowman path
 
 ### Medium Priority
-4. **Castle construction + techs**: AI needs to build Castles and research civ-specific techs
-5. **Siege unit training**: Add Siege Workshop construction + Ram/Mangonel training to AI
-6. **Increase episode length**: Test 5000-10000 steps to see if more mechanics unlock with time
+4. **Naval AI**: Dock building, fishing ships, naval combat
+5. **Victory condition pursuit**: AI actively works toward winning
+6. **More university tech research**: Only 1 of 10 — need more time or lower costs
 
 ### Low Priority (polish)
-7. **Naval AI**: Dock building, fishing ships, naval combat
-8. **Victory condition pursuit**: AI actively works toward winning
-9. **Unique castle units**: Enable training of civ-specific units
+7. **Unique castle units**: Enable training of civ-specific units
+8. **Trade Cog / tribute**: Inter-team economy
+9. **Wonder construction**: Victory via wonder
