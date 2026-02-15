@@ -293,6 +293,7 @@ proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Th
   let teamId = getTeamId(agent)
   agent.homeAltar.x >= 0 and
     controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
+    controller.getBuildingCount(env, teamId, Wall) < MaxWallsPerTeam and
     env.stockpileCount(teamId, ResourceWood) >= 3
 
 proc shouldTerminateBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
