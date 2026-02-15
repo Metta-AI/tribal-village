@@ -265,18 +265,7 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
   if agent.inventoryRelic > 0:
     let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
     if not isNil(monastery):
-      var dropPos = ivec2(-1, -1)
-      for d in Directions8:
-        let cand = monastery.pos + d
-        if not isValidPos(cand):
-          continue
-        if env.isEmpty(cand) and not env.hasDoor(cand) and
-            env.terrain[cand.x][cand.y] != Water and not isTileFrozen(cand, env):
-          dropPos = cand
-          break
-      if dropPos.x >= 0:
-        return actOrMove(controller, env, agent, agentId, state, dropPos, 3'u8)
-      return controller.moveTo(env, agent, agentId, state, monastery.pos)
+      return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u8)
 
   let relic = env.findNearestThingSpiral(state, Relic)
   if not isNil(relic):
