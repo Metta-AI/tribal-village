@@ -1,5 +1,9 @@
 # Docs Index
 
+## Audit & Game State
+- **[`audit_episode_results.md`](audit_episode_results.md)**: Latest episode audit results — which mechanics fire, what's broken, root causes, and recommendations. **Start here for current game state.**
+- **[`audit_tools.md`](audit_tools.md)**: Reference for all instrumentation tools — compile-time flags, scripts, per-agent stats, replay system, and known gaps.
+
 ## Getting Started
 - `quickstart.md`: prerequisites, building, running, testing, and environment variables.
 - `cli_and_debugging.md`: CLI usage, debugging flags, common failure modes.
