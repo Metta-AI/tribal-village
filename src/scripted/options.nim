@@ -1103,6 +1103,95 @@ let ResearchCastleTechOption* = OptionDef(
   interruptible: true
 )
 
+# ============================================================================
+# Unit Upgrade Research Option - Barracks, Stable, ArcheryRange
+# ============================================================================
+
+const UnitUpgradeBuildings = [Barracks, Stable, ArcheryRange]
+
+proc hasUnresearchedUnitUpgrade(env: Environment, teamId: int): bool =
+  ## Check if the team has any unresearched unit upgrade at any military building.
+  for upgrade in UnitUpgradeType:
+    if env.teamUnitUpgrades[teamId].researched[upgrade]:
+      continue
+    let prereq = upgradePrerequisite(upgrade)
+    if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
+      continue
+    return true
+  false
+
+proc canAffordAnyUnitUpgrade(env: Environment, teamId: int): bool =
+  ## Check if the team can afford any available unit upgrade.
+  for upgrade in UnitUpgradeType:
+    if env.teamUnitUpgrades[teamId].researched[upgrade]:
+      continue
+    let prereq = upgradePrerequisite(upgrade)
+    if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
+      continue
+    let costs = upgradeCosts(upgrade)
+    if env.canSpendStockpile(teamId, costs):
+      return true
+  false
+
+proc canStartResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
+                                   agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  # Need at least one military building
+  var hasBuilding = false
+  for kind in UnitUpgradeBuildings:
+    if controller.getBuildingCount(env, teamId, kind) > 0:
+      hasBuilding = true
+      break
+  hasBuilding and
+    hasUnresearchedUnitUpgrade(env, teamId) and
+    canAffordAnyUnitUpgrade(env, teamId)
+
+proc shouldTerminateResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
+                                          agentId: int, state: var AgentState): bool =
+  not canStartResearchUnitUpgrade(controller, env, agent, agentId, state)
+
+proc optResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState): uint8 =
+  ## Move to nearest military building that has an affordable, available upgrade.
+  let teamId = getTeamId(agent)
+  var bestBuilding: Thing = nil
+  var bestDist = int.high
+  for kind in UnitUpgradeBuildings:
+    if controller.getBuildingCount(env, teamId, kind) == 0:
+      continue
+    # Check if this building type has an available upgrade
+    let upgrade = env.getNextUnitUpgrade(teamId, kind)
+    if env.teamUnitUpgrades[teamId].researched[upgrade]:
+      continue
+    let prereq = upgradePrerequisite(upgrade)
+    if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
+      continue
+    let costs = upgradeCosts(upgrade)
+    if not env.canSpendStockpile(teamId, costs):
+      continue
+    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
+    if isNil(building) or building.cooldown != 0:
+      continue
+    let dist = int(chebyshevDist(agent.pos, building.pos))
+    if dist < bestDist:
+      bestDist = dist
+      bestBuilding = building
+  if isNil(bestBuilding):
+    return 0'u8
+  actOrMove(controller, env, agent, agentId, state, bestBuilding.pos, 3'u8)
+
+let ResearchUnitUpgradeOption* = OptionDef(
+  name: "ResearchUnitUpgrade",
+  canStart: canStartResearchUnitUpgrade,
+  shouldTerminate: shouldTerminateResearchUnitUpgrade,
+  act: optResearchUnitUpgrade,
+  interruptible: true
+)
+
 proc canStartStockpileDistributor(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   canStartStoreValuables(controller, env, agent, agentId, state)
