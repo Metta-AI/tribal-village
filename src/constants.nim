@@ -462,6 +462,7 @@ const
   WallRingBuildingsPerRadius* = 4
   WallRingRadiusSlack* = 1
   WallRingMaxDoors* = 2
+  MaxWallsPerTeam* = 60
 
   # ============================================================================
   # Fortification
