@@ -128,40 +128,97 @@ No tier progression:
 ### Action Distribution (from actionAudit, end-of-episode)
 Typical team breakdown: ~80% move, ~13% noop/idle, ~3-4% build, <1% attack
 
-## Root Cause Analysis
+## Deep-Dive Investigation Results
 
-### Why advanced mechanics don't fire:
+### Investigation 1: Gold Scarcity (Root Blocker)
 
-1. **Gold starvation**: Advanced units cost gold (Knight: 3F/2G, Paladin: 6F/4G). Teams gather 0-46 gold total. Can't afford anything beyond ManAtArms.
+**Diagnosis**: Gold starvation is the #1 blocker. Teams gather 0-46 gold over 3000 steps vs 80-264 wood.
 
-2. **No economy tech progression**: Without Double Bit Axe, Gold Mining, Horse Collar, gathering rates stay at base. Economy never accelerates.
+**Root causes (priority order)**:
 
-3. **University dead zone**: AI builds universities but has no behavior to research there. Code path exists but AI never triggers it.
+1. **AI gatherer weight imbalance (70% of problem)**: In `scripted/gatherer.nim` lines 21-23, early-game gold weight is 1.5 (worst priority) vs food 0.5 (best). Gatherers never target gold when it matters most.
 
-4. **Castle tech blind spot**: Same as university — buildings built, research never initiated.
+2. **Mining Camp build gate (15%)**: `gatherer.nim` line 279 requires 6 gold nodes within 4 tiles to build a Mining Camp. Initial placements rarely meet this — so no Mining Camps get built, no gather bonuses apply.
 
-5. **Unit upgrade ignorance**: AI trains ManAtArms but never upgrades to Longswordsman. Upgrade cost (3F/2G) is affordable but AI doesn't prioritize it.
+3. **Sparse initial placement (10%)**: Only 3-4 gold deposits per team at 8-15 tile distance (`spawn.nim` line 972). Wood spawns in dense clusters much closer.
 
-6. **Wall obsession**: ~80% of construction is walls. AI over-invests in static defense, under-invests in military buildings and unit production.
+4. **No early gold generation (5%)**: Relic income is 1 gold per 20 steps (negligible). Trade Cogs/Markets require gold to start.
 
-7. **3000 steps may be too short**: First military units appear at step 682-1095. Advanced techs/units might need 5000-10000 steps. But the slow economy suggests even more steps won't help without balance changes.
+**Fix**: Rebalance gatherer weights (gold 1.5→0.8 early), lower Mining Camp gate (6→3 nodes), increase initial gold spawns (3-4→5-7).
+
+### Investigation 2: University/Castle Tech Dead Zone
+
+**Diagnosis**: Code paths exist but are resource-gated. AI never accumulates enough resources.
+
+- `options.nim` lines 1025-1054: `canStartResearchUniversityTech` exists and is registered in `BuilderOptions` at position 14.
+- **But**: `canAffordNextUniversityTech` requires 5 food + 3 gold + 2 wood simultaneously. With gold at 0-7, this check almost always fails.
+- University construction has no maxHp — marked `constructed = true` immediately (`placement.nim` line 135). Buildings ARE functional.
+- Castle techs same pattern: code exists at `options.nim` lines 1075-1104, gated by resources.
+
+**Fix**: Solving gold scarcity (Investigation 1) should unlock this automatically. The code paths are correct.
+
+### Investigation 3: Unit Upgrade Gap
+
+**Diagnosis**: AI decision path for unit upgrades is **completely missing**.
+
+- Mechanical system fully implemented and tested (`environment.nim` lines 1754-1928, 26 passing tests).
+- Upgrade costs are cheap: Tier 2 = 3F/2G, Tier 3 = 6F/4G.
+- **But**: No `canStartResearchUnitUpgrade()`, no `optResearchUnitUpgrade()`, no `ResearchUnitUpgradeOption` defined anywhere.
+- University/Castle research options exist (positions 14-15 in BuilderOptions), but unit upgrades have NO entry.
+- `optUnitPromotionFocus()` in `options.nim` lines 847-862 focuses on TRAINING upgraded units, not researching the upgrade itself.
+
+**Fix**: Create `ResearchUnitUpgradeOption` mirroring the University/Castle pattern. Add to BuilderOptions after tech buildings (~position 13).
+
+### Investigation 4: Wall Spam
+
+**Diagnosis**: 5 interacting factors create an infinite wall-building loop.
+
+1. **Near-zero cost**: Walls cost 1 wood (`registry.nim` line 57). Barracks costs 9 wood.
+2. **Perpetual activation**: `canStartBuilderWallRing` (`builder.nim` line 291) requires only homeAltar + LumberCamp + 3 wood — always true after early game.
+3. **No completion condition**: Termination only triggers when preconditions fail (they never do). No wall count cap exists.
+4. **Growing radius**: `calculateWallRingRadius` (`builder.nim` line 37) expands radius with building count (base 5, max 12). More buildings → bigger ring → more walls → more buildings.
+5. **Builder glut**: 336 builders with no sub-roles all converge on wall building once higher-priority tasks complete (wall ring is priority 15, but everything above it finishes quickly).
+
+**In threat mode** (`BuilderOptionsThreat`), wall ring jumps to priority 7 — making it even more dominant during conflict.
+
+**Fix**: Add wall count cap (~50-80 per team) in `canStartBuilderWallRing`, or add ring completion flag that stops building once perimeter is full.
+
+### Investigation 5: Action Distribution (80% MOVE)
+
+**Diagnosis**: Mostly working as designed, with some optimization opportunities.
+
+- **80% MOVE is expected**: 2/3 of agents are gatherers/builders who spend most time walking to resources/sites. Grid-based combat requires walking to enemies before attacking.
+- **<1% ATTACK is normal**: With 5-8 damage per hit and 20-50 HP targets, kills take 10+ hits. Movement phase (5-10 steps) precedes each combat engagement.
+- **13% NOOP is mixed**: ~50% intentional (decision delay system at `ai_defaults.nim` line 409, stop commands), ~50% bug (blocked pathfinding returns NOOP at `ai_core.nim` line 1461 instead of trying to attack nearby enemies).
+- **Greedy pathfinding threshold**: `ai_core.nim` line 1411 uses greedy movement for <6 tiles, A* for >=6. Greedy gets stuck on obstacles, causing oscillation before replan.
+
+**Fix (quick win)**: When blocked (`dirIdx < 0`), try attacking adjacent enemies instead of returning NOOP. Lower greedy→A* threshold from 6 to 4 tiles.
+
+## Root Cause Summary
+
+| Issue | Root Cause | Severity | Fix Complexity |
+|-------|-----------|----------|----------------|
+| Gold scarcity | Gatherer weights deprioritize gold + Mining Camp gate too high | **Critical** | Low (constants) |
+| No University/Castle tech | Resource-gated; gold scarcity blocks affordability checks | **High** | None (fix gold) |
+| No unit upgrades | AI option completely missing from decision tree | **High** | Medium (new option) |
+| Wall spam | No cap + perpetual activation + cheap cost | **Medium** | Low (add cap) |
+| High NOOP rate | Blocked pathfinding → NOOP instead of attack | **Low** | Low (fallback) |
+| 80% MOVE | Expected for economic game with grid movement | **Normal** | N/A |
 
 ## Recommendations
 
 ### High Priority (unlock mechanic usage)
-1. **Increase gold gathering rate or gold availability** — current gold income is 10-50x too low for the tech tree
-2. **AI: add University research behavior** — buildings exist, just need research triggers
-3. **AI: add unit upgrade behavior** — ManAtArms→Longsword should happen automatically
-4. **Reduce wall building priority** — cap wall count or reduce AI wall preference
+1. **Fix gold economy**: Rebalance gatherer weights, lower Mining Camp gate, increase gold spawns
+2. **Add unit upgrade AI option**: Create ResearchUnitUpgradeOption in options.nim + builder.nim
+3. **Cap wall building**: Add wall count limit in canStartBuilderWallRing
+4. **Fix blocked NOOP**: Try attack-adjacent before returning NOOP in ai_core.nim
 
 ### Medium Priority (deepen existing mechanics)
 5. **AI: add economy tech research** — Horse Collar, Double Bit Axe, Gold Mining
-6. **AI: add Castle tech research** — civ-unique tech behavior
-7. **AI: train diverse unit types** — Skirmishers, Knights, Cavalry Archers
-8. **Increase episode length for audits** — test 5000-10000 steps
+6. **AI: train diverse unit types** — Skirmishers, Knights, Cavalry Archers
+7. **Increase episode length for audits** — test 5000-10000 steps
 
 ### Low Priority (polish)
-9. **Relic collection behavior** — monks pick up and garrison relics
-10. **Naval AI** — dock building, fishing, naval combat
-11. **Victory condition pursuit** — AI actively works toward a victory type
-12. **Tribute/alliance mechanics** — inter-team economy
+8. **Relic collection behavior** — monks pick up and garrison relics
+9. **Naval AI** — dock building, fishing, naval combat
+10. **Victory condition pursuit** — AI actively works toward a victory type
