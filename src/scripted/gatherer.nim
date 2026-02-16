@@ -18,9 +18,9 @@ template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
 const
   # Weights: lower value = higher priority (divides the stockpile count)
   # Order: [Food, Wood, Stone, Gold]
-  EarlyGameWeights = [0.5, 0.75, 1.0, 0.8]   # Food prioritized, gold rebalanced
+  EarlyGameWeights = [0.5, 0.75, 1.0, 0.65]  # Food prioritized, gold boosted for early economy
   LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
-  MidGameWeights = [1.0, 1.0, 1.0, 1.0]      # Equal priority
+  MidGameWeights = [1.0, 1.0, 1.0, 0.75]     # Gold prioritized for mid-game tech/units
 
 const GathererFleeRadiusConst = GathererFleeRadius  # Local alias for use in guard template
 const GarrisonSeekRadiusConst = GarrisonSeekRadius  # Local alias for use in guard template
