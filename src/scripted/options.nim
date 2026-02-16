@@ -1101,7 +1101,7 @@ proc optResearchCastleTech*(controller: Controller, env: Environment, agent: Thi
                             agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let castle = env.findNearestFriendlyThingSpiral(state, teamId, Castle)
-  if isNil(castle) or castle.cooldown != 0:
+  if isNil(castle):
     return 0'u8
   actOrMove(controller, env, agent, agentId, state, castle.pos, 3'u8)
 
