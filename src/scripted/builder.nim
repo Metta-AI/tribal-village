@@ -15,7 +15,7 @@ const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
     WeavingLoom, ClayOven, Blacksmith,
-    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop,
+    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
     Outpost, Castle, Market, Monastery, University
   ]
   DefenseRequestBuildingKinds = [Barracks, Outpost]

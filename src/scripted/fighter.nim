@@ -14,8 +14,8 @@ export formations
 
 const
   DividerInvSqrt2 = 0.70710677'f32
-  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, Stable, ArcheryRange, Barracks, Monastery]
-  FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop]
+  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop, Stable, ArcheryRange, Barracks, Monastery, Dock]
+  FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop]
 
 # Per-step cache for isThreateningAlly results to avoid redundant spatial scans
 # Key: (enemyAgentId * MapRoomObjectsTeams + teamId), Value: isThreatening

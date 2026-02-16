@@ -1035,7 +1035,12 @@ proc canStartResearchUniversityTech*(controller: Controller, env: Environment, a
 
 proc shouldTerminateResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                             agentId: int, state: var AgentState): bool =
-  not canStartResearchUniversityTech(controller, env, agent, agentId, state)
+  ## Only terminate if university gone or all techs researched (not for temporary resource dips)
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return true
+  controller.getBuildingCount(env, teamId, University) == 0 or
+    not hasUnresearchedUniversityTech(env, teamId)
 
 proc optResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint8 =
@@ -1085,7 +1090,12 @@ proc canStartResearchCastleTech*(controller: Controller, env: Environment, agent
 
 proc shouldTerminateResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
                                         agentId: int, state: var AgentState): bool =
-  not canStartResearchCastleTech(controller, env, agent, agentId, state)
+  ## Only terminate if castle is gone or all techs researched (not for temporary resource dips)
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return true
+  controller.getBuildingCount(env, teamId, Castle) == 0 or
+    not hasUnresearchedCastleTech(env, teamId)
 
 proc optResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint8 =
