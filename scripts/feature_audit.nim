@@ -477,12 +477,15 @@ proc main() =
       let t = env.grid[x][y]
       if t != nil:
         case t.kind
-        of Dock: inc dockCount
         of Wonder: inc wonderCount
         of University: inc universityCount
         of Castle: inc castleCount2
         of Market: inc marketCount
         else: discard
+      # Dock is in BackgroundThingKinds, so check backgroundGrid
+      let bg = env.backgroundGrid[x][y]
+      if bg != nil and bg.kind == Dock:
+        inc dockCount
 
   # Count walls and doors
   var wallCount = 0
