@@ -271,11 +271,12 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
   if not isNil(relic):
     return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
-  # Find nearest enemy using spatial index (O(cells) instead of O(grid area))
-  let mr = ObservationRadius.int * 3  # Search moderately far for monks
-  let bestEnemy = findNearestEnemyAgentSpatial(env, agent.pos, teamId, mr)
-  if not isNil(bestEnemy):
-    return actOrMove(controller, env, agent, agentId, state, bestEnemy.pos, 2'u8)
+  # Monks stay near monasteries for safety (0 attack, fragile)
+  let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
+  if not isNil(monastery):
+    let dist = chebyshevDist(agent.pos, monastery.pos)
+    if dist > 8:
+      return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u8)
 
   controller.moveNextSearch(env, agent, agentId, state)
 

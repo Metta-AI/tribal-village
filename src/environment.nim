@@ -1872,10 +1872,19 @@ proc hasUnitUpgrade*(env: Environment, teamId: int, upgrade: UnitUpgradeType): b
 
 proc getNextUnitUpgrade*(env: Environment, teamId: int, buildingKind: ThingKind): UnitUpgradeType =
   ## Find the next available upgrade for the given building type.
-  ## Returns the first unresearched upgrade whose prerequisites are met.
-  for upgrade in UnitUpgradeType:
-    if upgradeBuilding(upgrade) != buildingKind:
-      continue
+  ## Rotates starting point by teamId to distribute across upgrade lines,
+  ## so different teams research different upgrades (Knight vs LightCavalry, etc.)
+  let allUpgrades = block:
+    var upgrades: seq[UnitUpgradeType]
+    for u in UnitUpgradeType:
+      if upgradeBuilding(u) == buildingKind:
+        upgrades.add(u)
+    upgrades
+  if allUpgrades.len == 0:
+    return UpgradeLongSwordsman  # fallback
+  let startIdx = teamId mod allUpgrades.len
+  for offset in 0 ..< allUpgrades.len:
+    let upgrade = allUpgrades[(startIdx + offset) mod allUpgrades.len]
     if env.teamUnitUpgrades[teamId].researched[upgrade]:
       continue
     # Check prerequisite
@@ -1884,10 +1893,7 @@ proc getNextUnitUpgrade*(env: Environment, teamId: int, buildingKind: ThingKind)
       continue
     return upgrade
   # No upgrades available; return first of this building type (caller checks researched)
-  for upgrade in UnitUpgradeType:
-    if upgradeBuilding(upgrade) == buildingKind:
-      return upgrade
-  UpgradeLongSwordsman  # fallback
+  allUpgrades[0]
 
 proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitClass, toClass: AgentUnitClass) =
   ## Upgrade all living units of fromClass on the given team to toClass.

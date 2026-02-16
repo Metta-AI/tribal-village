@@ -128,7 +128,7 @@ const
 
   # Monk
   MonkAttackDamage* = 0
-  MonkMaxHp* = 4
+  MonkMaxHp* = 8
 
   # Siege Units
   BatteringRamAttackDamage* = 2
