@@ -428,7 +428,7 @@ proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: 
 builderGuard(canStartBuilderDock, shouldTerminateBuilderDock):
   let checkPos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   controller.getBuildingCount(env, getTeamId(agent), Dock) == 0 and
-    hasWaterNearby(env, checkPos, 30)
+    hasWaterNearby(env, checkPos, 15)
 
 proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
