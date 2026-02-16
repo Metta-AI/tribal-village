@@ -785,6 +785,10 @@ proc updateController*(controller: Controller, env: Environment) =
       scriptedState.scoredAtStep = true
   if ScriptedTempleAssignEnabled:
     processTempleHybridRequests(controller, env)
+  # Periodically evaluate tribute between allied teams
+  if env.currentStep mod TributeCheckInterval == 0:
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      evaluateTribute(env, teamId)
   # Update adaptive difficulty for teams that have it enabled
   controller.updateAdaptiveDifficulty(env)
   # Check for town splits (AI settlement expansion)

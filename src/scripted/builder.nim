@@ -16,7 +16,7 @@ const
   TechBuildingKinds = [
     WeavingLoom, ClayOven, Blacksmith,
     Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
-    Outpost, Castle, Market, Monastery, University
+    Outpost, Castle, Market, Monastery, University, Wonder
   ]
   DefenseRequestBuildingKinds = [Barracks, Outpost]
   CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
@@ -586,9 +586,9 @@ let BuilderOptions* = [
     interruptible: true),
   BuilderDockOption,
   ResearchEconomyTechOption,
+  ResearchCastleTechOption,
   ResearchBlacksmithUpgradeOption,
   ResearchUniversityTechOption,
-  ResearchCastleTechOption,
   ResearchUnitUpgradeOption,
   BuilderDefenseResponseOption,
   BuilderSiegeResponseOption,
@@ -626,9 +626,9 @@ let BuilderOptionsThreat* = [
     interruptible: true),
   BuilderDockOption,
   ResearchEconomyTechOption,
+  ResearchCastleTechOption,
   ResearchBlacksmithUpgradeOption,
   ResearchUniversityTechOption,
-  ResearchCastleTechOption,
   ResearchUnitUpgradeOption,
   OptionDef(name: "BuilderCoreInfrastructure", canStart: canStartBuilderCoreInfrastructure,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderCoreInfrastructure,

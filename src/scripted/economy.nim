@@ -244,8 +244,8 @@ proc resetEconomy*() =
 
 const
   TributeCheckInterval* = 50     ## Steps between tribute checks
-  TributeSurplusThreshold* = 40  ## Must have at least this much of a resource to consider tributing
-  TributeDeficitThreshold* = 5   ## Ally must have less than this to receive tribute
+  TributeSurplusThreshold* = 8   ## Must have at least this much of a resource to consider tributing
+  TributeDeficitThreshold* = 3   ## Ally must have less than this to receive tribute
   TributeAmountFraction* = 0.25  ## Send 25% of surplus above threshold
 
 proc evaluateTribute*(env: Environment, teamId: int) =
@@ -267,8 +267,7 @@ proc evaluateTribute*(env: Environment, teamId: int) =
     for otherTeam in 0 ..< MapRoomObjectsTeams:
       if otherTeam == teamId:
         continue
-      if not env.areAllied(teamId, otherTeam):
-        continue  # Only tribute allied teams
+      # Tribute to any team in deficit (allies preferred if alliances exist)
       let otherStock = env.stockpileCount(otherTeam, res)
       if otherStock < lowestStock:
         lowestStock = otherStock

@@ -279,10 +279,10 @@ const
   UniversityTechWoodCost* = 2
 
   # Castle unique techs
-  CastleTechFoodCost* = 4
-  CastleTechGoldCost* = 3
-  CastleTechImperialFoodCost* = 8
-  CastleTechImperialGoldCost* = 6
+  CastleTechFoodCost* = 2
+  CastleTechGoldCost* = 2
+  CastleTechImperialFoodCost* = 4
+  CastleTechImperialGoldCost* = 3
 
   # Unit upgrade costs
   UnitUpgradeTier2FoodCost* = 3
