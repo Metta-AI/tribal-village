@@ -146,30 +146,34 @@ const
   GoblinAttackDamage* = 1
   GoblinMaxHp* = 4
 
+  # Boat (embarked unit form)
+  BoatAttackDamage* = 1
+  BoatMaxHp* = 15
+
   # Trade Cog
-  TradeCogAttackDamage* = 0
-  TradeCogMaxHp* = 6
+  TradeCogAttackDamage* = 1
+  TradeCogMaxHp* = 15
   TradeCogGoldPerDistance* = 1
   TradeCogDistanceDivisor* = 10
 
   # ============================================================================
   # Castle Unique Unit Stats
   # ============================================================================
-  SamuraiMaxHp* = 7
+  SamuraiMaxHp* = 12
   SamuraiAttackDamage* = 3
-  LongbowmanMaxHp* = 5
+  LongbowmanMaxHp* = 10
   LongbowmanAttackDamage* = 2
-  CataphractMaxHp* = 10
+  CataphractMaxHp* = 14
   CataphractAttackDamage* = 2
-  WoadRaiderMaxHp* = 6
+  WoadRaiderMaxHp* = 10
   WoadRaiderAttackDamage* = 2
-  TeutonicKnightMaxHp* = 12
+  TeutonicKnightMaxHp* = 16
   TeutonicKnightAttackDamage* = 3
-  HuskarlMaxHp* = 8
+  HuskarlMaxHp* = 12
   HuskarlAttackDamage* = 2
-  MamelukeMaxHp* = 7
+  MamelukeMaxHp* = 10
   MamelukeAttackDamage* = 2
-  JanissaryMaxHp* = 6
+  JanissaryMaxHp* = 10
   JanissaryAttackDamage* = 3
   KingMaxHp* = 15
   KingAttackDamage* = 2

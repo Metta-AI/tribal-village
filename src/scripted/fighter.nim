@@ -14,8 +14,12 @@ export formations
 
 const
   DividerInvSqrt2 = 0.70710677'f32
-  FighterTrainKinds = [Castle, MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop, Stable, ArcheryRange, Barracks, Monastery, Dock]
-  FighterSiegeTrainKinds = [MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop]
+  # Order matters: agents start at (agentId mod len), so position determines which
+  # building type each agent tries first. Spread rare buildings (Castle, Monastery,
+  # Dock) across the rotation to ensure diverse unit production.
+  FighterTrainKinds = [Castle, Barracks, Monastery, ArcheryRange, Dock, Stable, MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop]
+  FighterSiegeKinds = {MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop}
+  MaxSiegePerTeam = 3  # Cap siege training to prevent resource drain
 
 # Per-step cache for isThreateningAlly results to avoid redundant spatial scans
 # Key: (enemyAgentId * MapRoomObjectsTeams + teamId), Value: isThreatening
@@ -32,6 +36,19 @@ var combatAllyCache: PerAgentCache[Thing]
 var scoutEnemyCache: PerAgentCache[Thing]
 var seesEnemyStructureCache: PerAgentCache[bool]
 var allyNearbyCache: PerAgentCache[bool]
+
+proc teamSiegeCount(env: Environment, teamId: int): int =
+  ## Count alive siege units for a team (BatteringRam, Mangonel, Trebuchet, Scorpion).
+  for id in 0 ..< MapAgents:
+    if env.terminated[id] == 0.0:
+      let agent = env.agents[id]
+      if agent != nil and getTeamId(agent) == teamId and
+         agent.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}:
+        inc result
+
+proc teamSiegeAtCap(env: Environment, teamId: int): bool =
+  ## Returns true if team has reached siege training cap.
+  teamSiegeCount(env, teamId) >= MaxSiegePerTeam
 
 proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -843,12 +860,11 @@ proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thin
   if didFoodDrop: return foodDropAct
   0'u8
 
-proc fighterHasReadyTrainQueue(env: Environment, teamId: int,
-                               seesEnemyStructure: bool): bool =
+proc fighterHasReadyTrainQueue(env: Environment, teamId: int, siegeAtCap: bool): bool =
   ## Check if any friendly training building has a ready queue entry.
   ## A villager can convert immediately at such a building (pre-paid).
   for kind in FighterTrainKinds:
-    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+    if siegeAtCap and kind in FighterSiegeKinds:
       continue
     for building in env.thingsByKind[kind]:
       if building.teamId == teamId and building.productionQueueHasReady():
@@ -860,12 +876,12 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
-  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  let siegeAtCap = teamSiegeAtCap(env, teamId)
   # Check for ready queue entries first (free conversion, already paid)
-  if fighterHasReadyTrainQueue(env, teamId, seesEnemyStructure):
+  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap):
     return true
   for kind in FighterTrainKinds:
-    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+    if siegeAtCap and kind in FighterSiegeKinds:
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
@@ -880,12 +896,12 @@ proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent
   if agent.unitClass != UnitVillager:
     return true
   let teamId = getTeamId(agent)
-  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  let siegeAtCap = teamSiegeAtCap(env, teamId)
   # Don't terminate if there's a ready queue entry to collect
-  if fighterHasReadyTrainQueue(env, teamId, seesEnemyStructure):
+  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap):
     return false
   for kind in FighterTrainKinds:
-    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+    if siegeAtCap and kind in FighterSiegeKinds:
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
@@ -896,10 +912,10 @@ proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
-  let seesEnemyStructure = fighterSeesEnemyStructure(env, agent)
+  let siegeAtCap = teamSiegeAtCap(env, teamId)
   # First: go to any building with a ready queue entry (free conversion)
   for kind in FighterTrainKinds:
-    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+    if siegeAtCap and kind in FighterSiegeKinds:
       continue
     for building in env.thingsByKind[kind]:
       if building.teamId == teamId and building.productionQueueHasReady():
@@ -908,7 +924,7 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
   let startIdx = agentId mod FighterTrainKinds.len
   for offset in 0 ..< FighterTrainKinds.len:
     let kind = FighterTrainKinds[(startIdx + offset) mod FighterTrainKinds.len]
-    if kind in FighterSiegeTrainKinds and not seesEnemyStructure:
+    if siegeAtCap and kind in FighterSiegeKinds:
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue

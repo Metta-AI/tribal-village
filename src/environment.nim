@@ -593,7 +593,7 @@ const
     MangonelMaxHp,
     TrebuchetMaxHp,
     GoblinMaxHp,
-    VillagerMaxHp,
+    BoatMaxHp,
     TradeCogMaxHp,
     # Castle unique units
     SamuraiMaxHp,
@@ -646,7 +646,7 @@ const
     MangonelAttackDamage,
     TrebuchetAttackDamage,
     GoblinAttackDamage,
-    VillagerAttackDamage,
+    BoatAttackDamage,
     TradeCogAttackDamage,
     # Castle unique units
     SamuraiAttackDamage,
@@ -694,8 +694,10 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   ## Villagers use NoAttack (won't auto-attack).
   ## Military units use Defensive (attack in range, return to position).
   case unitClass
-  of UnitVillager, UnitMonk, UnitBoat, UnitTradeCog, UnitFishingShip, UnitTransportShip:
+  of UnitVillager, UnitMonk, UnitFishingShip, UnitTransportShip:
     StanceNoAttack
+  of UnitBoat, UnitTradeCog:
+    StanceDefensive
   of UnitManAtArms, UnitArcher, UnitScout, UnitKnight, UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitGoblin,
      UnitSamurai, UnitLongbowman, UnitCataphract, UnitWoadRaider, UnitTeutonicKnight,
      UnitHuskarl, UnitMameluke, UnitJanissary, UnitKing,

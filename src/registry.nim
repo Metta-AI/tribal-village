@@ -85,9 +85,9 @@ let BuildingRegistry* = block:
     (SiegeWorkshop, "Siege Workshop", "siege_workshop", 'i', (r: 120'u8, g: 120'u8, b: 160'u8),
       11, @[(ItemWood, 10)], 14),
     (MangonelWorkshop, "Mangonel Workshop", "mangonel_workshop", 'j', (r: 120'u8, g: 130'u8, b: 160'u8),
-      BuildIndexMangonelWorkshop, @[(ItemWood, 10), (ItemStone, 4)], 14),
+      BuildIndexMangonelWorkshop, @[(ItemWood, 8), (ItemStone, 2)], 14),
     (TrebuchetWorkshop, "Trebuchet Workshop", "trebuchet_workshop", 'T', (r: 100'u8, g: 110'u8, b: 150'u8),
-      25, @[(ItemWood, 12), (ItemStone, 6)], 16),
+      25, @[(ItemWood, 10), (ItemStone, 3)], 16),
     (Blacksmith, "Blacksmith", "blacksmith", 'k', (r: 90'u8, g: 90'u8, b: 90'u8),
       16, @[(ItemWood, 8)], 12),
     (Market, "Market", "market", 'e', (r: 200'u8, g: 170'u8, b: 120'u8),
@@ -395,9 +395,9 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   of Barracks: @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)]
   of ArcheryRange: @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)]
   of Stable: @[(res: ResourceFood, count: 3)]
-  of SiegeWorkshop: @[(res: ResourceWood, count: 3), (res: ResourceStone, count: 2)]
-  of MangonelWorkshop: @[(res: ResourceWood, count: 4), (res: ResourceStone, count: 3)]
-  of TrebuchetWorkshop: @[(res: ResourceWood, count: 5), (res: ResourceGold, count: 4)]
+  of SiegeWorkshop: @[(res: ResourceWood, count: 3)]
+  of MangonelWorkshop: @[(res: ResourceWood, count: 4)]
+  of TrebuchetWorkshop: @[(res: ResourceWood, count: 4), (res: ResourceGold, count: 3)]
   of Monastery: @[(res: ResourceGold, count: 2)]
   of Castle: @[(res: ResourceFood, count: 4), (res: ResourceGold, count: 2)]
   of Dock: @[(res: ResourceWood, count: 3), (res: ResourceGold, count: 2)]
