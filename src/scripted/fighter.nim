@@ -19,7 +19,9 @@ const
   # Dock) across the rotation to ensure diverse unit production.
   FighterTrainKinds = [Castle, Barracks, Monastery, ArcheryRange, Dock, Stable, MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop]
   FighterSiegeKinds = {MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop}
+  FighterNavalKinds = {Dock}
   MaxSiegePerTeam = 3  # Cap siege training to prevent resource drain
+  MaxNavalPerTeam = 3  # Cap naval training to prevent resource drain
 
 # Per-step cache for isThreateningAlly results to avoid redundant spatial scans
 # Key: (enemyAgentId * MapRoomObjectsTeams + teamId), Value: isThreatening
@@ -49,6 +51,18 @@ proc teamSiegeCount(env: Environment, teamId: int): int =
 proc teamSiegeAtCap(env: Environment, teamId: int): bool =
   ## Returns true if team has reached siege training cap.
   teamSiegeCount(env, teamId) >= MaxSiegePerTeam
+
+proc teamNavalCount(env: Environment, teamId: int): int =
+  ## Count alive naval units for a team.
+  for id in 0 ..< MapAgents:
+    if env.terminated[id] == 0.0:
+      let agent = env.agents[id]
+      if agent != nil and getTeamId(agent) == teamId and agent.isWaterUnit:
+        inc result
+
+proc teamNavalAtCap(env: Environment, teamId: int): bool =
+  ## Returns true if team has reached naval training cap.
+  teamNavalCount(env, teamId) >= MaxNavalPerTeam
 
 proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -860,11 +874,15 @@ proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thin
   if didFoodDrop: return foodDropAct
   0'u8
 
-proc fighterHasReadyTrainQueue(env: Environment, teamId: int, siegeAtCap: bool): bool =
+proc fighterShouldSkipKind(kind: ThingKind, siegeAtCap, navalAtCap: bool): bool {.inline.} =
+  (siegeAtCap and kind in FighterSiegeKinds) or
+  (navalAtCap and kind in FighterNavalKinds)
+
+proc fighterHasReadyTrainQueue(env: Environment, teamId: int, siegeAtCap, navalAtCap: bool): bool =
   ## Check if any friendly training building has a ready queue entry.
   ## A villager can convert immediately at such a building (pre-paid).
   for kind in FighterTrainKinds:
-    if siegeAtCap and kind in FighterSiegeKinds:
+    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
       continue
     for building in env.thingsByKind[kind]:
       if building.teamId == teamId and building.productionQueueHasReady():
@@ -877,11 +895,12 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
     return false
   let teamId = getTeamId(agent)
   let siegeAtCap = teamSiegeAtCap(env, teamId)
+  let navalAtCap = teamNavalAtCap(env, teamId)
   # Check for ready queue entries first (free conversion, already paid)
-  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap):
+  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap, navalAtCap):
     return true
   for kind in FighterTrainKinds:
-    if siegeAtCap and kind in FighterSiegeKinds:
+    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
@@ -897,11 +916,12 @@ proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent
     return true
   let teamId = getTeamId(agent)
   let siegeAtCap = teamSiegeAtCap(env, teamId)
+  let navalAtCap = teamNavalAtCap(env, teamId)
   # Don't terminate if there's a ready queue entry to collect
-  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap):
+  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap, navalAtCap):
     return false
   for kind in FighterTrainKinds:
-    if siegeAtCap and kind in FighterSiegeKinds:
+    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
@@ -913,9 +933,10 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
   let siegeAtCap = teamSiegeAtCap(env, teamId)
+  let navalAtCap = teamNavalAtCap(env, teamId)
   # First: go to any building with a ready queue entry (free conversion)
   for kind in FighterTrainKinds:
-    if siegeAtCap and kind in FighterSiegeKinds:
+    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
       continue
     for building in env.thingsByKind[kind]:
       if building.teamId == teamId and building.productionQueueHasReady():
@@ -924,7 +945,7 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
   let startIdx = agentId mod FighterTrainKinds.len
   for offset in 0 ..< FighterTrainKinds.len:
     let kind = FighterTrainKinds[(startIdx + offset) mod FighterTrainKinds.len]
-    if siegeAtCap and kind in FighterSiegeKinds:
+    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue

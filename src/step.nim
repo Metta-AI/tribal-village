@@ -1266,10 +1266,23 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if isTeamInMask(thing.teamId, agentMask):
                   if env.useDropoffBuilding(agent, buildingDropoffResources(thing.kind)):
                     used = true
+                  # Check production queue first (pre-paid training from fighter AI)
+                  if not used and buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
+                    if thing.productionQueueHasReady():
+                      let unitClass = thing.consumeReadyQueueEntry()
+                      applyUnitClass(env, agent, unitClass)
+                      env.spawnSpawnEffect(agent.pos)
+                      if agent.inventorySpear > 0:
+                        agent.inventorySpear = 0
+                      if thing.hasRallyPoint():
+                        agent.rallyTarget = thing.rallyPoint
+                      if agent.unitClass == UnitTradeCog:
+                        agent.tradeHomeDock = thing.pos
+                      used = true
+                  # Fallback: direct training (for gatherers visiting dock)
                   if not used and thing.cooldown == 0 and buildingHasTrain(thing.kind):
                     if env.tryTrainUnit(agent, thing, buildingTrainUnit(thing.kind, agentTeamId),
                         buildingTrainCosts(thing.kind), 0):
-                      # Trade Cog: remember origin dock for gold calculation
                       if agent.unitClass == UnitTradeCog:
                         agent.tradeHomeDock = thing.pos
                       used = true

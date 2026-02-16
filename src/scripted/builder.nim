@@ -14,9 +14,9 @@ template builderGuard(canName, termName: untyped, body: untyped) {.dirty.} =
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
-    WeavingLoom, ClayOven, Blacksmith,
+    WeavingLoom, ClayOven, Blacksmith, Monastery,
     Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
-    Outpost, Castle, Market, Monastery, University, Wonder
+    Outpost, Castle, Market, University, Wonder
   ]
   DefenseRequestBuildingKinds = [Barracks, Outpost]
   CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
@@ -437,6 +437,41 @@ proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
   if did: return act
   0'u8
 
+proc teamNavalCount(env: Environment, teamId: int): int =
+  ## Count alive naval units for a team.
+  for id in 0 ..< MapAgents:
+    if env.terminated[id] == 0.0:
+      let agent = env.agents[id]
+      if agent != nil and getTeamId(agent) == teamId and agent.isWaterUnit:
+        inc result
+
+builderGuard(canStartBuilderNavalTrain, shouldTerminateBuilderNavalTrain):
+  agent.unitClass == UnitVillager and
+    controller.getBuildingCount(env, getTeamId(agent), Dock) > 0 and
+    teamNavalCount(env, getTeamId(agent)) == 0 and
+    env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(Dock))
+
+proc optBuilderNavalTrain(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): uint8 =
+  ## Send a builder to the Dock to create one naval unit.
+  let teamId = getTeamId(agent)
+  let dock = env.findNearestFriendlyThingSpiral(state, teamId, Dock)
+  if isNil(dock):
+    return 0'u8
+  # Queue training if no ready entry
+  if not dock.productionQueueHasReady() and
+     dock.productionQueue.entries.len < ProductionQueueMaxSize:
+    discard env.tryBatchQueueTrain(dock, teamId, 1)
+  actOrMove(controller, env, agent, agentId, state, dock.pos, 3'u8)
+
+let BuilderNavalTrainOption* = OptionDef(
+  name: "BuilderNavalTrain",
+  canStart: canStartBuilderNavalTrain,
+  shouldTerminate: shouldTerminateBuilderNavalTrain,
+  act: optBuilderNavalTrain,
+  interruptible: true
+)
+
 proc builderShouldBuildSiege(controller: Controller, env: Environment, teamId: int): bool =
   ## Check if builder should build siege workshop due to request
   if not hasSiegeBuildRequest(teamId):
@@ -584,12 +619,13 @@ let BuilderOptions* = [
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: shouldTerminateBuilderTechBuildings, act: optBuilderTechBuildings,
     interruptible: true),
-  BuilderDockOption,
-  ResearchEconomyTechOption,
-  ResearchCastleTechOption,
-  ResearchBlacksmithUpgradeOption,
   ResearchUniversityTechOption,
+  BuilderDockOption,
+  BuilderNavalTrainOption,
+  ResearchCastleTechOption,
   ResearchUnitUpgradeOption,
+  ResearchBlacksmithUpgradeOption,
+  ResearchEconomyTechOption,
   BuilderDefenseResponseOption,
   BuilderSiegeResponseOption,
   BuilderWallRingOption,
@@ -624,12 +660,13 @@ let BuilderOptionsThreat* = [
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderTechBuildings,
     interruptible: true),
-  BuilderDockOption,
-  ResearchEconomyTechOption,
-  ResearchCastleTechOption,
-  ResearchBlacksmithUpgradeOption,
   ResearchUniversityTechOption,
+  BuilderDockOption,
+  BuilderNavalTrainOption,
+  ResearchCastleTechOption,
   ResearchUnitUpgradeOption,
+  ResearchBlacksmithUpgradeOption,
+  ResearchEconomyTechOption,
   OptionDef(name: "BuilderCoreInfrastructure", canStart: canStartBuilderCoreInfrastructure,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderCoreInfrastructure,
     interruptible: true),

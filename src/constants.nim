@@ -128,7 +128,7 @@ const
 
   # Monk
   MonkAttackDamage* = 0
-  MonkMaxHp* = 15
+  MonkMaxHp* = 20
 
   # Siege Units
   BatteringRamAttackDamage* = 2
@@ -197,8 +197,8 @@ const
   # ============================================================================
   # Naval Combat Units
   # ============================================================================
-  GalleyMaxHp* = 8
-  GalleyAttackDamage* = 2
+  GalleyMaxHp* = 30
+  GalleyAttackDamage* = 5
   GalleyBaseRange* = 3
   FireShipMaxHp* = 6
   FireShipAttackDamage* = 3

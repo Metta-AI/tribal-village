@@ -99,9 +99,9 @@ let BuildingRegistry* = block:
     (University, "University", "university", 'u', (r: 140'u8, g: 160'u8, b: 200'u8),
       18, @[(ItemWood, 10)], 14),
     (Castle, "Castle", "castle", 'c', (r: 120'u8, g: 120'u8, b: 120'u8),
-      12, @[(ItemStone, 10)], 20),
+      12, @[(ItemWood, 2), (ItemStone, 5)], 20),
     (Wonder, "Wonder", "wonder", 'W', (r: 255'u8, g: 215'u8, b: 0'u8),
-      26, @[(ItemWood, 5), (ItemStone, 5), (ItemGold, 5)], 50),
+      26, @[(ItemWood, 6), (ItemStone, 2), (ItemGold, 3)], 50),
     (GoblinHive, "Goblin Hive", "goblin_hive", 'H', (r: 120'u8, g: 170'u8, b: 90'u8),
       -1, @[], 0),
     (GoblinHut, "Goblin Hut", "goblin_hut", 'g', (r: 110'u8, g: 150'u8, b: 90'u8),
@@ -387,7 +387,7 @@ proc buildingTrainUnit*(kind: ThingKind, teamId: int = -1): AgentUnitClass =
       CastleUniqueUnits[teamId]
     else:
       UnitKnight  # Fallback for invalid/unknown team
-  of Dock: UnitTradeCog
+  of Dock: UnitGalley
   else: UnitVillager
 
 proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, count: int]] =
