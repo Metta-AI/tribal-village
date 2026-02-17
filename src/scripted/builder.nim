@@ -641,7 +641,8 @@ let BuilderOptions* = [
 ]
 
 # BuilderOptionsThreat: Reordered priorities for when under threat.
-# Priority order: Flee -> WallRing -> Defense -> TechBuildings -> Infrastructure
+# Priority order: Flee -> Defense -> TechBuildings -> Repair -> Infrastructure -> WallRing
+# (tv-il11vv: Moved WallRing lower to prioritize military buildings over walls)
 let BuilderOptionsThreat* = [
   TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   BuilderFleeOption,
@@ -653,13 +654,12 @@ let BuilderOptionsThreat* = [
   OptionDef(name: "BuilderPopCap", canStart: canStartBuilderPopCap,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderPopCap,
     interruptible: true),
-  BuilderWallRingOption,        # WallRing prioritized in threat mode
-  BuilderDefenseResponseOption,
+  BuilderDefenseResponseOption,  # Military buildings prioritized in threat mode
   BuilderSiegeResponseOption,
-  BuilderRepairOption,          # Repair prioritized in threat mode
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderTechBuildings,
     interruptible: true),
+  BuilderRepairOption,           # Repair existing structures
   ResearchUniversityTechOption,
   BuilderDockOption,
   BuilderNavalTrainOption,
@@ -673,6 +673,7 @@ let BuilderOptionsThreat* = [
   BuilderMillNearResourceOption,
   BuilderPlantIfMillsOption,
   BuilderCampThresholdOption,
+  BuilderWallRingOption,         # Walls after infrastructure (tv-il11vv)
   OptionDef(name: "BuilderGatherScarce", canStart: canStartBuilderGatherScarce,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderGatherScarce,
     interruptible: true),

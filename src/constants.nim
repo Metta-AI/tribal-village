@@ -466,7 +466,7 @@ const
   WallRingBuildingsPerRadius* = 4
   WallRingRadiusSlack* = 1
   WallRingMaxDoors* = 2
-  MaxWallsPerTeam* = 60
+  MaxWallsPerTeam* = 40  # Reduced from 60 to limit wall obsession (tv-il11vv)
 
   # ============================================================================
   # Fortification
