@@ -157,7 +157,7 @@ proc getUnitSpriteBase*(unitClass: AgentUnitClass, agentId: int, packed: bool = 
     of 4, 5: "oriented/fighter"
     else: "oriented/gatherer"
 
-proc selectUnitSpriteKey*(baseKey: string, orientation: AgentOrientation): string =
+proc selectUnitSpriteKey*(baseKey: string, orientation: Orientation): string =
   ## Select the appropriate sprite key for a unit given its base key and orientation.
   ##
   ## Attempts to find a direction-specific sprite (e.g., "oriented/gatherer.nw").

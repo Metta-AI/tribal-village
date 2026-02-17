@@ -570,8 +570,8 @@ proc display() =
   if uiMouseCaptured and window.buttonReleased[MouseLeft]:
     let buttons = buildFooterButtons(panelRectInt)
     for button in buttons:
-      if mousePosPx.x >= button.rect.x and mousePosPx.x <= button.rect.x + button.rect.w and
-          mousePosPx.y >= button.rect.y and mousePosPx.y <= button.rect.y + button.rect.h:
+      if mousePosPx.x >= button.rect.x.float32 and mousePosPx.x <= (button.rect.x + button.rect.w).float32 and
+          mousePosPx.y >= button.rect.y.float32 and mousePosPx.y <= (button.rect.y + button.rect.h).float32:
         case button.kind
         of FooterPlayPause:
           if play:
@@ -604,17 +604,8 @@ proc display() =
     clearUiCapture = true
     blockSelection = true
 
-  # Handle queue cancel button clicks
-  if window.buttonPressed[MouseLeft] and queueCancelButtons.len > 0:
-    for btn in queueCancelButtons:
-      if mousePosPx.x >= btn.rect.x and mousePosPx.x <= btn.rect.x + btn.rect.w and
-         mousePosPx.y >= btn.rect.y and mousePosPx.y <= btn.rect.y + btn.rect.h:
-        # Cancel the queue entry at this index
-        let building = env.grid[btn.buildingPos.x][btn.buildingPos.y]
-        if not isNil(building):
-          discard cancelQueueEntry(env, building, btn.queueIndex)
-        blockSelection = true
-        break
+  # Queue cancel button handling is not yet implemented
+  # TODO: Add queueCancelButtons from command_panel rendering
 
   if not blockSelection:
     if window.buttonPressed[MouseLeft]:

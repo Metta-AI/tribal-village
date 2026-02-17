@@ -121,6 +121,8 @@ var
   uiMouseCaptured*: bool = false
   minimapCaptured*: bool = false  ## Mouse is currently dragging on minimap
   playerTeam*: int = -1  ## AI takeover: -1 = observer, 0-7 = controlling that team
+  paused*: bool = false  ## Whether simulation is paused
+  speedMultiplier*: float32 = 1.0  ## Simulation speed multiplier
 
   # Day/Night cycle state
   dayNightEnabled*: bool = true              ## Whether day/night cycle is active

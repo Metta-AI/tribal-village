@@ -4,14 +4,15 @@
 ## minimap, unit info panel, resource bar, trade routes, building ghost preview.
 
 import
-  boxy, pixie, vmath, tables, std/[algorithm, math, strutils],
+  boxy, bumpy, pixie, vmath, tables, std/[algorithm, math, strutils],
   common, constants, environment, semantic
 
 import renderer_core
+from renderer_effects import drawBuildingSmoke
 
 # ─── Building Construction Rendering ─────────────────────────────────────────
 
-proc renderBuildingConstruction*(pos: Pos, constructionRatio: float32) =
+proc renderBuildingConstruction*(pos: IVec2, constructionRatio: float32) =
   ## Render construction scaffolding for a building under construction.
   ##
   ## Draws scaffolding posts at the four corners of the building and horizontal
@@ -36,7 +37,7 @@ proc renderBuildingConstruction*(pos: Pos, constructionRatio: float32) =
   drawSegmentBar(pos.vec2, vec2(0, 0.65), constructionRatio,
                  color(0.9, 0.7, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
 
-proc renderBuildingUI*(thing: Thing, pos: Pos,
+proc renderBuildingUI*(thing: Thing, pos: IVec2,
                        teamPopCounts, teamHouseCounts: array[MapRoomObjectsTeams, int]) =
   ## Render UI overlays for a building (stockpiles, population, garrison).
   ##
@@ -51,9 +52,6 @@ proc renderBuildingUI*(thing: Thing, pos: Pos,
   ##   pos: World position of the building
   ##   teamPopCounts: Array of population counts per team
   ##   teamHouseCounts: Array of house counts per team
-
-  # Import smoke proc from effects
-  from renderer_effects import drawBuildingSmoke
 
   # Production queue progress bar (AoE2-style)
   if thing.productionQueue.entries.len > 0:
@@ -136,6 +134,7 @@ type FooterButtonKind* = enum
   FooterSlow
   FooterFast
   FooterFaster
+  FooterSuper
 
 type FooterButton* = object
   kind*: FooterButtonKind
@@ -200,7 +199,7 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
     let w = buttonWidths[i]
     var btn = FooterButton(
       kind: kind,
-      rect: irect(x.int32, y.int32, w.int32, innerHeight.int32),
+      rect: IRect(x: x.int32, y: y.int32, w: w.int32, h: innerHeight.int32),
       isPressed: false
     )
     if iconKey.len > 0 and iconKey in bxy:
@@ -215,7 +214,8 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       of FooterStep: false
       of FooterSlow: speedMultiplier == 0.5
       of FooterFast: speedMultiplier == 2.0
-      of FooterFaster: speedMultiplier >= 4.0
+      of FooterFaster: speedMultiplier >= 4.0 and speedMultiplier < 10.0
+      of FooterSuper: speedMultiplier >= 10.0
     buttons.add(btn)
     x += w + FooterButtonGap
 
@@ -228,14 +228,14 @@ proc centerIn(rect: IRect, size: Vec2): Vec2 =
   )
 
 proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
-  pushSemanticContext(scFooter)
+  pushSemanticContext("Footer")
   let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
 
   # Draw footer background
   let bgColor = color(0.15, 0.15, 0.18, 0.9)
-  bxy.drawRect(vec2(panelRect.x.float32, footerTop),
-               vec2(panelRect.w.float32, FooterHeight.float32),
-               bgColor)
+  bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: footerTop,
+                          w: panelRect.w.float32, h: FooterHeight.float32),
+               color = bgColor)
 
   # Draw buttons
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
@@ -245,9 +245,9 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
       color(0.3, 0.4, 0.5, 0.8)  # Highlight for active state
     else:
       color(0.25, 0.25, 0.28, 0.8)
-    bxy.drawRect(vec2(button.rect.x.float32, button.rect.y.float32),
-                 vec2(button.rect.w.float32, button.rect.h.float32),
-                 btnBg)
+    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32,
+                            w: button.rect.w.float32, h: button.rect.h.float32),
+                 color = btnBg)
 
     # Draw icon or label
     if button.iconKey.len > 0 and button.iconKey in bxy:
@@ -541,7 +541,7 @@ proc drawStepLabel*(panelRect: IRect) =
   drawFooterHudLabel(panelRect, key, stepLabelSize, xOffset)
 
 proc drawControlModeLabel*(panelRect: IRect) =
-  let mode = controlModeIndex
+  let mode = playerTeam
   var key: string
   if mode == controlModeLabelLastValue and controlModeLabelKey.len > 0:
     key = controlModeLabelKey
@@ -783,9 +783,10 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
   # Draw border
   let borderColor = color(0.2, 0.2, 0.25, 0.9)
   bxy.drawRect(
-    vec2(minimapX - MinimapBorderWidth, minimapY - MinimapBorderWidth),
-    vec2(MinimapSizeConst.float32 + MinimapBorderWidth * 2, MinimapSizeConst.float32 + MinimapBorderWidth * 2),
-    borderColor
+    rect = Rect(x: minimapX - MinimapBorderWidth, y: minimapY - MinimapBorderWidth,
+                w: MinimapSizeConst.float32 + MinimapBorderWidth * 2,
+                h: MinimapSizeConst.float32 + MinimapBorderWidth * 2),
+    color = borderColor
   )
 
   # Draw minimap image
@@ -802,10 +803,10 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
     let vpColor = color(1.0, 1.0, 1.0, 0.7)
     # Draw viewport outline as 4 thin rectangles
     let lineW = 1.0'f32
-    bxy.drawRect(vec2(vpX, vpY), vec2(vpW, lineW), vpColor)  # top
-    bxy.drawRect(vec2(vpX, vpY + vpH - lineW), vec2(vpW, lineW), vpColor)  # bottom
-    bxy.drawRect(vec2(vpX, vpY), vec2(lineW, vpH), vpColor)  # left
-    bxy.drawRect(vec2(vpX + vpW - lineW, vpY), vec2(lineW, vpH), vpColor)  # right
+    bxy.drawRect(rect = Rect(x: vpX, y: vpY, w: vpW, h: lineW), color = vpColor)  # top
+    bxy.drawRect(rect = Rect(x: vpX, y: vpY + vpH - lineW, w: vpW, h: lineW), color = vpColor)  # bottom
+    bxy.drawRect(rect = Rect(x: vpX, y: vpY, w: lineW, h: vpH), color = vpColor)  # left
+    bxy.drawRect(rect = Rect(x: vpX + vpW - lineW, y: vpY, w: lineW, h: vpH), color = vpColor)  # right
 
 # ─── Unit Info Panel (stub) ──────────────────────────────────────────────────
 
@@ -837,7 +838,8 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
   let panelY = panelRect.y.float32 + panelRect.h.float32 - panelH - MinimapPadding - FooterHeight.float32
 
   # Draw panel background
-  bxy.drawRect(vec2(panelX, panelY), vec2(panelW, panelH), color(0.1, 0.1, 0.15, 0.85))
+  bxy.drawRect(rect = Rect(x: panelX, y: panelY, w: panelW, h: panelH),
+               color = color(0.1, 0.1, 0.15, 0.85))
 
   var yOffset = 8.0'f32
   let xPadding = 8.0'f32
@@ -897,8 +899,8 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let barX = panelRect.x.float32
 
   # Draw background
-  bxy.drawRect(vec2(barX, barY), vec2(panelRect.w.float32, barH),
-               color(0.1, 0.1, 0.15, 0.8))
+  bxy.drawRect(rect = Rect(x: barX, y: barY, w: panelRect.w.float32, h: barH),
+               color = color(0.1, 0.1, 0.15, 0.8))
 
   let stockpile = env.teamStockpiles[teamId]
   var xOffset = 10.0'f32

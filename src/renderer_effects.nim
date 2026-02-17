@@ -104,26 +104,22 @@ proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) 
 const
   ProjectileColors: array[ProjectileKind, Color] = [
     color(0.6, 0.4, 0.2, 1.0),     # ProjArrow - brown
-    color(0.9, 0.9, 0.3, 1.0),     # ProjBolt - yellow
-    color(0.7, 0.5, 0.3, 1.0),     # ProjJavelin - tan
-    color(0.4, 0.4, 0.4, 1.0),     # ProjStone - gray
-    color(1.0, 0.5, 0.1, 1.0),     # ProjFireball - orange
-    color(1.0, 0.3, 0.1, 1.0),     # ProjBurningArrow - red-orange
-    color(0.8, 0.1, 0.8, 1.0),     # ProjMonkBolt - purple
-    color(0.9, 0.8, 0.2, 1.0),     # ProjCannonball - gold
+    color(0.5, 0.3, 0.2, 1.0),     # ProjLongbow - darker brown
+    color(0.9, 0.9, 0.3, 1.0),     # ProjJanissary - yellow
+    color(0.6, 0.4, 0.2, 1.0),     # ProjTowerArrow - brown
+    color(0.7, 0.5, 0.3, 1.0),     # ProjCastleArrow - tan
+    color(0.4, 0.4, 0.4, 1.0),     # ProjMangonel - gray
     color(0.5, 0.5, 0.5, 1.0),     # ProjTrebuchet - dark gray
   ]
 
   ProjectileScales: array[ProjectileKind, float32] = [
     (1.0 / 400.0).float32,  # ProjArrow - small
-    (1.0 / 380.0).float32,  # ProjBolt - slightly larger
-    (1.0 / 350.0).float32,  # ProjJavelin - medium
-    (1.0 / 320.0).float32,  # ProjStone - medium-large
-    (1.0 / 300.0).float32,  # ProjFireball - large
-    (1.0 / 380.0).float32,  # ProjBurningArrow - small
-    (1.0 / 350.0).float32,  # ProjMonkBolt - medium
-    (1.0 / 280.0).float32,  # ProjCannonball - large
-    (1.0 / 240.0).float32,  # ProjTrebuchet - large
+    (1.0 / 380.0).float32,  # ProjLongbow - slightly larger
+    (1.0 / 350.0).float32,  # ProjJanissary - medium
+    (1.0 / 380.0).float32,  # ProjTowerArrow - small
+    (1.0 / 350.0).float32,  # ProjCastleArrow - medium
+    (1.0 / 280.0).float32,  # ProjMangonel - large
+    (1.0 / 240.0).float32,  # ProjTrebuchet - very large
   ]
 
   ProjectileTrailPoints = 5     # Number of trail segments behind projectile

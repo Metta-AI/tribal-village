@@ -223,8 +223,8 @@ proc drawObjects*() =
 
   # Draw unit shadows first (before agents, so shadows appear underneath)
   # Light source is NW, so shadows cast to SE (positive X and Y offset)
-  let shadowTint = color(0.0, 0.0, 0.0, ShadowAlpha)
-  let shadowOffset = vec2(ShadowOffsetX, ShadowOffsetY)
+  let shadowTint = color(0.0, 0.0, 0.0, constants.ShadowAlpha)
+  let shadowOffset = vec2(constants.ShadowOffsetX, constants.ShadowOffsetY)
   for agent in env.agents:
     if not isAgentAlive(env, agent):
       continue
@@ -440,10 +440,12 @@ proc drawVisualRanges*(alpha = 0.2) =
 
     # Get the appropriate range based on thing type
     let range = if thing.kind == Agent:
-      thing.attackRange
+      getUnitAttackRange(thing)
     elif isBuildingKind(thing.kind):
-      if thing.kind in {GuardTower, Castle}:
-        thing.attackRange
+      if thing.kind == GuardTower:
+        GuardTowerRange
+      elif thing.kind == Castle:
+        CastleRange
       else:
         0
     else:
@@ -488,13 +490,8 @@ proc drawAgentDecorations*() =
       drawSegmentBar(pos.vec2, vec2(0, -0.5), hpRatio, hpColor,
                      color(0.3, 0.3, 0.3, 0.7), 5, hpAlpha)
 
-    # Draw control group badge if assigned
-    if agent.controlGroup >= 0 and agent.controlGroup < 10:
-      let (badgeKey, badgeSize) = ensureControlGroupBadge(agent.controlGroup)
-      if badgeKey.len > 0 and badgeKey in bxy:
-        let badgePos = pos.vec2 + vec2(-0.15, -0.7)
-        bxy.drawImage(badgeKey, badgePos, angle = 0, scale = ControlGroupBadgeScale,
-                      tint = color(1, 1, 1, 0.9))
+    # Control group badges are tracked via global controlGroups array
+    # TODO: Look up if this agent is in any control group and display badge
 
 proc drawGrid*() =
   ## Draw grid lines for tile boundaries.
