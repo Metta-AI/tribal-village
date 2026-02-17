@@ -279,6 +279,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           invalidAndBreak(moveAction)
         if env.isWaterBlockedForAgent(agent, step1):
           invalidAndBreak(moveAction)
+        if env.terrain[step1.x][step1.y] == Mountain:
+          invalidAndBreak(moveAction)
         # Non-transport water units cannot move onto land
         if agent.isWaterUnit and agent.unitClass != UnitBoat and
             env.terrain[step1.x][step1.y] notin WaterTerrain:
@@ -318,7 +320,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let blockerOldPos = blocker.pos
           if isValidPos(ahead2) and not isOutOfBounds(ahead2) and
               env.isEmpty(ahead2) and not env.hasDoor(ahead2) and
-              not env.isWaterBlockedForAgent(agent, ahead2) and spacingOk(ahead2):
+              not env.isWaterBlockedForAgent(agent, ahead2) and
+              not isBlockedTerrain(env.terrain[ahead2.x][ahead2.y]) and spacingOk(ahead2):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead2
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -326,7 +329,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             relocated = true
           elif isValidPos(ahead1) and not isOutOfBounds(ahead1) and
               env.isEmpty(ahead1) and not env.hasDoor(ahead1) and
-              not env.isWaterBlockedForAgent(agent, ahead1) and spacingOk(ahead1):
+              not env.isWaterBlockedForAgent(agent, ahead1) and
+              not isBlockedTerrain(env.terrain[ahead1.x][ahead1.y]) and spacingOk(ahead1):
             env.grid[blocker.pos.x][blocker.pos.y] = nil
             blocker.pos = ahead1
             env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -342,7 +346,8 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 if not isValidPos(alt) or isOutOfBounds(alt):
                   continue
                 if env.isEmpty(alt) and not env.hasDoor(alt) and
-                    not env.isWaterBlockedForAgent(agent, alt) and spacingOk(alt):
+                    not env.isWaterBlockedForAgent(agent, alt) and
+                    not isBlockedTerrain(env.terrain[alt.x][alt.y]) and spacingOk(alt):
                   env.grid[blocker.pos.x][blocker.pos.y] = nil
                   blocker.pos = alt
                   env.grid[blocker.pos.x][blocker.pos.y] = blocker
@@ -388,7 +393,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
 
         if isCavalry:
           if isValidPos(step2) and
-              not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
+              not env.isWaterBlockedForAgent(agent, step2) and
+              env.terrain[step2.x][step2.y] != Mountain and
+              env.canAgentPassDoor(agent, step2):
             if canEnterFrom(step1, step2):
               finalPos = step2
         else:
@@ -396,7 +403,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
           let step1Terrain = env.terrain[step1.x][step1.y]
           if step1Terrain == Road or isRampTerrain(step1Terrain):
             if isValidPos(step2) and
-                not env.isWaterBlockedForAgent(agent, step2) and env.canAgentPassDoor(agent, step2):
+                not env.isWaterBlockedForAgent(agent, step2) and
+                env.terrain[step2.x][step2.y] != Mountain and
+                env.canAgentPassDoor(agent, step2):
               if canEnterFrom(step1, step2):
                 finalPos = step2
 

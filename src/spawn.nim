@@ -42,6 +42,7 @@ proc isBlockedForPlacement(env: Environment, pos: IVec2,
                            allowWater: bool = false,
                            checkFrozen: bool = true): bool {.inline.} =
   (not allowWater and env.terrain[pos.x][pos.y] == Water) or
+    env.terrain[pos.x][pos.y] == Mountain or
     (checkFrozen and isTileFrozen(pos, env))
 
 type AttemptPredicate = proc(pos: IVec2, attempt: int): bool {.closure.}
@@ -285,7 +286,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
   # Apply biome elevation (inlined)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      if env.terrain[x][y] in {Water, Bridge}:
+      if env.terrain[x][y] in {Water, Bridge, Mountain}:
         env.elevation[x][y] = 0
         continue
       let biome = env.biomes[x][y]
@@ -346,7 +347,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
   var cliffCount = 0
   for x in MapBorder ..< MapWidth - MapBorder:
     for y in MapBorder ..< MapHeight - MapBorder:
-      if env.terrain[x][y] == Water or env.terrain[x][y] == Road or
+      if env.terrain[x][y] in {Water, Mountain, Road} or
          isRampTerrain(env.terrain[x][y]):
         continue
       let elev = env.elevation[x][y]
@@ -358,7 +359,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
           continue
         if env.elevation[nx][ny] <= elev:
           continue
-        if env.terrain[nx][ny] == Water or env.terrain[nx][ny] == Road or
+        if env.terrain[nx][ny] in {Water, Mountain, Road} or
            isRampTerrain(env.terrain[nx][ny]):
           continue
         inc cliffCount
@@ -383,7 +384,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
   # Apply cliffs (inlined)
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
-      if env.terrain[x][y] == Water:
+      if env.terrain[x][y] in {Water, Mountain}:
         continue
       let elev = env.elevation[x][y]
       proc isLower(dx, dy: int): bool =

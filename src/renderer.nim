@@ -71,7 +71,7 @@ proc drawTerrain*() =
   for x in currentViewport.minX .. currentViewport.maxX:
     for y in currentViewport.minY .. currentViewport.maxY:
       let terrain = env.terrain[x][y]
-      if terrain == Water: continue
+      if terrain == Water or terrain == Mountain: continue
       let spriteKey = terrainSpriteKey(terrain)
       if spriteKey.len > 0 and spriteKey in bxy:
         bxy.drawImage(spriteKey, ivec2(x, y).vec2, angle = 0, scale = SpriteScale)
@@ -162,6 +162,15 @@ proc drawObjects*() =
     for pos in shallowWaterPositions:
       if isInViewport(pos):
         bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
+
+  # Draw mountain terrain (impassable) with dark gray-brown rocky tint
+  let mountainKey = terrainSpriteKey(Mountain)
+  if mountainKey.len > 0 and mountainKey in bxy:
+    let mountainLit = applyAmbient(0.35, 0.32, 0.30, 1.0, ambient)
+    let mountainTint = color(mountainLit.r * mountainLit.i, mountainLit.g * mountainLit.i, mountainLit.b * mountainLit.i, 1.0)
+    for pos in mountainPositions:
+      if isInViewport(pos):
+        bxy.drawImage(mountainKey, pos.vec2, angle = 0, scale = SpriteScale, tint = mountainTint)
 
   for kind in CliffDrawOrder:
     let spriteKey = thingSpriteKey(kind)

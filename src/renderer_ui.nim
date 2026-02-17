@@ -608,6 +608,8 @@ proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
     rgbx(210, 190, 110, 255)      # sandy yellow
   of Mud:
     rgbx(100, 85, 60, 255)        # muddy brown
+  of Mountain:
+    rgbx(80, 75, 70, 255)         # dark rocky gray
   else:
     # Use biome tint for base terrain (Empty, Grass, Fertile, ramps, etc.)
     let tc = case biome

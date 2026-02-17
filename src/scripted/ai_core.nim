@@ -968,6 +968,8 @@ proc isPassable*(env: Environment, agent: Thing, pos: IVec2): bool =
     return false
   if env.isWaterBlockedForAgent(agent, pos):
     return false
+  if env.terrain[pos.x][pos.y] == Mountain:
+    return false
   if not env.canAgentPassDoor(agent, pos):
     return false
   let occupant = env.grid[pos.x][pos.y]
@@ -999,6 +1001,8 @@ proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bo
   if not env.canTraverseElevation(fromPos, toPos):
     return false
   if env.isWaterBlockedForAgent(agent, toPos):
+    return false
+  if env.terrain[toPos.x][toPos.y] == Mountain:
     return false
   if not env.canAgentPassDoor(agent, toPos):
     return false

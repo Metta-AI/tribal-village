@@ -370,6 +370,7 @@ var
   floorSpritePositions*: array[FloorSpriteKind, seq[IVec2]]
   waterPositions*: seq[IVec2] = @[]
   shallowWaterPositions*: seq[IVec2] = @[]
+  mountainPositions*: seq[IVec2] = @[]
   renderCacheGeneration* = -1
   # Fog of war visibility buffer - reused across frames to avoid allocation overhead
   fogVisibility*: array[MapWidth, array[MapHeight, bool]]
@@ -379,6 +380,7 @@ proc rebuildRenderCaches*() =
     floorSpritePositions[kind].setLen(0)
   waterPositions.setLen(0)
   shallowWaterPositions.setLen(0)
+  mountainPositions.setLen(0)
 
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
@@ -397,6 +399,8 @@ proc rebuildRenderCaches*() =
         waterPositions.add(ivec2(x, y))
       elif env.terrain[x][y] == ShallowWater:
         shallowWaterPositions.add(ivec2(x, y))
+      elif env.terrain[x][y] == Mountain:
+        mountainPositions.add(ivec2(x, y))
   renderCacheGeneration = env.mapGeneration
 
 # ─── Wall Sprites ────────────────────────────────────────────────────────────

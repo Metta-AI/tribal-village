@@ -40,6 +40,7 @@ proc terrainColor(t: TerrainType): ColorRGBX =
   of Sand:         rgbx(180, 160, 90, 255)
   of Snow:         rgbx(220, 230, 240, 255)
   of Mud:          rgbx(90, 70, 50, 255)
+  of Mountain:     rgbx(80, 75, 70, 255)
   of RampUpN, RampUpS, RampUpW, RampUpE,
      RampDownN, RampDownS, RampDownW, RampDownE:
                    rgbx(130, 120, 100, 255)
