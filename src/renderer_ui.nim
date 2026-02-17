@@ -157,11 +157,12 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
 
   # Calculate button widths based on content
   let buttonDefs = [
-    (FooterPlayPause, if paused: "icon_play" else: "icon_pause", ""),
-    (FooterStep, "icon_step", ""),
+    # Icon-first, but always provide a text fallback so missing atlas sprites don't crash UI.
+    (FooterPlayPause, if paused: "icon_play" else: "icon_pause", if paused: "Play" else: "Pause"),
+    (FooterStep, "icon_step", "Step"),
     (FooterSlow, "", "0.5x"),
     (FooterFast, "", "2x"),
-    (FooterFaster, "icon_ffwd", ""),
+    (FooterFaster, "icon_ffwd", "4x"),
   ]
 
   var totalWidth = 0.0'f32
@@ -256,7 +257,7 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
                       button.iconSize.x.float32 * sc,
                       button.iconSize.y.float32 * sc)) + vec2(8.0, 9.0) * sc
       bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = sc)
-    else:
+    elif button.labelKey.len > 0 and button.labelKey in bxy:
       # Text labels still use boxy (no fonts in silky atlas yet)
       let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
       bxy.drawImage(button.labelKey,
