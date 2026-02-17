@@ -5,31 +5,22 @@ import ../entropy
 import vmath
 import ../environment, ../common_types, ../terrain
 import ai_types
+import ai_utils
 import coordination
 import memoization
 
 # Re-export modules so downstream importers get full environment/AI type access
-export ai_types, environment, common_types, terrain, coordination, entropy
+export ai_types, ai_utils, environment, common_types, terrain, coordination, entropy
 export memoization
 
 const
   CacheMaxAge* = 20  # Invalidate cached positions after this many steps
   ThreatMapStaggerInterval* = 5  # Only 1/5 of agents update threat map per step
-  DefensiveRetaliationWindow* = 30  ## Steps after being attacked that defensive stance allows retaliation
 
 proc stanceAllowsAutoAttack*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows auto-attacking enemies.
-  ## - Aggressive: always auto-attack
-  ## - Defensive: only auto-attack if recently attacked (retaliation)
-  ## - StandGround: auto-attack enemies in range
-  ## - NoAttack: never auto-attack
-  case agent.stance
-  of StanceAggressive, StanceStandGround: true
-  of StanceDefensive:
-    # Defensive stance: only attack if attacked within the retaliation window
-    agent.lastAttackedStep > 0 and
-      (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
-  of StanceNoAttack: false
+  ## Delegates to ai_utils.stanceAllows for consolidated stance logic.
+  stanceAllows(env, agent, BehaviorAutoAttack)
 
 proc hasHarvestableResource*(thing: Thing): bool =
   ## Check if a resource thing still has harvestable inventory.

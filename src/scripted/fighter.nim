@@ -3,6 +3,9 @@ import std/tables
 import ai_build_helpers
 export ai_build_helpers
 
+import ai_utils
+export ai_utils
+
 import options
 export options
 
@@ -39,14 +42,13 @@ var scoutEnemyCache: PerAgentCache[Thing]
 var seesEnemyStructureCache: PerAgentCache[bool]
 var allyNearbyCache: PerAgentCache[bool]
 
+const
+  SiegeUnitClasses = {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
+
 proc teamSiegeCount(env: Environment, teamId: int): int =
   ## Count alive siege units for a team (BatteringRam, Mangonel, Trebuchet, Scorpion).
-  for id in 0 ..< MapAgents:
-    if id < env.agents.len and env.terminated[id] == 0.0:
-      let agent = env.agents[id]
-      if agent != nil and getTeamId(agent) == teamId and
-         agent.unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}:
-        inc result
+  ## Uses consolidated countTeamAgentsByClass from ai_utils.
+  countTeamAgentsByClass(env, teamId, SiegeUnitClasses)
 
 proc teamSiegeAtCap(env: Environment, teamId: int): bool =
   ## Returns true if team has reached siege training cap.
@@ -54,11 +56,8 @@ proc teamSiegeAtCap(env: Environment, teamId: int): bool =
 
 proc teamNavalCount(env: Environment, teamId: int): int =
   ## Count alive naval units for a team.
-  for id in 0 ..< MapAgents:
-    if id < env.agents.len and env.terminated[id] == 0.0:
-      let agent = env.agents[id]
-      if agent != nil and getTeamId(agent) == teamId and agent.isWaterUnit:
-        inc result
+  ## Uses consolidated countTeamNavalAgents from ai_utils.
+  countTeamNavalAgents(env, teamId)
 
 proc teamNavalAtCap(env: Environment, teamId: int): bool =
   ## Returns true if team has reached naval training cap.
@@ -66,28 +65,13 @@ proc teamNavalAtCap(env: Environment, teamId: int): bool =
 
 proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
-  ## Aggressive: chase freely
-  ## Defensive: only chase if recently attacked (retaliation)
-  ## StandGround/NoAttack: no chasing
-  case agent.stance
-  of StanceAggressive: true
-  of StanceDefensive:
-    # Defensive: only chase if recently attacked
-    agent.lastAttackedStep > 0 and
-      (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
-  of StanceStandGround, StanceNoAttack: false
+  ## Delegates to ai_utils.stanceAllows for consolidated stance logic.
+  stanceAllows(env, agent, BehaviorChase)
 
 proc stanceAllowsMovementToAttack*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows moving to attack.
-  ## Used for determining if agent should move toward enemy to engage.
-  ## Defensive: only move to attack if recently attacked (retaliation)
-  case agent.stance
-  of StanceAggressive: true
-  of StanceDefensive:
-    # Defensive: only move to attack if recently attacked
-    agent.lastAttackedStep > 0 and
-      (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
-  of StanceStandGround, StanceNoAttack: false
+  ## Delegates to ai_utils.stanceAllows for consolidated stance logic.
+  stanceAllows(env, agent, BehaviorMovementToAttack)
 
 proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
@@ -1031,41 +1015,15 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
   0'u8
 
+const
+  # Unit classes excluded from melee enemy search (ranged + special)
+  NonMeleeClasses = RangedUnitClasses + {UnitMonk, UnitBoat, UnitTradeCog}
+
 proc findNearestMeleeEnemyUncached(env: Environment, agent: Thing): Thing =
   ## Internal: actual search logic for nearest melee enemy.
-  ## Optimized: uses spatial index cells instead of grid scan.
-  let teamMask = getTeamMask(agent)  # Pre-compute for bitwise checks
-  var bestEnemy: Thing = nil
-  var bestDist = int.high
-  # Kiting only triggers at KiteTriggerDistance, so search a modest radius
+  ## Uses consolidated findNearestEnemyOfClass from ai_utils.
   let r = KiteTriggerDistance + 2
-  # Use spatial index cells instead of grid scan
-  let (cx, cy) = cellCoords(agent.pos)
-  let clampedMax = min(r, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = distToCellRadius16(clampedMax)
-  for ddx in -cellRadius .. cellRadius:
-    for ddy in -cellRadius .. cellRadius:
-      let nx = cx + ddx
-      let ny = cy + ddy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if other.isNil or other.agentId == agent.agentId:
-          continue
-        if not isAgentAlive(env, other):
-          continue
-        # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
-        if (getTeamMask(other) and teamMask) != 0:
-          continue
-        if other.unitClass in RangedUnitClasses + {UnitMonk, UnitBoat, UnitTradeCog}:
-          continue
-        let dist = int(chebyshevDist(agent.pos, other.pos))
-        if dist > r:
-          continue
-        if dist < bestDist:
-          bestDist = dist
-          bestEnemy = other
-  bestEnemy
+  findNearestEnemyOfClass(env, agent, r, NonMeleeClasses, FilterExclude)
 
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
   ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
