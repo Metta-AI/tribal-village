@@ -4,20 +4,20 @@ Ultra-Fast Tribal Village Environment - Direct Buffer Interface.
 Eliminates ALL conversion overhead by using direct numpy buffer communication.
 """
 
+from __future__ import annotations
+
 import ctypes
 import math
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 from gymnasium import spaces
 
 import pufferlib
 
-from tribal_village_env.constants import (
-    DEFAULT_ANSI_BUFFER_SIZE,
-    DEFAULT_MAX_STEPS,
-    DEFAULT_RENDER_SCALE,
+from tribal_village_env.config import (
+    EnvironmentConfig,
     OBS_MAX_VALUE,
     OBS_MIN_VALUE,
 )
@@ -28,6 +28,8 @@ ACTION_SPACE_SIZE = ACTION_VERB_COUNT * ACTION_ARGUMENT_COUNT
 
 
 class NimConfig(ctypes.Structure):
+    """C-interop structure for passing configuration to Nim library."""
+
     _fields_ = [
         ("max_steps", ctypes.c_int32),
         ("victory_condition", ctypes.c_int32),
@@ -47,6 +49,28 @@ class NimConfig(ctypes.Structure):
         ("death_penalty", ctypes.c_float),
     ]
 
+    @classmethod
+    def from_config(cls, config: EnvironmentConfig) -> NimConfig:
+        """Create NimConfig from typed EnvironmentConfig."""
+        return cls(
+            max_steps=config.max_steps,
+            victory_condition=config.victory_condition,
+            tumor_spawn_rate=float(config.tumor_spawn_rate),
+            heart_reward=float(config.rewards.heart),
+            ore_reward=float(config.rewards.ore),
+            bar_reward=float(config.rewards.bar),
+            wood_reward=float(config.rewards.wood),
+            water_reward=float(config.rewards.water),
+            wheat_reward=float(config.rewards.wheat),
+            spear_reward=float(config.rewards.spear),
+            armor_reward=float(config.rewards.armor),
+            food_reward=float(config.rewards.food),
+            cloth_reward=float(config.rewards.cloth),
+            tumor_kill_reward=float(config.rewards.tumor_kill),
+            survival_penalty=float(config.rewards.survival_penalty),
+            death_penalty=float(config.rewards.death_penalty),
+        )
+
 
 class TribalVillageEnv(pufferlib.PufferEnv):
     """
@@ -54,12 +78,33 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
     Eliminates conversion overhead by using pre-allocated numpy buffers
     that Nim reads/writes directly.
+
+    Args:
+        config: Environment configuration. Can be either:
+            - EnvironmentConfig: Typed, validated configuration (recommended)
+            - Dict[str, Any]: Legacy dictionary format (backward compatible)
+            - None: Use default configuration
+        buf: Optional buffer for PufferLib integration
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, buf=None):
-        self.config = config or {}
-        self.max_steps = self.config.get("max_steps", DEFAULT_MAX_STEPS)
-        self._render_mode = self.config.get("render_mode", "rgb_array")
+    def __init__(
+        self,
+        config: Optional[Union[EnvironmentConfig, Dict[str, Any]]] = None,
+        buf: Any = None,
+    ):
+        # Convert config to typed EnvironmentConfig
+        if config is None:
+            self._typed_config = EnvironmentConfig()
+        elif isinstance(config, EnvironmentConfig):
+            self._typed_config = config
+        else:
+            # Legacy dict support
+            self._typed_config = EnvironmentConfig.from_legacy_dict(config)
+
+        # Legacy dict interface for backward compatibility
+        self.config = self._typed_config.to_legacy_dict()
+        self.max_steps = self._typed_config.max_steps
+        self._render_mode = self._typed_config.render_mode
 
         # Load the optimized Nim library - cross-platform
         import platform
@@ -95,7 +140,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         try:
             self.map_width = int(self.lib.tribal_village_get_map_width())
             self.map_height = int(self.lib.tribal_village_get_map_height())
-            self.render_scale = max(1, int(self.config.get("render_scale", DEFAULT_RENDER_SCALE)))
+            self.render_scale = max(1, self._typed_config.render_scale)
             height = self.map_height * self.render_scale
             width = self.map_width * self.render_scale
             self._rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
@@ -180,7 +225,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 return self._rgb_frame
             # fall through to ansi if RGB export missing
 
-        buf_size = int(self.config.get("ansi_buffer_size", DEFAULT_ANSI_BUFFER_SIZE))
+        buf_size = self._typed_config.ansi_buffer_size
         cbuf = ctypes.create_string_buffer(buf_size)
         try:
             n_written = self.lib.tribal_village_render_ansi(
@@ -647,31 +692,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             return
         fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
 
-    def _nim_float(self, key: str) -> float:
-        value = self.config.get(key)
-        if value is None:
-            return math.nan
-        return float(value)
-
     def _build_nim_config(self) -> NimConfig:
-        return NimConfig(
-            max_steps=int(self.max_steps),
-            victory_condition=int(self.config.get("victory_condition", 0)),
-            tumor_spawn_rate=self._nim_float("tumor_spawn_rate"),
-            heart_reward=self._nim_float("heart_reward"),
-            ore_reward=self._nim_float("ore_reward"),
-            bar_reward=self._nim_float("bar_reward"),
-            wood_reward=self._nim_float("wood_reward"),
-            water_reward=self._nim_float("water_reward"),
-            wheat_reward=self._nim_float("wheat_reward"),
-            spear_reward=self._nim_float("spear_reward"),
-            armor_reward=self._nim_float("armor_reward"),
-            food_reward=self._nim_float("food_reward"),
-            cloth_reward=self._nim_float("cloth_reward"),
-            tumor_kill_reward=self._nim_float("tumor_kill_reward"),
-            survival_penalty=self._nim_float("survival_penalty"),
-            death_penalty=self._nim_float("death_penalty"),
-        )
+        """Build NimConfig from typed EnvironmentConfig."""
+        return NimConfig.from_config(self._typed_config)
 
     def _apply_nim_config(self) -> None:
         if not hasattr(self.lib, "tribal_village_set_config"):
