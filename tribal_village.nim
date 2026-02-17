@@ -1136,6 +1136,8 @@ proc display() =
       tTrailsMs = msBetween(tStart, tNow)
       tStart = tNow
 
+  drawDustParticles()
+
   drawWaterRipples()
   when defined(renderTiming):
     if timingActive:

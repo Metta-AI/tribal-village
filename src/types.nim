@@ -912,6 +912,22 @@ const
   UnitTrailSpawnChance* = 3           ## Spawn trail every N moves (reduces particle count)
 
 type
+  DustParticle* = object
+    ## A dust particle kicked up by walking units based on terrain type.
+    ## Small particles that drift upward and fade out quickly.
+    pos*: Vec2           ## Current world position (float for smooth animation)
+    velocity*: Vec2      ## Movement velocity (upward drift with horizontal spread)
+    countdown*: int8     ## Frames remaining before removal
+    lifetime*: int8      ## Total frames (for fade calculation)
+    terrainColor*: uint8 ## Terrain type index for color lookup (0=sand, 1=snow, 2=mud, etc.)
+
+const
+  ## Dust particle visual constants
+  DustParticleLifetime* = 8'i8        ## Frames dust particles persist (quick puff)
+  DustParticlePoolCapacity* = 128     ## Initial capacity for dust pool
+  DustParticleCount* = 3              ## Number of dust particles per footstep
+
+type
   WaterRipple* = object
     ## A ripple effect when units walk through water.
     ## Expands outward and fades over its lifetime.
@@ -1356,6 +1372,7 @@ type
     gatherSparkles*: seq[GatherSparkle]  # Sparkle particles when collecting resources
     constructionDust*: seq[ConstructionDust]  # Dust particles during building construction
     unitTrails*: seq[UnitTrail]  # Dust/footprint trails behind moving units
+    dustParticles*: seq[DustParticle]  # Dust kicked up by walking units on dusty terrain
     waterRipples*: seq[WaterRipple]  # Ripple effects when units walk through water
     attackImpacts*: seq[AttackImpact]  # Burst particles when attacks hit targets
     conversionEffects*: seq[ConversionEffect]  # Pulsing glow when monks convert units

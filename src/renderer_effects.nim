@@ -366,6 +366,34 @@ proc drawUnitTrails*() =
     let scale = (1.0 / 500.0).float32
     bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = tintColor)
 
+proc drawDustParticles*() =
+  ## Draw dust particles kicked up by walking units.
+  ## Color varies based on terrain type.
+  if not currentViewport.valid:
+    return
+  for dust in env.dustParticles:
+    if dust.lifetime <= 0:
+      continue
+    # Check viewport bounds
+    let ipos = ivec2(dust.pos.x.int32, dust.pos.y.int32)
+    if not isInViewport(ipos):
+      continue
+    # Calculate progress (1.0 at spawn, 0.0 at expire)
+    let t = dust.countdown.float32 / dust.lifetime.float32
+    # Fade out with quadratic ease
+    let alpha = t * t * 0.6
+    # Color based on terrain type
+    let tintColor = case dust.terrainColor
+      of 0: color(0.85, 0.75, 0.55, alpha)  # Sand/Dune - tan
+      of 1: color(0.95, 0.95, 1.0, alpha)   # Snow - white
+      of 2: color(0.45, 0.35, 0.25, alpha)  # Mud - dark brown
+      of 3: color(0.6, 0.55, 0.4, alpha)    # Grass/Fertile - green-brown
+      of 4: color(0.5, 0.5, 0.5, alpha)     # Road - gray
+      else: color(0.7, 0.6, 0.4, alpha)     # Default tan
+    # Small particles that shrink slightly as they fade
+    let scale = (1.0 / 600.0).float32 * (0.5 + t * 0.5)
+    bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
+
 proc drawWaterRipples*() =
   ## Draw ripple effects when units walk through water.
   ## Expanding rings that fade out over their lifetime.

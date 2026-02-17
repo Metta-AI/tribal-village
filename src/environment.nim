@@ -2485,6 +2485,33 @@ proc spawnUnitTrail*(env: Environment, pos: IVec2, teamId: int) =
     lifetime: UnitTrailLifetime,
     teamId: teamId.int8))
 
+proc spawnDustParticles*(env: Environment, pos: IVec2, terrain: TerrainType) =
+  ## Spawn dust particles when a unit walks on dusty terrain.
+  ## Particle color varies based on terrain type.
+  if not isValidPos(pos):
+    return
+  # Map terrain to color index: 0=sand/dune (tan), 1=snow (white), 2=mud (brown), 3=grass/fertile (green-brown), 4=road (gray)
+  let colorIdx = case terrain
+    of Sand, Dune: 0'u8
+    of Snow: 1'u8
+    of Mud: 2'u8
+    of Grass, Fertile: 3'u8
+    of Road: 4'u8
+    else: 0'u8
+  # Spawn multiple small dust particles
+  for i in 0 ..< DustParticleCount:
+    # Horizontal spread around footstep
+    let xOffset = (i.float32 - 1.0) * 0.15
+    # Upward drift with slight variation
+    let ySpeed = -0.03 - (i mod 2).float32 * 0.01  # Negative Y = upward
+    let xDrift = ((env.currentStep + i) mod 3).float32 * 0.008 - 0.008
+    env.dustParticles.add(DustParticle(
+      pos: vec2(pos.x.float32 + xOffset, pos.y.float32 + 0.2),
+      velocity: vec2(xDrift, ySpeed),
+      countdown: DustParticleLifetime,
+      lifetime: DustParticleLifetime,
+      terrainColor: colorIdx))
+
 proc spawnWaterRipple*(env: Environment, pos: IVec2) =
   ## Spawn a ripple effect when a unit walks through water.
   ## Creates an expanding ring that fades out.

@@ -121,6 +121,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
   env.stepDecayGatherSparkles()
   env.stepDecayConstructionDust()
   env.stepDecayUnitTrails()
+  env.stepDecayDustParticles()
   env.stepDecayWaterRipples()
   env.stepDecayAttackImpacts()
   env.stepDecayConversionEffects()
@@ -426,6 +427,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
         let terrainAtPos = env.terrain[agent.pos.x][agent.pos.y]
         if terrainAtPos in WaterTerrain and not agent.isWaterUnit:
           env.spawnWaterRipple(agent.pos)
+
+        # Spawn dust particles when walking on dusty terrain (based on terrain left behind)
+        let terrainLeft = env.terrain[originalPos.x][originalPos.y]
+        if terrainLeft in DustyTerrain:
+          env.spawnDustParticles(originalPos, terrainLeft)
 
         let dockHere = env.hasDockAt(agent.pos)
         if agent.unitClass == UnitTradeCog:

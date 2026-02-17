@@ -169,6 +169,7 @@ const
   RampTerrain* = {RampUpN, RampUpS, RampUpW, RampUpE,
                    RampDownN, RampDownS, RampDownW, RampDownE}
   WaterTerrain* = {Water, ShallowWater}
+  DustyTerrain* = {Sand, Dune, Snow, Mud, Grass, Fertile, Road}  ## Terrain that kicks up dust when walked on
   BuildableTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune, Road,
                         RampUpN, RampUpS, RampUpW, RampUpE,
                         RampDownN, RampDownS, RampDownW, RampDownE}
