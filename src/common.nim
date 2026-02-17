@@ -1,5 +1,5 @@
 import
-  boxy, windy, vmath, std/os
+  boxy, windy, vmath
 
 # Silky UI renderer (optional - compile with -d:useSilky when available)
 # Note: We import silky but do NOT export it to avoid operator overload

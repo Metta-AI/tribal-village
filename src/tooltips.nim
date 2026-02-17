@@ -71,17 +71,18 @@ const
   TooltipShowDelay: float64 = 0.3  # 300ms delay before showing
 
 # ---------------------------------------------------------------------------
-# Color conversion helper
+# Color conversion helper (only needed for silky rendering path)
 # ---------------------------------------------------------------------------
 
-proc colorToRgbx(c: Color): ColorRGBX {.inline.} =
-  ## Convert pixie Color (float 0-1) to ColorRGBX (uint8 0-255).
-  rgbx(
-    (c.r * 255).uint8,
-    (c.g * 255).uint8,
-    (c.b * 255).uint8,
-    (c.a * 255).uint8
-  )
+when defined(useSilky):
+  proc colorToRgbx(c: Color): ColorRGBX {.inline.} =
+    ## Convert pixie Color (float 0-1) to ColorRGBX (uint8 0-255).
+    rgbx(
+      (c.r * 255).uint8,
+      (c.g * 255).uint8,
+      (c.b * 255).uint8,
+      (c.a * 255).uint8
+    )
 
 # ---------------------------------------------------------------------------
 # State

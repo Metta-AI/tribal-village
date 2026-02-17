@@ -5,7 +5,7 @@
 
 import
   boxy, pixie, vmath, tables, math,
-  common, constants, environment
+  common, environment
 
 # ─── Shared Constants ────────────────────────────────────────────────────────
 

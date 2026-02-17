@@ -6,7 +6,7 @@
 
 import
   boxy, pixie, vmath,
-  common, constants, environment
+  common, environment
 
 # Import sprite helper procs from renderer_core
 import renderer_core

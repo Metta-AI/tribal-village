@@ -4,7 +4,7 @@
 ## minimap, unit info panel, resource bar, trade routes, building ghost preview.
 
 import
-  boxy, bumpy, pixie, vmath, tables, std/[algorithm, math, strutils],
+  boxy, bumpy, pixie, vmath, tables, std/[math, strutils],
   common, constants, environment, semantic
 
 import renderer_core
@@ -872,7 +872,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
 
   # Draw position
   let posText = "Pos: " & $selected.pos.x & ", " & $selected.pos.y
-  let (posKey, posSize) = getUnitInfoLabel(posText)
+  let (posKey, _) = getUnitInfoLabel(posText)
   bxy.drawImage(posKey, vec2(panelX + xPadding, panelY + yOffset), angle = 0, scale = 1.0)
 
 # ─── Resource Bar ────────────────────────────────────────────────────────────
