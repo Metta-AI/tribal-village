@@ -206,6 +206,7 @@ type
     TerrainDuneLayer
     TerrainSandLayer
     TerrainSnowLayer
+    TerrainMountainLayer
     TerrainRampUpNLayer
     TerrainRampUpSLayer
     TerrainRampUpWLayer
