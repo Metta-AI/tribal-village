@@ -1298,7 +1298,13 @@ const
   MountainChance* = 0.40        ## Probability of mountainizing a boundary segment
   MountainMinChokepoints* = 2   ## Minimum mountain chokepoints per map
   ## Biome pairs that qualify for mountain ridges.
+  ## Includes BiomeBaseType boundaries since biome zones are islands
+  ## surrounded by base biome — these are the most common boundaries.
   MountainBiomePairs = [
+    (BiomeBaseType, BiomeSnowType),
+    (BiomeBaseType, BiomeCavesType),
+    (BiomeBaseType, BiomeDesertType),
+    (BiomeBaseType, BiomeSwampType),
     (BiomeSnowType, BiomeForestType),
     (BiomeSnowType, BiomePlainsType),
     (BiomeSnowType, BiomeCavesType),
@@ -1334,7 +1340,7 @@ proc applyMountainChokepoints*(terrain: var TerrainGrid, biomes: BiomeGrid,
       if isInCorner(x, y, mapBorder, reserve, mapWidth, mapHeight):
         continue
       let biome = biomes[x][y]
-      if biome == BiomeNone or biome == BiomeBaseType:
+      if biome == BiomeNone:
         continue
       # Check 4-connected neighbors for different qualifying biome.
       for d in [ivec2(0, -1), ivec2(1, 0), ivec2(0, 1), ivec2(-1, 0)]:
