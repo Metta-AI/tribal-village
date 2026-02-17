@@ -96,9 +96,9 @@ class TestConstants:
             ACTION_SPACE_SIZE,
         )
 
-        assert ACTION_VERB_COUNT == 10
-        assert ACTION_ARGUMENT_COUNT == 25
-        assert ACTION_SPACE_SIZE == 250  # 10 * 25
+        assert ACTION_VERB_COUNT == 11
+        assert ACTION_ARGUMENT_COUNT == 28
+        assert ACTION_SPACE_SIZE == 308  # 11 * 28
 
 
 @requires_nim_library
