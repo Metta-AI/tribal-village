@@ -1065,6 +1065,8 @@ const
   ClippyTint* = TileColor(r: 0.30'f32, g: 0.30'f32, b: 1.20'f32, intensity: 0.80'f32)
   ClippyTintTolerance* = 0.06'f32
 
+  ContestedZoneTint* = TileColor(r: 0.75, g: 0.80, b: 0.55, intensity: 1.05)
+
   TotalRelicsOnMap* = MapRoomObjectsRelics  # Total relics placed on map
 
 type

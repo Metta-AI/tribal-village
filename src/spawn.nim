@@ -1665,6 +1665,147 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
     placeBiomeResourceClusters(env, rng, max(10, MapWidth div 30),
       2, 6, 0.7, 0.45, Stalagmite, ItemStone, BiomeCavesType)
 
+proc initContestedZones(env: Environment, rng: var Rand) =
+  ## Place resource-rich contested zones near the map center.
+  ## These zones have concentrated gold, stone, wheat, bushes, cows, and relics
+  ## to incentivize teams to fight over central territory.
+  let centerX = MapWidth div 2
+  let centerY = MapHeight div 2
+
+  # Define zone centers arranged around the trading hub.
+  # 3 zones placed at ~120 degree intervals around center, offset enough
+  # to avoid the trading hub (TradingHubSize/2 + clearance).
+  let hubHalf = TradingHubSize div 2
+  let offset = hubHalf + ContestedZoneHubClearance
+  type ZonePos = tuple[x, y: int]
+  var zoneCenters: seq[ZonePos] = @[]
+
+  # NW of center
+  zoneCenters.add((x: centerX - offset, y: centerY - offset + 4))
+  # NE of center
+  zoneCenters.add((x: centerX + offset, y: centerY - offset + 4))
+  # S of center
+  zoneCenters.add((x: centerX, y: centerY + offset))
+
+  let zoneCount = min(ContestedZoneCount, zoneCenters.len)
+
+  for zoneIdx in 0 ..< zoneCount:
+    let zx = zoneCenters[zoneIdx].x
+    let zy = zoneCenters[zoneIdx].y
+    let radius = ContestedZoneRadius
+
+    # Apply distinctive tint to zone tiles and set terrain to Fertile
+    # (lighter grass) so players can visually identify the contested area.
+    for dx in -radius .. radius:
+      for dy in -radius .. radius:
+        let dist = dx * dx + dy * dy
+        if dist > radius * radius:
+          continue
+        let px = zx + dx
+        let py = zy + dy
+        if px < MapBorder or px >= MapWidth - MapBorder or
+           py < MapBorder or py >= MapHeight - MapBorder:
+          continue
+        # Don't overwrite water, roads, or bridges
+        if env.terrain[px][py] in {Water, ShallowWater, Road, Bridge}:
+          continue
+        # Set distinctive terrain and tint
+        env.terrain[px][py] = Fertile
+        env.baseTintColors[px][py] = ContestedZoneTint
+
+    # Clear any trees/walls in the inner area to make space for resources
+    let innerRadius = radius - 2
+    for dx in -innerRadius .. innerRadius:
+      for dy in -innerRadius .. innerRadius:
+        let dist = dx * dx + dy * dy
+        if dist > innerRadius * innerRadius:
+          continue
+        let px = zx + dx
+        let py = zy + dy
+        if px < MapBorder or px >= MapWidth - MapBorder or
+           py < MapBorder or py >= MapHeight - MapBorder:
+          continue
+        let pos = ivec2(px.int32, py.int32)
+        let existing = env.getThing(pos)
+        if not existing.isNil and existing.kind in {Tree, Wall}:
+          removeThing(env, existing)
+
+    # Place gold mines (concentrated cluster)
+    block:
+      let goldCenter = ivec2((zx + randIntInclusive(rng, -3, 3)).int32,
+                              (zy + randIntInclusive(rng, -3, 3)).int32)
+      addResourceNode(env, goldCenter, Gold, ItemGold, MineDepositAmount)
+      var candidates = gatherEmptyAround(env, goldCenter, 1, 2, ContestedZoneGoldCount - 1)
+      let toPlace = min(ContestedZoneGoldCount - 1, candidates.len)
+      for i in 0 ..< toPlace:
+        addResourceNode(env, candidates[i], Gold, ItemGold, MineDepositAmount)
+
+    # Place stone mines
+    block:
+      let stoneCenter = ivec2((zx + randIntInclusive(rng, -4, 4)).int32,
+                               (zy + randIntInclusive(rng, -4, 4)).int32)
+      addResourceNode(env, stoneCenter, Stone, ItemStone, MineDepositAmount)
+      var candidates = gatherEmptyAround(env, stoneCenter, 1, 2, ContestedZoneStoneCount - 1)
+      let toPlace = min(ContestedZoneStoneCount - 1, candidates.len)
+      for i in 0 ..< toPlace:
+        addResourceNode(env, candidates[i], Stone, ItemStone, MineDepositAmount)
+
+    # Place wheat cluster
+    block:
+      let wheatPos = ivec2((zx + randIntInclusive(rng, -3, 3)).int32,
+                            (zy + randIntInclusive(rng, -3, 3)).int32)
+      placeResourceCluster(env, wheatPos.x.int, wheatPos.y.int,
+        ContestedZoneWheatSize, 0.85, 0.35, Wheat, ItemWheat, ResourceGround, rng)
+
+    # Place bush cluster
+    block:
+      let bushPos = ivec2((zx + randIntInclusive(rng, -4, 4)).int32,
+                           (zy + randIntInclusive(rng, -4, 4)).int32)
+      placeResourceCluster(env, bushPos.x.int, bushPos.y.int,
+        ContestedZoneBushSize, ClusterDensityMedium, ClusterFalloffSteep, Bush, ItemPlant, ResourceGround, rng)
+
+    # Place cows in the zone
+    block:
+      var cowsPlaced = 0
+      var attempts = 0
+      while cowsPlaced < ContestedZoneCowCount and attempts < ContestedZoneCowCount * 10:
+        inc attempts
+        let dx = randIntInclusive(rng, -radius + 2, radius - 2)
+        let dy = randIntInclusive(rng, -radius + 2, radius - 2)
+        if dx * dx + dy * dy > (radius - 2) * (radius - 2):
+          continue
+        let pos = ivec2((zx + dx).int32, (zy + dy).int32)
+        if not isValidPos(pos) or not env.isSpawnable(pos):
+          continue
+        if env.terrain[pos.x][pos.y] in {Water, ShallowWater}:
+          continue
+        let cow = Thing(
+          kind: Cow,
+          pos: pos,
+          orientation: Orientation.W,
+          herdId: 100 + zoneIdx  # Unique herd IDs for contested zone cows
+        )
+        cow.inventory = emptyInventory()
+        setInv(cow, ItemMeat, ResourceNodeInitial)
+        env.add(cow)
+        inc cowsPlaced
+
+    # Place relic
+    for _ in 0 ..< ContestedZoneRelics:
+      for attempt in 0 ..< 20:
+        let dx = randIntInclusive(rng, -radius + 3, radius - 3)
+        let dy = randIntInclusive(rng, -radius + 3, radius - 3)
+        let pos = ivec2((zx + dx).int32, (zy + dy).int32)
+        if not isValidPos(pos) or not env.isSpawnable(pos):
+          continue
+        if env.terrain[pos.x][pos.y] in {Water, ShallowWater}:
+          continue
+        let relic = Thing(kind: Relic, pos: pos)
+        relic.inventory = emptyInventory()
+        setInv(relic, ItemGold, 1)
+        env.add(relic)
+        break
+
 proc initWildlife(env: Environment, rng: var Rand) =
   ## Spawn wildlife: cows, bears, and wolves.
   proc chooseGroupSize(remaining, minSize, maxSize: int, rng: var Rand): int =
@@ -1823,6 +1964,9 @@ proc init(env: Environment, seed: int = 0) =
             env.add(cp)
             placed = true
             break
+
+  # Phase 6c: Contested resource zones near map center
+  initContestedZones(env, rng)
 
   # Phase 7: Wildlife (cows, bears, wolves)
   initWildlife(env, rng)
