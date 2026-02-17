@@ -555,6 +555,17 @@ const
   BushClusterSizeMax* = 7              # Maximum bush cluster size
   BushWaterProximity* = 4              # Prefer placing bushes near water
 
+  # Contested resource zones (central map)
+  ContestedZoneCount* = 3              # Number of contested resource zones
+  ContestedZoneRadius* = 9             # Radius of each zone in tiles
+  ContestedZoneGoldCount* = 4          # Gold mines per zone
+  ContestedZoneStoneCount* = 3         # Stone mines per zone
+  ContestedZoneWheatSize* = 6          # Wheat cluster size per zone
+  ContestedZoneBushSize* = 5           # Bush cluster size per zone
+  ContestedZoneCowCount* = 4           # Cows per zone
+  ContestedZoneRelics* = 1             # Relics per zone
+  ContestedZoneHubClearance* = 12      # Min distance from trading hub center
+
   # ============================================================================
   # UI Interaction
   # ============================================================================
