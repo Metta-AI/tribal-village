@@ -12,8 +12,8 @@
 
 import
   boxy, pixie, vmath, windy, tables,
-  std/[algorithm, math, os, strutils],
-  common, constants, environment, formations, semantic
+  std/[math, os],
+  common, constants, environment
 
 # Import silky drawing procs directly to avoid operator conflicts from re-exports
 when defined(useSilky):
@@ -521,8 +521,6 @@ proc drawGrid*() =
 
   # Draw vertical lines
   for x in currentViewport.minX .. currentViewport.maxX + 1:
-    let startY = currentViewport.minY.float32
-    let endY = (currentViewport.maxY + 1).float32
     for y in currentViewport.minY .. currentViewport.maxY:
       bxy.drawImage("floor", vec2(x.float32 - 0.5, y.float32), angle = 0,
                     scale = 1.0 / 800.0, tint = gridColor)
