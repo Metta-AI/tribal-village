@@ -212,7 +212,11 @@ let ThingCatalog* = block:
     (CliffCornerOutNE, "Cliff Corner Out NE", "oriented/cliff_corner_out_ne", '^'),
     (CliffCornerOutSE, "Cliff Corner Out SE", "oriented/cliff_corner_out_se", '^'),
     (CliffCornerOutSW, "Cliff Corner Out SW", "oriented/cliff_corner_out_sw", '^'),
-    (CliffCornerOutNW, "Cliff Corner Out NW", "oriented/cliff_corner_out_nw", '^')
+    (CliffCornerOutNW, "Cliff Corner Out NW", "oriented/cliff_corner_out_nw", '^'),
+    (WaterfallN, "Waterfall North", "waterfall_n", '~'),
+    (WaterfallE, "Waterfall East", "waterfall_e", '~'),
+    (WaterfallS, "Waterfall South", "waterfall_s", '~'),
+    (WaterfallW, "Waterfall West", "waterfall_w", '~')
   ]:
     reg[kind] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
   reg
