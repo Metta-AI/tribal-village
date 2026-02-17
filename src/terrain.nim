@@ -1298,7 +1298,10 @@ const
   MountainChance* = 0.40        ## Probability of mountainizing a boundary segment
   MountainMinChokepoints* = 2   ## Minimum mountain chokepoints per map
   ## Biome pairs that qualify for mountain ridges.
+  ## Include BiomeBaseType boundaries since biome zones are islands in base terrain.
   MountainBiomePairs = [
+    (BiomeBaseType, BiomeSnowType),
+    (BiomeBaseType, BiomeCavesType),
     (BiomeSnowType, BiomeForestType),
     (BiomeSnowType, BiomePlainsType),
     (BiomeSnowType, BiomeCavesType),
