@@ -26,6 +26,19 @@ type
 
 var globalEnv: Environment = nil
 
+# --- AI Controller nil-check templates ---
+# These eliminate repeated boilerplate for checking globalController.aiController
+
+template checkAIController(defaultVal: typed) =
+  ## Early return with defaultVal if AI controller is not initialized
+  if isNil(globalController) or isNil(globalController.aiController):
+    return defaultVal
+
+template checkAIControllerVoid() =
+  ## Early return if AI controller is not initialized (for void procs)
+  if isNil(globalController) or isNil(globalController.aiController):
+    return
+
 const
   ObscuredLayerIndex = ord(ObscuredLayer)
   ObsTileStride = ObservationWidth * ObservationHeight
@@ -741,8 +754,7 @@ proc tribal_village_has_known_threats*(env: pointer, teamId: int32): int32 {.exp
   ## Check if a team has any known (non-stale) threats.
   ## Returns 1 if threats exist, 0 otherwise.
   try:
-    if isNil(globalController) or isNil(globalController.aiController):
-      return 0
+    checkAIController(0)
     let currentStep = globalEnv.currentStep.int32
     if hasKnownThreats(globalController.aiController, teamId.int, currentStep): 1 else: 0
   except CatchableError:
@@ -754,8 +766,7 @@ proc tribal_village_get_nearest_threat*(env: pointer, agentId: int32,
   ## Writes threat x, y, strength to output pointers.
   ## Returns 1 if a threat was found, 0 otherwise.
   try:
-    if isNil(globalController) or isNil(globalController.aiController):
-      return 0
+    checkAIController(0)
     if agentId < 0 or agentId >= MapAgents:
       return 0
     let agent = globalEnv.agents[agentId]
@@ -782,8 +793,7 @@ proc tribal_village_get_threats_in_range*(env: pointer, agentId: int32, radius: 
   ## Get the number of threats within radius of an agent's position.
   ## Returns the count of non-stale threats in range.
   try:
-    if isNil(globalController) or isNil(globalController.aiController):
-      return 0
+    checkAIController(0)
     if agentId < 0 or agentId >= MapAgents:
       return 0
     let agent = globalEnv.agents[agentId]
@@ -800,8 +810,7 @@ proc tribal_village_get_threat_at*(env: pointer, teamId: int32, x: int32, y: int
   ## Get the threat strength at a specific map position for a team.
   ## Returns the strength value, or 0 if no threat at that position.
   try:
-    if isNil(globalController) or isNil(globalController.aiController):
-      return 0
+    checkAIController(0)
     if teamId < 0 or teamId >= MapRoomObjectsTeams:
       return 0
     let currentStep = globalEnv.currentStep.int32
@@ -915,8 +924,7 @@ proc tribal_village_get_difficulty_level*(env: pointer, teamId: int32): int32 {.
   ## Returns ordinal: 0=Easy, 1=Normal, 2=Hard, 3=Brutal
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 1  # Default to Normal
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 1
+  checkAIController(1)
   ord(globalController.aiController.getDifficulty(teamId.int).level).int32
 
 proc tribal_village_set_difficulty_level*(env: pointer, teamId: int32, level: int32) {.exportc, dynlib.} =
@@ -924,8 +932,7 @@ proc tribal_village_set_difficulty_level*(env: pointer, teamId: int32, level: in
   ## level: 0=Easy, 1=Normal, 2=Hard, 3=Brutal
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   if level < 0 or level > ord(DifficultyLevel.high):
     return
   globalController.aiController.setDifficulty(teamId.int, DifficultyLevel(level))
@@ -935,8 +942,7 @@ proc tribal_village_get_difficulty*(env: pointer, teamId: int32): float32 {.expo
   ## Returns: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 1.0'f32  # Default to Normal
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 1.0'f32
+  checkAIController(1.0'f32)
   float32(ord(globalController.aiController.getDifficulty(teamId.int).level))
 
 proc tribal_village_set_difficulty*(env: pointer, teamId: int32, difficulty: float32) {.exportc, dynlib.} =
@@ -944,8 +950,7 @@ proc tribal_village_set_difficulty*(env: pointer, teamId: int32, difficulty: flo
   ## difficulty: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal (rounded to nearest)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   let levelInt = clamp(int(difficulty + 0.5), 0, ord(DifficultyLevel.high))
   globalController.aiController.setDifficulty(teamId.int, DifficultyLevel(levelInt))
 
@@ -954,8 +959,7 @@ proc tribal_village_set_adaptive_difficulty*(env: pointer, teamId: int32, enable
   ## enabled: 1=enable (with default 0.5 territory target), 0=disable
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   if enabled != 0:
     globalController.aiController.enableAdaptiveDifficulty(teamId.int, 0.5'f32)
   else:
@@ -965,16 +969,14 @@ proc tribal_village_get_decision_delay_chance*(env: pointer, teamId: int32): flo
   ## Get the decision delay chance for a team (0.0-1.0).
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0.1  # Default to Normal (10%)
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0.1
+  checkAIController(0.1)
   globalController.aiController.getDifficulty(teamId.int).decisionDelayChance
 
 proc tribal_village_set_decision_delay_chance*(env: pointer, teamId: int32, chance: float32) {.exportc, dynlib.} =
   ## Set a custom decision delay chance for a team (0.0-1.0).
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.difficulty[teamId].decisionDelayChance = clamp(chance, 0.0'f32, 1.0'f32)
 
 proc tribal_village_enable_adaptive_difficulty*(env: pointer, teamId: int32, targetTerritory: float32) {.exportc, dynlib.} =
@@ -982,16 +984,14 @@ proc tribal_village_enable_adaptive_difficulty*(env: pointer, teamId: int32, tar
   ## targetTerritory: target territory percentage (0.0-1.0, typically 0.5 for balanced)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.enableAdaptiveDifficulty(teamId.int, clamp(targetTerritory, 0.0'f32, 1.0'f32))
 
 proc tribal_village_disable_adaptive_difficulty*(env: pointer, teamId: int32) {.exportc, dynlib.} =
   ## Disable adaptive difficulty for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.disableAdaptiveDifficulty(teamId.int)
 
 proc tribal_village_is_adaptive_difficulty_enabled*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
@@ -999,80 +999,70 @@ proc tribal_village_is_adaptive_difficulty_enabled*(env: pointer, teamId: int32)
   ## Returns 1 if enabled, 0 if disabled.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0
+  checkAIController(0)
   if globalController.aiController.getDifficulty(teamId.int).adaptive: 1 else: 0
 
 proc tribal_village_get_adaptive_difficulty_target*(env: pointer, teamId: int32): float32 {.exportc, dynlib.} =
   ## Get the target territory percentage for adaptive difficulty.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0.5
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0.5
+  checkAIController(0.5)
   globalController.aiController.getDifficulty(teamId.int).adaptiveTarget
 
 proc tribal_village_get_threat_response_enabled*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Check if threat response is enabled for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0
+  checkAIController(0)
   if globalController.aiController.getDifficulty(teamId.int).threatResponseEnabled: 1 else: 0
 
 proc tribal_village_set_threat_response_enabled*(env: pointer, teamId: int32, enabled: int32) {.exportc, dynlib.} =
   ## Enable or disable threat response for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.difficulty[teamId].threatResponseEnabled = enabled != 0
 
 proc tribal_village_get_advanced_targeting_enabled*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Check if advanced targeting is enabled for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0
+  checkAIController(0)
   if globalController.aiController.getDifficulty(teamId.int).advancedTargetingEnabled: 1 else: 0
 
 proc tribal_village_set_advanced_targeting_enabled*(env: pointer, teamId: int32, enabled: int32) {.exportc, dynlib.} =
   ## Enable or disable advanced targeting for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.difficulty[teamId].advancedTargetingEnabled = enabled != 0
 
 proc tribal_village_get_coordination_enabled*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Check if coordination is enabled for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0
+  checkAIController(0)
   if globalController.aiController.getDifficulty(teamId.int).coordinationEnabled: 1 else: 0
 
 proc tribal_village_set_coordination_enabled*(env: pointer, teamId: int32, enabled: int32) {.exportc, dynlib.} =
   ## Enable or disable coordination for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.difficulty[teamId].coordinationEnabled = enabled != 0
 
 proc tribal_village_get_optimal_build_order_enabled*(env: pointer, teamId: int32): int32 {.exportc, dynlib.} =
   ## Check if optimal build order is enabled for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0
-  if isNil(globalController) or isNil(globalController.aiController):
-    return 0
+  checkAIController(0)
   if globalController.aiController.getDifficulty(teamId.int).optimalBuildOrderEnabled: 1 else: 0
 
 proc tribal_village_set_optimal_build_order_enabled*(env: pointer, teamId: int32, enabled: int32) {.exportc, dynlib.} =
   ## Enable or disable optimal build order for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  if isNil(globalController) or isNil(globalController.aiController):
-    return
+  checkAIControllerVoid()
   globalController.aiController.difficulty[teamId].optimalBuildOrderEnabled = enabled != 0
 
 # ============== Building/Unit Availability Configuration FFI Functions ==============
