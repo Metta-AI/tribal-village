@@ -280,13 +280,14 @@ proc drawSelection*() =
       continue
 
     # Draw pulsing glow effect (outer ring)
-    let glowPulse = sin(frame.float32 * 0.1) * 0.15 + 0.85
-    let glowColor = color(0.3, 0.7, 1.0, 0.4 * glowPulse)
-    bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
-                  tint = glowColor)
+    if "selection" in bxy:
+      let glowPulse = sin(frame.float32 * 0.1) * 0.15 + 0.85
+      let glowColor = color(0.3, 0.7, 1.0, 0.4 * glowPulse)
+      bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
+                    tint = glowColor)
 
-    # Draw main selection indicator (full opacity)
-    bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale)
+      # Draw main selection indicator (full opacity)
+      bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale)
 
 # ─── Rally Point Rendering ───────────────────────────────────────────────────
 
