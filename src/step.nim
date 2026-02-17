@@ -957,14 +957,13 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if bonus > 0:
               discard env.giveItem(agent, key, bonus)
             # Apply economy tech gathering bonus (AoE2-style)
-            let teamId = getTeamId(agent)
             var techBonusPct = 0
             if key == ItemGold:
-              techBonusPct = env.getGoldGatherBonus(teamId)
+              techBonusPct = env.getGoldGatherBonus(agentTeamId)
             elif key == ItemStone:
-              techBonusPct = env.getStoneGatherBonus(teamId)
+              techBonusPct = env.getStoneGatherBonus(agentTeamId)
             elif key == ItemWood:
-              techBonusPct = env.getWoodGatherBonus(teamId)
+              techBonusPct = env.getWoodGatherBonus(agentTeamId)
             if techBonusPct > 0 and (env.currentStep mod (100 div max(1, techBonusPct))) == 0:
               # Probabilistic bonus: techBonusPct% chance per gather to get +1
               discard env.giveItem(agent, key)
@@ -1006,7 +1005,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
             if bonus > 0:
               discard env.grantItem(agent, ItemWheat, bonus)
             let stubblePos = thing.pos  # Capture before pool release
-            let teamId = getTeamId(agent)
             removeThing(env, thing)
             let stubble = acquireThing(env, Stubble)
             stubble.pos = stubblePos
@@ -1017,7 +1015,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
               env.add(stubble)
             else:
               # Farm exhausted - check for pre-paid reseed first
-              let mill = env.findNearestMill(stubblePos, teamId)
+              let mill = env.findNearestMill(stubblePos, agentTeamId)
               if mill != nil and mill.queuedFarmReseeds > 0:
                 # Consume pre-paid reseed and immediately rebuild farm
                 mill.queuedFarmReseeds -= 1
@@ -1025,10 +1023,10 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                 releaseThing(env, stubble)
                 let newFarm = Thing(kind: Wheat, pos: stubblePos)
                 newFarm.inventory = emptyInventory()
-                let farmFood = ResourceNodeInitial + env.getFarmFoodBonus(teamId)
+                let farmFood = ResourceNodeInitial + env.getFarmFoodBonus(agentTeamId)
                 setInv(newFarm, ItemWheat, farmFood)
                 env.add(newFarm)
-              elif env.canAutoReseed(teamId) and mill != nil:
+              elif env.canAutoReseed(agentTeamId) and mill != nil:
                 # Add to mill queue for delayed processing
                 env.addFarmToMillQueue(mill, stubblePos)
                 env.add(stubble)
@@ -1277,14 +1275,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     used = true
                   # Check production queue first (pre-paid training from fighter AI)
                   if not used and buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
-                    if thing.productionQueueHasReady():
-                      let unitClass = thing.consumeReadyQueueEntry()
-                      applyUnitClass(env, agent, unitClass)
-                      env.spawnSpawnEffect(agent.pos)
-                      if agent.inventorySpear > 0:
-                        agent.inventorySpear = 0
-                      if thing.hasRallyPoint():
-                        agent.rallyTarget = thing.rallyPoint
+                    if env.tryConsumeProductionQueue(agent, thing):
                       if agent.unitClass == UnitTradeCog:
                         agent.tradeHomeDock = thing.pos
                       used = true
@@ -1313,15 +1304,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   used = true
                 elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
                   # If queue has a ready entry, convert villager immediately (pre-paid)
-                  if thing.productionQueueHasReady():
-                    let unitClass = thing.consumeReadyQueueEntry()
-                    applyUnitClass(env, agent, unitClass)
-                    env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
-                    if agent.inventorySpear > 0:
-                      agent.inventorySpear = 0
-                    # Assign rally point target if building has one
-                    if thing.hasRallyPoint():
-                      agent.rallyTarget = thing.rallyPoint
+                  if env.tryConsumeProductionQueue(agent, thing):
                     used = true
                   # Try unit upgrade research if no ready queue entry
                   elif thing.cooldown == 0 and env.tryResearchUnitUpgrade(agent, thing):
@@ -1337,29 +1320,19 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                   if buildingHasCraftStation(thing.kind) and env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
                     used = true
                   elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
-                    if thing.productionQueueHasReady():
-                      let unitClass = thing.consumeReadyQueueEntry()
-                      applyUnitClass(env, agent, unitClass)
-                      env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
-                      if agent.inventorySpear > 0:
-                        agent.inventorySpear = 0
-                      # Assign rally point target if building has one
-                      if thing.hasRallyPoint():
-                        agent.rallyTarget = thing.rallyPoint
+                    if env.tryConsumeProductionQueue(agent, thing):
                       used = true
                     elif env.queueTrainUnit(thing, agentTeamId,
                         env.effectiveTrainUnit(thing.kind, agentTeamId),
                         buildingTrainCosts(thing.kind)):
                       used = true
               of UseCraft:
-                if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
-                  if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-                    used = true
+                if env.tryCraftAtBuilding(agent, thing):
+                  used = true
               of UseUniversity:
                 # University: craft items first, then research techs (like Blacksmith)
-                if thing.cooldown == 0 and buildingHasCraftStation(thing.kind):
-                  if env.tryCraftAtStation(agent, buildingCraftStation(thing.kind), thing):
-                    used = true
+                if env.tryCraftAtBuilding(agent, thing):
+                  used = true
                 # If crafting failed or not possible, try researching
                 if not used and thing.cooldown == 0 and isTeamInMask(thing.teamId, agentMask):
                   if env.tryResearchUniversityTech(agent, thing):
@@ -1372,15 +1345,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
                     used = true
                 # If no research available, try training units
                 if not used and buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
-                  if thing.productionQueueHasReady():
-                    let unitClass = thing.consumeReadyQueueEntry()
-                    applyUnitClass(env, agent, unitClass)
-                    env.spawnSpawnEffect(agent.pos)  # Visual effect for unit creation
-                    if agent.inventorySpear > 0:
-                      agent.inventorySpear = 0
-                    # Assign rally point target if building has one
-                    if thing.hasRallyPoint():
-                      agent.rallyTarget = thing.rallyPoint
+                  if env.tryConsumeProductionQueue(agent, thing):
                     used = true
                   elif env.queueTrainUnit(thing, agentTeamId,
                       buildingTrainUnit(thing.kind, agentTeamId),
