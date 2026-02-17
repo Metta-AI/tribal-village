@@ -58,7 +58,12 @@ def _run_gui(
         cmd.append("-d:stepTiming")
     if render_timing:
         cmd.append("-d:renderTiming")
-    cmd.append("tribal_village.nim")
+    # Prefer the src entrypoint if present (it is included in source distributions via MANIFEST.in).
+    if (project_root / "src" / "tribal_village.nim").exists():
+        cmd.append("--path:src")
+        cmd.append("src/tribal_village.nim")
+    else:
+        cmd.append("tribal_village.nim")
 
     env = os.environ.copy()
     if profile:

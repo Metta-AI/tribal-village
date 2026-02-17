@@ -45,7 +45,8 @@ Key files:
 ## What the CLI Actually Does
 - Ensures the Nim library is built and up-to-date via `ensure_nim_library_current()`.
 - Bootstraps `nimby` if needed and installs Nim into `~/.nimby/nim/bin`.
-- Launches `nim r -d:release tribal_village.nim` for GUI mode.
+- Launches `nim r -d:release --path:src src/tribal_village.nim` for GUI mode (falls back to
+  `tribal_village.nim` if the src entrypoint is missing).
 
 ## Debug Flags and Timers
 Use these to confirm the sim is stepping or to identify stalls:
