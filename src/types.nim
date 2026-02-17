@@ -279,6 +279,10 @@ type
     ThingCliffCornerOutSELayer
     ThingCliffCornerOutSWLayer
     ThingCliffCornerOutNWLayer
+    ThingWaterfallNLayer
+    ThingWaterfallELayer
+    ThingWaterfallSLayer
+    ThingWaterfallWLayer
 
     TeamLayer                 # Team id + 1, 0 = none/neutral
     AgentOrientationLayer     # Orientation enum + 1, 0 = none
@@ -507,6 +511,10 @@ type
     CliffCornerOutSE
     CliffCornerOutSW
     CliffCornerOutNW
+    WaterfallN         # Waterfall where water flows north (higher ground to north)
+    WaterfallE         # Waterfall where water flows east
+    WaterfallS         # Waterfall where water flows south
+    WaterfallW         # Waterfall where water flows west
 
 const
   TerrainLayerStart* = ord(TerrainEmptyLayer)
@@ -993,6 +1001,13 @@ const
     CliffCornerOutNW
   }
 
+  WaterfallKinds* = {
+    WaterfallN,
+    WaterfallE,
+    WaterfallS,
+    WaterfallW
+  }
+
 const
   BackgroundThingKinds* = {
     Door,
@@ -1006,7 +1021,7 @@ const
     Skeleton,
     Dock,
     ControlPoint
-  } + CliffKinds
+  } + CliffKinds + WaterfallKinds
 
 proc getTeamId*(agent: Thing): int =
   ## Team ID lookup that respects conversions.

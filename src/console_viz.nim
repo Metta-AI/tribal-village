@@ -102,6 +102,8 @@ proc thingChar(kind: ThingKind): char =
      CliffCornerInNE, CliffCornerInSE, CliffCornerInSW, CliffCornerInNW,
      CliffCornerOutNE, CliffCornerOutSE, CliffCornerOutSW, CliffCornerOutNW:
                         '|'
+  of WaterfallN, WaterfallE, WaterfallS, WaterfallW:
+                        '~'
 
 proc unitClassChar(uc: AgentUnitClass): char =
   case uc

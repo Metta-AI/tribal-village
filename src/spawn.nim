@@ -459,6 +459,28 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
       if hasCliff:
         env.add(Thing(kind: kind, pos: ivec2(x.int32, y.int32)))
 
+  # Place waterfalls where water tiles border higher-elevation non-water terrain.
+  # Waterfalls appear on water tiles that are adjacent to cliffs/elevated terrain,
+  # indicating water cascading down from the higher ground.
+  for x in 0 ..< MapWidth:
+    for y in 0 ..< MapHeight:
+      if env.terrain[x][y] notin WaterTerrain:
+        continue
+      let waterElev = env.elevation[x][y]  # Always 0 for water tiles
+      # Check each cardinal direction for higher non-water neighbor
+      if y > 0 and env.terrain[x][y - 1] notin WaterTerrain and
+         env.elevation[x][y - 1] > waterElev:
+        env.add(Thing(kind: WaterfallN, pos: ivec2(x.int32, y.int32)))
+      if x < MapWidth - 1 and env.terrain[x + 1][y] notin WaterTerrain and
+         env.elevation[x + 1][y] > waterElev:
+        env.add(Thing(kind: WaterfallE, pos: ivec2(x.int32, y.int32)))
+      if y < MapHeight - 1 and env.terrain[x][y + 1] notin WaterTerrain and
+         env.elevation[x][y + 1] > waterElev:
+        env.add(Thing(kind: WaterfallS, pos: ivec2(x.int32, y.int32)))
+      if x > 0 and env.terrain[x - 1][y] notin WaterTerrain and
+         env.elevation[x - 1][y] > waterElev:
+        env.add(Thing(kind: WaterfallW, pos: ivec2(x.int32, y.int32)))
+
   # Resource nodes are spawned as Things later; base terrain stays walkable.
 
   # Blocking structures pass (city/dungeon/border walls).

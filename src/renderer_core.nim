@@ -364,6 +364,15 @@ const CliffDrawOrder* = [
   CliffCornerOutNW
 ]
 
+# ─── Waterfall Draw Order ────────────────────────────────────────────────────
+
+const WaterfallDrawOrder* = [
+  WaterfallN,
+  WaterfallE,
+  WaterfallS,
+  WaterfallW
+]
+
 # ─── Render Cache Variables ──────────────────────────────────────────────────
 
 var

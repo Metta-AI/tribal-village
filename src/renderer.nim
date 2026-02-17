@@ -163,6 +163,14 @@ proc drawObjects*() =
       if isInViewport(pos):
         bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = shallowTint)
 
+  # Draw waterfalls (between water and cliffs for proper layering)
+  for kind in WaterfallDrawOrder:
+    let spriteKey = thingSpriteKey(kind)
+    if spriteKey.len > 0 and spriteKey in bxy:
+      for wf in env.thingsByKind[kind]:
+        if isInViewport(wf.pos):
+          bxy.drawImage(spriteKey, wf.pos.vec2, angle = 0, scale = SpriteScale)
+
   for kind in CliffDrawOrder:
     let spriteKey = thingSpriteKey(kind)
     if spriteKey.len > 0 and spriteKey in bxy:
