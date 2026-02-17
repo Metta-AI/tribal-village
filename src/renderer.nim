@@ -108,13 +108,15 @@ proc drawWalls*() =
             continue
 
         let wallSpriteKey = wallSprites[tile]
-        bxy.drawImage(wallSpriteKey, vec2(x.float32, y.float32),
-                     angle = 0, scale = SpriteScale, tint = wallTint)
+        if wallSpriteKey in bxy:
+          bxy.drawImage(wallSpriteKey, vec2(x.float32, y.float32),
+                       angle = 0, scale = SpriteScale, tint = wallTint)
 
   let fillSpriteKey = "oriented/wall.fill"
-  for fillPos in wallFills:
-    bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
-                  angle = 0, scale = SpriteScale, tint = wallTint)
+  if fillSpriteKey in bxy:
+    for fillPos in wallFills:
+      bxy.drawImage(fillSpriteKey, fillPos.vec2 + vec2(0.5, 0.3),
+                    angle = 0, scale = SpriteScale, tint = wallTint)
 
 proc drawObjects*() =
   var teamPopCounts: array[MapRoomObjectsTeams, int]
@@ -149,7 +151,7 @@ proc drawObjects*() =
   # Deep water (center of rivers) renders darker, shallow water (edges) renders lighter.
   if renderCacheGeneration != env.mapGeneration:
     rebuildRenderCaches()
-  if waterKey.len > 0:
+  if waterKey.len > 0 and waterKey in bxy:
     # Draw deep water (impassable) with ambient-lit tint
     let waterLit = applyAmbient(1.0, 1.0, 1.0, 1.0, ambient)
     let waterTint = color(waterLit.r * waterLit.i, waterLit.g * waterLit.i, waterLit.b * waterLit.i, 1.0)
@@ -376,7 +378,7 @@ proc drawObjects*() =
   # ---------------------------------------------------------------------------
   for kind in ThingKind:
     if kind in {Wall, Tree, Wheat, Stubble, Agent, Altar, Tumor, Cow, Bear, Wolf, Lantern} or
-        kind in CliffKinds:
+        kind in CliffKinds or kind in WaterfallKinds:
       continue
     if isBuildingKind(kind):
       let spriteKey = buildingSpriteKey(kind)
