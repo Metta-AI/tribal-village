@@ -560,7 +560,10 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
   if lanternCount > 0: setInv(victim, ItemLantern, 0)
   if relicCount > 0: setInv(victim, ItemRelic, 0)
   let dropInv = victim.inventory
-  let corpse = Thing(kind: (if dropInv.len > 0: Corpse else: Skeleton), pos: deathPos)
+  # Use object pool for Corpse/Skeleton (both are PoolableKinds)
+  let corpseKind = if dropInv.len > 0: Corpse else: Skeleton
+  let corpse = acquireThing(env, corpseKind)
+  corpse.pos = deathPos
   corpse.inventory = dropInv
   env.add(corpse)
 
