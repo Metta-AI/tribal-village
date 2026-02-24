@@ -197,8 +197,8 @@ const
   # ============================================================================
   # Naval Combat Units
   # ============================================================================
-  GalleyMaxHp* = 30
-  GalleyAttackDamage* = 5
+  GalleyMaxHp* = 45
+  GalleyAttackDamage* = 6
   GalleyBaseRange* = 3
   FireShipMaxHp* = 6
   FireShipAttackDamage* = 3

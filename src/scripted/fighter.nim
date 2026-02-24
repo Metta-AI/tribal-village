@@ -24,7 +24,7 @@ const
   FighterSiegeKinds = {MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop}
   FighterNavalKinds = {Dock}
   MaxSiegePerTeam = 3  # Cap siege training to prevent resource drain
-  MaxNavalPerTeam = 3  # Cap naval training to prevent resource drain
+  MaxNavalPerTeam = 5  # Cap naval training (increased from 3 to sustain naval presence)
 
 # Per-step cache for isThreateningAlly results to avoid redundant spatial scans
 # Key: (enemyAgentId * MapRoomObjectsTeams + teamId), Value: isThreatening
