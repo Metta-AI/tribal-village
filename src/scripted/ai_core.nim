@@ -643,7 +643,10 @@ proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: Thin
   if cachedPos.x >= 0:
     if env.currentStep - state.cachedThingStep[kind] < CacheMaxAge and
        abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
-      let cachedThing = env.getThing(cachedPos)
+      # Check both blocking grid and background grid (relics, doors, etc.)
+      var cachedThing = env.getThing(cachedPos)
+      if cachedThing.isNil:
+        cachedThing = env.getBackgroundThing(cachedPos)
       if not isNil(cachedThing) and cachedThing.kind == kind and
          hasHarvestableResource(cachedThing):
         return cachedThing

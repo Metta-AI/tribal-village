@@ -434,6 +434,7 @@ proc main() =
   # Monasteries are blocking buildings so they live in grid.
   var relicsOnMap = 0
   var monasteryCount = 0
+  var relicsGarrisoned = 0
   for x in 0 ..< MapWidth:
     for y in 0 ..< MapHeight:
       let bg = env.backgroundGrid[x][y]
@@ -442,6 +443,7 @@ proc main() =
       let t = env.grid[x][y]
       if t != nil and t.kind == Monastery:
         inc monasteryCount
+        relicsGarrisoned += t.garrisonedRelics
 
   # Count naval units
   var navalUnits = 0
@@ -517,6 +519,7 @@ proc main() =
   check("Siege units alive", siegeUnits > 0, &"({siegeUnits} siege)")
   check("Unique castle units", uniqueUnits > 0, &"({uniqueUnits} unique)")
   check("Relics on map", relicsOnMap > 0, &"({relicsOnMap} relics)")
+  check("Relics garrisoned", relicsGarrisoned > 0, &"({relicsGarrisoned} in monasteries)")
   check("Monasteries built", monasteryCount > 0, &"({monasteryCount} monasteries)")
   check("Blacksmith upgrades", blacksmithCount > 0, &"({blacksmithCount} levels)")
   check("University techs", uniCount > 0, &"({uniCount} researched)")

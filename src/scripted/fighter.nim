@@ -267,33 +267,71 @@ proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
 
 proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitMonk
+  if agent.unitClass != UnitMonk:
+    return false
+  # Activate when carrying a relic (need to deposit) or relics exist on map
+  agent.inventoryRelic > 0 or env.thingsByKind[Relic].len > 0
 
 proc shouldTerminateFighterMonk(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
-  # Terminate when no longer a monk
-  agent.unitClass != UnitMonk
+  if agent.unitClass != UnitMonk:
+    return true
+  # Terminate when not carrying and no relics left to collect
+  agent.inventoryRelic == 0 and env.thingsByKind[Relic].len == 0
+
+proc findNearestRelicGlobal(env: Environment, pos: IVec2): Thing =
+  ## Find nearest relic anywhere on the map using thingsByKind.
+  ## O(num_relics) scan — fine since there are typically <20 relics.
+  result = nil
+  var minDist = int.high
+  for relic in env.thingsByKind[Relic]:
+    if relic.isNil or not isValidPos(relic.pos):
+      continue
+    let dist = int(chebyshevDist(pos, relic.pos))
+    if dist < minDist:
+      minDist = dist
+      result = relic
 
 proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint8 =
   let teamId = getTeamId(agent)
+  # Priority 1: If carrying a relic, deposit it in the nearest monastery
   if agent.inventoryRelic > 0:
     let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
     if not isNil(monastery):
       return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u8)
+    # No monastery found via spiral — try global search
+    var bestMonastery: Thing = nil
+    var bestDist = int.high
+    for m in env.thingsByKind[Monastery]:
+      if m.isNil or not isValidPos(m.pos):
+        continue
+      if getTeamId(m) != teamId:
+        continue
+      let dist = int(chebyshevDist(agent.pos, m.pos))
+      if dist < bestDist:
+        bestDist = dist
+        bestMonastery = m
+    if not isNil(bestMonastery):
+      return actOrMove(controller, env, agent, agentId, state, bestMonastery.pos, 3'u8)
+    # Still no monastery — return home to stay safe
+    if agent.homeAltar.x >= 0:
+      return controller.moveTo(env, agent, agentId, state, agent.homeAltar)
+    return 0'u8
 
-  let relic = env.findNearestThingSpiral(state, Relic)
+  # Priority 2: Find and collect nearest relic (global search)
+  let relic = findNearestRelicGlobal(env, agent.pos)
   if not isNil(relic):
     return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
 
-  # Monks stay near monasteries for safety (0 attack, fragile)
+  # No relics to collect — stay near monastery for safety (0 attack, fragile)
   let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
   if not isNil(monastery):
     let dist = chebyshevDist(agent.pos, monastery.pos)
     if dist > 8:
       return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u8)
 
-  controller.moveNextSearch(env, agent, agentId, state)
+  0'u8
 
 proc canStartFighterBreakout(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
