@@ -521,7 +521,7 @@ type
     shouldTerminate*: proc(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool
     act*: proc(controller: Controller, env: Environment, agent: Thing,
-               agentId: int, state: var AgentState): uint8
+               agentId: int, state: var AgentState): uint16
     interruptible*: bool
 
 proc optionsAlwaysCanStart*(controller: Controller, env: Environment, agent: Thing,
@@ -538,7 +538,7 @@ template resetActiveOption(state: var AgentState) =
 
 proc runOptions*(controller: Controller, env: Environment, agent: Thing,
                  agentId: int, state: var AgentState,
-                 roleOptions: openArray[OptionDef]): uint8 =
+                 roleOptions: openArray[OptionDef]): uint16 =
   ## Execute the RL-style options framework.
   ## Handles active option continuation, preemption by higher-priority options,
   ## and scanning for new options when none is active.
@@ -555,7 +555,7 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
     inc state.activeOptionTicks
     let action = roleOptions[state.activeOptionId].act(
       controller, env, agent, agentId, state)
-    if action != 0'u8:
+    if action != 0'u16:
       if roleOptions[state.activeOptionId].shouldTerminate(
           controller, env, agent, agentId, state):
         resetActiveOption(state)
@@ -569,13 +569,13 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
     state.activeOptionId = i
     state.activeOptionTicks = 1
     let action = opt.act(controller, env, agent, agentId, state)
-    if action != 0'u8:
+    if action != 0'u16:
       if opt.shouldTerminate(controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
     resetActiveOption(state)
 
-  return 0'u8
+  return 0'u16
 
 template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
   ## Generate a canStart/shouldTerminate pair from a single boolean expression.
@@ -604,7 +604,7 @@ macro defineBehavior*(name: static[string], body: untyped): untyped =
   ##     act:
   ##       let teamId = getTeamId(agent)
   ##       # ... logic ...
-  ##       0'u8
+  ##       0'u16
   ##
   ## Usage (complex - explicit shouldTerminate):
   ##   defineBehavior("FighterTrain"):
@@ -614,7 +614,7 @@ macro defineBehavior*(name: static[string], body: untyped): untyped =
   ##       agent.unitClass != UnitVillager or not canAffordTraining(env, agent)
   ##     act:
   ##       # ... training logic ...
-  ##       0'u8
+  ##       0'u16
   ##     interruptible: false
   ##
   ## The macro generates:
@@ -753,7 +753,7 @@ template behaviorGuard*(nameBase, canName, termName: untyped,
   ##     agent.hp * 3 <= agent.maxHp,
   ##     block:
   ##       if agent.hp * 3 > agent.maxHp:
-  ##         return 0'u8
+  ##         return 0'u16
   ##       controller.moveTo(env, agent, agentId, state, basePos)
   ##   )
   ##
@@ -770,7 +770,7 @@ template behaviorGuard*(nameBase, canName, termName: untyped,
   proc termName(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = not (condition)
   proc `opt nameBase`(controller: Controller, env: Environment, agent: Thing,
-                      agentId: int, state: var AgentState): uint8 = actBody
+                      agentId: int, state: var AgentState): uint16 = actBody
   let `nameBase Option`* = OptionDef(
     name: astToStr(nameBase),
     canStart: canName,

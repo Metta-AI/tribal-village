@@ -100,7 +100,7 @@ type
     # Built-in AI controller (when using BuiltinAI)
     aiController*: Controller
     # External action callback (when using ExternalNN)
-    externalActionCallback*: proc(): array[MapAgents, uint8]
+    externalActionCallback*: proc(): array[MapAgents, uint16]
 
 # Global agent controller instance
 var globalController*: AgentController
@@ -125,16 +125,16 @@ proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSe
     # Start automatic play mode for external controller
     play = true
 
-proc setExternalActionCallback*(callback: proc(): array[MapAgents, uint8]) =
+proc setExternalActionCallback*(callback: proc(): array[MapAgents, uint16]) =
   ## Set the external action callback for neural network control
   if not isNil(globalController) and globalController.controllerType == ExternalNN:
     globalController.externalActionCallback = callback
 
-proc getActions*(env: Environment): array[MapAgents, uint8] =
+proc getActions*(env: Environment): array[MapAgents, uint16] =
   ## Get actions for all agents using the configured controller
   case globalController.controllerType
   of BuiltinAI:
-    var actions: array[MapAgents, uint8]
+    var actions: array[MapAgents, uint16]
     let controller = globalController.aiController
 
     when defined(stepTiming):
@@ -188,13 +188,13 @@ proc getActions*(env: Environment): array[MapAgents, uint8] =
       try:
         let lines = readFile(ActionsFile).replace("\r", "").replace("\n\n", "\n").split("\n")
         if lines.len >= MapAgents:
-          var fileActions: array[MapAgents, uint8]
+          var fileActions: array[MapAgents, uint16]
           for i in 0 ..< MapAgents:
             let parts = lines[i].split(',')
             if parts.len >= 2:
-              fileActions[i] = encodeAction(parseInt(parts[0]).uint8, parseInt(parts[1]).uint8)
+              fileActions[i] = encodeAction(parseInt(parts[0]).uint16, parseInt(parts[1]).uint16)
             elif parts.len == 1 and parts[0].len > 0:
-              fileActions[i] = parseInt(parts[0]).uint8
+              fileActions[i] = parseInt(parts[0]).uint16
 
           discard tryRemoveFile(ActionsFile)
 

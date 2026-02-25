@@ -52,7 +52,7 @@ include "tumors"
 # Main Step Procedure
 # ============================================================================
 
-proc step*(env: Environment, actions: ptr array[MapAgents, uint8]) =
+proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
   ## Step the environment forward by one tick.
   ## Processes agent actions, updates all entities, checks victory conditions.
   when defined(stepTiming):

@@ -181,7 +181,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self.rewards: np.ndarray
 
         # Only allocate actions buffer (input to environment)
-        self.actions_buffer = np.zeros(self.total_agents, dtype=np.uint8)
+        self.actions_buffer = np.zeros(self.total_agents, dtype=np.uint16)
 
         # Initialize environment
         self.env_ptr = self.lib.tribal_village_create()
@@ -747,7 +747,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                 action_value = int(np.asarray(actions[agent_key]).reshape(()))
                 if action_value < 0 or action_value >= self.single_action_space.n:
                     action_value = 0
-                self.actions_buffer[i] = np.uint8(action_value)
+                self.actions_buffer[i] = np.uint16(action_value)
 
         # Get PufferLib managed buffer pointers
         actions_ptr = self.actions_buffer.ctypes.data_as(ctypes.c_void_p)

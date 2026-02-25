@@ -268,7 +268,7 @@ proc processTempleHybridRequests(controller: Controller, env: Environment) =
 const GoblinAvoidRadius = 6
 
 proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): tuple[did: bool, action: uint8] =
+                         agentId: int, state: var AgentState): tuple[did: bool, action: uint16] =
   let teamId = getTeamId(agent)
   var altarPos = ivec2(-1, -1)
   var altarHearts = 0
@@ -284,7 +284,7 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
       altarPos = nearestAltar.pos
       altarHearts = nearestAltar.hearts
   if altarPos.x < 0 or altarHearts >= 10:
-    return (false, 0'u8)
+    return (false, 0'u16)
 
   if agent.inventoryBar > 0:
     if isAdjacent(agent.pos, altarPos):
@@ -293,7 +293,7 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
 
   if agent.inventoryGold > 0:
     let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u16)
     if didKnown: return (true, actKnown)
     let magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
     if not isNil(magmaGlobal):
@@ -307,10 +307,10 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
     if didGold: return (true, actGold)
 
-  (false, 0'u8)
+  (false, 0'u16)
 
 proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): uint8 =
+                           agentId: int, state: var AgentState): uint16 =
   if state.role == Gatherer:
     updateGathererTask(controller, env, agent, state)
   var roleId = state.roleId
@@ -321,16 +321,16 @@ proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thin
     return runOptions(controller, env, agent, agentId, state, BuilderOptionsThreat)
   let options = roleOptionsFor(roleId, controller.rng)
   if options.len == 0:
-    return 0'u8
+    return 0'u16
   return runOptions(controller, env, agent, agentId, state, options)
 
-proc decideAction*(controller: Controller, env: Environment, agentId: int): uint8 =
+proc decideAction*(controller: Controller, env: Environment, agentId: int): uint16 =
   let agent = env.agents[agentId]
 
   # Skip inactive agents
   if not isAgentAlive(env, agent):
     setAuditBranch(BranchInactive)
-    return encodeAction(0'u8, 0'u8)
+    return encodeAction(0'u16, 0'u16)
 
   initScriptedState(controller)
 
@@ -410,7 +410,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # Lower difficulty = more delays, making AI slower to react
   if controller.shouldApplyDecisionDelay(teamId):
     setAuditBranch(BranchDecisionDelay)
-    return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
+    return saveStateAndReturn(controller, agentId, state, encodeAction(0'u16, 0'u16))
 
   # Handle stopped state - agent remains idle until new command or threshold expires
   if state.stoppedActive:
@@ -426,7 +426,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     else:
       # Still stopped - return NOOP
       setAuditBranch(BranchStopped)
-      return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
+      return saveStateAndReturn(controller, agentId, state, encodeAction(0'u16, 0'u16))
 
   # Update shared threat map with what this agent can see
   # Only if threat response is enabled for this difficulty level
@@ -501,7 +501,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         totalRelicsHeld += other.inventoryRelic
     if totalRelicsHeld >= MapRoomObjectsRelics and env.thingsByKind[Relic].len == 0:
       setAuditBranch(BranchGoblinRelic)
-      return saveStateAndReturn(controller, agentId, state, encodeAction(0'u8, 0'u8))
+      return saveStateAndReturn(controller, agentId, state, encodeAction(0'u16, 0'u16))
 
     # Use spatial index to find nearest non-goblin threat instead of scanning all agents
     var nearestThreat: Thing = nil
@@ -537,7 +537,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     let relic = env.findNearestThingSpiral(state, Relic)
     if not isNil(relic):
       setAuditBranch(BranchGoblinSearch)
-      return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u8)
+      return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u16)
 
     setAuditBranch(BranchGoblinSearch)
     return controller.moveNextSearch(env, agent, agentId, state)
@@ -622,7 +622,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
           state.escapeMode = false
         state.lastPosition = agent.pos
         setAuditBranch(BranchEscape)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, vecToOrientation(d).uint8))
+        return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, vecToOrientation(d).uint8))
     # If all blocked, drop out of escape for this tick
     state.escapeMode = false
 
@@ -637,7 +637,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     setAuditBranch(BranchAttackOpportunity)
-    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, attackDir.uint8))
+    return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
   # Patrol behavior - applies to all roles when patrol is active
   if state.patrolActive and state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0:
@@ -645,7 +645,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     let patrolAttackDir = findAttackOpportunity(env, agent, ignoreStance = true)
     if patrolAttackDir >= 0:
       setAuditBranch(BranchPatrolChase)
-      return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, patrolAttackDir.uint8))
+      return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, patrolAttackDir.uint8))
     # Chase nearby enemies (patrol overrides stance for chasing too)
     let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
     if not isNil(enemy):
@@ -696,7 +696,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       let amAttackDir = findAttackOpportunity(env, agent, ignoreStance = true)
       if amAttackDir >= 0:
         setAuditBranch(BranchAttackMoveEngage)
-        return saveStateAndReturn(controller, agentId, state, encodeAction(2'u8, amAttackDir.uint8))
+        return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, amAttackDir.uint8))
       # Check for nearby enemies to chase toward
       let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
       if not isNil(enemy):
@@ -704,7 +704,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
         if enemyDist <= 8:  # Attack-move detection radius
           # Enemy found - engage!
           setAuditBranch(BranchAttackMoveEngage)
-          return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u8)
+          return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
       # No enemy nearby - continue moving toward destination
       setAuditBranch(BranchAttackMoveAdvance)
       return controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
@@ -713,7 +713,7 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   # This check is high priority - settlers skip gather/build/fight but keep threat response.
   if agent.isSettler and agent.settlerTarget.x >= 0 and not agent.settlerArrived:
     let settlerAction = optSettlerMigrate(controller, env, agent, agentId, state)
-    if settlerAction != 0'u8:
+    if settlerAction != 0'u16:
       setAuditBranch(BranchSettlerMigrate)
       return saveStateAndReturn(controller, agentId, state, settlerAction)
     # If optSettlerMigrate returned 0 (arrived or aborted), fall through to normal behavior

@@ -132,7 +132,7 @@ class TestTribalVillageEnvIntegration:
         env = TribalVillageEnv()
         assert env.single_observation_space is not None
         assert env.single_action_space is not None
-        assert env.single_action_space.n == 250
+        assert env.single_action_space.n == 308
         env.close()
 
     def test_env_reset(self):

@@ -59,12 +59,12 @@ builderGuard(canStartBuilderFlee, shouldTerminateBuilderFlee):
   not isNil(findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst))
 
 proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
-                    agentId: int, state: var AgentState): uint8 =
+                    agentId: int, state: var AgentState): uint16 =
   ## Flee toward home altar when enemies are nearby.
   ## This causes builders to abandon construction when threatened.
   let enemy = findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst)
   if isNil(enemy):
-    return 0'u8
+    return 0'u16
   # Move toward home altar for safety
   fleeToBase(controller, env, agent, agentId, state)
 
@@ -130,12 +130,12 @@ builderGuard(canStartBuilderRepair, shouldTerminateBuilderRepair):
   not isNil(findDamagedBuilding(controller, env, agent))
 
 proc optBuilderRepair(controller: Controller, env: Environment, agent: Thing,
-                      agentId: int, state: var AgentState): uint8 =
+                      agentId: int, state: var AgentState): uint16 =
   ## Move to and repair a damaged friendly building.
   let building = findDamagedBuilding(controller, env, agent)
   if isNil(building):
-    return 0'u8
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+    return 0'u16
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
 proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
                         kinds: openArray[ThingKind]): bool =
@@ -146,11 +146,11 @@ proc anyMissingBuilding(controller: Controller, env: Environment, teamId: int,
 
 proc buildFirstMissing(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState, teamId: int,
-                       kinds: openArray[ThingKind]): uint8 =
+                       kinds: openArray[ThingKind]): uint16 =
   for kind in kinds:
     let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
     if did: return act
-  0'u8
+  0'u16
 
 builderGuard(canStartBuilderPlantOnFertile, shouldTerminateBuilderPlantOnFertile):
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
@@ -165,7 +165,7 @@ builderGuard(canStartBuilderDropoffCarrying, shouldTerminateBuilderDropoffCarryi
   hasCarryingResources(agent)
 
 proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): uint8 =
+                               agentId: int, state: var AgentState): uint16 =
   let (didDrop, dropAct) = controller.dropoffCarrying(
     env, agent, agentId, state,
     allowFood = true,
@@ -174,20 +174,20 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
     allowGold = true
   )
   if didDrop: return dropAct
-  0'u8
+  0'u16
 
 builderGuard(canStartBuilderPopCap, shouldTerminateBuilderPopCap):
   needsPopCapHouse(controller, env, getTeamId(agent))
 
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
-                      agentId: int, state: var AgentState): uint8 =
+                      agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
   state.basePosition = basePos
   let (didHouse, houseAct) =
     tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, basePos)
   if didHouse: return houseAct
-  0'u8
+  0'u16
 
 builderGuard(canStartBuilderCoreInfrastructure, shouldTerminateBuilderCoreInfrastructure):
   let altarPos = agent.homeAltar
@@ -197,7 +197,7 @@ builderGuard(canStartBuilderCoreInfrastructure, shouldTerminateBuilderCoreInfras
     anyMissingBuilding(controller, env, getTeamId(agent), CoreInfrastructureKinds)
 
 proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): uint8 =
+                                  agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   let altarPos = agent.homeAltar
   if altarPos.x >= 0:
@@ -205,7 +205,7 @@ proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agen
     for kind in CoreInfrastructureKinds:
       let (did, act) = controller.tryBuildForSettlement(env, agent, agentId, state, teamId, kind, altarPos)
       if did: return act
-    0'u8
+    0'u16
   else:
     buildFirstMissing(controller, env, agent, agentId, state, teamId, CoreInfrastructureKinds)
 
@@ -227,13 +227,13 @@ proc shouldTerminateBuilderMillNearResource(controller: Controller, env: Environ
   not canStartBuilderMillNearResource(controller, env, agent, agentId, state)
 
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): uint8 =
+                                agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   let (didMill, actMill) = controller.tryBuildNearResource(
     env, agent, agentId, state, teamId, Mill, millResourceCount(env, agent.pos),
     8, [Mill, Granary, TownCenter], 5)
   if didMill: return actMill
-  0'u8
+  0'u16
 
 proc canStartBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
@@ -245,10 +245,10 @@ proc shouldTerminateBuilderPlantIfMills(controller: Controller, env: Environment
   agent.inventoryWheat <= 0 and agent.inventoryWood <= 0
 
 proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): uint8 =
+                            agentId: int, state: var AgentState): uint16 =
   let (didPlant, actPlant) = controller.tryPlantOnFertile(env, agent, agentId, state)
   if didPlant: return actPlant
-  0'u8
+  0'u16
 
 proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
@@ -268,7 +268,7 @@ proc shouldTerminateBuilderCampThreshold(controller: Controller, env: Environmen
   not canStartBuilderCampThreshold(controller, env, agent, agentId, state)
 
 proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): uint8 =
+                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   for entry in CampThresholds:
     let nearbyCount = countNearbyThings(env, agent.pos, 4, entry.nearbyKinds)
@@ -278,13 +278,13 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
       [entry.kind]
     )
     if did: return act
-  0'u8
+  0'u16
 
 builderGuard(canStartBuilderTechBuildings, shouldTerminateBuilderTechBuildings):
   anyMissingBuilding(controller, env, getTeamId(agent), TechBuildingKinds)
 
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): uint8 =
+                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   buildFirstMissing(controller, env, agent, agentId, state, teamId, TechBuildingKinds)
 
@@ -301,9 +301,9 @@ proc shouldTerminateBuilderWallRing(controller: Controller, env: Environment, ag
   not canStartBuilderWallRing(controller, env, agent, agentId, state)
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
-                        agentId: int, state: var AgentState): uint8 =
+                        agentId: int, state: var AgentState): uint16 =
   if not canStartBuilderWallRing(controller, env, agent, agentId, state):
-    return 0'u8
+    return 0'u16
   let teamId = getTeamId(agent)
   let altarPos = agent.homeAltar
   var wallTarget = ivec2(-1, -1)
@@ -385,7 +385,7 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
     else:
       let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
       if didWood: return actWood
-  0'u8
+  0'u16
 
 # Coordination-responsive behavior: respond to defense requests by building military structures
 proc canStartBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
@@ -413,7 +413,7 @@ proc shouldTerminateBuilderDefenseResponse(controller: Controller, env: Environm
   true
 
 proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): uint8 =
+                               agentId: int, state: var AgentState): uint16 =
   ## Build military/defensive structures in response to coordination request
   let teamId = getTeamId(agent)
   for kind in DefenseRequestBuildingKinds:
@@ -423,7 +423,7 @@ proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: 
         # Mark the defense request as fulfilled once we start building
         markDefenseRequestFulfilled(teamId)
         return act
-  0'u8
+  0'u16
 
 builderGuard(canStartBuilderDock, shouldTerminateBuilderDock):
   let checkPos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
@@ -431,11 +431,11 @@ builderGuard(canStartBuilderDock, shouldTerminateBuilderDock):
     hasWaterNearby(env, checkPos, 15)
 
 proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
-                    agentId: int, state: var AgentState): uint8 =
+                    agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   let (did, act) = controller.tryBuildDockIfMissing(env, agent, agentId, state, teamId)
   if did: return act
-  0'u8
+  0'u16
 
 proc teamNavalCount(env: Environment, teamId: int): int =
   ## Count alive naval units for a team.
@@ -454,17 +454,17 @@ builderGuard(canStartBuilderNavalTrain, shouldTerminateBuilderNavalTrain):
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(Dock))
 
 proc optBuilderNavalTrain(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): uint8 =
+                          agentId: int, state: var AgentState): uint16 =
   ## Send a builder to the Dock to create one naval unit.
   let teamId = getTeamId(agent)
   let dock = env.findNearestFriendlyThingSpiral(state, teamId, Dock)
   if isNil(dock):
-    return 0'u8
+    return 0'u16
   # Queue training if no ready entry
   if not dock.productionQueueHasReady() and
      dock.productionQueue.entries.len < ProductionQueueMaxSize:
     discard env.tryBatchQueueTrain(dock, teamId, 1)
-  actOrMove(controller, env, agent, agentId, state, dock.pos, 3'u8)
+  actOrMove(controller, env, agent, agentId, state, dock.pos, 3'u16)
 
 let BuilderNavalTrainOption* = OptionDef(
   name: "BuilderNavalTrain",
@@ -485,14 +485,14 @@ builderGuard(canStartBuilderSiegeResponse, shouldTerminateBuilderSiegeResponse):
   builderShouldBuildSiege(controller, env, getTeamId(agent))
 
 proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): uint8 =
+                             agentId: int, state: var AgentState): uint16 =
   ## Build siege workshop in response to coordination request
   let teamId = getTeamId(agent)
   let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, SiegeWorkshop)
   if did:
     markSiegeBuildRequestFulfilled(teamId)
     return act
-  0'u8
+  0'u16
 
 proc minBasicStockpile(env: Environment, teamId: int): int =
   ## Returns the minimum stockpile count among food, wood, and stone.
@@ -506,7 +506,7 @@ builderGuard(canStartBuilderGatherScarce, shouldTerminateBuilderGatherScarce):
   agent.unitClass == UnitVillager and minBasicStockpile(env, getTeamId(agent)) < 5
 
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): uint8 =
+                            agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   let food = env.stockpileCount(teamId, ResourceFood)
   let wood = env.stockpileCount(teamId, ResourceWood)
@@ -532,7 +532,7 @@ proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thi
       if didStone: return actStone
     else:
       discard
-  0'u8
+  0'u16
 
 proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
@@ -546,12 +546,12 @@ proc shouldTerminateBuilderVisitTradingHub(controller: Controller, env: Environm
   not canStartBuilderVisitTradingHub(controller, env, agent, agentId, state)
 
 proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): uint8 =
+                               agentId: int, state: var AgentState): uint16 =
   let hub = findNearestNeutralHub(env, agent.pos)
   if isNil(hub):
-    return 0'u8
+    return 0'u16
   if isAdjacent(agent.pos, hub.pos):
-    return 0'u8
+    return 0'u16
   controller.moveTo(env, agent, agentId, state, hub.pos)
 
 # Shared OptionDefs used in both BuilderOptions and BuilderOptionsThreat

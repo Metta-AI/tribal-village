@@ -30,27 +30,27 @@ gathererGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
     not isNil(findNearestGarrisonableBuilding(env, agent.pos, getTeamId(agent), GarrisonSeekRadiusConst))
 
 proc optGathererGarrison(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): uint8 =
+                         agentId: int, state: var AgentState): uint16 =
   ## Seek nearest garrisonable building for protection when enemies are nearby.
   let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)
   if isNil(enemy):
-    return 0'u8
+    return 0'u16
   let teamId = getTeamId(agent)
   let building = findNearestGarrisonableBuilding(env, agent.pos, teamId, GarrisonSeekRadiusConst)
   if isNil(building):
-    return 0'u8
+    return 0'u16
   requestProtectionFromFighter(env, agent, enemy.pos)
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u8)
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
 gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
   not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst))
 
 proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
-                     agentId: int, state: var AgentState): uint8 =
+                     agentId: int, state: var AgentState): uint16 =
   ## Flee toward home altar when enemies are nearby
   let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)
   if isNil(enemy):
-    return 0'u8
+    return 0'u16
   # Request protection from nearby fighters via coordination system
   requestProtectionFromFighter(env, agent, enemy.pos)
   # Move toward home altar for safety
@@ -94,14 +94,14 @@ proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
 
 proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState,
-                           magmaGlobal: Thing): (bool, uint8) =
+                           magmaGlobal: Thing): (bool, uint16) =
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-    env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u8)
+    env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u16)
   if didKnown: return (true, actKnown)
   if not isNil(magmaGlobal):
     updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
-    return (true, actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u8))
-  (false, 0'u8)
+    return (true, actOrMove(controller, env, agent, agentId, state, magmaGlobal.pos, 3'u16))
+  (false, 0'u16)
 
 
 proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
@@ -199,13 +199,13 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
                           agentId: int, state: var AgentState,
                           teamId: int, kind: ThingKind,
                           nearbyCount, minCount: int,
-                          nearbyKinds: openArray[ThingKind]): uint8 =
+                          nearbyKinds: openArray[ThingKind]): uint16 =
   if agent.unitClass != UnitVillager:
-    return 0'u8
+    return 0'u16
   let (didBuild, buildAct) = controller.tryBuildCampThreshold(
     env, agent, agentId, state, teamId, kind,
     nearbyCount, minCount, nearbyKinds)
-  if didBuild: buildAct else: 0'u8
+  if didBuild: buildAct else: 0'u16
 
 gathererGuard(canStartGathererPlantOnFertile, shouldTerminateGathererPlantOnFertile):
   state.gathererTask != TaskHearts and (agent.inventoryWheat > 0 or agent.inventoryWood > 0)
@@ -214,7 +214,7 @@ gathererGuard(canStartGathererCarrying, shouldTerminateGathererCarrying):
   gathererStockpileTotal(agent) > 0
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): uint8 =
+                         agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
   state.basePosition = basePos
   let heartsPriority = state.gathererTask == TaskHearts
@@ -234,14 +234,14 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
   let dir = getMoveTowards(env, agent, agent.pos, basePos,
     controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1))
   if dir < 0:
-    return saveStateAndReturn(controller, agentId, state, 0'u8)  # Noop when blocked
-  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u8, dir.uint8))
+    return saveStateAndReturn(controller, agentId, state, 0'u16)  # Noop when blocked
+  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dir.uint8))
 
 gathererGuard(canStartGathererHearts, shouldTerminateGathererHearts):
   state.gathererTask == TaskHearts
 
 proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState): uint8 =
+                       agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
   state.basePosition = basePos
   let magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
@@ -253,7 +253,7 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
       if not isNil(altar):
         altarPos = altar.pos
     if altarPos.x >= 0:
-      return actOrMove(controller, env, agent, agentId, state, altarPos, 3'u8)
+      return actOrMove(controller, env, agent, agentId, state, altarPos, 3'u16)
   if agent.inventoryGold > 0:
     let (didDeliver, deliverAct) = tryDeliverGoldToMagma(controller, env, agent, agentId, state, magmaGlobal)
     if didDeliver: return deliverAct
@@ -268,7 +268,7 @@ gathererGuard(canStartGathererResource, shouldTerminateGathererResource):
   state.gathererTask in {TaskGold, TaskWood, TaskStone}
 
 proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): uint8 =
+                         agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   var campKind: ThingKind
   var nearbyCount, minCount: int
@@ -291,12 +291,12 @@ proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
     controller, env, agent, agentId, state, teamId,
     campKind, nearbyCount, minCount, [campKind]
   )
-  if buildAct != 0'u8: return buildAct
+  if buildAct != 0'u16: return buildAct
   let (didGather, actGather) = case state.gathererTask
     of TaskGold: controller.ensureGold(env, agent, agentId, state)
     of TaskWood: controller.ensureWood(env, agent, agentId, state)
     of TaskStone: controller.ensureStone(env, agent, agentId, state)
-    else: (false, 0'u8)
+    else: (false, 0'u16)
   if didGather: return actGather
   return controller.moveNextSearch(env, agent, agentId, state)
 
@@ -304,7 +304,7 @@ gathererGuard(canStartGathererFood, shouldTerminateGathererFood):
   state.gathererTask == TaskFood
 
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
-                     agentId: int, state: var AgentState): uint8 =
+                     agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   state.basePosition = basePos
@@ -317,7 +317,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
     8,
     [Granary]
   )
-  if buildGranary != 0'u8: return buildGranary
+  if buildGranary != 0'u16: return buildGranary
   if agent.homeAltar.x < 0 or
      max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) > 10:
     let (didMill, actMill) = controller.tryBuildNearResource(
@@ -340,7 +340,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
         if target.x < 0:
           target = findFertileTarget(env, agent.pos, fertileRadius, state.pathBlockedTarget)
         if target.x >= 0:
-          return actOrMove(controller, env, agent, agentId, state, target, 3'u8)
+          return actOrMove(controller, env, agent, agentId, state, target, 3'u16)
       else:
         let (didWater, actWater) = controller.ensureWater(env, agent, agentId, state)
         if didWater: return actWater
@@ -358,9 +358,9 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
         let verb = if knownThing.kind == Cow:
           let foodCritical = env.stockpileCount(teamId, ResourceFood) < 3
           let cowHealthy = knownThing.hp * 2 >= knownThing.maxHp
-          if cowHealthy and not foodCritical: 3'u8 else: 2'u8
+          if cowHealthy and not foodCritical: 3'u16 else: 2'u16
         else:
-          3'u8
+          3'u16
         discard reserveResource(teamId, agent.agentId, knownThing.pos, env.currentStep)
         return actOrMove(controller, env, agent, agentId, state, knownThing.pos, verb)
 
@@ -376,7 +376,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
       continue
     updateClosestSeen(state, state.basePosition, wheat.pos, state.closestFoodPos)
     discard reserveResource(teamId, agent.agentId, wheat.pos, env.currentStep)
-    return actOrMove(controller, env, agent, agentId, state, wheat.pos, 3'u8)
+    return actOrMove(controller, env, agent, agentId, state, wheat.pos, 3'u16)
 
   let (didHunt, actHunt) = controller.ensureHuntFood(env, agent, agentId, state)
   if didHunt: return actHunt
@@ -386,32 +386,32 @@ gathererGuard(canStartGathererIrrigate, shouldTerminateGathererIrrigate):
   agent.inventoryWater > 0
 
 proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): uint8 =
+                         agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
   let target = findIrrigationTarget(env, basePos, 6)
   if target.x < 0:
-    return 0'u8
-  return actOrMove(controller, env, agent, agentId, state, target, 3'u8)
+    return 0'u16
+  return actOrMove(controller, env, agent, agentId, state, target, 3'u16)
 
 gathererGuard(canStartGathererScavenge, shouldTerminateGathererScavenge):
   gathererStockpileTotal(agent) < ResourceCarryCapacity and env.thingsByKind[Skeleton].len > 0
 
 proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): uint8 =
+                         agentId: int, state: var AgentState): uint16 =
   let skeleton = env.findNearestThingSpiral(state, Skeleton)
   if isNil(skeleton):
-    return 0'u8
-  return actOrMove(controller, env, agent, agentId, state, skeleton.pos, 3'u8)
+    return 0'u16
+  return actOrMove(controller, env, agent, agentId, state, skeleton.pos, 3'u16)
 
 gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
   not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadiusConst))
 
 proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
-                     agentId: int, state: var AgentState): uint8 =
+                     agentId: int, state: var AgentState): uint16 =
   ## Flee away from predators toward friendly structures
   let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadiusConst)
   if isNil(predator):
-    return 0'u8
+    return 0'u16
   fleeAwayFrom(controller, env, agent, agentId, state, predator.pos)
 
 # Follow: Follow another agent, maintaining proximity (non-combat version)
@@ -437,20 +437,20 @@ proc shouldTerminateGathererFollow(controller: Controller, env: Environment, age
   not isAgentAlive(env, target)
 
 proc optGathererFollow(controller: Controller, env: Environment, agent: Thing,
-                       agentId: int, state: var AgentState): uint8 =
+                       agentId: int, state: var AgentState): uint16 =
   ## Follow: stay close to the target agent.
   ## Unlike fighters, gatherers do not attack while following.
   ## If target dies, follow is automatically terminated.
   if not state.followActive or state.followTargetAgentId < 0:
-    return 0'u8
+    return 0'u16
   if state.followTargetAgentId >= env.agents.len:
     state.followActive = false
-    return 0'u8
+    return 0'u16
   let target = env.agents[state.followTargetAgentId]
   if not isAgentAlive(env, target):
     state.followActive = false
     state.followTargetAgentId = -1
-    return 0'u8
+    return 0'u16
 
   # Check distance to target
   let dist = int(chebyshevDist(agent.pos, target.pos))
@@ -459,7 +459,7 @@ proc optGathererFollow(controller: Controller, env: Environment, agent: Thing,
     return controller.moveTo(env, agent, agentId, state, target.pos)
 
   # Within range - stay put
-  0'u8
+  0'u16
 
 let GathererOptions* = [
   TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything

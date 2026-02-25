@@ -147,7 +147,7 @@ proc tribal_village_reset_and_get_obs(
 
 proc tribal_village_step_with_pointers(
   env: pointer,
-  actions_buffer: ptr UncheckedArray[uint8],    # [MapAgents] direct read
+  actions_buffer: ptr UncheckedArray[uint16],   # [MapAgents] direct read
   obs_buffer: ptr UncheckedArray[uint8],        # [MapAgents, ObservationLayers, 11, 11] direct write
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
@@ -156,7 +156,7 @@ proc tribal_village_step_with_pointers(
   ## Ultra-fast step with direct buffer access
   try:
     # Read actions directly from buffer (no conversion)
-    var actions: array[MapAgents, uint8]
+    var actions: array[MapAgents, uint16]
     copyMem(addr actions[0], actions_buffer, sizeof(actions))
 
     # Step environment
