@@ -228,41 +228,57 @@ proc centerIn(rect: IRect, size: Vec2): Vec2 =
     rect.y.float32 + (rect.h.float32 - size.y) / 2.0
   )
 
+proc drawUiImageScaled(key: string, topLeft: Vec2, size: Vec2,
+                       tint: Color = color(1, 1, 1, 1)) =
+  ## Draw a UI image in pixel space using top-left anchoring.
+  ## This matches MettaScope's widget convention and avoids center-anchor drift.
+  if key.len == 0 or key notin bxy or size.x <= 0 or size.y <= 0:
+    return
+  bxy.drawImage(key, rect(topLeft, size), tint = tint)
+
 proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
   pushSemanticContext("Footer")
   let footerTop = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32
 
-  # Draw footer background
-  let bgColor = color(0.15, 0.15, 0.18, 0.9)
+  # Draw footer background (Mettascope-style ribbon)
+  let bgColor = UiBgHeader
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: footerTop,
                           w: panelRect.w.float32, h: FooterHeight.float32),
                color = bgColor)
+  bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: footerTop,
+                           w: panelRect.w.float32, h: 1.0),
+               color = UiBorderBright)
 
   # Draw buttons
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
   for button in buttons:
     # Button background
     let btnBg = if button.isPressed:
-      color(0.3, 0.4, 0.5, 0.8)  # Highlight for active state
+      UiBgButtonActive
     else:
-      color(0.25, 0.25, 0.28, 0.8)
+      UiBgButton
     bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32,
                             w: button.rect.w.float32, h: button.rect.h.float32),
                  color = btnBg)
+    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32,
+                             w: button.rect.w.float32, h: 1.0),
+                 color = UiBorder)
+    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32 + button.rect.h.float32 - 1.0,
+                             w: button.rect.w.float32, h: 1.0),
+                 color = UiBorder)
 
     # Draw icon or label
     if button.iconKey.len > 0 and button.iconKey in bxy:
       let sc = min(1.0'f32, innerHeight / button.iconSize.y.float32)
-      let iconPos = centerIn(button.rect, vec2(
-                      button.iconSize.x.float32 * sc,
-                      button.iconSize.y.float32 * sc)) + vec2(8.0, 9.0) * sc
-      bxy.drawImage(button.iconKey, iconPos, angle = 0, scale = sc)
+      let iconSize = vec2(button.iconSize.x.float32 * sc, button.iconSize.y.float32 * sc)
+      let iconPos = centerIn(button.rect, iconSize) + vec2(8.0, 9.0) * sc
+      drawUiImageScaled(button.iconKey, iconPos, iconSize)
     elif button.labelKey.len > 0 and button.labelKey in bxy:
       # Text labels still use boxy (no fonts in silky atlas yet)
       let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
-      bxy.drawImage(button.labelKey,
-        centerIn(button.rect, vec2(button.labelSize.x.float32, button.labelSize.y.float32)) + shift,
-        angle = 0, scale = 1)
+      let labelSize = vec2(button.labelSize.x.float32, button.labelSize.y.float32)
+      let labelPos = centerIn(button.rect, labelSize) + shift
+      drawUiImageScaled(button.labelKey, labelPos, labelSize)
 
   popSemanticContext()
 
@@ -450,7 +466,8 @@ proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset
     panelRect.x.float32 + xOffset,
     footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + 20.0
   )
-  bxy.drawImage(key, pos, angle = 0, scale = scale)
+  let size = vec2(labelSize.x.float32 * scale, labelSize.y.float32 * scale)
+  drawUiImageScaled(key, pos, size)
 
 proc drawSelectionLabel*(panelRect: IRect) =
   if not isValidPos(selectedPos):
@@ -794,7 +811,8 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
   )
 
   # Draw minimap image
-  bxy.drawImage(minimapImageKey, vec2(minimapX, minimapY), angle = 0, scale = 1.0)
+  drawUiImageScaled(minimapImageKey, vec2(minimapX, minimapY),
+                    vec2(MinimapSizeConst.float32, MinimapSizeConst.float32))
 
   # Draw viewport rectangle
   if currentViewport.valid:
@@ -856,26 +874,30 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
   else:
     $selected.kind
   let (nameKey, nameSize) = getUnitInfoLabel(name, 22.0)
-  bxy.drawImage(nameKey, vec2(panelX + xPadding, panelY + yOffset), angle = 0, scale = 1.0)
+  drawUiImageScaled(nameKey, vec2(panelX + xPadding, panelY + yOffset),
+                    vec2(nameSize.x.float32, nameSize.y.float32))
   yOffset += nameSize.y.float32 + 4.0
 
   # Draw HP if applicable
   if selected.maxHp > 0:
     let hpText = "HP: " & $selected.hp & "/" & $selected.maxHp
     let (hpKey, hpSize) = getUnitInfoLabel(hpText)
-    bxy.drawImage(hpKey, vec2(panelX + xPadding, panelY + yOffset), angle = 0, scale = 1.0)
+    drawUiImageScaled(hpKey, vec2(panelX + xPadding, panelY + yOffset),
+                      vec2(hpSize.x.float32, hpSize.y.float32))
     yOffset += hpSize.y.float32 + 2.0
 
   # Draw team
   let teamText = "Team: " & $selected.teamId
   let (teamKey, teamSize) = getUnitInfoLabel(teamText)
-  bxy.drawImage(teamKey, vec2(panelX + xPadding, panelY + yOffset), angle = 0, scale = 1.0)
+  drawUiImageScaled(teamKey, vec2(panelX + xPadding, panelY + yOffset),
+                    vec2(teamSize.x.float32, teamSize.y.float32))
   yOffset += teamSize.y.float32 + 2.0
 
   # Draw position
   let posText = "Pos: " & $selected.pos.x & ", " & $selected.pos.y
-  let (posKey, _) = getUnitInfoLabel(posText)
-  bxy.drawImage(posKey, vec2(panelX + xPadding, panelY + yOffset), angle = 0, scale = 1.0)
+  let (posKey, posSize) = getUnitInfoLabel(posText)
+  drawUiImageScaled(posKey, vec2(panelX + xPadding, panelY + yOffset),
+                    vec2(posSize.x.float32, posSize.y.float32))
 
 # ─── Resource Bar ────────────────────────────────────────────────────────────
 
@@ -922,14 +944,17 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
     if icon.len > 0 and icon in bxy:
       # Draw icon
       let iconY = barY + (barH - 24.0) / 2.0
-      bxy.drawImage(icon, vec2(barX + xOffset, iconY), angle = 0, scale = 1.0 / 8.0)
+      let iconBaseSize = bxy.getImageSize(icon)
+      let iconSize = vec2(iconBaseSize.x.float32, iconBaseSize.y.float32) * (1.0 / 8.0)
+      drawUiImageScaled(icon, vec2(barX + xOffset, iconY), iconSize)
       xOffset += 28.0
 
       # Draw count
       let count = stockpile.counts[res]
       let (labelKey, labelSize) = ensureResourceBarLabel($count)
       let labelY = barY + (barH - labelSize.y.float32) / 2.0
-      bxy.drawImage(labelKey, vec2(barX + xOffset, labelY), angle = 0, scale = 1.0)
+      drawUiImageScaled(labelKey, vec2(barX + xOffset, labelY),
+                        vec2(labelSize.x.float32, labelSize.y.float32))
       xOffset += labelSize.x.float32 + 20.0
 
 # ─── Trade Routes ────────────────────────────────────────────────────────────

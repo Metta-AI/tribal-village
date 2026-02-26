@@ -41,9 +41,12 @@ type
 const
   # Use UIColors from colors.nim for consistent theming
   CommandPanelBgColor = UiBg
+  CommandPanelHeaderColor = UiBgHeader
   CommandButtonBgColor = UiBgButton
   CommandButtonHoverColor = UiBgButtonHover
   CommandButtonDisabledColor = UiBgButtonDisabled
+  CommandPanelHeaderHeight = 24.0'f32
+  CommandPanelHeaderPadX = 10.0'f32
 
   # Font used for button labels (must exist in silky atlas)
   CommandLabelFont = "Default"
@@ -417,7 +420,7 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
 
   # Create button objects with positions
   let startX = cpRect.x + CommandPanelPadding.float32
-  let startY = cpRect.y + CommandPanelPadding.float32 + 20  # Leave room for header
+  let startY = cpRect.y + CommandPanelHeaderHeight + CommandPanelPadding.float32
 
   # Get reference to selected building (if any) for research state checks
   let selectedBuilding = if selection.len == 1 and isBuildingKind(selection[0].kind):
@@ -465,12 +468,13 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   capturePanel("CommandPanel", vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h))
 
   # Draw panel background with border
-  sk.drawRect( 
+  sk.drawRect(
     vec2(cpRect.x - 2, cpRect.y - 2),
     vec2(cpRect.w + 4, cpRect.h + 4),
     UiBg.toRGBX
   )
   sk.drawRect( vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h), CommandPanelBgColor.toRGBX)
+  sk.drawRect( vec2(cpRect.x, cpRect.y), vec2(cpRect.w, CommandPanelHeaderHeight), CommandPanelHeaderColor.toRGBX)
 
   # Draw header label
   let headerText = if selection.len == 1:
@@ -484,8 +488,8 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
     "Commands (" & $selection.len & ")"
 
   let headerSize = sk.getTextSize( CommandLabelFont, headerText)
-  let headerX = cpRect.x + (cpRect.w - headerSize.x) * 0.5
-  let headerY = cpRect.y + 4
+  let headerX = cpRect.x + CommandPanelHeaderPadX
+  let headerY = cpRect.y + (CommandPanelHeaderHeight - headerSize.y) * 0.5
   discard sk.drawText( CommandLabelFont, headerText, vec2(headerX, headerY), UiFgBright.toRGBX)
   captureLabel(headerText, vec2(headerX, headerY), headerSize)
 
