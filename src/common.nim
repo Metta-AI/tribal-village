@@ -6,6 +6,7 @@ import
 # conflicts (opengl/vmath). Modules that need silky procs should import
 # silky sub-modules directly (e.g., `from silky/drawing import nil`).
 when defined(useSilky):
+  import std/os
   import silky
 else:
   # Stub types and methods when silky is not available
