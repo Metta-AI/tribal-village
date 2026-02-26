@@ -21,7 +21,7 @@ if profileStepsStr.len > 0:
   if globalController.isNil:
     let profileExternal = existsEnv("TRIBAL_PYTHON_CONTROL") or existsEnv("TRIBAL_EXTERNAL_CONTROL")
     initGlobalController(if profileExternal: ExternalNN else: BuiltinAI)
-  var actionsArray: array[MapAgents, uint8]
+  var actionsArray: array[MapAgents, uint16]
   for _ in 0 ..< profileSteps:
     actionsArray = getActions(env)
     env.step(addr actionsArray)
@@ -118,7 +118,7 @@ var isDragging: bool = false
 # Gatherable resource kinds for right-click gather command
 const GatherableResourceKinds* = {Tree, Wheat, Fish, Stone, Gold, Bush, Cactus}
 
-var actionsArray: array[MapAgents, uint8]
+var actionsArray: array[MapAgents, uint16]
 
 proc display() =
   # Begin semantic capture for this frame (no-op if disabled)
@@ -960,7 +960,7 @@ proc display() =
   if selection.len > 0 and selection[0].kind == Agent:
     let agent = selection[0]
 
-    template overrideAndStep(action: uint8) =
+    template overrideAndStep(action: uint16) =
       actionsArray = getActions(env)
       for sel in selection:
         if not isNil(sel) and sel.kind == Agent:
@@ -968,25 +968,25 @@ proc display() =
       env.step(addr actionsArray)
 
     if window.buttonPressed[KeyW] or window.buttonPressed[KeyUp]:
-      overrideAndStep(encodeAction(1'u8, Orientation.N.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.N.uint16))
     elif window.buttonPressed[KeyS] or window.buttonPressed[KeyDown]:
-      overrideAndStep(encodeAction(1'u8, Orientation.S.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.S.uint16))
     elif window.buttonPressed[KeyD] or window.buttonPressed[KeyRight]:
-      overrideAndStep(encodeAction(1'u8, Orientation.E.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.E.uint16))
     elif window.buttonPressed[KeyA] or window.buttonPressed[KeyLeft]:
-      overrideAndStep(encodeAction(1'u8, Orientation.W.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.W.uint16))
     elif window.buttonPressed[KeyQ]:
-      overrideAndStep(encodeAction(1'u8, Orientation.NW.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.NW.uint16))
     elif window.buttonPressed[KeyE]:
-      overrideAndStep(encodeAction(1'u8, Orientation.NE.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.NE.uint16))
     elif window.buttonPressed[KeyZ]:
-      overrideAndStep(encodeAction(1'u8, Orientation.SW.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.SW.uint16))
     elif window.buttonPressed[KeyC]:
-      overrideAndStep(encodeAction(1'u8, Orientation.SE.uint8))
+      overrideAndStep(encodeAction(1'u16, Orientation.SE.uint16))
 
     if window.buttonPressed[KeyU]:
-      let useDir = agent.orientation.uint8
-      overrideAndStep(encodeAction(3'u8, useDir))
+      let useDir = agent.orientation.uint16
+      overrideAndStep(encodeAction(3'u16, useDir))
   else:
     # Camera panning with WASD/arrow keys (when no agent selected)
     const CameraPanSpeed = 12.0'f32  # Pan speed in pixels per frame
