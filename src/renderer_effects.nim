@@ -32,6 +32,13 @@ const
   RainCycleFrames = 48             # Frames for one full rain cycle
   RainAlpha = 0.5'f32              # Rain particle opacity
   RainStreakLength = 3             # Number of particles per streak
+  RainPatchTileSize = 18           # World-space cell size for localized rainy patches
+  RainPatchChancePercent = 48      # Chance a weather cell contains a raining cloud
+  RainPatchMinRadius = 4.0'f32     # Minimum rain patch radius (tiles)
+  RainPatchRadiusJitter = 3.0'f32  # Additional radius variation
+  RainCloudPuffCount = 4           # Cloud puffs per active patch
+  RainCloudAlpha = 0.16'f32        # Cloud puff opacity
+  RainCloudScale = 1.0 / 130.0     # Cloud puff sprite scale
 
   # Wind constants
   WindBlowSpeed = 0.18'f32         # World units per frame (horizontal)
@@ -486,35 +493,111 @@ proc drawWeatherEffects*() =
 
   case settings.weatherType
   of WeatherRain:
-    # Rain particles falling diagonally with slight drift
-    for i in 0 ..< particleCount:
-      # Use deterministic positioning based on particle index and frame
+    type RainPatch = object
+      center: Vec2
+      radius: float32
+      seed: uint32
+
+    proc mix32(v: uint32): uint32 {.inline.} =
+      ## Small deterministic mixer for stable world-space weather cells.
+      var x = v
+      x = x xor (x shr 16)
+      x *= 2246822519'u32
+      x = x xor (x shr 13)
+      x *= 3266489917'u32
+      x = x xor (x shr 16)
+      x
+
+    var rainPatches: seq[RainPatch] = @[]
+    let minCellX = max(0, currentViewport.minX div RainPatchTileSize - 1)
+    let maxCellX = min((MapWidth - 1) div RainPatchTileSize, currentViewport.maxX div RainPatchTileSize + 1)
+    let minCellY = max(0, currentViewport.minY div RainPatchTileSize - 1)
+    let maxCellY = min((MapHeight - 1) div RainPatchTileSize, currentViewport.maxY div RainPatchTileSize + 1)
+    let viewportMinX = currentViewport.minX.float32 - 2.0
+    let viewportMaxX = currentViewport.maxX.float32 + 2.0
+    let viewportMinY = currentViewport.minY.float32 - 2.0
+    let viewportMaxY = currentViewport.maxY.float32 + 2.0
+
+    for cellX in minCellX .. maxCellX:
+      for cellY in minCellY .. maxCellY:
+        let rawSeed = uint32(cellX + 1) * 374761393'u32 +
+                      uint32(cellY + 1) * 668265263'u32 +
+                      uint32(env.gameSeed) * 2246822519'u32
+        let cellSeed = mix32(rawSeed)
+        if int(cellSeed mod 100'u32) >= RainPatchChancePercent:
+          continue
+
+        let cellOffsetX = (mix32(cellSeed xor 0xA511E9B3'u32) mod 1000'u32).float32 / 1000.0
+        let cellOffsetY = (mix32(cellSeed xor 0x63D5A993'u32) mod 1000'u32).float32 / 1000.0
+        let baseCenter = vec2(
+          (cellX.float32 + cellOffsetX) * RainPatchTileSize.float32,
+          (cellY.float32 + cellOffsetY) * RainPatchTileSize.float32
+        )
+
+        let driftPhase = frame.float32 * 0.004 + (cellSeed mod 97'u32).float32 * 0.1
+        let drift = vec2(sin(driftPhase) * 0.7, cos(driftPhase * 0.73) * 0.35)
+        let center = baseCenter + drift
+        let radiusNoise = (mix32(cellSeed xor 0x9E3779B9'u32) mod 1000'u32).float32 / 1000.0
+        let radius = RainPatchMinRadius + radiusNoise * RainPatchRadiusJitter
+
+        # Skip patches fully outside viewport.
+        if center.x + radius < viewportMinX or center.x - radius > viewportMaxX or
+           center.y + radius < viewportMinY or center.y - radius > viewportMaxY:
+          continue
+
+        rainPatches.add(RainPatch(center: center, radius: radius, seed: cellSeed))
+
+    if rainPatches.len == 0:
+      let fallbackCenter = vec2(
+        (currentViewport.minX + viewWidth div 2).float32,
+        (currentViewport.minY + viewHeight div 2).float32)
+      rainPatches.add(RainPatch(center: fallbackCenter, radius: RainPatchMinRadius + 1.5, seed: 1'u32))
+
+    # Draw translucent cloud puffs above active rain patches.
+    for patch in rainPatches:
+      for puffIdx in 0 ..< RainCloudPuffCount:
+        let puffSeed = mix32(patch.seed + uint32((puffIdx + 1) * 101))
+        let angle = (puffSeed mod 628'u32).float32 / 100.0
+        let dist = patch.radius * (0.15 + ((puffSeed shr 11) mod 55'u32).float32 / 100.0)
+        let cloudPos = patch.center + vec2(cos(angle) * dist, -patch.radius * 0.75 + sin(angle) * 0.18)
+        let scaleNoise = ((puffSeed shr 7) mod 40'u32).float32 / 100.0
+        let alphaNoise = ((puffSeed shr 17) mod 30'u32).float32 / 100.0
+        let cloudScale = RainCloudScale * (1.0 + scaleNoise)
+        let cloudAlpha = RainCloudAlpha * (0.75 + alphaNoise)
+        bxy.drawImage("floor", cloudPos, angle = 0, scale = cloudScale,
+                      tint = color(0.82, 0.84, 0.9, cloudAlpha))
+
+    let rainParticleCount = max(particleCount, rainPatches.len * 10)
+
+    # Rain particles fall within active cloud patch ellipses (localized storms).
+    for i in 0 ..< rainParticleCount:
       let seed = i * 17 + 31
+      let patch = rainPatches[seed mod rainPatches.len]
       let cycleOffset = (seed * 7) mod RainCycleFrames
       let cycleFrame = (frame + cycleOffset) mod RainCycleFrames
       let t = cycleFrame.float32 / RainCycleFrames.float32
 
-      # Horizontal position: spread across viewport with some variation
-      let xBase = currentViewport.minX.float32 +
-                  ((seed * 13) mod (viewWidth * 100)).float32 / 100.0
+      let xNoise = ((seed * 13) mod 2000).float32 / 1000.0 - 1.0
+      let yNoise = ((seed * 29) mod 1000).float32 / 1000.0 - 0.5
+      let xBase = patch.center.x + xNoise * patch.radius * 0.9
+      let yBase = patch.center.y - patch.radius * 1.15 + yNoise * patch.radius * 0.35
       let xDrift = t * RainDriftSpeed * RainCycleFrames.float32
-
-      # Vertical position: cycle from top to bottom of viewport
-      let yBase = currentViewport.minY.float32 - 2.0  # Start above viewport
-      let yFall = t * RainFallSpeed * RainCycleFrames.float32
-
+      let yFall = t * (patch.radius * 2.25 + 2.0)
       let particlePos = vec2(xBase + xDrift, yBase + yFall)
 
-      # Skip if outside viewport (with margin)
-      if particlePos.y < currentViewport.minY.float32 - 1.0 or
-         particlePos.y > currentViewport.maxY.float32 + 1.0:
+      # Keep rain localized to the patch footprint.
+      let normX = (particlePos.x - patch.center.x) / max(0.1, patch.radius)
+      let normY = (particlePos.y - patch.center.y) / max(0.1, patch.radius * 1.2)
+      if normX * normX + normY * normY > 1.35:
         continue
 
-      # Rain color: light blue-white with some variation
+      if particlePos.x < viewportMinX or particlePos.x > viewportMaxX or
+         particlePos.y < viewportMinY or particlePos.y > viewportMaxY:
+        continue
+
       let blueVal = 0.7 + ((seed * 3) mod 30).float32 / 100.0
       let rainTint = color(0.8, 0.85, blueVal, RainAlpha)
 
-      # Draw rain streak (multiple particles in a line)
       for s in 0 ..< RainStreakLength:
         let streakOffset = vec2(
           -RainDriftSpeed * s.float32 * 2.0,
