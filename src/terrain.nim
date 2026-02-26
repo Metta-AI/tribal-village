@@ -771,8 +771,9 @@ proc placeWaterPath(
     mapWidth, mapHeight: int,
     inCorner: proc(x, y: int): bool
 ) =
-  let deepRadius = max(1, radius - 1)
-  let deepRadius2 = deepRadius * deepRadius
+  let radius2 = radius * radius
+  # Keep rivers mostly non-walkable deep water, with only a thin shallow fringe.
+  let deepRadius2 = max(1, (radius2 * 4) div 5)
   for pos in path:
     for dx in -radius .. radius:
       for dy in -radius .. radius:
@@ -783,6 +784,8 @@ proc placeWaterPath(
         if inCorner(waterPos.x, waterPos.y):
           continue
         let dist2 = dx * dx + dy * dy
+        if dist2 > radius2:
+          continue
         if dist2 <= deepRadius2:
           terrain[waterPos.x][waterPos.y] = Water
         else:

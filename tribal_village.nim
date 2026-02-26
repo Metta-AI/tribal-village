@@ -322,12 +322,8 @@ proc display() =
     mouseDownPos = logicalMousePos(window)
 
   if worldMapPanel.hasMouse:
-    if (window.buttonDown[MouseLeft] and not isDragging) or window.buttonDown[MouseMiddle]:
-      worldMapPanel.vel = window.mouseDelta.vec2 / window.contentScale
-    else:
-      worldMapPanel.vel *= VelocityDecayRate
-
-    worldMapPanel.pos += worldMapPanel.vel
+    # Drag is selection-only; camera movement is keyboard-only.
+    worldMapPanel.vel = vec2(0, 0)
 
     if window.scrollDelta.y != 0:
       let scaleF = window.contentScale.float32
@@ -411,34 +407,16 @@ proc display() =
   var blockSelection = uiMouseCaptured or minimapCaptured
   var clearUiCapture = false
 
-  # Minimap click-to-pan: check if mouse pressed on minimap
+  # Minimap no longer pans camera; consume clicks so they don't start selection drag.
   if window.buttonPressed[MouseLeft] and isInMinimap(panelRectInt, mousePosPx):
     minimapCaptured = true
     blockSelection = true
-    # Pan camera to clicked world position
-    let worldPos = minimapToWorld(panelRectInt, mousePosPx)
-    let scaleF = window.contentScale.float32
-    let rectW = panelRect.w / scaleF
-    let rectH = panelRect.h / scaleF
-    worldMapPanel.pos = vec2(
-      rectW / 2.0'f32 - worldPos.x * zoomScale,
-      rectH / 2.0'f32 - worldPos.y * zoomScale
-    )
     worldMapPanel.vel = vec2(0, 0)
 
-  # Minimap drag-to-pan: continue panning while dragging on minimap
+  # Consume minimap drags without moving camera.
   if minimapCaptured and window.buttonDown[MouseLeft]:
     blockSelection = true
-    if isInMinimap(panelRectInt, mousePosPx):
-      let worldPos = minimapToWorld(panelRectInt, mousePosPx)
-      let scaleF = window.contentScale.float32
-      let rectW = panelRect.w / scaleF
-      let rectH = panelRect.h / scaleF
-      worldMapPanel.pos = vec2(
-        rectW / 2.0'f32 - worldPos.x * zoomScale,
-        rectH / 2.0'f32 - worldPos.y * zoomScale
-      )
-      worldMapPanel.vel = vec2(0, 0)
+    worldMapPanel.vel = vec2(0, 0)
 
   if minimapCaptured and window.buttonReleased[MouseLeft]:
     minimapCaptured = false
@@ -1004,7 +982,8 @@ proc display() =
     if window.buttonDown[KeyD] or window.buttonDown[KeyRight]:
       panVel.x -= CameraPanSpeed
     if panVel.x != 0 or panVel.y != 0:
-      worldMapPanel.vel = panVel
+      worldMapPanel.pos += panVel
+      worldMapPanel.vel = vec2(0, 0)
 
   when defined(renderTiming):
     # Capture interaction phase timing (world selection, mouse handling)

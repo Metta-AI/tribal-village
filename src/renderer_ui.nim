@@ -905,6 +905,10 @@ var
   resourceBarLabelImages: Table[string, string] = initTable[string, string]()
   resourceBarLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
 
+const
+  ResourceBarIconMaxSize = 20.0'f32
+  ResourceBarIconSlotW = 24.0'f32
+
 proc ensureResourceBarLabel(text: string): (string, IVec2) =
   if text in resourceBarLabelImages:
     return (resourceBarLabelImages[text], resourceBarLabelSizes[text])
@@ -943,11 +947,14 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
     if icon.len > 0 and icon in bxy:
       # Draw icon
-      let iconY = barY + (barH - 24.0) / 2.0
       let iconBaseSize = bxy.getImageSize(icon)
-      let iconSize = vec2(iconBaseSize.x.float32, iconBaseSize.y.float32) * (1.0 / 8.0)
-      drawUiImageScaled(icon, vec2(barX + xOffset, iconY), iconSize)
-      xOffset += 28.0
+      let fitScale = min(ResourceBarIconMaxSize / iconBaseSize.x.float32,
+                         ResourceBarIconMaxSize / iconBaseSize.y.float32)
+      let iconSize = vec2(iconBaseSize.x.float32, iconBaseSize.y.float32) * fitScale
+      let iconX = barX + xOffset + (ResourceBarIconSlotW - iconSize.x) * 0.5
+      let iconY = barY + (barH - iconSize.y) * 0.5
+      drawUiImageScaled(icon, vec2(iconX, iconY), iconSize)
+      xOffset += ResourceBarIconSlotW + 4.0
 
       # Draw count
       let count = stockpile.counts[res]
