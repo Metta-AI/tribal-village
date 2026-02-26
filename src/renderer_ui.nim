@@ -12,6 +12,15 @@ from renderer_effects import drawBuildingSmoke
 
 # ─── Building Construction Rendering ─────────────────────────────────────────
 
+proc resourceUiIconScale(res: StockpileResource): float32 {.inline.} =
+  ## Normalize resource icon visual footprint across mixed sprite sources.
+  case res
+  of ResourceStone: 0.84'f32
+  of ResourceGold: 0.9'f32
+  of ResourceFood: 0.93'f32
+  of ResourceWood: 0.94'f32
+  of ResourceWater, ResourceNone: 1.0'f32
+
 proc renderBuildingConstruction*(pos: IVec2, constructionRatio: float32) =
   ## Render construction scaffolding for a building under construction.
   ##
@@ -77,7 +86,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
     let count = env.teamStockpiles[teamId].counts[res]
     let iconPos = pos.vec2 + vec2(-0.18, -0.62)
     if icon.len > 0 and icon in bxy:
-      bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale,
+      bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale * resourceUiIconScale(res),
                     tint = color(1, 1, 1, if count > 0: 1.0 else: 0.35))
     if count > 0:
       let labelKey = ensureHeartCountLabel(count)
@@ -949,7 +958,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
       # Draw icon
       let iconBaseSize = bxy.getImageSize(icon)
       let fitScale = min(ResourceBarIconMaxSize / iconBaseSize.x.float32,
-                         ResourceBarIconMaxSize / iconBaseSize.y.float32)
+                         ResourceBarIconMaxSize / iconBaseSize.y.float32) * resourceUiIconScale(res)
       let iconSize = vec2(iconBaseSize.x.float32, iconBaseSize.y.float32) * fitScale
       let iconX = barX + xOffset + (ResourceBarIconSlotW - iconSize.x) * 0.5
       let iconY = barY + (barH - iconSize.y) * 0.5

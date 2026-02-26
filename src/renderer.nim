@@ -226,7 +226,14 @@ proc drawObjects*() =
     let remaining = getInv(thing, itemKey)
     let ratio = remaining.float32 / maxAmount.float32
     # Scale from DepletionScaleMax (1.0) to DepletionScaleMin (0.5) based on remaining
-    SpriteScale * (DepletionScaleMin + ratio * (DepletionScaleMax - DepletionScaleMin))
+    let depletionScale = SpriteScale * (DepletionScaleMin + ratio * (DepletionScaleMax - DepletionScaleMin))
+    # Per-resource visual normalization so bulky source art does not dominate tile footprint.
+    let visualScale = case thing.kind
+      of Stone, Stalagmite: 0.82'f32
+      of Gold: 0.88'f32
+      of Stump, Stubble: 0.9'f32
+      else: 1.0'f32
+    depletionScale * visualScale
 
   for kind in [Tree, Wheat, Stubble]:
     let spriteKey = thingSpriteKey(kind)
