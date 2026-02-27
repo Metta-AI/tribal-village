@@ -75,7 +75,7 @@ proc drawRallyPoints*() =
     let lineDir = endVec - startVec
     let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-    if lineLen > 0.1:
+    if lineLen > RallyMinLineLen:
       let stepLen = lineLen / RallyPointLineSegments.float32
       let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
 
@@ -131,13 +131,13 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
 
   # Get team color for the preview (use green for valid placement)
-  let previewColor = color(RallyPreviewColor.r, RallyPreviewColor.g, RallyPreviewColor.b, pulseAlpha * 0.8)
+  let previewColor = color(RallyPreviewColor.r, RallyPreviewColor.g, RallyPreviewColor.b, pulseAlpha * RallyPreviewAlphaMul)
 
   # Draw path line from building to mouse position
   let lineDir = mousePos - buildingPos
   let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-  if lineLen > 0.5:
+  if lineLen > RallyPreviewMinLineLen:
     let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
     let stepLen = lineLen / RallyPointLineSegments.float32
 
@@ -191,11 +191,11 @@ proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRo
   let dx = p2.x - p1.x
   let dy = p2.y - p1.y
   let length = sqrt(dx * dx + dy * dy)
-  if length < 0.001:
+  if length < TradeRouteLineMinLen:
     return
 
   # Draw line as a series of small floor sprites along the path
-  let segments = max(1, int(length / 0.5))
+  let segments = max(1, int(length / TradeRouteSegmentSpacing))
   for i in 0 ..< segments:
     let t0 = i.float32 / segments.float32
     let t1 = (i + 1).float32 / segments.float32
@@ -208,7 +208,7 @@ proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRo
     let segLen = length / segments.float32
     # Use floor sprite scaled down as line segment
     bxy.drawImage("floor", vec2(midX, midY), angle = 0,
-                  scale = max(segLen, width) / 200.0, tint = lineColor)
+                  scale = max(segLen, width) / TradeRouteLineSpriteDiv, tint = lineColor)
 
 proc drawTradeRoutes*() =
   ## Draw trade route visualization showing paths between docks with gold flow indicators.
@@ -277,9 +277,9 @@ proc drawTradeRoutes*() =
     let teamColor = getTeamColor(env, route.teamId)
     # Blend team color with gold for route visualization
     let routeColor = color(
-      (teamColor.r * 0.3 + TradeRouteGoldColor.r * 0.7),
-      (teamColor.g * 0.3 + TradeRouteGoldColor.g * 0.7),
-      (teamColor.b * 0.3 + TradeRouteGoldColor.b * 0.7),
+      (teamColor.r * TradeRouteTeamBlend + TradeRouteGoldColor.r * TradeRouteGoldBlend),
+      (teamColor.g * TradeRouteTeamBlend + TradeRouteGoldColor.g * TradeRouteGoldBlend),
+      (teamColor.b * TradeRouteTeamBlend + TradeRouteGoldColor.b * TradeRouteGoldBlend),
       TradeRouteGoldColor.a
     )
 
@@ -290,7 +290,7 @@ proc drawTradeRoutes*() =
     let dy1 = p2.y - p1.y
     let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
 
-    if len1 > 0.5:
+    if len1 > TradeRouteMinLineLen:
       # Check if either endpoint is in viewport (with margin for long routes)
       let inView1 = isInViewport(ivec2(p1.x.int, p1.y.int)) or isInViewport(ivec2(p2.x.int, p2.y.int))
       if inView1:
@@ -306,12 +306,12 @@ proc drawTradeRoutes*() =
           let dotPos = vec2(dotX, dotY)
           if isInViewport(ivec2(dotPos.x.int, dotPos.y.int)):
             # Pulsing brightness based on position
-            let brightness = 0.7 + 0.3 * sin(t * 3.14159)
+            let brightness = TradeRouteDotBrightnessBase + TradeRouteDotBrightnessRange * sin(t * PI)
             let dotColor = color(
-              min(routeColor.r * brightness + 0.2, 1.0),
-              min(routeColor.g * brightness + 0.1, 1.0),
+              min(routeColor.r * brightness + TradeRouteDotRedBoost, 1.0),
+              min(routeColor.g * brightness + TradeRouteDotGreenBoost, 1.0),
               min(routeColor.b * brightness, 1.0),
-              0.9
+              TradeRouteDotAlpha
             )
             bxy.drawImage("floor", dotPos, angle = 0, scale = TradeRouteDotScale, tint = dotColor)
 
@@ -322,11 +322,11 @@ proc drawTradeRoutes*() =
       let dy2 = p3.y - p2.y
       let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
 
-      if len2 > 0.5:
+      if len2 > TradeRouteMinLineLen:
         let inView2 = isInViewport(ivec2(p2.x.int, p2.y.int)) or isInViewport(ivec2(p3.x.int, p3.y.int))
         if inView2:
           # Draw lighter line to target (trade cog hasn't been there yet)
-          let targetColor = color(routeColor.r, routeColor.g, routeColor.b, routeColor.a * 0.5)
+          let targetColor = color(routeColor.r, routeColor.g, routeColor.b, routeColor.a * TradeRouteTargetAlpha)
           drawLineWorldSpace(p2, p3, targetColor)
 
   # Draw dock markers for docks with active trade routes
@@ -336,7 +336,7 @@ proc drawTradeRoutes*() =
     if isInViewport(homeDock) and homeDock notin drawnDocks:
       drawnDocks.add(homeDock)
       # Draw a gold coin indicator at the dock
-      bxy.drawImage("floor", vec2(homeDock.x.float32, homeDock.y.float32) + vec2(0.0, -0.4), angle = 0,
+      bxy.drawImage("floor", vec2(homeDock.x.float32, homeDock.y.float32) + vec2(0.0, DockMarkerYOffset), angle = 0,
                     scale = DockMarkerScale, tint = TradeRouteGoldColor)
 
     if route.hasTarget:
@@ -344,7 +344,7 @@ proc drawTradeRoutes*() =
       if isInViewport(targetDock) and targetDock notin drawnDocks:
         drawnDocks.add(targetDock)
         # Draw a smaller gold indicator at target dock
-        bxy.drawImage("floor", vec2(targetDock.x.float32, targetDock.y.float32) + vec2(0.0, -0.4), angle = 0,
+        bxy.drawImage("floor", vec2(targetDock.x.float32, targetDock.y.float32) + vec2(0.0, DockMarkerYOffset), angle = 0,
                       scale = OverlayIconScale, tint = color(TradeRouteGoldColor.r,
                                                    TradeRouteGoldColor.g,
-                                                   TradeRouteGoldColor.b, 0.5))
+                                                   TradeRouteGoldColor.b, TradeRouteTargetAlpha))

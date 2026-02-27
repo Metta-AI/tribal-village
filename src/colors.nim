@@ -183,6 +183,11 @@ const
   MinimapBrightMul* = 1.2'f32                         ## Brightness multiplier for minimap team colors
   MinimapBrightAdd* = 0.1'f32                         ## Additive brightness for minimap team colors
 
+  # Minimap building/unit fallback grays (renderer_panels.nim)
+  MinimapNeutralBuildingGray* = 179'u8                  ## Neutral building gray (0.7 * 255)
+  MinimapUnknownUnitGray* = 128'u8                      ## Unknown team unit gray
+  MinimapBiomeIntensityCap* = 1.3'f32                   ## Max biome intensity on minimap
+
   # Projectile colors
   ProjArrowColor*      = color(0.6, 0.4, 0.2, 1.0)   ## Arrow projectile (brown)
   ProjLongbowColor*    = color(0.5, 0.3, 0.2, 1.0)   ## Longbow projectile (darker brown)

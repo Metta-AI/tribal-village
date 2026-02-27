@@ -142,6 +142,36 @@ const
   FooterBorderHeight* = 1.0'f32          # Footer top/bottom border thickness
   FooterHudLabelYShift* = 20.0'f32       # HUD label extra Y shift below footer
 
+  # ─── Segment Bar ─────────────────────────────────────────────────────────
+  SegmentBarStep* = 0.16'f32             # Horizontal spacing between segment dots
+
+  # ─── Trade Route Rendering ───────────────────────────────────────────────
+  TradeRouteTeamBlend* = 0.3'f32         # Team color weight in route blending
+  TradeRouteGoldBlend* = 0.7'f32         # Gold color weight in route blending
+  TradeRouteMinLineLen* = 0.5'f32        # Minimum length to draw a route segment
+  TradeRouteTargetAlpha* = 0.5'f32       # Alpha for target-dock route line
+  TradeRouteDotBrightnessBase* = 0.7'f32 # Base brightness for flow dots
+  TradeRouteDotBrightnessRange* = 0.3'f32 # Brightness variation range for flow dots
+  TradeRouteDotRedBoost* = 0.2'f32       # Red channel additive for flow dots
+  TradeRouteDotGreenBoost* = 0.1'f32     # Green channel additive for flow dots
+  TradeRouteDotAlpha* = 0.9'f32          # Alpha for animated flow dots
+  TradeRouteSegmentSpacing* = 0.5'f32    # World-space distance between line sprites
+  TradeRouteLineSpriteDiv* = 200.0'f32   # Divisor for floor sprite scale in line drawing
+  TradeRouteLineMinLen* = 0.001'f32      # Minimum segment length to render
+  DockMarkerYOffset* = -0.4'f32          # Y offset for dock gold coin markers
+
+  # ─── Rally Point Preview ─────────────────────────────────────────────────
+  RallyPreviewAlphaMul* = 0.8'f32        # Alpha multiplier for preview indicator
+  RallyPreviewMinLineLen* = 0.5'f32      # Minimum line length to draw preview path
+  RallyMinLineLen* = 0.1'f32             # Minimum line length to draw rally path
+
+  # ─── Label Style Opacity ─────────────────────────────────────────────────
+  OverlayLabelBgOpacity* = 0.7           # Background opacity for overlay labels
+  InfoLabelBgOpacity* = 0.6              # Background opacity for info labels
+  ResourceBarLabelPadding* = 4.0         # Padding for resource bar label style
+  UnitInfoLabelPadding* = 4.0            # Padding for unit info panel labels
+  UnitInfoLabelBgOpacity* = 0.5          # Background opacity for unit info labels
+
 # ─── Unit Class Sprite Keys ──────────────────────────────────────────────────
 
 const UnitClassSpriteKeys*: array[AgentUnitClass, string] = [
@@ -349,12 +379,11 @@ proc renderAgentShadow*(agent: Thing, shadowTint: Color, shadowOffset: Vec2) =
 proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
                      filledColor, emptyColor: Color, segments = 5, alpha = 1.0'f32) =
   let filled = int(ceil(ratio * segments.float32))
-  const segStep = 0.16'f32
-  let origin = basePos + vec2(-segStep * (segments.float32 - 1) / 2 + offset.x, offset.y)
+  let origin = basePos + vec2(-SegmentBarStep * (segments.float32 - 1) / 2 + offset.x, offset.y)
   for i in 0 ..< segments:
     let baseColor = if i < filled: filledColor else: emptyColor
     let fadedColor = color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * alpha)
-    bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
+    bxy.drawImage("floor", origin + vec2(SegmentBarStep * i.float32, 0),
                   angle = 0, scale = SegmentBarDotScale,
                   tint = fadedColor)
 
@@ -380,12 +409,12 @@ const
 
 let
   overlayLabelStyle* = labelStyle(HeartCountFontPath, HeartCountFontSize,
-                                  HeartCountPadding.float32, 0.7)
+                                  HeartCountPadding.float32, OverlayLabelBgOpacity)
   infoLabelStyle* = labelStyle(InfoLabelFontPath, InfoLabelFontSize,
-                               InfoLabelPadding.float32, 0.6)
+                               InfoLabelPadding.float32, InfoLabelBgOpacity)
   footerBtnLabelStyle* = labelStyle(FooterFontPath, FooterFontSize,
                                     FooterLabelPadding, 0.0)
-  resourceBarLabelStyle* = labelStyle(FooterFontPath, FooterFontSize, 4.0, 0.0)
+  resourceBarLabelStyle* = labelStyle(FooterFontPath, FooterFontSize, ResourceBarLabelPadding, 0.0)
 
 proc ensureHeartCountLabel*(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.

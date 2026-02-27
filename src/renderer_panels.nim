@@ -16,10 +16,21 @@ const
   MinimapUpdateInterval = MinimapUpdateFrameInterval
   MinimapBorderWidth = MinimapPanelBorderWidth
 
+  # Minimap terrain colors for renderer_panels (ColorRGBX for direct pixel writes)
+  PanelMinimapWater*        = rgbx(30, 60, 130, 255)   ## Deep water
+  PanelMinimapShallowWater* = rgbx(80, 140, 200, 255)  ## Shallow water
+  PanelMinimapBridge*       = rgbx(140, 110, 80, 255)  ## Bridge
+  PanelMinimapRoad*         = rgbx(160, 150, 130, 255) ## Road
+  PanelMinimapSnow*         = rgbx(230, 235, 245, 255) ## Snow
+  PanelMinimapSandDune*     = rgbx(210, 190, 110, 255) ## Sand/Dune
+  PanelMinimapMud*          = rgbx(100, 85, 60, 255)   ## Mud
+  PanelMinimapMountain*     = rgbx(80, 75, 70, 255)    ## Mountain
+  PanelMinimapTree*         = rgbx(40, 100, 40, 255)   ## Tree canopy
+
 # ─── Unit Info Panel ──────────────────────────────────────────────────────────
 
 proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize.float32): (string, IVec2) =
-  let style = labelStyle(InfoLabelFontPath, fontSize, 4.0, 0.5)
+  let style = labelStyle(InfoLabelFontPath, fontSize, UnitInfoLabelPadding, UnitInfoLabelBgOpacity)
   let cached = ensureLabel("unit_info", text, style)
   return (cached.imageKey, cached.size)
 
@@ -152,22 +163,14 @@ var
 proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
   ## Map a terrain+biome to a minimap pixel color.
   case terrain
-  of Water:
-    rgbx(30, 60, 130, 255)        # dark blue
-  of ShallowWater:
-    rgbx(80, 140, 200, 255)       # lighter blue
-  of Bridge:
-    rgbx(140, 110, 80, 255)       # brown
-  of Road:
-    rgbx(160, 150, 130, 255)      # tan
-  of Snow:
-    rgbx(230, 235, 245, 255)      # near-white
-  of Dune, Sand:
-    rgbx(210, 190, 110, 255)      # sandy yellow
-  of Mud:
-    rgbx(100, 85, 60, 255)        # muddy brown
-  of Mountain:
-    rgbx(80, 75, 70, 255)         # dark rocky gray
+  of Water:        PanelMinimapWater
+  of ShallowWater: PanelMinimapShallowWater
+  of Bridge:       PanelMinimapBridge
+  of Road:         PanelMinimapRoad
+  of Snow:         PanelMinimapSnow
+  of Dune, Sand:   PanelMinimapSandDune
+  of Mud:          PanelMinimapMud
+  of Mountain:     PanelMinimapMountain
   else:
     # Use biome tint for base terrain (Empty, Grass, Fertile, ramps, etc.)
     let tc = case biome
@@ -180,7 +183,7 @@ proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
       of BiomeDungeonType: BiomeColorDungeon
       of BiomeSnowType: BiomeColorSnow
       else: BaseTileColorDefault
-    let i = min(tc.intensity, 1.3'f32)
+    let i = min(tc.intensity, MinimapBiomeIntensityCap)
     rgbx(
       uint8(clamp(tc.r * i * 255, 0, 255)),
       uint8(clamp(tc.g * i * 255, 0, 255)),
@@ -208,7 +211,7 @@ proc rebuildMinimapTerrain() =
       # Check for trees at this tile
       let bg = env.backgroundGrid[mx][my]
       let c = if bg.isKind(Tree):
-        rgbx(40, 100, 40, 255)    # dark green for trees
+        PanelMinimapTree
       else:
         toMinimapColor(terrain, biome)
       minimapTerrainImage.unsafe[px, py] = c
@@ -269,7 +272,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
       let bright = if teamId >= 0 and teamId < MapRoomObjectsTeams:
         minimapTeamBrightColors[teamId]
       else:
-        rgbx(179, 179, 179, 255)  # 0.7 * 255 for neutral
+        rgbx(MinimapNeutralBuildingGray, MinimapNeutralBuildingGray, MinimapNeutralBuildingGray, 255)
       let px = int(thing.pos.x.float32 * scaleX)
       let py = int(thing.pos.y.float32 * scaleY)
       # Unrolled 2x2 block drawing
@@ -290,7 +293,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     let dot = if teamId >= 0 and teamId < MapRoomObjectsTeams:
       minimapTeamColors[teamId]
     else:
-      rgbx(128, 128, 128, 255)  # Gray for unknown
+      rgbx(MinimapUnknownUnitGray, MinimapUnknownUnitGray, MinimapUnknownUnitGray, 255)
     let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSizeConst - 1)
     let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSizeConst - 1)
     minimapCompositeImage.unsafe[px, py] = dot
