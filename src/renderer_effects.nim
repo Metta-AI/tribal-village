@@ -28,6 +28,9 @@ const
   SmokeMaxAlpha = 0.6'f32          # Maximum opacity for smoke particles
   SmokeExpansionRate = 0.5'f32     # How much particles expand as they rise
   SmokeGrayVariation = 0.1'f32     # Gray tint variation per particle
+  SmokeDriftFrameRate = 0.05'f32   # Frame-based phase contribution to drift
+  SmokeDriftPhaseRate = 0.1'f32    # Phase offset contribution to drift
+  SmokeDriftParticleSpread = 2.1'f32 # Per-particle phase spread for drift variety
 
   # Weather effect constants
   WeatherParticleDensity = 0.015   # Particles per tile (0.015 = ~1 particle per 67 tiles)
@@ -71,6 +74,12 @@ const
   WindCycleFrames = 64             # Frames for one full wind cycle
   WindAlpha = 0.35'f32             # Wind particle opacity (subtle)
   WindDriftAmplitude = 4.0'f32     # Vertical drift amplitude multiplier
+
+  # Weather viewport margin (tiles beyond edge to render particles)
+  WeatherViewportMargin = 2.0'f32  # Extra margin around viewport for seamless edges
+  WeatherViewportClipMargin = 1.0'f32 # Clip margin for wind particle culling
+  RainFallbackRadiusExtra = 1.5'f32 # Extra radius added to fallback rain patch
+  RainNoiseCenterOffset = 0.5'f32  # Center offset for y-axis noise distribution
 
   # Damage number rendering constants
   DamageNumberFontPath = "data/Inter-Regular.ttf"
@@ -127,6 +136,8 @@ const
   ConversionAlphaBlend = 0.8'f32     # Alpha multiplier for color blending
   ConversionBaseScale = 1.0 / 400.0  # Base scale for conversion ring
   ConversionExpandMult = 1.5'f32     # Expansion multiplier as effect fades
+  ConversionAlphaBase = 0.5'f32      # Base alpha contribution (before pulse modulation)
+  ConversionAlphaPulseRange = 0.5'f32 # Additional alpha from pulse (0 to this value)
 
 # ─── Damage Number Cache ─────────────────────────────────────────────────────
 
@@ -206,7 +217,7 @@ proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
     let rise = t * t * SmokeMaxHeight
 
     # Horizontal drift using sine wave for gentle swaying
-    let driftPhase = (frame.float32 * 0.05 + phase.float32 * 0.1 + i.float32 * 2.1)
+    let driftPhase = (frame.float32 * SmokeDriftFrameRate + phase.float32 * SmokeDriftPhaseRate + i.float32 * SmokeDriftParticleSpread)
     let drift = sin(driftPhase) * SmokeDriftAmount * t
 
     # Position particle above building
@@ -512,7 +523,7 @@ proc drawConversionEffects*() =
     # Pulsing effect: sine wave for divine/spiritual feel (2 pulses over lifetime)
     let pulse = (sin(t * TwoPi * ConversionPulseFreq) + 1.0) * 0.5  # 0 to 1
     # Fade out over time with pulsing intensity
-    let alpha = t * (0.5 + pulse * 0.5)
+    let alpha = t * (ConversionAlphaBase + pulse * ConversionAlphaPulseRange)
     # Blend between golden divine color and team color
     let golden = withAlpha(ConversionGoldenTint, alpha)
     let teamAlpha = effect.teamColor
@@ -562,10 +573,10 @@ proc drawWeatherEffects*() =
     let maxCellX = min((MapWidth - 1) div RainPatchTileSize, currentViewport.maxX div RainPatchTileSize + 1)
     let minCellY = max(0, currentViewport.minY div RainPatchTileSize - 1)
     let maxCellY = min((MapHeight - 1) div RainPatchTileSize, currentViewport.maxY div RainPatchTileSize + 1)
-    let viewportMinX = currentViewport.minX.float32 - 2.0
-    let viewportMaxX = currentViewport.maxX.float32 + 2.0
-    let viewportMinY = currentViewport.minY.float32 - 2.0
-    let viewportMaxY = currentViewport.maxY.float32 + 2.0
+    let viewportMinX = currentViewport.minX.float32 - WeatherViewportMargin
+    let viewportMaxX = currentViewport.maxX.float32 + WeatherViewportMargin
+    let viewportMinY = currentViewport.minY.float32 - WeatherViewportMargin
+    let viewportMaxY = currentViewport.maxY.float32 + WeatherViewportMargin
 
     for cellX in minCellX .. maxCellX:
       for cellY in minCellY .. maxCellY:
@@ -600,7 +611,7 @@ proc drawWeatherEffects*() =
       let fallbackCenter = vec2(
         (currentViewport.minX + viewWidth div 2).float32,
         (currentViewport.minY + viewHeight div 2).float32)
-      rainPatches.add(RainPatch(center: fallbackCenter, radius: RainPatchMinRadius + 1.5, seed: 1'u32))
+      rainPatches.add(RainPatch(center: fallbackCenter, radius: RainPatchMinRadius + RainFallbackRadiusExtra, seed: 1'u32))
 
     # Draw translucent cloud puffs above active rain patches.
     for patch in rainPatches:
@@ -627,7 +638,7 @@ proc drawWeatherEffects*() =
       let t = cycleFrame.float32 / RainCycleFrames.float32
 
       let xNoise = ((seed * 13) mod 2000).float32 / 1000.0 - 1.0
-      let yNoise = ((seed * 29) mod 1000).float32 / 1000.0 - 0.5
+      let yNoise = ((seed * 29) mod 1000).float32 / 1000.0 - RainNoiseCenterOffset
       let xBase = patch.center.x + xNoise * patch.radius * RainXSpreadMult
       let yBase = patch.center.y - patch.radius * RainYStartOffset + yNoise * patch.radius * RainYNoiseMult
       let xDrift = t * RainDriftSpeed * RainCycleFrames.float32
@@ -671,14 +682,14 @@ proc drawWeatherEffects*() =
       let yDrift = sin(t * Pi * 2.0) * WindDriftSpeed * WindDriftAmplitude
 
       # Horizontal position: cycle from left to right of viewport
-      let xBase = currentViewport.minX.float32 - 2.0  # Start left of viewport
+      let xBase = currentViewport.minX.float32 - WeatherViewportMargin  # Start left of viewport
       let xBlow = t * WindBlowSpeed * WindCycleFrames.float32
 
       let particlePos = vec2(xBase + xBlow, yBase + yDrift)
 
       # Skip if outside viewport
-      if particlePos.x < currentViewport.minX.float32 - 1.0 or
-         particlePos.x > currentViewport.maxX.float32 + 1.0:
+      if particlePos.x < currentViewport.minX.float32 - WeatherViewportClipMargin or
+         particlePos.x > currentViewport.maxX.float32 + WeatherViewportClipMargin:
         continue
 
       # Wind color: gray-white with variation

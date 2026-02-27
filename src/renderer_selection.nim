@@ -126,7 +126,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
 
   # Get team color for the preview (use green for valid placement)
-  let previewColor = withAlpha(RallyPreviewColor, pulseAlpha * 0.8)
+  let previewColor = withAlpha(RallyPreviewColor, pulseAlpha * RallyPreviewBaseAlpha)
 
   # Draw path line from building to mouse position
   let lineDir = mousePos - buildingPos

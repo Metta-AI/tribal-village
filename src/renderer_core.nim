@@ -157,6 +157,10 @@ const
   RallyPreviewCoreAlpha* = 0.9'f32     # Preview inner core alpha
   RallyPreviewPulseAmount* = 0.2'f32   # Preview beacon pulse fraction
   RallyPreviewPathAlpha* = 0.5'f32     # Preview dashed path alpha
+  RallyPreviewBaseAlpha* = 0.8'f32    # Base alpha multiplier for preview color
+
+  # ─── Building Ghost Placement ──────────────────────────────────────────────
+  GridSnapOffset* = 0.5'f32              # Offset for rounding world pos to grid cell center
 
   # ─── Building UI Overlays ─────────────────────────────────────────────────
   BuildingIconOffsetX* = -0.18'f32       # Resource icon X offset from center
