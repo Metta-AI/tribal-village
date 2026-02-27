@@ -4,10 +4,10 @@
 ## selection labels, step labels, control mode labels.
 
 import
-  boxy, bumpy, pixie, vmath, tables, std/[math, strutils],
+  boxy, bumpy, pixie, vmath, tables, std/math,
   common, environment, semantic
 
-import renderer_core
+import renderer_core, label_cache
 
 # ─── Footer Button Types and Rendering ───────────────────────────────────────
 
@@ -29,8 +29,6 @@ type FooterButton* = object
   isPressed*: bool
 
 var
-  footerLabelImages: Table[string, string] = initTable[string, string]()
-  footerLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
   footerIconSizes: Table[string, IVec2] = initTable[string, IVec2]()
 
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
@@ -60,14 +58,8 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       let sc = min(1.0'f32, innerHeight / iconSize.y.float32)
       w += iconSize.x.float32 * sc
     elif labelText.len > 0:
-      if labelText notin footerLabelImages:
-        let (image, size) = renderTextLabel(labelText, FooterFontPath,
-                                            FooterFontSize, FooterLabelPadding, 0.0)
-        let key = "footer_btn/" & labelText
-        bxy.addImage(key, image)
-        footerLabelImages[labelText] = key
-        footerLabelSizes[labelText] = size
-      let labelSize = footerLabelSizes[labelText]
+      let cached = ensureLabel("footer_btn", labelText, footerBtnLabelStyle)
+      let labelSize = cached.size
       let sc = min(1.0'f32, innerHeight / labelSize.y.float32)
       w += labelSize.x.float32 * sc
     buttonWidths.add(w)
@@ -90,8 +82,9 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       btn.iconKey = iconKey
       btn.iconSize = footerIconSizes[iconKey]
     if labelText.len > 0:
-      btn.labelKey = footerLabelImages[labelText]
-      btn.labelSize = footerLabelSizes[labelText]
+      let cached = ensureLabel("footer_btn", labelText, footerBtnLabelStyle)
+      btn.labelKey = cached.imageKey
+      btn.labelSize = cached.size
     # Check pressed state
     btn.isPressed = case kind
       of FooterPlayPause: not paused
@@ -121,7 +114,7 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
                           w: panelRect.w.float32, h: FooterHeight.float32),
                color = bgColor)
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: footerTop,
-                           w: panelRect.w.float32, h: 1.0),
+                           w: panelRect.w.float32, h: FooterBorderHeight),
                color = UiBorderBright)
 
   # Draw buttons
@@ -136,21 +129,21 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
                             w: button.rect.w.float32, h: button.rect.h.float32),
                  color = btnBg)
     bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32,
-                             w: button.rect.w.float32, h: 1.0),
+                             w: button.rect.w.float32, h: FooterBorderHeight),
                  color = UiBorder)
-    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32 + button.rect.h.float32 - 1.0,
-                             w: button.rect.w.float32, h: 1.0),
+    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32 + button.rect.h.float32 - FooterBorderHeight,
+                             w: button.rect.w.float32, h: FooterBorderHeight),
                  color = UiBorder)
 
     # Draw icon or label
     if button.iconKey.len > 0 and button.iconKey in bxy:
       let sc = min(1.0'f32, innerHeight / button.iconSize.y.float32)
       let iconSize = vec2(button.iconSize.x.float32 * sc, button.iconSize.y.float32 * sc)
-      let iconPos = centerIn(button.rect, iconSize) + vec2(8.0, 9.0) * sc
+      let iconPos = centerIn(button.rect, iconSize) + vec2(FooterIconCenterShiftX, FooterIconCenterShiftY) * sc
       drawUiImageScaled(button.iconKey, iconPos, iconSize)
     elif button.labelKey.len > 0 and button.labelKey in bxy:
-      # Text labels still use boxy (no fonts in silky atlas yet)
-      let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
+      # Text labels use boxy
+      let shift = if button.kind == FooterFaster: vec2(FooterIconCenterShiftX, FooterIconCenterShiftY) else: vec2(0.0, 0.0)
       let labelSize = vec2(button.labelSize.x.float32, button.labelSize.y.float32)
       let labelPos = centerIn(button.rect, labelSize) + shift
       drawUiImageScaled(button.labelKey, labelPos, labelSize)
@@ -173,7 +166,7 @@ proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset
   let scale = min(1.0'f32, innerHeight / labelSize.y.float32)
   let pos = vec2(
     panelRect.x.float32 + xOffset,
-    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + 20.0
+    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + FooterHudLabelYShift
   )
   let size = vec2(labelSize.x.float32 * scale, labelSize.y.float32 * scale)
   drawUiImageScaled(key, pos, size)
@@ -233,64 +226,44 @@ proc drawSelectionLabel*(panelRect: IRect) =
 
   if label.len == 0:
     return
-  var key: string
-  if label in infoLabelImages:
-    key = infoLabelImages[label]
-  else:
-    let (image, size) = renderTextLabel(label, InfoLabelFontPath,
-                                        InfoLabelFontSize, InfoLabelPadding.float32, 0.6)
-    infoLabelSizes[label] = size
-    key = "info_label/" & label.replace(" ", "_").replace("(", "_").replace(")", "_")
-    bxy.addImage(key, image)
-    infoLabelImages[label] = key
-  let labelSize = infoLabelSizes[label]
-  drawFooterHudLabel(panelRect, key, labelSize, FooterHudPadding)
+  let cached = ensureLabel("info_label", label, infoLabelStyle)
+  drawFooterHudLabel(panelRect, cached.imageKey, cached.size, FooterHudPadding)
 
 proc drawStepLabel*(panelRect: IRect) =
   let currentStep = env.currentStep
-  var key: string
-  if currentStep == stepLabelLastValue and stepLabelKey.len > 0:
-    key = stepLabelKey
-  else:
+  if currentStep != stepLabelLastValue or stepLabelKey.len == 0:
     stepLabelLastValue = currentStep
+    invalidateLabel("hud_step")
     let text = "Step: " & $currentStep
-    let (image, size) = renderTextLabel(text, InfoLabelFontPath,
-                                        InfoLabelFontSize, InfoLabelPadding.float32, 0.6)
-    stepLabelSize = size
-    stepLabelKey = "hud_step"
-    bxy.addImage(stepLabelKey, image)
-    key = stepLabelKey
-  if key.len == 0:
+    let cached = ensureLabelKeyed("hud_step", "hud_step", text, infoLabelStyle)
+    stepLabelKey = cached.imageKey
+    stepLabelSize = cached.size
+  if stepLabelKey.len == 0:
     return
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
   let scale = min(1.0'f32, innerHeight / stepLabelSize.y.float32)
   let labelW = stepLabelSize.x.float32 * scale
   let xOffset = panelRect.w.float32 - labelW - FooterHudPadding
-  drawFooterHudLabel(panelRect, key, stepLabelSize, xOffset)
+  drawFooterHudLabel(panelRect, stepLabelKey, stepLabelSize, xOffset)
 
 proc drawControlModeLabel*(panelRect: IRect) =
   let mode = playerTeam
-  var key: string
-  if mode == controlModeLabelLastValue and controlModeLabelKey.len > 0:
-    key = controlModeLabelKey
-  else:
+  if mode != controlModeLabelLastValue or controlModeLabelKey.len == 0:
     controlModeLabelLastValue = mode
+    invalidateLabel("hud_control_mode")
     let text = case mode
       of -1: "Observer"
       of 0..7: "Team " & $mode
       else: "Unknown"
-    let (image, size) = renderTextLabel(text, InfoLabelFontPath,
-                                        InfoLabelFontSize, InfoLabelPadding.float32, 0.6)
-    controlModeLabelSize = size
-    controlModeLabelKey = "hud_control_mode"
-    bxy.addImage(controlModeLabelKey, image)
-    key = controlModeLabelKey
-  if key.len == 0:
+    let cached = ensureLabelKeyed("hud_control_mode", "hud_control_mode", text, infoLabelStyle)
+    controlModeLabelKey = cached.imageKey
+    controlModeLabelSize = cached.size
+  if controlModeLabelKey.len == 0:
     return
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
   let scale = min(1.0'f32, innerHeight / controlModeLabelSize.y.float32)
   # Position to the left of the step label (center area of footer)
   let labelW = controlModeLabelSize.x.float32 * scale
   let stepLabelW = stepLabelSize.x.float32 * scale
-  let xOffset = panelRect.w.float32 - labelW - stepLabelW - FooterHudPadding * 2.0 - 10.0
-  drawFooterHudLabel(panelRect, key, controlModeLabelSize, xOffset)
+  let xOffset = panelRect.w.float32 - labelW - stepLabelW - FooterHudPadding * 2.0 - ResourceBarXStart
+  drawFooterHudLabel(panelRect, controlModeLabelKey, controlModeLabelSize, xOffset)

@@ -442,12 +442,10 @@ proc teamNavalCount(env: Environment, teamId: int): int =
   ## Delegates to canonical countTeamNavalAgents from ai_utils.
   countTeamNavalAgents(env, teamId)
 
-const BuilderMaxNavalPerTeam = 5  # Must match fighter.nim MaxNavalPerTeam
-
 builderGuard(canStartBuilderNavalTrain, shouldTerminateBuilderNavalTrain):
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), Dock) > 0 and
-    teamNavalCount(env, getTeamId(agent)) < BuilderMaxNavalPerTeam and
+    teamNavalCount(env, getTeamId(agent)) < MaxNavalPerTeam and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(Dock))
 
 proc optBuilderNavalTrain(controller: Controller, env: Environment, agent: Thing,

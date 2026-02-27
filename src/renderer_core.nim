@@ -4,8 +4,8 @@
 ## team color helpers, and other shared rendering infrastructure.
 
 import
-  boxy, pixie, vmath, tables, math,
-  common, environment
+  boxy, pixie, vmath, math,
+  common, environment, label_cache
 
 # ─── Shared Constants ────────────────────────────────────────────────────────
 
@@ -58,6 +58,89 @@ const
 
   # Selection glow
   SelectionGlowScale* = 1.3'f32
+
+  # ─── Unit Info Panel ──────────────────────────────────────────────────────
+  UnitInfoFontSize* = 18.0'f32          # Default font size for unit info labels
+  UnitInfoNameFontSize* = 22.0'f32      # Font size for unit/building name
+  UnitInfoPanelW* = 220.0'f32           # Panel width in pixels
+  UnitInfoPanelH* = 180.0'f32           # Panel height in pixels
+  UnitInfoPanelPadding* = 8.0'f32       # Internal X/Y padding
+  UnitInfoLineSpacingSmall* = 2.0'f32   # Small gap between stat lines
+  UnitInfoLineSpacingLarge* = 4.0'f32   # Larger gap after name line
+  UnitInfoBgAlpha* = 0.85'f32           # Background opacity
+
+  # ─── Resource Bar ─────────────────────────────────────────────────────────
+  ResourceBarIconMaxSize* = 20.0'f32    # Max pixel size for resource icons
+  ResourceBarIconSlotW* = 24.0'f32      # Slot width allocated per icon
+  ResourceBarIconGap* = 4.0'f32         # Gap between icon and count text
+  ResourceBarItemSpacing* = 20.0'f32    # Spacing between resource items
+  ResourceBarXStart* = 10.0'f32         # Initial x offset from left edge
+
+  # ─── Minimap (renderer_panels) ─────────────────────────────────────────────
+  MinimapPanelPadding* = 8.0'f32        # Padding around minimap in panels
+  MinimapUpdateFrameInterval* = 10      # Frames between unit-layer rebuilds
+  MinimapPanelBorderWidth* = 2.0'f32    # Border width around minimap
+  MinimapFogDarkFactor* = 0.3'f32       # Fog-of-war darkness multiplier
+  MinimapFogEdgeFactor* = 0.6'f32       # Fog edge smoothing factor
+  MinimapViewportLineW* = 1.0'f32       # Viewport outline thickness
+  MinimapViewportAlphaPanel* = 0.7'f32  # Viewport outline opacity
+  MinimapBorderAlpha* = 0.9'f32         # Minimap border opacity
+  MinimapBuildingBlockSize* = 2         # Building dot size (NxN pixels)
+
+  # ─── Command Panel Drawing ────────────────────────────────────────────────
+  CommandPanelBorderOffset* = 2.0'f32   # Border outset from panel edge
+  CommandPanelBorderExpand* = 4.0'f32   # Border expansion (2 * offset)
+  CommandButtonBorderW* = 1.0'f32       # Button border line thickness
+  CommandButtonHotkeyInset* = 2.0'f32   # Hotkey/checkmark inset from corner
+
+  # ─── Tooltip Positioning ──────────────────────────────────────────────────
+  TooltipScreenMargin* = 8.0'f32        # Min distance from screen edges
+  TooltipAnchorGap* = 8.0'f32           # Gap between tooltip and anchor rect
+  TooltipBorderOutset* = 2.0'f32        # Border outset around tooltip bg
+  TooltipBorderExpand* = 4.0'f32        # Border expansion (2 * outset)
+  TooltipSectionGap* = 4.0'f32          # Extra spacing between sections
+  TooltipLabelPadding* = 2.0'f32        # Padding inside label textures
+
+  # ─── Selection Pulse Animation ────────────────────────────────────────────
+  SelectionPulseSpeed* = 0.1'f32        # Selection glow pulse frequency
+  SelectionPulseAmplitude* = 0.15'f32   # Selection glow pulse amplitude
+  SelectionPulseBase* = 0.85'f32        # Selection glow pulse base alpha
+  SelectionGlowAlpha* = 0.4'f32         # Outer glow ring alpha
+
+  # ─── Rally Point ──────────────────────────────────────────────────────────
+  RallyGlowScaleMult* = 3.0'f32         # Outer glow scale multiplier
+  RallyGlowAlpha* = 0.3'f32             # Outer glow alpha
+  RallyBeaconPulseAmount* = 0.15'f32    # Beacon scale pulse fraction
+  RallyBeaconSpriteScale* = 0.8'f32     # Beacon sprite scale
+  RallyBeaconFallbackScale* = 1.5'f32   # Fallback floor sprite scale
+  RallyCoreScale* = 0.8'f32             # Inner core scale
+  RallyCoreAlpha* = 0.8'f32             # Inner core alpha
+  RallyPathAlpha* = 0.7'f32             # Dashed path line alpha
+  RallyPreviewGlowScale* = 3.5'f32     # Preview outer glow scale
+  RallyPreviewGlowAlpha* = 0.4'f32     # Preview outer glow alpha
+  RallyPreviewSpriteScale* = 0.9'f32   # Preview beacon sprite scale
+  RallyPreviewFallbackScale* = 1.8'f32 # Preview fallback floor sprite scale
+  RallyPreviewCoreScale* = 0.9'f32     # Preview inner core scale
+  RallyPreviewCoreAlpha* = 0.9'f32     # Preview inner core alpha
+  RallyPreviewPulseAmount* = 0.2'f32   # Preview beacon pulse fraction
+  RallyPreviewPathAlpha* = 0.5'f32     # Preview dashed path alpha
+
+  # ─── Building UI Overlays ─────────────────────────────────────────────────
+  BuildingIconOffsetX* = -0.18'f32       # Resource icon X offset from center
+  BuildingIconOffsetY* = -0.62'f32       # Resource icon Y offset from center
+  BuildingLabelOffsetX* = 0.14'f32       # Label X offset from icon
+  BuildingLabelOffsetY* = -0.08'f32      # Label Y offset from icon
+  BuildingGarrisonOffsetX* = 0.22'f32    # Garrison icon X offset
+  BuildingGarrisonLabelOffsetX* = 0.12'f32 # Garrison label X offset from icon
+  ProductionBarOffsetY* = 0.55'f32       # Production progress bar Y offset
+  ConstructionBarOffsetY* = 0.65'f32     # Construction progress bar Y offset
+  ScaffoldPostOffset* = 0.35'f32         # Scaffolding post offset from center
+
+  # ─── Footer Icon Offsets ──────────────────────────────────────────────────
+  FooterIconCenterShiftX* = 8.0'f32   # Icon X centering offset
+  FooterIconCenterShiftY* = 9.0'f32   # Icon Y centering offset
+  FooterBorderHeight* = 1.0'f32          # Footer top/bottom border thickness
+  FooterHudLabelYShift* = 20.0'f32       # HUD label extra Y shift below footer
 
 # ─── Unit Class Sprite Keys ──────────────────────────────────────────────────
 
@@ -179,7 +262,7 @@ proc selectUnitSpriteKey*(baseKey: string, orientation: Orientation): string =
 # ─── Color Helper Procs ──────────────────────────────────────────────────────
 
 proc getTeamColor*(env: Environment, teamId: int,
-                   fallback: Color = color(0.6, 0.6, 0.6, 1.0)): Color =
+                   fallback: Color = NeutralGrayLight): Color =
   ## Get team color from environment, with fallback for invalid team IDs.
   if teamId >= 0 and teamId < env.teamColors.len:
     env.teamColors[teamId]
@@ -221,7 +304,7 @@ proc getHealthBarAlpha*(currentStep: int, lastAttackedStep: int): float32 =
     return HealthBarMinAlpha
 
 proc toRgbx*(c: Color): ColorRGBX {.inline.} =
-  ## Convert a boxy/pixie Color (float 0-1) to silky ColorRGBX (uint8 0-255).
+  ## Convert a pixie Color (float 0-1) to ColorRGBX (uint8 0-255).
   rgbx(
     uint8(clamp(c.r * 255, 0, 255)),
     uint8(clamp(c.g * 255, 0, 255)),
@@ -291,61 +374,32 @@ const
   FooterLabelPadding* = 4.0'f32
   FooterHudPadding* = 12.0'f32
 
-template setupCtxFont*(ctx: untyped, fontPath: string, fontSize: float32) =
-  ctx.font = fontPath
-  ctx.fontSize = fontSize
-  ctx.textBaseline = TopBaseline
-
-proc renderTextLabel*(text: string, fontPath: string, fontSize: float32,
-                      padding: float32, bgAlpha: float32): (Image, IVec2) =
-  var measureCtx = newContext(1, 1)
-  setupCtxFont(measureCtx, fontPath, fontSize)
-  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
-  let h = max(1, (fontSize + padding * 2).int)
-  var ctx = newContext(w, h)
-  setupCtxFont(ctx, fontPath, fontSize)
-  if bgAlpha > 0:
-    ctx.fillStyle.color = color(0, 0, 0, bgAlpha)
-    ctx.fillRect(0, 0, w.float32, h.float32)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
-  ctx.fillText(text, vec2(padding, padding))
-  result = (ctx.image, ivec2(w, h))
 
 # ─── Label Caches ────────────────────────────────────────────────────────────
 
-var
-  heartCountImages*: Table[int, string] = initTable[int, string]()
-  overlayLabelImages*: Table[string, string] = initTable[string, string]()
-  infoLabelImages*: Table[string, string] = initTable[string, string]()
-  infoLabelSizes*: Table[string, IVec2] = initTable[string, IVec2]()
-  controlGroupBadgeImages*: Table[int, string] = initTable[int, string]()
-  controlGroupBadgeSizes*: Table[int, IVec2] = initTable[int, IVec2]()
+let
+  overlayLabelStyle* = labelStyle(HeartCountFontPath, HeartCountFontSize,
+                                  HeartCountPadding.float32, 0.7)
+  infoLabelStyle* = labelStyle(InfoLabelFontPath, InfoLabelFontSize,
+                               InfoLabelPadding.float32, 0.6)
+  footerBtnLabelStyle* = labelStyle(FooterFontPath, FooterFontSize,
+                                    FooterLabelPadding, 0.0)
+  resourceBarLabelStyle* = labelStyle(FooterFontPath, FooterFontSize, 4.0, 0.0)
 
 proc ensureHeartCountLabel*(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
   if count <= 0: return ""
-  if count in heartCountImages: return heartCountImages[count]
-  let (image, _) = renderTextLabel("x " & $count, HeartCountFontPath,
-                                   HeartCountFontSize, HeartCountPadding.float32, 0.7)
-  let key = "heart_count/" & $count
-  bxy.addImage(key, image)
-  heartCountImages[count] = key
-  result = key
+  let cached = ensureLabel("heart_count", "x " & $count, overlayLabelStyle)
+  result = cached.imageKey
 
 proc ensureControlGroupBadge*(groupNum: int): (string, IVec2) =
   ## Cache a control group badge label (1-9) for display above units.
   if groupNum < 0 or groupNum >= 10: return ("", ivec2(0, 0))
-  if groupNum in controlGroupBadgeImages:
-    return (controlGroupBadgeImages[groupNum], controlGroupBadgeSizes[groupNum])
-  # Display 1-9 for groups 0-8, 0 for group 9
   let displayNum = if groupNum == 9: 0 else: groupNum + 1
-  let (image, size) = renderTextLabel($displayNum, ControlGroupBadgeFontPath,
-                                      ControlGroupBadgeFontSize, ControlGroupBadgePadding, 0.7)
-  let key = "control_group/" & $groupNum
-  bxy.addImage(key, image)
-  controlGroupBadgeImages[groupNum] = key
-  controlGroupBadgeSizes[groupNum] = size
-  result = (key, size)
+  let style = labelStyle(ControlGroupBadgeFontPath, ControlGroupBadgeFontSize,
+                          ControlGroupBadgePadding, 0.7)
+  let cached = ensureLabel("control_group", $displayNum, style)
+  result = (cached.imageKey, cached.size)
 
 # ─── Cliff Draw Order ────────────────────────────────────────────────────────
 
@@ -451,7 +505,7 @@ proc resourceUiIconScale*(res: StockpileResource): float32 {.inline.} =
   of ResourceWater, ResourceNone: 1.0'f32
 
 proc drawUiImageScaled*(key: string, topLeft: Vec2, size: Vec2,
-                        tint: Color = color(1, 1, 1, 1)) =
+                        tint: Color = TintWhite) =
   ## Draw a UI image in pixel space using top-left anchoring.
   ## This matches MettaScope's widget convention and avoids center-anchor drift.
   if key.len == 0 or key notin bxy or size.x <= 0 or size.y <= 0:

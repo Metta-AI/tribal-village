@@ -3,32 +3,25 @@
 ## Contains: resource bar display, unit info panel, minimap rendering.
 
 import
-  boxy, bumpy, pixie, vmath, tables, std/[math, strutils],
+  boxy, bumpy, pixie, vmath, std/math,
   common, environment
 
-import renderer_core
+import renderer_core, label_cache
 
 # ─── Shared Constants ─────────────────────────────────────────────────────────
 
 const
-  MinimapSizeConst = 200       # pixels (square)
-  MinimapPadding = 8.0'f32
-  MinimapUpdateInterval = 10  # rebuild unit layer every N frames
-  MinimapBorderWidth = 2.0'f32
+  MinimapSizeConst = MinimapSize  # alias to common constant
+  MinimapPadding = MinimapPanelPadding
+  MinimapUpdateInterval = MinimapUpdateFrameInterval
+  MinimapBorderWidth = MinimapPanelBorderWidth
 
 # ─── Unit Info Panel ──────────────────────────────────────────────────────────
 
-const UnitInfoFontSize = 18.0'f32
-
-proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize): (string, IVec2) =
-  if text in infoLabelImages:
-    return (infoLabelImages[text], infoLabelSizes[text])
-  let (image, size) = renderTextLabel(text, InfoLabelFontPath, fontSize, 4.0, 0.5)
-  let key = "unit_info/" & text.replace(" ", "_").replace(":", "_")
-  bxy.addImage(key, image)
-  infoLabelImages[text] = key
-  infoLabelSizes[text] = size
-  return (key, size)
+proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize.float32): (string, IVec2) =
+  let style = labelStyle(InfoLabelFontPath, fontSize, 4.0, 0.5)
+  let cached = ensureLabel("unit_info", text, style)
+  return (cached.imageKey, cached.size)
 
 proc drawUnitInfoPanel*(panelRect: IRect) =
   ## Draw unit info panel showing details about selected unit/building.
@@ -40,17 +33,17 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
   if selected.isNil:
     return
 
-  let panelW = 220.0'f32
-  let panelH = 180.0'f32
+  let panelW = UnitInfoPanelW
+  let panelH = UnitInfoPanelH
   let panelX = panelRect.x.float32 + panelRect.w.float32 - panelW - MinimapPadding
   let panelY = panelRect.y.float32 + panelRect.h.float32 - panelH - MinimapPadding - FooterHeight.float32
 
   # Draw panel background
   bxy.drawRect(rect = Rect(x: panelX, y: panelY, w: panelW, h: panelH),
-               color = color(0.1, 0.1, 0.15, 0.85))
+               color = UiBgPanel)
 
-  var yOffset = 8.0'f32
-  let xPadding = 8.0'f32
+  var yOffset = UnitInfoPanelPadding
+  let xPadding = UnitInfoPanelPadding
 
   # Draw name/type
   let name = if selected.kind == Agent:
@@ -59,10 +52,10 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
     BuildingRegistry[selected.kind].displayName
   else:
     $selected.kind
-  let (nameKey, nameSize) = getUnitInfoLabel(name, 22.0)
+  let (nameKey, nameSize) = getUnitInfoLabel(name, UnitInfoNameFontSize)
   drawUiImageScaled(nameKey, vec2(panelX + xPadding, panelY + yOffset),
                     vec2(nameSize.x.float32, nameSize.y.float32))
-  yOffset += nameSize.y.float32 + 4.0
+  yOffset += nameSize.y.float32 + UnitInfoLineSpacingLarge
 
   # Draw HP if applicable
   if selected.maxHp > 0:
@@ -70,14 +63,14 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
     let (hpKey, hpSize) = getUnitInfoLabel(hpText)
     drawUiImageScaled(hpKey, vec2(panelX + xPadding, panelY + yOffset),
                       vec2(hpSize.x.float32, hpSize.y.float32))
-    yOffset += hpSize.y.float32 + 2.0
+    yOffset += hpSize.y.float32 + UnitInfoLineSpacingSmall
 
   # Draw team
   let teamText = "Team: " & $selected.teamId
   let (teamKey, teamSize) = getUnitInfoLabel(teamText)
   drawUiImageScaled(teamKey, vec2(panelX + xPadding, panelY + yOffset),
                     vec2(teamSize.x.float32, teamSize.y.float32))
-  yOffset += teamSize.y.float32 + 2.0
+  yOffset += teamSize.y.float32 + UnitInfoLineSpacingSmall
 
   # Draw position
   let posText = "Pos: " & $selected.pos.x & ", " & $selected.pos.y
@@ -87,23 +80,11 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
 
 # ─── Resource Bar ────────────────────────────────────────────────────────────
 
-var
-  resourceBarLabelImages: Table[string, string] = initTable[string, string]()
-  resourceBarLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
-
-const
-  ResourceBarIconMaxSize = 20.0'f32
-  ResourceBarIconSlotW = 24.0'f32
+  # Resource bar constants are defined in renderer_core.nim
 
 proc ensureResourceBarLabel(text: string): (string, IVec2) =
-  if text in resourceBarLabelImages:
-    return (resourceBarLabelImages[text], resourceBarLabelSizes[text])
-  let (image, size) = renderTextLabel(text, FooterFontPath, FooterFontSize, 4.0, 0.0)
-  let key = "res_bar/" & text
-  bxy.addImage(key, image)
-  resourceBarLabelImages[text] = key
-  resourceBarLabelSizes[text] = size
-  return (key, size)
+  let cached = ensureLabel("res_bar", text, resourceBarLabelStyle)
+  return (cached.imageKey, cached.size)
 
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw resource bar at top of viewport showing team resources.
@@ -116,10 +97,10 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
   # Draw background
   bxy.drawRect(rect = Rect(x: barX, y: barY, w: panelRect.w.float32, h: barH),
-               color = color(0.1, 0.1, 0.15, 0.8))
+               color = UiBgBar)
 
   let stockpile = env.teamStockpiles[teamId]
-  var xOffset = 10.0'f32
+  var xOffset = ResourceBarXStart
 
   # Draw each resource type
   for res in [ResourceFood, ResourceWood, ResourceStone, ResourceGold]:
@@ -140,7 +121,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
       let iconX = barX + xOffset + (ResourceBarIconSlotW - iconSize.x) * 0.5
       let iconY = barY + (barH - iconSize.y) * 0.5
       drawUiImageScaled(icon, vec2(iconX, iconY), iconSize)
-      xOffset += ResourceBarIconSlotW + 4.0
+      xOffset += ResourceBarIconSlotW + ResourceBarIconGap
 
       # Draw count
       let count = stockpile.counts[res]
@@ -148,7 +129,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
       let labelY = barY + (barH - labelSize.y.float32) / 2.0
       drawUiImageScaled(labelKey, vec2(barX + xOffset, labelY),
                         vec2(labelSize.x.float32, labelSize.y.float32))
-      xOffset += labelSize.x.float32 + 20.0
+      xOffset += labelSize.x.float32 + ResourceBarItemSpacing
 
 # ─── Minimap ─────────────────────────────────────────────────────────────────
 
@@ -237,7 +218,7 @@ proc rebuildMinimapTerrain() =
 proc initMinimapTeamColors() =
   ## Pre-compute team colors for minimap to avoid per-frame conversions.
   for i in 0 ..< MapRoomObjectsTeams:
-    let tc = if i < env.teamColors.len: env.teamColors[i] else: color(0.5, 0.5, 0.5, 1.0)
+    let tc = if i < env.teamColors.len: env.teamColors[i] else: NeutralGray
     minimapTeamColors[i] = colorToRgbx(tc)
     minimapTeamBrightColors[i] = colorToRgbx(color(
       min(tc.r * 1.2 + 0.1, 1.0),
@@ -319,7 +300,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     let invScaleX = minimapInvScaleX
     let invScaleY = minimapInvScaleY
     const
-      MinimapFogEdgeSmoothFactor = 0.6  # How much to lighten edge tiles
+      MinimapFogEdgeSmoothFactor = MinimapFogEdgeFactor  # How much to lighten edge tiles
       Neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
     for py in 0 ..< MinimapSizeConst:
       let my = clamp(int(py.float32 * invScaleY), 0, MapHeight - 1)
@@ -337,7 +318,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
                 break
           # Darken fogged areas
           let c = minimapCompositeImage.unsafe[px, py]
-          let factor = if isEdge: MinimapFogEdgeSmoothFactor else: 0.3'f32
+          let factor = if isEdge: MinimapFogEdgeSmoothFactor else: MinimapFogDarkFactor
           minimapCompositeImage.unsafe[px, py] = rgbx(
             uint8(c.r.float32 * factor),
             uint8(c.g.float32 * factor),
@@ -360,7 +341,7 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
     bxy.addImage(minimapImageKey, minimapCompositeImage)
 
   # Draw border
-  let borderColor = color(0.2, 0.2, 0.25, 0.9)
+  let borderColor = UiMinimapBorder
   bxy.drawRect(
     rect = Rect(x: minimapX - MinimapBorderWidth, y: minimapY - MinimapBorderWidth,
                 w: MinimapSizeConst.float32 + MinimapBorderWidth * 2,
@@ -380,9 +361,9 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
     let vpY = minimapY + currentViewport.minY.float32 * scaleY
     let vpW = (currentViewport.maxX - currentViewport.minX + 1).float32 * scaleX
     let vpH = (currentViewport.maxY - currentViewport.minY + 1).float32 * scaleY
-    let vpColor = color(1.0, 1.0, 1.0, 0.7)
+    let vpColor = UiViewportOutline
     # Draw viewport outline as 4 thin rectangles
-    let lineW = 1.0'f32
+    let lineW = MinimapViewportLineW
     bxy.drawRect(rect = Rect(x: vpX, y: vpY, w: vpW, h: lineW), color = vpColor)  # top
     bxy.drawRect(rect = Rect(x: vpX, y: vpY + vpH - lineW, w: vpW, h: lineW), color = vpColor)  # bottom
     bxy.drawRect(rect = Rect(x: vpX, y: vpY, w: lineW, h: vpH), color = vpColor)  # left

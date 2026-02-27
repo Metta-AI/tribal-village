@@ -1306,7 +1306,7 @@ proc initTeams(env: Environment, rng: var Rand): seq[IVec2] =
     let agentId = totalAgentsSpawned
 
     # Store neutral color for agents without a team
-    env.agentColors[agentId] = color(0.5, 0.5, 0.5, 1.0)  # Gray for unaffiliated agents
+    env.agentColors[agentId] = NeutralGray  # Gray for unaffiliated agents
 
     env.add(Thing(
       kind: Agent,
@@ -1605,7 +1605,7 @@ proc initNeutralStructures(env: Environment, rng: var Rand) =
       inc tries
     fallback
 
-  let goblinTint = color(0.35, 0.80, 0.35, 1.0)
+  let goblinTint = GoblinTint
   for hiveIndex in 0 ..< GoblinHiveCount:
     let goblinHivePos = findGoblinHivePos(goblinHivePositions, rng)
     goblinHivePositions.add(goblinHivePos)
