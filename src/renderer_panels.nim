@@ -153,21 +153,21 @@ proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
   ## Map a terrain+biome to a minimap pixel color.
   case terrain
   of Water:
-    rgbx(30, 60, 130, 255)        # dark blue
+    MinimapPanelWater
   of ShallowWater:
-    rgbx(80, 140, 200, 255)       # lighter blue
+    MinimapPanelShallowWater
   of Bridge:
-    rgbx(140, 110, 80, 255)       # brown
+    MinimapPanelBridge
   of Road:
-    rgbx(160, 150, 130, 255)      # tan
+    MinimapPanelRoad
   of Snow:
-    rgbx(230, 235, 245, 255)      # near-white
+    MinimapPanelSnow
   of Dune, Sand:
-    rgbx(210, 190, 110, 255)      # sandy yellow
+    MinimapPanelSand
   of Mud:
-    rgbx(100, 85, 60, 255)        # muddy brown
+    MinimapPanelMud
   of Mountain:
-    rgbx(80, 75, 70, 255)         # dark rocky gray
+    MinimapPanelMountain
   else:
     # Use biome tint for base terrain (Empty, Grass, Fertile, ramps, etc.)
     let tc = case biome
@@ -208,7 +208,7 @@ proc rebuildMinimapTerrain() =
       # Check for trees at this tile
       let bg = env.backgroundGrid[mx][my]
       let c = if bg.isKind(Tree):
-        rgbx(40, 100, 40, 255)    # dark green for trees
+        MinimapPanelTree
       else:
         toMinimapColor(terrain, biome)
       minimapTerrainImage.unsafe[px, py] = c
@@ -290,7 +290,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     let dot = if teamId >= 0 and teamId < MapRoomObjectsTeams:
       minimapTeamColors[teamId]
     else:
-      rgbx(128, 128, 128, 255)  # Gray for unknown
+      MinimapPanelUnknownTeam
     let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSizeConst - 1)
     let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSizeConst - 1)
     minimapCompositeImage.unsafe[px, py] = dot

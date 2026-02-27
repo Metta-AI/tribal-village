@@ -137,7 +137,7 @@ proc drawBuildingGhost*(worldPos: Vec2) =
   if not buildingPlacementMode:
     return
 
-  let gridPos = (worldPos + vec2(0.5, 0.5)).ivec2
+  let gridPos = (worldPos + vec2(BuildingGhostSnapOffset, BuildingGhostSnapOffset)).ivec2
   let spriteKey = buildingSpriteKey(buildingPlacementKind)
   if spriteKey.len == 0 or spriteKey notin bxy:
     return

@@ -70,7 +70,7 @@ proc drawRallyPoints*() =
     let lineDir = endVec - startVec
     let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-    if lineLen > 0.1:
+    if lineLen > RallyMinLineLength:
       let stepLen = lineLen / RallyPointLineSegments.float32
       let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
 
@@ -91,7 +91,7 @@ proc drawRallyPoints*() =
         # Draw segment as a colored rectangle (using floor sprite with team color)
         let segMid = (segStart + segEnd) * 0.5
         let lineColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * RallyPathAlpha)
-        bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * 2,
+        bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * RallyLineScaleMult,
                       tint = lineColor)
 
     # Draw the rally point beacon (animated flag/marker)
@@ -126,13 +126,13 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
 
   # Get team color for the preview (use green for valid placement)
-  let previewColor = color(RallyPreviewColor.r, RallyPreviewColor.g, RallyPreviewColor.b, pulseAlpha * 0.8)
+  let previewColor = color(RallyPreviewColor.r, RallyPreviewColor.g, RallyPreviewColor.b, pulseAlpha * RallyPreviewAlphaFactor)
 
   # Draw path line from building to mouse position
   let lineDir = mousePos - buildingPos
   let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-  if lineLen > 0.5:
+  if lineLen > RallyPreviewMinLineLength:
     let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
     let stepLen = lineLen / RallyPointLineSegments.float32
 
@@ -144,7 +144,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
       let segMid = segStart + normalizedDir * (stepLen * 0.5)
       if isInViewport(ivec2(segMid.x.int, segMid.y.int)):
         let lineColor = color(previewColor.r, previewColor.g, previewColor.b, pulseAlpha * RallyPreviewPathAlpha)
-        bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * 2,
+        bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * RallyLineScaleMult,
                       tint = lineColor)
 
   # Draw the rally point preview beacon at mouse position
@@ -185,11 +185,11 @@ proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRo
   let dx = p2.x - p1.x
   let dy = p2.y - p1.y
   let length = sqrt(dx * dx + dy * dy)
-  if length < 0.001:
+  if length < TradeRouteMinLength:
     return
 
   # Draw line as a series of small floor sprites along the path
-  let segments = max(1, int(length / 0.5))
+  let segments = max(1, int(length / TradeRouteSegmentSpacing))
   for i in 0 ..< segments:
     let t0 = i.float32 / segments.float32
     let t1 = (i + 1).float32 / segments.float32
@@ -284,7 +284,7 @@ proc drawTradeRoutes*() =
     let dy1 = p2.y - p1.y
     let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
 
-    if len1 > 0.5:
+    if len1 > TradeRouteMinLineLength:
       # Check if either endpoint is in viewport (with margin for long routes)
       let inView1 = isInViewport(ivec2(p1.x.int, p1.y.int)) or isInViewport(ivec2(p2.x.int, p2.y.int))
       if inView1:
@@ -300,7 +300,7 @@ proc drawTradeRoutes*() =
           let dotPos = vec2(dotX, dotY)
           if isInViewport(ivec2(dotPos.x.int, dotPos.y.int)):
             # Pulsing brightness based on position
-            let brightness = TradeRouteBrightnessBase + TradeRouteBrightnessVar * sin(t * 3.14159)
+            let brightness = TradeRouteBrightnessBase + TradeRouteBrightnessVar * sin(t * PI)
             let dotColor = color(
               min(routeColor.r * brightness + TradeRouteDotColorBoostR, 1.0),
               min(routeColor.g * brightness + TradeRouteDotColorBoostG, 1.0),
@@ -316,7 +316,7 @@ proc drawTradeRoutes*() =
       let dy2 = p3.y - p2.y
       let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
 
-      if len2 > 0.5:
+      if len2 > TradeRouteMinLineLength:
         let inView2 = isInViewport(ivec2(p2.x.int, p2.y.int)) or isInViewport(ivec2(p3.x.int, p3.y.int))
         if inView2:
           # Draw lighter line to target (trade cog hasn't been there yet)

@@ -166,6 +166,30 @@ const
   TradeRouteTargetAlpha* = 0.5'f32      # Alpha for target dock route line
   TradeRouteDotAlpha* = 0.9'f32         # Alpha for flow dot indicators
 
+  # ─── Rally / Trade Route Thresholds ──────────────────────────────────────
+  RallyMinLineLength* = 0.1'f32         # Minimum line length to draw rally path
+  RallyPreviewMinLineLength* = 0.5'f32  # Minimum line length for rally preview
+  RallyPreviewAlphaFactor* = 0.8'f32    # Alpha multiplier for rally preview color
+  RallyLineScaleMult* = 2.0'f32         # Scale multiplier for rally path floor sprites
+  TradeRouteMinLineLength* = 0.5'f32    # Minimum line length to draw trade route
+  TradeRouteMinLength* = 0.001'f32      # Minimum length for line-drawing helper
+  TradeRouteSegmentSpacing* = 0.5'f32   # Spacing between line draw segments
+
+  # ─── Building Placement ─────────────────────────────────────────────────
+  BuildingGhostSnapOffset* = 0.5'f32    # Grid-snap offset for building ghost preview
+
+  # ─── Minimap Terrain Colors (renderer_panels) ──────────────────────────
+  MinimapPanelWater*        = rgbx(30, 60, 130, 255)    ## Deep water
+  MinimapPanelShallowWater* = rgbx(80, 140, 200, 255)   ## Shallow water
+  MinimapPanelBridge*       = rgbx(140, 110, 80, 255)   ## Bridge
+  MinimapPanelRoad*         = rgbx(160, 150, 130, 255)  ## Road/tan
+  MinimapPanelSnow*         = rgbx(230, 235, 245, 255)  ## Snow/near-white
+  MinimapPanelSand*         = rgbx(210, 190, 110, 255)  ## Sandy yellow
+  MinimapPanelMud*          = rgbx(100, 85, 60, 255)    ## Muddy brown
+  MinimapPanelMountain*     = rgbx(80, 75, 70, 255)     ## Dark rocky gray
+  MinimapPanelTree*         = rgbx(40, 100, 40, 255)    ## Tree canopy green
+  MinimapPanelUnknownTeam*  = rgbx(128, 128, 128, 255)  ## Unknown team gray
+
   # ─── Minimap Team Colors ─────────────────────────────────────────────────
   MinimapBrightColorMult* = 1.2'f32     # Multiplier for bright team colors
   MinimapBrightColorAdd* = 0.1'f32      # Additive boost for bright team colors
