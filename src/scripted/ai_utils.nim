@@ -127,7 +127,7 @@ proc countTeamAgentsByClass*(env: Environment, teamId: int, classes: set[AgentUn
   for id in 0 ..< MapAgents:
     if id < env.agents.len and env.terminated[id] == 0.0:
       let agent = env.agents[id]
-      if agent != nil and getTeamId(agent) == teamId and agent.unitClass in classes:
+      if getTeamId(agent) == teamId and agent.unitClass in classes:
         inc result
 
 proc countTeamNavalAgents*(env: Environment, teamId: int): int =
@@ -135,5 +135,5 @@ proc countTeamNavalAgents*(env: Environment, teamId: int): int =
   for id in 0 ..< MapAgents:
     if id < env.agents.len and env.terminated[id] == 0.0:
       let agent = env.agents[id]
-      if agent != nil and getTeamId(agent) == teamId and agent.isWaterUnit:
+      if getTeamId(agent) == teamId and agent.isWaterUnit:
         inc result
