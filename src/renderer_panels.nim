@@ -3,10 +3,10 @@
 ## Contains: resource bar display, unit info panel, minimap rendering.
 
 import
-  boxy, bumpy, pixie, vmath, tables, std/[math, strutils],
+  boxy, bumpy, pixie, vmath, std/math,
   common, environment
 
-import renderer_core
+import renderer_core, label_cache
 
 # ─── Shared Constants ─────────────────────────────────────────────────────────
 
@@ -19,14 +19,9 @@ const
 # ─── Unit Info Panel ──────────────────────────────────────────────────────────
 
 proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize.float32): (string, IVec2) =
-  if text in infoLabelImages:
-    return (infoLabelImages[text], infoLabelSizes[text])
-  let (image, size) = renderTextLabel(text, InfoLabelFontPath, fontSize, 4.0, 0.5)
-  let key = "unit_info/" & text.replace(" ", "_").replace(":", "_")
-  bxy.addImage(key, image)
-  infoLabelImages[text] = key
-  infoLabelSizes[text] = size
-  return (key, size)
+  let style = labelStyle(InfoLabelFontPath, fontSize, 4.0, 0.5)
+  let cached = ensureLabel("unit_info", text, style)
+  return (cached.imageKey, cached.size)
 
 proc drawUnitInfoPanel*(panelRect: IRect) =
   ## Draw unit info panel showing details about selected unit/building.
@@ -85,21 +80,11 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
 
 # ─── Resource Bar ────────────────────────────────────────────────────────────
 
-var
-  resourceBarLabelImages: Table[string, string] = initTable[string, string]()
-  resourceBarLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
-
   # Resource bar constants are defined in renderer_core.nim
 
 proc ensureResourceBarLabel(text: string): (string, IVec2) =
-  if text in resourceBarLabelImages:
-    return (resourceBarLabelImages[text], resourceBarLabelSizes[text])
-  let (image, size) = renderTextLabel(text, FooterFontPath, FooterFontSize, 4.0, 0.0)
-  let key = "res_bar/" & text
-  bxy.addImage(key, image)
-  resourceBarLabelImages[text] = key
-  resourceBarLabelSizes[text] = size
-  return (key, size)
+  let cached = ensureLabel("res_bar", text, resourceBarLabelStyle)
+  return (cached.imageKey, cached.size)
 
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw resource bar at top of viewport showing team resources.

@@ -4,8 +4,8 @@
 ## team color helpers, and other shared rendering infrastructure.
 
 import
-  boxy, pixie, vmath, tables, math,
-  common, environment
+  boxy, pixie, vmath, math,
+  common, environment, label_cache
 
 # ─── Shared Constants ────────────────────────────────────────────────────────
 
@@ -374,61 +374,32 @@ const
   FooterLabelPadding* = 4.0'f32
   FooterHudPadding* = 12.0'f32
 
-template setupCtxFont*(ctx: untyped, fontPath: string, fontSize: float32) =
-  ctx.font = fontPath
-  ctx.fontSize = fontSize
-  ctx.textBaseline = TopBaseline
-
-proc renderTextLabel*(text: string, fontPath: string, fontSize: float32,
-                      padding: float32, bgAlpha: float32): (Image, IVec2) =
-  var measureCtx = newContext(1, 1)
-  setupCtxFont(measureCtx, fontPath, fontSize)
-  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
-  let h = max(1, (fontSize + padding * 2).int)
-  var ctx = newContext(w, h)
-  setupCtxFont(ctx, fontPath, fontSize)
-  if bgAlpha > 0:
-    ctx.fillStyle.color = color(0, 0, 0, bgAlpha)  # text background
-    ctx.fillRect(0, 0, w.float32, h.float32)
-  ctx.fillStyle.color = TintWhite
-  ctx.fillText(text, vec2(padding, padding))
-  result = (ctx.image, ivec2(w, h))
 
 # ─── Label Caches ────────────────────────────────────────────────────────────
 
-var
-  heartCountImages*: Table[int, string] = initTable[int, string]()
-  overlayLabelImages*: Table[string, string] = initTable[string, string]()
-  infoLabelImages*: Table[string, string] = initTable[string, string]()
-  infoLabelSizes*: Table[string, IVec2] = initTable[string, IVec2]()
-  controlGroupBadgeImages*: Table[int, string] = initTable[int, string]()
-  controlGroupBadgeSizes*: Table[int, IVec2] = initTable[int, IVec2]()
+let
+  overlayLabelStyle* = labelStyle(HeartCountFontPath, HeartCountFontSize,
+                                  HeartCountPadding.float32, 0.7)
+  infoLabelStyle* = labelStyle(InfoLabelFontPath, InfoLabelFontSize,
+                               InfoLabelPadding.float32, 0.6)
+  footerBtnLabelStyle* = labelStyle(FooterFontPath, FooterFontSize,
+                                    FooterLabelPadding, 0.0)
+  resourceBarLabelStyle* = labelStyle(FooterFontPath, FooterFontSize, 4.0, 0.0)
 
 proc ensureHeartCountLabel*(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
   if count <= 0: return ""
-  if count in heartCountImages: return heartCountImages[count]
-  let (image, _) = renderTextLabel("x " & $count, HeartCountFontPath,
-                                   HeartCountFontSize, HeartCountPadding.float32, 0.7)
-  let key = "heart_count/" & $count
-  bxy.addImage(key, image)
-  heartCountImages[count] = key
-  result = key
+  let cached = ensureLabel("heart_count", "x " & $count, overlayLabelStyle)
+  result = cached.imageKey
 
 proc ensureControlGroupBadge*(groupNum: int): (string, IVec2) =
   ## Cache a control group badge label (1-9) for display above units.
   if groupNum < 0 or groupNum >= 10: return ("", ivec2(0, 0))
-  if groupNum in controlGroupBadgeImages:
-    return (controlGroupBadgeImages[groupNum], controlGroupBadgeSizes[groupNum])
-  # Display 1-9 for groups 0-8, 0 for group 9
   let displayNum = if groupNum == 9: 0 else: groupNum + 1
-  let (image, size) = renderTextLabel($displayNum, ControlGroupBadgeFontPath,
-                                      ControlGroupBadgeFontSize, ControlGroupBadgePadding, 0.7)
-  let key = "control_group/" & $groupNum
-  bxy.addImage(key, image)
-  controlGroupBadgeImages[groupNum] = key
-  controlGroupBadgeSizes[groupNum] = size
-  result = (key, size)
+  let style = labelStyle(ControlGroupBadgeFontPath, ControlGroupBadgeFontSize,
+                          ControlGroupBadgePadding, 0.7)
+  let cached = ensureLabel("control_group", $displayNum, style)
+  result = (cached.imageKey, cached.size)
 
 # ─── Cliff Draw Order ────────────────────────────────────────────────────────
 
