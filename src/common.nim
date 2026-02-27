@@ -93,6 +93,12 @@ const
   CommandButtonCols* = 4       ## Buttons per row
   CommandPanelPadding* = 10    ## Internal padding
 
+  # Speed multiplier thresholds (used in footer button state checks)
+  SpeedSlow* = 0.5'f32          ## Slow-motion speed
+  SpeedFast* = 2.0'f32          ## Fast forward speed
+  SpeedFaster* = 4.0'f32        ## Faster forward speed
+  SpeedSuperMin* = 10.0'f32     ## Minimum threshold for "super" speed
+
 var
   mouseCaptured*: bool = false
   mouseCapturedPanel*: Panel = nil

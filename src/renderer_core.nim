@@ -109,6 +109,7 @@ const
   TooltipBorderExpand* = 4.0'f32        # Border expansion (2 * outset)
   TooltipSectionGap* = 4.0'f32          # Extra spacing between sections
   TooltipLabelPadding* = 2.0'f32        # Padding inside label textures
+  TooltipMaxQueueItems* = 3             # Max production queue entries shown in tooltip
 
   # ─── Selection Pulse Animation ────────────────────────────────────────────
   SelectionPulseSpeed* = 0.1'f32        # Selection glow pulse frequency
