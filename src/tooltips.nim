@@ -457,7 +457,7 @@ proc buildBuildingTooltip*(thing: Thing): TooltipContent =
   if thing.productionQueue.entries.len > 0:
     result.statsLines.add("Production Queue:")
     for i, entry in thing.productionQueue.entries:
-      if i >= 3: break
+      if i >= TooltipQueueMaxDisplay: break
       let unitName = UnitClassLabels[entry.unitClass]
       if i == 0 and entry.totalSteps > 0:
         let progress = ((entry.totalSteps - entry.remainingSteps) * 100) div entry.totalSteps

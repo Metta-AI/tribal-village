@@ -92,6 +92,12 @@ const
   CommandPanelBorderExpand* = 4.0'f32   # Border expansion (2 * offset)
   CommandButtonBorderW* = 1.0'f32       # Button border line thickness
   CommandButtonHotkeyInset* = 2.0'f32   # Hotkey/checkmark inset from corner
+  CommandPanelHeaderHeight* = 24.0'f32 # Header bar height in pixels
+  CommandPanelHeaderPadX* = 10.0'f32   # Header label horizontal padding
+  CommandLabelFontPath* = "data/Inter-Regular.ttf"
+  CommandLabelFontSize* = 18.0'f32     # Button label font size
+  CommandHotkeyFontSize* = 14.0'f32    # Hotkey hint font size
+  CommandLabelPadding* = 2.0'f32       # Label texture internal padding
 
   # ─── Tooltip Layout ───────────────────────────────────────────────────────
   TooltipFontPath* = "data/Inter-Regular.ttf"
@@ -109,6 +115,7 @@ const
   TooltipBorderExpand* = 4.0'f32        # Border expansion (2 * outset)
   TooltipSectionGap* = 4.0'f32          # Extra spacing between sections
   TooltipLabelPadding* = 2.0'f32        # Padding inside label textures
+  TooltipQueueMaxDisplay* = 3           # Max production queue entries shown in tooltip
 
   # ─── Selection Pulse Animation ────────────────────────────────────────────
   SelectionPulseSpeed* = 0.1'f32        # Selection glow pulse frequency
