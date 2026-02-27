@@ -23,18 +23,18 @@ proc renderBuildingConstruction*(pos: IVec2, constructionRatio: float32) =
   ##   constructionRatio: Progress from 0.0 (just started) to 1.0 (complete)
   let scaffoldTint = ScaffoldTint
   let scaffoldScale = ScaffoldingPostScale
-  let offsets = [vec2(-0.35, -0.35), vec2(0.35, -0.35),
-                 vec2(-0.35, 0.35), vec2(0.35, 0.35)]
+  let offsets = [vec2(-ScaffoldPostOffset, -ScaffoldPostOffset), vec2(ScaffoldPostOffset, -ScaffoldPostOffset),
+                 vec2(-ScaffoldPostOffset, ScaffoldPostOffset), vec2(ScaffoldPostOffset, ScaffoldPostOffset)]
   for offset in offsets:
     bxy.drawImage("floor", pos.vec2 + offset, angle = 0,
                   scale = scaffoldScale, tint = scaffoldTint)
   # Draw horizontal scaffold bars connecting posts
   let barTint = ScaffoldBarTint
-  for yOff in [-0.35'f32, 0.35'f32]:
+  for yOff in [-ScaffoldPostOffset, ScaffoldPostOffset]:
     bxy.drawImage("floor", pos.vec2 + vec2(0, yOff), angle = 0,
                   scale = scaffoldScale, tint = barTint)
   # Draw construction progress bar below the building
-  drawSegmentBar(pos.vec2, vec2(0, 0.65), constructionRatio,
+  drawSegmentBar(pos.vec2, vec2(0, ConstructionBarOffsetY), constructionRatio,
                  ConstructionBarFill, BarBgColor)
 
 proc renderBuildingUI*(thing: Thing, pos: IVec2,
@@ -58,7 +58,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
     let entry = thing.productionQueue.entries[0]
     if entry.totalSteps > 0 and entry.remainingSteps > 0:
       let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
-      drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
+      drawSegmentBar(pos.vec2, vec2(0, ProductionBarOffsetY), ratio,
                      ProductionBarFill, BarBgColor)
       # Draw smoke/chimney effect for active production buildings
       drawBuildingSmoke(pos.vec2, thing.id)
@@ -75,19 +75,19 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
       of ResourceWater: itemSpriteKey(ItemWater)
       of ResourceNone: ""
     let count = env.teamStockpiles[teamId].counts[res]
-    let iconPos = pos.vec2 + vec2(-0.18, -0.62)
+    let iconPos = pos.vec2 + vec2(BuildingIconOffsetX, BuildingIconOffsetY)
     if icon.len > 0 and icon in bxy:
       bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale * resourceUiIconScale(res),
                     tint = color(1, 1, 1, (if count > 0: 1.0 else: 0.35)))
     if count > 0:
       let labelKey = ensureHeartCountLabel(count)
       if labelKey.len > 0 and labelKey in bxy:
-        bxy.drawImage(labelKey, iconPos + vec2(0.14, -0.08), angle = 0,
+        bxy.drawImage(labelKey, iconPos + vec2(BuildingLabelOffsetX, BuildingLabelOffsetY), angle = 0,
                       scale = OverlayLabelScale, tint = TintWhite)
   if thing.kind == TownCenter:
     let teamId = thing.teamId
     if teamId >= 0 and teamId < MapRoomObjectsTeams:
-      let iconPos = pos.vec2 + vec2(-0.18, -0.62)
+      let iconPos = pos.vec2 + vec2(BuildingIconOffsetX, BuildingIconOffsetY)
       if "oriented/gatherer.s" in bxy:
         bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0,
                       scale = OverlayIconScale, tint = TintWhite)
@@ -102,14 +102,14 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
           overlayLabelImages[popText] = key
           key
       if popLabel.len > 0 and popLabel in bxy:
-        bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
+        bxy.drawImage(popLabel, iconPos + vec2(BuildingLabelOffsetX, BuildingLabelOffsetY), angle = 0,
                       scale = OverlayLabelScale, tint = TintWhite)
   # Garrison indicator for buildings that can garrison units
   if thing.kind in {TownCenter, Castle, GuardTower, House}:
     let garrisonCount = thing.garrisonedUnits.len
     if garrisonCount > 0:
       # Position on right side of building to avoid overlap with stockpile icons
-      let garrisonIconPos = pos.vec2 + vec2(0.22, -0.62)
+      let garrisonIconPos = pos.vec2 + vec2(BuildingGarrisonOffsetX, BuildingIconOffsetY)
       if "oriented/fighter.s" in bxy:
         bxy.drawImage("oriented/fighter.s", garrisonIconPos, angle = 0,
                       scale = OverlayIconScale, tint = TintWhite)
@@ -123,7 +123,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
           overlayLabelImages[garrisonText] = key
           key
       if garrisonLabel.len > 0 and garrisonLabel in bxy:
-        bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(0.12, -0.08), angle = 0,
+        bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(BuildingGarrisonLabelOffsetX, BuildingLabelOffsetY), angle = 0,
                       scale = OverlayLabelScale, tint = TintWhite)
 
 # ─── Building Ghost Preview ──────────────────────────────────────────────────

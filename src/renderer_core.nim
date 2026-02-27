@@ -59,6 +59,89 @@ const
   # Selection glow
   SelectionGlowScale* = 1.3'f32
 
+  # ─── Unit Info Panel ──────────────────────────────────────────────────────
+  UnitInfoFontSize* = 18.0'f32          # Default font size for unit info labels
+  UnitInfoNameFontSize* = 22.0'f32      # Font size for unit/building name
+  UnitInfoPanelW* = 220.0'f32           # Panel width in pixels
+  UnitInfoPanelH* = 180.0'f32           # Panel height in pixels
+  UnitInfoPanelPadding* = 8.0'f32       # Internal X/Y padding
+  UnitInfoLineSpacingSmall* = 2.0'f32   # Small gap between stat lines
+  UnitInfoLineSpacingLarge* = 4.0'f32   # Larger gap after name line
+  UnitInfoBgAlpha* = 0.85'f32           # Background opacity
+
+  # ─── Resource Bar ─────────────────────────────────────────────────────────
+  ResourceBarIconMaxSize* = 20.0'f32    # Max pixel size for resource icons
+  ResourceBarIconSlotW* = 24.0'f32      # Slot width allocated per icon
+  ResourceBarIconGap* = 4.0'f32         # Gap between icon and count text
+  ResourceBarItemSpacing* = 20.0'f32    # Spacing between resource items
+  ResourceBarXStart* = 10.0'f32         # Initial x offset from left edge
+
+  # ─── Minimap (renderer_panels) ─────────────────────────────────────────────
+  MinimapPanelPadding* = 8.0'f32        # Padding around minimap in panels
+  MinimapUpdateFrameInterval* = 10      # Frames between unit-layer rebuilds
+  MinimapPanelBorderWidth* = 2.0'f32    # Border width around minimap
+  MinimapFogDarkFactor* = 0.3'f32       # Fog-of-war darkness multiplier
+  MinimapFogEdgeFactor* = 0.6'f32       # Fog edge smoothing factor
+  MinimapViewportLineW* = 1.0'f32       # Viewport outline thickness
+  MinimapViewportAlphaPanel* = 0.7'f32  # Viewport outline opacity
+  MinimapBorderAlpha* = 0.9'f32         # Minimap border opacity
+  MinimapBuildingBlockSize* = 2         # Building dot size (NxN pixels)
+
+  # ─── Command Panel Drawing ────────────────────────────────────────────────
+  CommandPanelBorderOffset* = 2.0'f32   # Border outset from panel edge
+  CommandPanelBorderExpand* = 4.0'f32   # Border expansion (2 * offset)
+  CommandButtonBorderW* = 1.0'f32       # Button border line thickness
+  CommandButtonHotkeyInset* = 2.0'f32   # Hotkey/checkmark inset from corner
+
+  # ─── Tooltip Positioning ──────────────────────────────────────────────────
+  TooltipScreenMargin* = 8.0'f32        # Min distance from screen edges
+  TooltipAnchorGap* = 8.0'f32           # Gap between tooltip and anchor rect
+  TooltipBorderOutset* = 2.0'f32        # Border outset around tooltip bg
+  TooltipBorderExpand* = 4.0'f32        # Border expansion (2 * outset)
+  TooltipSectionGap* = 4.0'f32          # Extra spacing between sections
+  TooltipLabelPadding* = 2.0'f32        # Padding inside label textures
+
+  # ─── Selection Pulse Animation ────────────────────────────────────────────
+  SelectionPulseSpeed* = 0.1'f32        # Selection glow pulse frequency
+  SelectionPulseAmplitude* = 0.15'f32   # Selection glow pulse amplitude
+  SelectionPulseBase* = 0.85'f32        # Selection glow pulse base alpha
+  SelectionGlowAlpha* = 0.4'f32         # Outer glow ring alpha
+
+  # ─── Rally Point ──────────────────────────────────────────────────────────
+  RallyGlowScaleMult* = 3.0'f32         # Outer glow scale multiplier
+  RallyGlowAlpha* = 0.3'f32             # Outer glow alpha
+  RallyBeaconPulseAmount* = 0.15'f32    # Beacon scale pulse fraction
+  RallyBeaconSpriteScale* = 0.8'f32     # Beacon sprite scale
+  RallyBeaconFallbackScale* = 1.5'f32   # Fallback floor sprite scale
+  RallyCoreScale* = 0.8'f32             # Inner core scale
+  RallyCoreAlpha* = 0.8'f32             # Inner core alpha
+  RallyPathAlpha* = 0.7'f32             # Dashed path line alpha
+  RallyPreviewGlowScale* = 3.5'f32     # Preview outer glow scale
+  RallyPreviewGlowAlpha* = 0.4'f32     # Preview outer glow alpha
+  RallyPreviewSpriteScale* = 0.9'f32   # Preview beacon sprite scale
+  RallyPreviewFallbackScale* = 1.8'f32 # Preview fallback floor sprite scale
+  RallyPreviewCoreScale* = 0.9'f32     # Preview inner core scale
+  RallyPreviewCoreAlpha* = 0.9'f32     # Preview inner core alpha
+  RallyPreviewPulseAmount* = 0.2'f32   # Preview beacon pulse fraction
+  RallyPreviewPathAlpha* = 0.5'f32     # Preview dashed path alpha
+
+  # ─── Building UI Overlays ─────────────────────────────────────────────────
+  BuildingIconOffsetX* = -0.18'f32       # Resource icon X offset from center
+  BuildingIconOffsetY* = -0.62'f32       # Resource icon Y offset from center
+  BuildingLabelOffsetX* = 0.14'f32       # Label X offset from icon
+  BuildingLabelOffsetY* = -0.08'f32      # Label Y offset from icon
+  BuildingGarrisonOffsetX* = 0.22'f32    # Garrison icon X offset
+  BuildingGarrisonLabelOffsetX* = 0.12'f32 # Garrison label X offset from icon
+  ProductionBarOffsetY* = 0.55'f32       # Production progress bar Y offset
+  ConstructionBarOffsetY* = 0.65'f32     # Construction progress bar Y offset
+  ScaffoldPostOffset* = 0.35'f32         # Scaffolding post offset from center
+
+  # ─── Footer Icon Offsets ──────────────────────────────────────────────────
+  FooterIconCenterShiftX* = 8.0'f32   # Icon X centering offset
+  FooterIconCenterShiftY* = 9.0'f32   # Icon Y centering offset
+  FooterBorderHeight* = 1.0'f32          # Footer top/bottom border thickness
+  FooterHudLabelYShift* = 20.0'f32       # HUD label extra Y shift below footer
+
 # ─── Unit Class Sprite Keys ──────────────────────────────────────────────────
 
 const UnitClassSpriteKeys*: array[AgentUnitClass, string] = [

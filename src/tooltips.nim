@@ -11,7 +11,7 @@
 import
   boxy, pixie, vmath, windy, tables,
   std/[strutils, strformat],
-  common, types, registry, items, constants, environment
+  common, types, registry, items, constants, environment, renderer_core
 
 # ---------------------------------------------------------------------------
 # Types
@@ -89,7 +89,7 @@ proc renderTooltipLabel(text: string, fontSize: float32, textColor: Color): (str
   measureCtx.fontSize = fontSize
   measureCtx.textBaseline = TopBaseline
 
-  let padding = 2.0'f32
+  let padding = TooltipLabelPadding
   let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
   let h = max(1, (fontSize + padding * 2).int)
 
@@ -560,7 +560,7 @@ proc calculateTooltipSize(content: TooltipContent): Vec2 =
   if content.title.len > 0:
     let (_, titleSize) = renderTooltipLabel(content.title, TooltipTitleFontSize, TooltipTitleColor)
     maxWidth = max(maxWidth, titleSize.x.float32)
-    totalHeight += TooltipLineHeight + 4
+    totalHeight += TooltipLineHeight + TooltipSectionGap
 
   # Description
   if content.description.len > 0:
@@ -568,7 +568,7 @@ proc calculateTooltipSize(content: TooltipContent): Vec2 =
     maxWidth = max(maxWidth, min(descSize.x.float32, TooltipMaxWidth - TooltipPadding * 2))
     # Estimate line wrapping
     let lines = (descSize.x.float32 / (TooltipMaxWidth - TooltipPadding * 2)).int + 1
-    totalHeight += TooltipLineHeight * lines.float32 + 8
+    totalHeight += TooltipLineHeight * lines.float32 + TooltipSectionGap * 2
 
   # Cost lines
   for line in content.costLines:
@@ -586,7 +586,7 @@ proc calculateTooltipSize(content: TooltipContent): Vec2 =
   if content.hotkeyLine.len > 0:
     let (_, hotkeySize) = renderTooltipLabel(content.hotkeyLine, TooltipTextFontSize, TooltipHotkeyColor)
     maxWidth = max(maxWidth, hotkeySize.x.float32)
-    totalHeight += TooltipLineHeight + 4
+    totalHeight += TooltipLineHeight + TooltipSectionGap
 
   # Requirement line
   if content.requirementLine.len > 0:
@@ -598,22 +598,22 @@ proc calculateTooltipSize(content: TooltipContent): Vec2 =
 
 proc positionTooltip(anchorRect: Rect, tooltipSize: Vec2, screenSize: Vec2): Vec2 =
   ## Calculate tooltip position, keeping it on screen.
-  var x = anchorRect.x - tooltipSize.x - 8  # Position to left of anchor
+  var x = anchorRect.x - tooltipSize.x - TooltipAnchorGap  # Position to left of anchor
   var y = anchorRect.y
 
   # If would go off left edge, position to right
-  if x < 8:
-    x = anchorRect.x + anchorRect.w + 8
+  if x < TooltipScreenMargin:
+    x = anchorRect.x + anchorRect.w + TooltipAnchorGap
 
   # If would go off right edge, position to left anyway
-  if x + tooltipSize.x > screenSize.x - 8:
-    x = anchorRect.x - tooltipSize.x - 8
+  if x + tooltipSize.x > screenSize.x - TooltipScreenMargin:
+    x = anchorRect.x - tooltipSize.x - TooltipAnchorGap
 
   # Keep on screen vertically
-  if y + tooltipSize.y > screenSize.y - 8:
-    y = screenSize.y - tooltipSize.y - 8
-  if y < 8:
-    y = 8
+  if y + tooltipSize.y > screenSize.y - TooltipScreenMargin:
+    y = screenSize.y - tooltipSize.y - TooltipScreenMargin
+  if y < TooltipScreenMargin:
+    y = TooltipScreenMargin
 
   result = vec2(x, y)
 
@@ -628,7 +628,7 @@ proc drawTooltip*(screenSize: Vec2) =
 
   # Draw background and border
   bxy.drawRect(
-    rect = Rect(x: pos.x - 2, y: pos.y - 2, w: size.x + 4, h: size.y + 4),
+    rect = Rect(x: pos.x - TooltipBorderOutset, y: pos.y - TooltipBorderOutset, w: size.x + TooltipBorderExpand, h: size.y + TooltipBorderExpand),
     color = TooltipBorderColor
   )
   bxy.drawRect(
@@ -642,14 +642,14 @@ proc drawTooltip*(screenSize: Vec2) =
   if content.title.len > 0:
     let (titleKey, _) = renderTooltipLabel(content.title, TooltipTitleFontSize, TooltipTitleColor)
     bxy.drawImage(titleKey, vec2(pos.x + TooltipPadding, yOffset))
-    yOffset += TooltipLineHeight + 4
+    yOffset += TooltipLineHeight + TooltipSectionGap
 
   # Draw description
   if content.description.len > 0:
     let (descKey, descSize) = renderTooltipLabel(content.description, TooltipTextFontSize, TooltipTextColor)
     bxy.drawImage(descKey, vec2(pos.x + TooltipPadding, yOffset))
     let lines = (descSize.x.float32 / (TooltipMaxWidth - TooltipPadding * 2)).int + 1
-    yOffset += TooltipLineHeight * lines.float32 + 8
+    yOffset += TooltipLineHeight * lines.float32 + TooltipSectionGap * 2
 
   # Draw cost lines
   if content.costLines.len > 0:
@@ -666,7 +666,7 @@ proc drawTooltip*(screenSize: Vec2) =
 
   # Draw hotkey line
   if content.hotkeyLine.len > 0:
-    yOffset += 4
+    yOffset += TooltipSectionGap
     let (hotkeyKey, _) = renderTooltipLabel(content.hotkeyLine, TooltipTextFontSize, TooltipHotkeyColor)
     bxy.drawImage(hotkeyKey, vec2(pos.x + TooltipPadding, yOffset))
     yOffset += TooltipLineHeight
