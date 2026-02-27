@@ -252,7 +252,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
   # Start from cached terrain
   copyMem(addr minimapCompositeImage.data[0],
           addr minimapTerrainImage.data[0],
-          MinimapSizeConst * MinimapSizeConst * 4)
+          MinimapSizeConst * MinimapSizeConst * MinimapBytesPerPixel)
 
   # Use pre-computed scale factors
   let scaleX = minimapScaleX

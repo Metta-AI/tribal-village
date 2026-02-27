@@ -86,6 +86,15 @@ const
   MinimapViewportAlphaPanel* = 0.7'f32  # Viewport outline opacity
   MinimapBorderAlpha* = 0.9'f32         # Minimap border opacity
   MinimapBuildingBlockSize* = 2         # Building dot size (NxN pixels)
+  MinimapBytesPerPixel* = 4             # RGBA bytes per pixel for image copy
+
+  # ─── Trade Route Line Drawing ─────────────────────────────────────────────
+  TradeRouteMinLineLength* = 0.5'f32   # Minimum drawable line length in world units
+  TradeRouteSegmentSpacing* = 0.5'f32  # Line segment spacing for trade route lines
+
+  # ─── Rally Point Line Drawing ──────────────────────────────────────────────
+  RallyMinLineLength* = 0.1'f32        # Minimum rally path line length
+  RallyPreviewMinLineLength* = 0.5'f32 # Minimum rally preview line length
 
   # ─── Command Panel Drawing ────────────────────────────────────────────────
   CommandPanelBorderOffset* = 2.0'f32   # Border outset from panel edge
