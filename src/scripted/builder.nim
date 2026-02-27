@@ -439,11 +439,8 @@ proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
 
 proc teamNavalCount(env: Environment, teamId: int): int =
   ## Count alive naval units for a team.
-  for id in 0 ..< MapAgents:
-    if id < env.agents.len and env.terminated[id] == 0.0:
-      let agent = env.agents[id]
-      if agent != nil and getTeamId(agent) == teamId and agent.isWaterUnit:
-        inc result
+  ## Delegates to canonical countTeamNavalAgents from ai_utils.
+  countTeamNavalAgents(env, teamId)
 
 const BuilderMaxNavalPerTeam = 5  # Must match fighter.nim MaxNavalPerTeam
 
