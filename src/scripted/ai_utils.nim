@@ -10,6 +10,7 @@ export types, environment, common_types
 
 const
   DefensiveRetaliationWindow* = 30  ## Steps after being attacked that defensive stance allows retaliation
+  MaxNavalPerTeam* = 5  ## Cap naval training per team (used by builder + fighter)
 
 # ---------------------------------------------------------------------------
 # Stance Behavior Checks
