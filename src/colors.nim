@@ -197,6 +197,9 @@ const
   MinimapBrightMul* = 1.2'f32                         ## Brightness multiplier for minimap team colors
   MinimapBrightAdd* = 0.1'f32                         ## Additive brightness for minimap team colors
 
+  # Trade route target dock alpha variant
+  TradeRouteGoldTarget* = color(0.95, 0.78, 0.15, 0.35) ## Trade route gold at target dock (TradeRouteGoldTint * TargetAlpha)
+
   # Projectile colors
   ProjArrowColor*      = color(0.6, 0.4, 0.2, 1.0)   ## Arrow projectile (brown)
   ProjLongbowColor*    = color(0.5, 0.3, 0.2, 1.0)   ## Longbow projectile (darker brown)
@@ -226,6 +229,11 @@ const WarmTeamPalette* = [
   color(0.870, 0.870, 0.870, 1.0),  # team 6: light gray      (#dedede)
   color(0.930, 0.560, 0.820, 1.0)   # team 7: soft pink       (#ed8fd1)
 ]
+
+proc withAlpha*(c: Color, a: float32): Color {.inline.} =
+  ## Return a copy of `c` with its alpha replaced by `a`.
+  ## Avoids the verbose `color(c.r, c.g, c.b, newAlpha)` pattern.
+  color(c.r, c.g, c.b, a)
 
 proc applyActionTint(env: Environment, pos: IVec2, tintColor: TileColor, duration: int8, tintCode: uint8) =
   if not isValidPos(pos) or env.tintLocked[pos.x][pos.y]:

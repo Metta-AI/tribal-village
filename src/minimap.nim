@@ -211,7 +211,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
     let lineW = MinimapViewportLineWidth
 
     # Draw viewport indicator lines
-    let vpColor = color(UiViewportOutline.r, UiViewportOutline.g, UiViewportOutline.b, MinimapViewportAlpha)
+    let vpColor = withAlpha(UiViewportOutline, MinimapViewportAlpha)
     bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
                  w: clRight - clLeft, h: lineW), color = vpColor)
     bxy.drawRect(rect = Rect(x: clLeft, y: clBottom - lineW,

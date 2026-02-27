@@ -167,7 +167,7 @@ proc drawProjectiles*() =
       let fadeRatio = 1.0 - (i + 1).float32 / (ProjectileTrailPoints + 1).float32
       let trailAlpha = c.a * fadeRatio * 0.7  # Max 70% opacity for trails
       let trailScale = sc * (0.5 + 0.5 * fadeRatio)  # Shrink to 50% at tail
-      let trailColor = color(c.r, c.g, c.b, trailAlpha)
+      let trailColor = withAlpha(c, trailAlpha)
       bxy.drawImage("floor", trailPos, angle = 0, scale = trailScale, tint = trailColor)
 
     # Draw projectile head at current position
@@ -193,7 +193,7 @@ proc drawDamageNumbers*() =
     # Scale for world-space rendering (similar to HP bars)
     let scale = 1.0 / 200.0
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
-                  tint = color(TintWhite.r, TintWhite.g, TintWhite.b, alpha))
+                  tint = withAlpha(TintWhite, alpha))
 
 proc drawRagdolls*() =
   ## Draw ragdoll death bodies with physics-based tumbling.
@@ -223,7 +223,7 @@ proc drawRagdolls*() =
     let alpha = t * t
     # Get team color with alpha applied
     let teamColor = getTeamColor(env, ragdoll.teamId)
-    let tint = color(teamColor.r, teamColor.g, teamColor.b, alpha)
+    let tint = withAlpha(teamColor, alpha)
     # Draw with rotation
     bxy.drawImage(spriteKey, ragdoll.pos, angle = ragdoll.angle, scale = SpriteScale, tint = tint)
 
@@ -244,7 +244,7 @@ proc drawDebris*() =
     # Fade out
     let alpha = t * t  # Quadratic ease for smoother fade
     let baseColor = DebrisColors[deb.kind]
-    let tintColor = color(baseColor.r, baseColor.g, baseColor.b, alpha)
+    let tintColor = withAlpha(baseColor, alpha)
     # Draw as small colored dot using floor sprite
     let scale = (1.0 / 350.0).float32  # Slightly smaller than projectiles
     bxy.drawImage("floor", deb.pos, angle = 0, scale = scale, tint = tintColor)
@@ -265,7 +265,7 @@ proc drawSpawnEffects*() =
     # Fade out with quadratic ease (bright at start, fades smoothly)
     let alpha = t * t * 0.6  # Max alpha 0.6 to not be too bright
     # Use a bright cyan/white tint for spawn effect
-    let tint = color(SpawnEffectTint.r, SpawnEffectTint.g, SpawnEffectTint.b, alpha)
+    let tint = withAlpha(SpawnEffectTint, alpha)
     bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
 
 proc drawGatherSparkles*() =
@@ -285,7 +285,7 @@ proc drawGatherSparkles*() =
     # Fade out with quadratic ease
     let alpha = t * t * 0.8
     # Golden sparkle color
-    let tintColor = color(GatherSparkleTint.r, GatherSparkleTint.g, GatherSparkleTint.b, alpha)
+    let tintColor = withAlpha(GatherSparkleTint, alpha)
     # Small particles
     let scale = (1.0 / 450.0).float32 * (0.5 + t * 0.5)
     bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
@@ -307,7 +307,7 @@ proc drawConstructionDust*() =
     # Fade out
     let alpha = t * t * 0.5
     # Dusty brown color
-    let tintColor = color(ConstructionDustTint.r, ConstructionDustTint.g, ConstructionDustTint.b, alpha)
+    let tintColor = withAlpha(ConstructionDustTint, alpha)
     # Particles that grow slightly as they rise
     let scale = (1.0 / 400.0).float32 * (0.7 + (1.0 - t) * 0.3)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
@@ -330,7 +330,7 @@ proc drawUnitTrails*() =
     let alpha = t * t * 0.4
     # Light team-colored trail
     let teamColor = getTeamColor(env, trail.teamId)
-    let tintColor = color(teamColor.r, teamColor.g, teamColor.b, alpha)
+    let tintColor = withAlpha(teamColor, alpha)
     # Small trail dots
     let scale = (1.0 / 500.0).float32
     bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = tintColor)
@@ -359,7 +359,7 @@ proc drawDustParticles*() =
       of 3: DustGrassColor
       of 4: DustRoadColor
       else: DustDefaultColor
-    let tintColor = color(dustBase.r, dustBase.g, dustBase.b, alpha)
+    let tintColor = withAlpha(dustBase, alpha)
     # Small particles that shrink slightly as they fade
     let scale = (1.0 / 600.0).float32 * (0.5 + t * 0.5)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
@@ -384,7 +384,7 @@ proc drawWaterRipples*() =
     # Fade out with quadratic ease (visible at start, fades smoothly)
     let alpha = t * t * 0.5  # Max alpha 0.5 for subtle effect
     # Use a light cyan/blue tint for water ripple
-    let tint = color(RippleTint.r, RippleTint.g, RippleTint.b, alpha)
+    let tint = withAlpha(RippleTint, alpha)
     bxy.drawImage("floor", ripple.pos, angle = 0, scale = baseScale, tint = tint)
 
 proc drawAttackImpacts*() =
@@ -404,7 +404,7 @@ proc drawAttackImpacts*() =
     # Fade out quickly with quadratic ease for punchy effect
     let alpha = t * t * 0.9
     # Orange/red impact color for combat feedback
-    let tintColor = color(AttackImpactTint.r, AttackImpactTint.g, AttackImpactTint.b, alpha)
+    let tintColor = withAlpha(AttackImpactTint, alpha)
     # Small particles that shrink as they fade
     let scale = (1.0 / 400.0).float32 * (0.3 + t * 0.7)  # 30% to 100%
     bxy.drawImage("floor", impact.pos, angle = 0, scale = scale, tint = tintColor)
@@ -428,7 +428,7 @@ proc drawConversionEffects*() =
     # Fade out over time with pulsing intensity
     let alpha = t * (0.5 + pulse * 0.5)
     # Blend between golden divine color and team color
-    let golden = color(ConversionGoldenTint.r, ConversionGoldenTint.g, ConversionGoldenTint.b, alpha)
+    let golden = withAlpha(ConversionGoldenTint, alpha)
     let teamAlpha = effect.teamColor
     let blendT = 1.0 - t  # More team color as time progresses
     let tintColor = color(
@@ -528,7 +528,7 @@ proc drawWeatherEffects*() =
         let cloudScale = RainCloudScale * (1.0 + scaleNoise)
         let cloudAlpha = RainCloudAlpha * (0.75 + alphaNoise)
         bxy.drawImage("floor", cloudPos, angle = 0, scale = cloudScale,
-                      tint = color(CloudPuffTint.r, CloudPuffTint.g, CloudPuffTint.b, cloudAlpha))
+                      tint = withAlpha(CloudPuffTint, cloudAlpha))
 
     let rainParticleCount = max(particleCount, rainPatches.len * 10)
 
@@ -567,7 +567,7 @@ proc drawWeatherEffects*() =
           -RainFallSpeed * s.float32 * 2.0
         )
         let streakAlpha = RainAlpha * (1.0 - s.float32 / RainStreakLength.float32)
-        let streakTint = color(rainTint.r, rainTint.g, rainTint.b, streakAlpha)
+        let streakTint = withAlpha(rainTint, streakAlpha)
         bxy.drawImage("floor", particlePos + streakOffset, angle = 0,
                       scale = WeatherParticleScale, tint = streakTint)
 

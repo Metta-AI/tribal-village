@@ -292,15 +292,15 @@ proc drawObjects*() =
       else: TintWhite
     let posVec = thingPos.vec2
     bxy.drawImage("floor", posVec, angle = 0, scale = SpriteScale,
-                  tint = color(altarTint.r, altarTint.g, altarTint.b, ResourceIconDimAlpha))
+                  tint = withAlpha(altarTint, ResourceIconDimAlpha))
     bxy.drawImage("altar", posVec, angle = 0, scale = SpriteScale,
-                  tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0))
+                  tint = withAlpha(altarTint, 1.0))
     const heartAnchor = vec2(-0.48, -0.64)
     let amt = max(0, thing.hearts)
     let heartPos = posVec + heartAnchor
     if amt == 0:
       bxy.drawImage("heart", heartPos, angle = 0, scale = HeartIconScale,
-                    tint = color(altarTint.r, altarTint.g, altarTint.b, ResourceIconDimAlpha))
+                    tint = withAlpha(altarTint, ResourceIconDimAlpha))
     elif amt <= HeartPlusThreshold:
       for i in 0 ..< amt:
         bxy.drawImage("heart", heartPos + vec2(0.12 * i.float32, 0.0),
@@ -471,7 +471,7 @@ proc drawVisualRanges*(alpha = 0.2) =
 
     let center = thing.pos.vec2
     let teamColor = getTeamColor(env, thing.teamId)
-    let rangeColor = color(teamColor.r, teamColor.g, teamColor.b, alpha)
+    let rangeColor = withAlpha(teamColor, alpha)
 
     # Draw range as filled circles using floor sprites
     let rangeSq = range * range

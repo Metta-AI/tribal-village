@@ -25,7 +25,7 @@ proc drawSelection*() =
     # Draw pulsing glow effect (outer ring)
     if "selection" in bxy:
       let glowPulse = sin(frame.float32 * SelectionPulseSpeed) * SelectionPulseAmplitude + SelectionPulseBase
-      let glowColor = color(UiSelectionGlow.r, UiSelectionGlow.g, UiSelectionGlow.b, UiSelectionGlow.a * glowPulse)
+      let glowColor = withAlpha(UiSelectionGlow, UiSelectionGlow.a * glowPulse)
       bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
                     tint = glowColor)
 
@@ -90,7 +90,7 @@ proc drawRallyPoints*() =
 
         # Draw segment as a colored rectangle (using floor sprite with team color)
         let segMid = (segStart + segEnd) * 0.5
-        let lineColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * RallyPathAlpha)
+        let lineColor = withAlpha(teamColor, pulseAlpha * RallyPathAlpha)
         bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * 2,
                       tint = lineColor)
 
@@ -100,12 +100,12 @@ proc drawRallyPoints*() =
       let beaconScale = RallyPointBeaconScale * (1.0 + pulse * RallyBeaconPulseAmount)
 
       # Draw outer glow (larger, more transparent)
-      let glowColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha * RallyGlowAlpha)
+      let glowColor = withAlpha(teamColor, pulseAlpha * RallyGlowAlpha)
       bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * RallyGlowScaleMult,
                     tint = glowColor)
 
       # Draw main beacon (use lantern sprite if available, otherwise floor)
-      let beaconColor = color(teamColor.r, teamColor.g, teamColor.b, pulseAlpha)
+      let beaconColor = withAlpha(teamColor, pulseAlpha)
       if "lantern" in bxy:
         bxy.drawImage("lantern", rallyPos.vec2, angle = 0, scale = SpriteScale * RallyBeaconSpriteScale,
                       tint = beaconColor)
@@ -115,7 +115,7 @@ proc drawRallyPoints*() =
                       tint = beaconColor)
 
       # Draw inner bright core
-      let coreColor = color(RallyCoreTint.r, RallyCoreTint.g, RallyCoreTint.b, pulseAlpha * RallyCoreAlpha)
+      let coreColor = withAlpha(RallyCoreTint, pulseAlpha * RallyCoreAlpha)
       bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * RallyCoreScale,
                     tint = coreColor)
 
@@ -126,7 +126,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
 
   # Get team color for the preview (use green for valid placement)
-  let previewColor = color(RallyPreviewColor.r, RallyPreviewColor.g, RallyPreviewColor.b, pulseAlpha * 0.8)
+  let previewColor = withAlpha(RallyPreviewColor, pulseAlpha * 0.8)
 
   # Draw path line from building to mouse position
   let lineDir = mousePos - buildingPos
@@ -143,7 +143,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
       let segStart = buildingPos + normalizedDir * (i.float32 * stepLen)
       let segMid = segStart + normalizedDir * (stepLen * 0.5)
       if isInViewport(ivec2(segMid.x.int, segMid.y.int)):
-        let lineColor = color(previewColor.r, previewColor.g, previewColor.b, pulseAlpha * RallyPreviewPathAlpha)
+        let lineColor = withAlpha(previewColor, pulseAlpha * RallyPreviewPathAlpha)
         bxy.drawImage("floor", segMid, angle = 0, scale = RallyPointLineWidth * 2,
                       tint = lineColor)
 
@@ -153,7 +153,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
     let beaconScale = RallyPointBeaconScale * (1.0 + pulse * RallyPreviewPulseAmount)
 
     # Draw outer glow
-    let glowColor = color(previewColor.r, previewColor.g, previewColor.b, pulseAlpha * RallyPreviewGlowAlpha)
+    let glowColor = withAlpha(previewColor, pulseAlpha * RallyPreviewGlowAlpha)
     bxy.drawImage("floor", mousePos, angle = 0, scale = beaconScale * RallyPreviewGlowScale,
                   tint = glowColor)
 
@@ -166,7 +166,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
                     tint = previewColor)
 
     # Draw inner bright core
-    let coreColor = color(RallyCoreTint.r, RallyCoreTint.g, RallyCoreTint.b, pulseAlpha * RallyPreviewCoreAlpha)
+    let coreColor = withAlpha(RallyCoreTint, pulseAlpha * RallyPreviewCoreAlpha)
     bxy.drawImage("floor", mousePos, angle = 0, scale = beaconScale * RallyPreviewCoreScale,
                   tint = coreColor)
 
@@ -320,7 +320,7 @@ proc drawTradeRoutes*() =
         let inView2 = isInViewport(ivec2(p2.x.int, p2.y.int)) or isInViewport(ivec2(p3.x.int, p3.y.int))
         if inView2:
           # Draw lighter line to target (trade cog hasn't been there yet)
-          let targetColor = color(routeColor.r, routeColor.g, routeColor.b, routeColor.a * TradeRouteTargetAlpha)
+          let targetColor = withAlpha(routeColor, routeColor.a * TradeRouteTargetAlpha)
           drawLineWorldSpace(p2, p3, targetColor)
 
   # Draw dock markers for docks with active trade routes
@@ -339,6 +339,4 @@ proc drawTradeRoutes*() =
         drawnDocks.add(targetDock)
         # Draw a smaller gold indicator at target dock
         bxy.drawImage("floor", vec2(targetDock.x.float32, targetDock.y.float32) + vec2(0.0, TradeRouteDockMarkerOffsetY), angle = 0,
-                      scale = OverlayIconScale, tint = color(TradeRouteGoldColor.r,
-                                                   TradeRouteGoldColor.g,
-                                                   TradeRouteGoldColor.b, TradeRouteTargetAlpha))
+                      scale = OverlayIconScale, tint = TradeRouteGoldTarget)

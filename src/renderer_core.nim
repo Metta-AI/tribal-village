@@ -396,7 +396,7 @@ proc drawSegmentBar*(basePos: Vec2, offset: Vec2, ratio: float32,
   let origin = basePos + vec2(-segStep * (segments.float32 - 1) / 2 + offset.x, offset.y)
   for i in 0 ..< segments:
     let baseColor = if i < filled: filledColor else: emptyColor
-    let fadedColor = color(baseColor.r, baseColor.g, baseColor.b, baseColor.a * alpha)
+    let fadedColor = withAlpha(baseColor, baseColor.a * alpha)
     bxy.drawImage("floor", origin + vec2(segStep * i.float32, 0),
                   angle = 0, scale = SegmentBarDotScale,
                   tint = fadedColor)

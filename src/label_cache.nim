@@ -102,7 +102,7 @@ proc renderLabel(text: string, style: LabelStyle): (Image, IVec2) =
   ctx.textBaseline = TopBaseline
   # Background fill
   if style.bgAlpha > 0:
-    ctx.fillStyle.color = color(LabelBgBlack.r, LabelBgBlack.g, LabelBgBlack.b, style.bgAlpha)
+    ctx.fillStyle.color = withAlpha(LabelBgBlack, style.bgAlpha)
     ctx.fillRect(0, 0, w.float32, h.float32)
   # Outline (draw text in outline color at 8 offsets)
   if style.outline:
