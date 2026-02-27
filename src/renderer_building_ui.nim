@@ -1,0 +1,168 @@
+## renderer_building_ui.nim - Building construction, overlays, and placement
+##
+## Contains: building construction scaffolding, building UI overlays (stockpiles,
+## population, garrison, production queue), building ghost preview, placement validation.
+
+import
+  boxy, pixie, vmath, tables, std/[math, strutils],
+  common, constants, environment
+
+import renderer_core
+from renderer_effects import drawBuildingSmoke
+
+# ─── Building Construction Rendering ─────────────────────────────────────────
+
+proc renderBuildingConstruction*(pos: IVec2, constructionRatio: float32) =
+  ## Render construction scaffolding for a building under construction.
+  ##
+  ## Draws scaffolding posts at the four corners of the building and horizontal
+  ## bars connecting them, plus a progress bar showing construction completion.
+  ##
+  ## Parameters:
+  ##   pos: World position of the building
+  ##   constructionRatio: Progress from 0.0 (just started) to 1.0 (complete)
+  let scaffoldTint = color(0.7, 0.5, 0.2, 0.8)  # Brown/wood color
+  let scaffoldScale = ScaffoldingPostScale
+  let offsets = [vec2(-0.35, -0.35), vec2(0.35, -0.35),
+                 vec2(-0.35, 0.35), vec2(0.35, 0.35)]
+  for offset in offsets:
+    bxy.drawImage("floor", pos.vec2 + offset, angle = 0,
+                  scale = scaffoldScale, tint = scaffoldTint)
+  # Draw horizontal scaffold bars connecting posts
+  let barTint = color(0.6, 0.4, 0.15, 0.7)
+  for yOff in [-0.35'f32, 0.35'f32]:
+    bxy.drawImage("floor", pos.vec2 + vec2(0, yOff), angle = 0,
+                  scale = scaffoldScale, tint = barTint)
+  # Draw construction progress bar below the building
+  drawSegmentBar(pos.vec2, vec2(0, 0.65), constructionRatio,
+                 color(0.9, 0.7, 0.1, 1.0), color(0.3, 0.3, 0.3, 0.7))
+
+proc renderBuildingUI*(thing: Thing, pos: IVec2,
+                       teamPopCounts, teamHouseCounts: array[MapRoomObjectsTeams, int]) =
+  ## Render UI overlays for a building (stockpiles, population, garrison).
+  ##
+  ## Handles:
+  ## - Production queue progress bars for buildings training units
+  ## - Resource stockpile icons showing team resource counts
+  ## - Population display on TownCenters (current/max pop)
+  ## - Garrison indicators showing garrisoned unit counts
+  ##
+  ## Parameters:
+  ##   thing: The building Thing
+  ##   pos: World position of the building
+  ##   teamPopCounts: Array of population counts per team
+  ##   teamHouseCounts: Array of house counts per team
+
+  # Production queue progress bar (AoE2-style)
+  if thing.productionQueue.entries.len > 0:
+    let entry = thing.productionQueue.entries[0]
+    if entry.totalSteps > 0 and entry.remainingSteps > 0:
+      let ratio = clamp(1.0'f32 - entry.remainingSteps.float32 / entry.totalSteps.float32, 0.0, 1.0)
+      drawSegmentBar(pos.vec2, vec2(0, 0.55), ratio,
+                     color(0.2, 0.5, 1.0, 1.0), color(0.3, 0.3, 0.3, 0.7))
+      # Draw smoke/chimney effect for active production buildings
+      drawBuildingSmoke(pos.vec2, thing.id)
+  let res = buildingStockpileRes(thing.kind)
+  if res != ResourceNone:
+    let teamId = thing.teamId
+    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+      return
+    let icon = case res
+      of ResourceFood: itemSpriteKey(ItemWheat)
+      of ResourceWood: itemSpriteKey(ItemWood)
+      of ResourceStone: itemSpriteKey(ItemStone)
+      of ResourceGold: itemSpriteKey(ItemGold)
+      of ResourceWater: itemSpriteKey(ItemWater)
+      of ResourceNone: ""
+    let count = env.teamStockpiles[teamId].counts[res]
+    let iconPos = pos.vec2 + vec2(-0.18, -0.62)
+    if icon.len > 0 and icon in bxy:
+      bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale * resourceUiIconScale(res),
+                    tint = color(1, 1, 1, if count > 0: 1.0 else: 0.35))
+    if count > 0:
+      let labelKey = ensureHeartCountLabel(count)
+      if labelKey.len > 0 and labelKey in bxy:
+        bxy.drawImage(labelKey, iconPos + vec2(0.14, -0.08), angle = 0,
+                      scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+  if thing.kind == TownCenter:
+    let teamId = thing.teamId
+    if teamId >= 0 and teamId < MapRoomObjectsTeams:
+      let iconPos = pos.vec2 + vec2(-0.18, -0.62)
+      if "oriented/gatherer.s" in bxy:
+        bxy.drawImage("oriented/gatherer.s", iconPos, angle = 0,
+                      scale = OverlayIconScale, tint = color(1, 1, 1, 1))
+      let popText = "x " & $teamPopCounts[teamId] & "/" &
+                    $min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
+      let popLabel = if popText in overlayLabelImages: overlayLabelImages[popText]
+        else:
+          let (image, _) = renderTextLabel(popText, HeartCountFontPath,
+                                           HeartCountFontSize, HeartCountPadding.float32, 0.7)
+          let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
+          bxy.addImage(key, image)
+          overlayLabelImages[popText] = key
+          key
+      if popLabel.len > 0 and popLabel in bxy:
+        bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
+                      scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+  # Garrison indicator for buildings that can garrison units
+  if thing.kind in {TownCenter, Castle, GuardTower, House}:
+    let garrisonCount = thing.garrisonedUnits.len
+    if garrisonCount > 0:
+      # Position on right side of building to avoid overlap with stockpile icons
+      let garrisonIconPos = pos.vec2 + vec2(0.22, -0.62)
+      if "oriented/fighter.s" in bxy:
+        bxy.drawImage("oriented/fighter.s", garrisonIconPos, angle = 0,
+                      scale = OverlayIconScale, tint = color(1, 1, 1, 1))
+      let garrisonText = "x" & $garrisonCount
+      let garrisonLabel = if garrisonText in overlayLabelImages: overlayLabelImages[garrisonText]
+        else:
+          let (image, _) = renderTextLabel(garrisonText, HeartCountFontPath,
+                                           HeartCountFontSize, HeartCountPadding.float32, 0.7)
+          let key = "overlay_label/" & garrisonText.replace(" ", "_")
+          bxy.addImage(key, image)
+          overlayLabelImages[garrisonText] = key
+          key
+      if garrisonLabel.len > 0 and garrisonLabel in bxy:
+        bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(0.12, -0.08), angle = 0,
+                      scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
+
+# ─── Building Ghost Preview ──────────────────────────────────────────────────
+
+proc canPlaceBuildingAt*(pos: IVec2, kind: ThingKind): bool =
+  ## Check if a building can be placed at the given position.
+  if not isValidPos(pos):
+    return false
+  # Check terrain
+  let terrain = env.terrain[pos.x][pos.y]
+  if isWaterTerrain(terrain):
+    return false
+  # Check for existing objects
+  let blocking = env.grid[pos.x][pos.y]
+  if not isNil(blocking):
+    return false
+  let background = env.backgroundGrid[pos.x][pos.y]
+  if not isNil(background) and background.kind in CliffKinds:
+    return false
+  true
+
+proc drawBuildingGhost*(worldPos: Vec2) =
+  ## Draw a transparent building preview at the given world position.
+  ## Shows green if placement is valid, red if invalid.
+  if not buildingPlacementMode:
+    return
+
+  let gridPos = (worldPos + vec2(0.5, 0.5)).ivec2
+  let spriteKey = buildingSpriteKey(buildingPlacementKind)
+  if spriteKey.len == 0 or spriteKey notin bxy:
+    return
+
+  let valid = canPlaceBuildingAt(gridPos, buildingPlacementKind)
+  buildingPlacementValid = valid
+
+  # Ghost tint: green for valid, red for invalid
+  let tint = if valid:
+    color(0.3, 1.0, 0.3, 0.6)  # Semi-transparent green
+  else:
+    color(1.0, 0.3, 0.3, 0.6)  # Semi-transparent red
+
+  bxy.drawImage(spriteKey, gridPos.vec2, angle = 0, scale = SpriteScale, tint = tint)

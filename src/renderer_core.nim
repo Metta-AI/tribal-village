@@ -439,4 +439,23 @@ type WallTile* = enum
 
 # ─── Heart Plus Threshold ────────────────────────────────────────────────────
 
+# ─── Shared UI Helpers ────────────────────────────────────────────────────────
+
+proc resourceUiIconScale*(res: StockpileResource): float32 {.inline.} =
+  ## Normalize resource icon visual footprint across mixed sprite sources.
+  case res
+  of ResourceStone: 0.84'f32
+  of ResourceGold: 0.9'f32
+  of ResourceFood: 0.93'f32
+  of ResourceWood: 0.94'f32
+  of ResourceWater, ResourceNone: 1.0'f32
+
+proc drawUiImageScaled*(key: string, topLeft: Vec2, size: Vec2,
+                        tint: Color = color(1, 1, 1, 1)) =
+  ## Draw a UI image in pixel space using top-left anchoring.
+  ## This matches MettaScope's widget convention and avoids center-anchor drift.
+  if key.len == 0 or key notin bxy or size.x <= 0 or size.y <= 0:
+    return
+  bxy.drawImage(key, rect(topLeft, size), tint = tint)
+
 const HeartPlusThreshold* = 9  # Switch to compact heart counter after this many
