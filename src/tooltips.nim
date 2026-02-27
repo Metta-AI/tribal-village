@@ -1,7 +1,6 @@
 ## tooltips.nim - Rich tooltip system for UI elements
 ##
-## Uses silky for background/border rectangles, boxy for text labels
-## (silky fonts not yet added to atlas).
+## Uses boxy for background/border rectangles and text labels.
 ##
 ## Provides hover tooltips showing:
 ## - Command button details (description, cost, hotkey, requirements)
@@ -13,10 +12,6 @@ import
   boxy, pixie, vmath, windy, tables,
   std/[strutils, strformat],
   common, types, registry, items, constants, environment
-
-when defined(useSilky):
-  # Use 'from import nil' to avoid vmath operator conflicts
-  import silky
 
 # ---------------------------------------------------------------------------
 # Types
@@ -69,20 +64,6 @@ const
   TooltipLineHeight: float32 = 18
   TooltipMaxWidth: float32 = 280
   TooltipShowDelay: float64 = 0.3  # 300ms delay before showing
-
-# ---------------------------------------------------------------------------
-# Color conversion helper (only needed for silky rendering path)
-# ---------------------------------------------------------------------------
-
-when defined(useSilky):
-  proc colorToRgbx(c: Color): ColorRGBX {.inline.} =
-    ## Convert pixie Color (float 0-1) to ColorRGBX (uint8 0-255).
-    rgbx(
-      (c.r * 255).uint8,
-      (c.g * 255).uint8,
-      (c.b * 255).uint8,
-      (c.a * 255).uint8
-    )
 
 # ---------------------------------------------------------------------------
 # State
@@ -638,7 +619,6 @@ proc positionTooltip(anchorRect: Rect, tooltipSize: Vec2, screenSize: Vec2): Vec
 
 proc drawTooltip*(screenSize: Vec2) =
   ## Draw the current tooltip if visible.
-  ## Uses silky for background/border rectangles, boxy for text labels.
   if not tooltipState.visible:
     return
 
@@ -646,45 +626,19 @@ proc drawTooltip*(screenSize: Vec2) =
   let size = calculateTooltipSize(content)
   let pos = positionTooltip(tooltipState.anchorRect, size, screenSize)
 
-  # Draw background using silky (when available) for consistent UI rendering
-  when defined(useSilky):
-    if not sk.isNil:
-      # Border (outer rect)
-      sk.drawRect(
-        vec2(pos.x - 2, pos.y - 2),
-        vec2(size.x + 4, size.y + 4),
-        colorToRgbx(TooltipBorderColor)
-      )
-      # Background (inner rect)
-      sk.drawRect(
-        pos,
-        size,
-        colorToRgbx(TooltipBgColor)
-      )
-    else:
-      # Fallback to boxy if silky not initialized
-      bxy.drawRect(
-        rect = Rect(x: pos.x - 2, y: pos.y - 2, w: size.x + 4, h: size.y + 4),
-        color = TooltipBorderColor
-      )
-      bxy.drawRect(
-        rect = Rect(x: pos.x, y: pos.y, w: size.x, h: size.y),
-        color = TooltipBgColor
-      )
-  else:
-    # Fallback to boxy if silky not initialized
-    bxy.drawRect(
-      rect = Rect(x: pos.x - 2, y: pos.y - 2, w: size.x + 4, h: size.y + 4),
-      color = TooltipBorderColor
-    )
-    bxy.drawRect(
-      rect = Rect(x: pos.x, y: pos.y, w: size.x, h: size.y),
-      color = TooltipBgColor
-    )
+  # Draw background and border
+  bxy.drawRect(
+    rect = Rect(x: pos.x - 2, y: pos.y - 2, w: size.x + 4, h: size.y + 4),
+    color = TooltipBorderColor
+  )
+  bxy.drawRect(
+    rect = Rect(x: pos.x, y: pos.y, w: size.x, h: size.y),
+    color = TooltipBgColor
+  )
 
   var yOffset = pos.y + TooltipPadding
 
-  # Draw title (using boxy for text - silky fonts not yet in atlas)
+  # Draw title
   if content.title.len > 0:
     let (titleKey, _) = renderTooltipLabel(content.title, TooltipTitleFontSize, TooltipTitleColor)
     bxy.drawImage(titleKey, vec2(pos.x + TooltipPadding, yOffset))

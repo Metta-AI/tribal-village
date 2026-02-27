@@ -15,19 +15,6 @@ import
   std/[math, os],
   common, constants, environment
 
-# Import silky drawing procs directly to avoid operator conflicts from re-exports
-when defined(useSilky):
-  from silky/drawing import nil
-else:
-  # Stub drawing module when silky not available
-  # These procs provide the same signatures as silky/drawing but do nothing
-  type DrawingStub = object
-  var drawing*: DrawingStub
-  proc drawRect*(d: DrawingStub, sk: auto, pos, size: Vec2, color: auto) = discard
-  proc drawImage*(d: DrawingStub, sk: auto, name: string, pos: Vec2, color: auto = rgbx(0,0,0,0)) = discard
-  proc contains*(d: DrawingStub, sk: auto, name: string): bool = false
-  proc getImageSize*(d: DrawingStub, sk: auto, name: string): Vec2 = vec2(0, 0)
-
 # Import and re-export sub-modules
 import renderer_core
 export renderer_core

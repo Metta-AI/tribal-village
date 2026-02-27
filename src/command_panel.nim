@@ -6,15 +6,11 @@
 ## - Building selected: production/research buttons
 ## - Multi-selection: common commands only
 ##
-## Migrated to silky rendering for proper button states and consistent UI.
+## Uses the Silky stub API (sk.drawRect / sk.drawText) for button rendering.
 
 import
   pixie, vmath, windy,
   common, environment, tooltips, semantic
-
-when defined(useSilky):
-  # Use 'from import nil' to avoid vmath operator conflicts
-  import silky
 
 # ---------------------------------------------------------------------------
 # Types
@@ -48,7 +44,6 @@ const
   CommandPanelHeaderHeight = 24.0'f32
   CommandPanelHeaderPadX = 10.0'f32
 
-  # Font used for button labels (must exist in silky atlas)
   CommandLabelFont = "Default"
   CommandHotkeyFont = "Default"
 
@@ -65,7 +60,7 @@ var
 # ---------------------------------------------------------------------------
 
 proc toRGBX(c: Color): ColorRGBX {.inline.} =
-  ## Convert pixie Color (float 0-1) to silky ColorRGBX (uint8 0-255).
+  ## Convert pixie Color (float 0-1) to ColorRGBX (uint8 0-255).
   rgbx(
     (c.r * 255).uint8,
     (c.g * 255).uint8,
@@ -454,7 +449,7 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
 # ---------------------------------------------------------------------------
 
 proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
-  ## Draw the command panel with context-sensitive buttons using silky.
+  ## Draw the command panel with context-sensitive buttons.
   if selection.len == 0:
     return  # Don't draw if nothing selected
 
