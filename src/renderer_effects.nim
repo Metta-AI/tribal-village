@@ -72,13 +72,13 @@ proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) 
 
 const
   ProjectileColors: array[ProjectileKind, Color] = [
-    color(0.6, 0.4, 0.2, 1.0),     # ProjArrow - brown
-    color(0.5, 0.3, 0.2, 1.0),     # ProjLongbow - darker brown
-    color(0.9, 0.9, 0.3, 1.0),     # ProjJanissary - yellow
-    color(0.6, 0.4, 0.2, 1.0),     # ProjTowerArrow - brown
-    color(0.7, 0.5, 0.3, 1.0),     # ProjCastleArrow - tan
-    color(0.4, 0.4, 0.4, 1.0),     # ProjMangonel - gray
-    color(0.5, 0.5, 0.5, 1.0),     # ProjTrebuchet - dark gray
+    ProjArrowColor,       # ProjArrow - brown
+    ProjLongbowColor,     # ProjLongbow - darker brown
+    ProjJanissaryColor,   # ProjJanissary - yellow
+    ProjTowerArrowColor,  # ProjTowerArrow - brown
+    ProjCastleArrowColor, # ProjCastleArrow - tan
+    ProjMangonelColor,    # ProjMangonel - gray
+    ProjTrebuchetColor,   # ProjTrebuchet - dark gray
   ]
 
   ProjectileScales: array[ProjectileKind, float32] = [
@@ -97,9 +97,9 @@ const
 # ─── Debris Constants ────────────────────────────────────────────────────────
 
 const DebrisColors: array[DebrisKind, Color] = [
-  color(0.55, 0.35, 0.15, 1.0),  # DebrisWood - brown
-  color(0.50, 0.50, 0.50, 1.0),  # DebrisStone - gray
-  color(0.70, 0.40, 0.25, 1.0),  # DebrisBrick - terracotta/orange-brown
+  DebrisWoodColor,   # DebrisWood - brown
+  DebrisStoneColor,  # DebrisStone - gray
+  DebrisBrickColor,  # DebrisBrick - terracotta/orange-brown
 ]
 
 # ─── Effect Drawing Procedures ───────────────────────────────────────────────
@@ -193,7 +193,7 @@ proc drawDamageNumbers*() =
     # Scale for world-space rendering (similar to HP bars)
     let scale = 1.0 / 200.0
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
-                  tint = color(1.0, 1.0, 1.0, alpha))
+                  tint = color(TintWhite.r, TintWhite.g, TintWhite.b, alpha))
 
 proc drawRagdolls*() =
   ## Draw ragdoll death bodies with physics-based tumbling.

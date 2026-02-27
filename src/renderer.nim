@@ -236,7 +236,7 @@ proc drawObjects*() =
 
   # Draw unit shadows first (before agents, so shadows appear underneath)
   # Light source is NW, so shadows cast to SE (positive X and Y offset)
-  let shadowTint = color(0.0, 0.0, 0.0, ShadowAlpha)
+  let shadowTint = ShadowTint
   let shadowOffset = vec2(constants.ShadowOffsetX, constants.ShadowOffsetY)
   for agent in env.agents:
     if not isAgentAlive(env, agent):
@@ -292,7 +292,7 @@ proc drawObjects*() =
       else: TintWhite
     let posVec = thingPos.vec2
     bxy.drawImage("floor", posVec, angle = 0, scale = SpriteScale,
-                  tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
+                  tint = color(altarTint.r, altarTint.g, altarTint.b, ResourceIconDimAlpha))
     bxy.drawImage("altar", posVec, angle = 0, scale = SpriteScale,
                   tint = color(altarTint.r, altarTint.g, altarTint.b, 1.0))
     const heartAnchor = vec2(-0.48, -0.64)
@@ -300,7 +300,7 @@ proc drawObjects*() =
     let heartPos = posVec + heartAnchor
     if amt == 0:
       bxy.drawImage("heart", heartPos, angle = 0, scale = HeartIconScale,
-                    tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
+                    tint = color(altarTint.r, altarTint.g, altarTint.b, ResourceIconDimAlpha))
     elif amt <= HeartPlusThreshold:
       for i in 0 ..< amt:
         bxy.drawImage("heart", heartPos + vec2(0.12 * i.float32, 0.0),
@@ -391,7 +391,9 @@ proc drawObjects*() =
               env.teamColors[teamId]
             else:
               NeutralGrayDim
-            color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
+            color(base.r * BuildingTeamTintMul + BuildingTeamTintAdd,
+                  base.g * BuildingTeamTintMul + BuildingTeamTintAdd,
+                  base.b * BuildingTeamTintMul + BuildingTeamTintAdd, BuildingTeamTintAlpha)
           else:
             TintWhite
         # Apply scaffolding effect: desaturate and add transparency when under construction

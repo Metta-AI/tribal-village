@@ -275,11 +275,12 @@ proc getHealthBarColor*(ratio: float32): Color =
   if ratio > 0.5:
     # Green to yellow: ratio 1.0->0.5 maps to green->yellow
     let t = (ratio - 0.5) * 2.0  # t: 1.0 at full, 0.0 at half
-    color(1.0 - t * 0.9, 0.8, 0.1, 1.0)  # from yellow(1.0,0.8,0.1) to green(0.1,0.8,0.1)
+    color(HealthBarYellow.r - t * (HealthBarYellow.r - HealthBarGreen.r),
+          HealthBarYellow.g, HealthBarYellow.b, 1.0)
   else:
     # Yellow to red: ratio 0.5->0.0 maps to yellow->red
     let t = ratio * 2.0  # t: 1.0 at half, 0.0 at empty
-    color(1.0, t * 0.8, 0.1, 1.0)  # from red(1.0,0.0,0.1) to yellow(1.0,0.8,0.1)
+    color(HealthBarRed.r, t * HealthBarYellow.g, HealthBarYellow.b, 1.0)
 
 proc getHealthBarAlpha*(currentStep: int, lastAttackedStep: int): float32 =
   ## Calculate health bar alpha based on damage recency.

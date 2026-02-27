@@ -160,6 +160,43 @@ const
   # Goblin
   GoblinTint*        = color(0.35, 0.80, 0.35, 1.0) ## Goblin spawn tint (green)
 
+  # Shadow
+  ShadowTint*        = color(0.0, 0.0, 0.0, 0.25)   ## Unit shadow (semi-transparent black)
+
+  # Health bar gradient endpoints
+  HealthBarGreen*    = color(0.1, 0.8, 0.1, 1.0)    ## Health bar at full HP
+  HealthBarYellow*   = color(1.0, 0.8, 0.1, 1.0)    ## Health bar at half HP
+  HealthBarRed*      = color(1.0, 0.0, 0.1, 1.0)    ## Health bar at empty HP
+
+  # Rally point / selection white core
+  RallyCoreTint*     = color(1.0, 1.0, 1.0, 1.0)    ## Rally point inner core (white, alpha applied at runtime)
+
+  # Resource icon dim opacity
+  ResourceIconDimAlpha* = 0.35'f32                    ## Opacity for empty stockpile icons
+
+  # Building team tint modifiers
+  BuildingTeamTintMul* = 0.75'f32                     ## Team color multiplier for building tint
+  BuildingTeamTintAdd* = 0.1'f32                      ## Team color additive for building tint
+  BuildingTeamTintAlpha* = 0.9'f32                    ## Building team tint alpha
+
+  # Minimap bright team color boost
+  MinimapBrightMul* = 1.2'f32                         ## Brightness multiplier for minimap team colors
+  MinimapBrightAdd* = 0.1'f32                         ## Additive brightness for minimap team colors
+
+  # Projectile colors
+  ProjArrowColor*      = color(0.6, 0.4, 0.2, 1.0)   ## Arrow projectile (brown)
+  ProjLongbowColor*    = color(0.5, 0.3, 0.2, 1.0)   ## Longbow projectile (darker brown)
+  ProjJanissaryColor*  = color(0.9, 0.9, 0.3, 1.0)   ## Janissary projectile (yellow)
+  ProjTowerArrowColor* = color(0.6, 0.4, 0.2, 1.0)   ## Tower arrow projectile (brown)
+  ProjCastleArrowColor* = color(0.7, 0.5, 0.3, 1.0)  ## Castle arrow projectile (tan)
+  ProjMangonelColor*   = color(0.4, 0.4, 0.4, 1.0)   ## Mangonel projectile (gray)
+  ProjTrebuchetColor*  = color(0.5, 0.5, 0.5, 1.0)   ## Trebuchet projectile (dark gray)
+
+  # Debris colors
+  DebrisWoodColor*   = color(0.55, 0.35, 0.15, 1.0)  ## Wood debris (brown)
+  DebrisStoneColor*  = color(0.50, 0.50, 0.50, 1.0)  ## Stone debris (gray)
+  DebrisBrickColor*  = color(0.70, 0.40, 0.25, 1.0)  ## Brick debris (terracotta)
+
 # ---------------------------------------------------------------------------
 # Team Colors (game-specific)
 # ---------------------------------------------------------------------------

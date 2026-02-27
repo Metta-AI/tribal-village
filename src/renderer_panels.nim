@@ -221,9 +221,9 @@ proc initMinimapTeamColors() =
     let tc = if i < env.teamColors.len: env.teamColors[i] else: NeutralGray
     minimapTeamColors[i] = colorToRgbx(tc)
     minimapTeamBrightColors[i] = colorToRgbx(color(
-      min(tc.r * 1.2 + 0.1, 1.0),
-      min(tc.g * 1.2 + 0.1, 1.0),
-      min(tc.b * 1.2 + 0.1, 1.0),
+      min(tc.r * MinimapBrightMul + MinimapBrightAdd, 1.0),
+      min(tc.g * MinimapBrightMul + MinimapBrightAdd, 1.0),
+      min(tc.b * MinimapBrightMul + MinimapBrightAdd, 1.0),
       1.0
     ))
   minimapTeamColorsInitialized = true
