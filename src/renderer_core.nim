@@ -93,6 +93,15 @@ const
   CommandButtonBorderW* = 1.0'f32       # Button border line thickness
   CommandButtonHotkeyInset* = 2.0'f32   # Hotkey/checkmark inset from corner
 
+  # ─── Tooltip Layout ───────────────────────────────────────────────────────
+  TooltipFontPath* = "data/Inter-Regular.ttf"
+  TooltipTitleFontSize*: float32 = 16   # Title text font size
+  TooltipTextFontSize*: float32 = 13    # Body text font size
+  TooltipPadding*: float32 = 10         # Internal padding around content
+  TooltipLineHeight*: float32 = 18      # Vertical space per text line
+  TooltipMaxWidth*: float32 = 280       # Maximum tooltip width in pixels
+  TooltipShowDelay*: float64 = 0.3      # Seconds before tooltip appears
+
   # ─── Tooltip Positioning ──────────────────────────────────────────────────
   TooltipScreenMargin* = 8.0'f32        # Min distance from screen edges
   TooltipAnchorGap* = 8.0'f32           # Gap between tooltip and anchor rect
@@ -108,6 +117,12 @@ const
   SelectionGlowAlpha* = 0.4'f32         # Outer glow ring alpha
 
   # ─── Rally Point ──────────────────────────────────────────────────────────
+  RallyPointLineWidth* = 0.06'f32       # Width of the path line in world units
+  RallyPointLineSegments* = 12          # Number of segments in the path line
+  RallyPointBeaconScale* = 1.0 / 280.0  # Scale for the beacon sprite
+  RallyPointPulseSpeed* = 0.15'f32      # Speed of the pulsing animation
+  RallyPointPulseMin* = 0.6'f32         # Minimum alpha during pulse
+  RallyPointPulseMax* = 1.0'f32         # Maximum alpha during pulse
   RallyGlowScaleMult* = 3.0'f32         # Outer glow scale multiplier
   RallyGlowAlpha* = 0.3'f32             # Outer glow alpha
   RallyBeaconPulseAmount* = 0.15'f32    # Beacon scale pulse fraction
@@ -135,6 +150,34 @@ const
   ProductionBarOffsetY* = 0.55'f32       # Production progress bar Y offset
   ConstructionBarOffsetY* = 0.65'f32     # Construction progress bar Y offset
   ScaffoldPostOffset* = 0.35'f32         # Scaffolding post offset from center
+
+  # ─── Trade Route ─────────────────────────────────────────────────────────
+  TradeRouteLineWidth* = 0.08'f32       # World-space line width
+  TradeRouteFlowDotCount* = 5           # Animated dots per route segment
+  TradeRouteFlowSpeed* = 0.015'f32      # Animation speed (fraction per frame)
+  TradeRouteLineSegScale* = 200.0'f32   # Divisor for line segment sprite scale
+  TradeRouteTeamBlend* = 0.3'f32        # Team color weight in route blending
+  TradeRouteGoldBlend* = 0.7'f32        # Gold color weight in route blending
+  TradeRouteBrightnessBase* = 0.7'f32   # Base brightness for flow dots
+  TradeRouteBrightnessVar* = 0.3'f32    # Brightness variation for flow dots
+  TradeRouteDotColorBoostR* = 0.2'f32   # Red color boost on flow dots
+  TradeRouteDotColorBoostG* = 0.1'f32   # Green color boost on flow dots
+  TradeRouteDockMarkerOffsetY* = -0.4'f32 # Dock gold indicator Y offset
+  TradeRouteTargetAlpha* = 0.5'f32      # Alpha for target dock route line
+  TradeRouteDotAlpha* = 0.9'f32         # Alpha for flow dot indicators
+
+  # ─── Minimap Team Colors ─────────────────────────────────────────────────
+  MinimapBrightColorMult* = 1.2'f32     # Multiplier for bright team colors
+  MinimapBrightColorAdd* = 0.1'f32      # Additive boost for bright team colors
+  MinimapNeutralGrayBright* = 179       # Neutral gray for non-team buildings (0.7 * 255)
+  MinimapIntensityCap* = 1.3'f32        # Max biome intensity for minimap colors
+
+  # ─── Label Style Parameters ─────────────────────────────────────────────
+  UnitInfoLabelPadding* = 4.0'f32       # Padding for unit info label style
+  UnitInfoLabelLineSpacing* = 0.5'f32   # Line spacing for unit info label
+  ResourceBarLabelPadding* = 4.0'f32    # Padding for resource bar label style
+  OverlayLabelLineSpacing* = 0.7'f32    # Line spacing for overlay labels
+  InfoLabelLineSpacing* = 0.6'f32       # Line spacing for info labels
 
   # ─── Footer Icon Offsets ──────────────────────────────────────────────────
   FooterIconCenterShiftX* = 8.0'f32   # Icon X centering offset
@@ -380,12 +423,12 @@ const
 
 let
   overlayLabelStyle* = labelStyle(HeartCountFontPath, HeartCountFontSize,
-                                  HeartCountPadding.float32, 0.7)
+                                  HeartCountPadding.float32, OverlayLabelLineSpacing)
   infoLabelStyle* = labelStyle(InfoLabelFontPath, InfoLabelFontSize,
-                               InfoLabelPadding.float32, 0.6)
+                               InfoLabelPadding.float32, InfoLabelLineSpacing)
   footerBtnLabelStyle* = labelStyle(FooterFontPath, FooterFontSize,
                                     FooterLabelPadding, 0.0)
-  resourceBarLabelStyle* = labelStyle(FooterFontPath, FooterFontSize, 4.0, 0.0)
+  resourceBarLabelStyle* = labelStyle(FooterFontPath, FooterFontSize, ResourceBarLabelPadding, 0.0)
 
 proc ensureHeartCountLabel*(count: int): string =
   ## Cache a simple "x N" label for large heart counts so we can reuse textures.
