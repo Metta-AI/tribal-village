@@ -25,7 +25,7 @@ proc drawSelection*() =
     # Draw pulsing glow effect (outer ring)
     if "selection" in bxy:
       let glowPulse = sin(frame.float32 * 0.1) * 0.15 + 0.85
-      let glowColor = color(0.3, 0.7, 1.0, 0.4 * glowPulse)
+      let glowColor = color(UiSelectionGlow.r, UiSelectionGlow.g, UiSelectionGlow.b, UiSelectionGlow.a * glowPulse)
       bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale * SelectionGlowScale,
                     tint = glowColor)
 
@@ -67,7 +67,7 @@ proc drawRallyPoints*() =
 
     # Get team color for the rally point indicator
     let teamId = thing.teamId
-    let teamColor = getTeamColor(env, teamId, color(0.8, 0.8, 0.8, 1.0))
+    let teamColor = getTeamColor(env, teamId, RallyPointFallback)
 
     # Draw path line from building to rally point using small rectangles
     let startVec = buildingPos.vec2
@@ -131,7 +131,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
 
   # Get team color for the preview (use green for valid placement)
-  let previewColor = color(0.3, 1.0, 0.3, pulseAlpha * 0.8)
+  let previewColor = color(RallyPreviewColor.r, RallyPreviewColor.g, RallyPreviewColor.b, pulseAlpha * 0.8)
 
   # Draw path line from building to mouse position
   let lineDir = mousePos - buildingPos
@@ -179,7 +179,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
 
 const
   TradeRouteLineWidth = 0.08'f32       # World-space line width
-  TradeRouteGoldColor = color(0.95, 0.78, 0.15, 0.7)  # Gold color for route lines
+  TradeRouteGoldColor = TradeRouteGoldTint  ## Gold color for route lines
   TradeRouteFlowDotCount = 5           # Number of animated dots per route segment
   TradeRouteFlowSpeed = 0.015'f32      # Animation speed (fraction per frame)
 

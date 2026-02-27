@@ -75,7 +75,7 @@ proc renderDamageNumberLabel(text: string, textColor: Color): (Image, IVec2) =
   var ctx = newContext(w, h)
   setupCtxFont(ctx, DamageNumberFontPath, fontSize)
   # Draw outline for visibility
-  ctx.fillStyle.color = color(0, 0, 0, 0.6)
+  ctx.fillStyle.color = TextOutlineColor
   for dx in -1 .. 1:
     for dy in -1 .. 1:
       if dx != 0 or dy != 0:
@@ -95,9 +95,9 @@ proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) 
     return (damageNumberImages[cacheKey], damageNumberSizes[cacheKey])
   # Create new label with appropriate color
   let textColor = case kind
-    of DmgNumDamage: color(1.0, 0.3, 0.3, 1.0)    # Red
-    of DmgNumHeal: color(0.3, 1.0, 0.3, 1.0)      # Green
-    of DmgNumCritical: color(1.0, 0.8, 0.2, 1.0)  # Yellow/gold
+    of DmgNumDamage: DmgColorDamage
+    of DmgNumHeal: DmgColorHeal
+    of DmgNumCritical: DmgColorCritical
   let text = $amount
   let (image, size) = renderDamageNumberLabel(text, textColor)
   let imageKey = "dmgnum_" & cacheKey
@@ -303,7 +303,7 @@ proc drawSpawnEffects*() =
     # Fade out with quadratic ease (bright at start, fades smoothly)
     let alpha = t * t * 0.6  # Max alpha 0.6 to not be too bright
     # Use a bright cyan/white tint for spawn effect
-    let tint = color(0.6, 0.9, 1.0, alpha)
+    let tint = color(SpawnEffectTint.r, SpawnEffectTint.g, SpawnEffectTint.b, alpha)
     bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
 
 proc drawGatherSparkles*() =
@@ -323,7 +323,7 @@ proc drawGatherSparkles*() =
     # Fade out with quadratic ease
     let alpha = t * t * 0.8
     # Golden sparkle color
-    let tintColor = color(1.0, 0.85, 0.3, alpha)
+    let tintColor = color(GatherSparkleTint.r, GatherSparkleTint.g, GatherSparkleTint.b, alpha)
     # Small particles
     let scale = (1.0 / 450.0).float32 * (0.5 + t * 0.5)
     bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
@@ -345,7 +345,7 @@ proc drawConstructionDust*() =
     # Fade out
     let alpha = t * t * 0.5
     # Dusty brown color
-    let tintColor = color(0.7, 0.6, 0.4, alpha)
+    let tintColor = color(ConstructionDustTint.r, ConstructionDustTint.g, ConstructionDustTint.b, alpha)
     # Particles that grow slightly as they rise
     let scale = (1.0 / 400.0).float32 * (0.7 + (1.0 - t) * 0.3)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
@@ -390,13 +390,14 @@ proc drawDustParticles*() =
     # Fade out with quadratic ease
     let alpha = t * t * 0.6
     # Color based on terrain type
-    let tintColor = case dust.terrainColor
-      of 0: color(0.85, 0.75, 0.55, alpha)  # Sand/Dune - tan
-      of 1: color(0.95, 0.95, 1.0, alpha)   # Snow - white
-      of 2: color(0.45, 0.35, 0.25, alpha)  # Mud - dark brown
-      of 3: color(0.6, 0.55, 0.4, alpha)    # Grass/Fertile - green-brown
-      of 4: color(0.5, 0.5, 0.5, alpha)     # Road - gray
-      else: color(0.7, 0.6, 0.4, alpha)     # Default tan
+    let dustBase = case dust.terrainColor
+      of 0: DustSandColor
+      of 1: DustSnowColor
+      of 2: DustMudColor
+      of 3: DustGrassColor
+      of 4: DustRoadColor
+      else: DustDefaultColor
+    let tintColor = color(dustBase.r, dustBase.g, dustBase.b, alpha)
     # Small particles that shrink slightly as they fade
     let scale = (1.0 / 600.0).float32 * (0.5 + t * 0.5)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
@@ -421,7 +422,7 @@ proc drawWaterRipples*() =
     # Fade out with quadratic ease (visible at start, fades smoothly)
     let alpha = t * t * 0.5  # Max alpha 0.5 for subtle effect
     # Use a light cyan/blue tint for water ripple
-    let tint = color(0.5, 0.7, 0.9, alpha)
+    let tint = color(RippleTint.r, RippleTint.g, RippleTint.b, alpha)
     bxy.drawImage("floor", ripple.pos, angle = 0, scale = baseScale, tint = tint)
 
 proc drawAttackImpacts*() =
@@ -441,7 +442,7 @@ proc drawAttackImpacts*() =
     # Fade out quickly with quadratic ease for punchy effect
     let alpha = t * t * 0.9
     # Orange/red impact color for combat feedback
-    let tintColor = color(1.0, 0.5, 0.2, alpha)
+    let tintColor = color(AttackImpactTint.r, AttackImpactTint.g, AttackImpactTint.b, alpha)
     # Small particles that shrink as they fade
     let scale = (1.0 / 400.0).float32 * (0.3 + t * 0.7)  # 30% to 100%
     bxy.drawImage("floor", impact.pos, angle = 0, scale = scale, tint = tintColor)
@@ -465,7 +466,7 @@ proc drawConversionEffects*() =
     # Fade out over time with pulsing intensity
     let alpha = t * (0.5 + pulse * 0.5)
     # Blend between golden divine color and team color
-    let golden = color(0.95, 0.85, 0.35, alpha)
+    let golden = color(ConversionGoldenTint.r, ConversionGoldenTint.g, ConversionGoldenTint.b, alpha)
     let teamAlpha = effect.teamColor
     let blendT = 1.0 - t  # More team color as time progresses
     let tintColor = color(
@@ -565,7 +566,7 @@ proc drawWeatherEffects*() =
         let cloudScale = RainCloudScale * (1.0 + scaleNoise)
         let cloudAlpha = RainCloudAlpha * (0.75 + alphaNoise)
         bxy.drawImage("floor", cloudPos, angle = 0, scale = cloudScale,
-                      tint = color(0.82, 0.84, 0.9, cloudAlpha))
+                      tint = color(CloudPuffTint.r, CloudPuffTint.g, CloudPuffTint.b, cloudAlpha))
 
     let rainParticleCount = max(particleCount, rainPatches.len * 10)
 
