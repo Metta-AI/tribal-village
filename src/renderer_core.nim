@@ -166,6 +166,21 @@ const
   TradeRouteTargetAlpha* = 0.5'f32      # Alpha for target dock route line
   TradeRouteDotAlpha* = 0.9'f32         # Alpha for flow dot indicators
 
+  # ─── Grid Overlay ────────────────────────────────────────────────────────
+  GridLineScale* = 1.0 / 800.0          # Scale for grid line sprites
+
+  # ─── Minimap Terrain Colors (renderer_panels) ──────────────────────────
+  MinimapPanelWater*        = rgbx(30, 60, 130, 255)    ## Deep water
+  MinimapPanelShallowWater* = rgbx(80, 140, 200, 255)   ## Shallow water
+  MinimapPanelBridge*       = rgbx(140, 110, 80, 255)   ## Bridge
+  MinimapPanelRoad*         = rgbx(160, 150, 130, 255)  ## Road
+  MinimapPanelSnow*         = rgbx(230, 235, 245, 255)  ## Snow
+  MinimapPanelSandy*        = rgbx(210, 190, 110, 255)  ## Dune/Sand
+  MinimapPanelMud*          = rgbx(100, 85, 60, 255)    ## Mud
+  MinimapPanelMountain*     = rgbx(80, 75, 70, 255)     ## Mountain
+  MinimapPanelTree*         = rgbx(40, 100, 40, 255)    ## Tree (dark green)
+  MinimapPanelUnknownGray*  = rgbx(128, 128, 128, 255)  ## Unknown team gray
+
   # ─── Minimap Team Colors ─────────────────────────────────────────────────
   MinimapBrightColorMult* = 1.2'f32     # Multiplier for bright team colors
   MinimapBrightColorAdd* = 0.1'f32      # Additive boost for bright team colors

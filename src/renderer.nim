@@ -519,10 +519,10 @@ proc drawGrid*() =
   for x in currentViewport.minX .. currentViewport.maxX + 1:
     for y in currentViewport.minY .. currentViewport.maxY:
       bxy.drawImage("floor", vec2(x.float32 - 0.5, y.float32), angle = 0,
-                    scale = 1.0 / 800.0, tint = gridColor)
+                    scale = GridLineScale, tint = gridColor)
 
   # Draw horizontal lines
   for y in currentViewport.minY .. currentViewport.maxY + 1:
     for x in currentViewport.minX .. currentViewport.maxX:
       bxy.drawImage("floor", vec2(x.float32, y.float32 - 0.5), angle = 0,
-                    scale = 1.0 / 800.0, tint = gridColor)
+                    scale = GridLineScale, tint = gridColor)
