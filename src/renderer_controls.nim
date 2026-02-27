@@ -121,7 +121,7 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
                           w: panelRect.w.float32, h: FooterHeight.float32),
                color = bgColor)
   bxy.drawRect(rect = Rect(x: panelRect.x.float32, y: footerTop,
-                           w: panelRect.w.float32, h: 1.0),
+                           w: panelRect.w.float32, h: FooterBorderHeight),
                color = UiBorderBright)
 
   # Draw buttons
@@ -136,21 +136,21 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
                             w: button.rect.w.float32, h: button.rect.h.float32),
                  color = btnBg)
     bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32,
-                             w: button.rect.w.float32, h: 1.0),
+                             w: button.rect.w.float32, h: FooterBorderHeight),
                  color = UiBorder)
-    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32 + button.rect.h.float32 - 1.0,
-                             w: button.rect.w.float32, h: 1.0),
+    bxy.drawRect(rect = Rect(x: button.rect.x.float32, y: button.rect.y.float32 + button.rect.h.float32 - FooterBorderHeight,
+                             w: button.rect.w.float32, h: FooterBorderHeight),
                  color = UiBorder)
 
     # Draw icon or label
     if button.iconKey.len > 0 and button.iconKey in bxy:
       let sc = min(1.0'f32, innerHeight / button.iconSize.y.float32)
       let iconSize = vec2(button.iconSize.x.float32 * sc, button.iconSize.y.float32 * sc)
-      let iconPos = centerIn(button.rect, iconSize) + vec2(8.0, 9.0) * sc
+      let iconPos = centerIn(button.rect, iconSize) + vec2(FooterIconCenterShiftX, FooterIconCenterShiftY) * sc
       drawUiImageScaled(button.iconKey, iconPos, iconSize)
     elif button.labelKey.len > 0 and button.labelKey in bxy:
       # Text labels still use boxy (no fonts in silky atlas yet)
-      let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
+      let shift = if button.kind == FooterFaster: vec2(FooterIconCenterShiftX, FooterIconCenterShiftY) else: vec2(0.0, 0.0)
       let labelSize = vec2(button.labelSize.x.float32, button.labelSize.y.float32)
       let labelPos = centerIn(button.rect, labelSize) + shift
       drawUiImageScaled(button.labelKey, labelPos, labelSize)
@@ -173,7 +173,7 @@ proc drawFooterHudLabel(panelRect: IRect, key: string, labelSize: IVec2, xOffset
   let scale = min(1.0'f32, innerHeight / labelSize.y.float32)
   let pos = vec2(
     panelRect.x.float32 + xOffset,
-    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + 20.0
+    footerTop + FooterPadding + (innerHeight - labelSize.y.float32 * scale) * 0.5 + FooterHudLabelYShift
   )
   let size = vec2(labelSize.x.float32 * scale, labelSize.y.float32 * scale)
   drawUiImageScaled(key, pos, size)
@@ -292,5 +292,5 @@ proc drawControlModeLabel*(panelRect: IRect) =
   # Position to the left of the step label (center area of footer)
   let labelW = controlModeLabelSize.x.float32 * scale
   let stepLabelW = stepLabelSize.x.float32 * scale
-  let xOffset = panelRect.w.float32 - labelW - stepLabelW - FooterHudPadding * 2.0 - 10.0
+  let xOffset = panelRect.w.float32 - labelW - stepLabelW - FooterHudPadding * 2.0 - ResourceBarXStart
   drawFooterHudLabel(panelRect, key, controlModeLabelSize, xOffset)

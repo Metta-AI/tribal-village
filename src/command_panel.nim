@@ -10,7 +10,7 @@
 
 import
   pixie, vmath, windy,
-  common, environment, tooltips, semantic
+  common, environment, tooltips, semantic, renderer_core
 
 when defined(useSilky):
   # Use 'from import nil' to avoid vmath operator conflicts
@@ -469,8 +469,8 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
   # Draw panel background with border
   sk.drawRect(
-    vec2(cpRect.x - 2, cpRect.y - 2),
-    vec2(cpRect.w + 4, cpRect.h + 4),
+    vec2(cpRect.x - CommandPanelBorderOffset, cpRect.y - CommandPanelBorderOffset),
+    vec2(cpRect.w + CommandPanelBorderExpand, cpRect.h + CommandPanelBorderExpand),
     UiBg.toRGBX
   )
   sk.drawRect( vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h), CommandPanelBgColor.toRGBX)
@@ -522,7 +522,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
     # Draw button border
     let borderColor = if hovered: UiBorderBright else: UiBorder
-    let bw = 1.0'f32
+    let bw = CommandButtonBorderW
     # Top border
     sk.drawRect( vec2(button.rect.x, button.rect.y), vec2(button.rect.w, bw), borderColor.toRGBX)
     # Bottom border
@@ -546,8 +546,8 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
     # Draw hotkey in corner
     if button.hotkey.len > 0:
       let hotkeySize = sk.getTextSize( CommandHotkeyFont, button.hotkey)
-      let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x - 2
-      let hotkeyY = button.rect.y + 2
+      let hotkeyX = button.rect.x + button.rect.w - hotkeySize.x - CommandButtonHotkeyInset
+      let hotkeyY = button.rect.y + CommandButtonHotkeyInset
       discard sk.drawText( CommandHotkeyFont, button.hotkey, vec2(hotkeyX, hotkeyY), UiFgMuted.toRGBX)
 
     # Draw checkmark for researched techs (disabled research buttons)
@@ -558,8 +558,8 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
         CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
         CmdResearchCoinage, CmdResearchCastleTech1, CmdResearchCastleTech2}:
       # Draw a green checkmark indicator in the top-left corner
-      let checkX = button.rect.x + 2
-      let checkY = button.rect.y + 2
+      let checkX = button.rect.x + CommandButtonHotkeyInset
+      let checkY = button.rect.y + CommandButtonHotkeyInset
       discard sk.drawText( CommandHotkeyFont, "OK", vec2(checkX, checkY), UiSuccess.toRGBX)
 
   # Clear tooltip if no button is hovered
