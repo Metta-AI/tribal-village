@@ -70,7 +70,7 @@ proc drawRallyPoints*() =
     let lineDir = endVec - startVec
     let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-    if lineLen > 0.1:
+    if lineLen > RallyMinLineLength:
       let stepLen = lineLen / RallyPointLineSegments.float32
       let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
 
@@ -132,7 +132,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let lineDir = mousePos - buildingPos
   let lineLen = sqrt(lineDir.x * lineDir.x + lineDir.y * lineDir.y)
 
-  if lineLen > 0.5:
+  if lineLen > RallyPreviewMinLineLength:
     let normalizedDir = vec2(lineDir.x / lineLen, lineDir.y / lineLen)
     let stepLen = lineLen / RallyPointLineSegments.float32
 
@@ -189,7 +189,7 @@ proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRo
     return
 
   # Draw line as a series of small floor sprites along the path
-  let segments = max(1, int(length / 0.5))
+  let segments = max(1, int(length / TradeRouteSegmentSpacing))
   for i in 0 ..< segments:
     let t0 = i.float32 / segments.float32
     let t1 = (i + 1).float32 / segments.float32
@@ -284,7 +284,7 @@ proc drawTradeRoutes*() =
     let dy1 = p2.y - p1.y
     let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
 
-    if len1 > 0.5:
+    if len1 > TradeRouteMinLineLength:
       # Check if either endpoint is in viewport (with margin for long routes)
       let inView1 = isInViewport(ivec2(p1.x.int, p1.y.int)) or isInViewport(ivec2(p2.x.int, p2.y.int))
       if inView1:
@@ -316,7 +316,7 @@ proc drawTradeRoutes*() =
       let dy2 = p3.y - p2.y
       let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
 
-      if len2 > 0.5:
+      if len2 > TradeRouteMinLineLength:
         let inView2 = isInViewport(ivec2(p2.x.int, p2.y.int)) or isInViewport(ivec2(p3.x.int, p3.y.int))
         if inView2:
           # Draw lighter line to target (trade cog hasn't been there yet)
