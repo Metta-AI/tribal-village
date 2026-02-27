@@ -146,7 +146,7 @@ proc drawObjects*() =
       if isInViewport(pos):
         bxy.drawImage(waterKey, pos.vec2, angle = 0, scale = SpriteScale, tint = waterTint)
     # Draw shallow water (passable but slow) with lighter tint to distinguish
-    let shallowLit = applyAmbient(0.6, 0.85, 0.95, 1.0, ambient)
+    let shallowLit = applyAmbient(ShallowWaterBase.r, ShallowWaterBase.g, ShallowWaterBase.b, 1.0, ambient)
     let shallowTint = color(shallowLit.r * shallowLit.i, shallowLit.g * shallowLit.i, shallowLit.b * shallowLit.i, 1.0)
     for pos in shallowWaterPositions:
       if isInViewport(pos):
@@ -155,7 +155,7 @@ proc drawObjects*() =
   # Draw mountain terrain (impassable) with dark gray-brown rocky tint
   let mountainKey = terrainSpriteKey(Mountain)
   if mountainKey.len > 0 and mountainKey in bxy:
-    let mountainLit = applyAmbient(0.35, 0.32, 0.30, 1.0, ambient)
+    let mountainLit = applyAmbient(MountainBase.r, MountainBase.g, MountainBase.b, 1.0, ambient)
     let mountainTint = color(mountainLit.r * mountainLit.i, mountainLit.g * mountainLit.i, mountainLit.b * mountainLit.i, 1.0)
     for pos in mountainPositions:
       if isInViewport(pos):

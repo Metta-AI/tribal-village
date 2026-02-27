@@ -133,7 +133,7 @@ proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
     let sizeScale = SmokeParticleScale * (1.0 + t * 0.5)
 
     # Gray-white smoke color with slight variation per particle
-    let grayVal = 0.7 + (i.float32 * 0.1)
+    let grayVal = SmokeBaseGray + (i.float32 * 0.1)
     let smokeTint = color(grayVal, grayVal, grayVal, alpha)
 
     bxy.drawImage("floor", particlePos, angle = 0, scale = sizeScale, tint = smokeTint)
@@ -559,7 +559,7 @@ proc drawWeatherEffects*() =
         continue
 
       let blueVal = 0.7 + ((seed * 3) mod 30).float32 / 100.0
-      let rainTint = color(0.8, 0.85, blueVal, RainAlpha)
+      let rainTint = color(RainBaseR, RainBaseG, blueVal, RainAlpha)
 
       for s in 0 ..< RainStreakLength:
         let streakOffset = vec2(
@@ -596,7 +596,7 @@ proc drawWeatherEffects*() =
         continue
 
       # Wind color: gray-white with variation
-      let grayVal = 0.7 + ((seed * 5) mod 20).float32 / 100.0
+      let grayVal = SmokeBaseGray + ((seed * 5) mod 20).float32 / 100.0
       let windTint = color(grayVal, grayVal, grayVal, WindAlpha)
 
       bxy.drawImage("floor", particlePos, angle = 0,

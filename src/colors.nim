@@ -171,6 +171,20 @@ const
   # Rally point / selection white core
   RallyCoreTint*     = color(1.0, 1.0, 1.0, 1.0)    ## Rally point inner core (white, alpha applied at runtime)
 
+  # Label rendering
+  LabelBgBlack*      = color(0, 0, 0, 1)             ## Label background base (black, alpha applied at runtime)
+
+  # Weather base tints (R/G fixed, B varies at runtime per particle)
+  RainBaseR*         = 0.8'f32                        ## Rain particle base red
+  RainBaseG*         = 0.85'f32                       ## Rain particle base green
+
+  # Smoke/wind base brightness (per-particle variation at runtime)
+  SmokeBaseGray*     = 0.7'f32                        ## Smoke particle base gray value
+
+  # Terrain ambient base colors (used with applyAmbient)
+  ShallowWaterBase*  = color(0.6, 0.85, 0.95, 1.0)   ## Shallow water ambient tint base
+  MountainBase*      = color(0.35, 0.32, 0.30, 1.0)   ## Mountain ambient tint base
+
   # Resource icon dim opacity
   ResourceIconDimAlpha* = 0.35'f32                    ## Opacity for empty stockpile icons
 
