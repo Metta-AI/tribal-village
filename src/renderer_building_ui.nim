@@ -4,10 +4,10 @@
 ## population, garrison, production queue), building ghost preview, placement validation.
 
 import
-  boxy, pixie, vmath, tables, std/[math, strutils],
+  boxy, pixie, vmath, std/math,
   common, constants, environment
 
-import renderer_core
+import renderer_core, label_cache
 from renderer_effects import drawBuildingSmoke
 
 # ─── Building Construction Rendering ─────────────────────────────────────────
@@ -93,14 +93,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
                       scale = OverlayIconScale, tint = color(1, 1, 1, 1))
       let popText = "x " & $teamPopCounts[teamId] & "/" &
                     $min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
-      let popLabel = if popText in overlayLabelImages: overlayLabelImages[popText]
-        else:
-          let (image, _) = renderTextLabel(popText, HeartCountFontPath,
-                                           HeartCountFontSize, HeartCountPadding.float32, 0.7)
-          let key = "overlay_label/" & popText.replace(" ", "_").replace("/", "_")
-          bxy.addImage(key, image)
-          overlayLabelImages[popText] = key
-          key
+      let popLabel = ensureLabel("overlay", popText, overlayLabelStyle).imageKey
       if popLabel.len > 0 and popLabel in bxy:
         bxy.drawImage(popLabel, iconPos + vec2(0.14, -0.08), angle = 0,
                       scale = OverlayLabelScale, tint = color(1, 1, 1, 1))
@@ -114,14 +107,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
         bxy.drawImage("oriented/fighter.s", garrisonIconPos, angle = 0,
                       scale = OverlayIconScale, tint = color(1, 1, 1, 1))
       let garrisonText = "x" & $garrisonCount
-      let garrisonLabel = if garrisonText in overlayLabelImages: overlayLabelImages[garrisonText]
-        else:
-          let (image, _) = renderTextLabel(garrisonText, HeartCountFontPath,
-                                           HeartCountFontSize, HeartCountPadding.float32, 0.7)
-          let key = "overlay_label/" & garrisonText.replace(" ", "_")
-          bxy.addImage(key, image)
-          overlayLabelImages[garrisonText] = key
-          key
+      let garrisonLabel = ensureLabel("overlay", garrisonText, overlayLabelStyle).imageKey
       if garrisonLabel.len > 0 and garrisonLabel in bxy:
         bxy.drawImage(garrisonLabel, garrisonIconPos + vec2(0.12, -0.08), angle = 0,
                       scale = OverlayLabelScale, tint = color(1, 1, 1, 1))

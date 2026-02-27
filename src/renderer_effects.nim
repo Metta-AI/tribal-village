@@ -9,7 +9,7 @@ import
   common, environment
 
 # Import sprite helper procs from renderer_core
-import renderer_core
+import renderer_core, label_cache
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -53,58 +53,20 @@ const
 
 # ─── Damage Number Cache ─────────────────────────────────────────────────────
 
-import tables
-
-var
-  damageNumberImages: Table[string, string] = initTable[string, string]()
-  damageNumberSizes: Table[string, IVec2] = initTable[string, IVec2]()
-
-template setupCtxFont(ctx: untyped, fontPath: string, fontSize: float32) =
-  ctx.font = fontPath
-  ctx.fontSize = fontSize
-  ctx.textBaseline = TopBaseline
-
-proc renderDamageNumberLabel(text: string, textColor: Color): (Image, IVec2) =
-  ## Render a damage number label with outline for visibility.
-  let fontSize = DamageNumberFontSize
-  let padding = 2.0'f32
-  var measureCtx = newContext(1, 1)
-  setupCtxFont(measureCtx, DamageNumberFontPath, fontSize)
-  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
-  let h = max(1, (fontSize + padding * 2).int)
-  var ctx = newContext(w, h)
-  setupCtxFont(ctx, DamageNumberFontPath, fontSize)
-  # Draw outline for visibility
-  ctx.fillStyle.color = color(0, 0, 0, 0.6)
-  for dx in -1 .. 1:
-    for dy in -1 .. 1:
-      if dx != 0 or dy != 0:
-        ctx.fillText(text, vec2(padding + dx.float32, padding + dy.float32))
-  ctx.fillStyle.color = textColor
-  ctx.fillText(text, vec2(padding, padding))
-  result = (ctx.image, ivec2(w, h))
-
 proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) =
   ## Get or create a cached damage number label image.
-  let prefix = case kind
-    of DmgNumDamage: "d"
-    of DmgNumHeal: "h"
-    of DmgNumCritical: "c"
-  let cacheKey = prefix & $amount
-  if cacheKey in damageNumberImages:
-    return (damageNumberImages[cacheKey], damageNumberSizes[cacheKey])
-  # Create new label with appropriate color
   let textColor = case kind
     of DmgNumDamage: color(1.0, 0.3, 0.3, 1.0)    # Red
     of DmgNumHeal: color(0.3, 1.0, 0.3, 1.0)      # Green
     of DmgNumCritical: color(1.0, 0.8, 0.2, 1.0)  # Yellow/gold
-  let text = $amount
-  let (image, size) = renderDamageNumberLabel(text, textColor)
-  let imageKey = "dmgnum_" & cacheKey
-  bxy.addImage(imageKey, image)
-  damageNumberImages[cacheKey] = imageKey
-  damageNumberSizes[cacheKey] = size
-  return (imageKey, size)
+  let prefix = case kind
+    of DmgNumDamage: "d"
+    of DmgNumHeal: "h"
+    of DmgNumCritical: "c"
+  let style = labelStyleOutlined(DamageNumberFontPath, DamageNumberFontSize,
+                                  2.0, textColor)
+  let cached = ensureLabel("dmgnum", prefix & $amount, style)
+  return (cached.imageKey, cached.size)
 
 # ─── Projectile Constants ────────────────────────────────────────────────────
 

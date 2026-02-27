@@ -10,9 +10,9 @@
 ## - Tech requirements (prerequisites, costs, effects)
 
 import
-  boxy, pixie, vmath, windy, tables,
+  boxy, pixie, vmath, windy,
   std/[strutils, strformat],
-  common, types, registry, items, constants, environment
+  common, types, registry, items, constants, environment, label_cache
 
 when defined(useSilky):
   # Use 'from import nil' to avoid vmath operator conflicts
@@ -90,40 +90,12 @@ when defined(useSilky):
 
 var
   tooltipState*: TooltipState
-  tooltipLabelImages: Table[string, string] = initTable[string, string]()
-  tooltipLabelSizes: Table[string, IVec2] = initTable[string, IVec2]()
-
-# ---------------------------------------------------------------------------
-# Label rendering (cached)
-# ---------------------------------------------------------------------------
 
 proc renderTooltipLabel(text: string, fontSize: float32, textColor: Color): (string, IVec2) =
   ## Render a text label and return the image key and size.
-  let cacheKey = text & "_" & $fontSize.int & "_" & $textColor.r.int
-  if cacheKey in tooltipLabelImages:
-    return (tooltipLabelImages[cacheKey], tooltipLabelSizes.getOrDefault(cacheKey, ivec2(0, 0)))
-
-  var measureCtx = newContext(1, 1)
-  measureCtx.font = TooltipFontPath
-  measureCtx.fontSize = fontSize
-  measureCtx.textBaseline = TopBaseline
-
-  let padding = 2.0'f32
-  let w = max(1, (measureCtx.measureText(text).width + padding * 2).int)
-  let h = max(1, (fontSize + padding * 2).int)
-
-  var ctx = newContext(w, h)
-  ctx.font = TooltipFontPath
-  ctx.fontSize = fontSize
-  ctx.textBaseline = TopBaseline
-  ctx.fillStyle.color = textColor
-  ctx.fillText(text, vec2(padding, padding))
-
-  let key = "tooltip_label/" & cacheKey.replace(" ", "_").replace(":", "_")
-  bxy.addImage(key, ctx.image)
-  tooltipLabelImages[cacheKey] = key
-  tooltipLabelSizes[cacheKey] = ivec2(w, h)
-  result = (key, ivec2(w, h))
+  let style = labelStyleColored(TooltipFontPath, fontSize, 2.0, textColor)
+  let cached = ensureLabel("tooltip", text, style)
+  return (cached.imageKey, cached.size)
 
 # ---------------------------------------------------------------------------
 # Resource name helpers
