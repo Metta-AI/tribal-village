@@ -89,10 +89,10 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
     btn.isPressed = case kind
       of FooterPlayPause: not paused
       of FooterStep: false
-      of FooterSlow: speedMultiplier == 0.5
-      of FooterFast: speedMultiplier == 2.0
-      of FooterFaster: speedMultiplier >= 4.0 and speedMultiplier < 10.0
-      of FooterSuper: speedMultiplier >= 10.0
+      of FooterSlow: speedMultiplier == SpeedSlow
+      of FooterFast: speedMultiplier == SpeedFast
+      of FooterFaster: speedMultiplier >= SpeedFaster and speedMultiplier < SpeedSuperMin
+      of FooterSuper: speedMultiplier >= SpeedSuperMin
     buttons.add(btn)
     x += w + FooterButtonGap
 
