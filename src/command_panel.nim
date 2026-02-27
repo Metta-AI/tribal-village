@@ -41,13 +41,11 @@ const
   CommandButtonBgColor = UiBgButton
   CommandButtonHoverColor = UiBgButtonHover
   CommandButtonDisabledColor = UiBgButtonDisabled
-  CommandPanelHeaderHeight = 24.0'f32
-  CommandPanelHeaderPadX = 10.0'f32
 
-  CommandLabelFontPath = "data/Inter-Regular.ttf"
-  CommandLabelFontSize = 18.0'f32
-  CommandHotkeyFontSize = 14.0'f32
-  CommandLabelPadding = 2.0'f32
+  # Layout constants imported from renderer_core:
+  #   CommandPanelHeaderHeight, CommandPanelHeaderPadX,
+  #   CommandLabelFontPath, CommandLabelFontSize,
+  #   CommandHotkeyFontSize, CommandLabelPadding
 
 let
   commandLabelStyle = labelStyle(CommandLabelFontPath, CommandLabelFontSize,

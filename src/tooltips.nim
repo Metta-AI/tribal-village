@@ -222,7 +222,7 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
       result.add(&"{itemKeyName(item.key)}: {item.count}")
   # Training costs
   of CmdTrainVillager:
-    result.add("Food: 2")
+    result.add(&"Food: {VillagerTrainFoodCost}")
   of CmdTrainManAtArms:
     let costs = buildingTrainCosts(Barracks)
     for cost in costs:
@@ -236,8 +236,8 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
     for cost in costs:
       result.add(&"{resourceName(cost.res)}: {cost.count}")
   of CmdTrainKnight:
-    result.add("Food: 4")
-    result.add("Gold: 3")
+    result.add(&"Food: {KnightTrainFoodCost}")
+    result.add(&"Gold: {KnightTrainGoldCost}")
   of CmdTrainMonk:
     let costs = buildingTrainCosts(Monastery)
     for cost in costs:
@@ -255,7 +255,7 @@ proc getCommandCosts*(kind: CommandButtonKind): seq[string] =
     for cost in costs:
       result.add(&"{resourceName(cost.res)}: {cost.count}")
   of CmdTrainBoat:
-    result.add("Wood: 3")
+    result.add(&"Wood: {BoatTrainWoodCost}")
   of CmdTrainTradeCog, CmdTrainGalley, CmdTrainFireShip, CmdTrainFishingShip,
      CmdTrainTransportShip, CmdTrainDemoShip, CmdTrainCannonGalleon:
     let costs = buildingTrainCosts(Dock)
@@ -457,7 +457,7 @@ proc buildBuildingTooltip*(thing: Thing): TooltipContent =
   if thing.productionQueue.entries.len > 0:
     result.statsLines.add("Production Queue:")
     for i, entry in thing.productionQueue.entries:
-      if i >= 3: break
+      if i >= TooltipMaxQueueLines: break
       let unitName = UnitClassLabels[entry.unitClass]
       if i == 0 and entry.totalSteps > 0:
         let progress = ((entry.totalSteps - entry.remainingSteps) * 100) div entry.totalSteps

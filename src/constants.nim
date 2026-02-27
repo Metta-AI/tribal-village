@@ -341,6 +341,12 @@ const
   CropRotationWoodCost* = 3
   CropRotationFarmBonus* = 175  # +175 farm food (stacks)
 
+  # Training costs (tooltip display; units without registry lookup)
+  VillagerTrainFoodCost* = 2
+  KnightTrainFoodCost* = 4
+  KnightTrainGoldCost* = 3
+  BoatTrainWoodCost* = 3
+
   # Farm auto-reseed cost
   FarmReseedWoodCost* = 1
   FarmReseedFoodCost* = 0
