@@ -1,20 +1,7 @@
 import
   boxy, windy, vmath
 
-# Silky UI renderer stub – silky is not yet integrated into the build.
-# These no-op stubs let modules reference `sk` without conditional compilation.
 import pixie
-type Silky* = ref object
-  discard
-
-proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) = discard
-proc drawImage*(sk: Silky, name: string, pos: Vec2, color: ColorRGBX = rgbx(255,255,255,255)) = discard
-proc contains*(sk: Silky, name: string): bool = false
-proc getImageSize*(sk: Silky, name: string): Vec2 = vec2(0, 0)
-proc drawText*(sk: Silky, font, text: string, pos: Vec2, color: ColorRGBX, maxWidth: float32 = float32.high, maxHeight: float32 = float32.high): Vec2 = vec2(0, 0)
-proc getTextSize*(sk: Silky, font, text: string): Vec2 = vec2(0, 0)
-proc beginUI*(sk: Silky, window: Window, size: IVec2) = discard
-proc endUI*(sk: Silky) = discard
 
 import common_types
 export common_types
@@ -67,8 +54,7 @@ type
 var
   window*: Window
   rootArea*: Area
-  bxy*: Boxy           # World rendering (sprites, terrain)
-  sk*: Silky           # UI rendering stub - nil (silky not yet integrated)
+  bxy*: Boxy           # World rendering (sprites, terrain, UI)
   frame*: int
 
   # Transform stack (parallel to boxy's transform management)
