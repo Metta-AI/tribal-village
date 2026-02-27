@@ -140,6 +140,35 @@ const
   RallyPreviewPulseAmount* = 0.2'f32   # Preview beacon pulse fraction
   RallyPreviewPathAlpha* = 0.5'f32     # Preview dashed path alpha
 
+  # ─── Effect Particle Scales ──────────────────────────────────────────────
+  DamageNumberScale* = 1.0 / 200.0       # Scale for floating damage numbers
+  DebrisParticleScale* = 1.0 / 350.0     # Scale for building debris particles
+  GatherSparkleBaseScale* = 1.0 / 450.0  # Base scale for gather sparkle particles
+  ConstructionDustBaseScale* = 1.0 / 400.0 # Base scale for construction dust particles
+  UnitTrailDotScale* = 1.0 / 500.0       # Scale for unit movement trail dots
+  DustParticleBaseScale* = 1.0 / 600.0   # Base scale for walking dust particles
+  AttackImpactBaseScale* = 1.0 / 400.0   # Base scale for attack impact particles
+  ConversionEffectBaseScale* = 1.0 / 400.0 # Base scale for conversion effect ring
+
+  # ─── Effect Alpha/Blend Factors ────────────────────────────────────────
+  ProjectileTrailMaxAlpha* = 0.7'f32     # Max opacity for projectile trail points
+  SpawnEffectMaxAlpha* = 0.6'f32         # Max spawn glow opacity
+  GatherSparkleMaxAlpha* = 0.8'f32       # Max gather sparkle opacity
+  ConstructionDustMaxAlpha* = 0.5'f32    # Max construction dust opacity
+  UnitTrailMaxAlpha* = 0.4'f32           # Max unit trail opacity
+  DustParticleMaxAlpha* = 0.6'f32        # Max walking dust opacity
+  WaterRippleMaxAlpha* = 0.5'f32         # Max water ripple opacity
+  AttackImpactMaxAlpha* = 0.9'f32        # Max attack impact opacity
+  ConversionBlendAlpha* = 0.8'f32        # Conversion effect color blend alpha
+
+  # ─── Smoke Animation Factors ───────────────────────────────────────────
+  SmokeDriftPhaseSpeed* = 0.05'f32       # Smoke horizontal drift phase speed
+  SmokeDriftPhaseVariation* = 0.1'f32    # Per-particle drift phase variation
+  SmokeDriftPhaseOffset* = 2.1'f32       # Phase offset between particles
+  SmokeParticleGrowth* = 0.5'f32         # Particle size growth factor (1.0 + t * growth)
+  SmokeParticleGrayStep* = 0.1'f32       # Gray value increment per particle index
+  SmokeFadeAlpha* = 0.6'f32              # Base fade multiplier for smoke particles
+
   # ─── Building UI Overlays ─────────────────────────────────────────────────
   BuildingIconOffsetX* = -0.18'f32       # Resource icon X offset from center
   BuildingIconOffsetY* = -0.62'f32       # Resource icon Y offset from center
@@ -163,6 +192,15 @@ const
   TradeRouteDotColorBoostR* = 0.2'f32   # Red color boost on flow dots
   TradeRouteDotColorBoostG* = 0.1'f32   # Green color boost on flow dots
   TradeRouteDockMarkerOffsetY* = -0.4'f32 # Dock gold indicator Y offset
+
+  # ─── Projectile Scales ─────────────────────────────────────────────────
+  ProjArrowScale* = (1.0 / 400.0).float32       # Arrow projectile scale
+  ProjLongbowScale* = (1.0 / 380.0).float32     # Longbow projectile scale
+  ProjJanissaryScale* = (1.0 / 350.0).float32   # Janissary projectile scale
+  ProjTowerArrowScale* = (1.0 / 380.0).float32  # Tower arrow projectile scale
+  ProjCastleArrowScale* = (1.0 / 350.0).float32 # Castle arrow projectile scale
+  ProjMangonelScale* = (1.0 / 280.0).float32    # Mangonel projectile scale (large)
+  ProjTrebuchetScale* = (1.0 / 240.0).float32   # Trebuchet projectile scale (very large)
   TradeRouteTargetAlpha* = 0.5'f32      # Alpha for target dock route line
   TradeRouteDotAlpha* = 0.9'f32         # Alpha for flow dot indicators
 

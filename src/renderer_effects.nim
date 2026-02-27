@@ -82,13 +82,13 @@ const
   ]
 
   ProjectileScales: array[ProjectileKind, float32] = [
-    (1.0 / 400.0).float32,  # ProjArrow - small
-    (1.0 / 380.0).float32,  # ProjLongbow - slightly larger
-    (1.0 / 350.0).float32,  # ProjJanissary - medium
-    (1.0 / 380.0).float32,  # ProjTowerArrow - small
-    (1.0 / 350.0).float32,  # ProjCastleArrow - medium
-    (1.0 / 280.0).float32,  # ProjMangonel - large
-    (1.0 / 240.0).float32,  # ProjTrebuchet - very large
+    ProjArrowScale,       # ProjArrow - small
+    ProjLongbowScale,     # ProjLongbow - slightly larger
+    ProjJanissaryScale,   # ProjJanissary - medium
+    ProjTowerArrowScale,  # ProjTowerArrow - small
+    ProjCastleArrowScale, # ProjCastleArrow - medium
+    ProjMangonelScale,    # ProjMangonel - large
+    ProjTrebuchetScale,   # ProjTrebuchet - very large
   ]
 
   ProjectileTrailPoints = 5     # Number of trail segments behind projectile
@@ -120,20 +120,20 @@ proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
     let rise = t * t * SmokeMaxHeight
 
     # Horizontal drift using sine wave for gentle swaying
-    let driftPhase = (frame.float32 * 0.05 + phase.float32 * 0.1 + i.float32 * 2.1)
+    let driftPhase = (frame.float32 * SmokeDriftPhaseSpeed + phase.float32 * SmokeDriftPhaseVariation + i.float32 * SmokeDriftPhaseOffset)
     let drift = sin(driftPhase) * SmokeDriftAmount * t
 
     # Position particle above building
     let particlePos = buildingPos + vec2(drift, SmokeBaseHeight - rise)
 
     # Fade out as particle rises (full opacity at start, transparent at top)
-    let alpha = (1.0 - t) * 0.6
+    let alpha = (1.0 - t) * SmokeFadeAlpha
 
     # Slight size variation based on rise (particles expand as they rise)
-    let sizeScale = SmokeParticleScale * (1.0 + t * 0.5)
+    let sizeScale = SmokeParticleScale * (1.0 + t * SmokeParticleGrowth)
 
     # Gray-white smoke color with slight variation per particle
-    let grayVal = SmokeBaseGray + (i.float32 * 0.1)
+    let grayVal = SmokeBaseGray + (i.float32 * SmokeParticleGrayStep)
     let smokeTint = color(grayVal, grayVal, grayVal, alpha)
 
     bxy.drawImage("floor", particlePos, angle = 0, scale = sizeScale, tint = smokeTint)
@@ -165,7 +165,7 @@ proc drawProjectiles*() =
         srcY * trailT + tgtY * (1.0 - trailT))
       # Fade opacity and shrink scale for older trail points
       let fadeRatio = 1.0 - (i + 1).float32 / (ProjectileTrailPoints + 1).float32
-      let trailAlpha = c.a * fadeRatio * 0.7  # Max 70% opacity for trails
+      let trailAlpha = c.a * fadeRatio * ProjectileTrailMaxAlpha  # Max 70% opacity for trails
       let trailScale = sc * (0.5 + 0.5 * fadeRatio)  # Shrink to 50% at tail
       let trailColor = withAlpha(c, trailAlpha)
       bxy.drawImage("floor", trailPos, angle = 0, scale = trailScale, tint = trailColor)
@@ -191,8 +191,7 @@ proc drawDamageNumbers*() =
     let alpha = t * t  # Quadratic ease for smoother fade
     let (imageKey, _) = getDamageNumberLabel(dmg.amount, dmg.kind)
     # Scale for world-space rendering (similar to HP bars)
-    let scale = 1.0 / 200.0
-    bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
+    bxy.drawImage(imageKey, worldPos, angle = 0, scale = DamageNumberScale,
                   tint = withAlpha(TintWhite, alpha))
 
 proc drawRagdolls*() =
@@ -246,8 +245,7 @@ proc drawDebris*() =
     let baseColor = DebrisColors[deb.kind]
     let tintColor = withAlpha(baseColor, alpha)
     # Draw as small colored dot using floor sprite
-    let scale = (1.0 / 350.0).float32  # Slightly smaller than projectiles
-    bxy.drawImage("floor", deb.pos, angle = 0, scale = scale, tint = tintColor)
+    bxy.drawImage("floor", deb.pos, angle = 0, scale = DebrisParticleScale, tint = tintColor)
 
 proc drawSpawnEffects*() =
   ## Draw visual effects for unit spawning from buildings.
@@ -263,7 +261,7 @@ proc drawSpawnEffects*() =
     # Expand from small to large as effect progresses
     let baseScale = SpriteScale * (0.3 + progress * 0.7)  # 30% to 100%
     # Fade out with quadratic ease (bright at start, fades smoothly)
-    let alpha = t * t * 0.6  # Max alpha 0.6 to not be too bright
+    let alpha = t * t * SpawnEffectMaxAlpha
     # Use a bright cyan/white tint for spawn effect
     let tint = withAlpha(SpawnEffectTint, alpha)
     bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
@@ -283,11 +281,11 @@ proc drawGatherSparkles*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = sparkle.countdown.float32 / sparkle.lifetime.float32
     # Fade out with quadratic ease
-    let alpha = t * t * 0.8
+    let alpha = t * t * GatherSparkleMaxAlpha
     # Golden sparkle color
     let tintColor = withAlpha(GatherSparkleTint, alpha)
     # Small particles
-    let scale = (1.0 / 450.0).float32 * (0.5 + t * 0.5)
+    let scale = GatherSparkleBaseScale * (0.5 + t * 0.5)
     bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawConstructionDust*() =
@@ -305,11 +303,11 @@ proc drawConstructionDust*() =
     # Calculate progress
     let t = dust.countdown.float32 / dust.lifetime.float32
     # Fade out
-    let alpha = t * t * 0.5
+    let alpha = t * t * ConstructionDustMaxAlpha
     # Dusty brown color
     let tintColor = withAlpha(ConstructionDustTint, alpha)
     # Particles that grow slightly as they rise
-    let scale = (1.0 / 400.0).float32 * (0.7 + (1.0 - t) * 0.3)
+    let scale = ConstructionDustBaseScale * (0.7 + (1.0 - t) * 0.3)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawUnitTrails*() =
@@ -327,12 +325,12 @@ proc drawUnitTrails*() =
     # Calculate progress
     let t = trail.countdown.float32 / trail.lifetime.float32
     # Fade out quickly
-    let alpha = t * t * 0.4
+    let alpha = t * t * UnitTrailMaxAlpha
     # Light team-colored trail
     let teamColor = getTeamColor(env, trail.teamId)
     let tintColor = withAlpha(teamColor, alpha)
     # Small trail dots
-    let scale = (1.0 / 500.0).float32
+    let scale = UnitTrailDotScale
     bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawDustParticles*() =
@@ -350,7 +348,7 @@ proc drawDustParticles*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = dust.countdown.float32 / dust.lifetime.float32
     # Fade out with quadratic ease
-    let alpha = t * t * 0.6
+    let alpha = t * t * DustParticleMaxAlpha
     # Color based on terrain type
     let dustBase = case dust.terrainColor
       of 0: DustSandColor
@@ -361,7 +359,7 @@ proc drawDustParticles*() =
       else: DustDefaultColor
     let tintColor = withAlpha(dustBase, alpha)
     # Small particles that shrink slightly as they fade
-    let scale = (1.0 / 600.0).float32 * (0.5 + t * 0.5)
+    let scale = DustParticleBaseScale * (0.5 + t * 0.5)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawWaterRipples*() =
@@ -382,7 +380,7 @@ proc drawWaterRipples*() =
     # Expand from small to large as effect progresses
     let baseScale = SpriteScale * (0.2 + progress * 0.8)  # 20% to 100%
     # Fade out with quadratic ease (visible at start, fades smoothly)
-    let alpha = t * t * 0.5  # Max alpha 0.5 for subtle effect
+    let alpha = t * t * WaterRippleMaxAlpha
     # Use a light cyan/blue tint for water ripple
     let tint = withAlpha(RippleTint, alpha)
     bxy.drawImage("floor", ripple.pos, angle = 0, scale = baseScale, tint = tint)
@@ -402,11 +400,11 @@ proc drawAttackImpacts*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = impact.countdown.float32 / impact.lifetime.float32
     # Fade out quickly with quadratic ease for punchy effect
-    let alpha = t * t * 0.9
+    let alpha = t * t * AttackImpactMaxAlpha
     # Orange/red impact color for combat feedback
     let tintColor = withAlpha(AttackImpactTint, alpha)
     # Small particles that shrink as they fade
-    let scale = (1.0 / 400.0).float32 * (0.3 + t * 0.7)  # 30% to 100%
+    let scale = AttackImpactBaseScale * (0.3 + t * 0.7)  # 30% to 100%
     bxy.drawImage("floor", impact.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawConversionEffects*() =
@@ -435,9 +433,9 @@ proc drawConversionEffects*() =
       golden.r * (1.0 - blendT) + teamAlpha.r * blendT,
       golden.g * (1.0 - blendT) + teamAlpha.g * blendT,
       golden.b * (1.0 - blendT) + teamAlpha.b * blendT,
-      alpha * 0.8)
+      alpha * ConversionBlendAlpha)
     # Draw expanding ring effect
-    let baseScale = (1.0 / 400.0).float32
+    let baseScale = ConversionEffectBaseScale
     let expandScale = baseScale * (1.0 + (1.0 - t) * 1.5)  # Expands as it fades
     bxy.drawImage("floor", effect.pos, angle = 0, scale = expandScale, tint = tintColor)
 
