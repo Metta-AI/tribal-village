@@ -7,7 +7,7 @@
 
 import
   boxy, pixie, vmath, tables,
-  common
+  common, environment
 
 # ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -39,9 +39,9 @@ proc labelStyle*(fontPath: string, fontSize: float32, padding: float32,
     fontSize: fontSize,
     padding: padding,
     bgAlpha: bgAlpha,
-    textColor: color(1, 1, 1, 1),
+    textColor: TintWhite,
     outline: false,
-    outlineColor: color(0, 0, 0, 0.6),
+    outlineColor: TextOutlineColor,
   )
 
 proc labelStyleColored*(fontPath: string, fontSize: float32, padding: float32,
@@ -54,7 +54,7 @@ proc labelStyleColored*(fontPath: string, fontSize: float32, padding: float32,
     bgAlpha: 0.0,
     textColor: textColor,
     outline: false,
-    outlineColor: color(0, 0, 0, 0.6),
+    outlineColor: TextOutlineColor,
   )
 
 proc labelStyleOutlined*(fontPath: string, fontSize: float32, padding: float32,
@@ -67,7 +67,7 @@ proc labelStyleOutlined*(fontPath: string, fontSize: float32, padding: float32,
     bgAlpha: 0.0,
     textColor: textColor,
     outline: true,
-    outlineColor: color(0, 0, 0, 0.6),
+    outlineColor: TextOutlineColor,
   )
 
 # ─── Cache Key Generation ──────────────────────────────────────────────────
@@ -78,7 +78,7 @@ proc makeCacheKey*(prefix: string, text: string, style: LabelStyle): string =
   ## gets separate cache entries.
   result = prefix & "/" & text
   # Include color in key when non-white (colored/outlined styles)
-  if style.textColor != color(1, 1, 1, 1):
+  if style.textColor != TintWhite:
     result &= "_c" & $int(style.textColor.r * 255) &
               "_" & $int(style.textColor.g * 255) &
               "_" & $int(style.textColor.b * 255)
@@ -102,7 +102,7 @@ proc renderLabel(text: string, style: LabelStyle): (Image, IVec2) =
   ctx.textBaseline = TopBaseline
   # Background fill
   if style.bgAlpha > 0:
-    ctx.fillStyle.color = color(0, 0, 0, style.bgAlpha)
+    ctx.fillStyle.color = color(LabelBgBlack.r, LabelBgBlack.g, LabelBgBlack.b, style.bgAlpha)
     ctx.fillRect(0, 0, w.float32, h.float32)
   # Outline (draw text in outline color at 8 offsets)
   if style.outline:
