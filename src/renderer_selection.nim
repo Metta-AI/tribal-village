@@ -120,7 +120,7 @@ proc drawRallyPoints*() =
                       tint = beaconColor)
 
       # Draw inner bright core
-      let coreColor = color(1.0, 1.0, 1.0, pulseAlpha * RallyCoreAlpha)
+      let coreColor = color(RallyCoreTint.r, RallyCoreTint.g, RallyCoreTint.b, pulseAlpha * RallyCoreAlpha)
       bxy.drawImage("floor", rallyPos.vec2, angle = 0, scale = beaconScale * RallyCoreScale,
                     tint = coreColor)
 
@@ -171,7 +171,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
                     tint = previewColor)
 
     # Draw inner bright core
-    let coreColor = color(1.0, 1.0, 1.0, pulseAlpha * RallyPreviewCoreAlpha)
+    let coreColor = color(RallyCoreTint.r, RallyCoreTint.g, RallyCoreTint.b, pulseAlpha * RallyPreviewCoreAlpha)
     bxy.drawImage("floor", mousePos, angle = 0, scale = beaconScale * RallyPreviewCoreScale,
                   tint = coreColor)
 

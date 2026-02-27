@@ -78,7 +78,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
     let iconPos = pos.vec2 + vec2(BuildingIconOffsetX, BuildingIconOffsetY)
     if icon.len > 0 and icon in bxy:
       bxy.drawImage(icon, iconPos, angle = 0, scale = OverlayIconScale * resourceUiIconScale(res),
-                    tint = color(1, 1, 1, (if count > 0: 1.0 else: 0.35)))
+                    tint = color(1, 1, 1, (if count > 0: 1.0 else: ResourceIconDimAlpha)))
     if count > 0:
       let labelKey = ensureHeartCountLabel(count)
       if labelKey.len > 0 and labelKey in bxy:
