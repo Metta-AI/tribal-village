@@ -34,13 +34,8 @@ proc drawSelection*() =
 
 # ─── Rally Point Rendering ───────────────────────────────────────────────────
 
-const
-  RallyPointLineWidth = 0.06'f32    # Width of the path line in world units
-  RallyPointLineSegments = 12       # Number of segments in the path line
-  RallyPointBeaconScale = 1.0 / 280.0  # Scale for the beacon sprite
-  RallyPointPulseSpeed = 0.15'f32   # Speed of the pulsing animation
-  RallyPointPulseMin = 0.6'f32      # Minimum alpha during pulse
-  RallyPointPulseMax = 1.0'f32      # Maximum alpha during pulse
+# Rally point layout values (line width, segments, beacon scale, pulse)
+# are centralized in renderer_core.nim as RallyPoint* constants.
 
 proc drawRallyPoints*() =
   ## Draw visual indicators for rally points on selected buildings.
@@ -177,11 +172,10 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
 
 # ─── Trade Routes ────────────────────────────────────────────────────────────
 
+# Trade route layout values (line width, dot count, flow speed)
+# are centralized in renderer_core.nim as TradeRoute* constants.
 const
-  TradeRouteLineWidth = 0.08'f32       # World-space line width
   TradeRouteGoldColor = TradeRouteGoldTint  ## Gold color for route lines
-  TradeRouteFlowDotCount = 5           # Number of animated dots per route segment
-  TradeRouteFlowSpeed = 0.015'f32      # Animation speed (fraction per frame)
 
 var
   tradeRouteAnimationPhase: float32 = 0.0  # Global animation phase for flow indicators
@@ -208,7 +202,7 @@ proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRo
     let segLen = length / segments.float32
     # Use floor sprite scaled down as line segment
     bxy.drawImage("floor", vec2(midX, midY), angle = 0,
-                  scale = max(segLen, width) / 200.0, tint = lineColor)
+                  scale = max(segLen, width) / TradeRouteLineSegScale, tint = lineColor)
 
 proc drawTradeRoutes*() =
   ## Draw trade route visualization showing paths between docks with gold flow indicators.
@@ -277,9 +271,9 @@ proc drawTradeRoutes*() =
     let teamColor = getTeamColor(env, route.teamId)
     # Blend team color with gold for route visualization
     let routeColor = color(
-      (teamColor.r * 0.3 + TradeRouteGoldColor.r * 0.7),
-      (teamColor.g * 0.3 + TradeRouteGoldColor.g * 0.7),
-      (teamColor.b * 0.3 + TradeRouteGoldColor.b * 0.7),
+      (teamColor.r * TradeRouteTeamBlend + TradeRouteGoldColor.r * TradeRouteGoldBlend),
+      (teamColor.g * TradeRouteTeamBlend + TradeRouteGoldColor.g * TradeRouteGoldBlend),
+      (teamColor.b * TradeRouteTeamBlend + TradeRouteGoldColor.b * TradeRouteGoldBlend),
       TradeRouteGoldColor.a
     )
 
@@ -306,12 +300,12 @@ proc drawTradeRoutes*() =
           let dotPos = vec2(dotX, dotY)
           if isInViewport(ivec2(dotPos.x.int, dotPos.y.int)):
             # Pulsing brightness based on position
-            let brightness = 0.7 + 0.3 * sin(t * 3.14159)
+            let brightness = TradeRouteBrightnessBase + TradeRouteBrightnessVar * sin(t * 3.14159)
             let dotColor = color(
-              min(routeColor.r * brightness + 0.2, 1.0),
-              min(routeColor.g * brightness + 0.1, 1.0),
+              min(routeColor.r * brightness + TradeRouteDotColorBoostR, 1.0),
+              min(routeColor.g * brightness + TradeRouteDotColorBoostG, 1.0),
               min(routeColor.b * brightness, 1.0),
-              0.9
+              TradeRouteDotAlpha
             )
             bxy.drawImage("floor", dotPos, angle = 0, scale = TradeRouteDotScale, tint = dotColor)
 
@@ -326,7 +320,7 @@ proc drawTradeRoutes*() =
         let inView2 = isInViewport(ivec2(p2.x.int, p2.y.int)) or isInViewport(ivec2(p3.x.int, p3.y.int))
         if inView2:
           # Draw lighter line to target (trade cog hasn't been there yet)
-          let targetColor = color(routeColor.r, routeColor.g, routeColor.b, routeColor.a * 0.5)
+          let targetColor = color(routeColor.r, routeColor.g, routeColor.b, routeColor.a * TradeRouteTargetAlpha)
           drawLineWorldSpace(p2, p3, targetColor)
 
   # Draw dock markers for docks with active trade routes
@@ -336,7 +330,7 @@ proc drawTradeRoutes*() =
     if isInViewport(homeDock) and homeDock notin drawnDocks:
       drawnDocks.add(homeDock)
       # Draw a gold coin indicator at the dock
-      bxy.drawImage("floor", vec2(homeDock.x.float32, homeDock.y.float32) + vec2(0.0, -0.4), angle = 0,
+      bxy.drawImage("floor", vec2(homeDock.x.float32, homeDock.y.float32) + vec2(0.0, TradeRouteDockMarkerOffsetY), angle = 0,
                     scale = DockMarkerScale, tint = TradeRouteGoldColor)
 
     if route.hasTarget:
@@ -344,7 +338,7 @@ proc drawTradeRoutes*() =
       if isInViewport(targetDock) and targetDock notin drawnDocks:
         drawnDocks.add(targetDock)
         # Draw a smaller gold indicator at target dock
-        bxy.drawImage("floor", vec2(targetDock.x.float32, targetDock.y.float32) + vec2(0.0, -0.4), angle = 0,
+        bxy.drawImage("floor", vec2(targetDock.x.float32, targetDock.y.float32) + vec2(0.0, TradeRouteDockMarkerOffsetY), angle = 0,
                       scale = OverlayIconScale, tint = color(TradeRouteGoldColor.r,
                                                    TradeRouteGoldColor.g,
-                                                   TradeRouteGoldColor.b, 0.5))
+                                                   TradeRouteGoldColor.b, TradeRouteTargetAlpha))

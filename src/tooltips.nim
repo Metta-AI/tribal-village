@@ -57,13 +57,8 @@ const
   TooltipHotkeyColor = UiTooltipHotkey
   TooltipRequirementColor = UiTooltipRequirement
 
-  TooltipFontPath = "data/Inter-Regular.ttf"
-  TooltipTitleFontSize: float32 = 16
-  TooltipTextFontSize: float32 = 13
-  TooltipPadding: float32 = 10
-  TooltipLineHeight: float32 = 18
-  TooltipMaxWidth: float32 = 280
-  TooltipShowDelay: float64 = 0.3  # 300ms delay before showing
+  # Tooltip layout values (font sizes, padding, max width, show delay)
+  # are centralized in renderer_core.nim as TooltipTitleFontSize, etc.
 
 # ---------------------------------------------------------------------------
 # State

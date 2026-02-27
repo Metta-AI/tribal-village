@@ -19,7 +19,7 @@ const
 # ─── Unit Info Panel ──────────────────────────────────────────────────────────
 
 proc getUnitInfoLabel(text: string, fontSize: float32 = UnitInfoFontSize.float32): (string, IVec2) =
-  let style = labelStyle(InfoLabelFontPath, fontSize, 4.0, 0.5)
+  let style = labelStyle(InfoLabelFontPath, fontSize, UnitInfoLabelPadding, UnitInfoLabelLineSpacing)
   let cached = ensureLabel("unit_info", text, style)
   return (cached.imageKey, cached.size)
 
@@ -180,7 +180,7 @@ proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
       of BiomeDungeonType: BiomeColorDungeon
       of BiomeSnowType: BiomeColorSnow
       else: BaseTileColorDefault
-    let i = min(tc.intensity, 1.3'f32)
+    let i = min(tc.intensity, MinimapIntensityCap)
     rgbx(
       uint8(clamp(tc.r * i * 255, 0, 255)),
       uint8(clamp(tc.g * i * 255, 0, 255)),
@@ -221,9 +221,9 @@ proc initMinimapTeamColors() =
     let tc = if i < env.teamColors.len: env.teamColors[i] else: NeutralGray
     minimapTeamColors[i] = colorToRgbx(tc)
     minimapTeamBrightColors[i] = colorToRgbx(color(
-      min(tc.r * 1.2 + 0.1, 1.0),
-      min(tc.g * 1.2 + 0.1, 1.0),
-      min(tc.b * 1.2 + 0.1, 1.0),
+      min(tc.r * MinimapBrightColorMult + MinimapBrightColorAdd, 1.0),
+      min(tc.g * MinimapBrightColorMult + MinimapBrightColorAdd, 1.0),
+      min(tc.b * MinimapBrightColorMult + MinimapBrightColorAdd, 1.0),
       1.0
     ))
   minimapTeamColorsInitialized = true
@@ -269,7 +269,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
       let bright = if teamId >= 0 and teamId < MapRoomObjectsTeams:
         minimapTeamBrightColors[teamId]
       else:
-        rgbx(179, 179, 179, 255)  # 0.7 * 255 for neutral
+        rgbx(MinimapNeutralGrayBright.uint8, MinimapNeutralGrayBright.uint8, MinimapNeutralGrayBright.uint8, 255)
       let px = int(thing.pos.x.float32 * scaleX)
       let py = int(thing.pos.y.float32 * scaleY)
       # Unrolled 2x2 block drawing
