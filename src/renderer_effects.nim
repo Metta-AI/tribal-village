@@ -14,6 +14,10 @@ import renderer_core, label_cache
 # ─── Constants ───────────────────────────────────────────────────────────────
 
 const
+  # Mathematical constants
+  Pi = 3.14159265'f32              # π for trigonometric calculations
+  TwoPi = 6.28318530'f32           # 2π for full-cycle sine waves
+
   # Building smoke/chimney effect constants
   SmokeParticleCount = 3           # Number of smoke particles per building
   SmokeParticleScale = 1.0 / 500.0 # Smaller than sprites for wispy look
@@ -21,6 +25,9 @@ const
   SmokeMaxHeight = 1.2             # How high particles rise
   SmokeAnimSpeed = 12              # Frames per animation cycle
   SmokeDriftAmount = 0.15          # Horizontal drift amplitude
+  SmokeMaxAlpha = 0.6'f32          # Maximum opacity for smoke particles
+  SmokeExpansionRate = 0.5'f32     # How much particles expand as they rise
+  SmokeGrayVariation = 0.1'f32     # Gray tint variation per particle
 
   # Weather effect constants
   WeatherParticleDensity = 0.015   # Particles per tile (0.015 = ~1 particle per 67 tiles)
@@ -39,17 +46,87 @@ const
   RainCloudPuffCount = 4           # Cloud puffs per active patch
   RainCloudAlpha = 0.16'f32        # Cloud puff opacity
   RainCloudScale = 1.0 / 130.0     # Cloud puff sprite scale
+  RainCloudMinDist = 0.15'f32      # Minimum cloud puff distance from center
+  RainCloudYOffsetMult = 0.75'f32  # Cloud Y offset radius multiplier
+  RainCloudYJitterMult = 0.18'f32  # Cloud Y sine jitter amplitude
+  RainCloudAlphaBase = 0.75'f32    # Cloud puff alpha variation base
+  RainPatchDriftSpeed = 0.004'f32  # Rain patch drift animation speed
+  RainPatchDriftPhaseJitter = 0.1'f32 # Phase offset jitter per cell
+  RainPatchDriftXAmplitude = 0.7'f32  # X drift amplitude in tiles
+  RainPatchDriftYFreqMult = 0.73'f32  # Y drift frequency multiplier
+  RainPatchDriftYAmplitude = 0.35'f32 # Y drift amplitude in tiles
+  RainXSpreadMult = 0.9'f32        # X noise spread as fraction of radius
+  RainYStartOffset = 1.15'f32      # Rain starts this far above patch center
+  RainYNoiseMult = 0.35'f32        # Y noise spread as fraction of radius
+  RainFallDistMult = 2.25'f32      # Fall distance multiplier relative to radius
+  RainFallDistBase = 2.0'f32       # Base fall distance in tiles
+  RainEllipseYMult = 1.2'f32       # Y axis ellipse multiplier for containment
+  RainEllipseThreshold = 1.35'f32  # Ellipse boundary cutoff for containment
+  RainBlueBase = 0.7'f32           # Base blue channel for rain color
+  RainStreakSpacingMult = 2.0'f32   # Streak particle spacing multiplier
 
   # Wind constants
   WindBlowSpeed = 0.18'f32         # World units per frame (horizontal)
   WindDriftSpeed = 0.02'f32        # Vertical drift
   WindCycleFrames = 64             # Frames for one full wind cycle
   WindAlpha = 0.35'f32             # Wind particle opacity (subtle)
+  WindDriftAmplitude = 4.0'f32     # Vertical drift amplitude multiplier
 
   # Damage number rendering constants
   DamageNumberFontPath = "data/Inter-Regular.ttf"
   DamageNumberFontSize: float32 = 28
   DamageNumberFloatHeight: float32 = 0.8  # World units to float upward
+  DamageNumberOutlineWidth = 2.0'f32       # Outline stroke width for damage labels
+  DamageNumberLabelScale = 1.0 / 200.0     # World-space scale for damage labels
+
+  # Projectile trail constants
+  ProjectileTrailMaxAlpha = 0.7'f32  # Max opacity for trail points (70%)
+  ProjectileTrailMinScale = 0.5'f32  # Trail shrinks to 50% at tail end
+
+  # Debris particle constants
+  DebrisParticleScale = 1.0 / 350.0  # Slightly smaller than projectiles
+
+  # Spawn effect constants
+  SpawnEffectScaleMin = 0.3'f32      # Starting scale fraction (30%)
+  SpawnEffectScaleRange = 0.7'f32    # Scale range from min to full (70%)
+  SpawnEffectMaxAlpha = 0.6'f32      # Max alpha to avoid being too bright
+
+  # Gather sparkle constants
+  GatherSparkleScale = 1.0 / 450.0   # Small sparkle particles
+  GatherSparkleMaxAlpha = 0.8'f32    # Max sparkle opacity
+  GatherSparkleScaleMin = 0.5'f32    # Min scale fraction
+
+  # Construction dust constants
+  ConstructionDustScale = 1.0 / 400.0 # Scale for dust particles
+  ConstructionDustMaxAlpha = 0.5'f32  # Max dust opacity
+  ConstructionDustScaleBase = 0.7'f32 # Base scale fraction
+  ConstructionDustScaleRange = 0.3'f32 # Scale variation range
+
+  # Unit trail constants
+  UnitTrailScale = 1.0 / 500.0       # Small trail dots
+  UnitTrailMaxAlpha = 0.4'f32        # Trail max opacity
+
+  # Walking dust constants
+  WalkingDustScale = 1.0 / 600.0     # Small walking dust particles
+  WalkingDustMaxAlpha = 0.6'f32      # Max walking dust opacity
+  WalkingDustScaleMin = 0.5'f32      # Min scale fraction
+
+  # Water ripple constants
+  RippleScaleMin = 0.2'f32           # Starting ripple scale (20%)
+  RippleScaleRange = 0.8'f32         # Ripple scale range (80%)
+  RippleMaxAlpha = 0.5'f32           # Max ripple opacity (subtle)
+
+  # Attack impact constants
+  AttackImpactScale = 1.0 / 400.0    # Impact particle scale
+  AttackImpactMaxAlpha = 0.9'f32     # Impact max opacity (punchy)
+  AttackImpactScaleMin = 0.3'f32     # Min scale fraction
+  AttackImpactScaleRange = 0.7'f32   # Scale range
+
+  # Conversion effect constants
+  ConversionPulseFreq = 2.0'f32      # Number of pulses over lifetime
+  ConversionAlphaBlend = 0.8'f32     # Alpha multiplier for color blending
+  ConversionBaseScale = 1.0 / 400.0  # Base scale for conversion ring
+  ConversionExpandMult = 1.5'f32     # Expansion multiplier as effect fades
 
 # ─── Damage Number Cache ─────────────────────────────────────────────────────
 
@@ -64,13 +141,22 @@ proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) 
     of DmgNumHeal: "h"
     of DmgNumCritical: "c"
   let style = labelStyleOutlined(DamageNumberFontPath, DamageNumberFontSize,
-                                  2.0, textColor)
+                                  DamageNumberOutlineWidth, textColor)
   let cached = ensureLabel("dmgnum", prefix & $amount, style)
   return (cached.imageKey, cached.size)
 
 # ─── Projectile Constants ────────────────────────────────────────────────────
 
 const
+  # Projectile scale constants (inverse divisor for sprite rendering)
+  ProjArrowScale = (1.0 / 400.0).float32      # Small arrow
+  ProjLongbowScale = (1.0 / 380.0).float32    # Slightly larger arrow
+  ProjJanissaryScale = (1.0 / 350.0).float32  # Medium projectile
+  ProjTowerArrowScale = (1.0 / 380.0).float32 # Tower arrow (small)
+  ProjCastleArrowScale = (1.0 / 350.0).float32 # Castle arrow (medium)
+  ProjMangonelScale = (1.0 / 280.0).float32   # Large siege projectile
+  ProjTrebuchetScale = (1.0 / 240.0).float32  # Very large siege projectile
+
   ProjectileColors: array[ProjectileKind, Color] = [
     ProjArrowColor,       # ProjArrow - brown
     ProjLongbowColor,     # ProjLongbow - darker brown
@@ -82,13 +168,13 @@ const
   ]
 
   ProjectileScales: array[ProjectileKind, float32] = [
-    (1.0 / 400.0).float32,  # ProjArrow - small
-    (1.0 / 380.0).float32,  # ProjLongbow - slightly larger
-    (1.0 / 350.0).float32,  # ProjJanissary - medium
-    (1.0 / 380.0).float32,  # ProjTowerArrow - small
-    (1.0 / 350.0).float32,  # ProjCastleArrow - medium
-    (1.0 / 280.0).float32,  # ProjMangonel - large
-    (1.0 / 240.0).float32,  # ProjTrebuchet - very large
+    ProjArrowScale,        # ProjArrow - small
+    ProjLongbowScale,      # ProjLongbow - slightly larger
+    ProjJanissaryScale,    # ProjJanissary - medium
+    ProjTowerArrowScale,   # ProjTowerArrow - small
+    ProjCastleArrowScale,  # ProjCastleArrow - medium
+    ProjMangonelScale,     # ProjMangonel - large
+    ProjTrebuchetScale,    # ProjTrebuchet - very large
   ]
 
   ProjectileTrailPoints = 5     # Number of trail segments behind projectile
@@ -127,13 +213,13 @@ proc drawBuildingSmoke*(buildingPos: Vec2, buildingId: int) =
     let particlePos = buildingPos + vec2(drift, SmokeBaseHeight - rise)
 
     # Fade out as particle rises (full opacity at start, transparent at top)
-    let alpha = (1.0 - t) * 0.6
+    let alpha = (1.0 - t) * SmokeMaxAlpha
 
     # Slight size variation based on rise (particles expand as they rise)
-    let sizeScale = SmokeParticleScale * (1.0 + t * 0.5)
+    let sizeScale = SmokeParticleScale * (1.0 + t * SmokeExpansionRate)
 
     # Gray-white smoke color with slight variation per particle
-    let grayVal = SmokeBaseGray + (i.float32 * 0.1)
+    let grayVal = SmokeBaseGray + (i.float32 * SmokeGrayVariation)
     let smokeTint = color(grayVal, grayVal, grayVal, alpha)
 
     bxy.drawImage("floor", particlePos, angle = 0, scale = sizeScale, tint = smokeTint)
@@ -165,8 +251,8 @@ proc drawProjectiles*() =
         srcY * trailT + tgtY * (1.0 - trailT))
       # Fade opacity and shrink scale for older trail points
       let fadeRatio = 1.0 - (i + 1).float32 / (ProjectileTrailPoints + 1).float32
-      let trailAlpha = c.a * fadeRatio * 0.7  # Max 70% opacity for trails
-      let trailScale = sc * (0.5 + 0.5 * fadeRatio)  # Shrink to 50% at tail
+      let trailAlpha = c.a * fadeRatio * ProjectileTrailMaxAlpha
+      let trailScale = sc * (ProjectileTrailMinScale + ProjectileTrailMinScale * fadeRatio)
       let trailColor = withAlpha(c, trailAlpha)
       bxy.drawImage("floor", trailPos, angle = 0, scale = trailScale, tint = trailColor)
 
@@ -191,7 +277,7 @@ proc drawDamageNumbers*() =
     let alpha = t * t  # Quadratic ease for smoother fade
     let (imageKey, _) = getDamageNumberLabel(dmg.amount, dmg.kind)
     # Scale for world-space rendering (similar to HP bars)
-    let scale = 1.0 / 200.0
+    let scale = DamageNumberLabelScale
     bxy.drawImage(imageKey, worldPos, angle = 0, scale = scale,
                   tint = withAlpha(TintWhite, alpha))
 
@@ -246,7 +332,7 @@ proc drawDebris*() =
     let baseColor = DebrisColors[deb.kind]
     let tintColor = withAlpha(baseColor, alpha)
     # Draw as small colored dot using floor sprite
-    let scale = (1.0 / 350.0).float32  # Slightly smaller than projectiles
+    let scale = DebrisParticleScale.float32
     bxy.drawImage("floor", deb.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawSpawnEffects*() =
@@ -261,9 +347,9 @@ proc drawSpawnEffects*() =
     let t = effect.countdown.float32 / effect.lifetime.float32
     let progress = 1.0 - t  # 0.0 at spawn, 1.0 at expire
     # Expand from small to large as effect progresses
-    let baseScale = SpriteScale * (0.3 + progress * 0.7)  # 30% to 100%
+    let baseScale = SpriteScale * (SpawnEffectScaleMin + progress * SpawnEffectScaleRange)
     # Fade out with quadratic ease (bright at start, fades smoothly)
-    let alpha = t * t * 0.6  # Max alpha 0.6 to not be too bright
+    let alpha = t * t * SpawnEffectMaxAlpha
     # Use a bright cyan/white tint for spawn effect
     let tint = withAlpha(SpawnEffectTint, alpha)
     bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
@@ -283,11 +369,11 @@ proc drawGatherSparkles*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = sparkle.countdown.float32 / sparkle.lifetime.float32
     # Fade out with quadratic ease
-    let alpha = t * t * 0.8
+    let alpha = t * t * GatherSparkleMaxAlpha
     # Golden sparkle color
     let tintColor = withAlpha(GatherSparkleTint, alpha)
     # Small particles
-    let scale = (1.0 / 450.0).float32 * (0.5 + t * 0.5)
+    let scale = GatherSparkleScale.float32 * (GatherSparkleScaleMin + t * GatherSparkleScaleMin)
     bxy.drawImage("floor", sparkle.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawConstructionDust*() =
@@ -305,11 +391,11 @@ proc drawConstructionDust*() =
     # Calculate progress
     let t = dust.countdown.float32 / dust.lifetime.float32
     # Fade out
-    let alpha = t * t * 0.5
+    let alpha = t * t * ConstructionDustMaxAlpha
     # Dusty brown color
     let tintColor = withAlpha(ConstructionDustTint, alpha)
     # Particles that grow slightly as they rise
-    let scale = (1.0 / 400.0).float32 * (0.7 + (1.0 - t) * 0.3)
+    let scale = ConstructionDustScale.float32 * (ConstructionDustScaleBase + (1.0 - t) * ConstructionDustScaleRange)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawUnitTrails*() =
@@ -327,12 +413,12 @@ proc drawUnitTrails*() =
     # Calculate progress
     let t = trail.countdown.float32 / trail.lifetime.float32
     # Fade out quickly
-    let alpha = t * t * 0.4
+    let alpha = t * t * UnitTrailMaxAlpha
     # Light team-colored trail
     let teamColor = getTeamColor(env, trail.teamId)
     let tintColor = withAlpha(teamColor, alpha)
     # Small trail dots
-    let scale = (1.0 / 500.0).float32
+    let scale = UnitTrailScale.float32
     bxy.drawImage("floor", trail.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawDustParticles*() =
@@ -350,7 +436,7 @@ proc drawDustParticles*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = dust.countdown.float32 / dust.lifetime.float32
     # Fade out with quadratic ease
-    let alpha = t * t * 0.6
+    let alpha = t * t * WalkingDustMaxAlpha
     # Color based on terrain type
     let dustBase = case dust.terrainColor
       of 0: DustSandColor
@@ -361,7 +447,7 @@ proc drawDustParticles*() =
       else: DustDefaultColor
     let tintColor = withAlpha(dustBase, alpha)
     # Small particles that shrink slightly as they fade
-    let scale = (1.0 / 600.0).float32 * (0.5 + t * 0.5)
+    let scale = WalkingDustScale.float32 * (WalkingDustScaleMin + t * WalkingDustScaleMin)
     bxy.drawImage("floor", dust.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawWaterRipples*() =
@@ -380,9 +466,9 @@ proc drawWaterRipples*() =
     let t = ripple.countdown.float32 / ripple.lifetime.float32
     let progress = 1.0 - t  # 0.0 at spawn, 1.0 at expire
     # Expand from small to large as effect progresses
-    let baseScale = SpriteScale * (0.2 + progress * 0.8)  # 20% to 100%
+    let baseScale = SpriteScale * (RippleScaleMin + progress * RippleScaleRange)
     # Fade out with quadratic ease (visible at start, fades smoothly)
-    let alpha = t * t * 0.5  # Max alpha 0.5 for subtle effect
+    let alpha = t * t * RippleMaxAlpha
     # Use a light cyan/blue tint for water ripple
     let tint = withAlpha(RippleTint, alpha)
     bxy.drawImage("floor", ripple.pos, angle = 0, scale = baseScale, tint = tint)
@@ -402,11 +488,11 @@ proc drawAttackImpacts*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = impact.countdown.float32 / impact.lifetime.float32
     # Fade out quickly with quadratic ease for punchy effect
-    let alpha = t * t * 0.9
+    let alpha = t * t * AttackImpactMaxAlpha
     # Orange/red impact color for combat feedback
     let tintColor = withAlpha(AttackImpactTint, alpha)
     # Small particles that shrink as they fade
-    let scale = (1.0 / 400.0).float32 * (0.3 + t * 0.7)  # 30% to 100%
+    let scale = AttackImpactScale.float32 * (AttackImpactScaleMin + t * AttackImpactScaleRange)
     bxy.drawImage("floor", impact.pos, angle = 0, scale = scale, tint = tintColor)
 
 proc drawConversionEffects*() =
@@ -424,7 +510,7 @@ proc drawConversionEffects*() =
     # Calculate progress (1.0 at spawn, 0.0 at expire)
     let t = effect.countdown.float32 / effect.lifetime.float32
     # Pulsing effect: sine wave for divine/spiritual feel (2 pulses over lifetime)
-    let pulse = (sin(t * 6.28318 * 2.0) + 1.0) * 0.5  # 0 to 1
+    let pulse = (sin(t * TwoPi * ConversionPulseFreq) + 1.0) * 0.5  # 0 to 1
     # Fade out over time with pulsing intensity
     let alpha = t * (0.5 + pulse * 0.5)
     # Blend between golden divine color and team color
@@ -435,10 +521,10 @@ proc drawConversionEffects*() =
       golden.r * (1.0 - blendT) + teamAlpha.r * blendT,
       golden.g * (1.0 - blendT) + teamAlpha.g * blendT,
       golden.b * (1.0 - blendT) + teamAlpha.b * blendT,
-      alpha * 0.8)
+      alpha * ConversionAlphaBlend)
     # Draw expanding ring effect
-    let baseScale = (1.0 / 400.0).float32
-    let expandScale = baseScale * (1.0 + (1.0 - t) * 1.5)  # Expands as it fades
+    let baseScale = ConversionBaseScale.float32
+    let expandScale = baseScale * (1.0 + (1.0 - t) * ConversionExpandMult)
     bxy.drawImage("floor", effect.pos, angle = 0, scale = expandScale, tint = tintColor)
 
 proc drawWeatherEffects*() =
@@ -497,8 +583,8 @@ proc drawWeatherEffects*() =
           (cellY.float32 + cellOffsetY) * RainPatchTileSize.float32
         )
 
-        let driftPhase = frame.float32 * 0.004 + (cellSeed mod 97'u32).float32 * 0.1
-        let drift = vec2(sin(driftPhase) * 0.7, cos(driftPhase * 0.73) * 0.35)
+        let driftPhase = frame.float32 * RainPatchDriftSpeed + (cellSeed mod 97'u32).float32 * RainPatchDriftPhaseJitter
+        let drift = vec2(sin(driftPhase) * RainPatchDriftXAmplitude, cos(driftPhase * RainPatchDriftYFreqMult) * RainPatchDriftYAmplitude)
         let center = baseCenter + drift
         let radiusNoise = (mix32(cellSeed xor 0x9E3779B9'u32) mod 1000'u32).float32 / 1000.0
         let radius = RainPatchMinRadius + radiusNoise * RainPatchRadiusJitter
@@ -521,12 +607,12 @@ proc drawWeatherEffects*() =
       for puffIdx in 0 ..< RainCloudPuffCount:
         let puffSeed = mix32(patch.seed + uint32((puffIdx + 1) * 101))
         let angle = (puffSeed mod 628'u32).float32 / 100.0
-        let dist = patch.radius * (0.15 + ((puffSeed shr 11) mod 55'u32).float32 / 100.0)
-        let cloudPos = patch.center + vec2(cos(angle) * dist, -patch.radius * 0.75 + sin(angle) * 0.18)
+        let dist = patch.radius * (RainCloudMinDist + ((puffSeed shr 11) mod 55'u32).float32 / 100.0)
+        let cloudPos = patch.center + vec2(cos(angle) * dist, -patch.radius * RainCloudYOffsetMult + sin(angle) * RainCloudYJitterMult)
         let scaleNoise = ((puffSeed shr 7) mod 40'u32).float32 / 100.0
         let alphaNoise = ((puffSeed shr 17) mod 30'u32).float32 / 100.0
         let cloudScale = RainCloudScale * (1.0 + scaleNoise)
-        let cloudAlpha = RainCloudAlpha * (0.75 + alphaNoise)
+        let cloudAlpha = RainCloudAlpha * (RainCloudAlphaBase + alphaNoise)
         bxy.drawImage("floor", cloudPos, angle = 0, scale = cloudScale,
                       tint = withAlpha(CloudPuffTint, cloudAlpha))
 
@@ -542,29 +628,29 @@ proc drawWeatherEffects*() =
 
       let xNoise = ((seed * 13) mod 2000).float32 / 1000.0 - 1.0
       let yNoise = ((seed * 29) mod 1000).float32 / 1000.0 - 0.5
-      let xBase = patch.center.x + xNoise * patch.radius * 0.9
-      let yBase = patch.center.y - patch.radius * 1.15 + yNoise * patch.radius * 0.35
+      let xBase = patch.center.x + xNoise * patch.radius * RainXSpreadMult
+      let yBase = patch.center.y - patch.radius * RainYStartOffset + yNoise * patch.radius * RainYNoiseMult
       let xDrift = t * RainDriftSpeed * RainCycleFrames.float32
-      let yFall = t * (patch.radius * 2.25 + 2.0)
+      let yFall = t * (patch.radius * RainFallDistMult + RainFallDistBase)
       let particlePos = vec2(xBase + xDrift, yBase + yFall)
 
       # Keep rain localized to the patch footprint.
       let normX = (particlePos.x - patch.center.x) / max(0.1, patch.radius)
-      let normY = (particlePos.y - patch.center.y) / max(0.1, patch.radius * 1.2)
-      if normX * normX + normY * normY > 1.35:
+      let normY = (particlePos.y - patch.center.y) / max(0.1, patch.radius * RainEllipseYMult)
+      if normX * normX + normY * normY > RainEllipseThreshold:
         continue
 
       if particlePos.x < viewportMinX or particlePos.x > viewportMaxX or
          particlePos.y < viewportMinY or particlePos.y > viewportMaxY:
         continue
 
-      let blueVal = 0.7 + ((seed * 3) mod 30).float32 / 100.0
+      let blueVal = RainBlueBase + ((seed * 3) mod 30).float32 / 100.0
       let rainTint = color(RainBaseR, RainBaseG, blueVal, RainAlpha)
 
       for s in 0 ..< RainStreakLength:
         let streakOffset = vec2(
-          -RainDriftSpeed * s.float32 * 2.0,
-          -RainFallSpeed * s.float32 * 2.0
+          -RainDriftSpeed * s.float32 * RainStreakSpacingMult,
+          -RainFallSpeed * s.float32 * RainStreakSpacingMult
         )
         let streakAlpha = RainAlpha * (1.0 - s.float32 / RainStreakLength.float32)
         let streakTint = withAlpha(rainTint, streakAlpha)
@@ -582,7 +668,7 @@ proc drawWeatherEffects*() =
       # Vertical position: spread across viewport
       let yBase = currentViewport.minY.float32 +
                   ((seed * 19) mod (viewHeight * 100)).float32 / 100.0
-      let yDrift = sin(t * 3.14159 * 2.0) * WindDriftSpeed * 4.0
+      let yDrift = sin(t * Pi * 2.0) * WindDriftSpeed * WindDriftAmplitude
 
       # Horizontal position: cycle from left to right of viewport
       let xBase = currentViewport.minX.float32 - 2.0  # Start left of viewport

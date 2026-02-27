@@ -300,7 +300,7 @@ proc drawTradeRoutes*() =
           let dotPos = vec2(dotX, dotY)
           if isInViewport(ivec2(dotPos.x.int, dotPos.y.int)):
             # Pulsing brightness based on position
-            let brightness = TradeRouteBrightnessBase + TradeRouteBrightnessVar * sin(t * 3.14159)
+            let brightness = TradeRouteBrightnessBase + TradeRouteBrightnessVar * sin(t * PI)
             let dotColor = color(
               min(routeColor.r * brightness + TradeRouteDotColorBoostR, 1.0),
               min(routeColor.g * brightness + TradeRouteDotColorBoostG, 1.0),
