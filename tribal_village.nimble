@@ -10,7 +10,6 @@ requires "vmath >= 2.0.0"
 requires "chroma >= 0.2.7"
 requires "boxy"
 requires "windy"
-requires "silky >= 0.0.1"
 requires "jsony >= 1.1.5"
 
 import std/[os, strformat, strutils]
@@ -29,7 +28,7 @@ task buildLib, "Build shared library for PufferLib (nimby-friendly)":
 task run, "Run the tribal village game":
   exec "nim c -r tribal_village.nim"
 
-task buildAtlas, "Build silky texture atlas":
+task buildAtlas, "Build texture atlas (unused at runtime, kept for reference)":
   exec "nim c -r scripts/build_atlas.nim"
 
 task lib, "Build shared library for PufferLib (alias for buildLib)":

@@ -1,28 +1,22 @@
 import
-  boxy, windy, vmath
+  boxy, windy, vmath, pixie
 
-# Silky UI renderer (optional - compile with -d:useSilky when available)
-# Note: We import silky but do NOT export it to avoid operator overload
-# conflicts (opengl/vmath). Modules that need silky procs should import
-# silky sub-modules directly (e.g., `from silky/drawing import nil`).
-when defined(useSilky):
-  import std/os
-  import silky
-else:
-  # Stub types and methods when silky is not available
-  import pixie
-  type Silky* = ref object
-    discard
+# Silky stub type and methods.
+# Silky was an aspirational GPU-accelerated UI renderer. It was never fully
+# integrated (fonts were never added to the atlas). The command_panel module
+# references sk.* methods, so these stubs keep the code compiling. All actual
+# rendering goes through boxy.
+type Silky* = ref object
+  discard
 
-  # Stub methods that do nothing - allows code to compile without silky
-  proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) = discard
-  proc drawImage*(sk: Silky, name: string, pos: Vec2, color: ColorRGBX = rgbx(255,255,255,255)) = discard
-  proc contains*(sk: Silky, name: string): bool = false
-  proc getImageSize*(sk: Silky, name: string): Vec2 = vec2(0, 0)
-  proc drawText*(sk: Silky, font, text: string, pos: Vec2, color: ColorRGBX, maxWidth: float32 = float32.high, maxHeight: float32 = float32.high): Vec2 = vec2(0, 0)
-  proc getTextSize*(sk: Silky, font, text: string): Vec2 = vec2(0, 0)
-  proc beginUI*(sk: Silky, window: Window, size: IVec2) = discard
-  proc endUI*(sk: Silky) = discard
+proc drawRect*(sk: Silky, pos, size: Vec2, color: ColorRGBX) = discard
+proc drawImage*(sk: Silky, name: string, pos: Vec2, color: ColorRGBX = rgbx(255,255,255,255)) = discard
+proc contains*(sk: Silky, name: string): bool = false
+proc getImageSize*(sk: Silky, name: string): Vec2 = vec2(0, 0)
+proc drawText*(sk: Silky, font, text: string, pos: Vec2, color: ColorRGBX, maxWidth: float32 = float32.high, maxHeight: float32 = float32.high): Vec2 = vec2(0, 0)
+proc getTextSize*(sk: Silky, font, text: string): Vec2 = vec2(0, 0)
+proc beginUI*(sk: Silky, window: Window, size: IVec2) = discard
+proc endUI*(sk: Silky) = discard
 
 import common_types
 export common_types
@@ -75,11 +69,11 @@ type
 var
   window*: Window
   rootArea*: Area
-  bxy*: Boxy           # World rendering (sprites, terrain)
-  sk*: Silky           # UI rendering (panels, buttons, HUD) - nil when silky unavailable
+  bxy*: Boxy           # World and UI rendering (sprites, terrain, HUD)
+  sk*: Silky           # Silky stub - sk is always nil; command_panel references it
   frame*: int
 
-  # Transform stack (replaces boxy's transform management for silky)
+  # Transform stack for UI rendering
   transformMat*: Mat3 = mat3()
   transformStack*: seq[Mat3]
 
@@ -135,30 +129,12 @@ proc logicalMousePos*(window: Window): Vec2 =
 
 # ─── Rendering Initialization ────────────────────────────────────────────────
 
-var silkyAtlasPath* = "data/silky.atlas.png"
-var silkyAtlasJsonPath* = "data/silky.atlas.json"
-
 proc initRendering*(dataDir: string = "data") =
-  ## Initialize both renderers: boxy for world rendering, silky for UI.
+  ## Initialize the boxy renderer for world and UI rendering.
   ## Call this after window creation but before the main loop.
-  ##
-  ## Note: Silky atlas must be pre-built. If atlas files don't exist,
-  ## only boxy will be initialized and sk will remain nil.
   bxy = newBoxy()
 
-  when defined(useSilky):
-    let atlasPath = dataDir / "silky.atlas.png"
-    let jsonPath = dataDir / "silky.atlas.json"
-    if fileExists(atlasPath) and fileExists(jsonPath):
-      sk = newSilky(atlasPath, jsonPath)
-    else:
-      # Atlas not yet built - silky features will be unavailable
-      discard
-  else:
-    # Silky not compiled in - sk remains nil
-    discard
-
-# ─── Transform Stack (for silky UI rendering) ────────────────────────────────
+# ─── Transform Stack ─────────────────────────────────────────────────────────
 
 proc saveTransform*() =
   ## Push the current transform onto the stack.
@@ -197,17 +173,11 @@ proc applyTransform*(pos: Vec2): Vec2 =
 # ─── Frame Lifecycle ─────────────────────────────────────────────────────────
 
 proc beginFrame*(size: IVec2) =
-  ## Begin a new frame for both renderers.
+  ## Begin a new rendering frame.
   bxy.beginFrame(size)
-  when defined(useSilky):
-    if not sk.isNil:
-      sk.beginUI(window, size)
 
 proc endFrame*() =
-  ## End the current frame for both renderers.
-  when defined(useSilky):
-    if not sk.isNil:
-      sk.endUI()
+  ## End the current rendering frame.
   bxy.endFrame()
 
 # Viewport culling types and functions
@@ -393,4 +363,4 @@ proc applyAmbient*(baseR, baseG, baseB, baseI: float32, ambient: AmbientLight): 
     i: baseI * ambient.intensity
   )
 
-# Note: Transform Stack procs are defined above in section "Transform Stack (for silky UI rendering)"
+# Note: Transform Stack procs are defined above in the "Transform Stack" section

@@ -149,7 +149,7 @@ proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
       let iconPos = centerIn(button.rect, iconSize) + vec2(8.0, 9.0) * sc
       drawUiImageScaled(button.iconKey, iconPos, iconSize)
     elif button.labelKey.len > 0 and button.labelKey in bxy:
-      # Text labels still use boxy (no fonts in silky atlas yet)
+      # Text labels use boxy (rendered to texture)
       let shift = if button.kind == FooterFaster: vec2(8.0, 9.0) else: vec2(0.0, 0.0)
       let labelSize = vec2(button.labelSize.x.float32, button.labelSize.y.float32)
       let labelPos = centerIn(button.rect, labelSize) + shift

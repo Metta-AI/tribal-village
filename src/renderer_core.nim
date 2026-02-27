@@ -221,7 +221,7 @@ proc getHealthBarAlpha*(currentStep: int, lastAttackedStep: int): float32 =
     return HealthBarMinAlpha
 
 proc toRgbx*(c: Color): ColorRGBX {.inline.} =
-  ## Convert a boxy/pixie Color (float 0-1) to silky ColorRGBX (uint8 0-255).
+  ## Convert a pixie Color (float 0-1) to ColorRGBX (uint8 0-255).
   rgbx(
     uint8(clamp(c.r * 255, 0, 255)),
     uint8(clamp(c.g * 255, 0, 255)),

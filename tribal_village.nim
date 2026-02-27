@@ -281,13 +281,13 @@ proc display() =
 
   bxy.pushLayer()
   bxy.saveTransform()
-  saveTransform()  # Custom transform stack for silky migration
+  saveTransform()
   bxy.translate(vec2(panelRect.x, panelRect.y))
-  translateTransform(vec2(panelRect.x, panelRect.y))  # Keep custom stack in sync
+  translateTransform(vec2(panelRect.x, panelRect.y))
 
   # Pan and zoom handling
   bxy.saveTransform()
-  saveTransform()  # Custom transform stack for silky migration
+  saveTransform()
 
   let scaleVal = window.contentScale
   let logicalRect = Rect(
@@ -383,10 +383,10 @@ proc display() =
   # Update screen shake for combat feedback
   updateScreenShake()
   bxy.translate((worldMapPanel.pos + screenShakeOffset) * scaleF)
-  translateTransform((worldMapPanel.pos + screenShakeOffset) * scaleF)  # Keep custom stack in sync
+  translateTransform((worldMapPanel.pos + screenShakeOffset) * scaleF)
   let zoomScaled = worldMapPanel.zoom * worldMapPanel.zoom * scaleF
   bxy.scale(vec2(zoomScaled, zoomScaled))
-  scaleTransform(vec2(zoomScaled, zoomScaled))  # Keep custom stack in sync
+  scaleTransform(vec2(zoomScaled, zoomScaled))
 
   # Update viewport bounds for culling (before any rendering)
   updateViewport(worldMapPanel, panelRectInt, MapWidth, MapHeight, scaleF)
@@ -1233,10 +1233,10 @@ proc display() =
       tStart = tNow
 
   bxy.restoreTransform()
-  restoreTransform()  # Custom transform stack for silky migration
+  restoreTransform()
 
   bxy.restoreTransform()
-  restoreTransform()  # Custom transform stack for silky migration
+  restoreTransform()
   # Draw UI elements
   drawResourceBar(panelRectInt, playerTeam)
   when defined(renderTiming):

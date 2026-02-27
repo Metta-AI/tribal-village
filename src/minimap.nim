@@ -1,17 +1,10 @@
 ## Minimap rendering: bird's-eye terrain view with units, buildings, and viewport rect.
 ##
-## Rendering strategy (dual boxy+silky):
-## - Border/frame: silky (clean UI rect)
-## - Map content: boxy (dynamic texture updates)
-## - Viewport indicator: silky (clean UI lines)
+## Uses boxy for all rendering: dynamic map texture, border, and viewport indicator.
 
 import
   boxy, pixie, vmath, windy, chroma,
   common, constants, environment, semantic
-
-when defined(useSilky):
-  # Use 'from import nil' to avoid vmath operator conflicts
-  import silky
 
 # ---------------------------------------------------------------------------
 # State
@@ -151,21 +144,13 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
 
     bxy.addImage(minimapImageKey, img)
 
-  # Draw minimap border (silky for clean UI) and image (boxy for dynamic content)
+  # Draw minimap border and image
   let mmRect = minimapRect(panelRect)
   let borderPos = vec2(mmRect.x - MinimapBorderWidth, mmRect.y - MinimapBorderWidth)
   let borderSize = vec2(mmRect.w + MinimapBorderExpand, mmRect.h + MinimapBorderExpand)
 
-  when defined(useSilky):
-    let borderColor = rgbx(38, 38, 38, 242)  # color(0.15, 0.15, 0.15, 0.95)
-    if not sk.isNil:
-      sk.drawRect( borderPos, borderSize, borderColor)
-    else:
-      bxy.drawRect(rect = Rect(x: borderPos.x, y: borderPos.y, w: borderSize.x, h: borderSize.y),
-                   color = color(0.15, 0.15, 0.15, 0.95))
-  else:
-    bxy.drawRect(rect = Rect(x: borderPos.x, y: borderPos.y, w: borderSize.x, h: borderSize.y),
-                 color = color(0.15, 0.15, 0.15, 0.95))
+  bxy.drawRect(rect = Rect(x: borderPos.x, y: borderPos.y, w: borderSize.x, h: borderSize.y),
+               color = color(0.15, 0.15, 0.15, 0.95))
 
   # Map content rendered with boxy (dynamic texture)
   bxy.drawImage(minimapImageKey, vec2(mmRect.x, mmRect.y))
@@ -206,37 +191,19 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
   if clRight > clLeft and clBottom > clTop:
     let lineW = MinimapViewportLineWidth
 
-    # Draw viewport indicator (silky for clean UI lines when available, boxy fallback)
-    when defined(useSilky):
-      let vpColorRgbx = rgbx(255, 255, 255, uint8(MinimapViewportAlpha * 255))
-      if not sk.isNil:
-        # Top
-        sk.drawRect( vec2(clLeft, clTop), vec2(clRight - clLeft, lineW), vpColorRgbx)
-        # Bottom
-        sk.drawRect( vec2(clLeft, clBottom - lineW), vec2(clRight - clLeft, lineW), vpColorRgbx)
-        # Left
-        sk.drawRect( vec2(clLeft, clTop), vec2(lineW, clBottom - clTop), vpColorRgbx)
-        # Right
-        sk.drawRect( vec2(clRight - lineW, clTop), vec2(lineW, clBottom - clTop), vpColorRgbx)
-      else:
-        let vpColor = color(1, 1, 1, MinimapViewportAlpha)
-        bxy.drawRect(rect = Rect(x: clLeft, y: clTop, w: clRight - clLeft, h: lineW), color = vpColor)
-        bxy.drawRect(rect = Rect(x: clLeft, y: clBottom - lineW, w: clRight - clLeft, h: lineW), color = vpColor)
-        bxy.drawRect(rect = Rect(x: clLeft, y: clTop, w: lineW, h: clBottom - clTop), color = vpColor)
-        bxy.drawRect(rect = Rect(x: clRight - lineW, y: clTop, w: lineW, h: clBottom - clTop), color = vpColor)
-    else:
-      let vpColor = color(1, 1, 1, MinimapViewportAlpha)
-      # Top
-      bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
-                   w: clRight - clLeft, h: lineW), color = vpColor)
-      # Bottom
-      bxy.drawRect(rect = Rect(x: clLeft, y: clBottom - lineW,
-                   w: clRight - clLeft, h: lineW), color = vpColor)
-      # Left
-      bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
-                   w: lineW, h: clBottom - clTop), color = vpColor)
-      # Right
-      bxy.drawRect(rect = Rect(x: clRight - lineW, y: clTop,
-                   w: lineW, h: clBottom - clTop), color = vpColor)
+    # Draw viewport indicator
+    let vpColor = color(1, 1, 1, MinimapViewportAlpha)
+    # Top
+    bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
+                 w: clRight - clLeft, h: lineW), color = vpColor)
+    # Bottom
+    bxy.drawRect(rect = Rect(x: clLeft, y: clBottom - lineW,
+                 w: clRight - clLeft, h: lineW), color = vpColor)
+    # Left
+    bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
+                 w: lineW, h: clBottom - clTop), color = vpColor)
+    # Right
+    bxy.drawRect(rect = Rect(x: clRight - lineW, y: clTop,
+                 w: lineW, h: clBottom - clTop), color = vpColor)
 
   popSemanticContext()
