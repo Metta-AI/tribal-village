@@ -139,6 +139,10 @@ const
   RallyPreviewCoreAlpha* = 0.9'f32     # Preview inner core alpha
   RallyPreviewPulseAmount* = 0.2'f32   # Preview beacon pulse fraction
   RallyPreviewPathAlpha* = 0.5'f32     # Preview dashed path alpha
+  RallyPreviewBaseAlpha* = 0.8'f32    # Base alpha multiplier for preview color
+
+  # ─── Building Ghost Placement ──────────────────────────────────────────────
+  GridSnapOffset* = 0.5'f32              # Offset for rounding world pos to grid cell center
 
   # ─── Building UI Overlays ─────────────────────────────────────────────────
   BuildingIconOffsetX* = -0.18'f32       # Resource icon X offset from center
@@ -155,6 +159,7 @@ const
   TradeRouteLineWidth* = 0.08'f32       # World-space line width
   TradeRouteFlowDotCount* = 5           # Animated dots per route segment
   TradeRouteFlowSpeed* = 0.015'f32      # Animation speed (fraction per frame)
+  TradeRouteLineSegLength* = 0.5'f32    # World-space length per line segment
   TradeRouteLineSegScale* = 200.0'f32   # Divisor for line segment sprite scale
   TradeRouteTeamBlend* = 0.3'f32        # Team color weight in route blending
   TradeRouteGoldBlend* = 0.7'f32        # Gold color weight in route blending

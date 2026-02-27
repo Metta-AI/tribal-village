@@ -15,6 +15,7 @@ const
   MinimapPadding = MinimapPanelPadding
   MinimapUpdateInterval = MinimapUpdateFrameInterval
   MinimapBorderWidth = MinimapPanelBorderWidth
+  MinimapTreeColor = rgbx(40, 100, 40, 255)  ## Dark green for tree tiles on minimap
 
 # ─── Unit Info Panel ──────────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ proc rebuildMinimapTerrain() =
       # Check for trees at this tile
       let bg = env.backgroundGrid[mx][my]
       let c = if bg.isKind(Tree):
-        rgbx(40, 100, 40, 255)    # dark green for trees
+        MinimapTreeColor
       else:
         toMinimapColor(terrain, biome)
       minimapTerrainImage.unsafe[px, py] = c

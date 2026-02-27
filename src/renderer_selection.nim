@@ -126,7 +126,7 @@ proc drawRallyPointPreview*(buildingPos: Vec2, mousePos: Vec2) =
   let pulseAlpha = RallyPointPulseMin + pulse * (RallyPointPulseMax - RallyPointPulseMin)
 
   # Get team color for the preview (use green for valid placement)
-  let previewColor = withAlpha(RallyPreviewColor, pulseAlpha * 0.8)
+  let previewColor = withAlpha(RallyPreviewColor, pulseAlpha * RallyPreviewBaseAlpha)
 
   # Draw path line from building to mouse position
   let lineDir = mousePos - buildingPos
@@ -189,7 +189,7 @@ proc drawLineWorldSpace(p1, p2: Vec2, lineColor: Color, width: float32 = TradeRo
     return
 
   # Draw line as a series of small floor sprites along the path
-  let segments = max(1, int(length / 0.5))
+  let segments = max(1, int(length / TradeRouteLineSegLength))
   for i in 0 ..< segments:
     let t0 = i.float32 / segments.float32
     let t1 = (i + 1).float32 / segments.float32
