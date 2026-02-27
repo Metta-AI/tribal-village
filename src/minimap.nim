@@ -113,7 +113,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
         let c = if teamId >= 0 and teamId < env.teamColors.len:
           env.teamColors[teamId]
         else:
-          color(0.7, 0.7, 0.7, 1.0)
+          NeutralGrayMinimap
         img.unsafe[px, py] = rgbx(
           uint8(clamp(c.r * 255, 0, 255)),
           uint8(clamp(c.g * 255, 0, 255)),
@@ -150,7 +150,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
   let borderSize = vec2(mmRect.w + MinimapBorderExpand, mmRect.h + MinimapBorderExpand)
 
   bxy.drawRect(rect = Rect(x: borderPos.x, y: borderPos.y, w: borderSize.x, h: borderSize.y),
-               color = color(0.15, 0.15, 0.15, 0.95))
+               color = UiMinimapBorderDark)
 
   # Map content rendered with boxy (dynamic texture)
   bxy.drawImage(minimapImageKey, vec2(mmRect.x, mmRect.y))
@@ -192,7 +192,7 @@ proc drawMinimap*(panelRect: IRect, cameraPos: Vec2, zoom: float32) =
     let lineW = MinimapViewportLineWidth
 
     # Draw viewport indicator lines
-    let vpColor = color(1, 1, 1, MinimapViewportAlpha)
+    let vpColor = color(1.0, 1.0, 1.0, MinimapViewportAlpha)
     bxy.drawRect(rect = Rect(x: clLeft, y: clTop,
                  w: clRight - clLeft, h: lineW), color = vpColor)
     bxy.drawRect(rect = Rect(x: clLeft, y: clBottom - lineW,

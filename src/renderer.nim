@@ -73,7 +73,7 @@ proc drawWalls*() =
   if not currentViewport.valid:
     return
   var wallFills: seq[IVec2]
-  let wallTint = color(0.3, 0.3, 0.3, 1.0)
+  let wallTint = WallTintColor
   # Only iterate over visible tiles for viewport culling
   for x in currentViewport.minX .. currentViewport.maxX:
     for y in currentViewport.minY .. currentViewport.maxY:
@@ -236,7 +236,7 @@ proc drawObjects*() =
 
   # Draw unit shadows first (before agents, so shadows appear underneath)
   # Light source is NW, so shadows cast to SE (positive X and Y offset)
-  let shadowTint = color(0.0, 0.0, 0.0, constants.ShadowAlpha)
+  let shadowTint = color(0.0, 0.0, 0.0, ShadowAlpha)
   let shadowOffset = vec2(constants.ShadowOffsetX, constants.ShadowOffsetY)
   for agent in env.agents:
     if not isAgentAlive(env, agent):
@@ -289,7 +289,7 @@ proc drawObjects*() =
       elif thingPos.x >= 0 and thingPos.x < MapWidth and thingPos.y >= 0 and thingPos.y < MapHeight:
         let base = env.baseTintColors[thingPos.x][thingPos.y]
         color(base.r, base.g, base.b, 1.0)
-      else: color(1.0, 1.0, 1.0, 1.0)
+      else: TintWhite
     let posVec = thingPos.vec2
     bxy.drawImage("floor", posVec, angle = 0, scale = SpriteScale,
                   tint = color(altarTint.r, altarTint.g, altarTint.b, 0.35))
@@ -309,7 +309,7 @@ proc drawObjects*() =
       bxy.drawImage("heart", heartPos, angle = 0, scale = HeartIconScale, tint = altarTint)
       let labelKey = ensureHeartCountLabel(amt)
       bxy.drawImage(labelKey, heartPos + vec2(0.14, -0.08), angle = 0,
-                    scale = HeartCountLabelScale, tint = color(1, 1, 1, 1))
+                    scale = HeartCountLabelScale, tint = TintWhite)
     if isTileFrozen(thingPos, env):
       bxy.drawImage("frozen", posVec, angle = 0, scale = SpriteScale)
 
@@ -350,7 +350,7 @@ proc drawObjects*() =
       let tint = if thing.lanternHealthy:
         let teamId = thing.teamId
         let baseColor = if teamId >= 0 and teamId < env.teamColors.len: env.teamColors[teamId]
-                        else: color(0.6, 0.6, 0.6, 1.0)
+                        else: NeutralGrayLight
         # Multi-wave fire flicker using position-based phase offset for independent animation
         let posHash = (thingPos.x * 73 + thingPos.y * 137).float32
         let wave1 = sin((frame.float32 * LanternFlickerSpeed1) + posHash * 0.1)
@@ -359,7 +359,7 @@ proc drawObjects*() =
         let flicker = 1.0 + LanternFlickerAmplitude * (wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2)
         color(min(1.2, baseColor.r * flicker), min(1.2, baseColor.g * flicker),
               min(1.2, baseColor.b * flicker), baseColor.a)
-      else: color(0.5, 0.5, 0.5, 1.0)
+      else: NeutralGray
       bxy.drawImage("lantern", thingPos.vec2, angle = 0, scale = SpriteScale, tint = tint)
 
   template isPlacedAt(thing: Thing): bool =
@@ -390,10 +390,10 @@ proc drawObjects*() =
             let base = if teamId >= 0 and teamId < env.teamColors.len:
               env.teamColors[teamId]
             else:
-              color(0.6, 0.6, 0.6, 0.9)
+              NeutralGrayDim
             color(base.r * 0.75 + 0.1, base.g * 0.75 + 0.1, base.b * 0.75 + 0.1, 0.9)
           else:
-            color(1, 1, 1, 1)
+            TintWhite
         # Apply scaffolding effect: desaturate and add transparency when under construction
         let tint = if isUnderConstruction:
           let constructionProgress = thing.hp.float32 / thing.maxHp.float32
@@ -501,7 +501,7 @@ proc drawAgentDecorations*() =
       let hpAlpha = getHealthBarAlpha(env.currentStep, agent.lastAttackedStep)
       let hpColor = getHealthBarColor(hpRatio)
       drawSegmentBar(pos.vec2, vec2(0, -0.5), hpRatio, hpColor,
-                     color(0.3, 0.3, 0.3, 0.7), 5, hpAlpha)
+                     BarBgColor, 5, hpAlpha)
 
     # Control group badges are tracked via global controlGroups array
     # TODO: Look up if this agent is in any control group and display badge
@@ -511,7 +511,7 @@ proc drawGrid*() =
   if not settings.showGrid or not currentViewport.valid:
     return
 
-  let gridColor = color(0.4, 0.4, 0.4, 0.3)
+  let gridColor = GridLineColor
 
   # Draw vertical lines
   for x in currentViewport.minX .. currentViewport.maxX + 1:

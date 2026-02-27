@@ -179,7 +179,7 @@ proc selectUnitSpriteKey*(baseKey: string, orientation: Orientation): string =
 # ─── Color Helper Procs ──────────────────────────────────────────────────────
 
 proc getTeamColor*(env: Environment, teamId: int,
-                   fallback: Color = color(0.6, 0.6, 0.6, 1.0)): Color =
+                   fallback: Color = NeutralGrayLight): Color =
   ## Get team color from environment, with fallback for invalid team IDs.
   if teamId >= 0 and teamId < env.teamColors.len:
     env.teamColors[teamId]
@@ -305,9 +305,9 @@ proc renderTextLabel*(text: string, fontPath: string, fontSize: float32,
   var ctx = newContext(w, h)
   setupCtxFont(ctx, fontPath, fontSize)
   if bgAlpha > 0:
-    ctx.fillStyle.color = color(0, 0, 0, bgAlpha)
+    ctx.fillStyle.color = color(0, 0, 0, bgAlpha)  # text background
     ctx.fillRect(0, 0, w.float32, h.float32)
-  ctx.fillStyle.color = color(1, 1, 1, 1)
+  ctx.fillStyle.color = TintWhite
   ctx.fillText(text, vec2(padding, padding))
   result = (ctx.image, ivec2(w, h))
 
@@ -451,7 +451,7 @@ proc resourceUiIconScale*(res: StockpileResource): float32 {.inline.} =
   of ResourceWater, ResourceNone: 1.0'f32
 
 proc drawUiImageScaled*(key: string, topLeft: Vec2, size: Vec2,
-                        tint: Color = color(1, 1, 1, 1)) =
+                        tint: Color = TintWhite) =
   ## Draw a UI image in pixel space using top-left anchoring.
   ## This matches MettaScope's widget convention and avoids center-anchor drift.
   if key.len == 0 or key notin bxy or size.x <= 0 or size.y <= 0:

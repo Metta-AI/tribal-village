@@ -47,7 +47,7 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
 
   # Draw panel background
   bxy.drawRect(rect = Rect(x: panelX, y: panelY, w: panelW, h: panelH),
-               color = color(0.1, 0.1, 0.15, 0.85))
+               color = UiBgPanel)
 
   var yOffset = 8.0'f32
   let xPadding = 8.0'f32
@@ -116,7 +116,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
   # Draw background
   bxy.drawRect(rect = Rect(x: barX, y: barY, w: panelRect.w.float32, h: barH),
-               color = color(0.1, 0.1, 0.15, 0.8))
+               color = UiBgBar)
 
   let stockpile = env.teamStockpiles[teamId]
   var xOffset = 10.0'f32
@@ -237,7 +237,7 @@ proc rebuildMinimapTerrain() =
 proc initMinimapTeamColors() =
   ## Pre-compute team colors for minimap to avoid per-frame conversions.
   for i in 0 ..< MapRoomObjectsTeams:
-    let tc = if i < env.teamColors.len: env.teamColors[i] else: color(0.5, 0.5, 0.5, 1.0)
+    let tc = if i < env.teamColors.len: env.teamColors[i] else: NeutralGray
     minimapTeamColors[i] = colorToRgbx(tc)
     minimapTeamBrightColors[i] = colorToRgbx(color(
       min(tc.r * 1.2 + 0.1, 1.0),
@@ -360,7 +360,7 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
     bxy.addImage(minimapImageKey, minimapCompositeImage)
 
   # Draw border
-  let borderColor = color(0.2, 0.2, 0.25, 0.9)
+  let borderColor = UiMinimapBorder
   bxy.drawRect(
     rect = Rect(x: minimapX - MinimapBorderWidth, y: minimapY - MinimapBorderWidth,
                 w: MinimapSizeConst.float32 + MinimapBorderWidth * 2,
@@ -380,7 +380,7 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
     let vpY = minimapY + currentViewport.minY.float32 * scaleY
     let vpW = (currentViewport.maxX - currentViewport.minX + 1).float32 * scaleX
     let vpH = (currentViewport.maxY - currentViewport.minY + 1).float32 * scaleY
-    let vpColor = color(1.0, 1.0, 1.0, 0.7)
+    let vpColor = UiViewportOutline
     # Draw viewport outline as 4 thin rectangles
     let lineW = 1.0'f32
     bxy.drawRect(rect = Rect(x: vpX, y: vpY, w: vpW, h: lineW), color = vpColor)  # top
