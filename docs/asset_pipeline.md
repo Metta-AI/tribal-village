@@ -40,6 +40,9 @@ The unit orientation text is explicit about left/right facing (for example, `se`
 "looking left" and `sw` is "looking right") to avoid flipped sprites. East/west
 mirroring is also supported for stable prompts via `FLIP_ORIENTATIONS`.
 
+Cliff-specific constants and automatic cliff variant derivation are centralized in
+`scripts/cliff_assets.py` (used by `generate_assets.py`, preview rendering, and audit scripts).
+
 ## Generation Commands
 Base assets:
 - `python scripts/generate_assets.py --postprocess`

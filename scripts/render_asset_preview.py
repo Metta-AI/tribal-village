@@ -7,70 +7,14 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from cliff_assets import CLIFF_PREVIEW_SPECS
+
 
 SPRITE = tuple[str, Path, set[tuple[int, int]]]
 
 DEFAULT_SPRITES: list[SPRITE] = [
-    (
-        "Edge N",
-        Path("data/cliff_edge_ew_s.png"),
-        {(0, -1)},
-    ),
-    (
-        "Edge E",
-        Path("data/cliff_edge_ns_w.png"),
-        {(1, 0)},
-    ),
-    (
-        "Edge S",
-        Path("data/cliff_edge_ew.png"),
-        {(0, 1)},
-    ),
-    (
-        "Edge W",
-        Path("data/cliff_edge_ns.png"),
-        {(-1, 0)},
-    ),
-    (
-        "Corner In NE",
-        Path("data/oriented/cliff_corner_in_ne.png"),
-        {(0, -1), (1, 0)},
-    ),
-    (
-        "Corner In SE",
-        Path("data/oriented/cliff_corner_in_se.png"),
-        {(1, 0), (0, 1)},
-    ),
-    (
-        "Corner In SW",
-        Path("data/oriented/cliff_corner_in_sw.png"),
-        {(0, 1), (-1, 0)},
-    ),
-    (
-        "Corner In NW",
-        Path("data/oriented/cliff_corner_in_nw.png"),
-        {(-1, 0), (0, -1)},
-    ),
-    (
-        "Corner Out NE",
-        Path("data/oriented/cliff_corner_out_ne.png"),
-        {(1, -1)},
-    ),
-    (
-        "Corner Out SE",
-        Path("data/oriented/cliff_corner_out_se.png"),
-        {(1, 1)},
-    ),
-    (
-        "Corner Out SW",
-        Path("data/oriented/cliff_corner_out_sw.png"),
-        {(-1, 1)},
-    ),
-    (
-        "Corner Out NW",
-        Path("data/oriented/cliff_corner_out_nw.png"),
-        {(-1, -1)},
-    ),
+    (label, Path("data") / relative_path, low_cells)
+    for label, relative_path, low_cells in CLIFF_PREVIEW_SPECS
 ]
 
 

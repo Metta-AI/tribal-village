@@ -6,6 +6,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cliff_assets import CLIFF_VARIANT_KIND_TO_SOURCE
+
+
+KIND_PREVIEW_META: dict[str, tuple[str, str, str]] = {
+    "in": ("Corner In Variants", "preview_corner_in.tsv", "preview_corner_in.png"),
+    "out": ("Corner Out Variants", "preview_corner_out.tsv", "preview_corner_out.png"),
+}
+
 
 def parse_seeds(raw: str) -> list[int]:
     seeds: list[int] = []
@@ -22,12 +30,10 @@ def build_seeds(start: int, count: int) -> list[int]:
 
 
 def run_generate(out_dir: Path, seed: int, kind: str) -> bool:
-    if kind == "in":
-        only = "oriented/cliff_corner_in_nw.png"
-    elif kind == "out":
-        only = "oriented/cliff_corner_out_se.png"
-    else:
-        raise ValueError(f"Unknown kind '{kind}'")
+    try:
+        only = CLIFF_VARIANT_KIND_TO_SOURCE[kind]
+    except KeyError as exc:
+        raise ValueError(f"Unknown kind '{kind}'") from exc
     cmd = [
         sys.executable,
         "scripts/generate_assets.py",
@@ -92,41 +98,34 @@ def main() -> None:
 
     seeds = parse_seeds(args.seeds) if args.seeds else build_seeds(args.start, args.count)
     kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
+    unknown_kinds = [kind for kind in kinds if kind not in CLIFF_VARIANT_KIND_TO_SOURCE]
+    if unknown_kinds:
+        valid = ",".join(sorted(CLIFF_VARIANT_KIND_TO_SOURCE))
+        raise SystemExit(f"Unknown kinds: {','.join(unknown_kinds)} (expected one of {valid})")
 
     for seed in seeds:
         seed_dir = base_dir / f"seed{seed}"
         for kind in kinds:
             run_generate(seed_dir, seed, kind)
 
-    previews: list[tuple[str, Path, str, str]] = []
-    if "in" in kinds:
+    previews: list[tuple[Path, Path, str]] = []
+    for kind in kinds:
+        title, manifest_name, preview_name = KIND_PREVIEW_META[kind]
+        source = Path(CLIFF_VARIANT_KIND_TO_SOURCE[kind])
         rows: list[tuple[str, Path]] = []
         if args.include_current:
-            rows.append(("Current", Path("data/oriented/cliff_corner_in_nw.png")))
+            rows.append(("Current", Path("data") / source))
         for seed in seeds:
-            sprite = base_dir / f"seed{seed}" / "oriented" / "cliff_corner_in_nw.png"
+            sprite = base_dir / f"seed{seed}" / source
             if sprite.exists():
                 rows.append((f"Seed {seed}", sprite))
-        manifest = base_dir / "preview_corner_in.tsv"
-        preview = base_dir / "preview_corner_in.png"
+        manifest = base_dir / manifest_name
+        preview = base_dir / preview_name
         write_manifest(manifest, rows)
-        previews.append((manifest.as_posix(), preview, "Corner In Variants", "preview_corner_in.png"))
+        previews.append((manifest, preview, title))
 
-    if "out" in kinds:
-        rows = []
-        if args.include_current:
-            rows.append(("Current", Path("data/oriented/cliff_corner_out_se.png")))
-        for seed in seeds:
-            sprite = base_dir / f"seed{seed}" / "oriented" / "cliff_corner_out_se.png"
-            if sprite.exists():
-                rows.append((f"Seed {seed}", sprite))
-        manifest = base_dir / "preview_corner_out.tsv"
-        preview = base_dir / "preview_corner_out.png"
-        write_manifest(manifest, rows)
-        previews.append((manifest.as_posix(), preview, "Corner Out Variants", "preview_corner_out.png"))
-
-    for manifest_path, preview_path, title, _ in previews:
-        render_preview(Path(manifest_path), preview_path, title)
+    for manifest_path, preview_path, title in previews:
+        render_preview(manifest_path, preview_path, title)
         if args.open:
             subprocess.run(["open", "-a", "Preview", preview_path.as_posix()], check=False)
 

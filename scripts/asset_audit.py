@@ -14,6 +14,8 @@ import os
 import sys
 import argparse
 
+from cliff_assets import CLIFF_REQUIRED_KEYS
+
 # Root data directory
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
@@ -54,9 +56,9 @@ def get_used_asset_keys():
         "tree", "wheat", "fish", "stone", "gold", "bush", "cactus",
         "stalagmite", "magma", "spawner", "corpse", "skeleton", "stump",
         "stubble", "lantern", "temple", "control_point",
-        "cliff_edge_ew", "cliff_edge_ew_s", "cliff_edge_ns", "cliff_edge_ns_w",
         "goblet"  # Relic sprite
     ])
+    used.update(CLIFF_REQUIRED_KEYS)
 
     # Item sprites (from ItemCatalog in registry.nim)
     used.update([
@@ -105,11 +107,6 @@ def get_used_asset_keys():
     for prefix in ["oriented/tumor", "oriented/tumor.expired"]:
         for d in ["n", "s", "e", "w"]:
             used.add(f"{prefix}.{d}")
-
-    # Cliff corner sprites (from ThingCatalog)
-    for dir_type in ["in", "out"]:
-        for corner in ["ne", "se", "sw", "nw"]:
-            used.add(f"oriented/cliff_corner_{dir_type}_{corner}")
 
     return used
 

@@ -15,6 +15,8 @@ from PIL import Image
 import cv2  # type: ignore
 import numpy as np  # type: ignore
 
+from cliff_assets import maybe_derive_cliff_variants
+
 # Setup notes:
 # - Option A (API key): export GOOGLE_API_KEY=...
 # - Option B (gcloud ADC): install gcloud and run
@@ -531,49 +533,6 @@ def apply_postprocess(
 
 def flip_horizontal(img: Image.Image) -> Image.Image:
     return img.transpose(Image.FLIP_LEFT_RIGHT)
-
-
-def maybe_derive_cliff_variants(target: Path, out_dir: Path) -> None:
-    try:
-        relative = target.relative_to(out_dir)
-    except ValueError:
-        relative = target
-    rel = relative.as_posix()
-    if rel == "oriented/cliff_corner_in_nw.png":
-        with Image.open(target) as existing:
-            base = existing.convert("RGBA")
-        corner_dir = target.parent
-        img_ne = flip_horizontal(base)
-        img_sw = base.transpose(Image.ROTATE_90)
-        img_se = flip_horizontal(img_sw)
-        corner_dir.mkdir(parents=True, exist_ok=True)
-        img_ne.save(corner_dir / "cliff_corner_in_ne.png")
-        img_sw.save(corner_dir / "cliff_corner_in_sw.png")
-        img_se.save(corner_dir / "cliff_corner_in_se.png")
-        return
-    if rel == "oriented/cliff_corner_out_se.png":
-        with Image.open(target) as existing:
-            base = existing.convert("RGBA")
-        corner_dir = target.parent
-        img_sw = flip_horizontal(base)
-        img_ne = base.transpose(Image.ROTATE_90)
-        img_nw = flip_horizontal(img_ne)
-        corner_dir.mkdir(parents=True, exist_ok=True)
-        img_sw.save(corner_dir / "cliff_corner_out_sw.png")
-        img_ne.save(corner_dir / "cliff_corner_out_ne.png")
-        img_nw.save(corner_dir / "cliff_corner_out_nw.png")
-        return
-    if rel == "cliff_edge_ew.png":
-        with Image.open(target) as existing:
-            base = existing.convert("RGBA")
-        edge_dir = target.parent
-        img_ew_s = base.transpose(Image.ROTATE_180)
-        img_ns_w = base.transpose(Image.ROTATE_90)
-        img_ns = base.transpose(Image.ROTATE_270)
-        edge_dir.mkdir(parents=True, exist_ok=True)
-        img_ew_s.save(edge_dir / "cliff_edge_ew_s.png")
-        img_ns_w.save(edge_dir / "cliff_edge_ns_w.png")
-        img_ns.save(edge_dir / "cliff_edge_ns.png")
 
 
 def swap_orientation_token(filename: str, old: str, new: str) -> str:
