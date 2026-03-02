@@ -8,18 +8,19 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from cliff_assets import CLIFF_PREVIEW_SPECS
+from script_paths import DATA_DIR
 
 
 SPRITE = tuple[str, Path, set[tuple[int, int]]]
 
 DEFAULT_SPRITES: list[SPRITE] = [
-    (label, Path("data") / relative_path, low_cells)
+    (label, DATA_DIR / relative_path, low_cells)
     for label, relative_path, low_cells in CLIFF_PREVIEW_SPECS
 ]
 
 
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    font_path = Path("data/Inter-Regular.ttf")
+    font_path = DATA_DIR / "Inter-Regular.ttf"
     if font_path.exists():
         return ImageFont.truetype(str(font_path), size=size)
     return ImageFont.load_default()
@@ -188,7 +189,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("data/tmp/asset_preview.png"),
+        default=DATA_DIR / "tmp" / "asset_preview.png",
         help="Output path for the preview image.",
     )
     parser.add_argument(

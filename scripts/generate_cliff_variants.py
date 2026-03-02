@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from cliff_assets import CLIFF_VARIANT_KIND_TO_SOURCE
+from script_paths import DATA_DIR, script_path
 
 
 KIND_PREVIEW_META: dict[str, tuple[str, str, str]] = {
@@ -36,7 +37,7 @@ def run_generate(out_dir: Path, seed: int, kind: str) -> bool:
         raise ValueError(f"Unknown kind '{kind}'") from exc
     cmd = [
         sys.executable,
-        "scripts/generate_assets.py",
+        script_path("generate_assets.py").as_posix(),
         "--seed",
         str(seed),
         "--postprocess",
@@ -63,7 +64,7 @@ def write_manifest(path: Path, rows: list[tuple[str, Path]]) -> None:
 def render_preview(manifest: Path, out_path: Path, title: str) -> None:
     cmd = [
         sys.executable,
-        "scripts/render_asset_preview.py",
+        script_path("render_asset_preview.py").as_posix(),
         "--manifest",
         manifest.as_posix(),
         "--out",
@@ -114,7 +115,7 @@ def main() -> None:
         source = Path(CLIFF_VARIANT_KIND_TO_SOURCE[kind])
         rows: list[tuple[str, Path]] = []
         if args.include_current:
-            rows.append(("Current", Path("data") / source))
+            rows.append(("Current", DATA_DIR / source))
         for seed in seeds:
             sprite = base_dir / f"seed{seed}" / source
             if sprite.exists():

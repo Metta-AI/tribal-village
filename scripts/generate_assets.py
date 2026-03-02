@@ -16,6 +16,8 @@ import cv2  # type: ignore
 import numpy as np  # type: ignore
 
 from cliff_assets import maybe_derive_cliff_variants
+from script_paths import DATA_DIR
+from sprite_transforms import apply_transform
 
 # Setup notes:
 # - Option A (API key): export GOOGLE_API_KEY=...
@@ -531,10 +533,6 @@ def apply_postprocess(
     return img
 
 
-def flip_horizontal(img: Image.Image) -> Image.Image:
-    return img.transpose(Image.FLIP_LEFT_RIGHT)
-
-
 def swap_orientation_token(filename: str, old: str, new: str) -> str:
     replacements = [
         (f".{old}.", f".{new}."),
@@ -608,8 +606,8 @@ def oriented_uses_purple_bg(output: OrientedOutput) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate image assets from TSV prompts.")
-    parser.add_argument("--prompts", default="data/prompts/assets.tsv")
-    parser.add_argument("--out-dir", default="data")
+    parser.add_argument("--prompts", default=(DATA_DIR / "prompts" / "assets.tsv").as_posix())
+    parser.add_argument("--out-dir", default=DATA_DIR.as_posix())
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
@@ -782,7 +780,7 @@ def main() -> None:
                 raise SystemExit(f"Missing flip source image: {source}")
             with Image.open(source) as existing:
                 img = existing.convert("RGBA")
-            img = flip_horizontal(img)
+            img = apply_transform(img, "flip_x")
             use_purple = oriented_uses_purple_bg(output)
             do_postprocess = args.postprocess or use_purple
             if do_postprocess:

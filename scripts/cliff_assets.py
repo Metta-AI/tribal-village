@@ -5,6 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from sprite_transforms import apply_transforms
 
 CLIFF_EDGE_SOURCE = "cliff_edge_ew.png"
 CLIFF_CORNER_IN_SOURCE = "oriented/cliff_corner_in_nw.png"
@@ -58,18 +59,6 @@ def _relative_target(target: Path, out_dir: Path) -> str:
         return target.as_posix()
 
 
-def _apply_transform(img: Image.Image, op: str) -> Image.Image:
-    if op == "flip_x":
-        return img.transpose(Image.FLIP_LEFT_RIGHT)
-    if op == "rot90":
-        return img.transpose(Image.ROTATE_90)
-    if op == "rot180":
-        return img.transpose(Image.ROTATE_180)
-    if op == "rot270":
-        return img.transpose(Image.ROTATE_270)
-    raise ValueError(f"Unsupported transform: {op}")
-
-
 def maybe_derive_cliff_variants(target: Path, out_dir: Path) -> None:
     relative = _relative_target(target, out_dir)
     derivations = _DERIVATIONS.get(relative)
@@ -81,7 +70,5 @@ def maybe_derive_cliff_variants(target: Path, out_dir: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
 
     for name, ops in derivations:
-        variant = base
-        for op in ops:
-            variant = _apply_transform(variant, op)
+        variant = apply_transforms(base, ops)
         variant.save(target.parent / name)

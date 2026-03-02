@@ -42,6 +42,8 @@ mirroring is also supported for stable prompts via `FLIP_ORIENTATIONS`.
 
 Cliff-specific constants and automatic cliff variant derivation are centralized in
 `scripts/cliff_assets.py` (used by `generate_assets.py`, preview rendering, and audit scripts).
+Shared transform operations live in `scripts/sprite_transforms.py`, and shared repo/data
+path resolution for script entrypoints lives in `scripts/script_paths.py`.
 
 ## Generation Commands
 Base assets:
