@@ -50,6 +50,7 @@ type
     showObservations* = -1
     showDayNightCycle* = true  ## Whether to show day/night lighting cycle
     weatherType* = WeatherRain  ## Current weather effect (Rain, Wind, or None)
+    showUnitDebug* = false       ## Show unit class + sprite key labels above agents
 
 var
   window*: Window

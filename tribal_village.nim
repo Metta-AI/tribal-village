@@ -198,6 +198,10 @@ proc display() =
       of WeatherWind: WeatherNone
       of WeatherNone: WeatherRain
 
+  # F10 toggles unit debug overlay (class name + sprite key)
+  if window.buttonPressed[KeyF10]:
+    settings.showUnitDebug = not settings.showUnitDebug
+
   when defined(renderTiming):
     if timingActive:
       let tNow = getMonoTime()
@@ -1067,6 +1071,8 @@ proc display() =
       tStart = tNow
 
   drawAgentDecorations()
+  if settings.showUnitDebug:
+    drawUnitDebugOverlay()
   when defined(renderTiming):
     if timingActive:
       tNow = getMonoTime()

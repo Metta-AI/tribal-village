@@ -593,4 +593,68 @@ proc drawUiImageScaled*(key: string, topLeft: Vec2, size: Vec2,
     return
   bxy.drawImage(key, rect(topLeft, size), tint = tint)
 
+# ─── Unit Debug Overlay ──────────────────────────────────────────────────────
+
+const
+  DebugLabelFontSize*: float32 = 22
+  DebugLabelPadding*: float32 = 3
+  DebugLabelScale* = 1.0 / 300.0  # Small labels above units
+  DebugLabelYOffset* = -0.65      # Above the unit sprite
+
+proc getUnitCategoryColor(unitClass: AgentUnitClass): Color =
+  ## Color-code debug labels by unit category.
+  const
+    NavalUnits = {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip,
+                  UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon}
+    SiegeUnits = {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
+    CavalryUnits = {UnitScout, UnitKnight, UnitCavalier, UnitPaladin,
+                    UnitLightCavalry, UnitHussar, UnitCataphract, UnitMameluke,
+                    UnitCamel, UnitHeavyCamel, UnitImperialCamel,
+                    UnitCavalryArcher, UnitHeavyCavalryArcher}
+    RangedInfantry = {UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman,
+                      UnitJanissary, UnitSkirmisher, UnitEliteSkirmisher,
+                      UnitHandCannoneer}
+  if unitClass == UnitVillager:
+    color(1.0, 1.0, 1.0, 1.0)       # white
+  elif unitClass in NavalUnits:
+    color(0.0, 0.9, 0.9, 1.0)       # cyan
+  elif unitClass in SiegeUnits:
+    color(1.0, 0.6, 0.0, 1.0)       # orange
+  elif unitClass in CavalryUnits:
+    color(0.3, 0.5, 1.0, 1.0)       # blue
+  elif unitClass in RangedInfantry:
+    color(0.3, 1.0, 0.3, 1.0)       # green
+  else:  # infantry (MAA, Longswordsman, Champion, unique infantry, Monk, King, Goblin)
+    color(1.0, 0.4, 0.4, 1.0)       # red
+
+proc drawUnitDebugOverlay*() =
+  ## Draw class name and sprite key labels above every visible agent.
+  ## Toggled by settings.showUnitDebug (F10).
+  if not currentViewport.valid:
+    return
+
+  let debugStyle = labelStyleColored(
+    HeartCountFontPath, DebugLabelFontSize, DebugLabelPadding,
+    TintWhite  # base white — we tint per-category via drawImage
+  )
+
+  for agent in env.agents:
+    if not isAgentAlive(env, agent):
+      continue
+    let pos = agent.pos
+    if not isInViewport(pos):
+      continue
+
+    let className = UnitClassLabels[agent.unitClass]
+    let spriteBase = getUnitSpriteBase(agent.unitClass, agent.agentId, agent.packed)
+    let teamId = getTeamId(agent)
+    let labelText = className & " T" & $teamId & " [" & spriteBase & "]"
+
+    let cached = ensureLabel("unit_debug", labelText, debugStyle)
+    if cached.imageKey.len > 0 and cached.imageKey in bxy:
+      let catColor = getUnitCategoryColor(agent.unitClass)
+      let drawPos = pos.vec2 + vec2(0.0, DebugLabelYOffset)
+      bxy.drawImage(cached.imageKey, drawPos, angle = 0,
+                    scale = DebugLabelScale, tint = catColor)
+
 const HeartPlusThreshold* = 9  # Switch to compact heart counter after this many
