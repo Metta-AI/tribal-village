@@ -7,6 +7,7 @@ Eliminates ALL conversion overhead by using direct numpy buffer communication.
 from __future__ import annotations
 
 import ctypes
+import platform
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -24,6 +25,27 @@ from tribal_village_env.config import (
 ACTION_VERB_COUNT = 11
 ACTION_ARGUMENT_COUNT = 28
 ACTION_SPACE_SIZE = ACTION_VERB_COUNT * ACTION_ARGUMENT_COUNT
+
+_PLATFORM_LIB_NAMES = {
+    "Darwin": "libtribal_village.dylib",
+    "Windows": "libtribal_village.dll",
+}
+_DEFAULT_LIB_NAME = "libtribal_village.so"
+
+
+def _find_library() -> Path:
+    """Locate the Nim shared library for the current platform."""
+    lib_name = _PLATFORM_LIB_NAMES.get(platform.system(), _DEFAULT_LIB_NAME)
+    package_dir = Path(__file__).resolve().parent
+    candidate_paths = [
+        package_dir.parent / lib_name,
+        package_dir / lib_name,
+    ]
+    lib_path = next((p for p in candidate_paths if p.exists()), None)
+    if lib_path is None:
+        searched = ", ".join(str(p) for p in candidate_paths)
+        raise FileNotFoundError(f"Nim library not found. Searched: {searched}")
+    return lib_path
 
 
 class NimConfig(ctypes.Structure):
@@ -106,27 +128,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         self._render_mode = self._typed_config.render_mode
 
         # Load the optimized Nim library - cross-platform
-        import platform
-
-        if platform.system() == "Darwin":
-            lib_name = "libtribal_village.dylib"
-        elif platform.system() == "Windows":
-            lib_name = "libtribal_village.dll"
-        else:
-            lib_name = "libtribal_village.so"
-
-        package_dir = Path(__file__).resolve().parent
-        candidate_paths = [
-            package_dir.parent / lib_name,
-            package_dir / lib_name,
-        ]
-
-        lib_path = next((path for path in candidate_paths if path.exists()), None)
-        if lib_path is None:
-            searched = ", ".join(str(path) for path in candidate_paths)
-            raise FileNotFoundError(f"Nim library not found. Searched: {searched}")
-
-        self.lib = ctypes.CDLL(str(lib_path))
+        self.lib = ctypes.CDLL(str(_find_library()))
         self._setup_ctypes_interface()
 
         # Get environment dimensions
