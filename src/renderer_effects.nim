@@ -75,6 +75,14 @@ const
   WindAlpha = 0.35'f32             # Wind particle opacity (subtle)
   WindDriftAmplitude = 4.0'f32     # Vertical drift amplitude multiplier
 
+  # Snow constants
+  SnowFallSpeed = 0.08'f32         # World units per frame (slow descent)
+  SnowDriftSpeed = 0.04'f32        # Horizontal sway amplitude
+  SnowDriftFreq = 0.03'f32         # Sway frequency (slow sinusoidal)
+  SnowCycleFrames = 96             # Frames for one full snow cycle (slower than rain)
+  SnowAlpha = 0.7'f32              # Snow particle opacity (visible white)
+  SnowParticleScale = 1.0 / 500.0  # Small snowflake particles
+
   # Weather viewport margin (tiles beyond edge to render particles)
   WeatherViewportMargin = 2.0'f32  # Extra margin around viewport for seamless edges
   WeatherViewportClipMargin = 1.0'f32 # Clip margin for wind particle culling
@@ -99,6 +107,7 @@ const
   SpawnEffectScaleMin = 0.3'f32      # Starting scale fraction (30%)
   SpawnEffectScaleRange = 0.7'f32    # Scale range from min to full (70%)
   SpawnEffectMaxAlpha = 0.6'f32      # Max alpha to avoid being too bright
+  SpawnEffectRotationSpeed = TwoPi   # Full rotation over effect lifetime
 
   # Gather sparkle constants
   GatherSparkleScale = 1.0 / 450.0   # Small sparkle particles
@@ -361,9 +370,11 @@ proc drawSpawnEffects*() =
     let baseScale = SpriteScale * (SpawnEffectScaleMin + progress * SpawnEffectScaleRange)
     # Fade out with quadratic ease (bright at start, fades smoothly)
     let alpha = t * t * SpawnEffectMaxAlpha
+    # Rotate during expansion for visual flair
+    let rotation = progress * SpawnEffectRotationSpeed
     # Use a bright cyan/white tint for spawn effect
     let tint = withAlpha(SpawnEffectTint, alpha)
-    bxy.drawImage("floor", effect.pos.vec2, angle = 0, scale = baseScale, tint = tint)
+    bxy.drawImage("floor", effect.pos.vec2, angle = rotation, scale = baseScale, tint = tint)
 
 proc drawGatherSparkles*() =
   ## Draw sparkle particles when workers collect resources.
@@ -698,6 +709,40 @@ proc drawWeatherEffects*() =
 
       bxy.drawImage("floor", particlePos, angle = 0,
                     scale = WeatherParticleScale, tint = windTint)
+
+  of WeatherSnow:
+    # Snow particles drifting gently downward with sinusoidal sway
+    for i in 0 ..< particleCount:
+      let seed = i * 19 + 53
+      let cycleOffset = (seed * 11) mod SnowCycleFrames
+      let cycleFrame = (frame + cycleOffset) mod SnowCycleFrames
+      let t = cycleFrame.float32 / SnowCycleFrames.float32
+
+      # Horizontal position: spread across viewport with sinusoidal sway
+      let xBase = currentViewport.minX.float32 +
+                  ((seed * 17) mod (viewWidth * 100)).float32 / 100.0
+      let xSway = sin((frame.float32 + seed.float32) * SnowDriftFreq) * SnowDriftSpeed *
+                  SnowCycleFrames.float32
+
+      # Vertical position: fall from top to bottom of viewport
+      let yBase = currentViewport.minY.float32 - WeatherViewportMargin
+      let yFall = t * SnowFallSpeed * SnowCycleFrames.float32
+
+      let particlePos = vec2(xBase + xSway, yBase + yFall)
+
+      # Skip if outside viewport
+      if particlePos.x < currentViewport.minX.float32 - WeatherViewportClipMargin or
+         particlePos.x > currentViewport.maxX.float32 + WeatherViewportClipMargin or
+         particlePos.y < currentViewport.minY.float32 - WeatherViewportMargin or
+         particlePos.y > currentViewport.maxY.float32 + WeatherViewportMargin:
+        continue
+
+      # White snowflake with slight size variation
+      let sizeVar = 1.0 + ((seed * 3) mod 40).float32 / 100.0
+      let snowTint = color(1.0, 1.0, 1.0, SnowAlpha)
+
+      bxy.drawImage("floor", particlePos, angle = 0,
+                    scale = SnowParticleScale * sizeVar, tint = snowTint)
 
   of WeatherNone:
     discard  # No weather effects

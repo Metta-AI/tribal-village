@@ -36,6 +36,7 @@ type
     WeatherNone     ## No weather effects
     WeatherRain     ## Rain particles falling
     WeatherWind     ## Wind particles blowing horizontally
+    WeatherSnow     ## Snow particles drifting down
 
   Area* = ref object
     layout*: AreaLayout

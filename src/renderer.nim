@@ -421,6 +421,12 @@ proc drawObjects*() =
         # Draw building UI overlays (stockpiles, population, garrison, production queue)
         renderBuildingUI(thing, pos, teamPopCounts, teamHouseCounts)
 
+        # Draw health bar for damaged buildings (not under construction — those show progress bar)
+        if not isUnderConstruction and thing.maxHp > 0 and thing.hp < thing.maxHp:
+          let hpRatio = thing.hp.float32 / thing.maxHp.float32
+          let hpColor = getHealthBarColor(hpRatio)
+          drawSegmentBar(pos.vec2, vec2(0, -0.55), hpRatio, hpColor, BarBgColor)
+
         # Draw frozen overlay if applicable
         if isTileFrozen(pos, env):
           bxy.drawImage("frozen", pos.vec2, angle = 0, scale = SpriteScale)
@@ -497,10 +503,13 @@ proc drawAgentDecorations*() =
     if not isInViewport(pos):
       continue
 
-    # Draw health bar above unit
-    if agent.maxHp > 0 and agent.hp < agent.maxHp:
+    # Draw health bar above unit (always visible for all units)
+    if agent.maxHp > 0:
       let hpRatio = agent.hp.float32 / agent.maxHp.float32
-      let hpAlpha = getHealthBarAlpha(env.currentStep, agent.lastAttackedStep)
+      let hpAlpha = if agent.hp < agent.maxHp:
+        getHealthBarAlpha(env.currentStep, agent.lastAttackedStep)
+      else:
+        HealthBarMinAlpha  # Full HP: show at minimum alpha
       let hpColor = getHealthBarColor(hpRatio)
       drawSegmentBar(pos.vec2, vec2(0, -0.5), hpRatio, hpColor,
                      BarBgColor, 5, hpAlpha)

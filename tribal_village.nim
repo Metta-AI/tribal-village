@@ -191,11 +191,12 @@ proc display() =
   if window.buttonPressed[KeyF7]: switchTeam(6)
   if window.buttonPressed[KeyF8]: switchTeam(7)
 
-  # F9 cycles weather effects: Rain -> Wind -> None -> Rain
+  # F9 cycles weather effects: Rain -> Wind -> Snow -> None -> Rain
   if window.buttonPressed[KeyF9]:
     settings.weatherType = case settings.weatherType
       of WeatherRain: WeatherWind
-      of WeatherWind: WeatherNone
+      of WeatherWind: WeatherSnow
+      of WeatherSnow: WeatherNone
       of WeatherNone: WeatherRain
 
   # F10 toggles unit debug overlay (class name + sprite key)
@@ -1158,6 +1159,7 @@ proc display() =
       tStart = tNow
 
   drawConstructionDust()
+  drawGatherSparkles()
   when defined(renderTiming):
     if timingActive:
       tNow = getMonoTime()
