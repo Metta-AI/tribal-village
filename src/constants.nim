@@ -579,7 +579,11 @@ const
   DoubleTapThreshold* = 0.3            # Seconds between taps for double-tap
   ZoomSensitivityDesktop* = 0.005      # Zoom scroll sensitivity (desktop)
   ZoomSensitivityWeb* = 0.002          # Zoom scroll sensitivity (emscripten)
-  VelocityDecayRate* = 0.9'f32         # Camera velocity decay per frame
+  VelocityDecayRate* = 0.85'f32        # Camera velocity decay per frame (lower = faster stop)
+  CameraPanAccel* = 1.8'f32           # Camera pan acceleration per frame (pixels)
+  CameraPanMaxSpeed* = 14.0'f32       # Maximum camera pan speed (pixels/frame)
+  CameraSnapThreshold* = 0.5'f32      # Stop velocity below this threshold
+  ZoomSmoothRate* = 0.15'f32          # Zoom interpolation rate per frame (0-1)
   MinVisibleMapPixels* = 500.0'f32     # Minimum visible map area in pixels
 
   # Selection box rendering

@@ -21,6 +21,7 @@ type
     pos*: Vec2
     vel*: Vec2
     zoom*: float32 = 1.25     # preferred default zoom (start further out)
+    zoomTarget*: float32 = 1.25  # smooth zoom target (interpolated toward)
     zoomVel*: float32
     minZoom*: float32 = 1.0   # allow further zoom-out
     maxZoom*: float32 = 8.0   # reduce maximum zoom-out

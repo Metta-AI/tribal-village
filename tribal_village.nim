@@ -202,6 +202,28 @@ proc display() =
   if window.buttonPressed[KeyF10]:
     settings.showUnitDebug = not settings.showUnitDebug
 
+  # F11 toggles fullscreen
+  when not defined(emscripten):
+    if window.buttonPressed[KeyF11]:
+      window.fullscreen = not window.fullscreen
+
+  # Home key centers camera on player's TC (or map center for observer)
+  if window.buttonPressed[KeyHome]:
+    var centerPos = mapCenter
+    if playerTeam >= 0:
+      # Find this team's TC
+      for thing in env.thingsByKind[TownCenter]:
+        if not thing.isNil and thing.teamId == playerTeam:
+          centerPos = vec2(thing.pos.x.float32, thing.pos.y.float32)
+          break
+    let scaleF = window.contentScale.float32
+    let logicalW = worldMapPanel.rect.w.float32 / scaleF
+    let logicalH = worldMapPanel.rect.h.float32 / scaleF
+    let zs = worldMapPanel.zoom * worldMapPanel.zoom
+    worldMapPanel.pos = vec2(logicalW / 2.0'f32 - centerPos.x * zs,
+                             logicalH / 2.0'f32 - centerPos.y * zs)
+    worldMapPanel.vel = vec2(0, 0)
+
   when defined(renderTiming):
     if timingActive:
       let tNow = getMonoTime()
@@ -273,6 +295,7 @@ proc display() =
       let zoomForH = sqrt(logicalH / MapHeight.float32) * padding
       let targetZoom = min(zoomForW, zoomForH).clamp(worldMapPanel.minZoom, worldMapPanel.maxZoom)
       worldMapPanel.zoom = targetZoom
+      worldMapPanel.zoomTarget = targetZoom
 
       let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
       worldMapPanel.pos = vec2(
@@ -326,26 +349,30 @@ proc display() =
     mouseDownPos = logicalMousePos(window)
 
   if worldMapPanel.hasMouse:
-    # Drag is selection-only; camera movement is keyboard-only.
-    worldMapPanel.vel = vec2(0, 0)
-
     if window.scrollDelta.y != 0:
-      let scaleF = window.contentScale.float32
-      let rectOrigin = vec2(panelRect.x / scaleF, panelRect.y / scaleF)
-      let localMouse = logicalMousePos(window) - rectOrigin
-
       let zoomSensitivity = when defined(emscripten): ZoomSensitivityWeb else: ZoomSensitivityDesktop
-      let oldMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
-      let oldWorldPoint = oldMat.inverse() * localMouse
-
-      # Scroll direction: wheel down (negative delta) zooms IN; wheel up zooms OUT.
+      # Update zoom target; smooth interpolation happens below
       let zoomFactor64 = pow(1.0 - zoomSensitivity, window.scrollDelta.y.float64)
       let zoomFactor = zoomFactor64.float32
-      worldMapPanel.zoom = clamp(worldMapPanel.zoom * zoomFactor, worldMapPanel.minZoom, worldMapPanel.maxZoom)
+      worldMapPanel.zoomTarget = clamp(worldMapPanel.zoomTarget * zoomFactor, worldMapPanel.minZoom, worldMapPanel.maxZoom)
 
-      let newMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
-      let newWorldPoint = newMat.inverse() * localMouse
-      worldMapPanel.pos += (newWorldPoint - oldWorldPoint) * (worldMapPanel.zoom * worldMapPanel.zoom)
+  # Smooth zoom interpolation toward target (runs every frame)
+  let zoomDiff = worldMapPanel.zoomTarget - worldMapPanel.zoom
+  if abs(zoomDiff) > 0.001'f32:
+    let scaleF = window.contentScale.float32
+    let rectOrigin = vec2(panelRect.x / scaleF, panelRect.y / scaleF)
+    let localMouse = logicalMousePos(window) - rectOrigin
+
+    let oldMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
+    let oldWorldPoint = oldMat.inverse() * localMouse
+
+    worldMapPanel.zoom = worldMapPanel.zoom + zoomDiff * ZoomSmoothRate
+
+    let newMat = translate(worldMapPanel.pos) * scale(vec2(worldMapPanel.zoom*worldMapPanel.zoom, worldMapPanel.zoom*worldMapPanel.zoom))
+    let newWorldPoint = newMat.inverse() * localMouse
+    worldMapPanel.pos += (newWorldPoint - oldWorldPoint) * (worldMapPanel.zoom * worldMapPanel.zoom)
+  else:
+    worldMapPanel.zoom = worldMapPanel.zoomTarget
 
   let zoomScale = worldMapPanel.zoom * worldMapPanel.zoom
   if zoomScale > 0:
@@ -411,16 +438,32 @@ proc display() =
   var blockSelection = uiMouseCaptured or minimapCaptured
   var clearUiCapture = false
 
-  # Minimap no longer pans camera; consume clicks so they don't start selection drag.
+  # Minimap click-to-center: click or drag on minimap pans the camera
   if window.buttonPressed[MouseLeft] and isInMinimap(panelRectInt, mousePosPx):
     minimapCaptured = true
     blockSelection = true
     worldMapPanel.vel = vec2(0, 0)
+    # Center camera on clicked world position
+    let worldPos = minimapToWorld(panelRectInt, mousePosPx)
+    let scaleF = window.contentScale.float32
+    let rectW = panelRect.w / scaleF
+    let rectH = panelRect.h / scaleF
+    let zs = worldMapPanel.zoom * worldMapPanel.zoom
+    worldMapPanel.pos = vec2(rectW / 2.0'f32 - worldPos.x * zs,
+                             rectH / 2.0'f32 - worldPos.y * zs)
 
-  # Consume minimap drags without moving camera.
-  if minimapCaptured and window.buttonDown[MouseLeft]:
-    blockSelection = true
-    worldMapPanel.vel = vec2(0, 0)
+  # Minimap drag continues to pan camera
+  if minimapCaptured and window.buttonDown[MouseLeft] and not window.buttonPressed[MouseLeft]:
+    if isInMinimap(panelRectInt, mousePosPx):
+      blockSelection = true
+      worldMapPanel.vel = vec2(0, 0)
+      let worldPos = minimapToWorld(panelRectInt, mousePosPx)
+      let scaleF = window.contentScale.float32
+      let rectW = panelRect.w / scaleF
+      let rectH = panelRect.h / scaleF
+      let zs = worldMapPanel.zoom * worldMapPanel.zoom
+      worldMapPanel.pos = vec2(rectW / 2.0'f32 - worldPos.x * zs,
+                               rectH / 2.0'f32 - worldPos.y * zs)
 
   if minimapCaptured and window.buttonReleased[MouseLeft]:
     minimapCaptured = false
@@ -971,23 +1014,30 @@ proc display() =
       overrideAndStep(encodeAction(3'u16, useDir))
   else:
     # Camera panning with WASD/arrow keys (when no agent selected)
-    const CameraPanSpeed = 12.0'f32  # Pan speed in pixels per frame
-    var panVel = vec2(0, 0)
-    # W/Up: pan camera up (see content above)
+    # Uses acceleration + velocity decay for smooth movement
+    var panAccel = vec2(0, 0)
     if window.buttonDown[KeyW] or window.buttonDown[KeyUp]:
-      panVel.y += CameraPanSpeed
-    # S/Down: pan camera down (see content below)
+      panAccel.y += CameraPanAccel
     if window.buttonDown[KeyS] or window.buttonDown[KeyDown]:
-      panVel.y -= CameraPanSpeed
-    # A/Left: pan camera left (see content to the left)
+      panAccel.y -= CameraPanAccel
     if window.buttonDown[KeyA] or window.buttonDown[KeyLeft]:
-      panVel.x += CameraPanSpeed
-    # D/Right: pan camera right (see content to the right)
+      panAccel.x += CameraPanAccel
     if window.buttonDown[KeyD] or window.buttonDown[KeyRight]:
-      panVel.x -= CameraPanSpeed
-    if panVel.x != 0 or panVel.y != 0:
-      worldMapPanel.pos += panVel
-      worldMapPanel.vel = vec2(0, 0)
+      panAccel.x -= CameraPanAccel
+    # Apply acceleration and clamp speed
+    worldMapPanel.vel = worldMapPanel.vel + panAccel
+    let speed = sqrt(worldMapPanel.vel.x * worldMapPanel.vel.x +
+                     worldMapPanel.vel.y * worldMapPanel.vel.y)
+    if speed > CameraPanMaxSpeed:
+      worldMapPanel.vel = worldMapPanel.vel * (CameraPanMaxSpeed / speed)
+
+  # Apply velocity to position and decay
+  if abs(worldMapPanel.vel.x) > CameraSnapThreshold or
+     abs(worldMapPanel.vel.y) > CameraSnapThreshold:
+    worldMapPanel.pos += worldMapPanel.vel
+    worldMapPanel.vel = worldMapPanel.vel * VelocityDecayRate
+  else:
+    worldMapPanel.vel = vec2(0, 0)
 
   when defined(renderTiming):
     # Capture interaction phase timing (world selection, mouse handling)
