@@ -19,11 +19,18 @@ const
     Outpost, Castle, Market, University, Wonder
   ]
   DefenseRequestBuildingKinds = [Barracks, Outpost]
-  CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
+  CampThresholds: array[4, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
     (kind: LumberCamp, nearbyKinds: {Tree}, minCount: 6),
     (kind: MiningCamp, nearbyKinds: {Gold}, minCount: 3),
-    (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6)
+    (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6),
+    (kind: Granary, nearbyKinds: {Wheat, Stubble, Bush, Fish}, minCount: 6)
   ]
+  # Radius to search for resource clusters that need a drop-off
+  StrategicDropoffSearchRadius = 30
+  # Minimum resources in a cluster to warrant a strategic drop-off
+  StrategicDropoffMinResources = 5
+  # Don't build strategic drop-offs if an existing one is within this distance
+  StrategicDropoffMinSpacing = 6
   BuilderThreatRadius* = 15
   BuilderFleeRadius* = 8
   BuilderFleeRadiusConst = BuilderFleeRadius
@@ -250,11 +257,18 @@ proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thi
   if didPlant: return actPlant
   0'u16
 
+proc campResourceCount(env: Environment, pos: IVec2, entry: tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]): int =
+  ## Count nearby resources for a camp threshold entry.
+  ## For Granary, also counts Fertile terrain tiles since food grows there.
+  result = countNearbyThings(env, pos, 4, entry.nearbyKinds)
+  if entry.kind == Granary:
+    result += countNearbyTerrain(env, pos, 4, {Fertile})
+
 proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
   for entry in CampThresholds:
-    let nearbyCount = countNearbyThings(env, agent.pos, 4, entry.nearbyKinds)
+    let nearbyCount = campResourceCount(env, agent.pos, entry)
     if nearbyCount < entry.minCount:
       continue
     let dist = nearestFriendlyBuildingDistance(env, teamId, [entry.kind], agent.pos)
@@ -271,7 +285,7 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
                              agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
   for entry in CampThresholds:
-    let nearbyCount = countNearbyThings(env, agent.pos, 4, entry.nearbyKinds)
+    let nearbyCount = campResourceCount(env, agent.pos, entry)
     let (did, act) = controller.tryBuildCampThreshold(
       env, agent, agentId, state, teamId, entry.kind,
       nearbyCount, entry.minCount,
@@ -279,6 +293,90 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
     )
     if did: return act
   0'u16
+
+proc findStrategicDropoffTarget(env: Environment, agent: Thing, teamId: int): tuple[pos: IVec2, kind: ThingKind, found: bool] =
+  ## Scan for resource clusters that are far from existing drop-offs.
+  ## Samples positions on a grid within StrategicDropoffSearchRadius to find
+  ## high-density resource areas lacking a nearby drop-off building.
+  ## Returns the best cluster center and the kind of drop-off to build.
+  result = (pos: ivec2(-1, -1), kind: LumberCamp, found: false)
+  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  var bestScore = 0
+  const gridStep = 4  # Sample every 4 tiles for efficiency
+  let minX = max(0, basePos.x - StrategicDropoffSearchRadius)
+  let maxX = min(MapWidth - 1, basePos.x + StrategicDropoffSearchRadius)
+  let minY = max(0, basePos.y - StrategicDropoffSearchRadius)
+  let maxY = min(MapHeight - 1, basePos.y + StrategicDropoffSearchRadius)
+  for entry in CampThresholds:
+    var x = minX
+    while x <= maxX:
+      var y = minY
+      while y <= maxY:
+        let samplePos = ivec2(x.int32, y.int32)
+        let resCount = campResourceCount(env, samplePos, entry)
+        if resCount >= StrategicDropoffMinResources:
+          # Check that no existing drop-off is nearby
+          let dropoffDist = nearestFriendlyBuildingDistance(env, teamId, [entry.kind], samplePos)
+          if dropoffDist > StrategicDropoffMinSpacing:
+            # Score: resource density, preferring clusters farther from existing drop-offs
+            let score = resCount + min(dropoffDist, 20)
+            if score > bestScore:
+              bestScore = score
+              result = (pos: samplePos, kind: entry.kind, found: true)
+        y += gridStep
+      x += gridStep
+
+var strategicDropoffCache: PerAgentCache[tuple[pos: IVec2, kind: ThingKind, found: bool]]
+
+proc canStartBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState): bool =
+  ## Check if there's a resource cluster that needs a strategic drop-off.
+  ## Only activates when the team already has basic infrastructure.
+  let teamId = getTeamId(agent)
+  # Need at least a Granary or LumberCamp before doing strategic placement
+  if controller.getBuildingCount(env, teamId, Granary) == 0 and
+     controller.getBuildingCount(env, teamId, LumberCamp) == 0:
+    return false
+  # Use per-agent cache to avoid expensive grid scan on every canStart check
+  let cached = strategicDropoffCache.getWithAgent(env, agent,
+    proc(env: Environment, agent: Thing): tuple[pos: IVec2, kind: ThingKind, found: bool] =
+      findStrategicDropoffTarget(env, agent, getTeamId(agent)))
+  cached.found
+
+proc shouldTerminateBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
+                                            agentId: int, state: var AgentState): bool =
+  not canStartBuilderStrategicDropoff(controller, env, agent, agentId, state)
+
+proc optBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState): uint16 =
+  ## Move to a resource cluster and build a drop-off building there.
+  let teamId = getTeamId(agent)
+  let cached = strategicDropoffCache.getWithAgent(env, agent,
+    proc(env: Environment, agent: Thing): tuple[pos: IVec2, kind: ThingKind, found: bool] =
+      findStrategicDropoffTarget(env, agent, getTeamId(agent)))
+  if not cached.found:
+    return 0'u16
+  # If we're already near the cluster, try to build
+  let distToCluster = int(chebyshevDist(agent.pos, cached.pos))
+  if distToCluster <= 4:
+    for entry in CampThresholds:
+      if entry.kind == cached.kind:
+        let resCount = campResourceCount(env, agent.pos, entry)
+        let (did, act) = controller.tryBuildCampThreshold(
+          env, agent, agentId, state, teamId, entry.kind,
+          resCount, 1,  # Lower threshold since we already validated the cluster
+          [entry.kind],
+          minSpacing = StrategicDropoffMinSpacing
+        )
+        if did: return act
+        break
+  # Move toward the cluster
+  controller.moveTo(env, agent, agentId, state, cached.pos)
+
+let BuilderStrategicDropoffOption = OptionDef(
+  name: "BuilderStrategicDropoff", canStart: canStartBuilderStrategicDropoff,
+  shouldTerminate: shouldTerminateBuilderStrategicDropoff, act: optBuilderStrategicDropoff,
+  interruptible: true)
 
 builderGuard(canStartBuilderTechBuildings, shouldTerminateBuilderTechBuildings):
   anyMissingBuilding(controller, env, getTeamId(agent), TechBuildingKinds)
@@ -611,7 +709,8 @@ let BuilderOptions* = [
     interruptible: true),
   BuilderMillNearResourceOption,
   BuilderPlantIfMillsOption,
-  BuilderCampThresholdOption,
+  BuilderCampThresholdOption,        # Drop-offs near resources before tech/military (tv-gn2)
+  BuilderStrategicDropoffOption,     # Proactive drop-off placement near distant clusters (tv-gn2)
   BuilderRepairOption,
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: shouldTerminateBuilderTechBuildings, act: optBuilderTechBuildings,
@@ -670,6 +769,7 @@ let BuilderOptionsThreat* = [
   BuilderMillNearResourceOption,
   BuilderPlantIfMillsOption,
   BuilderCampThresholdOption,
+  BuilderStrategicDropoffOption,  # Strategic drop-off placement (tv-gn2)
   BuilderWallRingOption,         # Walls after infrastructure (tv-il11vv)
   OptionDef(name: "BuilderGatherScarce", canStart: canStartBuilderGatherScarce,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderGatherScarce,
