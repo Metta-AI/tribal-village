@@ -710,12 +710,14 @@ let BuilderOptions* = [
     interruptible: true),
   BuilderMillNearResourceOption,
   BuilderPlantIfMillsOption,
-  BuilderCampThresholdOption,        # Drop-offs near resources before tech/military (tv-gn2)
-  BuilderStrategicDropoffOption,     # Proactive drop-off placement near distant clusters (tv-gn2)
-  BuilderRepairOption,
+  BuilderDefenseResponseOption,      # Defense before drop-off spam (tv-88y)
+  BuilderSiegeResponseOption,
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: shouldTerminateBuilderTechBuildings, act: optBuilderTechBuildings,
     interruptible: true),
+  BuilderRepairOption,
+  BuilderCampThresholdOption,        # Drop-offs after tech/military buildings (tv-88y)
+  BuilderStrategicDropoffOption,     # Proactive drop-off placement near distant clusters (tv-gn2)
   ResearchUniversityTechOption,
   BuilderDockOption,
   BuilderNavalTrainOption,
@@ -723,8 +725,6 @@ let BuilderOptions* = [
   ResearchUnitUpgradeOption,
   ResearchBlacksmithUpgradeOption,
   ResearchEconomyTechOption,
-  BuilderDefenseResponseOption,
-  BuilderSiegeResponseOption,
   BuilderWallRingOption,
   OptionDef(name: "BuilderGatherScarce", canStart: canStartBuilderGatherScarce,
     shouldTerminate: shouldTerminateBuilderGatherScarce, act: optBuilderGatherScarce,
