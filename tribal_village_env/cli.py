@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -43,7 +43,7 @@ def _project_root() -> Path:
 # ---------------------------------------------------------------------------
 Render = Annotated[str, typer.Option("--render", "-r", help="Render mode: gui (default) or ansi (text-only)")]
 Steps = Annotated[int, typer.Option("--steps", "-s", help="Steps to run when using ANSI render", min=1)]
-MaxSteps = Annotated[Optional[int], typer.Option("--max-steps", help="Override max steps in ANSI mode", min=1)]
+MaxSteps = Annotated[int | None, typer.Option("--max-steps", help="Override max steps in ANSI mode", min=1)]
 RandomActions = Annotated[bool, typer.Option("--random-actions/--no-random-actions", help="Use random actions in ANSI mode (otherwise no-op)")]
 Profile = Annotated[bool, typer.Option("--profile", help="Enable Nim profiler (GUI mode only; runs headless steps then exits)")]
 ProfileSteps = Annotated[int, typer.Option("--profile-steps", help="Steps to run when profiling", min=1)]
@@ -54,7 +54,7 @@ RenderTiming = Annotated[bool, typer.Option("--render-timing", help="Enable per-
 RenderTimingTarget = Annotated[int, typer.Option("--render-timing-target", help="Frame index at which to start render timing logs", min=0)]
 RenderTimingWindow = Annotated[int, typer.Option("--render-timing-window", help="Number of frames to log starting at target", min=0)]
 RenderTimingEvery = Annotated[int, typer.Option("--render-timing-every", help="Log every N frames within the timing window", min=1)]
-RenderTimingExit = Annotated[Optional[int], typer.Option("--render-timing-exit", help="Exit after this frame index (GUI mode only)", min=1)]
+RenderTimingExit = Annotated[int | None, typer.Option("--render-timing-exit", help="Exit after this frame index (GUI mode only)", min=1)]
 
 
 def _run_gui(
@@ -67,7 +67,7 @@ def _run_gui(
     render_timing_target: int,
     render_timing_window: int,
     render_timing_every: int,
-    render_timing_exit: Optional[int],
+    render_timing_exit: int | None,
 ) -> None:
     project_root = _project_root()
     cmd = ["nim", "r", "-d:release"]
@@ -96,7 +96,7 @@ def _run_gui(
     subprocess.run(cmd, cwd=project_root, check=True, env=env)
 
 
-def _run_ansi(steps: int, max_steps: Optional[int], random_actions: bool) -> None:
+def _run_ansi(steps: int, max_steps: int | None, random_actions: bool) -> None:
     config: dict[str, object] = {"render_mode": "ansi"}
     if max_steps is not None:
         config["max_steps"] = max_steps

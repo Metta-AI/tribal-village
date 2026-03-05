@@ -6,7 +6,7 @@ import logging
 import multiprocessing
 import os
 import platform
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import psutil
@@ -58,9 +58,9 @@ class TribalEnvFactory:
 
     def __call__(
         self,
-        cfg: Optional[dict[str, Any]] = None,
-        buf: Optional[Any] = None,
-        seed: Optional[int] = None,
+        cfg: dict[str, Any] | None = None,
+        buf: Any | None = None,
+        seed: int | None = None,
     ) -> Any:
         from tribal_village_env.environment import TribalVillageEnv
 

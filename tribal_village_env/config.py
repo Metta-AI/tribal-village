@@ -21,7 +21,8 @@ Usage:
 from __future__ import annotations
 
 import math
-from typing import Any, ClassVar, NoReturn, Optional, Self, Union, get_args, get_origin
+import types
+from typing import Any, ClassVar, NoReturn, Self, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
@@ -56,8 +57,8 @@ class Config(BaseModel):
             return None
 
     def _unwrap_optional(self, field_type: Any) -> Any:
-        """Unwrap Optional[T] to T if applicable, else return original type."""
-        if get_origin(field_type) is Union:
+        """Unwrap Optional[T] / T | None to T if applicable, else return original type."""
+        if get_origin(field_type) is Union or isinstance(field_type, types.UnionType):
             non_none_types = [arg for arg in get_args(field_type) if arg is not type(None)]
             return non_none_types[0] if len(non_none_types) == 1 else field_type
         return field_type
@@ -469,7 +470,7 @@ class PolicyConfig(Config):
         ge=1,
         description="Hidden layer size for policy network",
     )
-    class_path: Optional[str] = Field(
+    class_path: str | None = Field(
         default=None,
         description="Full class path for custom policy implementation",
     )
@@ -500,29 +501,29 @@ class TrainingConfig(Config):
     )
 
     # Batch parameters
-    batch_size: Optional[int] = Field(
+    batch_size: int | None = Field(
         default=None,
         ge=1,
         description="Batch size for training (None = auto)",
     )
-    minibatch_size: Optional[int] = Field(
+    minibatch_size: int | None = Field(
         default=None,
         ge=1,
         description="Minibatch size for PPO updates (None = auto)",
     )
 
     # Vector env parameters
-    vector_num_envs: Optional[int] = Field(
+    vector_num_envs: int | None = Field(
         default=None,
         ge=1,
         description="Number of vectorized environments (None = auto)",
     )
-    vector_num_workers: Optional[int] = Field(
+    vector_num_workers: int | None = Field(
         default=None,
         ge=1,
         description="Number of worker processes (None = auto based on CPU cores)",
     )
-    vector_batch_size: Optional[int] = Field(
+    vector_batch_size: int | None = Field(
         default=None,
         ge=1,
         description="Batch size for vectorized env (None = num_envs)",
