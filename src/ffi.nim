@@ -177,9 +177,16 @@ proc tribal_village_step_with_pointers(
 ): int32 {.exportc, dynlib.} =
   ## Ultra-fast step with direct buffer access
   try:
-    # Read actions directly from buffer (no conversion)
     var actions: array[MapAgents, uint16]
-    copyMem(addr actions[0], actions_buffer, sizeof(actions))
+
+    # When BuiltinAI or HybridAI is active, let the scripted AI generate actions
+    # instead of reading from the Python buffer (which would be all-zeros/NOOPs).
+    if not isNil(globalController) and
+       globalController.controllerType in {BuiltinAI, HybridAI}:
+      actions = getActions(globalEnv)
+    else:
+      # Read actions directly from buffer (no conversion)
+      copyMem(addr actions[0], actions_buffer, sizeof(actions))
 
     # Step environment
     globalEnv.step(unsafeAddr actions)
