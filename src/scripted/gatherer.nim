@@ -461,6 +461,41 @@ proc optGathererFollow(controller: Controller, env: Environment, agent: Thing,
   # Within range - stay put
   0'u16
 
+proc gathererTaskToPatchKind(task: GathererTask): ResourcePatchKind =
+  case task
+  of TaskWood: PatchWood
+  of TaskGold: PatchGold
+  of TaskStone: PatchStone
+  of TaskFood: PatchFood
+  of TaskHearts: PatchGold  # Hearts requires gold gathering
+
+# Idle auto-assignment: redirect idle gatherers to undermanned resource patches
+proc canStartGathererIdleAutoAssign(controller: Controller, env: Environment, agent: Thing,
+                                    agentId: int, state: var AgentState): bool =
+  ## Activate when the gatherer has been idle (no active task producing movement)
+  ## for IdleAutoAssignSteps consecutive steps.
+  if agent.isIdle and state.activeOptionTicks >= IdleAutoAssignSteps:
+    let teamId = getTeamId(agent)
+    let pk = gathererTaskToPatchKind(state.gathererTask)
+    let patchPos = findUnderstaffedPatchPos(env, agent.pos, teamId, pk)
+    return patchPos.x >= 0
+  false
+
+proc shouldTerminateGathererIdleAutoAssign(controller: Controller, env: Environment, agent: Thing,
+                                           agentId: int, state: var AgentState): bool =
+  ## Terminate once the gatherer reaches the patch area or starts gathering.
+  gathererStockpileTotal(agent) > 0 or not agent.isIdle
+
+proc optGathererIdleAutoAssign(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): uint16 =
+  ## Move idle gatherer toward the nearest undermanned resource patch.
+  let teamId = getTeamId(agent)
+  let pk = gathererTaskToPatchKind(state.gathererTask)
+  let patchPos = findUnderstaffedPatchPos(env, agent.pos, teamId, pk)
+  if patchPos.x < 0:
+    return 0'u16
+  controller.moveTo(env, agent, agentId, state, patchPos)
+
 let GathererOptions* = [
   TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   OptionDef(
@@ -543,5 +578,12 @@ let GathererOptions* = [
     interruptible: true
   ),
   StoreValuablesOption,
+  OptionDef(
+    name: "GathererIdleAutoAssign",
+    canStart: canStartGathererIdleAutoAssign,
+    shouldTerminate: shouldTerminateGathererIdleAutoAssign,
+    act: optGathererIdleAutoAssign,
+    interruptible: true  # Can be interrupted by higher-priority gathering tasks
+  ),
   FallbackSearchOption
 ]
