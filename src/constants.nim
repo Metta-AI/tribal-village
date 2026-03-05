@@ -102,9 +102,24 @@ const
   GathererFleeRadius* = 8  # Radius at which gatherers flee from predators
   BuilderFleeRadius* = 8     # Radius at which builders flee from enemies
   BuilderThreatRadius* = 15  # Radius at which builder detects threat to base
-  EarlyGameThreshold* = 0.33  # First third of game
-  LateGameThreshold* = 0.66   # Last third of game
+  EarlyGameThreshold* = 0.25  # First quarter of game (steps 0-200 in 800-step game)
+  MidGameThreshold* = 0.50    # Middle of game (steps 200-400)
+  LateGameThreshold* = 0.75   # Last quarter of game (steps 600+)
   TaskSwitchHysteresis* = 5.0
+
+  # Phase-dependent role allocation ratios (gatherer:builder:fighter out of 6 slots)
+  # Early: 3 gatherers, 2 builders, 1 fighter (economy-heavy start)
+  EarlyGameGatherers* = 3
+  EarlyGameBuilders* = 2
+  EarlyGameFighters* = 1
+  # Mid: 2 gatherers, 2 builders, 2 fighters (balanced transition)
+  MidGameGatherers* = 2
+  MidGameBuilders* = 2
+  MidGameFighters* = 2
+  # Late: 2 gatherers, 1 builder, 3 fighters (military-heavy)
+  LateGameGatherers* = 2
+  LateGameBuilders* = 1
+  LateGameFighters* = 3
 
   # ============================================================================
   # Military Unit Stats

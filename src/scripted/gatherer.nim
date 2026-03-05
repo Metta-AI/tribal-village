@@ -18,9 +18,12 @@ template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
 const
   # Weights: lower value = higher priority (divides the stockpile count)
   # Order: [Food, Wood, Stone, Gold]
-  EarlyGameWeights = [0.5, 0.75, 1.0, 0.65]  # Food prioritized, gold boosted for early economy
-  LateGameWeights = [1.5, 1.0, 0.75, 0.5]    # Gold prioritized
-  MidGameWeights = [1.0, 1.0, 1.0, 0.75]     # Gold prioritized for mid-game tech/units
+  # Early game: Food-heavy to sustain villager production, wood for buildings
+  EarlyGameWeights = [0.35, 0.6, 1.2, 1.0]
+  # Mid game: Balanced with gold for tech upgrades and military
+  MidGameWeights = [0.7, 0.7, 0.85, 0.6]
+  # Late game: Gold-heavy for advanced military, stone for castles
+  LateGameWeights = [1.2, 1.0, 0.65, 0.4]
 
 const GathererFleeRadiusConst = GathererFleeRadius  # Local alias for use in guard template
 const GarrisonSeekRadiusConst = GarrisonSeekRadius  # Local alias for use in guard template
@@ -144,10 +147,17 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
       0.5  # Default to mid-game if maxSteps not set
     let weights = if gameProgress < EarlyGameThreshold:
       EarlyGameWeights
+    elif gameProgress < MidGameThreshold:
+      MidGameWeights
     elif gameProgress >= LateGameThreshold:
       LateGameWeights
     else:
-      MidGameWeights
+      # Between mid and late: blend mid and late weights
+      let blend = (gameProgress - MidGameThreshold) / (LateGameThreshold - MidGameThreshold)
+      [MidGameWeights[0] + blend * (LateGameWeights[0] - MidGameWeights[0]),
+       MidGameWeights[1] + blend * (LateGameWeights[1] - MidGameWeights[1]),
+       MidGameWeights[2] + blend * (LateGameWeights[2] - MidGameWeights[2]),
+       MidGameWeights[3] + blend * (LateGameWeights[3] - MidGameWeights[3])]
 
     # Get flow rates from economy system to adjust priorities
     # If a resource is decreasing fast, reduce its weight (prioritize it)

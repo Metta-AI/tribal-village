@@ -14,9 +14,10 @@ template builderGuard(canName, termName: untyped, body: untyped) {.dirty.} =
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
-    WeavingLoom, ClayOven, Blacksmith, Monastery,
-    Barracks, ArcheryRange, Stable, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
-    Outpost, Castle, Market, University, Wonder
+    Barracks, Blacksmith, ArcheryRange, Market,
+    WeavingLoom, ClayOven, Stable, Monastery,
+    Outpost, University, SiegeWorkshop, MangonelWorkshop, TrebuchetWorkshop,
+    Castle, Wonder
   ]
   DefenseRequestBuildingKinds = [Barracks, Outpost]
   CampThresholds: array[3, tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]] = [
