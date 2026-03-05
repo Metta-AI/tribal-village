@@ -175,6 +175,8 @@ type
     # Economy priority override: force gatherer to collect specific resource
     gathererPriorityResource*: StockpileResource  # Resource to prioritize
     gathererPriorityActive*: bool                 # Whether override is active
+    # Rally grouping state: units wait at rally point for others to arrive
+    rallyArrivalStep*: int  # Step when unit arrived at rally point (0 = not waiting)
     # Command queue for shift-queue functionality (AoE2-style waypoint queuing)
     commandQueue*: array[MaxCommandQueueSize, QueuedCommand]  # Queued commands
     commandQueueCount*: int                       # Number of commands in queue

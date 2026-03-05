@@ -1689,9 +1689,10 @@ proc shouldTerminateScoutExplore(controller: Controller, env: Environment, agent
 
 proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
-  ## Explore outward from base in an expanding pattern. Prioritizes unexplored
-  ## areas (fog of war) and avoids known threats. Reports enemies to threat map.
-  ## Scouts have extended line of sight (ScoutVisionRange) for exploration.
+  ## Explore outward from base in a systematic sector-rotating pattern.
+  ## Prioritizes unexplored areas (fog of war) and avoids known threats.
+  ## Reports enemies to threat map. Scouts rotate through 4 quadrants to
+  ## ensure even map coverage rather than purely following the spiral.
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   state.basePosition = basePos
@@ -1704,12 +1705,19 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
     state.scoutExploreRadius = ScoutVisionRange.int32  # Start with scout's vision range
 
   # Find a direction to explore that prioritizes unexplored tiles
-  # Use the spiral search pattern but bias toward fog of war areas
+  # Combine spiral search with sector rotation for systematic coverage
   var bestTarget = ivec2(-1, -1)
   var bestScore = int.low
 
   # Pre-check for threats (optimization: skip threat lookups when no threats known)
   let hasThreats = controller.hasKnownThreats(teamId, env.currentStep.int32)
+
+  # Sector-based bias: rotate through quadrants (NE, SE, SW, NW) for even coverage.
+  # Each scout uses agentId to offset which sector it starts in, spreading coverage
+  # across multiple scouts. Sector rotates every ScoutSectorRotationSteps steps.
+  let sectorIdx = ((env.currentStep.int div ScoutSectorRotationSteps) + agentId) mod 4
+  let sectorDx: array[4, int32] = [1'i32, 1'i32, -1'i32, -1'i32]  # NE, SE, SW, NW
+  let sectorDy: array[4, int32] = [-1'i32, 1'i32, 1'i32, -1'i32]
 
   # Try multiple candidate positions around the exploration frontier
   for _ in 0 ..< 16:  # Check more candidates for better exploration coverage
@@ -1735,6 +1743,13 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
     # Bonus for unexplored tiles (fog of war clearing)
     if not env.isRevealed(teamId, candidate):
       score += 50  # Strong preference for unexplored areas
+
+    # Sector bias: bonus for candidates in the current rotation sector
+    let relX = candidate.x - basePos.x
+    let relY = candidate.y - basePos.y
+    if (relX >= 0) == (sectorDx[sectorIdx] >= 0) and
+       (relY >= 0) == (sectorDy[sectorIdx] >= 0):
+      score += 25  # Moderate sector bonus to steer without overriding fog priority
 
     # Sample only 4 cardinal directions + center to check for unexplored tiles nearby
     # (Optimization: O(5) instead of O(49) per candidate)

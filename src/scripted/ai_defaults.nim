@@ -682,11 +682,25 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     return controller.moveTo(env, agent, agentId, state, target)
 
   # Rally point behavior - newly trained units move toward their rally destination
+  # Units wait briefly at rally point for others to arrive, creating natural grouping
   if agent.rallyTarget.x >= 0:
-    if chebyshevDist(agent.pos, agent.rallyTarget) <= 1'i32:
-      # Arrived at rally point - clear it
-      agent.rallyTarget = ivec2(-1, -1)
+    if chebyshevDist(agent.pos, agent.rallyTarget) <= 2'i32:
+      # At rally point - wait for nearby allies to group up before clearing
+      let teamId = getTeamId(agent)
+      let nearbyAllies = countAlliesInRangeSpatial(env, agent.pos, teamId, 4, agent.agentId)
+      let stepsAtRally = env.currentStep - state.rallyArrivalStep
+      if state.rallyArrivalStep <= 0:
+        state.rallyArrivalStep = env.currentStep
+      # Clear rally after grouping period or if enough allies nearby
+      if stepsAtRally >= RallyWaitSteps or nearbyAllies >= RallyMinGroupSize:
+        agent.rallyTarget = ivec2(-1, -1)
+        state.rallyArrivalStep = 0
+      else:
+        # Hold position at rally point while waiting
+        setAuditBranch(BranchRallyPoint)
+        return saveStateAndReturn(controller, agentId, state, 0'u16)
     else:
+      state.rallyArrivalStep = 0
       setAuditBranch(BranchRallyPoint)
       return controller.moveTo(env, agent, agentId, state, agent.rallyTarget)
 
@@ -714,6 +728,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       if not isNil(enemy):
         let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
         if enemyDist <= 8:  # Attack-move detection radius
+          # When outnumbered, wait for allies to approach before engaging
+          if shouldWaitForAllies(env, agent):
+            setAuditBranch(BranchAttackMoveAdvance)
+            return saveStateAndReturn(controller, agentId, state, 0'u16)
           # Enemy found - engage!
           setAuditBranch(BranchAttackMoveEngage)
           return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)

@@ -469,10 +469,15 @@ const
   RangedFormationSpacing* = 3     # Wider spacing for ranged units to avoid friendly fire
   RangedFormationRowOffset* = 2   # Offset between rows in ranged formation
 
+  # Rally grouping
+  RallyWaitSteps* = 15        # Max steps to wait at rally point for allies
+  RallyMinGroupSize* = 3      # Min nearby allies to consider group formed
+
   # Scout behavior
   ScoutFleeRadius* = 10       # Distance at which scouts flee from enemies
   ScoutFleeRecoverySteps* = 30  # Steps after enemy sighting before resuming
   ScoutExploreGrowth* = 3     # How much to expand explore radius each cycle
+  ScoutSectorRotationSteps* = 60  # Steps per sector rotation (cycles through NE/SE/SW/NW)
 
   # ============================================================================
   # Settlement (per-altar building association)
