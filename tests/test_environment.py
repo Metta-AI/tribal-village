@@ -3,7 +3,6 @@
 import ctypes
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 # Check if Nim library is available

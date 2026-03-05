@@ -154,3 +154,5 @@
 {"actor":"tribal_village/refinery","comment":null,"created_at":"2026-03-05T10:03:39Z","event_type":"closed","id":710,"issue_id":"tv-1o9","new_value":"Closed","old_value":""}
 {"actor":"tribal_village/polecats/rictus","comment":null,"created_at":"2026-03-05T10:05:24Z","event_type":"closed","id":711,"issue_id":"tv-72s","new_value":"Closed","old_value":""}
 {"actor":"tribal_village/refinery","comment":null,"created_at":"2026-03-05T10:06:16Z","event_type":"closed","id":712,"issue_id":"tv-72s","new_value":"Closed","old_value":""}
+{"actor":"tribal_village/refinery","comment":null,"created_at":"2026-03-05T11:52:23Z","event_type":"created","id":713,"issue_id":"tv-65k","new_value":"","old_value":""}
+{"actor":"tribal_village/refinery","comment":null,"created_at":"2026-03-05T11:53:15Z","event_type":"closed","id":714,"issue_id":"tv-ig6","new_value":"Closed","old_value":""}
