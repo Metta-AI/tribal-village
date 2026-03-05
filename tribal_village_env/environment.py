@@ -362,28 +362,40 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             if restype is not None:
                 func.restype = restype
 
+    def _optional_ffi(self, name: str, *args, default=None):
+        """Call an optional FFI function, returning default if it doesn't exist.
+
+        argtypes/restype are already configured by _setup_ctypes_interface.
+        """
+        fn = getattr(self.lib, name, None)
+        if fn is None:
+            return default
+        return fn(*args)
+
     # --- Fog of war queries ---
 
     def is_tile_revealed(self, team_id: int, x: int, y: int) -> bool:
         """Check if a tile has been revealed by the specified team."""
-        fn = getattr(self.lib, "tribal_village_is_tile_revealed", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y)))
+        return bool(self._optional_ffi(
+            "tribal_village_is_tile_revealed",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y),
+            default=0,
+        ))
 
     def get_revealed_tile_count(self, team_id: int) -> int:
         """Count how many tiles have been revealed by a team (exploration progress)."""
-        fn = getattr(self.lib, "tribal_village_get_revealed_tile_count", None)
-        if fn is None:
-            return 0
-        return fn(self.env_ptr, ctypes.c_int32(team_id))
+        return self._optional_ffi(
+            "tribal_village_get_revealed_tile_count",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        )
 
     def clear_revealed_map(self, team_id: int) -> None:
         """Clear the revealed map for a team."""
-        fn = getattr(self.lib, "tribal_village_clear_revealed_map", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id))
+        self._optional_ffi(
+            "tribal_village_clear_revealed_map",
+            self.env_ptr, ctypes.c_int32(team_id),
+        )
 
     # --- Tech tree state queries ---
 
@@ -393,10 +405,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         upgrade_type: 0=MeleeAttack, 1=ArcherAttack, 2=InfantryArmor,
                       3=CavalryArmor, 4=ArcherArmor
         """
-        fn = getattr(self.lib, "tribal_village_has_blacksmith_upgrade", None)
-        if fn is None:
-            return 0
-        return fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(upgrade_type))
+        return self._optional_ffi(
+            "tribal_village_has_blacksmith_upgrade",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(upgrade_type),
+            default=0,
+        )
 
     def has_university_tech(self, team_id: int, tech_type: int) -> bool:
         """Check if a university tech has been researched.
@@ -405,20 +418,22 @@ class TribalVillageEnv(pufferlib.PufferEnv):
                    4=TreadmillCrane, 5=Arrowslits, 6=HeatedShot,
                    7=SiegeEngineers, 8=Chemistry
         """
-        fn = getattr(self.lib, "tribal_village_has_university_tech", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(tech_type)))
+        return bool(self._optional_ffi(
+            "tribal_village_has_university_tech",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(tech_type),
+            default=0,
+        ))
 
     def has_castle_tech(self, team_id: int, tech_type: int) -> bool:
         """Check if a castle unique tech has been researched.
 
         tech_type: 0-15, mapped as team*2=CastleAge, team*2+1=ImperialAge.
         """
-        fn = getattr(self.lib, "tribal_village_has_castle_tech", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(tech_type)))
+        return bool(self._optional_ffi(
+            "tribal_village_has_castle_tech",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(tech_type),
+            default=0,
+        ))
 
     def has_unit_upgrade(self, team_id: int, upgrade_type: int) -> bool:
         """Check if a unit upgrade has been researched.
@@ -426,40 +441,45 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         upgrade_type: 0=LongSwordsman, 1=Champion, 2=LightCavalry,
                       3=Hussar, 4=Crossbowman, 5=Arbalester
         """
-        fn = getattr(self.lib, "tribal_village_has_unit_upgrade", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(upgrade_type)))
+        return bool(self._optional_ffi(
+            "tribal_village_has_unit_upgrade",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(upgrade_type),
+            default=0,
+        ))
 
     # --- Tech tree research actions ---
 
     def research_blacksmith(self, agent_id: int, building_x: int, building_y: int) -> bool:
         """Research the next blacksmith upgrade. Returns True on success."""
-        fn = getattr(self.lib, "tribal_village_research_blacksmith", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+        return bool(self._optional_ffi(
+            "tribal_village_research_blacksmith",
+            self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y),
+            default=0,
+        ))
 
     def research_university(self, agent_id: int, building_x: int, building_y: int) -> bool:
         """Research the next university tech. Returns True on success."""
-        fn = getattr(self.lib, "tribal_village_research_university", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+        return bool(self._optional_ffi(
+            "tribal_village_research_university",
+            self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y),
+            default=0,
+        ))
 
     def research_castle(self, agent_id: int, building_x: int, building_y: int) -> bool:
         """Research the next castle unique tech. Returns True on success."""
-        fn = getattr(self.lib, "tribal_village_research_castle", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+        return bool(self._optional_ffi(
+            "tribal_village_research_castle",
+            self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y),
+            default=0,
+        ))
 
     def research_unit_upgrade(self, agent_id: int, building_x: int, building_y: int) -> bool:
         """Research the next unit upgrade at a military building. Returns True on success."""
-        fn = getattr(self.lib, "tribal_village_research_unit_upgrade", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y)))
+        return bool(self._optional_ffi(
+            "tribal_village_research_unit_upgrade",
+            self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(building_x), ctypes.c_int32(building_y),
+            default=0,
+        ))
 
     # --- Threat map queries ---
 
@@ -468,10 +488,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         Returns True if there are active threats, False otherwise.
         """
-        fn = getattr(self.lib, "tribal_village_has_known_threats", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+        return bool(self._optional_ffi(
+            "tribal_village_has_known_threats",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        ))
 
     def get_nearest_threat(self, agent_id: int) -> tuple[int, int, int]:
         """Get the nearest threat to an agent's current position.
@@ -481,15 +502,10 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         fn = getattr(self.lib, "tribal_village_get_nearest_threat", None)
         if fn is None:
             return (-1, -1, 0)
-        out_x = ctypes.c_int32()
-        out_y = ctypes.c_int32()
-        out_strength = ctypes.c_int32()
+        out_x, out_y, out_strength = ctypes.c_int32(), ctypes.c_int32(), ctypes.c_int32()
         found = fn(
-            self.env_ptr,
-            ctypes.c_int32(agent_id),
-            ctypes.byref(out_x),
-            ctypes.byref(out_y),
-            ctypes.byref(out_strength),
+            self.env_ptr, ctypes.c_int32(agent_id),
+            ctypes.byref(out_x), ctypes.byref(out_y), ctypes.byref(out_strength),
         )
         if found:
             return (out_x.value, out_y.value, out_strength.value)
@@ -500,20 +516,22 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         Returns the count of non-stale threats in range.
         """
-        fn = getattr(self.lib, "tribal_village_get_threats_in_range", None)
-        if fn is None:
-            return 0
-        return fn(self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(radius))
+        return self._optional_ffi(
+            "tribal_village_get_threats_in_range",
+            self.env_ptr, ctypes.c_int32(agent_id), ctypes.c_int32(radius),
+            default=0,
+        )
 
     def get_threat_at(self, team_id: int, x: int, y: int) -> int:
         """Get the threat strength at a specific map position for a team.
 
         Returns the strength value, or 0 if no threat at that position.
         """
-        fn = getattr(self.lib, "tribal_village_get_threat_at", None)
-        if fn is None:
-            return 0
-        return fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y))
+        return self._optional_ffi(
+            "tribal_village_get_threat_at",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(x), ctypes.c_int32(y),
+            default=0,
+        )
 
     # --- AI Difficulty Control ---
 
@@ -524,13 +542,14 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
         Returns one of: "Easy", "Normal", "Hard", "Brutal"
         """
-        fn = getattr(self.lib, "tribal_village_get_difficulty_level", None)
-        if fn is None:
+        level = self._optional_ffi(
+            "tribal_village_get_difficulty_level",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=None,
+        )
+        if level is None or not (0 <= level < len(self.DIFFICULTY_LEVELS)):
             return "Normal"
-        level = fn(self.env_ptr, ctypes.c_int32(team_id))
-        if 0 <= level < len(self.DIFFICULTY_LEVELS):
-            return self.DIFFICULTY_LEVELS[level]
-        return "Normal"
+        return self.DIFFICULTY_LEVELS[level]
 
     def set_difficulty_level(self, team_id: int, level: str) -> None:
         """Set the difficulty level for a team.
@@ -539,21 +558,22 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             team_id: The team ID
             level: One of "Easy", "Normal", "Hard", "Brutal"
         """
-        fn = getattr(self.lib, "tribal_village_set_difficulty_level", None)
-        if fn is None:
-            return
         level_idx = self.DIFFICULTY_LEVELS.index(level) if level in self.DIFFICULTY_LEVELS else 1
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(level_idx))
+        self._optional_ffi(
+            "tribal_village_set_difficulty_level",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(level_idx),
+        )
 
     def get_difficulty(self, team_id: int) -> float:
         """Get the difficulty for a team as a float.
 
         Returns: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal
         """
-        fn = getattr(self.lib, "tribal_village_get_difficulty", None)
-        if fn is None:
-            return 1.0
-        return fn(self.env_ptr, ctypes.c_int32(team_id))
+        return self._optional_ffi(
+            "tribal_village_get_difficulty",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=1.0,
+        )
 
     def set_difficulty(self, team_id: int, difficulty: float) -> None:
         """Set the difficulty for a team using a float value.
@@ -562,10 +582,10 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             team_id: The team ID
             difficulty: 0.0=Easy, 1.0=Normal, 2.0=Hard, 3.0=Brutal (rounded to nearest)
         """
-        fn = getattr(self.lib, "tribal_village_set_difficulty", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(difficulty))
+        self._optional_ffi(
+            "tribal_village_set_difficulty",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(difficulty),
+        )
 
     def set_adaptive_difficulty(self, team_id: int, enabled: bool) -> None:
         """Enable or disable adaptive difficulty for a team.
@@ -577,20 +597,21 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             team_id: The team ID
             enabled: True to enable, False to disable
         """
-        fn = getattr(self.lib, "tribal_village_set_adaptive_difficulty", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+        self._optional_ffi(
+            "tribal_village_set_adaptive_difficulty",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0),
+        )
 
     def get_decision_delay_chance(self, team_id: int) -> float:
         """Get the decision delay chance for a team (0.0-1.0).
 
         Higher values mean the AI is more likely to skip turns (easier AI).
         """
-        fn = getattr(self.lib, "tribal_village_get_decision_delay_chance", None)
-        if fn is None:
-            return 0.1
-        return fn(self.env_ptr, ctypes.c_int32(team_id))
+        return self._optional_ffi(
+            "tribal_village_get_decision_delay_chance",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0.1,
+        )
 
     def set_decision_delay_chance(self, team_id: int, chance: float) -> None:
         """Set a custom decision delay chance for a team (0.0-1.0).
@@ -599,10 +620,10 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             team_id: The team ID
             chance: Probability of skipping a turn (0.0 = never, 1.0 = always)
         """
-        fn = getattr(self.lib, "tribal_village_set_decision_delay_chance", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(chance))
+        self._optional_ffi(
+            "tribal_village_set_decision_delay_chance",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(chance),
+        )
 
     def enable_adaptive_difficulty(self, team_id: int, target_territory: float = 0.5) -> None:
         """Enable adaptive difficulty for a team.
@@ -614,97 +635,103 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             team_id: The team ID
             target_territory: Target territory percentage (0.0-1.0, default 0.5 for balanced)
         """
-        fn = getattr(self.lib, "tribal_village_enable_adaptive_difficulty", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(target_territory))
+        self._optional_ffi(
+            "tribal_village_enable_adaptive_difficulty",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_float(target_territory),
+        )
 
     def disable_adaptive_difficulty(self, team_id: int) -> None:
         """Disable adaptive difficulty for a team."""
-        fn = getattr(self.lib, "tribal_village_disable_adaptive_difficulty", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id))
+        self._optional_ffi(
+            "tribal_village_disable_adaptive_difficulty",
+            self.env_ptr, ctypes.c_int32(team_id),
+        )
 
     def is_adaptive_difficulty_enabled(self, team_id: int) -> bool:
         """Check if adaptive difficulty is enabled for a team."""
-        fn = getattr(self.lib, "tribal_village_is_adaptive_difficulty_enabled", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+        return bool(self._optional_ffi(
+            "tribal_village_is_adaptive_difficulty_enabled",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        ))
 
     def get_adaptive_difficulty_target(self, team_id: int) -> float:
         """Get the target territory percentage for adaptive difficulty."""
-        fn = getattr(self.lib, "tribal_village_get_adaptive_difficulty_target", None)
-        if fn is None:
-            return 0.5
-        return fn(self.env_ptr, ctypes.c_int32(team_id))
+        return self._optional_ffi(
+            "tribal_village_get_adaptive_difficulty_target",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0.5,
+        )
 
     def get_threat_response_enabled(self, team_id: int) -> bool:
         """Check if threat response intelligence is enabled for a team."""
-        fn = getattr(self.lib, "tribal_village_get_threat_response_enabled", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+        return bool(self._optional_ffi(
+            "tribal_village_get_threat_response_enabled",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        ))
 
     def set_threat_response_enabled(self, team_id: int, enabled: bool) -> None:
         """Enable or disable threat response intelligence for a team."""
-        fn = getattr(self.lib, "tribal_village_set_threat_response_enabled", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+        self._optional_ffi(
+            "tribal_village_set_threat_response_enabled",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0),
+        )
 
     def get_advanced_targeting_enabled(self, team_id: int) -> bool:
         """Check if advanced targeting is enabled for a team."""
-        fn = getattr(self.lib, "tribal_village_get_advanced_targeting_enabled", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+        return bool(self._optional_ffi(
+            "tribal_village_get_advanced_targeting_enabled",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        ))
 
     def set_advanced_targeting_enabled(self, team_id: int, enabled: bool) -> None:
         """Enable or disable advanced targeting for a team."""
-        fn = getattr(self.lib, "tribal_village_set_advanced_targeting_enabled", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+        self._optional_ffi(
+            "tribal_village_set_advanced_targeting_enabled",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0),
+        )
 
     def get_coordination_enabled(self, team_id: int) -> bool:
         """Check if inter-role coordination is enabled for a team."""
-        fn = getattr(self.lib, "tribal_village_get_coordination_enabled", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+        return bool(self._optional_ffi(
+            "tribal_village_get_coordination_enabled",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        ))
 
     def set_coordination_enabled(self, team_id: int, enabled: bool) -> None:
         """Enable or disable inter-role coordination for a team."""
-        fn = getattr(self.lib, "tribal_village_set_coordination_enabled", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+        self._optional_ffi(
+            "tribal_village_set_coordination_enabled",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0),
+        )
 
     def get_optimal_build_order_enabled(self, team_id: int) -> bool:
         """Check if optimal build order is enabled for a team."""
-        fn = getattr(self.lib, "tribal_village_get_optimal_build_order_enabled", None)
-        if fn is None:
-            return False
-        return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
+        return bool(self._optional_ffi(
+            "tribal_village_get_optimal_build_order_enabled",
+            self.env_ptr, ctypes.c_int32(team_id),
+            default=0,
+        ))
 
     def set_optimal_build_order_enabled(self, team_id: int, enabled: bool) -> None:
         """Enable or disable optimal build order for a team."""
-        fn = getattr(self.lib, "tribal_village_set_optimal_build_order_enabled", None)
-        if fn is None:
-            return
-        fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
+        self._optional_ffi(
+            "tribal_village_set_optimal_build_order_enabled",
+            self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0),
+        )
 
     AI_MODE_MAP = {"external": 0, "builtin": 1, "hybrid": 2}
 
     def _apply_ai_mode(self) -> None:
         """Set the AI controller mode in Nim based on config."""
-        fn = getattr(self.lib, "tribal_village_set_ai_mode", None)
-        if fn is None:
-            return
         mode_int = self.AI_MODE_MAP.get(self._typed_config.ai_mode, 0)
-        fn(ctypes.c_int32(mode_int))
+        self._optional_ffi(
+            "tribal_village_set_ai_mode",
+            ctypes.c_int32(mode_int),
+        )
 
     def _build_nim_config(self) -> NimConfig:
         """Build NimConfig from typed EnvironmentConfig."""
