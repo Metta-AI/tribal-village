@@ -80,6 +80,28 @@ proc tribal_village_create(): pointer {.exportc, dynlib.} =
   except CatchableError:
     return nil
 
+proc tribal_village_set_ai_mode(mode: int32): int32 {.exportc, dynlib.} =
+  ## Set the AI controller mode. Call after tribal_village_create, before reset.
+  ## Mode 0 = ExternalNN (Python controls all actions — default for FFI)
+  ## Mode 1 = BuiltinAI (scripted AI drives all behavior)
+  ## Mode 2 = HybridAI (scripted AI runs, Python can override non-NOOP)
+  ## Returns 1 on success, 0 on invalid mode.
+  try:
+    case mode:
+    of 0:
+      initGlobalController(ExternalNN)
+      return 1
+    of 1:
+      initGlobalController(BuiltinAI)
+      return 1
+    of 2:
+      initGlobalController(HybridAI)
+      return 1
+    else:
+      return 0
+  except CatchableError:
+    return 0
+
 proc tribal_village_set_config(
   env: pointer,
   cfg: ptr CEnvironmentConfig

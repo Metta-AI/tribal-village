@@ -188,6 +188,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         if not self.env_ptr:
             raise RuntimeError("Failed to create Nim environment")
 
+        self._apply_ai_mode()
         self._apply_nim_config()
 
         self.step_count = 0
@@ -277,6 +278,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             ("tribal_village_get_obs_layers", [], ctypes.c_int32, False),
             ("tribal_village_get_obs_width", [], ctypes.c_int32, False),
             ("tribal_village_get_obs_height", [], ctypes.c_int32, False),
+            # AI mode control
+            ("tribal_village_set_ai_mode", [ctypes.c_int32], ctypes.c_int32, True),
             # optional
             ("tribal_village_get_map_width", [], ctypes.c_int32, True),
             ("tribal_village_get_map_height", [], ctypes.c_int32, True),
@@ -692,6 +695,16 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             return
         fn(self.env_ptr, ctypes.c_int32(team_id), ctypes.c_int32(1 if enabled else 0))
 
+    AI_MODE_MAP = {"external": 0, "builtin": 1, "hybrid": 2}
+
+    def _apply_ai_mode(self) -> None:
+        """Set the AI controller mode in Nim based on config."""
+        fn = getattr(self.lib, "tribal_village_set_ai_mode", None)
+        if fn is None:
+            return
+        mode_int = self.AI_MODE_MAP.get(self._typed_config.ai_mode, 0)
+        fn(ctypes.c_int32(mode_int))
+
     def _build_nim_config(self) -> NimConfig:
         """Build NimConfig from typed EnvironmentConfig."""
         return NimConfig.from_config(self._typed_config)
@@ -709,6 +722,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
     ) -> Tuple[Dict, Dict]:
         """Ultra-fast reset using direct buffers."""
         self.step_count = 0
+        self._apply_ai_mode()
 
         # Get PufferLib managed buffer pointers
         obs_ptr = self.observations.ctypes.data_as(ctypes.c_void_p)

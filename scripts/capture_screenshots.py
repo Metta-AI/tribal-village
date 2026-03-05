@@ -79,6 +79,7 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
 
     config = EnvironmentConfig(
+        ai_mode="builtin",
         render_mode="rgb_array",
         render_scale=args.render_scale,
     )

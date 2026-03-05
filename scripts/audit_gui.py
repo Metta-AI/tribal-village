@@ -364,6 +364,7 @@ def setup_lib(lib: ctypes.CDLL) -> None:
         ("tribal_village_get_obs_layers", [], ctypes.c_int32, False),
         ("tribal_village_get_obs_width", [], ctypes.c_int32, False),
         ("tribal_village_get_obs_height", [], ctypes.c_int32, False),
+        ("tribal_village_set_ai_mode", [ctypes.c_int32], ctypes.c_int32, True),
         ("tribal_village_get_map_width", [], ctypes.c_int32, True),
         ("tribal_village_get_map_height", [], ctypes.c_int32, True),
         (
@@ -422,6 +423,11 @@ def run_simulation(
     env_ptr = lib.tribal_village_create()
     if not env_ptr:
         raise RuntimeError("tribal_village_create returned null")
+
+    # Enable builtin AI so scripted behavior drives the simulation
+    set_ai = getattr(lib, "tribal_village_set_ai_mode", None)
+    if set_ai is not None:
+        set_ai(ctypes.c_int32(1))  # 1 = BuiltinAI
 
     # Reset
     ok = lib.tribal_village_reset_and_get_obs(

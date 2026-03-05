@@ -182,7 +182,7 @@ def run_metrics(
     from tribal_village_env import TribalVillageEnv
     from tribal_village_env.config import EnvironmentConfig
 
-    config = EnvironmentConfig(max_steps=steps + 100)
+    config = EnvironmentConfig(max_steps=steps + 100, ai_mode="builtin")
     env = TribalVillageEnv(config=config)
 
     num_agents = env.total_agents

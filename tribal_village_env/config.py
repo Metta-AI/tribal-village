@@ -240,6 +240,12 @@ class EnvironmentConfig(Config):
         description="Rate at which tumor enemies spawn (per step probability)",
     )
 
+    # AI control mode
+    ai_mode: str = Field(
+        default="external",
+        description="AI mode: 'external' (Python controls), 'builtin' (scripted AI), 'hybrid' (scripted + Python override)",
+    )
+
     # Rendering parameters
     render_mode: str = Field(
         default="rgb_array",
@@ -262,6 +268,14 @@ class EnvironmentConfig(Config):
         description="Reward parameters for various game events",
     )
 
+    @field_validator("ai_mode")
+    @classmethod
+    def validate_ai_mode(cls, v: str) -> str:
+        valid_modes = {"external", "builtin", "hybrid"}
+        if v not in valid_modes:
+            raise ValueError(f"ai_mode must be one of {valid_modes}, got '{v}'")
+        return v
+
     @field_validator("render_mode")
     @classmethod
     def validate_render_mode(cls, v: str) -> str:
@@ -275,6 +289,7 @@ class EnvironmentConfig(Config):
         result: dict[str, Any] = {
             "max_steps": self.max_steps,
             "victory_condition": self.victory_condition,
+            "ai_mode": self.ai_mode,
             "render_mode": self.render_mode,
             "render_scale": self.render_scale,
         }
@@ -334,6 +349,7 @@ class EnvironmentConfig(Config):
             max_steps=config.get("max_steps", 10_000),
             victory_condition=config.get("victory_condition", 0),
             tumor_spawn_rate=config.get("tumor_spawn_rate", math.nan),
+            ai_mode=config.get("ai_mode", "external"),
             render_mode=config.get("render_mode", "rgb_array"),
             render_scale=config.get("render_scale", 4),
             ansi_buffer_size=config.get("ansi_buffer_size", 1_000_000),
