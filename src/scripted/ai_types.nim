@@ -538,6 +538,10 @@ template resetActiveOption(state: var AgentState) =
   state.activeOptionId = -1
   state.activeOptionTicks = 0
 
+template resetActiveOptionKeepTicks(state: var AgentState) =
+  ## Reset the active option but preserve tick count for idle detection.
+  state.activeOptionId = -1
+
 proc runOptions*(controller: Controller, env: Environment, agent: Thing,
                  agentId: int, state: var AgentState,
                  roleOptions: openArray[OptionDef]): uint16 =
@@ -562,22 +566,23 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
           controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
-    # action==0: option produced no movement. Keep ticks accumulating (already
-    # incremented above) so idle detection (e.g. IdleAutoAssignSteps) can trigger.
+    # action==0: option produced no movement. Reset option ID so scan runs,
+    # but preserve ticks so idle detection (IdleAutoAssignSteps) can trigger.
+    resetActiveOptionKeepTicks(state)
 
   # Otherwise, scan options in priority order and use the first that acts.
   for i, opt in roleOptions:
     if not opt.canStart(controller, env, agent, agentId, state):
       continue
     state.activeOptionId = i
-    state.activeOptionTicks = 1
+    state.activeOptionTicks = max(state.activeOptionTicks, 1)
     let action = opt.act(controller, env, agent, agentId, state)
     if action != 0'u16:
       if opt.shouldTerminate(controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
-    # action==0: no real movement from this option either. Keep ticks so idle
-    # accumulation isn't reset.
+    # action==0: reset option but keep ticks accumulating for idle detection.
+    resetActiveOptionKeepTicks(state)
 
   return 0'u16
 
