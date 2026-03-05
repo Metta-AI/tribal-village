@@ -1,2 +1,1 @@
-*.png
-metadata.json
+# Visual regression baselines are tracked in git

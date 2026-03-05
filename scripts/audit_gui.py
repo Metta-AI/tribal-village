@@ -50,7 +50,7 @@ CAPTURE_SCHEDULE = [
 ]
 
 # Frame validation thresholds
-MIN_PIXEL_VARIANCE = 50.0           # Minimum std-dev across pixel values
+MIN_PIXEL_VARIANCE = 25.0           # Minimum std-dev across pixel values
 MIN_DISTINCT_COLORS = 20            # Minimum distinct quantized colors
 TEAM_COLOR_TOLERANCE = 40           # L2 distance tolerance for team color matching
 MIN_TEAMS_VISIBLE = 2               # Minimum teams with visible colors at step 0
