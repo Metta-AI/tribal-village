@@ -38,7 +38,9 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
   let panelX = panelRect.x.float32 + panelRect.w.float32 - panelW - MinimapPadding
   let panelY = panelRect.y.float32 + panelRect.h.float32 - panelH - MinimapPadding - FooterHeight.float32
 
-  # Draw panel background
+  # Draw panel border and background
+  bxy.drawRect(rect = Rect(x: panelX - 1.0, y: panelY - 1.0, w: panelW + 2.0, h: panelH + 2.0),
+               color = UiBorder)
   bxy.drawRect(rect = Rect(x: panelX, y: panelY, w: panelW, h: panelH),
                color = UiBgPanel)
 
@@ -57,13 +59,35 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
                     vec2(nameSize.x.float32, nameSize.y.float32))
   yOffset += nameSize.y.float32 + UnitInfoLineSpacingLarge
 
-  # Draw HP if applicable
+  # Draw HP with visual health bar
   if selected.maxHp > 0:
     let hpText = "HP: " & $selected.hp & "/" & $selected.maxHp
     let (hpKey, hpSize) = getUnitInfoLabel(hpText)
     drawUiImageScaled(hpKey, vec2(panelX + xPadding, panelY + yOffset),
                       vec2(hpSize.x.float32, hpSize.y.float32))
     yOffset += hpSize.y.float32 + UnitInfoLineSpacingSmall
+
+    # Visual health bar beneath HP text
+    let hpBarW = panelW - xPadding * 2
+    let hpBarH = 4.0'f32
+    let hpRatio = selected.hp.float32 / selected.maxHp.float32
+    # Background
+    bxy.drawRect(rect = Rect(x: panelX + xPadding, y: panelY + yOffset, w: hpBarW, h: hpBarH),
+                 color = UiHealthBg)
+    # Filled portion with color gradient
+    let hpBarColor = getHealthBarColor(hpRatio)
+    bxy.drawRect(rect = Rect(x: panelX + xPadding, y: panelY + yOffset,
+                             w: hpBarW * hpRatio, h: hpBarH),
+                 color = hpBarColor)
+    yOffset += hpBarH + UnitInfoLineSpacingLarge
+
+  # Draw attack and range for units
+  if selected.kind == Agent:
+    let atkText = "Atk: " & $selected.attackDamage & "  Rng: " & $getUnitAttackRange(selected)
+    let (atkKey, atkSize) = getUnitInfoLabel(atkText)
+    drawUiImageScaled(atkKey, vec2(panelX + xPadding, panelY + yOffset),
+                      vec2(atkSize.x.float32, atkSize.y.float32))
+    yOffset += atkSize.y.float32 + UnitInfoLineSpacingSmall
 
   # Draw team
   let teamText = "Team: " & $selected.teamId
@@ -102,8 +126,8 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
   let stockpile = env.teamStockpiles[teamId]
   var xOffset = ResourceBarXStart
 
-  # Draw each resource type
-  for res in [ResourceFood, ResourceWood, ResourceStone, ResourceGold]:
+  # Draw each resource type (all 5 resources)
+  for res in [ResourceFood, ResourceWood, ResourceStone, ResourceGold, ResourceWater]:
     let icon = case res
       of ResourceFood: itemSpriteKey(ItemWheat)
       of ResourceWood: itemSpriteKey(ItemWood)
@@ -130,6 +154,24 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
       drawUiImageScaled(labelKey, vec2(barX + xOffset, labelY),
                         vec2(labelSize.x.float32, labelSize.y.float32))
       xOffset += labelSize.x.float32 + ResourceBarItemSpacing
+
+  # Draw separator before population counter
+  xOffset += ResourceBarItemSpacing
+  bxy.drawRect(rect = Rect(x: barX + xOffset, y: barY + 4.0, w: 1.0, h: barH - 8.0),
+               color = UiBorder)
+  xOffset += ResourceBarItemSpacing
+
+  # Draw population counter (current/max)
+  let popCount = env.stepTeamPopCounts[teamId]
+  let popCap = env.stepTeamPopCaps[teamId]
+  let popText = $popCount & "/" & $popCap
+  let popTextColor = if popCap > 0 and popCount >= popCap: UiDanger else: UiFgText
+  let popStyle = labelStyleColored(FooterFontPath, FooterFontSize, ResourceBarLabelPadding, popTextColor)
+  let popCached = ensureLabel("res_bar_pop", popText, popStyle)
+  let popLabelY = barY + (barH - popCached.size.y.float32) / 2.0
+  drawUiImageScaled(popCached.imageKey, vec2(barX + xOffset, popLabelY),
+                    vec2(popCached.size.x.float32, popCached.size.y.float32))
+  xOffset += popCached.size.x.float32 + ResourceBarItemSpacing
 
 # ─── Minimap ─────────────────────────────────────────────────────────────────
 
