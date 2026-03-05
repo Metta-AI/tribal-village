@@ -9,7 +9,7 @@ from __future__ import annotations
 import ctypes
 import platform
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Optional
 
 import numpy as np
 from gymnasium import spaces
@@ -110,7 +110,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
     def __init__(
         self,
-        config: Optional[Union[EnvironmentConfig, Dict[str, Any]]] = None,
+        config: Optional[EnvironmentConfig | dict[str, Any]] = None,
         buf: Any = None,
     ):
         # Convert config to typed EnvironmentConfig
@@ -473,7 +473,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             return False
         return bool(fn(self.env_ptr, ctypes.c_int32(team_id)))
 
-    def get_nearest_threat(self, agent_id: int) -> Tuple[int, int, int]:
+    def get_nearest_threat(self, agent_id: int) -> tuple[int, int, int]:
         """Get the nearest threat to an agent's current position.
 
         Returns (x, y, strength) of the nearest threat, or (-1, -1, 0) if none.
@@ -719,8 +719,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             raise RuntimeError("Failed to apply Nim environment config")
 
     def reset(
-        self, seed: Optional[int] = None, options: Optional[Dict] = None
-    ) -> Tuple[Dict, Dict]:
+        self, seed: Optional[int] = None, options: Optional[dict] = None
+    ) -> tuple[dict, dict]:
         """Ultra-fast reset using direct buffers."""
         self.step_count = 0
         self._apply_ai_mode()
@@ -747,8 +747,8 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         return observations, info
 
     def step(
-        self, actions: Dict[str, np.ndarray]
-    ) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
+        self, actions: dict[str, np.ndarray]
+    ) -> tuple[dict, dict, dict, dict, dict]:
         """Ultra-fast step using direct buffers."""
         self.step_count += 1
 
@@ -808,7 +808,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
 
 def make_tribal_village_env(
-    config: Optional[Dict[str, Any]] = None, **kwargs
+    config: Optional[dict[str, Any]] = None, **kwargs
 ) -> TribalVillageEnv:
     """Factory function for ultra-fast tribal village environment."""
     if config is None:
