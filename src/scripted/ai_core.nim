@@ -1568,13 +1568,43 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
 proc ensureResourceReserved(controller: Controller, env: Environment, agent: Thing, agentId: int,
                             state: var AgentState, closestPos: var IVec2,
                             allowedKinds: set[ThingKind],
-                            kinds: openArray[ThingKind]): tuple[did: bool, action: uint16] =
+                            kinds: openArray[ThingKind],
+                            patchKind: ResourcePatchKind = PatchFood): tuple[did: bool, action: uint16] =
   ## Shared resource-gathering with reservation: check cached position, spiral-search
   ## for the nearest resource of the given kinds, reserve it, then use or move to it.
+  ## Prefers resources near drop-off buildings (AoE-style clustering).
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, closestPos, allowedKinds, 3'u16)
   if didKnown: return (didKnown, actKnown)
   let teamId = getTeamId(agent)
+
+  # Phase 1: Look for resources near a drop-off building first (clustering behavior).
+  # Find nearest relevant drop-off and search for unreserved resources near it.
+  let dropoff = findNearestDropoffForResource(env, agent.pos, teamId, patchKind)
+  if not isNil(dropoff):
+    let gatherers = countGatherersNearPos(env, teamId, dropoff.pos, PatchRadius)
+    if gatherers < MaxGatherersPerPatch:
+      # Search for resources near the drop-off building
+      for kind in kinds:
+        let nearDropoff = findNearestThing(env, dropoff.pos, kind, maxDist = DropoffProximityRadius)
+        if isNil(nearDropoff):
+          continue
+        if nearDropoff.pos == state.pathBlockedTarget:
+          continue
+        if isResourceReserved(teamId, nearDropoff.pos, agentId):
+          continue
+        if not hasHarvestableResource(nearDropoff):
+          continue
+        if isThingFrozen(nearDropoff, env):
+          continue
+        updateClosestSeen(state, state.basePosition, nearDropoff.pos, closestPos)
+        discard reserveResource(teamId, agentId, nearDropoff.pos, env.currentStep)
+        return (true, if isAdjacent(agent.pos, nearDropoff.pos):
+          controller.useAt(env, agent, agentId, state, nearDropoff.pos)
+        else:
+          controller.moveTo(env, agent, agentId, state, nearDropoff.pos))
+
+  # Phase 2: Fall back to normal spiral search if no drop-off cluster available
   for kind in kinds:
     let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
@@ -1595,17 +1625,17 @@ proc ensureResourceReserved(controller: Controller, env: Environment, agent: Thi
 proc ensureWood*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint16] =
   ensureResourceReserved(controller, env, agent, agentId, state,
-    state.closestWoodPos, {Stump, Tree}, [Stump, Tree])
+    state.closestWoodPos, {Stump, Tree}, [Stump, Tree], PatchWood)
 
 proc ensureStone*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint16] =
   ensureResourceReserved(controller, env, agent, agentId, state,
-    state.closestStonePos, {Stone, Stalagmite}, [Stone, Stalagmite])
+    state.closestStonePos, {Stone, Stalagmite}, [Stone, Stalagmite], PatchStone)
 
 proc ensureGold*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                 state: var AgentState): tuple[did: bool, action: uint16] =
   ensureResourceReserved(controller, env, agent, agentId, state,
-    state.closestGoldPos, {Gold}, [Gold])
+    state.closestGoldPos, {Gold}, [Gold], PatchGold)
 
 proc ensureWater*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint16] =

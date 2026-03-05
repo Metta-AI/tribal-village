@@ -121,6 +121,11 @@ const
   LateGameBuilders* = 1
   LateGameFighters* = 3
 
+  # Resource clustering / AoE-style gathering
+  DropoffProximityRadius* = 10   # Resources within this radius of a drop-off building get a bonus
+  MaxGatherersPerPatch* = 6      # Max gatherers before a patch is considered full
+  PatchRadius* = 6               # Radius used to define a resource patch around a drop-off
+  IdleAutoAssignSteps* = 8       # Steps idle before auto-assigning to a resource patch
   # ============================================================================
   # Military Unit Stats
   # ============================================================================
