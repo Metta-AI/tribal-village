@@ -104,6 +104,15 @@ def get_used_asset_keys():
         for d in ["n", "s", "e", "w"]:
             used.add(f"{prefix}.{d}")
 
+    # Ramps (registry.nim TerrainThingCatalog)
+    for direction in ["up", "down"]:
+        for d in ["n", "s", "e", "w"]:
+            used.add(f"oriented/ramp_{direction}_{d}")
+
+    # Waterfalls (registry.nim ThingCatalog)
+    for d in ["n", "e", "s", "w"]:
+        used.add(f"waterfall_{d}")
+
     return used
 
 

@@ -139,6 +139,25 @@ def get_required_sprite_keys() -> set[str]:
         for d in ["n", "s", "e", "w"]:
             keys.add(f"{prefix}.{d}")
 
+    # Cliff edges (registry.nim ThingCatalog)
+    keys.update([
+        "cliff_edge_ew", "cliff_edge_ew_s", "cliff_edge_ns", "cliff_edge_ns_w",
+    ])
+
+    # Cliff corners (registry.nim ThingCatalog)
+    for kind in ["in", "out"]:
+        for d in ["ne", "se", "sw", "nw"]:
+            keys.add(f"oriented/cliff_corner_{kind}_{d}")
+
+    # Ramps (registry.nim TerrainThingCatalog)
+    for direction in ["up", "down"]:
+        for d in ["n", "s", "e", "w"]:
+            keys.add(f"oriented/ramp_{direction}_{d}")
+
+    # Waterfalls (registry.nim ThingCatalog)
+    for d in ["n", "e", "s", "w"]:
+        keys.add(f"waterfall_{d}")
+
     return keys
 
 
