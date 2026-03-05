@@ -14,8 +14,9 @@ export ai_types, ai_utils, environment, common_types, terrain, coordination, ent
 export memoization
 
 const
-  CacheMaxAge* = 20  # Invalidate cached positions after this many steps
+  CacheMaxAge* = 12  # Invalidate cached positions after this many steps (faster re-path on depletion)
   ThreatMapStaggerInterval* = 5  # Only 1/5 of agents update threat map per step
+  PathBlockRetryInterval* = 8   # Steps between re-trying A* for blocked targets
 
 proc stanceAllowsAutoAttack*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows auto-attacking enemies.
@@ -1395,7 +1396,13 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
   ##
   ## Returns an encoded move action, or NOOP (0) if completely blocked.
   if state.pathBlockedTarget == targetPos:
-    return controller.moveNextSearch(env, agent, agentId, state)
+    # Periodically retry A* for blocked targets instead of spiraling indefinitely.
+    # This lets units recover when a blocking obstacle moves (e.g. another unit).
+    if (env.currentStep mod PathBlockRetryInterval) == 0:
+      state.pathBlockedTarget = ivec2(-1, -1)
+      state.plannedPath.setLen(0)
+    else:
+      return controller.moveNextSearch(env, agent, agentId, state)
   let stuck = isOscillating(state)
   if stuck:
     state.pathBlockedTarget = ivec2(-1, -1)

@@ -231,11 +231,9 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
     allowFood = true, allowWood = true, allowStone = true, allowGold = not heartsPriority
   )
   if didDrop: return dropAct
-  let dir = getMoveTowards(env, agent, agent.pos, basePos,
-    controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1))
-  if dir < 0:
-    return saveStateAndReturn(controller, agentId, state, 0'u16)  # Noop when blocked
-  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dir.uint8))
+  # No dropoff building found — move directly toward base using A* pathfinding
+  # for clean, purposeful return movement
+  return controller.moveTo(env, agent, agentId, state, basePos)
 
 gathererGuard(canStartGathererHearts, shouldTerminateGathererHearts):
   state.gathererTask == TaskHearts
