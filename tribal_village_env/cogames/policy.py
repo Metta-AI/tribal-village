@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Sequence
 
 import torch
 from gymnasium import spaces
@@ -63,7 +63,7 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
         policy_env_info: TribalPolicyEnvInfo,
         *,
         hidden_size: int = DEFAULT_HIDDEN_SIZE,
-        device: Optional[Union[str, torch.device]] = None,
+        device: str | torch.device | None = None,
     ) -> None:
         MultiAgentPolicy.__init__(self, policy_env_info)
         AgentPolicy.__init__(self, policy_env_info)
@@ -87,7 +87,7 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
     def is_recurrent(self) -> bool:
         return False
 
-    def reset(self, simulation: Optional[Simulation] = None) -> None:  # type: ignore[override]
+    def reset(self, simulation: Simulation | None = None) -> None:  # type: ignore[override]
         return None
 
     def load_policy_data(self, policy_data_path: str) -> None:
@@ -98,7 +98,7 @@ class TribalVillagePufferPolicy(MultiAgentPolicy, AgentPolicy):
     def save_policy_data(self, policy_data_path: str) -> None:
         torch.save(self._net.state_dict(), policy_data_path)
 
-    def step(self, obs: Union[AgentObservation, torch.Tensor, Sequence[Any]]) -> Action:  # type: ignore[override]
+    def step(self, obs: AgentObservation | torch.Tensor | Sequence[Any]) -> Action:  # type: ignore[override]
         if isinstance(obs, AgentObservation):
             obs_shape = self.policy_env_info.observation_space.shape
             if len(obs_shape) != 2:
