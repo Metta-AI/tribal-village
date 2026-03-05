@@ -618,21 +618,33 @@ proc drawTooltip*(screenSize: Vec2) =
     let lines = (descSize.x.float32 / (TooltipMaxWidth - TooltipPadding * 2)).int + 1
     yOffset += TooltipLineHeight * lines.float32 + TooltipSectionGap * 2
 
-  # Draw cost lines
+  # Draw cost lines with separator
   if content.costLines.len > 0:
+    # Separator line before costs
+    bxy.drawRect(rect = Rect(x: pos.x + TooltipPadding, y: yOffset,
+                             w: size.x - TooltipPadding * 2, h: 1.0),
+                 color = TooltipBorderColor)
+    yOffset += TooltipSectionGap
     for line in content.costLines:
       let (lineKey, _) = renderTooltipLabel(line, TooltipTextFontSize, TooltipCostColor)
       bxy.drawImage(lineKey, vec2(pos.x + TooltipPadding, yOffset))
       yOffset += TooltipLineHeight
 
   # Draw stats lines
-  for line in content.statsLines:
-    let (lineKey, _) = renderTooltipLabel(line, TooltipTextFontSize, TooltipTextColor)
-    bxy.drawImage(lineKey, vec2(pos.x + TooltipPadding, yOffset))
-    yOffset += TooltipLineHeight
+  if content.statsLines.len > 0:
+    if content.costLines.len > 0:
+      yOffset += TooltipSectionGap
+    for line in content.statsLines:
+      let (lineKey, _) = renderTooltipLabel(line, TooltipTextFontSize, TooltipTextColor)
+      bxy.drawImage(lineKey, vec2(pos.x + TooltipPadding, yOffset))
+      yOffset += TooltipLineHeight
 
-  # Draw hotkey line
+  # Draw hotkey line with separator
   if content.hotkeyLine.len > 0:
+    yOffset += TooltipSectionGap
+    bxy.drawRect(rect = Rect(x: pos.x + TooltipPadding, y: yOffset,
+                             w: size.x - TooltipPadding * 2, h: 1.0),
+                 color = TooltipBorderColor)
     yOffset += TooltipSectionGap
     let (hotkeyKey, _) = renderTooltipLabel(content.hotkeyLine, TooltipTextFontSize, TooltipHotkeyColor)
     bxy.drawImage(hotkeyKey, vec2(pos.x + TooltipPadding, yOffset))

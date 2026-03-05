@@ -461,12 +461,16 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   bxy.drawRect(
     rect = Rect(x: cpRect.x - CommandPanelBorderOffset, y: cpRect.y - CommandPanelBorderOffset,
                 w: cpRect.w + CommandPanelBorderExpand, h: cpRect.h + CommandPanelBorderExpand),
-    color = UiBg
+    color = UiBorder
   )
   bxy.drawRect(rect = Rect(x: cpRect.x, y: cpRect.y, w: cpRect.w, h: cpRect.h),
                color = CommandPanelBgColor)
   bxy.drawRect(rect = Rect(x: cpRect.x, y: cpRect.y, w: cpRect.w, h: CommandPanelHeaderHeight),
                color = CommandPanelHeaderColor)
+  # Separator line between header and buttons
+  bxy.drawRect(rect = Rect(x: cpRect.x, y: cpRect.y + CommandPanelHeaderHeight,
+                            w: cpRect.w, h: 1.0),
+               color = UiBorderBright)
 
   # Draw header label
   let headerText = if selection.len == 1:

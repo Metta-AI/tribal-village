@@ -13,6 +13,7 @@ import renderer_core
 
 proc drawSelection*() =
   ## Draw selection indicators for selected units and buildings.
+  ## Shows pulsing glow, selection ring, and health bars for all selected entities.
   if selection.len == 0:
     return
   for thing in selection:
@@ -31,6 +32,13 @@ proc drawSelection*() =
 
       # Draw main selection indicator (full opacity)
       bxy.drawImage("selection", pos, angle = 0, scale = SpriteScale)
+
+    # Draw health bar above selected units/buildings
+    if thing.maxHp > 0:
+      let hpRatio = thing.hp.float32 / thing.maxHp.float32
+      let barOffset = vec2(0.0, SelectionHealthBarYOffset)
+      let hpColor = getHealthBarColor(hpRatio)
+      drawSegmentBar(pos, barOffset, hpRatio, hpColor, BarBgColor, SelectionHealthBarSegments)
 
 # ─── Rally Point Rendering ───────────────────────────────────────────────────
 

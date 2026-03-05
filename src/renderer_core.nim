@@ -133,6 +133,8 @@ const
   SelectionPulseAmplitude* = 0.15'f32   # Selection glow pulse amplitude
   SelectionPulseBase* = 0.85'f32        # Selection glow pulse base alpha
   SelectionGlowAlpha* = 0.4'f32         # Outer glow ring alpha
+  SelectionHealthBarYOffset* = -0.55'f32 # Health bar Y offset above selected units
+  SelectionHealthBarSegments* = 5        # Number of segments in selection health bar
 
   # ─── Rally Point ──────────────────────────────────────────────────────────
   RallyPointLineWidth* = 0.06'f32       # Width of the path line in world units
