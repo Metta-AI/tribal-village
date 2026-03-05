@@ -334,13 +334,25 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   initScriptedState(controller)
 
-  # Initialize agent role if needed (2 gatherers, 2 builders, 2 fighters)
+  # Initialize agent role based on game phase
+  # Early: economy-heavy (3G/2B/1F), Mid: balanced (2G/2B/2F), Late: military (2G/1B/3F)
   if not controller.agentsInitialized[agentId]:
     let slot = agentId mod MapAgentsPerTeam
+    let gameProgress = if env.config.maxSteps > 0:
+      env.currentStep.float / env.config.maxSteps.float
+    else:
+      0.0
+    # Determine gatherer/builder/fighter slot counts based on phase
+    let (nGatherers, nBuilders) = if gameProgress < EarlyGameThreshold:
+      (EarlyGameGatherers, EarlyGameBuilders)
+    elif gameProgress < LateGameThreshold:
+      (MidGameGatherers, MidGameBuilders)
+    else:
+      (LateGameGatherers, LateGameBuilders)
+    let slotMod = slot mod 6
     var role =
-      case slot mod 6
-      of 0, 1: Gatherer
-      of 2, 3: Builder
+      if slotMod < nGatherers: Gatherer
+      elif slotMod < nGatherers + nBuilders: Builder
       else: Fighter
 
     # Preserve any patrol state that was set before initialization

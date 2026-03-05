@@ -171,10 +171,18 @@ proc detectBottleneck*(controller: Controller, env: Environment, teamId: int): B
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return NoBottleneck
 
+  # Phase-aware critical thresholds: early game is more sensitive to food/wood shortages
+  let gameProgress = if env.config.maxSteps > 0:
+    env.currentStep.float / env.config.maxSteps.float
+  else:
+    0.5
+  let critFood = if gameProgress < EarlyGameThreshold: CriticalFoodLevel + 2 else: CriticalFoodLevel
+  let critWood = if gameProgress < EarlyGameThreshold: CriticalWoodLevel + 3 else: CriticalWoodLevel
+
   # Check critical resource levels first (cheap lookups before expensive iteration)
-  if env.stockpileCount(teamId, ResourceFood) < CriticalFoodLevel:
+  if env.stockpileCount(teamId, ResourceFood) < critFood:
     return FoodCritical
-  if env.stockpileCount(teamId, ResourceWood) < CriticalWoodLevel:
+  if env.stockpileCount(teamId, ResourceWood) < critWood:
     return WoodCritical
 
   # Single pass: count workers and detect enemies simultaneously
