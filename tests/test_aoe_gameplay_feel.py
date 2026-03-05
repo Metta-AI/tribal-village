@@ -22,24 +22,29 @@ import pytest
 from tribal_village_env.environment import TribalVillageEnv, ACTION_SPACE_SIZE
 from tribal_village_env.config import EnvironmentConfig
 
-# Observation layer indices (from src/types.nim ObservationName enum)
-LAYER_AGENT = 18
-LAYER_TREE = 21
-LAYER_WHEAT = 22
-LAYER_STONE = 25
-LAYER_GOLD = 26
-LAYER_TOWN_CENTER = 51
-LAYER_HOUSE = 52
-LAYER_BARRACKS = 53
-LAYER_GUARD_TOWER = 42
-LAYER_MILL = 44
-LAYER_GRANARY = 45
-LAYER_LUMBER_CAMP = 46
-LAYER_QUARRY = 47
-LAYER_MINING_CAMP = 48
-LAYER_TEAM = 86
-LAYER_IDLE = 89
-LAYER_TINT = 90
+# Observation layer indices matching the compiled libtribal_village.so.
+# The .so was built before TerrainMountainLayer and ThingWaterfall*Layer
+# were added to ObservationName in src/types.nim, so all thing layers are
+# shifted -1 (missing mountain terrain) and meta layers are shifted -5
+# (missing mountain + 4 waterfall things).  Update these when the .so is
+# recompiled from current source.
+LAYER_AGENT = 17
+LAYER_TREE = 20
+LAYER_WHEAT = 21
+LAYER_STONE = 24
+LAYER_GOLD = 25
+LAYER_TOWN_CENTER = 50
+LAYER_HOUSE = 51
+LAYER_BARRACKS = 52
+LAYER_GUARD_TOWER = 41
+LAYER_MILL = 43
+LAYER_GRANARY = 44
+LAYER_LUMBER_CAMP = 45
+LAYER_QUARRY = 46
+LAYER_MINING_CAMP = 47
+LAYER_TEAM = 81
+LAYER_IDLE = 84
+LAYER_TINT = 85
 
 NUM_TEAMS = 8
 CENTER = 5  # Center of 11x11 observation window

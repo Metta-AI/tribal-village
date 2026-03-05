@@ -27,39 +27,41 @@ from pathlib import Path
 
 import numpy as np
 
-# Observation layer indices matching src/types.nim ObservationName enum.
-# Terrain: 0-17 (18 layers), Things: 18-85 (68 layers), Meta: 86-100 (15 layers)
-LAYER_AGENT = 18
-LAYER_TREE = 21
-LAYER_WHEAT = 22
-LAYER_FISH = 23
-LAYER_STONE = 25
-LAYER_GOLD = 26
-LAYER_BUSH = 27
-LAYER_TOWN_CENTER = 51
-LAYER_HOUSE = 52
-LAYER_BARRACKS = 53
-LAYER_ARCHERY_RANGE = 54
-LAYER_STABLE = 55
-LAYER_SIEGE_WORKSHOP = 56
-LAYER_BLACKSMITH = 59
-LAYER_MARKET = 60
-LAYER_DOCK = 61
-LAYER_MONASTERY = 62
-LAYER_UNIVERSITY = 63
-LAYER_CASTLE = 64
-LAYER_WONDER = 65
-LAYER_GUARD_TOWER = 42
-LAYER_MILL = 44
-LAYER_GRANARY = 45
-LAYER_LUMBER_CAMP = 46
-LAYER_QUARRY = 47
-LAYER_MINING_CAMP = 48
+# Observation layer indices matching the compiled libtribal_village.so.
+# The .so was built before TerrainMountainLayer and ThingWaterfall*Layer
+# were added to ObservationName in src/types.nim, so thing layers are
+# shifted -1 and meta layers are shifted -5.  Update when .so is recompiled.
+LAYER_AGENT = 17
+LAYER_TREE = 20
+LAYER_WHEAT = 21
+LAYER_FISH = 22
+LAYER_STONE = 24
+LAYER_GOLD = 25
+LAYER_BUSH = 26
+LAYER_TOWN_CENTER = 50
+LAYER_HOUSE = 51
+LAYER_BARRACKS = 52
+LAYER_ARCHERY_RANGE = 53
+LAYER_STABLE = 54
+LAYER_SIEGE_WORKSHOP = 55
+LAYER_BLACKSMITH = 58
+LAYER_MARKET = 59
+LAYER_DOCK = 60
+LAYER_MONASTERY = 61
+LAYER_UNIVERSITY = 62
+LAYER_CASTLE = 63
+LAYER_WONDER = 64
+LAYER_GUARD_TOWER = 41
+LAYER_MILL = 43
+LAYER_GRANARY = 44
+LAYER_LUMBER_CAMP = 45
+LAYER_QUARRY = 46
+LAYER_MINING_CAMP = 47
 
-LAYER_TEAM = 86
-LAYER_UNIT_CLASS = 88
-LAYER_IDLE = 89
-LAYER_TINT = 90
+LAYER_TEAM = 81
+LAYER_UNIT_CLASS = 83
+LAYER_IDLE = 84
+LAYER_TINT = 85
 
 # Building layers grouped for counting
 BUILDING_LAYERS = {
