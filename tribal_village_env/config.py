@@ -552,6 +552,39 @@ OBS_NORMALIZATION_FACTOR: float = 1.0 / OBS_MAX_VALUE
 DEFAULT_ANSI_STEPS: int = 128
 DEFAULT_PROFILE_STEPS: int = 512
 
+# Environment defaults (from EnvironmentConfig field defaults)
+DEFAULT_MAX_STEPS: int = EnvironmentConfig.model_fields["max_steps"].default
+DEFAULT_RENDER_SCALE: int = EnvironmentConfig.model_fields["render_scale"].default
+DEFAULT_ANSI_BUFFER_SIZE: int = EnvironmentConfig.model_fields["ansi_buffer_size"].default
+
+# Training defaults (from TrainingConfig field defaults)
+DEFAULT_TRAIN_MAX_STEPS: int = TrainingConfig.model_fields["max_steps"].default
+DEFAULT_NUM_ENVS: int = TrainingConfig.model_fields["num_envs"].default
+DEFAULT_CHECKPOINT_INTERVAL: int = TrainingConfig.model_fields["checkpoint_interval"].default
+
+# PPO hyperparameters (from PPOConfig field defaults)
+DEFAULT_LEARNING_RATE: float = PPOConfig.model_fields["learning_rate"].default
+DEFAULT_BPTT_HORIZON: int = PPOConfig.model_fields["bptt_horizon"].default
+DEFAULT_ADAM_EPS: float = PPOConfig.model_fields["adam_eps"].default
+DEFAULT_GAMMA: float = PPOConfig.model_fields["gamma"].default
+DEFAULT_GAE_LAMBDA: float = PPOConfig.model_fields["gae_lambda"].default
+DEFAULT_UPDATE_EPOCHS: int = PPOConfig.model_fields["update_epochs"].default
+DEFAULT_CLIP_COEF: float = PPOConfig.model_fields["clip_coef"].default
+DEFAULT_VF_COEF: float = PPOConfig.model_fields["vf_coef"].default
+DEFAULT_VF_CLIP_COEF: float = PPOConfig.model_fields["vf_clip_coef"].default
+DEFAULT_MAX_GRAD_NORM: float = PPOConfig.model_fields["max_grad_norm"].default
+DEFAULT_ENT_COEF: float = PPOConfig.model_fields["ent_coef"].default
+DEFAULT_ADAM_BETA1: float = PPOConfig.model_fields["adam_beta1"].default
+DEFAULT_ADAM_BETA2: float = PPOConfig.model_fields["adam_beta2"].default
+DEFAULT_MAX_MINIBATCH_SIZE: int = PPOConfig.model_fields["max_minibatch_size"].default
+DEFAULT_VTRACE_RHO_CLIP: float = PPOConfig.model_fields["vtrace_rho_clip"].default
+DEFAULT_VTRACE_C_CLIP: float = PPOConfig.model_fields["vtrace_c_clip"].default
+DEFAULT_PRIO_ALPHA: float = PPOConfig.model_fields["prio_alpha"].default
+DEFAULT_PRIO_BETA0: float = PPOConfig.model_fields["prio_beta0"].default
+
+# Policy defaults (from PolicyConfig field defaults)
+DEFAULT_HIDDEN_SIZE: int = PolicyConfig.model_fields["hidden_size"].default
+
 
 __all__ = [
     "Config",
@@ -565,4 +598,29 @@ __all__ = [
     "OBS_NORMALIZATION_FACTOR",
     "DEFAULT_ANSI_STEPS",
     "DEFAULT_PROFILE_STEPS",
+    "DEFAULT_MAX_STEPS",
+    "DEFAULT_RENDER_SCALE",
+    "DEFAULT_ANSI_BUFFER_SIZE",
+    "DEFAULT_TRAIN_MAX_STEPS",
+    "DEFAULT_NUM_ENVS",
+    "DEFAULT_CHECKPOINT_INTERVAL",
+    "DEFAULT_LEARNING_RATE",
+    "DEFAULT_BPTT_HORIZON",
+    "DEFAULT_ADAM_EPS",
+    "DEFAULT_GAMMA",
+    "DEFAULT_GAE_LAMBDA",
+    "DEFAULT_UPDATE_EPOCHS",
+    "DEFAULT_CLIP_COEF",
+    "DEFAULT_VF_COEF",
+    "DEFAULT_VF_CLIP_COEF",
+    "DEFAULT_MAX_GRAD_NORM",
+    "DEFAULT_ENT_COEF",
+    "DEFAULT_ADAM_BETA1",
+    "DEFAULT_ADAM_BETA2",
+    "DEFAULT_MAX_MINIBATCH_SIZE",
+    "DEFAULT_VTRACE_RHO_CLIP",
+    "DEFAULT_VTRACE_C_CLIP",
+    "DEFAULT_PRIO_ALPHA",
+    "DEFAULT_PRIO_BETA0",
+    "DEFAULT_HIDDEN_SIZE",
 ]

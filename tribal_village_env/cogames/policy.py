@@ -14,7 +14,7 @@ import pufferlib.pytorch  # type: ignore[import-untyped]
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.simulator import Action, AgentObservation, Simulation
 
-from tribal_village_env.constants import (
+from tribal_village_env.config import (
     DEFAULT_HIDDEN_SIZE,
     OBS_MAX_VALUE,
     OBS_NORMALIZATION_FACTOR,

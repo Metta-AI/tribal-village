@@ -20,7 +20,7 @@ from pufferlib import pufferl
 from pufferlib import vector as pvector
 from pufferlib.pufferlib import set_buffers
 from tribal_village_env.cogames.policy import TribalPolicyEnvInfo
-from tribal_village_env.constants import (
+from tribal_village_env.config import (
     DEFAULT_ADAM_BETA1,
     DEFAULT_ADAM_BETA2,
     DEFAULT_ADAM_EPS,
