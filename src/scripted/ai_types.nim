@@ -562,7 +562,8 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
           controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
-    resetActiveOption(state)
+    # action==0: option produced no movement. Keep ticks accumulating (already
+    # incremented above) so idle detection (e.g. IdleAutoAssignSteps) can trigger.
 
   # Otherwise, scan options in priority order and use the first that acts.
   for i, opt in roleOptions:
@@ -575,7 +576,8 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
       if opt.shouldTerminate(controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
-    resetActiveOption(state)
+    # action==0: no real movement from this option either. Keep ticks so idle
+    # accumulation isn't reset.
 
   return 0'u16
 
