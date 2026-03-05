@@ -121,6 +121,9 @@ const
   LateGameBuilders* = 1
   LateGameFighters* = 3
 
+  # Dynamic role re-assignment interval (steps between re-evaluations)
+  RoleReassignInterval* = 50
+
   # Resource clustering / AoE-style gathering
   DropoffProximityRadius* = 10   # Resources within this radius of a drop-off building get a bonus
   MaxGatherersPerPatch* = 6      # Max gatherers before a patch is considered full

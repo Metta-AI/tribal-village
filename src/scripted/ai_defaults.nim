@@ -784,6 +784,90 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
   let action = decideRoleFromCatalog(controller, env, agent, agentId, state)
   return saveStateAndReturn(controller, agentId, state, action)
 
+proc isAgentReassignable(state: AgentState, agent: Thing): bool =
+  ## Check if an agent is idle enough to be reassigned to a different role.
+  ## Agents in active combat, patrol, attack-move, etc. should not be disrupted.
+  if state.patrolActive: return false
+  if state.attackMoveTarget.x >= 0: return false
+  if state.stoppedActive: return false
+  if state.scoutActive: return false
+  if state.holdPositionActive: return false
+  if state.followActive: return false
+  if state.guardActive: return false
+  if state.fighterEnemyAgentId >= 0: return false
+  if agent.isSettler and agent.settlerTarget.x >= 0: return false
+  # Don't reassign non-villager units (military units keep their role)
+  if agent.unitClass != UnitVillager: return false
+  true
+
+proc reassignRolesForPhase(controller: Controller, env: Environment) =
+  ## Periodically re-evaluate role assignments based on game phase.
+  ## Reassigns idle agents from over-represented roles to under-represented ones.
+  let gameProgress = if env.config.maxSteps > 0:
+    env.currentStep.float / env.config.maxSteps.float
+  else:
+    0.0
+  let (targetGatherers, targetBuilders) = if gameProgress < EarlyGameThreshold:
+    (EarlyGameGatherers, EarlyGameBuilders)
+  elif gameProgress < LateGameThreshold:
+    (MidGameGatherers, MidGameBuilders)
+  else:
+    (LateGameGatherers, LateGameBuilders)
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    # Count current role distribution for this team
+    var counts: array[AgentRole, int]
+    var reassignable: array[AgentRole, seq[int]]
+    for role in AgentRole:
+      reassignable[role] = @[]
+
+    let teamStart = teamId * MapAgentsPerTeam
+    let teamEnd = teamStart + MapAgentsPerTeam
+    for agentId in teamStart ..< teamEnd:
+      if not controller.agentsInitialized[agentId]: continue
+      let agent = env.agents[agentId]
+      if not isAgentAlive(env, agent): continue
+      let state = controller.agents[agentId]
+      let role = state.role
+      counts[role] += 1
+      if isAgentReassignable(state, agent):
+        reassignable[role].add agentId
+
+    # Compute target counts proportional to alive agents (scale from 6-slot ratio)
+    let totalAlive = counts[Gatherer] + counts[Builder] + counts[Fighter]
+    if totalAlive < 2: continue  # Too few agents to reassign
+
+    let wantGatherers = (totalAlive * targetGatherers + 3) div 6
+    let wantBuilders = (totalAlive * targetBuilders + 3) div 6
+    let wantFighters = totalAlive - wantGatherers - wantBuilders
+
+    # Identify surplus and deficit roles
+    var surplus: array[AgentRole, int]
+    surplus[Gatherer] = counts[Gatherer] - wantGatherers
+    surplus[Builder] = counts[Builder] - wantBuilders
+    surplus[Fighter] = counts[Fighter] - wantFighters
+
+    # Reassign from roles with surplus to roles with deficit
+    for targetRole in [Fighter, Builder, Gatherer]:
+      if surplus[targetRole] >= 0: continue  # No deficit
+      var needed = -surplus[targetRole]
+      for sourceRole in [Gatherer, Builder, Fighter]:
+        if needed <= 0: break
+        if surplus[sourceRole] <= 0: continue  # No surplus
+        let available = min(needed, min(surplus[sourceRole], reassignable[sourceRole].len))
+        for i in 0 ..< available:
+          let agentId = reassignable[sourceRole][reassignable[sourceRole].len - 1 - i]
+          let roleId = scriptedState.coreRoleIds[targetRole]
+          if roleId < 0: continue
+          setAgentRole(agentId, controller.agents[agentId], roleId)
+          # Set stance for new fighters
+          if targetRole == Fighter:
+            let agent = env.agents[agentId]
+            if agent.stance == StanceNoAttack:
+              agent.stance = StanceDefensive
+        surplus[sourceRole] -= available
+        surplus[targetRole] += available
+        needed -= available
+
 # Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =
   initScriptedState(controller)
@@ -819,6 +903,9 @@ proc updateController*(controller: Controller, env: Environment) =
   if env.currentStep mod TributeCheckInterval == 0:
     for teamId in 0 ..< MapRoomObjectsTeams:
       evaluateTribute(env, teamId)
+  # Periodically re-evaluate role assignments based on game phase
+  if env.currentStep > 0 and env.currentStep mod RoleReassignInterval == 0:
+    reassignRolesForPhase(controller, env)
   # Update adaptive difficulty for teams that have it enabled
   controller.updateAdaptiveDifficulty(env)
   # Check for town splits (AI settlement expansion)
