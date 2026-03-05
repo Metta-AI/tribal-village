@@ -167,7 +167,15 @@ let TerrainCatalog* = block:
     (Sand, "Sand", "sand", 's'),
     (Snow, "Snow", "snow", 'n'),
     (Mud, "Mud", "mud", 'm'),
-    (Mountain, "Mountain", "dune", 'M')
+    (Mountain, "Mountain", "dune", 'M'),
+    (RampUpN, "Ramp Up North", "oriented/ramp_up_n", '/'),
+    (RampUpS, "Ramp Up South", "oriented/ramp_up_s", '/'),
+    (RampUpW, "Ramp Up West", "oriented/ramp_up_w", '/'),
+    (RampUpE, "Ramp Up East", "oriented/ramp_up_e", '/'),
+    (RampDownN, "Ramp Down North", "oriented/ramp_down_n", '\\'),
+    (RampDownS, "Ramp Down South", "oriented/ramp_down_s", '\\'),
+    (RampDownW, "Ramp Down West", "oriented/ramp_down_w", '\\'),
+    (RampDownE, "Ramp Down East", "oriented/ramp_down_e", '\\')
   ]:
     reg[terrain] = CatalogEntry(displayName: displayName, spriteKey: spriteKey, ascii: ascii)
   reg
@@ -246,7 +254,7 @@ let ItemCatalog* = block:
   reg
 
 proc terrainSpriteKey*(terrain: TerrainType): string =
-  if terrain == Empty or isRampTerrain(terrain):
+  if terrain == Empty:
     return ""
   let key = TerrainCatalog[terrain].spriteKey
   assert key.len > 0, "Missing spriteKey for terrain: " & $terrain
