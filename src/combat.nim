@@ -653,15 +653,20 @@ proc applyAgentDamage(env: Environment, target: Thing, amount: int, attacker: Th
         remaining = max(1, (remaining + 1) div 2)
         break
 
-  # Apply Blacksmith armor upgrade bonus for defender
+  # Apply combined armor reduction (blacksmith + inventory) as a single pool
+  # so neither source eclipses the other
+  var totalArmor = 0
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    let armorBonus = env.getBlacksmithArmorBonus(teamId, target.unitClass)
-    remaining = max(0, remaining - armorBonus)
+    totalArmor += env.getBlacksmithArmorBonus(teamId, target.unitClass)
+  totalArmor += target.inventoryArmor
 
-  if target.inventoryArmor > 0:
-    let absorbed = min(remaining, target.inventoryArmor)
-    target.inventoryArmor = max(0, target.inventoryArmor - absorbed)
+  if totalArmor > 0:
+    let absorbed = min(remaining, totalArmor)
     remaining -= absorbed
+    # Deplete inventory armor by whatever portion it contributed
+    if target.inventoryArmor > 0:
+      let inventoryUsed = min(target.inventoryArmor, absorbed)
+      target.inventoryArmor = target.inventoryArmor - inventoryUsed
 
   # Guarantee minimum 1 damage (AoE2 rule: attacks always deal at least 1)
   remaining = max(1, remaining)
