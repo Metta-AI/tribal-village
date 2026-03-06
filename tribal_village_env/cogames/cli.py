@@ -24,7 +24,7 @@ def attach_train_command(
     *,
     command_name: str = "train-tribal",
     require_cogames: bool = True,
-    console_fallback: Optional[Console] = None,
+    console_fallback: Console | None = None,
 ) -> bool:
     try:
         console, get_policy_spec, policy_arg_example, resolve_training_device = (
