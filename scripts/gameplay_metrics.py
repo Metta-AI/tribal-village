@@ -27,41 +27,40 @@ from pathlib import Path
 
 import numpy as np
 
-# Observation layer indices matching the compiled libtribal_village.so.
-# The .so was built before TerrainMountainLayer and ThingWaterfall*Layer
-# were added to ObservationName in src/types.nim, so thing layers are
-# shifted -1 and meta layers are shifted -5.  Update when .so is recompiled.
-LAYER_AGENT = 17
-LAYER_TREE = 20
-LAYER_WHEAT = 21
-LAYER_FISH = 22
-LAYER_STONE = 24
-LAYER_GOLD = 25
-LAYER_BUSH = 26
-LAYER_TOWN_CENTER = 50
-LAYER_HOUSE = 51
-LAYER_BARRACKS = 52
-LAYER_ARCHERY_RANGE = 53
-LAYER_STABLE = 54
-LAYER_SIEGE_WORKSHOP = 55
-LAYER_BLACKSMITH = 58
-LAYER_MARKET = 59
-LAYER_DOCK = 60
-LAYER_MONASTERY = 61
-LAYER_UNIVERSITY = 62
-LAYER_CASTLE = 63
-LAYER_WONDER = 64
-LAYER_GUARD_TOWER = 41
-LAYER_MILL = 43
-LAYER_GRANARY = 44
-LAYER_LUMBER_CAMP = 45
-LAYER_QUARRY = 46
-LAYER_MINING_CAMP = 47
+# Observation layer indices matching src/types.nim ObservationName enum.
+# These must stay in sync with the enum order in types.nim.
+# Last synced: 2026-03-06 (96 total layers).
+LAYER_AGENT = 18        # ThingAgentLayer
+LAYER_TREE = 21         # ThingTreeLayer
+LAYER_WHEAT = 22        # ThingWheatLayer
+LAYER_FISH = 23         # ThingFishLayer
+LAYER_STONE = 25        # ThingStoneLayer
+LAYER_GOLD = 26         # ThingGoldLayer
+LAYER_BUSH = 27         # ThingBushLayer
+LAYER_GUARD_TOWER = 42  # ThingGuardTowerLayer
+LAYER_MILL = 44         # ThingMillLayer
+LAYER_GRANARY = 45      # ThingGranaryLayer
+LAYER_LUMBER_CAMP = 46  # ThingLumberCampLayer
+LAYER_QUARRY = 47       # ThingQuarryLayer
+LAYER_MINING_CAMP = 48  # ThingMiningCampLayer
+LAYER_TOWN_CENTER = 51  # ThingTownCenterLayer
+LAYER_HOUSE = 52        # ThingHouseLayer
+LAYER_BARRACKS = 53     # ThingBarracksLayer
+LAYER_ARCHERY_RANGE = 54  # ThingArcheryRangeLayer
+LAYER_STABLE = 55       # ThingStableLayer
+LAYER_SIEGE_WORKSHOP = 56  # ThingSiegeWorkshopLayer
+LAYER_BLACKSMITH = 59   # ThingBlacksmithLayer
+LAYER_MARKET = 60       # ThingMarketLayer
+LAYER_DOCK = 61         # ThingDockLayer
+LAYER_MONASTERY = 62    # ThingMonasteryLayer
+LAYER_UNIVERSITY = 63   # ThingUniversityLayer
+LAYER_CASTLE = 64       # ThingCastleLayer
+LAYER_WONDER = 65       # ThingWonderLayer
 
-LAYER_TEAM = 81
-LAYER_UNIT_CLASS = 83
-LAYER_IDLE = 84
-LAYER_TINT = 85
+LAYER_TEAM = 87         # TeamLayer
+LAYER_UNIT_CLASS = 89   # AgentUnitClassLayer
+LAYER_IDLE = 90         # AgentIdleLayer
+LAYER_TINT = 91         # TintLayer
 
 # Building layers grouped for counting
 BUILDING_LAYERS = {

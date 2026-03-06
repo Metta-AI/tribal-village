@@ -2,7 +2,7 @@
 
 Date: 2026-01-28
 Owner: Engineering / AI
-Status: Draft
+Status: Active
 
 ## Overview
 The built-in AI lives under `src/scripted/` and is wired in through

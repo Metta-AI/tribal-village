@@ -6,8 +6,13 @@ import io
 import os
 from pathlib import Path
 
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    raise ImportError(
+        "generate_assets.py requires the Google GenAI SDK: pip install google-genai"
+    )
 from PIL import Image
 
 from asset_postprocess import postprocess_to_target, tmp_path_for

@@ -376,5 +376,5 @@ python scripts/generate_assets.py
 
 - See `docs/README.md` for the full documentation index
 - See `docs/cli_and_debugging.md` for detailed CLI usage
-- See `docs/ai_profiling.md` for AI performance analysis
+- See `docs/performance_optimization_roadmap.md` for performance analysis
 - See `docs/training_and_replays.md` for ML training setup

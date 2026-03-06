@@ -64,5 +64,6 @@
 - `ai-control-gap-analysis.md`: AI control gap analysis.
 - `audit-world-sim-core.md`: world simulation core audit.
 
-## Archive (`archive/`)
-Historical plans, completed audits, and profiling snapshots with no remaining action items.
+## Archive
+Archive directory removed — all historical plans and completed audits have been deleted.
+Active performance analysis lives in `performance_optimization_roadmap.md`.
