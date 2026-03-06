@@ -514,9 +514,6 @@ proc drawAgentDecorations*() =
       drawSegmentBar(pos.vec2, vec2(0, -0.5), hpRatio, hpColor,
                      BarBgColor, 5, hpAlpha)
 
-    # Control group badges are tracked via global controlGroups array
-    # TODO: Look up if this agent is in any control group and display badge
-
 proc drawGrid*() =
   ## Draw grid lines for tile boundaries.
   if not settings.showGrid or not currentViewport.valid:
