@@ -47,6 +47,15 @@ from tribal_village_env.config import (
 logger = logging.getLogger("cogames.tribal_village.train")
 
 
+def _auto_adjust(name: str, current: int, desired: int, user_supplied: bool) -> int:
+    """Log and return *desired* when it differs from *current*, else pass through."""
+    if desired != current:
+        log_fn = logger.warning if user_supplied else logger.info
+        log_fn("Auto-adjusting %s from %s to %s", name, current, desired)
+        return desired
+    return current
+
+
 class TribalEnvFactory:
     """Picklable factory for vectorized Tribal Village environments."""
 
@@ -176,24 +185,12 @@ def train(settings: dict[str, Any]) -> None:
         envs_user_supplied=vector_num_envs is not None,
         workers_user_supplied=vector_num_workers is not None,
     )
-    if adjusted_envs != num_envs:
-        log_fn = logger.warning if vector_num_envs is not None else logger.info
-        log_fn(
-            "Auto-adjusting num_envs from %s to %s so num_workers=%s divides evenly",
-            num_envs,
-            adjusted_envs,
-            adjusted_workers,
-        )
-        num_envs = adjusted_envs
-    if adjusted_workers != num_workers:
-        log_fn = logger.warning if vector_num_workers is not None else logger.info
-        log_fn(
-            "Auto-adjusting num_workers from %s to %s to evenly divide num_envs=%s",
-            num_workers,
-            adjusted_workers,
-            num_envs,
-        )
-        num_workers = adjusted_workers
+    num_envs = _auto_adjust(
+        "num_envs", num_envs, adjusted_envs, vector_num_envs is not None
+    )
+    num_workers = _auto_adjust(
+        "num_workers", num_workers, adjusted_workers, vector_num_workers is not None
+    )
 
     vector_batch_size = settings.get("vector_batch_size") or num_envs
     if num_envs % vector_batch_size != 0:
