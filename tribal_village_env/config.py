@@ -217,6 +217,13 @@ class RewardConfig(Config):
         description="Penalty applied when an agent dies",
     )
 
+    @staticmethod
+    def _legacy_key(field_name: str) -> str:
+        """Map a RewardConfig field name to its legacy dict key."""
+        if field_name.endswith("_penalty"):
+            return field_name
+        return f"{field_name}_reward"
+
 
 class EnvironmentConfig(Config):
     """Configuration for the Tribal Village environment.
@@ -295,56 +302,24 @@ class EnvironmentConfig(Config):
             "render_scale": self.render_scale,
         }
 
-        # Add reward fields with legacy naming
         if not math.isnan(self.tumor_spawn_rate):
             result["tumor_spawn_rate"] = self.tumor_spawn_rate
-        if not math.isnan(self.rewards.heart):
-            result["heart_reward"] = self.rewards.heart
-        if not math.isnan(self.rewards.ore):
-            result["ore_reward"] = self.rewards.ore
-        if not math.isnan(self.rewards.bar):
-            result["bar_reward"] = self.rewards.bar
-        if not math.isnan(self.rewards.wood):
-            result["wood_reward"] = self.rewards.wood
-        if not math.isnan(self.rewards.water):
-            result["water_reward"] = self.rewards.water
-        if not math.isnan(self.rewards.wheat):
-            result["wheat_reward"] = self.rewards.wheat
-        if not math.isnan(self.rewards.spear):
-            result["spear_reward"] = self.rewards.spear
-        if not math.isnan(self.rewards.armor):
-            result["armor_reward"] = self.rewards.armor
-        if not math.isnan(self.rewards.food):
-            result["food_reward"] = self.rewards.food
-        if not math.isnan(self.rewards.cloth):
-            result["cloth_reward"] = self.rewards.cloth
-        if not math.isnan(self.rewards.tumor_kill):
-            result["tumor_kill_reward"] = self.rewards.tumor_kill
-        if not math.isnan(self.rewards.survival_penalty):
-            result["survival_penalty"] = self.rewards.survival_penalty
-        if not math.isnan(self.rewards.death_penalty):
-            result["death_penalty"] = self.rewards.death_penalty
+
+        for field_name in RewardConfig.model_fields:
+            value = getattr(self.rewards, field_name)
+            if not math.isnan(value):
+                result[RewardConfig._legacy_key(field_name)] = value
 
         return result
 
     @classmethod
     def from_legacy_dict(cls, config: dict[str, Any]) -> EnvironmentConfig:
         """Create config from legacy dictionary format."""
-        rewards = RewardConfig(
-            heart=config.get("heart_reward", math.nan),
-            ore=config.get("ore_reward", math.nan),
-            bar=config.get("bar_reward", math.nan),
-            wood=config.get("wood_reward", math.nan),
-            water=config.get("water_reward", math.nan),
-            wheat=config.get("wheat_reward", math.nan),
-            spear=config.get("spear_reward", math.nan),
-            armor=config.get("armor_reward", math.nan),
-            food=config.get("food_reward", math.nan),
-            cloth=config.get("cloth_reward", math.nan),
-            tumor_kill=config.get("tumor_kill_reward", math.nan),
-            survival_penalty=config.get("survival_penalty", math.nan),
-            death_penalty=config.get("death_penalty", math.nan),
-        )
+        reward_kwargs = {
+            field_name: config.get(RewardConfig._legacy_key(field_name), math.nan)
+            for field_name in RewardConfig.model_fields
+        }
+        rewards = RewardConfig(**reward_kwargs)
 
         return cls(
             max_steps=config.get("max_steps", 10_000),
