@@ -170,11 +170,11 @@ const
                    RampDownN, RampDownS, RampDownW, RampDownE}
   WaterTerrain* = {Water, ShallowWater}
   DustyTerrain* = {Sand, Dune, Snow, Mud, Grass, Fertile, Road}  ## Terrain that kicks up dust when walked on
-  BuildableTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune, Road,
+  BuildableTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune, Road, Fertile,
                         RampUpN, RampUpS, RampUpW, RampUpE,
                         RampDownN, RampDownS, RampDownW, RampDownE}
   # BuildableTerrain excluding roads and ramps - for AI build location selection
-  PlaceableBuildTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune}
+  PlaceableBuildTerrain* = {Empty, Grass, Sand, Snow, Mud, Dune, Fertile}
 
 template isBlockedTerrain*(terrain: TerrainType): bool =
   terrain == Water or terrain == Mountain

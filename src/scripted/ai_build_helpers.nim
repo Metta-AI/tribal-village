@@ -234,7 +234,7 @@ proc tryBuildIfMissing*(controller: Controller, env: Environment, agent: Thing, 
     elif agent.homeAltar.x >= 0: agent.homeAltar
     else: agent.pos
 
-  const searchRadius = 8
+  const searchRadius = 16
   var bestDist = int.high
   var buildPos = ivec2(-1, -1)
   var standPos = ivec2(-1, -1)
@@ -308,7 +308,7 @@ proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thi
 
   # Use settlement center as the anchor for building placement
   let anchor = settlementCenter
-  const searchRadius = 8
+  const searchRadius = 16
   var bestDist = int.high
   var buildPos = ivec2(-1, -1)
   var standPos = ivec2(-1, -1)
@@ -441,7 +441,10 @@ proc needsPopCapHouse*(controller: Controller, env: Environment, teamId: int): b
     controller.getBuildingCount(env, teamId, Altar) > 0
   if popCap >= MapAgentsPerTeam:
     return false
-  let buffer = HousePopCap
+  # If we have no military buildings yet, only build houses when truly at cap
+  # to let wood stockpile accumulate for military infrastructure
+  let hasBarracks = controller.getBuildingCount(env, teamId, Barracks) > 0
+  let buffer = if hasBarracks: HousePopCap else: 1
   (popCap > 0 and popCount >= popCap - buffer) or
     (popCap == 0 and hasBase and popCount >= buffer)
 

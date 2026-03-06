@@ -643,6 +643,28 @@ proc tribal_village_init_market_prices*(env: pointer) {.exportc, dynlib.} =
   ## Initialize market prices to base rates for all teams.
   initMarketPrices(globalEnv)
 
+proc tribal_village_get_building_count*(env: pointer, teamId: int32, kindOrd: int32): int32 {.exportc, dynlib.} =
+  ## Get count of buildings of a given kind owned by a team.
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if kindOrd < 0 or kindOrd > ord(ThingKind.high):
+    return 0
+  let kind = ThingKind(kindOrd)
+  var count = 0'i32
+  for thing in globalEnv.thingsByKind[kind]:
+    if thing.teamId == teamId:
+      inc count
+  count
+
+proc tribal_village_get_stockpile*(env: pointer, teamId: int32, resource: int32): int32 {.exportc, dynlib.} =
+  ## Get team stockpile count for a resource.
+  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone, 4=Water
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return 0
+  if resource < 0 or resource > ord(StockpileResource.high):
+    return 0
+  stockpileCount(globalEnv, teamId, StockpileResource(resource)).int32
+
 proc tribal_village_get_market_price*(env: pointer, teamId: int32, resource: int32): int32 {.exportc, dynlib.} =
   ## Get current market price for a resource (gold cost per 100 units).
   ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone, 4=Water, 5=None
