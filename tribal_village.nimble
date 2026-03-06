@@ -28,12 +28,6 @@ task buildLib, "Build shared library for PufferLib (nimby-friendly)":
 task run, "Run the tribal village game":
   exec "nim c -r tribal_village.nim"
 
-task lib, "Build shared library for PufferLib (alias for buildLib)":
-  let ext = when defined(windows): "dll"
-            elif defined(macosx): "dylib"
-            else: "so"
-  buildShared(ext)
-
 task wasm, "Build Tribal Village WASM demo":
   let
     root = getCurrentDir()
