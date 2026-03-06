@@ -266,7 +266,7 @@ proc evaluateTribute*(env: Environment, teamId: int) =
   # Check each resource type (except ResourceNone and ResourceWater)
   for res in [ResourceFood, ResourceWood, ResourceGold, ResourceStone]:
     let ownStock = env.stockpileCount(teamId, res)
-    if ownStock < TributeSurplusThreshold:
+    if ownStock <= TributeSurplusThreshold:
       continue  # Not enough surplus to tribute
 
     # Find a team in deficit for this resource
