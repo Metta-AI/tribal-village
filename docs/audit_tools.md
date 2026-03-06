@@ -53,7 +53,6 @@ Filter with `TV_EVENT_FILTER=combat,death,research` (empty = all):
 | Script | Purpose | Command |
 |--------|---------|---------|
 | `scripts/feature_audit.nim` | 8-section feature coverage report | `TV_AUDIT_STEPS=3000 nim c -r -d:release --path:src scripts/feature_audit.nim` |
-| `scripts/game_diagnostic.nim` | Per-window state snapshots (pop, buildings, SPS) | `TV_SPS_STEPS=3000 TV_SPS_WINDOW=100 nim c -r -d:release --path:src scripts/game_diagnostic.nim` |
 | `scripts/benchmark_steps.nim` | Performance profiling with regression detection | `make benchmark` |
 
 ## Per-Agent Stats

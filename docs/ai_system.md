@@ -309,10 +309,7 @@ Additional specialized modules:
 ## Debugging and profiling hooks
 
 ### Quick profiling scripts
-- `scripts/profile_ai.nim`: headless AI profiling (population, altar hearts)
-- `scripts/profile_env.nim`: low-level `nimprof`-compatible profiling
 - `scripts/benchmark_steps.nim`: measure steps/second with perf regression detection (`make benchmark`)
-- `scripts/run_all_tests.nim`: run the full Nim test sequence
 
 ### Compile-time instrumentation flags
 All flags are zero-cost when disabled (code is compiled out entirely):

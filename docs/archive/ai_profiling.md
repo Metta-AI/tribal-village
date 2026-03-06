@@ -18,32 +18,11 @@ nim r -d:release -d:enableEvolution --path:src tribal_village.nim
 When disabled, only the core roles (Gatherer, Builder, Fighter) are assigned.
 When enabled, the role catalog loads history and samples non-core roles.
 
-## Headless AI Profiling
-Use `scripts/profile_ai.nim` to measure population growth and altar heart counts
-without the renderer:
+## Headless Profiling
 
-```
-nim r -d:release --path:src scripts/profile_ai.nim
-TV_PROFILE_STEPS=3000 nim r -d:release --path:src scripts/profile_ai.nim
-TV_PROFILE_REPORT_EVERY=500 TV_PROFILE_SEED=42 nim r -d:release --path:src scripts/profile_ai.nim
-```
-
-Environment variables:
-- `TV_PROFILE_STEPS` (default 3000)
-- `TV_PROFILE_REPORT_EVERY` (0 disables periodic logging)
-- `TV_PROFILE_SEED` (default 42)
-
-The script reports baseline house counts, max house counts, and max altar hearts per team.
-
-## Environment Profiling (nimprof)
-For low-level performance profiling, use `scripts/profile_env.nim`:
-
-```
-nim r --nimcache:./nimcache --profiler:on --stackTrace:on scripts/profile_env.nim
-```
-
-This runs a headless environment loop with randomized actions and is suitable for
-`nimprof` analysis.
+The standalone profiling scripts (`scripts/profile_ai.nim`, `scripts/profile_env.nim`) have been removed.
+Use `make benchmark` (via `scripts/benchmark_steps.nim`) for headless performance profiling,
+or run via the CLI: `tribal-village play --render ansi --steps 3000`.
 
 ## Benchmarking (Performance Regression Detection)
 
@@ -84,6 +63,6 @@ full environment variable reference for each flag.
 | `-d:renderTiming` | Per-frame render timing | `src/renderer.nim` |
 | `-d:spatialAutoTune` | Density-based spatial cell adaptation | `src/spatial_index.nim` |
 | `-d:spatialStats` | Spatial query efficiency metrics | `src/spatial_index.nim` |
-| `-d:flameGraph` | CPU sampling (flamegraph.pl compatible) | `src/tribal_village.nim` |
+| `-d:flameGraph` | CPU sampling (flamegraph.pl compatible) | `tribal_village.nim` |
 | `-d:aiAudit` | AI decision logging (`TV_AI_LOG=1`) | `src/scripted/ai_defaults.nim` |
 | `-d:enableEvolution` | Enable role evolution and history | `src/scripted/ai_defaults.nim` |

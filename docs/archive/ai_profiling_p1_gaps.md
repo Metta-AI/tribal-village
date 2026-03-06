@@ -638,9 +638,7 @@ tribal_village_follow_agent(agentId, targetAgentId)
 - `/home/relh/gt/tribal_village/tests/domain_*.nim`
 
 ### Profiling
-- `/home/relh/gt/tribal_village/scripts/profile_ai.nim`
-- `/home/relh/gt/tribal_village/scripts/profile_env.nim`
-- `/home/relh/gt/tribal_village/scripts/profile_roles.nim`
+- `scripts/benchmark_steps.nim` (headless benchmarking, replaces deleted profile scripts)
 
 ---
 

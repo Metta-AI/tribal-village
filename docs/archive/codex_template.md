@@ -18,7 +18,7 @@ signature and expected artifacts.
 **Outputs:** Command results + summarized status.
 **Commands:**
 - `make check` (CI gate: syncs deps + nim check)
-- `timeout 15s nim r -d:release --path:src src/tribal_village.nim` (or `gtimeout` on macOS)
+- `timeout 15s nim r -d:release --path:src tribal_village.nim` (or `gtimeout` on macOS)
 - `make test-nim` (run Nim unit/integration tests)
 
 ### /tv-spelunk <pattern>
@@ -312,7 +312,7 @@ population growth, constraints, and resource bottlenecks.
 - `seeds`: list (optional override)
 
 **Steps:**
-1) Run `scripts/profile_ai.nim` for each seed.
+1) Run headless profiling for each seed (via `make benchmark` or `scripts/benchmark_steps.nim`).
 2) Capture max houses, max hearts, and population counts.
 3) Summarize limiting factors (materials, attacks, AI flow).
 
@@ -501,8 +501,6 @@ trading hub placement tweaks, and river flow adjustments.
 # tribal-village CLI (requires extras)
 tribal-village train --steps 100000 --parallel-envs 4 --num-workers 2 --log-outputs
 
-# metta wrapper
-scripts/train_metta.sh --steps 100000 --parallel-envs 4 --num-workers 2 --log-outputs
 ```
 
 **Notes:** Common failures include missing extras or wrong package resolution in metta.

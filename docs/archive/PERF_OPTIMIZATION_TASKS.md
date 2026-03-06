@@ -64,7 +64,7 @@ Replaced O(n) agent scan with `collectAgentsByClassInRange()` for tank aura dama
 To verify performance, run:
 ```bash
 make benchmark                                        # steps/sec + regression detection
-nim c -r -d:release --path:src scripts/perf_baseline.nim --steps 1000  # raw perf baseline
+nim c -r -d:release -d:perfRegression --path:src scripts/benchmark_steps.nim  # raw perf baseline
 nim c -r --path:src tests/integration_behaviors.nim   # integration tests
 ```
 
