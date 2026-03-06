@@ -2368,13 +2368,6 @@ let FighterOptions* = [
     interruptible: true
   ),
   OptionDef(
-    name: "FighterTrain",
-    canStart: canStartFighterTrain,
-    shouldTerminate: shouldTerminateFighterTrain,
-    act: optFighterTrain,
-    interruptible: true
-  ),
-  OptionDef(
     name: "FighterLanterns",
     canStart: canStartFighterLanterns,
     shouldTerminate: shouldTerminateFighterLanterns,
