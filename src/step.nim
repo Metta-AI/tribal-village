@@ -2394,7 +2394,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
   when defined(gatherHeatmap):
     env.maybeRenderGatherHeatmap()
 
-proc reset*(env: Environment) =
+proc reset*(env: Environment, seed: int = 0) =
   maybeFinalizeReplay(env)
   env.currentStep = 0
   env.shouldReset = false
@@ -2470,4 +2470,4 @@ proc reset*(env: Environment) =
     controlGroups[i] = @[]
   # Reset formation state for all control groups
   resetAllFormations()
-  env.init()  # init() handles terrain, activeTiles, and tile colors
+  env.init(seed)  # init() handles terrain, activeTiles, and tile colors

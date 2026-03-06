@@ -761,8 +761,11 @@ class TribalVillageEnv(pufferlib.PufferEnv):
         truncations_ptr = self.truncations.ctypes.data_as(ctypes.c_void_p)
 
         # Direct buffer reset - no conversions
+        # Pass seed through FFI for deterministic world generation (0 = random)
+        c_seed = ctypes.c_int32(seed if seed is not None else 0)
         success = self.lib.tribal_village_reset_and_get_obs(
-            self.env_ptr, obs_ptr, rewards_ptr, terminals_ptr, truncations_ptr
+            self.env_ptr, obs_ptr, rewards_ptr, terminals_ptr, truncations_ptr,
+            c_seed
         )
         if not success:
             raise RuntimeError("Failed to reset Nim environment")

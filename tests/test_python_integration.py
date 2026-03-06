@@ -414,10 +414,6 @@ class TestEndToEndScenarios:
         env1.close()
         env2.close()
 
-    @pytest.mark.skip(
-        reason="Seed not yet wired through FFI — Nim environment uses internal RNG. "
-        "Enable when tribal_village_create_env() accepts a seed parameter."
-    )
     def test_deterministic_with_same_seed(self):
         """Same seed should produce same initial state."""
         env1 = TribalVillageEnv()

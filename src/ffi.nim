@@ -144,11 +144,13 @@ proc tribal_village_reset_and_get_obs(
   obs_buffer: ptr UncheckedArray[uint8],    # [MapAgents, ObservationLayers, 11, 11] direct
   rewards_buffer: ptr UncheckedArray[float32],
   terminals_buffer: ptr UncheckedArray[uint8],
-  truncations_buffer: ptr UncheckedArray[uint8]
+  truncations_buffer: ptr UncheckedArray[uint8],
+  seed: int32 = 0
 ): int32 {.exportc, dynlib.} =
-  ## Reset and write directly to buffers - no conversions
+  ## Reset and write directly to buffers - no conversions.
+  ## When seed > 0, uses deterministic world generation; seed=0 uses current time.
   try:
-    globalEnv.reset()
+    globalEnv.reset(int(seed))
     # Observations are lazily built - rebuild now since we're returning them
     globalEnv.ensureObservations()
 
