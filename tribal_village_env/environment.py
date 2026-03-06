@@ -9,7 +9,7 @@ from __future__ import annotations
 import ctypes
 import platform
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from gymnasium import spaces
@@ -110,7 +110,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
     def __init__(
         self,
-        config: Optional[EnvironmentConfig | dict[str, Any]] = None,
+        config: EnvironmentConfig | dict[str, Any] | None = None,
         buf: Any = None,
     ):
         # Convert config to typed EnvironmentConfig
@@ -748,7 +748,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             raise RuntimeError("Failed to apply Nim environment config")
 
     def reset(
-        self, seed: Optional[int] = None, options: Optional[dict] = None
+        self, seed: int | None = None, options: dict | None = None
     ) -> tuple[dict, dict]:
         """Ultra-fast reset using direct buffers."""
         self.step_count = 0
@@ -837,7 +837,7 @@ class TribalVillageEnv(pufferlib.PufferEnv):
 
 
 def make_tribal_village_env(
-    config: Optional[dict[str, Any]] = None, **kwargs
+    config: dict[str, Any] | None = None, **kwargs
 ) -> TribalVillageEnv:
     """Factory function for ultra-fast tribal village environment."""
     if config is None:
