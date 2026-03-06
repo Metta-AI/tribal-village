@@ -145,7 +145,9 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             height = self.map_height * self.render_scale
             width = self.map_width * self.render_scale
             self._rgb_frame = np.zeros((height, width, 3), dtype=np.uint8)
-        except Exception:
+        except (AttributeError, OSError, ValueError, TypeError):
+            # FFI function may not exist (AttributeError), library call may fail (OSError),
+            # or return value may not convert (ValueError/TypeError) — rendering is optional
             self.map_width = None
             self.map_height = None
             self.render_scale = 1
