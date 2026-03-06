@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 import typer
 from rich.console import Console
@@ -24,7 +24,7 @@ def attach_train_command(
     *,
     command_name: str = "train-tribal",
     require_cogames: bool = True,
-    console_fallback: Optional[Console] = None,
+    console_fallback: Console | None = None,
 ) -> bool:
     try:
         console, get_policy_spec, policy_arg_example, resolve_training_device = (
@@ -49,9 +49,9 @@ def attach_train_command(
     SeedOpt = Annotated[int, typer.Option("--seed", help="Seed for training", min=0)]
     BatchSizeOpt = Annotated[int, typer.Option("--batch-size", help="Batch size for training", min=1)]
     MinibatchSizeOpt = Annotated[int, typer.Option("--minibatch-size", help="Minibatch size for training", min=1)]
-    NumWorkersOpt = Annotated[Optional[int], typer.Option("--num-workers", help="Number of worker processes", min=1)]
-    ParallelEnvsOpt = Annotated[Optional[int], typer.Option("--parallel-envs", help="Number of parallel environments", min=1)]
-    VectorBatchSizeOpt = Annotated[Optional[int], typer.Option("--vector-batch-size", help="Override vectorized environment batch size", min=1)]
+    NumWorkersOpt = Annotated[int | None, typer.Option("--num-workers", help="Number of worker processes", min=1)]
+    ParallelEnvsOpt = Annotated[int | None, typer.Option("--parallel-envs", help="Number of parallel environments", min=1)]
+    VectorBatchSizeOpt = Annotated[int | None, typer.Option("--vector-batch-size", help="Override vectorized environment batch size", min=1)]
     EpisodeStepsOpt = Annotated[int, typer.Option("--episode-steps", help="Episode length", min=1)]
     RenderScaleOpt = Annotated[int, typer.Option("--render-scale", help="Scale factor for rendered frames", min=1)]
     RenderModeOpt = Annotated[Literal["ansi", "rgb_array"], typer.Option("--render-mode", help="Rendering mode")]
