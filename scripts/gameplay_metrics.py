@@ -100,6 +100,8 @@ TINT_COMBAT_MIN = 1
 TINT_COMBAT_MAX = 59
 TINT_DEATH = 60
 
+EXPECTED_OBS_LAYERS = 96
+
 NUM_TEAMS = 8
 AGENTS_PER_TEAM = 125
 
@@ -193,6 +195,12 @@ def run_metrics(
 
     num_agents = env.total_agents
     obs_layers = env.obs_layers
+
+    assert obs_layers == EXPECTED_OBS_LAYERS, (
+        f"Layer count mismatch: expected {EXPECTED_OBS_LAYERS}, got {obs_layers}. "
+        f"Update LAYER_* constants in {__file__}."
+    )
+
     print(f"Environment: {num_agents} agents, {obs_layers} obs layers, "
           f"{env.obs_width}x{env.obs_height} grid")
     print(f"Running for {steps} steps (sampling every {sample_interval} steps)...")
