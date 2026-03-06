@@ -507,18 +507,18 @@ proc optGathererIdleAutoAssign(controller: Controller, env: Environment, agent: 
 let GathererOptions* = [
   TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
   OptionDef(
-    name: "GathererGarrison",
-    canStart: canStartGathererGarrison,
-    shouldTerminate: shouldTerminateGathererGarrison,
-    act: optGathererGarrison,
-    interruptible: false  # Garrison is not interruptible - survival is priority
-  ),
-  OptionDef(
     name: "GathererFlee",
     canStart: canStartGathererFlee,
     shouldTerminate: shouldTerminateGathererFlee,
     act: optGathererFlee,
     interruptible: false  # Flee is not interruptible - survival is priority
+  ),
+  OptionDef(
+    name: "GathererGarrison",
+    canStart: canStartGathererGarrison,
+    shouldTerminate: shouldTerminateGathererGarrison,
+    act: optGathererGarrison,
+    interruptible: false  # Garrison is not interruptible - survival is priority
   ),
   OptionDef(
     name: "GathererPredatorFlee",
