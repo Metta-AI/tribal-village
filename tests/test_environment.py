@@ -1,25 +1,29 @@
 """Tests for the tribal_village environment."""
 
-import platform
-from pathlib import Path
-
 import pytest
 
 
-def _nim_library_available() -> bool:
-    if platform.system() == "Darwin":
-        lib_name = "libtribal_village.dylib"
-    elif platform.system() == "Windows":
-        lib_name = "libtribal_village.dll"
-    else:
-        lib_name = "libtribal_village.so"
-    package_dir = Path(__file__).resolve().parent.parent / "tribal_village_env"
-    return any(p.exists() for p in [package_dir.parent / lib_name, package_dir / lib_name])
+# Duplicated from conftest.py for import reliability — pytest doesn't always
+# add tests/ to sys.path, so direct import from conftest can fail.
+try:
+    from conftest import requires_nim_library
+except ImportError:
+    import platform
+    from pathlib import Path
 
+    def _nim_library_available() -> bool:
+        if platform.system() == "Darwin":
+            lib_name = "libtribal_village.dylib"
+        elif platform.system() == "Windows":
+            lib_name = "libtribal_village.dll"
+        else:
+            lib_name = "libtribal_village.so"
+        package_dir = Path(__file__).resolve().parent.parent / "tribal_village_env"
+        return any(p.exists() for p in [package_dir.parent / lib_name, package_dir / lib_name])
 
-requires_nim_library = pytest.mark.skipif(
-    not _nim_library_available(), reason="Nim library not available"
-)
+    requires_nim_library = pytest.mark.skipif(
+        not _nim_library_available(), reason="Nim library not available"
+    )
 
 
 class TestNimConfig:
