@@ -138,8 +138,8 @@ const
 
   # Archer
   ArcherAttackDamage* = 1
-  ArcherMaxHp* = 4
-  ArcherBaseRange* = 3
+  ArcherMaxHp* = 5
+  ArcherBaseRange* = 4
 
   # Scout
   ScoutAttackDamage* = 1
