@@ -93,9 +93,9 @@ proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
-proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int, includeShallow: bool = false): bool =
+proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int, includeShallow: bool = true): bool =
   ## Check if there is water terrain within the given radius of a position.
-  ## If includeShallow is true, also matches ShallowWater.
+  ## Includes ShallowWater by default since docks can be placed on either.
   for dx in -radius .. radius:
     for dy in -radius .. radius:
       let x = pos.x + dx
@@ -1066,10 +1066,10 @@ proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.i
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
-  ## Check if a dock can be placed at the position (must be water).
+  ## Check if a dock can be placed at the position (must be water or shallow water).
   ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
-    (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] == Water
+    (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] in WaterTerrain
 
 ## resetTileColor is in environment_grid.nim
 

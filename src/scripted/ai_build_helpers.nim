@@ -386,7 +386,7 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
     elif agent.homeAltar.x >= 0: agent.homeAltar
     else: agent.pos
 
-  const searchRadius = 12
+  const searchRadius = 20
   var bestDist = int.high
   var bestStand = ivec2(-1, -1)
   let minX = max(0, anchor.x - searchRadius)
@@ -403,7 +403,7 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
       # Find a land tile adjacent to this water tile where the builder can stand
       for d in CardinalOffsets:
         let stand = pos + d
-        if isValidPos(stand) and env.terrain[stand.x][stand.y] != Water and
+        if isValidPos(stand) and env.terrain[stand.x][stand.y] notin WaterTerrain and
             not env.hasDoor(stand) and
             not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
             not isTileFrozen(stand, env) and
