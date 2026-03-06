@@ -13,14 +13,6 @@ uv.lock
 # Nim compilation artifacts
 *.out
 *.exe
-src/tribal/tribal
-
-# Nim compiled binaries (executables without extension)
-src/tribal/environment
-src/tribal/renderer
-src/tribal/clippy
-src/tribal/placement
-src/tribal/terrain
 src/ffi
 
 # Test executables (all compiled test binaries)
@@ -51,9 +43,6 @@ src/**/nimcache/
 actions.tmp
 tribal_replay_*.tribal
 
-# Example outputs that shouldn't be committed
-examples/tribal_replay_*.tribal
-examples/*.tmp
 train_dir/
 experiments/
 
