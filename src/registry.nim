@@ -408,7 +408,7 @@ proc buildingTrainCosts*(kind: ThingKind): seq[tuple[res: StockpileResource, cou
   of Barracks: @[(res: ResourceFood, count: 3), (res: ResourceGold, count: 1)]
   of ArcheryRange: @[(res: ResourceWood, count: 2), (res: ResourceGold, count: 2)]
   of Stable: @[(res: ResourceFood, count: 3)]
-  of SiegeWorkshop: @[(res: ResourceWood, count: 3)]
+  of SiegeWorkshop: @[(res: ResourceWood, count: 2)]
   of MangonelWorkshop: @[(res: ResourceWood, count: 4)]
   of TrebuchetWorkshop: @[(res: ResourceWood, count: 4), (res: ResourceGold, count: 3)]
   of Monastery: @[(res: ResourceGold, count: 2)]
@@ -426,7 +426,7 @@ proc unitTrainTime*(unitClass: AgentUnitClass): int =
   of UnitScout: 30
   of UnitKnight: 60
   of UnitMonk: 50
-  of UnitBatteringRam: 80
+  of UnitBatteringRam: 50
   of UnitMangonel: 80
   of UnitTrebuchet: 80
   of UnitGoblin: 30
