@@ -23,11 +23,19 @@ def _target_library_name() -> str:
     return "libtribal_village.so"
 
 
+def _target_binary_name() -> str:
+    if platform.system() == "Windows":
+        return "tribal_village.exe"
+    return "tribal_village"
+
+
 def _collect_source_files(project_root: Path) -> list[Path]:
-    nim_sources = list(project_root.rglob("*.nim"))
+    src_dir = project_root / "src"
+    nim_sources = list(src_dir.rglob("*.nim")) if src_dir.exists() else []
     return nim_sources + [
         project_root / "tribal_village.nim",
         project_root / "tribal_village.nimble",
+        project_root / "nim.cfg",
         project_root / "nimby.lock",
     ]
 
@@ -73,6 +81,45 @@ def _build_library(project_root: Path) -> Path:
     )
 
 
+def _build_binary(project_root: Path) -> Path:
+    _ensure_nim_toolchain()
+    _install_nim_deps(project_root)
+
+    target_name = _target_binary_name()
+    cmd = [
+        "nim",
+        "c",
+        "-d:release",
+        "--path:src",
+        f"--out:{target_name}",
+        "tribal_village.nim",
+    ]
+    result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+        raise RuntimeError(
+            f"Failed to build Tribal Village binary (exit {result.returncode}). stdout: {stdout} stderr: {stderr}"
+        )
+
+    binary_path = project_root / target_name
+    if binary_path.exists():
+        return binary_path
+
+    raise RuntimeError(f"Build completed but {target_name} was not found.")
+
+
+def _needs_rebuild(target_path: Path, source_files: Iterable[Path]) -> bool:
+    latest_source_mtime = _latest_mtime(source_files)
+    target_mtime: float | None = (
+        target_path.stat().st_mtime if target_path.exists() else None
+    )
+    return target_mtime is None or (
+        latest_source_mtime is not None and target_mtime < latest_source_mtime
+    )
+
+
 def ensure_nim_library_current(verbose: bool = True) -> Path:
     """Rebuild libtribal_village if missing or stale."""
     package_dir = Path(__file__).resolve().parent
@@ -81,14 +128,7 @@ def ensure_nim_library_current(verbose: bool = True) -> Path:
     target_path = package_dir / target_name
 
     source_files = _collect_source_files(project_root)
-    latest_source_mtime = _latest_mtime(source_files)
-    lib_mtime: float | None = (
-        target_path.stat().st_mtime if target_path.exists() else None
-    )
-
-    needs_rebuild = lib_mtime is None or (
-        latest_source_mtime is not None and lib_mtime < latest_source_mtime
-    )
+    needs_rebuild = _needs_rebuild(target_path, source_files)
 
     if not needs_rebuild:
         return target_path
@@ -104,6 +144,21 @@ def ensure_nim_library_current(verbose: bool = True) -> Path:
         print(f"Copied {built_lib} to {target_path}")
 
     return target_path
+
+
+def ensure_nim_binary_current(verbose: bool = True) -> Path:
+    """Rebuild the GUI binary if missing or stale."""
+    project_root = Path(__file__).resolve().parent.parent
+    target_path = project_root / _target_binary_name()
+
+    source_files = _collect_source_files(project_root)
+    if not _needs_rebuild(target_path, source_files):
+        return target_path
+
+    if verbose:
+        print("Building Tribal Village GUI binary to keep the launcher current...")
+
+    return _build_binary(project_root)
 
 
 def _ensure_nim_toolchain() -> None:

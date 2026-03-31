@@ -8,9 +8,8 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from tribal_village_env.build import ensure_nim_library_current
+from tribal_village_env.build import ensure_nim_binary_current, ensure_nim_library_current
 from tribal_village_env.config import DEFAULT_ANSI_STEPS, DEFAULT_PROFILE_STEPS
-from tribal_village_env.environment import TribalVillageEnv
 
 # Optional CoGames training integration
 try:
@@ -70,15 +69,6 @@ def _run_gui(
     render_timing_exit: int | None,
 ) -> None:
     project_root = _project_root()
-    cmd = ["nim", "r", "-d:release"]
-    if profile:
-        cmd.extend(["--profiler:on", "--stackTrace:on", "--lineTrace:on"])
-    if step_timing:
-        cmd.append("-d:stepTiming")
-    if render_timing:
-        cmd.append("-d:renderTiming")
-    cmd.append("tribal_village.nim")
-
     env = os.environ.copy()
     if profile:
         env["TV_PROFILE_STEPS"] = str(profile_steps)
@@ -92,11 +82,26 @@ def _run_gui(
         if render_timing_exit is not None:
             env["TV_RENDER_TIMING_EXIT"] = str(render_timing_exit)
 
-    console.print("[cyan]Launching Tribal Village GUI via Nim...[/cyan]")
+    if profile or step_timing or render_timing:
+        cmd = ["nim", "r", "-d:release"]
+        if profile:
+            cmd.extend(["--profiler:on", "--stackTrace:on", "--lineTrace:on"])
+        if step_timing:
+            cmd.append("-d:stepTiming")
+        if render_timing:
+            cmd.append("-d:renderTiming")
+        cmd.extend(["--path:src", "tribal_village.nim"])
+        console.print("[cyan]Launching Tribal Village GUI via Nim...[/cyan]")
+    else:
+        cmd = [str(ensure_nim_binary_current())]
+        console.print("[cyan]Launching Tribal Village GUI...[/cyan]")
+
     subprocess.run(cmd, cwd=project_root, check=True, env=env)
 
 
 def _run_ansi(steps: int, max_steps: int | None, random_actions: bool) -> None:
+    from tribal_village_env.environment import TribalVillageEnv
+
     config: dict[str, object] = {"render_mode": "ansi"}
     if max_steps is not None:
         config["max_steps"] = max_steps
@@ -142,8 +147,6 @@ def play(
     render_timing_every: RenderTimingEvery = 1,
     render_timing_exit: RenderTimingExit = None,
 ) -> None:
-    ensure_nim_library_current()
-
     render_mode = render.lower()
     if render_mode not in {"gui", "ansi"}:
         console.print("[red]Invalid render mode. Use 'gui' or 'ansi'.[/red]")
@@ -163,6 +166,7 @@ def play(
             render_timing_exit=render_timing_exit,
         )
     else:
+        ensure_nim_library_current()
         _run_ansi(steps=steps, max_steps=max_steps, random_actions=random_actions)
 
 
