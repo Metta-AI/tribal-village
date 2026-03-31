@@ -1308,14 +1308,6 @@ let ResearchUnitUpgradeOption* = OptionDef(
   interruptible: true
 )
 
-proc canStartStockpileDistributor(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  canStartStoreValuables(controller, env, agent, agentId, state)
-
-proc optStockpileDistributor(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): uint16 =
-  optStoreValuables(controller, env, agent, agentId, state)
-
 proc canStartDockControl(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
   if agent.unitClass == UnitBoat:
@@ -1884,9 +1876,9 @@ let MetaBehaviorOptions* = [
   ),
   OptionDef(
     name: "BehaviorStockpileDistributor",
-    canStart: canStartStockpileDistributor,
+    canStart: canStartStoreValuables,
     shouldTerminate: shouldTerminateStoreValuables,
-    act: optStockpileDistributor,
+    act: optStoreValuables,
     interruptible: true
   ),
   OptionDef(

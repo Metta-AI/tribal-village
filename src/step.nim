@@ -1818,7 +1818,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
   # Repair uses RepairHpPerAction (faster), construction uses ConstructionHpPerAction
   # Treadmill Crane: +20% construction speed from University tech
   for pos, builderCount in env.constructionBuilders.pairs:
-    let thing = env.getThing(pos).orElse(env.getBackgroundThing(pos))
+    var thing = env.getThing(pos)
+    if thing.isNil:
+      thing = env.getBackgroundThing(pos)
     if not thing.hasValue or thing.maxHp <= 0 or thing.hp >= thing.maxHp:
       continue
     # Calculate effective HP gain with diminishing returns

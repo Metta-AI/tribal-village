@@ -1484,11 +1484,6 @@ proc isKind*(thing: Thing, kind: ThingKind): bool {.inline.} =
   ## Replaces the common pattern: `if not thing.isNil and thing.kind == X`
   not thing.isNil and thing.kind == kind
 
-proc orElse*(primary, fallback: Thing): Thing {.inline.} =
-  ## Returns primary if not nil, otherwise returns fallback.
-  ## Replaces: `if primary.isNil: fallback else: primary`
-  if primary.isNil: fallback else: primary
-
 iterator liveAgents*(env: Environment): Thing =
   ## Yields only non-nil agents from env.agents.
   ## Replaces the common pattern:
