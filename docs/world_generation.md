@@ -38,10 +38,9 @@ The generation order in `src/spawn.nim` is:
     the initial spatial index.
 
 The important handoff detail is that this all finishes before the first
-rendered frame. `tribal-village play` in GUI mode should therefore be treated as
-"show resolved step 0, then start simulation." The runtime now opens on that
-fully generated map and waits for an explicit start, while external controllers
-still auto-play immediately.
+rendered frame. The terrain/build pass and spawn/buildout phases are therefore
+already complete by the time `tribal-village play` enters the live step loop.
+That is the handoff point: worldgen is finished, then normal simulation begins.
 
 ## Central Trading Hub (neutral)
 Implemented in the `tradingHub` block inside `src/spawn.nim`.
