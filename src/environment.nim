@@ -1280,14 +1280,6 @@ proc cancelLastQueued*(env: Environment, building: Thing): bool =
   env.refundTrainCosts(building)
   true
 
-proc cancelQueueEntry*(env: Environment, building: Thing, index: int): bool =
-  ## Cancel a specific unit in the production queue by index, refunding resources.
-  if index < 0 or index >= building.productionQueue.entries.len:
-    return false
-  building.productionQueue.entries.delete(index)
-  env.refundTrainCosts(building)
-  true
-
 proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
   ## Returns the effective unit class trained by a building, considering upgrades.
   ## For example, if LongSwordsman upgrade is researched, Barracks trains LongSwordsman instead of ManAtArms.

@@ -314,9 +314,3 @@ when defined(perfRegression):
     # Save baseline if requested (captures at end of run)
     if perfState.saveBaselinePath.len > 0:
       saveBaseline(stats, perfState.saveBaselinePath)
-
-  proc perfRegressionDetected*(): bool =
-    ## Returns true if any regression was detected during this run.
-    ## Use in CI to gate builds.
-    ensurePerfInit()
-    perfState.regressionDetected

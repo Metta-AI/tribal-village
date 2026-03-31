@@ -665,13 +665,6 @@ type
     # String buffer for formatting
     strings*: seq[string]
 
-  ArenaStats* = object
-    ## Statistics for arena usage tracking
-    resets*: int           ## Number of reset calls
-    peakThings*: int       ## Peak things buffer usage
-    peakPositions*: int    ## Peak positions buffer usage
-    peakInts*: int         ## Peak int buffer usage
-
 const
   # Spatial index constants
   SpatialCellSize* = 16  # Tiles per spatial cell
