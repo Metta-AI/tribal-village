@@ -45,6 +45,7 @@ from tribal_village_env.config import (
 )
 
 logger = logging.getLogger("cogames.tribal_village.train")
+_MISSING = object()
 
 
 def _auto_adjust(name: str, current: int, desired: int, user_supplied: bool) -> int:
@@ -54,6 +55,15 @@ def _auto_adjust(name: str, current: int, desired: int, user_supplied: bool) -> 
         log_fn("Auto-adjusting %s from %s to %s", name, current, desired)
         return desired
     return current
+
+
+def _getattr_fallback(obj: Any, *names: str, default: Any = None) -> Any:
+    """Return the first present attribute from *names*, even if its value is None."""
+    for name in names:
+        value = getattr(obj, name, _MISSING)
+        if value is not _MISSING:
+            return value
+    return default
 
 
 class TribalEnvFactory:
@@ -89,7 +99,7 @@ class FlattenVecEnv:
 
     def __init__(self, inner: Any):
         self.inner = inner
-        self.driver_env = getattr(inner, "driver_env", None)
+        self.driver_env = _getattr_fallback(inner, "driver_env")
         for attr in (
             "single_observation_space",
             "single_action_space",
@@ -97,15 +107,11 @@ class FlattenVecEnv:
             "observation_space",
             "atn_batch_shape",
         ):
-            setattr(self, attr, getattr(inner, attr, None))
+            setattr(self, attr, _getattr_fallback(inner, attr))
 
-        self.agents_per_batch = getattr(
-            inner, "agents_per_batch", getattr(inner, "num_agents", 1)
-        )
+        self.agents_per_batch = _getattr_fallback(inner, "agents_per_batch", "num_agents", default=1)
         self.num_agents = self.agents_per_batch
-        self.num_envs = getattr(
-            inner, "num_envs", getattr(inner, "num_environments", None)
-        )
+        self.num_envs = _getattr_fallback(inner, "num_envs", "num_environments")
 
     def async_reset(self, seed: int = 0) -> None:
         self.inner.async_reset(seed)
@@ -225,12 +231,12 @@ def train(settings: dict[str, Any]) -> None:
         backend=backend,
         env_kwargs={"cfg": base_cfg},
     )
-    agents_per_batch = getattr(vecenv, "agents_per_batch", None)
+    agents_per_batch = _getattr_fallback(vecenv, "agents_per_batch")
     if agents_per_batch is not None:
         vecenv.num_agents = agents_per_batch
     vecenv = FlattenVecEnv(vecenv)
 
-    driver_env = getattr(vecenv, "driver_env", None)
+    driver_env = _getattr_fallback(vecenv, "driver_env")
     if driver_env is None:
         raise RuntimeError(
             "Vectorized environment did not expose driver_env for shape inference."
@@ -239,7 +245,7 @@ def train(settings: dict[str, Any]) -> None:
     policy_env_info = TribalPolicyEnvInfo(
         observation_space=driver_env.single_observation_space,
         action_space=driver_env.single_action_space,
-        num_agents=max(1, getattr(driver_env, "num_agents", 1)),
+        num_agents=max(1, _getattr_fallback(driver_env, "num_agents", default=1)),
     )
 
     initial_weights_path = settings.get("initial_weights_path")
@@ -271,9 +277,14 @@ def train(settings: dict[str, Any]) -> None:
     adam_eps = DEFAULT_ADAM_EPS
 
     total_agents = max(
-        1, getattr(vecenv, "num_agents", getattr(driver_env, "num_agents", 1))
+        1,
+        _getattr_fallback(
+            vecenv,
+            "num_agents",
+            default=_getattr_fallback(driver_env, "num_agents", default=1),
+        ),
     )
-    num_workers = max(1, getattr(vecenv, "num_workers", num_workers))
+    num_workers = max(1, _getattr_fallback(vecenv, "num_workers", default=num_workers))
 
     effective_agents_per_batch = agents_per_batch or total_agents
     amended_batch_size = effective_agents_per_batch

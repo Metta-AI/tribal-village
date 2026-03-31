@@ -94,11 +94,7 @@ class Config(BaseModel):
                     continue
 
                 remaining_path = ".".join(key_path[i:])
-                if remaining_path in inner_cfg:
-                    inner_cfg[remaining_path] = value
-                    return self
-
-                if i == len(key_path) - 2:
+                if remaining_path in inner_cfg or i == len(key_path) - 2:
                     inner_cfg[remaining_path] = value
                     return self
 
@@ -129,14 +125,9 @@ class Config(BaseModel):
 
         if isinstance(inner_cfg, dict):
             final_key = key_path[-1]
-            if final_key in inner_cfg:
-                inner_cfg[final_key] = value
-            else:
-                remaining = ".".join(key_path[i:])
-                if remaining in inner_cfg:
-                    inner_cfg[remaining] = value
-                else:
-                    inner_cfg[final_key] = value
+            remaining = ".".join(key_path[i:])
+            target_key = remaining if final_key not in inner_cfg and remaining in inner_cfg else final_key
+            inner_cfg[target_key] = value
             return self
 
         cls = type(inner_cfg)

@@ -17,19 +17,6 @@ if TYPE_CHECKING:
     )
     from tribal_village_env.environment import TribalVillageEnv, make_tribal_village_env
 
-__all__ = [
-    "TribalVillageEnv",
-    "make_tribal_village_env",
-    "ensure_nim_binary_current",
-    "ensure_nim_library_current",
-    "Config",
-    "EnvironmentConfig",
-    "RewardConfig",
-    "PPOConfig",
-    "PolicyConfig",
-    "TrainingConfig",
-]
-
 _EXPORTS = {
     "TribalVillageEnv": ("tribal_village_env.environment", "TribalVillageEnv"),
     "make_tribal_village_env": (
@@ -51,6 +38,8 @@ _EXPORTS = {
     "PolicyConfig": ("tribal_village_env.config", "PolicyConfig"),
     "TrainingConfig": ("tribal_village_env.config", "TrainingConfig"),
 }
+
+__all__ = list(_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
