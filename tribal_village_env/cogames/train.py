@@ -72,9 +72,6 @@ class TribalEnvFactory:
     def __init__(self, base_config: dict[str, Any]):
         self._base_config = dict(base_config)
 
-    def clone_cfg(self) -> dict[str, Any]:
-        return dict(self._base_config)
-
     def __call__(
         self,
         cfg: dict[str, Any] | None = None,
@@ -221,7 +218,6 @@ def train(settings: dict[str, Any]) -> None:
     )
 
     env_creator = TribalEnvFactory(base_config)
-    base_cfg = env_creator.clone_cfg()
 
     vecenv = pvector.make(
         env_creator,
@@ -229,7 +225,7 @@ def train(settings: dict[str, Any]) -> None:
         num_workers=num_workers,
         batch_size=vector_batch_size,
         backend=backend,
-        env_kwargs={"cfg": base_cfg},
+        env_kwargs={"cfg": dict(base_config)},
     )
     agents_per_batch = _getattr_fallback(vecenv, "agents_per_batch")
     if agents_per_batch is not None:
