@@ -4,7 +4,7 @@
 ## selection labels, step labels, control mode labels.
 
 import
-  boxy, bumpy, pixie, vmath, tables, std/math,
+  boxy, bumpy, pixie, vmath, tables,
   common, environment, semantic
 
 import renderer_core, label_cache
@@ -34,12 +34,15 @@ var
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   let footerTop = panelRect.y.int32 + panelRect.h.int32 - FooterHeight.int32
   let innerHeight = FooterHeight.float32 - FooterPadding * 2.0
+  let playPauseIcon = if play: "icon_pause" else: "icon_play"
+  let playPauseLabel = if play: "Pause" else: "Play"
   var buttons: seq[FooterButton] = @[]
+  const PlaySpeedEpsilon = 0.0001'f32
 
   # Calculate button widths based on content
   let buttonDefs = [
     # Icon-first, but always provide a text fallback so missing atlas sprites don't crash UI.
-    (FooterPlayPause, if paused: "icon_play" else: "icon_pause", if paused: "Play" else: "Pause"),
+    (FooterPlayPause, playPauseIcon, playPauseLabel),
     (FooterStep, "icon_step", "Step"),
     (FooterSlow, "", "0.5x"),
     (FooterFast, "", "2x"),
@@ -87,12 +90,12 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       btn.labelSize = cached.size
     # Check pressed state
     btn.isPressed = case kind
-      of FooterPlayPause: not paused
+      of FooterPlayPause: play
       of FooterStep: false
-      of FooterSlow: speedMultiplier == SpeedSlow
-      of FooterFast: speedMultiplier == SpeedFast
-      of FooterFaster: speedMultiplier >= SpeedFaster and speedMultiplier < SpeedSuperMin
-      of FooterSuper: speedMultiplier >= SpeedSuperMin
+      of FooterSlow: abs(playSpeed - SlowPlaySpeed) <= PlaySpeedEpsilon
+      of FooterFast: abs(playSpeed - FastPlaySpeed) <= PlaySpeedEpsilon
+      of FooterFaster: abs(playSpeed - FasterPlaySpeed) <= PlaySpeedEpsilon
+      of FooterSuper: abs(playSpeed - SuperPlaySpeed) <= PlaySpeedEpsilon
     buttons.add(btn)
     x += w + FooterButtonGap
 

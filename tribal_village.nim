@@ -1510,9 +1510,14 @@ elif globalController != nil:
 else:
   initGlobalController(BuiltinAI)
 
-# Check if external controller is active and start playing if so
+# Show the fully generated step-0 map before local play begins.
+play = false
+lastSimTime = nowSeconds()
+
+# External controllers should continue auto-playing from the resolved start state.
 if globalController != nil and globalController.controllerType == ExternalNN:
   play = true
+  lastSimTime = nowSeconds()
 
 # Initialize audio system if enabled
 when defined(audio):
