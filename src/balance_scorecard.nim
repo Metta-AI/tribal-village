@@ -620,7 +620,3 @@ proc endMatch*(env: Environment) =
   # Write summary
   let summaryFilename = collector.outputDir / &"scorecard_{collector.currentScorecard.matchId}.txt"
   writeFile(summaryFilename, generateSummary(collector.currentScorecard))
-
-proc getLastScorecard*(): BalanceScorecard =
-  ## Get the most recently collected scorecard (for testing).
-  collector.currentScorecard

@@ -180,11 +180,6 @@ proc setDifficulty*(controller: Controller, teamId: int, level: DifficultyLevel)
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     controller.difficulty[teamId] = defaultDifficultyConfig(level)
 
-proc setDifficultyConfig*(controller: Controller, teamId: int, config: DifficultyConfig) =
-  ## Set a custom difficulty configuration for a team.
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    controller.difficulty[teamId] = config
-
 proc enableAdaptiveDifficulty*(controller: Controller, teamId: int, targetTerritory: float32 = 0.5) =
   ## Enable adaptive difficulty for a team. The AI will adjust its difficulty
   ## based on territory control compared to the target percentage.
@@ -2149,4 +2144,3 @@ proc clearAgentStanceModified*(controller: Controller, agentId: int) =
   ## Clear the stance modified flag after applying the stance.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].stanceModified = false
-

@@ -148,11 +148,6 @@ proc invalidate*[T](cache: var PerAgentCacheWrapper[T], agentId: int) {.inline.}
   if agentId >= 0 and agentId < MapAgents:
     cache.agentGen[agentId] = CacheInvalid
 
-proc invalidateAll*[T](cache: var PerAgentCacheWrapper[T]) {.inline.} =
-  ## Invalidate all cached values (O(n) operation - prefer reset() when possible).
-  for i in 0 ..< MapAgents:
-    cache.agentGen[i] = CacheInvalid
-
 # =============================================================================
 # PerTeamCacheWrapper[T] - Per-team cache with lifecycle
 # =============================================================================

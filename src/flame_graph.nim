@@ -127,7 +127,3 @@ when defined(flameGraph):
       except IOError:
         discard
       flameState.isOpen = false
-
-  proc msBetweenFlame*(a, b: MonoTime): float64 =
-    ## Milliseconds between two monotonic times (for compatibility with other timing code)
-    (b.ticks - a.ticks).float64 / 1_000_000.0

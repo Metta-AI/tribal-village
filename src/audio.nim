@@ -34,7 +34,6 @@ when defined(audio):
     Option[T](has: false)
 
   proc isSome*[T](o: Option[T]): bool = o.has
-  proc isNone*[T](o: Option[T]): bool = not o.has
   proc get*[T](o: Option[T]): T = o.val
 
   type

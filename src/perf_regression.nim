@@ -77,9 +77,6 @@ when defined(perfRegression):
   var perfState*: PerfRegressionState
   var perfInitialized = false
 
-  proc msBetweenPerf(a, b: MonoTime): float64 =
-    (b.ticks - a.ticks).float64 / 1_000_000.0
-
   proc initSlidingWindow(capacity: int): PerfSlidingWindow =
     result.capacity = capacity
     result.samples = newSeq[array[PerfSubsystemCount, float64]](capacity)

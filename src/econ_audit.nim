@@ -148,15 +148,8 @@ when defined(econAudit):
 
   # Convenience procs for specific flow types
 
-  proc recordGathering*(teamId: int, res: StockpileResource, amount: int, step: int) =
-    recordFlow(teamId, res, amount, rfsGathering, step)
-
   proc recordDeposit*(teamId: int, res: StockpileResource, amount: int, step: int) =
     recordFlow(teamId, res, amount, rfsDeposit, step)
-
-  proc recordBuildingCost*(teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]], step: int) =
-    for cost in costs:
-      recordFlow(teamId, cost.res, -cost.count, rfsBuildingCost, step)
 
   proc recordTrainingCost*(teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]], step: int) =
     for cost in costs:

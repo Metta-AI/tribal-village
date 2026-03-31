@@ -802,15 +802,6 @@ proc stockpileResourceToGathererTask*(resource: StockpileResource): GathererTask
   of ResourceStone: TaskStone
   of ResourceWater, ResourceNone: TaskFood  # Default to food for unmapped
 
-proc gathererTaskToStockpileResource*(task: GathererTask): StockpileResource =
-  ## Convert GathererTask to corresponding StockpileResource.
-  case task
-  of TaskFood: ResourceFood
-  of TaskWood: ResourceWood
-  of TaskGold: ResourceGold
-  of TaskStone: ResourceStone
-  of TaskHearts: ResourceGold  # Hearts require gold to make bars
-
 proc setGathererPriority*(controller: Controller, agentId: int, resource: StockpileResource) =
   ## Set individual gatherer priority override.
   ## Forces the gatherer to collect the specified resource.

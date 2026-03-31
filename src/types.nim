@@ -165,14 +165,6 @@ proc getTeamMask*(teamId: int): TeamMask =
   else:
     NoTeamMask
 
-proc getTeamMaskFromAgentId*(agentId: int): TeamMask =
-  ## Get team mask directly from agent ID (combines getTeamId + getTeamMask).
-  let teamId = agentId div MapAgentsPerTeam
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    TeamMasks[teamId]
-  else:
-    NoTeamMask
-
 proc isTeamInMask*(teamId: int, mask: TeamMask): bool =
   ## Check if a team is included in a bitmask. O(1) operation.
   (getTeamMask(teamId) and mask) != 0
@@ -1499,11 +1491,6 @@ proc isKind*(thing: Thing, kind: ThingKind): bool {.inline.} =
   ## Replaces the common pattern: `if not thing.isNil and thing.kind == X`
   not thing.isNil and thing.kind == kind
 
-proc isKindIn*(thing: Thing, kinds: set[ThingKind]): bool {.inline.} =
-  ## Nil-safe kind set check. Returns true only if thing is not nil AND kind is in set.
-  ## Replaces: `if not thing.isNil and thing.kind in {X, Y, Z}`
-  not thing.isNil and thing.kind in kinds
-
 proc orElse*(primary, fallback: Thing): Thing {.inline.} =
   ## Returns primary if not nil, otherwise returns fallback.
   ## Replaces: `if primary.isNil: fallback else: primary`
@@ -1526,26 +1513,6 @@ iterator liveAgentsWithId*(env: Environment): tuple[id: int, agent: Thing] =
   for id, agent in env.agents:
     if not agent.isNil:
       yield (id, agent)
-
-proc defaultTeamModifiers*(): TeamModifiers =
-  ## Create default (neutral) team modifiers with no bonuses
-  result = TeamModifiers(
-    gatherRateMultiplier: 1.0'f32,
-    buildCostMultiplier: 1.0'f32,
-    unitHpBonus: default(array[AgentUnitClass, int]),
-    unitAttackBonus: default(array[AgentUnitClass, int]),
-    disabledBuildings: {},
-    disabledUnits: {},
-    unitBaseHpOverride: default(array[AgentUnitClass, int]),
-    unitBaseAttackOverride: default(array[AgentUnitClass, int]),
-    buildingCostMultiplier: default(array[ThingKind, float32]),
-    trainCostMultiplier: default(array[AgentUnitClass, float32])
-  )
-  # Initialize cost multipliers to 1.0 (normal cost)
-  for kind in ThingKind:
-    result.buildingCostMultiplier[kind] = 1.0'f32
-  for unitClass in AgentUnitClass:
-    result.trainCostMultiplier[unitClass] = 1.0'f32
 
 proc defaultCivBonus*(): CivBonus {.inline.} =
   ## Create a default (neutral) CivBonus with all multipliers at 1.0.

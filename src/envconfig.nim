@@ -29,20 +29,6 @@ proc parseEnvInt*(envVar: string, fallback: int): int =
            "' as int, using fallback=", fallback
     result = fallback
 
-proc parseEnvIntRaw*(raw: string, fallback: int, envVar: string = ""): int =
-  ## Parse an integer from a raw string value with logging on failure.
-  ## Use this when you already have the raw value from getEnv.
-  if raw.len == 0:
-    return fallback
-  try:
-    result = parseInt(raw)
-  except ValueError:
-    when EnvConfigDebug:
-      let varInfo = if envVar.len > 0: envVar & "=" else: ""
-      echo "[envconfig] Warning: Failed to parse ", varInfo, "'", raw,
-           "' as int, using fallback=", fallback
-    result = fallback
-
 proc parseEnvBool*(envVar: string, fallback: bool): bool =
   ## Parse a boolean from an environment variable.
   ## Recognizes: "1", "true", "yes", "on" as true
