@@ -131,15 +131,6 @@ proc defaultEnvironmentInfo*(): EnvironmentInfo =
     result.obsFeatures.add(props)
     result.featureNameToId[$layer] = ord(layer)
 
-proc initResult*(success: bool, message: string = ""): InitResult =
-  InitResult(success: success, message: message)
-
-proc successResult*(message: string = "Initialized successfully"): InitResult =
-  initResult(true, message)
-
-proc errorResult*(message: string): InitResult =
-  initResult(false, message)
-
 ## Helper procs for common environment info queries
 
 proc isValid*(info: EnvironmentInfo): bool =

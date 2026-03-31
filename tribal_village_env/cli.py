@@ -31,8 +31,6 @@ if attach_train_command is not None:
     attach_train_command(
         app, command_name="train", require_cogames=False, console_fallback=console
     )
-
-
 # ---------------------------------------------------------------------------
 # Shared option type aliases (defined once, used by both play and root)
 # ---------------------------------------------------------------------------
@@ -185,23 +183,7 @@ def root(
 ) -> None:
     """Default to play when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
-        ctx.invoke(
-            play,
-            render=render,
-            steps=steps,
-            max_steps=max_steps,
-            random_actions=random_actions,
-            profile=profile,
-            profile_steps=profile_steps,
-            step_timing=step_timing,
-            step_timing_target=step_timing_target,
-            step_timing_window=step_timing_window,
-            render_timing=render_timing,
-            render_timing_target=render_timing_target,
-            render_timing_window=render_timing_window,
-            render_timing_every=render_timing_every,
-            render_timing_exit=render_timing_exit,
-        )
+        ctx.forward(play)
 
 
 if __name__ == "__main__":
