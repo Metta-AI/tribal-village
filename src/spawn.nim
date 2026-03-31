@@ -607,25 +607,28 @@ proc initTradingHub(env: Environment, rng: var Rand) =
         env.baseTintColors[x][y] = TradingHubTint
         env.tintLocked[x][y] = true
 
+    proc paintRoadTile(x, y: int) =
+      let pos = ivec2(x.int32, y.int32)
+      if env.terrain[x][y] in WaterTerrain:
+        setTerrain(env, pos, Bridge)
+      else:
+        setTerrain(env, pos, Road)
+
     proc extendRoad(startX, startY, dx, dy: int) =
       var x = startX
       var y = startY
       while x >= MapBorder + 1 and x < MapWidth - MapBorder - 1 and
           y >= MapBorder + 1 and y < MapHeight - MapBorder - 1:
-        let pos = ivec2(x.int32, y.int32)
         let existing = env.terrain[x][y]
-        if env.terrain[x][y] == Water:
-          setTerrain(env, pos, Bridge)
-        else:
-          setTerrain(env, pos, Road)
+        paintRoadTile(x, y)
         if (x < x0 or x > x1 or y < y0 or y > y1) and existing in {Road, Bridge}:
           break
         x += dx
         y += dy
 
     let roadX = centerX
-    extendRoad(roadX, centerY, 1, 0)
-    extendRoad(roadX, centerY, -1, 0)
+    for x in x0 .. x1:
+      paintRoadTile(x, centerY)
     extendRoad(roadX, centerY, 0, 1)
     extendRoad(roadX, centerY, 0, -1)
     proc canPlaceHubThing(x, y: int): bool =
