@@ -33,10 +33,6 @@ if attach_train_command is not None:
     )
 
 
-def _project_root() -> Path:
-    return Path(__file__).resolve().parent.parent
-
-
 # ---------------------------------------------------------------------------
 # Shared option type aliases (defined once, used by both play and root)
 # ---------------------------------------------------------------------------
@@ -68,7 +64,7 @@ def _run_gui(
     render_timing_every: int,
     render_timing_exit: int | None,
 ) -> None:
-    project_root = _project_root()
+    project_root = Path(__file__).resolve().parent.parent
     env = os.environ.copy()
     if profile:
         env["TV_PROFILE_STEPS"] = str(profile_steps)
@@ -108,18 +104,17 @@ def _run_ansi(steps: int, max_steps: int | None, random_actions: bool) -> None:
 
     env = TribalVillageEnv(config=config)
 
-    def _make_actions() -> dict[str, int]:
-        return {
-            f"agent_{agent_id}": int(env.single_action_space.sample()) if random_actions else 0
-            for agent_id in range(env.num_agents)
-        }
-
     try:
         env.reset()
         console.print(env.render())
 
         for step in range(steps):
-            actions = _make_actions()
+            actions = {
+                f"agent_{agent_id}": (
+                    int(env.single_action_space.sample()) if random_actions else 0
+                )
+                for agent_id in range(env.num_agents)
+            }
             _, _, terminated, truncated, _ = env.step(actions)
             console.print(env.render())
 

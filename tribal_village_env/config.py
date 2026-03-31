@@ -119,9 +119,8 @@ class Config(BaseModel):
             traversed_path.append(key_part)
             i += 1
 
-        if isinstance(inner_cfg, Config):
-            if not hasattr(inner_cfg, key_path[-1]):
-                fail(f"key {key} not found")
+        if isinstance(inner_cfg, Config) and not hasattr(inner_cfg, key_path[-1]):
+            fail(f"key {key} not found")
 
         if isinstance(inner_cfg, dict):
             final_key = key_path[-1]

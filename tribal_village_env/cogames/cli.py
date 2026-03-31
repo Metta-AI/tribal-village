@@ -7,14 +7,6 @@ import typer
 from rich.console import Console
 
 
-def _import_cogames_deps():  # pragma: no cover - imported lazily for optional dependency
-    from cogames.cli.base import console
-    from cogames.cli.policy import get_policy_spec, policy_arg_example
-    from cogames.device import resolve_training_device
-
-    return console, get_policy_spec, policy_arg_example, resolve_training_device
-
-
 def attach_train_command(
     app: typer.Typer,
     *,
@@ -23,9 +15,9 @@ def attach_train_command(
     console_fallback: Console | None = None,
 ) -> bool:
     try:
-        console, get_policy_spec, policy_arg_example, resolve_training_device = (
-            _import_cogames_deps()
-        )
+        from cogames.cli.base import console
+        from cogames.cli.policy import get_policy_spec, policy_arg_example
+        from cogames.device import resolve_training_device
     except ImportError:
         if require_cogames:
             raise
