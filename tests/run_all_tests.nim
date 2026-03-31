@@ -14,6 +14,7 @@ import colors
 # Suite blocks run at include time via unittest.
 include "test_balance_scorecard"
 include "test_map_determinism"
+include "test_river_fill"
 include "test_trading_hub"
 include "test_score_tracking"
 include "test_observations"
