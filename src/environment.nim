@@ -263,16 +263,6 @@ const
   DefaultScoreIncludeWater = false
 
 {.push inline.}
-proc updateAgentInventoryObs*(env: Environment, agent: Thing, key: ItemKey) =
-  ## No-op: inventory observations are rebuilt in batch at end of step() for efficiency.
-  ## Kept for API compatibility - call sites remain to enable future observation changes.
-  discard (env, agent, key)
-
-proc updateAgentInventoryObs*(env: Environment, agent: Thing, kind: ItemKind) =
-  ## No-op: type-safe overload using ItemKind enum.
-  ## See updateAgentInventoryObs(env, agent, ItemKey) for rationale.
-  discard (env, agent, kind)
-
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
   env.teamStockpiles[teamId].counts[res]
 
@@ -553,7 +543,6 @@ proc spendInventory*(env: Environment, agent: Thing,
     return false
   for cost in costs:
     setInv(agent, cost.key, getInv(agent, cost.key) - cost.count)
-    env.updateAgentInventoryObs(agent, cost.key)
   true
 
 proc choosePayment*(env: Environment, agent: Thing,
@@ -1105,7 +1094,6 @@ proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): boo
     if getInv(agent, key) + count > MapObjectAgentMaxInventory:
       return false
   setInv(agent, key, getInv(agent, key) + count)
-  env.updateAgentInventoryObs(agent, key)
   true
 
 proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed: openArray[ItemKey]): bool =
@@ -1133,7 +1121,6 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
       let moved = min(agentCount, storageSpace)
       setInv(agent, storedKey, agentCount - moved)
       setInv(storage, storedKey, storedCount + moved)
-      env.updateAgentInventoryObs(agent, storedKey)
       return true
     let capacityLeft =
       if isStockpileResourceKey(storedKey):
@@ -1146,7 +1133,6 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
         setInv(agent, storedKey, agentCount + moved)
         let remaining = storedCount - moved
         setInv(storage, storedKey, remaining)
-        env.updateAgentInventoryObs(agent, storedKey)
         return true
     return false
 
@@ -1167,7 +1153,6 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
     let moved = min(choiceCount, storage.barrelCapacity)
     setInv(agent, choiceKey, choiceCount - moved)
     setInv(storage, choiceKey, moved)
-    env.updateAgentInventoryObs(agent, choiceKey)
     return true
   false
 
@@ -1195,7 +1180,6 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
     when defined(econAudit):
       recordDeposit(teamId, stockpileRes, count, env.currentStep)
     setInv(agent, key, 0)
-    env.updateAgentInventoryObs(agent, key)
   true
 
 proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: AgentUnitClass,
@@ -2264,10 +2248,8 @@ proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, st
       if useStockpile and isStockpileResourceKey(input.key):
         continue
       setInv(agent, input.key, getInv(agent, input.key) - input.count)
-      env.updateAgentInventoryObs(agent, input.key)
     for output in recipe.outputs:
       setInv(agent, output.key, getInv(agent, output.key) + output.count)
-      env.updateAgentInventoryObs(agent, output.key)
     if not isNil(stationThing):
       stationThing.cooldown = 0
     return true

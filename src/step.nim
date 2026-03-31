@@ -873,15 +873,11 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
         var thing = env.getThing(targetPos)
         if isNil(thing):
           thing = env.getBackgroundThing(targetPos)
-        template setInvAndObs(key: ItemKey, value: int) =
-          setInv(agent, key, value)
-          env.updateAgentInventoryObs(agent, key)
-
         template decInv(key: ItemKey) =
-          setInvAndObs(key, getInv(agent, key) - 1)
+          setInv(agent, key, getInv(agent, key) - 1)
 
         template incInv(key: ItemKey) =
-          setInvAndObs(key, getInv(agent, key) + 1)
+          setInv(agent, key, getInv(agent, key) + 1)
 
         if isNil(thing):
           # Terrain use only when no Thing occupies the tile.
@@ -905,7 +901,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
                 setInv(relic, ItemGold, 0)
                 env.add(relic)
                 agent.inventoryRelic = agent.inventoryRelic - 1
-                env.updateAgentInventoryObs(agent, ItemRelic)
                 used = true
             elif agent.inventoryBread > 0:
               decInv(ItemBread)
@@ -988,7 +983,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
                 break useAction
             if agent.inventoryRelic < MapObjectAgentMaxInventory:
               agent.inventoryRelic = agent.inventoryRelic + 1
-              env.updateAgentInventoryObs(agent, ItemRelic)
               removeThing(env, thing)
               used = true
             else:
@@ -996,7 +990,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
         of Lantern:
           if agent.inventoryLantern < MapObjectAgentMaxInventory:
             agent.inventoryLantern = agent.inventoryLantern + 1
-            env.updateAgentInventoryObs(agent, ItemLantern)
             removeThing(env, thing)
             used = true
         of Wheat:
@@ -1117,7 +1110,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
               decInv(ItemWood)
             else:
               decInv(ItemWheat)
-            setInvAndObs(ItemLantern, 1)
+            setInv(agent, ItemLantern, 1)
             thing.cooldown = 0
             env.rewards[id] += env.config.clothReward
             used = true
@@ -1197,7 +1190,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
                     decInv(ItemWood)
                   else:
                     decInv(ItemWheat)
-                  setInvAndObs(ItemLantern, 1)
+                  setInv(agent, ItemLantern, 1)
                   thing.cooldown = 0
                   env.rewards[id] += env.config.clothReward
                   used = true
@@ -1239,26 +1232,22 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
                         when defined(eventLog):
                           let (goldSpent, foodGained) = env.marketBuyFood(agent, count)
                           if foodGained > 0:
-                            env.updateAgentInventoryObs(agent, key)
                             logMarketTrade(agentTeamId, "Bought", "Food", foodGained, goldSpent, env.currentStep)
                             traded = true
                         else:
                           let (_, foodGained) = env.marketBuyFood(agent, count)
                           if foodGained > 0:
-                            env.updateAgentInventoryObs(agent, key)
                             traded = true
                       else:
                         # Sell resources for gold (dynamic pricing)
                         when defined(eventLog):
                           let (amountSold, goldGained) = env.marketSellInventory(agent, key)
                           if amountSold > 0:
-                            env.updateAgentInventoryObs(agent, key)
                             logMarketTrade(agentTeamId, "Sold", $stockpileRes, amountSold, goldGained, env.currentStep)
                             traded = true
                         else:
                           let (amountSold, _) = env.marketSellInventory(agent, key)
                           if amountSold > 0:
-                            env.updateAgentInventoryObs(agent, key)
                             traded = true
                     if traded:
                       thing.cooldown = DefaultMarketCooldown
@@ -1306,7 +1295,6 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
                 if thing.kind == Monastery and agent.unitClass == UnitMonk and agent.inventoryRelic > 0:
                   thing.garrisonedRelics = thing.garrisonedRelics + agent.inventoryRelic
                   agent.inventoryRelic = 0
-                  env.updateAgentInventoryObs(agent, ItemRelic)
                   used = true
                 elif buildingHasTrain(thing.kind) and agent.unitClass == UnitVillager:
                   # If queue has a ready entry, convert villager immediately (pre-paid)
@@ -1392,9 +1380,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
               break pickupAttempt
             for itemKey, count in thing.inventory.pairs:
               setInv(agent, itemKey, getInv(agent, itemKey) + count)
-              env.updateAgentInventoryObs(agent, itemKey)
             setInv(agent, key, current + 1)
-            env.updateAgentInventoryObs(agent, key)
             if isValidPos(thing.pos):
               env.updateObservations(ThingAgentLayer, thing.pos, 0)
             removeThing(env, thing)
@@ -1496,16 +1482,9 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
               let moved = min(bestCount, capacity)
               setInv(agent, bestKey, bestCount - moved)
               setInv(target, bestKey, getInv(target, bestKey) + moved)
-              env.updateAgentInventoryObs(agent, bestKey)
-              env.updateAgentInventoryObs(target, bestKey)
               transferred = true
         if transferred:
           inc env.stats[id].actionPut
-          # Update observations for changed inventories
-          env.updateAgentInventoryObs(agent, ItemArmor)
-          env.updateAgentInventoryObs(agent, ItemBread)
-          env.updateAgentInventoryObs(target, ItemArmor)
-          env.updateAgentInventoryObs(target, ItemBread)
         else:
           inc env.stats[id].actionInvalid
     of 6:

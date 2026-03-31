@@ -507,8 +507,6 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
             env.teamVillagers[teamId].setLen(env.teamVillagers[teamId].len - 1)
             break
     victim.inventory = emptyInventory()
-    for key in ObservedItemKeys:
-      env.updateAgentInventoryObs(victim, key)
     return
 
   # Create dying unit for fade-out animation before removing from grid
@@ -605,8 +603,6 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
       env.add(relic)
 
   victim.inventory = emptyInventory()
-  for key in ObservedItemKeys:
-    env.updateAgentInventoryObs(victim, key)
   # Remove from spatial index before clearing position (prevents stale entries
   # accumulating across death/respawn cycles since updateSpatialIndex skips
   # removal when oldPos is invalid (-1,-1))

@@ -60,8 +60,6 @@ proc stepPopRespawn*(env: Environment) =
           # Update observations
           env.updateObservations(AgentLayer, agent.pos, getTeamId(agent) + 1)
           env.updateObservations(AgentOrientationLayer, agent.pos, agent.orientation.int)
-          for key in ObservedItemKeys:
-            env.updateAgentInventoryObs(agent, key)
 
   # -------------------------------------------------------------------------
   # Temple hybrid spawn: two adjacent agents + heart -> spawn a new villager
@@ -132,8 +130,6 @@ proc stepPopRespawn*(env: Environment) =
     updateSpatialIndex(env, child, childOldPos)
     env.updateObservations(AgentLayer, child.pos, getTeamId(child) + 1)
     env.updateObservations(AgentOrientationLayer, child.pos, child.orientation.int)
-    for key in ObservedItemKeys:
-      env.updateAgentInventoryObs(child, key)
     env.templeHybridRequests.add TempleHybridRequest(
       parentA: parentA.agentId,
       parentB: parentB.agentId,
