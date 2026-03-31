@@ -240,10 +240,6 @@ proc setAgentAttackMoveTarget*(agentId: int, target: IVec2) =
     globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setAttackMoveTarget(agentId, target)
 
-proc setAgentAttackMoveTargetXY*(agentId: int, x, y: int32) =
-  ## Set an attack-move target for an agent using x,y coordinates.
-  setAgentAttackMoveTarget(agentId, ivec2(x, y))
-
 proc clearAgentAttackMoveTarget*(agentId: int) =
   ## Clear the attack-move target for an agent, stopping attack-move behavior.
   withBuiltinAI:
@@ -272,10 +268,6 @@ proc setAgentPatrol*(agentId: int, point1, point2: IVec2) =
   withBuiltinAI:
     globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setPatrol(agentId, point1, point2)
-
-proc setAgentPatrolXY*(agentId: int, x1, y1, x2, y2: int32) =
-  ## Set patrol waypoints for an agent using x,y coordinates.
-  setAgentPatrol(agentId, ivec2(x1, y1), ivec2(x2, y2))
 
 proc clearAgentPatrol*(agentId: int) =
   ## Clear the patrol for an agent, disabling patrol mode.
@@ -713,10 +705,6 @@ proc setAgentHoldPosition*(agentId: int, pos: IVec2) =
     globalController.aiController.clearAgentStop(agentId)
     globalController.aiController.setHoldPosition(agentId, pos)
 
-proc setAgentHoldPositionXY*(agentId: int, x, y: int32) =
-  ## Set hold position using x,y coordinates.
-  setAgentHoldPosition(agentId, ivec2(x, y))
-
 proc clearAgentHoldPosition*(agentId: int) =
   ## Clear hold position for an agent.
   withBuiltinAI:
@@ -1057,13 +1045,6 @@ proc setGathererPriority*(agentId: int, resource: StockpileResource) =
   withBuiltinAI:
     globalController.aiController.setGathererPriority(agentId, resource)
 
-proc setGathererPriorityInt*(agentId: int, resource: int32) =
-  ## Set gatherer priority using integer resource index.
-  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
-  if resource < 0 or resource > ord(StockpileResource.high).int32:
-    return
-  setGathererPriority(agentId, StockpileResource(resource))
-
 proc clearGathererPriority*(agentId: int) =
   ## Clear the individual gatherer priority override.
   ## Returns the gatherer to automatic task selection.
@@ -1076,14 +1057,6 @@ proc getGathererPriority*(agentId: int): StockpileResource =
   withBuiltinAI:
     return globalController.aiController.getGathererPriority(agentId)
   ResourceNone
-
-proc getGathererPriorityInt*(agentId: int): int32 =
-  ## Get the current gatherer priority as an integer.
-  ## Returns -1 if no priority is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
-  let resource = getGathererPriority(agentId)
-  if resource == ResourceNone:
-    return -1
-  ord(resource).int32
 
 proc isGathererPriorityActive*(agentId: int): bool =
   ## Check if an individual gatherer priority is active.
@@ -1098,13 +1071,6 @@ proc setTeamEconomyFocus*(teamId: int, resource: StockpileResource) =
   withBuiltinAI:
     globalController.aiController.setTeamEconomyFocus(teamId, resource)
 
-proc setTeamEconomyFocusInt*(teamId: int, resource: int32) =
-  ## Set team economy focus using integer resource index.
-  ## resource: 0=Food, 1=Wood, 2=Gold, 3=Stone
-  if resource < 0 or resource > ord(StockpileResource.high).int32:
-    return
-  setTeamEconomyFocus(teamId, StockpileResource(resource))
-
 proc clearTeamEconomyFocus*(teamId: int) =
   ## Clear the team-level economy focus.
   ## Returns all gatherers to automatic task selection.
@@ -1117,14 +1083,6 @@ proc getTeamEconomyFocus*(teamId: int): StockpileResource =
   withBuiltinAI:
     return globalController.aiController.getTeamEconomyFocus(teamId)
   ResourceNone
-
-proc getTeamEconomyFocusInt*(teamId: int): int32 =
-  ## Get the current team economy focus as an integer.
-  ## Returns -1 if no focus is set, otherwise 0=Food, 1=Wood, 2=Gold, 3=Stone
-  let resource = getTeamEconomyFocus(teamId)
-  if resource == ResourceNone:
-    return -1
-  ord(resource).int32
 
 proc isTeamEconomyFocusActive*(teamId: int): bool =
   ## Check if a team economy focus is active.
