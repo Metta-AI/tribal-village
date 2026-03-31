@@ -114,11 +114,10 @@ windy/
 ws/
 zippy/
 
-# Gas Town
+# Local tool state
 .runtime/
 .claude/
 .logs/
-.beads/
 scorecards/
 
 # Session artifacts
