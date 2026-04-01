@@ -210,7 +210,7 @@ suite "UI - Command Panel Button Generation":
   test "no buttons when nothing selected":
     let panelRect = makeTestPanelRect()
 
-    let buttons = getCommandButtonsForSelection(panelRect)
+    let buttons = buildCommandButtons(panelRect)
 
     check buttons.len == 0
 
@@ -298,7 +298,7 @@ suite "UI - Command Panel Button Generation":
     let panelRect = makeTestPanelRect()
 
     # Villager commands: Move, Attack, Stop, Build, Gather = 5
-    check countCommandButtons(panelRect) == 5
+    check buildCommandButtons(panelRect).len == 5
 
 # ---------------------------------------------------------------------------
 # Resource Bar State Tests

@@ -91,17 +91,6 @@ proc cyclePlayerTeam*() =
 # Command Panel Testing
 # ---------------------------------------------------------------------------
 
-proc getCommandButtonsForSelection*(panelRect: IRect): seq[CommandButton] =
-  ## Get the command buttons that would be shown for current selection.
-  buildCommandButtons(panelRect)
-
-proc getCommandButtonKinds*(panelRect: IRect): seq[CommandButtonKind] =
-  ## Get just the button kinds for current selection.
-  let buttons = buildCommandButtons(panelRect)
-  result = @[]
-  for b in buttons:
-    result.add(b.kind)
-
 proc hasCommandButton*(panelRect: IRect, kind: CommandButtonKind): bool =
   ## Check if a specific command button is available.
   let buttons = buildCommandButtons(panelRect)
@@ -109,10 +98,6 @@ proc hasCommandButton*(panelRect: IRect, kind: CommandButtonKind): bool =
     if b.kind == kind:
       return true
   false
-
-proc countCommandButtons*(panelRect: IRect): int =
-  ## Count how many command buttons are shown.
-  buildCommandButtons(panelRect).len
 
 # ---------------------------------------------------------------------------
 # Drag-Box Selection Simulation
