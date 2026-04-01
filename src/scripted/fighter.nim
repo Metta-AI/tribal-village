@@ -412,6 +412,23 @@ proc countNearbyEnemies(env: Environment, agent: Thing, radius: int): int =
   ## Count enemy agents within radius Chebyshev distance.
   countEnemiesInRangeSpatial(env, agent.pos, getTeamId(agent), radius)
 
+proc tryAffordAndBuild(controller: Controller, env: Environment, agent: Thing,
+                       agentId: int, state: var AgentState, targetPos: IVec2,
+                       buildName: string, buildIndex: int): tuple[did: bool, action: uint16] =
+  if not env.canAffordBuild(agent, thingItem(buildName)):
+    let (didDrop, actDrop) = controller.dropoffCarrying(
+      env, agent, agentId, state,
+      allowWood = true,
+      allowStone = true,
+      allowGold = true
+    )
+    if didDrop:
+      return (true, actDrop)
+    let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
+    if didWood:
+      return (true, actWood)
+  goToAdjacentAndBuild(controller, env, agent, agentId, state, targetPos, buildIndex)
+
 proc hasAllyNearbyUncached(env: Environment, agent: Thing): bool =
   ## Check if any ally (other than self) is within 4 tiles.
   ## Uncached version - use hasAllyNearby for cached lookups.
@@ -606,54 +623,16 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
     targetKind = Outpost
   let targetPos = (if targetKind == Door: bestDoor elif targetKind == Outpost: bestOutpost else: bestWall)
   if targetPos.x >= 0:
-    case targetKind
-    of Door:
-      if not env.canAffordBuild(agent, thingItem("Door")):
-        let (didDrop, actDrop) = controller.dropoffCarrying(
-          env, agent, agentId, state,
-          allowWood = true,
-          allowStone = true,
-          allowGold = true
-        )
-        if didDrop: return actDrop
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-      let (didDoor, doorAct) = goToAdjacentAndBuild(
-        controller, env, agent, agentId, state, targetPos, BuildIndexDoor
+    let (buildName, buildIndex) = case targetKind
+      of Door: ("Door", BuildIndexDoor)
+      of Outpost: ("Outpost", buildIndexFor(Outpost))
+      else: ("Wall", BuildIndexWall)
+    if buildIndex >= 0:
+      let (didBuild, buildAct) = tryAffordAndBuild(
+        controller, env, agent, agentId, state, targetPos, buildName, buildIndex
       )
-      if didDoor: return doorAct
-    of Outpost:
-      if not env.canAffordBuild(agent, thingItem("Outpost")):
-        let (didDrop, actDrop) = controller.dropoffCarrying(
-          env, agent, agentId, state,
-          allowWood = true,
-          allowStone = true,
-          allowGold = true
-        )
-        if didDrop: return actDrop
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-      let idx = buildIndexFor(Outpost)
-      if idx >= 0:
-        let (didOutpost, outpostAct) = goToAdjacentAndBuild(
-          controller, env, agent, agentId, state, targetPos, idx
-        )
-        if didOutpost: return outpostAct
-    else:
-      if not env.canAffordBuild(agent, thingItem("Wall")):
-        let (didDrop, actDrop) = controller.dropoffCarrying(
-          env, agent, agentId, state,
-          allowWood = true,
-          allowStone = true,
-          allowGold = true
-        )
-        if didDrop: return actDrop
-        let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
-        if didWood: return actWood
-      let (didWall, wallAct) = goToAdjacentAndBuild(
-        controller, env, agent, agentId, state, targetPos, BuildIndexWall
-      )
-      if didWall: return wallAct
+      if didBuild:
+        return buildAct
     return controller.moveTo(env, agent, agentId, state, enemy.pos)
   0'u16
 
