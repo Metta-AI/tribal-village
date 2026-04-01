@@ -141,21 +141,23 @@ proc findNearestEnemyOfClass*(env: Environment, agent: Thing, radius: int,
 # ---------------------------------------------------------------------------
 # Team Unit Counting
 # ---------------------------------------------------------------------------
-# Generic helper for counting agents by criteria, used by teamSiegeCount, teamNavalCount, etc.
+# Shared iteration/counting helpers for alive agents on a team.
 # ---------------------------------------------------------------------------
+
+iterator teamAliveAgents*(env: Environment, teamId: int): Thing =
+  ## Iterate alive agents on a team.
+  for agent in env.agents:
+    if isAgentAlive(env, agent) and getTeamId(agent) == teamId:
+      yield agent
 
 proc countTeamAgentsByClass*(env: Environment, teamId: int, classes: set[AgentUnitClass]): int =
   ## Count alive agents on a team matching any of the given unit classes.
-  for id in 0 ..< MapAgents:
-    if id < env.agents.len and env.terminated[id] == 0.0:
-      let agent = env.agents[id]
-      if getTeamId(agent) == teamId and agent.unitClass in classes:
-        inc result
+  for agent in env.teamAliveAgents(teamId):
+    if agent.unitClass in classes:
+      inc result
 
 proc countTeamNavalAgents*(env: Environment, teamId: int): int =
   ## Count alive naval units for a team.
-  for id in 0 ..< MapAgents:
-    if id < env.agents.len and env.terminated[id] == 0.0:
-      let agent = env.agents[id]
-      if getTeamId(agent) == teamId and agent.isWaterUnit:
-        inc result
+  for agent in env.teamAliveAgents(teamId):
+    if agent.isWaterUnit:
+      inc result

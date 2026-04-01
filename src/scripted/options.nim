@@ -177,17 +177,6 @@ let EmergencyHealOption* = OptionDef(
   interruptible: true
 )
 
-proc findNearestEnemyBuilding(env: Environment, pos: IVec2, teamId: int): Thing =
-  ## Find nearest enemy building using spatial index.
-  ## O(cells) instead of O(n) where n = total things.
-  findNearestEnemyBuildingSpatial(env, pos, teamId)
-
-proc findNearestEnemyPresence(env: Environment, pos: IVec2,
-                              teamId: int): tuple[target: IVec2, dist: int] =
-  ## Find nearest enemy presence (agent or building) using spatial index.
-  ## O(cells) instead of O(n) where n = total agents + things.
-  findNearestEnemyPresenceSpatial(env, pos, teamId)
-
 proc findNearestNeutralHub*(env: Environment, pos: IVec2): Thing =
   ## Find nearest neutral hub building (teamId < 0).
   ## Optimized: iterates only hub building kinds via thingsByKind instead of all env.things.
@@ -617,7 +606,7 @@ proc shouldTerminateGuardTowerBorder(controller: Controller, env: Environment, a
 proc optGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
+  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(6, 0)), 4, 7)
   let (did, act) = goToAdjacentAndBuild(
@@ -638,7 +627,7 @@ proc shouldTerminateOutpostNetwork(controller: Controller, env: Environment, age
 proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
+  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, 6)), 3, 6)
   let (did, act) = goToAdjacentAndBuild(
@@ -654,7 +643,7 @@ proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: T
   if not env.canAffordBuild(agent, thingItem("Wall")):
     return false
   let basePos = agent.getBasePos()
-  let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
+  let (enemyPos, dist) = findNearestEnemyPresenceSpatial(env, basePos, getTeamId(agent))
   enemyPos.x >= 0 and dist <= EnemyWallFortifyRadius
 
 proc shouldTerminateEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
@@ -665,7 +654,7 @@ proc shouldTerminateEnemyWallFortify(controller: Controller, env: Environment, a
 proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let (enemyPos, dist) = findNearestEnemyPresence(env, basePos, getTeamId(agent))
+  let (enemyPos, dist) = findNearestEnemyPresenceSpatial(env, basePos, getTeamId(agent))
   if enemyPos.x < 0 or dist > EnemyWallFortifyRadius:
     return 0'u16
   let target = findDirectionalBuildPos(env, basePos, enemyPos, 2, 6)
@@ -777,7 +766,7 @@ proc shouldTerminateRoadExpansion(controller: Controller, env: Environment, agen
 proc optRoadExpansion(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
+  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(8, 0)), 2, 5)
   let (did, act) = goToAdjacentAndBuild(
@@ -798,7 +787,7 @@ proc shouldTerminateCastleAnchor(controller: Controller, env: Environment, agent
 proc optCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuilding(env, basePos, getTeamId(agent))
+  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
   let target = findDirectionalBuildPos(env, basePos,
     (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, -8)), 5, 9)
   let (did, act) = goToAdjacentAndBuild(
@@ -811,7 +800,7 @@ proc canStartSiegeBreacher(controller: Controller, env: Environment, agent: Thin
                            agentId: int, state: var AgentState): bool =
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), SiegeWorkshop) > 0 and
-    not isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent))) and
+    not isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent))) and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(SiegeWorkshop))
 
 proc shouldTerminateSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
@@ -1371,16 +1360,18 @@ proc optDockControl(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  agent.inventoryLantern > 0 or not isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+  agent.inventoryLantern > 0 or
+    not isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent)))
 
 proc shouldTerminateTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
   ## Terminate when no lanterns and no enemy buildings
-  agent.inventoryLantern == 0 and isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+  agent.inventoryLantern == 0 and
+    isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent)))
 
 proc optTerritorySweeper(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
-  let enemy = findNearestEnemyBuilding(env, agent.pos, getTeamId(agent))
+  let enemy = findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent))
   if not isNil(enemy):
     return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
   let teamId = getTeamId(agent)
@@ -1619,18 +1610,18 @@ proc canStartSiegeAdvance*(controller: Controller, env: Environment, agent: Thin
                            agentId: int, state: var AgentState): bool =
   ## Siege units (mangonel, trebuchet) advance when there are enemy buildings
   agent.unitClass in {UnitMangonel, UnitTrebuchet} and
-    not isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+    not isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent)))
 
 proc shouldTerminateSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   ## Terminate when no longer siege or no enemy buildings remain
   agent.unitClass notin {UnitMangonel, UnitTrebuchet} or
-    isNil(findNearestEnemyBuilding(env, agent.pos, getTeamId(agent)))
+    isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent)))
 
 proc optSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   ## Siege unit advances toward enemy buildings and attacks them
-  let enemy = findNearestEnemyBuilding(env, agent.pos, getTeamId(agent))
+  let enemy = findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent))
   if isNil(enemy):
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
@@ -1650,16 +1641,6 @@ let SiegeAdvanceOption* = OptionDef(
 const SettlerMinGroupSize = 5  ## Minimum settlers alive to continue migration
 const SettlerArrivalRadius = 3  ## Tiles from target to consider "arrived"
 
-proc countTeamSettlers(env: Environment, teamId: int): int =
-  ## Count living settlers on a team.
-  for agent in env.agents:
-    if not isAgentAlive(env, agent):
-      continue
-    if getTeamId(agent) != teamId:
-      continue
-    if agent.isSettler:
-      inc result
-
 proc canStartSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
   agent.isSettler and agent.settlerTarget.x >= 0 and not agent.settlerArrived
@@ -1673,7 +1654,11 @@ proc optSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent)
 
   # Abort migration if too few settlers remain alive
-  if countTeamSettlers(env, teamId) < SettlerMinGroupSize:
+  var settlerCount = 0
+  for other in env.teamAliveAgents(teamId):
+    if other.isSettler:
+      inc settlerCount
+  if settlerCount < SettlerMinGroupSize:
     agent.isSettler = false
     agent.settlerTarget = ivec2(-1, -1)
     agent.settlerArrived = false
