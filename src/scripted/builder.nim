@@ -36,28 +36,26 @@ const
   BuilderFleeRadius* = 8
   BuilderFleeRadiusConst = BuilderFleeRadius
 
-proc getTotalBuildingCount(controller: Controller, env: Environment, teamId: int): int =
-  ## Count total buildings for a team using the public getBuildingCount API.
-  for kind in ThingKind:
-    if isBuildingKind(kind):
-      result += controller.getBuildingCount(env, teamId, kind)
-
 proc calculateWallRingRadius(controller: Controller, env: Environment, teamId: int,
                              altarPos: IVec2): int =
   ## Calculate adaptive wall radius based on per-settlement building count.
   ## Starts at WallRingBaseRadius and grows by 1 for every WallRingBuildingsPerRadius buildings.
-  let totalBuildings =
+  var totalBuildings =
     if altarPos.x >= 0:
       getTotalBuildingCountNear(env, teamId, altarPos)
     else:
-      getTotalBuildingCount(controller, env, teamId)
+      0
+  if altarPos.x < 0:
+    for kind in ThingKind:
+      if isBuildingKind(kind):
+        totalBuildings += controller.getBuildingCount(env, teamId, kind)
   let extraRadius = totalBuildings div WallRingBuildingsPerRadius
   result = min(WallRingMaxRadius, WallRingBaseRadius + extraRadius)
 
 proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
   ## Check if the builder's home area is under threat from enemies.
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   let nearestEnemy = findNearestEnemyAgentSpatial(env, basePos, teamId, BuilderThreatRadius)
   if not nearestEnemy.isNil:
     return true
@@ -190,7 +188,7 @@ builderGuard(canStartBuilderPopCap, shouldTerminateBuilderPopCap):
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let basePos = agent.getBasePos()
   state.basePosition = basePos
   let (didHouse, houseAct) =
     tryBuildHouseForPopCap(controller, env, agent, agentId, state, teamId, basePos)
@@ -295,13 +293,14 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
     if did: return act
   0'u16
 
-proc findStrategicDropoffTarget(env: Environment, agent: Thing, teamId: int): tuple[pos: IVec2, kind: ThingKind, found: bool] =
+proc findStrategicDropoffTarget(env: Environment, agent: Thing): tuple[pos: IVec2, kind: ThingKind, found: bool] =
   ## Scan for resource clusters that are far from existing drop-offs.
   ## Samples positions on a grid within StrategicDropoffSearchRadius to find
   ## high-density resource areas lacking a nearby drop-off building.
   ## Returns the best cluster center and the kind of drop-off to build.
   result = (pos: ivec2(-1, -1), kind: LumberCamp, found: false)
-  let basePos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let teamId = getTeamId(agent)
+  let basePos = agent.getBasePos()
   var bestScore = 0
   const gridStep = 4  # Sample every 4 tiles for efficiency
   let minX = max(0, basePos.x - StrategicDropoffSearchRadius)
@@ -339,9 +338,7 @@ proc canStartBuilderStrategicDropoff(controller: Controller, env: Environment, a
      controller.getBuildingCount(env, teamId, LumberCamp) == 0:
     return false
   # Use per-agent cache to avoid expensive grid scan on every canStart check
-  let cached = strategicDropoffCache.getWithAgent(env, agent,
-    proc(env: Environment, agent: Thing): tuple[pos: IVec2, kind: ThingKind, found: bool] =
-      findStrategicDropoffTarget(env, agent, getTeamId(agent)))
+  let cached = strategicDropoffCache.getWithAgent(env, agent, findStrategicDropoffTarget)
   cached.found
 
 proc shouldTerminateBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
@@ -352,9 +349,7 @@ proc optBuilderStrategicDropoff(controller: Controller, env: Environment, agent:
                                 agentId: int, state: var AgentState): uint16 =
   ## Move to a resource cluster and build a drop-off building there.
   let teamId = getTeamId(agent)
-  let cached = strategicDropoffCache.getWithAgent(env, agent,
-    proc(env: Environment, agent: Thing): tuple[pos: IVec2, kind: ThingKind, found: bool] =
-      findStrategicDropoffTarget(env, agent, getTeamId(agent)))
+  let cached = strategicDropoffCache.getWithAgent(env, agent, findStrategicDropoffTarget)
   if not cached.found:
     return 0'u16
   # If we're already near the cluster, try to build
@@ -525,7 +520,7 @@ proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: 
   0'u16
 
 builderGuard(canStartBuilderDock, shouldTerminateBuilderDock):
-  let checkPos = if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
+  let checkPos = agent.getBasePos()
   controller.getBuildingCount(env, getTeamId(agent), Dock) == 0 and
     hasWaterNearby(env, checkPos, 20)
 
