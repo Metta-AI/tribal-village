@@ -26,7 +26,7 @@ suite "UI - Selection Behavior":
     resetSelection()
 
   test "initial selection is empty":
-    check selectionCount() == 0
+    check selection.len == 0
     check selectedPos == ivec2(-1, -1)
 
   test "selectThing sets single selection":
@@ -35,7 +35,7 @@ suite "UI - Selection Behavior":
 
     selectThing(agent)
 
-    check selectionCount() == 1
+    check selection.len == 1
     check isSelected(agent)
     check selectedPos == ivec2(10, 10)
 
@@ -46,7 +46,7 @@ suite "UI - Selection Behavior":
 
     resetSelection()
 
-    check selectionCount() == 0
+    check selection.len == 0
     check not isSelected(agent)
 
   test "addToSelection adds to existing selection (shift-click)":
@@ -55,9 +55,10 @@ suite "UI - Selection Behavior":
     let agent2 = addAgentAt(env, 1, ivec2(15, 15))
 
     selectThing(agent1)
-    addThingToSelection(agent2)
+    if agent2 notin selection:
+      selection.add(agent2)
 
-    check selectionCount() == 2
+    check selection.len == 2
     check isSelected(agent1)
     check isSelected(agent2)
 
@@ -66,9 +67,10 @@ suite "UI - Selection Behavior":
     let agent = addAgentAt(env, 0, ivec2(10, 10))
 
     selectThing(agent)
-    addThingToSelection(agent)  # Try to add again
+    if agent notin selection:
+      selection.add(agent)  # Try to add again
 
-    check selectionCount() == 1
+    check selection.len == 1
 
   test "removeFromSelection removes from selection (shift-click toggle)":
     let env = makeEmptyEnv()
@@ -81,7 +83,7 @@ suite "UI - Selection Behavior":
         selection.delete(i)
         break
 
-    check selectionCount() == 1
+    check selection.len == 1
     check not isSelected(agent1)
     check isSelected(agent2)
 
@@ -93,7 +95,7 @@ suite "UI - Selection Behavior":
 
     selectThings(@[agent1, agent2, agent3])
 
-    check selectionCount() == 3
+    check selection.len == 3
     check selectedPos == ivec2(10, 10)  # First unit's position
 
 # ---------------------------------------------------------------------------
@@ -147,7 +149,7 @@ suite "UI - Drag-Box Multi-Select":
 
     applyDragBoxSelection(env, vec2(5, 5), vec2(20, 20))
 
-    check selectionCount() == 2
+    check selection.len == 2
     check isSelected(agent1)
     check isSelected(agent2)
 
@@ -158,7 +160,7 @@ suite "UI - Drag-Box Multi-Select":
 
     applyDragBoxSelection(env, vec2(100, 100), vec2(110, 110))  # No agents here
 
-    check selectionCount() == 0
+    check selection.len == 0
 
 # ---------------------------------------------------------------------------
 # Player Team / AI Takeover Tests
@@ -166,41 +168,41 @@ suite "UI - Drag-Box Multi-Select":
 
 suite "UI - AI Takeover Toggle":
   setup:
-    setPlayerTeam(-1)
+    playerTeam = -1
 
   test "initial state is observer mode":
-    check isObserverMode()
-    check getPlayerTeam() == -1
+    check playerTeam < 0
+    check playerTeam == -1
 
   test "setPlayerTeam switches to player control":
-    setPlayerTeam(0)
+    playerTeam = 0
 
-    check not isObserverMode()
-    check getPlayerTeam() == 0
+    check playerTeam >= 0
+    check playerTeam == 0
 
   test "setPlayerTeam(-1) returns to observer mode":
-    setPlayerTeam(0)
-    setPlayerTeam(-1)
+    playerTeam = 0
+    playerTeam = -1
 
-    check isObserverMode()
+    check playerTeam < 0
 
   test "cyclePlayerTeam cycles through teams":
-    check getPlayerTeam() == -1  # Observer
+    check playerTeam == -1  # Observer
 
-    cyclePlayerTeam()
-    check getPlayerTeam() == 0
+    playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
+    check playerTeam == 0
 
-    cyclePlayerTeam()
-    check getPlayerTeam() == 1
+    playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
+    check playerTeam == 1
 
     # Continue cycling...
     for _ in 2 .. 7:
-      cyclePlayerTeam()
-    check getPlayerTeam() == 7
+      playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
+    check playerTeam == 7
 
     # Should cycle back to observer
-    cyclePlayerTeam()
-    check getPlayerTeam() == -1
+    playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
+    check playerTeam == -1
 
 # ---------------------------------------------------------------------------
 # Command Panel Tests
@@ -557,7 +559,7 @@ suite "UI - Control Groups":
 
     recallControlGroup(0)
 
-    check selectionCount() == 2
+    check selection.len == 2
     check isSelected(agent1)
     check isSelected(agent2)
 
@@ -574,11 +576,11 @@ suite "UI - Control Groups":
     assignControlGroup(2)
 
     recallControlGroup(1)
-    check selectionCount() == 1
+    check selection.len == 1
     check isSelected(agent1)
 
     recallControlGroup(2)
-    check selectionCount() == 2
+    check selection.len == 2
     check isSelected(agent2)
     check isSelected(agent3)
 

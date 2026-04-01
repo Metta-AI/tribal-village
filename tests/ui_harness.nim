@@ -40,45 +40,12 @@ proc selectThings*(things: seq[Thing]) =
   else:
     selectedPos = ivec2(-1, -1)
 
-proc addThingToSelection*(thing: Thing) =
-  ## Add a thing to the current selection (shift-click behavior).
-  if isNil(thing):
-    return
-  for s in selection:
-    if s == thing:
-      return  # Already in selection
-  selection.add(thing)
-
 proc isSelected*(thing: Thing): bool =
   ## Check if a thing is currently selected.
   for s in selection:
     if s == thing:
       return true
   false
-
-proc selectionCount*(): int =
-  ## Get the number of selected items.
-  selection.len
-
-# ---------------------------------------------------------------------------
-# Player Team / AI Takeover Testing
-# ---------------------------------------------------------------------------
-
-proc setPlayerTeam*(team: int) =
-  ## Set the player-controlled team (-1 for observer mode).
-  playerTeam = team
-
-proc getPlayerTeam*(): int =
-  ## Get the current player team.
-  playerTeam
-
-proc isObserverMode*(): bool =
-  ## Check if we're in observer mode.
-  playerTeam < 0
-
-proc cyclePlayerTeam*() =
-  ## Simulate Tab key press to cycle teams.
-  playerTeam = (playerTeam + 2) mod (MapRoomObjectsTeams + 1) - 1
 
 # ---------------------------------------------------------------------------
 # Command Panel Testing
@@ -263,7 +230,7 @@ proc getUnitInfoState*(): UnitInfoState =
 # Control Group Testing
 # ---------------------------------------------------------------------------
 
-const ControlGroupCount* = 10
+const ControlGroupCount = 10
 
 var testControlGroups*: array[ControlGroupCount, seq[Thing]]
 
