@@ -211,8 +211,6 @@ def train(settings: dict[str, Any]) -> None:
             "env_config",
             {
                 "max_steps": DEFAULT_TRAIN_MAX_STEPS,
-                "render_scale": 1,
-                "render_mode": "ansi",
             },
         )
     )
