@@ -20,6 +20,7 @@
 ##   TV_PERF_FAIL_ON_REGRESSION - "1" to exit non-zero on regression
 
 import std/[os, strutils, strformat, monotimes, algorithm]
+import envconfig
 import environment
 import agent_control
 
@@ -33,9 +34,9 @@ proc padLeft(s: string, width: int): string =
   " ".repeat(width - s.len) & s
 
 proc main() =
-  let steps = parseInt(getEnv("TV_PERF_STEPS", "1000"))
-  let seed = parseInt(getEnv("TV_PERF_SEED", "42"))
-  let warmup = parseInt(getEnv("TV_PERF_WARMUP", "100"))
+  let steps = parseEnvInt("TV_PERF_STEPS", 1000)
+  let seed = parseEnvInt("TV_PERF_SEED", 42)
+  let warmup = parseEnvInt("TV_PERF_WARMUP", 100)
 
   # Configure perf regression: window = measured steps, interval = total steps
   # so the subsystem report prints once at the very end of the run.
@@ -114,7 +115,7 @@ proc main() =
     echo ""
     if perfRegressionDetected():
       echo "RESULT: REGRESSION DETECTED"
-      if getEnv("TV_PERF_FAIL_ON_REGRESSION", "0") == "1":
+      if parseEnvBool("TV_PERF_FAIL_ON_REGRESSION", false):
         quit(1)
     else:
       echo "RESULT: No regressions detected"

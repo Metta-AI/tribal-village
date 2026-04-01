@@ -11,9 +11,7 @@ include "step_tick"
 let logRenderEnabled = parseEnvBool("TV_LOG_RENDER", false)
 let logRenderWindow = max(100, parseEnvInt("TV_LOG_RENDER_WINDOW", 100))
 let logRenderEvery = max(1, parseEnvInt("TV_LOG_RENDER_EVERY", 1))
-let logRenderPath = block:
-  let raw = getEnv("TV_LOG_RENDER_PATH", "")
-  if raw.len > 0: raw else: "tribal_village.log"
+let logRenderPath = parseEnvString("TV_LOG_RENDER_PATH", "tribal_village.log")
 
 var logRenderBuffer: seq[string] = @[]
 var logRenderHead = 0

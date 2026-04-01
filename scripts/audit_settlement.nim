@@ -12,22 +12,10 @@
 ##   TV_AUDIT_INTERVAL - Snapshot interval in steps (default: 100)
 
 import std/[os, strutils, strformat, tables, algorithm, json, math]
+import envconfig
 import environment
 import agent_control
 import types
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-proc parseEnvInt(name: string, fallback: int): int =
-  let raw = getEnv(name, "")
-  if raw.len == 0:
-    return fallback
-  try:
-    parseInt(raw)
-  except ValueError:
-    fallback
 
 # ---------------------------------------------------------------------------
 # Metric types

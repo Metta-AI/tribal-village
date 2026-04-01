@@ -465,16 +465,6 @@ const
     )
   ]
 
-proc parseEnvStringInternal(envVar: string, fallback: string): string =
-  let raw = getEnv(envVar, "")
-  if raw.len == 0:
-    return fallback
-  return raw
-
-# =============================================================================
-# Config Loading
-# =============================================================================
-
 proc loadConfig*(): Config =
   ## Load configuration from environment variables.
   ## Returns a Config object with all values populated from env vars or defaults.
@@ -522,11 +512,11 @@ proc loadConfig*(): Config =
 
     # Replay System
     replayEnabled: parseEnvBool("TV_REPLAY", false),
-    replayPath: parseEnvStringInternal("TV_REPLAY_PATH", "data/replay.json"),
+    replayPath: parseEnvString("TV_REPLAY_PATH", "data/replay.json"),
 
     # Balance Scorecard
     scorecardEnabled: parseEnvBool("TV_SCORECARD", false),
-    scorecardPath: parseEnvStringInternal("TV_SCORECARD_PATH", "data/scorecard.json"),
+    scorecardPath: parseEnvString("TV_SCORECARD_PATH", "data/scorecard.json"),
 
     # Event Logging
     eventLogEnabled: parseEnvBool("TV_EVENT_LOG", false),

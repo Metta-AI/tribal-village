@@ -57,6 +57,13 @@ proc parseEnvFloat*(envVar: string, fallback: float): float =
            "' as float, using fallback=", fallback
     result = fallback
 
+proc parseEnvString*(envVar: string, fallback: string): string =
+  ## Parse a string from an environment variable.
+  let raw = getEnv(envVar, "")
+  if raw.len == 0:
+    return fallback
+  raw
+
 proc initStringIntTable*(capacity: int = 16): Table[string, int] =
   ## Initialize a string->int table with pre-allocated capacity to avoid rehashing.
   ## Default capacity of 16 covers most audit use cases (damage types, unit types, resources).

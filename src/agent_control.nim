@@ -11,17 +11,14 @@ import formations
 export formations
 
 when defined(stepTiming):
+  import envconfig
   import std/monotimes
   import std/algorithm
 
   # AI decision timing state
-  let aiTimingEnabled = getEnv("TV_AI_TIMING", "0") != "0"
-  let aiTimingInterval = block:
-    let raw = getEnv("TV_AI_TIMING_INTERVAL", "100")
-    try: parseInt(raw) except: 100
-  let aiTimingTopN = block:
-    let raw = getEnv("TV_AI_TIMING_TOP_N", "10")
-    try: parseInt(raw) except: 10
+  let aiTimingEnabled = parseEnvBool("TV_AI_TIMING", false)
+  let aiTimingInterval = parseEnvInt("TV_AI_TIMING_INTERVAL", 100)
+  let aiTimingTopN = parseEnvInt("TV_AI_TIMING_TOP_N", 10)
 
   var aiTimingCumTotal: float64 = 0.0
   var aiTimingCumMax: float64 = 0.0
