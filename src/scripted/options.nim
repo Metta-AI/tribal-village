@@ -399,15 +399,9 @@ proc findNearestGarrisonableBuilding*(env: Environment, pos: IVec2, teamId: int,
         best = building
   best
 
-proc canStartTownBellGarrison(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): bool =
+optionGuard(canStartTownBellGarrison, shouldTerminateTownBellGarrison):
   let teamId = getTeamId(agent)
   teamId >= 0 and teamId < MapRoomObjectsTeams and env.townBellActive[teamId]
-
-proc shouldTerminateTownBellGarrison(controller: Controller, env: Environment, agent: Thing,
-                                      agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  teamId < 0 or teamId >= MapRoomObjectsTeams or not env.townBellActive[teamId]
 
 proc optTownBellGarrison(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint16 =
@@ -718,17 +712,11 @@ proc optCastleAnchor(controller: Controller, env: Environment, agent: Thing,
     enemyDirectionalBuildTarget(env, basePos, getTeamId(agent), ivec2(0, -8)), 5, 9,
     buildIndexFor(Castle))
 
-proc canStartSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): bool =
+optionGuard(canStartSiegeBreacher, shouldTerminateSiegeBreacher):
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), SiegeWorkshop) > 0 and
     not isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent))) and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(SiegeWorkshop))
-
-proc shouldTerminateSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  ## Terminate when conditions no longer met
-  not canStartSiegeBreacher(controller, env, agent, agentId, state)
 
 proc optSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
@@ -738,16 +726,10 @@ proc optSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
-proc canStartMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
+optionGuard(canStartMangonelSuppression, shouldTerminateMangonelSuppression):
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), MangonelWorkshop) > 0 and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(MangonelWorkshop))
-
-proc shouldTerminateMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
-                                        agentId: int, state: var AgentState): bool =
-  ## Terminate when conditions no longer met
-  not canStartMangonelSuppression(controller, env, agent, agentId, state)
 
 proc optMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
@@ -791,14 +773,8 @@ proc optUnitPromotionFocus(controller: Controller, env: Environment, agent: Thin
     return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
   0'u16
 
-proc canStartRelicRaider(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): bool =
+optionGuard(canStartRelicRaider, shouldTerminateRelicRaider):
   agent.inventoryRelic == 0 and env.thingsByKind[Relic].len > 0
-
-proc shouldTerminateRelicRaider(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
-  ## Terminate when carrying relic or no relics remain
-  agent.inventoryRelic > 0 or env.thingsByKind[Relic].len == 0
 
 proc optRelicRaider(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint16 =
