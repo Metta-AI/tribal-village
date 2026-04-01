@@ -44,23 +44,13 @@ var allyNearbyCache: PerAgentCache[bool]
 const
   SiegeUnitClasses = {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
 
-proc teamSiegeCount(env: Environment, teamId: int): int =
-  ## Count alive siege units for a team (BatteringRam, Mangonel, Trebuchet, Scorpion).
-  ## Uses consolidated countTeamAgentsByClass from ai_utils.
-  countTeamAgentsByClass(env, teamId, SiegeUnitClasses)
-
 proc teamSiegeAtCap(env: Environment, teamId: int): bool =
   ## Returns true if team has reached siege training cap.
-  teamSiegeCount(env, teamId) >= MaxSiegePerTeam
-
-proc teamNavalCount(env: Environment, teamId: int): int =
-  ## Count alive naval units for a team.
-  ## Uses consolidated countTeamNavalAgents from ai_utils.
-  countTeamNavalAgents(env, teamId)
+  countTeamAgentsByClass(env, teamId, SiegeUnitClasses) >= MaxSiegePerTeam
 
 proc teamNavalAtCap(env: Environment, teamId: int): bool =
   ## Returns true if team has reached naval training cap.
-  teamNavalCount(env, teamId) >= MaxNavalPerTeam
+  countTeamNavalAgents(env, teamId) >= MaxNavalPerTeam
 
 proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows chasing enemies.
@@ -1939,62 +1929,13 @@ proc optFighterGuard(controller: Controller, env: Environment, agent: Thing,
 # Naval Unit AI Behaviors
 # ============================================================================
 
-const NavalUnitClasses* = {UnitGalley, UnitFireShip, UnitFishingShip,
-                           UnitTransportShip, UnitDemoShip, UnitCannonGalleon}
-
 proc findNearestEnemyShip(env: Environment, agent: Thing, radius: int): Thing =
   ## Find nearest enemy water unit within radius using spatial index.
-  var best: Thing = nil
-  var bestDist = int.high
-  let (cx, cy) = cellCoords(agent.pos)
-  let clampedMax = min(radius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = distToCellRadius16(clampedMax)
-  for ddx in -cellRadius .. cellRadius:
-    for ddy in -cellRadius .. cellRadius:
-      let nx = cx + ddx
-      let ny = cy + ddy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if other.isNil or other.agentId == agent.agentId:
-          continue
-        if not isAgentAlive(env, other):
-          continue
-        if sameTeam(agent, other):
-          continue
-        if not other.isWaterUnit:
-          continue
-        let dist = int(chebyshevDist(agent.pos, other.pos))
-        if dist <= radius and dist < bestDist:
-          bestDist = dist
-          best = other
-  best
+  findNearestEnemy(env, agent, radius, requireWaterUnit = true)
 
 proc findNearestEnemyOnWater(env: Environment, agent: Thing, radius: int): Thing =
   ## Find nearest enemy (ship or land unit near water) within radius.
-  var best: Thing = nil
-  var bestDist = int.high
-  let (cx, cy) = cellCoords(agent.pos)
-  let clampedMax = min(radius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
-  let cellRadius = distToCellRadius16(clampedMax)
-  for ddx in -cellRadius .. cellRadius:
-    for ddy in -cellRadius .. cellRadius:
-      let nx = cx + ddx
-      let ny = cy + ddy
-      if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
-        continue
-      for other in env.spatialIndex.kindCells[Agent][nx][ny]:
-        if other.isNil or other.agentId == agent.agentId:
-          continue
-        if not isAgentAlive(env, other):
-          continue
-        if sameTeam(agent, other):
-          continue
-        let dist = int(chebyshevDist(agent.pos, other.pos))
-        if dist <= radius and dist < bestDist:
-          bestDist = dist
-          best = other
-  best
+  findNearestEnemy(env, agent, radius)
 
 proc findNearestFriendlyDock(env: Environment, agent: Thing): Thing =
   ## Find nearest friendly dock.

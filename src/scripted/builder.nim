@@ -531,15 +531,10 @@ proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
   if did: return act
   0'u16
 
-proc teamNavalCount(env: Environment, teamId: int): int =
-  ## Count alive naval units for a team.
-  ## Delegates to canonical countTeamNavalAgents from ai_utils.
-  countTeamNavalAgents(env, teamId)
-
 builderGuard(canStartBuilderNavalTrain, shouldTerminateBuilderNavalTrain):
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), Dock) > 0 and
-    teamNavalCount(env, getTeamId(agent)) < MaxNavalPerTeam and
+    countTeamNavalAgents(env, getTeamId(agent)) < MaxNavalPerTeam and
     env.canSpendStockpile(getTeamId(agent), buildingTrainCosts(Dock))
 
 proc optBuilderNavalTrain(controller: Controller, env: Environment, agent: Thing,

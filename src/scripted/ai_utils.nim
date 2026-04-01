@@ -65,19 +65,11 @@ type
     FilterExclude  ## Exclude the specified unit classes
     FilterInclude  ## Only include the specified unit classes
 
-proc findNearestEnemyOfClass*(env: Environment, agent: Thing, radius: int,
-                               classes: set[AgentUnitClass], filterType: AgentUnitClassFilter): Thing =
-  ## Find the nearest enemy agent within radius, filtered by unit class.
-  ##
-  ## Parameters:
-  ##   env: The environment
-  ##   agent: The searching agent
-  ##   radius: Maximum Chebyshev distance to search
-  ##   classes: Set of unit classes to filter
-  ##   filterType: FilterExclude to skip these classes, FilterInclude to only match these
-  ##
-  ## Returns:
-  ##   Nearest matching enemy, or nil if none found
+proc findNearestEnemyImpl(env: Environment, agent: Thing, radius: int,
+                          classes: set[AgentUnitClass] = {},
+                          filterType: AgentUnitClassFilter = FilterExclude,
+                          useClassFilter = false,
+                          requireWaterUnit = false): Thing =
   let teamMask = getTeamMask(agent)
   var bestEnemy: Thing = nil
   var bestDist = int.high
@@ -100,14 +92,16 @@ proc findNearestEnemyOfClass*(env: Environment, agent: Thing, radius: int,
         # Bitwise team check: same team = skip
         if (getTeamMask(other) and teamMask) != 0:
           continue
-        # Apply class filter
-        case filterType
-        of FilterExclude:
-          if other.unitClass in classes:
-            continue
-        of FilterInclude:
-          if other.unitClass notin classes:
-            continue
+        if requireWaterUnit and not other.isWaterUnit:
+          continue
+        if useClassFilter:
+          case filterType
+          of FilterExclude:
+            if other.unitClass in classes:
+              continue
+          of FilterInclude:
+            if other.unitClass notin classes:
+              continue
         let dist = int(chebyshevDist(agent.pos, other.pos))
         if dist > radius:
           continue
@@ -116,6 +110,33 @@ proc findNearestEnemyOfClass*(env: Environment, agent: Thing, radius: int,
           bestEnemy = other
 
   bestEnemy
+
+proc findNearestEnemy*(env: Environment, agent: Thing, radius: int,
+                       requireWaterUnit = false): Thing =
+  ## Find the nearest enemy agent within radius, optionally limited to water units.
+  findNearestEnemyImpl(env, agent, radius, requireWaterUnit = requireWaterUnit)
+
+proc findNearestEnemyOfClass*(env: Environment, agent: Thing, radius: int,
+                              classes: set[AgentUnitClass], filterType: AgentUnitClassFilter): Thing =
+  ## Find the nearest enemy agent within radius, filtered by unit class.
+  ##
+  ## Parameters:
+  ##   env: The environment
+  ##   agent: The searching agent
+  ##   radius: Maximum Chebyshev distance to search
+  ##   classes: Set of unit classes to filter
+  ##   filterType: FilterExclude to skip these classes, FilterInclude to only match these
+  ##
+  ## Returns:
+  ##   Nearest matching enemy, or nil if none found
+  findNearestEnemyImpl(
+    env,
+    agent,
+    radius,
+    classes = classes,
+    filterType = filterType,
+    useClassFilter = true,
+  )
 
 # ---------------------------------------------------------------------------
 # Team Unit Counting
