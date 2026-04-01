@@ -2004,53 +2004,48 @@ proc queueCommand*(controller: Controller, agentId: int, cmd: QueuedCommand) =
       controller.agents[agentId].commandQueue[count] = cmd
       controller.agents[agentId].commandQueueCount = count + 1
 
-proc queueAttackMove*(controller: Controller, agentId: int, target: IVec2) =
-  ## Queue an attack-move command.
+proc queuePositionalCommand(controller: Controller, agentId: int,
+                            cmdType: QueuedCommandType, targetPos: IVec2) =
   queueCommand(controller, agentId, QueuedCommand(
-    cmdType: CmdAttackMove,
-    targetPos: target,
+    cmdType: cmdType,
+    targetPos: targetPos,
     targetAgentId: -1
   ))
+
+proc queueAgentCommand(controller: Controller, agentId: int,
+                       cmdType: QueuedCommandType, targetAgentId: int) =
+  queueCommand(controller, agentId, QueuedCommand(
+    cmdType: cmdType,
+    targetPos: ivec2(-1, -1),
+    targetAgentId: targetAgentId.int32
+  ))
+
+proc defaultQueuedCommand(): QueuedCommand {.inline.} =
+  QueuedCommand(cmdType: CmdAttackMove, targetPos: ivec2(-1, -1), targetAgentId: -1)
+
+proc queueAttackMove*(controller: Controller, agentId: int, target: IVec2) =
+  ## Queue an attack-move command.
+  queuePositionalCommand(controller, agentId, CmdAttackMove, target)
 
 proc queuePatrol*(controller: Controller, agentId: int, target: IVec2) =
   ## Queue a patrol command (from current position to target).
-  queueCommand(controller, agentId, QueuedCommand(
-    cmdType: CmdPatrol,
-    targetPos: target,
-    targetAgentId: -1
-  ))
+  queuePositionalCommand(controller, agentId, CmdPatrol, target)
 
 proc queueFollow*(controller: Controller, agentId: int, targetAgentId: int) =
   ## Queue a follow command.
-  queueCommand(controller, agentId, QueuedCommand(
-    cmdType: CmdFollow,
-    targetPos: ivec2(-1, -1),
-    targetAgentId: targetAgentId.int32
-  ))
+  queueAgentCommand(controller, agentId, CmdFollow, targetAgentId)
 
 proc queueGuardAgent*(controller: Controller, agentId: int, targetAgentId: int) =
   ## Queue a guard-agent command.
-  queueCommand(controller, agentId, QueuedCommand(
-    cmdType: CmdGuard,
-    targetPos: ivec2(-1, -1),
-    targetAgentId: targetAgentId.int32
-  ))
+  queueAgentCommand(controller, agentId, CmdGuard, targetAgentId)
 
 proc queueGuardPosition*(controller: Controller, agentId: int, target: IVec2) =
   ## Queue a guard-position command.
-  queueCommand(controller, agentId, QueuedCommand(
-    cmdType: CmdGuard,
-    targetPos: target,
-    targetAgentId: -1
-  ))
+  queuePositionalCommand(controller, agentId, CmdGuard, target)
 
 proc queueHoldPosition*(controller: Controller, agentId: int, target: IVec2) =
   ## Queue a hold-position command.
-  queueCommand(controller, agentId, QueuedCommand(
-    cmdType: CmdHoldPosition,
-    targetPos: target,
-    targetAgentId: -1
-  ))
+  queuePositionalCommand(controller, agentId, CmdHoldPosition, target)
 
 proc peekNextCommand*(controller: Controller, agentId: int): QueuedCommand =
   ## Get the next command in the queue without removing it.
@@ -2058,7 +2053,7 @@ proc peekNextCommand*(controller: Controller, agentId: int): QueuedCommand =
   if agentId >= 0 and agentId < MapAgents and
      controller.agents[agentId].commandQueueCount > 0:
     return controller.agents[agentId].commandQueue[0]
-  QueuedCommand(cmdType: CmdAttackMove, targetPos: ivec2(-1, -1), targetAgentId: -1)
+  defaultQueuedCommand()
 
 proc popNextCommand*(controller: Controller, agentId: int): QueuedCommand =
   ## Remove and return the next command from the queue.
@@ -2072,7 +2067,7 @@ proc popNextCommand*(controller: Controller, agentId: int): QueuedCommand =
         controller.agents[agentId].commandQueue[i] = controller.agents[agentId].commandQueue[i + 1]
       controller.agents[agentId].commandQueueCount = count - 1
       return result
-  QueuedCommand(cmdType: CmdAttackMove, targetPos: ivec2(-1, -1), targetAgentId: -1)
+  defaultQueuedCommand()
 
 proc executeQueuedCommand*(controller: Controller, agentId: int, agentPos: IVec2) =
   ## Pop the next command from the queue and execute it.
