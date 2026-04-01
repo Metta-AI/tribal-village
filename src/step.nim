@@ -2434,13 +2434,7 @@ proc reset*(env: Environment, seed: int = 0) =
   env.teamTributesReceived = default(array[MapRoomObjectsTeams, int])
   env.townBellActive = default(array[MapRoomObjectsTeams, bool])
   # Reset victory conditions
-  env.victoryWinner = -1
-  env.victoryWinners = NoTeamMask
-  for teamId in 0 ..< MapRoomObjectsTeams:
-    env.victoryStates[teamId].wonderBuiltStep = -1
-    env.victoryStates[teamId].relicHoldStartStep = -1
-    env.victoryStates[teamId].kingAgentId = -1
-    env.victoryStates[teamId].hillControlStartStep = -1
+  env.resetVictoryState()
   # Clear fog of war (revealed maps) via zeroMem
   env.revealedMaps.clear()
   # Clear UI selection and control groups to prevent stale references

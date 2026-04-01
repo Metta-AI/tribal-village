@@ -147,6 +147,34 @@ proc carveTreeOasisWater(env: Environment, center: IVec2, rx, ry: int, rng: var 
         continue
       setTerrain(env, pos, Water)
 
+proc resetVictoryState(env: Environment) =
+  env.victoryWinner = -1
+  env.victoryWinners = NoTeamMask
+  for teamId in 0 ..< MapRoomObjectsTeams:
+    env.victoryStates[teamId].wonderBuiltStep = -1
+    env.victoryStates[teamId].relicHoldStartStep = -1
+    env.victoryStates[teamId].kingAgentId = -1
+    env.victoryStates[teamId].hillControlStartStep = -1
+
+proc resetVisualEffects(env: Environment) =
+  ## Clear all visual effect pools for reset. setLen(0) preserves capacity.
+  if env.projectiles.len == 0:
+    env.projectiles = newSeqOfCap[Projectile](ProjectilePoolCapacity)
+  else:
+    env.projectiles.setLen(0)
+  env.projectilePool.stats = PoolStats()
+  env.damageNumbers.setLen(0)
+  env.debris.setLen(0)
+  env.spawnEffects.setLen(0)
+  env.ragdolls.setLen(0)
+  env.dyingUnits.setLen(0)
+  env.gatherSparkles.setLen(0)
+  env.constructionDust.setLen(0)
+  env.unitTrails.setLen(0)
+  env.waterRipples.setLen(0)
+  env.attackImpacts.setLen(0)
+  env.conversionEffects.setLen(0)
+
 proc initState(env: Environment) =
   ## Reset all environment state to prepare for a new game.
   inc env.mapGeneration
@@ -161,13 +189,7 @@ proc initState(env: Environment) =
     env.teamVillagers[teamId].setLen(0)
 
   # Reset victory conditions (must be -1, not default 0, or Team 0 wins immediately)
-  env.victoryWinner = -1
-  env.victoryWinners = NoTeamMask
-  for teamId in 0 ..< MapRoomObjectsTeams:
-    env.victoryStates[teamId].wonderBuiltStep = -1
-    env.victoryStates[teamId].relicHoldStartStep = -1
-    env.victoryStates[teamId].kingAgentId = -1
-    env.victoryStates[teamId].hillControlStartStep = -1
+  env.resetVictoryState()
 
   # Initialize alliance state: each team is allied with itself only
   for teamId in 0 ..< MapRoomObjectsTeams:
@@ -219,25 +241,8 @@ proc initState(env: Environment) =
   env.actionTintPositions.setLen(0)
   env.shieldCountdown.clear()
 
-  # Pre-allocate projectile pool capacity to avoid growth allocations during combat
-  if env.projectiles.len == 0:
-    env.projectiles = newSeqOfCap[Projectile](ProjectilePoolCapacity)
-  else:
-    env.projectiles.setLen(0)  # Clear but keep existing capacity
-  env.projectilePool.stats = PoolStats()  # Reset stats
-
-  # Clear visual effect arrays (setLen(0) retains capacity for pooling)
-  env.damageNumbers.setLen(0)
-  env.ragdolls.setLen(0)
-  env.debris.setLen(0)
-  env.spawnEffects.setLen(0)
-  env.dyingUnits.setLen(0)
-  env.gatherSparkles.setLen(0)
-  env.constructionDust.setLen(0)
-  env.unitTrails.setLen(0)
-  env.waterRipples.setLen(0)
-  env.attackImpacts.setLen(0)
-  env.conversionEffects.setLen(0)
+  # Reset visual effect pools while keeping pooled capacity hot.
+  env.resetVisualEffects()
 
   # Pre-allocate action tint positions capacity
   if env.actionTintPositions.len == 0:
