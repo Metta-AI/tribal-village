@@ -464,7 +464,7 @@ proc canStartBuilderDefenseResponse(controller: Controller, env: Environment, ag
                                     agentId: int, state: var AgentState): bool =
   ## Check if there's a defense request and we can respond by building
   let teamId = getTeamId(agent)
-  if not hasDefenseRequest(teamId):
+  if not hasUnfulfilledRequest(teamId, RequestDefense):
     return false
   # Check if we're missing any defense buildings
   for kind in DefenseRequestBuildingKinds:
@@ -476,7 +476,7 @@ proc shouldTerminateBuilderDefenseResponse(controller: Controller, env: Environm
                                            agentId: int, state: var AgentState): bool =
   ## Terminate when no more defense requests or defense buildings built
   let teamId = getTeamId(agent)
-  if not hasDefenseRequest(teamId):
+  if not hasUnfulfilledRequest(teamId, RequestDefense):
     return true
   # Check if all defense buildings exist
   for kind in DefenseRequestBuildingKinds:
@@ -538,7 +538,7 @@ let BuilderNavalTrainOption* = OptionDef(
 
 builderGuard(canStartBuilderSiegeResponse, shouldTerminateBuilderSiegeResponse):
   let teamId = getTeamId(agent)
-  hasSiegeBuildRequest(teamId) and
+  hasUnfulfilledRequest(teamId, RequestSiegeBuild) and
     controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0
 
 proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,

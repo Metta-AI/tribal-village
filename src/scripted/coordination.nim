@@ -51,7 +51,7 @@ template validTeamId(teamId: int): bool =
 template coordState(teamId: int): var CoordinationState =
   teamCoordination[teamId]
 
-proc hasUnfulfilledRequest(teamId: int, kind: CoordinationRequestKind): bool =
+proc hasUnfulfilledRequest*(teamId: int, kind: CoordinationRequestKind): bool =
   ## Check if there's an unfulfilled request of the given kind
   if not validTeamId(teamId):
     return false
@@ -143,14 +143,6 @@ proc findNearestProtectionRequest*(teamId: int, agentPos: IVec2): ptr Coordinati
         bestPriority = req.priority
         bestReq = req
   bestReq
-
-proc hasDefenseRequest*(teamId: int): bool =
-  ## Check if there's an unfulfilled defense request
-  hasUnfulfilledRequest(teamId, RequestDefense)
-
-proc hasSiegeBuildRequest*(teamId: int): bool =
-  ## Check if there's an unfulfilled siege build request
-  hasUnfulfilledRequest(teamId, RequestSiegeBuild)
 
 # --- Coordination request creators (called from role behaviors) ---
 
