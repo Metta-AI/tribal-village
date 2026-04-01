@@ -41,10 +41,6 @@ proc enableSemanticCapture*() =
   currentContext = ""
   currentDepth = 0
 
-proc disableSemanticCapture*() =
-  ## Disable semantic capture mode.
-  semanticEnabled = false
-
 proc beginSemanticFrame*() =
   ## Start capturing a new frame. Clears previous frame's data.
   if not semanticEnabled:
@@ -95,48 +91,12 @@ proc captureLabel*(text: string, pos: Vec2, size: Vec2 = vec2(0, 0)) =
     parent: currentContext
   ))
 
-proc captureIcon*(name: string, pos: Vec2, size: Vec2) =
-  ## Capture an icon widget.
-  if not semanticEnabled:
-    return
-  capturedWidgets.add(SemanticWidget(
-    kind: WidgetIcon,
-    name: name,
-    pos: pos,
-    size: size,
-    parent: currentContext
-  ))
-
 proc capturePanel*(name: string, pos: Vec2, size: Vec2) =
   ## Capture a panel/container widget.
   if not semanticEnabled:
     return
   capturedWidgets.add(SemanticWidget(
     kind: WidgetPanel,
-    name: name,
-    pos: pos,
-    size: size,
-    parent: currentContext
-  ))
-
-proc captureRect*(name: string, pos: Vec2, size: Vec2) =
-  ## Capture a generic rectangle (for backgrounds, borders, etc).
-  if not semanticEnabled:
-    return
-  capturedWidgets.add(SemanticWidget(
-    kind: WidgetRect,
-    name: name,
-    pos: pos,
-    size: size,
-    parent: currentContext
-  ))
-
-proc captureImage*(name: string, pos: Vec2, size: Vec2) =
-  ## Capture an image/sprite widget.
-  if not semanticEnabled:
-    return
-  capturedWidgets.add(SemanticWidget(
-    kind: WidgetImage,
     name: name,
     pos: pos,
     size: size,

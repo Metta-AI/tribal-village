@@ -475,15 +475,6 @@ proc ensureHeartCountLabel*(count: int): string =
   let cached = ensureLabel("heart_count", "x " & $count, overlayLabelStyle)
   result = cached.imageKey
 
-proc ensureControlGroupBadge*(groupNum: int): (string, IVec2) =
-  ## Cache a control group badge label (1-9) for display above units.
-  if groupNum < 0 or groupNum >= 10: return ("", ivec2(0, 0))
-  let displayNum = if groupNum == 9: 0 else: groupNum + 1
-  let style = labelStyle(ControlGroupBadgeFontPath, ControlGroupBadgeFontSize,
-                          ControlGroupBadgePadding, 0.7)
-  let cached = ensureLabel("control_group", $displayNum, style)
-  result = (cached.imageKey, cached.size)
-
 # ─── Cliff Draw Order ────────────────────────────────────────────────────────
 
 const CliffDrawOrder* = [

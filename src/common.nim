@@ -1,8 +1,6 @@
 import
   boxy, windy, vmath
 
-import pixie
-
 import common_types
 export common_types
 
@@ -120,13 +118,6 @@ proc logicalMousePos*(window: Window): Vec2 =
   ## Mouse position in logical coordinates (accounts for HiDPI scaling).
   window.mousePos.vec2 / window.contentScale
 
-# ─── Rendering Initialization ────────────────────────────────────────────────
-
-proc initRendering*(dataDir: string = "data") =
-  ## Initialize the boxy renderer for world and UI rendering.
-  ## Call this after window creation but before the main loop.
-  bxy = newBoxy()
-
 # ─── Transform Stack ─────────────────────────────────────────────────────────
 
 proc saveTransform*() =
@@ -153,25 +144,6 @@ proc translateTransform*(v: Vec2) =
 proc scaleTransform*(s: Vec2) =
   ## Scale the current transform.
   transformMat = transformMat * scale(s)
-
-proc rotateTransform*(angle: float32) =
-  ## Rotate the current transform.
-  transformMat = transformMat * rotate(angle)
-
-proc applyTransform*(pos: Vec2): Vec2 =
-  ## Apply current transform to a position.
-  let p = transformMat * vec3(pos.x, pos.y, 1.0)
-  vec2(p.x, p.y)
-
-# ─── Frame Lifecycle ─────────────────────────────────────────────────────────
-
-proc beginFrame*(size: IVec2) =
-  ## Begin a new frame for the boxy renderer.
-  bxy.beginFrame(size)
-
-proc endFrame*() =
-  ## End the current frame for the boxy renderer.
-  bxy.endFrame()
 
 # Viewport culling types and functions
 type

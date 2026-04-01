@@ -182,11 +182,6 @@ proc screenShakeLcg(): float32 =
   let normalized = (screenShakeRng.float32 / uint32.high.float32) * 2.0 - 1.0
   normalized
 
-proc triggerScreenShake*(intensity: float32 = ScreenShakeDeathIntensity) =
-  ## Trigger a screen shake effect. Intensity is additive up to max.
-  screenShakeIntensity = min(ScreenShakeMaxIntensity,
-                              screenShakeIntensity + intensity)
-
 proc updateScreenShake*() =
   ## Update screen shake each frame: decay intensity and generate new offset.
   if screenShakeIntensity > 0.1:
