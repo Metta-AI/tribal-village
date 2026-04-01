@@ -53,6 +53,22 @@ proc agentHasAnyItem*(agent: Thing, keys: openArray[ItemKey]): bool =
 proc canStartVillagerBuild(agent: Thing, env: Environment, buildName: string): bool {.inline.} =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem(buildName))
 
+proc canStartCarryLantern(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  agent.inventoryLantern > 0
+
+proc shouldTerminateCarryLantern(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  agent.inventoryLantern == 0
+
+proc canStartCarryRelic(controller: Controller, env: Environment, agent: Thing,
+                        agentId: int, state: var AgentState): bool =
+  agent.inventoryRelic > 0
+
+proc shouldTerminateCarryRelic(controller: Controller, env: Environment, agent: Thing,
+                               agentId: int, state: var AgentState): bool =
+  agent.inventoryRelic == 0
+
 proc enemyDirectionalBuildTarget(env: Environment, basePos: IVec2, teamId: int,
                                  fallbackOffset: IVec2): IVec2 {.inline.} =
   let enemy = findNearestEnemyBuildingSpatial(env, basePos, teamId)
@@ -421,15 +437,6 @@ proc optPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
 proc findNearestGoblinStructure*(env: Environment, pos: IVec2): Thing =
   findNearestThingOfKinds(env, pos, [GoblinHive, GoblinHut, GoblinTotem])
 
-proc canStartLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  agent.inventoryLantern > 0
-
-proc shouldTerminateLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
-                                        agentId: int, state: var AgentState): bool =
-  ## Terminate when no lanterns to place
-  agent.inventoryLantern == 0
-
 proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
@@ -438,15 +445,6 @@ proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thi
   if target.x < 0:
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, target, 6'u16)
-
-proc canStartLanternGapFill(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
-  agent.inventoryLantern > 0
-
-proc shouldTerminateLanternGapFill(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  ## Terminate when no lanterns to place
-  agent.inventoryLantern == 0
 
 proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
@@ -482,15 +480,6 @@ proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
   if target.x < 0:
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, target, 6'u16)
-
-proc canStartLanternRecovery(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
-  agent.inventoryLantern > 0
-
-proc shouldTerminateLanternRecovery(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  ## Terminate when no lanterns to place
-  agent.inventoryLantern == 0
 
 proc optLanternRecovery(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
@@ -877,15 +866,6 @@ proc optRelicRaider(controller: Controller, env: Environment, agent: Thing,
   if isNil(relic):
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, relic.pos, 3'u16)
-
-proc canStartRelicCourier(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
-  agent.inventoryRelic > 0
-
-proc shouldTerminateRelicCourier(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  ## Terminate when no longer carrying a relic
-  agent.inventoryRelic == 0
 
 proc optRelicCourier(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
@@ -1650,22 +1630,22 @@ let MetaBehaviorOptions* = [
   ),
   OptionDef(
     name: "BehaviorLanternFrontierPush",
-    canStart: canStartLanternFrontierPush,
-    shouldTerminate: shouldTerminateLanternFrontierPush,
+    canStart: canStartCarryLantern,
+    shouldTerminate: shouldTerminateCarryLantern,
     act: optLanternFrontierPush,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorLanternGapFill",
-    canStart: canStartLanternGapFill,
-    shouldTerminate: shouldTerminateLanternGapFill,
+    canStart: canStartCarryLantern,
+    shouldTerminate: shouldTerminateCarryLantern,
     act: optLanternGapFill,
     interruptible: true
   ),
   OptionDef(
     name: "BehaviorLanternRecovery",
-    canStart: canStartLanternRecovery,
-    shouldTerminate: shouldTerminateLanternRecovery,
+    canStart: canStartCarryLantern,
+    shouldTerminate: shouldTerminateCarryLantern,
     act: optLanternRecovery,
     interruptible: true
   ),
@@ -1776,8 +1756,8 @@ let MetaBehaviorOptions* = [
   ),
   OptionDef(
     name: "BehaviorRelicCourier",
-    canStart: canStartRelicCourier,
-    shouldTerminate: shouldTerminateRelicCourier,
+    canStart: canStartCarryRelic,
+    shouldTerminate: shouldTerminateCarryRelic,
     act: optRelicCourier,
     interruptible: true
   ),
