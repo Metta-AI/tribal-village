@@ -1393,23 +1393,6 @@ proc optFighterAttackMove*(controller: Controller, env: Environment, agent: Thin
   # No enemy nearby - continue moving toward destination
   controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
 
-proc setAttackMoveTarget*(controller: Controller, agentId: int, target: IVec2) =
-  ## Set an attack-move target for a specific agent.
-  ## The agent will move toward the target while engaging enemies along the way.
-  if agentId >= 0 and agentId < MapAgents:
-    controller.agents[agentId].attackMoveTarget = target
-
-proc clearAttackMoveTarget*(controller: Controller, agentId: int) =
-  ## Clear the attack-move target for a specific agent.
-  if agentId >= 0 and agentId < MapAgents:
-    controller.agents[agentId].attackMoveTarget = ivec2(-1, -1)
-
-proc getAttackMoveTarget*(controller: Controller, agentId: int): IVec2 =
-  ## Get the current attack-move target for an agent.
-  if agentId >= 0 and agentId < MapAgents:
-    return controller.agents[agentId].attackMoveTarget
-  ivec2(-1, -1)
-
 # Battering Ram AI: Simple forward movement with attack-on-block behavior
 # 1. Move forward in current orientation
 # 2. If blocked, attack blocking target

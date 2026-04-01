@@ -263,19 +263,22 @@ proc setAgentAttackMoveTarget*(agentId: int, target: IVec2) =
   ## The agent will move toward the target while engaging enemies along the way.
   ## Requires BuiltinAI controller. Clears any stopped state.
   withBuiltinAI:
-    globalController.aiController.clearAgentStop(agentId)
-    globalController.aiController.setAttackMoveTarget(agentId, target)
+    if agentId >= 0 and agentId < MapAgents:
+      globalController.aiController.clearAgentStop(agentId)
+      globalController.aiController.agents[agentId].attackMoveTarget = target
 
 proc clearAgentAttackMoveTarget*(agentId: int) =
   ## Clear the attack-move target for an agent, stopping attack-move behavior.
   withBuiltinAI:
-    globalController.aiController.clearAttackMoveTarget(agentId)
+    if agentId >= 0 and agentId < MapAgents:
+      globalController.aiController.agents[agentId].attackMoveTarget = ivec2(-1, -1)
 
 proc getAgentAttackMoveTarget*(agentId: int): IVec2 =
   ## Get the current attack-move target for an agent.
   ## Returns (-1, -1) if no attack-move is active.
   withBuiltinAI:
-    return globalController.aiController.getAttackMoveTarget(agentId)
+    if agentId >= 0 and agentId < MapAgents:
+      return globalController.aiController.agents[agentId].attackMoveTarget
   ivec2(-1, -1)
 
 proc isAgentAttackMoveActive*(agentId: int): bool =
