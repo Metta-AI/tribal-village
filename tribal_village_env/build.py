@@ -12,21 +12,11 @@ from typing import Iterable
 
 DEFAULT_NIM_VERSION = os.environ.get("TRIBAL_VILLAGE_NIM_VERSION", "2.2.6")
 DEFAULT_NIMBY_VERSION = os.environ.get("TRIBAL_VILLAGE_NIMBY_VERSION", "0.1.11")
-
-
-def _target_library_name() -> str:
-    system = platform.system()
-    if system == "Darwin":
-        return "libtribal_village.dylib"
-    if system == "Windows":
-        return "libtribal_village.dll"
-    return "libtribal_village.so"
-
-
-def _target_binary_name() -> str:
-    if platform.system() == "Windows":
-        return "tribal_village.exe"
-    return "tribal_village"
+_TARGET_LIBRARY_NAME = {
+    "Darwin": "libtribal_village.dylib",
+    "Windows": "libtribal_village.dll",
+}.get(platform.system(), "libtribal_village.so")
+_TARGET_BINARY_NAME = "tribal_village.exe" if platform.system() == "Windows" else "tribal_village"
 
 
 def _collect_source_files(project_root: Path) -> list[Path]:
@@ -44,7 +34,7 @@ def _build_library(project_root: Path) -> Path:
     _ensure_nim_toolchain()
     _install_nim_deps(project_root)
 
-    ext = Path(_target_library_name()).suffix
+    ext = Path(_TARGET_LIBRARY_NAME).suffix
     cmd = [
         "nim",
         "c",
@@ -78,13 +68,12 @@ def _build_binary(project_root: Path) -> Path:
     _ensure_nim_toolchain()
     _install_nim_deps(project_root)
 
-    target_name = _target_binary_name()
     cmd = [
         "nim",
         "c",
         "-d:release",
         "--path:src",
-        f"--out:{target_name}",
+        f"--out:{_TARGET_BINARY_NAME}",
         "tribal_village.nim",
     ]
     result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True)
@@ -96,11 +85,11 @@ def _build_binary(project_root: Path) -> Path:
             f"Failed to build Tribal Village binary (exit {result.returncode}). stdout: {stdout} stderr: {stderr}"
         )
 
-    binary_path = project_root / target_name
+    binary_path = project_root / _TARGET_BINARY_NAME
     if binary_path.exists():
         return binary_path
 
-    raise RuntimeError(f"Build completed but {target_name} was not found.")
+    raise RuntimeError(f"Build completed but {_TARGET_BINARY_NAME} was not found.")
 
 
 def _needs_rebuild(target_path: Path, source_files: Iterable[Path]) -> bool:
@@ -120,8 +109,7 @@ def ensure_nim_library_current(verbose: bool = True) -> Path:
     """Rebuild libtribal_village if missing or stale."""
     package_dir = Path(__file__).resolve().parent
     project_root = package_dir.parent
-    target_name = _target_library_name()
-    target_path = package_dir / target_name
+    target_path = package_dir / _TARGET_LIBRARY_NAME
 
     source_files = _collect_source_files(project_root)
     needs_rebuild = _needs_rebuild(target_path, source_files)
@@ -145,7 +133,7 @@ def ensure_nim_library_current(verbose: bool = True) -> Path:
 def ensure_nim_binary_current(verbose: bool = True) -> Path:
     """Rebuild the GUI binary if missing or stale."""
     project_root = Path(__file__).resolve().parent.parent
-    target_path = project_root / _target_binary_name()
+    target_path = project_root / _TARGET_BINARY_NAME
 
     source_files = _collect_source_files(project_root)
     if not _needs_rebuild(target_path, source_files):

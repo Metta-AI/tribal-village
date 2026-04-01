@@ -735,14 +735,10 @@ class TribalVillageEnv(pufferlib.PufferEnv):
             ctypes.c_int32(mode_int),
         )
 
-    def _build_nim_config(self) -> NimConfig:
-        """Build NimConfig from typed EnvironmentConfig."""
-        return NimConfig.from_config(self._typed_config)
-
     def _apply_nim_config(self) -> None:
         if not hasattr(self.lib, "tribal_village_set_config"):
             return
-        cfg = self._build_nim_config()
+        cfg = NimConfig.from_config(self._typed_config)
         ok = self.lib.tribal_village_set_config(self.env_ptr, ctypes.byref(cfg))
         if ok != 1:
             raise RuntimeError("Failed to apply Nim environment config")

@@ -3,7 +3,7 @@
 ## Contains: resource bar display, unit info panel, minimap rendering.
 
 import
-  boxy, bumpy, pixie, vmath, std/math,
+  boxy, bumpy, pixie, vmath,
   common, environment
 
 import renderer_core, label_cache
@@ -11,7 +11,6 @@ import renderer_core, label_cache
 # ─── Shared Constants ─────────────────────────────────────────────────────────
 
 const
-  MinimapSizeConst = MinimapSize  # alias to common constant
   MinimapPadding = MinimapPanelPadding
   MinimapUpdateInterval = MinimapUpdateFrameInterval
   MinimapBorderWidth = MinimapPanelBorderWidth
@@ -182,10 +181,10 @@ var
   minimapLastUnitFrame = -1
   minimapImageKey = "minimap_composite"
   # Pre-computed minimap scale factors
-  minimapScaleX: float32 = MinimapSizeConst.float32 / MapWidth.float32
-  minimapScaleY: float32 = MinimapSizeConst.float32 / MapHeight.float32
-  minimapInvScaleX: float32 = MapWidth.float32 / MinimapSizeConst.float32
-  minimapInvScaleY: float32 = MapHeight.float32 / MinimapSizeConst.float32
+  minimapScaleX: float32 = MinimapSize.float32 / MapWidth.float32
+  minimapScaleY: float32 = MinimapSize.float32 / MapHeight.float32
+  minimapInvScaleX: float32 = MapWidth.float32 / MinimapSize.float32
+  minimapInvScaleY: float32 = MapHeight.float32 / MinimapSize.float32
   # Cached team colors for minimap (avoid Color -> ColorRGBX conversion each frame)
   minimapTeamColors: array[MapRoomObjectsTeams, ColorRGBX]
   minimapTeamBrightColors: array[MapRoomObjectsTeams, ColorRGBX]  # For buildings
@@ -233,16 +232,16 @@ proc toMinimapColor(terrain: TerrainType, biome: BiomeType): ColorRGBX =
 proc rebuildMinimapTerrain() =
   ## Rebuild the cached terrain layer. Called when mapGeneration changes.
   if minimapTerrainImage.isNil or
-     minimapTerrainImage.width != MinimapSizeConst or
-     minimapTerrainImage.height != MinimapSizeConst:
-    minimapTerrainImage = newImage(MinimapSizeConst, MinimapSizeConst)
+     minimapTerrainImage.width != MinimapSize or
+     minimapTerrainImage.height != MinimapSize:
+    minimapTerrainImage = newImage(MinimapSize, MinimapSize)
 
   # Scale factors: map coords -> minimap pixel
-  let scaleX = MinimapSizeConst.float32 / MapWidth.float32
-  let scaleY = MinimapSizeConst.float32 / MapHeight.float32
+  let scaleX = MinimapSize.float32 / MapWidth.float32
+  let scaleY = MinimapSize.float32 / MapHeight.float32
 
-  for py in 0 ..< MinimapSizeConst:
-    for px in 0 ..< MinimapSizeConst:
+  for py in 0 ..< MinimapSize:
+    for px in 0 ..< MinimapSize:
       let mx = clamp(int(px.float32 / scaleX), 0, MapWidth - 1)
       let my = clamp(int(py.float32 / scaleY), 0, MapHeight - 1)
       let terrain = env.terrain[mx][my]
@@ -287,14 +286,14 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     initMinimapTeamColors()
 
   if minimapCompositeImage.isNil or
-     minimapCompositeImage.width != MinimapSizeConst or
-     minimapCompositeImage.height != MinimapSizeConst:
-    minimapCompositeImage = newImage(MinimapSizeConst, MinimapSizeConst)
+     minimapCompositeImage.width != MinimapSize or
+     minimapCompositeImage.height != MinimapSize:
+    minimapCompositeImage = newImage(MinimapSize, MinimapSize)
 
   # Start from cached terrain
   copyMem(addr minimapCompositeImage.data[0],
           addr minimapTerrainImage.data[0],
-          MinimapSizeConst * MinimapSizeConst * MinimapBytesPerPixel)
+          MinimapSize * MinimapSize * MinimapBytesPerPixel)
 
   # Use pre-computed scale factors
   let scaleX = minimapScaleX
@@ -315,10 +314,10 @@ proc rebuildMinimapComposite(fogTeamId: int) =
       let px = int(thing.pos.x.float32 * scaleX)
       let py = int(thing.pos.y.float32 * scaleY)
       # Unrolled 2x2 block drawing
-      let fx0 = clamp(px, 0, MinimapSizeConst - 1)
-      let fx1 = clamp(px + 1, 0, MinimapSizeConst - 1)
-      let fy0 = clamp(py, 0, MinimapSizeConst - 1)
-      let fy1 = clamp(py + 1, 0, MinimapSizeConst - 1)
+      let fx0 = clamp(px, 0, MinimapSize - 1)
+      let fx1 = clamp(px + 1, 0, MinimapSize - 1)
+      let fy0 = clamp(py, 0, MinimapSize - 1)
+      let fy1 = clamp(py + 1, 0, MinimapSize - 1)
       minimapCompositeImage.unsafe[fx0, fy0] = bright
       minimapCompositeImage.unsafe[fx1, fy0] = bright
       minimapCompositeImage.unsafe[fx0, fy1] = bright
@@ -333,8 +332,8 @@ proc rebuildMinimapComposite(fogTeamId: int) =
       minimapTeamColors[teamId]
     else:
       MinimapPanelUnknownGray
-    let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSizeConst - 1)
-    let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSizeConst - 1)
+    let px = clamp(int(agent.pos.x.float32 * scaleX), 0, MinimapSize - 1)
+    let py = clamp(int(agent.pos.y.float32 * scaleY), 0, MinimapSize - 1)
     minimapCompositeImage.unsafe[px, py] = dot
 
   # Apply fog of war with edge smoothing
@@ -344,9 +343,9 @@ proc rebuildMinimapComposite(fogTeamId: int) =
     const
       MinimapFogEdgeSmoothFactor = MinimapFogEdgeFactor  # How much to lighten edge tiles
       Neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
-    for py in 0 ..< MinimapSizeConst:
+    for py in 0 ..< MinimapSize:
       let my = clamp(int(py.float32 * invScaleY), 0, MapHeight - 1)
-      for px in 0 ..< MinimapSizeConst:
+      for px in 0 ..< MinimapSize:
         let mx = clamp(int(px.float32 * invScaleX), 0, MapWidth - 1)
         if not fogVisibility[mx][my]:
           # Check if this is an edge tile (adjacent to visible)
@@ -373,7 +372,7 @@ proc rebuildMinimapComposite(fogTeamId: int) =
 proc drawMinimap*(panelRect: IRect, panel: Panel) =
   ## Draw the minimap in the bottom-left corner of the panel.
   let minimapX = panelRect.x.float32 + MinimapPadding
-  let minimapY = panelRect.y.float32 + panelRect.h.float32 - MinimapSizeConst.float32 - MinimapPadding - FooterHeight.float32
+  let minimapY = panelRect.y.float32 + panelRect.h.float32 - MinimapSize.float32 - MinimapPadding - FooterHeight.float32
 
   # Rebuild composite if needed (every MinimapUpdateInterval frames or on mapgen change)
   let fogTeamId = if settings.showFogOfWar: playerTeam else: -1
@@ -386,14 +385,14 @@ proc drawMinimap*(panelRect: IRect, panel: Panel) =
   let borderColor = UiMinimapBorder
   bxy.drawRect(
     rect = Rect(x: minimapX - MinimapBorderWidth, y: minimapY - MinimapBorderWidth,
-                w: MinimapSizeConst.float32 + MinimapBorderWidth * 2,
-                h: MinimapSizeConst.float32 + MinimapBorderWidth * 2),
+                w: MinimapSize.float32 + MinimapBorderWidth * 2,
+                h: MinimapSize.float32 + MinimapBorderWidth * 2),
     color = borderColor
   )
 
   # Draw minimap image
   drawUiImageScaled(minimapImageKey, vec2(minimapX, minimapY),
-                    vec2(MinimapSizeConst.float32, MinimapSizeConst.float32))
+                    vec2(MinimapSize.float32, MinimapSize.float32))
 
   # Draw viewport rectangle
   if currentViewport.valid:

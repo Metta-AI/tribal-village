@@ -25,33 +25,30 @@ const
   # Late game: Gold-heavy for advanced military, stone for castles
   LateGameWeights = [1.2, 1.0, 0.65, 0.4]
 
-const GathererFleeRadiusConst = GathererFleeRadius  # Local alias for use in guard template
-const GarrisonSeekRadiusConst = GarrisonSeekRadius  # Local alias for use in guard template
-
 gathererGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
-  not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)) and
-    not isNil(findNearestGarrisonableBuilding(env, agent.pos, getTeamId(agent), GarrisonSeekRadiusConst))
+  not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadius)) and
+    not isNil(findNearestGarrisonableBuilding(env, agent.pos, getTeamId(agent), GarrisonSeekRadius))
 
 proc optGathererGarrison(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
   ## Seek nearest garrisonable building for protection when enemies are nearby.
-  let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)
+  let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadius)
   if isNil(enemy):
     return 0'u16
   let teamId = getTeamId(agent)
-  let building = findNearestGarrisonableBuilding(env, agent.pos, teamId, GarrisonSeekRadiusConst)
+  let building = findNearestGarrisonableBuilding(env, agent.pos, teamId, GarrisonSeekRadius)
   if isNil(building):
     return 0'u16
   requestProtectionFromFighter(env, agent, enemy.pos)
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
 gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
-  not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst))
+  not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadius))
 
 proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   ## Flee toward home altar when enemies are nearby
-  let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadiusConst)
+  let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadius)
   if isNil(enemy):
     return 0'u16
   # Request protection from nearby fighters via coordination system
@@ -412,12 +409,12 @@ proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
   return actOrMove(controller, env, agent, agentId, state, skeleton.pos, 3'u16)
 
 gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
-  not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadiusConst))
+  not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius))
 
 proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   ## Flee away from predators toward friendly structures
-  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadiusConst)
+  let predator = findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius)
   if isNil(predator):
     return 0'u16
   fleeAwayFrom(controller, env, agent, agentId, state, predator.pos)
