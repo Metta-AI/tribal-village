@@ -7,7 +7,8 @@
 ## view of settlement expansion and villager distribution.
 
 when defined(settlerMetrics):
-  import std/[strutils, tables, os]
+  import std/tables
+  import envconfig
   import types
 
   type
@@ -26,11 +27,7 @@ when defined(settlerMetrics):
     settlerMetrics = SettlerMetricsState(
       villagersPerAltar: initTable[IVec2, int]()
     )
-    let intervalEnv = getEnv("TV_SETTLER_METRICS_INTERVAL", "10")
-    try:
-      metricsUpdateInterval = parseInt(intervalEnv)
-    except ValueError:
-      metricsUpdateInterval = 10
+    metricsUpdateInterval = parseEnvInt("TV_SETTLER_METRICS_INTERVAL", 10)
     if metricsUpdateInterval < 1:
       metricsUpdateInterval = 1
     settlerMetricsInitialized = true

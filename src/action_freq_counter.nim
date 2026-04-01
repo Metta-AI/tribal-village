@@ -5,7 +5,7 @@
 ## Prints periodic aggregate reports every N steps.
 
 when defined(actionFreqCounter):
-  import std/[strutils, os]
+  import std/strutils
 
   const
     VerbCount = ActionVerbCount  # 11 verbs (0-10)
@@ -71,14 +71,6 @@ when defined(actionFreqCounter):
     inc actionFreqState.aggStepCount
     resetStepCounters()
 
-  proc padLeft(s: string, width: int): string =
-    if s.len >= width: return s
-    " ".repeat(width - s.len) & s
-
-  proc padRight(s: string, width: int): string =
-    if s.len >= width: return s
-    s & " ".repeat(width - s.len)
-
   proc printActionFreqReport*(currentStep: int) =
     ## Print aggregate report every N steps. Call at end of each step.
     ensureActionFreqInit()
@@ -99,10 +91,10 @@ when defined(actionFreqCounter):
     echo ""
 
     # Header: Action names
-    var header = padRight("Unit Type", 18)
+    var header = alignLeft("Unit Type", 18)
     for v in 0 ..< VerbCount:
-      header &= padLeft(VerbNames[v][0..min(5, VerbNames[v].high)], 7)
-    header &= padLeft("Total", 8)
+      header &= align(VerbNames[v][0..min(5, VerbNames[v].high)], 7)
+    header &= align("Total", 8)
     echo header
     echo repeat("-", header.len)
 
@@ -111,23 +103,23 @@ when defined(actionFreqCounter):
       if actionFreqState.aggUnitTotals[u] == 0:
         continue
       let unitName = UnitClassLabels[AgentUnitClass(u)]
-      var row = padRight(unitName[0..min(17, unitName.high)], 18)
+      var row = alignLeft(unitName[0..min(17, unitName.high)], 18)
       for v in 0 ..< VerbCount:
         let c = actionFreqState.aggUnitVerbCounts[u][v]
-        row &= padLeft($c, 7)
-      row &= padLeft($actionFreqState.aggUnitTotals[u], 8)
+        row &= align($c, 7)
+      row &= align($actionFreqState.aggUnitTotals[u], 8)
       echo row
 
     echo repeat("-", header.len)
 
     # Totals row
-    var totalsRow = padRight("TOTAL", 18)
+    var totalsRow = alignLeft("TOTAL", 18)
     for v in 0 ..< VerbCount:
       var verbTotal = 0
       for u in 0 ..< UnitTypeCount:
         verbTotal += actionFreqState.aggUnitVerbCounts[u][v]
-      totalsRow &= padLeft($verbTotal, 7)
-    totalsRow &= padLeft($actionFreqState.aggTotal, 8)
+      totalsRow &= align($verbTotal, 7)
+    totalsRow &= align($actionFreqState.aggTotal, 8)
     echo totalsRow
 
     echo ""

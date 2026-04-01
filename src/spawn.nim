@@ -72,11 +72,6 @@ proc gatherEmptyAround(env: Environment, center: IVec2, primaryRadius: int,
       if pos notin result:
         result.add(pos)
 
-template isNearWater(env: Environment, pos: IVec2, radius: int): bool =
-  ## Deprecated: use hasWaterNearby(env, pos, radius, includeShallow=true) instead.
-  ## Kept as template for backward compatibility in this file.
-  hasWaterNearby(env, pos, radius, includeShallow = true)
-
 proc addResourceNode(env: Environment, pos: IVec2, kind: ThingKind,
                      item: ItemKey, amount: int = ResourceNodeInitial) =
   if not env.isSpawnable(pos):
@@ -277,7 +272,7 @@ proc initTerrainAndBiomes(env: Environment, rng: var Rand, seed: int): seq[TreeO
     let numGroves = randIntInclusive(rng, TreeOasisClusterCountMin, TreeOasisClusterCountMax)
     for _ in 0 ..< numGroves:
       let pos = pickInteriorPos(rng, 3, 16, proc(pos: IVec2, attempt: int): bool =
-        isNearWater(env, pos, 5) or attempt > 10
+        hasWaterNearby(env, pos, 5, includeShallow = true) or attempt > 10
       )
       let rx = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
       let ry = randIntInclusive(rng, TreeOasisWaterRadiusMin, TreeOasisWaterRadiusMax)
@@ -1793,7 +1788,7 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
     # Wheat fields.
     for _ in 0 ..< randIntInclusive(rng, WheatFieldClusterCountMin, WheatFieldClusterCountMax):
       let pos = pickInteriorPos(rng, 3, 20, proc(pos: IVec2, attempt: int): bool =
-        isNearWater(env, pos, 5) or attempt > 10
+        hasWaterNearby(env, pos, 5, includeShallow = true) or attempt > 10
       )
       let fieldSize = randIntInclusive(rng, WheatFieldSizeMin, WheatFieldSizeMax)
       for (sizeDelta, density) in [(0, 1.0), (1, 0.5)]:
@@ -1812,7 +1807,7 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
           if env.terrain[px][py] == Water:
             continue
           let pos = ivec2(px.int32, py.int32)
-          if isNearWater(env, pos, 1) and randChance(rng, 0.7) and env.terrain[px][py] in TreeGround:
+          if hasWaterNearby(env, pos, 1, includeShallow = true) and randChance(rng, 0.7) and env.terrain[px][py] in TreeGround:
             addResourceNode(env, pos, Tree, ItemWood)
 
     for oasis in treeOases:
@@ -1895,7 +1890,7 @@ proc initResources(env: Environment, rng: var Rand, treeOases: seq[TreeOasis]) =
 
     for _ in 0 ..< BushClusterCount:
       let pos = pickInteriorPos(rng, 2, 12, proc(pos: IVec2, attempt: int): bool =
-        isNearWater(env, pos, BushWaterProximity) or attempt >= 9
+        hasWaterNearby(env, pos, BushWaterProximity, includeShallow = true) or attempt >= 9
       )
       let size = randIntInclusive(rng, BushClusterSizeMin, BushClusterSizeMax)
       placeResourceCluster(env, pos.x.int, pos.y.int, size, ClusterDensityMedium, ClusterFalloffSteep, Bush, ItemPlant, ResourceGround, rng)

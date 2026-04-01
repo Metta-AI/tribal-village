@@ -6,6 +6,7 @@
 ##   TV_DUMP_DIR      - output directory (default: ./dumps/)
 
 import std/[json, os, times, strformat, strutils]
+import envconfig
 import types, items
 
 var
@@ -15,8 +16,7 @@ var
 
 proc initDumper*() =
   ## Initialize dump settings from environment variables.
-  let intervalStr = getEnv("TV_DUMP_INTERVAL", "0")
-  dumpInterval = try: parseInt(intervalStr) except ValueError: 0
+  dumpInterval = parseEnvInt("TV_DUMP_INTERVAL", 0)
   dumpDir = getEnv("TV_DUMP_DIR", "./dumps/")
   if dumpInterval > 0:
     createDir(dumpDir)

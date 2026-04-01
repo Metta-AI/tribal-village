@@ -16,6 +16,7 @@
 ##   TV_SCORECARD_DIR      - Output directory (default: ./scorecards/)
 
 import std/[json, os, times, strformat, strutils, math]
+import envconfig
 import types, items, environment
 
 const
@@ -127,12 +128,8 @@ var collector*: ScorecardCollector
 
 proc initCollector*() =
   ## Initialize scorecard collector from environment variables.
-  let enabledStr = getEnv("TV_SCORECARD_ENABLED", "0")
-  collector.enabled = enabledStr == "1" or enabledStr.toLowerAscii == "true"
-
-  let intervalStr = getEnv("TV_SCORECARD_INTERVAL", $DefaultSampleInterval)
-  collector.sampleInterval = try: parseInt(intervalStr) except ValueError: DefaultSampleInterval
-
+  collector.enabled = parseEnvBool("TV_SCORECARD_ENABLED", false)
+  collector.sampleInterval = parseEnvInt("TV_SCORECARD_INTERVAL", DefaultSampleInterval)
   collector.outputDir = getEnv("TV_SCORECARD_DIR", DefaultOutputDir)
 
   if collector.enabled:

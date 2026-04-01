@@ -15,9 +15,8 @@
 ##   TV_PERF_FAIL_ON_REGRESSION - If "1", exit with non-zero code on regression (CI mode)
 
 when defined(perfRegression):
-  import std/[monotimes, strutils, json, os, algorithm, math]
-
-  # parseEnvInt is provided by envconfig module (imported by environment.nim)
+  import std/[strutils, json, os, algorithm]
+  import envconfig
 
   const
     PerfSubsystemCount* = 11
@@ -215,14 +214,6 @@ when defined(perfRegression):
     pushSample(perfState.window, subsystems, totalMs)
     inc perfState.stepsSinceReport
 
-  proc padLeftPerf(s: string, width: int): string =
-    if s.len >= width: return s
-    " ".repeat(width - s.len) & s
-
-  proc padRightPerf(s: string, width: int): string =
-    if s.len >= width: return s
-    s & " ".repeat(width - s.len)
-
   proc checkPerfRegression*(currentStep: int) =
     ## Check for regressions and print report at configured interval.
     ensurePerfInit()
@@ -239,11 +230,11 @@ when defined(perfRegression):
     # Print current stats
     echo ""
     echo "=== Perf Regression Report (step ", currentStep, ", window=", stats.stepCount, ") ==="
-    echo padRightPerf("Subsystem", 14), " | ",
-         padLeftPerf("Mean ms", 10), " | ",
-         padLeftPerf("P95 ms", 10), " | ",
-         padLeftPerf("P99 ms", 10),
-         (if perfState.hasBaseline: " | " & padLeftPerf("Δ Mean%", 9) else: "")
+    echo alignLeft("Subsystem", 14), " | ",
+         align("Mean ms", 10), " | ",
+         align("P95 ms", 10), " | ",
+         align("P99 ms", 10),
+         (if perfState.hasBaseline: " | " & align("Δ Mean%", 9) else: "")
     echo repeat("-", 14), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 10),
          (if perfState.hasBaseline: "-+-" & repeat("-", 9) else: "")
 
@@ -259,14 +250,14 @@ when defined(perfRegression):
           worstDeltaPct = deltaPct
           worstSubsystem = i
         let sign = if deltaPct >= 0.0: "+" else: ""
-        deltaPctStr = " | " & padLeftPerf(sign & formatFloat(deltaPct, ffDecimal, 1) & "%", 9)
+        deltaPctStr = " | " & align(sign & formatFloat(deltaPct, ffDecimal, 1) & "%", 9)
       elif perfState.hasBaseline:
-        deltaPctStr = " | " & padLeftPerf("N/A", 9)
+        deltaPctStr = " | " & align("N/A", 9)
 
-      echo padRightPerf(PerfSubsystemNames[i], 14), " | ",
-           padLeftPerf(formatFloat(stats.mean[i], ffDecimal, 4), 10), " | ",
-           padLeftPerf(formatFloat(stats.p95[i], ffDecimal, 4), 10), " | ",
-           padLeftPerf(formatFloat(stats.p99[i], ffDecimal, 4), 10),
+      echo alignLeft(PerfSubsystemNames[i], 14), " | ",
+           align(formatFloat(stats.mean[i], ffDecimal, 4), 10), " | ",
+           align(formatFloat(stats.p95[i], ffDecimal, 4), 10), " | ",
+           align(formatFloat(stats.p99[i], ffDecimal, 4), 10),
            deltaPctStr
 
     # Total row
@@ -275,14 +266,14 @@ when defined(perfRegression):
       let totalDelta = (stats.totalMean - perfState.baseline.totalMean) /
                        perfState.baseline.totalMean * 100.0
       let sign = if totalDelta >= 0.0: "+" else: ""
-      totalDeltaStr = " | " & padLeftPerf(sign & formatFloat(totalDelta, ffDecimal, 1) & "%", 9)
+      totalDeltaStr = " | " & align(sign & formatFloat(totalDelta, ffDecimal, 1) & "%", 9)
 
     echo repeat("-", 14), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 10),
          (if perfState.hasBaseline: "-+-" & repeat("-", 9) else: "")
-    echo padRightPerf("TOTAL", 14), " | ",
-         padLeftPerf(formatFloat(stats.totalMean, ffDecimal, 4), 10), " | ",
-         padLeftPerf(formatFloat(stats.totalP95, ffDecimal, 4), 10), " | ",
-         padLeftPerf(formatFloat(stats.totalP99, ffDecimal, 4), 10),
+    echo alignLeft("TOTAL", 14), " | ",
+         align(formatFloat(stats.totalMean, ffDecimal, 4), 10), " | ",
+         align(formatFloat(stats.totalP95, ffDecimal, 4), 10), " | ",
+         align(formatFloat(stats.totalP99, ffDecimal, 4), 10),
          totalDeltaStr
 
     # Check for regressions

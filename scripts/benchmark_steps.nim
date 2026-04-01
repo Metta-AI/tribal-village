@@ -29,10 +29,6 @@ proc percentile(sorted: seq[float64], pct: float64): float64 =
   let idx = int(float64(sorted.len - 1) * pct / 100.0)
   sorted[min(idx, sorted.len - 1)]
 
-proc padLeft(s: string, width: int): string =
-  if s.len >= width: return s
-  " ".repeat(width - s.len) & s
-
 proc main() =
   let steps = parseEnvInt("TV_PERF_STEPS", 1000)
   let seed = parseEnvInt("TV_PERF_SEED", 42)
@@ -103,12 +99,12 @@ proc main() =
   echo &"  Steps/second:  {stepsPerSec:.1f}"
   echo ""
   echo "Per-Step Timing (ms):"
-  echo "  ", padLeft("Mean", 6), ": ", formatFloat(meanMs, ffDecimal, 4)
-  echo "  ", padLeft("P50", 6), ": ", formatFloat(p50Ms, ffDecimal, 4)
-  echo "  ", padLeft("P95", 6), ": ", formatFloat(p95Ms, ffDecimal, 4)
-  echo "  ", padLeft("P99", 6), ": ", formatFloat(p99Ms, ffDecimal, 4)
-  echo "  ", padLeft("Min", 6), ": ", formatFloat(minMs, ffDecimal, 4)
-  echo "  ", padLeft("Max", 6), ": ", formatFloat(maxMs, ffDecimal, 4)
+  echo "  ", align("Mean", 6), ": ", formatFloat(meanMs, ffDecimal, 4)
+  echo "  ", align("P50", 6), ": ", formatFloat(p50Ms, ffDecimal, 4)
+  echo "  ", align("P95", 6), ": ", formatFloat(p95Ms, ffDecimal, 4)
+  echo "  ", align("P99", 6), ": ", formatFloat(p99Ms, ffDecimal, 4)
+  echo "  ", align("Min", 6), ": ", formatFloat(minMs, ffDecimal, 4)
+  echo "  ", align("Max", 6), ": ", formatFloat(maxMs, ffDecimal, 4)
 
   # Per-subsystem breakdown was printed by perf_regression at TV_PERF_INTERVAL
   when defined(perfRegression):
