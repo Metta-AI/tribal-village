@@ -10,6 +10,8 @@ import ../entropy
 
 # optionGuard template consolidated in ai_types.nim (re-exported via ai_types export)
 
+const ValuableStorageKinds = [Blacksmith, Granary, Barrel]
+
 proc actOrMove*(controller: Controller, env: Environment, agent: Thing,
                agentId: int, state: var AgentState,
                targetPos: IVec2, verb: uint16): uint16 =
@@ -53,15 +55,10 @@ proc canStartStoreValuables*(controller: Controller, env: Environment, agent: Th
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
-  if controller.getBuildingCount(env, teamId, Blacksmith) > 0 and
-      agentHasAnyItem(agent, buildingStorageItems(Blacksmith)):
-    return true
-  if controller.getBuildingCount(env, teamId, Granary) > 0 and
-      agentHasAnyItem(agent, buildingStorageItems(Granary)):
-    return true
-  if controller.getBuildingCount(env, teamId, Barrel) > 0 and
-      agentHasAnyItem(agent, buildingStorageItems(Barrel)):
-    return true
+  for kind in ValuableStorageKinds:
+    if controller.getBuildingCount(env, teamId, kind) > 0 and
+        agentHasAnyItem(agent, buildingStorageItems(kind)):
+      return true
   false
 
 proc shouldTerminateStoreValuables*(controller: Controller, env: Environment, agent: Thing,
@@ -72,16 +69,13 @@ proc shouldTerminateStoreValuables*(controller: Controller, env: Environment, ag
 proc optStoreValuables*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  var target: Thing = nil
-  if agentHasAnyItem(agent, buildingStorageItems(Blacksmith)):
-    target = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
-  if isNil(target) and agentHasAnyItem(agent, buildingStorageItems(Granary)):
-    target = env.findNearestFriendlyThingSpiral(state, teamId, Granary)
-  if isNil(target) and agentHasAnyItem(agent, buildingStorageItems(Barrel)):
-    target = env.findNearestFriendlyThingSpiral(state, teamId, Barrel)
-  if isNil(target):
-    return 0'u16
-  return actOrMove(controller, env, agent, agentId, state, target.pos, 3'u16)
+  for kind in ValuableStorageKinds:
+    if not agentHasAnyItem(agent, buildingStorageItems(kind)):
+      continue
+    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
+    if not isNil(building):
+      return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  0'u16
 
 proc canStartCraftBread*(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
