@@ -1174,32 +1174,21 @@ let ResearchEconomyTechOption* = OptionDef(
 # Blacksmith Upgrade Research Option
 # ============================================================================
 
-proc hasUnresearchedBlacksmithUpgrade(env: Environment, teamId: int): bool =
-  for upgradeType in BlacksmithUpgradeType:
-    if env.teamBlacksmithUpgrades[teamId].levels[upgradeType] < BlacksmithUpgradeMaxLevel:
-      return true
-  false
-
-proc canAffordNextBlacksmithUpgrade(env: Environment, teamId: int): bool =
-  let upgradeType = env.getNextBlacksmithUpgrade(teamId)
-  let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
-  if currentLevel >= BlacksmithUpgradeMaxLevel:
-    return false
-  let costMultiplier = currentLevel + 1
-  let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
-  let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
-  env.canSpendStockpile(teamId,
-    [(res: ResourceFood, count: foodCost),
-     (res: ResourceGold, count: goldCost)])
-
 optionGuard(canStartResearchBlacksmithUpgrade, shouldTerminateResearchBlacksmithUpgrade):
   agent.unitClass == UnitVillager and
     (block:
       let teamId = getTeamId(agent)
-      teamId >= 0 and teamId < MapRoomObjectsTeams and
-        controller.getBuildingCount(env, teamId, Blacksmith) > 0 and
-        hasUnresearchedBlacksmithUpgrade(env, teamId) and
-        canAffordNextBlacksmithUpgrade(env, teamId))
+      if teamId < 0 or teamId >= MapRoomObjectsTeams or
+          controller.getBuildingCount(env, teamId, Blacksmith) == 0:
+        false
+      else:
+        let upgradeType = env.getNextBlacksmithUpgrade(teamId)
+        let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
+        let costMultiplier = currentLevel + 1
+        currentLevel < BlacksmithUpgradeMaxLevel and
+          env.canSpendStockpile(teamId,
+            [(res: ResourceFood, count: BlacksmithUpgradeFoodCost * costMultiplier),
+             (res: ResourceGold, count: BlacksmithUpgradeGoldCost * costMultiplier)]))
 
 proc optResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): uint16 =
@@ -1223,30 +1212,6 @@ let ResearchBlacksmithUpgradeOption* = OptionDef(
 
 const UnitUpgradeBuildings = [Barracks, Stable, ArcheryRange]
 
-proc hasUnresearchedUnitUpgrade(env: Environment, teamId: int): bool =
-  ## Check if the team has any unresearched unit upgrade at any military building.
-  for upgrade in UnitUpgradeType:
-    if env.teamUnitUpgrades[teamId].researched[upgrade]:
-      continue
-    let prereq = upgradePrerequisite(upgrade)
-    if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
-      continue
-    return true
-  false
-
-proc canAffordAnyUnitUpgrade(env: Environment, teamId: int): bool =
-  ## Check if the team can afford any available unit upgrade.
-  for upgrade in UnitUpgradeType:
-    if env.teamUnitUpgrades[teamId].researched[upgrade]:
-      continue
-    let prereq = upgradePrerequisite(upgrade)
-    if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
-      continue
-    let costs = upgradeCosts(upgrade)
-    if env.canSpendStockpile(teamId, costs):
-      return true
-  false
-
 optionGuard(canStartResearchUnitUpgrade, shouldTerminateResearchUnitUpgrade):
   agent.unitClass == UnitVillager and
     (block:
@@ -1259,9 +1224,20 @@ optionGuard(canStartResearchUnitUpgrade, shouldTerminateResearchUnitUpgrade):
           if controller.getBuildingCount(env, teamId, kind) > 0:
             hasBuilding = true
             break
-        hasBuilding and
-          hasUnresearchedUnitUpgrade(env, teamId) and
-          canAffordAnyUnitUpgrade(env, teamId))
+        if not hasBuilding:
+          false
+        else:
+          var hasAffordableUpgrade = false
+          for upgrade in UnitUpgradeType:
+            if env.teamUnitUpgrades[teamId].researched[upgrade]:
+              continue
+            let prereq = upgradePrerequisite(upgrade)
+            if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
+              continue
+            if env.canSpendStockpile(teamId, upgradeCosts(upgrade)):
+              hasAffordableUpgrade = true
+              break
+          hasAffordableUpgrade)
 
 proc optResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint16 =
