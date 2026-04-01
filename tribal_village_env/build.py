@@ -40,13 +40,6 @@ def _collect_source_files(project_root: Path) -> list[Path]:
     ]
 
 
-def _latest_mtime(paths: Iterable[Path]) -> float | None:
-    mtimes = [path.stat().st_mtime for path in paths if path.exists()]
-    if not mtimes:
-        return None
-    return max(mtimes)
-
-
 def _build_library(project_root: Path) -> Path:
     _ensure_nim_toolchain()
     _install_nim_deps(project_root)
@@ -111,7 +104,10 @@ def _build_binary(project_root: Path) -> Path:
 
 
 def _needs_rebuild(target_path: Path, source_files: Iterable[Path]) -> bool:
-    latest_source_mtime = _latest_mtime(source_files)
+    latest_source_mtime = max(
+        (path.stat().st_mtime for path in source_files if path.exists()),
+        default=None,
+    )
     target_mtime: float | None = (
         target_path.stat().st_mtime if target_path.exists() else None
     )
