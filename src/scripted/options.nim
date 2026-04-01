@@ -19,6 +19,33 @@ proc actOrMove*(controller: Controller, env: Environment, agent: Thing,
     return controller.actAt(env, agent, agentId, state, targetPos, verb)
   controller.moveTo(env, agent, agentId, state, targetPos)
 
+proc nearestFriendlyBuilding(env: Environment, state: var AgentState, teamId: int,
+                             kind: ThingKind): Thing {.inline.} =
+  env.findNearestFriendlyThingSpiral(state, teamId, kind)
+
+proc nearestReadyFriendlyBuilding(env: Environment, state: var AgentState, teamId: int,
+                                  kind: ThingKind): Thing {.inline.} =
+  let building = env.nearestFriendlyBuilding(state, teamId, kind)
+  if isNil(building) or building.cooldown != 0:
+    return nil
+  building
+
+proc useNearestFriendlyBuilding(controller: Controller, env: Environment, agent: Thing,
+                                agentId: int, state: var AgentState, teamId: int,
+                                kind: ThingKind): uint16 {.inline.} =
+  let building = env.nearestFriendlyBuilding(state, teamId, kind)
+  if isNil(building):
+    return 0'u16
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+
+proc useNearestReadyFriendlyBuilding(controller: Controller, env: Environment, agent: Thing,
+                                     agentId: int, state: var AgentState, teamId: int,
+                                     kind: ThingKind): uint16 {.inline.} =
+  let building = env.nearestReadyFriendlyBuilding(state, teamId, kind)
+  if isNil(building):
+    return 0'u16
+  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+
 proc hasLiveFollowTarget*(env: Environment, state: AgentState): bool {.inline.} =
   if not state.followActive or state.followTargetAgentId < 0 or
       state.followTargetAgentId >= env.agents.len:
@@ -96,7 +123,7 @@ proc optStoreValuables*(controller: Controller, env: Environment, agent: Thing,
   for kind in ValuableStorageKinds:
     if not agentHasAnyItem(agent, buildingStorageItems(kind)):
       continue
-    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
+    let building = env.nearestFriendlyBuilding(state, teamId, kind)
     if not isNil(building):
       return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
   0'u16
@@ -115,10 +142,7 @@ proc shouldTerminateCraftBread*(controller: Controller, env: Environment, agent:
 proc optCraftBread*(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let oven = env.findNearestFriendlyThingSpiral(state, teamId, ClayOven)
-  if isNil(oven) or oven.cooldown != 0:
-    return 0'u16
-  return actOrMove(controller, env, agent, agentId, state, oven.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, ClayOven)
 
 proc canStartSmeltGold*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): bool =
@@ -508,7 +532,7 @@ optionGuard(canStartLanternLogistics, shouldTerminateLanternLogistics):
 proc optLanternLogistics(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let loom = env.findNearestFriendlyThingSpiral(state, teamId, WeavingLoom)
+  let loom = env.nearestFriendlyBuilding(state, teamId, WeavingLoom)
   if agent.inventoryWood > 0 or agent.inventoryWheat > 0:
     if not isNil(loom):
       return actOrMove(controller, env, agent, agentId, state, loom.pos, 3'u16)
@@ -733,10 +757,7 @@ proc shouldTerminateSiegeBreacher(controller: Controller, env: Environment, agen
 proc optSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, SiegeWorkshop)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, SiegeWorkshop)
 
 proc canStartMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
@@ -752,10 +773,7 @@ proc shouldTerminateMangonelSuppression(controller: Controller, env: Environment
 proc optMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, MangonelWorkshop)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, MangonelWorkshop)
 
 proc canStartUnitPromotionFocus(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
@@ -782,7 +800,7 @@ proc optUnitPromotionFocus(controller: Controller, env: Environment, agent: Thin
       continue
     if not env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
       continue
-    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
+    let building = env.nearestFriendlyBuilding(state, teamId, kind)
     if isNil(building):
       continue
     # Batch-queue additional units if resources allow
@@ -810,7 +828,7 @@ proc optRelicRaider(controller: Controller, env: Environment, agent: Thing,
 proc optRelicCourier(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
+  let monastery = env.nearestFriendlyBuilding(state, teamId, Monastery)
   let target =
     if not isNil(monastery): monastery.pos
     elif agent.homeAltar.x >= 0: agent.homeAltar
@@ -887,10 +905,7 @@ proc optMarketTrade*(controller: Controller, env: Environment, agent: Thing,
   ## Moves to nearest friendly Market and interacts with it.
   let teamId = getTeamId(agent)
   state.basePosition = agent.getBasePos()
-  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market) or market.cooldown != 0:
-    return 0'u16
-  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, Market)
 
 let MarketTradeOption* = OptionDef(
   name: "MarketTrade",
@@ -939,10 +954,7 @@ proc shouldTerminateResearchUniversityTech*(controller: Controller, env: Environ
 proc optResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let university = env.findNearestFriendlyThingSpiral(state, teamId, University)
-  if isNil(university) or university.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, university.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, University)
 
 let ResearchUniversityTechOption* = OptionDef(
   name: "ResearchUniversityTech",
@@ -987,10 +999,7 @@ proc shouldTerminateResearchCastleTech*(controller: Controller, env: Environment
 proc optResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let castle = env.findNearestFriendlyThingSpiral(state, teamId, Castle)
-  if isNil(castle):
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, castle.pos, 3'u16)
+  controller.useNearestFriendlyBuilding(env, agent, agentId, state, teamId, Castle)
 
 let ResearchCastleTechOption* = OptionDef(
   name: "ResearchCastleTech",
@@ -1036,10 +1045,7 @@ proc optResearchEconomyTech*(controller: Controller, env: Environment, agent: Th
   let (_, buildingKind, found) = findNextAffordableEconomyTech(env, teamId)
   if not found:
     return 0'u16
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, buildingKind)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, buildingKind)
 
 let ResearchEconomyTechOption* = OptionDef(
   name: "ResearchEconomyTech",
@@ -1072,10 +1078,7 @@ optionGuard(canStartResearchBlacksmithUpgrade, shouldTerminateResearchBlacksmith
 proc optResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let blacksmith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
-  if isNil(blacksmith) or blacksmith.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, blacksmith.pos, 3'u16)
+  controller.useNearestReadyFriendlyBuilding(env, agent, agentId, state, teamId, Blacksmith)
 
 let ResearchBlacksmithUpgradeOption* = OptionDef(
   name: "ResearchBlacksmithUpgrade",
@@ -1137,8 +1140,8 @@ proc optResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Th
     let costs = upgradeCosts(upgrade)
     if not env.canSpendStockpile(teamId, costs):
       continue
-    let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
-    if isNil(building) or building.cooldown != 0:
+    let building = env.nearestReadyFriendlyBuilding(state, teamId, kind)
+    if isNil(building):
       continue
     let dist = int(chebyshevDist(agent.pos, building.pos))
     if dist < bestDist:
@@ -1284,7 +1287,7 @@ proc optMonkRelicCollect*(controller: Controller, env: Environment, agent: Thing
   let teamId = getTeamId(agent)
   # If carrying a relic, deposit it in a monastery
   if agent.inventoryRelic > 0:
-    let monastery = env.findNearestFriendlyThingSpiral(state, teamId, Monastery)
+    let monastery = env.nearestFriendlyBuilding(state, teamId, Monastery)
     if not isNil(monastery):
       return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u16)
     # No monastery - return to home altar
