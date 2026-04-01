@@ -421,15 +421,9 @@ proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Th
 
 # Follow: Follow another agent, maintaining proximity (non-combat version)
 
-proc canStartGathererFollow(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
+optionGuard(canStartGathererFollow, shouldTerminateGathererFollow):
   ## Follow activates when follow mode is enabled and target is valid and alive.
   hasLiveFollowTarget(env, state)
-
-proc shouldTerminateGathererFollow(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  ## Follow terminates when disabled or target dies.
-  not hasLiveFollowTarget(env, state)
 
 proc optGathererFollow(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =

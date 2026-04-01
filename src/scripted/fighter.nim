@@ -312,13 +312,8 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
 
   0'u16
 
-proc canStartFighterBreakout(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterBreakout, shouldTerminateFighterBreakout):
   fighterIsEnclosed(env, agent)
-
-proc shouldTerminateFighterBreakout(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  not fighterIsEnclosed(env, agent)
 
 proc optFighterBreakout(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
@@ -477,13 +472,8 @@ proc optFighterSeekHealer(controller: Controller, env: Environment, agent: Thing
   # Move toward the monk
   controller.moveTo(env, agent, agentId, state, monk.pos)
 
-proc canStartFighterRetreat(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterRetreat, shouldTerminateFighterRetreat):
   agent.hp * 3 <= agent.maxHp
-
-proc shouldTerminateFighterRetreat(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  agent.hp * 3 > agent.maxHp
 
 proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
@@ -853,20 +843,11 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
 
   0'u16
 
-proc canStartFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterDropoffFood, shouldTerminateFighterDropoffFood):
   for key, count in agent.inventory.pairs:
     if count > 0 and isFoodItem(key):
       return true
   false
-
-proc shouldTerminateFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
-                                       agentId: int, state: var AgentState): bool =
-  # Terminate when no longer carrying food
-  for key, count in agent.inventory.pairs:
-    if count > 0 and isFoodItem(key):
-      return false
-  true
 
 proc optFighterDropoffFood(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint16 =
@@ -1398,14 +1379,9 @@ proc optFighterAttackMove*(controller: Controller, env: Environment, agent: Thin
 # 2. If blocked, attack blocking target
 # 3. If target destroyed, resume moving forward
 
-proc canStartBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
+optionGuard(canStartBatteringRamAdvance, shouldTerminateBatteringRamAdvance):
+  # Battering rams always use this behavior while they remain rams.
   agent.unitClass == UnitBatteringRam
-
-proc shouldTerminateBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
-                                         agentId: int, state: var AgentState): bool =
-  # Never terminates - battering ram always uses this behavior
-  agent.unitClass != UnitBatteringRam
 
 proc optBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
@@ -1787,15 +1763,9 @@ proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thi
 
 # Follow: Follow another agent, maintaining proximity
 
-proc canStartFighterFollow(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterFollow, shouldTerminateFighterFollow):
   ## Follow activates when follow mode is enabled and target is valid and alive.
   hasLiveFollowTarget(env, state)
-
-proc shouldTerminateFighterFollow(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  ## Follow terminates when disabled or target dies.
-  not hasLiveFollowTarget(env, state)
 
 proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
@@ -1916,13 +1886,8 @@ proc findNearestFriendlyDock(env: Environment, agent: Thing): Thing =
   env.findNearestFriendlyThingSpatial(agent.pos, teamId, Dock, int.high)
 
 # FishingShip: Gather fish resources
-proc canStartFishingShipFish(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
+optionGuard(canStartFishingShipFish, shouldTerminateFishingShipFish):
   agent.unitClass == UnitFishingShip and env.thingsByKind[Fish].len > 0
-
-proc shouldTerminateFishingShipFish(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  agent.unitClass != UnitFishingShip or env.thingsByKind[Fish].len == 0
 
 proc optFishingShipFish(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
@@ -1942,19 +1907,11 @@ proc optFishingShipFish(controller: Controller, env: Environment, agent: Thing,
   actOrMove(controller, env, agent, agentId, state, fish.pos, 3'u16)
 
 # Galley: Ranged combat ship
-proc canStartGalleyAttack(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
+optionGuard(canStartGalleyAttack, shouldTerminateGalleyAttack):
   if agent.unitClass != UnitGalley:
     return false
   let enemy = findNearestEnemyOnWater(env, agent, GalleyBaseRange * 3)
   not isNil(enemy)
-
-proc shouldTerminateGalleyAttack(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitGalley:
-    return true
-  let enemy = findNearestEnemyOnWater(env, agent, GalleyBaseRange * 3)
-  isNil(enemy)
 
 proc optGalleyAttack(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
