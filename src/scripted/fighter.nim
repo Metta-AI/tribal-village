@@ -1178,17 +1178,18 @@ proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Th
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, target.pos, 2'u16)
 
+proc fighterCanClearGoblins(env: Environment, agent: Thing): bool {.inline.} =
+  agent.hp * 2 >= agent.maxHp and not isNil(findNearestGoblinStructure(env, agent.pos))
+
 proc canStartFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Clearing goblin structures requires chasing - check stance
-  if not stanceAllows(env, agent, BehaviorChase):
-    return false
-  agent.hp * 2 >= agent.maxHp and not isNil(findNearestGoblinStructure(env, agent.pos))
+  stanceAllows(env, agent, BehaviorChase) and fighterCanClearGoblins(env, agent)
 
 proc shouldTerminateFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                         agentId: int, state: var AgentState): bool =
   # Terminate when HP drops below threshold or no goblin structure nearby
-  agent.hp * 2 < agent.maxHp or isNil(findNearestGoblinStructure(env, agent.pos))
+  not fighterCanClearGoblins(env, agent)
 
 proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
@@ -1721,40 +1722,29 @@ proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
 
 # Guard: Stay near a target (agent or position), attack enemies within range, return after combat
 
+proc hasValidGuardTarget(env: Environment, state: AgentState): bool {.inline.} =
+  if not state.guardActive:
+    return false
+  if state.guardTargetAgentId >= 0:
+    return state.guardTargetAgentId < env.agents.len and
+      isAgentAlive(env, env.agents[state.guardTargetAgentId])
+  state.guardTargetPos.x >= 0
+
 proc canStartFighterGuard(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   ## Guard activates when guard mode is enabled and target is valid.
-  if not state.guardActive:
-    return false
   # Combat units only
   if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
                             UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
                             UnitCrossbowman, UnitArbalester, UnitLightCavalry, UnitHussar,
                             UnitCamel, UnitHeavyCamel, UnitImperialCamel}:
     return false
-  # If guarding an agent, check if it's alive
-  if state.guardTargetAgentId >= 0:
-    if state.guardTargetAgentId >= env.agents.len:
-      return false
-    let target = env.agents[state.guardTargetAgentId]
-    return isAgentAlive(env, target)
-  # If guarding a position, just need valid position
-  state.guardTargetPos.x >= 0
+  hasValidGuardTarget(env, state)
 
 proc shouldTerminateFighterGuard(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Guard terminates when disabled or target agent dies.
-  if not state.guardActive:
-    return true
-  # If guarding an agent, terminate if it dies
-  if state.guardTargetAgentId >= 0:
-    if state.guardTargetAgentId >= env.agents.len:
-      return true
-    let target = env.agents[state.guardTargetAgentId]
-    if not isAgentAlive(env, target):
-      return true
-  # If guarding a position, never auto-terminate (only when disabled)
-  false
+  not hasValidGuardTarget(env, state)
 
 proc optFighterGuard(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
