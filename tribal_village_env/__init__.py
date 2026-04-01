@@ -3,19 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from tribal_village_env.build import ensure_nim_binary_current, ensure_nim_library_current
-    from tribal_village_env.config import (
-        Config,
-        EnvironmentConfig,
-        PolicyConfig,
-        PPOConfig,
-        RewardConfig,
-        TrainingConfig,
-    )
-    from tribal_village_env.environment import TribalVillageEnv, make_tribal_village_env
+from typing import Any
 
 _EXPORTS = {
     "TribalVillageEnv": ("tribal_village_env.environment", "TribalVillageEnv"),
