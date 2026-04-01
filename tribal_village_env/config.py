@@ -27,6 +27,10 @@ from typing import Any, ClassVar, NoReturn, Self, Union, get_args, get_origin
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 
+def reward_legacy_field_name(field_name: str) -> str:
+    return field_name if field_name.endswith("_penalty") else f"{field_name}_reward"
+
+
 class Config(BaseModel):
     """Base configuration class with override support and validation.
 
@@ -280,8 +284,7 @@ class EnvironmentConfig(Config):
         for field_name in RewardConfig.model_fields:
             value = getattr(self.rewards, field_name)
             if not math.isnan(value):
-                legacy_key = field_name if field_name.endswith("_penalty") else f"{field_name}_reward"
-                result[legacy_key] = value
+                result[reward_legacy_field_name(field_name)] = value
 
         return result
 
@@ -289,10 +292,7 @@ class EnvironmentConfig(Config):
     def from_legacy_dict(cls, config: dict[str, Any]) -> EnvironmentConfig:
         """Create config from legacy dictionary format."""
         reward_kwargs = {
-            field_name: config.get(
-                field_name if field_name.endswith("_penalty") else f"{field_name}_reward",
-                math.nan,
-            )
+            field_name: config.get(reward_legacy_field_name(field_name), math.nan)
             for field_name in RewardConfig.model_fields
         }
         rewards = RewardConfig(**reward_kwargs)
