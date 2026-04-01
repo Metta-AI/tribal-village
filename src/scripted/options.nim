@@ -1141,19 +1141,15 @@ proc findNextAffordableEconomyTech(env: Environment, teamId: int): tuple[tech: E
       return (tech, buildingKind, true)
   return (TechWheelbarrow, TownCenter, false)
 
-proc canStartResearchEconomyTech*(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return false
-  let teamId = getTeamId(agent)
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return false
-  let (_, _, found) = findNextAffordableEconomyTech(env, teamId)
-  found
-
-proc shouldTerminateResearchEconomyTech*(controller: Controller, env: Environment, agent: Thing,
-                                          agentId: int, state: var AgentState): bool =
-  not canStartResearchEconomyTech(controller, env, agent, agentId, state)
+optionGuard(canStartResearchEconomyTech, shouldTerminateResearchEconomyTech):
+  agent.unitClass == UnitVillager and
+    (block:
+      let teamId = getTeamId(agent)
+      if teamId < 0 or teamId >= MapRoomObjectsTeams:
+        false
+      else:
+        let (_, _, found) = findNextAffordableEconomyTech(env, teamId)
+        found)
 
 proc optResearchEconomyTech*(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint16 =
@@ -1196,20 +1192,14 @@ proc canAffordNextBlacksmithUpgrade(env: Environment, teamId: int): bool =
     [(res: ResourceFood, count: foodCost),
      (res: ResourceGold, count: goldCost)])
 
-proc canStartResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
-                                        agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return false
-  let teamId = getTeamId(agent)
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return false
-  controller.getBuildingCount(env, teamId, Blacksmith) > 0 and
-    hasUnresearchedBlacksmithUpgrade(env, teamId) and
-    canAffordNextBlacksmithUpgrade(env, teamId)
-
-proc shouldTerminateResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
-                                                agentId: int, state: var AgentState): bool =
-  not canStartResearchBlacksmithUpgrade(controller, env, agent, agentId, state)
+optionGuard(canStartResearchBlacksmithUpgrade, shouldTerminateResearchBlacksmithUpgrade):
+  agent.unitClass == UnitVillager and
+    (block:
+      let teamId = getTeamId(agent)
+      teamId >= 0 and teamId < MapRoomObjectsTeams and
+        controller.getBuildingCount(env, teamId, Blacksmith) > 0 and
+        hasUnresearchedBlacksmithUpgrade(env, teamId) and
+        canAffordNextBlacksmithUpgrade(env, teamId))
 
 proc optResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): uint16 =
@@ -1257,26 +1247,21 @@ proc canAffordAnyUnitUpgrade(env: Environment, teamId: int): bool =
       return true
   false
 
-proc canStartResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return false
-  let teamId = getTeamId(agent)
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return false
-  # Need at least one military building
-  var hasBuilding = false
-  for kind in UnitUpgradeBuildings:
-    if controller.getBuildingCount(env, teamId, kind) > 0:
-      hasBuilding = true
-      break
-  hasBuilding and
-    hasUnresearchedUnitUpgrade(env, teamId) and
-    canAffordAnyUnitUpgrade(env, teamId)
-
-proc shouldTerminateResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
-                                          agentId: int, state: var AgentState): bool =
-  not canStartResearchUnitUpgrade(controller, env, agent, agentId, state)
+optionGuard(canStartResearchUnitUpgrade, shouldTerminateResearchUnitUpgrade):
+  agent.unitClass == UnitVillager and
+    (block:
+      let teamId = getTeamId(agent)
+      if teamId < 0 or teamId >= MapRoomObjectsTeams:
+        false
+      else:
+        var hasBuilding = false
+        for kind in UnitUpgradeBuildings:
+          if controller.getBuildingCount(env, teamId, kind) > 0:
+            hasBuilding = true
+            break
+        hasBuilding and
+          hasUnresearchedUnitUpgrade(env, teamId) and
+          canAffordAnyUnitUpgrade(env, teamId))
 
 proc optResearchUnitUpgrade*(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint16 =

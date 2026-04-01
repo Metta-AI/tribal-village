@@ -218,19 +218,13 @@ proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agen
 proc millResourceCount(env: Environment, pos: IVec2): int =
   countNearbyThings(env, pos, 4, {Wheat, Stubble}) + countNearbyTerrain(env, pos, 4, {Fertile})
 
-proc canStartBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  if agent.homeAltar.x >= 0 and
-      max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10:
-    return false
+builderGuard(canStartBuilderMillNearResource, shouldTerminateBuilderMillNearResource):
   let teamId = getTeamId(agent)
-  if millResourceCount(env, agent.pos) < 8:
-    return false
-  nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos) > 5
-
-proc shouldTerminateBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
-                                            agentId: int, state: var AgentState): bool =
-  not canStartBuilderMillNearResource(controller, env, agent, agentId, state)
+  let nearHome = agent.homeAltar.x >= 0 and
+    max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10
+  not nearHome and
+    millResourceCount(env, agent.pos) >= 8 and
+    nearestFriendlyBuildingDistance(env, teamId, [Mill, Granary, TownCenter], agent.pos) > 5
 
 proc optBuilderMillNearResource(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint16 =
@@ -263,22 +257,20 @@ proc campResourceCount(env: Environment, pos: IVec2, entry: tuple[kind: ThingKin
   if entry.kind == Granary:
     result += countNearbyTerrain(env, pos, 4, {Fertile})
 
-proc canStartBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  let teamId = getTeamId(agent)
-  for entry in CampThresholds:
-    let nearbyCount = campResourceCount(env, agent.pos, entry)
-    if nearbyCount < entry.minCount:
-      continue
-    let dist = nearestFriendlyBuildingDistance(env, teamId, [entry.kind], agent.pos)
-    if dist > 3:
-      return true
-  false
-
-proc shouldTerminateBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
-                                         agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderCampThreshold, shouldTerminateBuilderCampThreshold):
   ## Terminate when camp built nearby or conditions no longer met
-  not canStartBuilderCampThreshold(controller, env, agent, agentId, state)
+  let teamId = getTeamId(agent)
+  block:
+    var shouldBuild = false
+    for entry in CampThresholds:
+      let nearbyCount = campResourceCount(env, agent.pos, entry)
+      if nearbyCount < entry.minCount:
+        continue
+      let dist = nearestFriendlyBuildingDistance(env, teamId, [entry.kind], agent.pos)
+      if dist > 3:
+        shouldBuild = true
+        break
+    shouldBuild
 
 proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint16 =
@@ -328,22 +320,13 @@ proc findStrategicDropoffTarget(env: Environment, agent: Thing): tuple[pos: IVec
 
 var strategicDropoffCache: PerAgentCache[tuple[pos: IVec2, kind: ThingKind, found: bool]]
 
-proc canStartBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderStrategicDropoff, shouldTerminateBuilderStrategicDropoff):
   ## Check if there's a resource cluster that needs a strategic drop-off.
   ## Only activates when the team already has basic infrastructure.
   let teamId = getTeamId(agent)
-  # Need at least a Granary or LumberCamp before doing strategic placement
-  if controller.getBuildingCount(env, teamId, Granary) == 0 and
-     controller.getBuildingCount(env, teamId, LumberCamp) == 0:
-    return false
-  # Use per-agent cache to avoid expensive grid scan on every canStart check
-  let cached = strategicDropoffCache.getWithAgent(env, agent, findStrategicDropoffTarget)
-  cached.found
-
-proc shouldTerminateBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
-                                            agentId: int, state: var AgentState): bool =
-  not canStartBuilderStrategicDropoff(controller, env, agent, agentId, state)
+  (controller.getBuildingCount(env, teamId, Granary) > 0 or
+    controller.getBuildingCount(env, teamId, LumberCamp) > 0) and
+      strategicDropoffCache.getWithAgent(env, agent, findStrategicDropoffTarget).found
 
 proc optBuilderStrategicDropoff(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint16 =
@@ -382,17 +365,12 @@ proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Th
   let teamId = getTeamId(agent)
   buildFirstMissing(controller, env, agent, agentId, state, teamId, TechBuildingKinds)
 
-proc canStartBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
+builderGuard(canStartBuilderWallRing, shouldTerminateBuilderWallRing):
   let teamId = getTeamId(agent)
   agent.homeAltar.x >= 0 and
     controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
     controller.getBuildingCount(env, teamId, Wall) < MaxWallsPerTeam and
     env.stockpileCount(teamId, ResourceWood) >= 3
-
-proc shouldTerminateBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  not canStartBuilderWallRing(controller, env, agent, agentId, state)
 
 proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
@@ -613,16 +591,11 @@ proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thi
       discard
   0'u16
 
-proc canStartBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  if agent.inventory.len != 0:
-    return false
-  let hub = findNearestNeutralHub(env, agent.pos)
-  not isNil(hub) and chebyshevDist(agent.pos, hub.pos) > 6'i32
-
-proc shouldTerminateBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
-                                           agentId: int, state: var AgentState): bool =
-  not canStartBuilderVisitTradingHub(controller, env, agent, agentId, state)
+builderGuard(canStartBuilderVisitTradingHub, shouldTerminateBuilderVisitTradingHub):
+  agent.inventory.len == 0 and
+    (block:
+      let hub = findNearestNeutralHub(env, agent.pos)
+      not isNil(hub) and chebyshevDist(agent.pos, hub.pos) > 6'i32)
 
 proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint16 =
