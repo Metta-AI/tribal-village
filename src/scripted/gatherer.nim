@@ -10,10 +10,6 @@ export coordination
 import economy
 export economy
 
-# Use shared optionGuard template from ai_types
-template gathererGuard(canName, termName: untyped, body: untyped) {.dirty.} =
-  optionGuard(canName, termName, body)
-
 # Game phase resource weights (not balance-tunable, just weighting tables)
 const
   # Weights: lower value = higher priority (divides the stockpile count)
@@ -25,7 +21,7 @@ const
   # Late game: Gold-heavy for advanced military, stone for castles
   LateGameWeights = [1.2, 1.0, 0.65, 0.4]
 
-gathererGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
+optionGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
   not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadius)) and
     not isNil(findNearestGarrisonableBuilding(env, agent.pos, getTeamId(agent), GarrisonSeekRadius))
 
@@ -42,7 +38,7 @@ proc optGathererGarrison(controller: Controller, env: Environment, agent: Thing,
   requestProtectionFromFighter(env, agent, enemy.pos)
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
-gathererGuard(canStartGathererFlee, shouldTerminateGathererFlee):
+optionGuard(canStartGathererFlee, shouldTerminateGathererFlee):
   not isNil(findNearbyEnemyForFlee(env, agent, GathererFleeRadius))
 
 proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
@@ -214,10 +210,10 @@ proc gathererTryBuildCamp(controller: Controller, env: Environment, agent: Thing
     nearbyCount, minCount, nearbyKinds)
   if didBuild: buildAct else: 0'u16
 
-gathererGuard(canStartGathererPlantOnFertile, shouldTerminateGathererPlantOnFertile):
+optionGuard(canStartGathererPlantOnFertile, shouldTerminateGathererPlantOnFertile):
   state.gathererTask != TaskHearts and (agent.inventoryWheat > 0 or agent.inventoryWood > 0)
 
-gathererGuard(canStartGathererCarrying, shouldTerminateGathererCarrying):
+optionGuard(canStartGathererCarrying, shouldTerminateGathererCarrying):
   gathererStockpileTotal(agent) > 0
 
 proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
@@ -242,7 +238,7 @@ proc optGathererCarrying(controller: Controller, env: Environment, agent: Thing,
   # for clean, purposeful return movement
   return controller.moveTo(env, agent, agentId, state, basePos)
 
-gathererGuard(canStartGathererHearts, shouldTerminateGathererHearts):
+optionGuard(canStartGathererHearts, shouldTerminateGathererHearts):
   state.gathererTask == TaskHearts
 
 proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
@@ -269,7 +265,7 @@ proc optGathererHearts(controller: Controller, env: Environment, agent: Thing,
   if didGold: return actGold
   return controller.moveNextSearch(env, agent, agentId, state)
 
-gathererGuard(canStartGathererResource, shouldTerminateGathererResource):
+optionGuard(canStartGathererResource, shouldTerminateGathererResource):
   state.gathererTask in {TaskGold, TaskWood, TaskStone}
 
 proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
@@ -305,7 +301,7 @@ proc optGathererResource(controller: Controller, env: Environment, agent: Thing,
   if didGather: return actGather
   return controller.moveNextSearch(env, agent, agentId, state)
 
-gathererGuard(canStartGathererFood, shouldTerminateGathererFood):
+optionGuard(canStartGathererFood, shouldTerminateGathererFood):
   state.gathererTask == TaskFood
 
 proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
@@ -387,7 +383,7 @@ proc optGathererFood(controller: Controller, env: Environment, agent: Thing,
   if didHunt: return actHunt
   return controller.moveNextSearch(env, agent, agentId, state)
 
-gathererGuard(canStartGathererIrrigate, shouldTerminateGathererIrrigate):
+optionGuard(canStartGathererIrrigate, shouldTerminateGathererIrrigate):
   agent.inventoryWater > 0
 
 proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
@@ -398,7 +394,7 @@ proc optGathererIrrigate(controller: Controller, env: Environment, agent: Thing,
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, target, 3'u16)
 
-gathererGuard(canStartGathererScavenge, shouldTerminateGathererScavenge):
+optionGuard(canStartGathererScavenge, shouldTerminateGathererScavenge):
   gathererStockpileTotal(agent) < ResourceCarryCapacity and env.thingsByKind[Skeleton].len > 0
 
 proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
@@ -408,7 +404,7 @@ proc optGathererScavenge(controller: Controller, env: Environment, agent: Thing,
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, skeleton.pos, 3'u16)
 
-gathererGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
+optionGuard(canStartGathererPredatorFlee, shouldTerminateGathererPredatorFlee):
   not isNil(findNearestPredatorInRadius(env, agent.pos, GathererFleeRadius))
 
 proc optGathererPredatorFlee(controller: Controller, env: Environment, agent: Thing,

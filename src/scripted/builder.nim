@@ -7,10 +7,6 @@ export options
 import coordination
 export coordination
 
-# Use shared optionGuard template from ai_types
-template builderGuard(canName, termName: untyped, body: untyped) {.dirty.} =
-  optionGuard(canName, termName, body)
-
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
   TechBuildingKinds = [
@@ -61,7 +57,7 @@ proc isBuilderUnderThreat*(env: Environment, agent: Thing): bool =
     return true
   not findNearestEnemyBuildingSpatial(env, basePos, teamId, BuilderThreatRadius).isNil
 
-builderGuard(canStartBuilderFlee, shouldTerminateBuilderFlee):
+optionGuard(canStartBuilderFlee, shouldTerminateBuilderFlee):
   not isNil(findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst))
 
 proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
@@ -132,7 +128,7 @@ proc findDamagedBuilding*(controller: Controller, env: Environment, agent: Thing
         best = thing
   best
 
-builderGuard(canStartBuilderRepair, shouldTerminateBuilderRepair):
+optionGuard(canStartBuilderRepair, shouldTerminateBuilderRepair):
   not isNil(findDamagedBuilding(controller, env, agent))
 
 proc optBuilderRepair(controller: Controller, env: Environment, agent: Thing,
@@ -158,7 +154,7 @@ proc buildFirstMissing(controller: Controller, env: Environment, agent: Thing,
     if did: return act
   0'u16
 
-builderGuard(canStartBuilderPlantOnFertile, shouldTerminateBuilderPlantOnFertile):
+optionGuard(canStartBuilderPlantOnFertile, shouldTerminateBuilderPlantOnFertile):
   agent.inventoryWheat > 0 or agent.inventoryWood > 0
 
 proc hasCarryingResources(agent: Thing): bool =
@@ -167,7 +163,7 @@ proc hasCarryingResources(agent: Thing): bool =
       return true
   false
 
-builderGuard(canStartBuilderDropoffCarrying, shouldTerminateBuilderDropoffCarrying):
+optionGuard(canStartBuilderDropoffCarrying, shouldTerminateBuilderDropoffCarrying):
   hasCarryingResources(agent)
 
 proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: Thing,
@@ -182,7 +178,7 @@ proc optBuilderDropoffCarrying(controller: Controller, env: Environment, agent: 
   if didDrop: return dropAct
   0'u16
 
-builderGuard(canStartBuilderPopCap, shouldTerminateBuilderPopCap):
+optionGuard(canStartBuilderPopCap, shouldTerminateBuilderPopCap):
   needsPopCapHouse(controller, env, getTeamId(agent))
 
 proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
@@ -195,7 +191,7 @@ proc optBuilderPopCap(controller: Controller, env: Environment, agent: Thing,
   if didHouse: return houseAct
   0'u16
 
-builderGuard(canStartBuilderCoreInfrastructure, shouldTerminateBuilderCoreInfrastructure):
+optionGuard(canStartBuilderCoreInfrastructure, shouldTerminateBuilderCoreInfrastructure):
   let altarPos = agent.homeAltar
   if altarPos.x >= 0:
     anyMissingBuildingNear(env, getTeamId(agent), CoreInfrastructureKinds, altarPos)
@@ -218,7 +214,7 @@ proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agen
 proc millResourceCount(env: Environment, pos: IVec2): int =
   countNearbyThings(env, pos, 4, {Wheat, Stubble}) + countNearbyTerrain(env, pos, 4, {Fertile})
 
-builderGuard(canStartBuilderMillNearResource, shouldTerminateBuilderMillNearResource):
+optionGuard(canStartBuilderMillNearResource, shouldTerminateBuilderMillNearResource):
   let teamId = getTeamId(agent)
   let nearHome = agent.homeAltar.x >= 0 and
     max(abs(agent.pos.x - agent.homeAltar.x), abs(agent.pos.y - agent.homeAltar.y)) <= 10
@@ -257,7 +253,7 @@ proc campResourceCount(env: Environment, pos: IVec2, entry: tuple[kind: ThingKin
   if entry.kind == Granary:
     result += countNearbyTerrain(env, pos, 4, {Fertile})
 
-builderGuard(canStartBuilderCampThreshold, shouldTerminateBuilderCampThreshold):
+optionGuard(canStartBuilderCampThreshold, shouldTerminateBuilderCampThreshold):
   ## Terminate when camp built nearby or conditions no longer met
   let teamId = getTeamId(agent)
   block:
@@ -320,7 +316,7 @@ proc findStrategicDropoffTarget(env: Environment, agent: Thing): tuple[pos: IVec
 
 var strategicDropoffCache: PerAgentCache[tuple[pos: IVec2, kind: ThingKind, found: bool]]
 
-builderGuard(canStartBuilderStrategicDropoff, shouldTerminateBuilderStrategicDropoff):
+optionGuard(canStartBuilderStrategicDropoff, shouldTerminateBuilderStrategicDropoff):
   ## Check if there's a resource cluster that needs a strategic drop-off.
   ## Only activates when the team already has basic infrastructure.
   let teamId = getTeamId(agent)
@@ -357,7 +353,7 @@ let BuilderStrategicDropoffOption = OptionDef(
   shouldTerminate: shouldTerminateBuilderStrategicDropoff, act: optBuilderStrategicDropoff,
   interruptible: true)
 
-builderGuard(canStartBuilderTechBuildings, shouldTerminateBuilderTechBuildings):
+optionGuard(canStartBuilderTechBuildings, shouldTerminateBuilderTechBuildings):
   anyMissingBuilding(controller, env, getTeamId(agent), TechBuildingKinds)
 
 proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Thing,
@@ -365,7 +361,7 @@ proc optBuilderTechBuildings(controller: Controller, env: Environment, agent: Th
   let teamId = getTeamId(agent)
   buildFirstMissing(controller, env, agent, agentId, state, teamId, TechBuildingKinds)
 
-builderGuard(canStartBuilderWallRing, shouldTerminateBuilderWallRing):
+optionGuard(canStartBuilderWallRing, shouldTerminateBuilderWallRing):
   let teamId = getTeamId(agent)
   agent.homeAltar.x >= 0 and
     controller.getBuildingCount(env, teamId, LumberCamp) > 0 and
@@ -497,7 +493,7 @@ proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: 
         return act
   0'u16
 
-builderGuard(canStartBuilderDock, shouldTerminateBuilderDock):
+optionGuard(canStartBuilderDock, shouldTerminateBuilderDock):
   let checkPos = agent.getBasePos()
   controller.getBuildingCount(env, getTeamId(agent), Dock) == 0 and
     hasWaterNearby(env, checkPos, 20)
@@ -509,7 +505,7 @@ proc optBuilderDock(controller: Controller, env: Environment, agent: Thing,
   if did: return act
   0'u16
 
-builderGuard(canStartBuilderNavalTrain, shouldTerminateBuilderNavalTrain):
+optionGuard(canStartBuilderNavalTrain, shouldTerminateBuilderNavalTrain):
   agent.unitClass == UnitVillager and
     controller.getBuildingCount(env, getTeamId(agent), Dock) > 0 and
     countTeamNavalAgents(env, getTeamId(agent)) < MaxNavalPerTeam and
@@ -536,7 +532,7 @@ let BuilderNavalTrainOption* = OptionDef(
   interruptible: true
 )
 
-builderGuard(canStartBuilderSiegeResponse, shouldTerminateBuilderSiegeResponse):
+optionGuard(canStartBuilderSiegeResponse, shouldTerminateBuilderSiegeResponse):
   let teamId = getTeamId(agent)
   hasUnfulfilledRequest(teamId, RequestSiegeBuild) and
     controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0
@@ -559,7 +555,7 @@ proc minBasicStockpile(env: Environment, teamId: int): int =
   if wood < result: result = wood
   if stone < result: result = stone
 
-builderGuard(canStartBuilderGatherScarce, shouldTerminateBuilderGatherScarce):
+optionGuard(canStartBuilderGatherScarce, shouldTerminateBuilderGatherScarce):
   agent.unitClass == UnitVillager and minBasicStockpile(env, getTeamId(agent)) < 5
 
 proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thing,
@@ -591,7 +587,7 @@ proc optBuilderGatherScarce(controller: Controller, env: Environment, agent: Thi
       discard
   0'u16
 
-builderGuard(canStartBuilderVisitTradingHub, shouldTerminateBuilderVisitTradingHub):
+optionGuard(canStartBuilderVisitTradingHub, shouldTerminateBuilderVisitTradingHub):
   agent.inventory.len == 0 and
     (block:
       let hub = findNearestNeutralHub(env, agent.pos)
