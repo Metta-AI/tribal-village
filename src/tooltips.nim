@@ -4,9 +4,6 @@
 ##
 ## Provides hover tooltips showing:
 ## - Command button details (description, cost, hotkey, requirements)
-## - Unit stats (detailed stat explanations)
-## - Building production queues (progress, cost, training time)
-## - Tech requirements (prerequisites, costs, effects)
 
 import
   boxy, pixie, vmath, windy,
@@ -21,10 +18,6 @@ type
   TooltipKind* = enum
     TooltipNone
     TooltipCommand       # Command panel button
-    TooltipUnit          # Unit stats in info panel
-    TooltipBuilding      # Building info
-    TooltipProduction    # Production queue item
-    TooltipResource      # Resource bar item
 
   TooltipContent* = object
     title*: string
@@ -32,7 +25,6 @@ type
     costLines*: seq[string]     # Resource costs
     statsLines*: seq[string]    # Stats/attributes
     hotkeyLine*: string         # Hotkey hint
-    requirementLine*: string    # Requirements/prerequisites
 
   TooltipState* = object
     kind*: TooltipKind
@@ -55,7 +47,6 @@ const
   TooltipTextColor = UiTooltipText
   TooltipCostColor = UiTooltipCost
   TooltipHotkeyColor = UiTooltipHotkey
-  TooltipRequirementColor = UiTooltipRequirement
 
   # Tooltip layout values (font sizes, padding, max width, show delay)
   # are centralized in renderer_core.nim as TooltipTitleFontSize, etc.
@@ -462,12 +453,6 @@ proc calculateTooltipSize(content: TooltipContent): Vec2 =
     maxWidth = max(maxWidth, hotkeySize.x.float32)
     totalHeight += TooltipLineHeight + TooltipSectionGap
 
-  # Requirement line
-  if content.requirementLine.len > 0:
-    let (_, reqSize) = renderTooltipLabel(content.requirementLine, TooltipTextFontSize, TooltipRequirementColor)
-    maxWidth = max(maxWidth, reqSize.x.float32)
-    totalHeight += TooltipLineHeight
-
   result = vec2(min(maxWidth + TooltipPadding * 2, TooltipMaxWidth), totalHeight)
 
 proc positionTooltip(anchorRect: Rect, tooltipSize: Vec2, screenSize: Vec2): Vec2 =
@@ -556,8 +541,3 @@ proc drawTooltip*(screenSize: Vec2) =
     let (hotkeyKey, _) = renderTooltipLabel(content.hotkeyLine, TooltipTextFontSize, TooltipHotkeyColor)
     bxy.drawImage(hotkeyKey, vec2(pos.x + TooltipPadding, yOffset))
     yOffset += TooltipLineHeight
-
-  # Draw requirement line
-  if content.requirementLine.len > 0:
-    let (reqKey, _) = renderTooltipLabel(content.requirementLine, TooltipTextFontSize, TooltipRequirementColor)
-    bxy.drawImage(reqKey, vec2(pos.x + TooltipPadding, yOffset))

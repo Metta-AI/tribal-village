@@ -35,13 +35,6 @@ when defined(econAudit):
       rfsFarmReseed      ## Farm reseed wood cost
       rfsRefund          ## Cancelled queue refunds
 
-    ResourceFlowEvent* = object
-      step*: int
-      teamId*: int
-      resource*: StockpileResource
-      amount*: int        ## Positive for income, negative for spending
-      source*: ResourceFlowSource
-
     TeamResourceStats* = object
       ## Per-team resource tracking
       totalGained*: array[StockpileResource, int]

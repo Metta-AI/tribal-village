@@ -25,11 +25,6 @@ type
     enabled*: bool
     hovered*: bool
 
-  CommandPanelState* = object
-    buttons*: seq[CommandButton]
-    visible*: bool
-    rect*: Rect
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -58,7 +53,6 @@ let
 # ---------------------------------------------------------------------------
 
 var
-  commandPanelState*: CommandPanelState
   buildMenuOpen*: bool = false  # Whether the build submenu is showing
 
 # ---------------------------------------------------------------------------
