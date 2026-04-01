@@ -207,6 +207,17 @@ var teamReservations*: array[MapRoomObjectsTeams, ReservationState]
 template resState(teamId: int): var ReservationState =
   teamReservations[teamId]
 
+proc removeAgentReservations(state: ptr ReservationState, agentId: int32) =
+  var writeIdx = 0
+  for readIdx in 0 ..< state.count:
+    let res = state.reservations[readIdx]
+    if res.agentId == agentId:
+      continue
+    if writeIdx != readIdx:
+      state.reservations[writeIdx] = res
+    inc writeIdx
+  state.count = writeIdx
+
 proc clearExpiredReservations*(env: Environment) =
   ## Remove reservations that have expired or whose agent is dead.
   let currentStep = env.currentStep
@@ -248,14 +259,7 @@ proc reserveResource*(teamId: int, agentId: int, pos: IVec2, step: int): bool =
     if res.pos == pos and res.agentId != agentId.int32:
       return false  # Already reserved by someone else
   # Remove any existing reservation by this agent (one per agent)
-  var writeIdx = 0
-  for readIdx in 0 ..< state.count:
-    if state.reservations[readIdx].agentId != agentId.int32:
-      if writeIdx != readIdx:
-        state.reservations[writeIdx] = state.reservations[readIdx]
-      inc writeIdx
-    # If same agent re-reserving same pos, also skip (will re-add below)
-  state.count = writeIdx
+  removeAgentReservations(state, agentId.int32)
   # Add new reservation
   if state.count >= MaxResourceReservations:
     return false  # No space
@@ -272,14 +276,7 @@ proc releaseReservation*(teamId: int, agentId: int) =
   ## Release any reservation held by this agent.
   if not validTeamId(teamId):
     return
-  let state = addr resState(teamId)
-  var writeIdx = 0
-  for readIdx in 0 ..< state.count:
-    if state.reservations[readIdx].agentId != agentId.int32:
-      if writeIdx != readIdx:
-        state.reservations[writeIdx] = state.reservations[readIdx]
-      inc writeIdx
-  state.count = writeIdx
+  removeAgentReservations(addr resState(teamId), agentId.int32)
 
 proc getReservationPos*(teamId: int, agentId: int): IVec2 =
   ## Get the reserved position for an agent, or (-1,-1) if none.

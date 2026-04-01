@@ -133,20 +133,18 @@ proc findNewTownSite*(controller: Controller, env: Environment,
       if not openSpace:
         continue
 
-      # Must not overlap with existing altars (check distance to all team altars)
+      # Must not overlap with existing altars.
       var tooCloseToAltar = false
       for altar in env.thingsByKind[Altar]:
-        if altar.teamId == teamId and altar.pos != altarPos:
-          if chebyshevDist(pos, altar.pos) < TownSplitMinDistance:
-            tooCloseToAltar = true
-            break
-      # Also check enemy altars
-      if not tooCloseToAltar:
-        for altar in env.thingsByKind[Altar]:
-          if altar.teamId != teamId and altar.teamId >= 0:
-            if chebyshevDist(pos, altar.pos) < TownSplitMinDistance div 2:
-              tooCloseToAltar = true
-              break
+        if altar.teamId < 0 or (altar.teamId == teamId and altar.pos == altarPos):
+          continue
+        let minAltarDist = (if altar.teamId == teamId:
+                              TownSplitMinDistance
+                            else:
+                              TownSplitMinDistance div 2)
+        if chebyshevDist(pos, altar.pos) < minAltarDist:
+          tooCloseToAltar = true
+          break
       if tooCloseToAltar:
         continue
 
