@@ -1009,27 +1009,6 @@ let MarketTradeOption* = OptionDef(
 # Tech Research Options - University and Castle
 # ============================================================================
 
-proc hasUnresearchedUniversityTech(env: Environment, teamId: int): bool =
-  ## Check if the team has any unresearched University tech.
-  for techType in UniversityTechType:
-    if not env.teamUniversityTechs[teamId].researched[techType]:
-      return true
-  false
-
-proc canAffordNextUniversityTech(env: Environment, teamId: int): bool =
-  ## Check if the team can afford the next University tech.
-  for techType in UniversityTechType:
-    if not env.teamUniversityTechs[teamId].researched[techType]:
-      let techIndex = ord(techType) + 1
-      let foodCost = UniversityTechFoodCost * techIndex
-      let goldCost = UniversityTechGoldCost * techIndex
-      let woodCost = UniversityTechWoodCost * techIndex
-      return env.canSpendStockpile(teamId,
-        [(res: ResourceFood, count: foodCost),
-         (res: ResourceGold, count: goldCost),
-         (res: ResourceWood, count: woodCost)])
-  false
-
 proc canStartResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
   if agent.unitClass != UnitVillager:
@@ -1037,9 +1016,17 @@ proc canStartResearchUniversityTech*(controller: Controller, env: Environment, a
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
-  controller.getBuildingCount(env, teamId, University) > 0 and
-    hasUnresearchedUniversityTech(env, teamId) and
-    canAffordNextUniversityTech(env, teamId)
+  if controller.getBuildingCount(env, teamId, University) == 0:
+    return false
+  for techType in UniversityTechType:
+    if env.teamUniversityTechs[teamId].researched[techType]:
+      continue
+    let techIndex = ord(techType) + 1
+    return env.canSpendStockpile(teamId,
+      [(res: ResourceFood, count: UniversityTechFoodCost * techIndex),
+       (res: ResourceGold, count: UniversityTechGoldCost * techIndex),
+       (res: ResourceWood, count: UniversityTechWoodCost * techIndex)])
+  false
 
 proc shouldTerminateResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                             agentId: int, state: var AgentState): bool =
@@ -1047,8 +1034,12 @@ proc shouldTerminateResearchUniversityTech*(controller: Controller, env: Environ
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return true
-  controller.getBuildingCount(env, teamId, University) == 0 or
-    not hasUnresearchedUniversityTech(env, teamId)
+  if controller.getBuildingCount(env, teamId, University) == 0:
+    return true
+  for techType in UniversityTechType:
+    if not env.teamUniversityTechs[teamId].researched[techType]:
+      return false
+  true
 
 proc optResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint16 =
@@ -1066,14 +1057,15 @@ let ResearchUniversityTechOption* = OptionDef(
   interruptible: true
 )
 
-proc hasUnresearchedCastleTech(env: Environment, teamId: int): bool =
-  ## Check if the team has any unresearched Castle tech.
-  let (castleAge, imperialAge) = castleTechsForTeam(teamId)
-  not env.teamCastleTechs[teamId].researched[castleAge] or
-    not env.teamCastleTechs[teamId].researched[imperialAge]
-
-proc canAffordNextCastleTech(env: Environment, teamId: int): bool =
-  ## Check if the team can afford the next Castle tech.
+proc canStartResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
+                                 agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    return false
+  if controller.getBuildingCount(env, teamId, Castle) == 0:
+    return false
   let (castleAge, imperialAge) = castleTechsForTeam(teamId)
   if not env.teamCastleTechs[teamId].researched[castleAge]:
     return env.canSpendStockpile(teamId,
@@ -1085,25 +1077,17 @@ proc canAffordNextCastleTech(env: Environment, teamId: int): bool =
        (res: ResourceGold, count: CastleTechImperialGoldCost)])
   false
 
-proc canStartResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return false
-  let teamId = getTeamId(agent)
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
-    return false
-  controller.getBuildingCount(env, teamId, Castle) > 0 and
-    hasUnresearchedCastleTech(env, teamId) and
-    canAffordNextCastleTech(env, teamId)
-
 proc shouldTerminateResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
                                         agentId: int, state: var AgentState): bool =
   ## Only terminate if castle is gone or all techs researched (not for temporary resource dips)
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return true
-  controller.getBuildingCount(env, teamId, Castle) == 0 or
-    not hasUnresearchedCastleTech(env, teamId)
+  if controller.getBuildingCount(env, teamId, Castle) == 0:
+    return true
+  let (castleAge, imperialAge) = castleTechsForTeam(teamId)
+  env.teamCastleTechs[teamId].researched[castleAge] and
+    env.teamCastleTechs[teamId].researched[imperialAge]
 
 proc optResearchCastleTech*(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
