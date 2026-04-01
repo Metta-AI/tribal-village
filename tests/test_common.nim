@@ -137,12 +137,6 @@ proc countDeadUnits*(env: Environment, teamId: int): int =
     if not agent.isNil and env.terminated[i] != 0.0 and agent.hp <= 0:
       inc result
 
-proc countActiveAgents*(env: Environment): int =
-  ## Count all agents that are currently alive across all teams.
-  for agent in env.agents:
-    if not agent.isNil and agent.hp > 0:
-      inc result
-
 proc countAgentsPerTeam*(env: Environment): array[MapRoomObjectsTeams, int] =
   ## Count alive agents per team.
   for agent in env.agents:
@@ -231,34 +225,9 @@ proc getTotalHp*(env: Environment): int =
     if not agent.isNil and agent.hp > 0:
       result += agent.hp
 
-proc getTotalHpPerTeam*(env: Environment): array[MapRoomObjectsTeams, int] =
-  ## Get total HP per team.
-  for agent in env.agents:
-    if not agent.isNil and agent.hp > 0:
-      let teamId = getTeamId(agent)
-      if teamId >= 0 and teamId < MapRoomObjectsTeams:
-        result[teamId] += agent.hp
-
 # ============================================================================
 # Action Tracking Helpers
 # ============================================================================
-
-proc countNonNoopActions*(actions: array[MapAgents, uint16]): int =
-  ## Count non-NOOP actions in an action array.
-  for i in 0 ..< MapAgents:
-    if actions[i] != 0:
-      inc result
-
-proc runAndCountActions*(env: Environment, steps: int): tuple[actions, noops: int] =
-  ## Run game steps and count actions vs NOOPs.
-  for step in 0 ..< steps:
-    let actions = getActions(env)
-    for i in 0 ..< MapAgents:
-      if actions[i] != 0:
-        inc result.actions
-      else:
-        inc result.noops
-    env.step(addr actions)
 
 # ============================================================================
 # Test Constants

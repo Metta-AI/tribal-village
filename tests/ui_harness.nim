@@ -171,15 +171,6 @@ proc isInMinimapArea*(panelRect: IRect, screenPos: Vec2): bool =
   screenPos.x >= mmX and screenPos.x <= mmX + MinimapSize.float32 and
     screenPos.y >= mmY and screenPos.y <= mmY + MinimapSize.float32
 
-proc isInUnitInfoPanelArea*(panelRect: IRect, screenPos: Vec2): bool =
-  ## Check if a screen position is within the unit info panel area.
-  ## Unit info panel is on the right side, upper portion.
-  let panelX = panelRect.x.float32 + panelRect.w.float32 - 240.0 - 12.0  # UnitInfoPanelWidth + padding
-  let panelY = panelRect.y.float32 + 40.0
-  let panelH = panelRect.h.float32 * 0.45
-  screenPos.x >= panelX and screenPos.x <= panelRect.x.float32 + panelRect.w.float32 and
-    screenPos.y >= panelY and screenPos.y <= panelY + panelH
-
 # ---------------------------------------------------------------------------
 # Minimap Coordinate Conversion Testing
 # ---------------------------------------------------------------------------
