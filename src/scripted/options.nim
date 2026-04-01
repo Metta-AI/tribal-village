@@ -437,8 +437,6 @@ proc optPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
 proc findNearestGoblinStructure*(env: Environment, pos: IVec2): Thing =
   findNearestThingOfKinds(env, pos, [GoblinHive, GoblinHut, GoblinTotem])
 
-optionGuard(canStartLanternFrontierPush, shouldTerminateLanternFrontierPush):
-  agent.inventoryLantern > 0
 proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
@@ -448,8 +446,6 @@ proc optLanternFrontierPush(controller: Controller, env: Environment, agent: Thi
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, target, 6'u16)
 
-optionGuard(canStartLanternGapFill, shouldTerminateLanternGapFill):
-  agent.inventoryLantern > 0
 proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
@@ -485,8 +481,6 @@ proc optLanternGapFill(controller: Controller, env: Environment, agent: Thing,
     return 0'u16
   return actOrMove(controller, env, agent, agentId, state, target, 6'u16)
 
-optionGuard(canStartLanternRecovery, shouldTerminateLanternRecovery):
-  agent.inventoryLantern > 0
 proc optLanternRecovery(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
