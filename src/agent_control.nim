@@ -87,6 +87,35 @@ template withBuiltinAI(body: untyped) =
   if not isNil(globalController) and globalController.controllerType in {BuiltinAI, HybridAI}:
     body
 
+proc lookupAliveAgent(env: Environment, agentId: int): Thing =
+  if agentId < 0 or agentId >= env.agents.len:
+    return nil
+  result = env.agents[agentId]
+  if not isAgentAlive(env, result):
+    return nil
+
+proc lookupBuilding(env: Environment, buildingX, buildingY: int32): Thing =
+  let pos = ivec2(buildingX, buildingY)
+  if not isValidPos(pos):
+    return nil
+  result = env.grid[pos.x][pos.y]
+  if isNil(result) or not isBuildingKind(result.kind):
+    return nil
+
+proc lookupTrainRequest(env: Environment, buildingX, buildingY, teamId,
+                        unitClass: int32, building: var Thing,
+                        requestedClass: var AgentUnitClass): bool =
+  building = lookupBuilding(env, buildingX, buildingY)
+  if isNil(building) or not buildingHasTrain(building.kind):
+    return false
+  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
+    return false
+  requestedClass = AgentUnitClass(unitClass)
+  if teamId >= 0 and teamId < MapRoomObjectsTeams and
+      requestedClass in env.teamModifiers[teamId].disabledUnits:
+    return false
+  requestedClass == buildingTrainUnit(building.kind, teamId.int)
+
 type
   ControllerType* = enum
     BuiltinAI,      # Use built-in Nim AI controller
@@ -308,17 +337,15 @@ proc getAgentStance*(agentId: int): AgentStance =
 
 proc setAgentStance*(env: Environment, agentId: int, stance: AgentStance) =
   ## Set the combat stance for an agent (immediate, requires env).
-  if agentId >= 0 and agentId < env.agents.len:
-    let agent = env.agents[agentId]
-    if isAgentAlive(env, agent):
-      agent.stance = stance
+  let agent = lookupAliveAgent(env, agentId)
+  if not isNil(agent):
+    agent.stance = stance
 
 proc getAgentStance*(env: Environment, agentId: int): AgentStance =
   ## Get the current combat stance for an agent (requires env).
-  if agentId >= 0 and agentId < env.agents.len:
-    let agent = env.agents[agentId]
-    if isAgentAlive(env, agent):
-      return agent.stance
+  let agent = lookupAliveAgent(env, agentId)
+  if not isNil(agent):
+    return agent.stance
   StanceDefensive
 
 # Garrison API
@@ -327,38 +354,25 @@ proc getAgentStance*(env: Environment, agentId: int): AgentStance =
 proc garrisonAgentInBuilding*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Garrison an agent into the building at the given position.
   ## Returns true if successful.
-  if agentId < 0 or agentId >= env.agents.len:
-    return false
-  let agent = env.agents[agentId]
-  if not isAgentAlive(env, agent):
-    return false
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let agent = lookupAliveAgent(env, agentId)
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(agent) or isNil(thing):
     return false
   garrisonUnitInBuilding(env, agent, thing)
 
 proc ungarrisonAllFromBuilding*(env: Environment, buildingX, buildingY: int32): int32 =
   ## Ungarrison all units from the building at the given position.
   ## Returns the number of units ungarrisoned.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return 0
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return 0
   let units = ungarrisonAllUnits(env, thing)
   units.len.int32
 
 proc getGarrisonCount*(env: Environment, buildingX, buildingY: int32): int32 =
   ## Get the number of units garrisoned in the building at the given position.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return 0
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return 0
   thing.garrisonedUnits.len.int32
 
@@ -380,11 +394,8 @@ proc queueUnitTraining*(env: Environment, buildingX, buildingY: int32, teamId: i
   ## Queue a unit for training at the building at the given position.
   ## The unit type and cost are determined by the building type.
   ## Returns true if successfully queued.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return false
   if not buildingHasTrain(thing.kind):
     return false
@@ -395,32 +406,23 @@ proc queueUnitTraining*(env: Environment, buildingX, buildingY: int32, teamId: i
 proc cancelLastQueuedUnit*(env: Environment, buildingX, buildingY: int32): bool =
   ## Cancel the last unit in the production queue at the given building.
   ## Returns true if a unit was cancelled.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return false
   cancelLastQueued(env, thing)
 
 proc getProductionQueueSize*(env: Environment, buildingX, buildingY: int32): int32 =
   ## Get the number of units in the production queue at the given building.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return 0
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return 0
   thing.productionQueue.entries.len.int32
 
 proc getProductionQueueEntryProgress*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
   ## Get the remaining steps for a production queue entry.
   ## Returns -1 if invalid.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return -1
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return -1
   if index < 0 or index >= thing.productionQueue.entries.len.int32:
     return -1
@@ -429,47 +431,17 @@ proc getProductionQueueEntryProgress*(env: Environment, buildingX, buildingY: in
 proc canBuildingTrainUnit*(env: Environment, buildingX, buildingY: int32, unitClass: int32, teamId: int32): bool =
   ## Check if a building can train the specified unit class.
   ## Returns true if the building supports training this unit type.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
-    return false
-  if not buildingHasTrain(thing.kind):
-    return false
-  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
-    return false
-  let requestedClass = AgentUnitClass(unitClass)
-  # Check if unit class is disabled for this team
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    if requestedClass in env.teamModifiers[teamId].disabledUnits:
-      return false
-  let defaultClass = buildingTrainUnit(thing.kind, teamId.int)
-  # Building can only train its default unit class for the given team
-  requestedClass == defaultClass
+  var thing: Thing
+  var requestedClass: AgentUnitClass
+  lookupTrainRequest(env, buildingX, buildingY, teamId, unitClass, thing, requestedClass)
 
 proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32, teamId: int32, unitClass: int32): bool =
   ## Queue a specific unit class for training at the building.
   ## Validates that the building can produce the requested unit class.
   ## Returns true if successfully queued.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
-    return false
-  if not buildingHasTrain(thing.kind):
-    return false
-  if unitClass < 0 or unitClass > ord(AgentUnitClass.high):
-    return false
-  let requestedClass = AgentUnitClass(unitClass)
-  # Check if unit class is disabled for this team
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
-    if requestedClass in env.teamModifiers[teamId].disabledUnits:
-      return false
-  let defaultClass = buildingTrainUnit(thing.kind, teamId.int)
-  # Validate the building can train this unit class
-  if requestedClass != defaultClass:
+  var thing: Thing
+  var requestedClass: AgentUnitClass
+  if not lookupTrainRequest(env, buildingX, buildingY, teamId, unitClass, thing, requestedClass):
     return false
   var costs = buildingTrainCosts(thing.kind)
   # Apply per-unit cost multiplier
@@ -483,11 +455,8 @@ proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32, 
 proc cancelAllTrainingQueue*(env: Environment, buildingX, buildingY: int32): int32 =
   ## Cancel all units in the production queue at the given building.
   ## Returns the number of units cancelled (resources are refunded for each).
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return 0
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return 0
   var cancelled: int32 = 0
   while thing.productionQueue.entries.len > 0:
@@ -500,11 +469,8 @@ proc cancelAllTrainingQueue*(env: Environment, buildingX, buildingY: int32): int
 proc getProductionQueueEntryUnitClass*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
   ## Get the unit class for a production queue entry.
   ## Returns -1 if invalid, otherwise the AgentUnitClass enum ordinal.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return -1
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return -1
   if index < 0 or index >= thing.productionQueue.entries.len.int32:
     return -1
@@ -513,11 +479,8 @@ proc getProductionQueueEntryUnitClass*(env: Environment, buildingX, buildingY: i
 proc getProductionQueueEntryTotalSteps*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
   ## Get the total training steps for a production queue entry.
   ## Returns -1 if invalid.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return -1
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return -1
   if index < 0 or index >= thing.productionQueue.entries.len.int32:
     return -1
@@ -526,11 +489,8 @@ proc getProductionQueueEntryTotalSteps*(env: Environment, buildingX, buildingY: 
 proc isProductionQueueReady*(env: Environment, buildingX, buildingY: int32): bool =
   ## Check if the building has a queue entry ready for unit conversion.
   ## Returns true if the front entry has completed training.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return false
   productionQueueHasReady(thing)
 
@@ -540,61 +500,33 @@ proc isProductionQueueReady*(env: Environment, buildingX, buildingY: int32): boo
 proc researchBlacksmithUpgrade*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Research the next blacksmith upgrade at the given building.
   ## The agent must be a villager at the building.
-  if agentId < 0 or agentId >= env.agents.len:
-    return false
-  let agent = env.agents[agentId]
-  if not isAgentAlive(env, agent):
-    return false
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or thing.kind != Blacksmith:
+  let agent = lookupAliveAgent(env, agentId)
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(agent) or isNil(thing) or thing.kind != Blacksmith:
     return false
   tryResearchBlacksmithUpgrade(env, agent, thing)
 
 proc researchUniversityTech*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Research the next university technology at the given building.
-  if agentId < 0 or agentId >= env.agents.len:
-    return false
-  let agent = env.agents[agentId]
-  if not isAgentAlive(env, agent):
-    return false
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or thing.kind != University:
+  let agent = lookupAliveAgent(env, agentId)
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(agent) or isNil(thing) or thing.kind != University:
     return false
   tryResearchUniversityTech(env, agent, thing)
 
 proc researchCastleTech*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Research the next castle unique technology at the given building.
-  if agentId < 0 or agentId >= env.agents.len:
-    return false
-  let agent = env.agents[agentId]
-  if not isAgentAlive(env, agent):
-    return false
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or thing.kind != Castle:
+  let agent = lookupAliveAgent(env, agentId)
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(agent) or isNil(thing) or thing.kind != Castle:
     return false
   tryResearchCastleTech(env, agent, thing)
 
 proc researchUnitUpgrade*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Research the next unit upgrade at the given building.
-  if agentId < 0 or agentId >= env.agents.len:
-    return false
-  let agent = env.agents[agentId]
-  if not isAgentAlive(env, agent):
-    return false
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return false
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing):
+  let agent = lookupAliveAgent(env, agentId)
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(agent) or isNil(thing):
     return false
   tryResearchUnitUpgrade(env, agent, thing)
 
@@ -660,31 +592,22 @@ proc getAgentScoutExploreRadius*(agentId: int): int32 =
 
 proc setBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32, rallyX, rallyY: int32) =
   ## Set the rally point for a building.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return
   setRallyPoint(thing, ivec2(rallyX, rallyY))
 
 proc clearBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32) =
   ## Clear the rally point for a building.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return
   clearRallyPoint(thing)
 
 proc getBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32): IVec2 =
   ## Get the rally point for a building. Returns (-1, -1) if no rally point is set.
-  let pos = ivec2(buildingX, buildingY)
-  if not isValidPos(pos):
-    return ivec2(-1, -1)
-  let thing = env.grid[pos.x][pos.y]
-  if isNil(thing) or not isBuildingKind(thing.kind):
+  let thing = lookupBuilding(env, buildingX, buildingY)
+  if isNil(thing):
     return ivec2(-1, -1)
   if hasRallyPoint(thing):
     return thing.rallyPoint
