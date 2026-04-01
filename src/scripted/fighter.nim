@@ -1915,20 +1915,12 @@ proc optGalleyAttack(controller: Controller, env: Environment, agent: Thing,
   0'u16
 
 # FireShip: Anti-ship specialist
-proc canStartFireShipAttack(controller: Controller, env: Environment, agent: Thing,
-                            agentId: int, state: var AgentState): bool =
+optionGuard(canStartFireShipAttack, shouldTerminateFireShipAttack):
   if agent.unitClass != UnitFireShip:
     return false
   # Fire ships prioritize enemy water units
   let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
   not isNil(enemyShip)
-
-proc shouldTerminateFireShipAttack(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitFireShip:
-    return true
-  let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
-  isNil(enemyShip)
 
 proc optFireShipAttack(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
@@ -1946,20 +1938,12 @@ proc optFireShipAttack(controller: Controller, env: Environment, agent: Thing,
   0'u16
 
 # DemoShip: Kamikaze attack ship
-proc canStartDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): bool =
+optionGuard(canStartDemoShipKamikaze, shouldTerminateDemoShipKamikaze):
   if agent.unitClass != UnitDemoShip:
     return false
   # Demo ships look for high-value targets (ships or buildings near water)
   let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
   not isNil(enemy)
-
-proc shouldTerminateDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitDemoShip:
-    return true
-  let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
-  isNil(enemy)
 
 proc optDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
@@ -1988,8 +1972,7 @@ proc optDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
   0'u16
 
 # CannonGalleon: Long-range siege ship
-proc canStartCannonGalleonSiege(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
+optionGuard(canStartCannonGalleonSiege, shouldTerminateCannonGalleonSiege):
   if agent.unitClass != UnitCannonGalleon:
     return false
   # Cannon galleons look for buildings or enemy units
@@ -1999,17 +1982,6 @@ proc canStartCannonGalleonSiege(controller: Controller, env: Environment, agent:
     return true
   let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
   not isNil(enemy)
-
-proc shouldTerminateCannonGalleonSiege(controller: Controller, env: Environment, agent: Thing,
-                                       agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitCannonGalleon:
-    return true
-  let teamId = getTeamId(agent)
-  let enemyBuilding = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, CannonGalleonBaseRange * 3)
-  if not isNil(enemyBuilding):
-    return false
-  let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
-  isNil(enemy)
 
 proc optCannonGalleonSiege(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint16 =
@@ -2039,20 +2011,12 @@ proc optCannonGalleonSiege(controller: Controller, env: Environment, agent: Thin
   0'u16
 
 # TransportShip: Unit transport with docking behavior
-proc canStartTransportShipDock(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): bool =
+optionGuard(canStartTransportShipDock, shouldTerminateTransportShipDock):
   if agent.unitClass != UnitTransportShip:
     return false
   # Transport ships move toward friendly docks when carrying units or when idle
   let dock = findNearestFriendlyDock(env, agent)
   not isNil(dock)
-
-proc shouldTerminateTransportShipDock(controller: Controller, env: Environment, agent: Thing,
-                                      agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitTransportShip:
-    return true
-  let dock = findNearestFriendlyDock(env, agent)
-  isNil(dock)
 
 proc optTransportShipDock(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint16 =
