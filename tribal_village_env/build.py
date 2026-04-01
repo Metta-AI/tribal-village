@@ -33,7 +33,6 @@ def _collect_source_files(project_root: Path) -> list[Path]:
 def _run_build(project_root: Path, cmd: list[str], artifact_name: str) -> None:
     _ensure_nim_toolchain()
     _install_nim_deps(project_root)
-
     result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True)
     if result.returncode != 0:
         stdout = result.stdout.strip()
@@ -131,10 +130,9 @@ def _ensure_current(
 def ensure_nim_library_current(verbose: bool = True) -> Path:
     """Rebuild libtribal_village if missing or stale."""
     package_dir = Path(__file__).resolve().parent
-    project_root = package_dir.parent
     return _ensure_current(
         package_dir / _TARGET_LIBRARY_NAME,
-        project_root,
+        package_dir.parent,
         _build_library,
         "Building Tribal Village Nim library to keep bindings current...",
         verbose=verbose,
