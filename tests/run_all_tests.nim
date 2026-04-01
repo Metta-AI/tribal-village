@@ -8,7 +8,6 @@ import test_common
 import balance_scorecard
 import terrain
 import renderer_core
-import colors
 
 # Include test suites — each has unique constant names to avoid conflicts.
 # Suite blocks run at include time via unittest.

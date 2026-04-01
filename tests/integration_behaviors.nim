@@ -2,7 +2,7 @@
 ## and verify emergent outcomes (resource gathering, building, combat, population).
 ## Run with: nim r --path:src tests/integration_behaviors.nim
 
-import std/[strformat, math]
+import std/strformat
 import test_common
 import items
 
