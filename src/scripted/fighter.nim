@@ -52,16 +52,6 @@ proc teamNavalAtCap(env: Environment, teamId: int): bool =
   ## Returns true if team has reached naval training cap.
   countTeamNavalAgents(env, teamId) >= MaxNavalPerTeam
 
-proc stanceAllowsChase*(env: Environment, agent: Thing): bool =
-  ## Returns true if the agent's stance allows chasing enemies.
-  ## Delegates to ai_utils.stanceAllows for consolidated stance logic.
-  stanceAllows(env, agent, BehaviorChase)
-
-proc stanceAllowsMovementToAttack*(env: Environment, agent: Thing): bool =
-  ## Returns true if the agent's stance allows moving to attack.
-  ## Delegates to ai_utils.stanceAllows for consolidated stance logic.
-  stanceAllows(env, agent, BehaviorMovementToAttack)
-
 proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
   for _, d in Directions8:
     let np = agent.pos + d
@@ -1132,7 +1122,7 @@ proc canStartFighterAntiSiege(controller: Controller, env: Environment, agent: T
                               agentId: int, state: var AgentState): bool =
   ## Anti-siege triggers when there's an enemy siege unit nearby
   ## Requires stance that allows chasing
-  if not stanceAllowsChase(env, agent):
+  if not stanceAllows(env, agent, BehaviorChase):
     return false
   not isNil(findNearestSiegeEnemy(env, agent))
 
@@ -1166,7 +1156,7 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
   ## Excludes siege units (Scorpion) which should stand and fire rather than kite
   if agent.unitClass notin KitingRangedUnits:
     return false
-  if not stanceAllowsMovementToAttack(env, agent):
+  if not stanceAllows(env, agent, BehaviorMovementToAttack):
     return false
   let meleeEnemy = findNearestMeleeEnemy(env, agent)
   if isNil(meleeEnemy):
@@ -1254,7 +1244,7 @@ proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
 proc canStartFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   ## Hunting predators requires chasing them - check stance
-  if not stanceAllowsChase(env, agent):
+  if not stanceAllows(env, agent, BehaviorChase):
     return false
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestPredator(env, agent.pos))
 
@@ -1273,7 +1263,7 @@ proc optFighterHuntPredators(controller: Controller, env: Environment, agent: Th
 proc canStartFighterClearGoblins(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Clearing goblin structures requires chasing - check stance
-  if not stanceAllowsChase(env, agent):
+  if not stanceAllows(env, agent, BehaviorChase):
     return false
   agent.hp * 2 >= agent.maxHp and not isNil(findNearestGoblinStructure(env, agent.pos))
 
@@ -1293,7 +1283,7 @@ proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thi
 proc canStartFighterEscort(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   ## Check if there's a nearby protection request to respond to
-  if not stanceAllowsChase(env, agent):
+  if not stanceAllows(env, agent, BehaviorChase):
     return false
   # Only combat units can escort
   if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
@@ -1337,7 +1327,7 @@ proc optFighterEscort(controller: Controller, env: Environment, agent: Thing,
 proc canStartFighterAggressive(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): bool =
   ## Aggressive hunting requires chasing - check stance
-  if not stanceAllowsChase(env, agent):
+  if not stanceAllows(env, agent, BehaviorChase):
     return false
   if agent.hp * 2 >= agent.maxHp:
     return true
@@ -1367,7 +1357,7 @@ proc canStartFighterAttackMove*(controller: Controller, env: Environment, agent:
                                 agentId: int, state: var AgentState): bool =
   ## Attack-move is active when the agent has a valid attack-move destination set.
   ## Requires stance that allows movement to attack.
-  if not stanceAllowsMovementToAttack(env, agent):
+  if not stanceAllows(env, agent, BehaviorMovementToAttack):
     return false
   state.attackMoveTarget.x >= 0
 
@@ -1571,7 +1561,7 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
   # Check for nearby enemies and chase them if stance allows
-  if stanceAllowsChase(env, agent):
+  if stanceAllows(env, agent, BehaviorChase):
     let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
     if not isNil(enemy):
       # Move toward enemy to engage

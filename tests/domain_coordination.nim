@@ -231,13 +231,13 @@ suite "Coordination - Role Integration":
     check teamCoordination[0].requestCount == 1
     check teamCoordination[0].requests[0].kind == RequestSiegeBuild
 
-  test "builderShouldPrioritizeDefense returns true when defense requested":
+  test "hasDefenseRequest returns true when defense requested":
     for i in 0 ..< MapRoomObjectsTeams:
       teamCoordination[i] = CoordinationState()
 
-    check builderShouldPrioritizeDefense(0) == false
+    check hasDefenseRequest(0) == false
     discard addRequest(0, RequestDefense, 1, ivec2(10, 10), ivec2(15, 15), 100)
-    check builderShouldPrioritizeDefense(0) == true
+    check hasDefenseRequest(0) == true
 
   test "fighterShouldEscort returns target when protection requested":
     for i in 0 ..< MapRoomObjectsTeams:

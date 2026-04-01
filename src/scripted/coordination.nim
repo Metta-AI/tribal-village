@@ -194,10 +194,6 @@ proc fighterShouldEscort*(env: Environment, agent: Thing): tuple[should: bool, t
       return (true, requester.pos)
   (false, ivec2(-1, -1))
 
-proc builderShouldPrioritizeDefense*(teamId: int): bool =
-  ## Check if builder should prioritize defensive structures
-  hasDefenseRequest(teamId)
-
 # Note: builderShouldBuildSiege is implemented in builder.nim with access to Controller
 
 # ============================================================================

@@ -486,7 +486,7 @@ proc canStartBuilderDefenseResponse(controller: Controller, env: Environment, ag
                                     agentId: int, state: var AgentState): bool =
   ## Check if there's a defense request and we can respond by building
   let teamId = getTeamId(agent)
-  if not builderShouldPrioritizeDefense(teamId):
+  if not hasDefenseRequest(teamId):
     return false
   # Check if we're missing any defense buildings
   for kind in DefenseRequestBuildingKinds:
@@ -498,7 +498,7 @@ proc shouldTerminateBuilderDefenseResponse(controller: Controller, env: Environm
                                            agentId: int, state: var AgentState): bool =
   ## Terminate when no more defense requests or defense buildings built
   let teamId = getTeamId(agent)
-  if not builderShouldPrioritizeDefense(teamId):
+  if not hasDefenseRequest(teamId):
     return true
   # Check if all defense buildings exist
   for kind in DefenseRequestBuildingKinds:
