@@ -818,14 +818,8 @@ proc fighterHasReadyTrainQueue(env: Environment, teamId: int, siegeAtCap, navalA
         return true
   false
 
-proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return false
-  let teamId = getTeamId(agent)
-  let siegeAtCap = teamSiegeAtCap(env, teamId)
-  let navalAtCap = teamNavalAtCap(env, teamId)
-  # Check for ready queue entries first (free conversion, already paid)
+proc fighterCanTrain(controller: Controller, env: Environment, teamId: int,
+                     siegeAtCap, navalAtCap: bool): bool {.inline.} =
   if fighterHasReadyTrainQueue(env, teamId, siegeAtCap, navalAtCap):
     return true
   for kind in FighterTrainKinds:
@@ -833,10 +827,18 @@ proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing
       continue
     if controller.getBuildingCount(env, teamId, kind) == 0:
       continue
-    if not env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
-      continue
-    return true
+    if env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
+      return true
   false
+
+proc canStartFighterTrain(controller: Controller, env: Environment, agent: Thing,
+                          agentId: int, state: var AgentState): bool =
+  if agent.unitClass != UnitVillager:
+    return false
+  let teamId = getTeamId(agent)
+  let siegeAtCap = teamSiegeAtCap(env, teamId)
+  let navalAtCap = teamNavalAtCap(env, teamId)
+  fighterCanTrain(controller, env, teamId, siegeAtCap, navalAtCap)
 
 proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
@@ -846,17 +848,7 @@ proc shouldTerminateFighterTrain(controller: Controller, env: Environment, agent
   let teamId = getTeamId(agent)
   let siegeAtCap = teamSiegeAtCap(env, teamId)
   let navalAtCap = teamNavalAtCap(env, teamId)
-  # Don't terminate if there's a ready queue entry to collect
-  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap, navalAtCap):
-    return false
-  for kind in FighterTrainKinds:
-    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
-      continue
-    if controller.getBuildingCount(env, teamId, kind) == 0:
-      continue
-    if env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
-      return false  # Can still train, don't terminate
-  true  # No training options available
+  not fighterCanTrain(controller, env, teamId, siegeAtCap, navalAtCap)
 
 proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
@@ -889,45 +881,32 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
     return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
   0'u16
 
+proc fighterCanBecomeSiege(controller: Controller, env: Environment, agent: Thing): bool {.inline.} =
+  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
+                            UnitKnight, UnitCavalier, UnitPaladin}:
+    return false
+  if not fighterSeesEnemyStructure(env, agent):
+    return false
+  let teamId = getTeamId(agent)
+  controller.getBuildingCount(env, teamId, SiegeWorkshop) > 0 and
+    env.canSpendStockpile(teamId, buildingTrainCosts(SiegeWorkshop))
+
 proc canStartFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
   ## True siege conversion: combat units (infantry/cavalry lines) can convert to siege
   ## when they see enemy structures and a SiegeWorkshop is available.
-  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
-                            UnitKnight, UnitCavalier, UnitPaladin}:
-    return false
-  if not fighterSeesEnemyStructure(env, agent):
-    return false
-  let teamId = getTeamId(agent)
-  if controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0:
-    return false
-  if not env.canSpendStockpile(teamId, buildingTrainCosts(SiegeWorkshop)):
-    return false
-  true
+  fighterCanBecomeSiege(controller, env, agent)
 
 proc shouldTerminateFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
                                        agentId: int, state: var AgentState): bool =
   ## Terminate when unit class changes (became siege) or conditions no longer met
-  if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
-                            UnitKnight, UnitCavalier, UnitPaladin}:
-    return true
-  if not fighterSeesEnemyStructure(env, agent):
-    return true
-  let teamId = getTeamId(agent)
-  if controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0:
-    return true
-  if not env.canSpendStockpile(teamId, buildingTrainCosts(SiegeWorkshop)):
-    return true
-  false
+  not fighterCanBecomeSiege(controller, env, agent)
 
 proc optFighterBecomeSiege(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint16 =
   ## Move to SiegeWorkshop and interact to convert to battering ram
   let teamId = getTeamId(agent)
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, SiegeWorkshop)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, SiegeWorkshop, 3'u16)
 
 optionGuard(canStartFighterMaintainGear, shouldTerminateFighterMaintainGear):
   if agent.inventoryArmor < ArmorPoints:
