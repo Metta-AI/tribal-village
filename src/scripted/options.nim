@@ -64,8 +64,7 @@ proc enemyDirectionalBuildTarget(env: Environment, basePos: IVec2, teamId: int,
   let enemy = findNearestEnemyBuildingSpatial(env, basePos, teamId)
   if not isNil(enemy): enemy.pos else: basePos + fallbackOffset
 
-proc canStartStoreValuables*(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
+optionGuardExported(canStartStoreValuables, shouldTerminateStoreValuables):
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
@@ -74,11 +73,6 @@ proc canStartStoreValuables*(controller: Controller, env: Environment, agent: Th
         agentHasAnyItem(agent, buildingStorageItems(kind)):
       return true
   false
-
-proc shouldTerminateStoreValuables*(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  ## Terminate when no valuables to store (inverse of canStart condition)
-  not canStartStoreValuables(controller, env, agent, agentId, state)
 
 proc optStoreValuables*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
@@ -802,8 +796,7 @@ proc optFertileExpansion(controller: Controller, env: Environment, agent: Thing,
       return actOrMove(controller, env, agent, agentId, state, target, 3'u16)
   0'u16
 
-proc canStartMarketTrade*(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
+optionGuardExported(canStartMarketTrade, shouldTerminateMarketTrade):
   ## Shared market trading initiation condition used by Gatherer, Builder, and Scripted roles.
   ## Returns true when:
   ## - Team has a Market building
@@ -823,11 +816,6 @@ proc canStartMarketTrade*(controller: Controller, env: Environment, agent: Thing
       hasNonFood = true
       break
   hasNonFood and env.stockpileCount(teamId, ResourceGold) < 5
-
-proc shouldTerminateMarketTrade*(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  ## Terminate when market trading conditions are no longer met
-  not canStartMarketTrade(controller, env, agent, agentId, state)
 
 proc optMarketTrade*(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
@@ -1302,8 +1290,7 @@ proc findNearestFriendlyDock(env: Environment, pos: IVec2, teamId: int, excludeP
       best = thing
   best
 
-proc canStartTradeCogTradeRoute*(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
+optionGuardExported(canStartTradeCogTradeRoute, shouldTerminateTradeCogTradeRoute):
   ## Trade cogs trade when there are at least 2 friendly docks
   if agent.unitClass != UnitTradeCog:
     return false
@@ -1315,11 +1302,6 @@ proc canStartTradeCogTradeRoute*(controller: Controller, env: Environment, agent
       if dockCount >= 2:
         return true
   false
-
-proc shouldTerminateTradeCogTradeRoute*(controller: Controller, env: Environment, agent: Thing,
-                                         agentId: int, state: var AgentState): bool =
-  ## Terminate when no longer a trade cog or fewer than 2 friendly docks
-  not canStartTradeCogTradeRoute(controller, env, agent, agentId, state)
 
 proc optTradeCogTradeRoute*(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint16 =

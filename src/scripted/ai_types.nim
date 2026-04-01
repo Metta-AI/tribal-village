@@ -595,6 +595,13 @@ template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
   proc termName(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = not (body)
 
+template optionGuardExported*(canName, termName: untyped, body: untyped) {.dirty.} =
+  ## Exported variant for shared option predicates referenced by tests and other modules.
+  proc canName*(controller: Controller, env: Environment, agent: Thing,
+                agentId: int, state: var AgentState): bool = body
+  proc termName*(controller: Controller, env: Environment, agent: Thing,
+                 agentId: int, state: var AgentState): bool = not (body)
+
 # -----------------------------------------------------------------------------
 # Behavior Definition Macros
 # -----------------------------------------------------------------------------
