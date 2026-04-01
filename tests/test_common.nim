@@ -117,11 +117,6 @@ proc countRolesByTeam*(teamId: int): tuple[gatherers, builders, fighters: int] =
       of Fighter: inc result.fighters
       of Scripted: discard
 
-proc printRoleSummary*(teamId: int, label: string) =
-  ## Print a formatted summary of agent roles for a team.
-  let roles = countRolesByTeam(teamId)
-  echo fmt"  [{label}] Team {teamId}: gatherers={roles.gatherers} builders={roles.builders} fighters={roles.fighters}"
-
 proc countAliveUnits*(env: Environment, teamId: int): int =
   ## Count agents that are currently alive for a team.
   for agent in env.agents:
@@ -136,14 +131,6 @@ proc countDeadUnits*(env: Environment, teamId: int): int =
     let agent = env.agents[i]
     if not agent.isNil and env.terminated[i] != 0.0 and agent.hp <= 0:
       inc result
-
-proc countAgentsPerTeam*(env: Environment): array[MapRoomObjectsTeams, int] =
-  ## Count alive agents per team.
-  for agent in env.agents:
-    if not agent.isNil and agent.hp > 0:
-      let teamId = getTeamId(agent)
-      if teamId >= 0 and teamId < MapRoomObjectsTeams:
-        inc result[teamId]
 
 # ============================================================================
 # Building Helpers
@@ -174,16 +161,6 @@ proc damageBuilding*(thing: Thing, damageAmount: int) =
   ## Apply damage to a building, reducing its HP (but not destroying it).
   if thing.maxHp > 0:
     thing.hp = max(1, thing.hp - damageAmount)
-
-# ============================================================================
-# Combat and HP Helpers
-# ============================================================================
-
-proc getTotalHp*(env: Environment): int =
-  ## Get total HP across all agents.
-  for agent in env.agents:
-    if not agent.isNil and agent.hp > 0:
-      result += agent.hp
 
 # ============================================================================
 # Action Tracking Helpers
