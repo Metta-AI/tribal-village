@@ -108,22 +108,16 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
 
 # ─── Building Ghost Preview ──────────────────────────────────────────────────
 
-proc canPlaceBuildingAt*(pos: IVec2, kind: ThingKind): bool =
+proc canPlaceBuildingAt*(pos: IVec2): bool =
   ## Check if a building can be placed at the given position.
   if not isValidPos(pos):
     return false
-  # Check terrain
+
   let terrain = env.terrain[pos.x][pos.y]
-  if isWaterTerrain(terrain):
-    return false
-  # Check for existing objects
   let blocking = env.grid[pos.x][pos.y]
-  if not isNil(blocking):
-    return false
   let background = env.backgroundGrid[pos.x][pos.y]
-  if not isNil(background) and background.kind in CliffKinds:
-    return false
-  true
+  not isWaterTerrain(terrain) and isNil(blocking) and
+    (isNil(background) or background.kind notin CliffKinds)
 
 proc drawBuildingGhost*(worldPos: Vec2) =
   ## Draw a transparent building preview at the given world position.
@@ -136,7 +130,7 @@ proc drawBuildingGhost*(worldPos: Vec2) =
   if spriteKey.len == 0 or spriteKey notin bxy:
     return
 
-  let valid = canPlaceBuildingAt(gridPos, buildingPlacementKind)
+  let valid = canPlaceBuildingAt(gridPos)
   buildingPlacementValid = valid
 
   # Ghost tint: green for valid, red for invalid

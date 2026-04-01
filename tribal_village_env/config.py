@@ -197,14 +197,6 @@ class RewardConfig(Config):
         description="Penalty applied when an agent dies",
     )
 
-    @staticmethod
-    def _legacy_key(field_name: str) -> str:
-        """Map a RewardConfig field name to its legacy dict key."""
-        if field_name.endswith("_penalty"):
-            return field_name
-        return f"{field_name}_reward"
-
-
 class EnvironmentConfig(Config):
     """Configuration for the Tribal Village environment.
 
@@ -288,7 +280,8 @@ class EnvironmentConfig(Config):
         for field_name in RewardConfig.model_fields:
             value = getattr(self.rewards, field_name)
             if not math.isnan(value):
-                result[RewardConfig._legacy_key(field_name)] = value
+                legacy_key = field_name if field_name.endswith("_penalty") else f"{field_name}_reward"
+                result[legacy_key] = value
 
         return result
 
@@ -296,7 +289,10 @@ class EnvironmentConfig(Config):
     def from_legacy_dict(cls, config: dict[str, Any]) -> EnvironmentConfig:
         """Create config from legacy dictionary format."""
         reward_kwargs = {
-            field_name: config.get(RewardConfig._legacy_key(field_name), math.nan)
+            field_name: config.get(
+                field_name if field_name.endswith("_penalty") else f"{field_name}_reward",
+                math.nan,
+            )
             for field_name in RewardConfig.model_fields
         }
         rewards = RewardConfig(**reward_kwargs)

@@ -58,10 +58,6 @@ const
   CliffFallDamage* = 1          # Damage taken per elevation level dropped without ramp
 
   ## Default combat constants
-  DefaultSpearCharges* = 5
-  DefaultArmorPoints* = 5
-  DefaultBreadHealAmount* = 999
-
   ## Default market tuning (AoE2-style dynamic pricing)
   ## Prices are in gold per 100 units of resource (scaled for integer math)
   MarketBasePrice* = 100        # Base price: 100 gold per 100 resources
@@ -72,11 +68,6 @@ const
   MarketPriceDecayRate* = 1     # Price drift toward base per decay tick
   MarketPriceDecayInterval* = 50 # Steps between price decay ticks
   DefaultMarketCooldown* = 2
-  # Legacy constants (kept for compatibility)
-  DefaultMarketSellNumerator* = 1
-  DefaultMarketSellDenominator* = 2
-  DefaultMarketBuyFoodNumerator* = 1
-  DefaultMarketBuyFoodDenominator* = 1
 
   ## Biome gathering bonus constants
   BiomeGatherBonusChance* = 0.20  # 20% chance for bonus item in matching biomes

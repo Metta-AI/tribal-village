@@ -957,7 +957,7 @@ proc display() =
   if buildingPlacementMode and window.buttonPressed[MouseLeft] and not blockSelection:
     let mousePos = getTransform().inverse * window.mousePos.vec2
     let gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
-    if canPlaceBuildingAt(gridPos, buildingPlacementKind) and playerTeam >= 0:
+    if canPlaceBuildingAt(gridPos) and playerTeam >= 0:
       # Place the building (using a villager if available)
       for sel in selection:
         if not isNil(sel) and sel.kind == Agent and sel.unitClass == UnitVillager:
