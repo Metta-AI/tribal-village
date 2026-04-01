@@ -50,6 +50,14 @@ proc agentHasAnyItem*(agent: Thing, keys: openArray[ItemKey]): bool =
       return true
   false
 
+proc canStartVillagerBuild(agent: Thing, env: Environment, buildName: string): bool {.inline.} =
+  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem(buildName))
+
+proc enemyDirectionalBuildTarget(env: Environment, basePos: IVec2, teamId: int,
+                                 fallbackOffset: IVec2): IVec2 {.inline.} =
+  let enemy = findNearestEnemyBuildingSpatial(env, basePos, teamId)
+  if not isNil(enemy): enemy.pos else: basePos + fallbackOffset
+
 proc canStartStoreValuables*(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): bool =
   let teamId = getTeamId(agent)
@@ -232,6 +240,16 @@ proc findDirectionalBuildPos(env: Environment, basePos: IVec2, targetPos: IVec2,
     if env.canPlace(pos):
       return pos
   ivec2(-1, -1)
+
+proc optDirectionalBuild(controller: Controller, env: Environment, agent: Thing,
+                         agentId: int, state: var AgentState, targetPos: IVec2,
+                         minDist, maxDist, buildIndex: int): uint16 =
+  let basePos = agent.getBasePos()
+  let target = findDirectionalBuildPos(env, basePos, targetPos, minDist, maxDist)
+  let (didBuild, buildAct) =
+    goToAdjacentAndBuild(controller, env, agent, agentId, state, target, buildIndex)
+  if didBuild: return buildAct
+  0'u16
 
 proc findIrrigationTarget*(env: Environment, center: IVec2, radius: int): IVec2 =
   let (startX, endX, startY, endY) = radiusBounds(center, radius)
@@ -596,45 +614,35 @@ proc optFrozenEdgeBreaker(controller: Controller, env: Environment, agent: Thing
 
 proc canStartGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("GuardTower"))
+  canStartVillagerBuild(agent, env, "GuardTower")
 
 proc shouldTerminateGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
   ## Terminate when can't afford or no longer a villager
-  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("GuardTower"))
+  not canStartVillagerBuild(agent, env, "GuardTower")
 
 proc optGuardTowerBorder(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
-  let target = findDirectionalBuildPos(env, basePos,
-    (if not isNil(enemy): enemy.pos else: basePos + ivec2(6, 0)), 4, 7)
-  let (did, act) = goToAdjacentAndBuild(
-    controller, env, agent, agentId, state, target, buildIndexFor(GuardTower)
-  )
-  if did: return act
-  0'u16
+  optDirectionalBuild(controller, env, agent, agentId, state,
+    enemyDirectionalBuildTarget(env, basePos, getTeamId(agent), ivec2(6, 0)), 4, 7,
+    buildIndexFor(GuardTower))
 
 proc canStartOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Outpost"))
+  canStartVillagerBuild(agent, env, "Outpost")
 
 proc shouldTerminateOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                                    agentId: int, state: var AgentState): bool =
   ## Terminate when can't afford or no longer a villager
-  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Outpost"))
+  not canStartVillagerBuild(agent, env, "Outpost")
 
 proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
-  let target = findDirectionalBuildPos(env, basePos,
-    (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, 6)), 3, 6)
-  let (did, act) = goToAdjacentAndBuild(
-    controller, env, agent, agentId, state, target, buildIndexFor(Outpost)
-  )
-  if did: return act
-  0'u16
+  optDirectionalBuild(controller, env, agent, agentId, state,
+    enemyDirectionalBuildTarget(env, basePos, getTeamId(agent), ivec2(0, 6)), 3, 6,
+    buildIndexFor(Outpost))
 
 proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
@@ -657,21 +665,16 @@ proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
   let (enemyPos, dist) = findNearestEnemyPresenceSpatial(env, basePos, getTeamId(agent))
   if enemyPos.x < 0 or dist > EnemyWallFortifyRadius:
     return 0'u16
-  let target = findDirectionalBuildPos(env, basePos, enemyPos, 2, 6)
-  let (did, act) = goToAdjacentAndBuild(
-    controller, env, agent, agentId, state, target, BuildIndexWall
-  )
-  if did: return act
-  0'u16
+  optDirectionalBuild(controller, env, agent, agentId, state, enemyPos, 2, 6, BuildIndexWall)
 
 proc canStartWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Wall"))
+  canStartVillagerBuild(agent, env, "Wall")
 
 proc shouldTerminateWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
   ## Terminate when can't afford or no longer a villager
-  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Wall"))
+  not canStartVillagerBuild(agent, env, "Wall")
 
 proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
@@ -715,12 +718,12 @@ proc optWallChokeFortify(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Door"))
+  canStartVillagerBuild(agent, env, "Door")
 
 proc shouldTerminateDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
   ## Terminate when can't afford or no longer a villager
-  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Door"))
+  not canStartVillagerBuild(agent, env, "Door")
 
 proc optDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
@@ -756,45 +759,35 @@ proc optDoorChokeFortify(controller: Controller, env: Environment, agent: Thing,
 
 proc canStartRoadExpansion(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Road"))
+  canStartVillagerBuild(agent, env, "Road")
 
 proc shouldTerminateRoadExpansion(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   ## Terminate when can't afford or no longer a villager
-  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Road"))
+  not canStartVillagerBuild(agent, env, "Road")
 
 proc optRoadExpansion(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
-  let target = findDirectionalBuildPos(env, basePos,
-    (if not isNil(enemy): enemy.pos else: basePos + ivec2(8, 0)), 2, 5)
-  let (did, act) = goToAdjacentAndBuild(
-    controller, env, agent, agentId, state, target, BuildIndexRoad
-  )
-  if did: return act
-  0'u16
+  optDirectionalBuild(controller, env, agent, agentId, state,
+    enemyDirectionalBuildTarget(env, basePos, getTeamId(agent), ivec2(8, 0)), 2, 5,
+    BuildIndexRoad)
 
 proc canStartCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
-  agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem("Castle"))
+  canStartVillagerBuild(agent, env, "Castle")
 
 proc shouldTerminateCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Terminate when can't afford or no longer a villager
-  agent.unitClass != UnitVillager or not env.canAffordBuild(agent, thingItem("Castle"))
+  not canStartVillagerBuild(agent, env, "Castle")
 
 proc optCastleAnchor(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   let basePos = agent.getBasePos()
-  let enemy = findNearestEnemyBuildingSpatial(env, basePos, getTeamId(agent))
-  let target = findDirectionalBuildPos(env, basePos,
-    (if not isNil(enemy): enemy.pos else: basePos + ivec2(0, -8)), 5, 9)
-  let (did, act) = goToAdjacentAndBuild(
-    controller, env, agent, agentId, state, target, buildIndexFor(Castle)
-  )
-  if did: return act
-  0'u16
+  optDirectionalBuild(controller, env, agent, agentId, state,
+    enemyDirectionalBuildTarget(env, basePos, getTeamId(agent), ivec2(0, -8)), 5, 9,
+    buildIndexFor(Castle))
 
 proc canStartSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
