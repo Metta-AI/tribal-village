@@ -127,27 +127,6 @@ when defined(eventLog):
     eventLogState.events.setLen(0)
 
   # Convenience logging procs for specific event types
-  proc logSpawn*(teamId: int, unitClass: string, pos: string, step: int) =
-    logEvent(ecSpawn, teamId, "Spawned " & unitClass & " at " & pos, step)
-
-  proc logDeath*(teamId: int, unitClass: string, pos: string, step: int) =
-    logEvent(ecDeath, teamId, unitClass & " died at " & pos, step)
-
-  proc logBuildingStarted*(teamId: int, buildingKind: string, pos: string, step: int) =
-    logEvent(ecBuildStart, teamId, "Started building " & buildingKind & " at " & pos, step)
-
-  proc logBuildingCompleted*(teamId: int, buildingKind: string, pos: string, step: int) =
-    logEvent(ecBuildDone, teamId, "Completed " & buildingKind & " at " & pos, step)
-
-  proc logBuildingDestroyed*(teamId: int, buildingKind: string, pos: string, step: int) =
-    logEvent(ecBuildDestroy, teamId, buildingKind & " destroyed at " & pos, step)
-
-  proc logResourceGathered*(teamId: int, resourceKind: string, amount: int, step: int) =
-    logEvent(ecGather, teamId, "Gathered " & $amount & " " & resourceKind, step)
-
-  proc logResourceDeposited*(teamId: int, resourceKind: string, amount: int, step: int) =
-    logEvent(ecDeposit, teamId, "Deposited " & $amount & " " & resourceKind, step)
-
   proc logCombatHit*(attackerTeam: int, targetTeam: int, attackerUnit: string,
                      targetUnit: string, damage: int, step: int) =
     let msg = attackerUnit & " hit " & teamColorName(targetTeam) & " " &

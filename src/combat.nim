@@ -407,8 +407,12 @@ proc applyStructureDamage*(env: Environment, target: Thing, amount: int,
     return false
 
   when defined(eventLog):
-    logBuildingDestroyed(target.teamId, $target.kind,
-                         "(" & $target.pos.x & "," & $target.pos.y & ")", env.currentStep)
+    logEvent(
+      ecBuildDestroy,
+      target.teamId,
+      $target.kind & " destroyed at (" & $target.pos.x & "," & $target.pos.y & ")",
+      env.currentStep,
+    )
 
   when defined(audio):
     audioOnBuildingDestroyed(target.pos)
@@ -547,8 +551,12 @@ proc killAgent(env: Environment, victim: Thing, attacker: Thing = nil) =
           break
 
   when defined(eventLog):
-    logDeath(getTeamId(victim), $victim.unitClass,
-             "(" & $deathPos.x & "," & $deathPos.y & ")", env.currentStep)
+    logEvent(
+      ecDeath,
+      getTeamId(victim),
+      $victim.unitClass & " died at (" & $deathPos.x & "," & $deathPos.y & ")",
+      env.currentStep,
+    )
 
   env.terminated[victim.agentId] = 1.0
   victim.hp = 0

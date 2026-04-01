@@ -444,7 +444,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
                 # Trade route gold: no gather rate modifier (fixed economic mechanic)
                 env.teamStockpiles[getTeamId(agent)].counts[ResourceGold] += goldAmount
                 when defined(econAudit):
-                  recordTradeShipGold(getTeamId(agent), goldAmount, env.currentStep)
+                  recordFlow(getTeamId(agent), ResourceGold, goldAmount, rfsTradeShip, env.currentStep)
                 agent.tradeHomeDock = agent.pos  # Flip home dock for return trip
         elif agent.unitClass == UnitBoat:
           if dockHere or env.terrain[agent.pos.x][agent.pos.y] != Water:
@@ -1715,8 +1715,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
               env.altarColors[targetPos] = env.teamColors[teamId]
           when defined(eventLog):
             if isBuilding:
-              logBuildingStarted(placed.teamId, $placedKind,
-                                 "(" & $placed.pos.x & "," & $placed.pos.y & ")", env.currentStep)
+              logEvent(
+                ecBuildStart,
+                placed.teamId,
+                "Started building " & $placedKind & " at (" & $placed.pos.x & "," & $placed.pos.y & ")",
+                env.currentStep,
+              )
           placedOk = true
 
         if placedOk:
@@ -1828,8 +1832,12 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
       env.spawnConstructionDust(thing.pos)
     when defined(eventLog):
       if wasBelowMax and thing.hp >= thing.maxHp:
-        logBuildingCompleted(thing.teamId, $thing.kind,
-                             "(" & $thing.pos.x & "," & $thing.pos.y & ")", env.currentStep)
+        logEvent(
+          ecBuildDone,
+          thing.teamId,
+          "Completed " & $thing.kind & " at (" & $thing.pos.x & "," & $thing.pos.y & ")",
+          env.currentStep,
+        )
     when defined(audio):
       if wasBelowMaxAudio and thing.hp >= thing.maxHp:
         audioOnBuildingComplete(thing.pos)
@@ -1911,7 +1919,7 @@ proc step*(env: Environment, actions: ptr array[MapAgents, uint16]) =
           let goldAmount = thing.garrisonedRelics * MonasteryRelicGoldAmount
           env.teamStockpiles[teamId].counts[ResourceGold] += goldAmount
           when defined(econAudit):
-            recordRelicGold(teamId, goldAmount, env.currentStep)
+            recordFlow(teamId, ResourceGold, goldAmount, rfsRelicGold, env.currentStep)
         thing.cooldown = MonasteryRelicGoldInterval
     else:
       if thing.cooldown > 0:

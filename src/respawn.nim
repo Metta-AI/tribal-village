@@ -49,8 +49,12 @@ proc stepPopRespawn*(env: Environment) =
           applyUnitClass(env, agent, UnitVillager)
           env.terminated[agentId] = 0.0
           when defined(eventLog):
-            logSpawn(teamId, $agent.unitClass,
-                     "(" & $respawnPos.x & "," & $respawnPos.y & ")", env.currentStep)
+            logEvent(
+              ecSpawn,
+              teamId,
+              "Spawned " & $agent.unitClass & " at (" & $respawnPos.x & "," & $respawnPos.y & ")",
+              env.currentStep,
+            )
 
           # Update grid
           env.grid[agent.pos.x][agent.pos.y] = agent
@@ -123,8 +127,12 @@ proc stepPopRespawn*(env: Environment) =
     applyUnitClass(env, child, UnitVillager)
     env.terminated[childId] = 0.0
     when defined(eventLog):
-      logSpawn(teamId, $child.unitClass,
-               "(" & $spawnPos.x & "," & $spawnPos.y & ")", env.currentStep)
+      logEvent(
+        ecSpawn,
+        teamId,
+        "Spawned " & $child.unitClass & " at (" & $spawnPos.x & "," & $spawnPos.y & ")",
+        env.currentStep,
+      )
     env.grid[child.pos.x][child.pos.y] = child
     inc env.stepTeamPopCounts[teamId]
     updateSpatialIndex(env, child, childOldPos)

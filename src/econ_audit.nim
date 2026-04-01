@@ -136,9 +136,6 @@ when defined(econAudit):
 
   # Convenience procs for specific flow types
 
-  proc recordDeposit*(teamId: int, res: StockpileResource, amount: int, step: int) =
-    recordFlow(teamId, res, amount, rfsDeposit, step)
-
   proc recordTrainingCost*(teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]], step: int) =
     for cost in costs:
       recordFlow(teamId, cost.res, -cost.count, rfsUnitTraining, step)
@@ -158,12 +155,6 @@ when defined(econAudit):
     ## Selling: spend resource, gain gold
     recordFlow(teamId, res, -amount, rfsMarketSell, step)
     recordFlow(teamId, ResourceGold, goldGained, rfsMarketSell, step)
-
-  proc recordRelicGold*(teamId: int, amount: int, step: int) =
-    recordFlow(teamId, ResourceGold, amount, rfsRelicGold, step)
-
-  proc recordTradeShipGold*(teamId: int, amount: int, step: int) =
-    recordFlow(teamId, ResourceGold, amount, rfsTradeShip, step)
 
   proc recordFarmReseed*(teamId: int, woodCost: int, step: int) =
     if woodCost > 0:

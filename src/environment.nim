@@ -1167,9 +1167,9 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
     let stockpileRes = stockpileResourceForItem(key)
     env.addToStockpile(teamId, stockpileRes, count)
     when defined(eventLog):
-      logResourceDeposited(teamId, $stockpileRes, count, env.currentStep)
+      logEvent(ecDeposit, teamId, "Deposited " & $count & " " & $stockpileRes, env.currentStep)
     when defined(econAudit):
-      recordDeposit(teamId, stockpileRes, count, env.currentStep)
+      recordFlow(teamId, stockpileRes, count, rfsDeposit, env.currentStep)
     setInv(agent, key, 0)
   true
 
@@ -2317,7 +2317,7 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if techBonusPct > 0 and (env.currentStep mod (100 div max(1, techBonusPct))) == 0:
     discard env.grantItem(agent, ItemWood)
   when defined(eventLog):
-    logResourceGathered(teamId, "Wood", 1 + bonus, env.currentStep)
+    logEvent(ecGather, teamId, "Gathered " & $(1 + bonus) & " Wood", env.currentStep)
   let stumpPos = tree.pos  # Capture before pool release
   removeThing(env, tree)
   let stump = acquireThing(env, Stump)
