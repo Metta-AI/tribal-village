@@ -482,19 +482,11 @@ proc optFighterRetreat(controller: Controller, env: Environment, agent: Thing,
       break
   controller.moveTo(env, agent, agentId, state, safePos)
 
-proc canStartFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
-                                   agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterDividerDefense, shouldTerminateFighterDividerDefense):
   if agent.unitClass != UnitVillager:
     return false
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   not isNil(enemy)
-
-proc shouldTerminateFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
-                                          agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitVillager:
-    return true
-  let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
-  isNil(enemy)
 
 proc optFighterDividerDefense(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): uint16 =
@@ -657,15 +649,9 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
     return controller.moveTo(env, agent, agentId, state, enemy.pos)
   0'u16
 
-proc canStartFighterLanterns(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterLanterns, shouldTerminateFighterLanterns):
   ## Only start lantern work if agent has lanterns or is a villager (can craft them)
   agent.inventoryLantern > 0 or agent.unitClass == UnitVillager
-
-proc shouldTerminateFighterLanterns(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  ## Terminate when agent has no lanterns and isn't a villager (can't craft more)
-  agent.inventoryLantern == 0 and agent.unitClass != UnitVillager
 
 # Building kinds that need lanterns - shared between cache refresh and optFighterLanterns
 const LanternBuildingKinds* = [Outpost, GuardTower, TownCenter, House, Barracks, ArcheryRange,
@@ -964,20 +950,10 @@ proc optFighterBecomeSiege(controller: Controller, env: Environment, agent: Thin
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
-proc canStartFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterMaintainGear, shouldTerminateFighterMaintainGear):
   if agent.inventoryArmor < ArmorPoints:
     return true
   agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0
-
-proc shouldTerminateFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
-                                        agentId: int, state: var AgentState): bool =
-  # Terminate when fully geared (armor at max, and spear if infantry line)
-  if agent.inventoryArmor < ArmorPoints:
-    return false
-  if agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0:
-    return false
-  true
 
 proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
