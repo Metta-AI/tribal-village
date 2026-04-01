@@ -1329,18 +1329,10 @@ let TradeCogTradeRouteOption* = OptionDef(
 # Siege Behaviors
 # ============================================================================
 
-# SiegeAdvance: Mangonels and Trebuchets advance toward and attack enemy buildings
-proc canStartSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
-                           agentId: int, state: var AgentState): bool =
+optionGuardExported(canStartSiegeAdvance, shouldTerminateSiegeAdvance):
   ## Siege units (mangonel, trebuchet) advance when there are enemy buildings
   agent.unitClass in {UnitMangonel, UnitTrebuchet} and
     not isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent)))
-
-proc shouldTerminateSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
-                                  agentId: int, state: var AgentState): bool =
-  ## Terminate when no longer siege or no enemy buildings remain
-  agent.unitClass notin {UnitMangonel, UnitTrebuchet} or
-    isNil(findNearestEnemyBuildingSpatial(env, agent.pos, getTeamId(agent)))
 
 proc optSiegeAdvance*(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
@@ -1365,13 +1357,8 @@ let SiegeAdvanceOption* = OptionDef(
 const SettlerMinGroupSize = 5  ## Minimum settlers alive to continue migration
 const SettlerArrivalRadius = 3  ## Tiles from target to consider "arrived"
 
-proc canStartSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
-                             agentId: int, state: var AgentState): bool =
+optionGuardExported(canStartSettlerMigrate, shouldTerminateSettlerMigrate):
   agent.isSettler and agent.settlerTarget.x >= 0 and not agent.settlerArrived
-
-proc shouldTerminateSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
-                                    agentId: int, state: var AgentState): bool =
-  not agent.isSettler or agent.settlerTarget.x < 0 or agent.settlerArrived
 
 proc optSettlerMigrate*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
