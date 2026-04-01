@@ -627,15 +627,15 @@ proc tribal_village_get_formation*(env: pointer, controlGroupId: int32): int32 {
 
 proc tribal_village_clear_formation*(env: pointer, controlGroupId: int32) {.exportc, dynlib.} =
   ## Clear formation for a control group.
-  clearControlGroupFormation(controlGroupId)
+  clearFormation(controlGroupId)
 
 proc tribal_village_set_formation_rotation*(env: pointer, controlGroupId: int32, rotation: int32) {.exportc, dynlib.} =
   ## Set formation rotation for a control group (0-7 for 8 compass directions).
-  setControlGroupFormationRotation(controlGroupId, rotation)
+  setFormationRotation(controlGroupId, rotation.int)
 
 proc tribal_village_get_formation_rotation*(env: pointer, controlGroupId: int32): int32 {.exportc, dynlib.} =
   ## Get formation rotation for a control group.
-  getControlGroupFormationRotation(controlGroupId)
+  getFormationRotation(controlGroupId).int32
 
 # --- Market Trading ---
 

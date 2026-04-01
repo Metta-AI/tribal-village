@@ -558,15 +558,10 @@ let BuilderNavalTrainOption* = OptionDef(
   interruptible: true
 )
 
-proc builderShouldBuildSiege(controller: Controller, env: Environment, teamId: int): bool =
-  ## Check if builder should build siege workshop due to request
-  if not hasSiegeBuildRequest(teamId):
-    return false
-  # Only if we don't already have one
-  controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0
-
 builderGuard(canStartBuilderSiegeResponse, shouldTerminateBuilderSiegeResponse):
-  builderShouldBuildSiege(controller, env, getTeamId(agent))
+  let teamId = getTeamId(agent)
+  hasSiegeBuildRequest(teamId) and
+    controller.getBuildingCount(env, teamId, SiegeWorkshop) == 0
 
 proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Thing,
                              agentId: int, state: var AgentState): uint16 =

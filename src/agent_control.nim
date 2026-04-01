@@ -779,18 +779,6 @@ proc getControlGroupFormation*(groupIndex: int): int32 =
   ## Returns: 0=None, 1=Line, 2=Box, 3=Wedge, 4=Scatter
   ord(getFormation(groupIndex)).int32
 
-proc clearControlGroupFormation*(groupIndex: int) =
-  ## Clear formation for a control group, returning units to free movement.
-  clearFormation(groupIndex)
-
-proc setControlGroupFormationRotation*(groupIndex: int, rotation: int32) =
-  ## Set formation rotation (0-7 for 8 compass directions).
-  setFormationRotation(groupIndex, rotation.int)
-
-proc getControlGroupFormationRotation*(groupIndex: int): int32 =
-  ## Get formation rotation for a control group.
-  getFormationRotation(groupIndex).int32
-
 # Agent-ID based Formation API
 # Convenience functions that work directly with agent IDs rather than control group indices.
 # These create/use control groups internally.
