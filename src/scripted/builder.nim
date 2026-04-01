@@ -515,7 +515,7 @@ proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: 
       let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
       if did:
         # Mark the defense request as fulfilled once we start building
-        markDefenseRequestFulfilled(teamId)
+        markRequestFulfilled(teamId, RequestDefense)
         return act
   0'u16
 
@@ -569,7 +569,7 @@ proc optBuilderSiegeResponse(controller: Controller, env: Environment, agent: Th
   let teamId = getTeamId(agent)
   let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, SiegeWorkshop)
   if did:
-    markSiegeBuildRequestFulfilled(teamId)
+    markRequestFulfilled(teamId, RequestSiegeBuild)
     return act
   0'u16
 

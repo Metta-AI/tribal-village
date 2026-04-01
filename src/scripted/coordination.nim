@@ -61,7 +61,7 @@ proc hasUnfulfilledRequest(teamId: int, kind: CoordinationRequestKind): bool =
       return true
   false
 
-proc markRequestFulfilled(teamId: int, kind: CoordinationRequestKind) =
+proc markRequestFulfilled*(teamId: int, kind: CoordinationRequestKind) =
   ## Mark the highest-priority unfulfilled request of the given kind as fulfilled
   if not validTeamId(teamId):
     return
@@ -151,14 +151,6 @@ proc hasDefenseRequest*(teamId: int): bool =
 proc hasSiegeBuildRequest*(teamId: int): bool =
   ## Check if there's an unfulfilled siege build request
   hasUnfulfilledRequest(teamId, RequestSiegeBuild)
-
-proc markDefenseRequestFulfilled*(teamId: int) =
-  ## Mark the highest-priority unfulfilled defense request as fulfilled
-  markRequestFulfilled(teamId, RequestDefense)
-
-proc markSiegeBuildRequestFulfilled*(teamId: int) =
-  ## Mark the highest-priority unfulfilled siege build request as fulfilled
-  markRequestFulfilled(teamId, RequestSiegeBuild)
 
 # --- Coordination request creators (called from role behaviors) ---
 
