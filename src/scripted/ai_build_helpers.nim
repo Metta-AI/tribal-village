@@ -22,6 +22,69 @@ proc clearCachedPositions*(state: var AgentState) {.inline.} =
   state.closestGoldPos = ivec2(-1, -1)
   state.closestMagmaPos = ivec2(-1, -1)
 
+proc canBuilderStandAt(env: Environment, agent: Thing, stand: IVec2,
+                       requireDryLand = false): bool {.inline.} =
+  isValidPos(stand) and
+    (not requireDryLand or env.terrain[stand.x][stand.y] notin WaterTerrain) and
+    not env.hasDoor(stand) and
+    not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
+    not isTileFrozen(stand, env) and
+    (env.isEmpty(stand) or stand == agent.pos) and
+    env.canAgentPassDoor(agent, stand)
+
+proc defaultBuildAnchor(agent: Thing, state: AgentState): IVec2 {.inline.} =
+  if state.basePosition.x >= 0:
+    state.basePosition
+  elif agent.homeAltar.x >= 0:
+    agent.homeAltar
+  else:
+    agent.pos
+
+proc claimAndGatherMissingBuildInputs(controller: Controller, env: Environment,
+                                      agent: Thing, agentId: int,
+                                      state: var AgentState,
+                                      teamId: int, kind: ThingKind,
+                                      costs: openArray[tuple[key: ItemKey, count: int]]):
+                                      tuple[did: bool, action: uint16] =
+  controller.claimBuilding(teamId, kind)
+  for cost in costs:
+    case stockpileResourceForItem(cost.key)
+    of ResourceWood:
+      return controller.ensureWood(env, agent, agentId, state)
+    of ResourceStone:
+      return controller.ensureStone(env, agent, agentId, state)
+    of ResourceGold:
+      return controller.ensureGold(env, agent, agentId, state)
+    of ResourceFood:
+      return controller.ensureWheat(env, agent, agentId, state)
+    of ResourceWater, ResourceNone:
+      discard
+  (false, 0'u16)
+
+proc findNearestBuildSite(env: Environment, agent: Thing, anchor: IVec2,
+                          searchRadius: int): tuple[build, stand: IVec2] =
+  result = (build: ivec2(-1, -1), stand: ivec2(-1, -1))
+  var bestDist = int.high
+  let minX = max(0, anchor.x - searchRadius)
+  let maxX = min(MapWidth - 1, anchor.x + searchRadius)
+  let minY = max(0, anchor.y - searchRadius)
+  let maxY = min(MapHeight - 1, anchor.y + searchRadius)
+  let ax = anchor.x.int
+  let ay = anchor.y.int
+  for x in minX .. maxX:
+    for y in minY .. maxY:
+      let pos = ivec2(x.int32, y.int32)
+      if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
+        continue
+      for d in CardinalOffsets:
+        let stand = pos + d
+        if canBuilderStandAt(env, agent, stand):
+          let dist = abs(x - ax) + abs(y - ay)
+          if dist < bestDist:
+            bestDist = dist
+            result = (build: pos, stand: stand)
+          break
+
 proc tryBuildAction*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                     state: var AgentState, index: int): tuple[did: bool, action: uint16] =
   if index < 0 or index >= BuildChoices.len:
@@ -99,11 +162,7 @@ proc goToStandAndBuild*(controller: Controller, env: Environment, agent: Thing, 
       state.buildStand.x >= 0:
     if env.canPlace(state.buildTarget) and
         isBuildableExcludingRoads(env.terrain[state.buildTarget.x][state.buildTarget.y]) and
-        isValidPos(state.buildStand) and not env.hasDoor(state.buildStand) and
-        not isBlockedTerrain(env.terrain[state.buildStand.x][state.buildStand.y]) and
-        not isTileFrozen(state.buildStand, env) and
-        (env.isEmpty(state.buildStand) or state.buildStand == agent.pos) and
-        env.canAgentPassDoor(agent, state.buildStand):
+        canBuilderStandAt(env, agent, state.buildStand):
       target = state.buildTarget
       stand = state.buildStand
     dec state.buildLockSteps
@@ -113,10 +172,7 @@ proc goToStandAndBuild*(controller: Controller, env: Environment, agent: Thing, 
     return (false, 0'u16)
   if not env.canPlace(target) or not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
     return (false, 0'u16)
-  if not isValidPos(stand) or env.hasDoor(stand) or
-      isBlockedTerrain(env.terrain[stand.x][stand.y]) or isTileFrozen(stand, env) or
-      (not env.isEmpty(stand) and stand != agent.pos) or
-      not env.canAgentPassDoor(agent, stand):
+  if not canBuilderStandAt(env, agent, stand):
     return (false, 0'u16)
   if agent.pos == stand:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, buildIndex)
@@ -175,11 +231,7 @@ proc tryBuildCampThreshold*(controller: Controller, env: Environment, agent: Thi
           continue
         for d in CardinalOffsets:
           let stand = pos + d
-          if isValidPos(stand) and not env.hasDoor(stand) and
-              not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
-              not isTileFrozen(stand, env) and
-              (env.isEmpty(stand) or stand == agent.pos) and
-              env.canAgentPassDoor(agent, stand):
+          if canBuilderStandAt(env, agent, stand):
             buildPos = pos
             standPos = stand
             break
@@ -208,20 +260,8 @@ proc tryBuildIfMissing*(controller: Controller, env: Environment, agent: Thing, 
     return (false, 0'u16)
   if choosePayment(env, agent, costs) == PayNone:
     # Can't afford yet - claim and gather resources so other builders don't duplicate
-    controller.claimBuilding(teamId, kind)
-    for cost in costs:
-      case stockpileResourceForItem(cost.key)
-      of ResourceWood:
-        return controller.ensureWood(env, agent, agentId, state)
-      of ResourceStone:
-        return controller.ensureStone(env, agent, agentId, state)
-      of ResourceGold:
-        return controller.ensureGold(env, agent, agentId, state)
-      of ResourceFood:
-        return controller.ensureWheat(env, agent, agentId, state)
-      of ResourceWater, ResourceNone:
-        discard
-    return (false, 0'u16)
+    return claimAndGatherMissingBuildInputs(
+      controller, env, agent, agentId, state, teamId, kind, costs)
 
   let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, idx)
   if didAdjacent:
@@ -229,44 +269,12 @@ proc tryBuildIfMissing*(controller: Controller, env: Environment, agent: Thing, 
     controller.claimBuilding(teamId, kind)
     return (didAdjacent, actAdjacent)
 
-  let anchor =
-    if state.basePosition.x >= 0: state.basePosition
-    elif agent.homeAltar.x >= 0: agent.homeAltar
-    else: agent.pos
-
-  const searchRadius = 16
-  var bestDist = int.high
-  var buildPos = ivec2(-1, -1)
-  var standPos = ivec2(-1, -1)
-  let minX = max(0, anchor.x - searchRadius)
-  let maxX = min(MapWidth - 1, anchor.x + searchRadius)
-  let minY = max(0, anchor.y - searchRadius)
-  let maxY = min(MapHeight - 1, anchor.y + searchRadius)
-  let ax = anchor.x.int
-  let ay = anchor.y.int
-  for x in minX .. maxX:
-    for y in minY .. maxY:
-      let pos = ivec2(x.int32, y.int32)
-      if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
-        continue
-      for d in CardinalOffsets:
-        let stand = pos + d
-        if isValidPos(stand) and not env.hasDoor(stand) and
-            not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
-            not isTileFrozen(stand, env) and
-            (env.isEmpty(stand) or stand == agent.pos) and
-            env.canAgentPassDoor(agent, stand):
-          let dist = abs(x - ax) + abs(y - ay)
-          if dist < bestDist:
-            bestDist = dist
-            buildPos = pos
-            standPos = stand
-          break
-  if buildPos.x >= 0:
+  let buildSite = findNearestBuildSite(env, agent, defaultBuildAnchor(agent, state), 16)
+  if buildSite.build.x >= 0:
     # Claim the building so other builders don't try to build the same thing
     controller.claimBuilding(teamId, kind)
     return goToStandAndBuild(controller, env, agent, agentId, state,
-      standPos, buildPos, idx)
+      buildSite.stand, buildSite.build, idx)
   (false, 0'u16)
 
 proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -286,60 +294,19 @@ proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thi
   if costs.len == 0:
     return (false, 0'u16)
   if choosePayment(env, agent, costs) == PayNone:
-    controller.claimBuilding(teamId, kind)
-    for cost in costs:
-      case stockpileResourceForItem(cost.key)
-      of ResourceWood:
-        return controller.ensureWood(env, agent, agentId, state)
-      of ResourceStone:
-        return controller.ensureStone(env, agent, agentId, state)
-      of ResourceGold:
-        return controller.ensureGold(env, agent, agentId, state)
-      of ResourceFood:
-        return controller.ensureWheat(env, agent, agentId, state)
-      of ResourceWater, ResourceNone:
-        discard
-    return (false, 0'u16)
+    return claimAndGatherMissingBuildInputs(
+      controller, env, agent, agentId, state, teamId, kind, costs)
 
   let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, idx)
   if didAdjacent:
     controller.claimBuilding(teamId, kind)
     return (didAdjacent, actAdjacent)
 
-  # Use settlement center as the anchor for building placement
-  let anchor = settlementCenter
-  const searchRadius = 16
-  var bestDist = int.high
-  var buildPos = ivec2(-1, -1)
-  var standPos = ivec2(-1, -1)
-  let minX = max(0, anchor.x - searchRadius)
-  let maxX = min(MapWidth - 1, anchor.x + searchRadius)
-  let minY = max(0, anchor.y - searchRadius)
-  let maxY = min(MapHeight - 1, anchor.y + searchRadius)
-  let ax = anchor.x.int
-  let ay = anchor.y.int
-  for x in minX .. maxX:
-    for y in minY .. maxY:
-      let pos = ivec2(x.int32, y.int32)
-      if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
-        continue
-      for d in CardinalOffsets:
-        let stand = pos + d
-        if isValidPos(stand) and not env.hasDoor(stand) and
-            not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
-            not isTileFrozen(stand, env) and
-            (env.isEmpty(stand) or stand == agent.pos) and
-            env.canAgentPassDoor(agent, stand):
-          let dist = abs(x - ax) + abs(y - ay)
-          if dist < bestDist:
-            bestDist = dist
-            buildPos = pos
-            standPos = stand
-          break
-  if buildPos.x >= 0:
+  let buildSite = findNearestBuildSite(env, agent, settlementCenter, 16)
+  if buildSite.build.x >= 0:
     controller.claimBuilding(teamId, kind)
     return goToStandAndBuild(controller, env, agent, agentId, state,
-      standPos, buildPos, idx)
+      buildSite.stand, buildSite.build, idx)
   (false, 0'u16)
 
 proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thing, agentId: int,
@@ -358,20 +325,8 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
   if costs.len == 0:
     return (false, 0'u16)
   if choosePayment(env, agent, costs) == PayNone:
-    controller.claimBuilding(teamId, Dock)
-    for cost in costs:
-      case stockpileResourceForItem(cost.key)
-      of ResourceWood:
-        return controller.ensureWood(env, agent, agentId, state)
-      of ResourceStone:
-        return controller.ensureStone(env, agent, agentId, state)
-      of ResourceGold:
-        return controller.ensureGold(env, agent, agentId, state)
-      of ResourceFood:
-        return controller.ensureWheat(env, agent, agentId, state)
-      of ResourceWater, ResourceNone:
-        discard
-    return (false, 0'u16)
+    return claimAndGatherMissingBuildInputs(
+      controller, env, agent, agentId, state, teamId, Dock, costs)
 
   # Check if we can build adjacent to current position (agent on land, dock on water)
   for d in AdjacentOffsets8:
@@ -381,10 +336,7 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
       return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u16, idx.uint8)))
 
   # Search for water tile near base with an adjacent land stand position
-  let anchor =
-    if state.basePosition.x >= 0: state.basePosition
-    elif agent.homeAltar.x >= 0: agent.homeAltar
-    else: agent.pos
+  let anchor = defaultBuildAnchor(agent, state)
 
   const searchRadius = 20
   var bestDist = int.high
@@ -403,12 +355,7 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
       # Find a land tile adjacent to this water tile where the builder can stand
       for d in CardinalOffsets:
         let stand = pos + d
-        if isValidPos(stand) and env.terrain[stand.x][stand.y] notin WaterTerrain and
-            not env.hasDoor(stand) and
-            not isBlockedTerrain(env.terrain[stand.x][stand.y]) and
-            not isTileFrozen(stand, env) and
-            (env.isEmpty(stand) or stand == agent.pos) and
-            env.canAgentPassDoor(agent, stand):
+        if canBuilderStandAt(env, agent, stand, requireDryLand = true):
           let dist = abs(x - ax) + abs(y - ay)
           if dist < bestDist:
             bestDist = dist
@@ -469,11 +416,7 @@ proc tryBuildHouseForPopCap*(controller: Controller, env: Environment, agent: Th
         var standPos = ivec2(-1, -1)
         for d in CardinalOffsets:
           let stand = pos + d
-          if isValidPos(stand) and not env.hasDoor(stand) and
-              (env.isEmpty(stand) or stand == agent.pos) and
-              env.canAgentPassDoor(agent, stand) and
-              not isTileFrozen(stand, env) and
-              not isBlockedTerrain(env.terrain[stand.x][stand.y]):
+          if canBuilderStandAt(env, agent, stand):
             standPos = stand
             break
         if standPos.x < 0:
