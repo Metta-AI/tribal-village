@@ -53,21 +53,11 @@ proc agentHasAnyItem*(agent: Thing, keys: openArray[ItemKey]): bool =
 proc canStartVillagerBuild(agent: Thing, env: Environment, buildName: string): bool {.inline.} =
   agent.unitClass == UnitVillager and env.canAffordBuild(agent, thingItem(buildName))
 
-proc canStartCarryLantern(controller: Controller, env: Environment, agent: Thing,
-                          agentId: int, state: var AgentState): bool =
+optionGuard(canStartCarryLantern, shouldTerminateCarryLantern):
   agent.inventoryLantern > 0
 
-proc shouldTerminateCarryLantern(controller: Controller, env: Environment, agent: Thing,
-                                 agentId: int, state: var AgentState): bool =
-  agent.inventoryLantern == 0
-
-proc canStartCarryRelic(controller: Controller, env: Environment, agent: Thing,
-                        agentId: int, state: var AgentState): bool =
+optionGuard(canStartCarryRelic, shouldTerminateCarryRelic):
   agent.inventoryRelic > 0
-
-proc shouldTerminateCarryRelic(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): bool =
-  agent.inventoryRelic == 0
 
 proc enemyDirectionalBuildTarget(env: Environment, basePos: IVec2, teamId: int,
                                  fallbackOffset: IVec2): IVec2 {.inline.} =
@@ -541,8 +531,7 @@ proc optSpawnerHunter(controller: Controller, env: Environment, agent: Thing,
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, spawner.pos, 2'u16)
 
-proc canStartFrozenEdgeBreaker(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): bool =
+optionGuard(canStartFrozenEdgeBreaker, shouldTerminateFrozenEdgeBreaker):
   for tumor in env.thingsByKind[Tumor]:
     if isTileFrozen(tumor.pos, env):
       return true
@@ -550,11 +539,6 @@ proc canStartFrozenEdgeBreaker(controller: Controller, env: Environment, agent: 
       if isTileFrozen(tumor.pos + d, env):
         return true
   false
-
-proc shouldTerminateFrozenEdgeBreaker(controller: Controller, env: Environment, agent: Thing,
-                                      agentId: int, state: var AgentState): bool =
-  ## Terminate when no frozen tumors remain
-  not canStartFrozenEdgeBreaker(controller, env, agent, agentId, state)
 
 proc optFrozenEdgeBreaker(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint16 =
@@ -595,8 +579,7 @@ proc optOutpostNetwork(controller: Controller, env: Environment, agent: Thing,
     enemyDirectionalBuildTarget(env, basePos, getTeamId(agent), ivec2(0, 6)), 3, 6,
     buildIndexFor(Outpost))
 
-proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
-                              agentId: int, state: var AgentState): bool =
+optionGuard(canStartEnemyWallFortify, shouldTerminateEnemyWallFortify):
   if agent.unitClass != UnitVillager:
     return false
   if not env.canAffordBuild(agent, thingItem("Wall")):
@@ -604,11 +587,6 @@ proc canStartEnemyWallFortify(controller: Controller, env: Environment, agent: T
   let basePos = agent.getBasePos()
   let (enemyPos, dist) = findNearestEnemyPresenceSpatial(env, basePos, getTeamId(agent))
   enemyPos.x >= 0 and dist <= EnemyWallFortifyRadius
-
-proc shouldTerminateEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
-                                     agentId: int, state: var AgentState): bool =
-  ## Terminate when can't afford, no longer villager, or no nearby enemy
-  not canStartEnemyWallFortify(controller, env, agent, agentId, state)
 
 proc optEnemyWallFortify(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
@@ -739,8 +717,7 @@ proc optMangonelSuppression(controller: Controller, env: Environment, agent: Thi
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
-proc canStartUnitPromotionFocus(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
+optionGuard(canStartUnitPromotionFocus, shouldTerminateUnitPromotionFocus):
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -750,11 +727,6 @@ proc canStartUnitPromotionFocus(controller: Controller, env: Environment, agent:
     if env.canSpendStockpile(teamId, buildingTrainCosts(kind)):
       return true
   false
-
-proc shouldTerminateUnitPromotionFocus(controller: Controller, env: Environment, agent: Thing,
-                                       agentId: int, state: var AgentState): bool =
-  ## Terminate when no longer villager or can't afford training
-  not canStartUnitPromotionFocus(controller, env, agent, agentId, state)
 
 proc optUnitPromotionFocus(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint16 =

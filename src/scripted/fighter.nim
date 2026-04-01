@@ -244,19 +244,11 @@ proc fighterSeesEnemyStructure(env: Environment, agent: Thing): bool =
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
   seesEnemyStructureCache.getWithAgent(env, agent, fighterSeesEnemyStructureUncached)
 
-proc canStartFighterMonk(controller: Controller, env: Environment, agent: Thing,
-                         agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterMonk, shouldTerminateFighterMonk):
   if agent.unitClass != UnitMonk:
     return false
   # Activate when carrying a relic (need to deposit) or relics exist on map
   agent.inventoryRelic > 0 or env.thingsByKind[Relic].len > 0
-
-proc shouldTerminateFighterMonk(controller: Controller, env: Environment, agent: Thing,
-                                agentId: int, state: var AgentState): bool =
-  if agent.unitClass != UnitMonk:
-    return true
-  # Terminate when not carrying and no relics left to collect
-  agent.inventoryRelic == 0 and env.thingsByKind[Relic].len == 0
 
 proc findNearestRelicGlobal(env: Environment, pos: IVec2): Thing =
   ## Find nearest relic anywhere on the map using thingsByKind.
@@ -440,8 +432,7 @@ proc shouldWaitForAllies*(env: Environment, agent: Thing): bool =
   result = nearbyEnemies > nearbyAllies + 1 and
            countNearbyAllies(env, agent, radius=10) > nearbyAllies
 
-proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
-                               agentId: int, state: var AgentState): bool =
+optionGuard(canStartFighterSeekHealer, shouldTerminateFighterSeekHealer):
   ## Seek healer when low HP and no bread available.
   ## This is more targeted than generic retreat - actively seeks monk healing.
   if agent.hp * 3 > agent.maxHp:  # Only when HP <= 33%
@@ -449,15 +440,6 @@ proc canStartFighterSeekHealer(controller: Controller, env: Environment, agent: 
   if agent.inventoryBread > 0:  # Can self-heal with bread instead
     return false
   not isNil(findNearestFriendlyMonk(env, agent))
-
-proc shouldTerminateFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
-                                      agentId: int, state: var AgentState): bool =
-  ## Stop seeking healer when HP recovered or no monk available
-  if agent.hp * 3 > agent.maxHp:  # HP recovered above threshold
-    return true
-  if agent.inventoryBread > 0:  # Got bread, can self-heal
-    return true
-  isNil(findNearestFriendlyMonk(env, agent))  # No monk to seek
 
 proc optFighterSeekHealer(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): uint16 =
