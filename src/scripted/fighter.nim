@@ -903,10 +903,7 @@ proc optFighterBecomeSiege(controller: Controller, env: Environment, agent: Thin
                            agentId: int, state: var AgentState): uint16 =
   ## Move to SiegeWorkshop and interact to convert to battering ram
   let teamId = getTeamId(agent)
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, SiegeWorkshop)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, SiegeWorkshop, 3'u16)
 
 optionGuard(canStartFighterMaintainGear, shouldTerminateFighterMaintainGear):
   if agent.inventoryArmor < ArmorPoints:

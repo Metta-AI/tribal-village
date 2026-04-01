@@ -46,6 +46,14 @@ proc useNearestReadyFriendlyBuilding(controller: Controller, env: Environment, a
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
 
+proc actAtReadyFriendlyThing*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState, teamId: int,
+                              kind: ThingKind, verb: uint16): uint16 =
+  let building = env.nearestReadyFriendlyBuilding(state, teamId, kind)
+  if isNil(building):
+    return 0'u16
+  actOrMove(controller, env, agent, agentId, state, building.pos, verb)
+
 proc hasLiveFollowTarget*(env: Environment, state: AgentState): bool {.inline.} =
   if not state.followActive or state.followTargetAgentId < 0 or
       state.followTargetAgentId >= env.agents.len:
