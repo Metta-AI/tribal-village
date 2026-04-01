@@ -17,65 +17,59 @@ proc readReplayJson(path: string): JsonNode =
   let decompressed = zippy.uncompress(compressed, dataFormat = dfZlib)
   parseJson(decompressed)
 
-proc getWriter(): rw.ReplayWriter =
-  rw.replayWriter
-
-proc setWriter(w: rw.ReplayWriter) =
-  rw.replayWriter = w
-
 suite "Replay Writer - Episode Lifecycle":
   test "maybeStartReplayEpisode no-ops without env vars":
     delEnv("TV_REPLAY_PATH")
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = makeEmptyEnv()
     rw.maybeStartReplayEpisode(env)
 
-    check getWriter().isNil
+    check rw.replayWriter.isNil
 
   test "maybeStartReplayEpisode creates writer with TV_REPLAY_PATH":
     let tmpPath = getTempDir() / "test_replay_create.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = makeEmptyEnv()
     rw.maybeStartReplayEpisode(env)
 
-    check not getWriter().isNil
-    check getWriter().enabled
+    check not rw.replayWriter.isNil
+    check rw.replayWriter.enabled
 
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil
 
   test "maybeStartReplayEpisode creates writer with TV_REPLAY_DIR":
     let tmpDir = getTempDir() / "replay_test_dir"
     createDir(tmpDir)
     putEnv("TV_REPLAY_DIR", tmpDir)
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = makeEmptyEnv()
     rw.maybeStartReplayEpisode(env)
 
-    check not getWriter().isNil
-    check getWriter().enabled
+    check not rw.replayWriter.isNil
+    check rw.replayWriter.enabled
 
     delEnv("TV_REPLAY_DIR")
     removeDir(tmpDir)
-    setWriter(nil)
+    rw.replayWriter = nil
 
 suite "Replay Writer - No-Op Safety":
   test "maybeLogReplayStep safe with nil writer":
-    setWriter(nil)
+    rw.replayWriter = nil
     let env = makeEmptyEnv()
     var actions: array[MapAgents, uint16]
     rw.maybeLogReplayStep(env, addr actions)
     # No crash = pass
 
   test "maybeFinalizeReplay safe with nil writer":
-    setWriter(nil)
+    rw.replayWriter = nil
     let env = makeEmptyEnv()
     rw.maybeFinalizeReplay(env)
     # No crash = pass
@@ -84,7 +78,7 @@ suite "Replay Writer - No-Op Safety":
     let tmpPath = getTempDir() / "test_step0.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = makeEmptyEnv()
     rw.maybeStartReplayEpisode(env)
@@ -95,14 +89,14 @@ suite "Replay Writer - No-Op Safety":
     # No crash = pass
 
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil
 
 suite "Replay Writer - Full Replay Output":
   test "complete episode produces valid compressed JSON":
     let tmpPath = getTempDir() / "test_full_replay.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = newEnvironment()
     rw.maybeStartReplayEpisode(env)
@@ -139,13 +133,13 @@ suite "Replay Writer - Full Replay Output":
 
     removeFile(tmpPath)
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil
 
   test "replay objects have required const fields":
     let tmpPath = getTempDir() / "test_replay_fields.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = newEnvironment()
     rw.maybeStartReplayEpisode(env)
@@ -167,13 +161,13 @@ suite "Replay Writer - Full Replay Output":
 
     removeFile(tmpPath)
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil
 
   test "agent objects have agent-specific series":
     let tmpPath = getTempDir() / "test_replay_agent.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = newEnvironment()
     rw.maybeStartReplayEpisode(env)
@@ -201,14 +195,14 @@ suite "Replay Writer - Full Replay Output":
 
     removeFile(tmpPath)
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil
 
   test "replay with custom label":
     let tmpPath = getTempDir() / "test_replay_label.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     putEnv("TV_REPLAY_LABEL", "Custom Test Label")
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = newEnvironment()
     rw.maybeStartReplayEpisode(env)
@@ -224,13 +218,13 @@ suite "Replay Writer - Full Replay Output":
     removeFile(tmpPath)
     delEnv("TV_REPLAY_PATH")
     delEnv("TV_REPLAY_LABEL")
-    setWriter(nil)
+    rw.replayWriter = nil
 
   test "multi-step replay records all steps":
     let tmpPath = getTempDir() / "test_replay_multistep.json.z"
     putEnv("TV_REPLAY_PATH", tmpPath)
     delEnv("TV_REPLAY_DIR")
-    setWriter(nil)
+    rw.replayWriter = nil
 
     let env = newEnvironment()
     rw.maybeStartReplayEpisode(env)
@@ -261,4 +255,4 @@ suite "Replay Writer - Full Replay Output":
 
     removeFile(tmpPath)
     delEnv("TV_REPLAY_PATH")
-    setWriter(nil)
+    rw.replayWriter = nil

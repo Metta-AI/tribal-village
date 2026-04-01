@@ -2,11 +2,6 @@ import std/unittest
 import vmath
 import terrain
 
-proc neverInCorner(x, y: int): bool =
-  discard x
-  discard y
-  false
-
 suite "River Fill":
   test "diagonal overlaps do not downgrade centerline water to shallow":
     var grid: TerrainGrid
@@ -16,7 +11,7 @@ suite "River Fill":
       ivec2(22'i32, 22'i32),
     ]
 
-    placeWaterPath(grid, path, RiverWidth div 2, 64, 64, neverInCorner)
+    placeWaterPath(grid, path, RiverWidth div 2, 64, 64, proc (x, y: int): bool = false)
 
     for pos in path:
       check grid[pos.x.int][pos.y.int] == Water
