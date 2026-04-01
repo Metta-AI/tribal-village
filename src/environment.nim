@@ -348,7 +348,8 @@ proc marketBuyResource*(env: Environment, teamId: int, res: StockpileResource,
   env.setMarketPrice(teamId, res, currentPrice + MarketBuyPriceIncrease)
 
   when defined(econAudit):
-    recordMarketBuy(teamId, res, amount, goldCost, env.currentStep)
+    recordFlow(teamId, res, amount, rfsMarketBuy, env.currentStep)
+    recordFlow(teamId, ResourceGold, -goldCost, rfsMarketBuy, env.currentStep)
 
   result = (goldCost, amount)
 
@@ -376,7 +377,8 @@ proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
   env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
 
   when defined(econAudit):
-    recordMarketSell(teamId, res, amount, goldGained, env.currentStep)
+    recordFlow(teamId, res, -amount, rfsMarketSell, env.currentStep)
+    recordFlow(teamId, ResourceGold, goldGained, rfsMarketSell, env.currentStep)
 
   result = (amount, goldGained)
 
@@ -1220,7 +1222,8 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
     if not env.spendStockpile(teamId, costs):
       return false
   when defined(econAudit):
-    recordTrainingCost(teamId, costs, env.currentStep)
+    for cost in costs:
+      recordFlow(teamId, cost.res, -cost.count, rfsUnitTraining, env.currentStep)
   let trainTime = unitTrainTime(unitClass)
   building.productionQueue.entries.add(ProductionQueueEntry(
     unitClass: unitClass,
@@ -1245,7 +1248,8 @@ proc refundTrainCosts(env: Environment, building: Thing) =
         refundAmount = max(1, int(float32(cost.count) * civBonus.woodCostMultiplier + 0.5))
       env.teamStockpiles[teamId].counts[cost.res] += refundAmount
     when defined(econAudit):
-      recordRefund(teamId, baseCosts, env.currentStep)
+      for cost in baseCosts:
+        recordFlow(teamId, cost.res, cost.count, rfsRefund, env.currentStep)
 
 proc cancelLastQueued*(env: Environment, building: Thing): bool =
   ## Cancel the last unit in the production queue, refunding resources.
@@ -2186,7 +2190,7 @@ proc queueFarmReseed*(env: Environment, mill: Thing, teamId: int): bool =
     return false
   when defined(econAudit):
     if FarmReseedWoodCost > 0:
-      recordFarmReseed(teamId, FarmReseedWoodCost, env.currentStep)
+      recordFlow(teamId, ResourceWood, -FarmReseedWoodCost, rfsFarmReseed, env.currentStep)
   mill.queuedFarmReseeds += 1
   true
 
@@ -2279,7 +2283,7 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
     return false
   when defined(econAudit):
     if FarmReseedWoodCost > 0:
-      recordFarmReseed(teamId, FarmReseedWoodCost, env.currentStep)
+      recordFlow(teamId, ResourceWood, -FarmReseedWoodCost, rfsFarmReseed, env.currentStep)
 
   # Remove from queue only on successful reseed
   mill.farmQueue.delete(0)

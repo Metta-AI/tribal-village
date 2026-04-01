@@ -136,33 +136,9 @@ when defined(econAudit):
 
   # Convenience procs for specific flow types
 
-  proc recordTrainingCost*(teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]], step: int) =
-    for cost in costs:
-      recordFlow(teamId, cost.res, -cost.count, rfsUnitTraining, step)
-
   proc recordResearchCost*(teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]], step: int) =
     for cost in costs:
       recordFlow(teamId, cost.res, -cost.count, rfsTechResearch, step)
-
-  proc recordMarketBuy*(teamId: int, res: StockpileResource, amount: int,
-                        goldCost: int, step: int) =
-    ## Buying: gain resource, spend gold
-    recordFlow(teamId, res, amount, rfsMarketBuy, step)
-    recordFlow(teamId, ResourceGold, -goldCost, rfsMarketBuy, step)
-
-  proc recordMarketSell*(teamId: int, res: StockpileResource, amount: int,
-                         goldGained: int, step: int) =
-    ## Selling: spend resource, gain gold
-    recordFlow(teamId, res, -amount, rfsMarketSell, step)
-    recordFlow(teamId, ResourceGold, goldGained, rfsMarketSell, step)
-
-  proc recordFarmReseed*(teamId: int, woodCost: int, step: int) =
-    if woodCost > 0:
-      recordFlow(teamId, ResourceWood, -woodCost, rfsFarmReseed, step)
-
-  proc recordRefund*(teamId: int, costs: openArray[tuple[res: StockpileResource, count: int]], step: int) =
-    for cost in costs:
-      recordFlow(teamId, cost.res, cost.count, rfsRefund, step)
 
   proc printEconDashboard*(env: Environment, step: int) =
     ## Print economy dashboard for all teams.
