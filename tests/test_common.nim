@@ -170,50 +170,10 @@ proc countAllBuildings*(env: Environment): int =
       if not thing.isNil and thing.hp > 0:
         inc result
 
-proc countBuildingsPerTeam*(env: Environment): array[MapRoomObjectsTeams, int] =
-  ## Count buildings per team.
-  for kind in BuildingKinds:
-    for thing in env.thingsByKind[kind]:
-      if not thing.isNil and thing.hp > 0:
-        let teamId = thing.teamId
-        if teamId >= 0 and teamId < MapRoomObjectsTeams:
-          inc result[teamId]
-
-proc countDamagedBuildings*(env: Environment, teamId: int): int =
-  ## Count buildings owned by team that have HP < maxHp.
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    let isRepairable = isBuildingKind(thing.kind) or thing.kind in {Wall, Door}
-    if not isRepairable:
-      continue
-    if thing.teamId != teamId:
-      continue
-    if thing.maxHp > 0 and thing.hp < thing.maxHp:
-      inc result
-
 proc damageBuilding*(thing: Thing, damageAmount: int) =
   ## Apply damage to a building, reducing its HP (but not destroying it).
   if thing.maxHp > 0:
     thing.hp = max(1, thing.hp - damageAmount)
-
-proc findBuildingToTest*(env: Environment, teamId: int, preferNonWall: bool = true): Thing =
-  ## Find a building suitable for testing (preferring non-wall if requested).
-  if preferNonWall:
-    for thing in env.things:
-      if thing.isNil:
-        continue
-      if thing.teamId == teamId and thing.maxHp > 0 and thing.hp == thing.maxHp:
-        if isBuildingKind(thing.kind) and thing.kind != Wall and thing.kind != Door:
-          return thing
-  # Fallback to wall
-  for thing in env.things:
-    if thing.isNil:
-      continue
-    if thing.teamId == teamId and thing.maxHp > 0 and thing.hp == thing.maxHp:
-      if thing.kind == Wall:
-        return thing
-  return nil
 
 # ============================================================================
 # Combat and HP Helpers

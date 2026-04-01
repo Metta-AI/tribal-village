@@ -265,11 +265,11 @@ suite "Visual State: Death Animation State":
     env.terminated[dead.agentId] = 1.0
 
     # Drag-box select should exclude dead
-    let result = simulateDragBox(env, vec2(5, 5), vec2(20, 20))
+    let selectedAgents = simulateDragBox(env, vec2(5, 5), vec2(20, 20))
 
-    check result.agents.len == 1
-    check alive in result.agents
-    check dead notin result.agents
+    check selectedAgents.len == 1
+    check alive in selectedAgents
+    check dead notin selectedAgents
     echo "  Dead units excluded from drag-box selection"
 
   test "death tint is applied at kill location":

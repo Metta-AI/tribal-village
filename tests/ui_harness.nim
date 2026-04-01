@@ -49,13 +49,6 @@ proc addThingToSelection*(thing: Thing) =
       return  # Already in selection
   selection.add(thing)
 
-proc removeThingFromSelection*(thing: Thing) =
-  ## Remove a thing from selection (shift-click toggle).
-  for i, s in selection:
-    if s == thing:
-      selection.delete(i)
-      return
-
 proc isSelected*(thing: Thing): bool =
   ## Check if a thing is currently selected.
   for s in selection:
@@ -99,17 +92,8 @@ proc hasCommandButton*(panelRect: IRect, kind: CommandButtonKind): bool =
       return true
   false
 
-# ---------------------------------------------------------------------------
-# Drag-Box Selection Simulation
-# ---------------------------------------------------------------------------
-
-type DragBoxResult* = object
-  agents*: seq[Thing]
-  filterByTeam*: bool
-  teamId*: int
-
 proc simulateDragBox*(env: Environment, startWorld: Vec2, endWorld: Vec2,
-                      filterTeam: int = -1): DragBoxResult =
+                      filterTeam: int = -1): seq[Thing] =
   ## Simulate a drag-box selection and return agents within the box.
   ## If filterTeam >= 0, only include agents from that team.
   let minX = min(startWorld.x, endWorld.x)
@@ -117,9 +101,7 @@ proc simulateDragBox*(env: Environment, startWorld: Vec2, endWorld: Vec2,
   let minY = min(startWorld.y, endWorld.y)
   let maxY = max(startWorld.y, endWorld.y)
 
-  result.agents = @[]
-  result.filterByTeam = filterTeam >= 0
-  result.teamId = filterTeam
+  result = @[]
 
   for agent in env.thingsByKind[Agent]:
     if not env.isAgentAlive(agent):
@@ -130,17 +112,17 @@ proc simulateDragBox*(env: Environment, startWorld: Vec2, endWorld: Vec2,
       if filterTeam >= 0:
         let agentTeam = getTeamId(agent)
         if agentTeam == filterTeam:
-          result.agents.add(agent)
+          result.add(agent)
       else:
-        result.agents.add(agent)
+        result.add(agent)
 
 proc applyDragBoxSelection*(env: Environment, startWorld: Vec2, endWorld: Vec2,
                             filterTeam: int = -1) =
   ## Apply a drag-box selection to the global selection state.
-  let dragResult = simulateDragBox(env, startWorld, endWorld, filterTeam)
-  if dragResult.agents.len > 0:
-    selection = dragResult.agents
-    selectedPos = dragResult.agents[0].pos
+  let selectedAgents = simulateDragBox(env, startWorld, endWorld, filterTeam)
+  if selectedAgents.len > 0:
+    selection = selectedAgents
+    selectedPos = selectedAgents[0].pos
   else:
     selection = @[]
 
@@ -243,7 +225,6 @@ type UnitInfoState* = object
   isSingleUnit*: bool
   isSingleBuilding*: bool
   isMultiSelect*: bool
-  unitName*: string
   teamId*: int
   hp*: int
   maxHp*: int
@@ -261,7 +242,6 @@ proc getUnitInfoState*(): UnitInfoState =
     let thing = selection[0]
     if thing.kind == Agent:
       result.isSingleUnit = true
-      result.unitName = $thing.unitClass
       result.teamId = getTeamId(thing)
       result.hp = thing.hp
       result.maxHp = thing.maxHp
@@ -271,7 +251,6 @@ proc getUnitInfoState*(): UnitInfoState =
       result.unitCount = 1
     elif isBuildingKind(thing.kind):
       result.isSingleBuilding = true
-      result.unitName = $thing.kind
       result.teamId = thing.teamId
       result.hp = thing.hp
       result.maxHp = thing.maxHp
@@ -287,11 +266,6 @@ proc getUnitInfoState*(): UnitInfoState =
 const ControlGroupCount* = 10
 
 var testControlGroups*: array[ControlGroupCount, seq[Thing]]
-
-proc clearTestControlGroups*() =
-  ## Clear all control groups.
-  for i in 0 ..< ControlGroupCount:
-    testControlGroups[i] = @[]
 
 proc assignControlGroup*(groupIndex: int) =
   ## Assign current selection to a control group (Ctrl+N behavior).

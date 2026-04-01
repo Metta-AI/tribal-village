@@ -131,7 +131,9 @@ suite "Behavioral AI - Builder Role":
 
     runGameSteps(env, 200)
 
-    let buildingsPerTeam = countBuildingsPerTeam(env)
+    var buildingsPerTeam: array[MapRoomObjectsTeams, int]
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      buildingsPerTeam[teamId] = countBuildings(env, teamId)
     echo fmt"  Buildings per team: {buildingsPerTeam}"
 
     # At least one team should have built something

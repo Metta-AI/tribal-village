@@ -76,7 +76,10 @@ suite "UI - Selection Behavior":
     let agent2 = addAgentAt(env, 1, ivec2(15, 15))
 
     selectThings(@[agent1, agent2])
-    removeThingFromSelection(agent1)
+    for i, selectedThing in selection:
+      if selectedThing == agent1:
+        selection.delete(i)
+        break
 
     check selectionCount() == 1
     check not isSelected(agent1)
@@ -107,23 +110,23 @@ suite "UI - Drag-Box Multi-Select":
     let agent2 = addAgentAt(env, 1, ivec2(15, 15))
     let agent3 = addAgentAt(env, 2, ivec2(50, 50))  # Outside box
 
-    let result = simulateDragBox(env, vec2(5, 5), vec2(20, 20))
+    let selectedAgents = simulateDragBox(env, vec2(5, 5), vec2(20, 20))
 
-    check result.agents.len == 2
-    check agent1 in result.agents
-    check agent2 in result.agents
-    check agent3 notin result.agents
+    check selectedAgents.len == 2
+    check agent1 in selectedAgents
+    check agent2 in selectedAgents
+    check agent3 notin selectedAgents
 
   test "drag-box with team filter only selects player team":
     let env = makeEmptyEnv()
     let agent1 = addAgentAt(env, 0, ivec2(10, 10))  # Team 0
     let agent2 = addAgentAt(env, MapAgentsPerTeam, ivec2(15, 15))  # Team 1
 
-    let result = simulateDragBox(env, vec2(5, 5), vec2(20, 20), filterTeam = 0)
+    let selectedAgents = simulateDragBox(env, vec2(5, 5), vec2(20, 20), filterTeam = 0)
 
-    check result.agents.len == 1
-    check agent1 in result.agents
-    check agent2 notin result.agents
+    check selectedAgents.len == 1
+    check agent1 in selectedAgents
+    check agent2 notin selectedAgents
 
   test "drag-box excludes dead agents":
     let env = makeEmptyEnv()
@@ -131,11 +134,11 @@ suite "UI - Drag-Box Multi-Select":
     let dead = addAgentAt(env, 1, ivec2(15, 15))
     env.terminated[dead.agentId] = 1.0
 
-    let result = simulateDragBox(env, vec2(5, 5), vec2(20, 20))
+    let selectedAgents = simulateDragBox(env, vec2(5, 5), vec2(20, 20))
 
-    check result.agents.len == 1
-    check alive in result.agents
-    check dead notin result.agents
+    check selectedAgents.len == 1
+    check alive in selectedAgents
+    check dead notin selectedAgents
 
   test "applyDragBoxSelection updates global selection":
     let env = makeEmptyEnv()
@@ -530,7 +533,8 @@ suite "UI - Minimap Coordinate Conversion":
 suite "UI - Control Groups":
   setup:
     resetSelection()
-    clearTestControlGroups()
+    for i in 0 ..< testControlGroups.len:
+      testControlGroups[i] = @[]
 
   test "assignControlGroup saves current selection":
     let env = makeEmptyEnv()
