@@ -38,20 +38,8 @@ when defined(techAudit):
       totalSpentByTeam*: array[MapRoomObjectsTeams, Table[string, int]]
       lastSummaryStep*: int
 
-  const TeamColorNames: array[8, string] = [
-    "RED", "ORANGE", "YELLOW", "GREEN", "MAGENTA", "BLUE", "GRAY", "PINK"
-  ]
-
   var techAuditState*: TechAuditState
   var techAuditInitialized = false
-
-  proc teamColorName(teamId: int): string =
-    if teamId >= 0 and teamId < TeamColorNames.len:
-      TeamColorNames[teamId]
-    elif teamId == 8:
-      "GOBLIN"
-    else:
-      "NEUTRAL"
 
   proc initTechAudit*() =
     techAuditState = TechAuditState(

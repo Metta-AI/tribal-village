@@ -59,19 +59,7 @@ when defined(econAudit):
       lastDashboardStep*: int
       initialized*: bool
 
-  const TeamColorNames: array[8, string] = [
-    "RED", "ORANGE", "YELLOW", "GREEN", "MAGENTA", "BLUE", "GRAY", "PINK"
-  ]
-
   var econAuditState*: EconAuditState
-
-  proc teamColorName(teamId: int): string =
-    if teamId >= 0 and teamId < TeamColorNames.len:
-      TeamColorNames[teamId]
-    elif teamId == 8:
-      "GOBLIN"
-    else:
-      "NEUTRAL"
 
   proc resourceName(res: StockpileResource): string =
     case res

@@ -1827,36 +1827,19 @@ proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thi
 proc canStartFighterFollow(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
   ## Follow activates when follow mode is enabled and target is valid and alive.
-  if not state.followActive or state.followTargetAgentId < 0:
-    return false
-  if state.followTargetAgentId >= env.agents.len:
-    return false
-  let target = env.agents[state.followTargetAgentId]
-  isAgentAlive(env, target)
+  hasLiveFollowTarget(env, state)
 
 proc shouldTerminateFighterFollow(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
   ## Follow terminates when disabled or target dies.
-  if not state.followActive or state.followTargetAgentId < 0:
-    return true
-  if state.followTargetAgentId >= env.agents.len:
-    return true
-  let target = env.agents[state.followTargetAgentId]
-  not isAgentAlive(env, target)
+  not hasLiveFollowTarget(env, state)
 
 proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   ## Follow: stay close to the target agent, attack enemies along the way.
   ## If target dies, follow is automatically terminated.
-  if not state.followActive or state.followTargetAgentId < 0:
-    return 0'u16
-  if state.followTargetAgentId >= env.agents.len:
-    state.followActive = false
-    return 0'u16
-  let target = env.agents[state.followTargetAgentId]
-  if not isAgentAlive(env, target):
-    state.followActive = false
-    state.followTargetAgentId = -1
+  let target = resolveFollowTarget(env, state)
+  if isNil(target):
     return 0'u16
 
   # Check for attack opportunity
@@ -1864,14 +1847,7 @@ proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Check distance to target
-  let dist = int(chebyshevDist(agent.pos, target.pos))
-  if dist > FollowProximityRadius:
-    # Too far - move toward target
-    return controller.moveTo(env, agent, agentId, state, target.pos)
-
-  # Within range - stay put
-  0'u16
+  maintainFollowProximity(controller, env, agent, agentId, state, target)
 
 # Guard: Stay near a target (agent or position), attack enemies within range, return after combat
 

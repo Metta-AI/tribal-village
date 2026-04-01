@@ -10,6 +10,7 @@
 
 when defined(eventLog):
   import std/[strutils, os, tables, sequtils]
+  import constants
 
   type
     EventCategory* = enum
@@ -37,10 +38,6 @@ when defined(eventLog):
       summaryMode*: bool
       events*: seq[GameEvent]
       currentStep*: int
-
-  const TeamColorNames*: array[8, string] = [
-    "RED", "ORANGE", "YELLOW", "GREEN", "MAGENTA", "BLUE", "GRAY", "PINK"
-  ]
 
   var eventLogState*: EventLogState
   var eventLogInitialized = false
@@ -85,14 +82,6 @@ when defined(eventLog):
   proc ensureEventLogInit*() =
     if not eventLogInitialized:
       initEventLog()
-
-  proc teamColorName*(teamId: int): string =
-    if teamId >= 0 and teamId < TeamColorNames.len:
-      TeamColorNames[teamId]
-    elif teamId == 8:
-      "GOBLIN"
-    else:
-      "NEUTRAL"
 
   proc formatEvent(ev: GameEvent): string =
     "[Step " & $ev.step & "] " & teamColorName(ev.teamId) & " " & ev.message

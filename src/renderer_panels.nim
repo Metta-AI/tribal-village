@@ -127,13 +127,7 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
   # Draw each resource type (all 5 resources)
   for res in [ResourceFood, ResourceWood, ResourceStone, ResourceGold, ResourceWater]:
-    let icon = case res
-      of ResourceFood: itemSpriteKey(ItemWheat)
-      of ResourceWood: itemSpriteKey(ItemWood)
-      of ResourceStone: itemSpriteKey(ItemStone)
-      of ResourceGold: itemSpriteKey(ItemGold)
-      of ResourceWater: itemSpriteKey(ItemWater)
-      of ResourceNone: ""
+    let icon = stockpileResourceIcon(res)
 
     if icon.len > 0 and icon in bxy:
       # Draw icon

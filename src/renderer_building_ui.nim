@@ -4,7 +4,7 @@
 ## population, garrison, production queue), building ghost preview, placement validation.
 
 import
-  boxy, pixie, vmath, std/math,
+  boxy, pixie, vmath,
   common, constants, environment
 
 import renderer_core, label_cache
@@ -67,13 +67,7 @@ proc renderBuildingUI*(thing: Thing, pos: IVec2,
     let teamId = thing.teamId
     if teamId < 0 or teamId >= MapRoomObjectsTeams:
       return
-    let icon = case res
-      of ResourceFood: itemSpriteKey(ItemWheat)
-      of ResourceWood: itemSpriteKey(ItemWood)
-      of ResourceStone: itemSpriteKey(ItemStone)
-      of ResourceGold: itemSpriteKey(ItemGold)
-      of ResourceWater: itemSpriteKey(ItemWater)
-      of ResourceNone: ""
+    let icon = stockpileResourceIcon(res)
     let count = env.teamStockpiles[teamId].counts[res]
     let iconPos = pos.vec2 + vec2(BuildingIconOffsetX, BuildingIconOffsetY)
     if icon.len > 0 and icon in bxy:

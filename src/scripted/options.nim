@@ -17,6 +17,31 @@ proc actOrMove*(controller: Controller, env: Environment, agent: Thing,
     return controller.actAt(env, agent, agentId, state, targetPos, verb)
   controller.moveTo(env, agent, agentId, state, targetPos)
 
+proc hasLiveFollowTarget*(env: Environment, state: AgentState): bool {.inline.} =
+  if not state.followActive or state.followTargetAgentId < 0 or
+      state.followTargetAgentId >= env.agents.len:
+    return false
+  isAgentAlive(env, env.agents[state.followTargetAgentId])
+
+proc resolveFollowTarget*(env: Environment, state: var AgentState): Thing {.inline.} =
+  if not state.followActive or state.followTargetAgentId < 0:
+    return nil
+  if state.followTargetAgentId >= env.agents.len:
+    state.followActive = false
+    return nil
+  let target = env.agents[state.followTargetAgentId]
+  if not isAgentAlive(env, target):
+    state.followActive = false
+    state.followTargetAgentId = -1
+    return nil
+  target
+
+proc maintainFollowProximity*(controller: Controller, env: Environment, agent: Thing,
+                              agentId: int, state: var AgentState, target: Thing): uint16 =
+  if int(chebyshevDist(agent.pos, target.pos)) > FollowProximityRadius:
+    return controller.moveTo(env, agent, agentId, state, target.pos)
+  0'u16
+
 proc agentHasAnyItem*(agent: Thing, keys: openArray[ItemKey]): bool =
   for key in keys:
     if getInv(agent, key) > 0:

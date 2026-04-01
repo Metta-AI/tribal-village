@@ -578,6 +578,15 @@ proc resourceUiIconScale*(res: StockpileResource): float32 {.inline.} =
   of ResourceWood: 0.94'f32
   of ResourceWater, ResourceNone: 1.0'f32
 
+proc stockpileResourceIcon*(res: StockpileResource): string {.inline.} =
+  case res
+  of ResourceFood: itemSpriteKey(ItemWheat)
+  of ResourceWood: itemSpriteKey(ItemWood)
+  of ResourceStone: itemSpriteKey(ItemStone)
+  of ResourceGold: itemSpriteKey(ItemGold)
+  of ResourceWater: itemSpriteKey(ItemWater)
+  of ResourceNone: ""
+
 proc drawUiImageScaled*(key: string, topLeft: Vec2, size: Vec2,
                         tint: Color = TintWhite) =
   ## Draw a UI image in pixel space using top-left anchoring.
