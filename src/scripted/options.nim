@@ -19,6 +19,14 @@ proc actOrMove*(controller: Controller, env: Environment, agent: Thing,
     return controller.actAt(env, agent, agentId, state, targetPos, verb)
   controller.moveTo(env, agent, agentId, state, targetPos)
 
+proc actAtReadyFriendlyThing(controller: Controller, env: Environment, agent: Thing,
+                             agentId: int, state: var AgentState, teamId: int,
+                             kind: ThingKind, verb: uint16): uint16 =
+  let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
+  if isNil(building) or building.cooldown != 0:
+    return 0'u16
+  actOrMove(controller, env, agent, agentId, state, building.pos, verb)
+
 proc hasLiveFollowTarget*(env: Environment, state: AgentState): bool {.inline.} =
   if not state.followActive or state.followTargetAgentId < 0 or
       state.followTargetAgentId >= env.agents.len:
@@ -99,10 +107,7 @@ proc shouldTerminateCraftBread*(controller: Controller, env: Environment, agent:
 proc optCraftBread*(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let oven = env.findNearestFriendlyThingSpiral(state, teamId, ClayOven)
-  if isNil(oven) or oven.cooldown != 0:
-    return 0'u16
-  return actOrMove(controller, env, agent, agentId, state, oven.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, ClayOven, 3'u16)
 
 proc canStartSmeltGold*(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): bool =
@@ -693,10 +698,7 @@ optionGuard(canStartSiegeBreacher, shouldTerminateSiegeBreacher):
 proc optSiegeBreacher(controller: Controller, env: Environment, agent: Thing,
                       agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, SiegeWorkshop)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, SiegeWorkshop, 3'u16)
 
 optionGuard(canStartMangonelSuppression, shouldTerminateMangonelSuppression):
   agent.unitClass == UnitVillager and
@@ -706,10 +708,8 @@ optionGuard(canStartMangonelSuppression, shouldTerminateMangonelSuppression):
 proc optMangonelSuppression(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, MangonelWorkshop)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId,
+    MangonelWorkshop, 3'u16)
 
 optionGuard(canStartUnitPromotionFocus, shouldTerminateUnitPromotionFocus):
   if agent.unitClass != UnitVillager:
@@ -823,10 +823,7 @@ proc optMarketTrade*(controller: Controller, env: Environment, agent: Thing,
   ## Moves to nearest friendly Market and interacts with it.
   let teamId = getTeamId(agent)
   state.basePosition = agent.getBasePos()
-  let market = env.findNearestFriendlyThingSpiral(state, teamId, Market)
-  if isNil(market) or market.cooldown != 0:
-    return 0'u16
-  return actOrMove(controller, env, agent, agentId, state, market.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, Market, 3'u16)
 
 let MarketTradeOption* = OptionDef(
   name: "MarketTrade",
@@ -875,10 +872,7 @@ proc shouldTerminateResearchUniversityTech*(controller: Controller, env: Environ
 proc optResearchUniversityTech*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let university = env.findNearestFriendlyThingSpiral(state, teamId, University)
-  if isNil(university) or university.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, university.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, University, 3'u16)
 
 let ResearchUniversityTechOption* = OptionDef(
   name: "ResearchUniversityTech",
@@ -972,10 +966,7 @@ proc optResearchEconomyTech*(controller: Controller, env: Environment, agent: Th
   let (_, buildingKind, found) = findNextAffordableEconomyTech(env, teamId)
   if not found:
     return 0'u16
-  let building = env.findNearestFriendlyThingSpiral(state, teamId, buildingKind)
-  if isNil(building) or building.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, buildingKind, 3'u16)
 
 let ResearchEconomyTechOption* = OptionDef(
   name: "ResearchEconomyTech",
@@ -1008,10 +999,7 @@ optionGuard(canStartResearchBlacksmithUpgrade, shouldTerminateResearchBlacksmith
 proc optResearchBlacksmithUpgrade*(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): uint16 =
   let teamId = getTeamId(agent)
-  let blacksmith = env.findNearestFriendlyThingSpiral(state, teamId, Blacksmith)
-  if isNil(blacksmith) or blacksmith.cooldown != 0:
-    return 0'u16
-  actOrMove(controller, env, agent, agentId, state, blacksmith.pos, 3'u16)
+  actAtReadyFriendlyThing(controller, env, agent, agentId, state, teamId, Blacksmith, 3'u16)
 
 let ResearchBlacksmithUpgradeOption* = OptionDef(
   name: "ResearchBlacksmithUpgrade",

@@ -460,25 +460,15 @@ proc canStartBuilderDefenseResponse(controller: Controller, env: Environment, ag
                                     agentId: int, state: var AgentState): bool =
   ## Check if there's a defense request and we can respond by building
   let teamId = getTeamId(agent)
-  if not hasUnfulfilledRequest(teamId, RequestDefense):
-    return false
-  # Check if we're missing any defense buildings
-  for kind in DefenseRequestBuildingKinds:
-    if controller.getBuildingCount(env, teamId, kind) == 0:
-      return true
-  false
+  hasUnfulfilledRequest(teamId, RequestDefense) and
+    anyMissingBuilding(controller, env, teamId, DefenseRequestBuildingKinds)
 
 proc shouldTerminateBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
                                            agentId: int, state: var AgentState): bool =
   ## Terminate when no more defense requests or defense buildings built
   let teamId = getTeamId(agent)
-  if not hasUnfulfilledRequest(teamId, RequestDefense):
-    return true
-  # Check if all defense buildings exist
-  for kind in DefenseRequestBuildingKinds:
-    if controller.getBuildingCount(env, teamId, kind) == 0:
-      return false
-  true
+  not hasUnfulfilledRequest(teamId, RequestDefense) or
+    not anyMissingBuilding(controller, env, teamId, DefenseRequestBuildingKinds)
 
 proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint16 =
