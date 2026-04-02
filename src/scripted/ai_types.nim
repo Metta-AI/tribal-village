@@ -39,20 +39,14 @@ type
   ## Uses generation counters for O(1) validity checks without clearing arrays.
   PathfindingCache* = object
     generation*: int32
-    # Generation-stamped closed set for skipping already-processed nodes
     closedGen*: array[MapWidth, array[MapHeight, int32]]
-    # Generation-stamped gScore values
     gScoreGen*: array[MapWidth, array[MapHeight, int32]]
     gScoreVal*: array[MapWidth, array[MapHeight, int32]]
-    # Generation-stamped cameFrom for path reconstruction
     cameFromGen*: array[MapWidth, array[MapHeight, int32]]
     cameFromVal*: array[MapWidth, array[MapHeight, IVec2]]
-    # Binary heap priority queue for open set (O(log n) push/pop)
     openHeap*: HeapQueue[PathHeapNode]
-    # Goals array
     goals*: array[MaxPathGoals, IVec2]
     goalsLen*: int
-    # Result path buffer
     path*: array[MaxPathLength, IVec2]
     pathLen*: int
 
@@ -188,10 +182,16 @@ type
     allyThreatCacheStep*: array[MapRoomObjectsTeams, int]
     allyThreatCache*: array[MapRoomObjectsTeams, array[MapAgents, int8]]
     damagedBuildingCacheStep*: int
-    damagedBuildingPositions*: array[MapRoomObjectsTeams, array[MaxDamagedBuildingsPerTeam, IVec2]]
+    damagedBuildingPositions*: array[
+      MapRoomObjectsTeams,
+      array[MaxDamagedBuildingsPerTeam, IVec2]
+    ]
     damagedBuildingCounts*: array[MapRoomObjectsTeams, int]
     unlitBuildingCacheStep*: array[MapRoomObjectsTeams, int]
-    unlitBuildingPositions*: array[MapRoomObjectsTeams, array[MaxUnlitBuildingsPerTeam, IVec2]]
+    unlitBuildingPositions*: array[
+      MapRoomObjectsTeams,
+      array[MaxUnlitBuildingsPerTeam, IVec2]
+    ]
     unlitBuildingCounts*: array[MapRoomObjectsTeams, int]
     fogLastRevealPos*: array[MapAgents, IVec2]
     fogLastRevealStep*: array[MapAgents, int32]
@@ -202,12 +202,13 @@ type
     agentLifecycle*: AgentStateLifecycle
 
 proc defaultDifficultyConfig*(level: DifficultyLevel): DifficultyConfig =
-  ## Create a default difficulty configuration for the given level.
-  ## Easy: High delay (30%), limited intelligence
-  ## Normal: Moderate delay (10%), most features enabled
-  ## Hard: Low delay (2%), all features enabled
-  ## Brutal: No delay, all features, aggressive behavior
-  result = DifficultyConfig(level: level, adaptive: false, adaptiveTarget: 0.5, lastAdaptiveCheck: 0)
+  ## Create the default difficulty settings for one level.
+  result = DifficultyConfig(
+    level: level,
+    adaptive: false,
+    adaptiveTarget: 0.5,
+    lastAdaptiveCheck: 0
+  )
   case level
   of DiffEasy:
     result.decisionDelayChance = 0.30
@@ -244,9 +245,7 @@ proc newController*(seed: int): Controller =
   result.agentLifecycle.init()
 
 proc resetAgentState*(state: var AgentState) =
-  ## Reset all fields of an AgentState to default values.
-  ## Called when an agent dies, despawns, or needs full state reset.
-  ## Provides coordinated cleanup instead of scattered manual resets.
+  ## Reset one agent state back to defaults.
   state.role = Gatherer
   state.roleId = 0
   state.activeOptionId = -1
@@ -318,10 +317,7 @@ proc resetAgentState*(state: var AgentState) =
   state.commandQueueCount = 0
 
 proc resetControllerCaches*(controller: Controller, currentStep: int) =
-  ## Reset per-step caches at the start of a new step.
-  ## Uses generation-counter approach where possible to avoid O(n) clears.
-  ## This provides explicit lifecycle management for step-based caches.
-
+  ## Reset step-scoped controller caches for a new tick.
   if controller.buildingCountsStep != currentStep:
     controller.buildingCountsStep = -1
 
@@ -343,8 +339,7 @@ proc resetControllerCaches*(controller: Controller, currentStep: int) =
     controller.claimedBuildings[teamId] = {}
 
 proc cleanupAgentState*(controller: Controller, agentId: int) =
-  ## Cleanup agent state when agent dies or despawns.
-  ## Resets the agent's state and marks them as inactive in lifecycle tracking.
+  ## Reset one dead or despawned agent and mark it inactive.
   if agentId < 0 or agentId >= MapAgents:
     return
   controller.agents[agentId].resetAgentState()
@@ -352,15 +347,13 @@ proc cleanupAgentState*(controller: Controller, agentId: int) =
   controller.agentLifecycle.markInactive(agentId)
 
 proc markAgentActive*(controller: Controller, agentId: int, currentStep: int32) =
-  ## Mark an agent as active and track their lifecycle.
-  ## Called when processing an agent's turn.
+  ## Mark one agent active for lifecycle tracking.
   if agentId < 0 or agentId >= MapAgents:
     return
   controller.agentLifecycle.markActive(agentId, currentStep)
 
 proc processAgentCleanup*(controller: Controller): seq[int] =
-  ## Process any pending agent cleanups and return list of cleaned agent IDs.
-  ## Call this at the end of a step to clean up agents that died during the step.
+  ## Apply pending lifecycle cleanups and return cleaned agent ids.
   result = controller.agentLifecycle.getAgentsNeedingCleanup()
   for agentId in result:
     controller.agents[agentId].resetAgentState()
@@ -379,26 +372,7 @@ type
 
 proc initializeToEnvironment*(controller: Controller, numAgents, numTeams,
                               mapWidth, mapHeight: int): ControllerInitResult =
-  ## Initialize controller to runtime environment parameters.
-  ## This enables policy portability across different environment configurations.
-  ##
-  ## Called after construction when the actual environment dimensions are known.
-  ## Allows the controller to adapt its internal state based on runtime config
-  ## rather than compile-time constants.
-  ##
-  ## Parameters:
-  ##   numAgents: Total number of agents in the environment
-  ##   numTeams: Number of teams
-  ##   mapWidth: Map width in tiles
-  ##   mapHeight: Map height in tiles
-  ##
-  ## Returns:
-  ##   ControllerInitResult with success status and any initialization messages
-  ##
-  ## Note: Currently the Controller uses compile-time arrays sized by MapAgents,
-  ## MapRoomObjectsTeams, etc. This proc validates that runtime params match
-  ## compile-time expectations and could be extended for runtime-sized containers.
-
+  ## Validate runtime environment dimensions against the controller layout.
   result.numAgents = numAgents
   result.numTeams = numTeams
   result.mapWidth = mapWidth
@@ -418,12 +392,16 @@ proc initializeToEnvironment*(controller: Controller, numAgents, numTeams,
 
   if mapWidth != MapWidth:
     result.success = false
-    result.message = "Map width mismatch: runtime=" & $mapWidth & " vs compile-time=" & $MapWidth
+    result.message =
+      "Map width mismatch: runtime=" & $mapWidth &
+      " vs compile-time=" & $MapWidth
     return
 
   if mapHeight != MapHeight:
     result.success = false
-    result.message = "Map height mismatch: runtime=" & $mapHeight & " vs compile-time=" & $MapHeight
+    result.message =
+      "Map height mismatch: runtime=" & $mapHeight &
+      " vs compile-time=" & $MapHeight
     return
 
   result.success = true
@@ -431,9 +409,13 @@ proc initializeToEnvironment*(controller: Controller, numAgents, numTeams,
                    $numTeams & " teams, " & $mapWidth & "x" & $mapHeight & " map"
 
 proc initializeToEnvironmentDefault*(controller: Controller): ControllerInitResult =
-  ## Initialize controller with compile-time default environment parameters.
-  ## Convenience proc for standard initialization.
-  controller.initializeToEnvironment(MapAgents, MapRoomObjectsTeams, MapWidth, MapHeight)
+  ## Initialize the controller with compile-time default dimensions.
+  controller.initializeToEnvironment(
+    MapAgents,
+    MapRoomObjectsTeams,
+    MapWidth,
+    MapHeight
+  )
 
 type
   OptionDef* = object
@@ -468,11 +450,8 @@ template resetActiveOptionKeepTicks(state: var AgentState) =
 proc runOptions*(controller: Controller, env: Environment, agent: Thing,
                  agentId: int, state: var AgentState,
                  roleOptions: openArray[OptionDef]): uint16 =
-  ## Execute the RL-style options framework.
-  ## Handles active option continuation, preemption by higher-priority options,
-  ## and scanning for new options when none is active.
+  ## Run the option list with continuation, preemption, and rescans.
   let optionCount = roleOptions.len
-  # Handle active option first (if any).
   if state.activeOptionId in 0 ..< optionCount:
     let activeIdx = state.activeOptionId
     if roleOptions[activeIdx].interruptible:
@@ -489,11 +468,8 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
           controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
-    # action==0: option produced no movement. Reset option ID so scan runs,
-    # but preserve ticks so idle detection (IdleAutoAssignSteps) can trigger.
     resetActiveOptionKeepTicks(state)
 
-  # Otherwise, scan options in priority order and use the first that acts.
   for i, opt in roleOptions:
     if not opt.canStart(controller, env, agent, agentId, state):
       continue
@@ -504,58 +480,26 @@ proc runOptions*(controller: Controller, env: Environment, agent: Thing,
       if opt.shouldTerminate(controller, env, agent, agentId, state):
         resetActiveOption(state)
       return action
-    # action==0: reset option but keep ticks accumulating for idle detection.
     resetActiveOptionKeepTicks(state)
 
   return 0'u16
 
 template optionGuard*(canName, termName: untyped, body: untyped) {.dirty.} =
-  ## Generate a canStart/shouldTerminate pair from a single boolean expression.
-  ## shouldTerminate is the logical negation of canStart.
-  ## Shared template used by gatherer, builder, and fighter options.
+  ## Generate inverse start and terminate predicates from one expression.
   proc canName(controller: Controller, env: Environment, agent: Thing,
                agentId: int, state: var AgentState): bool = body
   proc termName(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = not (body)
 
 template optionGuardExported*(canName, termName: untyped, body: untyped) {.dirty.} =
-  ## Exported variant for shared option predicates referenced by tests and other modules.
+  ## Export inverse predicates for shared option checks.
   proc canName*(controller: Controller, env: Environment, agent: Thing,
                 agentId: int, state: var AgentState): bool = body
   proc termName*(controller: Controller, env: Environment, agent: Thing,
                  agentId: int, state: var AgentState): bool = not (body)
 
 macro defineBehavior*(name: static[string], body: untyped): untyped =
-  ## Define a complete behavior with canStart, shouldTerminate, opt procs and OptionDef.
-  ##
-  ## This macro reduces boilerplate by generating all three procedure signatures
-  ## and the OptionDef from a single definition block.
-  ##
-  ## Usage (simple inverse - shouldTerminate is negation of canStart):
-  ##   defineBehavior("FighterMonk"):
-  ##     canStart: agent.unitClass == UnitMonk
-  ##     act:
-  ##       let teamId = getTeamId(agent)
-  ##       # ... logic ...
-  ##       0'u16
-  ##
-  ## Usage (complex - explicit shouldTerminate):
-  ##   defineBehavior("FighterTrain"):
-  ##     canStart:
-  ##       agent.unitClass == UnitVillager and canAffordTraining(env, agent)
-  ##     shouldTerminate:
-  ##       agent.unitClass != UnitVillager or not canAffordTraining(env, agent)
-  ##     act:
-  ##       # ... training logic ...
-  ##       0'u16
-  ##     interruptible: false
-  ##
-  ## The macro generates:
-  ##   - proc canStart{Name}*(controller, env, agent, agentId, state): bool
-  ##   - proc shouldTerminate{Name}*(controller, env, agent, agentId, state): bool
-  ##   - proc opt{Name}*(controller, env, agent, agentId, state): uint8
-  ##   - let {Name}Option* = OptionDef(...)
-
+  ## Generate a behavior's start, terminate, act, and option definitions.
   var canStartBody: NimNode = nil
   var shouldTerminateBody: NimNode = nil
   var actBody: NimNode = nil
@@ -668,28 +612,7 @@ macro defineBehavior*(name: static[string], body: untyped): untyped =
 template behaviorGuard*(nameBase, canName, termName: untyped,
                         condition: untyped, actBody: untyped,
                         interruptibleVal: bool = true) {.dirty.} =
-  ## Generate canStart, shouldTerminate (inverse), opt procedures and OptionDef.
-  ##
-  ## This template is for simple behaviors where shouldTerminate is the
-  ## logical negation of canStart.
-  ##
-  ## Usage:
-  ##   behaviorGuard(FighterRetreat, canStartFighterRetreat, shouldTerminateFighterRetreat,
-  ##     agent.hp * 3 <= agent.maxHp,
-  ##     block:
-  ##       if agent.hp * 3 > agent.maxHp:
-  ##         return 0'u16
-  ##       controller.moveTo(env, agent, agentId, state, basePos)
-  ##   )
-  ##
-  ## Parameters:
-  ##   nameBase: Base name for the behavior (used for OptionDef name)
-  ##   canName: Name for the canStart procedure
-  ##   termName: Name for the shouldTerminate procedure
-  ##   condition: Boolean expression for canStart (shouldTerminate is negated)
-  ##   actBody: Body of the opt procedure
-  ##   interruptibleVal: Whether the option is interruptible (default true)
-
+  ## Generate a simple inverse-guard behavior and its option definition.
   proc canName(controller: Controller, env: Environment, agent: Thing,
                agentId: int, state: var AgentState): bool = condition
   proc termName(controller: Controller, env: Environment, agent: Thing,
@@ -705,8 +628,7 @@ template behaviorGuard*(nameBase, canName, termName: untyped,
   )
 
 proc stockpileResourceToGathererTask*(resource: StockpileResource): GathererTask =
-  ## Convert StockpileResource to corresponding GathererTask.
-  ## Returns TaskFood for unknown/unmapped resources.
+  ## Map a stockpile resource to its gatherer task.
   case resource
   of ResourceFood: TaskFood
   of ResourceWood: TaskWood
@@ -714,24 +636,25 @@ proc stockpileResourceToGathererTask*(resource: StockpileResource): GathererTask
   of ResourceStone: TaskStone
   of ResourceWater, ResourceNone: TaskFood
 
-proc setGathererPriority*(controller: Controller, agentId: int, resource: StockpileResource) =
-  ## Set individual gatherer priority override.
-  ## Forces the gatherer to collect the specified resource.
+proc setGathererPriority*(
+  controller: Controller,
+  agentId: int,
+  resource: StockpileResource
+) =
+  ## Set one gatherer's manual resource priority.
   if agentId < 0 or agentId >= MapAgents:
     return
   controller.agents[agentId].gathererPriorityResource = resource
   controller.agents[agentId].gathererPriorityActive = true
 
 proc clearGathererPriority*(controller: Controller, agentId: int) =
-  ## Clear individual gatherer priority override.
-  ## Returns the gatherer to automatic task selection.
+  ## Clear one gatherer's manual resource priority.
   if agentId < 0 or agentId >= MapAgents:
     return
   controller.agents[agentId].gathererPriorityActive = false
 
 proc getGathererPriority*(controller: Controller, agentId: int): StockpileResource =
-  ## Get the current gatherer priority for an agent.
-  ## Returns ResourceNone if no priority is set.
+  ## Return one agent's gatherer priority or `ResourceNone`.
   if agentId < 0 or agentId >= MapAgents:
     return ResourceNone
   if not controller.agents[agentId].gathererPriorityActive:
@@ -744,24 +667,25 @@ proc isGathererPriorityActive*(controller: Controller, agentId: int): bool =
     return false
   controller.agents[agentId].gathererPriorityActive
 
-proc setTeamEconomyFocus*(controller: Controller, teamId: int, resource: StockpileResource) =
-  ## Set team-level economy focus.
-  ## Biases all gatherers on the team toward the specified resource.
+proc setTeamEconomyFocus*(
+  controller: Controller,
+  teamId: int,
+  resource: StockpileResource
+) =
+  ## Set the team-wide economy focus resource.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   controller.teamEconomyFocus[teamId] = resource
   controller.teamEconomyFocusActive[teamId] = true
 
 proc clearTeamEconomyFocus*(controller: Controller, teamId: int) =
-  ## Clear team-level economy focus.
-  ## Returns all gatherers to automatic task selection.
+  ## Clear the team-wide economy focus.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   controller.teamEconomyFocusActive[teamId] = false
 
 proc getTeamEconomyFocus*(controller: Controller, teamId: int): StockpileResource =
-  ## Get the current team economy focus.
-  ## Returns ResourceNone if no focus is set.
+  ## Return the active team economy focus or `ResourceNone`.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return ResourceNone
   if not controller.teamEconomyFocusActive[teamId]:
