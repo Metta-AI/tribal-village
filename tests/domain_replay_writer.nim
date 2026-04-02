@@ -1,18 +1,14 @@
-## Tests for replay_writer.nim - Episode recording and JSON output.
-##
-## Tests the public interface: maybeStartReplayEpisode, maybeLogReplayStep,
-## maybeFinalizeReplay. Uses TV_REPLAY_PATH env var to control output.
-##
-## Run: nim r --path:src tests/domain_replay_writer.nim
+## Tests replay writer episode recording and JSON output.
 
-import std/[unittest, os, json, strformat]
-import zippy
-import environment
-import types
+import
+  std/[json, os, strformat, unittest],
+  zippy,
+  environment, test_utils, types
+
 import replay_writer as rw
-import test_utils
 
 proc readReplayJson(path: string): JsonNode =
+  ## Read and decompress a replay JSON file.
   let compressed = readFile(path)
   let decompressed = zippy.uncompress(compressed, dataFormat = dfZlib)
   parseJson(decompressed)
@@ -66,13 +62,11 @@ suite "Replay Writer - No-Op Safety":
     let env = makeEmptyEnv()
     var actions: array[MapAgents, uint16]
     rw.maybeLogReplayStep(env, addr actions)
-    # No crash = pass
 
   test "maybeFinalizeReplay safe with nil writer":
     rw.replayWriter = nil
     let env = makeEmptyEnv()
     rw.maybeFinalizeReplay(env)
-    # No crash = pass
 
   test "maybeLogReplayStep safe at step 0":
     let tmpPath = getTempDir() / "test_step0.json.z"
@@ -82,11 +76,10 @@ suite "Replay Writer - No-Op Safety":
 
     let env = makeEmptyEnv()
     rw.maybeStartReplayEpisode(env)
-    env.currentStep = 0  # stepIndex = -1
+    env.currentStep = 0
 
     var actions: array[MapAgents, uint16]
     rw.maybeLogReplayStep(env, addr actions)
-    # No crash = pass
 
     delEnv("TV_REPLAY_PATH")
     rw.replayWriter = nil
@@ -101,7 +94,7 @@ suite "Replay Writer - Full Replay Output":
     let env = newEnvironment()
     rw.maybeStartReplayEpisode(env)
 
-    for i in 0 ..< 5:
+    for _ in 0 ..< 5:
       var actions: array[MapAgents, uint16]
       env.step(addr actions)
       rw.maybeLogReplayStep(env, addr actions)
@@ -129,7 +122,10 @@ suite "Replay Writer - Full Replay Output":
     check replay.hasKey("file_name")
     check replay.hasKey("mg_config")
 
-    echo &"  Replay: {replay[\"objects\"].len} objects, {replay[\"max_steps\"].getInt()} steps"
+    echo(
+      &"  Replay: {replay[\"objects\"].len} objects, " &
+      &"{replay[\"max_steps\"].getInt()} steps"
+    )
 
     removeFile(tmpPath)
     delEnv("TV_REPLAY_PATH")
@@ -230,7 +226,7 @@ suite "Replay Writer - Full Replay Output":
     rw.maybeStartReplayEpisode(env)
 
     let numSteps = 10
-    for i in 0 ..< numSteps:
+    for _ in 0 ..< numSteps:
       var actions: array[MapAgents, uint16]
       env.step(addr actions)
       rw.maybeLogReplayStep(env, addr actions)
@@ -240,7 +236,7 @@ suite "Replay Writer - Full Replay Output":
     let replay = readReplayJson(tmpPath)
     check replay["max_steps"].getInt() == numSteps
 
-    # Verify location series has multiple entries (state changed over steps)
+    # Verify that some location series changed across steps.
     var hasMultiEntry = false
     for obj in replay["objects"].items:
       if obj.hasKey("location"):
@@ -248,8 +244,6 @@ suite "Replay Writer - Full Replay Output":
         if locSeries.kind == JArray and locSeries.len > 1:
           hasMultiEntry = true
           break
-    # At least some objects should have location changes over 10 steps
-    # (agents move, things appear/disappear)
     echo &"  Multi-entry location series found: {hasMultiEntry}"
     check replay["max_steps"].getInt() == numSteps
 
