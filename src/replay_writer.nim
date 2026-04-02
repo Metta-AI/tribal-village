@@ -7,6 +7,8 @@ import
 
 const
   DefaultReplayBaseName = "tribal_village"
+  DefaultReplayLabel = "Tribal Village Replay"
+  ReplayFileExtension = ".json.z"
 
 type
   ReplaySeries = object
@@ -47,7 +49,7 @@ proc buildEpisodePath(writer: ReplayWriter): string =
 
   let
     suffix = "_" & $writer.episodeIndex
-    fileName = writer.baseName & suffix & ".json.z"
+    fileName = writer.baseName & suffix & ReplayFileExtension
   if writer.baseDir.len > 0:
     return writer.baseDir / fileName
   fileName
@@ -64,7 +66,7 @@ proc maybeStartReplayEpisode*(env: Environment) =
       return
     let
       baseName = getEnv("TV_REPLAY_NAME", DefaultReplayBaseName)
-      label = getEnv("TV_REPLAY_LABEL", "Tribal Village Replay")
+      label = getEnv("TV_REPLAY_LABEL", DefaultReplayLabel)
     writer = ReplayWriter(
       enabled: true,
       baseDir: baseDir,
