@@ -1,70 +1,83 @@
-## Carry runtime environment parameters for lazy component initialization.
+## Runtime environment metadata for lazy component initialization.
 
 import
-  std/tables,
-  common_types, types
+  std/[tables],
+  common_types,
+  types
 
 export types, common_types
 
 const
-  ## Store the total action count derived from verb and argument counts.
   ActionCount* = ActionVerbCount * ActionArgumentCount
+    ## Total action count derived from verbs and arguments.
   UnknownFeatureId = 255
+    ## Sentinel ID for features absent from the original mapping.
 
 type
-  ## Describe one observation feature.
   FeatureProps* = object
-    id*: int              ## Store the unique feature identifier.
-    name*: string         ## Store the feature name.
-    normalization*: float ## Store the feature normalization factor.
+    ## Descriptor for one observation feature.
+    id*: int
+      ## Unique feature identifier.
+    name*: string
+      ## Feature name.
+    normalization*: float
+      ## Normalization factor for the feature.
 
-  ## Environment info passed to components for lazy initialization.
-  ## Captures runtime environment parameters that components need to adapt to.
   EnvironmentInfo* = object
-    ## Map dimensions (may differ from compile-time constants for variant support)
+    ## Runtime environment parameters passed to lazy components.
     mapWidth*: int
+      ## Runtime map width.
     mapHeight*: int
-
-    ## Observation dimensions
+      ## Runtime map height.
     obsWidth*: int
+      ## Observation width.
     obsHeight*: int
+      ## Observation height.
     obsLayers*: int
-
-    ## Agent/team configuration
+      ## Observation layer count.
     numAgents*: int
+      ## Total agent count.
     numTeams*: int
+      ## Total team count.
     agentsPerTeam*: int
-
-    ## Action space dimensions
+      ## Agent count per team.
     numActions*: int
+      ## Total action count.
     numActionVerbs*: int
+      ## Action verb count.
     numActionArgs*: int
-
-    ## Observation features (for feature remapping)
+      ## Action argument count.
     obsFeatures*: seq[FeatureProps]
-
-    ## Feature name to ID mapping (populated during initialization)
+      ## Observation feature descriptors.
     featureNameToId*: Table[string, int]
-
-    ## Original feature mapping (for policy portability)
+      ## Mapping from feature name to feature ID.
     originalFeatureMapping*: Table[string, int]
-
-    ## Flag indicating if this info has been initialized
+      ## Baseline feature mapping for policy portability.
     initialized*: bool
+      ## Whether the structure has been initialized.
 
-  ## Result of initializeToEnvironment call
   InitResult* = object
+    ## Result of an environment initialization attempt.
     success*: bool
     message*: string
 
-## Describe components that support lazy environment initialization.
-type
   InitializableComponent* = concept c
+    ## Component that supports lazy environment initialization.
     c.initializeToEnvironment(EnvironmentInfo) is InitResult
 
+proc addDefaultObservationFeatures(info: var EnvironmentInfo) =
+  ## Populates observation feature metadata from `ObservationName`.
+  for layer in ObservationName:
+    let props = FeatureProps(
+      id: ord(layer),
+      name: $layer,
+      normalization: 1.0,
+    )
+    info.obsFeatures.add(props)
+    info.featureNameToId[$layer] = ord(layer)
+
 proc newEnvironmentInfo*(): EnvironmentInfo =
-  ## Create an uninitialized EnvironmentInfo.
-  ## Call initFromEnvironment() to populate from an actual environment.
+  ## Creates an uninitialized `EnvironmentInfo`.
   result = EnvironmentInfo(
     mapWidth: 0,
     mapHeight: 0,
@@ -80,86 +93,68 @@ proc newEnvironmentInfo*(): EnvironmentInfo =
     obsFeatures: @[],
     featureNameToId: initTable[string, int](),
     originalFeatureMapping: initTable[string, int](),
-    initialized: false
+    initialized: false,
   )
 
 proc defaultEnvironmentInfo*(): EnvironmentInfo =
-  ## Create EnvironmentInfo with compile-time default values.
-  ## Used when no runtime configuration is needed.
-  result = EnvironmentInfo(
-    mapWidth: MapWidth,
-    mapHeight: MapHeight,
-    obsWidth: ObservationWidth,
-    obsHeight: ObservationHeight,
-    obsLayers: ObservationLayers,
-    numAgents: MapAgents,
-    numTeams: MapRoomObjectsTeams,
-    agentsPerTeam: MapAgentsPerTeam,
-    numActions: ActionCount,
-    numActionVerbs: ActionVerbCount,
-    numActionArgs: ActionArgumentCount,
-    obsFeatures: @[],
-    featureNameToId: initTable[string, int](),
-    originalFeatureMapping: initTable[string, int](),
-    initialized: true
-  )
-
-  # Populate observation features from the ObservationName enum.
-  for layer in ObservationName:
-    let props = FeatureProps(
-      id: ord(layer),
-      name: $layer,
-      normalization: 1.0
-    )
-    result.obsFeatures.add(props)
-    result.featureNameToId[$layer] = ord(layer)
+  ## Creates `EnvironmentInfo` with compile-time default values.
+  result = newEnvironmentInfo()
+  result.mapWidth = MapWidth
+  result.mapHeight = MapHeight
+  result.obsWidth = ObservationWidth
+  result.obsHeight = ObservationHeight
+  result.obsLayers = ObservationLayers
+  result.numAgents = MapAgents
+  result.numTeams = MapRoomObjectsTeams
+  result.agentsPerTeam = MapAgentsPerTeam
+  result.numActions = ActionCount
+  result.numActionVerbs = ActionVerbCount
+  result.numActionArgs = ActionArgumentCount
+  result.initialized = true
+  result.addDefaultObservationFeatures()
 
 proc isValid*(info: EnvironmentInfo): bool =
-  ## Check if the environment info has valid dimensions.
+  ## Returns whether the environment info has valid dimensions.
   info.initialized and
     info.mapWidth > 0 and
     info.mapHeight > 0 and
     info.numAgents > 0
 
 proc obsRadius*(info: EnvironmentInfo): int =
-  ## Calculate observation radius from observation width.
+  ## Returns the observation radius derived from observation width.
   info.obsWidth div 2
 
 proc getFeatureId*(info: EnvironmentInfo, name: string): int =
-  ## Get feature ID by name, returning -1 if not found.
+  ## Returns a feature ID by name, or `-1` when it is absent.
   if name in info.featureNameToId:
     return info.featureNameToId[name]
-  return -1
+  -1
 
 proc getFeatureNormalization*(info: EnvironmentInfo, featureId: int): float =
-  ## Get normalization factor for a feature ID.
+  ## Returns the normalization factor for one feature ID.
   for feature in info.obsFeatures:
     if feature.id == featureId:
       return feature.normalization
-  return 1.0
+  1.0
 
 proc hasFeature*(info: EnvironmentInfo, name: string): bool =
-  ## Check if a feature exists by name.
+  ## Returns whether the named feature exists.
   name in info.featureNameToId
 
 proc storeOriginalMapping*(info: var EnvironmentInfo) =
-  ## Store the current feature mapping as the original.
-  ## Called during first initialization to establish baseline.
+  ## Stores the current feature mapping as the baseline mapping.
   info.originalFeatureMapping = info.featureNameToId
 
 proc createFeatureRemapping*(
   info: EnvironmentInfo,
   currentFeatures: seq[FeatureProps]
 ): Table[int, int] =
-  ## Create a remapping from current feature IDs to original IDs.
-  ## This enables policy portability across environments with different feature orderings.
+  ## Creates a remapping from current feature IDs to original IDs.
   result = initTable[int, int]()
-
   for feature in currentFeatures:
     if feature.name in info.originalFeatureMapping:
       let originalId = info.originalFeatureMapping[feature.name]
       if feature.id != originalId:
         result[feature.id] = originalId
     else:
-      # Map unknown features to the sentinel ID.
       result[feature.id] = UnknownFeatureId
