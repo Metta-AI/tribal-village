@@ -8,7 +8,10 @@ export options, coordination, formations
 
 const
   DividerInvSqrt2 = 0.70710677'f32
-  FighterTrainKinds = [Castle, Barracks, Monastery, ArcheryRange, Dock, Stable, MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop]
+  FighterTrainKinds = [
+    Castle, Barracks, Monastery, ArcheryRange, Dock, Stable,
+    MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop
+  ]
   FighterSiegeKinds = {MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop}
   FighterNavalKinds = {Dock}
   MaxSiegePerTeam = 3
@@ -78,31 +81,38 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   threateningCache[cacheKey] = false
   false
 
-proc cachedIsThreateningAlly(controller: Controller, env: Environment, enemy: Thing, teamId: int): bool =
+proc cachedIsThreateningAlly(
+  controller: Controller,
+  env: Environment,
+  enemy: Thing,
+  teamId: int
+): bool =
   ## Check if an enemy is threatening an ally, with per-step caching.
   ## Cache avoids redundant spatial scans when multiple fighters evaluate the same enemy.
   let agentId = enemy.agentId
   if agentId < 0 or agentId >= MapAgents:
     return isThreateningAlly(env, enemy, teamId)
 
-  # Invalidate cache if step changed
   if controller.allyThreatCacheStep[teamId] != env.currentStep:
     controller.allyThreatCacheStep[teamId] = env.currentStep
-    # Reset cache entries for this team (mark all as uncached)
     for i in 0 ..< MapAgents:
       controller.allyThreatCache[teamId][i] = -1'i8
 
-  # Check cache
   let cached = controller.allyThreatCache[teamId][agentId]
   if cached >= 0:
     return cached == 1
 
-  # Compute and cache
   let isThreat = isThreateningAlly(env, enemy, teamId)
   controller.allyThreatCache[teamId][agentId] = if isThreat: 1'i8 else: 0'i8
   isThreat
 
-proc scoreEnemy(controller: Controller, env: Environment, agent: Thing, enemy: Thing, teamId: int): float =
+proc scoreEnemy(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  enemy: Thing,
+  teamId: int
+): float =
   ## Score an enemy for target selection. Higher score = better target.
   ## Considers: distance, HP ratio, threat to allies, class counters, and unit value.
   var score = 0.0
@@ -593,7 +603,13 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
     targetKind = Door
   elif bestOutpost.x >= 0:
     targetKind = Outpost
-  let targetPos = (if targetKind == Door: bestDoor elif targetKind == Outpost: bestOutpost else: bestWall)
+  let targetPos =
+    if targetKind == Door:
+      bestDoor
+    elif targetKind == Outpost:
+      bestOutpost
+    else:
+      bestWall
   if targetPos.x >= 0:
     let (buildName, buildIndex) = case targetKind
       of Door: ("Door", BuildIndexDoor)
@@ -609,14 +625,16 @@ proc optFighterDividerDefense(controller: Controller, env: Environment, agent: T
   0'u16
 
 optionGuard(canStartFighterLanterns, shouldTerminateFighterLanterns):
-  ## Only start lantern work if agent has lanterns or is a villager (can craft them)
+  ## Start lantern work only when the agent can place or craft lanterns.
   agent.inventoryLantern > 0 or agent.unitClass == UnitVillager
 
-# Building kinds that need lanterns - shared between cache refresh and optFighterLanterns
-const LanternBuildingKinds* = [Outpost, GuardTower, TownCenter, House, Barracks, ArcheryRange,
-  Stable, SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock, Monastery,
-  University, Castle, Granary, LumberCamp, Quarry, MiningCamp, Mill, WeavingLoom,
-  ClayOven, Altar, Wall]
+const
+  LanternBuildingKinds* = [
+    Outpost, GuardTower, TownCenter, House, Barracks, ArcheryRange,
+    Stable, SiegeWorkshop, MangonelWorkshop, Blacksmith, Market, Dock,
+    Monastery, University, Castle, Granary, LumberCamp, Quarry,
+    MiningCamp, Mill, WeavingLoom, ClayOven, Altar, Wall
+  ]
 
 proc refreshUnlitBuildingCache(controller: Controller, env: Environment, teamId: int) =
   ## Refresh the per-team unlit building cache if stale.
@@ -625,27 +643,25 @@ proc refreshUnlitBuildingCache(controller: Controller, env: Environment, teamId:
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   if controller.unlitBuildingCacheStep[teamId] == env.currentStep:
-    return  # Cache is fresh for this team this step
+    return
   controller.unlitBuildingCacheStep[teamId] = env.currentStep
   controller.unlitBuildingCounts[teamId] = 0
 
-  # Helper to check if position has a lantern nearby (uses pre-populated tempLanternSpacing)
   proc hasLanternNear(env: Environment, pos: IVec2): bool =
     for lantern in env.tempLanternSpacing:
       if chebyshevDist(lantern.pos, pos) <= 3:
         return true
     return false
 
-  # Collect all unlit buildings for this team
   for kind in LanternBuildingKinds:
     for thing in env.thingsByKind[kind]:
       if thing.isNil or thing.teamId != teamId:
         continue
       if hasLanternNear(env, thing.pos):
         continue
-      # Found an unlit building - add to cache
       if controller.unlitBuildingCounts[teamId] < MaxUnlitBuildingsPerTeam:
-        controller.unlitBuildingPositions[teamId][controller.unlitBuildingCounts[teamId]] = thing.pos
+        let idx = controller.unlitBuildingCounts[teamId]
+        controller.unlitBuildingPositions[teamId][idx] = thing.pos
         controller.unlitBuildingCounts[teamId] += 1
 
 proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
@@ -656,9 +672,6 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
   var target = ivec2(-1, -1)
   var unlit: Thing = nil
   var bestUnlitDist = int.high
-  # Pre-collect healthy team lantern positions once to avoid repeated spatial queries.
-  # Each hasTeamLanternNear call allocates a seq and runs a spatial query; this replaces
-  # O(buildings + candidates) spatial queries with one O(lanterns) scan + simple distance checks.
   var teamLanternCount = 0
   var teamLanternFarthest = 0
   env.tempLanternSpacing.setLen(0)
@@ -671,7 +684,6 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     if dist > teamLanternFarthest:
       teamLanternFarthest = dist
 
-  # Inline lantern proximity check using pre-collected positions
   template hasLanternNearCached(checkPos: IVec2): bool =
     var found = false
     for lantern in env.tempLanternSpacing:
@@ -680,19 +692,14 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
         break
     found
 
-  # Use per-team-per-step cache of unlit building positions instead of iterating all buildings.
-  # This reduces O(buildings * lanterns) per agent to O(cached_unlit * lanterns) for verification.
   refreshUnlitBuildingCache(controller, env, teamId)
 
-  # Find closest unlit building from cache (verify still unlit - lantern may have been placed this step)
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     for i in 0 ..< controller.unlitBuildingCounts[teamId]:
       let pos = controller.unlitBuildingPositions[teamId][i]
-      # Verify position still has a building (may have been destroyed)
       let thing = env.getThing(pos)
       if thing.isNil or thing.teamId != teamId:
         continue
-      # Verify still unlit (lantern may have been placed since cache was built)
       if hasLanternNearCached(pos):
         continue
       let dist = abs(pos.x - agent.pos.x).int + abs(pos.y - agent.pos.y).int
@@ -719,7 +726,10 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     if bestPos.x >= 0:
       target = bestPos
   if target.x < 0:
-    let desiredRadius = max(ObservationRadius + 1, max(3, teamLanternFarthest + 2 + teamLanternCount div 6))
+    let desiredRadius = max(
+      ObservationRadius + 1,
+      max(3, teamLanternFarthest + 2 + teamLanternCount div 6)
+    )
     for _ in 0 ..< 18:
       let candidate = getNextSpiralPoint(state)
       if chebyshevDist(candidate, basePos) < desiredRadius:
@@ -735,14 +745,21 @@ proc optFighterLanterns(controller: Controller, env: Environment, agent: Thing,
     if agent.inventoryLantern > 0:
       return actOrMove(controller, env, agent, agentId, state, target, 6'u16)
 
-    if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and agent.unitClass == UnitVillager:
+    if controller.getBuildingCount(env, teamId, WeavingLoom) == 0 and
+        agent.unitClass == UnitVillager:
       if chebyshevDist(agent.pos, basePos) > 2'i32:
         let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
         let dir = getMoveTowards(env, agent, agent.pos, basePos, controller.rng, avoidDir)
         if dir >= 0:
           return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dir.uint8))
-        # Fall through to try building if can't move
-      let (didBuild, buildAct) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, WeavingLoom)
+      let (didBuild, buildAct) = controller.tryBuildIfMissing(
+        env,
+        agent,
+        agentId,
+        state,
+        teamId,
+        WeavingLoom
+      )
       if didBuild: return buildAct
 
     let hasLanternInput = agent.inventoryWheat > 0 or agent.inventoryWood > 0
@@ -888,7 +905,9 @@ proc optFighterBecomeSiege(controller: Controller, env: Environment, agent: Thin
 optionGuard(canStartFighterMaintainGear, shouldTerminateFighterMaintainGear):
   if agent.inventoryArmor < ArmorPoints:
     return true
-  agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0
+  agent.unitClass in {
+    UnitManAtArms, UnitLongSwordsman, UnitChampion
+  } and agent.inventorySpear == 0
 
 proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
@@ -898,7 +917,9 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
     if didSmith: return actSmith
     return 0'u16
 
-  if agent.unitClass in {UnitManAtArms, UnitLongSwordsman, UnitChampion} and agent.inventorySpear == 0:
+  if agent.unitClass in {
+    UnitManAtArms, UnitLongSwordsman, UnitChampion
+  } and agent.inventorySpear == 0:
     if agent.inventoryWood == 0:
       let (didWood, actWood) = controller.ensureWood(env, agent, agentId, state)
       if didWood: return actWood
@@ -907,7 +928,6 @@ proc optFighterMaintainGear(controller: Controller, env: Environment, agent: Thi
   0'u16
 
 const
-  # Unit classes excluded from melee enemy search (ranged + special)
   NonMeleeClasses = RangedUnitClasses + {UnitMonk, UnitBoat, UnitTradeCog}
 
 proc findNearestMeleeEnemyUncached(env: Environment, agent: Thing): Thing =
@@ -917,16 +937,13 @@ proc findNearestMeleeEnemyUncached(env: Environment, agent: Thing): Thing =
   findNearestEnemyOfClass(env, agent, r, NonMeleeClasses, FilterExclude)
 
 proc findNearestMeleeEnemy(env: Environment, agent: Thing): Thing =
-  ## Find the nearest enemy agent that is a melee unit (not archer, mangonel, or monk)
+  ## Find the nearest melee enemy unit.
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
   meleeEnemyCache.getWithAgent(env, agent, findNearestMeleeEnemyUncached)
 
 proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): bool =
-  ## Check if enemy siege unit is close to any friendly structures
-  ## Optimized: uses thingsByKind to only check attackable structure types
-  ## instead of iterating all env.things (O(k) where k = attackable structures, not O(n)).
+  ## Return true when enemy siege is near a friendly structure.
   let radius = SiegeNearStructureRadius
-  # Only check building kinds that are in AttackableStructures
   for kind in [Wall, Door, Outpost, GuardTower, Castle, TownCenter, Monastery, Wonder]:
     for thing in env.thingsByKind[kind]:
       if thing.isNil or thing.teamId != teamId:
@@ -935,17 +952,20 @@ proc isSiegeThreateningStructure(env: Environment, siege: Thing, teamId: int): b
         return true
   false
 
-proc findNearestSiegeEnemyUncached(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
+proc findNearestSiegeEnemyUncached(
+  env: Environment,
+  agent: Thing,
+  prioritizeThreatening: bool = true
+): Thing =
   ## Internal: actual search logic for nearest siege enemy.
-  ## Optimized: uses spatial index cells instead of grid scan.
+  ## Uses spatial index cells instead of scanning the full grid.
   let teamId = getTeamId(agent)
-  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
+  let teamMask = getTeamMask(teamId)
   var bestEnemy: Thing = nil
   var bestDist = int.high
   var bestThreatening = false
 
   let r = AntiSiegeDetectionRadius
-  # Use spatial index cells instead of grid scan
   let (cx, cy) = cellCoords(agent.pos)
   let clampedMax = min(r, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
   let cellRadius = distToCellRadius16(clampedMax)
@@ -960,7 +980,6 @@ proc findNearestSiegeEnemyUncached(env: Environment, agent: Thing, prioritizeThr
           continue
         if not isAgentAlive(env, other):
           continue
-        # Bitwise team check: (otherMask and teamMask) != 0 means same team (skip)
         if (getTeamMask(other) and teamMask) != 0:
           continue
         if other.unitClass notin {UnitBatteringRam, UnitMangonel, UnitTrebuchet}:
@@ -984,38 +1003,39 @@ proc findNearestSiegeEnemyPrioritized(env: Environment, agent: Thing): Thing =
   ## Wrapper that calls uncached with prioritizeThreatening=true for caching.
   findNearestSiegeEnemyUncached(env, agent, true)
 
-proc findNearestSiegeEnemy(env: Environment, agent: Thing, prioritizeThreatening: bool = true): Thing =
-  ## Find the nearest enemy siege unit (BatteringRam or Mangonel)
+proc findNearestSiegeEnemy(
+  env: Environment,
+  agent: Thing,
+  prioritizeThreatening: bool = true
+): Thing =
+  ## Find the nearest enemy siege unit.
   ## Cached per-step per-agent to avoid redundant scans in canStart/shouldTerminate/act.
-  ## Note: cache only applies when prioritizeThreatening=true (default).
+  ## Cache only applies to the default threat-prioritizing path.
   if not prioritizeThreatening:
     return findNearestSiegeEnemyUncached(env, agent, prioritizeThreatening)
   siegeEnemyCache.getWithAgent(env, agent, findNearestSiegeEnemyPrioritized)
 
 proc canStartFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
-  ## Anti-siege triggers when there's an enemy siege unit nearby
-  ## Requires stance that allows chasing
+  ## Start anti-siege behavior when a nearby siege unit is visible.
   if not stanceAllows(env, agent, BehaviorChase):
     return false
   not isNil(findNearestSiegeEnemy(env, agent))
 
 proc shouldTerminateFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
                                      agentId: int, state: var AgentState): bool =
-  ## Terminate when no more siege units nearby
+  ## Stop anti-siege behavior when no siege unit remains nearby.
   isNil(findNearestSiegeEnemy(env, agent))
 
 proc optFighterAntiSiege(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
-  ## Move toward and attack enemy siege units
+  ## Move toward and attack nearby siege units.
   let siege = findNearestSiegeEnemy(env, agent)
   if isNil(siege):
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, siege.pos, 2'u16)
 
 const
-  # Ranged units that should kite (move away from melee threats while attacking)
-  # Excludes siege units (Scorpion, Mangonel, Trebuchet) which should stand and fire
   KitingRangedUnits = {
     UnitArcher, UnitCrossbowman, UnitArbalester,
     UnitSkirmisher, UnitEliteSkirmisher,
@@ -1025,9 +1045,7 @@ const
 
 proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): bool =
-  ## Kiting triggers for ranged units when a melee enemy is within trigger distance
-  ## StandGround stance disables kiting (no movement allowed)
-  ## Excludes siege units (Scorpion) which should stand and fire rather than kite
+  ## Start kiting when a ranged unit is pressed by a melee enemy.
   if agent.unitClass notin KitingRangedUnits:
     return false
   if not stanceAllows(env, agent, BehaviorMovementToAttack):
@@ -1040,7 +1058,7 @@ proc canStartFighterKite(controller: Controller, env: Environment, agent: Thing,
 
 proc shouldTerminateFighterKite(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
-  ## Terminate when no melee enemy within trigger distance
+  ## Stop kiting when the melee pressure is gone.
   if agent.unitClass notin KitingRangedUnits:
     return true
   let meleeEnemy = findNearestMeleeEnemy(env, agent)
@@ -1051,43 +1069,33 @@ proc shouldTerminateFighterKite(controller: Controller, env: Environment, agent:
 
 proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
                     agentId: int, state: var AgentState): uint16 =
-  ## Move away from the nearest melee enemy while staying within attack range
+  ## Move away from the nearest melee enemy.
   let meleeEnemy = findNearestMeleeEnemy(env, agent)
   if isNil(meleeEnemy):
     return 0'u16
 
   let dist = int(chebyshevDist(agent.pos, meleeEnemy.pos))
-  # If already at safe distance, no need to kite
   if dist > KiteTriggerDistance:
     return 0'u16
 
-  # Calculate direction away from enemy
   let dx = agent.pos.x - meleeEnemy.pos.x
   let dy = agent.pos.y - meleeEnemy.pos.y
   let awayDir = ivec2(signi(dx), signi(dy))
 
-  # Try to move in the direction away from enemy
-  # Check multiple directions, preferring directly away, then diagonals
   var candidates: array[3, IVec2]
   var numCandidates = 0
-  # Primary direction: directly away
   if awayDir.x != 0 or awayDir.y != 0:
     candidates[numCandidates] = awayDir; inc numCandidates
-  # Secondary: perpendicular directions (allows strafing)
   if awayDir.x != 0 and awayDir.y != 0:
-    # Diagonal away - try the two perpendicular diagonals
     candidates[numCandidates] = ivec2(awayDir.x, 0); inc numCandidates
     candidates[numCandidates] = ivec2(0, awayDir.y); inc numCandidates
   elif awayDir.x != 0:
-    # Moving horizontally - can strafe vertically
     candidates[numCandidates] = ivec2(awayDir.x, 1); inc numCandidates
     candidates[numCandidates] = ivec2(awayDir.x, -1); inc numCandidates
   elif awayDir.y != 0:
-    # Moving vertically - can strafe horizontally
     candidates[numCandidates] = ivec2(1, awayDir.y); inc numCandidates
     candidates[numCandidates] = ivec2(-1, awayDir.y); inc numCandidates
 
-  # Try each candidate direction
   for i in 0 ..< numCandidates:
     let dir = candidates[i]
     let targetPos = agent.pos + dir
@@ -1095,12 +1103,9 @@ proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
       continue
     if not canEnterForMove(env, agent, agent.pos, targetPos):
       continue
-    # Check that we maintain attack range (stay within ArcherBaseRange of any enemy)
-    # For now, just move away - the attack opportunity check will handle attacking
     let dirIdx = vecToOrientation(dir)
     return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dirIdx.uint8))
 
-  # If can't move directly away, try any direction that increases distance
   for dirIdx in 0 .. 7:
     let dir = Directions8[dirIdx]
     let targetPos = agent.pos + dir
@@ -1112,7 +1117,6 @@ proc optFighterKite(controller: Controller, env: Environment, agent: Thing,
     if newDist > dist:
       return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dirIdx.uint8))
 
-  # Can't kite, return 0 to let other options handle it
   0'u16
 
 proc canStartFighterHuntPredators(controller: Controller, env: Environment, agent: Thing,
@@ -1154,13 +1158,11 @@ proc optFighterClearGoblins(controller: Controller, env: Environment, agent: Thi
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, target.pos, 2'u16)
 
-# Escort behavior: respond to protection requests from coordination system
 proc canStartFighterEscort(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
-  ## Check if there's a nearby protection request to respond to
+  ## Start escort work when a nearby protection request is active.
   if not stanceAllows(env, agent, BehaviorChase):
     return false
-  # Only combat units can escort
   if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
                             UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
                             UnitCrossbowman, UnitArbalester, UnitLightCavalry, UnitHussar,
@@ -1171,7 +1173,7 @@ proc canStartFighterEscort(controller: Controller, env: Environment, agent: Thin
 
 proc shouldTerminateFighterEscort(controller: Controller, env: Environment, agent: Thing,
                                   agentId: int, state: var AgentState): bool =
-  ## Terminate when no more protection requests or target reached
+  ## Stop escort work when the protection request is gone.
   let (should, _) = fighterShouldEscort(env, agent)
   not should
 
@@ -1182,20 +1184,16 @@ proc optFighterEscort(controller: Controller, env: Environment, agent: Thing,
   if not should:
     return 0'u16
 
-  # First check for attack opportunity - engage enemies
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Check for nearby enemies and engage them
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   if not isNil(enemy):
     return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
 
-  # Move toward the protected unit
   let dist = int(chebyshevDist(agent.pos, targetPos))
   if dist <= EscortRadius:
-    # Already close enough - stay nearby but allow other behaviors
     return 0'u16
   controller.moveTo(env, agent, agentId, state, targetPos)
 
@@ -1225,9 +1223,6 @@ proc optFighterAggressive(controller: Controller, env: Environment, agent: Thing
   if didHunt: return actHunt
   0'u16
 
-# Attack-Move: Move to destination, attacking any enemies encountered along the way
-# Like AoE2's attack-move: path to destination, engage enemies in range, resume after combat
-
 proc canStartFighterAttackMove*(controller: Controller, env: Environment, agent: Thing,
                                 agentId: int, state: var AgentState): bool =
   ## Attack-move is active when the agent has a valid attack-move destination set.
@@ -1241,7 +1236,6 @@ proc shouldTerminateFighterAttackMove*(controller: Controller, env: Environment,
   ## Terminate when destination is reached or attack-move is cancelled.
   if state.attackMoveTarget.x < 0:
     return true
-  # Reached destination (within 1 tile)
   chebyshevDist(agent.pos, state.attackMoveTarget) <= 1'i32
 
 proc optFighterAttackMove*(controller: Controller, env: Environment, agent: Thing,
@@ -1251,61 +1245,42 @@ proc optFighterAttackMove*(controller: Controller, env: Environment, agent: Thin
   if state.attackMoveTarget.x < 0:
     return 0'u16
 
-  # Check if we've reached the destination
   if chebyshevDist(agent.pos, state.attackMoveTarget) <= 1'i32:
-    # Clear the attack-move target - we've arrived
     state.attackMoveTarget = ivec2(-1, -1)
     return 0'u16
 
-  # Look for enemies within detection radius
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   if not isNil(enemy):
     let enemyDist = int(chebyshevDist(agent.pos, enemy.pos))
     if enemyDist <= AttackMoveDetectionRadius:
-      # Enemy found - engage!
       return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
 
-  # No enemy nearby - continue moving toward destination
   controller.moveTo(env, agent, agentId, state, state.attackMoveTarget)
 
-# Battering Ram AI: Simple forward movement with attack-on-block behavior
-# 1. Move forward in current orientation
-# 2. If blocked, attack blocking target
-# 3. If target destroyed, resume moving forward
-
 optionGuard(canStartBatteringRamAdvance, shouldTerminateBatteringRamAdvance):
-  # Battering rams always use this behavior while they remain rams.
   agent.unitClass == UnitBatteringRam
 
 proc optBatteringRamAdvance(controller: Controller, env: Environment, agent: Thing,
                             agentId: int, state: var AgentState): uint16 =
-  ## Simple battering ram AI: move forward, attack blockers
+  ## Move the ram forward and attack whatever blocks that path.
   let delta = OrientationDeltas[agent.orientation.int]
   let forwardPos = agent.pos + delta
 
-  # Check if there's something blocking forward movement
   let blocking = env.getThing(forwardPos)
   if not isNil(blocking):
-    # Attack the blocking thing (verb 2 = attack)
     return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u16)
 
-  # Check for blocking agent
   if not isValidPos(forwardPos):
     return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u16)
   let blockingAgent = env.grid[forwardPos.x][forwardPos.y]
   if not isNil(blockingAgent) and blockingAgent.agentId != agent.agentId:
     return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u16)
 
-  # Check terrain passability
   if not canEnterForMove(env, agent, agent.pos, forwardPos):
-    # Something blocks us (wall, terrain) - try to attack forward
     return actOrMove(controller, env, agent, agentId, state, forwardPos, 2'u16)
 
-  # Path is clear - move forward (verb 1 = move)
   let dirIdx = agent.orientation.int
-  return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dirIdx.uint8))
-
-# Formation movement: maintain position within control group formation
+  saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dirIdx.uint8))
 
 proc canStartFighterFormation(controller: Controller, env: Environment, agent: Thing,
                               agentId: int, state: var AgentState): bool =
@@ -1370,20 +1345,17 @@ proc optFighterFormation(controller: Controller, env: Environment, agent: Thing,
   if targetPos.x < 0:
     return 0'u16
 
-  # Already at slot
   if int(chebyshevDist(agent.pos, targetPos)) <= FormationArrivalThreshold:
     return 0'u16
 
-  # Check for attack opportunity while moving to slot
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Move toward formation slot
   controller.moveTo(env, agent, agentId, state, targetPos)
 
-# Patrol behavior - walk between waypoints and attack enemies encountered
-const PatrolArrivalThreshold = 2  # Distance at which we consider waypoint "reached"
+const
+  PatrolArrivalThreshold = 2
 
 proc canStartFighterPatrol(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): bool =
@@ -1391,10 +1363,8 @@ proc canStartFighterPatrol(controller: Controller, env: Environment, agent: Thin
   ## Supports both legacy 2-point patrol and multi-waypoint patrol.
   if not state.patrolActive:
     return false
-  # Multi-waypoint patrol: need at least 2 waypoints
   if state.patrolWaypointCount >= 2:
     return true
-  # Legacy 2-point patrol: need both points set
   state.patrolPoint1.x >= 0 and state.patrolPoint2.x >= 0
 
 proc shouldTerminateFighterPatrol(controller: Controller, env: Environment, agent: Thing,
@@ -1408,46 +1378,34 @@ proc optFighterPatrol(controller: Controller, env: Environment, agent: Thing,
   ## Uses AoE2-style patrol: walk to waypoint, attack nearby enemies, continue patrol.
   ## Supports both legacy 2-point patrol and multi-waypoint patrol (2-8 points).
 
-  # First check for attack opportunity - attack takes priority during patrol
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Check for nearby enemies and chase them if stance allows
   if stanceAllows(env, agent, BehaviorChase):
     let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
     if not isNil(enemy):
-      # Move toward enemy to engage
       return controller.moveTo(env, agent, agentId, state, enemy.pos)
 
-  # Multi-waypoint patrol mode
   if state.patrolWaypointCount >= 2:
     let target = state.patrolWaypoints[state.patrolCurrentWaypoint]
     let distToTarget = int(chebyshevDist(agent.pos, target))
     if distToTarget <= PatrolArrivalThreshold:
-      # Advance to next waypoint (wraps to first after last)
-      state.patrolCurrentWaypoint = (state.patrolCurrentWaypoint + 1) mod state.patrolWaypointCount
+      state.patrolCurrentWaypoint =
+        (state.patrolCurrentWaypoint + 1) mod state.patrolWaypointCount
       let newTarget = state.patrolWaypoints[state.patrolCurrentWaypoint]
       return controller.moveTo(env, agent, agentId, state, newTarget)
     return controller.moveTo(env, agent, agentId, state, target)
 
-  # Legacy 2-point patrol mode
   let target = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
 
-  # Check if we've reached the current waypoint
   let distToTarget = int(chebyshevDist(agent.pos, target))
   if distToTarget <= PatrolArrivalThreshold:
-    # Switch direction
     state.patrolToSecondPoint = not state.patrolToSecondPoint
-    # Get the new target after switching
     let newTarget = if state.patrolToSecondPoint: state.patrolPoint2 else: state.patrolPoint1
     return controller.moveTo(env, agent, agentId, state, newTarget)
 
-  # Move toward current waypoint
   controller.moveTo(env, agent, agentId, state, target)
-
-# Scout behavior - reconnaissance with visibility tracking and enemy detection
-# Scouts explore outward from base, flee when enemies spotted, and report threats
 
 proc scoutFindNearbyEnemyUncached(env: Environment, agent: Thing): Thing =
   ## Internal: actual search logic for scout nearby enemy.
@@ -1461,17 +1419,15 @@ proc scoutFindNearbyEnemy(env: Environment, agent: Thing): Thing =
 proc canStartScoutFlee(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): bool =
   ## Scout flee triggers when scout mode is active and enemies are nearby.
-  ## Scout-line units are light reconnaissance units - survival is priority.
+  ## Scout-line units favor survival over combat.
   if agent.unitClass notin {UnitScout, UnitLightCavalry, UnitHussar}:
     return false
   if not state.scoutActive:
     return false
   let enemy = scoutFindNearbyEnemy(env, agent)
   if not isNil(enemy):
-    # Record enemy sighting and report to threat map
     controller.recordScoutEnemySighting(agentId, env.currentStep.int32)
     return true
-  # Also flee if recently saw enemy (recovery period)
   let stepsSinceEnemy = env.currentStep.int32 - state.scoutLastEnemySeenStep
   stepsSinceEnemy < ScoutFleeRecoverySteps
 
@@ -1480,7 +1436,7 @@ proc shouldTerminateScoutFlee(controller: Controller, env: Environment, agent: T
   ## Stop fleeing when no enemies nearby and recovery period passed.
   let enemy = scoutFindNearbyEnemy(env, agent)
   if not isNil(enemy):
-    return false  # Still enemies nearby - keep fleeing
+    return false
   let stepsSinceEnemy = env.currentStep.int32 - state.scoutLastEnemySeenStep
   stepsSinceEnemy >= ScoutFleeRecoverySteps
 
@@ -1492,15 +1448,12 @@ proc optScoutFlee(controller: Controller, env: Environment, agent: Thing,
   let basePos = agent.getBasePos()
   state.basePosition = basePos
 
-  # Find enemies and report to threat map
   let enemy = scoutFindNearbyEnemy(env, agent)
   if not isNil(enemy):
-    # Report threat to team (high priority sighting from scout)
     controller.reportThreat(teamId, enemy.pos, 2, env.currentStep.int32,
                             agentId = enemy.agentId.int32, isStructure = false)
     controller.recordScoutEnemySighting(agentId, env.currentStep.int32)
 
-  # Flee toward safe positions (altar, outpost, town center)
   var safePos = basePos
   for kind in [Altar, Outpost, TownCenter]:
     let safe = env.findNearestFriendlyThingSpiral(state, teamId, kind)
@@ -1523,41 +1476,29 @@ proc shouldTerminateScoutExplore(controller: Controller, env: Environment, agent
 proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   ## Explore outward from base in a systematic sector-rotating pattern.
-  ## Prioritizes unexplored areas (fog of war) and avoids known threats.
-  ## Reports enemies to threat map. Scouts rotate through 4 quadrants to
-  ## ensure even map coverage rather than purely following the spiral.
+  ## Prefer fogged areas and avoid known threats while exploring.
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   state.basePosition = basePos
 
-  # Update threat map and revealed map from scout's extended vision
   controller.updateThreatMapFromVision(env, agent, env.currentStep.int32)
 
-  # Initialize explore radius if needed
   if state.scoutExploreRadius <= 0:
-    state.scoutExploreRadius = ScoutVisionRange.int32  # Start with scout's vision range
+    state.scoutExploreRadius = ScoutVisionRange.int32
 
-  # Find a direction to explore that prioritizes unexplored tiles
-  # Combine spiral search with sector rotation for systematic coverage
   var bestTarget = ivec2(-1, -1)
   var bestScore = int.low
 
-  # Pre-check for threats (optimization: skip threat lookups when no threats known)
   let hasThreats = controller.hasKnownThreats(teamId, env.currentStep.int32)
 
-  # Sector-based bias: rotate through quadrants (NE, SE, SW, NW) for even coverage.
-  # Each scout uses agentId to offset which sector it starts in, spreading coverage
-  # across multiple scouts. Sector rotates every ScoutSectorRotationSteps steps.
   let sectorIdx = ((env.currentStep.int div ScoutSectorRotationSteps) + agentId) mod 4
-  let sectorDx: array[4, int32] = [1'i32, 1'i32, -1'i32, -1'i32]  # NE, SE, SW, NW
+  let sectorDx: array[4, int32] = [1'i32, 1'i32, -1'i32, -1'i32]
   let sectorDy: array[4, int32] = [-1'i32, 1'i32, 1'i32, -1'i32]
 
-  # Try multiple candidate positions around the exploration frontier
-  for _ in 0 ..< 16:  # Check more candidates for better exploration coverage
+  for _ in 0 ..< 16:
     let candidate = getNextSpiralPoint(state)
     let distFromBase = int(chebyshevDist(candidate, basePos))
 
-    # Skip if too close to base (already explored) or too far
     if distFromBase < state.scoutExploreRadius.int - 5:
       continue
     if distFromBase > state.scoutExploreRadius.int + 20:
@@ -1569,23 +1510,18 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
     else:
       0'i32
 
-    # Score: prefer unexplored positions at the frontier with fewer threats
     var score = 100 - abs(distFromBase - state.scoutExploreRadius.int) * 2
-    score -= threatStrength.int * 20  # Heavily penalize threat areas
+    score -= threatStrength.int * 20
 
-    # Bonus for unexplored tiles (fog of war clearing)
     if not env.isRevealed(teamId, candidate):
-      score += 50  # Strong preference for unexplored areas
+      score += 50
 
-    # Sector bias: bonus for candidates in the current rotation sector
     let relX = candidate.x - basePos.x
     let relY = candidate.y - basePos.y
     if (relX >= 0) == (sectorDx[sectorIdx] >= 0) and
        (relY >= 0) == (sectorDy[sectorIdx] >= 0):
-      score += 25  # Moderate sector bonus to steer without overriding fog priority
+      score += 25
 
-    # Sample only 4 cardinal directions + center to check for unexplored tiles nearby
-    # (Optimization: O(5) instead of O(49) per candidate)
     var nearbyUnexplored = 0
     if not env.isRevealed(teamId, candidate):
       inc nearbyUnexplored
@@ -1593,29 +1529,23 @@ proc optScoutExplore(controller: Controller, env: Environment, agent: Thing,
       let nearby = candidate + d * 3
       if isValidPos(nearby) and not env.isRevealed(teamId, nearby):
         inc nearbyUnexplored
-    score += nearbyUnexplored * 10  # Bonus for areas with more unexplored tiles nearby
+    score += nearbyUnexplored * 10
 
     if score > bestScore:
       bestScore = score
       bestTarget = candidate
-      # Early-exit: good-enough candidate found (unexplored + decent position)
-      # Threshold 140 = unexplored(+50) + good distance(~90+) with minimal threats
       if bestScore >= 140:
         break
 
-  # If no good target found, use the spiral position directly
   if bestTarget.x < 0:
     bestTarget = getNextSpiralPoint(state)
 
-  # Gradually expand exploration radius
   let distFromBase = int(chebyshevDist(agent.pos, basePos))
   if distFromBase >= state.scoutExploreRadius.int:
     state.scoutExploreRadius += ScoutExploreGrowth.int32
 
-  # Move toward exploration target
   controller.moveTo(env, agent, agentId, state, bestTarget)
 
-# Hold Position: Stay at current location, attack enemies in range but don't chase
 proc canStartFighterHoldPosition(controller: Controller, env: Environment, agent: Thing,
                                  agentId: int, state: var AgentState): bool =
   ## Hold position activates when explicitly enabled via API.
@@ -1634,28 +1564,21 @@ proc optFighterHoldPosition(controller: Controller, env: Environment, agent: Thi
   if not state.holdPositionActive or state.holdPositionTarget.x < 0:
     return 0'u16
 
-  # Check for attack opportunity (melee or ranged in place)
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # If too far from hold position, prioritize returning
   let distFromHold = int(chebyshevDist(agent.pos, state.holdPositionTarget))
   if distFromHold > HoldPositionReturnRadius:
     return controller.moveTo(env, agent, agentId, state, state.holdPositionTarget)
 
-  # Look for enemies within engage radius of the hold position
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   if not isNil(enemy):
     let enemyDistFromHold = int(chebyshevDist(enemy.pos, state.holdPositionTarget))
     if enemyDistFromHold <= HoldPositionEngageRadius:
-      # Enemy is within engage radius of hold position - move to attack
       return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
 
-  # Stay put
   0'u16
-
-# Follow: Follow another agent, maintaining proximity
 
 optionGuard(canStartFighterFollow, shouldTerminateFighterFollow):
   ## Follow activates when follow mode is enabled and target is valid and alive.
@@ -1669,14 +1592,11 @@ proc optFighterFollow(controller: Controller, env: Environment, agent: Thing,
   if isNil(target):
     return 0'u16
 
-  # Check for attack opportunity
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
   maintainFollowProximity(controller, env, agent, agentId, state, target)
-
-# Guard: Stay near a target (agent or position), attack enemies within range, return after combat
 
 proc hasValidGuardTarget(env: Environment, state: AgentState): bool {.inline.} =
   if not state.guardActive:
@@ -1689,7 +1609,6 @@ proc hasValidGuardTarget(env: Environment, state: AgentState): bool {.inline.} =
 proc canStartFighterGuard(controller: Controller, env: Environment, agent: Thing,
                           agentId: int, state: var AgentState): bool =
   ## Guard activates when guard mode is enabled and target is valid.
-  # Combat units only
   if agent.unitClass notin {UnitManAtArms, UnitLongSwordsman, UnitChampion,
                             UnitKnight, UnitCavalier, UnitPaladin, UnitScout, UnitArcher,
                             UnitCrossbowman, UnitArbalester, UnitLightCavalry, UnitHussar,
@@ -1709,10 +1628,8 @@ proc optFighterGuard(controller: Controller, env: Environment, agent: Thing,
   if not state.guardActive:
     return 0'u16
 
-  # Determine guard center position
   var guardCenter: IVec2
   if state.guardTargetAgentId >= 0:
-    # Guarding an agent - use their position
     if state.guardTargetAgentId >= env.agents.len:
       state.guardActive = false
       return 0'u16
@@ -1723,37 +1640,26 @@ proc optFighterGuard(controller: Controller, env: Environment, agent: Thing,
       return 0'u16
     guardCenter = target.pos
   else:
-    # Guarding a position
     if state.guardTargetPos.x < 0:
       state.guardActive = false
       return 0'u16
     guardCenter = state.guardTargetPos
 
-  # First check for immediate attack opportunity
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Check for enemies within GuardRadius of the guard center and engage
   let enemy = fighterFindNearbyEnemy(controller, env, agent, state)
   if not isNil(enemy):
     let enemyDistToCenter = int(chebyshevDist(enemy.pos, guardCenter))
     if enemyDistToCenter <= GuardRadius:
-      # Enemy is within guard radius of center - engage
       return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
 
-  # Check our distance from guard center
   let dist = int(chebyshevDist(agent.pos, guardCenter))
   if dist > GuardRadius:
-    # Too far from guard position - return to center
     return controller.moveTo(env, agent, agentId, state, guardCenter)
 
-  # Within range and no enemies - stay put
   0'u16
-
-# ============================================================================
-# Naval Unit AI Behaviors
-# ============================================================================
 
 proc findNearestEnemyShip(env: Environment, agent: Thing, radius: int): Thing =
   ## Find nearest enemy water unit within radius using spatial index.
@@ -1768,28 +1674,23 @@ proc findNearestFriendlyDock(env: Environment, agent: Thing): Thing =
   let teamId = getTeamId(agent)
   env.findNearestFriendlyThingSpatial(agent.pos, teamId, Dock, int.high)
 
-# FishingShip: Gather fish resources
 optionGuard(canStartFishingShipFish, shouldTerminateFishingShipFish):
   agent.unitClass == UnitFishingShip and env.thingsByKind[Fish].len > 0
 
 proc optFishingShipFish(controller: Controller, env: Environment, agent: Thing,
                         agentId: int, state: var AgentState): uint16 =
   ## Fishing ship gathers fish from water tiles, returns to dock to deposit.
-  # If carrying fish, return to dock to deposit
   if getInv(agent, ItemFish) > 0:
     let dock = findNearestFriendlyDock(env, agent)
     if not isNil(dock):
       return actOrMove(controller, env, agent, agentId, state, dock.pos, 3'u16)
-    # No dock - just hold fish for now
     return 0'u16
 
-  # Find and gather fish
   let fish = env.findNearestThingSpiral(state, Fish)
   if isNil(fish):
     return 0'u16
   actOrMove(controller, env, agent, agentId, state, fish.pos, 3'u16)
 
-# Galley: Ranged combat ship
 optionGuard(canStartGalleyAttack, shouldTerminateGalleyAttack):
   if agent.unitClass != UnitGalley:
     return false
@@ -1799,27 +1700,22 @@ optionGuard(canStartGalleyAttack, shouldTerminateGalleyAttack):
 proc optGalleyAttack(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
   ## Galley attacks enemies at range, prioritizing other ships.
-  # First check for immediate attack opportunity
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Prioritize enemy ships
   let enemyShip = findNearestEnemyShip(env, agent, GalleyBaseRange * 3)
   if not isNil(enemyShip):
     return actOrMove(controller, env, agent, agentId, state, enemyShip.pos, 2'u16)
 
-  # Fall back to any enemy
   let enemy = findNearestEnemyOnWater(env, agent, GalleyBaseRange * 3)
   if not isNil(enemy):
     return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
   0'u16
 
-# FireShip: Anti-ship specialist
 optionGuard(canStartFireShipAttack, shouldTerminateFireShipAttack):
   if agent.unitClass != UnitFireShip:
     return false
-  # Fire ships prioritize enemy water units
   let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
   not isNil(enemyShip)
 
@@ -1827,22 +1723,18 @@ proc optFireShipAttack(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): uint16 =
   ## Fire ship aggressively pursues and attacks enemy water units.
   ## Gets bonus damage vs water units.
-  # Check for immediate attack opportunity
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Chase enemy ships
   let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 2)
   if not isNil(enemyShip):
     return actOrMove(controller, env, agent, agentId, state, enemyShip.pos, 2'u16)
   0'u16
 
-# DemoShip: Kamikaze attack ship
 optionGuard(canStartDemoShipKamikaze, shouldTerminateDemoShipKamikaze):
   if agent.unitClass != UnitDemoShip:
     return false
-  # Demo ships look for high-value targets (ships or buildings near water)
   let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
   not isNil(enemy)
 
@@ -1850,35 +1742,34 @@ proc optDemoShipKamikaze(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): uint16 =
   ## Demo ship moves toward enemy and attacks (self-destructs on hit).
   ## Prioritizes: enemy ships > docks > other coastal targets.
-  # Check for immediate attack opportunity (this is the kamikaze strike)
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
-  # Prioritize enemy ships
   let enemyShip = findNearestEnemyShip(env, agent, ObservationRadius.int * 3)
   if not isNil(enemyShip):
     return controller.moveTo(env, agent, agentId, state, enemyShip.pos)
 
-  # Check for enemy docks
   let teamId = getTeamId(agent)
   for dock in env.thingsByKind[Dock]:
     if dock.teamId != teamId and dock.teamId >= 0:
       return controller.moveTo(env, agent, agentId, state, dock.pos)
 
-  # Fall back to any enemy
   let enemy = findNearestEnemyOnWater(env, agent, ObservationRadius.int * 3)
   if not isNil(enemy):
     return controller.moveTo(env, agent, agentId, state, enemy.pos)
   0'u16
 
-# CannonGalleon: Long-range siege ship
 optionGuard(canStartCannonGalleonSiege, shouldTerminateCannonGalleonSiege):
   if agent.unitClass != UnitCannonGalleon:
     return false
-  # Cannon galleons look for buildings or enemy units
   let teamId = getTeamId(agent)
-  let enemyBuilding = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, CannonGalleonBaseRange * 3)
+  let enemyBuilding = findNearestEnemyBuildingSpatial(
+    env,
+    agent.pos,
+    teamId,
+    CannonGalleonBaseRange * 3
+  )
   if not isNil(enemyBuilding):
     return true
   let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
@@ -1888,34 +1779,33 @@ proc optCannonGalleonSiege(controller: Controller, env: Environment, agent: Thin
                            agentId: int, state: var AgentState): uint16 =
   ## Cannon galleon attacks buildings and units at long range.
   ## Prioritizes: buildings > ships > other units.
-  # Check for immediate attack opportunity
   let attackDir = findAttackOpportunity(env, agent)
   if attackDir >= 0:
     return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
 
   let teamId = getTeamId(agent)
 
-  # Prioritize enemy buildings (siege role)
-  let enemyBuilding = findNearestEnemyBuildingSpatial(env, agent.pos, teamId, CannonGalleonBaseRange * 3)
+  let enemyBuilding = findNearestEnemyBuildingSpatial(
+    env,
+    agent.pos,
+    teamId,
+    CannonGalleonBaseRange * 3
+  )
   if not isNil(enemyBuilding):
     return actOrMove(controller, env, agent, agentId, state, enemyBuilding.pos, 2'u16)
 
-  # Then enemy ships
   let enemyShip = findNearestEnemyShip(env, agent, CannonGalleonBaseRange * 3)
   if not isNil(enemyShip):
     return actOrMove(controller, env, agent, agentId, state, enemyShip.pos, 2'u16)
 
-  # Fall back to any enemy
   let enemy = findNearestEnemyOnWater(env, agent, CannonGalleonBaseRange * 3)
   if not isNil(enemy):
     return actOrMove(controller, env, agent, agentId, state, enemy.pos, 2'u16)
   0'u16
 
-# TransportShip: Unit transport with docking behavior
 optionGuard(canStartTransportShipDock, shouldTerminateTransportShipDock):
   if agent.unitClass != UnitTransportShip:
     return false
-  # Transport ships move toward friendly docks when carrying units or when idle
   let dock = findNearestFriendlyDock(env, agent)
   not isNil(dock)
 
@@ -1927,9 +1817,8 @@ proc optTransportShipDock(controller: Controller, env: Environment, agent: Thing
     return 0'u16
 
   let dist = int(chebyshevDist(agent.pos, dock.pos))
-  # Stay within 3 tiles of dock
   if dist <= 3:
-    return 0'u16  # Already close enough
+    return 0'u16
   controller.moveTo(env, agent, agentId, state, dock.pos)
 
 let FighterOptions* = [
@@ -1938,15 +1827,14 @@ let FighterOptions* = [
     canStart: canStartBatteringRamAdvance,
     shouldTerminate: shouldTerminateBatteringRamAdvance,
     act: optBatteringRamAdvance,
-    interruptible: false  # Battering ram AI is not interruptible - it just advances and attacks
+    interruptible: false
   ),
-  # Naval unit behaviors
   OptionDef(
     name: "DemoShipKamikaze",
     canStart: canStartDemoShipKamikaze,
     shouldTerminate: shouldTerminateDemoShipKamikaze,
     act: optDemoShipKamikaze,
-    interruptible: false  # Demo ship kamikaze is not interruptible - commit to attack
+    interruptible: false
   ),
   OptionDef(
     name: "FishingShipFish",
@@ -2002,7 +1890,7 @@ let FighterOptions* = [
     canStart: canStartScoutFlee,
     shouldTerminate: shouldTerminateScoutFlee,
     act: optScoutFlee,
-    interruptible: false  # Scout flee is not interruptible - survival is priority
+    interruptible: false
   ),
   EmergencyHealOption,
   OptionDef(
@@ -2154,7 +2042,7 @@ let FighterOptions* = [
     canStart: canStartScoutExplore,
     shouldTerminate: shouldTerminateScoutExplore,
     act: optScoutExplore,
-    interruptible: true  # Can be interrupted by higher priority behaviors
+    interruptible: true
   ),
   FallbackSearchOption
 ]

@@ -155,7 +155,11 @@ proc setDifficulty*(controller: Controller, teamId: int, level: DifficultyLevel)
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     controller.difficulty[teamId] = defaultDifficultyConfig(level)
 
-proc enableAdaptiveDifficulty*(controller: Controller, teamId: int, targetTerritory: float32 = 0.5) =
+proc enableAdaptiveDifficulty*(
+  controller: Controller,
+  teamId: int,
+  targetTerritory: float32 = 0.5
+) =
   ## Enable adaptive difficulty for a team. The AI will adjust its difficulty
   ## based on territory control compared to the target percentage.
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
@@ -308,7 +312,6 @@ proc updateRevealedMapFromVision*(env: Environment, agent: Thing) =
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
 
-  # Scouts have extended line of sight for exploration
   let visionRadius = if agent.unitClass == UnitScout:
     ScoutVisionRange.int
   else:
@@ -326,10 +329,8 @@ proc getRevealedTileCount*(env: Environment, teamId: int): int =
       if env.revealedMaps[teamId][x][y]:
         inc result
 
-# Shared Threat Map Functions
-
 proc decayThreats*(controller: Controller, teamId: int, currentStep: int32) =
-  ## Remove threats that haven't been seen recently
+  ## Remove stale threat entries for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   var map = addr controller.threatMaps[teamId]
@@ -352,10 +353,8 @@ proc reportThreat*(controller: Controller, teamId: int, pos: IVec2,
     return
   var map = addr controller.threatMaps[teamId]
 
-  # Check if threat already exists at this position or for this agent
   for i in 0 ..< map.count:
     let entry = addr map.entries[i]
-    # Update existing entry if same position or same enemy agent
     if (entry.pos == pos) or (agentId >= 0 and entry.agentId == agentId):
       entry.pos = pos
       entry.strength = max(entry.strength, strength)
@@ -364,7 +363,6 @@ proc reportThreat*(controller: Controller, teamId: int, pos: IVec2,
       entry.isStructure = isStructure
       return
 
-  # Add new threat if space available
   if map.count < MaxThreatEntries:
     map.entries[map.count] = ThreatEntry(
       pos: pos,
@@ -387,7 +385,7 @@ proc getNearestThreat*(controller: Controller, teamId: int, pos: IVec2,
     let entry = map.entries[i]
     let age = currentStep - entry.lastSeen
     if age >= ThreatDecaySteps:
-      continue  # Skip stale threats
+      continue
     let dist = chebyshevDist(pos, entry.pos)
     if dist < result.dist:
       result = (pos: entry.pos, dist: dist, found: true)
@@ -403,7 +401,7 @@ proc getThreatsInRange*(controller: Controller, teamId: int, pos: IVec2,
     let entry = map.entries[i]
     let age = currentStep - entry.lastSeen
     if age >= ThreatDecaySteps:
-      continue  # Skip stale threats
+      continue
     let dist = chebyshevDist(pos, entry.pos)
     if dist <= rangeVal:
       result.add entry
@@ -425,7 +423,7 @@ proc getTotalThreatStrength*(controller: Controller, teamId: int, pos: IVec2,
       result += entry.strength
 
 proc hasKnownThreats*(controller: Controller, teamId: int, currentStep: int32): bool =
-  ## Check if team has any known (non-stale) threats
+  ## Return true when a team still has non-stale threats.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
   let map = addr controller.threatMaps[teamId]
@@ -436,7 +434,7 @@ proc hasKnownThreats*(controller: Controller, teamId: int, currentStep: int32): 
   false
 
 proc clearThreatMap*(controller: Controller, teamId: int) =
-  ## Clear all threats for a team (e.g., at episode reset)
+  ## Clear all threats for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   controller.threatMaps[teamId].count = 0
@@ -445,41 +443,27 @@ proc clearThreatMap*(controller: Controller, teamId: int) =
 proc updateThreatMapFromVision*(controller: Controller, env: Environment,
                                  agent: Thing, currentStep: int32) =
   ## Scan agent's vision range and report any enemies to the team threat map.
-  ## Also updates the team's revealed map (fog of war).
-  ## Called each tick for each agent to share threat intelligence.
-  ## Scouts have extended line of sight (AoE2-style).
-  ##
-  ## Optimized: scans grid tiles within vision radius instead of all agents,
-  ## and uses spatial index for building detection.
-  ## Additional optimization: skips fog updates if agent hasn't moved since last reveal.
+  ## Also update the revealed map from the same vision pass.
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
 
-  # Scouts have extended vision range for both threat detection and exploration
   let visionRange = if agent.unitClass == UnitScout:
     ScoutVisionRange
   else:
     ThreatVisionRange
 
-  # Update fog of war - reveal tiles in vision range
-  # Optimization: Skip if agent hasn't moved since last fog update
   let agentId = agent.agentId
   if agentId >= 0 and agentId < MapAgents:
     let lastPos = controller.fogLastRevealPos[agentId]
     let lastStep = controller.fogLastRevealStep[agentId]
-    # Only update fog if agent moved or this is first update for this agent
     if lastPos != agent.pos or lastStep <= 0:
       env.updateRevealedMapFromVision(agent)
       controller.fogLastRevealPos[agentId] = agent.pos
       controller.fogLastRevealStep[agentId] = currentStep
   else:
-    # Fallback for invalid agent IDs - always update
     env.updateRevealedMapFromVision(agent)
 
-  # Scan for enemy agents within vision range using spatial index
-  # Scan spatial cells for enemy agents and structures
-  # Optimized: uses bitwise team mask comparison for O(1) team checks
   let (cx, cy) = cellCoords(agent.pos)
   let vr = visionRange.int
   let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
@@ -893,36 +877,8 @@ proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool =
 
   return bestDir
 
-# ---------------------------------------------------------------------------
-# Pathfinding System
-# ---------------------------------------------------------------------------
-# This section implements the pathfinding subsystem used by AI agents.
-#
-# Architecture:
-#   - isPassable: Static passability check (ignores agent swapping)
-#   - canEnterForMove: Directional passability with lantern pushing rules
-#   - getMoveTowards: Greedy single-step movement with obstacle avoidance
-#   - findPath: A* pathfinding for longer distances (>=4 tiles)
-#   - moveTo: High-level movement that combines A* and greedy approaches
-#
-# The system uses a generation-counter pattern for the PathfindingCache to
-# achieve O(1) cache invalidation without clearing large map-sized arrays.
-# ---------------------------------------------------------------------------
-
 proc isPassable*(env: Environment, agent: Thing, pos: IVec2): bool =
-  ## Check if a position is passable for static pathfinding purposes.
-  ##
-  ## This is a simplified passability check used by A* to evaluate potential
-  ## path nodes. It checks:
-  ##   - Position validity (within map bounds)
-  ##   - Water blocking (non-ship agents can't cross water)
-  ##   - Door access (team-based door permissions)
-  ##   - Grid occupancy (empty or lantern only)
-  ##
-  ## Note: This does NOT check agent-agent swapping rules, which are handled
-  ## separately by canEnterForMove for actual movement decisions.
-  ##
-  ## Returns true if the tile can be traversed during pathfinding.
+  ## Return true when a tile is statically passable for pathfinding.
   if not isValidPos(pos):
     return false
   if env.isWaterBlockedForAgent(agent, pos):
@@ -937,21 +893,7 @@ proc isPassable*(env: Environment, agent: Thing, pos: IVec2): bool =
   return occupant.kind == Lantern
 
 proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bool =
-  ## Check if an agent can move from fromPos to toPos in a single step.
-  ##
-  ## This is a directional passability check that mirrors the actual move
-  ## execution logic, including lantern pushing rules. It validates:
-  ##   - Target position validity and playable bounds (within map border)
-  ##   - Elevation traversal (ramps required for uphill movement)
-  ##   - Water and door blocking
-  ##   - Grid occupancy with special handling for pushable lanterns
-  ##
-  ## Lantern Pushing Rules:
-  ##   When the target tile contains a lantern, the agent can push it if
-  ##   there's a valid destination for the lantern (ahead of movement or
-  ##   adjacent) that maintains minimum spacing from other lanterns.
-  ##
-  ## Returns true if the move from fromPos to toPos is valid.
+  ## Return true when a one-step move is legal, including lantern pushes.
   if not isValidPos(toPos):
     return false
   if toPos.x < MapBorder.int32 or toPos.x >= (MapWidth - MapBorder).int32 or
@@ -971,8 +913,6 @@ proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bo
   if isNil(blocker) or blocker.kind != Lantern:
     return false
 
-  # Uses spatial query instead of O(n) lantern scan.
-  # Reuses env.tempTowerTargets as scratch buffer to avoid heap allocs in pathfinding.
   template spacingOk(nextPos: IVec2): bool =
     var ok = true
     env.tempTowerTargets.setLen(0)
@@ -1007,28 +947,9 @@ proc canEnterForMove*(env: Environment, agent: Thing, fromPos, toPos: IVec2): bo
 
 proc getMoveTowards*(env: Environment, agent: Thing, fromPos, toPos: IVec2,
                     rng: var Rand, avoidDir: int = -1): int =
-  ## Get a single-step movement direction towards a target position.
-  ##
-  ## This is the greedy movement function used for short-distance navigation.
-  ## It tries to find the best direction to move closer to the target while
-  ## respecting obstacles and optional direction avoidance.
-  ##
-  ## Algorithm:
-  ##   1. If target is outside playable bounds, move toward the interior
-  ##   2. Try the primary direction (direct line to target) first
-  ##   3. Fall back to the direction that minimizes distance to target
-  ##   4. Use avoidDir as last resort if all other directions are blocked
-  ##
-  ## Parameters:
-  ##   - fromPos: Current agent position
-  ##   - toPos: Target position to move toward
-  ##   - rng: Random number generator (unused but kept for API consistency)
-  ##   - avoidDir: Direction index (0-7) to avoid, or -1 for no avoidance
-  ##
-  ## Returns direction index (0-7) or -1 if completely blocked.
+  ## Return a greedy one-step direction toward the target, or `-1`.
   let clampedTarget = clampToPlayable(toPos)
   if clampedTarget == fromPos:
-    # Target is outside playable bounds; push back inward toward the widest margin.
     var bestDir = -1
     var bestMargin = -1
     var avoidCandidate = -1
@@ -1670,7 +1591,6 @@ proc ensureHuntFood*(controller: Controller, env: Environment, agent: Thing, age
       controller.moveTo(env, agent, agentId, state, target.pos))
   (true, controller.moveNextSearch(env, agent, agentId, state))
 
-# Patrol behavior helpers
 proc setPatrol*(controller: Controller, agentId: int, point1, point2: IVec2) =
   ## Set patrol waypoints for an agent. Enables patrol mode.
   if agentId >= 0 and agentId < MapAgents:
@@ -1699,10 +1619,8 @@ proc getPatrolTarget*(controller: Controller, agentId: int): IVec2 =
   ## Handles both legacy 2-point patrol and multi-waypoint patrol.
   if agentId >= 0 and agentId < MapAgents:
     let state = controller.agents[agentId]
-    # Multi-waypoint patrol takes priority
     if state.patrolWaypointCount > 0:
       return state.patrolWaypoints[state.patrolCurrentWaypoint]
-    # Legacy 2-point patrol
     if state.patrolToSecondPoint:
       return state.patrolPoint2
     else:
@@ -1717,13 +1635,12 @@ proc setMultiWaypointPatrol*(controller: Controller, agentId: int, waypoints: op
     return
   let count = min(waypoints.len, 8)
   if count < 2:
-    return  # Need at least 2 waypoints for patrol
+    return
   controller.agents[agentId].patrolWaypointCount = count
   controller.agents[agentId].patrolCurrentWaypoint = 0
   for i in 0 ..< count:
     controller.agents[agentId].patrolWaypoints[i] = waypoints[i]
   controller.agents[agentId].patrolActive = true
-  # Also set legacy points for backward compatibility (first and last waypoints)
   controller.agents[agentId].patrolPoint1 = waypoints[0]
   controller.agents[agentId].patrolPoint2 = waypoints[count - 1]
   controller.agents[agentId].patrolToSecondPoint = true
@@ -1749,7 +1666,6 @@ proc getPatrolCurrentWaypointIndex*(controller: Controller, agentId: int): int =
     return controller.agents[agentId].patrolCurrentWaypoint
   0
 
-# Scout behavior helpers
 proc setScoutMode*(controller: Controller, agentId: int, active: bool = true) =
   ## Enable or disable scout mode for an agent. Scouts explore outward from base
   ## and flee when enemies are spotted, reporting threats to the team.
@@ -1757,7 +1673,7 @@ proc setScoutMode*(controller: Controller, agentId: int, active: bool = true) =
     controller.agents[agentId].scoutActive = active
     if active:
       controller.agents[agentId].scoutExploreRadius = ObservationRadius.int32 + 5
-      controller.agents[agentId].scoutLastEnemySeenStep = -100  # Long ago
+      controller.agents[agentId].scoutLastEnemySeenStep = -100
 
 proc clearScoutMode*(controller: Controller, agentId: int) =
   ## Disable scout mode for an agent.
@@ -1781,7 +1697,6 @@ proc recordScoutEnemySighting*(controller: Controller, agentId: int, currentStep
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].scoutLastEnemySeenStep = currentStep
 
-# Hold position behavior helpers
 proc setHoldPosition*(controller: Controller, agentId: int, pos: IVec2) =
   ## Set hold position for an agent. The agent will stay at the given position
   ## and attack enemies in range but won't chase.
@@ -1807,7 +1722,6 @@ proc getHoldPosition*(controller: Controller, agentId: int): IVec2 =
     return controller.agents[agentId].holdPositionTarget
   ivec2(-1, -1)
 
-# Follow behavior helpers
 proc setFollowTarget*(controller: Controller, agentId: int, targetAgentId: int) =
   ## Set an agent to follow another agent.
   if agentId >= 0 and agentId < MapAgents and
@@ -1833,7 +1747,6 @@ proc getFollowTargetId*(controller: Controller, agentId: int): int =
     return controller.agents[agentId].followTargetAgentId
   -1
 
-# Guard behavior helpers
 proc setGuardTarget*(controller: Controller, agentId: int, targetAgentId: int) =
   ## Set an agent to guard another agent.
   ## The guarding agent will stay within GuardRadius of the target, attack enemies in range,
@@ -1880,13 +1793,12 @@ proc getGuardPosition*(controller: Controller, agentId: int): IVec2 =
     return controller.agents[agentId].guardTargetPos
   ivec2(-1, -1)
 
-# Stop behavior helpers
-const StopIdleSteps* = 200  # Steps before stopped agent returns to default role behavior
+const
+  StopIdleSteps* = 200
 
 proc stopAgentInternal(controller: Controller, agentId: int) =
   ## Internal helper: clears all orders, path, and active option without setting expiry.
   if agentId >= 0 and agentId < MapAgents:
-    # Clear all movement/behavior modes
     controller.agents[agentId].patrolActive = false
     controller.agents[agentId].patrolPoint1 = ivec2(-1, -1)
     controller.agents[agentId].patrolPoint2 = ivec2(-1, -1)
@@ -1899,15 +1811,12 @@ proc stopAgentInternal(controller: Controller, agentId: int) =
     controller.agents[agentId].guardActive = false
     controller.agents[agentId].guardTargetAgentId = -1
     controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
-    # Clear current path
     controller.agents[agentId].plannedPath.setLen(0)
     controller.agents[agentId].plannedPathIndex = 0
     controller.agents[agentId].plannedTarget = ivec2(-1, -1)
     controller.agents[agentId].pathBlockedTarget = ivec2(-1, -1)
-    # Reset active option
     controller.agents[agentId].activeOptionId = -1
     controller.agents[agentId].activeOptionTicks = 0
-    # Clear command queue
     controller.agents[agentId].commandQueueCount = 0
 
 proc stopAgentFull*(controller: Controller, agentId: int, currentStep: int32) =
@@ -1924,7 +1833,7 @@ proc stopAgentDeferred*(controller: Controller, agentId: int) =
   stopAgentInternal(controller, agentId)
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].stoppedActive = true
-    controller.agents[agentId].stoppedUntilStep = -1  # Sentinel for deferred init
+    controller.agents[agentId].stoppedUntilStep = -1
 
 proc clearAgentStop*(controller: Controller, agentId: int) =
   ## Clear the stopped state for an agent, allowing normal behavior to resume.
@@ -1943,10 +1852,6 @@ proc getAgentStoppedUntilStep*(controller: Controller, agentId: int): int32 =
   if agentId >= 0 and agentId < MapAgents:
     return controller.agents[agentId].stoppedUntilStep
   0
-
-# Command Queue API - Shift-queue functionality for AoE2-style command queueing
-# Commands are added to the queue when shift+clicking, executed in order when
-# the current command completes.
 
 proc clearCommandQueue*(controller: Controller, agentId: int) =
   ## Clear all queued commands for an agent.
@@ -2031,7 +1936,6 @@ proc popNextCommand*(controller: Controller, agentId: int): QueuedCommand =
     let count = controller.agents[agentId].commandQueueCount
     if count > 0:
       result = controller.agents[agentId].commandQueue[0]
-      # Shift remaining commands down
       for i in 0 ..< count - 1:
         controller.agents[agentId].commandQueue[i] = controller.agents[agentId].commandQueue[i + 1]
       controller.agents[agentId].commandQueueCount = count - 1
@@ -2050,39 +1954,29 @@ proc executeQueuedCommand*(controller: Controller, agentId: int, agentPos: IVec2
   let cmd = popNextCommand(controller, agentId)
   case cmd.cmdType
   of CmdAttackMove:
-    # Inline setAttackMoveTarget
     controller.agents[agentId].attackMoveTarget = cmd.targetPos
   of CmdPatrol:
-    # Inline setPatrol - patrol from current position to target
     controller.agents[agentId].patrolPoint1 = agentPos
     controller.agents[agentId].patrolPoint2 = cmd.targetPos
     controller.agents[agentId].patrolToSecondPoint = true
     controller.agents[agentId].patrolActive = true
   of CmdFollow:
-    # Inline setFollowTarget
     if cmd.targetAgentId >= 0 and cmd.targetAgentId < MapAgents:
       controller.agents[agentId].followTargetAgentId = cmd.targetAgentId.int
       controller.agents[agentId].followActive = true
   of CmdGuard:
     if cmd.targetAgentId >= 0:
-      # Inline setGuardTarget
       if cmd.targetAgentId < MapAgents:
         controller.agents[agentId].guardTargetAgentId = cmd.targetAgentId.int
         controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
         controller.agents[agentId].guardActive = true
     else:
-      # Inline setGuardPosition
       controller.agents[agentId].guardTargetAgentId = -1
       controller.agents[agentId].guardTargetPos = cmd.targetPos
       controller.agents[agentId].guardActive = true
   of CmdHoldPosition:
-    # Inline setHoldPosition
     controller.agents[agentId].holdPositionTarget = cmd.targetPos
     controller.agents[agentId].holdPositionActive = true
-
-# Stance API - Controller-level procs for setting/getting agent stance.
-# Stance is stored on the agent (Thing) but we use AgentState.pendingStance
-# for deferred application when we have env access in decideAction.
 
 proc setAgentStanceDeferred*(controller: Controller, agentId: int, stance: AgentStance) =
   ## Set pending stance for an agent. Applied in decideAction when we have env access.

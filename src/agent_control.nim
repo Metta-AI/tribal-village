@@ -154,9 +154,9 @@ proc lookupTrainRequest(env: Environment, buildingX, buildingY, teamId,
 
 type
   ControllerType* = enum
-    BuiltinAI,      # Use built-in Nim AI controller
-    ExternalNN,     # Use external neural network (Python)
-    HybridAI        # BuiltinAI runs, but Python can override non-NOOP actions
+    BuiltinAI,
+    ExternalNN,
+    HybridAI
 
   AgentController* = ref object
     controllerType*: ControllerType
@@ -192,7 +192,8 @@ proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSe
 
 proc setExternalActionCallback*(callback: proc(): array[MapAgents, uint16]) =
   ## Register the external callback used by non-built-in controllers.
-  if not isNil(globalController) and globalController.controllerType in {ExternalNN, HybridAI}:
+  if not isNil(globalController) and
+      globalController.controllerType in {ExternalNN, HybridAI}:
     globalController.externalActionCallback = callback
 
 proc getActions*(env: Environment): array[MapAgents, uint16] =
@@ -264,7 +265,10 @@ proc getActions*(env: Environment): array[MapAgents, uint16] =
           for i in 0 ..< MapAgents:
             let parts = lines[i].split(',')
             if parts.len >= 2:
-              fileActions[i] = encodeAction(parseInt(parts[0]).uint16, parseInt(parts[1]).uint16)
+              fileActions[i] = encodeAction(
+                parseInt(parts[0]).uint16,
+                parseInt(parts[1]).uint16
+              )
             elif parts.len == 1 and parts[0].len > 0:
               fileActions[i] = parseInt(parts[0]).uint16
 
@@ -274,11 +278,12 @@ proc getActions*(env: Environment): array[MapAgents, uint16] =
       except IOError, OSError, ValueError:
         discard
 
-    echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
-    echo "Python environment must call setExternalActionCallback() or provide " & ActionsFile & "!"
+    echo "ExternalNN controller has no callback or actions file."
+    echo "Python must call setExternalActionCallback() or provide " &
+      ActionsFile & "."
     raise newException(
       ValueError,
-      "ExternalNN controller has no actions - Python communication failed!"
+      "ExternalNN controller has no actions; Python communication failed."
     )
   of HybridAI:
     var actions: array[MapAgents, uint16]
@@ -594,9 +599,6 @@ proc hasUnitUpgradeResearched*(env: Environment, teamId: int, upgradeType: int32
     return false
   hasUnitUpgrade(env, teamId, UnitUpgradeType(upgradeType))
 
-# Scout Mode API
-# These functions allow external code to enable/disable scout mode for agents.
-
 proc setAgentScoutMode*(agentId: int, active: bool) =
   ## Enable or disable scout mode for an agent.
   ## Requires BuiltinAI controller. Clears any stopped state when enabling.
@@ -616,9 +618,6 @@ proc getAgentScoutExploreRadius*(agentId: int): int32 =
   withBuiltinAI:
     return globalController.aiController.getScoutExploreRadius(agentId)
   0
-
-# Rally Point API
-# These functions allow external code to set rally points on buildings.
 
 proc setBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32, rallyX, rallyY: int32) =
   ## Set the rally point for a building.
@@ -642,10 +641,6 @@ proc getBuildingRallyPoint*(env: Environment, buildingX, buildingY: int32): IVec
   if hasRallyPoint(thing):
     return thing.rallyPoint
   ivec2(-1, -1)
-
-# Hold Position API
-# These functions allow external code to set hold-position behavior for agents.
-# Hold Position: agent stays at a location, attacks enemies in range but won't chase.
 
 proc setAgentHoldPosition*(agentId: int, pos: IVec2) =
   ## Set hold position for an agent. The agent stays at the given position,
@@ -672,10 +667,6 @@ proc isAgentHoldPositionActive*(agentId: int): bool =
     return globalController.aiController.isHoldPositionActive(agentId)
   false
 
-# Follow API
-# These functions allow external code to set follow behavior for agents.
-# Follow: agent follows a target agent, maintaining proximity.
-
 proc setAgentFollowTarget*(agentId: int, targetAgentId: int) =
   ## Set an agent to follow another agent.
   ## Requires BuiltinAI controller. Clears any stopped state.
@@ -699,10 +690,6 @@ proc isAgentFollowActive*(agentId: int): bool =
   withBuiltinAI:
     return globalController.aiController.isFollowActive(agentId)
   false
-
-# Guard API
-# These functions allow external code to set guard behavior for agents.
-# Guard: agent guards a target (agent or position), stays within radius, attacks enemies.
 
 proc setAgentGuard*(agentId: int, targetAgentId: int) =
   ## Set an agent to guard another agent.
@@ -745,10 +732,6 @@ proc isAgentGuarding*(agentId: int): bool =
     return globalController.aiController.isGuardActive(agentId)
   false
 
-# Stop Command API
-# Stops an agent completely: clears all orders, path, and active option.
-# Agent remains idle until given a new command or idle threshold expires.
-
 proc stopAgent*(agentId: int) =
   ## Stop an agent completely: clears all orders, path, and active option.
   ## Agent will remain idle until given a new command or until StopIdleSteps passes.
@@ -774,10 +757,6 @@ proc getAgentStoppedUntilStep*(agentId: int): int32 =
     return globalController.aiController.getAgentStoppedUntilStep(agentId)
   0
 
-# Command Queue API
-# Shift-queue functionality for AoE2-style command queueing.
-# When shift+clicking, commands are added to a queue and executed in order.
-
 proc clearAgentCommandQueue*(agentId: int) =
   ## Clear all queued commands for an agent.
   withBuiltinAI:
@@ -793,11 +772,6 @@ proc queueAgentFollow*(agentId: int, targetAgentId: int) =
   withBuiltinAI:
     globalController.aiController.queueFollow(agentId, targetAgentId)
 
-# Formation API
-# Formation system for coordinated group movement (Line, Box formations).
-# Formations are per-control-group, not per-agent.
-# formations is imported at module level and re-exported
-
 proc setControlGroupFormation*(groupIndex: int, formationType: int32) =
   ## Set formation type for a control group.
   ## formationType: 0=None, 1=Line, 2=Box, 3=Wedge, 4=Scatter
@@ -808,10 +782,6 @@ proc getControlGroupFormation*(groupIndex: int): int32 =
   ## Get formation type for a control group.
   ## Returns: 0=None, 1=Line, 2=Box, 3=Wedge, 4=Scatter
   ord(getFormation(groupIndex)).int32
-
-# Agent-ID based Formation API
-# Convenience functions that work directly with agent IDs rather than control group indices.
-# These create/use control groups internally.
 
 proc findAvailableControlGroup*(): int =
   ## Find an empty control group index, or return the last one (9) as fallback.
@@ -861,9 +831,6 @@ proc clearFormationForAgents*(agentIds: seq[int]) =
     let groupIdx = findAgentControlGroup(agentId)
     if groupIdx >= 0:
       clearFormation(groupIdx)
-
-# Selection API
-# Programmatic interface for the selection system (bridges GUI selection and control APIs).
 
 proc selectUnits*(env: Environment, agentIds: seq[int]) =
   ## Replace current selection with the specified agents.
@@ -946,35 +913,29 @@ proc getControlGroupAgentId*(groupIndex: int, index: int): int =
 
 proc issueCommandToSelection*(env: Environment, commandType: int32, targetX, targetY: int32) =
   ## Issue a command to all selected units.
-  ## commandType: 0=attack-move, 1=patrol (from current pos to target), 2=stop,
-  ##              3=hold position (at current pos), 4=follow (targetX=targetAgentId),
-  ##              5=guard agent (targetX=targetAgentId), 6=guard position (target pos)
+  ## commandType: 0=attack-move, 1=patrol, 2=stop, 3=hold position.
+  ## 4=follow target agent, 5=guard target agent, 6=guard position.
   let target = ivec2(targetX, targetY)
   for thing in selection:
     if isAgentAlive(env, thing):
       let agentId = thing.agentId
       case commandType
-      of 0: # Attack-move
+      of 0:
         setAgentAttackMoveTarget(agentId, target)
-      of 1: # Patrol from current position to target
+      of 1:
         setAgentPatrol(agentId, thing.pos, target)
-      of 2: # Stop
+      of 2:
         stopAgent(agentId)
-      of 3: # Hold position at current location
+      of 3:
         setAgentHoldPosition(agentId, thing.pos)
-      of 4: # Follow (targetX = target agent ID)
+      of 4:
         setAgentFollowTarget(agentId, targetX.int)
-      of 5: # Guard agent (targetX = target agent ID)
+      of 5:
         setAgentGuard(agentId, targetX.int)
-      of 6: # Guard position
+      of 6:
         setAgentGuardPosition(agentId, target)
       else:
         discard
-
-# Economy Priority Override API
-# These functions allow external code to override gatherer resource priorities.
-# Individual overrides take precedence over team-level focus.
-# Both override automatic task selection based on flow rates and bottlenecks.
 
 proc setGathererPriority*(agentId: int, resource: StockpileResource) =
   ## Set an individual gatherer to prioritize collecting a specific resource.
