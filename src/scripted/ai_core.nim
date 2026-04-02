@@ -13,13 +13,11 @@ const
   PathBlockRetryInterval* = 8
 
 proc stanceAllowsAutoAttack*(env: Environment, agent: Thing): bool =
-  ## Returns true if the agent's stance allows auto-attacking enemies.
-  ## Delegates to ai_utils.stanceAllows for consolidated stance logic.
+  ## Return whether the agent's stance allows auto-attack.
   stanceAllows(env, agent, BehaviorAutoAttack)
 
 proc hasHarvestableResource*(thing: Thing): bool =
-  ## Check if a resource thing still has harvestable inventory.
-  ## Returns false if the thing has been depleted (0 inventory remaining).
+  ## Return whether a resource thing still has harvestable inventory.
   if thing.isNil:
     return false
   case thing.kind
@@ -65,7 +63,6 @@ const
 
 type
   PerAgentCache*[T] = object
-    ## Per-agent cache with per-step invalidation.
     cacheStep*: int
     cache*: array[MapAgents, T]
     valid*: array[MapAgents, bool]
@@ -77,10 +74,13 @@ proc invalidateIfStale*[T](cache: var PerAgentCache[T], currentStep: int) {.inli
     for i in 0 ..< MapAgents:
       cache.valid[i] = false
 
-proc get*[T](cache: var PerAgentCache[T], env: Environment, agentId: int,
-             compute: proc(env: Environment, agentId: int): T): T =
-  ## Return cached value for an agent, recomputing it when needed.
-  ## Invalid agent IDs bypass the cache.
+proc get*[T](
+  cache: var PerAgentCache[T],
+  env: Environment,
+  agentId: int,
+  compute: proc(env: Environment, agentId: int): T
+): T =
+  ## Return the cached value for an agent.
   cache.invalidateIfStale(env.currentStep)
   if agentId >= 0 and agentId < MapAgents:
     if not cache.valid[agentId]:
@@ -89,10 +89,13 @@ proc get*[T](cache: var PerAgentCache[T], env: Environment, agentId: int,
     return cache.cache[agentId]
   compute(env, agentId)
 
-proc getWithAgent*[T](cache: var PerAgentCache[T], env: Environment, agent: Thing,
-                       compute: proc(env: Environment, agent: Thing): T): T =
-  ## Return cached value for an agent `Thing`, recomputing it when needed.
-  ## Invalid agent IDs bypass the cache.
+proc getWithAgent*[T](
+  cache: var PerAgentCache[T],
+  env: Environment,
+  agent: Thing,
+  compute: proc(env: Environment, agent: Thing): T
+): T =
+  ## Return the cached value for an agent `Thing`.
   cache.invalidateIfStale(env.currentStep)
   let aid = agent.agentId
   if aid >= 0 and aid < MapAgents:
@@ -118,8 +121,7 @@ proc enableAdaptiveDifficulty*(
   teamId: int,
   targetTerritory: float32 = 0.5
 ) =
-  ## Enable adaptive difficulty for a team. The AI will adjust its difficulty
-  ## based on territory control compared to the target percentage.
+  ## Enable adaptive difficulty for a team.
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     controller.difficulty[teamId].adaptive = true
     controller.difficulty[teamId].adaptiveTarget = targetTerritory
@@ -130,8 +132,7 @@ proc disableAdaptiveDifficulty*(controller: Controller, teamId: int) =
     controller.difficulty[teamId].adaptive = false
 
 proc shouldApplyDecisionDelay*(controller: Controller, teamId: int): bool =
-  ## Check if the AI should apply a decision delay (return NOOP) based on difficulty.
-  ## Returns true with probability equal to decisionDelayChance.
+  ## Return whether the AI should emit a difficulty-based NOOP.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
   let chance = controller.difficulty[teamId].decisionDelayChance
@@ -144,7 +145,6 @@ const
 
 proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
   ## Update difficulty levels for teams with adaptive mode enabled.
-  ## Adjusts difficulty up if team is doing too well, down if struggling.
   let currentStep = env.currentStep.int32
   let score = env.scoreTerritory()
   let totalTiles = max(1, score.scoredTiles)
@@ -153,7 +153,8 @@ proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
   for teamId in 0 ..< MapRoomObjectsTeams:
     if not controller.difficulty[teamId].adaptive:
       continue
-    if currentStep - controller.difficulty[teamId].lastAdaptiveCheck < AdaptiveCheckInterval:
+    if currentStep - controller.difficulty[teamId].lastAdaptiveCheck <
+        AdaptiveCheckInterval:
       continue
 
     controller.difficulty[teamId].lastAdaptiveCheck = currentStep
@@ -193,8 +194,12 @@ proc isAgentInitialized*(controller: Controller, agentId: int): bool =
     return controller.agentsInitialized[agentId]
   return false
 
-proc saveStateAndReturn*(controller: Controller, agentId: int,
-                         state: AgentState, action: uint16): uint16 =
+proc saveStateAndReturn*(
+  controller: Controller,
+  agentId: int,
+  state: AgentState,
+  action: uint16
+): uint16 =
   ## Persist the updated state for an agent and return the chosen action.
   var nextState = state
   nextState.lastActionVerb = action.int div ActionArgumentCount
@@ -220,9 +225,13 @@ proc signi*(x: int32): int32 =
   elif x > 0: 1
   else: 0
 
-proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: int) =
-  ## Mark tiles within radius of center as revealed for the specified team.
-  ## Uses Chebyshev distance and skips tiles that are already revealed.
+proc revealTilesInRange*(
+  env: Environment,
+  teamId: int,
+  center: IVec2,
+  radius: int
+) =
+  ## Mark tiles within range as revealed for the specified team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   let minX = max(0, center.x.int - radius)
@@ -243,7 +252,7 @@ proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: i
         env.revealedMaps[teamId][x][y] = true
 
 proc isRevealed*(env: Environment, teamId: int, pos: IVec2): bool =
-  ## Check if a tile has been revealed (explored) by the specified team.
+  ## Check whether a tile has been revealed by the specified team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
   if not isValidPos(pos):
@@ -251,7 +260,7 @@ proc isRevealed*(env: Environment, teamId: int, pos: IVec2): bool =
   env.revealedMaps[teamId][pos.x][pos.y]
 
 proc clearRevealedMap*(env: Environment, teamId: int) =
-  ## Clear the revealed map for a team (e.g., at episode reset).
+  ## Clear the revealed map for a team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   for x in 0 ..< MapWidth:
@@ -259,8 +268,7 @@ proc clearRevealedMap*(env: Environment, teamId: int) =
       env.revealedMaps[teamId][x][y] = false
 
 proc updateRevealedMapFromVision*(env: Environment, agent: Thing) =
-  ## Update the revealed map based on agent's current vision.
-  ## Scouts have extended vision range for exploration.
+  ## Update the revealed map from the agent's current vision.
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
@@ -273,7 +281,7 @@ proc updateRevealedMapFromVision*(env: Environment, agent: Thing) =
   env.revealTilesInRange(teamId, agent.pos, visionRadius)
 
 proc getRevealedTileCount*(env: Environment, teamId: int): int =
-  ## Count how many tiles have been revealed by a team (exploration progress).
+  ## Count how many tiles a team has revealed.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return 0
   result = 0
@@ -297,11 +305,16 @@ proc decayThreats*(controller: Controller, teamId: int, currentStep: int32) =
   map.count = writeIdx.int32
   map.lastUpdateStep = currentStep
 
-proc reportThreat*(controller: Controller, teamId: int, pos: IVec2,
-                   strength: int32, currentStep: int32,
-                   agentId: int32 = -1, isStructure: bool = false) =
+proc reportThreat*(
+  controller: Controller,
+  teamId: int,
+  pos: IVec2,
+  strength: int32,
+  currentStep: int32,
+  agentId: int32 = -1,
+  isStructure: bool = false
+) =
   ## Report a threat position to the team's shared threat map.
-  ## Called by any agent that spots an enemy.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
   var map = addr controller.threatMaps[teamId]
@@ -326,10 +339,13 @@ proc reportThreat*(controller: Controller, teamId: int, pos: IVec2,
     )
     inc map.count
 
-proc getNearestThreat*(controller: Controller, teamId: int, pos: IVec2,
-                       currentStep: int32): tuple[pos: IVec2, dist: int32, found: bool] =
+proc getNearestThreat*(
+  controller: Controller,
+  teamId: int,
+  pos: IVec2,
+  currentStep: int32
+): tuple[pos: IVec2, dist: int32, found: bool] =
   ## Get the nearest known threat to a position.
-  ## Returns the threat position and distance, or found=false if none.
   result = (pos: ivec2(-1, -1), dist: int32.high, found: false)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
@@ -343,8 +359,13 @@ proc getNearestThreat*(controller: Controller, teamId: int, pos: IVec2,
     if dist < result.dist:
       result = (pos: entry.pos, dist: dist, found: true)
 
-proc getThreatsInRange*(controller: Controller, teamId: int, pos: IVec2,
-                        rangeVal: int32, currentStep: int32): seq[ThreatEntry] =
+proc getThreatsInRange*(
+  controller: Controller,
+  teamId: int,
+  pos: IVec2,
+  rangeVal: int32,
+  currentStep: int32
+): seq[ThreatEntry] =
   ## Get all known threats within range of a position.
   result = @[]
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
@@ -359,8 +380,13 @@ proc getThreatsInRange*(controller: Controller, teamId: int, pos: IVec2,
     if dist <= rangeVal:
       result.add entry
 
-proc getTotalThreatStrength*(controller: Controller, teamId: int, pos: IVec2,
-                              rangeVal: int32, currentStep: int32): int32 =
+proc getTotalThreatStrength*(
+  controller: Controller,
+  teamId: int,
+  pos: IVec2,
+  rangeVal: int32,
+  currentStep: int32
+): int32 =
   ## Get the total threat strength within range of a position.
   result = 0
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
@@ -393,10 +419,13 @@ proc clearThreatMap*(controller: Controller, teamId: int) =
   controller.threatMaps[teamId].count = 0
   controller.threatMaps[teamId].lastUpdateStep = 0
 
-proc updateThreatMapFromVision*(controller: Controller, env: Environment,
-                                 agent: Thing, currentStep: int32) =
-  ## Scan agent's vision range and report any enemies to the team threat map.
-  ## Also update the revealed map from the same vision pass.
+proc updateThreatMapFromVision*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  currentStep: int32
+) =
+  ## Update threat and revealed maps from the agent's current vision.
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
