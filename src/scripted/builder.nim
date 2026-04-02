@@ -1,11 +1,7 @@
-import ai_build_helpers
-export ai_build_helpers
+import
+  ai_build_helpers, coordination, options
 
-import options
-export options
-
-import coordination
-export coordination
+export ai_build_helpers, options, coordination
 
 const
   CoreInfrastructureKinds = [Granary, LumberCamp, Quarry, MiningCamp]
@@ -22,11 +18,8 @@ const
     (kind: Quarry, nearbyKinds: {Stone, Stalagmite}, minCount: 6),
     (kind: Granary, nearbyKinds: {Wheat, Stubble, Bush, Fish}, minCount: 6)
   ]
-  # Radius to search for resource clusters that need a drop-off
   StrategicDropoffSearchRadius = 30
-  # Minimum resources in a cluster to warrant a strategic drop-off
   StrategicDropoffMinResources = 5
-  # Don't build strategic drop-offs if an existing one is within this distance
   StrategicDropoffMinSpacing = 6
   BuilderThreatRadius* = 15
   BuilderFleeRadius* = 8
@@ -67,26 +60,22 @@ proc optBuilderFlee(controller: Controller, env: Environment, agent: Thing,
   let enemy = findNearbyEnemyForFlee(env, agent, BuilderFleeRadiusConst)
   if isNil(enemy):
     return 0'u16
-  # Move toward home altar for safety
   fleeToBase(controller, env, agent, agentId, state)
 
 proc refreshDamagedBuildingCache*(controller: Controller, env: Environment) =
   ## Refresh the per-team damaged building cache if stale.
   ## Called once per step, caches all damaged building positions by team.
   if controller.damagedBuildingCacheStep == env.currentStep:
-    return  # Cache is fresh
+    return
   controller.damagedBuildingCacheStep = env.currentStep
-  # Clear counts
   for t in 0 ..< MapRoomObjectsTeams:
     controller.damagedBuildingCounts[t] = 0
-  # Optimized: iterate only building kinds via thingsByKind instead of all env.things
-  # TeamBuildingKinds already includes Wall and Door
   for bKind in TeamBuildingKinds:
     for thing in env.thingsByKind[bKind]:
       if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
         continue
       if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
-        continue  # Not damaged or doesn't have hp
+        continue
       let t = thing.teamId
       if controller.damagedBuildingCounts[t] < MaxDamagedBuildingsPerTeam:
         controller.damagedBuildingPositions[t][controller.damagedBuildingCounts[t]] = thing.pos
@@ -108,18 +97,16 @@ proc findDamagedBuilding*(controller: Controller, env: Environment, agent: Thing
     let pos = controller.damagedBuildingPositions[teamId][i]
     let thing = env.getThing(pos)
     if thing.isNil:
-      # Also check background grid for doors
       let bgThing = env.getBackgroundThing(pos)
       if bgThing.isNil:
         continue
       if bgThing.maxHp <= 0 or bgThing.hp >= bgThing.maxHp:
-        continue  # No longer damaged
+        continue
       let dist = int(chebyshevDist(pos, agent.pos))
       if dist < bestDist:
         bestDist = dist
         best = bgThing
     else:
-      # Verify still damaged (may have been repaired since cache was built)
       if thing.maxHp <= 0 or thing.hp >= thing.maxHp:
         continue
       let dist = int(chebyshevDist(pos, agent.pos))

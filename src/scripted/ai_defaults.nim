@@ -1,23 +1,10 @@
-## AI defaults: role catalog management, decision-making, and controller update loop.
+import
+  std/tables,
+  ai_audit, ai_build_helpers, economy, evolution, settlement,
+  ../replay_analyzer
 
-import std/tables
-import ai_build_helpers
-export ai_build_helpers
-
-import ai_audit
-export ai_audit
-
-import economy
-export economy
-
-import evolution
-export evolution
-
-import settlement
-export settlement
-
-import ../replay_analyzer
-export replay_analyzer
+export ai_build_helpers, ai_audit, economy
+export evolution, settlement, replay_analyzer
 
 const
   EvolutionEnabled = defined(enableEvolution)
@@ -50,12 +37,14 @@ type
 var scriptedState: ScriptedRoleState
 
 proc resetScriptedAssignments(state: var ScriptedRoleState) =
+  ## Clear per-agent scripted role assignments.
   for i in 0 ..< MapAgents:
     state.roleAssignments[i] = -1
     state.roleIsScripted[i] = false
     state.pendingHybridRoles[i] = -1
 
 proc ensureRoleCache(state: var ScriptedRoleState) =
+  ## Grow the cached option buffers to match the role catalog.
   if state.roleOptionsCache.len < state.catalog.roles.len:
     let needed = state.catalog.roles.len - state.roleOptionsCache.len
     for _ in 0 ..< needed:
@@ -65,6 +54,7 @@ proc ensureRoleCache(state: var ScriptedRoleState) =
 proc buildCoreRole(catalog: var RoleCatalog, name: string,
                    options: openArray[OptionDef],
                    kind: AgentRole): int =
+  ## Ensure the catalog contains a named core role and return its id.
   let existing = findRoleId(catalog, name)
   if existing >= 0:
     catalog.roles[existing].kind = kind
@@ -80,6 +70,7 @@ proc buildCoreRole(catalog: var RoleCatalog, name: string,
   registerRole(catalog, role)
 
 proc rebuildRolePool(state: var ScriptedRoleState) =
+  ## Rebuild the pool of roles available for scripted assignment.
   state.rolePool.setLen(0)
   for role in state.catalog.roles:
     if role.origin != "core":
@@ -91,6 +82,7 @@ proc rebuildRolePool(state: var ScriptedRoleState) =
 
 proc generateRandomRole(state: var ScriptedRoleState, rng: var Rand,
                         origin: string): int =
+  ## Sample, mutate, and register a scripted role candidate.
   var role = sampleRole(state.catalog, rng, state.evolutionConfig)
   if randChance(rng, ScriptedRoleMutationChance):
     role = mutateRole(state.catalog, rng, role, state.evolutionConfig.mutationRate)
@@ -102,6 +94,7 @@ proc generateRandomRole(state: var ScriptedRoleState, rng: var Rand,
   id
 
 proc initScriptedState(controller: Controller) =
+  ## Lazily initialize scripted-role state and the default role catalog.
   if scriptedState.initialized:
     return
   scriptedState.lastEpisodeStep = -1
@@ -132,11 +125,13 @@ proc initScriptedState(controller: Controller) =
   scriptedState.initialized = true
 
 proc setAgentRole(agentId: int, state: var AgentState, roleId: int) =
+  ## Write a role assignment into agent state and scripted bookkeeping.
   state.roleId = roleId
   scriptedState.roleAssignments[agentId] = roleId
   if roleId >= 0 and roleId < scriptedState.catalog.roles.len:
     state.role = scriptedState.catalog.roles[roleId].kind
-    scriptedState.roleIsScripted[agentId] = scriptedState.catalog.roles[roleId].origin != "core"
+    scriptedState.roleIsScripted[agentId] =
+      scriptedState.catalog.roles[roleId].origin != "core"
   else:
     scriptedState.roleIsScripted[agentId] = false
   state.activeOptionId = -1
@@ -144,6 +139,7 @@ proc setAgentRole(agentId: int, state: var AgentState, roleId: int) =
 
 proc assignScriptedRole(controller: Controller, agentId: int,
                         state: var AgentState) =
+  ## Assign a scripted or core role to an agent.
   initScriptedState(controller)
   if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
     let roleId = scriptedState.pendingHybridRoles[agentId]
@@ -161,6 +157,7 @@ proc assignScriptedRole(controller: Controller, agentId: int,
   setAgentRole(agentId, state, roleId)
 
 proc roleOptionsFor(roleId: int, rng: var Rand): seq[OptionDef] =
+  ## Materialize and cache the option list for a role id.
   if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
     return @[]
   ensureRoleCache(scriptedState)
@@ -173,6 +170,7 @@ proc roleOptionsFor(roleId: int, rng: var Rand): seq[OptionDef] =
 proc roleIdForAgent(controller: Controller, agentId: int): int
 
 proc applyScriptedScoring(controller: Controller, env: Environment) =
+  ## Score scripted roles from territory results and replay feedback.
   let score = env.scoreTerritory()
   let total = max(1, score.scoredTiles)
   var teamScores: array[MapRoomObjectsTeams, float32]
@@ -199,14 +197,25 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
       continue
     let sampleTeamScore = teamScores[teamId]
     let weight = min(4, count)
-    recordRoleScore(scriptedState.catalog.roles[roleId], sampleTeamScore, sampleTeamScore >= 0.5, weight = weight)
-    lockRoleNameIfFit(scriptedState.catalog.roles[roleId], scriptedState.evolutionConfig.lockFitnessThreshold)
+    recordRoleScore(
+      scriptedState.catalog.roles[roleId],
+      sampleTeamScore,
+      sampleTeamScore >= 0.5,
+      weight = weight
+    )
+    lockRoleNameIfFit(
+      scriptedState.catalog.roles[roleId],
+      scriptedState.evolutionConfig.lockFitnessThreshold
+    )
     for tier in scriptedState.catalog.roles[roleId].tiers:
       for behaviorId in tier.behaviorIds:
         if behaviorId >= 0 and behaviorId < scriptedState.catalog.behaviors.len:
-          recordBehaviorScore(scriptedState.catalog.behaviors[behaviorId], sampleTeamScore, weight = weight)
+          recordBehaviorScore(
+            scriptedState.catalog.behaviors[behaviorId],
+            sampleTeamScore,
+            weight = weight
+          )
           inc scriptedState.catalog.behaviors[behaviorId].uses
-  # Apply replay analysis feedback if enabled
   when ReplayAnalysisEnabled:
     let replayDir = getEnv("TV_REPLAY_DIR", ScriptedReplayDir)
     if replayDir.len > 0:
@@ -217,6 +226,7 @@ proc applyScriptedScoring(controller: Controller, env: Environment) =
   scriptedState.catalog.saveRoleHistory(ScriptedRoleHistoryPath)
 
 proc roleIdForAgent(controller: Controller, agentId: int): int =
+  ## Resolve the best available role id for an agent.
   if controller.agentsInitialized[agentId]:
     let stateRoleId = controller.agents[agentId].roleId
     if stateRoleId >= 0 and stateRoleId < scriptedState.catalog.roles.len:
@@ -231,6 +241,7 @@ proc roleIdForAgent(controller: Controller, agentId: int): int =
   scriptedState.coreRoleIds[Gatherer]
 
 proc injectBehavior(role: var RoleDef, rng: var Rand, catalog: RoleCatalog) =
+  ## Add a random behavior to the first tier when it is not already present.
   if role.tiers.len == 0 or catalog.behaviors.len == 0:
     return
   let newId = randIntExclusive(rng, 0, catalog.behaviors.len)
@@ -240,6 +251,7 @@ proc injectBehavior(role: var RoleDef, rng: var Rand, catalog: RoleCatalog) =
   role.tiers[0].behaviorIds.add newId
 
 proc processTempleHybridRequests(controller: Controller, env: Environment) =
+  ## Convert queued temple hybridization requests into pending agent roles.
   if env.templeHybridRequests.len == 0:
     return
   for req in env.templeHybridRequests:
@@ -253,7 +265,12 @@ proc processTempleHybridRequests(controller: Controller, env: Environment) =
     let roleB = scriptedState.catalog.roles[roleBId]
     var hybrid = recombineRoles(scriptedState.catalog, controller.rng, roleA, roleB)
     if randChance(controller.rng, ScriptedRoleMutationChance):
-      hybrid = mutateRole(scriptedState.catalog, controller.rng, hybrid, scriptedState.evolutionConfig.mutationRate)
+      hybrid = mutateRole(
+        scriptedState.catalog,
+        controller.rng,
+        hybrid,
+        scriptedState.evolutionConfig.mutationRate
+      )
     if randChance(controller.rng, 0.35):
       injectBehavior(hybrid, controller.rng, scriptedState.catalog)
     hybrid.origin = "temple"
@@ -269,6 +286,7 @@ const GoblinAvoidRadius = 6
 
 proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
                          agentId: int, state: var AgentState): tuple[did: bool, action: uint16] =
+  ## Redirect the agent toward altar-heart recovery when needed.
   let teamId = getTeamId(agent)
   var altarPos = ivec2(-1, -1)
   var altarHearts = 0
@@ -292,9 +310,10 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
     return (true, controller.moveTo(env, agent, agentId, state, altarPos))
 
   if agent.inventoryGold > 0:
-    let (didKnown, actKnown) = controller.tryMoveToKnownResource(
-      env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u16)
-    if didKnown: return (true, actKnown)
+    let (didKnown, actKnown) = controller.tryMoveToKnownResource(env,
+      agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u16)
+    if didKnown:
+      return (true, actKnown)
     let magmaGlobal = findNearestThing(env, agent.pos, Magma, maxDist = int.high)
     if not isNil(magmaGlobal):
       updateClosestSeen(state, state.basePosition, magmaGlobal.pos, state.closestMagmaPos)
@@ -305,18 +324,19 @@ proc tryPrioritizeHearts(controller: Controller, env: Environment, agent: Thing,
 
   if agent.unitClass == UnitVillager:
     let (didGold, actGold) = controller.ensureGold(env, agent, agentId, state)
-    if didGold: return (true, actGold)
+    if didGold:
+      return (true, actGold)
 
   (false, 0'u16)
 
 proc decideRoleFromCatalog(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState): uint16 =
+  ## Run the option list for the agent's current scripted role.
   if state.role == Gatherer:
     updateGathererTask(controller, env, agent, state)
   var roleId = state.roleId
   if roleId < 0 or roleId >= scriptedState.catalog.roles.len:
     roleId = roleIdForAgent(controller, agentId)
-  # Dynamic defense priority: Builders use threat-aware option ordering
   if state.role == Builder and isBuilderUnderThreat(env, agent):
     return runOptions(controller, env, agent, agentId, state, BuilderOptionsThreat)
   let options = roleOptionsFor(roleId, controller.rng)
@@ -334,15 +354,12 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 
   initScriptedState(controller)
 
-  # Initialize agent role based on game phase
-  # Early: economy-heavy (3G/2B/1F), Mid: balanced (2G/2B/2F), Late: military (2G/1B/3F)
   if not controller.agentsInitialized[agentId]:
     let slot = agentId mod MapAgentsPerTeam
     let gameProgress = if env.config.maxSteps > 0:
       env.currentStep.float / env.config.maxSteps.float
     else:
       0.0
-    # Determine gatherer/builder/fighter slot counts based on phase
     let (nGatherers, nBuilders) = if gameProgress < EarlyGameThreshold:
       (EarlyGameGatherers, EarlyGameBuilders)
     elif gameProgress < LateGameThreshold:
@@ -355,7 +372,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       elif slotMod < nGatherers + nBuilders: Builder
       else: Fighter
 
-    # Preserve any patrol state that was set before initialization
     let existingState = controller.agents[agentId]
     var initState = AgentState(
       role: role,
@@ -375,16 +391,16 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       buildIndex: -1,
       plannedTarget: ivec2(-1, -1),
       pathBlockedTarget: ivec2(-1, -1),
-      # Preserve patrol and attack-move state
       patrolPoint1: existingState.patrolPoint1,
       patrolPoint2: existingState.patrolPoint2,
       patrolToSecondPoint: existingState.patrolToSecondPoint,
       patrolActive: existingState.patrolActive,
-      # Preserve attack-move target (-1,-1 = inactive); normalize (0,<=0) to (-1,-1)
-      attackMoveTarget: if existingState.attackMoveTarget.x == 0 and existingState.attackMoveTarget.y <= 0:
-                          ivec2(-1, -1)
-                        else:
-                          existingState.attackMoveTarget
+      attackMoveTarget:
+        if existingState.attackMoveTarget.x == 0 and
+            existingState.attackMoveTarget.y <= 0:
+          ivec2(-1, -1)
+        else:
+          existingState.attackMoveTarget
     )
     clearCachedPositions(initState)
     if ScriptedTempleAssignEnabled and scriptedState.pendingHybridRoles[agentId] >= 0:
@@ -401,49 +417,36 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     controller.agents[agentId] = initState
     controller.agentsInitialized[agentId] = true
 
-    # Fighters need Defensive stance to engage enemies (villagers default to NoAttack)
     if role == Fighter and agent.stance == StanceNoAttack:
       agent.stance = StanceDefensive
 
   var state = controller.agents[agentId]
 
-  # Apply any pending stance modification
   if state.stanceModified:
     agent.stance = state.pendingStance
     state.stanceModified = false
     controller.agents[agentId] = state
 
-  # Get team info and difficulty settings
   let currentStep = env.currentStep.int32
   let teamId = getTeamId(agent)
   let diffConfig = controller.getDifficulty(teamId)
 
-  # Decision delay based on difficulty - simulates "thinking time"
-  # Lower difficulty = more delays, making AI slower to react
   if controller.shouldApplyDecisionDelay(teamId):
     setAuditBranch(BranchDecisionDelay)
     return saveStateAndReturn(controller, agentId, state, encodeAction(0'u16, 0'u16))
 
-  # Handle stopped state - agent remains idle until new command or threshold expires
   if state.stoppedActive:
-    # Initialize deferred expiry if using sentinel (-1)
     if state.stoppedUntilStep < 0:
       state.stoppedUntilStep = currentStep + StopIdleSteps
       controller.agents[agentId] = state
     if currentStep >= state.stoppedUntilStep:
-      # Threshold expired, resume normal behavior
       state.stoppedActive = false
       state.stoppedUntilStep = 0
       controller.agents[agentId] = state
     else:
-      # Still stopped - return NOOP
       setAuditBranch(BranchStopped)
       return saveStateAndReturn(controller, agentId, state, encodeAction(0'u16, 0'u16))
 
-  # Update shared threat map with what this agent can see
-  # Only if threat response is enabled for this difficulty level
-  # Staggered: only update 1/5 of agents per step to reduce overhead (5x speedup)
-  # Decay also staggered to every ThreatMapStaggerInterval steps for additional speedup
   if diffConfig.threatResponseEnabled and teamId >= 0 and teamId < MapRoomObjectsTeams:
     if currentStep mod ThreatMapStaggerInterval == 0 and
         controller.threatMaps[teamId].lastUpdateStep != currentStep:
@@ -451,13 +454,10 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if agent.agentId mod ThreatMapStaggerInterval == currentStep mod ThreatMapStaggerInterval:
       controller.updateThreatMapFromVision(env, agent, currentStep)
 
-  # AI auto-trigger Town Bell when enemy army detected near base
-  # Staggered: check once per team per TownBellAutoCheckInterval steps
   if teamId >= 0 and teamId < MapRoomObjectsTeams and
       diffConfig.threatResponseEnabled and
       currentStep - controller.townBellAutoCheckStep[teamId] >= TownBellAutoCheckInterval:
     controller.townBellAutoCheckStep[teamId] = currentStep
-    # Count enemies near any of the team's TownCenters
     var enemyCount = 0
     block countEnemies:
       for tc in env.thingsByKind[TownCenter]:
@@ -483,30 +483,22 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
     if enemyCount >= TownBellAutoTriggerCount and not env.townBellActive[teamId]:
       env.townBellActive[teamId] = true
     elif enemyCount == 0 and env.townBellActive[teamId]:
-      # Auto-deactivate when threat passes: ungarrison all team buildings
       env.townBellActive[teamId] = false
       for kind in [TownCenter, Castle, GuardTower, House]:
         for building in env.thingsByKind[kind]:
           if building.teamId == teamId and building.garrisonedUnits.len > 0:
             discard env.ungarrisonAllUnits(building)
 
-  # Auto-enable scout mode for scout-line units (Scout, LightCavalry, Hussar)
-  # Scouts are trained at Stables and should automatically enter scouting behavior
   if agent.unitClass in {UnitScout, UnitLightCavalry, UnitHussar} and not state.scoutActive:
     state.scoutActive = true
     state.scoutExploreRadius = ObservationRadius.int32 + 5
-    state.scoutLastEnemySeenStep = -100  # Long ago
+    state.scoutLastEnemySeenStep = -100
 
-  # Auto-reassign monks to Fighter role for monk-specific behavior (relic collection,
-  # healing, conversion). Monks trained from Gatherer/Builder-role villagers would
-  # otherwise lack FighterMonk behavior entirely.
   if agent.unitClass == UnitMonk and state.role != Fighter:
     let roleId = scriptedState.coreRoleIds[Fighter]
     setAgentRole(agentId, state, roleId)
 
   if agent.unitClass == UnitGoblin:
-    # Count relics held by goblins using thingsByKind[Agent] filtered for goblins
-    # This is still O(agents_in_nearby_cells) but avoids scanning ALL 1000 agents
     var totalRelicsHeld = 0
     for other in env.thingsByKind[Agent]:
       if other.unitClass == UnitGoblin and isAgentAlive(env, other):
@@ -515,7 +507,6 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
       setAuditBranch(BranchGoblinRelic)
       return saveStateAndReturn(controller, agentId, state, encodeAction(0'u16, 0'u16))
 
-    # Use spatial index to find nearest non-goblin threat instead of scanning all agents
     var nearestThreat: Thing = nil
     var threatDist = int.high
     block findThreat:
@@ -787,17 +778,26 @@ proc decideAction*(controller: Controller, env: Environment, agentId: int): uint
 proc isAgentReassignable(state: AgentState, agent: Thing): bool =
   ## Check if an agent is idle enough to be reassigned to a different role.
   ## Agents in active combat, patrol, attack-move, etc. should not be disrupted.
-  if state.patrolActive: return false
-  if state.attackMoveTarget.x >= 0: return false
-  if state.stoppedActive: return false
-  if state.scoutActive: return false
-  if state.holdPositionActive: return false
-  if state.followActive: return false
-  if state.guardActive: return false
-  if state.fighterEnemyAgentId >= 0: return false
-  if agent.isSettler and agent.settlerTarget.x >= 0: return false
-  # Don't reassign non-villager units (military units keep their role)
-  if agent.unitClass != UnitVillager: return false
+  if state.patrolActive:
+    return false
+  if state.attackMoveTarget.x >= 0:
+    return false
+  if state.stoppedActive:
+    return false
+  if state.scoutActive:
+    return false
+  if state.holdPositionActive:
+    return false
+  if state.followActive:
+    return false
+  if state.guardActive:
+    return false
+  if state.fighterEnemyAgentId >= 0:
+    return false
+  if agent.isSettler and agent.settlerTarget.x >= 0:
+    return false
+  if agent.unitClass != UnitVillager:
+    return false
   true
 
 proc reassignRolesForPhase(controller: Controller, env: Environment) =
@@ -807,14 +807,15 @@ proc reassignRolesForPhase(controller: Controller, env: Environment) =
     env.currentStep.float / env.config.maxSteps.float
   else:
     0.0
+
   let (targetGatherers, targetBuilders) = if gameProgress < EarlyGameThreshold:
     (EarlyGameGatherers, EarlyGameBuilders)
   elif gameProgress < LateGameThreshold:
     (MidGameGatherers, MidGameBuilders)
   else:
     (LateGameGatherers, LateGameBuilders)
+
   for teamId in 0 ..< MapRoomObjectsTeams:
-    # Count current role distribution for this team
     var counts: array[AgentRole, int]
     var reassignable: array[AgentRole, seq[int]]
     for role in AgentRole:
@@ -823,43 +824,46 @@ proc reassignRolesForPhase(controller: Controller, env: Environment) =
     let teamStart = teamId * MapAgentsPerTeam
     let teamEnd = teamStart + MapAgentsPerTeam
     for agentId in teamStart ..< teamEnd:
-      if not controller.agentsInitialized[agentId]: continue
+      if not controller.agentsInitialized[agentId]:
+        continue
       let agent = env.agents[agentId]
-      if not isAgentAlive(env, agent): continue
+      if not isAgentAlive(env, agent):
+        continue
       let state = controller.agents[agentId]
       let role = state.role
       counts[role] += 1
       if isAgentReassignable(state, agent):
         reassignable[role].add agentId
 
-    # Compute target counts proportional to alive agents (scale from 6-slot ratio)
     let totalAlive = counts[Gatherer] + counts[Builder] + counts[Fighter]
-    if totalAlive < 2: continue  # Too few agents to reassign
+    if totalAlive < 2:
+      continue
 
     let wantGatherers = (totalAlive * targetGatherers + 3) div 6
     let wantBuilders = (totalAlive * targetBuilders + 3) div 6
     let wantFighters = totalAlive - wantGatherers - wantBuilders
 
-    # Identify surplus and deficit roles
     var surplus: array[AgentRole, int]
     surplus[Gatherer] = counts[Gatherer] - wantGatherers
     surplus[Builder] = counts[Builder] - wantBuilders
     surplus[Fighter] = counts[Fighter] - wantFighters
 
-    # Reassign from roles with surplus to roles with deficit
     for targetRole in [Fighter, Builder, Gatherer]:
-      if surplus[targetRole] >= 0: continue  # No deficit
+      if surplus[targetRole] >= 0:
+        continue
       var needed = -surplus[targetRole]
       for sourceRole in [Gatherer, Builder, Fighter]:
-        if needed <= 0: break
-        if surplus[sourceRole] <= 0: continue  # No surplus
+        if needed <= 0:
+          break
+        if surplus[sourceRole] <= 0:
+          continue
         let available = min(needed, min(surplus[sourceRole], reassignable[sourceRole].len))
         for i in 0 ..< available:
           let agentId = reassignable[sourceRole][reassignable[sourceRole].len - 1 - i]
           let roleId = scriptedState.coreRoleIds[targetRole]
-          if roleId < 0: continue
+          if roleId < 0:
+            continue
           setAgentRole(agentId, controller.agents[agentId], roleId)
-          # Set stance for new fighters
           if targetRole == Fighter:
             let agent = env.agents[agentId]
             if agent.stance == StanceNoAttack:
@@ -868,15 +872,14 @@ proc reassignRolesForPhase(controller: Controller, env: Environment) =
         surplus[targetRole] += available
         needed -= available
 
-# Compatibility function for updateController
 proc updateController*(controller: Controller, env: Environment) =
+  ## Advance controller state that is updated once per environment step.
   initScriptedState(controller)
-  # Clean up expired coordination requests and resource reservations
   clearExpiredRequests(env.currentStep)
   clearExpiredReservations(env)
-  # Update economy tracking for all teams
   for teamId in 0 ..< MapRoomObjectsTeams:
     updateEconomy(controller, env, teamId)
+
   if scriptedState.lastEpisodeStep >= 0 and env.currentStep < scriptedState.lastEpisodeStep:
     for i in 0 ..< MapAgents:
       controller.agentsInitialized[i] = false
@@ -884,32 +887,29 @@ proc updateController*(controller: Controller, env: Environment) =
     resetScriptedAssignments(scriptedState)
     scriptedState.scoredAtStep = false
     scriptedState.lastEpisodeStep = -1
-    # Clear shared threat maps and town split cooldowns on episode reset
     for teamId in 0 ..< MapRoomObjectsTeams:
       controller.clearThreatMap(teamId)
       controller.townSplitLastStep[teamId] = 0
-    # Reset economy state on episode reset
     resetEconomy()
-    # Clear resource reservations on episode reset
     for teamId in 0 ..< MapRoomObjectsTeams:
       teamReservations[teamId] = ReservationState()
+
   if EvolutionEnabled:
     if not scriptedState.scoredAtStep and env.currentStep >= ScriptedScoreStep:
       applyScriptedScoring(controller, env)
       scriptedState.scoredAtStep = true
+
   if ScriptedTempleAssignEnabled:
     processTempleHybridRequests(controller, env)
-  # Periodically evaluate tribute between allied teams
+
   if env.currentStep mod TributeCheckInterval == 0:
     for teamId in 0 ..< MapRoomObjectsTeams:
       evaluateTribute(env, teamId)
-  # Periodically re-evaluate role assignments based on game phase
+
   if env.currentStep > 0 and env.currentStep mod RoleReassignInterval == 0:
     reassignRolesForPhase(controller, env)
-  # Update adaptive difficulty for teams that have it enabled
+
   controller.updateAdaptiveDifficulty(env)
-  # Check for town splits (AI settlement expansion)
   controller.checkAndTriggerTownSplit(env)
-  # Check if settler groups have arrived and should found new towns
   controller.checkSettlerArrivals(env)
   scriptedState.lastEpisodeStep = env.currentStep

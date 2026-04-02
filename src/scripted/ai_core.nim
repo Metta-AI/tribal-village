@@ -1,22 +1,16 @@
-## Core AI system module - imported by agent_control.nim via ai_defaults.
-## Provides foundational AI types, pathfinding, and utility functions.
-import std/[tables, sets]
-import ../entropy
-import vmath
-import ../environment, ../common_types, ../terrain
-import ai_types
-import ai_utils
-import coordination
-import memoization
+import
+  std/[sets, tables],
+  vmath,
+  ../[common_types, entropy, environment, terrain],
+  ai_types, ai_utils, coordination, memoization
 
-# Re-export modules so downstream importers get full environment/AI type access
-export ai_types, ai_utils, environment, common_types, terrain, coordination, entropy
-export memoization
+export ai_types, ai_utils, environment, common_types
+export terrain, coordination, entropy, memoization
 
 const
-  CacheMaxAge* = 12  # Invalidate cached positions after this many steps (faster re-path on depletion)
-  ThreatMapStaggerInterval* = 5  # Only 1/5 of agents update threat map per step
-  PathBlockRetryInterval* = 8   # Steps between re-trying A* for blocked targets
+  CacheMaxAge* = 12
+  ThreatMapStaggerInterval* = 5
+  PathBlockRetryInterval* = 8
 
 proc stanceAllowsAutoAttack*(env: Environment, agent: Thing): bool =
   ## Returns true if the agent's stance allows auto-attacking enemies.
@@ -48,12 +42,11 @@ proc hasHarvestableResource*(thing: Thing): bool =
         return true
     return false
   of Tree:
-    # Trees use harvestTree which has its own checks; consider alive trees harvestable
     return true
   of Cow:
-    return true  # Cows are always interactable (milk or kill)
+    return true
   else:
-    return true  # Non-resource things (buildings etc.) are always valid
+    return true
 
 const
   Directions8* = [
@@ -69,24 +62,6 @@ const
 
   SearchRadius* = 50
   SpiralAdvanceSteps = 3
-
-# ---------------------------------------------------------------------------
-# Generic per-agent per-step cache infrastructure
-# ---------------------------------------------------------------------------
-# Provides memoization for expensive per-agent computations (spatial lookups,
-# pathfinding, threat assessment) that may be called multiple times per step.
-#
-# Design rationale:
-#   - AI behaviors often call the same expensive function from canStart(),
-#     shouldTerminate(), and act() within a single simulation step
-#   - Without caching, this leads to 3x redundant computation per agent per step
-#   - The cache auto-invalidates when the step changes, ensuring fresh data
-#
-# Usage pattern:
-#   var myCache: PerAgentCache[ExpensiveResult]
-#   proc getExpensiveData(env: Environment, agentId: int): ExpensiveResult =
-#     myCache.get(env, agentId, computeExpensiveData)
-# ---------------------------------------------------------------------------
 
 type
   PerAgentCache*[T] = object
@@ -245,19 +220,20 @@ proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
         of DiffBrutal: DiffHard)
 
 proc getAgentRole*(controller: Controller, agentId: int): AgentRole =
-  ## Get the role of an agent (for profiling)
+  ## Return the current role for an initialized agent.
   if agentId >= 0 and agentId < MapAgents and controller.agentsInitialized[agentId]:
     return controller.agents[agentId].role
-  return Gatherer  # Default
+  return Gatherer
 
 proc isAgentInitialized*(controller: Controller, agentId: int): bool =
-  ## Check if an agent has been initialized (for profiling)
+  ## Return true when the controller has initialized this agent slot.
   if agentId >= 0 and agentId < MapAgents:
     return controller.agentsInitialized[agentId]
   return false
 
-# Helper proc to save state and return action
-proc saveStateAndReturn*(controller: Controller, agentId: int, state: AgentState, action: uint16): uint16 =
+proc saveStateAndReturn*(controller: Controller, agentId: int,
+                         state: AgentState, action: uint16): uint16 =
+  ## Persist the updated state for an agent and return the chosen action.
   var nextState = state
   nextState.lastActionVerb = action.int div ActionArgumentCount
   nextState.lastActionArg = action.int mod ActionArgumentCount
@@ -266,28 +242,21 @@ proc saveStateAndReturn*(controller: Controller, agentId: int, state: AgentState
   return action
 
 proc vecToOrientation*(vec: IVec2): int =
-  ## Map a step vector to orientation index (0..7)
-  # Lookup: index = (signi(x)+1)*3 + (signi(y)+1), mapped to direction
+  ## Map a step vector to the corresponding orientation index.
   const orientationTable = [
-    # (x=-1,y=-1)=NW, (x=-1,y=0)=W, (x=-1,y=1)=SW
-    # (x=0,y=-1)=N,   (x=0,y=0)=0,  (x=0,y=1)=S
-    # (x=1,y=-1)=NE,  (x=1,y=0)=E,  (x=1,y=1)=SE
-    4, 2, 6,  # x=-1: NW, W, SW
-    0, 0, 1,  # x=0:  N, (origin), S
-    5, 3, 7   # x=1:  NE, E, SE
+    4, 2, 6,
+    0, 0, 1,
+    5, 3, 7
   ]
   let ix = (if vec.x < 0: 0 elif vec.x > 0: 2 else: 1)
   let iy = (if vec.y < 0: 0 elif vec.y > 0: 2 else: 1)
   orientationTable[ix * 3 + iy]
 
 proc signi*(x: int32): int32 =
+  ## Return the sign of `x` as -1, 0, or 1.
   if x < 0: -1
   elif x > 0: 1
   else: 0
-
-# chebyshevDist is provided by environment (via step.nim template)
-
-# Fog of War / Revealed Map Functions
 
 proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: int) =
   ## Mark tiles within radius of center as revealed for the specified team.

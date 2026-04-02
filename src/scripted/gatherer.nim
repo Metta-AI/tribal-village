@@ -1,24 +1,12 @@
-import ai_build_helpers
-export ai_build_helpers
+import
+  ai_build_helpers, coordination, economy, options
 
-import options
-export options
+export ai_build_helpers, options
+export coordination, economy
 
-import coordination
-export coordination
-
-import economy
-export economy
-
-# Game phase resource weights (not balance-tunable, just weighting tables)
 const
-  # Weights: lower value = higher priority (divides the stockpile count)
-  # Order: [Food, Wood, Stone, Gold]
-  # Early game: Food-heavy to sustain villager production, wood for buildings
   EarlyGameWeights = [0.35, 0.6, 1.2, 1.0]
-  # Mid game: Balanced with gold for tech upgrades and military
   MidGameWeights = [0.7, 0.7, 0.85, 0.6]
-  # Late game: Gold-heavy for advanced military, stone for castles
   LateGameWeights = [1.2, 1.0, 0.65, 0.4]
 
 optionGuard(canStartGathererGarrison, shouldTerminateGathererGarrison):
@@ -43,16 +31,15 @@ optionGuard(canStartGathererFlee, shouldTerminateGathererFlee):
 
 proc optGathererFlee(controller: Controller, env: Environment, agent: Thing,
                      agentId: int, state: var AgentState): uint16 =
-  ## Flee toward home altar when enemies are nearby
+  ## Flee toward the home altar when enemies are nearby.
   let enemy = findNearbyEnemyForFlee(env, agent, GathererFleeRadius)
   if isNil(enemy):
     return 0'u16
-  # Request protection from nearby fighters via coordination system
   requestProtectionFromFighter(env, agent, enemy.pos)
-  # Move toward home altar for safety
   fleeToBase(controller, env, agent, agentId, state)
 
 proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IVec2): IVec2 =
+  ## Return the nearest open fertile-adjacent build target.
   let (startX, endX, startY, endY) = radiusBounds(center, radius)
   let cx = center.x.int
   let cy = center.y.int
@@ -79,18 +66,20 @@ proc findFertileTarget(env: Environment, center: IVec2, radius: int, blocked: IV
 const FoodKinds = {Wheat, Stubble, Fish, Bush, Cow, Corpse}
 
 proc gathererStockpileTotal(agent: Thing): int =
+  ## Sum carried stockpile resources for the agent.
   for key, count in agent.inventory.pairs:
     if count > 0 and isStockpileResourceKey(key):
       result += count
 
 proc hasNearbyFood(env: Environment, pos: IVec2, radius: int): bool =
-  ## Optimized: uses spatial index for O(cells) instead of O(all food) iteration
+  ## Return true when any food source exists within the search radius.
   let nearest = findNearestThingOfKindsSpatial(env, pos, FoodKinds, radius)
   not nearest.isNil
 
 proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thing,
                            agentId: int, state: var AgentState,
                            magmaGlobal: Thing): (bool, uint16) =
+  ## Move the agent toward a magma drop-off for altar-heart delivery.
   let (didKnown, actKnown) = controller.tryMoveToKnownResource(
     env, agent, agentId, state, state.closestMagmaPos, {Magma}, 3'u16)
   if didKnown: return (true, actKnown)
@@ -102,16 +91,15 @@ proc tryDeliverGoldToMagma(controller: Controller, env: Environment, agent: Thin
 
 proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
                         state: var AgentState) =
+  ## Choose the gatherer task that best matches current economy pressure.
   let teamId = getTeamId(agent)
   let agentId = agent.agentId
 
-  # Check for individual gatherer priority override first (highest priority)
   if controller.isGathererPriorityActive(agentId):
     let resource = controller.getGathererPriority(agentId)
     state.gathererTask = stockpileResourceToGathererTask(resource)
     return
 
-  # Check for team-level economy focus (second priority)
   if controller.isTeamEconomyFocusActive(teamId):
     let resource = controller.getTeamEconomyFocus(teamId)
     state.gathererTask = stockpileResourceToGathererTask(resource)
@@ -121,7 +109,6 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
   let altarFound = altarPos.x >= 0
   var task = TaskFood
 
-  # Check economy state for critical resource bottlenecks
   let bottleneck = getCurrentBottleneck(teamId)
   if bottleneck == FoodCritical:
     state.gathererTask = TaskFood
@@ -133,11 +120,10 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
   if altarFound and altarHearts < 10:
     task = TaskHearts
   else:
-    # Determine game phase and select appropriate weights
     let gameProgress = if env.config.maxSteps > 0:
       env.currentStep.float / env.config.maxSteps.float
     else:
-      0.5  # Default to mid-game if maxSteps not set
+      0.5
     let weights = if gameProgress < EarlyGameThreshold:
       EarlyGameWeights
     elif gameProgress < MidGameThreshold:
@@ -145,24 +131,18 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
     elif gameProgress >= LateGameThreshold:
       LateGameWeights
     else:
-      # Between mid and late: blend mid and late weights
       let blend = (gameProgress - MidGameThreshold) / (LateGameThreshold - MidGameThreshold)
       [MidGameWeights[0] + blend * (LateGameWeights[0] - MidGameWeights[0]),
        MidGameWeights[1] + blend * (LateGameWeights[1] - MidGameWeights[1]),
        MidGameWeights[2] + blend * (LateGameWeights[2] - MidGameWeights[2]),
        MidGameWeights[3] + blend * (LateGameWeights[3] - MidGameWeights[3])]
 
-    # Get flow rates from economy system to adjust priorities
-    # If a resource is decreasing fast, reduce its weight (prioritize it)
     let flowRate = getFlowRate(teamId)
     proc flowAdj(rate: float): float =
       if rate < -0.1: rate * 2.0 else: 0.0
     let flowAdjust = [flowAdj(flowRate.foodPerStep), flowAdj(flowRate.woodPerStep),
                       flowAdj(flowRate.stonePerStep), flowAdj(flowRate.goldPerStep)]
 
-    # Apply weights: lower weighted score = higher priority
-    # Weight < 1.0 makes resource appear more scarce (prioritized)
-    # Flow adjustment makes declining resources appear more scarce
     var ordered: array[5, (GathererTask, float)]
     var orderedLen = 4
     ordered[0] = (TaskFood, max(0.0, env.stockpileCount(teamId, ResourceFood).float + flowAdjust[0] * 10.0) * weights[0])
@@ -170,7 +150,6 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
     ordered[2] = (TaskStone, max(0.0, env.stockpileCount(teamId, ResourceStone).float + flowAdjust[2] * 10.0) * weights[2])
     ordered[3] = (TaskGold, max(0.0, env.stockpileCount(teamId, ResourceGold).float + flowAdjust[3] * 10.0) * weights[3])
     if altarFound:
-      # Shift elements right and insert hearts at index 0
       for i in countdown(3, 0):
         ordered[i + 1] = ordered[i]
       ordered[0] = (TaskHearts, altarHearts.float)
@@ -179,19 +158,17 @@ proc updateGathererTask*(controller: Controller, env: Environment, agent: Thing,
     for i in 1 ..< orderedLen:
       if ordered[i][1] < best[1]:
         best = ordered[i]
-    # Anti-oscillation hysteresis: only switch task if difference is significant
     let currentTask = state.gathererTask
     if best[1] <= 0.0:
       task = best[0]
-    elif currentTask != TaskHearts:  # Hearts task handled separately above
+    elif currentTask != TaskHearts:
       var currentScore = float.high
       for i in 0 ..< orderedLen:
         if ordered[i][0] == currentTask:
           currentScore = ordered[i][1]
           break
-      # Only switch if new best is significantly better than current
       if best[1] > currentScore - TaskSwitchHysteresis:
-        task = currentTask  # Keep current task
+        task = currentTask
       else:
         task = best[0]
     else:

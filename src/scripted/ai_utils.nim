@@ -11,43 +11,39 @@ export types, environment, common_types
 
 const
   DefensiveRetaliationWindow* = 30
-    ## Steps after an attack where defensive stance may retaliate.
   MaxNavalPerTeam* = 5
-    ## Maximum naval units per team.
 
 type
   StanceBehavior* = enum
     ## Behaviors gated by agent stance.
     BehaviorAutoAttack
-      ## Auto-attack enemies in range.
     BehaviorChase
-      ## Chase enemies beyond the current position.
     BehaviorMovementToAttack
-      ## Move toward enemies to engage.
 
   AgentUnitClassFilter* = enum
     ## Filters for enemy searches.
     FilterExclude
-      ## Exclude the listed unit classes.
     FilterInclude
-      ## Only include the listed unit classes.
 
-proc stanceAllows*(env: Environment, agent: Thing, behavior: StanceBehavior): bool =
-  ## Returns whether the agent's stance permits the requested behavior.
+proc stanceAllows*(env: Environment, agent: Thing,
+                   behavior: StanceBehavior): bool =
+  ## Return whether the agent's stance permits the requested behavior.
   case behavior
   of BehaviorAutoAttack:
     case agent.stance
     of StanceAggressive, StanceStandGround: true
     of StanceDefensive:
       agent.lastAttackedStep > 0 and
-        (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
+        (env.currentStep - agent.lastAttackedStep) <=
+        DefensiveRetaliationWindow
     of StanceNoAttack: false
   of BehaviorChase, BehaviorMovementToAttack:
     case agent.stance
     of StanceAggressive: true
     of StanceDefensive:
       agent.lastAttackedStep > 0 and
-        (env.currentStep - agent.lastAttackedStep) <= DefensiveRetaliationWindow
+        (env.currentStep - agent.lastAttackedStep) <=
+        DefensiveRetaliationWindow
     of StanceStandGround, StanceNoAttack: false
 
 proc findNearestEnemyImpl(
@@ -59,7 +55,7 @@ proc findNearestEnemyImpl(
   useClassFilter = false,
   requireWaterUnit = false
 ): Thing =
-  ## Finds the nearest enemy that matches the requested filters.
+  ## Return the nearest matching enemy using the spatial index.
   let
     teamMask = getTeamMask(agent)
     (cx, cy) = cellCoords(agent.pos)
@@ -82,7 +78,6 @@ proc findNearestEnemyImpl(
           continue
         if not isAgentAlive(env, other):
           continue
-        # Skip same-team units using the team bitmask.
         if (getTeamMask(other) and teamMask) != 0:
           continue
         if requireWaterUnit and not other.isWaterUnit:
@@ -110,7 +105,7 @@ proc findNearestEnemy*(
   radius: int,
   requireWaterUnit = false
 ): Thing =
-  ## Finds the nearest enemy within radius.
+  ## Find the nearest enemy within radius.
   findNearestEnemyImpl(
     env,
     agent,
@@ -125,7 +120,7 @@ proc findNearestEnemyOfClass*(
   classes: set[AgentUnitClass],
   filterType: AgentUnitClassFilter
 ): Thing =
-  ## Finds the nearest enemy within radius that matches the class filter.
+  ## Find the nearest enemy within radius that matches the class filter.
   findNearestEnemyImpl(
     env,
     agent,
@@ -136,23 +131,20 @@ proc findNearestEnemyOfClass*(
   )
 
 iterator teamAliveAgents*(env: Environment, teamId: int): Thing =
-  ## Iterates alive agents on a team.
+  ## Iterate alive agents on a team.
   for agent in env.agents:
     if isAgentAlive(env, agent) and getTeamId(agent) == teamId:
       yield agent
 
-proc countTeamAgentsByClass*(
-  env: Environment,
-  teamId: int,
-  classes: set[AgentUnitClass]
-): int =
-  ## Counts alive team agents matching any listed unit class.
+proc countTeamAgentsByClass*(env: Environment, teamId: int,
+                             classes: set[AgentUnitClass]): int =
+  ## Count alive team agents matching any listed unit class.
   for agent in env.teamAliveAgents(teamId):
     if agent.unitClass in classes:
       inc result
 
 proc countTeamNavalAgents*(env: Environment, teamId: int): int =
-  ## Counts alive naval units for a team.
+  ## Count alive naval units for a team.
   for agent in env.teamAliveAgents(teamId):
     if agent.isWaterUnit:
       inc result

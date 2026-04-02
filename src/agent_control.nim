@@ -1,36 +1,32 @@
-## Unified Action Interface for Agent Control
-## Supports both external neural network control and built-in AI control
-## Controller type is specified when creating the environment
+import
+  std/[os, strutils],
+  formations, scripted/ai_defaults
 
-import std/os, std/strutils
-
-import scripted/ai_defaults
-export ai_defaults
-
-import formations
-export formations
+export ai_defaults, formations
 
 when defined(stepTiming):
+  import std/[algorithm, monotimes]
   import envconfig
-  import std/monotimes
-  import std/algorithm
 
-  # AI decision timing state
-  let aiTimingEnabled = parseEnvBool("TV_AI_TIMING", false)
-  let aiTimingInterval = parseEnvInt("TV_AI_TIMING_INTERVAL", 100)
-  let aiTimingTopN = parseEnvInt("TV_AI_TIMING_TOP_N", 10)
+  let
+    aiTimingEnabled = parseEnvBool("TV_AI_TIMING", false)
+    aiTimingInterval = parseEnvInt("TV_AI_TIMING_INTERVAL", 100)
+    aiTimingTopN = parseEnvInt("TV_AI_TIMING_TOP_N", 10)
 
-  var aiTimingCumTotal: float64 = 0.0
-  var aiTimingCumMax: float64 = 0.0
-  var aiTimingStepCount: int = 0
-  var aiTimingAgentCum: array[MapAgents, float64]
-  var aiTimingAgentMax: array[MapAgents, float64]
-  var aiTimingAgentCount: array[MapAgents, int]
+  var
+    aiTimingCumTotal: float64 = 0.0
+    aiTimingCumMax: float64 = 0.0
+    aiTimingStepCount: int = 0
+    aiTimingAgentCum: array[MapAgents, float64]
+    aiTimingAgentMax: array[MapAgents, float64]
+    aiTimingAgentCount: array[MapAgents, int]
 
   proc aiMsBetween(a, b: MonoTime): float64 =
+    ## Return the elapsed time in milliseconds between two timestamps.
     (b.ticks - a.ticks).float64 / 1_000_000.0
 
   proc resetAiTimingCounters() =
+    ## Clear accumulated AI timing counters.
     aiTimingCumTotal = 0.0
     aiTimingCumMax = 0.0
     aiTimingStepCount = 0
@@ -40,31 +36,70 @@ when defined(stepTiming):
       aiTimingAgentCount[i] = 0
 
   proc printAiTimingReport(currentStep: int) =
+    ## Print the aggregated AI timing report for the current window.
     if aiTimingStepCount == 0:
       return
     let n = aiTimingStepCount.float64
 
-    # Collect agents with timing data and sort by cumulative time
-    type AgentTimingEntry = tuple[agentId: int, cumMs: float64, maxMs: float64, count: int]
+    type AgentTimingEntry =
+      tuple[agentId: int, cumMs: float64, maxMs: float64, count: int]
+
     var entries: seq[AgentTimingEntry] = @[]
     for i in 0 ..< MapAgents:
       if aiTimingAgentCount[i] > 0:
-        entries.add((agentId: i, cumMs: aiTimingAgentCum[i], maxMs: aiTimingAgentMax[i], count: aiTimingAgentCount[i]))
+        entries.add((
+          agentId: i,
+          cumMs: aiTimingAgentCum[i],
+          maxMs: aiTimingAgentMax[i],
+          count: aiTimingAgentCount[i]
+        ))
 
-    # Sort by cumulative time descending
     entries.sort(proc(a, b: AgentTimingEntry): int =
-      if a.cumMs > b.cumMs: -1
-      elif a.cumMs < b.cumMs: 1
-      else: 0
+      if a.cumMs > b.cumMs:
+        -1
+      elif a.cumMs < b.cumMs:
+        1
+      else:
+        0
     )
 
     echo ""
-    echo "=== AI Decision Timing Report (steps ", currentStep - aiTimingStepCount + 1, "-", currentStep, ", n=", aiTimingStepCount, ") ==="
-    echo "Total AI decision time: avg=", formatFloat(aiTimingCumTotal / n, ffDecimal, 4), "ms, max=", formatFloat(aiTimingCumMax, ffDecimal, 4), "ms"
+    echo(
+      "=== AI Decision Timing Report (steps ",
+      currentStep - aiTimingStepCount + 1,
+      "-",
+      currentStep,
+      ", n=",
+      aiTimingStepCount,
+      ") ==="
+    )
+    echo(
+      "Total AI decision time: avg=",
+      formatFloat(aiTimingCumTotal / n, ffDecimal, 4),
+      "ms, max=",
+      formatFloat(aiTimingCumMax, ffDecimal, 4),
+      "ms"
+    )
     echo ""
     echo "Top ", aiTimingTopN, " slowest agents (by cumulative time):"
-    echo align("Agent", 8), " | ", align("Avg ms", 10), " | ", align("Max ms", 10), " | ", align("Decisions", 10)
-    echo repeat("-", 8), "-+-", repeat("-", 10), "-+-", repeat("-", 10), "-+-", repeat("-", 10)
+    echo(
+      align("Agent", 8),
+      " | ",
+      align("Avg ms", 10),
+      " | ",
+      align("Max ms", 10),
+      " | ",
+      align("Decisions", 10)
+    )
+    echo(
+      repeat("-", 8),
+      "-+-",
+      repeat("-", 10),
+      "-+-",
+      repeat("-", 10),
+      "-+-",
+      repeat("-", 10)
+    )
 
     let showCount = min(aiTimingTopN, entries.len)
     for i in 0 ..< showCount:
@@ -80,14 +115,13 @@ when defined(stepTiming):
 const
   ActionsFile = "actions.tmp"
 
-# Helper template to reduce nil-check boilerplate for AI controller access
 template withBuiltinAI(body: untyped) =
-  ## Execute body only if globalController has a BuiltinAI controller.
-  ## Used to guard access to aiController methods. Also matches HybridAI.
+  ## Run `body` only when the global controller uses built-in AI state.
   if not isNil(globalController) and globalController.controllerType in {BuiltinAI, HybridAI}:
     body
 
 proc lookupAliveAgent(env: Environment, agentId: int): Thing =
+  ## Return the live agent for `agentId`, or nil when unavailable.
   if agentId < 0 or agentId >= env.agents.len:
     return nil
   result = env.agents[agentId]
@@ -95,6 +129,7 @@ proc lookupAliveAgent(env: Environment, agentId: int): Thing =
     return nil
 
 proc lookupBuilding(env: Environment, buildingX, buildingY: int32): Thing =
+  ## Return the building at the given position, or nil when absent.
   let pos = ivec2(buildingX, buildingY)
   if not isValidPos(pos):
     return nil
@@ -105,6 +140,7 @@ proc lookupBuilding(env: Environment, buildingX, buildingY: int32): Thing =
 proc lookupTrainRequest(env: Environment, buildingX, buildingY, teamId,
                         unitClass: int32, building: var Thing,
                         requestedClass: var AgentUnitClass): bool =
+  ## Validate a training request and return the resolved building and unit.
   building = lookupBuilding(env, buildingX, buildingY)
   if isNil(building) or not buildingHasTrain(building.kind):
     return false
@@ -124,16 +160,13 @@ type
 
   AgentController* = ref object
     controllerType*: ControllerType
-    # Built-in AI controller (when using BuiltinAI)
     aiController*: Controller
-    # External action callback (when using ExternalNN)
     externalActionCallback*: proc(): array[MapAgents, uint16]
 
-# Global agent controller instance
 var globalController*: AgentController
 
 proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSeconds() * 1000)) =
-  ## Initialize the global controller with specified type
+  ## Initialize the global agent controller for the selected backend.
   initAuditLog()
   case controllerType:
   of BuiltinAI:
@@ -143,16 +176,13 @@ proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSe
       externalActionCallback: nil
     )
   of ExternalNN:
-    # External callback will be set later via setExternalActionCallback
     globalController = AgentController(
       controllerType: ExternalNN,
       aiController: nil,
       externalActionCallback: nil
     )
-    # Start automatic play mode for external controller
     play = true
   of HybridAI:
-    # BuiltinAI drives behavior, but external actions can override non-NOOP
     globalController = AgentController(
       controllerType: HybridAI,
       aiController: newController(seed),
@@ -161,12 +191,12 @@ proc initGlobalController*(controllerType: ControllerType, seed: int = int(nowSe
     play = true
 
 proc setExternalActionCallback*(callback: proc(): array[MapAgents, uint16]) =
-  ## Set the external action callback for neural network control
+  ## Register the external callback used by non-built-in controllers.
   if not isNil(globalController) and globalController.controllerType in {ExternalNN, HybridAI}:
     globalController.externalActionCallback = callback
 
 proc getActions*(env: Environment): array[MapAgents, uint16] =
-  ## Get actions for all agents using the configured controller
+  ## Return actions for all agents using the configured controller.
   case globalController.controllerType
   of BuiltinAI:
     var actions: array[MapAgents, uint16]
@@ -198,7 +228,11 @@ proc getActions*(env: Environment): array[MapAgents, uint16] =
       when defined(aiAudit):
         let agent = env.agents[i]
         let teamId = if not agent.isNil: getTeamId(agent) else: -1
-        let role = if controller.agentsInitialized[i]: controller.agents[i].role else: Gatherer
+        let role =
+          if controller.agentsInitialized[i]:
+            controller.agents[i].role
+          else:
+            Gatherer
         recordAuditDecision(i, teamId, role, actions[i])
 
     when defined(stepTiming):
@@ -221,7 +255,10 @@ proc getActions*(env: Environment): array[MapAgents, uint16] =
 
     if fileExists(ActionsFile):
       try:
-        let lines = readFile(ActionsFile).replace("\r", "").replace("\n\n", "\n").split("\n")
+        let lines = readFile(ActionsFile)
+          .replace("\r", "")
+          .replace("\n\n", "\n")
+          .split("\n")
         if lines.len >= MapAgents:
           var fileActions: array[MapAgents, uint16]
           for i in 0 ..< MapAgents:
@@ -234,18 +271,19 @@ proc getActions*(env: Environment): array[MapAgents, uint16] =
           discard tryRemoveFile(ActionsFile)
 
           return fileActions
-      except CatchableError:
+      except IOError, OSError, ValueError:
         discard
 
     echo "❌ FATAL ERROR: ExternalNN controller configured but no callback or actions file found!"
     echo "Python environment must call setExternalActionCallback() or provide " & ActionsFile & "!"
-    raise newException(ValueError, "ExternalNN controller has no actions - Python communication failed!")
+    raise newException(
+      ValueError,
+      "ExternalNN controller has no actions - Python communication failed!"
+    )
   of HybridAI:
-    # BuiltinAI drives all behavior, but external actions override non-NOOP
     var actions: array[MapAgents, uint16]
     let controller = globalController.aiController
 
-    # Get builtin AI actions first
     for i in 0 ..< env.agents.len:
       setAuditBranch(BranchInactive)
       actions[i] = controller.decideAction(env, i)
@@ -253,10 +291,6 @@ proc getActions*(env: Environment): array[MapAgents, uint16] =
     controller.updateController(env)
     printAuditSummary(env.currentStep.int)
     return actions
-
-# Attack-Move API
-# These functions allow external code to set attack-move targets for agents.
-# Attack-move: unit moves toward destination, attacking any enemies encountered along the way.
 
 proc setAgentAttackMoveTarget*(agentId: int, target: IVec2) =
   ## Set an attack-move target for an agent.
@@ -286,10 +320,6 @@ proc isAgentAttackMoveActive*(agentId: int): bool =
   let target = getAgentAttackMoveTarget(agentId)
   target.x >= 0
 
-# Patrol API
-# These functions allow external code to set patrol behavior for agents.
-# Patrol: unit walks back and forth between two waypoints, attacking enemies encountered.
-
 proc setAgentPatrol*(agentId: int, point1, point2: IVec2) =
   ## Set patrol waypoints for an agent. Enables patrol mode.
   ## The agent will walk between the two points, attacking any enemies encountered.
@@ -316,10 +346,6 @@ proc isAgentPatrolActive*(agentId: int): bool =
     return globalController.aiController.isPatrolActive(agentId)
   false
 
-# Stance API
-# These functions allow external code to set combat stance for agents.
-# Deferred versions (no env required) apply the stance on next decideAction.
-
 proc setAgentStance*(agentId: int, stance: AgentStance) =
   ## Set the combat stance for an agent (deferred).
   ## The stance will be applied on the next decideAction call.
@@ -336,8 +362,6 @@ proc getAgentStance*(agentId: int): AgentStance =
     return globalController.aiController.getAgentPendingStance(agentId)
   StanceDefensive
 
-# Environment-based stance API (for direct modification when env is available)
-
 proc setAgentStance*(env: Environment, agentId: int, stance: AgentStance) =
   ## Set the combat stance for an agent (immediate, requires env).
   let agent = lookupAliveAgent(env, agentId)
@@ -350,9 +374,6 @@ proc getAgentStance*(env: Environment, agentId: int): AgentStance =
   if not isNil(agent):
     return agent.stance
   StanceDefensive
-
-# Garrison API
-# These functions allow external code to garrison/ungarrison units.
 
 proc garrisonAgentInBuilding*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Garrison an agent into the building at the given position.
@@ -390,9 +411,6 @@ proc isAgentGarrisoned*(env: Environment, agentId: int): bool =
   let agent = env.agents[agentId]
   agent.isGarrisoned
 
-# Production Queue API
-# These functions allow external code to queue/cancel unit training at buildings.
-
 proc queueUnitTraining*(env: Environment, buildingX, buildingY: int32, teamId: int32): bool =
   ## Queue a unit for training at the building at the given position.
   ## The unit type and cost are determined by the building type.
@@ -421,7 +439,9 @@ proc getProductionQueueSize*(env: Environment, buildingX, buildingY: int32): int
     return 0
   thing.productionQueue.entries.len.int32
 
-proc getProductionQueueEntryProgress*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
+proc getProductionQueueEntryProgress*(env: Environment, buildingX,
+                                      buildingY: int32,
+                                      index: int32): int32 =
   ## Get the remaining steps for a production queue entry.
   ## Returns -1 if invalid.
   let thing = lookupBuilding(env, buildingX, buildingY)
@@ -431,14 +451,17 @@ proc getProductionQueueEntryProgress*(env: Environment, buildingX, buildingY: in
     return -1
   thing.productionQueue.entries[index].remainingSteps.int32
 
-proc canBuildingTrainUnit*(env: Environment, buildingX, buildingY: int32, unitClass: int32, teamId: int32): bool =
+proc canBuildingTrainUnit*(env: Environment, buildingX, buildingY: int32,
+                           unitClass: int32, teamId: int32): bool =
   ## Check if a building can train the specified unit class.
   ## Returns true if the building supports training this unit type.
   var thing: Thing
   var requestedClass: AgentUnitClass
   lookupTrainRequest(env, buildingX, buildingY, teamId, unitClass, thing, requestedClass)
 
-proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32, teamId: int32, unitClass: int32): bool =
+proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32,
+                                 teamId: int32,
+                                 unitClass: int32): bool =
   ## Queue a specific unit class for training at the building.
   ## Validates that the building can produce the requested unit class.
   ## Returns true if successfully queued.
@@ -452,7 +475,10 @@ proc queueUnitTrainingWithClass*(env: Environment, buildingX, buildingY: int32, 
     let mult = env.teamModifiers[teamId].trainCostMultiplier[requestedClass]
     if mult != 0.0'f32 and mult != 1.0'f32:
       for i in 0 ..< costs.len:
-        costs[i] = (res: costs[i].res, count: max(1, int(float32(costs[i].count) * mult + 0.5)))
+        costs[i] = (
+          res: costs[i].res,
+          count: max(1, int(float32(costs[i].count) * mult + 0.5))
+        )
   queueTrainUnit(env, thing, teamId.int, requestedClass, costs)
 
 proc cancelAllTrainingQueue*(env: Environment, buildingX, buildingY: int32): int32 =
@@ -469,7 +495,9 @@ proc cancelAllTrainingQueue*(env: Environment, buildingX, buildingY: int32): int
       break
   cancelled
 
-proc getProductionQueueEntryUnitClass*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
+proc getProductionQueueEntryUnitClass*(env: Environment, buildingX,
+                                       buildingY: int32,
+                                       index: int32): int32 =
   ## Get the unit class for a production queue entry.
   ## Returns -1 if invalid, otherwise the AgentUnitClass enum ordinal.
   let thing = lookupBuilding(env, buildingX, buildingY)
@@ -479,7 +507,9 @@ proc getProductionQueueEntryUnitClass*(env: Environment, buildingX, buildingY: i
     return -1
   ord(thing.productionQueue.entries[index].unitClass).int32
 
-proc getProductionQueueEntryTotalSteps*(env: Environment, buildingX, buildingY: int32, index: int32): int32 =
+proc getProductionQueueEntryTotalSteps*(env: Environment, buildingX,
+                                        buildingY: int32,
+                                        index: int32): int32 =
   ## Get the total training steps for a production queue entry.
   ## Returns -1 if invalid.
   let thing = lookupBuilding(env, buildingX, buildingY)
@@ -496,9 +526,6 @@ proc isProductionQueueReady*(env: Environment, buildingX, buildingY: int32): boo
   if isNil(thing):
     return false
   productionQueueHasReady(thing)
-
-# Research API
-# These functions allow external code to research technologies at buildings.
 
 proc researchBlacksmithUpgrade*(env: Environment, agentId: int, buildingX, buildingY: int32): bool =
   ## Research the next blacksmith upgrade at the given building.

@@ -1,45 +1,28 @@
-import std/tables
+import
+  std/tables,
+  ai_build_helpers, ai_utils, coordination, options,
+  ../formations
 
-import ai_build_helpers
-export ai_build_helpers
-
-import ai_utils
-export ai_utils
-
-import options
-export options
-
-import coordination
-export coordination
-
-import ../formations
-export formations
+export ai_build_helpers, ai_utils
+export options, coordination, formations
 
 const
   DividerInvSqrt2 = 0.70710677'f32
-  # Order matters: agents start at (agentId mod len), so position determines which
-  # building type each agent tries first. Spread rare buildings (Castle, Monastery,
-  # Dock) across the rotation to ensure diverse unit production.
   FighterTrainKinds = [Castle, Barracks, Monastery, ArcheryRange, Dock, Stable, MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop]
   FighterSiegeKinds = {MangonelWorkshop, SiegeWorkshop, TrebuchetWorkshop}
   FighterNavalKinds = {Dock}
-  MaxSiegePerTeam = 3  # Cap siege training to prevent resource drain
+  MaxSiegePerTeam = 3
 
-# Per-step cache for isThreateningAlly results to avoid redundant spatial scans
-# Key: (enemyAgentId * MapRoomObjectsTeams + teamId), Value: isThreatening
-var threateningCacheStep: int = -1
-var threateningCache: Table[int, bool]
-
-# Per-step caches for expensive AI lookups
-# These avoid redundant scans when canStart/shouldTerminate/act all call the same lookup
-# Uses PerAgentCache[T] from ai_core.nim to eliminate boilerplate
-var meleeEnemyCache: PerAgentCache[Thing]
-var siegeEnemyCache: PerAgentCache[Thing]
-var friendlyMonkCache: PerAgentCache[Thing]
-var combatAllyCache: PerAgentCache[Thing]
-var scoutEnemyCache: PerAgentCache[Thing]
-var seesEnemyStructureCache: PerAgentCache[bool]
-var allyNearbyCache: PerAgentCache[bool]
+var
+  threateningCacheStep: int = -1
+  threateningCache: Table[int, bool]
+  meleeEnemyCache: PerAgentCache[Thing]
+  siegeEnemyCache: PerAgentCache[Thing]
+  friendlyMonkCache: PerAgentCache[Thing]
+  combatAllyCache: PerAgentCache[Thing]
+  scoutEnemyCache: PerAgentCache[Thing]
+  seesEnemyStructureCache: PerAgentCache[bool]
+  allyNearbyCache: PerAgentCache[bool]
 
 const
   SiegeUnitClasses = {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
@@ -53,6 +36,7 @@ proc teamNavalAtCap(env: Environment, teamId: int): bool =
   countTeamNavalAgents(env, teamId) >= MaxNavalPerTeam
 
 proc fighterIsEnclosed(env: Environment, agent: Thing): bool =
+  ## Return true when all neighboring movement directions are blocked.
   for _, d in Directions8:
     let np = agent.pos + d
     if canEnterForMove(env, agent, agent.pos, np):
@@ -64,18 +48,14 @@ proc isThreateningAlly(env: Environment, enemy: Thing, teamId: int): bool =
   ## Uses spatial index instead of scanning all agents.
   ## Optimized: per-step cache to avoid redundant scans when multiple fighters
   ## evaluate the same enemy. Also uses bitwise team mask comparison for O(1) team checks.
-
-  # Invalidate cache if step changed
   if threateningCacheStep != env.currentStep:
     threateningCacheStep = env.currentStep
     threateningCache.clear()
 
-  # Check cache first
   let cacheKey = enemy.agentId * MapRoomObjectsTeams + teamId
   if cacheKey in threateningCache:
     return threateningCache[cacheKey]
 
-  # Compute and cache result
   let (cx, cy) = cellCoords(enemy.pos)
   let clampedMax = min(AllyThreatRadius, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
   let cellRadius = distToCellRadius16(clampedMax)
