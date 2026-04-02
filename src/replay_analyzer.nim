@@ -2,13 +2,13 @@
 ##
 ## Loads compressed replay files produced by replay_writer.nim,
 ## extracts per-team strategy summaries, and feeds results back
-## into the evolutionary role/behavior fitness system.
+## into the evolutionary role and behavior fitness system.
 
-import std/[algorithm, json, os, strutils, times]
-import zippy
-import replay_common
+import
+  std/[algorithm, json, os, strutils, times],
+  zippy,
+  replay_common, scripted/roles
 
-import scripted/roles
 export roles
 
 const
@@ -58,19 +58,11 @@ type
     verbs*: seq[int]
     teamReward*: float32
 
-# ---------------------------------------------------------------------------
-# Replay loading
-# ---------------------------------------------------------------------------
-
 proc loadReplayJson*(path: string): JsonNode =
   ## Load a compressed .json.z replay file and return parsed JSON.
   let compressed = readFile(path)
   let decompressed = zippy.uncompress(compressed, dataFormat = dfZlib)
   parseJson(decompressed)
-
-# ---------------------------------------------------------------------------
-# Strategy extraction
-# ---------------------------------------------------------------------------
 
 proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
   ## Extract per-team strategy summaries from parsed replay JSON.
@@ -89,7 +81,7 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
   for obj in objects.items:
     if obj.kind != JObject:
       continue
-    # Only analyze agents (they have agent_id)
+    # Only analyze agents, which always have an `agent_id`.
     let agentIdNode = obj{"agent_id"}
     if agentIdNode.isNil:
       continue
@@ -102,7 +94,7 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
 
     inc teamStrategies[teamId].agentCount
 
-    # Parse action and success changes once, accumulate all stats in a single pass
+    # Parse action and success changes once, then accumulate stats in one pass.
     let actionIdSeries = obj{"action_id"}
     let actionSuccessSeries = obj{"action_success"}
 
@@ -118,11 +110,11 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
         if verb < 0 or verb >= ActionVerbCount:
           continue
 
-        # Action distribution
+        # Track the action distribution.
         inc teamStrategies[teamId].actionDist.counts[verb]
         inc teamStrategies[teamId].actionDist.total
 
-        # Combat stats
+        # Track combat stats.
         if verb == ActionAttack:
           inc teamStrategies[teamId].combat.attacks
           while successIdx < successChanges.len and
@@ -133,20 +125,20 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
              successChanges[successIdx].value.getBool():
             inc teamStrategies[teamId].combat.hits
 
-        # Resource stats
+        # Track resource stats.
         elif verb == ActionUse:
           inc teamStrategies[teamId].resources.gatherActions
         elif verb == ActionBuild:
           inc teamStrategies[teamId].resources.buildActions
 
-    # Final reward
+    # Accumulate the final reward.
     let totalRewardSeries = obj{"total_reward"}
     if not totalRewardSeries.isNil:
       let lastReward = lastChangeValue(totalRewardSeries)
       if lastReward.kind == JFloat or lastReward.kind == JInt:
         teamStrategies[teamId].finalReward += lastReward.getFloat().float32
 
-  # Determine winner (team with highest aggregate reward)
+  # Determine the winner from the highest aggregate reward.
   var bestReward = float32.low
   var bestTeam = -1
   for i in 0 ..< MapRoomObjectsTeams:
@@ -168,10 +160,6 @@ proc analyzeReplayFile*(path: string): ReplayAnalysis =
   let replayJson = loadReplayJson(path)
   result = analyzeReplay(replayJson)
   result.filePath = path
-
-# ---------------------------------------------------------------------------
-# Strategy scoring - map strategies to behavior fitness signals
-# ---------------------------------------------------------------------------
 
 proc actionProfile*(strategy: TeamStrategy): array[ActionVerbCount, float32] =
   ## Normalize action counts to a frequency distribution.
@@ -202,10 +190,6 @@ proc strategyScore*(strategy: TeamStrategy): float32 =
   let winBonus = if strategy.won: 0.15'f32 else: 0.0'f32
   clamp(rewardComponent * 0.65 + combatComponent + winBonus, 0.0, 1.0)
 
-# ---------------------------------------------------------------------------
-# Fitness feedback - update role catalog from replay analysis
-# ---------------------------------------------------------------------------
-
 template blendFitness(fitness: var float32, target: float32, alpha: float32) =
   ## Blend fitness toward target using exponential moving average.
   fitness = clamp(fitness * (1.0 - alpha) + target * alpha, 0.0, 1.0)
@@ -216,23 +200,23 @@ proc applyReplayFeedback*(catalog: var RoleCatalog, analysis: ReplayAnalysis) =
   if analysis.teams.len == 0:
     return
 
-  # Compute per-strategy scores with pre-allocated seq
+  # Compute per-team scores with a pre-allocated seq.
   var scores = newSeqOfCap[float32](analysis.teams.len)
   for team in analysis.teams:
     scores.add strategyScore(team)
 
-  # Average score across all teams as a baseline
+  # Average the scores across all teams as a baseline.
   var avgScore: float32 = 0.0
   for s in scores:
     avgScore += s
   avgScore /= float32(scores.len)
 
-  # Boost roles that appear in winning strategies, penalize losers
+  # Blend role fitness toward the replay baseline.
   for role in catalog.roles.mitems:
     if role.games > 0:
       blendFitness(role.fitness, avgScore, ReplayFeedbackAlpha)
 
-  # Update behavior fitness similarly
+  # Blend behavior fitness toward the replay baseline.
   for behavior in catalog.behaviors.mitems:
     if behavior.games > 0:
       blendFitness(behavior.fitness, avgScore, ReplayFeedbackAlpha)
@@ -253,10 +237,10 @@ proc applyWinnerBoost*(catalog: var RoleCatalog, analysis: ReplayAnalysis,
     if role.fitness >= 0.5 and role.games > 0:
       blendFitness(role.fitness, winnerScore, boostAlpha)
 
-proc dominantActionVerb*(seq_data: ActionSequence): int =
+proc dominantActionVerb*(seqData: ActionSequence): int =
   ## Return the most frequent action verb in a sequence.
   var counts: array[ActionVerbCount, int]
-  for v in seq_data.verbs:
+  for v in seqData.verbs:
     if v >= 0 and v < ActionVerbCount:
       inc counts[v]
   var bestCount = 0
@@ -265,10 +249,6 @@ proc dominantActionVerb*(seq_data: ActionSequence): int =
     if counts[i] > bestCount:
       bestCount = counts[i]
       result = i
-
-# ---------------------------------------------------------------------------
-# Batch analysis - scan a directory of replays
-# ---------------------------------------------------------------------------
 
 proc findReplayFiles*(dir: string): seq[string] =
   ## Find all .json.z replay files in a directory.
@@ -283,7 +263,10 @@ proc findReplayFiles*(dir: string): seq[string] =
     cmp(tb, ta)
   )
 
-proc analyzeReplayBatch*(dir: string, maxFiles: int = MaxReplaysPerPass): seq[ReplayAnalysis] =
+proc analyzeReplayBatch*(
+  dir: string,
+  maxFiles: int = MaxReplaysPerPass
+): seq[ReplayAnalysis] =
   ## Analyze up to maxFiles replay files from a directory.
   let files = findReplayFiles(dir)
   let count = min(files.len, maxFiles)
@@ -294,7 +277,10 @@ proc analyzeReplayBatch*(dir: string, maxFiles: int = MaxReplaysPerPass): seq[Re
     except CatchableError as e:
       echo "Warning: Failed to analyze " & files[i] & ": " & e.msg
 
-proc applyBatchFeedback*(catalog: var RoleCatalog, analyses: seq[ReplayAnalysis]) =
+proc applyBatchFeedback*(
+  catalog: var RoleCatalog,
+  analyses: seq[ReplayAnalysis]
+) =
   ## Apply fitness feedback from multiple replay analyses.
   for analysis in analyses:
     applyReplayFeedback(catalog, analysis)

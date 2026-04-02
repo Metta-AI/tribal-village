@@ -14,7 +14,7 @@
 ##   let cfg2 = configFromJson(json)           # Deserialize from JSON
 ##   assert cfg.validate().len == 0            # Check for validation errors
 
-import std/[os, strutils, json, strformat, algorithm, tables, sets]
+import std/[algorithm, json, strformat, strutils, tables]
 
 import envconfig
 
@@ -1083,23 +1083,3 @@ proc diff*(a, b: Config): seq[(string, string, string)] =
     result.add ("debugEconomy", $a.debugEconomy, $b.debugEconomy)
   if a.debugAI != b.debugAI:
     result.add ("debugAI", $a.debugAI, $b.debugAI)
-
-when isMainModule:
-  # Self-test and demo
-  echo "Loading configuration from environment..."
-  let cfg = loadConfig()
-
-  echo "\n=== Validation ==="
-  let errors = cfg.validate()
-  if errors.len == 0:
-    echo "Configuration is valid!"
-  else:
-    echo "Validation errors:"
-    for err in errors:
-      echo fmt"  {err.field}: {err.message}"
-
-  echo "\n=== JSON Serialization ==="
-  echo cfg.toJsonString()
-
-  echo "\n=== Help Documentation ==="
-  echo cfg.help()
