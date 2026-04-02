@@ -786,14 +786,14 @@ proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
 
 type
   UnitCategory* = enum
-    ## Categories for Blacksmith upgrade application
-    CategoryNone      ## Units that don't receive upgrades (villagers, siege, monks)
-    CategoryInfantry  ## Man-at-arms, Samurai, Woad Raider, Teutonic Knight, Huskarl
-    CategoryCavalry   ## Scout, Knight, Cataphract, Mameluke
-    CategoryArcher    ## Archer, Longbowman, Janissary
+    ## Store Blacksmith upgrade categories for unit classes.
+    CategoryNone      ## Units that do not receive upgrades.
+    CategoryInfantry  ## Infantry units.
+    CategoryCavalry   ## Cavalry units.
+    CategoryArcher    ## Archer units.
 
 const
-  ## Pre-computed lookup table for unit category (eliminates switch/case in hot path)
+  ## Store the precomputed Blacksmith upgrade category for each unit class.
   UnitCategoryByClass*: array[AgentUnitClass, UnitCategory] = [
     CategoryNone,      # UnitVillager
     CategoryInfantry,  # UnitManAtArms
@@ -834,17 +834,15 @@ const
     CategoryCavalry,   # UnitCamel
     CategoryCavalry,   # UnitHeavyCamel
     CategoryCavalry,   # UnitImperialCamel
-    # Archery Range units
     CategoryArcher,    # UnitSkirmisher
     CategoryArcher,    # UnitEliteSkirmisher
-    CategoryArcher,    # UnitCavalryArcher (ranged cavalry, benefits from archer upgrades)
+    CategoryArcher,    # UnitCavalryArcher
     CategoryArcher,    # UnitHeavyCavalryArcher
     CategoryArcher,    # UnitHandCannoneer
   ]
 
 proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory {.inline.} =
-  ## Returns the Blacksmith upgrade category for a unit class.
-  ## Uses pre-computed lookup table for O(1) access.
+  ## Return the Blacksmith upgrade category for one unit class.
   UnitCategoryByClass[unitClass]
 
 proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int {.inline.} =
@@ -881,7 +879,7 @@ proc getBlacksmithArmorBonus*(env: Environment, teamId: int, unitClass: AgentUni
     0
 
 proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
-  ## Apply unit class stats without team modifiers (backwards compatibility)
+  ## Apply unit class stats without team modifiers.
   agent.unitClass = unitClass
   if unitClass != UnitBoat:
     agent.embarkedUnitClass = unitClass
@@ -889,15 +887,15 @@ proc applyUnitClass*(agent: Thing, unitClass: AgentUnitClass) =
   agent.attackDamage = UnitAttackDamageByClass[unitClass]
   agent.hp = agent.maxHp
   agent.stance = defaultStanceForClass(unitClass)
-  # Initialize monk faith
+  # Initialize monk faith.
   if unitClass == UnitMonk:
     agent.faith = MonkMaxFaith
   else:
     agent.faith = 0
 
 proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) =
-  ## Apply unit class stats with team modifier bonuses
-  ## Also maintains tankUnits/monkUnits collections for efficient aura iteration
+  ## Apply unit class stats with team modifier bonuses.
+  ## Also maintain tank and monk collections for aura iteration.
   let oldClass = agent.unitClass
   agent.unitClass = unitClass
   if unitClass != UnitBoat:
