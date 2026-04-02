@@ -5,6 +5,9 @@ when defined(tumorAudit):
     std/strutils,
     envconfig, types
 
+  const
+    ReportDivider = "═══════════════════════════════════════════════════════"
+
   type
     TumorAuditState* = object
       reportInterval*: int
@@ -38,6 +41,15 @@ when defined(tumorAudit):
     ## Initialize tumor audit state on first use.
     if not tumorAuditInitialized:
       initTumorAudit()
+
+  proc resetIntervalStats() =
+    ## Clears per-interval tumor counters after one report.
+    tumorAudit.intervalSpawned = 0
+    tumorAudit.intervalBranched = 0
+    tumorAudit.intervalDamageDealt = 0
+    tumorAudit.intervalAgentKills = 0
+    tumorAudit.intervalPredatorKills = 0
+    tumorAudit.intervalTumorsDestroyed = 0
 
   proc recordTumorSpawned*() =
     ## Record one tumor spawned by a spawner.
@@ -101,9 +113,9 @@ when defined(tumorAudit):
       else:
         0.0
 
-    echo "═══════════════════════════════════════════════════════"
+    echo ReportDivider
     echo "  TUMOR REPORT — Step ", env.currentStep
-    echo "═══════════════════════════════════════════════════════"
+    echo ReportDivider
     echo(
       "  Active tumors: ",
       activeTumors,
@@ -155,11 +167,6 @@ when defined(tumorAudit):
       tumorAudit.totalPredatorKills
     )
     echo "  Total tumors destroyed: ", tumorAudit.totalTumorsDestroyed
-    echo "═══════════════════════════════════════════════════════"
+    echo ReportDivider
 
-    tumorAudit.intervalSpawned = 0
-    tumorAudit.intervalBranched = 0
-    tumorAudit.intervalDamageDealt = 0
-    tumorAudit.intervalAgentKills = 0
-    tumorAudit.intervalPredatorKills = 0
-    tumorAudit.intervalTumorsDestroyed = 0
+    resetIntervalStats()

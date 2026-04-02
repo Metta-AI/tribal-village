@@ -6,6 +6,7 @@ when defined(combatAudit):
     envconfig
 
   const
+    ReportDivider = "═══════════════════════════════════════════════════════"
     TeamSlotCount = 9
 
   type
@@ -71,6 +72,14 @@ when defined(combatAudit):
     if not auditInitialized:
       initCombatAudit()
 
+  proc isTrackedTeam(teamId: int): bool =
+    ## Returns true when the team ID has combat audit stats.
+    teamId >= 0 and teamId < auditState.teamStats.len
+
+  proc clearDetailedEvents() =
+    ## Drops verbose combat events after printing one report.
+    auditState.events.setLen(0)
+
   proc recordDamage*(
     step,
     attackerTeam,
@@ -97,7 +106,7 @@ when defined(combatAudit):
     )
     if auditState.verbose:
       auditState.events.add(event)
-    if attackerTeam >= 0 and attackerTeam < auditState.teamStats.len:
+    if isTrackedTeam(attackerTeam):
       auditState.teamStats[attackerTeam].totalDamageDealt += amount
       let currentAmount =
         auditState.teamStats[attackerTeam].damageByType.getOrDefault(
@@ -106,7 +115,7 @@ when defined(combatAudit):
         )
       auditState.teamStats[attackerTeam].damageByType[damageType] =
         currentAmount + amount
-    if targetTeam >= 0 and targetTeam < auditState.teamStats.len:
+    if isTrackedTeam(targetTeam):
       auditState.teamStats[targetTeam].totalDamageTaken += amount
 
   proc recordKill*(
@@ -131,7 +140,7 @@ when defined(combatAudit):
     )
     if auditState.verbose:
       auditState.events.add(event)
-    if killerTeam >= 0 and killerTeam < auditState.teamStats.len:
+    if isTrackedTeam(killerTeam):
       auditState.teamStats[killerTeam].kills += 1
       let currentCount =
         auditState.teamStats[killerTeam].killsByUnit.getOrDefault(
@@ -140,7 +149,7 @@ when defined(combatAudit):
         )
       auditState.teamStats[killerTeam].killsByUnit[killerUnit] =
         currentCount + 1
-    if victimTeam >= 0 and victimTeam < auditState.teamStats.len:
+    if isTrackedTeam(victimTeam):
       auditState.teamStats[victimTeam].deaths += 1
 
   proc recordHeal*(
@@ -167,7 +176,7 @@ when defined(combatAudit):
     )
     if auditState.verbose:
       auditState.events.add(event)
-    if healerTeam >= 0 and healerTeam < auditState.teamStats.len:
+    if isTrackedTeam(healerTeam):
       auditState.teamStats[healerTeam].healsGiven += 1
       auditState.teamStats[healerTeam].healAmount += amount
 
@@ -192,7 +201,7 @@ when defined(combatAudit):
     )
     if auditState.verbose:
       auditState.events.add(event)
-    if monkTeam >= 0 and monkTeam < auditState.teamStats.len:
+    if isTrackedTeam(monkTeam):
       auditState.teamStats[monkTeam].conversions += 1
 
   proc recordSiegeDamage*(
@@ -220,7 +229,7 @@ when defined(combatAudit):
         amount: amount,
         damageType: "siege"
       ))
-    if attackerTeam >= 0 and attackerTeam < auditState.teamStats.len:
+    if isTrackedTeam(attackerTeam):
       auditState.teamStats[attackerTeam].siegeDamageDealt += amount
       if destroyed:
         auditState.teamStats[attackerTeam].buildingsDestroyed += 1
@@ -239,9 +248,9 @@ when defined(combatAudit):
       return
     auditState.lastReportStep = currentStep
 
-    echo "═══════════════════════════════════════════════════════"
+    echo ReportDivider
     echo "  COMBAT REPORT — Step ", currentStep
-    echo "═══════════════════════════════════════════════════════"
+    echo ReportDivider
 
     for teamId in 0 ..< TeamSlotCount:
       let teamStats = auditState.teamStats[teamId]
@@ -305,7 +314,7 @@ when defined(combatAudit):
           killParts.add(unitName & "=" & $killCount)
         echo "    Kills by unit: ", killParts.join(", ")
 
-    echo "═══════════════════════════════════════════════════════"
+    echo ReportDivider
 
     if auditState.verbose and auditState.events.len > 0:
       echo "  DETAILED EVENTS (last interval):"
@@ -414,5 +423,5 @@ when defined(combatAudit):
             ") destroyed ",
             event.targetUnit
           )
-      echo "═══════════════════════════════════════════════════════"
-      auditState.events.setLen(0)
+      echo ReportDivider
+      clearDetailedEvents()
