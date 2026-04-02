@@ -50,14 +50,14 @@ proc hasHarvestableResource*(thing: Thing): bool =
 
 const
   Directions8* = [
-    ivec2(0, -1),  # 0: North
-    ivec2(0, 1),   # 1: South
-    ivec2(-1, 0),  # 2: West
-    ivec2(1, 0),   # 3: East
-    ivec2(-1, -1), # 4: NW
-    ivec2(1, -1),  # 5: NE
-    ivec2(-1, 1),  # 6: SW
-    ivec2(1, 1)    # 7: SE
+    ivec2(0, -1),
+    ivec2(0, 1),
+    ivec2(-1, 0),
+    ivec2(1, 0),
+    ivec2(-1, -1),
+    ivec2(1, -1),
+    ivec2(-1, 1),
+    ivec2(1, 1)
   ]
 
   SearchRadius* = 50
@@ -65,25 +65,13 @@ const
 
 type
   PerAgentCache*[T] = object
-    ## Generic per-agent cache with automatic per-step invalidation.
-    ##
-    ## Stores up to MapAgents cached values (one per agent slot). The cache
-    ## tracks the simulation step and automatically invalidates all entries
-    ## when the step changes, ensuring stale data is never returned.
-    ##
-    ## Fields:
-    ##   cacheStep: The simulation step when cache was last valid
-    ##   cache: Array of cached values indexed by agentId
-    ##   valid: Bitmap tracking which cache slots contain valid data
+    ## Per-agent cache with per-step invalidation.
     cacheStep*: int
     cache*: array[MapAgents, T]
     valid*: array[MapAgents, bool]
 
 proc invalidateIfStale*[T](cache: var PerAgentCache[T], currentStep: int) {.inline.} =
-  ## Checks if cache is stale and invalidates all entries if step has changed.
-  ##
-  ## Called automatically by get() and getWithAgent(). Clears the valid bitmap
-  ## for all agents when the simulation advances to a new step.
+  ## Clear cached entries when the simulation step changes.
   if cache.cacheStep != currentStep:
     cache.cacheStep = currentStep
     for i in 0 ..< MapAgents:
@@ -91,49 +79,20 @@ proc invalidateIfStale*[T](cache: var PerAgentCache[T], currentStep: int) {.inli
 
 proc get*[T](cache: var PerAgentCache[T], env: Environment, agentId: int,
              compute: proc(env: Environment, agentId: int): T): T =
-  ## Returns cached value for an agent, computing and caching if not already valid.
-  ##
-  ## Parameters:
-  ##   cache: The per-agent cache to query/update
-  ##   env: Environment (used for step tracking and passed to compute)
-  ##   agentId: The agent's ID (0..MapAgents-1)
-  ##   compute: Function to compute the value if not cached
-  ##
-  ## Returns:
-  ##   Cached or freshly computed value of type T
-  ##
-  ## Side effects:
-  ##   - May invalidate entire cache if step has changed
-  ##   - Updates cache entry for agentId if computed
-  ##   - Falls back to uncached computation for invalid agentId
+  ## Return cached value for an agent, recomputing it when needed.
+  ## Invalid agent IDs bypass the cache.
   cache.invalidateIfStale(env.currentStep)
   if agentId >= 0 and agentId < MapAgents:
     if not cache.valid[agentId]:
       cache.cache[agentId] = compute(env, agentId)
       cache.valid[agentId] = true
     return cache.cache[agentId]
-  # Fallback: compute without caching for invalid agentId
   compute(env, agentId)
 
 proc getWithAgent*[T](cache: var PerAgentCache[T], env: Environment, agent: Thing,
                        compute: proc(env: Environment, agent: Thing): T): T =
-  ## Returns cached value for an agent, computing and caching if not already valid.
-  ##
-  ## Variant of get() that accepts a Thing reference instead of agentId. Useful when
-  ## the compute function needs access to the full agent Thing (e.g., for position,
-  ## inventory, or state).
-  ##
-  ## Parameters:
-  ##   cache: The per-agent cache to query/update
-  ##   env: Environment (used for step tracking and passed to compute)
-  ##   agent: The agent Thing (must have valid agentId field)
-  ##   compute: Function to compute the value if not cached
-  ##
-  ## Returns:
-  ##   Cached or freshly computed value of type T
-  ##
-  ## Side effects:
-  ##   Same as get() - may invalidate cache and update entry
+  ## Return cached value for an agent `Thing`, recomputing it when needed.
+  ## Invalid agent IDs bypass the cache.
   cache.invalidateIfStale(env.currentStep)
   let aid = agent.agentId
   if aid >= 0 and aid < MapAgents:
@@ -141,7 +100,6 @@ proc getWithAgent*[T](cache: var PerAgentCache[T], env: Environment, agent: Thin
       cache.cache[aid] = compute(env, agent)
       cache.valid[aid] = true
     return cache.cache[aid]
-  # Fallback: compute without caching for invalid agentId
   compute(env, agent)
 
 proc getDifficulty*(controller: Controller, teamId: int): DifficultyConfig =
@@ -182,7 +140,7 @@ proc shouldApplyDecisionDelay*(controller: Controller, teamId: int): bool =
   randChance(controller.rng, chance)
 
 const
-  AdaptiveCheckInterval* = 500  # Check every 500 steps
+  AdaptiveCheckInterval* = 500
 
 proc updateAdaptiveDifficulty*(controller: Controller, env: Environment) =
   ## Update difficulty levels for teams with adaptive mode enabled.
@@ -264,26 +222,21 @@ proc signi*(x: int32): int32 =
 
 proc revealTilesInRange*(env: Environment, teamId: int, center: IVec2, radius: int) =
   ## Mark tiles within radius of center as revealed for the specified team.
-  ## Uses Chebyshev distance (square vision area) matching the game's standard.
-  ## Optimized: skips tiles already revealed to reduce write operations.
+  ## Uses Chebyshev distance and skips tiles that are already revealed.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return
-  # Pre-compute bounds for the reveal area (clamped to map)
   let minX = max(0, center.x.int - radius)
   let maxX = min(MapWidth - 1, center.x.int + radius)
   let minY = max(0, center.y.int - radius)
   let maxY = min(MapHeight - 1, center.y.int + radius)
-  # Skip if center already revealed and we're likely to have revealed the surrounding area
-  # This optimization helps when agents are stationary
   if env.revealedMaps[teamId][center.x][center.y]:
-    # Sample a few corner tiles to check if area is likely already revealed
-    let cornerRevealed = env.revealedMaps[teamId][minX][minY] and
-                         env.revealedMaps[teamId][maxX][maxY] and
-                         env.revealedMaps[teamId][minX][maxY] and
-                         env.revealedMaps[teamId][maxX][minY]
+    let cornerRevealed =
+      env.revealedMaps[teamId][minX][minY] and
+      env.revealedMaps[teamId][maxX][maxY] and
+      env.revealedMaps[teamId][minX][maxY] and
+      env.revealedMaps[teamId][maxX][minY]
     if cornerRevealed:
-      return  # Area already fully revealed, skip iteration
-  # Iterate and reveal, skipping already-revealed tiles
+      return
   for x in minX .. maxX:
     for y in minY .. maxY:
       if not env.revealedMaps[teamId][x][y]:
@@ -466,40 +419,38 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
 
   let (cx, cy) = cellCoords(agent.pos)
   let vr = visionRange.int
-  let teamMask = getTeamMask(teamId)  # Pre-compute for bitwise checks
-  let cellRadius = distToCellRadius16(min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize))
+  let teamMask = getTeamMask(teamId)
+  let cellRadius = distToCellRadius16(
+    min(vr, max(SpatialCellsX, SpatialCellsY) * SpatialCellSize)
+  )
   for ddx in -cellRadius .. cellRadius:
     for ddy in -cellRadius .. cellRadius:
       let nx = cx + ddx
       let ny = cy + ddy
       if nx < 0 or nx >= SpatialCellsX or ny < 0 or ny >= SpatialCellsY:
         continue
-      # Enemy agents
       for other in env.spatialIndex.kindCells[Agent][nx][ny]:
         if other.isNil or not isAgentAlive(env, other):
           continue
-        # Bitwise team check: skip same team or invalid team (NoTeamMask)
         let otherMask = getTeamMask(other)
         if (otherMask and teamMask) != 0 or otherMask == NoTeamMask:
           continue
         if chebyshevDist(agent.pos, other.pos) <= visionRange:
           let strength: int32 = case other.unitClass
             of UnitKnight, UnitCavalier: 3
-            of UnitPaladin: 4  # Paladin is stronger than Knight/Cavalier
+            of UnitPaladin: 4
             of UnitManAtArms, UnitLongSwordsman, UnitArcher, UnitCrossbowman: 2
-            of UnitChampion, UnitArbalester: 3  # Top tier upgrades are stronger
+            of UnitChampion, UnitArbalester: 3
             of UnitScout, UnitLightCavalry: 1
-            of UnitHussar: 2  # Hussar is stronger than Scout/LightCavalry
+            of UnitHussar: 2
             of UnitMangonel: 4
             of UnitTrebuchet: 5
             else: 1
           controller.reportThreat(teamId, other.pos, strength, currentStep,
                                   agentId = other.agentId.int32, isStructure = false)
-      # Enemy structures
       for thing in env.spatialIndex.cells[nx][ny].things:
         if thing.isNil or not isBuildingKind(thing.kind):
           continue
-        # Bitwise team check: skip invalid team or same team
         let thingMask = getTeamMask(thing.teamId)
         if thingMask == NoTeamMask or (thingMask and teamMask) != 0:
           continue
@@ -512,7 +463,12 @@ proc updateThreatMapFromVision*(controller: Controller, env: Environment,
           controller.reportThreat(teamId, thing.pos, strength, currentStep,
                                   agentId = -1, isStructure = true)
 
-proc updateClosestSeen*(state: var AgentState, basePos: IVec2, candidate: IVec2, current: var IVec2) =
+proc updateClosestSeen*(
+  state: var AgentState,
+  basePos: IVec2,
+  candidate: IVec2,
+  current: var IVec2
+) =
   if candidate.x < 0:
     return
   if current.x < 0:
@@ -535,10 +491,10 @@ proc getNextSpiralPoint*(state: var AgentState): IVec2 =
     of 3: direction = 1
     else: discard
   let delta = case direction
-    of 0: ivec2(0, -1)   # North
-    of 1: ivec2(1, 0)    # East
-    of 2: ivec2(0, 1)    # South
-    else: ivec2(-1, 0)   # West
+    of 0: ivec2(0, -1)
+    of 1: ivec2(1, 0)
+    of 2: ivec2(0, 1)
+    else: ivec2(-1, 0)
 
   state.lastSearchPosition = clampToPlayable(state.lastSearchPosition + delta)
   state.spiralStepsInArc += 1
@@ -553,7 +509,7 @@ proc getNextSpiralPoint*(state: var AgentState): IVec2 =
 
 proc findNearestThing*(env: Environment, pos: IVec2, kind: ThingKind,
                       maxDist: int = SearchRadius): Thing =
-  ## Find nearest thing of a kind using spatial index for O(1) cell lookup
+  ## Find the nearest thing of a kind with the spatial index.
   findNearestThingSpatial(env, pos, kind, maxDist)
 
 proc radiusBounds*(center: IVec2, radius: int): tuple[startX, endX, startY, endY: int] {.inline.} =
@@ -578,11 +534,11 @@ proc findNearestWater*(env: Environment, pos: IVec2): IVec2 =
       result = candidate
 
 proc findNearestFriendlyThing*(env: Environment, pos: IVec2, teamId: int, kind: ThingKind): Thing =
-  ## Find nearest team-owned thing using spatial index for O(1) cell lookup
+  ## Find the nearest friendly thing of a kind with the spatial index.
   findNearestFriendlyThingSpatial(env, pos, teamId, kind, SearchRadius)
 
 proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: ThingKind): Thing =
-  ## Find nearest thing using spiral search pattern - more systematic than random search
+  ## Find the nearest thing with cached and spiral-search fallbacks.
   template cacheAndReturn(thing: Thing) =
     state.cachedThingPos[kind] = thing.pos
     state.cachedThingStep[kind] = env.currentStep
@@ -591,8 +547,8 @@ proc findNearestThingSpiral*(env: Environment, state: var AgentState, kind: Thin
   let cachedPos = state.cachedThingPos[kind]
   if cachedPos.x >= 0:
     if env.currentStep - state.cachedThingStep[kind] < CacheMaxAge and
-       abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
-      # Check both blocking grid and background grid (relics, doors, etc.)
+        abs(cachedPos.x - state.lastSearchPosition.x) +
+        abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       var cachedThing = env.getThing(cachedPos)
       if cachedThing.isNil:
         cachedThing = env.getBackgroundThing(cachedPos)
@@ -620,7 +576,8 @@ proc findNearestWaterSpiral*(env: Environment, state: var AgentState): IVec2 =
   let cachedPos = state.cachedWaterPos
   if cachedPos.x >= 0:
     if env.currentStep - state.cachedWaterStep < CacheMaxAge and
-       abs(cachedPos.x - state.lastSearchPosition.x) + abs(cachedPos.y - state.lastSearchPosition.y) < 30:
+        abs(cachedPos.x - state.lastSearchPosition.x) +
+        abs(cachedPos.y - state.lastSearchPosition.y) < 30:
       if env.terrain[cachedPos.x][cachedPos.y] == Water and not isTileFrozen(cachedPos, env):
         return cachedPos
     state.cachedWaterPos = ivec2(-1, -1)
@@ -653,26 +610,7 @@ proc findNearestFriendlyThingSpiral*(env: Environment, state: var AgentState, te
   return result
 
 template forNearbyCells*(center: IVec2, radius: int, body: untyped) =
-  ## Iterates over all cells within a Chebyshev distance (square radius) of a center point.
-  ## Automatically clamps to map boundaries. Uses Chebyshev distance (max of dx, dy).
-  ##
-  ## **Injected variables:**
-  ## - `cx: int` - Center X coordinate (from center.x)
-  ## - `cy: int` - Center Y coordinate (from center.y)
-  ## - `startX: int` - Loop start X (clamped to 0)
-  ## - `endX: int` - Loop end X (clamped to MapWidth - 1)
-  ## - `startY: int` - Loop start Y (clamped to 0)
-  ## - `endY: int` - Loop end Y (clamped to MapHeight - 1)
-  ## - `x: int` - Current X coordinate in iteration
-  ## - `y: int` - Current Y coordinate in iteration
-  ##
-  ## **Example:**
-  ## ```nim
-  ## forNearbyCells(agentPos, 5):
-  ##   let occ = env.grid[x][y]
-  ##   if not isNil(occ) and occ.kind == Tree:
-  ##     inc treeCount
-  ## ```
+  ## Iterate over nearby cells within Chebyshev distance `radius`.
   let cx {.inject.} = center.x.int
   let cy {.inject.} = center.y.int
   let startX {.inject.} = max(0, cx - radius)
@@ -701,22 +639,23 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =
   ## Find distance to nearest friendly building of specified kinds.
-  ## Optimized: uses spatial index for O(cells) instead of O(n) thingsByKind iteration.
+  ## Uses the spatial index rather than scanning every building.
   result = int.high
   for kind in kinds:
-    # Use current best distance as maxDist to enable early-exit optimization
     let nearest = findNearestFriendlyThingSpatial(env, pos, teamId, kind, result)
     if not nearest.isNil:
       result = min(result, int(chebyshevDist(nearest.pos, pos)))
 
-proc getBuildingCount*(controller: Controller, env: Environment, teamId: int, kind: ThingKind): int =
+proc getBuildingCount*(
+  controller: Controller,
+  env: Environment,
+  teamId: int,
+  kind: ThingKind
+): int =
   if controller.buildingCountsStep != env.currentStep:
     controller.buildingCountsStep = env.currentStep
     controller.buildingCounts = default(array[MapRoomObjectsTeams, array[ThingKind, int]])
-    # Clear claimed buildings at start of new step - claims are per-step to prevent
-    # multiple builders from trying to build the same building type in the same step
     controller.claimedBuildings = default(array[MapRoomObjectsTeams, set[ThingKind]])
-    # Optimized: iterate only building kinds via thingsByKind instead of all env.things
     for bKind in TeamBuildingKinds:
       for thing in env.thingsByKind[bKind]:
         if thing.teamId < 0 or thing.teamId >= MapRoomObjectsTeams:
@@ -791,25 +730,17 @@ proc findTeamAltar*(env: Environment, agent: Thing, teamId: int): tuple[pos: IVe
     let homeAltar = env.getThing(agent.homeAltar)
     if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
       return (homeAltar.pos, homeAltar.hearts)
-  # Use spatial query instead of O(n) altar scan
   let nearestAltar = findNearestFriendlyThingSpatial(env, agent.pos, teamId, Altar, 1000)
   if not nearestAltar.isNil:
     return (nearestAltar.pos, nearestAltar.hearts)
   (ivec2(-1, -1), 0)
 
 proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool = false): int =
-  ## Return attack orientation index if a valid target is in reach, else -1.
-  ## Simplified: pick the closest aligned target within range using a priority order.
-  ## Respects agent stance (unless ignoreStance=true, used by patrol):
-  ## - Aggressive/StandGround: auto-attack enemies in range
-  ## - Defensive: only auto-attack if recently attacked (retaliation)
-  ## - NoAttack: never auto-attack
-  ##
-  ## Optimized: scans 8 attack lines (cardinal+diagonal) out to maxRange
-  ## instead of iterating all env.things. Cost: O(8 * maxRange) = O(48) max.
+  ## Return the best in-range attack direction, or `-1`.
+  ## Respects stance unless `ignoreStance` is set.
+  ## Prefers close aligned targets and structures for siege units.
   if agent.unitClass == UnitMonk:
     return -1
-  # Check stance allows auto-attacking (handles defensive retaliation logic)
   if not ignoreStance and not stanceAllowsAutoAttack(env, agent):
     return -1
 
@@ -817,7 +748,7 @@ proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool =
     of UnitArcher, UnitCrossbowman, UnitArbalester: ArcherBaseRange
     of UnitMangonel: MangonelAoELength
     of UnitTrebuchet:
-      if agent.packed: 0 else: TrebuchetBaseRange  # Can't attack when packed
+      if agent.packed: 0 else: TrebuchetBaseRange
     else:
       if agent.inventorySpear > 0: 2 else: 1
 
@@ -826,7 +757,6 @@ proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool =
 
   proc targetPriority(kind: ThingKind): int =
     if agent.unitClass in {UnitMangonel, UnitBatteringRam, UnitTrebuchet}:
-      # Siege units prioritize structures (their primary purpose)
       if kind in AttackableStructures:
         return 0
       case kind
@@ -860,7 +790,6 @@ proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool =
         bestDist = stepDist
         bestDir = dirI
 
-  # Scan along 8 directions (cardinal + diagonal) up to maxRange
   for dirIdx in 0 .. 7:
     let d = Directions8[dirIdx]
     for step in 1 .. maxRange:
@@ -972,19 +901,16 @@ proc getMoveTowards*(env: Environment, agent: Thing, fromPos, toPos: IVec2,
       return avoidCandidate
     return -1
 
-  # Calculate direction vector to target
   let dx = clampedTarget.x - fromPos.x
   let dy = clampedTarget.y - fromPos.y
   let stepVector = ivec2(signi(dx), signi(dy))
 
-  # Try primary direction first (direct path to target)
   if stepVector.x != 0 or stepVector.y != 0:
     let primaryDir = vecToOrientation(stepVector)
     let primaryMove = fromPos + Directions8[primaryDir]
     if primaryDir != avoidDir and canEnterForMove(env, agent, fromPos, primaryMove):
       return primaryDir
 
-  # Fall back to best alternative direction
   var bestDir = -1
   var bestDist = int.high
   var avoidCandidate = -1
@@ -1003,44 +929,26 @@ proc getMoveTowards*(env: Environment, agent: Thing, fromPos, toPos: IVec2,
     return bestDir
   if avoidCandidate >= 0:
     return avoidCandidate
+  -1
 
-  # All directions blocked - return -1 to signal no valid move
-  return -1
-
-proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, targetPos: IVec2, output: var seq[IVec2]) =
-  ## A* pathfinding from fromPos toward targetPos.
-  ##
-  ## Returns a sequence of positions forming the path (including start position).
-  ## Returns an empty sequence if no path exists or exploration limit is reached.
-  ##
-  ## Goal Handling:
-  ##   If targetPos itself is impassable (e.g., occupied by a building), the
-  ##   algorithm automatically targets passable neighbors of targetPos instead.
-  ##   This allows pathfinding "to" a building by finding a path to stand next to it.
-  ##
-  ## Performance Characteristics:
-  ##   - Time: O(n log n) where n is nodes explored (capped at 250)
-  ##   - Space: O(1) amortized via pre-allocated PathfindingCache
-  ##   - Cache invalidation: O(1) via generation counter pattern
-  ##
-  ## Implementation Details:
-  ##   - Uses generation counter to invalidate stale cache entries without
-  ##     clearing map-sized arrays (O(1) vs O(MapWidth * MapHeight))
-  ##   - Open set uses binary heap (min-heap by f-score) for O(log n) operations
-  ##   - Exploration capped at 250 nodes to bound worst-case cost per tick
-  ##   - Heuristic: minimum Chebyshev distance to any goal position
-
-  # Increment generation counter - invalidates all previous cache entries
+proc findPath*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  fromPos,
+  targetPos: IVec2,
+  output: var seq[IVec2]
+) =
+  ## Run A* from `fromPos` toward `targetPos`.
+  ## Returns an empty path when no route is found within the search budget.
   inc controller.pathCache.generation
   let currentGen = controller.pathCache.generation
 
-  # Build goals list: target position if passable, otherwise passable neighbors
   controller.pathCache.goalsLen = 0
   if isPassable(env, agent, targetPos):
     controller.pathCache.goals[0] = targetPos
     controller.pathCache.goalsLen = 1
   else:
-    # Target is impassable - collect passable neighbor positions as goals
     for delta in Directions8:
       let candidate = targetPos + delta
       if isValidPos(candidate) and isPassable(env, agent, candidate):
@@ -1052,15 +960,12 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
     output.setLen(0)
     return
 
-  # Early exit if already at a goal position
   for goalIdx in 0 ..< controller.pathCache.goalsLen:
     if controller.pathCache.goals[goalIdx] == fromPos:
       output.setLen(1)
       output[0] = fromPos
       return
 
-  # A* heuristic: minimum Chebyshev distance to any goal position
-  # Admissible and consistent for grid-based movement
   proc heuristic(cache: PathfindingCache, pos: IVec2): int32 =
     var minDist = int32.high
     for goalIdx in 0 ..< cache.goalsLen:
@@ -1069,39 +974,32 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
         minDist = dist
     minDist
 
-  # Initialize open set with starting position
   controller.pathCache.openHeap.clear()
   let startHeuristic = heuristic(controller.pathCache, fromPos)
   controller.pathCache.openHeap.push(PathHeapNode(fScore: startHeuristic, pos: fromPos))
 
-  # Initialize g-score for start position (cost from start to start = 0)
   controller.pathCache.gScoreGen[fromPos.x][fromPos.y] = currentGen
   controller.pathCache.gScoreVal[fromPos.x][fromPos.y] = 0
 
   var nodesExplored = 0
-  const MaxExplorationNodes = 250  # Bound worst-case cost per tick
+  const MaxExplorationNodes = 250
 
   while controller.pathCache.openHeap.len > 0:
     if nodesExplored > MaxExplorationNodes:
       output.setLen(0)
-      return  # Exploration limit reached - path too complex
+      return
 
-    # Extract node with lowest f-score from open set
     let node = controller.pathCache.openHeap.pop()
     let currentPos = node.pos
 
-    # Skip if already in closed set (handles duplicate heap entries)
     if controller.pathCache.closedGen[currentPos.x][currentPos.y] == currentGen:
       continue
 
-    # Add to closed set
     controller.pathCache.closedGen[currentPos.x][currentPos.y] = currentGen
     inc nodesExplored
 
-    # Check if current position is a goal
     for goalIdx in 0 ..< controller.pathCache.goalsLen:
       if currentPos == controller.pathCache.goals[goalIdx]:
-        # Goal reached - reconstruct path by following cameFrom links
         controller.pathCache.pathLen = 0
         var tracePos = currentPos
         while true:
@@ -1109,18 +1007,15 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
             break
           controller.pathCache.path[controller.pathCache.pathLen] = tracePos
           inc controller.pathCache.pathLen
-          # Check if we have a parent node in the path
           if controller.pathCache.cameFromGen[tracePos.x][tracePos.y] != currentGen:
             break
           tracePos = controller.pathCache.cameFromVal[tracePos.x][tracePos.y]
 
-        # Build output sequence (path was traced backwards, so reverse it)
         output.setLen(controller.pathCache.pathLen)
         for pathIdx in 0 ..< controller.pathCache.pathLen:
           output[pathIdx] = controller.pathCache.path[controller.pathCache.pathLen - 1 - pathIdx]
         return
 
-    # Explore all 8 neighbor directions
     for dirIdx in 0 .. 7:
       let neighborPos = currentPos + Directions8[dirIdx]
       if not isValidPos(neighborPos):
@@ -1128,37 +1023,33 @@ proc findPath*(controller: Controller, env: Environment, agent: Thing, fromPos, 
       if not canEnterForMove(env, agent, currentPos, neighborPos):
         continue
 
-      # Skip if already in closed set
       if controller.pathCache.closedGen[neighborPos.x][neighborPos.y] == currentGen:
         continue
 
-      # Calculate tentative g-score (current cost + 1 step)
       let currentGScore = controller.pathCache.gScoreVal[currentPos.x][currentPos.y]
       let tentativeGScore = currentGScore + 1
 
-      # Get neighbor's current g-score (or int32.high if not yet visited)
-      let neighborHasScore = controller.pathCache.gScoreGen[neighborPos.x][neighborPos.y] == currentGen
-      let neighborGScore = if neighborHasScore: controller.pathCache.gScoreVal[neighborPos.x][neighborPos.y] else: int32.high
+      let neighborHasScore =
+        controller.pathCache.gScoreGen[neighborPos.x][neighborPos.y] == currentGen
+      let neighborGScore =
+        if neighborHasScore:
+          controller.pathCache.gScoreVal[neighborPos.x][neighborPos.y]
+        else:
+          int32.high
 
-      # Update path if this route is better than any previously found
       if tentativeGScore < neighborGScore:
-        # Record that we reached neighbor from current position
         controller.pathCache.cameFromGen[neighborPos.x][neighborPos.y] = currentGen
         controller.pathCache.cameFromVal[neighborPos.x][neighborPos.y] = currentPos
-        # Update g-score for neighbor
         controller.pathCache.gScoreGen[neighborPos.x][neighborPos.y] = currentGen
         controller.pathCache.gScoreVal[neighborPos.x][neighborPos.y] = tentativeGScore
-        # Add to open set (duplicates are OK - stale entries skipped via closed check)
         let neighborHeuristic = heuristic(controller.pathCache, neighborPos)
         let fScore = tentativeGScore + neighborHeuristic
         controller.pathCache.openHeap.push(PathHeapNode(fScore: fScore, pos: neighborPos))
 
-  output.setLen(0)  # No path found within exploration limit
+  output.setLen(0)
 
 proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
-  ## Check if there's a healthy team lantern within 3 tiles of position.
-  ## Optimized: uses spatial index for O(1 cell) instead of O(all lanterns) iteration.
-  ## Reuses env.tempTowerTargets as scratch buffer to avoid heap allocs.
+  ## Return true when a healthy team lantern is within three tiles.
   env.tempTowerTargets.setLen(0)
   collectThingsInRangeSpatial(env, pos, Lantern, 3, env.tempTowerTargets)
   for thing in env.tempTowerTargets:
@@ -1167,10 +1058,11 @@ proc hasTeamLanternNear*(env: Environment, teamId: int, pos: IVec2): bool =
   false
 
 proc isLanternPlacementValid*(env: Environment, pos: IVec2): bool =
-  isValidPos(pos) and env.isEmpty(pos) and not env.hasDoor(pos) and
-    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and not isTileFrozen(pos, env) and
+  isValidPos(pos) and env.isEmpty(pos) and
+    not env.hasDoor(pos) and
+    not isBlockedTerrain(env.terrain[pos.x][pos.y]) and
+    not isTileFrozen(pos, env) and
     env.terrain[pos.x][pos.y] != Water
-
 
 proc tryPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
                        agentId: int, state: var AgentState): tuple[did: bool, action: uint16] =
@@ -1190,13 +1082,15 @@ proc tryPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
           if env.terrain[x][y] != TerrainType.Fertile:
             continue
           let candPos = ivec2(x.int32, y.int32)
-          if env.isEmpty(candPos) and isNil(env.getBackgroundThing(candPos)) and not env.hasDoor(candPos):
+          if env.isEmpty(candPos) and
+              isNil(env.getBackgroundThing(candPos)) and
+              not env.hasDoor(candPos):
             let dist = abs(x - ax) + abs(y - ay)
             if dist < minDist:
               minDist = dist
               fertilePos = candPos
               if minDist <= 1:
-                break search  # Adjacent fertile tile found, can plant immediately
+                break search
     if fertilePos.x >= 0:
       if max(abs(fertilePos.x - agent.pos.x), abs(fertilePos.y - agent.pos.y)) == 1'i32:
         let dirIdx = neighborDirIndex(agent.pos, fertilePos)
@@ -1207,7 +1101,7 @@ proc tryPlantOnFertile*(controller: Controller, env: Environment, agent: Thing,
         let avoidDir = (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
         let dir = getMoveTowards(env, agent, agent.pos, fertilePos, controller.rng, avoidDir)
         if dir < 0:
-          return (false, 0'u16)  # Can't move toward fertile, let other option handle it
+          return (false, 0'u16)
         return (true, saveStateAndReturn(controller, agentId, state,
                  encodeAction(1'u16, dir.uint8)))
   return (false, 0'u16)
@@ -1218,7 +1112,7 @@ proc moveNextSearch*(controller: Controller, env: Environment, agent: Thing, age
     env, agent, agent.pos, getNextSpiralPoint(state),
     controller.rng, (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1))
   if dir < 0:
-    return saveStateAndReturn(controller, agentId, state, 0'u16)  # Noop when blocked
+    return saveStateAndReturn(controller, agentId, state, 0'u16)
   return saveStateAndReturn(controller, agentId, state, encodeAction(1'u16, dir.uint8))
 
 proc isAdjacent*(a, b: IVec2): bool =
@@ -1259,30 +1153,9 @@ proc isOscillating*(state: AgentState): bool =
 
 proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: int,
             state: var AgentState, targetPos: IVec2): uint16 =
-  ## High-level movement function: move agent toward targetPos.
-  ##
-  ## This is the primary movement API used by AI behaviors. It automatically
-  ## selects the appropriate pathfinding strategy based on distance and handles
-  ## stuck detection with recovery mechanisms.
-  ##
-  ## Strategy Selection:
-  ##   - Short distance (<6 tiles): Greedy movement via getMoveTowards
-  ##   - Long distance (≥6 tiles): A* pathfinding via findPath
-  ##   - Stuck detection: Falls back to spiral search when oscillating
-  ##
-  ## Stuck Recovery:
-  ##   The function tracks recent positions and detects oscillation (bouncing
-  ##   between 2 tiles). When detected, it marks the target as temporarily
-  ##   blocked and switches to spiral search to find an alternative approach.
-  ##
-  ## Builder Special Case:
-  ##   Builder agents get special handling to avoid blocking themselves when
-  ##   constructing buildings by preferring alternative directions.
-  ##
-  ## Returns an encoded move action, or NOOP (0) if completely blocked.
+  ## Move an agent toward `targetPos`.
+  ## Uses greedy steps nearby, A*, and spiral fallback when movement gets stuck.
   if state.pathBlockedTarget == targetPos:
-    # Periodically retry A* for blocked targets instead of spiraling indefinitely.
-    # This lets units recover when a blocking obstacle moves (e.g. another unit).
     if (env.currentStep mod PathBlockRetryInterval) == 0:
       state.pathBlockedTarget = ivec2(-1, -1)
       state.plannedPath.setLen(0)
@@ -1322,11 +1195,9 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
           state.plannedPathIndex += 1
           return saveStateAndReturn(controller, agentId, state,
             encodeAction(1'u16, dirIdx.uint8))
-        # Next step blocked - recompute path instead of giving up on target
         findPath(controller, env, agent, agent.pos, targetPos, state.plannedPath)
         state.plannedTarget = targetPos
         state.plannedPathIndex = 0
-        # If recomputed path is valid, follow it immediately
         if state.plannedPath.len >= 2:
           let recomputedNext = state.plannedPath[1]
           if canEnterForMove(env, agent, agent.pos, recomputedNext):
@@ -1334,7 +1205,6 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
             state.plannedPathIndex = 1
             return saveStateAndReturn(controller, agentId, state,
               encodeAction(1'u16, dirIdx.uint8))
-        # Recompute also failed - mark target as blocked
         state.plannedPath.setLen(0)
         state.pathBlockedTarget = targetPos
         return controller.moveNextSearch(env, agent, agentId, state)
@@ -1348,11 +1218,10 @@ proc moveTo*(controller: Controller, env: Environment, agent: Thing, agentId: in
     (if state.blockedMoveSteps > 0: state.blockedMoveDir else: -1)
   )
   if dirIdx < 0:
-    # When blocked, try to attack adjacent enemies instead of idling
     let attackDir = findAttackOpportunity(env, agent)
     if attackDir >= 0:
       return saveStateAndReturn(controller, agentId, state, encodeAction(2'u16, attackDir.uint8))
-    return saveStateAndReturn(controller, agentId, state, 0'u16)  # Noop when blocked
+    return saveStateAndReturn(controller, agentId, state, 0'u16)
   if state.role == Builder and state.lastPosition == agent.pos + Directions8[dirIdx]:
     let altDir = getMoveTowards(env, agent, agent.pos, targetPos, controller.rng, dirIdx)
     if altDir >= 0 and altDir != dirIdx:
@@ -1372,9 +1241,16 @@ proc useOrMoveTo*(controller: Controller, env: Environment, agent: Thing,
   else:
     controller.moveTo(env, agent, agentId, state, targetPos)
 
-proc tryMoveToKnownResource*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, pos: var IVec2,
-                            allowed: set[ThingKind], verb: uint16): tuple[did: bool, action: uint16] =
+proc tryMoveToKnownResource*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  pos: var IVec2,
+  allowed: set[ThingKind],
+  verb: uint16
+): tuple[did: bool, action: uint16] =
   if pos.x < 0:
     return (false, 0'u16)
   if pos == state.pathBlockedTarget:
@@ -1385,12 +1261,10 @@ proc tryMoveToKnownResource*(controller: Controller, env: Environment, agent: Th
      not hasHarvestableResource(thing):
     pos = ivec2(-1, -1)
     return (false, 0'u16)
-  # Skip if reserved by another agent on our team
   let teamId = getTeamId(agent)
   if isResourceReserved(teamId, pos, agentId):
     pos = ivec2(-1, -1)
     return (false, 0'u16)
-  # Reserve this resource for ourselves
   discard reserveResource(teamId, agentId, pos, env.currentStep)
   return (true, if isAdjacent(agent.pos, pos):
     actAt(controller, env, agent, agentId, state, pos, verb)
@@ -1421,7 +1295,6 @@ proc findDropoffBuilding*(env: Environment, state: var AgentState, teamId: int,
   of ResourceWater, ResourceNone:
     discard
   if isNil(result):
-    # Use spatial query instead of O(n) TownCenter scan
     result = findNearestFriendlyThingSpatial(env, state.basePosition, teamId, TownCenter, 1000)
 
 proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
@@ -1430,7 +1303,7 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
                       allowWood: bool = false,
                       allowStone: bool = false,
                       allowGold: bool = false): tuple[did: bool, action: uint16] =
-  ## Unified dropoff function - attempts to drop off resources in priority order
+  ## Drop carried resources at the nearest valid building.
   let teamId = getTeamId(agent)
 
   template tryDropoff(res: StockpileResource) =
@@ -1450,11 +1323,17 @@ proc dropoffCarrying*(controller: Controller, env: Environment, agent: Thing,
 
   (false, 0'u16)
 
-proc ensureResourceReserved(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, closestPos: var IVec2,
-                            allowedKinds: set[ThingKind],
-                            kinds: openArray[ThingKind],
-                            patchKind: ResourcePatchKind = PatchFood): tuple[did: bool, action: uint16] =
+proc ensureResourceReserved(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  closestPos: var IVec2,
+  allowedKinds: set[ThingKind],
+  kinds: openArray[ThingKind],
+  patchKind: ResourcePatchKind = PatchFood
+): tuple[did: bool, action: uint16] =
   ## Shared resource-gathering with reservation: check cached position, spiral-search
   ## for the nearest resource of the given kinds, reserve it, then use or move to it.
   ## Prefers resources near drop-off buildings (AoE-style clustering).
@@ -1463,13 +1342,10 @@ proc ensureResourceReserved(controller: Controller, env: Environment, agent: Thi
   if didKnown: return (didKnown, actKnown)
   let teamId = getTeamId(agent)
 
-  # Phase 1: Look for resources near a drop-off building first (clustering behavior).
-  # Find nearest relevant drop-off and search for unreserved resources near it.
   let dropoff = findNearestDropoffForResource(env, agent.pos, teamId, patchKind)
   if not isNil(dropoff):
     let gatherers = countGatherersNearPos(env, teamId, dropoff.pos, PatchRadius)
     if gatherers < MaxGatherersPerPatch:
-      # Search for resources near the drop-off building
       for kind in kinds:
         let nearDropoff = findNearestThing(env, dropoff.pos, kind, maxDist = DropoffProximityRadius)
         if isNil(nearDropoff):
@@ -1489,7 +1365,6 @@ proc ensureResourceReserved(controller: Controller, env: Environment, agent: Thi
         else:
           controller.moveTo(env, agent, agentId, state, nearDropoff.pos))
 
-  # Phase 2: Fall back to normal spiral search if no drop-off cluster available
   for kind in kinds:
     let target = env.findNearestThingSpiral(state, kind)
     if isNil(target):
@@ -1524,7 +1399,6 @@ proc ensureGold*(controller: Controller, env: Environment, agent: Thing, agentId
 
 proc ensureWater*(controller: Controller, env: Environment, agent: Thing, agentId: int,
                  state: var AgentState): tuple[did: bool, action: uint16] =
-  # Invalidate cached water if blocked, depleted, or frozen
   if state.closestWaterPos.x >= 0 and
      (state.closestWaterPos == state.pathBlockedTarget or
       env.terrain[state.closestWaterPos.x][state.closestWaterPos.y] != Water or
@@ -1550,7 +1424,6 @@ proc ensureWheat*(controller: Controller, env: Environment, agent: Thing, agentI
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
-    # Skip if reserved by another agent
     if isResourceReserved(teamId, target.pos, agentId):
       continue
     discard reserveResource(teamId, agentId, target.pos, env.currentStep)
@@ -1570,12 +1443,10 @@ proc ensureHuntFood*(controller: Controller, env: Environment, agent: Thing, age
     if target.pos == state.pathBlockedTarget:
       state.cachedThingPos[kind] = ivec2(-1, -1)
       continue
-    # Skip if reserved by another agent
     if isResourceReserved(teamId, target.pos, agentId):
       continue
     updateClosestSeen(state, state.basePosition, target.pos, state.closestFoodPos)
     discard reserveResource(teamId, agentId, target.pos, env.currentStep)
-    # For cows: milk (interact) if healthy and food not critical, kill (attack) otherwise
     let verb = if kind == Cow:
       let foodCritical = env.stockpileCount(teamId, ResourceFood) < 3
       let cowHealthy = target.hp * 2 >= target.maxHp
