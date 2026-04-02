@@ -87,6 +87,144 @@ const
   ## Process 1/N tumors per step for branching.
   TumorProcessStagger* = 4
 
+  UnitMaxHpByClass: array[AgentUnitClass, int] = [
+    VillagerMaxHp,
+    ManAtArmsMaxHp,
+    ArcherMaxHp,
+    ScoutMaxHp,
+    KnightMaxHp,
+    MonkMaxHp,
+    BatteringRamMaxHp,
+    MangonelMaxHp,
+    TrebuchetMaxHp,
+    GoblinMaxHp,
+    BoatMaxHp,
+    TradeCogMaxHp,
+    # Castle unique units
+    SamuraiMaxHp,
+    LongbowmanMaxHp,
+    CataphractMaxHp,
+    WoadRaiderMaxHp,
+    TeutonicKnightMaxHp,
+    HuskarlMaxHp,
+    MamelukeMaxHp,
+    JanissaryMaxHp,
+    KingMaxHp,
+    # Unit upgrade tiers
+    LongSwordsmanMaxHp,
+    ChampionMaxHp,
+    LightCavalryMaxHp,
+    HussarMaxHp,
+    CrossbowmanMaxHp,
+    ArbalesterMaxHp,
+    # Naval combat units
+    GalleyMaxHp,
+    FireShipMaxHp,
+    FishingShipMaxHp,
+    TransportShipMaxHp,
+    DemoShipMaxHp,
+    CannonGalleonMaxHp,
+    # Additional siege unit
+    ScorpionMaxHp,
+    # Stable cavalry upgrades
+    CavalierMaxHp,
+    PaladinMaxHp,
+    # Camel line
+    CamelMaxHp,
+    HeavyCamelMaxHp,
+    ImperialCamelMaxHp,
+    # Archery Range units
+    SkirmisherMaxHp,
+    EliteSkirmisherMaxHp,
+    CavalryArcherMaxHp,
+    HeavyCavalryArcherMaxHp,
+    HandCannoneerMaxHp
+  ]
+  UnitAttackDamageByClass: array[AgentUnitClass, int] = [
+    VillagerAttackDamage,
+    ManAtArmsAttackDamage,
+    ArcherAttackDamage,
+    ScoutAttackDamage,
+    KnightAttackDamage,
+    MonkAttackDamage,
+    BatteringRamAttackDamage,
+    MangonelAttackDamage,
+    TrebuchetAttackDamage,
+    GoblinAttackDamage,
+    BoatAttackDamage,
+    TradeCogAttackDamage,
+    # Castle unique units
+    SamuraiAttackDamage,
+    LongbowmanAttackDamage,
+    CataphractAttackDamage,
+    WoadRaiderAttackDamage,
+    TeutonicKnightAttackDamage,
+    HuskarlAttackDamage,
+    MamelukeAttackDamage,
+    JanissaryAttackDamage,
+    KingAttackDamage,
+    # Unit upgrade tiers
+    LongSwordsmanAttackDamage,
+    ChampionAttackDamage,
+    LightCavalryAttackDamage,
+    HussarAttackDamage,
+    CrossbowmanAttackDamage,
+    ArbalesterAttackDamage,
+    # Naval combat units
+    GalleyAttackDamage,
+    FireShipAttackDamage,
+    FishingShipAttackDamage,
+    TransportShipAttackDamage,
+    DemoShipAttackDamage,
+    CannonGalleonAttackDamage,
+    # Additional siege unit
+    ScorpionAttackDamage,
+    # Stable cavalry upgrades
+    CavalierAttackDamage,
+    PaladinAttackDamage,
+    # Camel line
+    CamelAttackDamage,
+    HeavyCamelAttackDamage,
+    ImperialCamelAttackDamage,
+    # Archery Range units
+    SkirmisherAttackDamage,
+    EliteSkirmisherAttackDamage,
+    CavalryArcherAttackDamage,
+    HeavyCavalryArcherAttackDamage,
+    HandCannoneerAttackDamage
+  ]
+
+let
+  ## Store the branching offsets checked by tumor spread.
+  TumorBranchOffsets = block:
+    var offsets: seq[IVec2] = @[]
+    for dx in -TumorBranchRange .. TumorBranchRange:
+      for dy in -TumorBranchRange .. TumorBranchRange:
+        if dx == 0 and dy == 0:
+          continue
+        if max(abs(dx), abs(dy)) > TumorBranchRange:
+          continue
+        offsets.add(ivec2(dx, dy))
+    offsets
+
+  ## Store the build menu choices indexed by action argument.
+  BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
+    var choices: array[ActionArgumentCount, ItemKey]
+    for i in 0 ..< choices.len:
+      choices[i] = ItemNone
+    for kind in ThingKind:
+      if not isBuildingKind(kind):
+        continue
+      if not buildingBuildable(kind):
+        continue
+      let buildIndex = BuildingRegistry[kind].buildIndex
+      if buildIndex >= 0 and buildIndex < choices.len:
+        choices[buildIndex] = thingItem($kind)
+    choices[BuildIndexWall] = thingItem("Wall")
+    choices[BuildIndexRoad] = thingItem("Road")
+    choices[BuildIndexDoor] = thingItem("Door")
+    choices
+
 ## Keep error types and FFI state management in environment_state.nim.
 
 proc clear[T](s: var openarray[T]) =
@@ -627,114 +765,6 @@ proc spendCosts*(
     env.spendStockpile(getTeamId(agent), costs)
   of PayNone:
     false
-
-const
-  UnitMaxHpByClass: array[AgentUnitClass, int] = [
-    VillagerMaxHp,
-    ManAtArmsMaxHp,
-    ArcherMaxHp,
-    ScoutMaxHp,
-    KnightMaxHp,
-    MonkMaxHp,
-    BatteringRamMaxHp,
-    MangonelMaxHp,
-    TrebuchetMaxHp,
-    GoblinMaxHp,
-    BoatMaxHp,
-    TradeCogMaxHp,
-    # Castle unique units
-    SamuraiMaxHp,
-    LongbowmanMaxHp,
-    CataphractMaxHp,
-    WoadRaiderMaxHp,
-    TeutonicKnightMaxHp,
-    HuskarlMaxHp,
-    MamelukeMaxHp,
-    JanissaryMaxHp,
-    KingMaxHp,
-    # Unit upgrade tiers
-    LongSwordsmanMaxHp,
-    ChampionMaxHp,
-    LightCavalryMaxHp,
-    HussarMaxHp,
-    CrossbowmanMaxHp,
-    ArbalesterMaxHp,
-    # Naval combat units
-    GalleyMaxHp,
-    FireShipMaxHp,
-    FishingShipMaxHp,
-    TransportShipMaxHp,
-    DemoShipMaxHp,
-    CannonGalleonMaxHp,
-    # Additional siege unit
-    ScorpionMaxHp,
-    # Stable cavalry upgrades
-    CavalierMaxHp,
-    PaladinMaxHp,
-    # Camel line
-    CamelMaxHp,
-    HeavyCamelMaxHp,
-    ImperialCamelMaxHp,
-    # Archery Range units
-    SkirmisherMaxHp,
-    EliteSkirmisherMaxHp,
-    CavalryArcherMaxHp,
-    HeavyCavalryArcherMaxHp,
-    HandCannoneerMaxHp
-  ]
-  UnitAttackDamageByClass: array[AgentUnitClass, int] = [
-    VillagerAttackDamage,
-    ManAtArmsAttackDamage,
-    ArcherAttackDamage,
-    ScoutAttackDamage,
-    KnightAttackDamage,
-    MonkAttackDamage,
-    BatteringRamAttackDamage,
-    MangonelAttackDamage,
-    TrebuchetAttackDamage,
-    GoblinAttackDamage,
-    BoatAttackDamage,
-    TradeCogAttackDamage,
-    # Castle unique units
-    SamuraiAttackDamage,
-    LongbowmanAttackDamage,
-    CataphractAttackDamage,
-    WoadRaiderAttackDamage,
-    TeutonicKnightAttackDamage,
-    HuskarlAttackDamage,
-    MamelukeAttackDamage,
-    JanissaryAttackDamage,
-    KingAttackDamage,
-    # Unit upgrade tiers
-    LongSwordsmanAttackDamage,
-    ChampionAttackDamage,
-    LightCavalryAttackDamage,
-    HussarAttackDamage,
-    CrossbowmanAttackDamage,
-    ArbalesterAttackDamage,
-    # Naval combat units
-    GalleyAttackDamage,
-    FireShipAttackDamage,
-    FishingShipAttackDamage,
-    TransportShipAttackDamage,
-    DemoShipAttackDamage,
-    CannonGalleonAttackDamage,
-    # Additional siege unit
-    ScorpionAttackDamage,
-    # Stable cavalry upgrades
-    CavalierAttackDamage,
-    PaladinAttackDamage,
-    # Camel line
-    CamelAttackDamage,
-    HeavyCamelAttackDamage,
-    ImperialCamelAttackDamage,
-    # Archery Range units
-    SkirmisherAttackDamage,
-    EliteSkirmisherAttackDamage,
-    CavalryArcherAttackDamage,
-    HeavyCavalryArcherAttackDamage,
-    HandCannoneerAttackDamage
-  ]
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
   ## Returns the default stance for a unit class.
@@ -2657,18 +2687,6 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
         return pos
   ivec2(-1, -1)
 
-## Store the branching offsets checked by tumor spread.
-let TumorBranchOffsets = block:
-  var offsets: seq[IVec2] = @[]
-  for dx in -TumorBranchRange .. TumorBranchRange:
-    for dy in -TumorBranchRange .. TumorBranchRange:
-      if dx == 0 and dy == 0:
-        continue
-      if max(abs(dx), abs(dy)) > TumorBranchRange:
-        continue
-      offsets.add(ivec2(dx, dy))
-  offsets
-
 proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
   ## Return a random valid empty position, or raise when the map is full.
   for _ in 0 ..< 100:
@@ -2700,24 +2718,6 @@ proc buildCostsForKey*(key: ItemKey): seq[tuple[key: ItemKey, count: int]] =
         costs.add((key: input.key, count: input.count))
       return costs
   @[]
-
-## Store the build menu choices indexed by action argument.
-let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
-  var choices: array[ActionArgumentCount, ItemKey]
-  for i in 0 ..< choices.len:
-    choices[i] = ItemNone
-  for kind in ThingKind:
-    if not isBuildingKind(kind):
-      continue
-    if not buildingBuildable(kind):
-      continue
-    let buildIndex = BuildingRegistry[kind].buildIndex
-    if buildIndex >= 0 and buildIndex < choices.len:
-      choices[buildIndex] = thingItem($kind)
-  choices[BuildIndexWall] = thingItem("Wall")
-  choices[BuildIndexRoad] = thingItem("Road")
-  choices[BuildIndexDoor] = thingItem("Door")
-  choices
 
 proc render*(env: Environment): string =
   ## Render the map as ASCII.
