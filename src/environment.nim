@@ -1113,11 +1113,12 @@ proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool
 
 ## resetTileColor is in environment_grid.nim
 
-# Initialize craft recipes after the registry is available.
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
 
 proc stockpileCapacityLeft(agent: Thing): int {.inline.} =
+  ## Return the remaining stockpile-resource capacity.
+  ## This only counts stockpile-resource items already carried.
   var total = 0
   for invKey, invCount in agent.inventory.pairs:
     if invCount > 0 and isStockpileResourceKey(invKey):
@@ -1140,6 +1141,8 @@ proc stockpileCapacityLeftWithTech(env: Environment, agent: Thing): int {.inline
   max(0, capacity - total)
 
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
+  ## Add items to an agent inventory.
+  ## Returns false when the full transfer would exceed capacity.
   if count <= 0:
     return false
   if isStockpileResourceKey(key):
@@ -1151,7 +1154,14 @@ proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): boo
   setInv(agent, key, getInv(agent, key) + count)
   true
 
-proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed: openArray[ItemKey]): bool =
+proc useStorageBuilding(
+  env: Environment,
+  agent: Thing,
+  storage: Thing,
+  allowed: openArray[ItemKey]
+): bool =
+  ## Transfer items between an agent and a storage building.
+  ## Returns true when either side moves at least one item.
   if storage.inventory.len > 0:
     var storedKey = ItemNone
     var storedCount = 0
@@ -1211,7 +1221,12 @@ proc useStorageBuilding(env: Environment, agent: Thing, storage: Thing, allowed:
     return true
   false
 
-proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileResource]): bool =
+proc useDropoffBuilding(
+  env: Environment,
+  agent: Thing,
+  allowed: set[StockpileResource]
+): bool =
+  ## Deposit matching resources from the agent into the team stockpile.
   let teamId = getTeamId(agent)
   var depositKeys: seq[ItemKey] = @[]
   for key, count in agent.inventory.pairs:
@@ -1237,8 +1252,15 @@ proc useDropoffBuilding(env: Environment, agent: Thing, allowed: set[StockpileRe
     setInv(agent, key, 0)
   true
 
-proc tryTrainUnit(env: Environment, agent: Thing, building: Thing, unitClass: AgentUnitClass,
-                  costs: openArray[tuple[res: StockpileResource, count: int]], cooldown: int): bool =
+proc tryTrainUnit(
+  env: Environment,
+  agent: Thing,
+  building: Thing,
+  unitClass: AgentUnitClass,
+  costs: openArray[tuple[res: StockpileResource, count: int]],
+  cooldown: int
+): bool =
+  ## Convert a villager into a unit immediately after paying the stockpile cost.
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -1265,7 +1287,7 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
     return false
   # Apply CivBonus food cost multiplier to training costs
   var adjustedCosts: seq[tuple[res: StockpileResource, count: int]] = @[]
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+  if isValidTeamId(teamId):
     let civBonus = env.teamCivBonuses[teamId]
     let applyFood = hasActiveMultiplier(civBonus.foodCostMultiplier)
     let applyWood = hasActiveMultiplier(civBonus.woodCostMultiplier)
@@ -1297,7 +1319,7 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
 proc refundTrainCosts(env: Environment, building: Thing) =
   ## Refund training costs for a cancelled queue entry, applying CivBonus multipliers.
   let teamId = building.teamId
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+  if isValidTeamId(teamId):
     let baseCosts = buildingTrainCosts(building.kind)
     let civBonus = env.teamCivBonuses[teamId]
     let applyFood = hasActiveMultiplier(civBonus.foodCostMultiplier)
@@ -2629,14 +2651,14 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
         return pos
   ivec2(-1, -1)
 
-# Tumor constants from shared tuning defaults.
 const
   TumorBranchRange = DefaultTumorBranchRange
   TumorBranchMinAge = DefaultTumorBranchMinAge
   TumorBranchChance = DefaultTumorBranchChance
   TumorAdjacencyDeathChance = DefaultTumorAdjacencyDeathChance
-  TumorProcessStagger* = 4  ## Process 1/N tumors per step for branching (perf optimization)
+  TumorProcessStagger* = 4  ## Process 1/N tumors per step for branching.
 
+## Store the branching offsets checked by tumor spread.
 let TumorBranchOffsets = block:
   var offsets: seq[IVec2] = @[]
   for dx in -TumorBranchRange .. TumorBranchRange:
@@ -2649,13 +2671,12 @@ let TumorBranchOffsets = block:
   offsets
 
 proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
-  # Try with moderate attempts first
-  for i in 0 ..< 100:
+  ## Return a random valid empty position, or raise when the map is full.
+  for _ in 0 ..< 100:
     let pos = r.generateRandomMapPosition()
     if env.isValidEmptyPosition(pos):
       return pos
-  # Try harder with more attempts
-  for i in 0 ..< 1000:
+  for _ in 0 ..< 1000:
     let pos = r.generateRandomMapPosition()
     if env.isValidEmptyPosition(pos):
       return pos
@@ -2664,6 +2685,7 @@ proc randomEmptyPos(r: var Rand, env: Environment): IVec2 =
 include "tint"
 
 proc buildCostsForKey*(key: ItemKey): seq[tuple[key: ItemKey, count: int]] =
+  ## Return the build or craft costs associated with one output key.
   var kind: ThingKind
   if parseThingKey(key, kind) and isBuildingKind(kind):
     var costs: seq[tuple[key: ItemKey, count: int]] = @[]
@@ -2680,6 +2702,7 @@ proc buildCostsForKey*(key: ItemKey): seq[tuple[key: ItemKey, count: int]] =
       return costs
   @[]
 
+## Store the build menu choices indexed by action argument.
 let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
   var choices: array[ActionArgumentCount, ItemKey]
   for i in 0 ..< choices.len:
@@ -2698,16 +2721,24 @@ let BuildChoices*: array[ActionArgumentCount, ItemKey] = block:
   choices
 
 proc render*(env: Environment): string =
+  ## Render the map as ASCII.
+  ## Terrain fills first, then blocking and background things override it.
   for y in 0 ..< MapHeight:
     for x in 0 ..< MapWidth:
-      # First check terrain
       var cell = $TerrainCatalog[env.terrain[x][y]].ascii
-      # Then override with objects if present (blocking first, background second)
       let blockingThing = env.grid[x][y]
-      let thing = if not isNil(blockingThing): blockingThing else: env.backgroundGrid[x][y]
+      let thing =
+        if not isNil(blockingThing):
+          blockingThing
+        else:
+          env.backgroundGrid[x][y]
       if not isNil(thing):
         let kind = thing.kind
-        let ascii = if isBuildingKind(kind): BuildingRegistry[kind].ascii else: ThingCatalog[kind].ascii
+        let ascii =
+          if isBuildingKind(kind):
+            BuildingRegistry[kind].ascii
+          else:
+            ThingCatalog[kind].ascii
         cell = $ascii
       result.add(cell)
     result.add("\n")
