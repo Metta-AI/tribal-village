@@ -100,7 +100,7 @@ const
     GoblinMaxHp,
     BoatMaxHp,
     TradeCogMaxHp,
-    # Castle unique units
+    # Castle unique units follow.
     SamuraiMaxHp,
     LongbowmanMaxHp,
     CataphractMaxHp,
@@ -110,30 +110,30 @@ const
     MamelukeMaxHp,
     JanissaryMaxHp,
     KingMaxHp,
-    # Unit upgrade tiers
+    # Unit upgrade tiers follow.
     LongSwordsmanMaxHp,
     ChampionMaxHp,
     LightCavalryMaxHp,
     HussarMaxHp,
     CrossbowmanMaxHp,
     ArbalesterMaxHp,
-    # Naval combat units
+    # Naval combat units follow.
     GalleyMaxHp,
     FireShipMaxHp,
     FishingShipMaxHp,
     TransportShipMaxHp,
     DemoShipMaxHp,
     CannonGalleonMaxHp,
-    # Additional siege unit
+    # An additional siege unit follows.
     ScorpionMaxHp,
-    # Stable cavalry upgrades
+    # Stable cavalry upgrades follow.
     CavalierMaxHp,
     PaladinMaxHp,
-    # Camel line
+    # Camel-line upgrades follow.
     CamelMaxHp,
     HeavyCamelMaxHp,
     ImperialCamelMaxHp,
-    # Archery Range units
+    # Archery-range units follow.
     SkirmisherMaxHp,
     EliteSkirmisherMaxHp,
     CavalryArcherMaxHp,
@@ -153,7 +153,7 @@ const
     GoblinAttackDamage,
     BoatAttackDamage,
     TradeCogAttackDamage,
-    # Castle unique units
+    # Castle unique units follow.
     SamuraiAttackDamage,
     LongbowmanAttackDamage,
     CataphractAttackDamage,
@@ -163,30 +163,30 @@ const
     MamelukeAttackDamage,
     JanissaryAttackDamage,
     KingAttackDamage,
-    # Unit upgrade tiers
+    # Unit upgrade tiers follow.
     LongSwordsmanAttackDamage,
     ChampionAttackDamage,
     LightCavalryAttackDamage,
     HussarAttackDamage,
     CrossbowmanAttackDamage,
     ArbalesterAttackDamage,
-    # Naval combat units
+    # Naval combat units follow.
     GalleyAttackDamage,
     FireShipAttackDamage,
     FishingShipAttackDamage,
     TransportShipAttackDamage,
     DemoShipAttackDamage,
     CannonGalleonAttackDamage,
-    # Additional siege unit
+    # An additional siege unit follows.
     ScorpionAttackDamage,
-    # Stable cavalry upgrades
+    # Stable cavalry upgrades follow.
     CavalierAttackDamage,
     PaladinAttackDamage,
-    # Camel line
+    # Camel-line upgrades follow.
     CamelAttackDamage,
     HeavyCamelAttackDamage,
     ImperialCamelAttackDamage,
-    # Archery Range units
+    # Archery-range units follow.
     SkirmisherAttackDamage,
     EliteSkirmisherAttackDamage,
     CavalryArcherAttackDamage,
@@ -930,7 +930,7 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   let wasTank = oldClass in TankAuraUnits
   let isTank = unitClass in TankAuraUnits
   if wasTank and not isTank:
-    # Remove from tankUnits (swap-and-pop for O(1))
+    # Remove from tankUnits with swap-and-pop.
     for i in 0 ..< env.tankUnits.len:
       if env.tankUnits[i] == agent:
         env.tankUnits[i] = env.tankUnits[^1]
@@ -939,11 +939,11 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   elif isTank and not wasTank:
     env.tankUnits.add(agent)
 
-  # Monk units: have heal auras
+  # Monk units have heal auras.
   let wasMonk = oldClass == UnitMonk
   let isMonk = unitClass == UnitMonk
   if wasMonk and not isMonk:
-    # Remove from monkUnits (swap-and-pop for O(1))
+    # Remove from monkUnits with swap-and-pop.
     for i in 0 ..< env.monkUnits.len:
       if env.monkUnits[i] == agent:
         env.monkUnits[i] = env.monkUnits[^1]
@@ -952,7 +952,7 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   elif isMonk and not wasMonk:
     env.monkUnits.add(agent)
 
-  # Villager tracking for town bell garrison optimization
+  # Villager tracking supports town bell garrison optimization.
   let wasVillager = oldClass == UnitVillager
   let isVillager = unitClass == UnitVillager
   # teamId was already computed above at function start.
@@ -1133,13 +1133,13 @@ proc ensureObservations*(env: Environment) {.inline.} =
 
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
   ## Check if a building can be placed at the position.
-  ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
+  ## This remains here because it uses isTileFrozen from colors.nim.
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
   ## Check if a dock can be placed at the position (must be water or shallow water).
-  ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
+  ## This remains here because it uses isTileFrozen from colors.nim.
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] in WaterTerrain
 
