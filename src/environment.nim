@@ -62,6 +62,7 @@ const
   MarketPriceDecayRate* = 1
   ## Store the number of steps between price decay ticks.
   MarketPriceDecayInterval* = 50
+  ## Store the cooldown after one market transaction.
   DefaultMarketCooldown* = 2
 
   ## Store the matching-biome gather bonus chance.
@@ -70,10 +71,21 @@ const
   DesertOasisBonusChance* = 0.10
   ## Store the desert oasis water radius in tiles.
   DesertOasisRadius* = 3
+  ## Store the minimum tint intensity needed to claim territory.
+  DefaultScoreNeutralThreshold = 0.05'f
+  ## Store whether water tiles contribute to territory scoring.
+  DefaultScoreIncludeWater = false
   ## Store one full turn in radians for radial particle spreads.
   FullTurnRadians = 6.28318'f
   ## Store the minimum direction length treated as non-zero.
   DirectionLengthEpsilon = 0.001'f
+
+  TumorBranchRange = DefaultTumorBranchRange
+  TumorBranchMinAge = DefaultTumorBranchMinAge
+  TumorBranchChance = DefaultTumorBranchChance
+  TumorAdjacencyDeathChance = DefaultTumorAdjacencyDeathChance
+  ## Process 1/N tumors per step for branching.
+  TumorProcessStagger* = 4
 
 ## Keep error types and FFI state management in environment_state.nim.
 
@@ -269,12 +281,6 @@ proc updateObservations(
 
 include "colors"
 include "event_log"
-
-const
-  ## Store the minimum tint intensity needed to claim territory.
-  DefaultScoreNeutralThreshold = 0.05'f
-  ## Store whether water tiles contribute to territory scoring.
-  DefaultScoreIncludeWater = false
 
 {.push inline.}
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
@@ -2650,13 +2656,6 @@ proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int)
       if env.isValidEmptyPosition(pos):
         return pos
   ivec2(-1, -1)
-
-const
-  TumorBranchRange = DefaultTumorBranchRange
-  TumorBranchMinAge = DefaultTumorBranchMinAge
-  TumorBranchChance = DefaultTumorBranchChance
-  TumorAdjacencyDeathChance = DefaultTumorAdjacencyDeathChance
-  TumorProcessStagger* = 4  ## Process 1/N tumors per step for branching.
 
 ## Store the branching offsets checked by tumor spread.
 let TumorBranchOffsets = block:
