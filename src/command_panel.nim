@@ -1,20 +1,8 @@
-## Command Panel: context-sensitive action buttons (Phase 3)
-##
-## Shows different buttons depending on what is selected:
-## - Unit selected: move/attack/patrol/stop/stance commands
-## - Villager selected: build menu, gather commands
-## - Building selected: production/research buttons
-## - Multi-selection: common commands only
-##
-## Uses boxy + label_cache for button rendering (same pattern as renderer_controls).
+## Context-sensitive command panel button helpers.
 
 import
   boxy, pixie, vmath, windy,
-  common, environment, tooltips, semantic, renderer_core, label_cache
-
-# ---------------------------------------------------------------------------
-# Types
-# ---------------------------------------------------------------------------
+  common, environment, label_cache, renderer_core, semantic, tooltips
 
 type
   CommandButton* = object
@@ -25,41 +13,42 @@ type
     enabled*: bool
     hovered*: bool
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
 const
-  # Use UIColors from colors.nim for consistent theming
   CommandPanelBgColor = UiBg
   CommandPanelHeaderColor = UiBgHeader
   CommandButtonBgColor = UiBgButton
   CommandButtonHoverColor = UiBgButtonHover
   CommandButtonDisabledColor = UiBgButtonDisabled
-
-  # Layout constants imported from renderer_core:
-  #   CommandPanelHeaderHeight, CommandPanelHeaderPadX,
-  #   CommandLabelFontPath, CommandLabelFontSize,
-  #   CommandHotkeyFontSize, CommandLabelPadding
+  ResearchButtons = {
+    CmdResearchMeleeAttack, CmdResearchArcherAttack,
+    CmdResearchInfantryArmor, CmdResearchCavalryArmor,
+    CmdResearchArcherArmor, CmdResearchBallistics,
+    CmdResearchMurderHoles, CmdResearchMasonry,
+    CmdResearchArchitecture, CmdResearchTreadmillCrane,
+    CmdResearchArrowslits, CmdResearchHeatedShot,
+    CmdResearchSiegeEngineers, CmdResearchChemistry,
+    CmdResearchCoinage, CmdResearchCastleTech1, CmdResearchCastleTech2
+  }
 
 let
-  commandLabelStyle = labelStyle(CommandLabelFontPath, CommandLabelFontSize,
-                                 CommandLabelPadding, 0.0)
-  commandHotkeyStyle = labelStyle(CommandLabelFontPath, CommandHotkeyFontSize,
-                                  CommandLabelPadding, 0.0)
-
-# ---------------------------------------------------------------------------
-# State
-# ---------------------------------------------------------------------------
+  commandLabelStyle = labelStyle(
+    CommandLabelFontPath,
+    CommandLabelFontSize,
+    CommandLabelPadding,
+    0.0
+  )
+  commandHotkeyStyle = labelStyle(
+    CommandLabelFontPath,
+    CommandHotkeyFontSize,
+    CommandLabelPadding,
+    0.0
+  )
 
 var
-  buildMenuOpen*: bool = false  # Whether the build submenu is showing
-
-# ---------------------------------------------------------------------------
-# Button generation (context-sensitive)
-# ---------------------------------------------------------------------------
+  buildMenuOpen*: bool = false
 
 proc getButtonLabel(kind: CommandButtonKind): string =
+  ## Return the display label for a command button kind.
   case kind
   of CmdNone: ""
   of CmdMove: "Move"
@@ -104,13 +93,11 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdFormationBox: "Box"
   of CmdFormationStaggered: "Stagger"
   of CmdFormationRangedSpread: "Spread"
-  # Blacksmith research
   of CmdResearchMeleeAttack: "MeleeAtk"
   of CmdResearchArcherAttack: "RangeAtk"
   of CmdResearchInfantryArmor: "InfArmor"
   of CmdResearchCavalryArmor: "CavArmor"
   of CmdResearchArcherArmor: "ArcArmor"
-  # University research
   of CmdResearchBallistics: "Ballist"
   of CmdResearchMurderHoles: "MrdHole"
   of CmdResearchMasonry: "Masonry"
@@ -121,13 +108,12 @@ proc getButtonLabel(kind: CommandButtonKind): string =
   of CmdResearchSiegeEngineers: "SiegeEn"
   of CmdResearchChemistry: "Chemist"
   of CmdResearchCoinage: "Coinage"
-  # Castle research
   of CmdResearchCastleTech1: "CstlT1"
   of CmdResearchCastleTech2: "CstlT2"
-  # Mill commands
   of CmdQueueFarm: "QFarm"
 
 proc getButtonHotkey*(kind: CommandButtonKind): string =
+  ## Return the hotkey label for a command button kind.
   case kind
   of CmdNone: ""
   of CmdMove: "M"
@@ -172,13 +158,11 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdFormationBox: "2"
   of CmdFormationStaggered: "3"
   of CmdFormationRangedSpread: "4"
-  # Blacksmith research hotkeys (Q-T for 5 upgrade lines)
   of CmdResearchMeleeAttack: "Q"
   of CmdResearchArcherAttack: "W"
   of CmdResearchInfantryArmor: "E"
   of CmdResearchCavalryArmor: "R"
   of CmdResearchArcherArmor: "T"
-  # University research hotkeys (Q-O for 9 techs in 2 rows)
   of CmdResearchBallistics: "Q"
   of CmdResearchMurderHoles: "W"
   of CmdResearchMasonry: "E"
@@ -189,10 +173,8 @@ proc getButtonHotkey*(kind: CommandButtonKind): string =
   of CmdResearchSiegeEngineers: "D"
   of CmdResearchChemistry: "F"
   of CmdResearchCoinage: "G"
-  # Castle research hotkeys
   of CmdResearchCastleTech1: "Q"
   of CmdResearchCastleTech2: "W"
-  # Mill hotkeys
   of CmdQueueFarm: "Q"
 
 proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
@@ -217,9 +199,11 @@ proc buildUnitCommands(): seq[CommandButtonKind] =
 proc buildVillagerCommands(): seq[CommandButtonKind] =
   ## Commands available for villagers.
   if buildMenuOpen:
-    @[CmdBuildBack, CmdBuildHouse, CmdBuildMill, CmdBuildLumberCamp,
+    @[
+      CmdBuildBack, CmdBuildHouse, CmdBuildMill, CmdBuildLumberCamp,
       CmdBuildMiningCamp, CmdBuildBarracks, CmdBuildArcheryRange,
-      CmdBuildStable, CmdBuildWall, CmdBuildBlacksmith, CmdBuildMarket]
+      CmdBuildStable, CmdBuildWall, CmdBuildBlacksmith, CmdBuildMarket
+    ]
   else:
     @[CmdMove, CmdAttack, CmdStop, CmdBuild, CmdGather]
 
@@ -227,11 +211,9 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
   ## Commands available for selected building.
   result = @[CmdSetRally]
 
-  # Add ungarrison if building can garrison
   if thing.kind in {TownCenter, Castle, GuardTower, House}:
     result.add(CmdUngarrison)
 
-  # Add production options based on building type
   case thing.kind
   of TownCenter:
     result.add(CmdTrainVillager)
@@ -260,14 +242,12 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
     result.add(CmdTrainDemoShip)
     result.add(CmdTrainCannonGalleon)
   of Blacksmith:
-    # Blacksmith: 5 upgrade lines (attack/armor research)
     result.add(CmdResearchMeleeAttack)
     result.add(CmdResearchArcherAttack)
     result.add(CmdResearchInfantryArmor)
     result.add(CmdResearchCavalryArmor)
     result.add(CmdResearchArcherArmor)
   of University:
-    # University: 9 technologies
     result.add(CmdResearchBallistics)
     result.add(CmdResearchMurderHoles)
     result.add(CmdResearchMasonry)
@@ -279,11 +259,9 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
     result.add(CmdResearchChemistry)
     result.add(CmdResearchCoinage)
   of Castle:
-    # Castle: 2 unique techs per team (already has ungarrison)
     result.add(CmdResearchCastleTech1)
     result.add(CmdResearchCastleTech2)
   of Mill:
-    # Mill: queue farm reseeds (AoE2-style)
     result.add(CmdQueueFarm)
   else:
     discard
@@ -293,24 +271,27 @@ proc buildMultiSelectCommands(): seq[CommandButtonKind] =
   @[CmdMove, CmdAttack, CmdStop, CmdHoldPosition, CmdPatrol]
 
 proc isResearchButtonEnabled*(kind: CommandButtonKind, building: Thing): bool =
-  ## Check if a research button should be enabled (not yet researched).
+  ## Return true when a research button should be enabled.
   let teamId = building.teamId
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return false
 
   case kind
-  # Blacksmith upgrades - enabled if not at max level
   of CmdResearchMeleeAttack:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeMeleeAttack] < BlacksmithUpgradeMaxLevel
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeMeleeAttack] <
+      BlacksmithUpgradeMaxLevel
   of CmdResearchArcherAttack:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherAttack] < BlacksmithUpgradeMaxLevel
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherAttack] <
+      BlacksmithUpgradeMaxLevel
   of CmdResearchInfantryArmor:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor] < BlacksmithUpgradeMaxLevel
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeInfantryArmor] <
+      BlacksmithUpgradeMaxLevel
   of CmdResearchCavalryArmor:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryArmor] < BlacksmithUpgradeMaxLevel
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeCavalryArmor] <
+      BlacksmithUpgradeMaxLevel
   of CmdResearchArcherArmor:
-    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherArmor] < BlacksmithUpgradeMaxLevel
-  # University techs - enabled if not researched
+    env.teamBlacksmithUpgrades[teamId].levels[UpgradeArcherArmor] <
+      BlacksmithUpgradeMaxLevel
   of CmdResearchBallistics:
     not env.teamUniversityTechs[teamId].researched[TechBallistics]
   of CmdResearchMurderHoles:
@@ -331,51 +312,49 @@ proc isResearchButtonEnabled*(kind: CommandButtonKind, building: Thing): bool =
     not env.teamUniversityTechs[teamId].researched[TechChemistry]
   of CmdResearchCoinage:
     not env.teamUniversityTechs[teamId].researched[TechCoinage]
-  # Castle unique techs - enabled if not researched (and prereq met for Imperial)
   of CmdResearchCastleTech1:
     let (castleAge, _) = castleTechsForTeam(teamId)
     not env.teamCastleTechs[teamId].researched[castleAge]
   of CmdResearchCastleTech2:
     let (castleAge, imperialAge) = castleTechsForTeam(teamId)
-    env.teamCastleTechs[teamId].researched[castleAge] and  # Prereq met
+    env.teamCastleTechs[teamId].researched[castleAge] and
       not env.teamCastleTechs[teamId].researched[imperialAge]
   else:
-    true  # Non-research buttons are always enabled
-
-# ---------------------------------------------------------------------------
-# Panel rect calculation
-# ---------------------------------------------------------------------------
+    true
 
 proc commandPanelRect*(panelRect: IRect): Rect =
-  ## Calculate the command panel rectangle (right side, above footer).
-  ## Uses the layout system if available, falls back to calculated position.
+  ## Return the command panel rectangle.
   if uiLayout.commandPanelArea != nil and uiLayout.commandPanelArea.rect.w > 0:
     return uiLayout.commandPanelArea.rect
 
-  let x = panelRect.x.float32 + panelRect.w.float32 - CommandPanelWidth.float32 - CommandPanelMargin.float32
-  let y = panelRect.y.float32 + panelRect.h.float32 - FooterHeight.float32 - MinimapSize.float32 - CommandPanelMargin.float32 * 2
-  let h = MinimapSize.float32  # Same height as minimap for visual balance
+  let
+    x =
+      panelRect.x.float32 +
+      panelRect.w.float32 -
+      CommandPanelWidth.float32 -
+      CommandPanelMargin.float32
+    y =
+      panelRect.y.float32 +
+      panelRect.h.float32 -
+      FooterHeight.float32 -
+      MinimapSize.float32 -
+      CommandPanelMargin.float32 * 2.0
+    h = MinimapSize.float32
   Rect(x: x, y: y, w: CommandPanelWidth.float32, h: h)
 
 proc isInCommandPanel*(panelRect: IRect, mousePosPx: Vec2): bool =
-  ## Check if mouse position is inside the command panel.
+  ## Return true when the mouse is inside the command panel.
   let cpRect = commandPanelRect(panelRect)
-  mousePosPx.x >= cpRect.x and mousePosPx.x <= cpRect.x + cpRect.w and
+  mousePosPx.x >= cpRect.x and
+    mousePosPx.x <= cpRect.x + cpRect.w and
     mousePosPx.y >= cpRect.y and mousePosPx.y <= cpRect.y + cpRect.h
-
-# ---------------------------------------------------------------------------
-# Build buttons based on selection
-# ---------------------------------------------------------------------------
 
 proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
   ## Build the list of command buttons based on current selection.
   let cpRect = commandPanelRect(panelRect)
-
-  # Determine which commands to show based on selection
   var commandKinds: seq[CommandButtonKind] = @[]
 
   if selection.len == 0:
-    # No selection - no commands
     return @[]
   elif selection.len == 1:
     let thing = selection[0]
@@ -389,7 +368,6 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
     else:
       return @[]
   else:
-    # Multi-selection: check if all are agents
     var allAgents = true
     for thing in selection:
       if thing.kind != Agent:
@@ -400,182 +378,268 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
     else:
       return @[]
 
-  # Create button objects with positions
-  let startX = cpRect.x + CommandPanelPadding.float32
-  let startY = cpRect.y + CommandPanelHeaderHeight + CommandPanelPadding.float32
-
-  # Get reference to selected building (if any) for research state checks
-  let selectedBuilding = if selection.len == 1 and isBuildingKind(selection[0].kind):
-    selection[0]
-  else:
-    nil
+  let
+    startX = cpRect.x + CommandPanelPadding.float32
+    startY =
+      cpRect.y +
+      CommandPanelHeaderHeight +
+      CommandPanelPadding.float32
+    selectedBuilding =
+      if selection.len == 1 and isBuildingKind(selection[0].kind):
+        selection[0]
+      else:
+        nil
 
   for i, kind in commandKinds:
-    let col = i mod CommandButtonCols
-    let row = i div CommandButtonCols
-    let x = startX + col.float32 * (CommandButtonSize.float32 + CommandButtonGap.float32)
-    let y = startY + row.float32 * (CommandButtonSize.float32 + CommandButtonGap.float32)
+    let
+      col = i mod CommandButtonCols
+      row = i div CommandButtonCols
+      x =
+        startX +
+        col.float32 *
+        (CommandButtonSize.float32 + CommandButtonGap.float32)
+      y =
+        startY +
+        row.float32 *
+        (CommandButtonSize.float32 + CommandButtonGap.float32)
+      buttonEnabled =
+        if not isNil(selectedBuilding):
+          isResearchButtonEnabled(kind, selectedBuilding)
+        else:
+          true
 
-    # Check if research buttons should be enabled
-    let buttonEnabled = if not isNil(selectedBuilding):
-      isResearchButtonEnabled(kind, selectedBuilding)
-    else:
-      true
+    result.add(
+      CommandButton(
+        kind: kind,
+        rect: Rect(
+          x: x,
+          y: y,
+          w: CommandButtonSize.float32,
+          h: CommandButtonSize.float32
+        ),
+        label: getButtonLabel(kind),
+        hotkey: getButtonHotkey(kind),
+        enabled: buttonEnabled,
+        hovered: false
+      )
+    )
 
-    result.add(CommandButton(
-      kind: kind,
-      rect: Rect(x: x, y: y, w: CommandButtonSize.float32, h: CommandButtonSize.float32),
-      label: getButtonLabel(kind),
-      hotkey: getButtonHotkey(kind),
-      enabled: buttonEnabled,
-      hovered: false
-    ))
-
-# ---------------------------------------------------------------------------
-# Drawing
-# ---------------------------------------------------------------------------
-
-proc ensureCommandLabelColored(text: string, style: LabelStyle, textColor: Color): (string, IVec2) =
-  let coloredStyle = labelStyleColored(style.fontPath, style.fontSize, style.padding, textColor)
+proc ensureCommandLabelColored(
+  text: string,
+  style: LabelStyle,
+  textColor: Color
+): (string, IVec2) =
+  ## Return a cached command panel label with an override color.
+  let coloredStyle = labelStyleColored(
+    style.fontPath,
+    style.fontSize,
+    style.padding,
+    textColor
+  )
   let cached = ensureLabel("cmd_panel", text, coloredStyle)
   (cached.imageKey, cached.size)
 
 proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
   ## Draw the command panel with context-sensitive buttons.
   if selection.len == 0:
-    return  # Don't draw if nothing selected
+    return
 
   let cpRect = commandPanelRect(panelRect)
 
-  # Semantic capture: command panel
   pushSemanticContext("CommandPanel")
-  capturePanel("CommandPanel", vec2(cpRect.x, cpRect.y), vec2(cpRect.w, cpRect.h))
+  capturePanel(
+    "CommandPanel",
+    vec2(cpRect.x, cpRect.y),
+    vec2(cpRect.w, cpRect.h)
+  )
 
-  # Draw panel background with border
   bxy.drawRect(
-    rect = Rect(x: cpRect.x - CommandPanelBorderOffset, y: cpRect.y - CommandPanelBorderOffset,
-                w: cpRect.w + CommandPanelBorderExpand, h: cpRect.h + CommandPanelBorderExpand),
+    rect = Rect(
+      x: cpRect.x - CommandPanelBorderOffset,
+      y: cpRect.y - CommandPanelBorderOffset,
+      w: cpRect.w + CommandPanelBorderExpand,
+      h: cpRect.h + CommandPanelBorderExpand
+    ),
     color = UiBorder
   )
-  bxy.drawRect(rect = Rect(x: cpRect.x, y: cpRect.y, w: cpRect.w, h: cpRect.h),
-               color = CommandPanelBgColor)
-  bxy.drawRect(rect = Rect(x: cpRect.x, y: cpRect.y, w: cpRect.w, h: CommandPanelHeaderHeight),
-               color = CommandPanelHeaderColor)
-  # Separator line between header and buttons
-  bxy.drawRect(rect = Rect(x: cpRect.x, y: cpRect.y + CommandPanelHeaderHeight,
-                            w: cpRect.w, h: 1.0),
-               color = UiBorderBright)
+  bxy.drawRect(
+    rect = Rect(x: cpRect.x, y: cpRect.y, w: cpRect.w, h: cpRect.h),
+    color = CommandPanelBgColor
+  )
+  bxy.drawRect(
+    rect = Rect(
+      x: cpRect.x,
+      y: cpRect.y,
+      w: cpRect.w,
+      h: CommandPanelHeaderHeight
+    ),
+    color = CommandPanelHeaderColor
+  )
+  bxy.drawRect(
+    rect = Rect(
+      x: cpRect.x,
+      y: cpRect.y + CommandPanelHeaderHeight,
+      w: cpRect.w,
+      h: 1.0
+    ),
+    color = UiBorderBright
+  )
 
-  # Draw header label
-  let headerText = if selection.len == 1:
-    if selection[0].kind == Agent:
-      "Commands"
-    elif isBuildingKind(selection[0].kind):
-      "Production"
+  let headerText =
+    if selection.len == 1:
+      if selection[0].kind == Agent:
+        "Commands"
+      elif isBuildingKind(selection[0].kind):
+        "Production"
+      else:
+        "Commands"
     else:
-      "Commands"
-  else:
-    "Commands (" & $selection.len & ")"
+      "Commands (" & $selection.len & ")"
 
-  let (headerKey, headerSize) = ensureCommandLabelColored(headerText, commandLabelStyle, UiFgBright)
-  let headerX = cpRect.x + CommandPanelHeaderPadX
-  let headerY = cpRect.y + (CommandPanelHeaderHeight - headerSize.y.float32) * 0.5
-  drawUiImageScaled(headerKey, vec2(headerX, headerY),
-                    vec2(headerSize.x.float32, headerSize.y.float32))
-  captureLabel(headerText, vec2(headerX, headerY),
-               vec2(headerSize.x.float32, headerSize.y.float32))
+  let
+    (headerKey, headerSize) = ensureCommandLabelColored(
+      headerText,
+      commandLabelStyle,
+      UiFgBright
+    )
+    headerX = cpRect.x + CommandPanelHeaderPadX
+    headerY =
+      cpRect.y +
+      (CommandPanelHeaderHeight - headerSize.y.float32) * 0.5
+  drawUiImageScaled(
+    headerKey,
+    vec2(headerX, headerY),
+    vec2(headerSize.x.float32, headerSize.y.float32)
+  )
+  captureLabel(
+    headerText,
+    vec2(headerX, headerY),
+    vec2(headerSize.x.float32, headerSize.y.float32)
+  )
 
-  # Build and draw buttons
   let buttons = buildCommandButtons(panelRect)
   var anyButtonHovered = false
 
   for button in buttons:
-    # Check hover state
-    let hovered = mousePosPx.x >= button.rect.x and
-                  mousePosPx.x <= button.rect.x + button.rect.w and
-                  mousePosPx.y >= button.rect.y and
-                  mousePosPx.y <= button.rect.y + button.rect.h
+    let hovered =
+      mousePosPx.x >= button.rect.x and
+      mousePosPx.x <= button.rect.x + button.rect.w and
+      mousePosPx.y >= button.rect.y and
+      mousePosPx.y <= button.rect.y + button.rect.h
 
-    # Handle tooltip on hover
     if hovered and button.enabled:
       anyButtonHovered = true
       let tooltipContent = buildCommandTooltip(button.kind, button.hotkey)
       startHover(TooltipCommand, button.rect, tooltipContent)
 
-    # Draw button background
-    let bgColor = if not button.enabled:
-      CommandButtonDisabledColor
-    elif hovered:
-      CommandButtonHoverColor
-    else:
-      CommandButtonBgColor
+    let bgColor =
+      if not button.enabled:
+        CommandButtonDisabledColor
+      elif hovered:
+        CommandButtonHoverColor
+      else:
+        CommandButtonBgColor
+    bxy.drawRect(
+      rect = Rect(
+        x: button.rect.x,
+        y: button.rect.y,
+        w: button.rect.w,
+        h: button.rect.h
+      ),
+      color = bgColor
+    )
 
-    bxy.drawRect(rect = Rect(x: button.rect.x, y: button.rect.y,
-                             w: button.rect.w, h: button.rect.h),
-                 color = bgColor)
-
-    # Draw button border
     let borderColor = if hovered: UiBorderBright else: UiBorder
     let bw = CommandButtonBorderW
-    # Top border
-    bxy.drawRect(rect = Rect(x: button.rect.x, y: button.rect.y,
-                             w: button.rect.w, h: bw), color = borderColor)
-    # Bottom border
-    bxy.drawRect(rect = Rect(x: button.rect.x, y: button.rect.y + button.rect.h - bw,
-                             w: button.rect.w, h: bw), color = borderColor)
-    # Left border
-    bxy.drawRect(rect = Rect(x: button.rect.x, y: button.rect.y,
-                             w: bw, h: button.rect.h), color = borderColor)
-    # Right border
-    bxy.drawRect(rect = Rect(x: button.rect.x + button.rect.w - bw, y: button.rect.y,
-                             w: bw, h: button.rect.h), color = borderColor)
+    bxy.drawRect(
+      rect = Rect(x: button.rect.x, y: button.rect.y, w: button.rect.w, h: bw),
+      color = borderColor
+    )
+    bxy.drawRect(
+      rect = Rect(
+        x: button.rect.x,
+        y: button.rect.y + button.rect.h - bw,
+        w: button.rect.w,
+        h: bw
+      ),
+      color = borderColor
+    )
+    bxy.drawRect(
+      rect = Rect(x: button.rect.x, y: button.rect.y, w: bw, h: button.rect.h),
+      color = borderColor
+    )
+    bxy.drawRect(
+      rect = Rect(
+        x: button.rect.x + button.rect.w - bw,
+        y: button.rect.y,
+        w: bw,
+        h: button.rect.h
+      ),
+      color = borderColor
+    )
 
-    # Draw label centered
     let labelTextColor = if button.enabled: UiFgText else: UiFgDim
-    let (lblKey, lblSize) = ensureCommandLabelColored(button.label, commandLabelStyle, labelTextColor)
-    let labelX = button.rect.x + (button.rect.w - lblSize.x.float32) * 0.5
-    let labelY = button.rect.y + (button.rect.h - lblSize.y.float32) * 0.5
-    drawUiImageScaled(lblKey, vec2(labelX, labelY),
-                      vec2(lblSize.x.float32, lblSize.y.float32))
+    let
+      (lblKey, lblSize) = ensureCommandLabelColored(
+        button.label,
+        commandLabelStyle,
+        labelTextColor
+      )
+      labelX = button.rect.x + (button.rect.w - lblSize.x.float32) * 0.5
+      labelY = button.rect.y + (button.rect.h - lblSize.y.float32) * 0.5
+    drawUiImageScaled(
+      lblKey,
+      vec2(labelX, labelY),
+      vec2(lblSize.x.float32, lblSize.y.float32)
+    )
 
-    # Semantic capture: command button
-    captureButton(button.label, vec2(button.rect.x, button.rect.y),
-                  vec2(button.rect.w, button.rect.h))
+    captureButton(
+      button.label,
+      vec2(button.rect.x, button.rect.y),
+      vec2(button.rect.w, button.rect.h)
+    )
 
-    # Draw hotkey in corner
     if button.hotkey.len > 0:
-      let (hkKey, hkSize) = ensureCommandLabelColored(button.hotkey, commandHotkeyStyle, UiFgMuted)
-      let hotkeyX = button.rect.x + button.rect.w - hkSize.x.float32 - CommandButtonHotkeyInset
-      let hotkeyY = button.rect.y + CommandButtonHotkeyInset
-      drawUiImageScaled(hkKey, vec2(hotkeyX, hotkeyY),
-                        vec2(hkSize.x.float32, hkSize.y.float32))
+      let
+        (hkKey, hkSize) = ensureCommandLabelColored(
+          button.hotkey,
+          commandHotkeyStyle,
+          UiFgMuted
+        )
+        hotkeyX =
+          button.rect.x +
+          button.rect.w -
+          hkSize.x.float32 -
+          CommandButtonHotkeyInset
+        hotkeyY = button.rect.y + CommandButtonHotkeyInset
+      drawUiImageScaled(
+        hkKey,
+        vec2(hotkeyX, hotkeyY),
+        vec2(hkSize.x.float32, hkSize.y.float32)
+      )
 
-    # Draw checkmark for researched techs (disabled research buttons)
-    if not button.enabled and button.kind in {CmdResearchMeleeAttack, CmdResearchArcherAttack,
-        CmdResearchInfantryArmor, CmdResearchCavalryArmor, CmdResearchArcherArmor,
-        CmdResearchBallistics, CmdResearchMurderHoles, CmdResearchMasonry,
-        CmdResearchArchitecture, CmdResearchTreadmillCrane, CmdResearchArrowslits,
-        CmdResearchHeatedShot, CmdResearchSiegeEngineers, CmdResearchChemistry,
-        CmdResearchCoinage, CmdResearchCastleTech1, CmdResearchCastleTech2}:
-      # Draw a green checkmark indicator in the top-left corner
-      let (okKey, okSize) = ensureCommandLabelColored("OK", commandHotkeyStyle, UiSuccess)
-      let checkX = button.rect.x + CommandButtonHotkeyInset
-      let checkY = button.rect.y + CommandButtonHotkeyInset
-      drawUiImageScaled(okKey, vec2(checkX, checkY),
-                        vec2(okSize.x.float32, okSize.y.float32))
+    if not button.enabled and button.kind in ResearchButtons:
+      let
+        (okKey, okSize) = ensureCommandLabelColored(
+          "OK",
+          commandHotkeyStyle,
+          UiSuccess
+        )
+        checkX = button.rect.x + CommandButtonHotkeyInset
+        checkY = button.rect.y + CommandButtonHotkeyInset
+      drawUiImageScaled(
+        okKey,
+        vec2(checkX, checkY),
+        vec2(okSize.x.float32, okSize.y.float32)
+      )
 
-  # Clear tooltip if no button is hovered
   if not anyButtonHovered:
     clearTooltip()
 
   popSemanticContext()
 
-# ---------------------------------------------------------------------------
-# Click handling
-# ---------------------------------------------------------------------------
-
 proc handleCommandPanelClick*(panelRect: IRect, mousePosPx: Vec2): CommandButtonKind =
-  ## Handle a click on the command panel, returning the clicked button kind.
+  ## Return the clicked command button kind or `CmdNone`.
   if not isInCommandPanel(panelRect, mousePosPx):
     return CmdNone
 
