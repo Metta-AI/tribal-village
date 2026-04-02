@@ -1,6 +1,4 @@
-## Log step-by-step state diffs for debugging.
-##
-## Gated behind `-d:stateDiff` and compiled out when disabled.
+## Step-by-step environment diff logging for state mutation debugging.
 
 when defined(stateDiff):
   import
@@ -9,7 +7,7 @@ when defined(stateDiff):
 
   type
     TeamSnapshot* = object
-      ## Snapshot of a single team's state.
+      ## Snapshot of one team's tracked state.
       agentCount*: int
       aliveCount*: int
       deadCount*: int
@@ -25,14 +23,13 @@ when defined(stateDiff):
       monkCount*: int
 
     StateSnapshot* = object
-      ## Snapshot of key environment fields for comparison.
+      ## Snapshot of key environment fields for diffing.
       step*: int
       victoryWinner*: int
       thingCount*: int
       agentCount*: int
       projectileCount*: int
       teams*: array[MapRoomObjectsTeams, TeamSnapshot]
-      # Building counts.
       houseCount*: int
       altarCount*: int
       towerCount*: int
@@ -50,7 +47,7 @@ when defined(stateDiff):
     diffInitialized* = false
 
   proc initStateDiff*() =
-    ## Initialize the state-diff logger.
+    ## Reset state-diff tracking.
     diffState = StateDiffState(hasSnapshot: false)
     diffInitialized = true
 
@@ -60,53 +57,62 @@ when defined(stateDiff):
       initStateDiff()
 
   proc captureSnapshot*(env: Environment): StateSnapshot =
-    ## Capture current environment state into a snapshot.
+    ## Capture the current environment state into a snapshot.
     result.step = env.currentStep
     result.victoryWinner = env.victoryWinner
     result.thingCount = env.things.len
     result.agentCount = env.agents.len
     result.projectileCount = env.projectiles.len
 
-    # Count buildings by type.
     for thing in env.things:
       if thing.isNil:
         continue
       case thing.kind
-      of House: inc result.houseCount
-      of Altar: inc result.altarCount
-      of GuardTower, Outpost: inc result.towerCount
-      of Wall: inc result.wallCount
-      of Market: inc result.marketCount
-      of Castle: inc result.castleCount
-      else: discard
+      of House:
+        inc result.houseCount
+      of Altar:
+        inc result.altarCount
+      of GuardTower, Outpost:
+        inc result.towerCount
+      of Wall:
+        inc result.wallCount
+      of Market:
+        inc result.marketCount
+      of Castle:
+        inc result.castleCount
+      else:
+        discard
 
-    # Team snapshots.
     for teamId in 0 ..< MapRoomObjectsTeams:
-      var ts: TeamSnapshot
-      # Stockpile resources.
-      ts.food = env.teamStockpiles[teamId].counts[ResourceFood]
-      ts.wood = env.teamStockpiles[teamId].counts[ResourceWood]
-      ts.gold = env.teamStockpiles[teamId].counts[ResourceGold]
-      ts.stone = env.teamStockpiles[teamId].counts[ResourceStone]
-      ts.water = env.teamStockpiles[teamId].counts[ResourceWater]
+      var teamSnapshot: TeamSnapshot
+      teamSnapshot.food = env.teamStockpiles[teamId].counts[ResourceFood]
+      teamSnapshot.wood = env.teamStockpiles[teamId].counts[ResourceWood]
+      teamSnapshot.gold = env.teamStockpiles[teamId].counts[ResourceGold]
+      teamSnapshot.stone = env.teamStockpiles[teamId].counts[ResourceStone]
+      teamSnapshot.water = env.teamStockpiles[teamId].counts[ResourceWater]
+      result.teams[teamId] = teamSnapshot
 
-      result.teams[teamId] = ts
-
-    # Agent counts by team and class.
     for agent in env.liveAgents:
       let teamId = agent.getTeamId()
       if teamId < 0 or teamId >= MapRoomObjectsTeams:
         continue
+
       inc result.teams[teamId].agentCount
       if env.terminated[agent.agentId] == 0.0:
         inc result.teams[teamId].aliveCount
         case agent.unitClass
-        of UnitVillager: inc result.teams[teamId].villagerCount
-        of UnitArcher: inc result.teams[teamId].archerCount
-        of UnitKnight: inc result.teams[teamId].knightCount
-        of UnitManAtArms: inc result.teams[teamId].manAtArmsCount
-        of UnitMonk: inc result.teams[teamId].monkCount
-        else: discard
+        of UnitVillager:
+          inc result.teams[teamId].villagerCount
+        of UnitArcher:
+          inc result.teams[teamId].archerCount
+        of UnitKnight:
+          inc result.teams[teamId].knightCount
+        of UnitManAtArms:
+          inc result.teams[teamId].manAtArmsCount
+        of UnitMonk:
+          inc result.teams[teamId].monkCount
+        else:
+          discard
       else:
         inc result.teams[teamId].deadCount
 
@@ -128,25 +134,30 @@ when defined(stateDiff):
   proc snapshotChanged(oldSnap, newSnap: StateSnapshot): bool =
     ## Return true when any tracked snapshot field changed.
     if oldSnap.victoryWinner != newSnap.victoryWinner or
-        oldSnap.thingCount != newSnap.thingCount or
-        oldSnap.projectileCount != newSnap.projectileCount or
-        oldSnap.houseCount != newSnap.houseCount or
-        oldSnap.altarCount != newSnap.altarCount or
-        oldSnap.towerCount != newSnap.towerCount or
-        oldSnap.wallCount != newSnap.wallCount or
-        oldSnap.marketCount != newSnap.marketCount or
-        oldSnap.castleCount != newSnap.castleCount:
-      return true
+      oldSnap.thingCount != newSnap.thingCount or
+      oldSnap.projectileCount != newSnap.projectileCount or
+      oldSnap.houseCount != newSnap.houseCount or
+      oldSnap.altarCount != newSnap.altarCount or
+      oldSnap.towerCount != newSnap.towerCount or
+      oldSnap.wallCount != newSnap.wallCount or
+      oldSnap.marketCount != newSnap.marketCount or
+      oldSnap.castleCount != newSnap.castleCount:
+        return true
     for teamId in 0 ..< MapRoomObjectsTeams:
       if teamChanged(oldSnap.teams[teamId], newSnap.teams[teamId]):
         return true
     false
 
   proc logDiff(name: string, oldVal, newVal: int) =
-    ## Log a single field diff.
+    ## Log one integer field diff when the value changed.
     if oldVal != newVal:
-      let delta = newVal - oldVal
-      let sign = if delta > 0: "+" else: ""
+      let
+        delta = newVal - oldVal
+        sign =
+          if delta > 0:
+            "+"
+          else:
+            ""
       echo &"  {name}: {oldVal} -> {newVal} ({sign}{delta})"
 
   proc logTeamDiff(teamId: int, oldTeam, newTeam: TeamSnapshot) =
@@ -160,7 +171,11 @@ when defined(stateDiff):
     logDiff("    villagers", oldTeam.villagerCount, newTeam.villagerCount)
     logDiff("    archers", oldTeam.archerCount, newTeam.archerCount)
     logDiff("    knights", oldTeam.knightCount, newTeam.knightCount)
-    logDiff("    manAtArms", oldTeam.manAtArmsCount, newTeam.manAtArmsCount)
+    logDiff(
+      "    manAtArms",
+      oldTeam.manAtArmsCount,
+      newTeam.manAtArmsCount
+    )
     logDiff("    monks", oldTeam.monkCount, newTeam.monkCount)
     logDiff("    food", oldTeam.food, newTeam.food)
     logDiff("    wood", oldTeam.wood, newTeam.wood)
@@ -183,34 +198,33 @@ when defined(stateDiff):
     logDiff("  walls", oldSnap.wallCount, newSnap.wallCount)
     logDiff("  markets", oldSnap.marketCount, newSnap.marketCount)
     logDiff("  castles", oldSnap.castleCount, newSnap.castleCount)
-
     for teamId in 0 ..< MapRoomObjectsTeams:
       logTeamDiff(teamId, oldSnap.teams[teamId], newSnap.teams[teamId])
 
   proc capturePreStep*(env: Environment) =
-    ## Call before step() to capture pre-step state.
+    ## Capture the pre-step snapshot.
     ensureStateDiffInit()
     diffState.prevSnapshot = captureSnapshot(env)
     diffState.hasSnapshot = true
 
   proc comparePostStep*(env: Environment) =
-    ## Call after step() to compare and log diffs.
+    ## Compare the post-step state against the previous snapshot.
     ensureStateDiffInit()
     if not diffState.hasSnapshot:
       return
-    let newSnap = captureSnapshot(env)
-    compareAndLog(diffState.prevSnapshot, newSnap)
-    diffState.prevSnapshot = newSnap
+    let newSnapshot = captureSnapshot(env)
+    compareAndLog(diffState.prevSnapshot, newSnapshot)
+    diffState.prevSnapshot = newSnapshot
 
 when not defined(stateDiff):
-  ## Ignore state-diff initialization when the feature is disabled.
+  ## Initialize state-diff tracking in non-stateDiff builds.
   template ensureStateDiffInit*() =
     discard
 
-  ## Ignore pre-step capture when the feature is disabled.
+  ## Capture a pre-step snapshot in non-stateDiff builds.
   template capturePreStep*(env: untyped) =
     discard
 
-  ## Ignore post-step comparison when the feature is disabled.
+  ## Compare post-step state in non-stateDiff builds.
   template comparePostStep*(env: untyped) =
     discard
