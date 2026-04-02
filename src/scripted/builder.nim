@@ -88,9 +88,7 @@ proc findDamagedBuilding*(controller: Controller, env: Environment, agent: Thing
   let teamId = getTeamId(agent)
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
     return nil
-  # Ensure cache is fresh
   refreshDamagedBuildingCache(controller, env)
-  # Find nearest from cached positions
   var best: Thing = nil
   var bestDist = int.high
   for i in 0 ..< controller.damagedBuildingCounts[teamId]:
@@ -190,9 +188,16 @@ proc optBuilderCoreInfrastructure(controller: Controller, env: Environment, agen
   let teamId = getTeamId(agent)
   let altarPos = agent.homeAltar
   if altarPos.x >= 0:
-    # Per-settlement: only build infrastructure missing near this agent's home altar
     for kind in CoreInfrastructureKinds:
-      let (did, act) = controller.tryBuildForSettlement(env, agent, agentId, state, teamId, kind, altarPos)
+      let (did, act) = controller.tryBuildForSettlement(
+        env,
+        agent,
+        agentId,
+        state,
+        teamId,
+        kind,
+        altarPos
+      )
       if did: return act
     0'u16
   else:
@@ -233,7 +238,11 @@ proc optBuilderPlantIfMills(controller: Controller, env: Environment, agent: Thi
   if didPlant: return actPlant
   0'u16
 
-proc campResourceCount(env: Environment, pos: IVec2, entry: tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]): int =
+proc campResourceCount(
+  env: Environment,
+  pos: IVec2,
+  entry: tuple[kind: ThingKind, nearbyKinds: set[ThingKind], minCount: int]
+): int =
   ## Count nearby resources for a camp threshold entry.
   ## For Granary, also counts Fertile terrain tiles since food grows there.
   result = countNearbyThings(env, pos, 4, entry.nearbyKinds)
@@ -241,7 +250,7 @@ proc campResourceCount(env: Environment, pos: IVec2, entry: tuple[kind: ThingKin
     result += countNearbyTerrain(env, pos, 4, {Fertile})
 
 optionGuard(canStartBuilderCampThreshold, shouldTerminateBuilderCampThreshold):
-  ## Terminate when camp built nearby or conditions no longer met
+  ## Start when a nearby camp threshold justifies a drop-off.
   let teamId = getTeamId(agent)
   block:
     var shouldBuild = false
@@ -268,7 +277,10 @@ proc optBuilderCampThreshold(controller: Controller, env: Environment, agent: Th
     if did: return act
   0'u16
 
-proc findStrategicDropoffTarget(env: Environment, agent: Thing): tuple[pos: IVec2, kind: ThingKind, found: bool] =
+proc findStrategicDropoffTarget(
+  env: Environment,
+  agent: Thing
+): tuple[pos: IVec2, kind: ThingKind, found: bool] =
   ## Scan for resource clusters that are far from existing drop-offs.
   ## Samples positions on a grid within StrategicDropoffSearchRadius to find
   ## high-density resource areas lacking a nearby drop-off building.
@@ -277,7 +289,7 @@ proc findStrategicDropoffTarget(env: Environment, agent: Thing): tuple[pos: IVec
   let teamId = getTeamId(agent)
   let basePos = agent.getBasePos()
   var bestScore = 0
-  const gridStep = 4  # Sample every 4 tiles for efficiency
+  const gridStep = 4
   let minX = max(0, basePos.x - StrategicDropoffSearchRadius)
   let maxX = min(MapWidth - 1, basePos.x + StrategicDropoffSearchRadius)
   let minY = max(0, basePos.y - StrategicDropoffSearchRadius)
@@ -290,10 +302,8 @@ proc findStrategicDropoffTarget(env: Environment, agent: Thing): tuple[pos: IVec
         let samplePos = ivec2(x.int32, y.int32)
         let resCount = campResourceCount(env, samplePos, entry)
         if resCount >= StrategicDropoffMinResources:
-          # Check that no existing drop-off is nearby
           let dropoffDist = nearestFriendlyBuildingDistance(env, teamId, [entry.kind], samplePos)
           if dropoffDist > StrategicDropoffMinSpacing:
-            # Score: resource density, preferring clusters farther from existing drop-offs
             let score = resCount + min(dropoffDist, 20)
             if score > bestScore:
               bestScore = score
@@ -318,7 +328,6 @@ proc optBuilderStrategicDropoff(controller: Controller, env: Environment, agent:
   let cached = strategicDropoffCache.getWithAgent(env, agent, findStrategicDropoffTarget)
   if not cached.found:
     return 0'u16
-  # If we're already near the cluster, try to build
   let distToCluster = int(chebyshevDist(agent.pos, cached.pos))
   if distToCluster <= 4:
     for entry in CampThresholds:
@@ -326,13 +335,12 @@ proc optBuilderStrategicDropoff(controller: Controller, env: Environment, agent:
         let resCount = campResourceCount(env, agent.pos, entry)
         let (did, act) = controller.tryBuildCampThreshold(
           env, agent, agentId, state, teamId, entry.kind,
-          resCount, 1,  # Lower threshold since we already validated the cluster
+          resCount, 1,
           [entry.kind],
           minSpacing = StrategicDropoffMinSpacing
         )
         if did: return act
         break
-  # Move toward the cluster
   controller.moveTo(env, agent, agentId, state, cached.pos)
 
 let BuilderStrategicDropoffOption = OptionDef(
@@ -366,9 +374,12 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
   var ringDoorCount = 0
   var bestBlocked = int.high
   var bestDist = int.high
-  # Calculate adaptive wall radius based on per-settlement building count
   let baseRadius = calculateWallRingRadius(controller, env, teamId, altarPos)
-  let wallRingRadii = [baseRadius, baseRadius - WallRingRadiusSlack, baseRadius + WallRingRadiusSlack]
+  let wallRingRadii = [
+    baseRadius,
+    baseRadius - WallRingRadiusSlack,
+    baseRadius + WallRingRadiusSlack
+  ]
   for radius in wallRingRadii:
     var blocked = 0
     var doorCount = 0
@@ -442,30 +453,28 @@ proc optBuilderWallRing(controller: Controller, env: Environment, agent: Thing,
       if didWood: return actWood
   0'u16
 
-# Coordination-responsive behavior: respond to defense requests by building military structures
 proc canStartBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
                                     agentId: int, state: var AgentState): bool =
-  ## Check if there's a defense request and we can respond by building
+  ## Start when a defense request needs military construction.
   let teamId = getTeamId(agent)
   hasUnfulfilledRequest(teamId, RequestDefense) and
     anyMissingBuilding(controller, env, teamId, DefenseRequestBuildingKinds)
 
 proc shouldTerminateBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
                                            agentId: int, state: var AgentState): bool =
-  ## Terminate when no more defense requests or defense buildings built
+  ## Stop when no defense request remains or the buildings exist.
   let teamId = getTeamId(agent)
   not hasUnfulfilledRequest(teamId, RequestDefense) or
     not anyMissingBuilding(controller, env, teamId, DefenseRequestBuildingKinds)
 
 proc optBuilderDefenseResponse(controller: Controller, env: Environment, agent: Thing,
                                agentId: int, state: var AgentState): uint16 =
-  ## Build military/defensive structures in response to coordination request
+  ## Build military structures for the pending defense request.
   let teamId = getTeamId(agent)
   for kind in DefenseRequestBuildingKinds:
     if controller.getBuildingCount(env, teamId, kind) == 0:
       let (did, act) = controller.tryBuildIfMissing(env, agent, agentId, state, teamId, kind)
       if did:
-        # Mark the defense request as fulfilled once we start building
         markRequestFulfilled(teamId, RequestDefense)
         return act
   0'u16
@@ -495,7 +504,6 @@ proc optBuilderNavalTrain(controller: Controller, env: Environment, agent: Thing
   let dock = env.findNearestFriendlyThingSpiral(state, teamId, Dock)
   if isNil(dock):
     return 0'u16
-  # Queue training if no ready entry
   if not dock.productionQueueHasReady() and
      dock.productionQueue.entries.len < ProductionQueueMaxSize:
     discard env.tryBatchQueueTrain(dock, teamId, 1)
@@ -579,7 +587,6 @@ proc optBuilderVisitTradingHub(controller: Controller, env: Environment, agent: 
     return 0'u16
   controller.moveTo(env, agent, agentId, state, hub.pos)
 
-# Shared OptionDefs used in both BuilderOptions and BuilderOptionsThreat
 let BuilderFleeOption = OptionDef(
   name: "BuilderFlee", canStart: canStartBuilderFlee,
   shouldTerminate: shouldTerminateBuilderFlee, act: optBuilderFlee,
@@ -626,7 +633,7 @@ let BuilderVisitTradingHubOption = OptionDef(
   interruptible: true)
 
 let BuilderOptions* = [
-  TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
+  TownBellGarrisonOption,
   BuilderFleeOption,
   EmergencyHealOption,
   BuilderPlantOnFertileOption,
@@ -641,14 +648,14 @@ let BuilderOptions* = [
     interruptible: true),
   BuilderMillNearResourceOption,
   BuilderPlantIfMillsOption,
-  BuilderDefenseResponseOption,      # Defense before drop-off spam (tv-88y)
+  BuilderDefenseResponseOption,
   BuilderSiegeResponseOption,
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: shouldTerminateBuilderTechBuildings, act: optBuilderTechBuildings,
     interruptible: true),
   BuilderRepairOption,
-  BuilderCampThresholdOption,        # Drop-offs after tech/military buildings (tv-88y)
-  BuilderStrategicDropoffOption,     # Proactive drop-off placement near distant clusters (tv-gn2)
+  BuilderCampThresholdOption,
+  BuilderStrategicDropoffOption,
   ResearchUniversityTechOption,
   BuilderDockOption,
   BuilderNavalTrainOption,
@@ -668,11 +675,8 @@ let BuilderOptions* = [
   FallbackSearchOption
 ]
 
-# BuilderOptionsThreat: Reordered priorities for when under threat.
-# Priority order: Flee -> Defense -> TechBuildings -> Repair -> Infrastructure -> WallRing
-# (tv-il11vv: Moved WallRing lower to prioritize military buildings over walls)
 let BuilderOptionsThreat* = [
-  TownBellGarrisonOption,  # Highest priority: town bell recall overrides everything
+  TownBellGarrisonOption,
   BuilderFleeOption,
   EmergencyHealOption,
   BuilderPlantOnFertileOption,
@@ -682,12 +686,12 @@ let BuilderOptionsThreat* = [
   OptionDef(name: "BuilderPopCap", canStart: canStartBuilderPopCap,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderPopCap,
     interruptible: true),
-  BuilderDefenseResponseOption,  # Military buildings prioritized in threat mode
+  BuilderDefenseResponseOption,
   BuilderSiegeResponseOption,
   OptionDef(name: "BuilderTechBuildings", canStart: canStartBuilderTechBuildings,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderTechBuildings,
     interruptible: true),
-  BuilderRepairOption,           # Repair existing structures
+  BuilderRepairOption,
   ResearchUniversityTechOption,
   BuilderDockOption,
   BuilderNavalTrainOption,
@@ -701,8 +705,8 @@ let BuilderOptionsThreat* = [
   BuilderMillNearResourceOption,
   BuilderPlantIfMillsOption,
   BuilderCampThresholdOption,
-  BuilderStrategicDropoffOption,  # Strategic drop-off placement (tv-gn2)
-  BuilderWallRingOption,         # Walls after infrastructure (tv-il11vv)
+  BuilderStrategicDropoffOption,
+  BuilderWallRingOption,
   OptionDef(name: "BuilderGatherScarce", canStart: canStartBuilderGatherScarce,
     shouldTerminate: optionsAlwaysTerminate, act: optBuilderGatherScarce,
     interruptible: true),
