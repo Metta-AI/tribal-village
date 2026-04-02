@@ -1,6 +1,6 @@
-import std/os
-import unittest
-import gui_assets
+import
+  std/os,
+  gui_assets
 
 const
   PngHeaderSize = 24
@@ -23,10 +23,10 @@ proc readPngSize(path: string): tuple[width, height: int] =
     if header[i] != PngSignature[i]:
       raise newException(ValueError, "Invalid PNG signature: " & path)
   if header[12] != 'I' or
-    header[13] != 'H' or
-    header[14] != 'D' or
-    header[15] != 'R':
-      raise newException(ValueError, "Missing IHDR chunk: " & path)
+     header[13] != 'H' or
+     header[14] != 'D' or
+     header[15] != 'R':
+    raise newException(ValueError, "Missing IHDR chunk: " & path)
   result.width =
     (ord(header[16]) shl 24) or
     (ord(header[17]) shl 16) or
@@ -38,30 +38,32 @@ proc readPngSize(path: string): tuple[width, height: int] =
     (ord(header[22]) shl 8) or
     ord(header[23])
 
-suite "GUI asset preload filtering":
+echo "Testing gameplay sprite GUI preloads"
+doAssert shouldPreloadGuiAsset("data/house.png")
+doAssert guiAssetKey("data/house.png") == "house"
+doAssert guiAssetKey("data/oriented/monk.s.png") == "oriented/monk.s"
 
-  test "preloads gameplay sprites":
-    check shouldPreloadGuiAsset("data/house.png")
-    check guiAssetKey("data/house.png") == "house"
-    check guiAssetKey("data/oriented/monk.s.png") == "oriented/monk.s"
+echo "Testing skipped df_view GUI exports"
+doAssert not shouldPreloadGuiAsset("data/df_view/data/art/foo.png")
+doAssert not shouldPreloadGuiAsset("df_view/data/art/foo.png")
 
-  test "skips optional df_view exports":
-    check not shouldPreloadGuiAsset("data/df_view/data/art/foo.png")
-    check not shouldPreloadGuiAsset("df_view/data/art/foo.png")
+echo "Testing skipped raw preview GUI assets"
+doAssert not shouldPreloadGuiAsset("data/tmp/oriented/monk.e.png")
+doAssert not shouldPreloadGuiAsset("tmp/oriented/monk.e.png")
 
-  test "skips raw preview assets":
-    check not shouldPreloadGuiAsset("data/tmp/oriented/monk.e.png")
-    check not shouldPreloadGuiAsset("tmp/oriented/monk.e.png")
+echo "Testing skipped silky atlas preload"
+doAssert not shouldPreloadGuiAsset("data/silky.atlas.png")
+doAssert not shouldPreloadGuiAsset("silky.atlas.png")
 
-  test "skips abandoned silky atlas preload":
-    check not shouldPreloadGuiAsset("data/silky.atlas.png")
-    check not shouldPreloadGuiAsset("silky.atlas.png")
-
-  test "preloaded gui assets stay within tile footprint":
-    for path in walkDirRec("data"):
-      if not shouldPreloadGuiAsset(path):
-        continue
-      let (width, height) = readPngSize(path)
-      checkpoint(path & " is " & $width & "x" & $height)
-      check width <= GuiAssetMaxEdge
-      check height <= GuiAssetMaxEdge
+echo "Testing GUI preload asset dimensions"
+var checkedAssets = 0
+for path in walkDirRec("data"):
+  if not shouldPreloadGuiAsset(path):
+    continue
+  inc checkedAssets
+  let
+    (width, height) = readPngSize(path)
+    sizeText = path & " is " & $width & "x" & $height
+  doAssert width <= GuiAssetMaxEdge, sizeText
+  doAssert height <= GuiAssetMaxEdge, sizeText
+echo "Checked ", checkedAssets, " GUI preload assets"
