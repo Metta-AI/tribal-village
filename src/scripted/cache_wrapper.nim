@@ -1,3 +1,5 @@
+## Cache wrappers for scalar, per-agent, and per-team scripted state.
+
 import
   vmath,
   ../types
@@ -42,6 +44,24 @@ type
     lastActiveStep*: array[MapAgents, int32]
     needsCleanup*: array[MapAgents, bool]
 
+proc isValidAgentId(agentId: int): bool {.inline.} =
+  ## Returns true when the agent ID is inside the valid agent range.
+  agentId >= 0 and agentId < MapAgents
+
+proc isValidTeamId(teamId: int): bool {.inline.} =
+  ## Returns true when the team ID is inside the valid team range.
+  teamId >= 0 and teamId < MapRoomObjectsTeams
+
+proc invalidateAgentEntries[T](cache: var PerAgentCacheWrapper[T]) =
+  ## Clears every per-agent cache generation marker.
+  for i in 0 ..< MapAgents:
+    cache.agentGen[i] = CacheInvalid
+
+proc invalidateTeamEntries[T](cache: var PerTeamCacheWrapper[T]) =
+  ## Clears every per-team cache generation marker.
+  for i in 0 ..< MapRoomObjectsTeams:
+    cache.teamGen[i] = CacheInvalid
+
 proc alloc*[T](cache: var CacheWrapper[T]) =
   ## Initialize one scalar cache wrapper.
   cache.phase = phaseAllocated
@@ -83,8 +103,7 @@ proc alloc*[T](cache: var PerAgentCacheWrapper[T]) =
   ## Initialize one per-agent cache wrapper.
   cache.phase = phaseAllocated
   cache.stepGeneration = 0
-  for i in 0 ..< MapAgents:
-    cache.agentGen[i] = CacheInvalid
+  invalidateAgentEntries(cache)
 
 proc reset*[T](cache: var PerAgentCacheWrapper[T]) =
   ## Reset one per-agent cache for a new step.
@@ -95,19 +114,18 @@ proc reset*[T](cache: var PerAgentCacheWrapper[T]) =
 proc cleanup*[T](cache: var PerAgentCacheWrapper[T]) =
   ## Mark one per-agent cache as cleaned up.
   cache.phase = phaseCleaned
-  for i in 0 ..< MapAgents:
-    cache.agentGen[i] = CacheInvalid
+  invalidateAgentEntries(cache)
 
 proc isValid*[T](cache: PerAgentCacheWrapper[T], agentId: int): bool {.inline.} =
   ## Return whether one agent cache entry is valid this generation.
-  if agentId < 0 or agentId >= MapAgents:
+  if not isValidAgentId(agentId):
     return false
   cache.agentGen[agentId] == cache.stepGeneration
 
 proc get*[T](cache: var PerAgentCacheWrapper[T], agentId: int,
              compute: proc(agentId: int): T): T =
   ## Read or compute one per-agent cached value.
-  if agentId < 0 or agentId >= MapAgents:
+  if not isValidAgentId(agentId):
     return compute(agentId)
   if cache.agentGen[agentId] != cache.stepGeneration:
     cache.values[agentId] = compute(agentId)
@@ -116,21 +134,20 @@ proc get*[T](cache: var PerAgentCacheWrapper[T], agentId: int,
 
 proc set*[T](cache: var PerAgentCacheWrapper[T], agentId: int, value: T) =
   ## Store one per-agent cached value.
-  if agentId >= 0 and agentId < MapAgents:
+  if isValidAgentId(agentId):
     cache.values[agentId] = value
     cache.agentGen[agentId] = cache.stepGeneration
 
 proc invalidate*[T](cache: var PerAgentCacheWrapper[T], agentId: int) {.inline.} =
   ## Invalidate one per-agent cached value.
-  if agentId >= 0 and agentId < MapAgents:
+  if isValidAgentId(agentId):
     cache.agentGen[agentId] = CacheInvalid
 
 proc alloc*[T](cache: var PerTeamCacheWrapper[T]) =
   ## Initialize one per-team cache wrapper.
   cache.phase = phaseAllocated
   cache.stepGeneration = 0
-  for i in 0 ..< MapRoomObjectsTeams:
-    cache.teamGen[i] = CacheInvalid
+  invalidateTeamEntries(cache)
 
 proc reset*[T](cache: var PerTeamCacheWrapper[T]) =
   ## Reset one per-team cache for a new step.
@@ -141,19 +158,18 @@ proc reset*[T](cache: var PerTeamCacheWrapper[T]) =
 proc cleanup*[T](cache: var PerTeamCacheWrapper[T]) =
   ## Mark one per-team cache as cleaned up.
   cache.phase = phaseCleaned
-  for i in 0 ..< MapRoomObjectsTeams:
-    cache.teamGen[i] = CacheInvalid
+  invalidateTeamEntries(cache)
 
 proc isValid*[T](cache: PerTeamCacheWrapper[T], teamId: int): bool {.inline.} =
   ## Return whether one team cache entry is valid this generation.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   cache.teamGen[teamId] == cache.stepGeneration
 
 proc get*[T](cache: var PerTeamCacheWrapper[T], teamId: int,
              compute: proc(teamId: int): T): T =
   ## Read or compute one per-team cached value.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return compute(teamId)
   if cache.teamGen[teamId] != cache.stepGeneration:
     cache.values[teamId] = compute(teamId)
@@ -162,13 +178,13 @@ proc get*[T](cache: var PerTeamCacheWrapper[T], teamId: int,
 
 proc set*[T](cache: var PerTeamCacheWrapper[T], teamId: int, value: T) =
   ## Store one per-team cached value.
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+  if isValidTeamId(teamId):
     cache.values[teamId] = value
     cache.teamGen[teamId] = cache.stepGeneration
 
 proc invalidate*[T](cache: var PerTeamCacheWrapper[T], teamId: int) {.inline.} =
   ## Invalidate one per-team cached value.
-  if teamId >= 0 and teamId < MapRoomObjectsTeams:
+  if isValidTeamId(teamId):
     cache.teamGen[teamId] = CacheInvalid
 
 proc init*(lifecycle: var AgentStateLifecycle) =
@@ -184,33 +200,33 @@ proc markActive*(
   currentStep: int32
 ) =
   ## Mark one agent active at the current step.
-  if agentId >= 0 and agentId < MapAgents:
+  if isValidAgentId(agentId):
     lifecycle.activeAgents[agentId] = true
     lifecycle.lastActiveStep[agentId] = currentStep
     lifecycle.needsCleanup[agentId] = false
 
 proc markInactive*(lifecycle: var AgentStateLifecycle, agentId: int) =
   ## Mark one agent inactive and queue cleanup when needed.
-  if agentId >= 0 and agentId < MapAgents:
+  if isValidAgentId(agentId):
     if lifecycle.activeAgents[agentId]:
       lifecycle.needsCleanup[agentId] = true
     lifecycle.activeAgents[agentId] = false
 
 proc isActive*(lifecycle: AgentStateLifecycle, agentId: int): bool {.inline.} =
   ## Return whether one agent is currently active.
-  if agentId < 0 or agentId >= MapAgents:
+  if not isValidAgentId(agentId):
     return false
   lifecycle.activeAgents[agentId]
 
 proc needsCleanup*(lifecycle: AgentStateLifecycle, agentId: int): bool {.inline.} =
   ## Return whether one agent needs cleanup.
-  if agentId < 0 or agentId >= MapAgents:
+  if not isValidAgentId(agentId):
     return false
   lifecycle.needsCleanup[agentId]
 
 proc clearCleanupFlag*(lifecycle: var AgentStateLifecycle, agentId: int) =
   ## Clear one agent cleanup flag.
-  if agentId >= 0 and agentId < MapAgents:
+  if isValidAgentId(agentId):
     lifecycle.needsCleanup[agentId] = false
 
 proc getAgentsNeedingCleanup*(lifecycle: AgentStateLifecycle): seq[int] =

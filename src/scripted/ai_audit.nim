@@ -1,15 +1,22 @@
+## Scripted AI audit logging and periodic summaries.
+
 import ai_types
 export ai_types
 
 when defined(aiAudit):
-  import std/[os, strformat, strutils]
+  import
+    std/[strformat, strutils],
+    ../envconfig
 
   const
+    AgentRoleCount = ord(high(AgentRole)) + 1
     AuditActionNames*: array[ActionVerbCount, string] = [
       "noop", "move", "attack", "use", "swap", "put",
       "plant_lantern", "plant_resource", "build", "orient", "set_rally_point"
     ]
-    AuditRoleNames*: array[4, string] = ["Gatherer", "Builder", "Fighter", "Scripted"]
+    AuditRoleNames*: array[AgentRoleCount, string] = [
+      "Gatherer", "Builder", "Fighter", "Scripted"
+    ]
     AuditSummaryInterval* = 50
 
   type
@@ -45,7 +52,7 @@ when defined(aiAudit):
       logLevel*: int
       stepDecisions*: seq[AuditRecord]
       verbCounts*: array[ActionVerbCount, int]
-      roleCounts*: array[MapRoomObjectsTeams, array[4, int]]
+      roleCounts*: array[MapRoomObjectsTeams, array[AgentRoleCount, int]]
       branchCounts*: array[AuditDecisionBranch, int]
       stepsAccumulated*: int
       totalDecisions*: int
@@ -54,13 +61,41 @@ when defined(aiAudit):
     auditSummary*: AuditSummaryState
     auditCurrentBranch*: AuditDecisionBranch
 
+  proc actionName(verb: int): string =
+    ## Returns the display name for one action verb ID.
+    if verb >= 0 and verb < ActionVerbCount:
+      return AuditActionNames[verb]
+    $verb
+
+  proc roleName(role: AgentRole): string =
+    ## Returns the display name for one scripted role.
+    let roleId = ord(role)
+    if roleId >= 0 and roleId < AuditRoleNames.len:
+      return AuditRoleNames[roleId]
+    $role
+
+  proc resetStepDecisions() =
+    ## Clears verbose per-step decision records.
+    auditSummary.stepDecisions.setLen(0)
+
+  proc resetSummaryCounts() =
+    ## Clears summary counters after one reporting interval.
+    for i in 0 ..< ActionVerbCount:
+      auditSummary.verbCounts[i] = 0
+    for teamId in 0 ..< MapRoomObjectsTeams:
+      for roleId in 0 ..< AgentRoleCount:
+        auditSummary.roleCounts[teamId][roleId] = 0
+    for branch in AuditDecisionBranch:
+      auditSummary.branchCounts[branch] = 0
+    auditSummary.totalDecisions = 0
+
   proc initAuditLog*() =
     ## Initialize audit logging from environment configuration.
-    let level = getEnv("TV_AI_LOG", "0")
-    auditSummary.logLevel = try: parseInt(level) except: 0
+    auditSummary.logLevel = parseEnvInt("TV_AI_LOG", 0)
     auditSummary.stepDecisions = @[]
     auditSummary.stepsAccumulated = 0
     auditSummary.totalDecisions = 0
+    auditCurrentBranch = BranchInactive
 
   proc setAuditBranch*(branch: AuditDecisionBranch) {.inline.} =
     ## Record the current decision branch for the next audit event.
@@ -98,17 +133,11 @@ when defined(aiAudit):
       return
     echo &"[AI_AUDIT step={step}] {auditSummary.stepDecisions.len} decisions:"
     for d in auditSummary.stepDecisions:
-      let verbName = if d.verb >= 0 and d.verb < ActionVerbCount:
-                       AuditActionNames[d.verb]
-                     else: $d.verb
-      let roleName = if ord(d.role) < AuditRoleNames.len:
-                       AuditRoleNames[ord(d.role)]
-                     else: $d.role
       echo(
-        &"  agent={d.agentId} team={d.teamId} role={roleName} " &
-        &"action={verbName}:{d.arg} branch={d.branch}"
+        &"  agent={d.agentId} team={d.teamId} role={roleName(d.role)} " &
+        &"action={actionName(d.verb)}:{d.arg} branch={d.branch}"
       )
-    auditSummary.stepDecisions.setLen(0)
+    resetStepDecisions()
 
   proc printAuditSummary*(step: int) =
     ## Print verbose or summary audit output for the current step.
@@ -141,15 +170,15 @@ when defined(aiAudit):
     echo "  Role distribution per team:"
     for teamId in 0 ..< MapRoomObjectsTeams:
       var teamTotal = 0
-      for r in 0 ..< 4:
-        teamTotal += auditSummary.roleCounts[teamId][r]
+      for roleId in 0 ..< AgentRoleCount:
+        teamTotal += auditSummary.roleCounts[teamId][roleId]
       if teamTotal > 0:
         var parts: seq[string] = @[]
-        for r in 0 ..< 4:
-          let c = auditSummary.roleCounts[teamId][r]
+        for roleId in 0 ..< AgentRoleCount:
+          let c = auditSummary.roleCounts[teamId][roleId]
           if c > 0:
             let pct = (c.float * 100.0) / teamTotal.float
-            parts.add(&"{AuditRoleNames[r]}={c}({pct:.0f}%)")
+            parts.add(&"{AuditRoleNames[roleId]}={c}({pct:.0f}%)")
         echo &"    team {teamId}: {parts.join(\", \")}"
 
     echo "  Decision branches:"
@@ -159,14 +188,7 @@ when defined(aiAudit):
         let pct = (count.float * 100.0) / total.float
         echo &"    {branch}: {count} ({pct:.1f}%)"
 
-    for i in 0 ..< ActionVerbCount:
-      auditSummary.verbCounts[i] = 0
-    for teamId in 0 ..< MapRoomObjectsTeams:
-      for r in 0 ..< 4:
-        auditSummary.roleCounts[teamId][r] = 0
-    for branch in AuditDecisionBranch:
-      auditSummary.branchCounts[branch] = 0
-    auditSummary.totalDecisions = 0
+    resetSummaryCounts()
 
 else:
   template setAuditBranch*(branch: untyped) = discard

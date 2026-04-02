@@ -12,6 +12,7 @@ const
   MaxReplaysPerPass* = 8
   WinRewardThreshold* = 0.5
   ReplayFeedbackAlpha* = 0.1
+  ReplayFileSuffix = ".json.z"
 
 type
   ActionDistribution* = object
@@ -54,6 +55,20 @@ type
     verbs*: seq[int]
     teamReward*: float32
 
+proc isTrackedTeam(teamId: int): bool {.inline.} =
+  ## Returns true when the team ID is inside the tracked team range.
+  teamId >= 0 and teamId < MapRoomObjectsTeams
+
+proc isActionVerb(verb: int): bool {.inline.} =
+  ## Returns true when the verb ID is inside the action verb range.
+  verb >= 0 and verb < ActionVerbCount
+
+proc averageReward(strategy: TeamStrategy): float32 =
+  ## Returns the average reward per agent for one team strategy.
+  if strategy.agentCount <= 0:
+    return 0.0
+  strategy.finalReward / float32(strategy.agentCount)
+
 proc loadReplayJson*(path: string): JsonNode =
   ## Load one compressed replay file and parse the JSON payload.
   let
@@ -88,7 +103,7 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
       continue
 
     let teamId = groupIdNode.getInt()
-    if teamId < 0 or teamId >= MapRoomObjectsTeams:
+    if not isTrackedTeam(teamId):
       continue
 
     inc teamStrategies[teamId].agentCount
@@ -108,7 +123,7 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
 
       for actionChange in actionChanges:
         let verb = actionChange.value.getInt()
-        if verb < 0 or verb >= ActionVerbCount:
+        if not isActionVerb(verb):
           continue
 
         inc teamStrategies[teamId].actionDist.counts[verb]
@@ -139,9 +154,7 @@ proc analyzeReplay*(replayJson: JsonNode): ReplayAnalysis =
     bestTeam = -1
   for teamId in 0 ..< MapRoomObjectsTeams:
     if teamStrategies[teamId].agentCount > 0:
-      let avgReward =
-        teamStrategies[teamId].finalReward /
-        float32(teamStrategies[teamId].agentCount)
+      let avgReward = averageReward(teamStrategies[teamId])
       teamStrategies[teamId].won = avgReward >= WinRewardThreshold
       if avgReward > bestReward:
         bestReward = avgReward
@@ -184,7 +197,7 @@ proc strategyScore*(strategy: TeamStrategy): float32 =
   ## Return the composite strategy score clamped to `[0.0, 1.0]`.
   let rewardComponent =
     clamp(
-      strategy.finalReward / max(1.0, float32(strategy.agentCount)),
+      averageReward(strategy),
       0.0,
       1.0
     )
@@ -196,6 +209,13 @@ proc strategyScore*(strategy: TeamStrategy): float32 =
       else:
         0.0
   clamp(rewardComponent * 0.65 + combatComponent + winBonus, 0.0, 1.0)
+
+proc teamScore(analysis: ReplayAnalysis, teamId: int): float32 =
+  ## Returns the composite score for one team inside one replay analysis.
+  for team in analysis.teams:
+    if team.teamId == teamId:
+      return strategyScore(team)
+  0.0
 
 template blendFitness(
   fitness: var float32,
@@ -236,11 +256,7 @@ proc applyWinnerBoost*(
   if analysis.winningTeamId < 0:
     return
 
-  var winnerScore: float32 = 0.0
-  for team in analysis.teams:
-    if team.teamId == analysis.winningTeamId:
-      winnerScore = strategyScore(team)
-      break
+  let winnerScore = teamScore(analysis, analysis.winningTeamId)
   if winnerScore <= 0.0:
     return
 
@@ -252,7 +268,7 @@ proc dominantActionVerb*(seqData: ActionSequence): int =
   ## Return the most frequent action verb in one sequence.
   var counts: array[ActionVerbCount, int]
   for verb in seqData.verbs:
-    if verb >= 0 and verb < ActionVerbCount:
+    if isActionVerb(verb):
       inc counts[verb]
 
   var bestCount = 0
@@ -267,7 +283,7 @@ proc findReplayFiles*(dir: string): seq[string] =
   if not dirExists(dir):
     return @[]
   for entry in walkDir(dir):
-    if entry.kind == pcFile and entry.path.endsWith(".json.z"):
+    if entry.kind == pcFile and entry.path.endsWith(ReplayFileSuffix):
       result.add(entry.path)
   result.sort(proc(a, b: string): int =
     let
