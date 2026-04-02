@@ -844,7 +844,7 @@ proc getUnitCategory*(unitClass: AgentUnitClass): UnitCategory {.inline.} =
   UnitCategoryByClass[unitClass]
 
 proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int {.inline.} =
-  ## Returns the attack bonus from Blacksmith upgrades for a unit.
+  ## Return the attack bonus from Blacksmith upgrades for one unit.
   ## Melee attack (Forging line) applies to infantry + cavalry.
   ## Archer attack (Fletching line) applies to archers.
   ## Bonus varies by tier: level 3 melee gives +2 extra (Blast Furnace).
@@ -860,7 +860,7 @@ proc getBlacksmithAttackBonus*(env: Environment, teamId: int, unitClass: AgentUn
     0
 
 proc getBlacksmithArmorBonus*(env: Environment, teamId: int, unitClass: AgentUnitClass): int {.inline.} =
-  ## Returns the armor bonus from Blacksmith upgrades for a unit.
+  ## Return the armor bonus from Blacksmith upgrades for one unit.
   ## Bonus varies by tier: level 3 gives +2 extra (Plate/Ring upgrades).
   let category = UnitCategoryByClass[unitClass]
   case category
@@ -1037,7 +1037,7 @@ proc clearRallyPoint*(building: Thing) =
   building.rallyPoint = ivec2(-1, -1)
 
 proc hasRallyPoint*(building: Thing): bool =
-  ## Check if a building has an active rally point.
+  ## Check whether a building has an active rally point.
   building.rallyPoint.x >= 0 and building.rallyPoint.y >= 0
 
 proc rebuildObservationsForAgent(env: Environment, agentId: int, agent: Thing) {.inline.} =
@@ -1132,13 +1132,13 @@ proc ensureObservations*(env: Environment) {.inline.} =
   env.observationsInitialized = true
 
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
-  ## Check if a building can be placed at the position.
+  ## Check whether a building can be placed at the position.
   ## This remains here because it uses isTileFrozen from colors.nim.
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and isBuildableTerrain(env.terrain[pos.x][pos.y])
 
 proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
-  ## Check if a dock can be placed at the position (must be water or shallow water).
+  ## Check whether a dock can be placed at the position.
   ## This remains here because it uses isTileFrozen from colors.nim.
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] in WaterTerrain
@@ -1159,7 +1159,7 @@ proc getVillagerCarryCapacity*(env: Environment, teamId: int): int
   ## Defined in the economy tech section below.
 
 proc stockpileCapacityLeftWithTech(env: Environment, agent: Thing): int {.inline.} =
-  ## Stockpile capacity respecting Wheelbarrow/Hand Cart tech bonuses for villagers.
+  ## Return stockpile capacity with villager tech bonuses applied.
   let capacity = if agent.unitClass == UnitVillager:
     env.getVillagerCarryCapacity(getTeamId(agent))
   else:
@@ -1172,7 +1172,7 @@ proc stockpileCapacityLeftWithTech(env: Environment, agent: Thing): int {.inline
 
 proc giveItem(env: Environment, agent: Thing, key: ItemKey, count: int = 1): bool =
   ## Add items to an agent inventory.
-  ## Returns false when the full transfer would exceed capacity.
+  ## Return false when the full transfer would exceed capacity.
   if count <= 0:
     return false
   if isStockpileResourceKey(key):
@@ -1191,7 +1191,7 @@ proc useStorageBuilding(
   allowed: openArray[ItemKey]
 ): bool =
   ## Transfer items between an agent and a storage building.
-  ## Returns true when either side moves at least one item.
+  ## Return true when either side moves at least one item.
   if storage.inventory.len > 0:
     var storedKey = ItemNone
     var storedCount = 0
@@ -2413,7 +2413,7 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
 
 proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): bool =
   ## Grant up to `amount` copies of an item to the agent inventory.
-  ## Returns false when the inventory fills before all items are added.
+  ## Return false when the inventory fills before all items are added.
   if amount <= 0:
     return true
   for _ in 0 ..< amount:
