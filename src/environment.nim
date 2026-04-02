@@ -70,6 +70,10 @@ const
   DesertOasisBonusChance* = 0.10
   ## Store the desert oasis water radius in tiles.
   DesertOasisRadius* = 3
+  ## Store one full turn in radians for radial particle spreads.
+  FullTurnRadians = 6.28318'f
+  ## Store the minimum direction length treated as non-zero.
+  DirectionLengthEpsilon = 0.001'f
 
 ## Keep error types and FFI state management in environment_state.nim.
 
@@ -949,7 +953,7 @@ proc disembarkAgent*(env: Environment, agent: Thing) =
   applyUnitClass(env, agent, target)
 {.pop.}
 
-# Forward declaration - implementation in tint.nim (included below)
+## ensureTintColors is implemented in tint.nim, included later in this file.
 proc ensureTintColors*(env: Environment) {.inline.}
 
 proc scoreTerritory*(env: Environment): TerritoryScore =
@@ -988,7 +992,6 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
         inc score.teamTiles[bestTeam]
       inc score.scoredTiles
   score
-
 
 proc setRallyPoint*(building: Thing, pos: IVec2) =
   ## Set a building's rally point. Trained units will auto-move here after spawning.
@@ -1110,7 +1113,7 @@ proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool
 
 ## resetTileColor is in environment_grid.nim
 
-# Build craft recipes after registry is available.
+# Initialize craft recipes after the registry is available.
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
 
@@ -1122,7 +1125,7 @@ proc stockpileCapacityLeft(agent: Thing): int {.inline.} =
   max(0, ResourceCarryCapacity - total)
 
 proc getVillagerCarryCapacity*(env: Environment, teamId: int): int
-  ## Forward declaration - defined in economy tech section below
+  ## Defined in the economy tech section below.
 
 proc stockpileCapacityLeftWithTech(env: Environment, agent: Thing): int {.inline.} =
   ## Stockpile capacity respecting Wheelbarrow/Hand Cart tech bonuses for villagers.
@@ -1323,7 +1326,7 @@ proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int)
   ## For example, if LongSwordsman upgrade is researched, Barracks trains LongSwordsman instead of ManAtArms.
   ## "Unlock" upgrades (Knight, Skirmisher, CavalryArcher) switch the building's production line.
   let baseUnit = buildingTrainUnit(buildingKind, teamId)
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return baseUnit
   # Check upgrade chain for the base unit
   case baseUnit
@@ -1413,7 +1416,7 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   let teamId = getTeamId(agent)
   if building.teamId != teamId:
     return false
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   # Find the next upgrade to research
@@ -1456,7 +1459,7 @@ proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
 
 proc hasUniversityTech*(env: Environment, teamId: int, tech: UniversityTechType): bool {.inline.} =
   ## Check if a team has researched a specific University tech.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   env.teamUniversityTechs[teamId].researched[tech]
 
@@ -1469,7 +1472,7 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   let teamId = getTeamId(agent)
   if building.teamId != teamId:
     return false
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   # Find the next tech to research
@@ -1521,7 +1524,7 @@ proc getNextCastleTech(env: Environment, teamId: int): CastleTechType =
 
 proc hasCastleTech*(env: Environment, teamId: int, tech: CastleTechType): bool {.inline.} =
   ## Check if a team has researched a specific Castle unique tech.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   env.teamCastleTechs[teamId].researched[tech]
 
@@ -1669,7 +1672,7 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
   let teamId = getTeamId(agent)
   if building.teamId != teamId:
     return false
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   # Find the next tech to research for this team
@@ -1702,8 +1705,6 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
     logCastleTech(teamId, techType, isImperial, env.currentStep)
   true
 
-# ---- UI-driven research (no villager required) ----
-
 proc uiResearchBlacksmithUpgrade*(env: Environment, building: Thing,
                                   upgradeType: BlacksmithUpgradeType): bool =
   ## UI-driven research: directly research a specific Blacksmith upgrade.
@@ -1711,7 +1712,7 @@ proc uiResearchBlacksmithUpgrade*(env: Environment, building: Thing,
   if building.kind != Blacksmith:
     return false
   let teamId = building.teamId
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
@@ -1742,7 +1743,7 @@ proc uiResearchUniversityTech*(env: Environment, building: Thing,
   if building.kind != University:
     return false
   let teamId = building.teamId
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   if env.teamUniversityTechs[teamId].researched[techType]:
@@ -1772,7 +1773,7 @@ proc uiResearchCastleTech*(env: Environment, building: Thing, techIndex: int): b
   if building.kind != Castle:
     return false
   let teamId = building.teamId
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   let (castleAge, imperialAge) = castleTechsForTeam(teamId)
@@ -1810,7 +1811,7 @@ proc uiQueueTrainUnit*(env: Environment, building: Thing, unitClass: AgentUnitCl
   if not buildingHasTrain(building.kind):
     return 0
   let teamId = building.teamId
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return 0
   let costs = buildingTrainCosts(building.kind)
   var queued = 0
@@ -1819,8 +1820,6 @@ proc uiQueueTrainUnit*(env: Environment, building: Thing, unitClass: AgentUnitCl
       break
     inc queued
   queued
-
-# ---- Unit upgrade / promotion chain logic (AoE2-style) ----
 
 proc upgradePrerequisite*(upgrade: UnitUpgradeType): UnitUpgradeType =
   ## Returns the prerequisite upgrade that must be researched first.
@@ -1894,7 +1893,7 @@ proc upgradeCosts*(upgrade: UnitUpgradeType): seq[tuple[res: StockpileResource, 
       (res: ResourceGold, count: UnitUpgradeTier3GoldCost)]
 
 proc hasUnitUpgrade*(env: Environment, teamId: int, upgrade: UnitUpgradeType): bool {.inline.} =
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   env.teamUnitUpgrades[teamId].researched[upgrade]
 
@@ -1962,7 +1961,7 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
   let teamId = getTeamId(agent)
   if building.teamId != teamId:
     return false
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   let upgrade = env.getNextUnitUpgrade(teamId, building.kind)
@@ -1993,18 +1992,16 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
     logUnitUpgrade(teamId, upgrade, env.currentStep, costs)
   true
 
-# ---- Economy tech logic (AoE2-style) ----
-
 proc hasEconomyTech*(env: Environment, teamId: int, tech: EconomyTechType): bool {.inline.} =
   ## Check if a team has researched a specific economy tech.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   env.teamEconomyTechs[teamId].researched[tech]
 
 proc getWoodGatherBonus*(env: Environment, teamId: int): int =
   ## Calculate total wood gathering bonus percentage from Lumber Camp techs.
   ## Returns bonus as integer percentage (e.g., 50 = +50%).
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return 0
   var bonus = 0
   if env.teamEconomyTechs[teamId].researched[TechDoubleBitAxe]:
@@ -2017,7 +2014,7 @@ proc getWoodGatherBonus*(env: Environment, teamId: int): int =
 
 proc getGoldGatherBonus*(env: Environment, teamId: int): int =
   ## Calculate total gold gathering bonus percentage from Mining Camp techs.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return 0
   var bonus = 0
   if env.teamEconomyTechs[teamId].researched[TechGoldMining]:
@@ -2028,7 +2025,7 @@ proc getGoldGatherBonus*(env: Environment, teamId: int): int =
 
 proc getStoneGatherBonus*(env: Environment, teamId: int): int =
   ## Calculate total stone gathering bonus percentage from Mining Camp techs.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return 0
   var bonus = 0
   if env.teamEconomyTechs[teamId].researched[TechStoneMining]:
@@ -2040,7 +2037,7 @@ proc getStoneGatherBonus*(env: Environment, teamId: int): int =
 proc getVillagerCarryCapacity*(env: Environment, teamId: int): int =
   ## Calculate villager carry capacity including economy tech bonuses.
   ## Base capacity is ResourceCarryCapacity (5).
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return ResourceCarryCapacity
   var capacity = ResourceCarryCapacity
   if env.teamEconomyTechs[teamId].researched[TechWheelbarrow]:
@@ -2052,7 +2049,7 @@ proc getVillagerCarryCapacity*(env: Environment, teamId: int): int =
 proc getVillagerSpeedBonus*(env: Environment, teamId: int): int =
   ## Calculate villager speed bonus percentage from economy techs.
   ## Returns bonus as integer percentage (e.g., 20 = +20%).
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return 0
   var bonus = 0
   if env.teamEconomyTechs[teamId].researched[TechWheelbarrow]:
@@ -2064,7 +2061,7 @@ proc getVillagerSpeedBonus*(env: Environment, teamId: int): int =
 proc getFarmFoodBonus*(env: Environment, teamId: int): int =
   ## Calculate total farm food bonus from Mill techs.
   ## Returns bonus food amount per farm.
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return 0
   var bonus = 0
   if env.teamEconomyTechs[teamId].researched[TechHorseCollar]:
@@ -2077,7 +2074,7 @@ proc getFarmFoodBonus*(env: Environment, teamId: int): int =
 
 proc canAutoReseed*(env: Environment, teamId: int): bool {.inline.} =
   ## Check if team has researched Horse Collar (enables auto-reseed).
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   env.teamEconomyTechs[teamId].researched[TechHorseCollar]
 
@@ -2173,7 +2170,7 @@ proc tryResearchEconomyTech*(env: Environment, agent: Thing, building: Thing): b
   let teamId = getTeamId(agent)
   if building.teamId != teamId:
     return false
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
 
   let tech = env.getNextEconomyTech(teamId, building.kind)
@@ -2234,7 +2231,7 @@ proc findNearestMill*(env: Environment, pos: IVec2, teamId: int): Thing =
   bestMill
 
 proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool
-  ## Forward declaration - implemented after placement include
+  ## Implemented after the placement include to keep placement helpers available.
 
 proc queueFarmReseed*(env: Environment, mill: Thing, teamId: int): bool =
   ## Queue a farm reseed at the Mill (pre-pay wood cost).
@@ -2243,7 +2240,7 @@ proc queueFarmReseed*(env: Environment, mill: Thing, teamId: int): bool =
     return false
   if mill.teamId != teamId:
     return false
-  # Check and spend cost
+  # Check and spend the cost.
   let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
   if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
     return false
@@ -2253,7 +2250,14 @@ proc queueFarmReseed*(env: Environment, mill: Thing, teamId: int): bool =
   mill.queuedFarmReseeds += 1
   true
 
-proc tryCraftAtStation(env: Environment, agent: Thing, station: CraftStation, stationThing: Thing): bool =
+proc tryCraftAtStation(
+  env: Environment,
+  agent: Thing,
+  station: CraftStation,
+  stationThing: Thing
+): bool =
+  ## Try to apply the first matching craft recipe at the station.
+  ## Returns true when one recipe consumes inputs and grants outputs.
   for recipe in CraftRecipes:
     if recipe.station != station:
       continue
@@ -2319,24 +2323,24 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
   if mill.farmQueue.len == 0:
     return false
   let teamId = mill.teamId
-  if teamId < 0 or teamId >= MapRoomObjectsTeams:
+  if not isValidTeamId(teamId):
     return false
   if not env.canAutoReseed(teamId):
     return false
 
   let farmPos = mill.farmQueue[0]
 
-  # Validate position and terrain BEFORE spending resources or dequeuing
+  # Validate the position and terrain before spending resources or dequeuing.
   if not isValidPos(farmPos):
-    mill.farmQueue.delete(0)  # Invalid pos can be discarded
+    mill.farmQueue.delete(0)  # Invalid positions can be discarded.
     return false
   if env.grid[farmPos.x][farmPos.y] != nil:
-    return false  # Something blocking; keep in queue, may clear later
+    return false  # Something is blocking it, so keep it queued.
   let terrain = env.terrain[farmPos.x][farmPos.y]
   if terrain != Fertile:
-    return false  # Terrain not yet fertile; keep in queue, Mill will refresh
+    return false  # Keep it queued until the terrain becomes fertile.
 
-  # Check cost (only after validation passes)
+  # Check the cost only after validation passes.
   let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
   if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
     return false
@@ -2344,10 +2348,10 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
     if FarmReseedWoodCost > 0:
       recordFlow(teamId, ResourceWood, -FarmReseedWoodCost, rfsFarmReseed, env.currentStep)
 
-  # Remove from queue only on successful reseed
+  # Remove the farm only after the reseed succeeds.
   mill.farmQueue.delete(0)
 
-  # Create the farm (wheat crop)
+  # Create the replacement wheat crop.
   let crop = Thing(kind: Wheat, pos: farmPos)
   crop.inventory = emptyInventory()
   let farmFood = ResourceNodeInitial + env.getFarmFoodBonus(teamId)
@@ -2356,6 +2360,8 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool =
   true
 
 proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): bool =
+  ## Grant up to `amount` copies of an item to the agent inventory.
+  ## Returns false when the inventory fills before all items are added.
   if amount <= 0:
     return true
   for _ in 0 ..< amount:
@@ -2363,25 +2369,27 @@ proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): b
       return false
   true
 
-# Forward declaration for sparkle effect (defined later in file)
+## spawnGatherSparkle is defined later in this file.
 proc spawnGatherSparkle*(env: Environment, pos: IVec2)
 
 proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
+  ## Harvest one tree, grant wood, and replace it with a stump.
+  ## Applies biome and economy-tech bonuses before spawning the effect.
   if not env.grantItem(agent, ItemWood):
     return false
   env.rewards[agent.agentId] += env.config.woodReward
-  # Apply biome gathering bonus
+  # Apply the biome gathering bonus.
   let bonus = env.getBiomeGatherBonus(tree.pos, ItemWood)
   if bonus > 0:
     discard env.grantItem(agent, ItemWood, bonus)
-  # Apply lumber camp tech gathering bonus (AoE2-style)
+  # Apply the lumber camp tech gathering bonus.
   let teamId = getTeamId(agent)
   let techBonusPct = env.getWoodGatherBonus(teamId)
   if techBonusPct > 0 and (env.currentStep mod (100 div max(1, techBonusPct))) == 0:
     discard env.grantItem(agent, ItemWood)
   when defined(eventLog):
     logEvent(ecGather, teamId, "Gathered " & $(1 + bonus) & " Wood", env.currentStep)
-  let stumpPos = tree.pos  # Capture before pool release
+  let stumpPos = tree.pos  # Capture before pool release.
   removeThing(env, tree)
   let stump = acquireThing(env, Stump)
   stump.pos = stumpPos
@@ -2390,7 +2398,7 @@ proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
   if remaining > 0:
     setInv(stump, ItemWood, remaining)
   env.add(stump)
-  # Spawn sparkle effect at harvest location
+  # Spawn the sparkle effect at the harvest location.
   env.spawnGatherSparkle(stumpPos)
   true
 
@@ -2410,13 +2418,13 @@ proc spawnRagdoll*(env: Environment, pos: IVec2, direction: Vec2,
   ## The body tumbles away from the damage source direction.
   if not isValidPos(pos):
     return
-  # Normalize direction and apply initial speed
+  # Normalize the direction and apply initial speed.
   let dirLen = sqrt(direction.x * direction.x + direction.y * direction.y)
-  let normalizedDir = if dirLen > 0.001:
+  let normalizedDir = if dirLen > DirectionLengthEpsilon:
     vec2(direction.x / dirLen, direction.y / dirLen)
   else:
-    vec2(1.0, 0.0)  # Default direction if no attacker
-  # Add randomness to angular velocity (clockwise or counter-clockwise)
+    vec2(1.0, 0.0)  # Default direction if there is no attacker.
+  # Add randomness to angular velocity.
   let angularDir =
     if (pos.x + pos.y) mod 2 == 0:
       1.0'f
@@ -2437,17 +2445,19 @@ proc spawnDebris*(env: Environment, pos: IVec2, buildingKind: ThingKind) =
   ## Particles spread outward and fade over DebrisLifetime frames.
   if not isValidPos(pos):
     return
-  # Determine debris kind based on building type
+  # Determine the debris kind based on the building type.
   let debrisKind = case buildingKind
     of Wall, Outpost, GuardTower, Castle, Monastery, University: DebrisStone
-    of TownCenter, House, Barracks, ArcheryRange, Stable, Market: DebrisBrick
-    else: DebrisWood  # Default for wooden structures
-  # Spawn multiple debris particles with random-ish directions
+    of TownCenter, House, Barracks, ArcheryRange, Stable, Market:
+      DebrisBrick
+    else:
+      DebrisWood
+  # Spawn multiple debris particles with deterministic spread.
   for i in 0 ..< DebrisParticlesPerBuilding:
-    # Create outward velocity with some variation using simple deterministic spread
-    let angle = (i.float32 / DebrisParticlesPerBuilding.float32) * 6.28318  # 2*PI
-    let speed = 0.08 + (i mod 3).float32 * 0.03  # Vary speed slightly
-    let velocity = vec2(cos(angle) * speed, sin(angle) * speed - 0.02)  # Slight downward drift
+    let angle =
+      (i.float32 / DebrisParticlesPerBuilding.float32) * FullTurnRadians
+    let speed = 0.08 + (i mod 3).float32 * 0.03
+    let velocity = vec2(cos(angle) * speed, sin(angle) * speed - 0.02)
     env.debris.add(Debris(
       pos: vec2(pos.x.float32, pos.y.float32),
       velocity: velocity,
@@ -2469,10 +2479,11 @@ proc spawnGatherSparkle*(env: Environment, pos: IVec2) =
   ## Particles burst outward and fade over GatherSparkleLifetime frames.
   if not isValidPos(pos):
     return
-  # Spawn multiple particles in a burst pattern
+  # Spawn multiple particles in a burst pattern.
   for i in 0 ..< GatherSparkleParticleCount:
-    let angle = (i.float32 / GatherSparkleParticleCount.float32) * 6.28318  # 2*PI
-    let speed = 0.06 + (i mod 3).float32 * 0.02  # Vary speed slightly
+    let angle =
+      (i.float32 / GatherSparkleParticleCount.float32) * FullTurnRadians
+    let speed = 0.06 + (i mod 3).float32 * 0.02
     let velocity = vec2(cos(angle) * speed, sin(angle) * speed)
     env.gatherSparkles.add(GatherSparkle(
       pos: vec2(pos.x.float32, pos.y.float32),
@@ -2485,15 +2496,13 @@ proc spawnConstructionDust*(env: Environment, pos: IVec2) =
   ## Particles rise upward and fade over ConstructionDustLifetime frames.
   if not isValidPos(pos):
     return
-  # Spawn multiple dust particles rising from the construction site
+  # Spawn multiple dust particles rising from the construction site.
   for i in 0 ..< ConstructionDustParticleCount:
-    # Horizontal spread: particles start at random-ish positions around the building
-    let xOffset = (i.float32 - 1.0) * 0.25  # Spread horizontally (-0.25, 0, 0.25)
-    # Upward velocity with slight variation
-    let ySpeed = -0.04 - (i mod 2).float32 * 0.02  # Negative Y = upward
-    let xDrift = (i mod 3).float32 * 0.01 - 0.01  # Slight horizontal drift
+    let xOffset = (i.float32 - 1.0) * 0.25
+    let ySpeed = -0.04 - (i mod 2).float32 * 0.02
+    let xDrift = (i mod 3).float32 * 0.01 - 0.01
     env.constructionDust.add(ConstructionDust(
-      pos: vec2(pos.x.float32 + xOffset, pos.y.float32 + 0.3),  # Start at base of building
+      pos: vec2(pos.x.float32 + xOffset, pos.y.float32 + 0.3),
       velocity: vec2(xDrift, ySpeed),
       countdown: ConstructionDustLifetime,
       lifetime: ConstructionDustLifetime))
@@ -2503,7 +2512,7 @@ proc spawnUnitTrail*(env: Environment, pos: IVec2, teamId: int) =
   ## Creates a fading trail effect behind moving units.
   if not isValidPos(pos):
     return
-  # Add slight random drift for more natural dust dispersal
+  # Add slight deterministic drift for more natural dust dispersal.
   let xDrift = ((env.currentStep mod 3).float32 - 1.0) * 0.005
   let yDrift = ((env.currentStep mod 5).float32 - 2.0) * 0.003
   env.unitTrails.add(UnitTrail(
@@ -2518,7 +2527,7 @@ proc spawnDustParticles*(env: Environment, pos: IVec2, terrain: TerrainType) =
   ## Particle color varies based on terrain type.
   if not isValidPos(pos):
     return
-  # Map terrain to color index: 0=sand/dune (tan), 1=snow (white), 2=mud (brown), 3=grass/fertile (green-brown), 4=road (gray)
+  # Map terrain to a fixed particle color index.
   let colorIdx = case terrain
     of Sand, Dune: 0'u8
     of Snow: 1'u8
@@ -2526,12 +2535,10 @@ proc spawnDustParticles*(env: Environment, pos: IVec2, terrain: TerrainType) =
     of Grass, Fertile: 3'u8
     of Road: 4'u8
     else: 0'u8
-  # Spawn multiple small dust particles
+  # Spawn multiple small dust particles.
   for i in 0 ..< DustParticleCount:
-    # Horizontal spread around footstep
     let xOffset = (i.float32 - 1.0) * 0.15
-    # Upward drift with slight variation
-    let ySpeed = -0.03 - (i mod 2).float32 * 0.01  # Negative Y = upward
+    let ySpeed = -0.03 - (i mod 2).float32 * 0.01
     let xDrift = ((env.currentStep + i) mod 3).float32 * 0.008 - 0.008
     env.dustParticles.add(DustParticle(
       pos: vec2(pos.x.float32 + xOffset, pos.y.float32 + 0.2),
@@ -2555,10 +2562,11 @@ proc spawnAttackImpact*(env: Environment, pos: IVec2) =
   ## Particles radiate outward and fade quickly for a sharp impact effect.
   if not isValidPos(pos):
     return
-  # Spawn multiple particles in a radial burst pattern
+  # Spawn multiple particles in a radial burst pattern.
   for i in 0 ..< AttackImpactParticleCount:
-    let angle = (i.float32 / AttackImpactParticleCount.float32) * 6.28318  # 2*PI
-    let speed = 0.12 + (i mod 3).float32 * 0.04  # Vary speed for organic burst
+    let angle =
+      (i.float32 / AttackImpactParticleCount.float32) * FullTurnRadians
+    let speed = 0.12 + (i mod 3).float32 * 0.04
     let velocity = vec2(cos(angle) * speed, sin(angle) * speed)
     env.attackImpacts.add(AttackImpact(
       pos: vec2(pos.x.float32, pos.y.float32),
@@ -2583,21 +2591,16 @@ include "action_audit"
 include "action_freq_counter"
 include "combat"
 
-# ============== CLIPPY AI ==============
-
-
-
-
 {.push inline.}
 proc isValidEmptyPosition(env: Environment, pos: IVec2): bool =
-  ## Check if a position is within map bounds, empty, and not blocked terrain
+  ## Check whether a position is within bounds, empty, and not blocked terrain.
   pos.x >= MapBorder and pos.x < MapWidth - MapBorder and
     pos.y >= MapBorder and pos.y < MapHeight - MapBorder and
     env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     not isBlockedTerrain(env.terrain[pos.x][pos.y])
 
 proc generateRandomMapPosition(r: var Rand): IVec2 =
-  ## Generate a random position within map boundaries
+  ## Generate a random position within the map boundaries.
   ivec2(
     int32(randIntExclusive(r, MapBorder, MapWidth - MapBorder)),
     int32(randIntExclusive(r, MapBorder, MapHeight - MapBorder))
@@ -2605,7 +2608,7 @@ proc generateRandomMapPosition(r: var Rand): IVec2 =
 {.pop.}
 
 proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): seq[IVec2] =
-  ## Find empty positions around a center point within a given radius
+  ## Find empty positions around a center point within the given radius.
   result = @[]
   for dx in -radius .. radius:
     for dy in -radius .. radius:
@@ -2616,7 +2619,7 @@ proc findEmptyPositionsAround*(env: Environment, center: IVec2, radius: int): se
         result.add(pos)
 
 proc findFirstEmptyPositionAround*(env: Environment, center: IVec2, radius: int): IVec2 =
-  ## Find first empty position around center (no allocation)
+  ## Find the first empty position around the center without allocation.
   for dx in -radius .. radius:
     for dy in -radius .. radius:
       if dx == 0 and dy == 0:

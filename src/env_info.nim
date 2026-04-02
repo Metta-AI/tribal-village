@@ -1,9 +1,7 @@
 ## Runtime environment metadata for lazy component initialization.
 
 import
-  std/tables
-
-import
+  std/tables,
   common_types, types
 
 export types, common_types
