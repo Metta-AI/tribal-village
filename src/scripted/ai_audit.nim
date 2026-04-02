@@ -1,9 +1,3 @@
-## AI decision audit logging system.
-## Compile with -d:aiAudit to enable. At runtime:
-##   TV_AI_LOG=1  -> summary every 50 steps
-##   TV_AI_LOG=2  -> verbose per-agent per-step logging
-## When compiled without -d:aiAudit, this file is a no-op.
-
 import ai_types
 export ai_types
 
@@ -20,24 +14,24 @@ when defined(aiAudit):
 
   type
     AuditDecisionBranch* = enum
-      BranchInactive       ## Agent dead/inactive
-      BranchDecisionDelay  ## Difficulty-based NOOP delay
-      BranchStopped        ## Agent stopped via stop command
-      BranchGoblinRelic    ## Goblin relic collection behavior
-      BranchGoblinAvoid    ## Goblin threat avoidance
-      BranchGoblinSearch   ## Goblin relic search/wander
-      BranchEscape         ## Stuck escape mode
-      BranchAttackOpportunity ## Adjacent attack opportunity
-      BranchPatrolChase    ## Patrol - chasing enemy
-      BranchPatrolMove     ## Patrol - moving between waypoints
-      BranchRallyPoint     ## Moving to rally point
-      BranchAttackMoveEngage ## Attack-move engaging enemy
-      BranchAttackMoveAdvance ## Attack-move advancing to target
-      BranchSettlerMigrate ## Settler migrating to new town site
-      BranchHearts         ## Hearts prioritization (gatherer)
-      BranchPopCapWood     ## Pop cap house - gathering wood
-      BranchPopCapBuild    ## Pop cap house - building
-      BranchRoleCatalog    ## Role-based catalog decision
+      BranchInactive
+      BranchDecisionDelay
+      BranchStopped
+      BranchGoblinRelic
+      BranchGoblinAvoid
+      BranchGoblinSearch
+      BranchEscape
+      BranchAttackOpportunity
+      BranchPatrolChase
+      BranchPatrolMove
+      BranchRallyPoint
+      BranchAttackMoveEngage
+      BranchAttackMoveAdvance
+      BranchSettlerMigrate
+      BranchHearts
+      BranchPopCapWood
+      BranchPopCapBuild
+      BranchRoleCatalog
 
     AuditRecord* = object
       agentId*: int
@@ -48,20 +42,20 @@ when defined(aiAudit):
       branch*: AuditDecisionBranch
 
     AuditSummaryState* = object
-      logLevel*: int  # 0=off, 1=summary, 2=verbose
+      logLevel*: int
       stepDecisions*: seq[AuditRecord]
-      # Accumulator counters for summary mode
       verbCounts*: array[ActionVerbCount, int]
-      roleCounts*: array[MapRoomObjectsTeams, array[4, int]]  # [team][role]
+      roleCounts*: array[MapRoomObjectsTeams, array[4, int]]
       branchCounts*: array[AuditDecisionBranch, int]
       stepsAccumulated*: int
       totalDecisions*: int
 
   var
     auditSummary*: AuditSummaryState
-    auditCurrentBranch*: AuditDecisionBranch  # Set during decideAction
+    auditCurrentBranch*: AuditDecisionBranch
 
   proc initAuditLog*() =
+    ## Initialize audit logging from environment configuration.
     let level = getEnv("TV_AI_LOG", "0")
     auditSummary.logLevel = try: parseInt(level) except: 0
     auditSummary.stepDecisions = @[]
@@ -69,17 +63,18 @@ when defined(aiAudit):
     auditSummary.totalDecisions = 0
 
   proc setAuditBranch*(branch: AuditDecisionBranch) {.inline.} =
+    ## Record the current decision branch for the next audit event.
     auditCurrentBranch = branch
 
   proc recordAuditDecision*(agentId: int, teamId: int, role: AgentRole,
                             action: uint16) =
+    ## Record one agent decision in the audit summary.
     if auditSummary.logLevel <= 0:
       return
     let verb = action.int div ActionArgumentCount
     let arg = action.int mod ActionArgumentCount
     let branch = auditCurrentBranch
 
-    # Accumulate counters
     if verb >= 0 and verb < ActionVerbCount:
       inc auditSummary.verbCounts[verb]
     if teamId >= 0 and teamId < MapRoomObjectsTeams:
@@ -87,7 +82,6 @@ when defined(aiAudit):
     inc auditSummary.branchCounts[branch]
     inc auditSummary.totalDecisions
 
-    # Verbose mode: record individual decisions for printing
     if auditSummary.logLevel >= 2:
       auditSummary.stepDecisions.add(AuditRecord(
         agentId: agentId,
@@ -99,6 +93,7 @@ when defined(aiAudit):
       ))
 
   proc printVerboseDecisions*(step: int) =
+    ## Print the current step's verbose audit records.
     if auditSummary.logLevel < 2 or auditSummary.stepDecisions.len == 0:
       return
     echo &"[AI_AUDIT step={step}] {auditSummary.stepDecisions.len} decisions:"
@@ -109,19 +104,21 @@ when defined(aiAudit):
       let roleName = if ord(d.role) < AuditRoleNames.len:
                        AuditRoleNames[ord(d.role)]
                      else: $d.role
-      echo &"  agent={d.agentId} team={d.teamId} role={roleName} action={verbName}:{d.arg} branch={d.branch}"
+      echo(
+        &"  agent={d.agentId} team={d.teamId} role={roleName} " &
+        &"action={verbName}:{d.arg} branch={d.branch}"
+      )
     auditSummary.stepDecisions.setLen(0)
 
   proc printAuditSummary*(step: int) =
+    ## Print verbose or summary audit output for the current step.
     if auditSummary.logLevel <= 0:
       return
     inc auditSummary.stepsAccumulated
 
-    # Verbose: print every step
     if auditSummary.logLevel >= 2:
       printVerboseDecisions(step)
 
-    # Summary: print every N steps
     if auditSummary.stepsAccumulated mod AuditSummaryInterval != 0:
       return
 
@@ -129,9 +126,11 @@ when defined(aiAudit):
     if total == 0:
       return
 
-    echo &"\n[AI_AUDIT SUMMARY steps={step - AuditSummaryInterval + 1}..{step}] total_decisions={total}"
+    echo(
+      &"\n[AI_AUDIT SUMMARY steps={step - AuditSummaryInterval + 1}.." &
+      &"{step}] total_decisions={total}"
+    )
 
-    # Action distribution
     echo "  Action distribution:"
     for i in 0 ..< ActionVerbCount:
       let count = auditSummary.verbCounts[i]
@@ -139,7 +138,6 @@ when defined(aiAudit):
         let pct = (count.float * 100.0) / total.float
         echo &"    {AuditActionNames[i]}: {count} ({pct:.1f}%)"
 
-    # Role distribution per team
     echo "  Role distribution per team:"
     for teamId in 0 ..< MapRoomObjectsTeams:
       var teamTotal = 0
@@ -154,7 +152,6 @@ when defined(aiAudit):
             parts.add(&"{AuditRoleNames[r]}={c}({pct:.0f}%)")
         echo &"    team {teamId}: {parts.join(\", \")}"
 
-    # Decision branch distribution
     echo "  Decision branches:"
     for branch in AuditDecisionBranch:
       let count = auditSummary.branchCounts[branch]
@@ -162,7 +159,6 @@ when defined(aiAudit):
         let pct = (count.float * 100.0) / total.float
         echo &"    {branch}: {count} ({pct:.1f}%)"
 
-    # Reset accumulators
     for i in 0 ..< ActionVerbCount:
       auditSummary.verbCounts[i] = 0
     for teamId in 0 ..< MapRoomObjectsTeams:
@@ -172,9 +168,13 @@ when defined(aiAudit):
       auditSummary.branchCounts[branch] = 0
     auditSummary.totalDecisions = 0
 
-  # No-op stubs when not compiled with aiAudit
 else:
   template setAuditBranch*(branch: untyped) = discard
   template initAuditLog*() = discard
-  template recordAuditDecision*(agentId, teamId: int, role: untyped, action: uint16) = discard
+  template recordAuditDecision*(
+    agentId,
+    teamId: int,
+    role: untyped,
+    action: uint16
+  ) = discard
   template printAuditSummary*(step: int) = discard

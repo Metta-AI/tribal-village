@@ -1,13 +1,8 @@
-## Shared AI utility procedures.
-## Import this module for stance checks, enemy searches, and team counts.
-
 import
   vmath,
-  ../common_types,
-  ../environment,
-  ../types
+  ../[common_types, environment, types]
 
-export types, environment, common_types
+export common_types, environment, types
 
 const
   DefensiveRetaliationWindow* = 30
@@ -15,13 +10,11 @@ const
 
 type
   StanceBehavior* = enum
-    ## Behaviors gated by agent stance.
     BehaviorAutoAttack
     BehaviorChase
     BehaviorMovementToAttack
 
   AgentUnitClassFilter* = enum
-    ## Filters for enemy searches.
     FilterExclude
     FilterInclude
 
@@ -136,8 +129,11 @@ iterator teamAliveAgents*(env: Environment, teamId: int): Thing =
     if isAgentAlive(env, agent) and getTeamId(agent) == teamId:
       yield agent
 
-proc countTeamAgentsByClass*(env: Environment, teamId: int,
-                             classes: set[AgentUnitClass]): int =
+proc countTeamAgentsByClass*(
+  env: Environment,
+  teamId: int,
+  classes: set[AgentUnitClass]
+): int =
   ## Count alive team agents matching any listed unit class.
   for agent in env.teamAliveAgents(teamId):
     if agent.unitClass in classes:
