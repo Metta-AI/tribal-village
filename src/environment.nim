@@ -1,13 +1,9 @@
 import
   std/[algorithm, sets, strutils, tables],
   chroma, vmath,
-  arena_alloc, biome, common_types, entropy, envconfig, formations, items,
-  registry, spatial_index, state_dumper, terrain, types
-
-import
-  environment_agents,
-  environment_grid,
-  environment_state
+  arena_alloc, biome, common_types, entropy, envconfig, environment_agents,
+  environment_grid, environment_state, formations, items, registry,
+  spatial_index, state_dumper, terrain, types
 
 when defined(techAudit):
   import tech_audit
@@ -31,51 +27,65 @@ when defined(settlerMetrics):
   export settler_metrics
 
 const
-  ## Default tumor behavior constants
+  ## Store default tumor behavior constants.
   DefaultTumorBranchRange* = 5
   DefaultTumorBranchMinAge* = 2
   DefaultTumorBranchChance* = 0.1
   DefaultTumorAdjacencyDeathChance* = 1.0 / 3.0
 
-  ## Default village spacing constants
+  ## Store default village spacing constants.
   DefaultMinVillageSpacing* = 22
   DefaultSpawnerMinDistance* = 20
   DefaultInitialActiveAgents* = 6
 
-  ## Ramp tile placement constants
-  ## Controls how frequently ramps are placed at elevation transitions
-  ## and their visual width for clearer elevation feedback.
-  RampPlacementSpacing* = 4     # Place ramp every Nth cliff edge (lower = more ramps)
-  RampWidthMin* = 1             # Minimum ramp width in tiles
-  RampWidthMax* = 3             # Maximum ramp width in tiles
+  ## Store ramp placement spacing in cliff-edge tiles.
+  RampPlacementSpacing* = 4
+  ## Store the minimum ramp width in tiles.
+  RampWidthMin* = 1
+  ## Store the maximum ramp width in tiles.
+  RampWidthMax* = 3
 
-  ## Cliff fall damage - agents take damage when dropping elevation without a ramp
-  CliffFallDamage* = 1          # Damage taken per elevation level dropped without ramp
+  ## Store cliff fall damage per dropped elevation level.
+  CliffFallDamage* = 1
 
-  ## Default combat constants
-  ## Default market tuning (AoE2-style dynamic pricing)
-  ## Prices are in gold per 100 units of resource (scaled for integer math)
-  MarketBasePrice* = 100        # Base price: 100 gold per 100 resources
-  MarketMinPrice* = 20          # Minimum price floor
-  MarketMaxPrice* = 300         # Maximum price ceiling
-  MarketBuyPriceIncrease* = 3   # Price increase per buy transaction
-  MarketSellPriceDecrease* = 3  # Price decrease per sell transaction
-  MarketPriceDecayRate* = 1     # Price drift toward base per decay tick
-  MarketPriceDecayInterval* = 50 # Steps between price decay ticks
+  ## Store the base market price per 100 resources.
+  MarketBasePrice* = 100
+  ## Store the minimum market price floor.
+  MarketMinPrice* = 20
+  ## Store the maximum market price ceiling.
+  MarketMaxPrice* = 300
+  ## Store the market buy-side price increase.
+  MarketBuyPriceIncrease* = 3
+  ## Store the market sell-side price decrease.
+  MarketSellPriceDecrease* = 3
+  ## Store the market drift amount toward the base price.
+  MarketPriceDecayRate* = 1
+  ## Store the number of steps between price decay ticks.
+  MarketPriceDecayInterval* = 50
   DefaultMarketCooldown* = 2
 
-  ## Biome gathering bonus constants
-  BiomeGatherBonusChance* = 0.20  # 20% chance for bonus item in matching biomes
-  DesertOasisBonusChance* = 0.10  # 10% chance for bonus in desert near water
-  DesertOasisRadius* = 3  # Tiles from water to get desert bonus
+  ## Store the matching-biome gather bonus chance.
+  BiomeGatherBonusChance* = 0.20
+  ## Store the desert oasis gather bonus chance.
+  DesertOasisBonusChance* = 0.10
+  ## Store the desert oasis water radius in tiles.
+  DesertOasisRadius* = 3
 
-## Error types and FFI error state management are in environment_state.nim
+## Keep error types and FFI state management in environment_state.nim.
 
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   if s.len == 0:
     return
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
+
+proc isValidTeamId(teamId: int): bool {.inline.} =
+  ## Return true when the team ID is within range.
+  teamId >= 0 and teamId < MapRoomObjectsTeams
+
+proc hasActiveMultiplier(multiplier: float32): bool {.inline.} =
+  ## Return true when a multiplier changes the base value.
+  multiplier != 0.0'f and multiplier != 1.0'f
 
 proc hasWaterNearby*(
   env: Environment,
@@ -257,40 +267,67 @@ include "colors"
 include "event_log"
 
 const
-  DefaultScoreNeutralThreshold = 0.05'f32
+  ## Store the minimum tint intensity needed to claim territory.
+  DefaultScoreNeutralThreshold = 0.05'f
+  ## Store whether water tiles contribute to territory scoring.
   DefaultScoreIncludeWater = false
 
 {.push inline.}
 proc stockpileCount*(env: Environment, teamId: int, res: StockpileResource): int =
+  ## Return the stockpile count for one team resource.
   env.teamStockpiles[teamId].counts[res]
 
-proc addToStockpile*(env: Environment, teamId: int, res: StockpileResource, amount: int) =
-  ## Add resources to team stockpile, applying gather rate modifiers
+proc addToStockpile*(
+  env: Environment,
+  teamId: int,
+  res: StockpileResource,
+  amount: int
+) =
+  ## Add resources to the team stockpile with gather-rate modifiers.
   let rawModifier = env.teamModifiers[teamId].gatherRateMultiplier
-  let modifier = if rawModifier == 0.0'f32: 1.0'f32 else: rawModifier  # Default to 1.0 if uninitialized
-  # Apply CivBonus gather rate multiplier
+  let modifier =
+    if hasActiveMultiplier(rawModifier):
+      rawModifier
+    else:
+      1.0'f
   let civGather = env.teamCivBonuses[teamId].gatherRateMultiplier
-  let civModifier = if civGather == 0.0'f32: 1.0'f32 else: civGather
-  let adjustedAmount = int(float32(amount) * modifier * civModifier)
+  let civModifier =
+    if hasActiveMultiplier(civGather):
+      civGather
+    else:
+      1.0'f
+  let adjustedAmount = int(amount.float32 * modifier * civModifier)
   env.teamStockpiles[teamId].counts[res] += adjustedAmount
 
-proc canSpendStockpile*(env: Environment, teamId: int,
-                        costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+proc canSpendStockpile*(
+  env: Environment,
+  teamId: int,
+  costs: openArray[tuple[res: StockpileResource, count: int]]
+): bool =
+  ## Return true when the team can pay the stockpile costs.
   for cost in costs:
     if env.teamStockpiles[teamId].counts[cost.res] < cost.count:
       return false
   true
 
-proc spendStockpile*(env: Environment, teamId: int,
-                     costs: openArray[tuple[res: StockpileResource, count: int]]): bool =
+proc spendStockpile*(
+  env: Environment,
+  teamId: int,
+  costs: openArray[tuple[res: StockpileResource, count: int]]
+): bool =
+  ## Spend stockpile costs and return whether the payment succeeded.
   if not env.canSpendStockpile(teamId, costs):
     return false
   for cost in costs:
     env.teamStockpiles[teamId].counts[cost.res] -= cost.count
   true
 
-proc canSpendStockpile*(env: Environment, teamId: int,
-                        costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+proc canSpendStockpile*(
+  env: Environment,
+  teamId: int,
+  costs: openArray[tuple[key: ItemKey, count: int]]
+): bool =
+  ## Return true when the team can pay item-key costs from stockpile.
   for cost in costs:
     let res = stockpileResourceForItem(cost.key)
     if res == ResourceNone:
@@ -299,8 +336,12 @@ proc canSpendStockpile*(env: Environment, teamId: int,
       return false
   true
 
-proc spendStockpile*(env: Environment, teamId: int,
-                     costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+proc spendStockpile*(
+  env: Environment,
+  teamId: int,
+  costs: openArray[tuple[key: ItemKey, count: int]]
+): bool =
+  ## Spend item-key costs from stockpile and return whether it succeeded.
   if not env.canSpendStockpile(teamId, costs):
     return false
   for cost in costs:
@@ -308,25 +349,21 @@ proc spendStockpile*(env: Environment, teamId: int,
     env.teamStockpiles[teamId].counts[res] -= cost.count
   true
 
-# ============================================================================
-# AoE2-style Market Trading with Dynamic Prices
-# ============================================================================
-
 proc initMarketPrices*(env: Environment) =
-  ## Initialize market prices to base rates for all teams
+  ## Initialize market prices to the base rates for all teams.
   for teamId in 0 ..< MapRoomObjectsTeams:
     for res in StockpileResource:
       if res != ResourceNone and res != ResourceGold:
         env.teamMarketPrices[teamId].prices[res] = MarketBasePrice
 
 proc getMarketPrice*(env: Environment, teamId: int, res: StockpileResource): int {.inline.} =
-  ## Get current market price for a resource (gold cost per 100 units)
+  ## Return the gold cost per 100 units for a market resource.
   if res == ResourceGold or res == ResourceNone:
     return 0
   env.teamMarketPrices[teamId].prices[res]
 
 proc setMarketPrice*(env: Environment, teamId: int, res: StockpileResource, price: int) =
-  ## Set market price with clamping to min/max bounds
+  ## Set a market price while clamping it to the configured bounds.
   if res == ResourceGold or res == ResourceNone:
     return
   env.teamMarketPrices[teamId].prices[res] = clamp(price, MarketMinPrice, MarketMaxPrice)
@@ -340,18 +377,18 @@ proc marketBuyResource*(env: Environment, teamId: int, res: StockpileResource,
     return (0, 0)
 
   let currentPrice = env.getMarketPrice(teamId, res)
-  # Cost = (amount * price) / 100, rounding up
+  # Round the cost up to the nearest gold.
   let goldCost = (amount * currentPrice + 99) div 100
 
-  # Check if team has enough gold
+  # Stop when the team does not have enough gold.
   if env.teamStockpiles[teamId].counts[ResourceGold] < goldCost:
     return (0, 0)
 
-  # Execute transaction
+  # Apply the transaction.
   env.teamStockpiles[teamId].counts[ResourceGold] -= goldCost
   env.teamStockpiles[teamId].counts[res] += amount
 
-  # Increase price (supply decreased, demand increased)
+  # Increase the price after demand consumes supply.
   env.setMarketPrice(teamId, res, currentPrice + MarketBuyPriceIncrease)
 
   when defined(econAudit):
@@ -369,18 +406,18 @@ proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
     return (0, 0)
 
   let currentPrice = env.getMarketPrice(teamId, res)
-  # Gain = (amount * price) / 100, rounding down
+  # Round the gold gain down to the nearest whole number.
   let goldGained = (amount * currentPrice) div 100
 
-  # Check if team has enough resources to sell
+  # Stop when the team does not have enough resources.
   if env.teamStockpiles[teamId].counts[res] < amount:
     return (0, 0)
 
-  # Execute transaction
+  # Apply the transaction.
   env.teamStockpiles[teamId].counts[res] -= amount
   env.teamStockpiles[teamId].counts[ResourceGold] += goldGained
 
-  # Decrease price (supply increased)
+  # Decrease the price after supply increases.
   env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
 
   when defined(econAudit):
@@ -403,14 +440,14 @@ proc marketSellInventory*(env: Environment, agent: Thing, itemKey: ItemKey):
     return (0, 0)
 
   let currentPrice = env.getMarketPrice(teamId, res)
-  # Gain = (amount * price) / 100, rounding down
+  # Round the gold gain down to the nearest whole number.
   let goldGained = (amount * currentPrice) div 100
 
   if goldGained > 0:
-    # Clear inventory and add gold to stockpile (no gather rate modifier for market trades)
+    # Move the sold resources into stockpile gold.
     setInv(agent, itemKey, 0)
     env.teamStockpiles[teamId].counts[ResourceGold] += goldGained
-    # Decrease price (supply increased)
+    # Decrease the price after supply increases.
     env.setMarketPrice(teamId, res, currentPrice - MarketSellPriceDecrease)
     return (amount, goldGained)
 
@@ -429,14 +466,13 @@ proc marketBuyFood*(env: Environment, agent: Thing, goldAmount: int):
     return (0, 0)
 
   let currentPrice = env.getMarketPrice(teamId, ResourceFood)
-  # Food gained = (gold * 100) / price
+  # Convert gold into food at the current market rate.
   let foodGained = (goldAmount * 100) div currentPrice
 
   if foodGained > 0:
     setInv(agent, ItemGold, invGold - goldAmount)
-    # No gather rate modifier for market trades
     env.teamStockpiles[teamId].counts[ResourceFood] += foodGained
-    # Increase price (demand increased)
+    # Increase the price after demand increases.
     env.setMarketPrice(teamId, ResourceFood, currentPrice + MarketBuyPriceIncrease)
     return (goldAmount, foodGained)
 
@@ -457,18 +493,19 @@ proc decayMarketPrices*(env: Environment) =
         env.teamMarketPrices[teamId].prices[res] = min(MarketBasePrice,
           currentPrice + MarketPriceDecayRate)
 
-# ============================================================================
-# AoE2-style Tribute System (resource transfer between teams)
-# ============================================================================
-
-proc tributeResources*(env: Environment, fromTeam, toTeam: int,
-                       resource: StockpileResource, amount: int): int =
+proc tributeResources*(
+  env: Environment,
+  fromTeam,
+  toTeam: int,
+  resource: StockpileResource,
+  amount: int
+): int =
   ## Transfer resources from one team to another, applying a tax.
   ## Returns the actual amount received after tax (0 if transfer failed).
   ## Coinage tech (researched at University) reduces the tax rate.
-  if fromTeam < 0 or fromTeam >= MapRoomObjectsTeams:
+  if not isValidTeamId(fromTeam):
     return 0
-  if toTeam < 0 or toTeam >= MapRoomObjectsTeams:
+  if not isValidTeamId(toTeam):
     return 0
   if fromTeam == toTeam:
     return 0
@@ -477,15 +514,15 @@ proc tributeResources*(env: Environment, fromTeam, toTeam: int,
   if resource == ResourceNone:
     return 0
 
-  # Check if sender has enough resources
+  # Stop when the sender cannot afford the tribute.
   if env.teamStockpiles[fromTeam].counts[resource] < amount:
     return 0
 
-  # Calculate tax rate (Coinage tech reduces it)
-  let taxRate = if env.teamUniversityTechs[fromTeam].researched[TechCoinage]:
-    TributeTaxRate - CoinageTaxReduction
-  else:
-    TributeTaxRate
+  let taxRate =
+    if env.teamUniversityTechs[fromTeam].researched[TechCoinage]:
+      TributeTaxRate - CoinageTaxReduction
+    else:
+      TributeTaxRate
 
   let taxAmount = int(float(amount) * taxRate)
   let received = amount - taxAmount
@@ -493,60 +530,70 @@ proc tributeResources*(env: Environment, fromTeam, toTeam: int,
   if received <= 0:
     return 0
 
-  # Execute the transfer
+  # Apply the transfer after validation and tax.
   env.teamStockpiles[fromTeam].counts[resource] -= amount
   env.teamStockpiles[toTeam].counts[resource] += received
 
-  # Track cumulative tributes for scoring
+  # Track cumulative tribute totals for scoring.
   env.teamTributesSent[fromTeam] += amount
   env.teamTributesReceived[toTeam] += received
 
   received
 
-# ============================================================================
-# Alliance System (symmetric team alliances for shared victory)
-# ============================================================================
-
 proc formAlliance*(env: Environment, teamA, teamB: int) {.inline.} =
   ## Form a symmetric alliance between two teams.
   ## Both teams will consider each other allied.
-  if teamA < 0 or teamA >= MapRoomObjectsTeams: return
-  if teamB < 0 or teamB >= MapRoomObjectsTeams: return
+  if not isValidTeamId(teamA):
+    return
+  if not isValidTeamId(teamB):
+    return
   env.teamAlliances[teamA] = env.teamAlliances[teamA] or getTeamMask(teamB)
   env.teamAlliances[teamB] = env.teamAlliances[teamB] or getTeamMask(teamA)
 
 proc breakAlliance*(env: Environment, teamA, teamB: int) {.inline.} =
   ## Break the alliance between two teams (both directions).
   ## Teams cannot break alliance with themselves.
-  if teamA < 0 or teamA >= MapRoomObjectsTeams: return
-  if teamB < 0 or teamB >= MapRoomObjectsTeams: return
-  if teamA == teamB: return  # Cannot un-ally with self
+  if not isValidTeamId(teamA):
+    return
+  if not isValidTeamId(teamB):
+    return
+  if teamA == teamB:
+    return
   env.teamAlliances[teamA] = env.teamAlliances[teamA] and (not getTeamMask(teamB))
   env.teamAlliances[teamB] = env.teamAlliances[teamB] and (not getTeamMask(teamA))
 
 proc areAllied*(env: Environment, teamA, teamB: int): bool {.inline.} =
   ## Check if two teams are allied. Teams are always allied with themselves.
-  if teamA < 0 or teamA >= MapRoomObjectsTeams: return false
-  if teamB < 0 or teamB >= MapRoomObjectsTeams: return false
+  if not isValidTeamId(teamA):
+    return false
+  if not isValidTeamId(teamB):
+    return false
   isTeamInMask(teamB, env.teamAlliances[teamA])
 
 proc getAllies*(env: Environment, teamId: int): TeamMask {.inline.} =
   ## Return the alliance bitmask for a team (includes self).
-  if teamId < 0 or teamId >= MapRoomObjectsTeams: return NoTeamMask
+  if not isValidTeamId(teamId):
+    return NoTeamMask
   env.teamAlliances[teamId]
 
-# ============================================================================
-
-proc spendInventory*(env: Environment, agent: Thing,
-                     costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+proc spendInventory*(
+  env: Environment,
+  agent: Thing,
+  costs: openArray[tuple[key: ItemKey, count: int]]
+): bool =
+  ## Spend item costs directly from an agent inventory.
   if not canSpendInventory(agent, costs):
     return false
   for cost in costs:
     setInv(agent, cost.key, getInv(agent, cost.key) - cost.count)
   true
 
-proc choosePayment*(env: Environment, agent: Thing,
-                    costs: openArray[tuple[key: ItemKey, count: int]]): PaymentSource =
+proc choosePayment*(
+  env: Environment,
+  agent: Thing,
+  costs: openArray[tuple[key: ItemKey, count: int]]
+): PaymentSource =
+  ## Choose the payment source that can satisfy the item costs.
   if costs.len == 0:
     return PayNone
   if canSpendInventory(agent, costs):
@@ -556,8 +603,13 @@ proc choosePayment*(env: Environment, agent: Thing,
     return PayStockpile
   PayNone
 
-proc spendCosts*(env: Environment, agent: Thing, source: PaymentSource,
-                 costs: openArray[tuple[key: ItemKey, count: int]]): bool =
+proc spendCosts*(
+  env: Environment,
+  agent: Thing,
+  source: PaymentSource,
+  costs: openArray[tuple[key: ItemKey, count: int]]
+): bool =
+  ## Spend costs from the selected payment source.
   case source
   of PayInventory:
     spendInventory(env, agent, costs)
@@ -826,9 +878,9 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   # Apply CivBonus unit HP and attack multipliers
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     let civBonus = env.teamCivBonuses[teamId]
-    if civBonus.unitHpMultiplier != 0.0'f32 and civBonus.unitHpMultiplier != 1.0'f32:
+    if hasActiveMultiplier(civBonus.unitHpMultiplier):
       agent.maxHp = max(1, int(float32(agent.maxHp) * civBonus.unitHpMultiplier + 0.5))
-    if civBonus.unitAttackMultiplier != 0.0'f32 and civBonus.unitAttackMultiplier != 1.0'f32:
+    if hasActiveMultiplier(civBonus.unitAttackMultiplier):
       agent.attackDamage = max(0, int(float32(agent.attackDamage) * civBonus.unitAttackMultiplier + 0.5))
   agent.hp = agent.maxHp
   # Initialize monk faith
@@ -913,7 +965,7 @@ proc scoreTerritory*(env: Environment): TerritoryScore =
       if tint.intensity < DefaultScoreNeutralThreshold:
         inc score.neutralTiles
         continue
-      var bestDist = 1.0e9'f32
+      var bestDist = 1.0e9'f
       var bestTeam = -1
       # Clippy as NPC team
       let drc = tint.r - ClippyTint.r
@@ -1212,8 +1264,8 @@ proc queueTrainUnit*(env: Environment, building: Thing, teamId: int,
   var adjustedCosts: seq[tuple[res: StockpileResource, count: int]] = @[]
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     let civBonus = env.teamCivBonuses[teamId]
-    let applyFood = civBonus.foodCostMultiplier != 0.0'f32 and civBonus.foodCostMultiplier != 1.0'f32
-    let applyWood = civBonus.woodCostMultiplier != 0.0'f32 and civBonus.woodCostMultiplier != 1.0'f32
+    let applyFood = hasActiveMultiplier(civBonus.foodCostMultiplier)
+    let applyWood = hasActiveMultiplier(civBonus.woodCostMultiplier)
     if applyFood or applyWood:
       for cost in costs:
         var c = cost
@@ -1245,8 +1297,8 @@ proc refundTrainCosts(env: Environment, building: Thing) =
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     let baseCosts = buildingTrainCosts(building.kind)
     let civBonus = env.teamCivBonuses[teamId]
-    let applyFood = civBonus.foodCostMultiplier != 0.0'f32 and civBonus.foodCostMultiplier != 1.0'f32
-    let applyWood = civBonus.woodCostMultiplier != 0.0'f32 and civBonus.woodCostMultiplier != 1.0'f32
+    let applyFood = hasActiveMultiplier(civBonus.foodCostMultiplier)
+    let applyWood = hasActiveMultiplier(civBonus.woodCostMultiplier)
     for cost in baseCosts:
       var refundAmount = cost.count
       if applyFood and cost.res == ResourceFood:
@@ -2365,11 +2417,15 @@ proc spawnRagdoll*(env: Environment, pos: IVec2, direction: Vec2,
   else:
     vec2(1.0, 0.0)  # Default direction if no attacker
   # Add randomness to angular velocity (clockwise or counter-clockwise)
-  let angularDir = if (pos.x + pos.y) mod 2 == 0: 1.0'f32 else: -1.0'f32
+  let angularDir =
+    if (pos.x + pos.y) mod 2 == 0:
+      1.0'f
+    else:
+      -1.0'f
   env.ragdolls.add(RagdollBody(
     pos: vec2(pos.x.float32, pos.y.float32),
     velocity: vec2(normalizedDir.x * RagdollInitialSpeed, normalizedDir.y * RagdollInitialSpeed),
-    angle: 0.0'f32,
+    angle: 0.0'f,
     angularVel: RagdollAngularSpeed * angularDir,
     unitClass: unitClass,
     teamId: teamId,
