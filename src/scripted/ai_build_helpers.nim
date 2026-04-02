@@ -1,6 +1,3 @@
-## Build helper procedures for the AI system.
-## These helpers are shared by the scripted AI modules.
-
 import
   ai_core,
   ../constants,
@@ -9,14 +6,14 @@ import
 export ai_core
 
 proc clearBuildState*(state: var AgentState) {.inline.} =
-  ## Clears the active build target and lock state.
+  ## Clear the active build target and lock state.
   state.buildIndex = -1
   state.buildTarget = ivec2(-1, -1)
   state.buildStand = ivec2(-1, -1)
   state.buildLockSteps = 0
 
 proc clearCachedPositions*(state: var AgentState) {.inline.} =
-  ## Clears cached resource and thing positions.
+  ## Clear cached resource and thing positions.
   for kind in ThingKind:
     state.cachedThingPos[kind] = ivec2(-1, -1)
   state.closestFoodPos = ivec2(-1, -1)
@@ -27,7 +24,7 @@ proc clearCachedPositions*(state: var AgentState) {.inline.} =
 
 proc canBuilderStandAt(env: Environment, agent: Thing, stand: IVec2,
                        requireDryLand = false): bool {.inline.} =
-  ## Returns whether a builder may stand on the requested tile.
+  ## Return whether a builder may stand on the requested tile.
   isValidPos(stand) and
     (not requireDryLand or env.terrain[stand.x][stand.y] notin WaterTerrain) and
     not env.hasDoor(stand) and
@@ -37,7 +34,7 @@ proc canBuilderStandAt(env: Environment, agent: Thing, stand: IVec2,
     env.canAgentPassDoor(agent, stand)
 
 proc defaultBuildAnchor(agent: Thing, state: AgentState): IVec2 {.inline.} =
-  ## Returns the preferred anchor for local building searches.
+  ## Return the preferred anchor for local building searches.
   if state.basePosition.x >= 0:
     state.basePosition
   elif agent.homeAltar.x >= 0:
@@ -49,9 +46,11 @@ proc claimAndGatherMissingBuildInputs(controller: Controller, env: Environment,
                                       agent: Thing, agentId: int,
                                       state: var AgentState,
                                       teamId: int, kind: ThingKind,
-                                      costs: openArray[tuple[key: ItemKey, count: int]]):
+                                      costs: openArray[
+                                        tuple[key: ItemKey, count: int]
+                                      ]):
                                       tuple[did: bool, action: uint16] =
-  ## Claims a building and gathers the first missing stockpile resource.
+  ## Claim a building and gather the first missing stockpile resource.
   controller.claimBuilding(teamId, kind)
   for cost in costs:
     case stockpileResourceForItem(cost.key)
@@ -69,7 +68,7 @@ proc claimAndGatherMissingBuildInputs(controller: Controller, env: Environment,
 
 proc findNearestBuildSite(env: Environment, agent: Thing, anchor: IVec2,
                           searchRadius: int): tuple[build, stand: IVec2] =
-  ## Finds the nearest valid build tile and adjacent stand tile.
+  ## Find the nearest valid build tile and adjacent stand tile.
   result = (build: ivec2(-1, -1), stand: ivec2(-1, -1))
   var bestDist = int.high
   let minX = max(0, anchor.x - searchRadius)
@@ -81,7 +80,8 @@ proc findNearestBuildSite(env: Environment, agent: Thing, anchor: IVec2,
   for x in minX .. maxX:
     for y in minY .. maxY:
       let pos = ivec2(x.int32, y.int32)
-      if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
+      if not env.canPlace(pos) or
+          not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
         continue
       for d in CardinalOffsets:
         let stand = pos + d
@@ -92,9 +92,15 @@ proc findNearestBuildSite(env: Environment, agent: Thing, anchor: IVec2,
             result = (build: pos, stand: stand)
           break
 
-proc tryBuildAction*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                    state: var AgentState, index: int): tuple[did: bool, action: uint16] =
-  ## Attempts an immediate build action adjacent to the agent.
+proc tryBuildAction*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  index: int
+): tuple[did: bool, action: uint16] =
+  ## Attempt an immediate build action adjacent to the agent.
   if index < 0 or index >= BuildChoices.len:
     return (false, 0'u16)
   let key = BuildChoices[index]
@@ -112,19 +118,49 @@ proc tryBuildAction*(controller: Controller, env: Environment, agent: Thing, age
       else: false
     else: false
   if checkDir(preferDir):
-    return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u16, index.uint8)))
+    return (
+      true,
+      saveStateAndReturn(
+        controller,
+        agentId,
+        state,
+        encodeAction(8'u16, index.uint8)
+      )
+    )
   for d in cardinalDirs:
     if checkDir(d):
-      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u16, index.uint8)))
+      return (
+        true,
+        saveStateAndReturn(
+          controller,
+          agentId,
+          state,
+          encodeAction(8'u16, index.uint8)
+        )
+      )
   for d in diagonalDirs:
     if checkDir(d):
-      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u16, index.uint8)))
+      return (
+        true,
+        saveStateAndReturn(
+          controller,
+          agentId,
+          state,
+          encodeAction(8'u16, index.uint8)
+        )
+      )
   (false, 0'u16)
 
-proc goToAdjacentAndBuild*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                          state: var AgentState, targetPos: IVec2,
-                          buildIndex: int): tuple[did: bool, action: uint16] =
-  ## Moves toward a build tile and builds when adjacent.
+proc goToAdjacentAndBuild*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  targetPos: IVec2,
+  buildIndex: int
+): tuple[did: bool, action: uint16] =
+  ## Move toward a build tile and build when adjacent.
   if targetPos.x < 0:
     return (false, 0'u16)
   if buildIndex < 0 or buildIndex >= BuildChoices.len:
@@ -132,16 +168,20 @@ proc goToAdjacentAndBuild*(controller: Controller, env: Environment, agent: Thin
   if state.buildLockSteps > 0 and state.buildIndex != buildIndex:
     clearBuildState(state)
   var target = targetPos
-  if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0:
+  if state.buildLockSteps > 0 and state.buildIndex == buildIndex and
+      state.buildTarget.x >= 0:
     if env.canPlace(state.buildTarget) and
-        isBuildableExcludingRoads(env.terrain[state.buildTarget.x][state.buildTarget.y]):
+        isBuildableExcludingRoads(
+          env.terrain[state.buildTarget.x][state.buildTarget.y]
+        ):
       target = state.buildTarget
     dec state.buildLockSteps
     if state.buildLockSteps <= 0:
       clearBuildState(state)
   if not env.canAffordBuild(agent, BuildChoices[buildIndex]):
     return (false, 0'u16)
-  if not env.canPlace(target) or not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
+  if not env.canPlace(target) or
+      not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
     return (false, 0'u16)
   if ai_core.chebyshevDist(agent.pos, target) == 1'i32:
     let (did, act) = tryBuildAction(controller, env, agent, agentId, state, buildIndex)
@@ -155,10 +195,16 @@ proc goToAdjacentAndBuild*(controller: Controller, env: Environment, agent: Thin
     state.buildLockSteps = 8
   return (true, controller.moveTo(env, agent, agentId, state, target))
 
-proc goToStandAndBuild*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                       state: var AgentState, standPos, targetPos: IVec2,
-                       buildIndex: int): tuple[did: bool, action: uint16] =
-  ## Moves toward a stand tile and builds once the stand is reached.
+proc goToStandAndBuild*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  standPos, targetPos: IVec2,
+  buildIndex: int
+): tuple[did: bool, action: uint16] =
+  ## Move toward a stand tile and build once it is reached.
   if standPos.x < 0:
     return (false, 0'u16)
   if buildIndex < 0 or buildIndex >= BuildChoices.len:
@@ -167,10 +213,13 @@ proc goToStandAndBuild*(controller: Controller, env: Environment, agent: Thing, 
     clearBuildState(state)
   var stand = standPos
   var target = targetPos
-  if state.buildLockSteps > 0 and state.buildIndex == buildIndex and state.buildTarget.x >= 0 and
+  if state.buildLockSteps > 0 and state.buildIndex == buildIndex and
+      state.buildTarget.x >= 0 and
       state.buildStand.x >= 0:
     if env.canPlace(state.buildTarget) and
-        isBuildableExcludingRoads(env.terrain[state.buildTarget.x][state.buildTarget.y]) and
+        isBuildableExcludingRoads(
+          env.terrain[state.buildTarget.x][state.buildTarget.y]
+        ) and
         canBuilderStandAt(env, agent, state.buildStand):
       target = state.buildTarget
       stand = state.buildStand
@@ -179,7 +228,8 @@ proc goToStandAndBuild*(controller: Controller, env: Environment, agent: Thing, 
       clearBuildState(state)
   if not env.canAffordBuild(agent, BuildChoices[buildIndex]):
     return (false, 0'u16)
-  if not env.canPlace(target) or not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
+  if not env.canPlace(target) or
+      not isBuildableExcludingRoads(env.terrain[target.x][target.y]):
     return (false, 0'u16)
   if not canBuilderStandAt(env, agent, stand):
     return (false, 0'u16)
@@ -196,27 +246,47 @@ proc goToStandAndBuild*(controller: Controller, env: Environment, agent: Thing, 
     state.buildLockSteps = max(8, dist + 4)
   return (true, controller.moveTo(env, agent, agentId, state, stand))
 
-proc tryBuildNearResource*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                          state: var AgentState, teamId: int, kind: ThingKind,
-                          resourceCount, minResource: int,
-                          nearbyKinds: openArray[ThingKind], distanceThreshold: int): tuple[did: bool, action: uint16] =
-  ## Builds immediately when enough nearby resource exists and spacing allows it.
+proc tryBuildNearResource*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  teamId: int,
+  kind: ThingKind,
+  resourceCount, minResource: int,
+  nearbyKinds: openArray[ThingKind],
+  distanceThreshold: int
+): tuple[did: bool, action: uint16] =
+  ## Build immediately when nearby resource and spacing allow it.
   if resourceCount < minResource:
     return (false, 0'u16)
-  if nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos) <= distanceThreshold:
+  if nearestFriendlyBuildingDistance(
+    env,
+    teamId,
+    nearbyKinds,
+    agent.pos
+  ) <= distanceThreshold:
     return (false, 0'u16)
   let idx = buildIndexFor(kind)
   if idx >= 0:
     return tryBuildAction(controller, env, agent, agentId, state, idx)
   (false, 0'u16)
 
-proc tryBuildCampThreshold*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                           state: var AgentState, teamId: int, kind: ThingKind,
-                           resourceCount, minResource: int,
-                           nearbyKinds: openArray[ThingKind],
-                           minSpacing: int = 3,
-                           searchRadius: int = 4): tuple[did: bool, action: uint16] =
-  ## Build a camp if resource threshold is met and no nearby camp is within minSpacing.
+proc tryBuildCampThreshold*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  teamId: int,
+  kind: ThingKind,
+  resourceCount, minResource: int,
+  nearbyKinds: openArray[ThingKind],
+  minSpacing: int = 3,
+  searchRadius: int = 4
+): tuple[did: bool, action: uint16] =
+  ## Build a camp when the resource threshold and spacing checks pass.
   if resourceCount < minResource:
     return (false, 0'u16)
   let dist = nearestFriendlyBuildingDistance(env, teamId, nearbyKinds, agent.pos)
@@ -237,7 +307,8 @@ proc tryBuildCampThreshold*(controller: Controller, env: Environment, agent: Thi
     for x in minX .. maxX:
       for y in minY .. maxY:
         let pos = ivec2(x.int32, y.int32)
-        if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
+        if not env.canPlace(pos) or
+            not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
           continue
         for d in CardinalOffsets:
           let stand = pos + d
@@ -251,15 +322,29 @@ proc tryBuildCampThreshold*(controller: Controller, env: Environment, agent: Thi
         break
     if buildPos.x < 0:
       return (false, 0'u16)
-    return goToStandAndBuild(controller, env, agent, agentId, state,
-      standPos, buildPos, idx)
+    return goToStandAndBuild(
+      controller,
+      env,
+      agent,
+      agentId,
+      state,
+      standPos,
+      buildPos,
+      idx
+    )
 
-proc tryBuildIfMissing*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                       state: var AgentState, teamId: int, kind: ThingKind): tuple[did: bool, action: uint16] =
-  ## Builds one missing team-wide structure when possible.
+proc tryBuildIfMissing*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  teamId: int,
+  kind: ThingKind
+): tuple[did: bool, action: uint16] =
+  ## Build one missing team-wide structure when possible.
   if controller.getBuildingCount(env, teamId, kind) != 0:
     return (false, 0'u16)
-  # Skip if another builder already claimed this kind this step.
   if controller.isBuildingClaimed(teamId, kind):
     return (false, 0'u16)
   let idx = buildIndexFor(kind)
@@ -270,29 +355,50 @@ proc tryBuildIfMissing*(controller: Controller, env: Environment, agent: Thing, 
   if costs.len == 0:
     return (false, 0'u16)
   if choosePayment(env, agent, costs) == PayNone:
-    # Claim and gather missing inputs so builders do not duplicate work.
     return claimAndGatherMissingBuildInputs(
-      controller, env, agent, agentId, state, teamId, kind, costs)
+      controller,
+      env,
+      agent,
+      agentId,
+      state,
+      teamId,
+      kind,
+      costs
+    )
 
-  let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, idx)
+  let (didAdjacent, actAdjacent) =
+    tryBuildAction(controller, env, agent, agentId, state, idx)
   if didAdjacent:
-    # Claim the building so other builders skip it.
     controller.claimBuilding(teamId, kind)
     return (didAdjacent, actAdjacent)
 
-  let buildSite = findNearestBuildSite(env, agent, defaultBuildAnchor(agent, state), 16)
+  let buildSite =
+    findNearestBuildSite(env, agent, defaultBuildAnchor(agent, state), 16)
   if buildSite.build.x >= 0:
-    # Claim the building so other builders skip it.
     controller.claimBuilding(teamId, kind)
-    return goToStandAndBuild(controller, env, agent, agentId, state,
-      buildSite.stand, buildSite.build, idx)
+    return goToStandAndBuild(
+      controller,
+      env,
+      agent,
+      agentId,
+      state,
+      buildSite.stand,
+      buildSite.build,
+      idx
+    )
   (false, 0'u16)
 
-proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, teamId: int, kind: ThingKind,
-                            settlementCenter: IVec2): tuple[did: bool, action: uint16] =
-  ## Like tryBuildIfMissing, but checks per-settlement building counts instead of global.
-  ## Allows each settlement to independently build its own infrastructure.
+proc tryBuildForSettlement*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  teamId: int,
+  kind: ThingKind,
+  settlementCenter: IVec2
+): tuple[did: bool, action: uint16] =
+  ## Build one missing settlement-local structure when possible.
   if getBuildingCountNear(env, teamId, kind, settlementCenter) != 0:
     return (false, 0'u16)
   if controller.isBuildingClaimed(teamId, kind):
@@ -306,9 +412,18 @@ proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thi
     return (false, 0'u16)
   if choosePayment(env, agent, costs) == PayNone:
     return claimAndGatherMissingBuildInputs(
-      controller, env, agent, agentId, state, teamId, kind, costs)
+      controller,
+      env,
+      agent,
+      agentId,
+      state,
+      teamId,
+      kind,
+      costs
+    )
 
-  let (didAdjacent, actAdjacent) = tryBuildAction(controller, env, agent, agentId, state, idx)
+  let (didAdjacent, actAdjacent) =
+    tryBuildAction(controller, env, agent, agentId, state, idx)
   if didAdjacent:
     controller.claimBuilding(teamId, kind)
     return (didAdjacent, actAdjacent)
@@ -316,14 +431,27 @@ proc tryBuildForSettlement*(controller: Controller, env: Environment, agent: Thi
   let buildSite = findNearestBuildSite(env, agent, settlementCenter, 16)
   if buildSite.build.x >= 0:
     controller.claimBuilding(teamId, kind)
-    return goToStandAndBuild(controller, env, agent, agentId, state,
-      buildSite.stand, buildSite.build, idx)
+    return goToStandAndBuild(
+      controller,
+      env,
+      agent,
+      agentId,
+      state,
+      buildSite.stand,
+      buildSite.build,
+      idx
+    )
   (false, 0'u16)
 
-proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, teamId: int): tuple[did: bool, action: uint16] =
-  ## Build a Dock on a Water tile near the base. Docks require water placement
-  ## (canPlaceDock) instead of normal land placement (canPlace).
+proc tryBuildDockIfMissing*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  teamId: int
+): tuple[did: bool, action: uint16] =
+  ## Build a missing dock near the base using water placement rules.
   if controller.getBuildingCount(env, teamId, Dock) != 0:
     return (false, 0'u16)
   if controller.isBuildingClaimed(teamId, Dock):
@@ -337,16 +465,30 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
     return (false, 0'u16)
   if choosePayment(env, agent, costs) == PayNone:
     return claimAndGatherMissingBuildInputs(
-      controller, env, agent, agentId, state, teamId, Dock, costs)
+      controller,
+      env,
+      agent,
+      agentId,
+      state,
+      teamId,
+      Dock,
+      costs
+    )
 
-  # Check whether the agent can build from the current position.
   for d in AdjacentOffsets8:
     let candidate = agent.pos + d
     if isValidPos(candidate) and env.canPlaceDock(candidate):
       controller.claimBuilding(teamId, Dock)
-      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u16, idx.uint8)))
+      return (
+        true,
+        saveStateAndReturn(
+          controller,
+          agentId,
+          state,
+          encodeAction(8'u16, idx.uint8)
+        )
+      )
 
-  # Search for a water tile near the base with an adjacent land stand.
   let anchor = defaultBuildAnchor(agent, state)
 
   const searchRadius = 20
@@ -363,7 +505,6 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
       let pos = ivec2(x.int32, y.int32)
       if not env.canPlaceDock(pos):
         continue
-      # Find a land tile where the builder can stand next to the dock.
       for d in CardinalOffsets:
         let stand = pos + d
         if canBuilderStandAt(env, agent, stand, requireDryLand = true):
@@ -374,9 +515,16 @@ proc tryBuildDockIfMissing*(controller: Controller, env: Environment, agent: Thi
           break
   if bestStand.x >= 0:
     controller.claimBuilding(teamId, Dock)
-    # Move to the stand position so the later build action can place the dock.
     if bestStand == agent.pos:
-      return (true, saveStateAndReturn(controller, agentId, state, encodeAction(8'u16, idx.uint8)))
+      return (
+        true,
+        saveStateAndReturn(
+          controller,
+          agentId,
+          state,
+          encodeAction(8'u16, idx.uint8)
+        )
+      )
     return (true, controller.moveTo(env, agent, agentId, state, bestStand))
   (false, 0'u16)
 
@@ -388,10 +536,8 @@ proc getTeamPopCount*(controller: Controller, env: Environment, teamId: int): in
     0
 
 proc needsPopCapHouse*(controller: Controller, env: Environment, teamId: int): bool =
-  ## Check if a team needs to build a house for population cap.
-  ## Uses cached getBuildingCount and cached team pop count for performance.
+  ## Return whether a team needs another house for population cap.
   let popCount = controller.getTeamPopCount(env, teamId)
-  # Use cached building counts for the population-cap calculation.
   let houseCount = controller.getBuildingCount(env, teamId, House)
   let townCenterCount = controller.getBuildingCount(env, teamId, TownCenter)
   let popCap = houseCount * HousePopCap + townCenterCount * TownCenterPopCap
@@ -399,14 +545,20 @@ proc needsPopCapHouse*(controller: Controller, env: Environment, teamId: int): b
     controller.getBuildingCount(env, teamId, Altar) > 0
   if popCap >= MapAgentsPerTeam:
     return false
-  # Let wood accumulate for military buildings until housing is actually tight.
   let hasBarracks = controller.getBuildingCount(env, teamId, Barracks) > 0
   let buffer = if hasBarracks: HousePopCap else: 1
   (popCap > 0 and popCount >= popCap - buffer) or
     (popCap == 0 and hasBase and popCount >= buffer)
 
-proc tryBuildHouseForPopCap*(controller: Controller, env: Environment, agent: Thing, agentId: int,
-                            state: var AgentState, teamId: int, basePos: IVec2): tuple[did: bool, action: uint16] =
+proc tryBuildHouseForPopCap*(
+  controller: Controller,
+  env: Environment,
+  agent: Thing,
+  agentId: int,
+  state: var AgentState,
+  teamId: int,
+  basePos: IVec2
+): tuple[did: bool, action: uint16] =
   ## Build a house when the team is at or near population cap.
   if needsPopCapHouse(controller, env, teamId):
     let minX = max(0, basePos.x - 15)
@@ -421,7 +573,8 @@ proc tryBuildHouseForPopCap*(controller: Controller, env: Environment, agent: Th
         let dist = ai_core.chebyshevDist(basePos, pos).int
         if dist < 5 or dist > 15:
           continue
-        if not env.canPlace(pos) or not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
+        if not env.canPlace(pos) or
+            not isBuildableExcludingRoads(env.terrain[pos.x][pos.y]):
           continue
         var standPos = ivec2(-1, -1)
         for d in CardinalOffsets:
