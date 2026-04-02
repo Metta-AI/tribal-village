@@ -63,12 +63,16 @@ proc isAuditEnabled*(kind: AuditKind): bool =
     else:
       false
 
+proc addEnabledAudit(enabled: var seq[AuditKind], kind: AuditKind) =
+  ## Appends one audit kind when it is compiled into the binary.
+  if isAuditEnabled(kind):
+    enabled.add(kind)
+
 proc getEnabledAudits*(): seq[AuditKind] =
   ## Return all audit kinds compiled into this build.
   result = @[]
   for kind in AuditKind:
-    if isAuditEnabled(kind):
-      result.add(kind)
+    addEnabledAudit(result, kind)
 
 proc initAllAudits*() =
   ## Initialize every enabled audit subsystem.
@@ -106,4 +110,4 @@ proc resetAllAudits*() =
     ea.resetEconAudit()
   when defined(techAudit):
     ta.resetTechAudit()
-  # Combat, action, tumor, and AI audits do not expose explicit resets.
+  discard

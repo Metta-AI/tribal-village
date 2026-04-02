@@ -80,6 +80,10 @@ proc ensureAgentSlots(env: Environment) =
     env.add(agent)
     env.terminated[nextId] = 1.0
 
+proc initActions(): array[MapAgents, uint16] =
+  ## Returns a zeroed action array for one environment step.
+  default(array[MapAgents, uint16])
+
 proc makeEmptyEnv*(): Environment =
   ## Creates an empty environment with test-friendly defaults.
   result = Environment(config: defaultEnvironmentConfig())
@@ -239,18 +243,14 @@ proc setStockpile*(
 proc stepNoop*(env: Environment) =
   ## Steps the environment with all agents taking the noop action.
   ensureAgentSlots(env)
-  var actions: array[MapAgents, uint16]
-  for i in 0 ..< MapAgents:
-    actions[i] = 0
+  var actions = initActions()
   env.step(addr actions)
   env.ensureObservations()
 
 proc stepAction*(env: Environment, agentId: int, verb: uint16, argument: int) =
   ## Steps the environment with one explicit agent action.
   ensureAgentSlots(env)
-  var actions: array[MapAgents, uint16]
-  for i in 0 ..< MapAgents:
-    actions[i] = 0
+  var actions = initActions()
   actions[agentId] = encodeAction(verb, argument.uint16)
   env.step(addr actions)
   env.ensureObservations()

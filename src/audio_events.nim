@@ -3,87 +3,90 @@
 ## Call these helpers from game logic where combat, deaths, building, and
 ## UI events occur.
 
+import
+  vmath,
+  types
+
+type
+  VoiceCategory = enum
+    VoiceSoldier
+    VoiceVillager
+    VoiceMonk
+    VoiceCavalry
+    VoiceArcher
+    VoiceSiege
+    VoiceNaval
+
+proc voiceCategory(unitClass: AgentUnitClass): VoiceCategory =
+  ## Map a unit class to its voice category.
+  case unitClass
+  of UnitVillager:
+    VoiceVillager
+  of UnitMonk:
+    VoiceMonk
+  of UnitKnight, UnitCataphract, UnitScout, UnitLightCavalry, UnitHussar,
+      UnitMameluke:
+    VoiceCavalry
+  of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman,
+      UnitJanissary:
+    VoiceArcher
+  of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion:
+    VoiceSiege
+  of UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip:
+    VoiceNaval
+  else:
+    VoiceSoldier
+
+proc getUnitVoiceCategory*(unitClass: AgentUnitClass): string =
+  ## Return the voice category name for a unit class.
+  case voiceCategory(unitClass)
+  of VoiceVillager:
+    "villager"
+  of VoiceMonk:
+    "monk"
+  of VoiceCavalry:
+    "cavalry"
+  of VoiceArcher:
+    "archer"
+  of VoiceSiege:
+    "siege"
+  of VoiceNaval:
+    "naval"
+  of VoiceSoldier:
+    "soldier"
+
+proc isRangedUnit*(unitClass: AgentUnitClass): bool =
+  ## Return true when a unit class uses ranged attacks.
+  unitClass in {
+    UnitArcher,
+    UnitCrossbowman,
+    UnitArbalester,
+    UnitLongbowman,
+    UnitJanissary,
+    UnitMangonel,
+    UnitTrebuchet,
+    UnitScorpion,
+    UnitGalley
+  }
+
+proc isCavalryUnit*(unitClass: AgentUnitClass): bool =
+  ## Return true when a unit class is cavalry.
+  unitClass in {
+    UnitKnight,
+    UnitCataphract,
+    UnitScout,
+    UnitLightCavalry,
+    UnitHussar,
+    UnitMameluke
+  }
+
+proc isSiegeUnit*(unitClass: AgentUnitClass): bool =
+  ## Return true when a unit class is siege.
+  unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
+
 when defined(audio):
   import
-    vmath,
-    audio, types
-
-  type
-    VoiceCategory = enum
-      VoiceSoldier
-      VoiceVillager
-      VoiceMonk
-      VoiceCavalry
-      VoiceArcher
-      VoiceSiege
-      VoiceNaval
-
-  proc voiceCategory(unitClass: AgentUnitClass): VoiceCategory =
-    ## Map a unit class to its voice category.
-    case unitClass
-    of UnitVillager:
-      VoiceVillager
-    of UnitMonk:
-      VoiceMonk
-    of UnitKnight, UnitCataphract, UnitScout, UnitLightCavalry, UnitHussar,
-        UnitMameluke:
-      VoiceCavalry
-    of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman,
-        UnitJanissary:
-      VoiceArcher
-    of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion:
-      VoiceSiege
-    of UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip:
-      VoiceNaval
-    else:
-      VoiceSoldier
-
-  proc getUnitVoiceCategory*(unitClass: AgentUnitClass): string =
-    ## Return the voice category name for a unit class.
-    case voiceCategory(unitClass)
-    of VoiceVillager:
-      "villager"
-    of VoiceMonk:
-      "monk"
-    of VoiceCavalry:
-      "cavalry"
-    of VoiceArcher:
-      "archer"
-    of VoiceSiege:
-      "siege"
-    of VoiceNaval:
-      "naval"
-    of VoiceSoldier:
-      "soldier"
-
-  proc isRangedUnit*(unitClass: AgentUnitClass): bool =
-    ## Return true when a unit class uses ranged attacks.
-    unitClass in {
-      UnitArcher,
-      UnitCrossbowman,
-      UnitArbalester,
-      UnitLongbowman,
-      UnitJanissary,
-      UnitMangonel,
-      UnitTrebuchet,
-      UnitScorpion,
-      UnitGalley
-    }
-
-  proc isCavalryUnit*(unitClass: AgentUnitClass): bool =
-    ## Return true when a unit class is cavalry.
-    unitClass in {
-      UnitKnight,
-      UnitCataphract,
-      UnitScout,
-      UnitLightCavalry,
-      UnitHussar,
-      UnitMameluke
-    }
-
-  proc isSiegeUnit*(unitClass: AgentUnitClass): bool =
-    ## Return true when a unit class is siege.
-    unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
+    audio
 
   proc audioOnAttack*(attackerClass: AgentUnitClass, pos: IVec2) =
     ## Play audio for a unit attack.
@@ -193,113 +196,79 @@ when defined(audio):
       setAmbientBiome("battle")
 
 else:
-  import
-    vmath,
-    types
-
-  proc getUnitVoiceCategory*(unitClass: AgentUnitClass): string =
-    ## Return the voice category name for a unit class.
-    case unitClass
-    of UnitVillager:
-      "villager"
-    of UnitMonk:
-      "monk"
-    of UnitKnight, UnitCataphract, UnitScout, UnitLightCavalry, UnitHussar,
-        UnitMameluke:
-      "cavalry"
-    of UnitArcher, UnitCrossbowman, UnitArbalester, UnitLongbowman,
-        UnitJanissary:
-      "archer"
-    of UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion:
-      "siege"
-    of UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip:
-      "naval"
-    else:
-      "soldier"
-
-  proc isRangedUnit*(unitClass: AgentUnitClass): bool =
-    ## Return true when a unit class uses ranged attacks.
-    unitClass in {
-      UnitArcher,
-      UnitCrossbowman,
-      UnitArbalester,
-      UnitLongbowman,
-      UnitJanissary,
-      UnitMangonel,
-      UnitTrebuchet,
-      UnitScorpion,
-      UnitGalley
-    }
-
-  proc isCavalryUnit*(unitClass: AgentUnitClass): bool =
-    ## Return true when a unit class is cavalry.
-    unitClass in {
-      UnitKnight,
-      UnitCataphract,
-      UnitScout,
-      UnitLightCavalry,
-      UnitHussar,
-      UnitMameluke
-    }
-
-  proc isSiegeUnit*(unitClass: AgentUnitClass): bool =
-    ## Return true when a unit class is siege.
-    unitClass in {UnitBatteringRam, UnitMangonel, UnitTrebuchet, UnitScorpion}
-
   proc audioOnAttack*(attackerClass: AgentUnitClass, pos: IVec2) =
     ## Ignore attack audio when audio is disabled.
+    discard attackerClass
+    discard pos
     discard
 
   proc audioOnHit*(targetClass: AgentUnitClass, pos: IVec2, damage: int) =
     ## Ignore hit audio when audio is disabled.
+    discard targetClass
+    discard pos
+    discard damage
     discard
 
   proc audioOnDeath*(unitClass: AgentUnitClass, pos: IVec2) =
     ## Ignore death audio when audio is disabled.
+    discard unitClass
+    discard pos
     discard
 
   proc audioOnConversion*(pos: IVec2) =
     ## Ignore conversion audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnBuildingStart*(pos: IVec2) =
     ## Ignore build-start audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnBuildingProgress*(pos: IVec2) =
     ## Ignore build-progress audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnBuildingComplete*(pos: IVec2) =
     ## Ignore build-complete audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnBuildingDestroyed*(pos: IVec2) =
     ## Ignore building-destroyed audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnGatherWood*(pos: IVec2) =
     ## Ignore wood-gathering audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnGatherStone*(pos: IVec2) =
     ## Ignore stone-gathering audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnGatherGold*(pos: IVec2) =
     ## Ignore gold-gathering audio when audio is disabled.
+    discard pos
     discard
 
   proc audioOnGatherFood*(pos: IVec2, fromFarm: bool) =
     ## Ignore food-gathering audio when audio is disabled.
+    discard pos
+    discard fromFarm
     discard
 
   proc audioOnUnitSelected*(unitClass: AgentUnitClass) =
     ## Ignore unit-selection audio when audio is disabled.
+    discard unitClass
     discard
 
   proc audioOnUnitCommand*(unitClass: AgentUnitClass) =
     ## Ignore unit-command audio when audio is disabled.
+    discard unitClass
     discard
 
   proc audioOnResearchComplete*() =
@@ -316,8 +285,10 @@ else:
 
   proc updateAmbientForBiome*(biome: string) =
     ## Ignore biome ambience changes when audio is disabled.
+    discard biome
     discard
 
   proc updateAmbientForCombat*(inCombat: bool) =
     ## Ignore combat ambience changes when audio is disabled.
+    discard inCombat
     discard
