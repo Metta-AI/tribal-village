@@ -2,6 +2,15 @@
 
 import bumpy
 
+const
+  ResourceBarRatio* = 0.04'f
+  FooterRatio* = 0.08'f
+  MinimapRatio* = 0.25'f
+  CommandPanelRatio* = 0.20'f
+  DefaultSplitRatio = 0.5'f
+  MinSplitRatio = 0.1'f
+  MaxSplitRatio = 0.9'f
+
 type
   AreaAxis* = enum
     ## Split axis for dividing an area into two children.
@@ -27,19 +36,17 @@ type
     commandPanelArea*: LayoutArea
     unitInfoArea*: LayoutArea
 
-const
-  ResourceBarRatio* = 0.04'f32
-  FooterRatio* = 0.08'f32
-  MinimapRatio* = 0.25'f32
-  CommandPanelRatio* = 0.20'f32
-
-proc split*(area: LayoutArea, axis: AreaAxis, ratio: float32 = 0.5) =
+proc split*(
+  area: LayoutArea,
+  axis: AreaAxis,
+  ratio: float32 = DefaultSplitRatio
+) =
   ## Split an area into two child regions.
   if area.left != nil or area.right != nil:
     return
 
   area.axis = axis
-  area.ratio = ratio.clamp(0.1, 0.9)
+  area.ratio = ratio.clamp(MinSplitRatio, MaxSplitRatio)
   area.left = LayoutArea(parent: area)
   area.right = LayoutArea(parent: area)
 
@@ -63,7 +70,7 @@ proc get*(area: LayoutArea, path: string): LayoutArea =
 
 proc resize*(area: LayoutArea, newRatio: float32) =
   ## Clamp and store a new split ratio for an area.
-  area.ratio = newRatio.clamp(0.1, 0.9)
+  area.ratio = newRatio.clamp(MinSplitRatio, MaxSplitRatio)
 
 proc calculateLayout*(area: LayoutArea, bounds: Rect) =
   ## Recompute bounds for an area and all of its descendants.
@@ -76,7 +83,7 @@ proc calculateLayout*(area: LayoutArea, bounds: Rect) =
     let
       splitY = bounds.y + bounds.h * area.ratio
       topH = bounds.h * area.ratio
-      bottomH = bounds.h * (1.0 - area.ratio)
+      bottomH = bounds.h * (1.0'f - area.ratio)
     if area.left != nil:
       calculateLayout(area.left, rect(bounds.x, bounds.y, bounds.w, topH))
     if area.right != nil:
@@ -86,7 +93,7 @@ proc calculateLayout*(area: LayoutArea, bounds: Rect) =
     let
       splitX = bounds.x + bounds.w * area.ratio
       leftW = bounds.w * area.ratio
-      rightW = bounds.w * (1.0 - area.ratio)
+      rightW = bounds.w * (1.0'f - area.ratio)
     if area.left != nil:
       calculateLayout(area.left, rect(bounds.x, bounds.y, leftW, bounds.h))
     if area.right != nil:
@@ -100,7 +107,7 @@ proc createDefaultLayout*(): UILayout =
 
   result.root.right.split(
     AxisHorizontal,
-    1.0 - FooterRatio / (1.0 - ResourceBarRatio)
+    1.0'f - FooterRatio / (1.0'f - ResourceBarRatio)
   )
   result.worldArea = result.root.right.left
   result.footerArea = result.root.right.right
@@ -139,7 +146,7 @@ proc calculateOverlayAreas*(
   layout.unitInfoArea.rect = rect(
     infoX,
     worldRect.y + worldRect.h - minimapSize - margin,
-    max(0, infoW),
+    max(0.0'f, infoW),
     minimapSize
   )
 

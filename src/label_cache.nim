@@ -8,6 +8,11 @@ import
   boxy, pixie, vmath,
   common, environment
 
+const
+  MeasureContextSize = 1
+  ColorCacheScale = 255.0'f
+  NoBackgroundAlpha = 0.0'f
+
 type
   LabelStyle* = object
     fontPath*: string
@@ -53,7 +58,7 @@ proc labelStyleColored*(
     fontPath: fontPath,
     fontSize: fontSize,
     padding: padding,
-    bgAlpha: 0.0,
+    bgAlpha: NoBackgroundAlpha,
     textColor: textColor,
     outline: false,
     outlineColor: TextOutlineColor,
@@ -70,7 +75,7 @@ proc labelStyleOutlined*(
     fontPath: fontPath,
     fontSize: fontSize,
     padding: padding,
-    bgAlpha: 0.0,
+    bgAlpha: NoBackgroundAlpha,
     textColor: textColor,
     outline: true,
     outlineColor: TextOutlineColor,
@@ -81,16 +86,16 @@ proc makeCacheKey*(prefix: string, text: string, style: LabelStyle): string =
   result = prefix & "/" & text
   if style.textColor != TintWhite:
     let
-      red = int(style.textColor.r * 255)
-      green = int(style.textColor.g * 255)
-      blue = int(style.textColor.b * 255)
+      red = int(style.textColor.r * ColorCacheScale)
+      green = int(style.textColor.g * ColorCacheScale)
+      blue = int(style.textColor.b * ColorCacheScale)
     result &= "_c" & $red & "_" & $green & "_" & $blue
-  if style.fontSize != 0.0:
+  if style.fontSize != 0.0'f:
     result &= "_s" & $int(style.fontSize)
 
 proc renderLabel(text: string, style: LabelStyle): (Image, IVec2) =
   ## Render text using the supplied style.
-  var measureCtx = newContext(1, 1)
+  var measureCtx = newContext(MeasureContextSize, MeasureContextSize)
   measureCtx.font = style.fontPath
   measureCtx.fontSize = style.fontSize
   measureCtx.textBaseline = TopBaseline
@@ -103,7 +108,7 @@ proc renderLabel(text: string, style: LabelStyle): (Image, IVec2) =
   ctx.textBaseline = TopBaseline
 
   # Fill the background when requested.
-  if style.bgAlpha > 0:
+  if style.bgAlpha > NoBackgroundAlpha:
     ctx.fillStyle.color = withAlpha(LabelBgBlack, style.bgAlpha)
     ctx.fillRect(0, 0, width.float32, height.float32)
 
