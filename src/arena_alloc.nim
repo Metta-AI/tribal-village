@@ -1,4 +1,4 @@
-## Arena allocator for per-step temporary allocations
+## Arena allocator for per-step temporary allocations.
 ##
 ## Provides bump allocation that resets each step, avoiding repeated heap
 ## allocations for temporary sequences. Uses pre-allocated seq buffers that
@@ -6,8 +6,12 @@
 
 import types
 
+const
+  ArenaIntsCap = 256
+  ArenaStringsCap = 64
+
 proc initArena*(): Arena =
-  ## Initialize arena with pre-allocated capacity
+  ## Initialize the arena with pre-allocated buffers.
   result = Arena(
     things1: newSeqOfCap[Thing](ArenaDefaultCap),
     things2: newSeqOfCap[Thing](ArenaDefaultCap div 2),
@@ -15,10 +19,10 @@ proc initArena*(): Arena =
     things4: newSeqOfCap[Thing](ArenaDefaultCap div 4),
     positions1: newSeqOfCap[IVec2](ArenaDefaultCap),
     positions2: newSeqOfCap[IVec2](ArenaDefaultCap div 2),
-    ints1: newSeqOfCap[int](256),
-    ints2: newSeqOfCap[int](256),
+    ints1: newSeqOfCap[int](ArenaIntsCap),
+    ints2: newSeqOfCap[int](ArenaIntsCap),
     itemCounts: newSeqOfCap[tuple[key: ItemKey, count: int]](MapObjectAgentMaxInventory),
-    strings: newSeqOfCap[string](64),
+    strings: newSeqOfCap[string](ArenaStringsCap),
   )
 
 proc reset*(arena: var Arena) {.inline.} =

@@ -9,6 +9,7 @@ import
 
 const
   DefaultDumpDir = "./dumps/"
+  StateTimestampFormat = "yyyyMMdd'T'HHmmss'.'fff"
   AgentFieldNames = [
     "agentId", "x", "y", "hp", "maxHp",
     "teamId", "unitClass", "stance", "invCount", "alive"
@@ -118,13 +119,13 @@ proc dumpState*(env: Environment) =
     initDumper()
 
   let
-    nowTime = now()
-    timestamp = nowTime.format("yyyyMMdd'T'HHmmss'.'fff")
+    currentTime = times.now()
+    timestamp = currentTime.format(StateTimestampFormat)
     filename = dumpDir / &"state_step{env.currentStep:06d}_{timestamp}.json"
 
   var root = newJObject()
   root["step"] = %env.currentStep
-  root["timestamp"] = %($nowTime)
+  root["timestamp"] = %($currentTime)
   root["map_width"] = %MapWidth
   root["map_height"] = %MapHeight
   root["num_teams"] = %MapRoomObjectsTeams
