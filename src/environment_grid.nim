@@ -58,9 +58,6 @@ proc isWaterBlockedForAgent*(env: Environment, agent: Thing, pos: IVec2): bool =
 
 {.pop.}
 
-## Keep hasWaterNearby and getBiomeGatherBonus in environment.nim because they
-## depend on more of the environment state.
-
 proc canTraverseElevation*(env: Environment, fromPos, toPos: IVec2): bool {.inline.} =
   ## Allow flat movement, ramp-assisted climbs, or cliff drops.
   if not isValidPos(fromPos) or not isValidPos(toPos):

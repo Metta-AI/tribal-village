@@ -225,8 +225,6 @@ let
     choices[BuildIndexDoor] = thingItem("Door")
     choices
 
-## Keep error types and FFI state management in environment_state.nim.
-
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
   if s.len == 0:
@@ -957,10 +955,10 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
   # Villager tracking for town bell garrison optimization
   let wasVillager = oldClass == UnitVillager
   let isVillager = unitClass == UnitVillager
-  # teamId already computed above at function start
+  # teamId was already computed above at function start.
   if teamId >= 0 and teamId < MapRoomObjectsTeams:
     if wasVillager and not isVillager:
-      # Remove from teamVillagers (swap-and-pop for O(1))
+      # Remove from teamVillagers with swap-and-pop.
       for i in 0 ..< env.teamVillagers[teamId].len:
         if env.teamVillagers[teamId][i] == agent:
           env.teamVillagers[teamId][i] = env.teamVillagers[teamId][^1]
@@ -970,6 +968,7 @@ proc applyUnitClass*(env: Environment, agent: Thing, unitClass: AgentUnitClass) 
       env.teamVillagers[teamId].add(agent)
 
 proc embarkAgent*(env: Environment, agent: Thing) =
+  ## Convert an embarked land unit into its boat transport state.
   if agent.unitClass in {UnitBoat, UnitTradeCog, UnitGalley, UnitFireShip,
                           UnitFishingShip, UnitTransportShip, UnitDemoShip, UnitCannonGalleon}:
     return
@@ -977,8 +976,10 @@ proc embarkAgent*(env: Environment, agent: Thing) =
   applyUnitClass(env, agent, UnitBoat)
 
 proc disembarkAgent*(env: Environment, agent: Thing) =
+  ## Restore a transported land unit from its boat transport state.
   if agent.unitClass == UnitTradeCog:
-    return  # Trade Cogs never disembark
+    # Trade cogs never disembark.
+    return
   if agent.unitClass != UnitBoat:
     return
   var target = agent.embarkedUnitClass
@@ -987,7 +988,7 @@ proc disembarkAgent*(env: Environment, agent: Thing) =
   applyUnitClass(env, agent, target)
 {.pop.}
 
-## ensureTintColors is implemented in tint.nim, included later in this file.
+## Ensure tint colors are up to date before tint-dependent queries.
 proc ensureTintColors*(env: Environment) {.inline.}
 
 proc scoreTerritory*(env: Environment): TerritoryScore =
@@ -1130,9 +1131,6 @@ proc ensureObservations*(env: Environment) {.inline.} =
 
   env.observationsInitialized = true
 
-## Grid queries (getThing, getBackgroundThing, isEmpty, hasDoor, etc.) are in environment_grid.nim
-## Elevation/movement checks (canTraverseElevation, willCauseCliffFallDamage, isBuildableTerrain, isSpawnable) are in environment_grid.nim
-
 proc canPlace*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool {.inline.} =
   ## Check if a building can be placed at the position.
   ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
@@ -1144,8 +1142,6 @@ proc canPlaceDock*(env: Environment, pos: IVec2, checkFrozen: bool = true): bool
   ## NOTE: Remains here because it uses isTileFrozen from colors.nim (included file).
   isValidPos(pos) and env.isEmpty(pos) and isNil(env.getBackgroundThing(pos)) and
     (not checkFrozen or not isTileFrozen(pos, env)) and env.terrain[pos.x][pos.y] in WaterTerrain
-
-## resetTileColor is in environment_grid.nim
 
 CraftRecipes = initCraftRecipesBase()
 appendBuildingRecipes(CraftRecipes)
@@ -2425,7 +2421,7 @@ proc grantItem(env: Environment, agent: Thing, key: ItemKey, amount: int = 1): b
       return false
   true
 
-## spawnGatherSparkle is defined later in this file.
+## Spawn gather sparkle particles around a gather event.
 proc spawnGatherSparkle*(env: Environment, pos: IVec2)
 
 proc harvestTree(env: Environment, agent: Thing, tree: Thing): bool =
