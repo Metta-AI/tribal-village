@@ -25,6 +25,11 @@ type
     iconSize*: IVec2
     isPressed*: bool
 
+  FooterHudLabel = object
+    imageKey: string
+    size: IVec2
+    lastValue: int
+
 let
   footerButtonDefs = [
     (FooterPlayPause, "icon_play", "Play"),
@@ -36,12 +41,16 @@ let
 
 var
   footerIconSizes = initTable[string, IVec2]()
-  stepLabelKey = ""
-  stepLabelLastValue = -1
-  stepLabelSize = ivec2(0, 0)
-  controlModeLabelKey = ""
-  controlModeLabelLastValue = -2
-  controlModeLabelSize = ivec2(0, 0)
+  stepHudLabel = FooterHudLabel(
+    imageKey: "",
+    size: ivec2(0, 0),
+    lastValue: -1
+  )
+  controlModeHudLabel = FooterHudLabel(
+    imageKey: "",
+    size: ivec2(0, 0),
+    lastValue: -2
+  )
 
 proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   ## Build footer buttons for playback controls.
@@ -133,6 +142,27 @@ proc centerIn(rect: IRect, size: Vec2): Vec2 =
     rect.x.float32 + (rect.w.float32 - size.x) / 2.0'f,
     rect.y.float32 + (rect.h.float32 - size.y) / 2.0'f
   )
+
+proc refreshFooterHudLabel(
+  label: var FooterHudLabel,
+  cacheKey: string,
+  value: int,
+  text: string
+) =
+  ## Refresh a cached footer HUD label when its value changes.
+  if value == label.lastValue and label.imageKey.len > 0:
+    return
+
+  label.lastValue = value
+  invalidateLabel(cacheKey)
+  let cached = ensureLabelKeyed(
+    cacheKey,
+    cacheKey,
+    text,
+    infoLabelStyle
+  )
+  label.imageKey = cached.imageKey
+  label.size = cached.size
 
 proc drawFooter*(panelRect: IRect, buttons: seq[FooterButton]) =
   ## Draw the footer ribbon and its control buttons.
@@ -322,56 +352,50 @@ proc drawSelectionLabel*(panelRect: IRect) =
 proc drawStepLabel*(panelRect: IRect) =
   ## Draw the current step counter in the footer HUD area.
   let currentStep = env.currentStep
-  if currentStep != stepLabelLastValue or stepLabelKey.len == 0:
-    stepLabelLastValue = currentStep
-    invalidateLabel("hud_step")
-    let text = "Step: " & $currentStep
-    let cached = ensureLabelKeyed(
-      "hud_step",
-      "hud_step",
-      text,
-      infoLabelStyle
-    )
-    stepLabelKey = cached.imageKey
-    stepLabelSize = cached.size
-  if stepLabelKey.len == 0:
+  refreshFooterHudLabel(
+    stepHudLabel,
+    "hud_step",
+    currentStep,
+    "Step: " & $currentStep
+  )
+  if stepHudLabel.imageKey.len == 0:
     return
   let
     innerHeight = FooterHeight.float32 - FooterPadding * 2.0'f
-    scale = min(1.0'f, innerHeight / stepLabelSize.y.float32)
-    labelWidth = stepLabelSize.x.float32 * scale
+    scale = min(1.0'f, innerHeight / stepHudLabel.size.y.float32)
+    labelWidth = stepHudLabel.size.x.float32 * scale
     xOffset = panelRect.w.float32 - labelWidth - FooterHudPadding
-  drawFooterHudLabel(panelRect, stepLabelKey, stepLabelSize, xOffset)
+  drawFooterHudLabel(
+    panelRect,
+    stepHudLabel.imageKey,
+    stepHudLabel.size,
+    xOffset
+  )
 
 proc drawControlModeLabel*(panelRect: IRect) =
   ## Draw the current control mode label in the footer HUD area.
   let mode = playerTeam
-  if mode != controlModeLabelLastValue or controlModeLabelKey.len == 0:
-    controlModeLabelLastValue = mode
-    invalidateLabel("hud_control_mode")
-    let text =
-      case mode
-      of -1:
-        "Observer"
-      of 0 .. 7:
-        "Team " & $mode
-      else:
-        "Unknown"
-    let cached = ensureLabelKeyed(
-      "hud_control_mode",
-      "hud_control_mode",
-      text,
-      infoLabelStyle
-    )
-    controlModeLabelKey = cached.imageKey
-    controlModeLabelSize = cached.size
-  if controlModeLabelKey.len == 0:
+  let text =
+    case mode
+    of -1:
+      "Observer"
+    of 0 .. 7:
+      "Team " & $mode
+    else:
+      "Unknown"
+  refreshFooterHudLabel(
+    controlModeHudLabel,
+    "hud_control_mode",
+    mode,
+    text
+  )
+  if controlModeHudLabel.imageKey.len == 0:
     return
   let
     innerHeight = FooterHeight.float32 - FooterPadding * 2.0'f
-    scale = min(1.0'f, innerHeight / controlModeLabelSize.y.float32)
-    labelWidth = controlModeLabelSize.x.float32 * scale
-    stepLabelWidth = stepLabelSize.x.float32 * scale
+    scale = min(1.0'f, innerHeight / controlModeHudLabel.size.y.float32)
+    labelWidth = controlModeHudLabel.size.x.float32 * scale
+    stepLabelWidth = stepHudLabel.size.x.float32 * scale
     xOffset =
       panelRect.w.float32 -
       labelWidth -
@@ -380,7 +404,7 @@ proc drawControlModeLabel*(panelRect: IRect) =
       ResourceBarXStart
   drawFooterHudLabel(
     panelRect,
-    controlModeLabelKey,
-    controlModeLabelSize,
+    controlModeHudLabel.imageKey,
+    controlModeHudLabel.size,
     xOffset
   )

@@ -30,6 +30,33 @@ type
 var
   labelCache: Table[string, CachedLabel] = initTable[string, CachedLabel]()
 
+proc buildStyle(
+  fontPath: string,
+  fontSize: float32,
+  padding: float32,
+  bgAlpha: float32,
+  textColor: Color,
+  outline: bool
+): LabelStyle =
+  ## Build a label style with explicit text rendering settings.
+  result = LabelStyle(
+    fontPath: fontPath,
+    fontSize: fontSize,
+    padding: padding,
+    bgAlpha: bgAlpha,
+    textColor: textColor,
+    outline: outline,
+    outlineColor: TextOutlineColor,
+  )
+
+proc colorCacheSuffix(textColor: Color): string =
+  ## Return the cache-key suffix for a non-default label color.
+  let
+    red = int(textColor.r * ColorCacheScale)
+    green = int(textColor.g * ColorCacheScale)
+    blue = int(textColor.b * ColorCacheScale)
+  "_c" & $red & "_" & $green & "_" & $blue
+
 proc labelStyle*(
   fontPath: string,
   fontSize: float32,
@@ -37,14 +64,13 @@ proc labelStyle*(
   bgAlpha: float32
 ): LabelStyle =
   ## Return a standard label style with white text.
-  LabelStyle(
-    fontPath: fontPath,
-    fontSize: fontSize,
-    padding: padding,
-    bgAlpha: bgAlpha,
-    textColor: TintWhite,
-    outline: false,
-    outlineColor: TextOutlineColor,
+  result = buildStyle(
+    fontPath,
+    fontSize,
+    padding,
+    bgAlpha,
+    TintWhite,
+    false
   )
 
 proc labelStyleColored*(
@@ -54,14 +80,13 @@ proc labelStyleColored*(
   textColor: Color
 ): LabelStyle =
   ## Return a colored label style with no background.
-  LabelStyle(
-    fontPath: fontPath,
-    fontSize: fontSize,
-    padding: padding,
-    bgAlpha: NoBackgroundAlpha,
-    textColor: textColor,
-    outline: false,
-    outlineColor: TextOutlineColor,
+  result = buildStyle(
+    fontPath,
+    fontSize,
+    padding,
+    NoBackgroundAlpha,
+    textColor,
+    false
   )
 
 proc labelStyleOutlined*(
@@ -71,25 +96,20 @@ proc labelStyleOutlined*(
   textColor: Color
 ): LabelStyle =
   ## Return an outlined label style with no background.
-  LabelStyle(
-    fontPath: fontPath,
-    fontSize: fontSize,
-    padding: padding,
-    bgAlpha: NoBackgroundAlpha,
-    textColor: textColor,
-    outline: true,
-    outlineColor: TextOutlineColor,
+  result = buildStyle(
+    fontPath,
+    fontSize,
+    padding,
+    NoBackgroundAlpha,
+    textColor,
+    true
   )
 
 proc makeCacheKey*(prefix: string, text: string, style: LabelStyle): string =
   ## Build a cache key from the prefix, text, and style.
   result = prefix & "/" & text
   if style.textColor != TintWhite:
-    let
-      red = int(style.textColor.r * ColorCacheScale)
-      green = int(style.textColor.g * ColorCacheScale)
-      blue = int(style.textColor.b * ColorCacheScale)
-    result &= "_c" & $red & "_" & $green & "_" & $blue
+    result &= colorCacheSuffix(style.textColor)
   if style.fontSize != 0.0'f:
     result &= "_s" & $int(style.fontSize)
 
