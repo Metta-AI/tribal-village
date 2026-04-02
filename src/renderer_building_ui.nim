@@ -5,6 +5,41 @@ import
   common, constants, environment, label_cache, renderer_core
 from renderer_effects import drawBuildingSmoke
 
+const
+  GarrisonOverlayKinds = {TownCenter, Castle, GuardTower, House}
+
+proc drawOverlayImage(
+  imageKey: string,
+  pos: Vec2,
+  scale: float32,
+  tint: Color
+) =
+  ## Draw an overlay sprite when the cached image is available.
+  if imageKey.len == 0 or imageKey notin bxy:
+    return
+
+  bxy.drawImage(
+    imageKey,
+    pos,
+    angle = 0,
+    scale = scale,
+    tint = tint
+  )
+
+proc drawOverlayLabel(text: string, pos: Vec2) =
+  ## Draw an overlay label when the cached label image is available.
+  let imageKey = ensureLabel("overlay", text, overlayLabelStyle).imageKey
+  if imageKey.len == 0 or imageKey notin bxy:
+    return
+
+  bxy.drawImage(
+    imageKey,
+    pos,
+    angle = 0,
+    scale = OverlayLabelScale,
+    tint = TintWhite
+  )
+
 proc renderBuildingConstruction*(pos: IVec2, constructionRatio: float32) =
   ## Render construction scaffolding for a building under construction.
   let
@@ -76,83 +111,61 @@ proc renderBuildingUI*(
       icon = stockpileResourceIcon(res)
       count = env.teamStockpiles[teamId].counts[res]
       iconPos = pos.vec2 + vec2(BuildingIconOffsetX, BuildingIconOffsetY)
-    if icon.len > 0 and icon in bxy:
-      bxy.drawImage(
-        icon,
-        iconPos,
-        angle = 0,
-        scale = OverlayIconScale * resourceUiIconScale(res),
-        tint = withAlpha(
-          TintWhite,
-          if count > 0:
-            1.0
-          else:
-            ResourceIconDimAlpha
-        )
+    drawOverlayImage(
+      icon,
+      iconPos,
+      OverlayIconScale * resourceUiIconScale(res),
+      withAlpha(
+        TintWhite,
+        if count > 0:
+          1.0
+        else:
+          ResourceIconDimAlpha
       )
+    )
     if count > 0:
-      let labelKey = ensureHeartCountLabel(count)
-      if labelKey.len > 0 and labelKey in bxy:
-        bxy.drawImage(
-          labelKey,
-          iconPos + vec2(BuildingLabelOffsetX, BuildingLabelOffsetY),
-          angle = 0,
-          scale = OverlayLabelScale,
-          tint = TintWhite
-        )
+      drawOverlayImage(
+        ensureHeartCountLabel(count),
+        iconPos + vec2(BuildingLabelOffsetX, BuildingLabelOffsetY),
+        OverlayLabelScale,
+        TintWhite
+      )
 
   if thing.kind == TownCenter:
     let teamId = thing.teamId
     if teamId >= 0 and teamId < MapRoomObjectsTeams:
       let iconPos = pos.vec2 + vec2(BuildingIconOffsetX, BuildingIconOffsetY)
-      if "oriented/gatherer.s" in bxy:
-        bxy.drawImage(
-          "oriented/gatherer.s",
-          iconPos,
-          angle = 0,
-          scale = OverlayIconScale,
-          tint = TintWhite
-        )
+      drawOverlayImage(
+        "oriented/gatherer.s",
+        iconPos,
+        OverlayIconScale,
+        TintWhite
+      )
       let
         popText =
           "x " & $teamPopCounts[teamId] & "/" &
           $min(MapAgentsPerTeam, teamHouseCounts[teamId] * HousePopCap)
-        popLabel = ensureLabel("overlay", popText, overlayLabelStyle).imageKey
-      if popLabel.len > 0 and popLabel in bxy:
-        bxy.drawImage(
-          popLabel,
-          iconPos + vec2(BuildingLabelOffsetX, BuildingLabelOffsetY),
-          angle = 0,
-          scale = OverlayLabelScale,
-          tint = TintWhite
-        )
+      drawOverlayLabel(
+        popText,
+        iconPos + vec2(BuildingLabelOffsetX, BuildingLabelOffsetY)
+      )
 
-  if thing.kind in {TownCenter, Castle, GuardTower, House}:
+  if thing.kind in GarrisonOverlayKinds:
     let garrisonCount = thing.garrisonedUnits.len
     if garrisonCount > 0:
       let garrisonIconPos =
         pos.vec2 + vec2(BuildingGarrisonOffsetX, BuildingIconOffsetY)
-      if "oriented/fighter.s" in bxy:
-        bxy.drawImage(
-          "oriented/fighter.s",
-          garrisonIconPos,
-          angle = 0,
-          scale = OverlayIconScale,
-          tint = TintWhite
-        )
-      let
-        garrisonText = "x" & $garrisonCount
-        garrisonLabel =
-          ensureLabel("overlay", garrisonText, overlayLabelStyle).imageKey
-      if garrisonLabel.len > 0 and garrisonLabel in bxy:
-        bxy.drawImage(
-          garrisonLabel,
-          garrisonIconPos +
-            vec2(BuildingGarrisonLabelOffsetX, BuildingLabelOffsetY),
-          angle = 0,
-          scale = OverlayLabelScale,
-          tint = TintWhite
-        )
+      drawOverlayImage(
+        "oriented/fighter.s",
+        garrisonIconPos,
+        OverlayIconScale,
+        TintWhite
+      )
+      drawOverlayLabel(
+        "x" & $garrisonCount,
+        garrisonIconPos +
+          vec2(BuildingGarrisonLabelOffsetX, BuildingLabelOffsetY)
+      )
 
 proc canPlaceBuildingAt*(pos: IVec2): bool =
   ## Return whether a building can be placed at the given position.

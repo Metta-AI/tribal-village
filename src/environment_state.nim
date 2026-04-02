@@ -22,13 +22,17 @@ type
 var
   lastFFIError*: FFIErrorState
 
-proc clearFFIError*() =
-  ## Clear the last FFI error state.
-  lastFFIError = FFIErrorState(
+proc initFFIErrorState(): FFIErrorState =
+  ## Return the default cleared FFI error state.
+  FFIErrorState(
     hasError: false,
     errorCode: ErrNone,
     errorMessage: ""
   )
+
+proc clearFFIError*() =
+  ## Clear the last FFI error state.
+  lastFFIError = initFFIErrorState()
 
 proc newTribalError*(kind: TribalErrorKind, message: string): ref TribalError =
   ## Create a TribalError with the given kind and message.
