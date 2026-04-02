@@ -1,16 +1,13 @@
 ## ANSI console rendering helpers for headless map visualization.
 
 import
-  std/os
-
-let
-  consoleVizEnabled* = parseEnvBool("TV_CONSOLE_VIZ", false)
-  consoleVizInterval* = max(1, parseEnvInt("TV_VIZ_INTERVAL", 10))
+  envconfig, items, registry, types
 
 const
   Esc = "\e["
   Reset = Esc & "0m"
   Bold = Esc & "1m"
+  ClearScreen = Esc & "2J" & Esc & "H"
   TeamFg: array[8, array[3, int]] = [
     [232, 107, 107],
     [240, 166, 107],
@@ -21,6 +18,10 @@ const
     [222, 222, 222],
     [237, 143, 209]
   ]
+
+let
+  consoleVizEnabled* = parseEnvBool("TV_CONSOLE_VIZ", false)
+  consoleVizInterval* = max(1, parseEnvInt("TV_VIZ_INTERVAL", 10))
 
 proc fg(r, g, b: int): string =
   ## Return one ANSI foreground color escape sequence.
@@ -238,7 +239,7 @@ proc unitClassChar(unitClass: AgentUnitClass): char =
 proc printGameMap*(env: Environment) =
   ## Render the map as ANSI-colored text with one glyph per tile.
   var buf = newStringOfCap(MapWidth * MapHeight * 20)
-  buf.add(Esc & "2J" & Esc & "H")
+  buf.add(ClearScreen)
   buf.add(Bold & "=== tribal-village step " & $env.currentStep & " ===")
   buf.add(Reset & "\n")
 

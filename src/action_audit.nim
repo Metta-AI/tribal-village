@@ -28,7 +28,6 @@ when defined(actionAudit):
       aggTeamTotals: array[TeamCount, int]
       aggStepCount: int
       reportInterval: int
-      lastReportStep: int
 
   var
     actionAuditState*: ActionAuditState
@@ -81,6 +80,17 @@ when defined(actionAudit):
     actionAuditState.aggTotal += actionAuditState.stepTotal
     inc actionAuditState.aggStepCount
     resetStepCounters()
+
+  proc resetAggregateCounters() =
+    ## Reset the counters collected for the current report window.
+    for verb in 0 ..< VerbCount:
+      actionAuditState.aggVerbCounts[verb] = 0
+    for teamId in 0 ..< TeamCount:
+      for verb in 0 ..< VerbCount:
+        actionAuditState.aggTeamVerbCounts[teamId][verb] = 0
+      actionAuditState.aggTeamTotals[teamId] = 0
+    actionAuditState.aggTotal = 0
+    actionAuditState.aggStepCount = 0
 
   proc fmtPct(num, denom: int): string =
     ## Format one percentage column.
@@ -243,11 +253,4 @@ when defined(actionAudit):
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
-    for verb in 0 ..< VerbCount:
-      actionAuditState.aggVerbCounts[verb] = 0
-    for teamId in 0 ..< TeamCount:
-      for verb in 0 ..< VerbCount:
-        actionAuditState.aggTeamVerbCounts[teamId][verb] = 0
-      actionAuditState.aggTeamTotals[teamId] = 0
-    actionAuditState.aggTotal = 0
-    actionAuditState.aggStepCount = 0
+    resetAggregateCounters()
