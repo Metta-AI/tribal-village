@@ -1,48 +1,95 @@
-## envconfig.nim - Centralized environment variable parsing with consistent error handling
-##
-## Provides safe parsing functions for environment configuration variables.
-## Logs warnings when parsing fails instead of silently using fallbacks.
-## Import this module early to make utilities available to included files.
-##
-## Usage:
-##   import envconfig
-##   let interval = parseEnvInt("TV_INTERVAL", 100)
-##   let enabled = parseEnvBool("TV_ENABLED", false)
+## Parse environment configuration values with typed errors and fallbacks.
 
 import std/[os, strutils, tables]
 
 const
-  ## Set to true to enable debug logging for env var parsing
+  ## Set to true to enable debug logging for environment parsing.
   EnvConfigDebug* = false
+
+type
+  EnvConfigError* = object of CatchableError
+    ## Describe an environment parsing failure.
+
+proc raiseEnvConfigError(
+  envVar: string,
+  raw: string,
+  expected: string
+) {.noreturn.} =
+  ## Raise an EnvConfigError for an invalid environment value.
+  let value =
+    if raw.len == 0:
+      "<empty>"
+    else:
+      raw
+  raise newException(
+    EnvConfigError,
+    "Failed to parse " & envVar & "='" & value & "' as " & expected & "."
+  )
+
+proc logEnvConfigFallback(
+  envVar: string,
+  raw: string,
+  expected: string,
+  fallback: string
+) =
+  ## Log an environment fallback when debug output is enabled.
+  when EnvConfigDebug:
+    let value =
+      if raw.len == 0:
+        "<empty>"
+      else:
+        raw
+    echo "[envconfig] Failed to parse ", envVar, "='", value, "' as ",
+      expected, ", using fallback=", fallback
+
+proc parseIntValue(envVar: string, raw: string): int =
+  ## Parse an integer environment value or raise EnvConfigError.
+  try:
+    result = parseInt(raw)
+  except ValueError:
+    raiseEnvConfigError(envVar, raw, "int")
+
+proc parseBoolValue(envVar: string, raw: string): bool =
+  ## Parse a boolean environment value or raise EnvConfigError.
+  let normalized = raw.toLowerAscii
+  case normalized
+  of "1", "true", "yes", "on":
+    return true
+  of "0", "false", "no", "off":
+    return false
+  else:
+    raiseEnvConfigError(envVar, raw, "bool")
+
+proc parseFloatValue(envVar: string, raw: string): float =
+  ## Parse a float environment value or raise EnvConfigError.
+  try:
+    result = parseFloat(raw)
+  except ValueError:
+    raiseEnvConfigError(envVar, raw, "float")
 
 proc parseEnvInt*(envVar: string, fallback: int): int =
   ## Parse an integer from an environment variable with logging on failure.
-  ## Returns `fallback` if the variable is empty or invalid.
+  ## Return the fallback when the variable is empty or invalid.
   let raw = getEnv(envVar, "")
   if raw.len == 0:
     return fallback
   try:
-    result = parseInt(raw)
-  except ValueError:
-    when EnvConfigDebug:
-      echo "[envconfig] Warning: Failed to parse ", envVar, "='", raw,
-           "' as int, using fallback=", fallback
+    result = parseIntValue(envVar, raw)
+  except EnvConfigError:
+    logEnvConfigFallback(envVar, raw, "int", $fallback)
     result = fallback
 
 proc parseEnvBool*(envVar: string, fallback: bool): bool =
   ## Parse a boolean from an environment variable.
-  ## Recognizes: "1", "true", "yes", "on" as true
-  ##             "0", "false", "no", "off", "" as false
-  let raw = getEnv(envVar, "").toLowerAscii
-  if raw in ["1", "true", "yes", "on"]:
-    return true
-  elif raw in ["0", "false", "no", "off", ""]:
-    return false
-  else:
-    when EnvConfigDebug:
-      echo "[envconfig] Warning: Unrecognized bool value ", envVar, "='", raw,
-           "', using fallback=", fallback
+  ## Return the fallback when the variable is empty or invalid.
+  let raw = getEnv(envVar, "")
+  if raw.len == 0:
     return fallback
+  try:
+    result = parseBoolValue(envVar, raw)
+  except EnvConfigError:
+    logEnvConfigFallback(envVar, raw, "bool", $fallback)
+    result = fallback
 
 proc parseEnvFloat*(envVar: string, fallback: float): float =
   ## Parse a float from an environment variable with logging on failure.
@@ -50,11 +97,9 @@ proc parseEnvFloat*(envVar: string, fallback: float): float =
   if raw.len == 0:
     return fallback
   try:
-    result = parseFloat(raw)
-  except ValueError:
-    when EnvConfigDebug:
-      echo "[envconfig] Warning: Failed to parse ", envVar, "='", raw,
-           "' as float, using fallback=", fallback
+    result = parseFloatValue(envVar, raw)
+  except EnvConfigError:
+    logEnvConfigFallback(envVar, raw, "float", $fallback)
     result = fallback
 
 proc parseEnvString*(envVar: string, fallback: string): string =
@@ -62,9 +107,8 @@ proc parseEnvString*(envVar: string, fallback: string): string =
   let raw = getEnv(envVar, "")
   if raw.len == 0:
     return fallback
-  raw
+  return raw
 
 proc initStringIntTable*(capacity: int = 16): Table[string, int] =
-  ## Initialize a string->int table with pre-allocated capacity to avoid rehashing.
-  ## Default capacity of 16 covers most audit use cases (damage types, unit types, resources).
+  ## Initialize a string-to-int table with pre-allocated capacity.
   result = initTable[string, int](capacity)

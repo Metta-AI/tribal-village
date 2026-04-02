@@ -1,17 +1,13 @@
-import std/[algorithm, strutils, tables, sets], vmath, chroma
-import entropy
-import envconfig
-import terrain, items, common_types, biome
-import types, registry
-import spatial_index
-import formations
-import state_dumper
-import arena_alloc
+import
+  std/[algorithm, sets, strutils, tables],
+  chroma, vmath,
+  arena_alloc, biome, common_types, entropy, envconfig, formations, items,
+  registry, spatial_index, state_dumper, terrain, types
 
-# Import split modules
-import environment_state
-import environment_grid
-import environment_agents
+import
+  environment_agents,
+  environment_grid,
+  environment_state
 
 when defined(techAudit):
   import tech_audit
@@ -22,7 +18,6 @@ when defined(settlerMetrics):
 when defined(audio):
   import audio_events
 
-# Re-export split modules for backwards compatibility
 export environment_state
 export environment_grid
 export environment_agents
@@ -78,9 +73,16 @@ const
 
 proc clear[T](s: var openarray[T]) =
   ## Zero out a contiguous buffer (arrays/openarrays) without reallocating.
+  if s.len == 0:
+    return
   zeroMem(cast[pointer](s[0].addr), s.len * sizeof(T))
 
-proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int, includeShallow: bool = true): bool =
+proc hasWaterNearby*(
+  env: Environment,
+  pos: IVec2,
+  radius: int,
+  includeShallow: bool = true
+): bool =
   ## Check if there is water terrain within the given radius of a position.
   ## Includes ShallowWater by default since docks can be placed on either.
   for dx in -radius .. radius:
@@ -93,7 +95,11 @@ proc hasWaterNearby*(env: Environment, pos: IVec2, radius: int, includeShallow: 
           return true
   false
 
-proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
+proc getBiomeGatherBonus*(
+  env: Environment,
+  pos: IVec2,
+  itemKey: ItemKey
+): int =
   ## Calculate bonus items from biome-specific gathering bonuses.
   ## Returns 0 or 1 based on probability roll using deterministic seed.
   ## Forest: +20% wood, Plains: +20% food, Caves: +20% stone, Snow: +20% gold,
@@ -103,7 +109,7 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
 
   let biome = env.biomes[pos.x][pos.y]
 
-  # Check for biome-specific bonus
+  # Check for a biome-specific bonus.
   var bonusChance = 0.0
   case biome
   of BiomeForestType:
@@ -119,8 +125,9 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
     if itemKey == ItemGold:
       bonusChance = BiomeGatherBonusChance
   of BiomeDesertType:
-    # Desert gives bonus to all resources if near water (oasis effect)
-    if itemKey == ItemWood or itemKey == ItemWheat or itemKey == ItemStone or itemKey == ItemGold:
+    # Desert gives a bonus to all resources near water.
+    if itemKey == ItemWood or itemKey == ItemWheat or
+        itemKey == ItemStone or itemKey == ItemGold:
       if env.hasWaterNearby(pos, DesertOasisRadius):
         bonusChance = DesertOasisBonusChance
   else:
@@ -129,11 +136,11 @@ proc getBiomeGatherBonus*(env: Environment, pos: IVec2, itemKey: ItemKey): int =
   if bonusChance <= 0.0:
     return 0
 
-  # Use deterministic seed based on position and step for reproducible behavior
-  # Cast to int to avoid int32 overflow and ensure positive seed
+  # Use a deterministic seed based on the position and step.
+  # Cast to int to avoid int32 overflow and to keep the seed positive.
   let seed = abs(int(pos.x) * 31337 + int(pos.y) * 7919 + env.currentStep * 13) + 1
   var r = initRand(seed)
-  # Warm up RNG by discarding first few values to improve distribution
+  # Warm up the RNG by discarding the first few values.
   discard next(r)
   discard next(r)
   if randChance(r, bonusChance):

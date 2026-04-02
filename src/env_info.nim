@@ -1,38 +1,22 @@
-## env_info.nim - Environment-aware lazy initialization pattern
-##
-## This module implements the initialize_to_environment() pattern from mettascope.
-## Components can adapt to runtime environment parameters (board size, action counts,
-## observation features) instead of hardcoding game variants at compile time.
-##
-## The pattern enables:
-## - Policy portability across different environment configurations
-## - Runtime feature remapping for agent transferability
-## - Lazy initialization when actual environment dimensions are known
-##
-## Usage:
-##   # Create component with placeholders
-##   var component = newObsProcessor()
-##
-##   # Later, when environment is available:
-##   component.initializeToEnvironment(envInfo)
-##
-## Reference: metta/agent/components/obs_shim.py
+## Carry runtime environment parameters for lazy component initialization.
 
-import std/tables
-import types, common_types
+import
+  std/tables,
+  common_types, types
 
 export types, common_types
 
 const
-  ## Total action count derived from verb and argument counts
+  ## Store the total action count derived from verb and argument counts.
   ActionCount* = ActionVerbCount * ActionArgumentCount
+  UnknownFeatureId = 255
 
 type
-  ## Feature properties for observation encoding
+  ## Describe one observation feature.
   FeatureProps* = object
-    id*: int              ## Unique feature identifier
-    name*: string         ## Feature name (e.g., "TerrainEmptyLayer")
-    normalization*: float ## Normalization factor for this feature
+    id*: int              ## Store the unique feature identifier.
+    name*: string         ## Store the feature name.
+    normalization*: float ## Store the feature normalization factor.
 
   ## Environment info passed to components for lazy initialization.
   ## Captures runtime environment parameters that components need to adapt to.
@@ -73,8 +57,7 @@ type
     success*: bool
     message*: string
 
-## Concept for components that support lazy environment initialization.
-## Components implementing this pattern can adapt to runtime environment params.
+## Describe components that support lazy environment initialization.
 type
   InitializableComponent* = concept c
     c.initializeToEnvironment(EnvironmentInfo) is InitResult
@@ -121,17 +104,15 @@ proc defaultEnvironmentInfo*(): EnvironmentInfo =
     initialized: true
   )
 
-  # Populate observation features from ObservationName enum
+  # Populate observation features from the ObservationName enum.
   for layer in ObservationName:
     let props = FeatureProps(
       id: ord(layer),
       name: $layer,
-      normalization: 1.0  # Default normalization
+      normalization: 1.0
     )
     result.obsFeatures.add(props)
     result.featureNameToId[$layer] = ord(layer)
-
-## Helper procs for common environment info queries
 
 proc isValid*(info: EnvironmentInfo): bool =
   ## Check if the environment info has valid dimensions.
@@ -152,34 +133,33 @@ proc getFeatureId*(info: EnvironmentInfo, name: string): int =
 
 proc getFeatureNormalization*(info: EnvironmentInfo, featureId: int): float =
   ## Get normalization factor for a feature ID.
-  for feat in info.obsFeatures:
-    if feat.id == featureId:
-      return feat.normalization
-  return 1.0  # Default normalization
+  for feature in info.obsFeatures:
+    if feature.id == featureId:
+      return feature.normalization
+  return 1.0
 
 proc hasFeature*(info: EnvironmentInfo, name: string): bool =
   ## Check if a feature exists by name.
   name in info.featureNameToId
-
-## Feature remapping support for policy portability
 
 proc storeOriginalMapping*(info: var EnvironmentInfo) =
   ## Store the current feature mapping as the original.
   ## Called during first initialization to establish baseline.
   info.originalFeatureMapping = info.featureNameToId
 
-proc createFeatureRemapping*(info: EnvironmentInfo,
-                              currentFeatures: seq[FeatureProps]): Table[int, int] =
+proc createFeatureRemapping*(
+  info: EnvironmentInfo,
+  currentFeatures: seq[FeatureProps]
+): Table[int, int] =
   ## Create a remapping from current feature IDs to original IDs.
   ## This enables policy portability across environments with different feature orderings.
   result = initTable[int, int]()
-  const UnknownFeatureId = 255
 
-  for feat in currentFeatures:
-    if feat.name in info.originalFeatureMapping:
-      let originalId = info.originalFeatureMapping[feat.name]
-      if feat.id != originalId:
-        result[feat.id] = originalId
+  for feature in currentFeatures:
+    if feature.name in info.originalFeatureMapping:
+      let originalId = info.originalFeatureMapping[feature.name]
+      if feature.id != originalId:
+        result[feature.id] = originalId
     else:
-      # Unknown feature - map to unknown ID
-      result[feat.id] = UnknownFeatureId
+      # Map unknown features to the sentinel ID.
+      result[feature.id] = UnknownFeatureId
