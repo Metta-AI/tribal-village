@@ -517,7 +517,7 @@ proc setMarketPrice*(env: Environment, teamId: int, res: StockpileResource, pric
 proc marketBuyResource*(env: Environment, teamId: int, res: StockpileResource,
                         amount: int): tuple[goldCost: int, resourceGained: int] =
   ## Buy resources from market using gold from stockpile.
-  ## Returns (gold spent, resources gained). Price increases after buying.
+  ## Return (gold spent, resources gained). Price increases after buying.
   ## Uses scaled integer math: price is gold per 100 units.
   if res == ResourceGold or res == ResourceNone or amount <= 0:
     return (0, 0)
@@ -546,7 +546,7 @@ proc marketBuyResource*(env: Environment, teamId: int, res: StockpileResource,
 proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
                          amount: int): tuple[resourceSold: int, goldGained: int] =
   ## Sell resources to market for gold.
-  ## Returns (resources sold, gold gained). Price decreases after selling.
+  ## Return (resources sold, gold gained). Price decreases after selling.
   ## Uses scaled integer math: price is gold per 100 units.
   if res == ResourceGold or res == ResourceNone or amount <= 0:
     return (0, 0)
@@ -575,7 +575,7 @@ proc marketSellResource*(env: Environment, teamId: int, res: StockpileResource,
 proc marketSellInventory*(env: Environment, agent: Thing, itemKey: ItemKey):
                           tuple[amountSold: int, goldGained: int] =
   ## Sell all of an item from agent's inventory to their team's market.
-  ## Returns (amount sold, gold gained).
+  ## Return (amount sold, gold gained).
   let teamId = getTeamId(agent)
   let res = stockpileResourceForItem(itemKey)
   if res == ResourceGold or res == ResourceNone or res == ResourceWater:
@@ -602,7 +602,7 @@ proc marketSellInventory*(env: Environment, agent: Thing, itemKey: ItemKey):
 proc marketBuyFood*(env: Environment, agent: Thing, goldAmount: int):
                     tuple[goldSpent: int, foodGained: int] =
   ## Buy food with gold from agent's inventory.
-  ## Returns (gold spent, food gained to stockpile).
+  ## Return (gold spent, food gained to stockpile).
   let teamId = getTeamId(agent)
   if goldAmount <= 0:
     return (0, 0)
@@ -647,7 +647,7 @@ proc tributeResources*(
   amount: int
 ): int =
   ## Transfer resources from one team to another, applying a tax.
-  ## Returns the actual amount received after tax (0 if transfer failed).
+  ## Return the actual amount received after tax (0 if transfer fails).
   ## Coinage tech (researched at University) reduces the tax rate.
   if not isValidTeamId(fromTeam):
     return 0
@@ -709,7 +709,7 @@ proc breakAlliance*(env: Environment, teamA, teamB: int) {.inline.} =
   env.teamAlliances[teamB] = env.teamAlliances[teamB] and (not getTeamMask(teamA))
 
 proc areAllied*(env: Environment, teamA, teamB: int): bool {.inline.} =
-  ## Check if two teams are allied. Teams are always allied with themselves.
+  ## Check whether two teams are allied. Teams are always allied with themselves.
   if not isValidTeamId(teamA):
     return false
   if not isValidTeamId(teamB):
@@ -765,7 +765,7 @@ proc spendCosts*(
     false
 
 proc defaultStanceForClass*(unitClass: AgentUnitClass): AgentStance =
-  ## Returns the default stance for a unit class.
+  ## Return the default stance for a unit class.
   ## Villagers use NoAttack (won't auto-attack).
   ## Military units use Defensive (attack in range, return to position).
   case unitClass
@@ -1374,7 +1374,7 @@ proc cancelLastQueued*(env: Environment, building: Thing): bool =
   true
 
 proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int): AgentUnitClass =
-  ## Returns the effective unit class trained by a building, considering upgrades.
+  ## Return the effective unit class trained by a building, considering upgrades.
   ## For example, if LongSwordsman upgrade is researched, Barracks trains LongSwordsman instead of ManAtArms.
   ## "Unlock" upgrades (Knight, Skirmisher, CavalryArcher) switch the building's production line.
   let baseUnit = buildingTrainUnit(buildingKind, teamId)
@@ -1419,7 +1419,7 @@ proc effectiveTrainUnit*(env: Environment, buildingKind: ThingKind, teamId: int)
 proc tryBatchQueueTrain*(env: Environment, building: Thing, teamId: int,
                          count: int): int =
   ## Queue multiple units for training (batch/shift-click).
-  ## Returns the number of units actually queued.
+  ## Return the number of units actually queued.
   if not buildingHasTrain(building.kind):
     return 0
   let unitClass = env.effectiveTrainUnit(building.kind, teamId)
@@ -1450,7 +1450,7 @@ proc processProductionQueue*(building: Thing) =
 
 proc getNextBlacksmithUpgrade*(env: Environment, teamId: int): BlacksmithUpgradeType =
   ## Find the next upgrade to research (lowest level across all types).
-  ## Returns the upgrade type with the lowest current level.
+  ## Return the upgrade type with the lowest current level.
   var minLevel = BlacksmithUpgradeMaxLevel + 1
   result = UpgradeMeleeAttack  # Default
   for upgradeType in BlacksmithUpgradeType:
@@ -1462,7 +1462,7 @@ proc getNextBlacksmithUpgrade*(env: Environment, teamId: int): BlacksmithUpgrade
 proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thing): bool =
   ## Attempt to research the next Blacksmith upgrade for the team.
   ## Costs: Food + Gold, increasing by level.
-  ## Returns true if research was successful.
+  ## Return true if research was successful.
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -1471,27 +1471,27 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
   if not isValidTeamId(teamId):
     return false
 
-  # Find the next upgrade to research
+  # Find the next upgrade to research.
   let upgradeType = env.getNextBlacksmithUpgrade(teamId)
   let currentLevel = env.teamBlacksmithUpgrades[teamId].levels[upgradeType]
 
-  # Check if already at max level
+  # Stop when the upgrade is already at max level.
   if currentLevel >= BlacksmithUpgradeMaxLevel:
     return false
 
-  # Calculate cost based on current level (level 0->1: base cost, 1->2: 2x, 2->3: 3x)
+  # Calculate cost based on current level (level 0->1: base cost, 1->2: 2x, 2->3: 3x).
   let costMultiplier = currentLevel + 1
   let foodCost = BlacksmithUpgradeFoodCost * costMultiplier
   let goldCost = BlacksmithUpgradeGoldCost * costMultiplier
 
-  # Check and spend resources
+  # Spend the research cost.
   let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
   if not env.spendStockpile(teamId, costs):
     return false
   when defined(econAudit):
     recordResearchCost(teamId, costs, env.currentStep)
 
-  # Apply the upgrade
+  # Apply the upgrade.
   env.teamBlacksmithUpgrades[teamId].levels[upgradeType] = currentLevel + 1
   building.cooldown = 5  # Short cooldown after research
   when defined(eventLog):
@@ -1502,7 +1502,7 @@ proc tryResearchBlacksmithUpgrade*(env: Environment, agent: Thing, building: Thi
 
 proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
   ## Find the next unresearched University tech.
-  ## Returns techs in order: Ballistics first (most impactful for ranged combat).
+  ## Return techs in order: Ballistics first (most impactful for ranged combat).
   for techType in UniversityTechType:
     if not env.teamUniversityTechs[teamId].researched[techType]:
       return techType
@@ -1510,7 +1510,7 @@ proc getNextUniversityTech(env: Environment, teamId: int): UniversityTechType =
   TechBallistics
 
 proc hasUniversityTech*(env: Environment, teamId: int, tech: UniversityTechType): bool {.inline.} =
-  ## Check if a team has researched a specific University tech.
+  ## Check whether a team has researched a specific University tech.
   if not isValidTeamId(teamId):
     return false
   env.teamUniversityTechs[teamId].researched[tech]
@@ -1518,7 +1518,7 @@ proc hasUniversityTech*(env: Environment, teamId: int, tech: UniversityTechType)
 proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing): bool =
   ## Attempt to research the next University tech for the team.
   ## Costs: Food + Gold + Wood (varies by tech).
-  ## Returns true if research was successful.
+  ## Return true if research was successful.
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -1527,27 +1527,27 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   if not isValidTeamId(teamId):
     return false
 
-  # Find the next tech to research
+  # Find the next tech to research.
   let techType = env.getNextUniversityTech(teamId)
 
-  # Check if already researched
+  # Stop when the tech is already researched.
   if env.teamUniversityTechs[teamId].researched[techType]:
     return false
 
-  # Calculate cost - costs increase for later techs
+  # Calculate the cost. Costs increase for later techs.
   let techIndex = ord(techType) + 1
   let foodCost = UniversityTechFoodCost * techIndex
   let goldCost = UniversityTechGoldCost * techIndex
   let woodCost = UniversityTechWoodCost * techIndex
 
-  # Check and spend resources
+  # Spend the research cost.
   let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost), (ResourceWood, woodCost)]
   if not env.spendStockpile(teamId, costs):
     return false
   when defined(econAudit):
     recordResearchCost(teamId, costs, env.currentStep)
 
-  # Apply the tech
+  # Apply the tech.
   env.teamUniversityTechs[teamId].researched[techType] = true
   building.cooldown = 8  # Longer cooldown for tech research
   when defined(eventLog):
@@ -2045,14 +2045,14 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
   true
 
 proc hasEconomyTech*(env: Environment, teamId: int, tech: EconomyTechType): bool {.inline.} =
-  ## Check if a team has researched a specific economy tech.
+  ## Check whether a team has researched a specific economy tech.
   if not isValidTeamId(teamId):
     return false
   env.teamEconomyTechs[teamId].researched[tech]
 
 proc getWoodGatherBonus*(env: Environment, teamId: int): int =
   ## Calculate total wood gathering bonus percentage from Lumber Camp techs.
-  ## Returns bonus as integer percentage (e.g., 50 = +50%).
+  ## Return bonus as an integer percentage (for example, 50 = +50%).
   if not isValidTeamId(teamId):
     return 0
   var bonus = 0
@@ -2100,7 +2100,7 @@ proc getVillagerCarryCapacity*(env: Environment, teamId: int): int =
 
 proc getVillagerSpeedBonus*(env: Environment, teamId: int): int =
   ## Calculate villager speed bonus percentage from economy techs.
-  ## Returns bonus as integer percentage (e.g., 20 = +20%).
+  ## Return bonus as an integer percentage (for example, 20 = +20%).
   if not isValidTeamId(teamId):
     return 0
   var bonus = 0
@@ -2112,7 +2112,7 @@ proc getVillagerSpeedBonus*(env: Environment, teamId: int): int =
 
 proc getFarmFoodBonus*(env: Environment, teamId: int): int =
   ## Calculate total farm food bonus from Mill techs.
-  ## Returns bonus food amount per farm.
+  ## Return the bonus food amount per farm.
   if not isValidTeamId(teamId):
     return 0
   var bonus = 0
@@ -2125,13 +2125,13 @@ proc getFarmFoodBonus*(env: Environment, teamId: int): int =
   bonus
 
 proc canAutoReseed*(env: Environment, teamId: int): bool {.inline.} =
-  ## Check if team has researched Horse Collar (enables auto-reseed).
+  ## Check whether the team has researched Horse Collar (enables auto-reseed).
   if not isValidTeamId(teamId):
     return false
   env.teamEconomyTechs[teamId].researched[TechHorseCollar]
 
 proc economyTechBuilding*(tech: EconomyTechType): ThingKind =
-  ## Returns the building where this economy tech is researched.
+  ## Return the building where this economy tech is researched.
   case tech
   of TechWheelbarrow, TechHandCart: TownCenter
   of TechDoubleBitAxe, TechBowSaw, TechTwoManSaw: LumberCamp
@@ -2139,7 +2139,7 @@ proc economyTechBuilding*(tech: EconomyTechType): ThingKind =
   of TechHorseCollar, TechHeavyPlow, TechCropRotation: Mill
 
 proc economyTechCost*(tech: EconomyTechType): seq[tuple[res: StockpileResource, count: int]] =
-  ## Returns the resource costs for an economy tech.
+  ## Return the resource costs for an economy tech.
   case tech
   of TechWheelbarrow:
     @[(res: ResourceFood, count: WheelbarrowFoodCost),
@@ -2179,8 +2179,8 @@ proc economyTechCost*(tech: EconomyTechType): seq[tuple[res: StockpileResource, 
       (res: ResourceWood, count: CropRotationWoodCost)]
 
 proc economyTechPrerequisite*(tech: EconomyTechType): EconomyTechType =
-  ## Returns the prerequisite tech that must be researched first.
-  ## Returns itself if no prerequisite.
+  ## Return the prerequisite tech that must be researched first.
+  ## Return the input tech itself when there is no prerequisite.
   case tech
   of TechWheelbarrow: TechWheelbarrow  # no prereq
   of TechHandCart: TechWheelbarrow
@@ -2197,26 +2197,26 @@ proc economyTechPrerequisite*(tech: EconomyTechType): EconomyTechType =
 
 proc getNextEconomyTech*(env: Environment, teamId: int, buildingKind: ThingKind): EconomyTechType =
   ## Find the next available economy tech for the given building type.
-  ## Returns the first unresearched tech whose prerequisites are met.
+  ## Return the first unresearched tech whose prerequisites are met.
   for tech in EconomyTechType:
     if economyTechBuilding(tech) != buildingKind:
       continue
     if env.teamEconomyTechs[teamId].researched[tech]:
       continue
-    # Check prerequisite
+    # Check the prerequisite.
     let prereq = economyTechPrerequisite(tech)
     if prereq != tech and not env.teamEconomyTechs[teamId].researched[prereq]:
       continue
     return tech
-  # No techs available; return first of this building type (caller checks researched)
+  # No tech is available, so return the first one for this building type.
   for tech in EconomyTechType:
     if economyTechBuilding(tech) == buildingKind:
       return tech
-  TechWheelbarrow  # fallback
+  TechWheelbarrow  # Fallback.
 
 proc tryResearchEconomyTech*(env: Environment, agent: Thing, building: Thing): bool =
   ## Attempt to research the next economy tech at a building.
-  ## Only villagers can research. Returns true if research was successful.
+  ## Only villagers can research. Return true if research was successful.
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -2227,27 +2227,27 @@ proc tryResearchEconomyTech*(env: Environment, agent: Thing, building: Thing): b
 
   let tech = env.getNextEconomyTech(teamId, building.kind)
 
-  # Verify this tech belongs to this building type (handles fallback case)
+  # Verify that this tech belongs to this building type.
   if economyTechBuilding(tech) != building.kind:
     return false
 
-  # Check if already researched
+  # Stop when the tech is already researched.
   if env.teamEconomyTechs[teamId].researched[tech]:
     return false
 
-  # Check prerequisite
+  # Check the prerequisite.
   let prereq = economyTechPrerequisite(tech)
   if prereq != tech and not env.teamEconomyTechs[teamId].researched[prereq]:
     return false
 
-  # Check and spend resources
+  # Spend the research cost.
   let costs = economyTechCost(tech)
   if not env.spendStockpile(teamId, costs):
     return false
   when defined(econAudit):
     recordResearchCost(teamId, costs, env.currentStep)
 
-  # Apply the tech
+  # Apply the tech.
   env.teamEconomyTechs[teamId].researched[tech] = true
   building.cooldown = 6
   when defined(eventLog):
@@ -2262,7 +2262,7 @@ proc addFarmToMillQueue*(env: Environment, mill: Thing, farmPos: IVec2) =
   let dist = max(abs(farmPos.x - mill.pos.x), abs(farmPos.y - mill.pos.y))
   if dist > buildingFertileRadius(Mill):
     return
-  # Avoid duplicates
+  # Avoid duplicates.
   for pos in mill.farmQueue:
     if pos == farmPos:
       return
@@ -2270,7 +2270,7 @@ proc addFarmToMillQueue*(env: Environment, mill: Thing, farmPos: IVec2) =
 
 proc findNearestMill*(env: Environment, pos: IVec2, teamId: int): Thing =
   ## Find the nearest mill belonging to the given team within range.
-  ## Returns nil if no mill found.
+  ## Return nil when no mill is found.
   var bestMill: Thing = nil
   var bestDist = high(int32)
   for mill in env.thingsByKind[Mill]:
@@ -2287,12 +2287,12 @@ proc tryAutoReseedFarm*(env: Environment, mill: Thing): bool
 
 proc queueFarmReseed*(env: Environment, mill: Thing, teamId: int): bool =
   ## Queue a farm reseed at the Mill (pre-pay wood cost).
-  ## Returns true if successful.
+  ## Return true if the reseed is queued.
   if mill.kind != Mill:
     return false
   if mill.teamId != teamId:
     return false
-  # Check and spend the cost.
+  # Spend the reseed cost.
   let costs = @[(res: ResourceWood, count: FarmReseedWoodCost)]
   if FarmReseedWoodCost > 0 and not env.spendStockpile(teamId, costs):
     return false
@@ -2309,7 +2309,7 @@ proc tryCraftAtStation(
   stationThing: Thing
 ): bool =
   ## Try to apply the first matching craft recipe at the station.
-  ## Returns true when one recipe consumes inputs and grants outputs.
+  ## Return true when one recipe consumes inputs and grants outputs.
   for recipe in CraftRecipes:
     if recipe.station != station:
       continue
