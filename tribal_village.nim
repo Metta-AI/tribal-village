@@ -622,10 +622,6 @@ proc display() =
           playSpeed = FasterPlaySpeed
           play = true
           lastSimTime = nowSeconds()
-        of FooterSuper:
-          playSpeed = SuperPlaySpeed
-          play = true
-          lastSimTime = nowSeconds()
         break
     clearUiCapture = true
     blockSelection = true

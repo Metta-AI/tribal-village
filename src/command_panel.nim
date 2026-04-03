@@ -198,19 +198,6 @@ proc commandKindToBuildingKind*(cmd: CommandButtonKind): ThingKind =
   of CmdBuildMarket: Market
   else: Wall
 
-proc buildUnitCommands(): seq[CommandButtonKind] =
-  ## Commands available for military units.
-  @[CmdMove, CmdAttack, CmdStop, CmdHoldPosition, CmdPatrol, CmdStance]
-
-proc buildVillagerCommands(): seq[CommandButtonKind] =
-  ## Commands available for villagers.
-  if buildMenuOpen:
-    @[CmdBuildBack, CmdBuildHouse, CmdBuildMill, CmdBuildLumberCamp,
-      CmdBuildMiningCamp, CmdBuildBarracks, CmdBuildArcheryRange,
-      CmdBuildStable, CmdBuildWall, CmdBuildBlacksmith, CmdBuildMarket]
-  else:
-    @[CmdMove, CmdAttack, CmdStop, CmdBuild, CmdGather]
-
 proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
   ## Commands available for selected building.
   result = @[CmdSetRally]
@@ -355,9 +342,16 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
     let thing = selection[0]
     if thing.kind == Agent:
       if thing.unitClass == UnitVillager:
-        commandKinds = buildVillagerCommands()
+        commandKinds =
+          if buildMenuOpen:
+            @[CmdBuildBack, CmdBuildHouse, CmdBuildMill, CmdBuildLumberCamp,
+              CmdBuildMiningCamp, CmdBuildBarracks, CmdBuildArcheryRange,
+              CmdBuildStable, CmdBuildWall, CmdBuildBlacksmith, CmdBuildMarket]
+          else:
+            @[CmdMove, CmdAttack, CmdStop, CmdBuild, CmdGather]
       else:
-        commandKinds = buildUnitCommands()
+        commandKinds =
+          @[CmdMove, CmdAttack, CmdStop, CmdHoldPosition, CmdPatrol, CmdStance]
     elif isBuildingKind(thing.kind):
       commandKinds = buildBuildingCommands(thing)
     else:

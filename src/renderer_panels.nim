@@ -166,11 +166,6 @@ proc drawUnitInfoPanel*(panelRect: IRect) =
     vec2(posSize.x.float32, posSize.y.float32)
   )
 
-proc ensureResourceBarLabel(text: string): (string, IVec2) =
-  ## Return a cached resource bar label image key and size.
-  let cached = ensureLabel("res_bar", text, resourceBarLabelStyle)
-  (cached.imageKey, cached.size)
-
 proc drawResourceBar*(panelRect: IRect, teamId: int) =
   ## Draw the top resource bar for one team.
   if teamId < 0 or teamId >= MapRoomObjectsTeams:
@@ -213,7 +208,9 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
 
       let
         count = stockpile.counts[res]
-        (labelKey, labelSize) = ensureResourceBarLabel($count)
+        labelCached = ensureLabel("res_bar", $count, resourceBarLabelStyle)
+        labelKey = labelCached.imageKey
+        labelSize = labelCached.size
         labelY = barY + (barH - labelSize.y.float32) / 2.0'f
       drawUiImageScaled(
         labelKey,

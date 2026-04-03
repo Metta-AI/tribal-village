@@ -14,7 +14,6 @@ type
     FooterSlow
     FooterFast
     FooterFaster
-    FooterSuper
 
   FooterButton* = object
     kind*: FooterButtonKind
@@ -148,8 +147,6 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
         abs(playSpeed - FastPlaySpeed) <= PlaySpeedEpsilon
       of FooterFaster:
         abs(playSpeed - FasterPlaySpeed) <= PlaySpeedEpsilon
-      of FooterSuper:
-        abs(playSpeed - SuperPlaySpeed) <= PlaySpeedEpsilon
     buttons.add(button)
     x += width + FooterButtonGap
 

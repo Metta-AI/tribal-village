@@ -5,9 +5,6 @@ import
   boxy, pixie, vmath,
   common, environment, renderer_core
 
-const
-  TradeRouteGoldColor = TradeRouteGoldTint
-
 var
   tradeRouteAnimationPhase = 0.0'f
 
@@ -289,12 +286,12 @@ proc drawTradeRoutes*() =
       teamColor = getTeamColor(env, teamId)
       routeColor = color(
         teamColor.r * TradeRouteTeamBlend +
-          TradeRouteGoldColor.r * TradeRouteGoldBlend,
+          TradeRouteGoldTint.r * TradeRouteGoldBlend,
         teamColor.g * TradeRouteTeamBlend +
-          TradeRouteGoldColor.g * TradeRouteGoldBlend,
+          TradeRouteGoldTint.g * TradeRouteGoldBlend,
         teamColor.b * TradeRouteTeamBlend +
-          TradeRouteGoldColor.b * TradeRouteGoldBlend,
-        TradeRouteGoldColor.a
+          TradeRouteGoldTint.b * TradeRouteGoldBlend,
+        TradeRouteGoldTint.a
       )
       p1 = homeDockPos.vec2
       p2 = tradeCogPos
@@ -340,7 +337,7 @@ proc drawTradeRoutes*() =
 
     if isInViewport(homeDockPos) and homeDockPos notin drawnDocks:
       drawnDocks.add(homeDockPos)
-      drawTradeDockMarker(homeDockPos, DockMarkerScale, TradeRouteGoldColor)
+      drawTradeDockMarker(homeDockPos, DockMarkerScale, TradeRouteGoldTint)
 
     if not targetDock.isNil:
       let
