@@ -243,10 +243,11 @@ proc drawResourceBar*(panelRect: IRect, teamId: int) =
         UiDanger
       else:
         UiFgText
-    popStyle = labelStyleColored(
+    popStyle = labelStyle(
       FooterFontPath,
       FooterFontSize,
       ResourceBarLabelPadding,
+      0.0,
       popTextColor
     )
     popCached = ensureLabel("res_bar_pop", popText, popStyle)

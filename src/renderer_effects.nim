@@ -131,8 +131,14 @@ proc getDamageNumberLabel(amount: int, kind: DamageNumberKind): (string, IVec2) 
     of DmgNumDamage: "d"
     of DmgNumHeal: "h"
     of DmgNumCritical: "c"
-  let style = labelStyleOutlined(DamageNumberFontPath, DamageNumberFontSize,
-                                  DamageNumberOutlineWidth, textColor)
+  let style = labelStyle(
+    DamageNumberFontPath,
+    DamageNumberFontSize,
+    DamageNumberOutlineWidth,
+    0.0,
+    textColor,
+    true
+  )
   let cached = ensureLabel("dmgnum", prefix & $amount, style)
   return (cached.imageKey, cached.size)
 

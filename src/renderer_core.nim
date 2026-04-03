@@ -635,9 +635,12 @@ proc drawUnitDebugOverlay*() =
   if not currentViewport.valid:
     return
 
-  let debugStyle = labelStyleColored(
-    HeartCountFontPath, DebugLabelFontSize, DebugLabelPadding,
-    TintWhite  # base white — we tint per-category via drawImage
+  let debugStyle = labelStyle(
+    HeartCountFontPath,
+    DebugLabelFontSize,
+    DebugLabelPadding,
+    0.0,
+    TintWhite  # base white; we tint per-category via drawImage.
   )
 
   for agent in env.agents:

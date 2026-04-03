@@ -49,10 +49,11 @@ proc renderTooltipLabel(
   textColor: Color
 ): (string, IVec2) =
   ## Render a text label and return the image key and size.
-  let style = labelStyleColored(
+  let style = labelStyle(
     TooltipFontPath,
     fontSize,
     TooltipLabelPadding,
+    0.0,
     textColor
   )
   let cached = ensureLabel("tooltip", text, style)

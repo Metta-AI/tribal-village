@@ -8,14 +8,6 @@ import
 const
   TradeRouteGoldColor = TradeRouteGoldTint
 
-type
-  TradeRoute = object
-    tradeCogPos: Vec2
-    homeDockPos: Vec2
-    targetDockPos: Vec2
-    teamId: int
-    hasTarget: bool
-
 var
   tradeRouteAnimationPhase = 0.0'f
 
@@ -269,7 +261,7 @@ proc drawTradeRoutes*() =
   if tradeRouteAnimationPhase >= 1.0'f:
     tradeRouteAnimationPhase -= 1.0'f
 
-  var activeRoutes: seq[TradeRoute]
+  var drawnDocks: seq[IVec2]
   for agent in env.agents:
     if not isAgentAlive(env, agent) or agent.unitClass != UnitTradeCog:
       continue
@@ -292,21 +284,9 @@ proc drawTradeRoutes*() =
         targetDist = dist
         targetDock = dock
 
-    var route: TradeRoute
-    route.tradeCogPos = agent.pos.vec2
-    route.homeDockPos = homeDockPos.vec2
-    route.teamId = teamId
-    route.hasTarget = not targetDock.isNil
-    if route.hasTarget:
-      route.targetDockPos = targetDock.pos.vec2
-    activeRoutes.add(route)
-
-  if activeRoutes.len == 0:
-    return
-
-  for route in activeRoutes:
     let
-      teamColor = getTeamColor(env, route.teamId)
+      tradeCogPos = agent.pos.vec2
+      teamColor = getTeamColor(env, teamId)
       routeColor = color(
         teamColor.r * TradeRouteTeamBlend +
           TradeRouteGoldColor.r * TradeRouteGoldBlend,
@@ -316,8 +296,8 @@ proc drawTradeRoutes*() =
           TradeRouteGoldColor.b * TradeRouteGoldBlend,
         TradeRouteGoldColor.a
       )
-      p1 = route.homeDockPos
-      p2 = route.tradeCogPos
+      p1 = homeDockPos.vec2
+      p2 = tradeCogPos
       dx1 = p2.x - p1.x
       dy1 = p2.y - p1.y
       len1 = sqrt(dx1 * dx1 + dy1 * dy1)
@@ -358,9 +338,14 @@ proc drawTradeRoutes*() =
               tint = dotColor
             )
 
-    if route.hasTarget:
+    if isInViewport(homeDockPos) and homeDockPos notin drawnDocks:
+      drawnDocks.add(homeDockPos)
+      drawTradeDockMarker(homeDockPos, DockMarkerScale, TradeRouteGoldColor)
+
+    if not targetDock.isNil:
       let
-        p3 = route.targetDockPos
+        targetDockPos = targetDock.pos
+        p3 = targetDockPos.vec2
         dx2 = p3.x - p2.x
         dy2 = p3.y - p2.y
         len2 = sqrt(dx2 * dx2 + dy2 * dy2)
@@ -372,21 +357,6 @@ proc drawTradeRoutes*() =
           let targetColor =
             withAlpha(routeColor, routeColor.a * TradeRouteTargetAlpha)
           drawLineWorldSpace(p2, p3, targetColor)
-
-  var drawnDocks: seq[IVec2]
-  for route in activeRoutes:
-    let homeDock = ivec2(route.homeDockPos.x.int, route.homeDockPos.y.int)
-    if isInViewport(homeDock) and homeDock notin drawnDocks:
-      drawnDocks.add(homeDock)
-      drawTradeDockMarker(homeDock, DockMarkerScale, TradeRouteGoldColor)
-
-    if route.hasTarget:
-      let targetDock =
-        ivec2(route.targetDockPos.x.int, route.targetDockPos.y.int)
-      if isInViewport(targetDock) and targetDock notin drawnDocks:
-        drawnDocks.add(targetDock)
-        drawTradeDockMarker(
-          targetDock,
-          OverlayIconScale,
-          TradeRouteGoldTarget
-        )
+      if isInViewport(targetDockPos) and targetDockPos notin drawnDocks:
+        drawnDocks.add(targetDockPos)
+        drawTradeDockMarker(targetDockPos, OverlayIconScale, TradeRouteGoldTarget)

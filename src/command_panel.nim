@@ -418,10 +418,11 @@ proc ensureCommandLabelColored(
   textColor: Color
 ): (string, IVec2) =
   ## Return the cached image key and size for colored command text.
-  let coloredStyle = labelStyleColored(
+  let coloredStyle = labelStyle(
     style.fontPath,
     style.fontSize,
     style.padding,
+    0.0,
     textColor
   )
   let cached = ensureLabel("cmd_panel", text, coloredStyle)
@@ -634,7 +635,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
 
 proc handleCommandPanelClick*(panelRect: IRect, mousePosPx: Vec2): CommandButtonKind =
   ## Handle a click on the command panel, returning the clicked button kind.
-  if not isInCommandPanel(panelRect, mousePosPx):
+  if not isPointInRect(commandPanelRect(panelRect), mousePosPx):
     return CmdNone
 
   let buttons = buildCommandButtons(panelRect)
