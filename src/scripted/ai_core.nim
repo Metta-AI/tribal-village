@@ -623,7 +623,7 @@ proc findNearestWaterSpiral*(env: Environment, state: var AgentState): IVec2 =
 
 proc findNearestFriendlyThingSpiral*(env: Environment, state: var AgentState, teamId: int,
                                     kind: ThingKind): Thing =
-  ## Find nearest team-owned thing using spiral search pattern
+  ## Find the nearest team-owned thing with spiral search fallback.
   result = findNearestFriendlyThing(env, state.lastSearchPosition, teamId, kind)
   if not isNil(result):
     return result
@@ -667,8 +667,7 @@ proc countNearbyThings*(env: Environment, center: IVec2, radius: int,
 
 proc nearestFriendlyBuildingDistance*(env: Environment, teamId: int,
                                       kinds: openArray[ThingKind], pos: IVec2): int =
-  ## Find distance to nearest friendly building of specified kinds.
-  ## Uses the spatial index rather than scanning every building.
+  ## Return the distance to the nearest friendly building in `kinds`.
   result = int.high
   for kind in kinds:
     let nearest = findNearestFriendlyThingSpatial(env, pos, teamId, kind, result)
@@ -706,8 +705,7 @@ proc claimBuilding*(controller: Controller, teamId: int, kind: ThingKind) =
 
 proc getBuildingCountNear*(env: Environment, teamId: int, kind: ThingKind,
                           center: IVec2, radius: int32 = SettlementRadius): int =
-  ## Count buildings of a given type for a team within Chebyshev distance of center.
-  ## Used for per-settlement building checks (e.g., each settlement needs its own Granary).
+  ## Count team buildings of one type near a settlement center.
   for thing in env.thingsByKind[kind]:
     if thing.teamId != teamId:
       continue
@@ -739,13 +737,11 @@ proc canAffordBuild*(env: Environment, agent: Thing, key: ItemKey): bool =
 
 
 proc neighborDirIndex*(fromPos, toPos: IVec2): int =
-  ## Orientation index (0..7) toward adjacent target (includes diagonals)
+  ## Return the orientation index toward an adjacent target.
   vecToOrientation(ivec2(signi(toPos.x - fromPos.x), signi(toPos.y - fromPos.y)))
 
-
 proc sameTeam*(agentA, agentB: Thing): bool =
-  ## Check if two Things are on the same team using bitwise mask comparison.
-  ## Uses O(1) bitwise AND operation for efficiency in hot paths.
+  ## Return whether two things share a team mask.
   sameTeamMask(agentA, agentB)
 
 proc getBasePos*(agent: Thing): IVec2 =
@@ -753,8 +749,7 @@ proc getBasePos*(agent: Thing): IVec2 =
   if agent.homeAltar.x >= 0: agent.homeAltar else: agent.pos
 
 proc findTeamAltar*(env: Environment, agent: Thing, teamId: int): tuple[pos: IVec2, hearts: int] =
-  ## Find the nearest team altar, preferring the agent's home altar.
-  ## Returns (position, hearts) or (ivec2(-1,-1), 0) if none found.
+  ## Return the nearest team altar, preferring the agent's home altar.
   if agent.homeAltar.x >= 0:
     let homeAltar = env.getThing(agent.homeAltar)
     if not isNil(homeAltar) and homeAltar.kind == Altar and homeAltar.teamId == teamId:
@@ -766,8 +761,6 @@ proc findTeamAltar*(env: Environment, agent: Thing, teamId: int): tuple[pos: IVe
 
 proc findAttackOpportunity*(env: Environment, agent: Thing, ignoreStance: bool = false): int =
   ## Return the best in-range attack direction, or `-1`.
-  ## Respects stance unless `ignoreStance` is set.
-  ## Prefers close aligned targets and structures for siege units.
   if agent.unitClass == UnitMonk:
     return -1
   if not ignoreStance and not stanceAllowsAutoAttack(env, agent):
@@ -1500,7 +1493,7 @@ proc setPatrol*(controller: Controller, agentId: int, point1, point2: IVec2) =
     controller.agents[agentId].patrolActive = true
 
 proc clearPatrol*(controller: Controller, agentId: int) =
-  ## Disable patrol mode for an agent. Clears both legacy and multi-waypoint patrol.
+  ## Disable patrol mode for an agent.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].patrolActive = false
     controller.agents[agentId].patrolPoint1 = ivec2(-1, -1)
@@ -1515,22 +1508,18 @@ proc isPatrolActive*(controller: Controller, agentId: int): bool =
   false
 
 proc getPatrolTarget*(controller: Controller, agentId: int): IVec2 =
-  ## Get the current patrol target waypoint.
-  ## Handles both legacy 2-point patrol and multi-waypoint patrol.
+  ## Return the current patrol target waypoint.
   if agentId >= 0 and agentId < MapAgents:
     let state = controller.agents[agentId]
     if state.patrolWaypointCount > 0:
       return state.patrolWaypoints[state.patrolCurrentWaypoint]
     if state.patrolToSecondPoint:
       return state.patrolPoint2
-    else:
-      return state.patrolPoint1
+    return state.patrolPoint1
   ivec2(-1, -1)
 
 proc setMultiWaypointPatrol*(controller: Controller, agentId: int, waypoints: openArray[IVec2]) =
   ## Set a multi-waypoint patrol route for an agent.
-  ## Accepts 2-8 waypoints. Agent cycles through waypoints in order,
-  ## wrapping to first after reaching last. Enables patrol mode.
   if agentId < 0 or agentId >= MapAgents:
     return
   let count = min(waypoints.len, 8)
@@ -1554,8 +1543,7 @@ proc advancePatrolWaypoint*(controller: Controller, agentId: int) =
         (controller.agents[agentId].patrolCurrentWaypoint + 1) mod count
 
 proc getPatrolWaypointCount*(controller: Controller, agentId: int): int =
-  ## Get the number of waypoints in a multi-waypoint patrol route.
-  ## Returns 0 if using legacy 2-point patrol.
+  ## Return the number of patrol waypoints for an agent.
   if agentId >= 0 and agentId < MapAgents:
     return controller.agents[agentId].patrolWaypointCount
   0
@@ -1567,8 +1555,7 @@ proc getPatrolCurrentWaypointIndex*(controller: Controller, agentId: int): int =
   0
 
 proc setScoutMode*(controller: Controller, agentId: int, active: bool = true) =
-  ## Enable or disable scout mode for an agent. Scouts explore outward from base
-  ## and flee when enemies are spotted, reporting threats to the team.
+  ## Enable or disable scout mode for an agent.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].scoutActive = active
     if active:
@@ -1593,13 +1580,12 @@ proc getScoutExploreRadius*(controller: Controller, agentId: int): int32 =
   0
 
 proc recordScoutEnemySighting*(controller: Controller, agentId: int, currentStep: int32) =
-  ## Record that the scout has seen an enemy. Used to trigger flee behavior.
+  ## Record that a scout has seen an enemy.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].scoutLastEnemySeenStep = currentStep
 
 proc setHoldPosition*(controller: Controller, agentId: int, pos: IVec2) =
-  ## Set hold position for an agent. The agent will stay at the given position
-  ## and attack enemies in range but won't chase.
+  ## Set hold position for an agent.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].holdPositionTarget = pos
     controller.agents[agentId].holdPositionActive = true
@@ -1649,8 +1635,6 @@ proc getFollowTargetId*(controller: Controller, agentId: int): int =
 
 proc setGuardTarget*(controller: Controller, agentId: int, targetAgentId: int) =
   ## Set an agent to guard another agent.
-  ## The guarding agent will stay within GuardRadius of the target, attack enemies in range,
-  ## and return to guard position after combat.
   if agentId >= 0 and agentId < MapAgents and
      targetAgentId >= 0 and targetAgentId < MapAgents:
     controller.agents[agentId].guardTargetAgentId = targetAgentId
@@ -1659,8 +1643,6 @@ proc setGuardTarget*(controller: Controller, agentId: int, targetAgentId: int) =
 
 proc setGuardPosition*(controller: Controller, agentId: int, pos: IVec2) =
   ## Set an agent to guard a specific position.
-  ## The guarding agent will stay within GuardRadius of the position, attack enemies in range,
-  ## and return to guard position after combat.
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].guardTargetAgentId = -1
     controller.agents[agentId].guardTargetPos = pos
@@ -1680,15 +1662,13 @@ proc isGuardActive*(controller: Controller, agentId: int): bool =
   false
 
 proc getGuardTargetId*(controller: Controller, agentId: int): int =
-  ## Get the guard target agent ID for an agent.
-  ## Returns -1 if guarding a position or not guarding.
+  ## Return the guarded agent id, or `-1`.
   if agentId >= 0 and agentId < MapAgents:
     return controller.agents[agentId].guardTargetAgentId
   -1
 
 proc getGuardPosition*(controller: Controller, agentId: int): IVec2 =
-  ## Get the guard target position for an agent.
-  ## Returns (-1, -1) if guarding an agent or not guarding.
+  ## Return the guarded position, or `(-1, -1)`.
   if agentId >= 0 and agentId < MapAgents:
     return controller.agents[agentId].guardTargetPos
   ivec2(-1, -1)
@@ -1697,20 +1677,14 @@ const
   StopIdleSteps* = 200
 
 proc stopAgentInternal(controller: Controller, agentId: int) =
-  ## Internal helper: clears all orders, path, and active option without setting expiry.
+  ## Clear active orders, path state, and options without setting stop expiry.
   if agentId >= 0 and agentId < MapAgents:
-    controller.agents[agentId].patrolActive = false
-    controller.agents[agentId].patrolPoint1 = ivec2(-1, -1)
-    controller.agents[agentId].patrolPoint2 = ivec2(-1, -1)
+    clearPatrol(controller, agentId)
     controller.agents[agentId].attackMoveTarget = ivec2(-1, -1)
-    controller.agents[agentId].scoutActive = false
-    controller.agents[agentId].holdPositionActive = false
-    controller.agents[agentId].holdPositionTarget = ivec2(-1, -1)
-    controller.agents[agentId].followActive = false
-    controller.agents[agentId].followTargetAgentId = -1
-    controller.agents[agentId].guardActive = false
-    controller.agents[agentId].guardTargetAgentId = -1
-    controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
+    clearScoutMode(controller, agentId)
+    clearHoldPosition(controller, agentId)
+    clearFollowTarget(controller, agentId)
+    clearGuard(controller, agentId)
     controller.agents[agentId].plannedPath.setLen(0)
     controller.agents[agentId].plannedPathIndex = 0
     controller.agents[agentId].plannedTarget = ivec2(-1, -1)
@@ -1720,16 +1694,14 @@ proc stopAgentInternal(controller: Controller, agentId: int) =
     controller.agents[agentId].commandQueueCount = 0
 
 proc stopAgentFull*(controller: Controller, agentId: int, currentStep: int32) =
-  ## Fully stop an agent: clears all orders, path, and active option.
-  ## Agent will remain idle until given a new command or StopIdleSteps passes.
+  ## Fully stop an agent and set the idle timeout.
   stopAgentInternal(controller, agentId)
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].stoppedActive = true
     controller.agents[agentId].stoppedUntilStep = currentStep + StopIdleSteps
 
 proc stopAgentDeferred*(controller: Controller, agentId: int) =
-  ## Stop an agent without knowing the current step.
-  ## Sets stoppedUntilStep to -1 (sentinel); decideAction will initialize it properly.
+  ## Stop an agent before the caller knows the current step.
   stopAgentInternal(controller, agentId)
   if agentId >= 0 and agentId < MapAgents:
     controller.agents[agentId].stoppedActive = true
@@ -1822,16 +1794,14 @@ proc queueHoldPosition*(controller: Controller, agentId: int, target: IVec2) =
   queuePositionalCommand(controller, agentId, CmdHoldPosition, target)
 
 proc peekNextCommand*(controller: Controller, agentId: int): QueuedCommand =
-  ## Get the next command in the queue without removing it.
-  ## Returns a default command if queue is empty.
+  ## Return the next queued command without removing it.
   if agentId >= 0 and agentId < MapAgents and
      controller.agents[agentId].commandQueueCount > 0:
     return controller.agents[agentId].commandQueue[0]
   defaultQueuedCommand()
 
 proc popNextCommand*(controller: Controller, agentId: int): QueuedCommand =
-  ## Remove and return the next command from the queue.
-  ## Returns a default command (with targetPos -1,-1) if queue is empty.
+  ## Remove and return the next queued command.
   if agentId >= 0 and agentId < MapAgents:
     let count = controller.agents[agentId].commandQueueCount
     if count > 0:
@@ -1844,8 +1814,6 @@ proc popNextCommand*(controller: Controller, agentId: int): QueuedCommand =
 
 proc executeQueuedCommand*(controller: Controller, agentId: int, agentPos: IVec2) =
   ## Pop the next command from the queue and execute it.
-  ## Sets the appropriate agent state based on the command type.
-  ## Uses inline state manipulation to avoid circular dependencies.
   if agentId < 0 or agentId >= MapAgents:
     return
   let count = controller.agents[agentId].commandQueueCount
@@ -1856,27 +1824,18 @@ proc executeQueuedCommand*(controller: Controller, agentId: int, agentPos: IVec2
   of CmdAttackMove:
     controller.agents[agentId].attackMoveTarget = cmd.targetPos
   of CmdPatrol:
-    controller.agents[agentId].patrolPoint1 = agentPos
-    controller.agents[agentId].patrolPoint2 = cmd.targetPos
-    controller.agents[agentId].patrolToSecondPoint = true
-    controller.agents[agentId].patrolActive = true
+    setPatrol(controller, agentId, agentPos, cmd.targetPos)
   of CmdFollow:
     if cmd.targetAgentId >= 0 and cmd.targetAgentId < MapAgents:
-      controller.agents[agentId].followTargetAgentId = cmd.targetAgentId.int
-      controller.agents[agentId].followActive = true
+      setFollowTarget(controller, agentId, cmd.targetAgentId.int)
   of CmdGuard:
     if cmd.targetAgentId >= 0:
       if cmd.targetAgentId < MapAgents:
-        controller.agents[agentId].guardTargetAgentId = cmd.targetAgentId.int
-        controller.agents[agentId].guardTargetPos = ivec2(-1, -1)
-        controller.agents[agentId].guardActive = true
+        setGuardTarget(controller, agentId, cmd.targetAgentId.int)
     else:
-      controller.agents[agentId].guardTargetAgentId = -1
-      controller.agents[agentId].guardTargetPos = cmd.targetPos
-      controller.agents[agentId].guardActive = true
+      setGuardPosition(controller, agentId, cmd.targetPos)
   of CmdHoldPosition:
-    controller.agents[agentId].holdPositionTarget = cmd.targetPos
-    controller.agents[agentId].holdPositionActive = true
+    setHoldPosition(controller, agentId, cmd.targetPos)
 
 proc setAgentStanceDeferred*(controller: Controller, agentId: int, stance: AgentStance) =
   ## Set pending stance for an agent. Applied in decideAction when we have env access.
@@ -1885,11 +1844,10 @@ proc setAgentStanceDeferred*(controller: Controller, agentId: int, stance: Agent
     controller.agents[agentId].stanceModified = true
 
 proc getAgentPendingStance*(controller: Controller, agentId: int): AgentStance =
-  ## Get the pending stance for an agent (what will be applied on next decideAction).
-  ## Returns StanceDefensive if no stance has been set or if agentId is invalid.
-  if agentId >= 0 and agentId < MapAgents:
-    if controller.agents[agentId].stanceModified:
-      return controller.agents[agentId].pendingStance
+  ## Return the pending stance for an agent.
+  if agentId >= 0 and agentId < MapAgents and
+     controller.agents[agentId].stanceModified:
+    return controller.agents[agentId].pendingStance
   StanceDefensive
 
 proc isAgentStanceModified*(controller: Controller, agentId: int): bool =
