@@ -68,13 +68,22 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
       else:
         "Play"
   var buttons: seq[FooterButton] = @[]
-  var buttonDefs = footerButtonDefs
-  buttonDefs[0] = (FooterPlayPause, playPauseIcon, playPauseLabel)
 
   var
     totalWidth = 0.0'f
     buttonWidths: seq[float32] = @[]
-  for (_, iconKey, labelText) in buttonDefs:
+  for (kind, defaultIconKey, defaultLabelText) in footerButtonDefs:
+    let
+      iconKey =
+        if kind == FooterPlayPause:
+          playPauseIcon
+        else:
+          defaultIconKey
+      labelText =
+        if kind == FooterPlayPause:
+          playPauseLabel
+        else:
+          defaultLabelText
     var width = FooterButtonPaddingX * 2.0'f
     if iconKey.len > 0 and iconKey in bxy:
       if iconKey notin footerIconSizes:
@@ -98,8 +107,19 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
   var x = panelRect.x.float32 + (panelRect.w.float32 - totalWidth) / 2.0'f
   let y = footerTop.float32 + FooterPadding
 
-  for i, (kind, iconKey, labelText) in buttonDefs:
-    let width = buttonWidths[i]
+  for i, (kind, defaultIconKey, defaultLabelText) in footerButtonDefs:
+    let
+      iconKey =
+        if kind == FooterPlayPause:
+          playPauseIcon
+        else:
+          defaultIconKey
+      labelText =
+        if kind == FooterPlayPause:
+          playPauseLabel
+        else:
+          defaultLabelText
+      width = buttonWidths[i]
     var button = FooterButton(
       kind: kind,
       rect: IRect(
@@ -107,8 +127,7 @@ proc buildFooterButtons*(panelRect: IRect): seq[FooterButton] =
         y: y.int32,
         w: width.int32,
         h: innerHeight.int32
-      ),
-      isPressed: false
+      )
     )
     if iconKey.len > 0 and iconKey in bxy:
       button.iconKey = iconKey

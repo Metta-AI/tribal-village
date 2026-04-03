@@ -12,7 +12,6 @@ type
     label*: string
     hotkey*: string
     enabled*: bool
-    hovered*: bool
 
 const
   CommandPanelBgColor = UiBg
@@ -20,7 +19,6 @@ const
   CommandButtonBgColor = UiBgButton
   CommandButtonHoverColor = UiBgButtonHover
   CommandButtonDisabledColor = UiBgButtonDisabled
-  GarrisonCommandBuildings = {TownCenter, Castle, GuardTower, House}
   ResearchCommandKinds = {
     CmdResearchMeleeAttack, CmdResearchArcherAttack,
     CmdResearchInfantryArmor, CmdResearchCavalryArmor,
@@ -49,14 +47,6 @@ let
 
 var
   buildMenuOpen*: bool = false
-
-proc isGarrisonCommandBuilding(kind: ThingKind): bool =
-  ## Return whether the building shows garrison-related commands.
-  kind in GarrisonCommandBuildings
-
-proc isResearchCommand(kind: CommandButtonKind): bool =
-  ## Return whether the command kind represents a research action.
-  kind in ResearchCommandKinds
 
 proc isPointInRect(rect: Rect, point: Vec2): bool =
   ## Return whether the point lies inside the rectangle.
@@ -225,7 +215,7 @@ proc buildBuildingCommands(thing: Thing): seq[CommandButtonKind] =
   ## Commands available for selected building.
   result = @[CmdSetRally]
 
-  if isGarrisonCommandBuilding(thing.kind):
+  if thing.kind in {TownCenter, Castle, GuardTower, House}:
     result.add(CmdUngarrison)
 
   case thing.kind
@@ -418,8 +408,7 @@ proc buildCommandButtons*(panelRect: IRect): seq[CommandButton] =
         ),
         label: getButtonLabel(kind),
         hotkey: getButtonHotkey(kind),
-        enabled: buttonEnabled,
-        hovered: false
+        enabled: buttonEnabled
       )
     )
 
@@ -623,7 +612,7 @@ proc drawCommandPanel*(panelRect: IRect, mousePosPx: Vec2) =
         vec2(hkSize.x.float32, hkSize.y.float32)
       )
 
-    if not button.enabled and isResearchCommand(button.kind):
+    if not button.enabled and button.kind in ResearchCommandKinds:
       let
         (okKey, okSize) = ensureCommandLabelColored(
           "OK",
