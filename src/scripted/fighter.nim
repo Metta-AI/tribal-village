@@ -262,17 +262,13 @@ proc optFighterMonk(controller: Controller, env: Environment, agent: Thing,
     if not isNil(monastery):
       return actOrMove(controller, env, agent, agentId, state, monastery.pos, 3'u16)
     # No monastery found via spiral — try global search
-    var bestMonastery: Thing = nil
-    var bestDist = int.high
-    for m in env.thingsByKind[Monastery]:
-      if m.isNil or not isValidPos(m.pos):
-        continue
-      if getTeamId(m) != teamId:
-        continue
-      let dist = int(chebyshevDist(agent.pos, m.pos))
-      if dist < bestDist:
-        bestDist = dist
-        bestMonastery = m
+    let bestMonastery =
+      env.findNearestFriendlyThingSpatial(
+        agent.pos,
+        teamId,
+        Monastery,
+        int.high
+      )
     if not isNil(bestMonastery):
       return actOrMove(controller, env, agent, agentId, state, bestMonastery.pos, 3'u16)
     # Still no monastery — return home to stay safe
@@ -804,16 +800,20 @@ proc fighterShouldSkipKind(kind: ThingKind, siegeAtCap, navalAtCap: bool): bool 
   (siegeAtCap and kind in FighterSiegeKinds) or
   (navalAtCap and kind in FighterNavalKinds)
 
-proc fighterHasReadyTrainQueue(env: Environment, teamId: int, siegeAtCap, navalAtCap: bool): bool =
-  ## Check if any friendly training building has a ready queue entry.
-  ## A villager can convert immediately at such a building (pre-paid).
+proc fighterReadyTrainBuilding(
+  env: Environment,
+  teamId: int,
+  siegeAtCap: bool,
+  navalAtCap: bool
+): Thing =
+  ## Return the first friendly training building with a ready queue entry.
   for kind in FighterTrainKinds:
     if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
       continue
     for building in env.thingsByKind[kind]:
       if building.teamId == teamId and building.productionQueueHasReady():
-        return true
-  false
+        return building
+  nil
 
 proc fighterCanTrain(controller: Controller, env: Environment, agent: Thing): bool =
   if agent.unitClass != UnitVillager:
@@ -821,7 +821,7 @@ proc fighterCanTrain(controller: Controller, env: Environment, agent: Thing): bo
   let teamId = getTeamId(agent)
   let siegeAtCap = teamSiegeAtCap(env, teamId)
   let navalAtCap = teamNavalAtCap(env, teamId)
-  if fighterHasReadyTrainQueue(env, teamId, siegeAtCap, navalAtCap):
+  if not isNil(fighterReadyTrainBuilding(env, teamId, siegeAtCap, navalAtCap)):
     return true
   for kind in FighterTrainKinds:
     if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
@@ -846,13 +846,9 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
   let teamId = getTeamId(agent)
   let siegeAtCap = teamSiegeAtCap(env, teamId)
   let navalAtCap = teamNavalAtCap(env, teamId)
-  # First: go to any building with a ready queue entry (free conversion)
-  for kind in FighterTrainKinds:
-    if fighterShouldSkipKind(kind, siegeAtCap, navalAtCap):
-      continue
-    for building in env.thingsByKind[kind]:
-      if building.teamId == teamId and building.productionQueueHasReady():
-        return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
+  let readyBuilding = fighterReadyTrainBuilding(env, teamId, siegeAtCap, navalAtCap)
+  if not isNil(readyBuilding):
+    return actOrMove(controller, env, agent, agentId, state, readyBuilding.pos, 3'u16)
   # Second: queue new training and go to building (rotate starting type for diversity)
   let startIdx = agentId mod FighterTrainKinds.len
   for offset in 0 ..< FighterTrainKinds.len:
@@ -866,7 +862,6 @@ proc optFighterTrain(controller: Controller, env: Environment, agent: Thing,
     let building = env.findNearestFriendlyThingSpiral(state, teamId, kind)
     if isNil(building):
       continue
-    # Batch-queue additional units if resources allow and queue has room
     if building.productionQueue.entries.len < ProductionQueueMaxSize:
       discard env.tryBatchQueueTrain(building, teamId, BatchTrainSmall)
     return actOrMove(controller, env, agent, agentId, state, building.pos, 3'u16)
