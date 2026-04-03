@@ -1557,7 +1557,7 @@ proc tryResearchUniversityTech*(env: Environment, agent: Thing, building: Thing)
   true
 
 proc castleTechsForTeam*(teamId: int): (CastleTechType, CastleTechType) =
-  ## Returns the (Castle Age, Imperial Age) tech pair for a team.
+  ## Return the (Castle Age, Imperial Age) tech pair for a team.
   ## Each team has exactly 2 unique techs, interleaved in the enum.
   let base = CastleTechType(teamId * 2)
   let imperial = CastleTechType(teamId * 2 + 1)
@@ -1571,11 +1571,11 @@ proc getNextCastleTech(env: Environment, teamId: int): CastleTechType =
     return castleAge
   if not env.teamCastleTechs[teamId].researched[imperialAge]:
     return imperialAge
-  # Both researched, return castle age (no-op in caller)
+  # Both are researched, so return the Castle Age tech.
   castleAge
 
 proc hasCastleTech*(env: Environment, teamId: int, tech: CastleTechType): bool {.inline.} =
-  ## Check if a team has researched a specific Castle unique tech.
+  ## Check whether a team has researched a specific Castle unique tech.
   if not isValidTeamId(teamId):
     return false
   env.teamCastleTechs[teamId].researched[tech]
@@ -1718,7 +1718,7 @@ proc applyCastleTechBonuses*(env: Environment, teamId: int, tech: CastleTechType
 proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bool =
   ## Attempt to research the next Castle unique tech for the team.
   ## Each team has 2 unique techs (Castle Age first, then Imperial Age).
-  ## Only villagers can research. Returns true if research was successful.
+  ## Only villagers can research. Return true if research was successful.
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -1727,27 +1727,27 @@ proc tryResearchCastleTech*(env: Environment, agent: Thing, building: Thing): bo
   if not isValidTeamId(teamId):
     return false
 
-  # Find the next tech to research for this team
+  # Find the next tech to research for this team.
   let techType = env.getNextCastleTech(teamId)
 
-  # Check if already researched
+  # Stop when the tech is already researched.
   if env.teamCastleTechs[teamId].researched[techType]:
     return false
 
-  # Determine cost based on whether this is Castle Age or Imperial Age tech
+  # Determine the cost based on whether this is a Castle or Imperial Age tech.
   let (castleAge, _) = castleTechsForTeam(teamId)
   let isImperial = techType != castleAge
   let foodCost = if isImperial: CastleTechImperialFoodCost else: CastleTechFoodCost
   let goldCost = if isImperial: CastleTechImperialGoldCost else: CastleTechGoldCost
 
-  # Check and spend resources
+  # Spend the research cost.
   let costs = [(ResourceFood, foodCost), (ResourceGold, goldCost)]
   if not env.spendStockpile(teamId, costs):
     return false
   when defined(econAudit):
     recordResearchCost(teamId, costs, env.currentStep)
 
-  # Apply the tech
+  # Apply the tech.
   env.teamCastleTechs[teamId].researched[techType] = true
   env.applyCastleTechBonuses(teamId, techType)
   building.cooldown = 10  # Longer cooldown for unique tech research
@@ -1874,57 +1874,57 @@ proc uiQueueTrainUnit*(env: Environment, building: Thing, unitClass: AgentUnitCl
   queued
 
 proc upgradePrerequisite*(upgrade: UnitUpgradeType): UnitUpgradeType =
-  ## Returns the prerequisite upgrade that must be researched first.
-  ## Tier-2 upgrades have no prerequisite (returns themselves).
+  ## Return the prerequisite upgrade that must be researched first.
+  ## Tier-2 upgrades have no prerequisite and return themselves.
   ## Tier-3 upgrades require the corresponding tier-2.
   case upgrade
-  of UpgradeLongSwordsman: UpgradeLongSwordsman  # no prereq
+  of UpgradeLongSwordsman: UpgradeLongSwordsman  # No prerequisite.
   of UpgradeChampion: UpgradeLongSwordsman
-  of UpgradeLightCavalry: UpgradeLightCavalry    # no prereq
+  of UpgradeLightCavalry: UpgradeLightCavalry    # No prerequisite.
   of UpgradeHussar: UpgradeLightCavalry
-  of UpgradeKnight: UpgradeKnight                # no prereq (unlocks Knight line)
-  of UpgradeCrossbowman: UpgradeCrossbowman      # no prereq
+  of UpgradeKnight: UpgradeKnight                # No prerequisite. Unlocks the Knight line.
+  of UpgradeCrossbowman: UpgradeCrossbowman      # No prerequisite.
   of UpgradeArbalester: UpgradeCrossbowman
-  of UpgradeSkirmisher: UpgradeSkirmisher         # no prereq (unlocks Skirmisher line)
-  of UpgradeEliteSkirmisher: UpgradeSkirmisher    # requires Skirmisher unlock
-  of UpgradeCavalryArcher: UpgradeCavalryArcher   # no prereq (unlocks CavalryArcher line)
-  of UpgradeHeavyCavalryArcher: UpgradeCavalryArcher  # requires CavalryArcher unlock
+  of UpgradeSkirmisher: UpgradeSkirmisher        # No prerequisite. Unlocks the Skirmisher line.
+  of UpgradeEliteSkirmisher: UpgradeSkirmisher   # Requires the Skirmisher unlock.
+  of UpgradeCavalryArcher: UpgradeCavalryArcher  # No prerequisite. Unlocks the CavalryArcher line.
+  of UpgradeHeavyCavalryArcher: UpgradeCavalryArcher  # Requires the CavalryArcher unlock.
 
 proc upgradeSourceUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
-  ## Returns the unit class that gets upgraded.
-  ## For "unlock" upgrades (Knight, Skirmisher, CavalryArcher), source = target
-  ## since these unlock new production lines rather than converting existing units.
+  ## Return the unit class that gets upgraded.
+  ## For unlock upgrades, source equals target.
+  ## Those upgrades unlock new production lines instead of converting units.
   case upgrade
   of UpgradeLongSwordsman: UnitManAtArms
   of UpgradeChampion: UnitLongSwordsman
   of UpgradeLightCavalry: UnitScout
   of UpgradeHussar: UnitLightCavalry
-  of UpgradeKnight: UnitKnight              # unlock (no conversion)
+  of UpgradeKnight: UnitKnight              # Unlock only. No conversion.
   of UpgradeCrossbowman: UnitArcher
   of UpgradeArbalester: UnitCrossbowman
-  of UpgradeSkirmisher: UnitSkirmisher      # unlock (no conversion)
+  of UpgradeSkirmisher: UnitSkirmisher      # Unlock only. No conversion.
   of UpgradeEliteSkirmisher: UnitSkirmisher
-  of UpgradeCavalryArcher: UnitCavalryArcher  # unlock (no conversion)
+  of UpgradeCavalryArcher: UnitCavalryArcher  # Unlock only. No conversion.
   of UpgradeHeavyCavalryArcher: UnitCavalryArcher
 
 proc upgradeTargetUnit*(upgrade: UnitUpgradeType): AgentUnitClass =
-  ## Returns the unit class that results from the upgrade.
+  ## Return the unit class that results from the upgrade.
   ## For "unlock" upgrades, source = target (no existing units to convert).
   case upgrade
   of UpgradeLongSwordsman: UnitLongSwordsman
   of UpgradeChampion: UnitChampion
   of UpgradeLightCavalry: UnitLightCavalry
   of UpgradeHussar: UnitHussar
-  of UpgradeKnight: UnitKnight              # unlock
+  of UpgradeKnight: UnitKnight              # Unlock.
   of UpgradeCrossbowman: UnitCrossbowman
   of UpgradeArbalester: UnitArbalester
-  of UpgradeSkirmisher: UnitSkirmisher      # unlock
+  of UpgradeSkirmisher: UnitSkirmisher      # Unlock.
   of UpgradeEliteSkirmisher: UnitEliteSkirmisher
-  of UpgradeCavalryArcher: UnitCavalryArcher  # unlock
+  of UpgradeCavalryArcher: UnitCavalryArcher  # Unlock.
   of UpgradeHeavyCavalryArcher: UnitHeavyCavalryArcher
 
 proc upgradeBuilding*(upgrade: UnitUpgradeType): ThingKind =
-  ## Returns the building where this upgrade is researched.
+  ## Return the building where this upgrade is researched.
   case upgrade
   of UpgradeLongSwordsman, UpgradeChampion: Barracks
   of UpgradeLightCavalry, UpgradeHussar, UpgradeKnight: Stable
@@ -1933,7 +1933,7 @@ proc upgradeBuilding*(upgrade: UnitUpgradeType): ThingKind =
      UpgradeCavalryArcher, UpgradeHeavyCavalryArcher: ArcheryRange
 
 proc upgradeCosts*(upgrade: UnitUpgradeType): seq[tuple[res: StockpileResource, count: int]] =
-  ## Returns the resource costs for an upgrade.
+  ## Return the resource costs for an upgrade.
   case upgrade
   of UpgradeLongSwordsman, UpgradeLightCavalry, UpgradeCrossbowman,
      UpgradeKnight, UpgradeSkirmisher, UpgradeCavalryArcher,
@@ -1952,7 +1952,7 @@ proc hasUnitUpgrade*(env: Environment, teamId: int, upgrade: UnitUpgradeType): b
 proc getNextUnitUpgrade*(env: Environment, teamId: int, buildingKind: ThingKind): UnitUpgradeType =
   ## Find the next available upgrade for the given building type.
   ## Rotates starting point by teamId to distribute across upgrade lines,
-  ## so different teams research different upgrades (Knight vs LightCavalry, etc.)
+  ## so different teams research different upgrades (for example, Knight vs LightCavalry).
   let allUpgrades = block:
     var upgrades: seq[UnitUpgradeType]
     for u in UnitUpgradeType:
@@ -1960,18 +1960,18 @@ proc getNextUnitUpgrade*(env: Environment, teamId: int, buildingKind: ThingKind)
         upgrades.add(u)
     upgrades
   if allUpgrades.len == 0:
-    return UpgradeLongSwordsman  # fallback
+    return UpgradeLongSwordsman  # Fallback.
   let startIdx = teamId mod allUpgrades.len
   for offset in 0 ..< allUpgrades.len:
     let upgrade = allUpgrades[(startIdx + offset) mod allUpgrades.len]
     if env.teamUnitUpgrades[teamId].researched[upgrade]:
       continue
-    # Check prerequisite
+    # Check the prerequisite.
     let prereq = upgradePrerequisite(upgrade)
     if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
       continue
     return upgrade
-  # No upgrades available; return first of this building type (caller checks researched)
+  # No upgrade is available, so return the first one for this building type.
   allUpgrades[0]
 
 proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitClass, toClass: AgentUnitClass) =
@@ -2007,7 +2007,7 @@ proc upgradeExistingUnits*(env: Environment, teamId: int, fromClass: AgentUnitCl
 
 proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): bool =
   ## Attempt to research the next unit upgrade at a military building.
-  ## Only villagers can research. Returns true if research was successful.
+  ## Only villagers can research. Return true if research was successful.
   if agent.unitClass != UnitVillager:
     return false
   let teamId = getTeamId(agent)
@@ -2018,23 +2018,23 @@ proc tryResearchUnitUpgrade*(env: Environment, agent: Thing, building: Thing): b
 
   let upgrade = env.getNextUnitUpgrade(teamId, building.kind)
 
-  # Check if already researched
+  # Stop when the upgrade is already researched.
   if env.teamUnitUpgrades[teamId].researched[upgrade]:
     return false
 
-  # Check prerequisite
+  # Check the prerequisite.
   let prereq = upgradePrerequisite(upgrade)
   if prereq != upgrade and not env.teamUnitUpgrades[teamId].researched[prereq]:
     return false
 
-  # Check and spend resources
+  # Spend the research cost.
   let costs = upgradeCosts(upgrade)
   if not env.spendStockpile(teamId, costs):
     return false
   when defined(econAudit):
     recordResearchCost(teamId, costs, env.currentStep)
 
-  # Apply the upgrade
+  # Apply the upgrade.
   env.teamUnitUpgrades[teamId].researched[upgrade] = true
   env.upgradeExistingUnits(teamId, upgradeSourceUnit(upgrade), upgradeTargetUnit(upgrade))
   building.cooldown = 8
