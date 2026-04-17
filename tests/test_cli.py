@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from tests.conftest import requires_nim_library
+from tribal_village_env import cogames as cogames_module
 import tribal_village_env.cli as cli
 from tribal_village_env.cli import app
 
@@ -17,6 +18,9 @@ class TestAppCreation:
 
     def test_app_exists(self):
         assert app is not None
+
+    def test_cogames_module_exports_register_cli(self):
+        assert callable(cogames_module.register_cli)
 
     def test_app_has_play_command(self):
         command_names = [cmd.name for cmd in app.registered_commands]

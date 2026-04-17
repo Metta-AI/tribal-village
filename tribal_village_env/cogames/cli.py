@@ -131,4 +131,8 @@ def attach_train_command(
     return True
 
 
-__all__ = ["attach_train_command"]
+def register_cli(app: typer.Typer) -> None:
+    attach_train_command(app)
+
+
+__all__ = ["attach_train_command", "register_cli"]
