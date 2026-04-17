@@ -88,14 +88,17 @@ class TestGuiLaunchStrategy:
     """Verify the GUI launcher uses the fast path when possible."""
 
     def test_run_gui_uses_cached_binary_without_instrumentation(self, monkeypatch):
-        binary_path = Path("/tmp/tribal_village")
-        calls: list[list[str]] = []
+        runtime_root = Path("/tmp/tribal_village_runtime")
+        binary_path = runtime_root / "tribal_village"
+        calls: list[tuple[list[str], Path | None]] = []
 
         monkeypatch.setattr(cli, "ensure_nim_binary_current", lambda: binary_path)
+        monkeypatch.setattr(cli, "get_runtime_project_root", lambda: runtime_root)
         monkeypatch.setattr(
             cli.subprocess,
             "run",
-            lambda cmd, **kwargs: calls.append(cmd) or SimpleNamespace(returncode=0),
+            lambda cmd, **kwargs: calls.append((cmd, kwargs.get("cwd")))
+            or SimpleNamespace(returncode=0),
         )
 
         cli._run_gui(
@@ -111,15 +114,18 @@ class TestGuiLaunchStrategy:
             render_timing_exit=None,
         )
 
-        assert calls == [[str(binary_path)]]
+        assert calls == [([str(binary_path)], runtime_root)]
 
     def test_run_gui_uses_nim_when_instrumented(self, monkeypatch):
-        calls: list[list[str]] = []
+        runtime_root = Path("/tmp/tribal_village_runtime")
+        calls: list[tuple[list[str], Path | None]] = []
 
+        monkeypatch.setattr(cli, "get_runtime_project_root", lambda: runtime_root)
         monkeypatch.setattr(
             cli.subprocess,
             "run",
-            lambda cmd, **kwargs: calls.append(cmd) or SimpleNamespace(returncode=0),
+            lambda cmd, **kwargs: calls.append((cmd, kwargs.get("cwd")))
+            or SimpleNamespace(returncode=0),
         )
 
         cli._run_gui(
@@ -135,7 +141,12 @@ class TestGuiLaunchStrategy:
             render_timing_exit=None,
         )
 
-        assert calls == [["nim", "r", "-d:release", "-d:stepTiming", "--path:src", "tribal_village.nim"]]
+        assert calls == [
+            (
+                ["nim", "r", "-d:release", "-d:stepTiming", "--path:src", "tribal_village.nim"],
+                runtime_root,
+            )
+        ]
 
 
 @requires_nim_library

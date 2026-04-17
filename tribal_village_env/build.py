@@ -17,6 +17,7 @@ _TARGET_LIBRARY_NAME = {
     "Windows": "libtribal_village.dll",
 }.get(platform.system(), "libtribal_village.so")
 _TARGET_BINARY_NAME = "tribal_village.exe" if platform.system() == "Windows" else "tribal_village"
+_PACKAGED_RUNTIME_DIR_NAME = "runtime"
 
 
 def _collect_source_files(project_root: Path) -> list[Path]:
@@ -28,6 +29,16 @@ def _collect_source_files(project_root: Path) -> list[Path]:
         project_root / "nim.cfg",
         project_root / "nimby.lock",
     ]
+
+
+def get_runtime_project_root(package_dir: Path | None = None) -> Path:
+    package_dir = package_dir or Path(__file__).resolve().parent
+    packaged_runtime_root = package_dir / _PACKAGED_RUNTIME_DIR_NAME
+    if (packaged_runtime_root / "tribal_village.nim").exists() and (
+        packaged_runtime_root / "src"
+    ).is_dir():
+        return packaged_runtime_root
+    return package_dir.parent
 
 
 def _run_build(project_root: Path, cmd: list[str], artifact_name: str) -> None:
@@ -130,9 +141,10 @@ def _ensure_current(
 def ensure_nim_library_current(verbose: bool = True) -> Path:
     """Rebuild libtribal_village if missing or stale."""
     package_dir = Path(__file__).resolve().parent
+    project_root = get_runtime_project_root(package_dir)
     return _ensure_current(
         package_dir / _TARGET_LIBRARY_NAME,
-        package_dir.parent,
+        project_root,
         _build_library,
         "Building Tribal Village Nim library to keep bindings current...",
         verbose=verbose,
@@ -141,7 +153,7 @@ def ensure_nim_library_current(verbose: bool = True) -> Path:
 
 def ensure_nim_binary_current(verbose: bool = True) -> Path:
     """Rebuild the GUI binary if missing or stale."""
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = get_runtime_project_root()
     return _ensure_current(
         project_root / _TARGET_BINARY_NAME,
         project_root,

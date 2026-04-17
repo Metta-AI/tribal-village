@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import os
 import subprocess
-from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
 
-from tribal_village_env.build import ensure_nim_binary_current, ensure_nim_library_current
+from tribal_village_env.build import (
+    ensure_nim_binary_current,
+    ensure_nim_library_current,
+    get_runtime_project_root,
+)
 from tribal_village_env.config import DEFAULT_ANSI_STEPS, DEFAULT_PROFILE_STEPS
 
 # Optional CoGames training integration
@@ -62,7 +65,7 @@ def _run_gui(
     render_timing_every: int,
     render_timing_exit: int | None,
 ) -> None:
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = get_runtime_project_root()
     env = os.environ.copy()
     if profile:
         env["TV_PROFILE_STEPS"] = str(profile_steps)

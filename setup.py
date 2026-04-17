@@ -5,11 +5,20 @@ Setup script for tribal-village that builds the Nim shared library.
 
 from importlib import util
 from pathlib import Path
+import shutil
 
 from setuptools import setup
 from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop
 from setuptools.command.install import install
+
+_RUNTIME_FILES = (
+    "tribal_village.nim",
+    "tribal_village.nimble",
+    "nim.cfg",
+    "nimby.lock",
+)
+_RUNTIME_DIRS = ("data", "src")
 
 
 def _load_build_helpers():
@@ -22,6 +31,19 @@ def _load_build_helpers():
     module = util.module_from_spec(spec)
     spec.loader.exec_module(module)  # type: ignore[attr-defined]
     return module.ensure_nim_library_current
+
+
+def _copy_runtime_assets(build_lib: str) -> None:
+    project_root = Path(__file__).parent
+    runtime_root = Path(build_lib) / "tribal_village_env" / "runtime"
+    if runtime_root.exists():
+        shutil.rmtree(runtime_root)
+    runtime_root.mkdir(parents=True, exist_ok=True)
+
+    for filename in _RUNTIME_FILES:
+        shutil.copy2(project_root / filename, runtime_root / filename)
+    for dirname in _RUNTIME_DIRS:
+        shutil.copytree(project_root / dirname, runtime_root / dirname)
 
 
 class BuildNimLibrary:
@@ -40,6 +62,7 @@ class CustomBuildPy(build_py, BuildNimLibrary):
     def run(self):
         self.build_nim_library()
         super().run()
+        _copy_runtime_assets(self.build_lib)
 
 
 class CustomDevelop(develop, BuildNimLibrary):
